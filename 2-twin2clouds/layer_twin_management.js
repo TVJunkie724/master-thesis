@@ -16,9 +16,9 @@ function calculateAWSIoTTwinMakerCost(
   dashboardActiveHoursPerDay
 ) {
   const unifiedDataAccessAPICallsPrice =
-    pricing.aws.iotTwinMaker.unifiedDataAccessAPICallsPrice;
-  const entityPrice = pricing.aws.iotTwinMaker.entityPrice;
-  const queryPrice = pricing.aws.iotTwinMaker.queryPrice;
+    global.pricing.aws.iotTwinMaker.unifiedDataAccessAPICallsPrice;
+  const entityPrice = global.pricing.aws.iotTwinMaker.entityPrice;
+  const queryPrice = global.pricing.aws.iotTwinMaker.queryPrice;
 
   let totalMessagesPerMonth = Math.ceil(
     numberOfDevices * (1 / deviceSendingIntervalInMinutes) * 60 * 24 * 30
@@ -43,15 +43,15 @@ function calculateAzureDigitalTwinsCost(
   dashboardRefreshesPerHour, 
   dashboardActiveHoursPerDay
 ) {
-  const messagePrice = pricing.azure.azureDigitalTwins.messagePrice;
-  const operationPrice = pricing.azure.azureDigitalTwins.operationPrice;
-  const queryPrice = pricing.azure.azureDigitalTwins.queryPrice;
+  const messagePrice = global.pricing.azure.azureDigitalTwins.messagePrice;
+  const operationPrice = global.pricing.azure.azureDigitalTwins.operationPrice;
+  const queryPrice = global.pricing.azure.azureDigitalTwins.queryPrice;
 
   let totalMessagesPerMonth = Math.ceil(
     numberOfDevices * (1 / deviceSendingIntervalInMinutes) * 60 * 24 * 30
   );
 
-  const queryUnitTiers = pricing.azure.azureDigitalTwins.queryUnitTiers; 
+  const queryUnitTiers = global.pricing.azure.azureDigitalTwins.queryUnitTiers; 
 
   const queryUnits = queryUnitTiers.find(t => numberOfDevices >= t.lower && numberOfDevices <= (t.upper || Number.MAX_VALUE)).value;
 
@@ -65,3 +65,8 @@ function calculateAzureDigitalTwinsCost(
     totalMonthlyCost: totalMonthlyCost,
   };
 }
+
+module.exports = {
+  calculateAWSIoTTwinMakerCost,
+  calculateAzureDigitalTwinsCost,
+};

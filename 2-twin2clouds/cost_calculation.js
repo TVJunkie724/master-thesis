@@ -1,16 +1,78 @@
 "use strict";
 
-let pricing;
+global.pricing;
+
+const {
+  calculateAWSCostDataAcquisition,
+  calculateAzureCostDataAcquisition,
+} = require("./layer_data_acquisition.js");
+
+const {
+  calculateAWSCostDataProcessing,
+  calculateAzureCostDataProcessing,
+} = require("./layer_data_processing.js");
+
+const {
+  calculateDynamoDBCost,
+  calculateCosmosDBCost,
+  calculateS3InfrequentAccessCost,
+  calculateAzureBlobStorageCost,
+  calculateS3GlacierDeepArchiveCost,
+  calculateAzureBlobStorageArchiveCost,
+} = require("./layer_data_storage.js");
+
+const {
+  calculateAWSIoTTwinMakerCost,
+  calculateAzureDigitalTwinsCost,
+} = require("./layer_twin_management.js");
+
+const {
+  calculateAmazonManagedGrafanaCost,
+  calculateAzureManagedGrafanaCost,
+} = require("./layer_data_visualization.js");
+
+const {
+  calculateTransferCostFromL2AWSToAWSHot,
+  calculateTransferCostFromL2AWSToAzureHot,
+  calculateTransferCostFromL2AzureToAWSHot,
+  calculateTransferCostFromL2AzureToAzureHot,
+  calculateTransferCostFromAWSHotToAWSCool,
+  calculateTransferCostFromAWSHotToAzureCool,
+  calculateTransferCostsFromAzureHotToAWSCool,
+  calculateTransferCostFromAzureHotToAzureCool,
+  calculateTransferCostFromAWSCoolToAWSArchive,
+  calculateTransferCostFromAWSCoolToAzureArchive,
+  calculateTransferCostFromAzureCoolToAWSArchive,
+  calculateTransferCostFromAzureCoolToAzureArchive,
+} = require("./data_transfer.js");
+
+const { 
+  buildGraphForStorage, 
+  findCheapestStoragePath 
+} = require("./provider_decision.js");
 
 // Load JSON Pricing Data
+const fs = require("fs").promises;
+const path = require("path");
+
+
 async function loadPricingData() {
   try {
-    var response = await fetch("./pricing.json"); // Fetch JSON file
-    pricing = await response.json(); // Parse JSON into JavaScript object
+    if (typeof window !== "undefined") {
+      // Browser environment
+      const response = await fetch("./pricing.json");
+      global.pricing = await response.json();
+    } else {
+      // Node environment
+      const filePath = path.join(__dirname, "pricing.json");
+      const data = await fs.readFile(filePath, "utf-8");
+      global.pricing = JSON.parse(data);
+    }
   } catch (error) {
     console.error("Error loading pricing data:", error);
   }
 }
+
 
 /**
  * 
@@ -331,7 +393,7 @@ async function calculateAzureCosts(params) {
  *
  */
 async function calculateCheapestCosts(params) {
-  if (!pricing) {
+  if (!global.pricing) {
     await loadPricingData();
   }
 
@@ -726,18 +788,61 @@ async function hasValidParamsSchema(obj) {
 /**
  * Calculate costs from API call with parameters
  * @param {Params} params
+ * returns {Object}
  */
 async function calculateCheapestCostsFromApiCall(params) {
 
+  if (!global.pricing) {
+    await loadPricingData();
+  }
+  
   let paramsAreValid = await hasValidParamsSchema(params);
-  console.log("Params:", params);
-  console.log("Params are valid:", paramsAreValid);
+  // console.log("\nParams:", params);
+  // console.log("\nParams are valid:", paramsAreValid);
   if (!paramsAreValid) {
     throw new Error("Invalid parameters schema");
   }
 
   var results = await calculateCheapestCosts(params);
 
-  console.log("calculation result:", results.calculationResult);
+  // console.log("\ncalculation result:", results.calculationResult);
   return results.calculationResult;
+}
+
+// Export for other modules
+module.exports = { calculateCheapestCostsFromApiCall };
+
+// CLI runner
+if (require.main === module) {
+  const [,, fn, ...args] = process.argv;
+
+  async function main() {
+    try {
+      // Check if function exists
+      if (!module.exports[fn]) {
+        throw new Error(`Unknown function: ${fn}`);
+      }
+
+      // Parse JSON params
+      let params;
+      try {
+        params = JSON.parse(args[0]);
+      } catch (e) {
+        throw new Error(`Invalid JSON params: ${e.message}`);
+      }
+
+      // Call the requested function
+      const result = await module.exports[fn](params);
+
+      // Output result for Python to capture
+      console.log(JSON.stringify(result));
+    } catch (err) {
+      // Log errors to stderr (visible in Docker logs)
+      console.error("Error in Node script:", err);
+      // Exit with non-zero code so Python knows it failed
+      process.exit(1);
+    }
+  }
+
+  main();
 }

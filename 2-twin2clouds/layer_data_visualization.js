@@ -10,8 +10,8 @@ function calculateAmazonManagedGrafanaCost(
   amountOfActiveEditors,
   amountOfActiveViewers
 ) {
-  const editorPrice = pricing.aws.awsManagedGrafana.editorPrice;
-  const viewerPrice = pricing.aws.awsManagedGrafana.viewerPrice;
+  const editorPrice = global.pricing.aws.awsManagedGrafana.editorPrice;
+  const viewerPrice = global.pricing.aws.awsManagedGrafana.viewerPrice;
 
   const totalMonthlyCost =
     amountOfActiveEditors * editorPrice + amountOfActiveViewers * viewerPrice;
@@ -28,8 +28,8 @@ function calculateAmazonManagedGrafanaCost(
  * @returns 
  */
 function calculateAzureManagedGrafanaCost(amountOfMonthlyUsers) {
-  const userPrice = pricing.azure.azureManagedGrafana.userPrice;
-  const hourlyPrice = pricing.azure.azureManagedGrafana.hourlyPrice;
+  const userPrice = global.pricing.azure.azureManagedGrafana.userPrice;
+  const hourlyPrice = global.pricing.azure.azureManagedGrafana.hourlyPrice;
   const monthlyPrice = hourlyPrice * 730;
 
   const totalMonthlyCost = amountOfMonthlyUsers * userPrice + monthlyPrice;
@@ -39,3 +39,8 @@ function calculateAzureManagedGrafanaCost(amountOfMonthlyUsers) {
     totalMonthlyCost: totalMonthlyCost,
   };
 }
+
+module.exports = {
+  calculateAmazonManagedGrafanaCost,
+  calculateAzureManagedGrafanaCost,
+};

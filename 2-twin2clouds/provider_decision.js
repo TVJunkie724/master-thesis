@@ -123,3 +123,8 @@ function findCheapestStoragePath(graph, startNodes, endNodes) {
     cost: costs[target],
   };
 }
+
+module.exports = {
+  buildGraphForStorage,
+  findCheapestStoragePath,
+};

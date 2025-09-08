@@ -17,7 +17,7 @@ function calculateAWSCostDataProcessing(
 ) {
   const executionDurationInMS = 100;
   const allocatedMemoryInGB = 128 / 1024;
-  const layer2Pricing = pricing.aws.lambda;
+  const layer2Pricing = global.pricing.aws.lambda;
 
   const executionsPerMonth =
     numberOfDevices * (60 / deviceSendingIntervalInMinutes) * 730;
@@ -71,3 +71,8 @@ function calculateAzureCostDataProcessing(
   result.provider = "Azure";
   return result;
 }
+
+module.exports = {
+  calculateAWSCostDataProcessing,
+  calculateAzureCostDataProcessing,
+};

@@ -16,7 +16,7 @@ function calculateAWSCostDataAcquisition(
   deviceSendingIntervalInMinutes,
   averageSizeOfMessageInKb
 ) {
-  const layerPricing = pricing.aws.iotCore;
+  const layerPricing = global.pricing.aws.iotCore;
   const tier1Limit = layerPricing.pricing_tiers.tier1.limit;
   const tier2Limit = layerPricing.pricing_tiers.tier2.limit;
   const tier3Limit = layerPricing.pricing_tiers.tier3.limit;
@@ -92,7 +92,7 @@ function calculateAzureCostDataAcquisition(
   deviceSendingIntervalInMinutes,
   averageSizeOfMessageInKb
 ) {
-  let layerPricing = pricing.azure.iotHub;
+  let layerPricing = global.pricing.azure.iotHub;
   let monthlyCost;
   let monthlyAzurePrice;
   let azureThresholdMonthly;
@@ -137,3 +137,8 @@ function calculateAzureCostDataAcquisition(
     dataSizeInGB: Math.ceil(dataSizeInGB),
   };
 }
+
+module.exports = {
+  calculateAWSCostDataAcquisition,
+  calculateAzureCostDataAcquisition,
+};

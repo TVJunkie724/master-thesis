@@ -32,10 +32,10 @@ function calculateDynamoDBCost(
   let writeUnitsNeeded = totalMessagesPerMonth * averageSizeOfMessageInKb;
   let readUnitsNeeded = totalMessagesPerMonth / 2;
 
-  const writePrice = pricing.aws.dynamoDB.writePrice; // per million units
-  const readPrice = pricing.aws.dynamoDB.readPrice; // per million units
-  const storagePrice = pricing.aws.dynamoDB.storagePrice; // per GB after the first 25gb
-  const freeStoragePerMonth = pricing.aws.dynamoDB.freeStorage;
+  const writePrice = global.pricing.aws.dynamoDB.writePrice; // per million units
+  const readPrice = global.pricing.aws.dynamoDB.readPrice; // per million units
+  const storagePrice = global.pricing.aws.dynamoDB.storagePrice; // per GB after the first 25gb
+  const freeStoragePerMonth = global.pricing.aws.dynamoDB.freeStorage;
 
   let totalStoragePrice =
     storageNeededForDuration <= freeStoragePerMonth * storageDurationInMonths
@@ -76,13 +76,13 @@ function calculateCosmosDBCost(
 ) {
   let storageNeededForDuration = dataSizeInGB * (storageDurationInMonths + 0.5);
 
-  let requestUnitsNeeded = pricing.azure.cosmosDB.minimumRequestUnits; // minimum of request units that CosmosDB offers
+  let requestUnitsNeeded = global.pricing.azure.cosmosDB.minimumRequestUnits; // minimum of request units that CosmosDB offers
   let writesPerSecond = totalMessagesPerMonth / (30 * 24 * 60 * 60);
   let readsPerSecond = writesPerSecond;
   const multiplierForMessageSize = 1.0 + (averageSizeOfMessageInKb - 1) * 0.05; // we use this in order to estimate the costs when the RUs increase since the scaling on Azure calculator is not understandable and these values are giving results very close to the calculator
 
-  let RUsPerWrite = pricing.azure.cosmosDB.RUsPerWrite;
-  let RUsPerRead = pricing.azure.cosmosDB.RUsPerRead;
+  let RUsPerWrite = global.pricing.azure.cosmosDB.RUsPerWrite;
+  let RUsPerRead = global.pricing.azure.cosmosDB.RUsPerRead;
 
   let totalWriteRUs = writesPerSecond * RUsPerWrite * multiplierForMessageSize; // depending on message
   let totalReadRUs = readsPerSecond * RUsPerRead;
@@ -91,8 +91,8 @@ function calculateCosmosDBCost(
     requestUnitsNeeded = Math.ceil(totalWriteRUs + totalReadRUs);
   }
 
-  let storagePrice = pricing.azure.cosmosDB.storagePrice;
-  let requestPrice = pricing.azure.cosmosDB.requestPrice;
+  let storagePrice = global.pricing.azure.cosmosDB.storagePrice;
+  let requestPrice = global.pricing.azure.cosmosDB.requestPrice;
 
   let totalMonthlyCost =
     requestUnitsNeeded * requestPrice +
@@ -124,10 +124,10 @@ function calculateS3InfrequentAccessCost(
   dataSizeInGB,
   coolStorageDurationInMonths
 ) {
-  const storagePrice = pricing.aws.s3InfrequentAccess.storagePrice; // per GB
-  const upfrontPrice = pricing.aws.s3InfrequentAccess.upfrontPrice; // per GB
-  const requestPrice = pricing.aws.s3InfrequentAccess.requestPrice; //per request
-  const dataRetrievalPrice = pricing.aws.s3InfrequentAccess.dataRetrievalPrice; // per GB
+  const storagePrice = global.pricing.aws.s3InfrequentAccess.storagePrice; // per GB
+  const upfrontPrice = global.pricing.aws.s3InfrequentAccess.upfrontPrice; // per GB
+  const requestPrice = global.pricing.aws.s3InfrequentAccess.requestPrice; //per request
+  const dataRetrievalPrice = global.pricing.aws.s3InfrequentAccess.dataRetrievalPrice; // per GB
   const dataRetrievalAmount =
     dataSizeInGB * coolStorageDurationInMonths * 0.1 + dataSizeInGB;
 
@@ -161,10 +161,10 @@ function calculateAzureBlobStorageCost(
   const amountOfReadsNeeded = amountOfWritesNeeded * 0.1; // assuming 10% of the data stored will be read. Same assuption as we used in AWS.
   const dataRetrievalAmount = dataSizeInGB * 0.1 + dataSizeInGB; // again assuming 10% of the data stored needs to be retrieved + all of the data that is moved for this month to the archive layer.
 
-  const storagePrice = pricing.azure.blobStorageCool.storagePrice; // per GB
-  const writePrice = pricing.azure.blobStorageCool.writePrice; //per 10000 writes
-  const readPrice = pricing.azure.blobStorageCool.readPrice; // per 10000 reads
-  const dataRetrievalPrice = pricing.azure.blobStorageCool.dataRetrievalPrice; // per GB
+  const storagePrice = global.pricing.azure.blobStorageCool.storagePrice; // per GB
+  const writePrice = global.pricing.azure.blobStorageCool.writePrice; //per 10000 writes
+  const readPrice = global.pricing.azure.blobStorageCool.readPrice; // per 10000 reads
+  const dataRetrievalPrice = global.pricing.azure.blobStorageCool.dataRetrievalPrice; // per GB
 
   let totalMonthlyCost =
     storagePrice * dataSizeInGB * coolStorageDurationInMonths +
@@ -199,11 +199,11 @@ function calculateS3GlacierDeepArchiveCost(
   const amountOfRequestsNeeded = dataSizeInGB * 2; // we use this for puts and lifecycle
   const dataRetrievalAmount = 0.01 * storageNeededForDuration;
 
-  const storagePrice = pricing.aws.s3GlacierDeepArchive.storagePrice; // per GB
+  const storagePrice = global.pricing.aws.s3GlacierDeepArchive.storagePrice; // per GB
   const lifecycleAndWritePrice =
-    pricing.aws.s3GlacierDeepArchive.lifecycleAndWritePrice; // per request
+    global.pricing.aws.s3GlacierDeepArchive.lifecycleAndWritePrice; // per request
   const dataRetrievalPrice =
-    pricing.aws.s3GlacierDeepArchive.dataRetrievalPrice; // per GB (bulk)
+    global.pricing.aws.s3GlacierDeepArchive.dataRetrievalPrice; // per GB (bulk)
 
   let totalMonthlyCost =
     storageNeededForDuration * storagePrice +
@@ -232,10 +232,10 @@ function calculateAzureBlobStorageArchiveCost(
   const amountOfWritesNeeded = dataSizeInGB;
   const dataRetrievalAmount = storageNeededForDuration * 0.01;
 
-  const storagePrice = pricing.azure.blobStorageArchive.storagePrice; // per GB
-  const writePrice = pricing.azure.blobStorageArchive.writePrice; // per request
+  const storagePrice = global.pricing.azure.blobStorageArchive.storagePrice; // per GB
+  const writePrice = global.pricing.azure.blobStorageArchive.writePrice; // per request
   const dataRetrievalPrice =
-    pricing.azure.blobStorageArchive.dataRetrievalPrice; // per GB
+    global.pricing.azure.blobStorageArchive.dataRetrievalPrice; // per GB
 
   let totalMonthlyCost =
     storageNeededForDuration * storagePrice +
@@ -248,3 +248,12 @@ function calculateAzureBlobStorageArchiveCost(
     totalMonthlyCost: totalMonthlyCost,
   };
 }
+
+module.exports = {
+  calculateDynamoDBCost,
+  calculateCosmosDBCost,  
+  calculateS3InfrequentAccessCost,
+  calculateAzureBlobStorageCost,
+  calculateS3GlacierDeepArchiveCost,
+  calculateAzureBlobStorageArchiveCost,
+};
