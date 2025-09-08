@@ -1,4 +1,19 @@
 services:
+#  aasx-server:
+#  ## !! see https://v3.admin-shell-io.com/swagger/index.html
+#    image: adminshellio/aasx-server-blazor-for-demo:main
+#    restart: unless-stopped
+#    ports:
+#      - "5001:5001"
+#    volumes:
+#      - ./1-AAS-server/aasxs:/AasxServerBlazor/aasxs
+#      - ./1-AAS-server/aasxs:/usr/share/aasxs
+#    command: >
+#      --no-security 
+#      --data-path /AasxServerBlazor/aasxs 
+#      --with-db 
+#      --start-index 0 
+
   2twin2clouds:
     image: 2twin2clouds
     build: 
