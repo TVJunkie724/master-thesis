@@ -73,8 +73,8 @@ services:
   2twin2clouds:
     image: 2twin2clouds
     build: 
-      context: .
-      dockerfile: ./2-twin2clouds/Dockerfile
+      context: ./2-twin2clouds
+      dockerfile: /Dockerfile
     ports:
       - "8005:8000"
     volumes:

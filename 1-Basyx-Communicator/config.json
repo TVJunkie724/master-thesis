@@ -1,0 +1,6 @@
+{
+  "AASX_SERVER": "https://repository.demo.aas.siemens.com",
+  "LOCAL_BASYX_URL": "http://1basyx-server:8081",
+  "AAS_ID": "c21hcnQuZmVzdG8uY29tL2RlbW8vYWFzLzEvMS80NTQ1NzY0NjM1NDU2NDgzNjU4NzQ",
+  "SUBMODEL_ID": "c21hcnQuZmVzdG8uY29tL2RlbW8vc20vaW5zdGFuY2UvMS8xLzEzQjdDQ0Q5QkY3QTNGMjQ"
+}
