@@ -9,10 +9,17 @@ payload_index = 0
 
 
 def send_mqtt(payload):
+<<<<<<< HEAD
   iot_device_id = payload["iotDeviceId"]
   auth_path = os.path.join(globals.project_path(), globals.config["auth_files_path"], iot_device_id)
 
   client = AWSIoTMQTTClient(iot_device_id)
+=======
+  device_name = payload["iotDeviceId"]
+  auth_path = os.path.join(globals.project_path(), globals.config["auth_files_path"], device_name)
+
+  client = AWSIoTMQTTClient(device_name)
+>>>>>>> 94f88ba (add deployer init)
   client.configureEndpoint(globals.config["endpoint"], 8883)
   client.configureCredentials(os.path.join(globals.project_path(), globals.config["root_ca_cert_path"]), os.path.join(auth_path, "private.pem.key"), os.path.join(auth_path, "certificate.pem.crt"))
 

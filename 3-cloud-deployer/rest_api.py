@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import json
 from fastapi import FastAPI, HTTPException, Query, Depends
 from pydantic import BaseModel, Field
@@ -575,3 +576,22 @@ def get_lambda_logs(req: LambdaLogsRequest = Depends()) -> List[str]:
         globals.print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
+=======
+import sys
+import io
+import subprocess
+import json
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+
+@app.get("/api/test")
+def test_get(test: str = "default"):
+    return {"message": f"Test successful! You sent: {test}"}
+
+@app.post("/api/test")
+def test_post(test: str):
+    return {"message": f"Test successful! You sent: {test}"}
+>>>>>>> 94f88ba (add deployer init)

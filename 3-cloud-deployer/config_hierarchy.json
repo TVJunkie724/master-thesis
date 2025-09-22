@@ -1,34 +1,58 @@
 [
   {
     "type": "entity",
+<<<<<<< HEAD
     "id": "room-1",
     "children": [
       {
         "type": "entity",
         "id": "machine-1",
+=======
+    "name": "room-1",
+    "children": [
+      {
+        "type": "entity",
+        "name": "machine-1",
+>>>>>>> 94f88ba (add deployer init)
         "children": [
           {
             "type": "component",
             "name": "temperature-sensor-1",
+<<<<<<< HEAD
             "componentTypeId": "digital-twin-temperature-sensor-1"
+=======
+            "componentType": "some-component-type"
+>>>>>>> 94f88ba (add deployer init)
           }
         ]
       },
       {
         "type": "component",
         "name": "temperature-sensor-2",
+<<<<<<< HEAD
         "iotDeviceId": "temperature-sensor-2"
+=======
+        "iotDevice": "temperature-sensor-2"
+>>>>>>> 94f88ba (add deployer init)
       }
     ]
   },
   {
     "type": "entity",
+<<<<<<< HEAD
     "id": "room-2",
+=======
+    "name": "room-2",
+>>>>>>> 94f88ba (add deployer init)
     "children": [
       {
         "type": "component",
         "name": "pressure-sensor-1",
+<<<<<<< HEAD
         "iotDeviceId": "pressure-sensor-1"
+=======
+        "iotDevice": "pressure-sensor-1"
+>>>>>>> 94f88ba (add deployer init)
       }
     ]
   }

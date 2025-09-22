@@ -1,6 +1,11 @@
 {
   "digital_twin_name": "digital-twin",
+<<<<<<< HEAD
   "hot_storage_size_in_days": 30,
   "cold_storage_size_in_days": 90,
   "mode": "DEBUG"
+=======
+  "layer_3_hot_to_cold_interval_days": 30,
+  "layer_3_cold_to_archive_interval_days": 90
+>>>>>>> 94f88ba (add deployer init)
 }

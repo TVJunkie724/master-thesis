@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y curl \
 WORKDIR /app
 COPY . /app
 
+<<<<<<< HEAD
 RUN pip install \
     fastapi \
     uvicorn \
@@ -20,4 +21,10 @@ EXPOSE 8000
 
 ENV PYTHONPATH=/app
 
+=======
+RUN pip install fastapi uvicorn
+
+EXPOSE 8000
+
+>>>>>>> 94f88ba (add deployer init)
 CMD ["uvicorn", "rest_api:app", "--host", "0.0.0.0", "--port", "8000"]

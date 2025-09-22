@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import boto3
 import os
 import json
@@ -35,11 +36,15 @@ def flush_chunk_to_s3(iot_device_id, items, start, end, chunk_index):
 
     print(f"Wrote {len(items)} items to s3://{S3_BUCKET_NAME}/{key}")
 
+=======
+import json
+>>>>>>> 94f88ba (add deployer init)
 
 def lambda_handler(event, context):
     print("Hello from Hot To Cold Mover!")
     print("Event: " + json.dumps(event))
 
+<<<<<<< HEAD
     with dynamodb_table.batch_writer() as batch:
         for iot_device in DIGITAL_TWIN_INFO["config_iot_devices"]:
             chunk_index = 0
@@ -94,3 +99,10 @@ def lambda_handler(event, context):
                     ExclusiveStartKey=response["LastEvaluatedKey"]
                 )
                 items = response.get("Items", [])
+=======
+    # TODO implement
+    return {
+        'statusCode': 200,
+        'body': json.dumps('Hello from hot to cold mover Lambda!')
+    }
+>>>>>>> 94f88ba (add deployer init)
