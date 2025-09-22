@@ -1,6 +1,10 @@
 [
   {
+<<<<<<< HEAD
     "id": "temperature-sensor-1",
+=======
+    "name": "temperature-sensor-1",
+>>>>>>> 94f88ba (add deployer init)
     "properties": [
       { "name": "temperature", "dataType": "DOUBLE" }
     ],
@@ -9,13 +13,21 @@
     ]
   },
   {
+<<<<<<< HEAD
     "id": "temperature-sensor-2",
+=======
+    "name": "temperature-sensor-2",
+>>>>>>> 94f88ba (add deployer init)
     "properties": [
       { "name": "temperature", "dataType": "DOUBLE" }
     ]
   },
   {
+<<<<<<< HEAD
     "id": "pressure-sensor-1",
+=======
+    "name": "pressure-sensor-1",
+>>>>>>> 94f88ba (add deployer init)
     "properties": [
       { "name": "pressure", "dataType": "DOUBLE" },
       { "name": "density", "dataType": "DOUBLE" },

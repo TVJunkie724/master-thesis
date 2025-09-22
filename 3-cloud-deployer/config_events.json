@@ -1,10 +1,24 @@
 [
   {
+<<<<<<< HEAD
     "condition": "testEntityId.temperature-sensor-1.temperature == DOUBLE(30)",
     "action": {
       "type": "lambda",
       "functionName": "high-temperature-callback",
       "autoDeploy": true
+=======
+    "condition": "temperature-sensor-1.temperature < STATIC(43)",
+    "action": {
+      "type": "lambda",
+      "functionArn": "..."
+    }
+  },
+  {
+    "condition": "<componentName>.<propertyName> > temperature-sensor-2.temperature",
+    "action": {
+      "type": "lambda",
+      "functionArn": "..."
+>>>>>>> 94f88ba (add deployer init)
     }
   }
 ]

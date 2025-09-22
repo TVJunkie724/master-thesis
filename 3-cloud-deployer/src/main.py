@@ -1,5 +1,6 @@
 import json
 import globals
+<<<<<<< HEAD
 import aws.globals_aws as globals_aws
 import aws.lambda_manager as lambda_manager
 import deployers.core_deployer as core_deployer
@@ -110,6 +111,46 @@ def main():
     valid_providers = ("aws", "azure", "google")
     
     logger.info("Welcome to the Digital Twin Manager. Type 'help' for commands.")
+=======
+import core_services
+import info
+import iot_services
+import lambda_manager
+
+def help_menu():
+  print("""
+    Available commands:
+      deploy                                                            - Deploys core and IoT services and resources.
+      destroy                                                           - Destroys core and IoT services and resources.
+      deploy_core                                                       - Deploys core services and resources.
+      destroy_core                                                      - Destroys core services and resources.
+      deploy_iot                                                        - Deploys services and resources for every specified iot device.
+      destroy_iot                                                       - Deploys services and resources for every specified iot device.
+      info                                                              - Lists all the deployed resources.
+      lambda_update <local_function_name> <o:environment>               - Deploys a new version of the specified lambda function.
+      lambda_logs <local_function_name> <o:n> <o:filter_system_logs>    - Fetches the last n logged messages of the specified lambda function.
+      help                                                              - Show this help menu.
+      exit                                                              - Exit the program.
+  """)
+
+def main():
+    globals.initialize_config()
+    globals.initialize_config_iot_devices()
+    globals.initialize_config_providers()
+    globals.initialize_config_credentials()
+    globals.initialize_aws_iam_client()
+    globals.initialize_aws_lambda_client()
+    globals.initialize_aws_iot_client()
+    globals.initialize_aws_sts_client()
+    globals.initialize_aws_events_client()
+    globals.initialize_aws_dynamodb_client()
+    globals.initialize_aws_s3_client()
+    globals.initialize_aws_twinmaker_client()
+    globals.initialize_aws_grafana_client()
+    globals.initialize_aws_logs_client()
+
+    print("Welcome to the Digital Twin Manager. Type 'help' for commands.")
+>>>>>>> 94f88ba (add deployer init)
 
     while True:
       try:
@@ -125,6 +166,7 @@ def main():
       command = parts[0]
       args = parts[1:]
 
+<<<<<<< HEAD
 
       # deployment commands
       if command in deployment_commands:
@@ -177,6 +219,24 @@ def main():
         continue
 
       # other commands
+=======
+      if command == "deploy":
+        core_services.deploy()
+        iot_services.deploy()
+      elif command == "destroy":
+        iot_services.destroy()
+        core_services.destroy()
+      elif command == "deploy_core":
+        core_services.deploy()
+      elif command == "destroy_core":
+        core_services.destroy()
+      elif command == "deploy_iot":
+        iot_services.deploy()
+      elif command == "destroy_iot":
+        iot_services.destroy()
+      elif command == "info":
+        info.check()
+>>>>>>> 94f88ba (add deployer init)
       elif command == "lambda_update":
         if len(args) > 1:
           lambda_manager.update_function(args[0], json.loads(args[1]))
@@ -189,6 +249,7 @@ def main():
           print("".join(lambda_manager.fetch_logs(args[0], int(args[1]))))
         else:
           print("".join(lambda_manager.fetch_logs(args[0])))
+<<<<<<< HEAD
       elif command == "lambda_invoke":
         if len(args) > 2:
           lambda_manager.invoke_function(args[0], json.loads(args[1]), args[2].lower() in ("true", "1", "yes", "y"))
@@ -197,6 +258,8 @@ def main():
         else:
           lambda_manager.invoke_function(args[0])
 
+=======
+>>>>>>> 94f88ba (add deployer init)
       elif command == "help":
         help_menu()
       elif command == "exit":

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import boto3
 import os
 import json
@@ -40,3 +41,16 @@ def lambda_handler(event, context):
                 s3_client.delete_object(Bucket=SOURCE_S3_BUCKET_NAME, Key=key)
 
                 print(f"Moved {key} from {SOURCE_S3_BUCKET_NAME} to {TARGET_S3_BUCKET_NAME}")
+=======
+import json
+
+def lambda_handler(event, context):
+    print("Hello from Hot To Archive Mover!")
+    print("Event: " + json.dumps(event))
+
+    # TODO implement
+    return {
+        'statusCode': 200,
+        'body': json.dumps('Hello from cold to archive mover Lambda!')
+    }
+>>>>>>> 94f88ba (add deployer init)
