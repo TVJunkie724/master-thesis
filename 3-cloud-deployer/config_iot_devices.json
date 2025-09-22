@@ -1,0 +1,25 @@
+[
+  {
+    "name": "temperature-sensor-1",
+    "properties": [
+      { "name": "temperature", "dataType": "DOUBLE" }
+    ],
+    "constProperties": [
+      { "name": "serial-number", "dataType": "STRING", "value": "1232323" }
+    ]
+  },
+  {
+    "name": "temperature-sensor-2",
+    "properties": [
+      { "name": "temperature", "dataType": "DOUBLE" }
+    ]
+  },
+  {
+    "name": "pressure-sensor-1",
+    "properties": [
+      { "name": "pressure", "dataType": "DOUBLE" },
+      { "name": "density", "dataType": "DOUBLE" },
+      { "name": "hardness", "dataType": "DOUBLE" }
+    ]
+  }
+]

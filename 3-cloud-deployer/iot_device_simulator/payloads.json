@@ -1,0 +1,23 @@
+[
+  {
+    "iotDeviceId": "digital-twin-pressure-sensor-1",
+    "time": "",
+    "pressure": 0,
+    "density": 1,
+    "hardness": 2
+  },
+  {
+    "iotDeviceId": "digital-twin-pressure-sensor-1",
+    "time": "",
+    "pressure": 3,
+    "density": 4,
+    "hardness": 5
+  },
+  {
+    "iotDeviceId": "digital-twin-pressure-sensor-1",
+    "time": "",
+    "pressure": 6,
+    "density": 7,
+    "hardness": 8
+  }
+]
