@@ -8,7 +8,9 @@ WORKDIR /app
 COPY . .
 
 # Install dependencies
-RUN pip install --no-cache-dir requests
+RUN pip install --no-cache-dir \
+    requests \
+    basyx-python-sdk
 
 # Run script when container starts
 # CMD ["python", "get_aas_data.py"]

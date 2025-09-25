@@ -1,4 +1,7 @@
 **/__pycache__/
+**/.venv/
+**/BlazorExplorer/
+**/Festo_Demo_Box/
 
 1-Basyx-Communicator/debug/
 

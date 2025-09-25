@@ -76,9 +76,11 @@ services:
       context: ./2-twin2clouds
       dockerfile: /Dockerfile
     ports:
-      - "8005:8000"
+      - "5003:8000"
     volumes:
       - ./2-twin2clouds:/app
+    networks:
+      - my_master_thesis_network
 
   3cloud-deployer:
     image: 3cloud-deployer
