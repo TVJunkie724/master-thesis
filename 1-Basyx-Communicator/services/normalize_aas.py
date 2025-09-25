@@ -8,11 +8,15 @@ MIN_DATETIME = "0001-01-01T00:00:00"
 
 def normalize_aas_element(elem):
     """Recursively normalize an AAS element in place."""
-    print(f" Normalizing element: {elem.get('idShort', elem.get('id', 'unknown'))}")
-    normalize_semantic_ids(elem)
-    normalize_languages(elem)
-    normalize_dates(elem)
-
+    elem_id = elem.get('idShort', elem.get('id', 'unknown'))
+    print(f" Normalizing element: {elem_id}")
+    try:
+        normalize_semantic_ids(elem)
+        normalize_languages(elem)
+        normalize_dates(elem)
+    except Exception as e:
+        print(f"Element with id '{elem_id}' is invalid: {json.dumps(elem)}")
+        print(f"Error while normalizing: {e}")
 
 def normalize_dates(elem):
     """Recursively normalize dates, convert string dates to xs:date, and fix empty values."""

@@ -1,13 +1,12 @@
 import json
-import urllib.parse
-from utils import encode_id
+import requests
+
 from basyx.aas import model
 from basyx.aas.adapter import json as aas_json
 from basyx.aas.adapter import http
 from basyx.aas.model.submodel import Submodel
 from basyx.aas.model.aas import AssetAdministrationShell
 from basyx.aas.adapter.json import AASToJsonEncoder, AASFromJsonDecoder
-import requests
 
 REQUEST_TIMEOUT = 30
 
