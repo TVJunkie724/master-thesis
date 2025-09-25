@@ -1,14 +1,14 @@
 import requests
 import json
 from copy import deepcopy
-from urllib.parse import quote
-from utils import encode_id
+import re
+
+from services.utils import encode_id
+from services.normalize_aas import normalize_aas_element
+
 from basyx.aas import model
 from basyx.aas.model import AssetAdministrationShell
 from basyx.aas.adapter.json import AASToJsonEncoder, AASFromJsonDecoder
-import json
-import re
-from normalize_aas import normalize_aas_element
 
 
 REQUEST_TIMEOUT = 30
@@ -98,7 +98,7 @@ def fetch_asset_information(aas_id: str, aasx_server: str):
     # r.raise_for_status()
     # return r.json().get("result", r.json())
     
-def build_full_aas(aas_id: str, aasx_server: str) -> model.AssetAdministrationShell:
+def fetch_and_build_full_aas(aas_id: str, aasx_server: str) -> model.AssetAdministrationShell:
     
     encoded_aas_id = encode_id(aas_id)
     print(f"Fetching AAS '{aas_id}' as '{encoded_aas_id}' from {aasx_server}")
@@ -127,8 +127,9 @@ def build_full_aas(aas_id: str, aasx_server: str) -> model.AssetAdministrationSh
     # Build aas environment class
     # ----------------------------------
     aas_shell = [deepcopy(shell_data)]
-    if "submodels" in aas_shell:
-        del aas_shell["submodels"]
+    for aas in aas_shell:
+        if "submodels" in aas:
+            del aas["submodels"]
         
     aas_submodels = deepcopy(submodels_list)
     aas_asset_information = [asset_info_data]

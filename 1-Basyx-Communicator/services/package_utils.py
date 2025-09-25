@@ -1,4 +1,3 @@
-# package_utils.py
 import base64
 from urllib.parse import quote
 import requests
