@@ -1,91 +1,82 @@
+import json
+import urllib.parse
+from utils import encode_id
+from basyx.aas import model
+from basyx.aas.adapter import json as aas_json
+from basyx.aas.adapter import http
+from basyx.aas.model.submodel import Submodel
+from basyx.aas.model.aas import AssetAdministrationShell
+from basyx.aas.adapter.json import AASToJsonEncoder, AASFromJsonDecoder
 import requests
-import base64
 
-def fetch_aas(aas_id, aasx_server):
-    """Fetch metadata of the Asset Administration Shell."""
-    url = f"{aasx_server}/shells/{aas_id}"
-    resp = requests.get(url)
-    resp.raise_for_status()
-    return resp.json()
+REQUEST_TIMEOUT = 30
 
+def register_submodels(submodels, basyx_base):
+    """Register all submodels to BaSyx, converting Submodel objects to dicts first."""
+    headers = {"Content-Type": "application/json"}
 
-def fetch_submodel_elements(aas_id, submodel_id, aasx_server):
-    """Fetch all elements of a submodel."""
-    url = f"{aasx_server}/shells/{aas_id}/submodels/{submodel_id}/submodel-elements"
-    resp = requests.get(url)
-    resp.raise_for_status()
-    return resp.json().get("result", [])
+    for sm in submodels:
+        # Convert Submodel object to dict
+        if isinstance(sm, Submodel):
+            sm_payload = json.loads(json.dumps(sm, cls=AASToJsonEncoder))
+        elif isinstance(sm, dict):
+            sm_payload = sm
+        else:
+            print("Skipping unknown submodel type:", type(sm))
+            continue
 
+        sm_id = sm_payload.get("id")
+        if not sm_id:
+            print("Skipping submodel without id:", sm_payload)
+            continue
 
-def push_submodel_to_local(submodel_id, id_short, elements, local_basyx_url):
-    payload = {
-        "idShort": id_short,
-        "id": submodel_id,
-        "idType": "IRI",
-        "submodelElements": []
-    }
+        url = f"{basyx_base.rstrip('/')}/submodels"
+        resp = requests.post(url, json=sm_payload, headers=headers, timeout=REQUEST_TIMEOUT)
 
-    for elem in elements:
-        payload["submodelElements"].append({
-            "idShort": elem.get("idShort", "unknown"),
-            "modelType": elem.get("modelType", "Property"),
-            "valueType": elem.get("valueType", "string"),
-            "value": elem.get("value", "")
-        })
-
-    url = f"{local_basyx_url}/submodels"
-    resp = requests.post(url, json=payload)
-
-    if resp.status_code in [200, 201]:
-        print(f"Submodel '{id_short}' created successfully.")
-    elif resp.status_code == 409:
-        print(f"Submodel '{id_short}' was already added.")
-    else:
-        print(f"Failed to push '{id_short}': {resp.status_code}, {resp.text}")
+        if resp.status_code in (200, 201):
+            print(f"Submodel '{sm_id}' created successfully.")
+        elif resp.status_code == 409:
+            print(f"Submodel '{sm_id}' already exists.")
+        else:
+            print(f"Failed to create submodel '{sm_id}': {resp.status_code}, {resp.text}")
 
 
-def encode_identifier(identifier: str) -> str:
-    """Encodes an identifier for BaSyx using Base64 URL-safe encoding (without padding)."""
-    return base64.urlsafe_b64encode(identifier.encode()).decode().rstrip("=")
+def register_aas(shells, basyx_base):
+    """Register AAS shells to BaSyx, converting AssetAdministrationShell objects to dicts."""
+    headers = {"Content-Type": "application/json"}
+
+    for shell in shells:
+        if isinstance(shell, AssetAdministrationShell):
+            shell_payload = json.loads(json.dumps(shell, cls=AASToJsonEncoder))
+        elif isinstance(shell, dict):
+            shell_payload = shell
+        else:
+            print("Skipping unknown shell type:", type(shell))
+            continue
+
+        shell_id = shell_payload.get("id")
+        if not shell_id:
+            print("Skipping AAS without id:", shell_payload)
+            continue
+
+        url = f"{basyx_base.rstrip('/')}/asset-administration-shells"
+        resp = requests.post(url, json=shell_payload, headers=headers, timeout=REQUEST_TIMEOUT)
+
+        if resp.status_code in (200, 201):
+            print(f"AAS '{shell_id}' registered successfully.")
+        else:
+            print(f"Failed to register AAS '{shell_id}': {resp.status_code}, {resp.text}")
 
 
-def get_submodel_from_basyx(submodel_id, local_basyx_url):
-    """Fetches a submodel and its elements from the BaSyx server."""
-    encoded_id = encode_identifier(submodel_id)
-    url = f"{local_basyx_url}/submodels/{encoded_id}/submodel-elements"
-    response = requests.get(url)
+def upload_aas_environment(env_dict, basyx_base):
+    """Upload submodels and AAS shells from env_dict to BaSyx."""
+    submodels = env_dict.get("submodels", [])
+    shells = env_dict.get("assetAdministrationShells", [])
 
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"\nFailed to fetch submodel '{submodel_id}': {response.status_code}, {response.text}")
-        return None
+    print("Registering submodels...")
+    register_submodels(submodels, basyx_base)
 
+    # print("Registering AAS shells...")
+    # register_aas(shells, basyx_base)
 
-def parse_sensors_from_submodel(submodel_data: dict):
-    """Extracts a clean list of sensors from a submodel JSON with full info."""
-    sensors = []
-
-    if not submodel_data or "submodelElements" not in submodel_data:
-        return sensors
-
-    for elem in submodel_data["submodelElements"]:
-        id_short = elem.get("idShort", "Unknown")
-        model_type = elem.get("modelType", "Unknown")
-        value_type = elem.get("valueType", "Unknown")
-        value = elem.get("value")
-        unit = elem.get("unit")        # optional, if submodel includes
-        range_val = elem.get("range")  # optional, if submodel includes
-        subitems = elem.get("subitems", [])
-
-        if model_type == "Property":
-            sensors.append({
-                "idShort": id_short,
-                "valueType": value_type,
-                "value": value,
-                "unit": unit,
-                "range": range_val,
-                "subitems": subitems
-            })
-
-    return sensors
+    print("Upload completed.")
