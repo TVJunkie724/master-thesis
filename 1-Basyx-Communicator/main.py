@@ -3,6 +3,7 @@ import requests
 from services.config_loader import load_config
 from services.aas_rest import list_all_shell_ids, fetch_and_build_full_aas
 from services.basyx_utils import upload_aas_environment
+from services.utils import encode_id, debug_write_to_file
 import json
 
 from basyx.aas.adapter.json import AASToJsonEncoder, AASFromJsonDecoder
@@ -22,24 +23,36 @@ def check_server(base_url: str):
 
 def main():
     cfg = load_config()
+    mode = cfg["mode"]
     basyx_url = cfg["basyx_url"]
     aasx_base = cfg["aasx_base_url"]
 
+    print("\n----------------------------------------------------------------")
+    print(f"Running in mode: {mode}")
+    print("----------------------------------------------------------------")
+
     check_server(basyx_url)
     check_server(aasx_base)
-
-    shell_ids = list_all_shell_ids(aasx_base)
     
-    print(f"Shell_IDs: {json.dumps(shell_ids)}")
-    
+    shell_ids = [shell_ids[1]]  # Limit to first AAS for testing
     for aas_id in shell_ids:
-        print("\nProcessing:", aas_id)
-        aas = fetch_and_build_full_aas(aas_id, aasx_base)
+        
+        print("\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        print("----------------------------------------------------------------")
+        print("Processing AAS ID:", aas_id)
+        print("----------------------------------------------------------------")
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        print(f"Source AASX server:         {aasx_base}")
+        print(f"Target (local) AAS server:  {basyx_url}")
+        
+        
         try:
+            aas = fetch_and_build_full_aas(aas_id, aasx_base)
             
-            # aas_json = json.dumps(aas, cls=AASToJsonEncoder, indent=2)
-            # print("Decoded environment:", aas_json)
+            aas_json = json.dumps(aas, cls=AASToJsonEncoder, indent=2)
             
+            debug_write_to_file(aas_json, "test_aas", False)
+        
             upload_aas_environment(aas, basyx_url)
         except Exception as e:
             print(f"Error while building and uploading AAS: {e}")

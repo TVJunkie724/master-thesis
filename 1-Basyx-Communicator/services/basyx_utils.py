@@ -1,6 +1,7 @@
 import json
 import requests
 
+from services.utils import encode_id
 from basyx.aas import model
 from basyx.aas.adapter import json as aas_json
 from basyx.aas.adapter import http
@@ -29,15 +30,18 @@ def register_submodels(submodels, basyx_base):
             print("Skipping submodel without id:", sm_payload)
             continue
 
+        sm_id_encoded = encode_id(sm_id)
+        print(f"Registering Submodel with ID:   {sm_id} ({sm_id_encoded})")
         url = f"{basyx_base.rstrip('/')}/submodels"
         resp = requests.post(url, json=sm_payload, headers=headers, timeout=REQUEST_TIMEOUT)
 
         if resp.status_code in (200, 201):
-            print(f"Submodel '{sm_id}' created successfully.")
+            print(f"   Submodel '{sm_id}' created successfully.")
         elif resp.status_code == 409:
-            print(f"Submodel '{sm_id}' already exists.")
+            print(f"   Submodel '{sm_id}' already exists.")
         else:
-            print(f"Failed to create submodel '{sm_id}': {resp.status_code}, {resp.text}")
+            print(f"   Failed to create submodel '{sm_id}': {resp.status_code}, {resp.text}")
+        print("\n")
 
 
 def register_aas(shells, basyx_base):
@@ -58,24 +62,38 @@ def register_aas(shells, basyx_base):
             print("Skipping AAS without id:", shell_payload)
             continue
 
-        url = f"{basyx_base.rstrip('/')}/asset-administration-shells"
+        url = f"{basyx_base.rstrip('/')}/shells"
+        # url = f"{basyx_base.rstrip('/')}/asset-administration-shells"
+        
+        print(f"Registering AAS with ID:   {shell_id} - {encode_id(shell_id)}")
+        
         resp = requests.post(url, json=shell_payload, headers=headers, timeout=REQUEST_TIMEOUT)
 
         if resp.status_code in (200, 201):
-            print(f"AAS '{shell_id}' registered successfully.")
+            print(f"   AAS '{shell_id}' registered successfully.")
+        elif resp.status_code == 409:
+            print(f"   AAS model '{shell_id}' already exists.")
         else:
-            print(f"Failed to register AAS '{shell_id}': {resp.status_code}, {resp.text}")
+            print(f"   Failed to register AAS '{shell_id}': {resp.status_code}, {resp.reason}.")
+        
+        print("\n")
 
 
 def upload_aas_environment(env_dict, basyx_base):
     """Upload submodels and AAS shells from env_dict to BaSyx."""
     submodels = env_dict.get("submodels", [])
     shells = env_dict.get("assetAdministrationShells", [])
+    
+    print("\n----------------------------")
+    print("Registering AAS shells...")
+    print("----------------------------")
+    register_aas(shells, basyx_base)
 
+    print("\n----------------------------")
     print("Registering submodels...")
+    print("----------------------------")
     register_submodels(submodels, basyx_base)
 
-    # print("Registering AAS shells...")
-    # register_aas(shells, basyx_base)
 
-    print("Upload completed.")
+    print("\n----------------------------")
+    print("Upload completed.\n")

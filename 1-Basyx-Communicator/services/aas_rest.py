@@ -2,8 +2,10 @@ import requests
 import json
 from copy import deepcopy
 import re
+import io
+from contextlib import redirect_stdout, redirect_stderr
 
-from services.utils import encode_id
+from services.utils import encode_id, debug_write_to_file
 from services.normalize_aas import normalize_aas_element
 
 from basyx.aas import model
@@ -101,7 +103,9 @@ def fetch_asset_information(aas_id: str, aasx_server: str):
 def fetch_and_build_full_aas(aas_id: str, aasx_server: str) -> model.AssetAdministrationShell:
     
     encoded_aas_id = encode_id(aas_id)
+    print("\n----------------------------")
     print(f"Fetching AAS '{aas_id}' as '{encoded_aas_id}' from {aasx_server}")
+    print("----------------------------")
     shells_url = f"{aasx_server.rstrip('/')}/shells/{encoded_aas_id}"
     r = requests.get(shells_url, timeout=REQUEST_TIMEOUT)
     r.raise_for_status()
@@ -111,13 +115,13 @@ def fetch_and_build_full_aas(aas_id: str, aasx_server: str) -> model.AssetAdmini
         raise ValueError(f"AAS '{aas_id}' not found on server")
 
     id_short = shell_data.get("idShort", aas_id)
-    print(f"Building full AAS for '{id_short}' ({aas_id})")
+    print(f"   Building full AAS for '{id_short}' ({aas_id})")
 
     
     # Fetch submodels
     # submodel_ids = fetch_submodel_list(aas_id, aasx_server)
     submodel_ids = [sm.get("keys", [{}])[0].get("value") for sm in shell_data.get("submodels", []) if sm.get("keys")]
-    print(f"  Found {len(submodel_ids)} submodels")
+    print(f"   Found {len(submodel_ids)} submodels")
     
     submodels_list = fetch_submodel_list(aas_id, aasx_server, submodel_ids) or []
 
@@ -134,14 +138,27 @@ def fetch_and_build_full_aas(aas_id: str, aasx_server: str) -> model.AssetAdmini
     aas_submodels = deepcopy(submodels_list)
     aas_asset_information = [asset_info_data]
 
+    print("\n----------------------------")
+    print("Normalizing AAS model...")
+    print("----------------------------")
     for sh in aas_shell:
-        normalize_aas_element(sh)
+        try:
+            normalize_aas_element(sh)    
+        except Exception as e:
+            print(f"Error fixing AAS model {sh.get('id')}: {e}")
+            debug_write_to_file(f"Error fixing AAS model {sh.get('id')}: {e}", f"failed_{id_short}")
+            raise e
     
+    print("\n----------------------------")
+    print("Normalizing submodels...")
+    print("----------------------------")
     for sm in aas_submodels:
         try:
             normalize_aas_element(sm)    
         except Exception as e:
-            print(f"Error fixing semantic IDs in submodel {sm.get('id')}: {e}")
+            print(f"Error fixing submodel {sm.get('id')}: {e}")
+            debug_write_to_file(f"Error fixing submodel {sm.get('id')}: {e}", f"failed_{id_short}")
+            raise e
     
     
     env_dict = {
@@ -150,9 +167,26 @@ def fetch_and_build_full_aas(aas_id: str, aasx_server: str) -> model.AssetAdmini
         "conceptDescriptions": aas_asset_information
     }
     
-    env = json.loads(json.dumps(env_dict), cls=AASFromJsonDecoder)
+    try:
+        print("\n----------------------------")
+        print(f"Converting AAS...")
+        print("----------------------------")
+        
+        
+        # Create a buffer to capture anything printed during JSON deserialization
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            env = json.loads(json.dumps(env_dict), cls=AASFromJsonDecoder)
 
-    # aas_json = json.dumps(env, cls=AASToJsonEncoder, indent=2)
-    # print("Decoded environment:", aas_json)
-    
-    return env
+        captured_output = buf.getvalue()
+        if captured_output.strip():
+            raise RuntimeError(f"Captured output during AAS conversion:\n{captured_output}")
+
+        print(f" Conversion successful: AAS model '{aas_id}' with {len(aas_submodels)} submodels.")
+        return env
+
+    except Exception as e:
+        print(f"Error while converting AAS dict")
+        debug_write_to_file(f"Error while converting AAS dict: {e}", f"failed_{id_short}")
+        debug_write_to_file(json.dumps(env_dict, indent=2), f"failed_{id_short}", False)
+        raise RuntimeError(f"Error while converting AAS dict")

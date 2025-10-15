@@ -1,4 +1,5 @@
 {
-  "basyx_url": "http://1basyx-server:8081/",
-  "aasx_base_url": "http://1aasx-server:5001/"
+  "basyx_url": "http://1aasx-server-local:5001/",
+  "aasx_base_url": "http://1aasx-server-mock:5001/",
+  "mode": "DEBUG"
 }
