@@ -1,18 +1,74 @@
 services:
-#  aasx-server:
-#  ## !! see https://v3.admin-shell-io.com/swagger/index.html
-#    image: adminshellio/aasx-server-blazor-for-demo:main
-#    restart: unless-stopped
-#    ports:
-#      - "5001:5001"
-#    volumes:
-#      - ./1-AAS-server/aasxs:/AasxServerBlazor/aasxs
-#      - ./1-AAS-server/aasxs:/usr/share/aasxs
-#    command: >
-#      --no-security 
-#      --data-path /AasxServerBlazor/aasxs 
-#      --with-db 
-#      --start-index 0 
+  0twin2multicloud:
+    image: 0twin2multicloud
+    build: 
+      context: ./twin2multicloud_cli
+      dockerfile: /Dockerfile
+    ports:
+      - "5000:8000"
+    volumes:
+      - ./twin2multicloud_cli:/app
+    tty: true
+    networks:
+      - my_master_thesis_network
+
+#   1aasx-server-mock:
+  #   ## !! see https://v3.admin-shell-io.com/swagger/index.html
+  #   image: adminshellio/aasx-server-blazor-for-demo:main
+  #   restart: unless-stopped
+  #   ports:
+  #     - "5001:5001"
+  #   volumes:
+  #     - ./1-AAS-server/aasxs:/AasxServerBlazor/aasxs
+  #   command: >
+  #     --no-security
+  #     --data-path /AasxServerBlazor/aasxs
+  #     --with-db
+  #     --start-index 0
+  #   networks:
+  #     - my_master_thesis_network
+
+#   1basyx-communicator:
+  #   image: basyx-communicator
+  #   build: 
+  #     context: ./1-Basyx-Communicator
+  #     dockerfile: /Dockerfile
+  #   volumes:
+  #     - ./1-Basyx-Communicator/:/app/
+  #   tty: true
+  #   depends_on:
+  #     - 1basyx-server
+  #   networks:
+  #     - my_master_thesis_network
+
+#   1aasx-server-local:
+  #   ## !! see https://v3.admin-shell-io.com/swagger/index.html
+  #   image: adminshellio/aasx-server-blazor-for-demo:main
+  #   restart: unless-stopped
+  #   ports:
+  #     - "50020:5001"
+  #   volumes:
+  #     - ./1-AAS-server-local/aasxs:/AasxServerBlazor/aasxs
+  #   command: >
+  #     --no-security
+  #     --data-path /AasxServerBlazor/aasxs
+  #     --with-db
+  #     --start-index 0
+  #   networks:
+  #     - my_master_thesis_network
+
+#   1basyx-server:
+  #   image: basyx-server
+  #   build: 
+  #     context: .
+  #     dockerfile: ./1-Basyx-Server/Dockerfile
+  #   ports:
+  #     - "5002:8081"
+  #   # volumes:
+  #   #   - ./1-Basyx-Server/:/application/
+  #   networks:
+  #     - my_master_thesis_network
+#
 
   2twin2clouds:
     image: 2twin2clouds
@@ -23,3 +79,20 @@ services:
       - "8005:8000"
     volumes:
       - ./2-twin2clouds:/app
+
+  3cloud-deployer:
+    image: 3cloud-deployer
+    build: 
+      context: ./3-cloud-deployer
+      dockerfile: /Dockerfile
+    ports:
+      - "5004:8000"
+    volumes: 
+      - ./3-cloud-deployer:/app/
+    tty: true
+    networks:
+      - my_master_thesis_network
+
+networks:
+  my_master_thesis_network:
+    driver: bridge
