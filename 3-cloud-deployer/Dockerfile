@@ -9,8 +9,15 @@ RUN apt-get update && apt-get install -y curl \
 WORKDIR /app
 COPY . /app
 
-RUN pip install fastapi uvicorn
+RUN pip install \
+    fastapi \
+    uvicorn \
+    requests \
+    boto3 \
+    colorlog
 
 EXPOSE 8000
+
+ENV PYTHONPATH=/app
 
 CMD ["uvicorn", "rest_api:app", "--host", "0.0.0.0", "--port", "8000"]
