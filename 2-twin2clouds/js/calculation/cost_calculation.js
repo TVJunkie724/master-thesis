@@ -1,37 +1,39 @@
 "use strict";
 
-global.pricing;
+let pricing;
 
-const {
+import {
+  loadPricingData
+} from "./json_handler.js";
+import {
+  buildGraphForStorage,
+  findCheapestStoragePath
+} from "./provider_decision.js";
+import {
   calculateAWSCostDataAcquisition,
-  calculateAzureCostDataAcquisition,
-} = require("./layer_data_acquisition.js");
-
-const {
+  calculateAzureCostDataAcquisition
+} from "./layer_data_acquisition.js";
+import {
   calculateAWSCostDataProcessing,
-  calculateAzureCostDataProcessing,
-} = require("./layer_data_processing.js");
-
-const {
+  calculateAzureCostDataProcessing
+} from "./layer_data_processing.js";
+import {
   calculateDynamoDBCost,
   calculateCosmosDBCost,
   calculateS3InfrequentAccessCost,
   calculateAzureBlobStorageCost,
   calculateS3GlacierDeepArchiveCost,
-  calculateAzureBlobStorageArchiveCost,
-} = require("./layer_data_storage.js");
-
-const {
+  calculateAzureBlobStorageArchiveCost
+} from "./layer_data_storage.js";
+import {
   calculateAWSIoTTwinMakerCost,
-  calculateAzureDigitalTwinsCost,
-} = require("./layer_twin_management.js");
-
-const {
+  calculateAzureDigitalTwinsCost
+} from "./layer_twin_management.js";
+import {
   calculateAmazonManagedGrafanaCost,
-  calculateAzureManagedGrafanaCost,
-} = require("./layer_data_visualization.js");
-
-const {
+  calculateAzureManagedGrafanaCost
+} from "./layer_data_visualization.js";
+import {
   calculateTransferCostFromL2AWSToAWSHot,
   calculateTransferCostFromL2AWSToAzureHot,
   calculateTransferCostFromL2AzureToAWSHot,
@@ -43,36 +45,61 @@ const {
   calculateTransferCostFromAWSCoolToAWSArchive,
   calculateTransferCostFromAWSCoolToAzureArchive,
   calculateTransferCostFromAzureCoolToAWSArchive,
-  calculateTransferCostFromAzureCoolToAzureArchive,
-} = require("./data_transfer.js");
+  calculateTransferCostFromAzureCoolToAzureArchive
+} from "./data_transfer.js";
 
-const { 
-  buildGraphForStorage, 
-  findCheapestStoragePath 
-} = require("./provider_decision.js");
+// const {
+//   calculateAWSCostDataAcquisition,
+//   calculateAzureCostDataAcquisition,
+// } = require("./layer_data_acquisition.js");
 
-// Load JSON Pricing Data
-const fs = require("fs").promises;
-const path = require("path");
+// const {
+//   calculateAWSCostDataProcessing,
+//   calculateAzureCostDataProcessing,
+// } = require("./layer_data_processing.js");
 
+// const {
+//   calculateDynamoDBCost,
+//   calculateCosmosDBCost,
+//   calculateS3InfrequentAccessCost,
+//   calculateAzureBlobStorageCost,
+//   calculateS3GlacierDeepArchiveCost,
+//   calculateAzureBlobStorageArchiveCost,
+// } = require("./layer_data_storage.js");
 
-async function loadPricingData() {
-  try {
-    if (typeof window !== "undefined") {
-      // Browser environment
-      const response = await fetch("./pricing.json");
-      global.pricing = await response.json();
-    } else {
-      // Node environment
-      const filePath = path.join(__dirname, "pricing.json");
-      const data = await fs.readFile(filePath, "utf-8");
-      global.pricing = JSON.parse(data);
-    }
-  } catch (error) {
-    console.error("Error loading pricing data:", error);
-  }
-}
+// const {
+//   calculateAWSIoTTwinMakerCost,
+//   calculateAzureDigitalTwinsCost,
+// } = require("./layer_twin_management.js");
 
+// const {
+//   calculateAmazonManagedGrafanaCost,
+//   calculateAzureManagedGrafanaCost,
+// } = require("./layer_data_visualization.js");
+
+// const {
+//   calculateTransferCostFromL2AWSToAWSHot,
+//   calculateTransferCostFromL2AWSToAzureHot,
+//   calculateTransferCostFromL2AzureToAWSHot,
+//   calculateTransferCostFromL2AzureToAzureHot,
+//   calculateTransferCostFromAWSHotToAWSCool,
+//   calculateTransferCostFromAWSHotToAzureCool,
+//   calculateTransferCostsFromAzureHotToAWSCool,
+//   calculateTransferCostFromAzureHotToAzureCool,
+//   calculateTransferCostFromAWSCoolToAWSArchive,
+//   calculateTransferCostFromAWSCoolToAzureArchive,
+//   calculateTransferCostFromAzureCoolToAWSArchive,
+//   calculateTransferCostFromAzureCoolToAzureArchive,
+// } = require("./data_transfer.js");
+
+// const { 
+//   buildGraphForStorage, 
+//   findCheapestStoragePath 
+// } = require("./provider_decision.js");
+
+// const { 
+//   loadPricingData 
+// } = require("./json_handler.js");
 
 /**
  * 
@@ -97,9 +124,9 @@ async function readParamsFromUi() {
   );
   var needs3DModel = document.querySelector(
     'input[name="needs3DModel"]:checked'
-  ).value;
+  ).value === "yes";
   let entityCount = 0;
-  if (needs3DModel === "yes") {
+  if (needs3DModel) {
     entityCount = parseInt(document.getElementById("entityCount").value);
   }
   var amountOfActiveEditors = parseInt(
@@ -206,13 +233,15 @@ async function calculateAWSCosts(params) {
   var awsResultDataAcquisition = calculateAWSCostDataAcquisition(
     params.numberOfDevices,
     params.deviceSendingIntervalInMinutes,
-    params.averageSizeOfMessageInKb
+    params.averageSizeOfMessageInKb,
+    pricing
   );
 
   var awsResultDataProcessing = calculateAWSCostDataProcessing(
     params.numberOfDevices,
     params.deviceSendingIntervalInMinutes,
-    params.averageSizeOfMessageInKb
+    params.averageSizeOfMessageInKb,
+    pricing
   );
 
   var transferCostFromL2AWSToAWSHot = calculateTransferCostFromL2AWSToAWSHot(
@@ -220,63 +249,75 @@ async function calculateAWSCosts(params) {
   );
   var transferCostFromL2AWSToAzureHot =
     calculateTransferCostFromL2AWSToAzureHot(
-      awsResultDataProcessing.dataSizeInGB
+      awsResultDataProcessing.dataSizeInGB, 
+      pricing
     );
 
   var awsResultHotDynamoDB = calculateDynamoDBCost(
     awsResultDataProcessing.dataSizeInGB,
     awsResultDataProcessing.totalMessagesPerMonth,
     params.averageSizeOfMessageInKb,
-    params.hotStorageDurationInMonths
+    params.hotStorageDurationInMonths,
+    pricing
   );
 
   var transferCostFromAWSHotToAWSCool =
-    calculateTransferCostFromAWSHotToAWSCool(awsResultHotDynamoDB.dataSizeInGB);
+    calculateTransferCostFromAWSHotToAWSCool(
+      awsResultHotDynamoDB.dataSizeInGB, 
+      pricing
+    );
 
   var transferCostFromAWSHotToAzureCool =
     calculateTransferCostFromAWSHotToAzureCool(
-      awsResultHotDynamoDB.dataSizeInGB
+      awsResultHotDynamoDB.dataSizeInGB, 
+      pricing
     );
 
   var awsResultL3Cool = calculateS3InfrequentAccessCost(
     awsResultHotDynamoDB.dataSizeInGB,
-    params.coolStorageDurationInMonths
+    params.coolStorageDurationInMonths,
+    pricing
   );
 
   var transferCostFromAWSCoolToAWSArchive =
     calculateTransferCostFromAWSCoolToAWSArchive(awsResultL3Cool.dataSizeInGB);
   var transferCostFromAWSCoolToAzureArchive =
     calculateTransferCostFromAWSCoolToAzureArchive(
-      awsResultL3Cool.dataSizeInGB
+      awsResultL3Cool.dataSizeInGB, 
+      pricing
     );
 
   var awsResultL3Archive = calculateS3GlacierDeepArchiveCost(
     awsResultL3Cool.dataSizeInGB,
-    params.archiveStorageDurationInMonths
+    params.archiveStorageDurationInMonths, 
+    pricing
   );
 
   let awsResultLayer4 = null;
-  if (params.needs3DModel === "yes") {
+  if (params.needs3DModel) {
     awsResultLayer4 = calculateAWSIoTTwinMakerCost(
       params.entityCount,
       params.numberOfDevices,
       params.deviceSendingIntervalInMinutes,
       params.dashboardRefreshesPerHour,
-      params.dashboardActiveHoursPerDay
+      params.dashboardActiveHoursPerDay,
+      pricing
     );
-  } else if (params.needs3DModel === "no") {
+  } else if (!params.needs3DModel) {
     awsResultLayer4 = calculateAWSIoTTwinMakerCost(
       params.entityCount,
       params.numberOfDevices,
       params.deviceSendingIntervalInMinutes,
       params.dashboardRefreshesPerHour,
-      params.dashboardActiveHoursPerDay
+      params.dashboardActiveHoursPerDay,
+      pricing
     );
   }
 
   var awsResultLayer5 = calculateAmazonManagedGrafanaCost(
     params.amountOfActiveEditors,
-    params.amountOfActiveViewers
+    params.amountOfActiveViewers,
+    pricing
   );
 
   return {
@@ -304,18 +345,21 @@ async function calculateAzureCosts(params) {
   var azureResultDataAcquisition = calculateAzureCostDataAcquisition(
     params.numberOfDevices,
     params.deviceSendingIntervalInMinutes,
-    params.averageSizeOfMessageInKb
+    params.averageSizeOfMessageInKb,
+    pricing
   );
 
   var azureResultDataProcessing = calculateAzureCostDataProcessing(
     params.numberOfDevices,
     params.deviceSendingIntervalInMinutes,
-    params.averageSizeOfMessageInKb
+    params.averageSizeOfMessageInKb,
+    pricing
   );
 
   var transferCostFromL2AzureToAWSHot =
     calculateTransferCostFromL2AzureToAWSHot(
-      azureResultDataProcessing.dataSizeInGB
+      azureResultDataProcessing.dataSizeInGB, 
+      pricing
     );
 
   var transferCostFromL2AzureToAzureHot =
@@ -327,23 +371,32 @@ async function calculateAzureCosts(params) {
     azureResultDataProcessing.dataSizeInGB,
     azureResultDataProcessing.totalMessagesPerMonth,
     params.averageSizeOfMessageInKb,
-    params.hotStorageDurationInMonths
+    params.hotStorageDurationInMonths,
+    pricing
   );
 
   var transferCostFromAzureHotToAWSCool =
-    calculateTransferCostsFromAzureHotToAWSCool(azureResultHot.dataSizeInGB);
+    calculateTransferCostsFromAzureHotToAWSCool(
+      azureResultHot.dataSizeInGB, 
+      pricing
+    );
 
   var transferCostFromAzureHotToAzureCool =
-    calculateTransferCostFromAzureHotToAzureCool(azureResultHot.dataSizeInGB);
+    calculateTransferCostFromAzureHotToAzureCool(
+      azureResultHot.dataSizeInGB, 
+      pricing
+    );
 
   var azureResultLayer3CoolBlobStorage = calculateAzureBlobStorageCost(
     azureResultHot.dataSizeInGB,
-    params.coolStorageDurationInMonths
+    params.coolStorageDurationInMonths,
+    pricing
   );
 
   var transferCostFromAzureCoolToAWSArchive =
     calculateTransferCostFromAzureCoolToAWSArchive(
-      azureResultLayer3CoolBlobStorage.dataSizeInGB
+      azureResultLayer3CoolBlobStorage.dataSizeInGB, 
+      pricing
     );
   var transferCostFromAzureCoolToAzureArchive =
     calculateTransferCostFromAzureCoolToAzureArchive(
@@ -352,22 +405,25 @@ async function calculateAzureCosts(params) {
 
   var azureResultLayer3Archive = calculateAzureBlobStorageArchiveCost(
     azureResultLayer3CoolBlobStorage.dataSizeInGB,
-    params.archiveStorageDurationInMonths
+    params.archiveStorageDurationInMonths,
+    pricing
   );
 
   let azureResultLayer4 = null;
-  if (params.needs3DModel === "no") {
+  if (!params.needs3DModel) {
     azureResultLayer4 = calculateAzureDigitalTwinsCost(
       params.numberOfDevices,
       params.deviceSendingIntervalInMinutes,
       params.averageSizeOfMessageInKb,
       params.dashboardRefreshesPerHour,
-      params.dashboardActiveHoursPerDay
+      params.dashboardActiveHoursPerDay,
+      pricing
     );
   }
 
   var azureResultLayer5 = calculateAzureManagedGrafanaCost(
-    params.amountOfActiveEditors + params.amountOfActiveViewers
+    params.amountOfActiveEditors + params.amountOfActiveViewers,
+    pricing
   );
 
   return {
@@ -392,13 +448,10 @@ async function calculateAzureCosts(params) {
  * @param {*} params
  *
  */
-async function calculateCheapestCosts(params) {
-  if (!global.pricing) {
-    await loadPricingData();
-  }
+async function calculateCheapestCosts(params, pricing) {
 
-  let awsCosts = await calculateAWSCosts(params);
-  let azureCosts = await calculateAzureCosts(params);
+  let awsCosts = await calculateAWSCosts(params, pricing);
+  let azureCosts = await calculateAzureCosts(params, pricing);
 
   let transferCosts = {
     L1_AWS_to_AWS_Hot: awsCosts.transferCostL2ToHotAWS,
@@ -450,7 +503,7 @@ async function calculateCheapestCosts(params) {
     case "AWS_Hot":
       cheaperProviderForLayer1 =
         awsCostsAfterLayer1 + transferCosts.L1_AWS_to_AWS_Hot <
-        azureCostsAfterLayer1 + transferCosts.L1_Azure_to_AWS_Hot
+          azureCostsAfterLayer1 + transferCosts.L1_Azure_to_AWS_Hot
           ? "L1_AWS"
           : "L1_Azure";
       cheaperProviderForLayer3 = "L1_AWS";
@@ -458,7 +511,7 @@ async function calculateCheapestCosts(params) {
     case "Azure_Hot":
       cheaperProviderForLayer1 =
         awsCostsAfterLayer1 + transferCosts.L1_AWS_to_Azure_Hot <
-        azureCostsAfterLayer1 + transferCosts.L1_Azure_to_Azure_Hot
+          azureCostsAfterLayer1 + transferCosts.L1_Azure_to_Azure_Hot
           ? "L3_AWS"
           : "L3_Azure";
       cheaperProviderForLayer3 = "L3_Azure";
@@ -580,17 +633,16 @@ async function updateHtml(awsCosts, azureCosts, cheapestPath) {
     <!-- Layer 1 -->
     <div class="cost-card" onclick="flipCard(this)">
       <div class="card-front">
-        <h3>Layer 1: ${
-          comparisonPerLayerObj.layer1.name
-        } <span class="info-icon">ℹ️</span></h3>
+        <h3>Layer 1: ${comparisonPerLayerObj.layer1.name
+    } <span class="info-icon">ℹ️</span></h3>
         <p><strong>AWS:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer1.aws.toLocaleString(
-          "en-US",
-          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-        )}</span></p>
+      "en-US",
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    )}</span></p>
         <p><strong>Azure:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer1.azure.toLocaleString(
-          "en-US",
-          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-        )}</span></p>
+      "en-US",
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    )}</span></p>
       </div>
       <div class="card-back">
         <h3>Layer 1: ${comparisonPerLayerObj.layer1.name} Info</h3>
@@ -601,17 +653,16 @@ async function updateHtml(awsCosts, azureCosts, cheapestPath) {
     <!-- Layer 2 Hot Storage -->
     <div class="cost-card" onclick="flipCard(this)">
       <div class="card-front">
-        <h3>Layer 2: ${
-          comparisonPerLayerObj.layer2a.name
-        } <span class="info-icon">ℹ️</span></h3>
+        <h3>Layer 2: ${comparisonPerLayerObj.layer2a.name
+    } <span class="info-icon">ℹ️</span></h3>
         <p><strong>AWS:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer2a.aws.toLocaleString(
-          "en-US",
-          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-        )}</span></p>
+      "en-US",
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    )}</span></p>
         <p><strong>Azure:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer2a.azure.toLocaleString(
-          "en-US",
-          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-        )}</span></p>
+      "en-US",
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    )}</span></p>
       </div>
       <div class="card-back">
         <h3>Layer 2: ${comparisonPerLayerObj.layer2a.name} Info</h3>
@@ -622,17 +673,16 @@ async function updateHtml(awsCosts, azureCosts, cheapestPath) {
         <!-- Layer 2 Cool Storage -->
     <div class="cost-card" onclick="flipCard(this)">
       <div class="card-front">
-        <h3>Layer 2: ${
-          comparisonPerLayerObj.layer2b.name
-        } <span class="info-icon">ℹ️</span></h3>
+        <h3>Layer 2: ${comparisonPerLayerObj.layer2b.name
+    } <span class="info-icon">ℹ️</span></h3>
         <p><strong>AWS:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer2b.aws.toLocaleString(
-          "en-US",
-          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-        )}</span></p>
+      "en-US",
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    )}</span></p>
         <p><strong>Azure:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer2b.azure.toLocaleString(
-          "en-US",
-          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-        )}</span></p>
+      "en-US",
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    )}</span></p>
       </div>
       <div class="card-back">
         <h3>Layer 2: ${comparisonPerLayerObj.layer2b.name} Info</h3>
@@ -643,17 +693,16 @@ async function updateHtml(awsCosts, azureCosts, cheapestPath) {
     <!-- Layer 2 Archive Storage -->
     <div class="cost-card" onclick="flipCard(this)">
       <div class="card-front">
-        <h3>Layer 2: ${
-          comparisonPerLayerObj.layer2c.name
-        } <span class="info-icon">ℹ️</span></h3>
+        <h3>Layer 2: ${comparisonPerLayerObj.layer2c.name
+    } <span class="info-icon">ℹ️</span></h3>
         <p><strong>AWS:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer2c.aws.toLocaleString(
-          "en-US",
-          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-        )}</span></p>
+      "en-US",
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    )}</span></p>
         <p><strong>Azure:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer2c.azure.toLocaleString(
-          "en-US",
-          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-        )}</span></p>
+      "en-US",
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    )}</span></p>
       </div>
       <div class="card-back">
         <h3>Layer 2: ${comparisonPerLayerObj.layer2c.name} Info</h3>
@@ -664,17 +713,16 @@ async function updateHtml(awsCosts, azureCosts, cheapestPath) {
     <!-- Layer 3 -->
     <div class="cost-card" onclick="flipCard(this)">
       <div class="card-front">
-        <h3>Layer 3: ${
-          comparisonPerLayerObj.layer3.name
-        } <span class="info-icon">ℹ️</span></h3>
+        <h3>Layer 3: ${comparisonPerLayerObj.layer3.name
+    } <span class="info-icon">ℹ️</span></h3>
         <p><strong>AWS:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer3.aws.toLocaleString(
-          "en-US",
-          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-        )}</span></p>
+      "en-US",
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    )}</span></p>
         <p><strong>Azure:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer3.azure.toLocaleString(
-          "en-US",
-          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-        )}</span></p>
+      "en-US",
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    )}</span></p>
       </div>
       <div class="card-back">
         <h3>Layer 3: ${comparisonPerLayerObj.layer3.name} Info</h3>
@@ -684,25 +732,22 @@ async function updateHtml(awsCosts, azureCosts, cheapestPath) {
 
     <div class="cost-card" onclick="flipCard(this)">
       <div class="card-front">
-        <h3>Layer 4: ${
-          comparisonPerLayerObj.layer4.name
-        } <span class="info-icon">ℹ️</span></h3>
-        ${
-          comparisonPerLayerObj.layer4.aws
-            ? `<p><strong>AWS:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer4.aws.toLocaleString(
-                "en-US",
-                { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-              )}</span></p>`
-            : ""
-        }
-        ${
-          comparisonPerLayerObj.layer4.azure
-            ? `<p><strong>Azure:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer4.azure.toLocaleString(
-                "en-US",
-                { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-              )}</span></p>`
-            : ""
-        }
+        <h3>Layer 4: ${comparisonPerLayerObj.layer4.name
+    } <span class="info-icon">ℹ️</span></h3>
+        ${comparisonPerLayerObj.layer4.aws
+      ? `<p><strong>AWS:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer4.aws.toLocaleString(
+        "en-US",
+        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+      )}</span></p>`
+      : ""
+    }
+        ${comparisonPerLayerObj.layer4.azure
+      ? `<p><strong>Azure:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer4.azure.toLocaleString(
+        "en-US",
+        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+      )}</span></p>`
+      : ""
+    }
       </div>
       <div class="card-back">
         <h3>Layer 4: ${comparisonPerLayerObj.layer4.name} Info</h3>
@@ -714,17 +759,16 @@ async function updateHtml(awsCosts, azureCosts, cheapestPath) {
         <!-- Layer 5 -->
     <div class="cost-card" onclick="flipCard(this)">
       <div class="card-front">
-        <h3>Layer 5: ${
-          comparisonPerLayerObj.layer5.name
-        } <span class="info-icon">ℹ️</span></h3>
+        <h3>Layer 5: ${comparisonPerLayerObj.layer5.name
+    } <span class="info-icon">ℹ️</span></h3>
         <p><strong>AWS:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer5.aws.toLocaleString(
-          "en-US",
-          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-        )}</span></p>
+      "en-US",
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    )}</span></p>
         <p><strong>Azure:</strong> <span class="total-cost">$${comparisonPerLayerObj.layer5.azure.toLocaleString(
-          "en-US",
-          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-        )}</span></p>
+      "en-US",
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    )}</span></p>
       </div>
       <div class="card-back">
         <h3>Layer 5: ${comparisonPerLayerObj.layer5.name} Info</h3>
@@ -744,19 +788,20 @@ async function updateHtml(awsCosts, azureCosts, cheapestPath) {
  * @returns
  */
 async function calculateCheapestCostsFromUI() {
+  if (!pricing) {
+    pricing = await loadPricingData();
+  }
   var params = await readParamsFromUi();
   if (!params) {
     return;
   }
 
-  var results = await calculateCheapestCosts(params);
+  var results = await calculateCheapestCosts(params, pricing);
 
   updateHtml(results.awsCosts, results.azureCosts, results.cheapestPath);
 
-  // test
-
-  var testResults = await calculateCheapestCostsFromApiCall(params);
-  console.log("test results:", testResults);
+  console.log("pricing", pricing)
+  console.log("result", results)
 }
 
 /**
@@ -772,7 +817,7 @@ async function hasValidParamsSchema(obj) {
     hotStorageDurationInMonths: "number",
     coolStorageDurationInMonths: "number",
     archiveStorageDurationInMonths: "number",
-    needs3DModel: "string",
+    needs3DModel: "boolean",
     entityCount: "number",
     amountOfActiveEditors: "number",
     amountOfActiveViewers: "number",
@@ -792,57 +837,68 @@ async function hasValidParamsSchema(obj) {
  */
 async function calculateCheapestCostsFromApiCall(params) {
 
-  if (!global.pricing) {
-    await loadPricingData();
+  if (!pricing) {
+    pricing = await loadPricingData();
   }
-  
+
+  // Validate schema
   let paramsAreValid = await hasValidParamsSchema(params);
-  // console.log("\nParams:", params);
-  // console.log("\nParams are valid:", paramsAreValid);
   if (!paramsAreValid) {
     throw new Error("Invalid parameters schema");
   }
 
-  var results = await calculateCheapestCosts(params);
-
-  // console.log("\ncalculation result:", results.calculationResult);
-  return results.calculationResult;
-}
-
-// Export for other modules
-module.exports = { calculateCheapestCostsFromApiCall };
-
-// CLI runner
-if (require.main === module) {
-  const [,, fn, ...args] = process.argv;
-
-  async function main() {
-    try {
-      // Check if function exists
-      if (!module.exports[fn]) {
-        throw new Error(`Unknown function: ${fn}`);
-      }
-
-      // Parse JSON params
-      let params;
-      try {
-        params = JSON.parse(args[0]);
-      } catch (e) {
-        throw new Error(`Invalid JSON params: ${e.message}`);
-      }
-
-      // Call the requested function
-      const result = await module.exports[fn](params);
-
-      // Output result for Python to capture
-      console.log(JSON.stringify(result));
-    } catch (err) {
-      // Log errors to stderr (visible in Docker logs)
-      console.error("Error in Node script:", err);
-      // Exit with non-zero code so Python knows it failed
-      process.exit(1);
-    }
+  // Validate numeric ranges (non-zero positive values)
+  if (
+    params.numberOfDevices <= 0 ||
+    params.deviceSendingIntervalInMinutes <= 0 ||
+    params.averageSizeOfMessageInKb <= 0
+  ) {
+    throw new Error("numberOfDevices, deviceSendingIntervalInMinutes, and averageSizeOfMessageInKb must be positive numbers.");
   }
 
-  main();
+  // Validate storage durations
+  if (
+    params.hotStorageDurationInMonths > params.coolStorageDurationInMonths ||
+    params.hotStorageDurationInMonths > params.archiveStorageDurationInMonths ||
+    params.coolStorageDurationInMonths > params.archiveStorageDurationInMonths
+  ) {
+    throw new Error("Storage durations must follow: Hot <= Cool <= Archive.");
+  }
+
+  var results = await calculateCheapestCosts(params, pricing);
+
+  return results;
+}
+
+export { calculateCheapestCostsFromUI };
+if (typeof window !== "undefined") {
+  window.calculateCheapestCostsFromUI = calculateCheapestCostsFromUI;
+}
+
+// CLI runner (only runs in Node.js, not the browser)
+if (typeof process !== "undefined" && process.argv && import.meta.url) {
+  if (process.argv[1] === new URL(import.meta.url).pathname) {
+    const [,, fn, ...args] = process.argv;
+
+    async function main() {
+      try {
+        const functions = {
+          calculateCheapestCostsFromApiCall,
+        };
+
+        if (!functions[fn]) {
+          throw new Error(`Unknown function: ${fn}`);
+        }
+
+        let params = JSON.parse(args[0]);
+        const result = await functions[fn](params);
+        console.log(JSON.stringify(result));
+      } catch (err) {
+        console.error("Error in Node script:", err);
+        process.exit(1);
+      }
+    }
+
+    main();
+  }
 }

@@ -1,0 +1,75 @@
+{
+  "iotHub": {
+    "formula_ref": "CM",
+    "parameters": {
+      "c_m": "pricePerMessage",
+      "N_m": "numberOfMessages"
+    },
+    "description": "Azure IoT Hub message ingestion cost (tiered pricing model)."
+  },
+  "functions": {
+    "formula_ref": "CE",
+    "parameters": {
+      "c_e": "requestPrice",
+      "N_e": "numberOfRequests",
+      "freeRequests": "freeRequests",
+      "c_t": "durationPrice",
+      "T_e": "totalGBSeconds",
+      "freeComputeTime": "freeComputeTime"
+    },
+    "description": "Azure Functions pricing per execution and runtime duration."
+  },
+  "cosmosDB": {
+    "formula_refs": ["CA", "CS"],
+    "parameters": {
+      "c_a": "requestUnitPrice",
+      "N_a": "provisionedRU",
+      "c_s": "storagePrice",
+      "V": "storageVolume",
+      "D": "durationMonths"
+    },
+    "description": "Azure Cosmos DB provisioned throughput and storage cost."
+  },
+  "blobStorageCool": {
+    "formula_ref": "CS",
+    "parameters": {
+      "c_s": "storagePrice",
+      "V": "storageVolume",
+      "D": "durationMonths"
+    },
+    "description": "Azure Blob Storage (Cool Tier) cost per GB-month."
+  },
+  "blobStorageArchive": {
+    "formula_ref": "CS",
+    "parameters": {
+      "c_s": "storagePrice",
+      "V": "storageVolume",
+      "D": "durationMonths"
+    },
+    "description": "Azure Blob Archive storage for long-term retention."
+  },
+  "azureDigitalTwins": {
+    "formula_ref": "CA",
+    "parameters": {
+      "c_a": "operationPrice",
+      "N_a": "numberOfOperations"
+    },
+    "description": "Azure Digital Twins billed per operation, message, or query."
+  },
+  "azureManagedGrafana": {
+    "formula_ref": "CU",
+    "parameters": {
+      "c_u": "userPrice",
+      "N_u": "numberOfUsers"
+    },
+    "description": "Azure Managed Grafana per user and per instance runtime."
+  },
+  "transfer": {
+    "formula_ref": "CTransfer",
+    "parameters": {
+      "c_transfer": "transferPrice",
+      "GB_transferred": "transferVolume"
+    },
+    "description": "Azure egress or inter-region transfer cost per GB."
+  }
+}

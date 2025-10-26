@@ -9,7 +9,16 @@ RUN apt-get update && apt-get install -y curl \
 WORKDIR /app
 COPY . /app
 
-RUN pip install fastapi uvicorn
+RUN pip install \
+    requests \
+    fastapi \
+    uvicorn \
+    boto3 \
+    colorlog \
+    google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client google-cloud-billing
+
+
+# RUN npm install @aws-sdk/client-pricing
 
 EXPOSE 8000
 

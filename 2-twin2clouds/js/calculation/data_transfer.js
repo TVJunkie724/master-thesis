@@ -1,16 +1,16 @@
 "use strict";
 
-function calculateTransferCostFromAWSToInternet(dataSizeInGB) {
-  const freeTierLimit = global.pricing.aws.transfer.pricing_tiers.freeTier.limit;
-  const tier1Limit = global.pricing.aws.transfer.pricing_tiers.tier1.limit;
-  const tier2Limit = global.pricing.aws.transfer.pricing_tiers.tier2.limit;
-  const tier3Limit = global.pricing.aws.transfer.pricing_tiers.tier3.limit;
-  const tier4Limit = global.pricing.aws.transfer.pricing_tiers.tier4.limit;
+function calculateTransferCostFromAWSToInternet(dataSizeInGB, pricing) {
+  const freeTierLimit = pricing.aws.transfer.pricing_tiers.freeTier.limit;
+  const tier1Limit = pricing.aws.transfer.pricing_tiers.tier1.limit;
+  const tier2Limit = pricing.aws.transfer.pricing_tiers.tier2.limit;
+  const tier3Limit = pricing.aws.transfer.pricing_tiers.tier3.limit;
+  const tier4Limit = pricing.aws.transfer.pricing_tiers.tier4.limit;
   const freeTierPrice = 0;
-  const tier1Price = global.pricing.aws.transfer.pricing_tiers.tier1.price;
-  const tier2Price = global.pricing.aws.transfer.pricing_tiers.tier2.price;
-  const tier3Price = global.pricing.aws.transfer.pricing_tiers.tier3.price;
-  const tier4Price = global.pricing.aws.transfer.pricing_tiers.tier4.price;
+  const tier1Price = pricing.aws.transfer.pricing_tiers.tier1.price;
+  const tier2Price = pricing.aws.transfer.pricing_tiers.tier2.price;
+  const tier3Price = pricing.aws.transfer.pricing_tiers.tier3.price;
+  const tier4Price = pricing.aws.transfer.pricing_tiers.tier4.price;
 
   let totalCost = 0;
 
@@ -44,8 +44,8 @@ function calculateTransferCostFromAWSToInternet(dataSizeInGB) {
  * @returns transfer fee to transfer from azure network to internet
  */
 
-function calculateTransferCostFromAzureToInternet(dataSizeInGB) {
-  const transferPricing = global.pricing.azure.transfer.pricing_tiers;
+function calculateTransferCostFromAzureToInternet(dataSizeInGB, pricing) {
+  const transferPricing = pricing.azure.transfer.pricing_tiers;
   let remainingData = dataSizeInGB;
   let totalCost = 0;
 
@@ -86,12 +86,12 @@ function calculateTransferCostFromL2AWSToAWSHot(dataSizeInGB) {
   return 0;
 }
 
-function calculateTransferCostFromL2AWSToAzureHot(dataSizeInGB) {
-  return calculateTransferCostFromAWSToInternet(dataSizeInGB);
+function calculateTransferCostFromL2AWSToAzureHot(dataSizeInGB, pricing) {
+  return calculateTransferCostFromAWSToInternet(dataSizeInGB, pricing);
 }
 
-function calculateTransferCostFromL2AzureToAWSHot(dataSizeInGB) {
-  return calculateTransferCostFromAzureToInternet(dataSizeInGB);
+function calculateTransferCostFromL2AzureToAWSHot(dataSizeInGB, pricing) {
+  return calculateTransferCostFromAzureToInternet(dataSizeInGB, pricing);
 }
 
 function calculateTransferCostFromL2AzureToAzureHot(dataSizeInGB) {
@@ -100,29 +100,29 @@ function calculateTransferCostFromL2AzureToAzureHot(dataSizeInGB) {
 
 /* Transfer costs between Layer 3 (Hot) and Layer 3 (Cool)*/
 
-function calculateTransferCostFromAWSHotToAWSCool(dataSizeInGB) {
+function calculateTransferCostFromAWSHotToAWSCool(dataSizeInGB, pricing) {
   const transferCostFromDynamoDBToS3 =
-    global.pricing.aws.s3InfrequentAccess.transferCostFromDynamoDB;
+    pricing.aws.s3InfrequentAccess.transferCostFromDynamoDB;
 
   return dataSizeInGB * transferCostFromDynamoDBToS3;
 }
 
-function calculateTransferCostFromAWSHotToAzureCool(dataSizeInGB) {
-  return calculateTransferCostFromAWSToInternet(dataSizeInGB);
+function calculateTransferCostFromAWSHotToAzureCool(dataSizeInGB, pricing) {
+  return calculateTransferCostFromAWSToInternet(dataSizeInGB, pricing);
 }
 
-function calculateTransferCostsFromAzureHotToAWSCool(dataSizeInGB) {
+function calculateTransferCostsFromAzureHotToAWSCool(dataSizeInGB, pricing) {
   const transferCostFromCosmosDBToS3 =
-    global.pricing.aws.s3InfrequentAccess.transferCostFromCosmosDB;
+    pricing.aws.s3InfrequentAccess.transferCostFromCosmosDB;
   return (
     dataSizeInGB * transferCostFromCosmosDBToS3 +
-    calculateTransferCostFromAzureToInternet(dataSizeInGB)
+    calculateTransferCostFromAzureToInternet(dataSizeInGB, pricing)
   );
 }
 
-function calculateTransferCostFromAzureHotToAzureCool(dataSizeInGB) {
+function calculateTransferCostFromAzureHotToAzureCool(dataSizeInGB, pricing) {
   const transferCostFromCosmosDBToAzure =
-    global.pricing.azure.blobStorageCool.transferCostFromCosmosDB;
+    pricing.azure.blobStorageCool.transferCostFromCosmosDB;
   return dataSizeInGB <= 5
     ? 0
     : (dataSizeInGB - 5) * transferCostFromCosmosDBToAzure;
@@ -134,12 +134,12 @@ function calculateTransferCostFromAWSCoolToAWSArchive(dataSizeInGB) {
   return 0;
 }
 
-function calculateTransferCostFromAWSCoolToAzureArchive(dataSizeInGB) {
-  return calculateTransferCostFromAWSToInternet(dataSizeInGB);
+function calculateTransferCostFromAWSCoolToAzureArchive(dataSizeInGB, pricing) {
+  return calculateTransferCostFromAWSToInternet(dataSizeInGB, pricing);
 }
 
-function calculateTransferCostFromAzureCoolToAWSArchive(dataSizeInGB) {
-  return calculateTransferCostFromAzureToInternet(dataSizeInGB);
+function calculateTransferCostFromAzureCoolToAWSArchive(dataSizeInGB, pricing) {
+  return calculateTransferCostFromAzureToInternet(dataSizeInGB, pricing);
 }
 
 function calculateTransferCostFromAzureCoolToAzureArchive(dataSizeInGB) {
@@ -147,9 +147,7 @@ function calculateTransferCostFromAzureCoolToAzureArchive(dataSizeInGB) {
 }
 
 
-module.exports = {
-  calculateTransferCostFromAWSToInternet,
-  calculateTransferCostFromAzureToInternet,
+export {  
   calculateTransferCostFromL2AWSToAWSHot,
   calculateTransferCostFromL2AWSToAzureHot,
   calculateTransferCostFromL2AzureToAWSHot,
@@ -162,4 +160,6 @@ module.exports = {
   calculateTransferCostFromAWSCoolToAzureArchive,
   calculateTransferCostFromAzureCoolToAWSArchive,
   calculateTransferCostFromAzureCoolToAzureArchive,
-}
+  calculateTransferCostFromAWSToInternet,
+  calculateTransferCostFromAzureToInternet
+};

@@ -1,0 +1,15 @@
+{
+  "scenario": "Digital Twin Comparison Workload",
+  "period": "monthly",
+  "inputs": {
+    "devices": 100,
+    "messagesPerDevicePerDay": 1000,
+    "functionInvocationsPerMessage": 0.1,
+    "averageFunctionGBSecondsPerInvocation": 0.25,
+    "databaseReadsPerMessage": 0.05,
+    "databaseWritesPerMessage": 0.02,
+    "storedDataGB": 200,
+    "dashboardUsers": 5,
+    "transferGB": 300
+  }
+}

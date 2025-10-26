@@ -13,11 +13,12 @@
 function calculateAWSCostDataProcessing(
   numberOfDevices,
   deviceSendingIntervalInMinutes,
-  averageSizeOfMessageInKb
+  averageSizeOfMessageInKb,
+  pricing
 ) {
   const executionDurationInMS = 100;
   const allocatedMemoryInGB = 128 / 1024;
-  const layer2Pricing = global.pricing.aws.lambda;
+  const layer2Pricing = pricing.aws.lambda;
 
   const executionsPerMonth =
     numberOfDevices * (60 / deviceSendingIntervalInMinutes) * 730;
@@ -61,18 +62,20 @@ function calculateAWSCostDataProcessing(
 function calculateAzureCostDataProcessing(
   numberOfDevices,
   deviceSendingIntervalInMinutes,
-  averageSizeOfMessageInKb
+  averageSizeOfMessageInKb,
+  pricing
 ) {
   let result = calculateAWSCostDataProcessing(
     numberOfDevices,
     deviceSendingIntervalInMinutes,
-    averageSizeOfMessageInKb
+    averageSizeOfMessageInKb,
+    pricing
   );
   result.provider = "Azure";
   return result;
 }
 
-module.exports = {
-  calculateAWSCostDataProcessing,
-  calculateAzureCostDataProcessing,
+export { 
+  calculateAWSCostDataProcessing, 
+  calculateAzureCostDataProcessing 
 };
