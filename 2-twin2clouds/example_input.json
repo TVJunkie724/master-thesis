@@ -1,0 +1,14 @@
+{
+    "numberOfDevices": 100,
+    "deviceSendingIntervalInMinutes": 2,
+    "averageSizeOfMessageInKb": 0.25,
+    "hotStorageDurationInMonths": 1,
+    "coolStorageDurationInMonths": 3,
+    "archiveStorageDurationInMonths": 12,
+    "needs3DModel": "no",
+    "entityCount": 0,
+    "amountOfActiveEditors": 0,
+    "amountOfActiveViewers": 0,
+    "dashboardRefreshesPerHour": 2,
+    "dashboardActiveHoursPerDay": 0
+}
