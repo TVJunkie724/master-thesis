@@ -1,0 +1,34 @@
+{
+  "functions": {
+    "aws": "AWSLambda",
+    "azure": "Functions"
+  },
+  "storage_cool": {
+    "aws": "AmazonS3",
+    "azure": "Storage"
+  },
+  "storage_archive": {
+    "aws": "AmazonS3Glacier",
+    "azure": "StorageArchive"
+  },
+  "iot": {
+    "aws": "AWSIoTCore",
+    "azure": "IoTHub"
+  },
+  "eventBus": {
+    "aws": "AmazonEventBridge",
+    "azure": "ServiceBus"
+  },
+  "storage_hot": {
+    "aws": "AmazonDynamoDB",
+    "azure": "CosmosDB"
+  },
+  "twinmaker": {
+    "aws": "IOTTwinMaker",
+    "azure": "DigitalTwins"
+  },
+  "grafana": {
+    "aws": "AmazonManagedGrafana",
+    "azure": "AzureManagedGrafana"
+  }
+}
