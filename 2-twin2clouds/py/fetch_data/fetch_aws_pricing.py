@@ -2,7 +2,7 @@ import boto3
 import json
 from py.logger import logger
 import py.pricing_utils as pricing_utils
-from py.config_loader import get_aws_credentials
+from py.config_loader import load_aws_credentials
 import py.constants as CONSTANTS
 from py.config_loader import load_json_file
 
@@ -36,7 +36,7 @@ def get_pricing_client_aws():
     """
     Create a boto3 Pricing API client using loaded credentials.
     """
-    client_args = get_aws_credentials()
+    client_args = load_aws_credentials()
     return boto3.client("pricing", region_name="us-east-1", **client_args)
 
 

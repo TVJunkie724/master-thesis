@@ -22,7 +22,7 @@ def fetch_region_map() -> Dict[str, str]:
     logger.info("---------------------------------------------------")
     logger.info("Fetching AWS region map from Pricing API")
     try:
-        client_args = config_loader.get_aws_credentials()
+        client_args = config_loader.load_aws_credentials()
         region_map = {}
 
         # NOTE: The Pricing API is only available in specific regions (e.g., us-east-1)

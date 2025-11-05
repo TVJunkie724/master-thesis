@@ -2,132 +2,85 @@
   "formulas": {
     "CM": {
       "name": "Message-Based Cost",
-      "expression": "CM = c_m * N_m",
+      "expression": "c_m * N_m",
       "description": "Cost for IoT message ingestion services (e.g., AWS IoT Core, Azure IoT Hub).",
       "parameters": {
         "c_m": {
           "description": "Unit price per message",
-          "unit": "USD/message",
-          "example": 0.000001
+          "unit": "USD/message"
         },
         "N_m": {
-          "description": "Total number of messages sent during billing period",
-          "unit": "count",
-          "example": 100000000
+          "description": "Total number of messages sent",
+          "unit": "count"
         }
       }
     },
     "CE": {
       "name": "Execution-Based Cost",
-      "expression": "CE = c_e * (N_e - freeRequests) + c_t * (T_e - freeComputeTime)",
-      "description": "Serverless function pricing combining per-request and per-duration (GB-second) charges.",
+      "expression": "c_e * max(0, N_e - freeRequests) + c_t * max(0, T_e - freeComputeTime)",
+      "description": "Serverless function pricing combining per-request and per-duration charges.",
       "parameters": {
-        "c_e": {
-          "description": "Cost per request",
-          "unit": "USD/request",
-          "example": 0.0000002
-        },
-        "N_e": {
-          "description": "Total number of function invocations",
-          "unit": "count",
-          "example": 2000000
-        },
-        "freeRequests": {
-          "description": "Free requests included per billing period",
-          "unit": "count",
-          "example": 1000000
-        },
-        "c_t": {
-          "description": "Cost per GB-second of compute time",
-          "unit": "USD/GB-s",
-          "example": 0.0000166667
-        },
-        "T_e": {
-          "description": "Total compute duration in GB-seconds",
-          "unit": "GB-s",
-          "example": 500000
-        },
+        "c_e": { "description": "Cost per request", "unit": "USD/request" },
+        "N_e": { "description": "Number of requests", "unit": "count" },
+        "freeRequests": { "description": "Free requests", "unit": "count" },
+        "c_t": { "description": "Cost per GB-second", "unit": "USD/GB-s" },
+        "T_e": { "description": "Total GB-seconds", "unit": "GB-s" },
         "freeComputeTime": {
-          "description": "Free compute time in GB-seconds per month",
-          "unit": "GB-s",
-          "example": 400000
+          "description": "Free compute time",
+          "unit": "GB-s"
         }
       }
     },
-
     "CA": {
       "name": "Action-Based Cost",
-      "expression": "CA = c_a * N_a",
-      "description": "Cost for metered API operations, database reads/writes, or queries.",
+      "expression": "c_a * N_a",
+      "description": "Cost for metered API operations, database reads/writes, or retrievals.",
       "parameters": {
-        "c_a": {
-          "description": "Unit price per action (e.g., API call, read, write)",
-          "unit": "USD/action",
-          "example": 0.000000125
-        },
-        "N_a": {
-          "description": "Total number of actions during billing period",
-          "unit": "count",
-          "example": 100000000
-        }
+        "c_a": { "description": "Price per action", "unit": "USD/action" },
+        "N_a": { "description": "Number of actions", "unit": "count" }
       }
     },
-
     "CS": {
       "name": "Storage-Based Cost",
-      "expression": "CS = c_s * V * D",
-      "description": "Storage cost proportional to data volume and duration.",
+      "expression": "c_s * V * D",
+      "description": "Storage cost proportional to volume and duration.",
       "parameters": {
-        "c_s": {
-          "description": "Price per GB per month",
-          "unit": "USD/GB-month",
-          "example": 0.023
-        },
-        "V": {
-          "description": "Average data volume stored",
-          "unit": "GB",
-          "example": 1000
-        },
-        "D": {
-          "description": "Duration of storage in months (usually 1 for monthly billing)",
-          "unit": "months",
-          "example": 1
-        }
+        "c_s": { "description": "Price per GB-month", "unit": "USD/GB-month" },
+        "V": { "description": "Stored volume", "unit": "GB" },
+        "D": { "description": "Duration", "unit": "months" }
       }
     },
-
     "CU": {
       "name": "User-Based Cost",
-      "expression": "CU = c_u * N_u",
-      "description": "Cost for user-licensed services (e.g., dashboards or analytics workspaces).",
+      "expression": "(c_u_editor * N_editor + c_u_viewer * N_viewer) + c_u_hour * H",
+      "description": "Cost for user-licensed services with editor/viewer and hourly workspace components.",
       "parameters": {
-        "c_u": {
-          "description": "Cost per user per billing period",
-          "unit": "USD/user-month",
-          "example": 9
+        "c_u_editor": { "description": "Price per editor", "unit": "USD/user" },
+        "N_editor": { "description": "Number of editors", "unit": "count" },
+        "c_u_viewer": { "description": "Price per viewer", "unit": "USD/user" },
+        "N_viewer": { "description": "Number of viewers", "unit": "count" },
+        "c_u_hour": {
+          "description": "Hourly workspace price",
+          "unit": "USD/hour"
         },
-        "N_u": {
-          "description": "Number of active users in the period",
-          "unit": "count",
-          "example": 10
+        "H": {
+          "description": "Total hours per billing period",
+          "unit": "hours"
         }
       }
     },
-
     "CTransfer": {
       "name": "Data Transfer Cost",
-      "expression": "CTransfer = c_transfer * GB_transferred",
-      "description": "Data transfer or egress cost between layers or providers.",
+      "expression": "c_transfer * GB_transferred",
+      "description": "Egress data transfer cost per GB.",
       "parameters": {
         "c_transfer": {
-          "description": "Price per GB transferred out of the provider",
-          "unit": "USD/GB",
-          "example": 0.09
+          "description": "Price per GB transferred",
+          "unit": "USD/GB"
         },
         "GB_transferred": {
-          "description": "Total GB transferred between cloud layers or across providers",
-          "unit": "GB",
-          "example": 500
+          "description": "Total data transferred",
+          "unit": "GB"
         }
       }
     }

@@ -1,6 +1,6 @@
 {
   "aws": {
-    "iotCore": {
+    "iot": {
       "formula_ref": "CM",
       "parameters": {
         "c_m": "pricePerMessage",
@@ -8,7 +8,7 @@
       },
       "description": "AWS IoT Core billed per message published or received."
     },
-    "lambda": {
+    "functions": {
       "formula_ref": "CE",
       "parameters": {
         "c_e": "requestPrice",
@@ -18,9 +18,9 @@
         "T_e": "totalGBSeconds",
         "freeComputeTime": "freeComputeTime"
       },
-      "description": "AWS Lambda pricing by requests and compute time (GB-s)."
+      "description": "AWS functions pricing by requests and compute time (GB-s)."
     },
-    "dynamoDB": {
+    "storage_hot": {
       "formula_refs": ["CA", "CS"],
       "parameters": {
         "c_a_read": "readPrice",
@@ -31,9 +31,9 @@
         "V": "storageVolume",
         "D": "durationMonths"
       },
-      "description": "AWS DynamoDB billed per read/write request and GB-month of storage."
+      "description": "AWS storage_hot billed per read/write request and GB-month of storage."
     },
-    "s3InfrequentAccess": {
+    "storage_cool": {
       "formula_ref": "CS",
       "parameters": {
         "c_s": "storagePrice",
@@ -42,16 +42,18 @@
       },
       "description": "AWS S3 Infrequent Access storage cost per GB-month."
     },
-    "s3GlacierDeepArchive": {
-      "formula_ref": "CS",
+    "storage_archive": {
+      "formula_refs": ["CS", "CA"],
       "parameters": {
         "c_s": "storagePrice",
         "V": "storageVolume",
-        "D": "durationMonths"
+        "D": "durationMonths",
+        "c_a": "retrievalPrice",
+        "N_a": "retrievedGB"
       },
-      "description": "AWS Glacier Deep Archive low-cost long-term storage."
+      "description": "S3 Glacier Deep Archive: combines storage and retrieval costs."
     },
-    "iotTwinMaker": {
+    "twinmaker": {
       "formula_ref": "CA",
       "parameters": {
         "c_a": "queryPrice",
@@ -59,13 +61,17 @@
       },
       "description": "AWS IoT TwinMaker billed per query or entity operation."
     },
-    "awsManagedGrafana": {
+    "grafana": {
       "formula_ref": "CU",
       "parameters": {
-        "c_u": "userPrice",
-        "N_u": "numberOfUsers"
+        "c_u_editor": "editorPrice",
+        "N_editor": "numberOfEditors",
+        "c_u_viewer": "viewerPrice",
+        "N_viewer": "numberOfViewers",
+        "c_u_hour": "workspaceHourlyPrice",
+        "H": "hoursPerMonth"
       },
-      "description": "AWS Managed Grafana billed per active user."
+      "description": "AWS Managed Grafana billed per editor, viewer, and workspace-hour."
     },
     "transfer": {
       "formula_ref": "CTransfer",
@@ -73,17 +79,29 @@
         "c_transfer": "egressPrice",
         "GB_transferred": "transferVolume"
       },
+      "pricing_tiers": {
+        "freeTier": { "limit": 100, "price": 0 },
+        "tier1": { "limit": 10240, "price": 0.09 },
+        "tier2": { "limit": 51200, "price": 0.085 },
+        "tier3": { "limit": 102400, "price": 0.07 },
+        "tier4": { "limit": "Infinity", "price": 0.05 }
+      },
       "description": "AWS egress data transfer cost per GB."
     }
   },
   "azure": {
-    "iotHub": {
+    "iot": {
       "formula_ref": "CM",
       "parameters": {
         "c_m": "pricePerMessage",
         "N_m": "numberOfMessages"
       },
-      "description": "Azure IoT Hub message ingestion cost (tiered pricing model)."
+      "pricing_tiers": {
+        "tier1": { "limit": 120000000, "threshold": 12000000, "price": 25 },
+        "tier2": { "limit": 1800000000, "threshold": 180000000, "price": 250 },
+        "tier3": { "limit": "Infinity", "threshold": 9000000000, "price": 2500 }
+      },
+      "description": "Azure IoT Hub message ingestion cost."
     },
     "functions": {
       "formula_ref": "CE",
@@ -108,7 +126,7 @@
       },
       "description": "Azure Cosmos DB provisioned throughput and storage cost."
     },
-    "blobStorageCool": {
+    "storage_cool": {
       "formula_ref": "CS",
       "parameters": {
         "c_s": "storagePrice",
@@ -117,16 +135,18 @@
       },
       "description": "Azure Blob Storage (Cool Tier) cost per GB-month."
     },
-    "blobStorageArchive": {
-      "formula_ref": "CS",
+    "storage_archive": {
+      "formula_refs": ["CS", "CA"],
       "parameters": {
         "c_s": "storagePrice",
         "V": "storageVolume",
-        "D": "durationMonths"
+        "D": "durationMonths",
+        "c_a": "dataRetrievalPrice",
+        "N_a": "retrievedGB"
       },
-      "description": "Azure Blob Archive storage for long-term retention."
+      "description": "Azure Blob Archive storage and retrieval cost."
     },
-    "azureDigitalTwins": {
+    "twinmaker": {
       "formula_ref": "CA",
       "parameters": {
         "c_a": "operationPrice",
@@ -134,21 +154,29 @@
       },
       "description": "Azure Digital Twins billed per operation, message, or query."
     },
-    "azureManagedGrafana": {
+    "grafana": {
       "formula_ref": "CU",
       "parameters": {
         "c_u": "userPrice",
-        "N_u": "numberOfUsers"
+        "N_u": "numberOfUsers",
+        "c_u_hour": "hourlyPrice",
+        "H": "hoursPerMonth"
       },
-      "description": "Azure Managed Grafana per user and per instance runtime."
+      "description": "Azure Managed Grafana per user and per instance runtime hour."
     },
     "transfer": {
       "formula_ref": "CTransfer",
       "parameters": {
-        "c_transfer": "transferPrice",
+        "c_transfer": "egressPrice",
         "GB_transferred": "transferVolume"
       },
-      "description": "Azure egress or inter-region transfer cost per GB."
+      "pricing_tiers": {
+        "freeTier": { "limit": 100, "price": 0 },
+        "tier1": { "limit": 10240, "price": 0.09 },
+        "tier2": { "limit": 51200, "price": 0.085 },
+        "tier3": { "limit": 102400, "price": 0.07 },
+        "tier4": { "limit": "Infinity", "price": 0.05 }
+      }
     }
   }
 }

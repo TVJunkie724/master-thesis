@@ -9,11 +9,6 @@ global logger
 config = {}
 
 def setup_logger(debug_mode=False):
-    global config
-    
-    with open(CONSTANTS.CONFIG_FILE_PATH) as f:
-        config = json.load(f)
-    
     logger = logging.getLogger("digital_twin")
     logger.setLevel(logging.DEBUG if debug_mode else logging.INFO)
 
@@ -68,6 +63,8 @@ logger_proxy = LoggerProxy()
 
 
 
+with open(CONSTANTS.CONFIG_FILE_PATH) as f:
+    config = json.load(f)
 DEBUG_MODE = config.get("mode", "").upper() == "DEBUG"
 logger = setup_logger(debug_mode=DEBUG_MODE)
 

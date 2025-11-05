@@ -54,13 +54,11 @@ def load_credentials_file():
     return load_json_file(CONSTANTS.CREDENTIALS_FILE_PATH)
 
 
-def get_aws_credentials() -> dict:
+def load_aws_credentials() -> dict:
     """
     Load AWS credentials from the local configuration file.
     """
-    print("\n")
-    logger.info("---------------------------------------------------")
-    logger.info("Loading AWS credentials from configuration file.")
+    logger.info("    Loading AWS credentials from configuration file.")
     creds = load_credentials_file()
     if not creds:
         raise ValueError("Failed to load credentials configuration.")
@@ -85,9 +83,7 @@ def load_azure_credentials():
     """
     Load Azure credentials from the local configuration file.
     """
-    print("\n")
-    logger.info("---------------------------------------------------")
-    logger.info("Loading Azure credentials from configuration file.")
+    logger.info("    Loading Azure credentials from configuration file.")
     creds = load_credentials_file()
     if not creds:
         raise ValueError("Failed to load credentials configuration.")
@@ -102,6 +98,7 @@ def load_gcp_credentials():
     """
     Load GCP service account credentials from the specified file.
     """
+    logger.info("    Loading GCP credentials from configuration file.")
     creds = load_credentials_file()
     if not creds:
         raise ValueError("Failed to load credentials configuration.")
@@ -119,7 +116,7 @@ def load_aws_service_codes_file():
     """
     Load AWS service codes from a JSON file.  (for fallback purposes)
     """
-    logger.info("Loading AWS service codes from local file.")
+    logger.info("    Loading AWS service codes from local file.")
     return load_json_file(CONSTANTS.AWS_SERVICE_CODES_FILE_PATH)
 
 
@@ -127,14 +124,14 @@ def load_azure_service_codes_file():
     """
     Load AZURE service codes from a JSON file.  (for fallback purposes)
     """
-    logger.info("Loading AZURE service codes from local file.")
+    logger.info("    Loading AZURE service codes from local file.")
     return load_json_file(CONSTANTS.AZURE_SERVICE_CODES_FILE_PATH)
 
 def load_google_service_codes_file():
     """
     Load GCP service codes from a JSON file. (for fallback purposes)
     """
-    logger.info("Loading GCP service codes from local file.")
+    logger.info("    Loading GCP service codes from local file.")
     return load_json_file(CONSTANTS.GCP_SERVICES_FILE_PATH)
 
 # --------------------------------------------------------------------

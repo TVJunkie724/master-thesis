@@ -13,12 +13,13 @@ RUN pip install \
     requests \
     fastapi \
     uvicorn \
-    boto3 \
     colorlog \
+    # AWS SDK for Python
+    boto3 \ 
+    # Azure SDK for Python
+    azure-mgmt-consumption azure-identity \
+    # Google Cloud SDK for Python
     google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client google-cloud-billing
-
-
-# RUN npm install @aws-sdk/client-pricing
 
 EXPOSE 8000
 

@@ -8,11 +8,11 @@
     "azure": "Storage"
   },
   "storage_archive": {
-    "aws": "AmazonS3Glacier",
+    "aws": "AmazonS3",
     "azure": "StorageArchive"
   },
   "iot": {
-    "aws": "AWSIoTCore",
+    "aws": "AWSIoT",
     "azure": "IoTHub"
   },
   "eventBus": {

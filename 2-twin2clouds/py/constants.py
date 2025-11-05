@@ -13,6 +13,12 @@ GCP_CREDENTIALS_BASE_FILE_PATH = BASE_CONFIG_DIR
 
 CURRENCY_CONVERSION_FILE_PATH = PRICING_BASE_PATH / "currency.json"
 
+FORMULAS_FILE_PATH = PRICING_BASE_PATH / "formulas.json"
+SERVICE_CALC_PARAMS_FILE_PATH = PRICING_BASE_PATH / "service_calc_params.json"
+REGIONS_MAPPING_FILE_PATH = PRICING_BASE_PATH / "regions_mapping.json"
+SERVICE_MAPPING_FILE_PATH = PRICING_BASE_PATH / "service_mapping.json"
+
+
 #--------------------------------------------------------------------
 # File paths for storing fetched data
 #--------------------------------------------------------------------

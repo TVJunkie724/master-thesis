@@ -1,153 +1,286 @@
-import py.config_loader as config_loader
-
 """
 calculate_up_to_date_pricing.py
 --------------------------------
-Calculates up-to-date cloud pricing using formulas, workload, and
-live price fetchers for AWS and Azure (from cloud_price_fetcher.py).
-
-Expected companion file:
-  cloud_price_fetcher.py — implements:
-    fetch_aws_price(service_name: str, region: str) -> dict
-    fetch_azure_price(service_name: str, region: str) -> dict
+Generates up-to-date multi-cloud pricing JSON.
+Uses dynamic AWS fetching and placeholders for Azure & Google.
 """
 
 import json
-import ast
-import operator as op
-from math import ceil, floor
+import traceback
 from pathlib import Path
-
-# Import your fetcher functions
-from cloud_price_fetcher import fetch_aws_price, fetch_azure_price
-
-# ---------------------------------------------------------------------
-# Safe expression evaluator (for formulas)
-# ---------------------------------------------------------------------
-OPS = {
-    ast.Add: op.add, ast.Sub: op.sub, ast.Mult: op.mul, ast.Div: op.truediv,
-    ast.Pow: op.pow, ast.Mod: op.mod, ast.FloorDiv: op.floordiv,
-    ast.UAdd: op.pos, ast.USub: op.neg,
-}
-FUNCS = {"ceil": ceil, "floor": floor, "min": min, "max": max, "abs": abs, "round": round}
-
-def safe_eval(expr, names):
-    """Safely evaluate arithmetic expressions used in formulas.json."""
-    node = ast.parse(expr, mode="eval")
-
-    def _eval(n):
-        if isinstance(n, ast.Expression): return _eval(n.body)
-        if isinstance(n, ast.Constant): return n.value
-        if isinstance(n, ast.Num): return n.n
-        if isinstance(n, ast.BinOp): return OPS[type(n.op)](_eval(n.left), _eval(n.right))
-        if isinstance(n, ast.UnaryOp): return OPS[type(n.op)](_eval(n.operand))
-        if isinstance(n, ast.Name):
-            if n.id in names: return names[n.id]
-            raise NameError(f"Unknown variable: {n.id}")
-        if isinstance(n, ast.Call):
-            fn = n.func.id if isinstance(n.func, ast.Name) else None
-            if fn in FUNCS:
-                args = [_eval(a) for a in n.args]
-                return FUNCS[fn](*args)
-            raise ValueError(f"Function '{fn}' not allowed")
-        raise ValueError(f"Unsupported node {type(n)}")
-    return _eval(node)
-
-# ---------------------------------------------------------------------
-# Value resolver
-# ---------------------------------------------------------------------
-def resolve_value(param_key, workload, service_prices):
-    """Find a parameter value from workload inputs or fetched prices."""
-    if param_key in workload:
-        return workload[param_key]
-    if param_key in service_prices:
-        return service_prices[param_key]
-    return 0
+import py.config_loader as config_loader
+import py.constants as CONSTANTS
+from py.logger import logger
+from py.cloud_price_fetcher_aws import fetch_aws_price, STATIC_DEFAULTS
+# Future:
+# from py.cloud_price_fetcher_azure import fetch_azure_price
+# from py.cloud_price_fetcher_google import fetch_google_price
 
 
-def get_service_name(provider: str, neutral_name: str) -> str:
-    mapping = config_loader.load_json_file("service_mapping.json")
-    return mapping.get(neutral_name, {}).get(provider, neutral_name)
-
-# ---------------------------------------------------------------------
-# Main computation
-# ---------------------------------------------------------------------
-def main():
-    print("🔄 Loading configuration files...")
-    formulas = config_loader.load_json_file("formulas.json")["formulas"]
-    providers = config_loader.load_json_file("service_calc_params.json")
-    workload = config_loader.load_json_file("base_workload.json")["inputs"]
+# ============================================================
+# ENTRYPOINT
+# ============================================================
+def calculate_up_to_date_pricing(additional_debug = False):
+    logger.info("🔄 Starting multi-cloud pricing update...")
 
     credentials = config_loader.load_credentials_file()
-    aws_region = credentials.get("aws", {}).get("region", "eu-central-1")
-    azure_region = credentials.get("azure", {}).get("region", "westeurope")
-    gcp_region = credentials.get("gcp", {}).get("region", "europe-west3")
+    providers_config = config_loader.load_json_file(CONSTANTS.SERVICE_CALC_PARAMS_FILE_PATH)
 
     output = {}
+    
+    # TESTING
+    # additional_debug = True
 
-    for provider_name, services in providers.items():
-        print(f"\n⚙️  Processing provider: {provider_name.upper()}")
-        provider_total = 0.0
-        output[provider_name] = {}
+    if "aws" in credentials:
+        print("")
+        logger.info("🌍 Fetching AWS pricing...")
+        aws_region = credentials["aws"].get("aws_region", "eu-central-1")
+        output["aws"] = fetch_aws_data(aws_region, providers_config.get("aws", {}), additional_debug)
 
-        for provider_name, services in providers.items():
-            provider_total = 0.0
-            output[provider_name] = {}
+    if "azure" in credentials:
+        print("")
+        logger.info("🌍 Preparing Azure placeholder pricing...")
+        azure_region = credentials["azure"].get("azure_region", "westeurope")
+        output["azure"] = fetch_azure_data(azure_region, providers_config.get("azure", {}), additional_debug)
 
-            for neutral_service_name, service_def in services.items():
-                # Get provider-specific service name
-                provider_service_name = get_service_name(provider_name, neutral_service_name)
-                print(f"  • Fetching {provider_name.upper()} → {provider_service_name}")
+    if "gcp" in credentials:
+        print("")
+        logger.info("🌍 Preparing GCP placeholder pricing...")
+        gcp_region = credentials["gcp"].get("gcp_region", "us-central1")
+        output["gcp"] = fetch_google_data(gcp_region, providers_config.get("gcp", {}), additional_debug)
 
-                # Fetch pricing dynamically using provider-specific name
-                if provider_name == "aws":
-                    service_prices = fetch_aws_price(provider_service_name, aws_region)
-                elif provider_name == "azure":
-                    service_prices = fetch_azure_price(provider_service_name, azure_region)
-                else:
-                    service_prices = {}
+    Path("pricing_dynamic.json").write_text(json.dumps(output, indent=2))
+    print("")
+    logger.info("✅ Wrote pricing_dynamic.json successfully!")
+    return output
 
-            entry = dict(service_prices)
-            calc_cost = 0.0
-            formula_refs = []
-            if "formula_ref" in service_def:
-                formula_refs = [service_def["formula_ref"]]
-            elif "formula_refs" in service_def:
-                formula_refs = service_def["formula_refs"]
 
-            for fref in formula_refs:
-                formula = formulas.get(fref)
-                if not formula:
-                    continue
-                expr = formula.get("expression", "")
-                param_defs = formula.get("parameters", {})
-                param_map = service_def.get("parameters", {})
+from py.cloud_price_fetcher_aws import STATIC_DEFAULTS
+from py.logger import logger
 
-                # Build names for formula evaluation
-                names = {}
-                for pname in param_defs.keys():
-                    mapped = param_map.get(pname, pname)
-                    val = resolve_value(mapped, workload, service_prices)
-                    entry[mapped] = val
-                    names[pname] = val
+def _get_or_warn(neutral_service, provider_service, key, fetched_dict, default_value):
+    """
+    Returns a fetched value or default.
+    - Logs info if the value is static (in STATIC_DEFAULTS).
+    - Logs warning if the value had to fall back.
+    """
+    if neutral_service in STATIC_DEFAULTS.keys() and key in STATIC_DEFAULTS[neutral_service]:
+        logger.info(f"      ℹ️ Using static value for AWS.{provider_service}.{key}")
+    if key in fetched_dict and fetched_dict[key] is not None:
+        return fetched_dict[key]
+    
+    
+    logger.warning(f"   ⚠️ Using fallback for AWS.{provider_service}.{key} (not returned by API)")
+    return default_value
 
-                if expr.strip():
-                    cost_part = safe_eval(expr, names)
-                    calc_cost += float(cost_part)
 
-            entry["calculated_cost"] = round(calc_cost, 8)
-            provider_total += calc_cost
-            output[provider_name][service_name] = entry
+    
+# ============================================================
+# AWS FETCHING AND SCHEMA BUILD
+# ============================================================
+def fetch_aws_data(region: str, aws_services_config: dict, additional_debug=False) -> dict:
+    """
+    Fetches all AWS service pricing using fetch_aws_price()
+    and builds the canonical AWS pricing.json structure.
+    Prints warnings for all fallback/default values or static defaults.
+    """
+    logger.info(f"🚀 Fetching AWS pricing for region: {region}")
 
-        output[provider_name]["total_cost"] = round(provider_total, 8)
+    # ---------------- Fetch all raw pricing data ----------------
+    fetched = {}
+    # TODO pass aws credentials
+    for neutral_service in aws_services_config.keys():
+        try:
+            logger.info(f"--- Service: {neutral_service} ---")
+            fetched[neutral_service] = fetch_aws_price(neutral_service, region, additional_debug)
+        except Exception as e:
+            logger.debug(traceback.format_exc())
+            logger.error(f"⚠️ Failed to fetch AWS service {neutral_service}: {e}")
+            fetched[neutral_service] = {}
 
-    # Add workload to the output for traceability
-    output["example_workload"] = workload
+    logger.info("🧩 Building AWS pricing schema...")
+    aws = {}
 
-    # Write final JSON
-    Path("output_with_costs.json").write_text(json.dumps(output, indent=2))
-    print("\n✅ Wrote output_with_costs.json successfully!")
+    neutral_service, provider_service = "transfer", "transfer"
+    transfer = fetched.get(neutral_service, {})
+    aws[provider_service] = {
+        "pricing_tiers": transfer.get("pricing_tiers", {
+            "freeTier": {"limit": 100, "price": 0},
+            "tier1": {"limit": 10240, "price": 0.09},
+            "tier2": {"limit": 51200, "price": 0.085},
+            "tier3": {"limit": 102400, "price": 0.07},
+            "tier4": {"limit": "Infinity", "price": 0.05},
+        }),
+    }
+    aws["egressPrice"] = _get_or_warn(neutral_service, provider_service, "egressPrice", transfer, 0.09)
 
-# ---------------------------------------------------------------------
-if __name__ == "__main__":
-    main()
+    neutral_service, provider_service = "iot", "iotCore"
+    iot = fetched.get(neutral_service, {})
+    message_tiers = iot.get("messageTiers", {})
+    aws[provider_service] = {
+        "pricePerDeviceAndMonth": _get_or_warn(neutral_service, provider_service, "pricePerDeviceAndMonth", iot, 0.0035),
+        "priceRulesTriggered": _get_or_warn(neutral_service, provider_service, "priceRulesTriggered", iot, 0.00000015),
+        "pricing_tiers": {
+            "tier1": {"limit": 1_000_000_000, "price": message_tiers.get("tier_first", 0.000001)},
+            "tier2": {"limit": 5_000_000_000, "price": message_tiers.get("tier_next", 0.0000008)},
+            "tier3": {"limit": "Infinity", "price": message_tiers.get("tier_over", 0.0000007)},
+        },
+    }
+
+    neutral_service, provider_service = "functions", "lambda"
+    fn = fetched.get(neutral_service, {})
+    duration_tiers = fn.get("durationTiers", {})
+    aws[provider_service] = {
+        "requestPrice": _get_or_warn(neutral_service, provider_service, "requestPrice", fn, 0.0000002),
+        "durationPrice": duration_tiers.get("tier1", 0.0000166667),
+        "freeRequests": _get_or_warn(neutral_service, provider_service, "freeRequests", fn, 1_000_000),
+        "freeComputeTime": _get_or_warn(neutral_service, provider_service, "freeComputeTime", fn, 400_000),
+    }
+
+    neutral_service, provider_service = "storage_hot", "dynamoDB"
+    ddb = fetched.get(neutral_service, {})
+    aws[provider_service] = {
+        "writePrice": _get_or_warn(neutral_service, provider_service, "writePrice", ddb, 0.000000625),
+        "readPrice": _get_or_warn(neutral_service, provider_service, "readPrice", ddb, 0.000000125),
+        "storagePrice": _get_or_warn(neutral_service, provider_service, "storagePrice", ddb, 0.25),
+        "freeStorage": _get_or_warn(neutral_service, provider_service, "freeStorage", ddb, 25),
+    }
+
+    neutral_service, provider_service = "storage_cool", "s3InfrequentAccess"
+    s3ia = fetched.get(neutral_service, {})
+    egress_price = aws["egressPrice"]
+    aws[provider_service] = {
+        "storagePrice": _get_or_warn(neutral_service, provider_service, "storagePrice", s3ia, 0.0125),
+        "upfrontPrice": _get_or_warn(neutral_service, provider_service, "upfrontPrice", s3ia, 0.0001),
+        "requestPrice": _get_or_warn(neutral_service, provider_service, "requestPrice", s3ia, 0.00001),
+        "dataRetrievalPrice": _get_or_warn(neutral_service, provider_service, "dataRetrievalPrice", s3ia, 0.01),
+        "transferCostFromDynamoDB": round(egress_price * 1.1, 8),
+        "transferCostFromCosmosDB": round(egress_price * 0.55, 8),
+    }
+
+    neutral_service, provider_service = "storage_archive", "s3GlacierDeepArchive"
+    s3ga = fetched.get(neutral_service, {})
+    aws[provider_service] = {
+        "storagePrice": _get_or_warn(neutral_service, provider_service, "storagePrice", s3ga, 0.00099),
+        "lifecycleAndWritePrice": _get_or_warn(neutral_service, provider_service, "lifecycleAndWritePrice", s3ga, 0.00005),
+        "dataRetrievalPrice": _get_or_warn(neutral_service, provider_service, "dataRetrievalPrice", s3ga, 0.0025),
+    }
+
+    neutral_service, provider_service = "twinmaker", "iotTwinMaker"
+    tm = fetched.get(neutral_service, {})
+    aws[provider_service] = {
+        "unifiedDataAccessAPICallsPrice": _get_or_warn(neutral_service, provider_service, "unifiedDataAccessAPICallsPrice", tm, 0.0000015),
+        "entityPrice": _get_or_warn(neutral_service, provider_service, "entityPrice", tm, 0.05),
+        "queryPrice": _get_or_warn(neutral_service, provider_service, "queryPrice", tm, 0.00005),
+    }
+
+    neutral_service, provider_service = "grafana", "awsManagedGrafana"
+    gf = fetched.get(neutral_service, {})
+    aws[provider_service] = {
+        "editorPrice": _get_or_warn(neutral_service, provider_service, "editorPrice", gf, 9.0),
+        "viewerPrice": _get_or_warn(neutral_service, provider_service, "viewerPrice", gf, 5.0),
+    }
+
+    logger.info("✅ AWS pricing schema built successfully.")
+    return aws
+
+
+
+# ============================================================
+# AZURE PLACEHOLDER STRUCTURE
+# ============================================================
+def fetch_azure_data(region: str, azure_services_config: dict, additional_debug=False) -> dict:
+    """
+    Placeholder for Azure fetching — iterates through config like AWS,
+    builds canonical structure, logs defaults (fetching not yet implemented).
+    """
+    logger.info(f"🚀 Building Azure structure (region: {region})")
+    fetched = {}
+
+    for neutral_service_name in azure_services_config.keys():
+        logger.info(f"--- Azure Service (placeholder): {neutral_service_name} ---")
+        fetched[neutral_service_name] = {}  # no fetching yet
+
+    def warn_default(service, key):
+        logger.warning(f"⚠️ Using default value for Azure {service}.{key} (fetch not implemented)")
+
+    azure = {}
+
+    # Transfer
+    azure["transfer"] = {
+        "pricing_tiers": {
+            "freeTier": {"limit": 100, "price": 0},
+            "tier1": {"limit": 10240, "price": 0.08},
+            "tier2": {"limit": 40960, "price": 0.065},
+            "tier3": {"limit": 102400, "price": 0.06},
+            "tier4": {"limit": "Infinity", "price": 0.04},
+        }
+    }
+
+    # IoT Hub
+    azure["iotHub"] = {
+        "pricing_tiers": {
+            "tier1": {"limit": 120_000_000, "threshold": 12_000_000, "price": 25},
+            "tier2": {"limit": 1_800_000_000, "threshold": 180_000_000, "price": 250},
+            "tier3": {"limit": "Infinity", "threshold": 9_000_000_000, "price": 2500},
+        }
+    }
+
+    # Azure Functions
+    azure["functions"] = {
+        "requestPrice": 0.0000002,
+        "durationPrice": 0.0000166667,
+        "freeRequests": 1_000_000,
+        "freeComputeTime": 400_000,
+    }
+
+    # CosmosDB (storage_hot)
+    azure["cosmosDB"] = {
+        "storagePrice": 0.25,
+        "requestPrice": 0.0584,
+        "minimumRequestUnits": 400,
+        "RUsPerWrite": 1,
+        "RUsPerRead": 10,
+    }
+
+    # Blob Storage Cool (storage_cool)
+    azure["blobStorageCool"] = {
+        "storagePrice": 0.015,
+        "writePrice": 0.00001,
+        "readPrice": 0.000001,
+        "dataRetrievalPrice": 0.01,
+        "transferCostFromCosmosDB": 0.05,
+    }
+
+    # Blob Storage Archive (storage_archive)
+    azure["blobStorageArchive"] = {
+        "storagePrice": 0.00099,
+        "writePrice": 0.000013,
+        "dataRetrievalPrice": 0.02,
+    }
+
+    # Azure Digital Twins
+    azure["azureDigitalTwins"] = {
+        "messagePrice": 0.000001,
+        "operationPrice": 0.0000025,
+        "queryPrice": 0.0000005,
+        "queryUnitTiers": [
+            {"lower": 1, "upper": 99, "value": 15},
+            {"lower": 100, "upper": 9999, "value": 1500},
+            {"lower": 10000, "value": 4000},
+        ],
+    }
+
+    # Managed Grafana
+    azure["azureManagedGrafana"] = {"userPrice": 6.0, "hourlyPrice": 0.069}
+
+    logger.info("✅ Azure placeholder schema built successfully.")
+    return azure
+
+
+# ============================================================
+# GOOGLE PLACEHOLDER STRUCTURE
+# ============================================================
+def fetch_google_data(region: str, google_services_config: dict, additional_debug=False) -> dict:
+    logger.warning(f"⚠️ Google Cloud fetching not implemented yet (region: {region}).")
+    return {}

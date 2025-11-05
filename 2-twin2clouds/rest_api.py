@@ -11,6 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from py.logger import logger
+from py.utils import print_stack_trace
+from py.calculate_up_to_date_pricing import calculate_up_to_date_pricing
 import py.fetch_data.fetch_aws_pricing as aws_fetch
 import py.fetch_data.fetch_azure_pricing as azure_fetch
 import py.fetch_data.fetch_google_pricing as gcp_fetch
@@ -333,4 +335,19 @@ def get_gcp_pricing(
         return gcp_fetch.fetch_gcp_pricing(service_id, region_id)
     except Exception as e:
         logger.error(f"Error fetching GCP pricing for service '{service_id}' in region '{region_id}': {e}")
+        return {"error": str(e)}
+    
+    
+@app.get("/api/calculate_up_to_date_pricing", tags=["Calculation"], summary="Calculate Up-to-Date Cloud Pricing")
+def calculate_up_to_date_pricing_endpoint():
+    """
+    Trigger the calculation of up-to-date cloud pricing across AWS, Azure, and GCP.
+    This function loads the latest pricing data and computes costs based on predefined workloads.
+    """
+    try:
+        calculate_up_to_date_pricing()
+        return {"status": "Up-to-date pricing calculation completed successfully."}
+    except Exception as e:
+        logger.error(f"Error during up-to-date pricing calculation: {e}")
+        print_stack_trace()
         return {"error": str(e)}
