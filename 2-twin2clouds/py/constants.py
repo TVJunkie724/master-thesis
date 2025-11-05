@@ -31,6 +31,8 @@ AZURE_SERVICE_CODES_FILE_PATH = BASE_FETCHED_DATA_PATH / "azure_services.json"
 GCP_REGIONS_FILE_PATH = BASE_FETCHED_DATA_PATH / "gcp_regions.json"
 GCP_SERVICES_FILE_PATH = BASE_FETCHED_DATA_PATH / "gcp_services.json"
 
+DYNAMIC_PRICING_FILE_PATH = BASE_FETCHED_DATA_PATH / "pricing_dynamic.json"
+
 #--------------------------------------------------------------------
 # Fetching URLs
 #--------------------------------------------------------------------

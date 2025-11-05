@@ -1,4 +1,4 @@
-import boto3, json, traceback
+import boto3, json, traceback, copy
 import py.constants as CONSTANTS
 from py.config_loader import load_json_file, load_aws_credentials
 from py.logger import logger
@@ -238,8 +238,11 @@ def fetch_twinmaker_pricing(region_human, pricing_client, debug=False):
 # -------------------------------------------------------------------
 # Main unified fetcher
 # -------------------------------------------------------------------
-def fetch_aws_price(neutral_service_name: str, region_name: str, debug=False):
+def fetch_aws_price(credentials: dict, service_mapping: dict, neutral_service_name: str, region_name: str, debug=False):
     """Fetch AWS pricing for any neutral service, dispatching specialized handlers as needed."""
+    aws_credentials = copy.deepcopy(credentials)
+    aws_credentials["region_name"] = aws_credentials.pop("aws_region", None)
+    
     if neutral_service_name == "grafana":
         prices = STATIC_DEFAULTS["grafana"]
         logger.info(f"ℹ️ Using static Grafana pricing")
@@ -247,7 +250,6 @@ def fetch_aws_price(neutral_service_name: str, region_name: str, debug=False):
         print("")
         return prices
 
-    aws_credentials = load_aws_credentials()
     pricing_client = boto3.client("pricing", **aws_credentials)
     region_human = AWS_REGION_NAMES.get(region_name, region_name)
 
@@ -257,7 +259,6 @@ def fetch_aws_price(neutral_service_name: str, region_name: str, debug=False):
         return fetch_twinmaker_pricing(region_human, pricing_client, debug)
 
     # Normal path
-    service_mapping = load_json_file(CONSTANTS.SERVICE_MAPPING_FILE_PATH)
     service_code = service_mapping.get(neutral_service_name, {}).get("aws", neutral_service_name)
     if neutral_service_name == "storage_archive":
         service_code = "AmazonS3"

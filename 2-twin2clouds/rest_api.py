@@ -5,32 +5,20 @@ import json
 import os
 from enum import Enum
 
-from fastapi import FastAPI, Body, Query
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Body
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from py.logger import logger
 from py.utils import print_stack_trace
-from py.calculate_up_to_date_pricing import calculate_up_to_date_pricing
-import py.fetch_data.fetch_aws_pricing as aws_fetch
-import py.fetch_data.fetch_azure_pricing as azure_fetch
-import py.fetch_data.fetch_google_pricing as gcp_fetch
+import py.constants as CONSTANTS
 
-import py.fetch_data.initial_fetch_aws as aws_fetch_initial
-import py.fetch_data.initial_fetch_azure as azure_fetch_initial
-import py.fetch_data.initial_fetch_google as gcp_fetch_initial
+from py.calculate_up_to_date_pricing import calculate_up_to_date_pricing
 from py.config_loader import load_config_file, load_json_file
 
-def create_enum(name: str, values: list[str]) -> type[Enum]:
-    """Dynamically create an Enum for Swagger dropdowns."""
-    if not values:
-        values = ["N/A"]
-    return Enum(name, {v: v for v in values})
 
 def load_api_config():
-    global AWS_REGION_MAP, AWS_SERVICE_CODES, AZURE_REGION_MAP, AZURE_SERVICE_CODES, GCP_REGIONS, GCP_SERVICES
-    global AwsRegionEnum, AwsServiceEnum, AzureRegionEnum, AzureServiceEnum, GcpRegionEnum, GcpServiceEnum
 
     config = {}
     try:
@@ -41,57 +29,7 @@ def load_api_config():
         sys.exit(1)
     
     twin2clouds_config = config.get("twin2clouds", {})
-        
-    fetch_aws_anew = twin2clouds_config.get("fetch_aws_data_anew", False)
-    fetch_azure_anew = twin2clouds_config.get("fetch_azure_data_anew", False)
-    fetch_gcp_anew = twin2clouds_config.get("fetch_gcp_data_anew", False)
-    
-    # Prepare service and region dropdowns for Swagger
-    print("\n")
-    if fetch_aws_anew:
-        logger.info("---------------------------------------------------")
-        logger.info("🔄 Fetching AWS pricing data anew...")
-        AWS_REGION_MAP = aws_fetch_initial.fetch_region_map()
-        AWS_SERVICE_CODES = aws_fetch_initial.fetch_aws_service_codes()
-    else:
-        AWS_REGION_MAP = aws_fetch.load_aws_regions_file()
-        AWS_SERVICE_CODES = aws_fetch.load_aws_service_codes_file()    
-    
-    # print("\n")
-    # if fetch_azure_anew:
-    #     logger.info("---------------------------------------------------")
-    #     logger.info("🔄 Fetching Azure pricing data anew...")
-    #     AZURE_REGION_MAP = azure_fetch_initial.fetch_azure_regions()
-    #     AZURE_SERVICE_CODES = azure_fetch_initial.fetch_azure_service_names()
-    #     print(AZURE_SERVICE_CODES)
-    # else:
-    #     AZURE_REGION_MAP = azure_fetch.load_azure_regions_file()
-    #     AZURE_SERVICE_CODES = azure_fetch.load_azure_service_names_file()
-        
-    print("\n")
-    if fetch_gcp_anew:
-        logger.info("---------------------------------------------------")
-        logger.info("🔄 Fetching GCP pricing data anew...")
-        GCP_REGIONS = gcp_fetch_initial.fetch_gcp_regions()
-        GCP_SERVICES = gcp_fetch_initial.fetch_gcp_services()
-    else:
-        GCP_REGIONS = gcp_fetch.load_gcp_regions_file()
-        GCP_SERVICES = gcp_fetch.load_gcp_service_names_file()
-
-    print("\n")
-    # TODO add filter from config file
-
-
-    # ✅ Create Enums dynamically for Swagger dropdowns
-    AwsRegionEnum = create_enum("AwsRegionEnum", list(AWS_REGION_MAP.keys()))
-    AwsServiceEnum = create_enum("AwsServiceEnum", list(AWS_SERVICE_CODES.keys()))
-    # AzureRegionEnum = create_enum("AzureRegionEnum", list(AZURE_REGION_MAP.keys()))
-    # AzureServiceEnum = create_enum("AzureServiceEnum", list(AZURE_SERVICE_CODES.values()))
-    GcpRegionEnum = create_enum("GcpRegionEnum", list(GCP_REGIONS.keys()))
-    GcpServiceEnum = create_enum("GcpServiceEnum", list(GCP_SERVICES.keys()))
-
-
-
+          
 load_api_config()
 
 # ----------- FastAPI app initialization -----------
@@ -172,6 +110,7 @@ class CalcParams(BaseModel):
 )
 def serve_ui():
     return FileResponse("index.html")
+
 
 
 # Serve static assets (JavaScript and CSS)
@@ -264,90 +203,69 @@ def calc(params: CalcParams = Body(
     except Exception:
         return {"raw_output on error": result.stdout.strip()}
     
-@app.put("/api/calculate", tags=["Calculation"])
-def fetch_aws_iot_core():
-    result = subprocess.run(
-        ["node", "js/fetch_data/fetch_aws.js", "fetchIoTCorePricing"],
-        capture_output=True,
-        text=True
-    )
-    if result.returncode != 0:
-        return {"error": result.stderr.strip()}
-
-    try:
-        return {"result": json.loads(result.stdout.strip())}
-    except Exception:
-        return {"raw_output on error": result.stdout.strip()}
-    
-
-# --------------------------------------------------
-# Pricing endpoints
-# --------------------------------------------------
-@app.get("/api/pricing_aws", tags=["Pricing"], summary="Get AWS Service Pricing",)
-def get_aws_pricing(
-        service_code: AwsServiceEnum = Query(..., description="AWS service"),
-        region_code: AwsRegionEnum = Query("eu-central-1", description="AWS region"),
-    ):
-    logger.info(f"Fetching pricing for service: {service_code}, region: {region_code}")
-    try:
-        if service_code not in AWS_SERVICE_CODES or region_code not in AWS_REGION_MAP:
-            return {"error": "Invalid service or region"}
         
-        service = AWS_SERVICE_CODES[service_code]
-        region = AWS_REGION_MAP[region_code]
-        
-        return aws_fetch.fetch_aws_pricing(service, region)
-    except Exception as e:
-        logger.error(f"Error fetching AWS pricing for service '{service_code}' in region '{region_code}': {e}")
-        return {"error": str(e)}
-
-
-
-@app.get("/api/pricing_azure", tags=["Pricing"], summary="Get Azure Service Pricing")
-def get_azure_pricing(
-        service_name: str = Query(..., description="Azure Service Name"),
-        region_name: str = Query(..., description="Azure Region Name"),
-    ):
-    """
-    Retrieve the retail (pay-as-you-go) price for a given Azure service in a specific region.
-    """
-    try:
-        return azure_fetch.fetch_azure_pricing(service_name, region_name)
-    except Exception as e:
-        logger.error(f"Error fetching Azure pricing for {service_name} in {region_name}: {e}")
-        return {"error": str(e)}
     
-
-
-@app.get("/api/pricing_google", 
-         summary="Get GCP Service Pricing", 
-         description="Fetch Google Cloud service pricing for a given service and region.",
-         tags=["Pricing"])
-def get_gcp_pricing(
-        service_id: GcpServiceEnum = Query(..., description="GCP Service ID"),
-        region_id: GcpRegionEnum = Query(..., description="GCP Region ID"),
-    ):
-    logger.info(f"Fetching pricing for service: {service_id}, region: {region_id}")
-    try:
-        if service_id not in GCP_SERVICES or region_id not in GCP_REGIONS:
-            return {"error": "Invalid service or region"}
-        logger.info(f"Fetching GCP pricing for service={service_id}, region={region_id}")
-        return gcp_fetch.fetch_gcp_pricing(service_id, region_id)
-    except Exception as e:
-        logger.error(f"Error fetching GCP pricing for service '{service_id}' in region '{region_id}': {e}")
-        return {"error": str(e)}
-    
-    
-@app.get("/api/calculate_up_to_date_pricing", tags=["Calculation"], summary="Calculate Up-to-Date Cloud Pricing")
-def calculate_up_to_date_pricing_endpoint():
+@app.get("/api/calculate_up_to_date_pricing", tags=["Pricing"], summary="Calculate Up-to-Date Cloud Pricing")
+def calculate_up_to_date_pricing_endpoint(additional_debug: bool = False):
     """
     Trigger the calculation of up-to-date cloud pricing across AWS, Azure, and GCP.
     This function loads the latest pricing data and computes costs based on predefined workloads.
     """
     try:
-        calculate_up_to_date_pricing()
-        return {"status": "Up-to-date pricing calculation completed successfully."}
+        calculate_up_to_date_pricing(additional_debug)
+        fetched_pricing_result = load_json_file(CONSTANTS.DYNAMIC_PRICING_FILE_PATH)
+        return fetched_pricing_result
     except Exception as e:
         logger.error(f"Error during up-to-date pricing calculation: {e}")
         print_stack_trace()
         return {"error": str(e)}
+    
+# --------------------------------------------------
+# Documentation endpoints
+# --------------------------------------------------
+
+# Serve all documentation pages and shared styles
+app.mount("/docs", StaticFiles(directory="docs"), name="documentation")
+app.mount("/references", StaticFiles(directory="references"), name="references")
+
+@app.get(
+    "/documentation/overview",
+    tags=["WebUI"],
+    summary="Documentation Overview",
+    description=(
+        "Serves the **Twin2Clouds Documentation Overview** page.<br><br>"
+        "📘 <a href='/documentation/overview' target='_blank'>Open Documentation Overview in a new tab</a><br><br>"
+        "Provides navigation to AWS, Azure, and Google Cloud pricing schema documentation "
+        "as well as cost formula definitions."
+    ),
+)
+def serve_docs_overview():
+    return FileResponse("docs/docs-overview.html")
+
+
+@app.get(
+    "/documentation/aws_pricing",
+    tags=["WebUI"],
+    summary="AWS Pricing Schema Documentation",
+    description=(
+        "Serves the **AWS Pricing Documentation** page describing how each AWS service "
+        "price is fetched, calculated, or set as static.<br><br>"
+        "📘 <a href='/documentation/aws_pricing' target='_blank'>Open AWS Pricing Documentation in a new tab</a>"
+    ),
+)
+def serve_docs_aws():
+    return FileResponse("docs/docs-aws-pricing.html")
+
+
+@app.get(
+    "/documentation/formulas",
+    tags=["WebUI"],
+    summary="Formulas and Service Mapping Documentation",
+    description=(
+        "Serves the **Formulas Documentation** page detailing all cost calculation formulas, "
+        "parameter definitions, and mapping between services and cost model formulas.<br><br>"
+        "📘 <a href='/documentation/formulas' target='_blank'>Open Formulas Documentation in a new tab</a>"
+    ),
+)
+def serve_docs_formulas():
+    return FileResponse("docs/docs-formulas.html")

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>(Multi-Cloud) twin2clouds Documentation — Overview</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="../css/docs_styles.css" />
+  <script src="../js/docs-nav.js" defer></script>
+</head>
+
+<body>
+  <div class="docs-layout">
+    <div id="sidebar-container"></div>
+    <div class="docs-content">
+      <header>
+        <h1>☁️ (Multi-Cloud) twin2clouds Documentation</h1>
+        <p>Internal developer documentation for cloud pricing schemas, cost formulas, and mapping logic.</p>
+      </header>
+      <main>
+
+        <div class="card">
+          <h2>1. Provider Pricing Schemas</h2>
+          <p>Each document explains how pricing is fetched, which fields are static or calculated, and which AWS Pricing
+            API
+            <code>dimensions</code> are used.
+          </p>
+          <ul>
+            <li><a href="/documentation/aws_pricing">AWS Pricing Schema</a> — detailed, live-data based documentation.
+            </li>
+            <li><a href="/documentation/azure_pricing" disabled>Azure Pricing Schema</a> — <em>coming soon</em>.</li>
+            <li><a href="/documentation/google_pricing">Google Cloud Pricing Schema</a> — <em>coming soon</em>.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h2>2. Formulas & Calculation Mappings</h2>
+          <p>This document explains each mathematical cost formula (<strong>CM</strong>, <strong>CE</strong>, etc.) used
+            in
+            dynamic cost computation. It also shows how services from each provider map to those formulas.</p>
+          <p>📄 <a href="/documentation/formulas">Open Formulas & Service Mapping Documentation →</a></p>
+        </div>
+
+        <div class="card">
+          <h2>3. Reference Material</h2>
+          <p>
+            For theoretical background and derivation of these pricing formulas, refer to this paper:
+          </p>
+          <p>📘 <a href="../references/EDT_25__CloudDT_engineering.pdf" target="_blank">Download: Cloud Pricing and Cost
+              Modeling (PDF)</a></p>
+          <h3>Other Sources:</h3>
+          <ul>
+            <li><a
+                href="https://docs.aws.amazon.com/code-library/latest/ug/pricing_example_pricing_GetProducts_section.html"
+                target="_blank">AWS Documentation - get_products</a></li>
+          </ul>
+        </div>
+
+      </main>
+    </div>
+</body>
+
+</html>

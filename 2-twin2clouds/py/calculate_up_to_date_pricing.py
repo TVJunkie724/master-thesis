@@ -30,26 +30,34 @@ def calculate_up_to_date_pricing(additional_debug = False):
     
     # TESTING
     # additional_debug = True
+    
+    service_mapping = config_loader.load_json_file(CONSTANTS.SERVICE_MAPPING_FILE_PATH)
 
     if "aws" in credentials:
         print("")
-        logger.info("🌍 Fetching AWS pricing...")
-        aws_region = credentials["aws"].get("aws_region", "eu-central-1")
-        output["aws"] = fetch_aws_data(aws_region, providers_config.get("aws", {}), additional_debug)
+        logger.info("========================================================")
+        logger.info("Fetching AWS pricing...")
+        logger.info("========================================================")
+        aws_credentials = credentials.get("aws", {})
+        output["aws"] = fetch_aws_data(aws_credentials, service_mapping, providers_config.get("aws", {}), additional_debug)
 
     if "azure" in credentials:
         print("")
-        logger.info("🌍 Preparing Azure placeholder pricing...")
-        azure_region = credentials["azure"].get("azure_region", "westeurope")
-        output["azure"] = fetch_azure_data(azure_region, providers_config.get("azure", {}), additional_debug)
+        logger.info("========================================================")
+        logger.info("Fetching Azure pricing...")
+        logger.info("========================================================")
+        azure_credentials = credentials.get("azure", {})
+        output["azure"] = fetch_azure_data(azure_credentials, service_mapping, providers_config.get("azure", {}), additional_debug)
 
     if "gcp" in credentials:
         print("")
-        logger.info("🌍 Preparing GCP placeholder pricing...")
-        gcp_region = credentials["gcp"].get("gcp_region", "us-central1")
-        output["gcp"] = fetch_google_data(gcp_region, providers_config.get("gcp", {}), additional_debug)
+        logger.info("========================================================")
+        logger.info("Fetching GCP pricing...")
+        logger.info("========================================================")
+        google_credentials = credentials.get("gcp", {})
+        output["gcp"] = fetch_google_data(google_credentials, service_mapping, providers_config.get("gcp", {}), additional_debug)
 
-    Path("pricing_dynamic.json").write_text(json.dumps(output, indent=2))
+    Path(CONSTANTS.DYNAMIC_PRICING_FILE_PATH).write_text(json.dumps(output, indent=2))
     print("")
     logger.info("✅ Wrote pricing_dynamic.json successfully!")
     return output
@@ -78,21 +86,21 @@ def _get_or_warn(neutral_service, provider_service, key, fetched_dict, default_v
 # ============================================================
 # AWS FETCHING AND SCHEMA BUILD
 # ============================================================
-def fetch_aws_data(region: str, aws_services_config: dict, additional_debug=False) -> dict:
+def fetch_aws_data(aws_credentials: dict, service_mapping: dict, aws_services_config: dict, additional_debug=False) -> dict:
     """
     Fetches all AWS service pricing using fetch_aws_price()
     and builds the canonical AWS pricing.json structure.
     Prints warnings for all fallback/default values or static defaults.
     """
+    region = aws_credentials.get("aws_region", "eu-central-1")
     logger.info(f"🚀 Fetching AWS pricing for region: {region}")
 
-    # ---------------- Fetch all raw pricing data ----------------
     fetched = {}
-    # TODO pass aws credentials
+    
     for neutral_service in aws_services_config.keys():
         try:
             logger.info(f"--- Service: {neutral_service} ---")
-            fetched[neutral_service] = fetch_aws_price(neutral_service, region, additional_debug)
+            fetched[neutral_service] = fetch_aws_price(aws_credentials, service_mapping, neutral_service, region, additional_debug)
         except Exception as e:
             logger.debug(traceback.format_exc())
             logger.error(f"⚠️ Failed to fetch AWS service {neutral_service}: {e}")
@@ -187,23 +195,23 @@ def fetch_aws_data(region: str, aws_services_config: dict, additional_debug=Fals
 
 
 # ============================================================
-# AZURE PLACEHOLDER STRUCTURE
+# FETCHING AZURE DATA AND SCHEMA BUILD
 # ============================================================
-def fetch_azure_data(region: str, azure_services_config: dict, additional_debug=False) -> dict:
+def fetch_azure_data(azure_credentials: dict, service_mapping: dict, azure_services_config: dict, additional_debug=False) -> dict:
     """
     Placeholder for Azure fetching — iterates through config like AWS,
     builds canonical structure, logs defaults (fetching not yet implemented).
     """
-    logger.info(f"🚀 Building Azure structure (region: {region})")
+    region = azure_credentials.get("azure_region", "westeurope")
+    logger.info(f"🚀 Fetching Azure pricing for region: {region}")
+    
     fetched = {}
 
     for neutral_service_name in azure_services_config.keys():
         logger.info(f"--- Azure Service (placeholder): {neutral_service_name} ---")
         fetched[neutral_service_name] = {}  # no fetching yet
-
-    def warn_default(service, key):
-        logger.warning(f"⚠️ Using default value for Azure {service}.{key} (fetch not implemented)")
-
+    
+    logger.info(f"🚀 Building Azure structure (region: {region})")
     azure = {}
 
     # Transfer
@@ -281,6 +289,8 @@ def fetch_azure_data(region: str, azure_services_config: dict, additional_debug=
 # ============================================================
 # GOOGLE PLACEHOLDER STRUCTURE
 # ============================================================
-def fetch_google_data(region: str, google_services_config: dict, additional_debug=False) -> dict:
+def fetch_google_data(google_credentials: dict, service_mapping: dict, google_services_config: dict, additional_debug=False) -> dict:
+    region = google_credentials.get("gcp_region", "europe-west1")
+    logger.info(f"🚀 Fetching Google Cloud pricing for region: {region}")
     logger.warning(f"⚠️ Google Cloud fetching not implemented yet (region: {region}).")
     return {}

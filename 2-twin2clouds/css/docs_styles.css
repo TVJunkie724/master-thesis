@@ -1,0 +1,324 @@
+:root {
+  --bg: #0b1220;
+  --panel: #111a2b;
+  --text: #e8f0ff;
+  --muted: #9cb0ce;
+  --link: #9cc3ff;
+  --border: #1e2a46;
+  --ok: #27c498;
+  --calc: #7aa2ff;
+  --warn: #ffaa5f;
+  --err: #ff6b6b;
+}
+
+/* ------------------------------
+   Base Layout
+   ------------------------------ */
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.6 system-ui, -apple-system, Segoe UI, Roboto;
+}
+
+header {
+  padding: 40px 25px 25px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #0c1426, #0a1120);
+}
+
+h1 {
+  margin: 0 0 10px;
+  font-size: 30px;
+}
+
+h2 {
+  font-size: 22px;
+  margin-top: 0;
+  border-bottom: 1px dashed #243659;
+  padding-bottom: 8px;
+}
+
+h3 {
+  margin-top: 25px;
+  font-size: 18px;
+  color: var(--link);
+}
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 25px;
+}
+
+p {
+  color: var(--muted);
+  margin: 10px 0;
+}
+
+/* ------------------------------
+   Containers / Cards
+   ------------------------------ */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 26px;
+  margin-bottom: 26px;
+}
+
+.section-note {
+  margin-top: 18px;
+  padding: 14px 18px;
+  background: #101a33;
+  border: 1px solid #1e2a46;
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* ------------------------------
+   Tables
+   ------------------------------ */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 14px;
+}
+
+th, td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: #a8bee2;
+  font-weight: 600;
+  background: #101a33;
+}
+
+tr:hover td {
+  background: #121f33;
+}
+
+/* ------------------------------
+   Inline Elements
+   ------------------------------ */
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+code, pre, .mono {
+  font-family: ui-monospace, Consolas, Menlo, monospace;
+}
+
+pre {
+  background: #101a33;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid #1e2a46;
+  overflow: auto;
+  font-size: 14px;
+}
+
+/* ------------------------------
+   List Styling
+   ------------------------------ */
+ul {
+  margin-top: 10px;
+  padding-left: 22px;
+  line-height: 1.7;
+}
+
+/* ------------------------------
+   Chips (Badges)
+   ------------------------------ */
+.chip {
+  display: inline-block;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  margin-right: 6px;
+  line-height: 1.2;
+}
+
+.chip.ok {
+  background: rgba(39, 196, 152, 0.12);
+  border: 1px solid #18493c;
+  color: #baf2df;
+}
+
+.chip.calc {
+  background: rgba(122, 162, 255, 0.1);
+  border: 1px solid #2a3b73;
+  color: #cdddff;
+}
+
+.chip.warn {
+  background: rgba(255, 170, 95, 0.12);
+  border: 1px solid #55391a;
+  color: #ffcc9c;
+}
+
+.chip.err {
+  background: rgba(255, 107, 107, 0.12);
+  border: 1px solid #522222;
+  color: #ffaaaa;
+}
+
+/* ------------------------------
+   Responsive
+   ------------------------------ */
+@media (max-width: 750px) {
+  body {
+    font-size: 14px;
+  }
+  main {
+    padding: 25px 15px;
+  }
+  table, pre {
+    font-size: 13px;
+  }
+}
+
+/* ------------------------------
+   Small Visual Enhancements
+   ------------------------------ */
+hr {
+  border: none;
+  height: 1px;
+  background: var(--border);
+  margin: 30px 0;
+}
+
+blockquote {
+  border-left: 3px solid var(--border);
+  margin: 10px 0;
+  padding-left: 12px;
+  color: var(--muted);
+}
+
+
+/* ------------------------------
+   Sidebar (full height + toggle)
+   ------------------------------ */
+.sidebar {
+  background: #0c1426;
+  color: #ffffff;
+  width: 260px;
+  height: 100vh; /* full height of viewport */
+  position: fixed; /* stick to the left */
+  top: 0;
+  left: 0;
+  padding: 25px 20px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s ease;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.4);
+  z-index: 50;
+}
+
+.sidebar h2 {
+  font-size: 18px;
+  margin-bottom: 25px;
+  color: #c7d2fe;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex-grow: 1;
+}
+
+.sidebar ul li {
+  margin-bottom: 10px;
+}
+
+.sidebar ul li a {
+  color: #e0e7ff;
+  text-decoration: none;
+  display: block;
+  padding: 10px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.sidebar ul li a:hover {
+  background: #1e3a8a;
+  color: #ffffff;
+  padding-left: 16px;
+}
+
+/* Collapsed mode */
+.sidebar.collapsed {
+  width: 70px;
+}
+
+.sidebar.collapsed h2,
+.sidebar.collapsed ul li a {
+  text-align: center;
+  padding: 8px;
+}
+
+.sidebar.collapsed ul li a {
+  font-size: 0;
+}
+
+.sidebar.collapsed ul li a::before {
+  font-size: 18px;
+  content: "•";
+  color: #9cc3ff;
+}
+
+/* ------------------------------
+   Sidebar Toggle Button
+   ------------------------------ */
+.sidebar-toggle {
+  position: fixed;
+  top: 20px;
+  left: 270px;
+  background: #1e3a8a;
+  border: none;
+  color: white;
+  font-size: 22px;
+  border-radius: 6px;
+  cursor: pointer;
+  z-index: 100;
+  padding: 8px 12px;
+  transition: all 0.3s ease;
+}
+
+.sidebar-toggle:hover {
+  background: #3b82f6;
+}
+
+.sidebar-toggle.collapsed {
+  left: 80px;
+}
+
+/* ------------------------------
+   Content shift for sidebar
+   ------------------------------ */
+.docs-content {
+  flex-grow: 1;
+  padding: 40px 50px;
+  max-width: 1000px;
+  margin-left: 260px;
+  transition: margin-left 0.3s ease;
+}
+
+.sidebar.collapsed ~ .docs-content {
+  margin-left: 70px;
+}
+
