@@ -1,25 +1,39 @@
+# STAGE 1 — Node builder (Clarity Core)
+FROM node:18 AS clarity-builder
+
+WORKDIR /build
+
+RUN npm init -y
+RUN npm install @clr/ui @cds/core --save
+
+
+# STAGE 2 — Python runtime
 FROM python:3.11-slim
 
-# Install Node.js (LTS)
-RUN apt-get update && apt-get install -y curl \
- && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
- && apt-get install -y nodejs \
- && apt-get clean
+RUN apt-get update \
+    && apt-get install -y ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
 COPY . /app
+
+RUN mkdir -p /app/docs/cds
+COPY --from=clarity-builder /build/node_modules/@cds/core /app/docs/cds
 
 RUN pip install \
     requests \
     fastapi \
     uvicorn \
     colorlog \
-    # AWS SDK for Python
-    boto3 \ 
-    # Azure SDK for Python
-    azure-mgmt-consumption azure-identity \
-    # Google Cloud SDK for Python
-    google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client google-cloud-billing
+    boto3 \
+    azure-mgmt-consumption \
+    azure-identity \
+    google-auth \
+    google-auth-oauthlib \
+    google-auth-httplib2 \
+    google-api-python-client \
+    google-cloud-billing
 
 EXPOSE 8000
 

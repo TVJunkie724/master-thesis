@@ -2,39 +2,45 @@
 <html lang="en">
 
 <head>
-    <meta charset="utf-8" />
-    <title>AWS Pricing Schema — Documentation</title>
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <link rel="stylesheet" href="../css/docs_styles.css" />
-    <script src="../js/docs-nav.js" defer></script>
+  <meta charset="utf-8" />
+  <title>AWS Pricing Schema — Documentation</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <link rel="stylesheet" href="../css/docs_styles.css" />
+
 </head>
 
 <body>
-    <div class="docs-layout">
-        <div id="sidebar-container"></div>
-        <div class="docs-content">
-            <header>
-                <h1>AWS Pricing Schema — Documentation</h1>
-                <div class="subtitle">Field sources, fetched dimensions, static defaults, and calculated logic for <span
-                        class="mono">pricing.json</span> (AWS section)</div>
-            </header>
-            <main>
+  <div class="layout">
+    <aside id="nav-placeholder"></aside>
 
-                <div class="toc">
-                    <strong>Contents</strong>
-                    <ul>
-                        <li><a href="#schema">1. Schema Overview</a></li>
-                        <li><a href="#fetching">2. How Fetching Works</a></li>
-                        <li><a href="#services">3. Services</a></li>
-                        <li><a href="#calculated">4. Calculated Fields</a></li>
-                        <li><a href="#notes">5. Notes & Rationale</a></li>
-                    </ul>
-                </div>
+    <main class="p-4">
+      <header>
+        <h1>AWS Pricing Schema — Documentation</h1>
+        <div class="text-muted">Field sources, fetched dimensions, static defaults, and calculated logic for
+          <span class="mono">pricing.json</span> (AWS section)
+        </div>
+      </header>
 
-                <section id="schema" class="card">
-                    <h2>1) Schema Overview</h2>
-                    <p>Target structure (AWS excerpt from <span class="mono">pricing.json</span>):</p>
-                    <pre>{
+      <main>
+        <div class="card">
+          <strong>Contents</strong>
+          <ul>
+            <li><a href="#schema">1. Schema Overview</a></li>
+            <li><a href="#fetching">2. How Fetching Works</a></li>
+            <li><a href="#services">3. Services</a></li>
+            <li><a href="#calculated">4. Calculated Fields</a></li>
+            <li><a href="#notes">5. Notes & Rationale</a></li>
+          </ul>
+        </div>
+
+        <section id="schema" class="card">
+          <h2>1) Schema Overview</h2>
+          <p>Target structure (AWS excerpt from <span class="mono">pricing.json</span>):</p>
+<pre>{
   "aws": {
     "transfer": { "pricing_tiers": 
         "freeTier": {"limit": ..., "price": ...},
@@ -74,359 +80,340 @@
     "awsManagedGrafana": { "editorPrice": 9.0, "viewerPrice": 5.0 }
   }
 }</pre>
-                    <div class="section-note">
-                        <div><span class="chip ok">Fetched</span> — from AWS Pricing API (using <span
-                                class="mono">get_products</span>)</div>
-                        <div><span class="chip warn">Static</span> — constant across regions or unavailable in the API
-                        </div>
-                        <div><span class="chip calc">Calculated</span> — derived from other fields, used in later cost
-                            formulas
-                        </div>
-                    </div>
-                </section>
+          <div class="section-note">
+            <div><span class="chip ok">Fetched</span> — from AWS Pricing API (using <span class="mono">get_products</span>)</div>
+            <div><span class="chip warn">Static</span> — constant across regions or unavailable in the API</div>
+            <div><span class="chip calc">Calculated</span> — derived from other fields, used in later cost formulas</div>
+          </div>
+        </section>
 
-                <section id="fetching" class="card">
-                    <h2>2) How Fetching Works</h2>
-                    <p>We query AWS Pricing API (<span class="mono">get_products</span>) per service code and region,
-                        filtering
-                        by <span class="mono">location</span> and using curated <b>include/exclude keyword</b> lists to
-                        match
-                        the right <span class="mono">priceDimensions[].description</span>.</p>
-                    <p class="muted">We discard other dimensions (cross-AZ, global tables, replication, etc.) to isolate
-                        the
-                        correct per-unit metrics.</p>
-                </section>
+        <section id="fetching" class="card">
+          <h2>2) How Fetching Works</h2>
+          <p>We query AWS Pricing API (<span class="mono">get_products</span>) per service code and region, filtering
+            by <span class="mono">location</span> and using curated <b>include/exclude keyword</b> lists to
+            match the right <span class="mono">priceDimensions[].description</span>.</p>
+          <p class="muted">We discard other dimensions (cross-AZ, global tables, replication, etc.) to isolate
+            the correct per-unit metrics.</p>
+        </section>
 
-                <section id="services" class="card">
-                    <h2>3) Services and Fields</h2>
+        <section id="services" class="card">
+          <h2>3) Services and Fields</h2>
 
-                    <!-- TRANSFER -->
-                    <h3 id="transfer">3.1 Data Transfer (Egress) - <span class="mono">transfer</span></h3>
-                    <p>Service: AmazonEC2</p>
-                    <table>
-                        <tr>
-                            <th>Field</th>
-                            <th>Source</th>
-                            <th>Notes</th>
-                        </tr>
-                        <tr>
-                            <td class="mono">transfer.pricing_tiers</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>Built from <em>per GB</em> “DataTransfer-Out-Bytes” priceDimensions (<em>e.g.</em> EC2
-                                or
-                                AWSDataTransfer SKUs). Uses beginRange/endRange to set tier limits.</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">egressPrice</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>Lowest tier unit price (e.g., 0.09 $/GB).</td>
-                        </tr>
-                    </table>
-                    <details>
-                        <summary>Example descriptions matched</summary>
-                        <pre>$0.09 per GB - first 10 TB / month data transfer out
+          <!-- TRANSFER -->
+          <h3 id="transfer">3.1 Data Transfer (Egress) - <span class="mono">transfer</span></h3>
+          <p>Service: AmazonEC2</p>
+          <table class="t2c-table t2c-3col">
+            <tr>
+              <th>Field</th>
+              <th>Source</th>
+              <th>Notes</th>
+            </tr>
+            <tr>
+              <td class="mono">transfer.pricing_tiers</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>Built from <em>per GB</em> “DataTransfer-Out-Bytes” priceDimensions (<em>e.g.</em> EC2
+                or AWSDataTransfer SKUs). Uses beginRange/endRange to set tier limits.</td>
+            </tr>
+            <tr>
+              <td class="mono">egressPrice</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>Lowest tier unit price (e.g., 0.09 $/GB).</td>
+            </tr>
+          </table>
+          <details>
+            <summary>Example descriptions matched</summary>
+<pre>$0.09 per GB - first 10 TB / month data transfer out
 $0.07 per GB - next 100 TB / month data transfer out
 $0.05 per GB - greater than 150 TB / month data transfer out</pre>
-                    </details>
+          </details>
 
-                    <!-- IOT -->
-                    <h3 id="iotCore">3.2 IoT - L1 - <span class="mono">iotCore</span></h3>
-                    <p>Service: AWS IoTCore</p>
-                    <table>
-                        <tr>
-                            <th>Field</th>
-                            <th>Source</th>
-                            <th>Notes</th>
-                        </tr>
-                        <tr>
-                            <td class="mono">iotCore.pricePerDeviceAndMonth</td>
-                            <td><span class="chip warn">Static</span></td>
-                            <td>0.0035 $/device / month baseline (API doesn’t expose).</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">iotCore.priceRulesTriggered</td>
-                            <td><span class="chip ok">Fetched</span> or <span class="chip warn">Default</span></td>
-                            <td>Matched with “per million rules triggered”.</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">iotCore.pricing_tiers</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>From message tiers (“first 1B msgs”, “next 4B”, “over 5B”).</td>
-                        </tr>
-                    </table>
-                    <details>
-                        <summary>Matched examples</summary>
-                        <pre>$2.76 per million messages - first 1 billion messages/month
+          <!-- IOT -->
+          <h3 id="iotCore">3.2 IoT - L1 - <span class="mono">iotCore</span></h3>
+          <p>Service: AWS IoTCore</p>
+          <table class="t2c-table t2c-3col">
+            <tr>
+              <th>Field</th>
+              <th>Source</th>
+              <th>Notes</th>
+            </tr>
+            <tr>
+              <td class="mono">iotCore.pricePerDeviceAndMonth</td>
+              <td><span class="chip warn">Static</span></td>
+              <td>0.0035 $/device / month baseline (API doesn’t expose).</td>
+            </tr>
+            <tr>
+              <td class="mono">iotCore.priceRulesTriggered</td>
+              <td><span class="chip ok">Fetched</span> or <span class="chip warn">Default</span></td>
+              <td>Matched with “per million rules triggered”.</td>
+            </tr>
+            <tr>
+              <td class="mono">iotCore.pricing_tiers</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>From message tiers (“first 1B msgs”, “next 4B”, “over 5B”).</td>
+            </tr>
+          </table>
+          <details>
+            <summary>Matched examples</summary>
+<pre>$2.76 per million messages - first 1 billion messages/month
 $1.80 per million messages - next 4 billion messages/month
 $1.44 per million messages - over 5 billion messages/month</pre>
-                    </details>
+          </details>
 
-                    <!-- LAMBDA -->
-                    <h3 id="lambda">3.3 Functions - L2 - <span class="mono">lambda</span></h3>
-                    <p>Service: AWS Lambda Functions</p>
-                    <table>
-                        <tr>
-                            <th>Field</th>
-                            <th>Source</th>
-                            <th>Notes</th>
-                        </tr>
-                        <tr>
-                            <td class="mono">requestPrice</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>Matched “aws lambda - total requests”.</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">lambda.durationPrice</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>Tier-1 price per GB-second (matched “total compute tier-1”).</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">lambda.freeRequests</td>
-                            <td><span class="chip warn">Static</span></td>
-                            <td>1 M requests / month (documented free tier).</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">lambda.freeComputeTime</td>
-                            <td><span class="chip warn">Static</span></td>
-                            <td>400 000 GB-s free tier baseline.</td>
-                        </tr>
-                    </table>
+          <!-- LAMBDA -->
+          <h3 id="lambda">3.3 Functions - L2 - <span class="mono">lambda</span></h3>
+          <p>Service: AWS Lambda Functions</p>
+          <table class="t2c-table t2c-3col">
+            <tr>
+              <th>Field</th>
+              <th>Source</th>
+              <th>Notes</th>
+            </tr>
+            <tr>
+              <td class="mono">requestPrice</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>Matched “aws lambda - total requests”.</td>
+            </tr>
+            <tr>
+              <td class="mono">lambda.durationPrice</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>Tier-1 price per GB-second (matched “total compute tier-1”).</td>
+            </tr>
+            <tr>
+              <td class="mono">lambda.freeRequests</td>
+              <td><span class="chip warn">Static</span></td>
+              <td>1 M requests / month (documented free tier).</td>
+            </tr>
+            <tr>
+              <td class="mono">lambda.freeComputeTime</td>
+              <td><span class="chip warn">Static</span></td>
+              <td>400 000 GB-s free tier baseline.</td>
+            </tr>
+          </table>
 
-                    <!-- DYNAMODB -->
-                    <h3 id="dynamoDB">3.4 Storage Hot- L3.1 - <span class="mono">dynamoDB</span></h3>
-                    <p>Service: AWS DynamoDB</p>
-                    <table>
-                        <tr>
-                            <th>Field</th>
-                            <th>Source</th>
-                            <th>Notes</th>
-                        </tr>
-                        <tr>
-                            <td class="mono">dynamoDB.writePrice</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>Matched “per million write request units”.</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">dynamoDB.readPrice</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>Matched “per million read request units”.</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">dynamoDB.storagePrice</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>“per GB-month of storage used beyond free tier”.</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">dynamoDB.freeStorage</td>
-                            <td><span class="chip warn">Static</span></td>
-                            <td>25 GB free baseline.</td>
-                        </tr>
-                    </table>
+          <!-- DYNAMODB -->
+          <h3 id="dynamoDB">3.4 Storage Hot- L3.1 - <span class="mono">dynamoDB</span></h3>
+          <p>Service: AWS DynamoDB</p>
+          <table class="t2c-table t2c-3col">
+            <tr>
+              <th>Field</th>
+              <th>Source</th>
+              <th>Notes</th>
+            </tr>
+            <tr>
+              <td class="mono">dynamoDB.writePrice</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>Matched “per million write request units”.</td>
+            </tr>
+            <tr>
+              <td class="mono">dynamoDB.readPrice</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>Matched “per million read request units”.</td>
+            </tr>
+            <tr>
+              <td class="mono">dynamoDB.storagePrice</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>“per GB-month of storage used beyond free tier”.</td>
+            </tr>
+            <tr>
+              <td class="mono">dynamoDB.freeStorage</td>
+              <td><span class="chip warn">Static</span></td>
+              <td>25 GB free baseline.</td>
+            </tr>
+          </table>
 
-                    <!-- S3 IA -->
-                    <h3 id="s3IA">3.5 Storage Cool- L3.2 - <span class="mono">s3InfrequentAccess</span> - (Standard-IA)
-                    </h3>
-                    <p>Service: </p>
-                    <table>
-                        <tr>
-                            <th>Field</th>
-                            <th>Source</th>
-                            <th>Notes</th>
-                        </tr>
-                        <tr>
-                            <td class="mono">s3InfrequentAccess.storagePrice</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>“per GB-month of storage used in Standard-Infrequent Access”.</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">s3InfrequentAccess.requestPrice</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>“per 10 000 GET and other requests to Standard-IA”.</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">s3InfrequentAccess.dataRetrievalPrice</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>“flat fee for all bytes retrieved”.</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">s3InfrequentAccess.upfrontPrice</td>
-                            <td><span class="chip warn">Static</span></td>
-                            <td>Small constant for early-delete or overhead.</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">s3InfrequentAccess.transferCostFromDynamoDB</td>
-                            <td><span class="chip calc">Calculated</span></td>
-                            <td>= egressPrice × 1.1</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">s3InfrequentAccess.transferCostFromCosmosDB</td>
-                            <td><span class="chip calc">Calculated</span></td>
-                            <td>= egressPrice × 0.55</td>
-                        </tr>
-                    </table>
+          <!-- S3 IA -->
+          <h3 id="s3IA">3.5 Storage Cool- L3.2 - <span class="mono">s3InfrequentAccess</span> - (Standard-IA)</h3>
+          <p>Service: </p>
+          <table class="t2c-table t2c-3col">
+            <tr>
+              <th>Field</th>
+              <th>Source</th>
+              <th>Notes</th>
+            </tr>
+            <tr>
+              <td class="mono">s3InfrequentAccess.storagePrice</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>“per GB-month of storage used in Standard-Infrequent Access”.</td>
+            </tr>
+            <tr>
+              <td class="mono">s3InfrequentAccess.requestPrice</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>“per 10 000 GET and other requests to Standard-IA”.</td>
+            </tr>
+            <tr>
+              <td class="mono">s3InfrequentAccess.dataRetrievalPrice</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>“flat fee for all bytes retrieved”.</td>
+            </tr>
+            <tr>
+              <td class="mono">s3InfrequentAccess.upfrontPrice</td>
+              <td><span class="chip warn">Static</span></td>
+              <td>Small constant for early-delete or overhead.</td>
+            </tr>
+            <tr>
+              <td class="mono">s3InfrequentAccess.transferCostFromDynamoDB</td>
+              <td><span class="chip calc">Calculated</span></td>
+              <td>= egressPrice × 1.1</td>
+            </tr>
+            <tr>
+              <td class="mono">s3InfrequentAccess.transferCostFromCosmosDB</td>
+              <td><span class="chip calc">Calculated</span></td>
+              <td>= egressPrice × 0.55</td>
+            </tr>
+          </table>
 
-                    <!-- S3 GDA -->
-                    <h3 id="s3GDA">3.6 Storage Archive - L3.3 - <span class="mono">s3GlacierDeepArchive</span></h3>
-                    <table>
-                        <tr>
-                            <th>Field</th>
-                            <th>Source</th>
-                            <th>Notes</th>
-                        </tr>
-                        <tr>
-                            <td class="mono">s3GlacierDeepArchive.storagePrice</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>Matched “per GB-month of storage used in Glacier Deep Archive”.</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">s3GlacierDeepArchive.lifecycleAndWritePrice</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>Matched “per 1 000 Lifecycle requests to Glacier”.</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">s3GlacierDeepArchive.dataRetrievalPrice</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>Matched “per GB Standard retrieval fee”.</td>
-                        </tr>
-                    </table>
+          <!-- S3 GDA -->
+          <h3 id="s3GDA">3.6 Storage Archive - L3.3 - <span class="mono">s3GlacierDeepArchive</span></h3>
+          <table class="t2c-table t2c-3col">
+            <tr>
+              <th>Field</th>
+              <th>Source</th>
+              <th>Notes</th>
+            </tr>
+            <tr>
+              <td class="mono">s3GlacierDeepArchive.storagePrice</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>Matched “per GB-month of storage used in Glacier Deep Archive”.</td>
+            </tr>
+            <tr>
+              <td class="mono">s3GlacierDeepArchive.lifecycleAndWritePrice</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>Matched “per 1 000 Lifecycle requests to Glacier”.</td>
+            </tr>
+            <tr>
+              <td class="mono">s3GlacierDeepArchive.dataRetrievalPrice</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>Matched “per GB Standard retrieval fee”.</td>
+            </tr>
+          </table>
 
-                    <!-- TWINMAKER -->
-                    <h3 id="twinmaker">3.7 Twin Management - L4 - <span class="mono">iotTwinMaker</span></h3>
-                    <table>
-                        <tr>
-                            <th>Field</th>
-                            <th>Source</th>
-                            <th>Notes</th>
-                        </tr>
-                        <tr>
-                            <td class="mono">iotTwinMaker.entityPrice</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>“per entity per month for IoTTwinMaker-Entities”.</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">iotTwinMaker.unifiedDataAccessAPICallsPrice</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>“per million API Calls for IoTTwinMaker-UnifiedDataAccess”.</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">iotTwinMaker.queryPrice</td>
-                            <td><span class="chip ok">Fetched</span></td>
-                            <td>“per 10 000 Queries executed for IoTTwinMaker-Queries”.</td>
-                        </tr>
-                    </table>
+          <!-- TWINMAKER -->
+          <h3 id="twinmaker">3.7 Twin Management - L4 - <span class="mono">iotTwinMaker</span></h3>
+          <table class="t2c-table t2c-3col">
+            <tr>
+              <th>Field</th>
+              <th>Source</th>
+              <th>Notes</th>
+            </tr>
+            <tr>
+              <td class="mono">iotTwinMaker.entityPrice</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>“per entity per month for IoTTwinMaker-Entities”.</td>
+            </tr>
+            <tr>
+              <td class="mono">iotTwinMaker.unifiedDataAccessAPICallsPrice</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>“per million API Calls for IoTTwinMaker-UnifiedDataAccess”.</td>
+            </tr>
+            <tr>
+              <td class="mono">iotTwinMaker.queryPrice</td>
+              <td><span class="chip ok">Fetched</span></td>
+              <td>“per 10 000 Queries executed for IoTTwinMaker-Queries”.</td>
+            </tr>
+          </table>
 
-                    <!-- GRAFANA -->
-                    <h3 id="grafana">3.8 Visualization Layer - L5 - <span class="mono">awsManagedGrafana</span></h3>
-                    <table>
-                        <tr>
-                            <th>Field</th>
-                            <th>Source</th>
-                            <th>Notes</th>
-                        </tr>
-                        <tr>
-                            <td class="mono">awsManagedGrafana.editorPrice</td>
-                            <td><span class="chip warn">Static</span></td>
-                            <td>9 $/editor user / month.</td>
-                        </tr>
-                        <tr>
-                            <td class="mono">awsManagedGrafana.viewerPrice</td>
-                            <td><span class="chip warn">Static</span></td>
-                            <td>5 $/viewer user / month.</td>
-                        </tr>
-                    </table>
-                </section>
+          <!-- GRAFANA -->
+          <h3 id="grafana">3.8 Visualization Layer - L5 - <span class="mono">awsManagedGrafana</span></h3>
+          <table class="t2c-table t2c-3col">
+            <tr>
+              <th>Field</th>
+              <th>Source</th>
+              <th>Notes</th>
+            </tr>
+            <tr>
+              <td class="mono">awsManagedGrafana.editorPrice</td>
+              <td><span class="chip warn">Static</span></td>
+              <td>9 $/editor user / month.</td>
+            </tr>
+            <tr>
+              <td class="mono">awsManagedGrafana.viewerPrice</td>
+              <td><span class="chip warn">Static</span></td>
+              <td>5 $/viewer user / month.</td>
+            </tr>
+          </table>
+        </section>
 
-                <section id="calculated" class="card">
-                    <h2>4) Calculated Fields</h2>
-                    <p>These values are not fetched directly from AWS but are <b>computed or derived</b> in <span
-                            class="mono">apply_aws_derived_fields()</span> after all prices have been fetched.</p>
+        <section id="calculated" class="card">
+          <h2>4) Calculated Fields</h2>
+          <p>These values are not fetched directly from AWS but are <b>computed or derived</b> in
+            <span class="mono">apply_aws_derived_fields()</span> after all prices have been fetched.</p>
 
-                    <table>
-                        <tr>
-                            <th>Field</th>
-                            <th>Computation / Source</th>
-                            <th>Purpose</th>
-                        </tr>
+          <table class="t2c-table t2c-3col">
+            <tr>
+              <th>Field</th>
+              <th>Computation / Source</th>
+              <th>Purpose</th>
+            </tr>
 
-                        <tr>
-                            <td class="mono">s3InfrequentAccess.transferCostFromDynamoDB</td>
-                            <td><span class="chip calc">Calculated</span> = <span class="mono">egressPrice × 1.1</span>
-                            </td>
-                            <td>Represents estimated cross-layer transfer from DynamoDB → S3 (adds 10% overhead to base
-                                egress).
-                            </td>
-                        </tr>
+            <tr>
+              <td class="mono">s3InfrequentAccess.transferCostFromDynamoDB</td>
+              <td><span class="chip calc">Calculated</span> = <span class="mono">egressPrice × 1.1</span></td>
+              <td>Represents estimated cross-layer transfer from DynamoDB → S3 (adds 10% overhead to base egress).</td>
+            </tr>
 
-                        <tr>
-                            <td class="mono">s3InfrequentAccess.transferCostFromCosmosDB</td>
-                            <td><span class="chip calc">Calculated</span> = <span class="mono">egressPrice × 0.55</span>
-                            </td>
-                            <td>Cross-provider transfer approximation (Azure CosmosDB → AWS S3). Half the base egress
-                                rate.</td>
-                        </tr>
+            <tr>
+              <td class="mono">s3InfrequentAccess.transferCostFromCosmosDB</td>
+              <td><span class="chip calc">Calculated</span> = <span class="mono">egressPrice × 0.55</span></td>
+              <td>Cross-provider transfer approximation (Azure CosmosDB → AWS S3). Half the base egress rate.</td>
+            </tr>
 
-                        <tr>
-                            <td class="mono">s3InfrequentAccess.upfrontPrice</td>
-                            <td><span class="chip warn">Static default</span> = 0.0001</td>
-                            <td>Represents early-delete / overhead constant for Standard-IA objects.</td>
-                        </tr>
+            <tr>
+              <td class="mono">s3InfrequentAccess.upfrontPrice</td>
+              <td><span class="chip warn">Static default</span> = 0.0001</td>
+              <td>Represents early-delete / overhead constant for Standard-IA objects.</td>
+            </tr>
 
-                        <tr>
-                            <td class="mono">iotCore.avgMessagePriceFor10M</td>
-                            <td><span class="chip calc">Calculated</span> = mean of all <span
-                                    class="mono">pricing_tiers[].price</span></td>
-                            <td>Helper metric used for modeling large message volumes in analytics or UI estimations.
-                            </td>
-                        </tr>
+            <tr>
+              <td class="mono">iotCore.avgMessagePriceFor10M</td>
+              <td><span class="chip calc">Calculated</span> = mean of all <span class="mono">pricing_tiers[].price</span></td>
+              <td>Helper metric used for modeling large message volumes in analytics or UI estimations.</td>
+            </tr>
 
-                        <tr>
-                            <td class="mono">lambda.costPerExecutionExample</td>
-                            <td><span class="chip calc">Calculated</span> = <span class="mono">requestPrice +
-                                    (durationPrice ×
-                                    0.128 GB)</span></td>
-                            <td>Represents the average per-execution cost assuming 128 MB allocated memory.</td>
-                        </tr>
+            <tr>
+              <td class="mono">lambda.costPerExecutionExample</td>
+              <td><span class="chip calc">Calculated</span> = <span class="mono">requestPrice + (durationPrice × 0.128 GB)</span></td>
+              <td>Represents the average per-execution cost assuming 128 MB allocated memory.</td>
+            </tr>
 
-                        <tr>
-                            <td class="mono">awsManagedGrafana.workspaceHourlyPrice</td>
-                            <td><span class="chip warn">Static default</span> = 0</td>
-                            <td>Placeholder for potential future hourly workspace fees (currently none).</td>
-                        </tr>
+            <tr>
+              <td class="mono">awsManagedGrafana.workspaceHourlyPrice</td>
+              <td><span class="chip warn">Static default</span> = 0</td>
+              <td>Placeholder for potential future hourly workspace fees (currently none).</td>
+            </tr>
 
-                        <tr>
-                            <td class="mono">awsManagedGrafana.exampleMonthlyCostFor1Editor1Viewer</td>
-                            <td><span class="chip calc">Calculated</span> = <span class="mono">editorPrice +
-                                    viewerPrice</span>
-                            </td>
-                            <td>Reference example cost for one editor and one viewer license combined.</td>
-                        </tr>
+            <tr>
+              <td class="mono">awsManagedGrafana.exampleMonthlyCostFor1Editor1Viewer</td>
+              <td><span class="chip calc">Calculated</span> = <span class="mono">editorPrice + viewerPrice</span></td>
+              <td>Reference example cost for one editor and one viewer license combined.</td>
+            </tr>
 
-                    </table>
+          </table>
 
-                    <div class="section-note">
-                        <p>All calculated fields are added after fetching raw AWS pricing data.
-                            They allow the web UI and cost calculators to quickly estimate transfer or composite costs
-                            without
-                            re-running complex logic.</p>
-                    </div>
-                </section>
+          <div class="section-note">
+            <p>All calculated fields are added after fetching raw AWS pricing data.
+              They allow the web UI and cost calculators to quickly estimate transfer or composite costs
+              without re-running complex logic.</p>
+          </div>
+        </section>
 
+        <section id="notes" class="card">
+          <h2>5) Notes & Rationale</h2>
+          <p class="why">
+            We favor a minimal, region-stable baseline for cross-provider comparison.
+            Only universal on-demand dimensions are fetched. Other variant SKUs are filtered out via keyword logic.
+            Static defaults correspond to AWS’s documented free tiers or publicly fixed prices (like Grafana).
+            Calculated fields supply internal transfer multipliers and defaults required by later JavaScript formulas.
+          </p>
+        </section>
+      </main>
+    </main>
+  </div>
+  <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+    style="display:none;">
+    <i class="fa-solid fa-arrow-up"></i>
+  </button>
 
-                <section id="notes" class="card">
-                    <h2>5) Notes & Rationale</h2>
-                    <p class="why">
-                        We favor a minimal, region-stable baseline for cross-provider comparison.
-                        Only universal on-demand dimensions are fetched. Other variant SKUs are filtered out via keyword
-                        logic.
-                        Static defaults correspond to AWS’s documented free tiers or publicly fixed prices (like
-                        Grafana).
-                        Calculated fields supply internal transfer multipliers and defaults required by later JavaScript
-                        formulas.
-                    </p>
-                </section>
-
-            </main>
-        </div>
+  <script src="../js/docs-nav.js" defer></script>
 </body>
 
 </html>

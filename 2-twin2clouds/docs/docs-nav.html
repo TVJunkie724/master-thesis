@@ -1,10 +1,77 @@
-<!-- docs-nav.html -->
-<button id="sidebar-toggle" class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
-<nav class="sidebar">
-  <h2>📚 Twin2Clouds Docs</h2>
-  <ul>
-    <li><a href="/documentation/overview">🏠 Overview</a></li>
-    <li><a href="/documentation/aws_pricing">☁️ AWS Pricing Schema</a></li>
-    <li><a href="/documentation/formulas">📊 Cost Formulas</a></li>
+<nav id="sidebar" class="sidebar bg-dark text-white">
+  <div class="sidebar-header mb-4">
+    <div class="d-flex justify-content-between w-100">
+      <div class="mr-auto p-2 nav-text">
+        <i class="fa fa-cloud me-2 nav-text"></i>
+        <span class="nav-text">Twin2Clouds Docs</span>
+      </div>
+      <div class="p-1">
+        <button id="sidebar-toggle">
+          <i class="fa fa-bars"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <ul class="nav flex-column">
+
+    <!-- ======================= -->
+    <!-- Overview Section -->
+    <!-- ======================= -->
+    <li class="menu-section">
+      <span class="menu-section-title nav-text">Overview</span>
+    </li>
+
+    <li class="nav-item">
+      <a class="nav-link" href="/documentation/overview">
+        <i class="fa fa-home"></i>
+        <span class="nav-text">General Overview</span>
+      </a>
+    </li>
+
+
+    <!-- ======================= -->
+    <!-- Pricing Schemas Section -->
+    <!-- ======================= -->
+    <li class="menu-section">
+      <span class="menu-section-title nav-text">Pricing Schemas</span>
+    </li>
+
+    <li class="nav-item">
+      <a class="nav-link" href="/documentation/aws_pricing">
+        <i class="fa-brands fa-aws"></i>
+        <span class="nav-text">AWS Pricing Schema</span>
+      </a>
+    </li>
+
+    <li class="nav-item disabled">
+      <a class="nav-link disabled-link">
+        <i class="fa-brands fa-microsoft"></i>
+        <span class="nav-text text-muted">Azure Pricing Schema (soon)</span>
+      </a>
+    </li>
+
+    <li class="nav-item disabled">
+      <a class="nav-link disabled-link">
+        <i class="fa-brands fa-google"></i>
+        <span class="nav-text text-muted">Google Pricing Schema (soon)</span>
+      </a>
+    </li>
+
+
+    <!-- ======================= -->
+    <!-- Calculations Section -->
+    <!-- ======================= -->
+    <li class="menu-section">
+      <span class="menu-section-title nav-text">Calculations</span>
+    </li>
+
+    <li class="nav-item">
+      <a class="nav-link" href="/documentation/formulas">
+        <i class="fa fa-calculator"></i>
+        <span class="nav-text">Cost Formulas</span>
+      </a>
+    </li>
+
   </ul>
 </nav>

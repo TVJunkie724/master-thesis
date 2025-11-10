@@ -117,6 +117,8 @@ def serve_ui():
 app.mount("/js", StaticFiles(directory="js"), name="js")
 app.mount("/css", StaticFiles(directory="css"), name="css")
 app.mount("/pricing", StaticFiles(directory="pricing"), name="static-pricing")
+app.mount("/docs", StaticFiles(directory="docs"), name="docs")
+app.mount("/references", StaticFiles(directory="references"), name="references")
 
 
 # --------------------------------------------------
@@ -223,11 +225,6 @@ def calculate_up_to_date_pricing_endpoint(additional_debug: bool = False):
 # --------------------------------------------------
 # Documentation endpoints
 # --------------------------------------------------
-
-# Serve all documentation pages and shared styles
-app.mount("/docs", StaticFiles(directory="docs"), name="documentation")
-app.mount("/references", StaticFiles(directory="references"), name="references")
-
 @app.get(
     "/documentation/overview",
     tags=["WebUI"],
