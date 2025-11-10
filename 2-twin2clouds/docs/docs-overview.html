@@ -7,7 +7,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
   <link rel="stylesheet" href="../css/docs_styles.css" />
@@ -22,34 +21,82 @@
 
     <main class="p-4">
 
-      <h1>☁️ (Multi-Cloud) twin2clouds Documentation</h1>
-      <p>Internal developer documentation for cloud pricing schemas, cost formulas, and mapping logic.</p>
+      <h1 class="mb-3">
+        ☁️ (Multi-Cloud) twin2clouds Documentation
+      </h1>
 
-      <div class="card">
-        <h2>1. Provider Pricing Schemas</h2>
-        <p>Each document explains how pricing is fetched…</p>
-        <ul>
-          <li><a href="/docs/docs-aws-pricing.html">AWS Pricing Schema</a></li>
-          <li><span class="text-muted">Azure Pricing Schema — <em>coming soon</em></span></li>
-          <li><span class="text-muted">Google Cloud Pricing Schema — <em>coming soon</em></span></li>
+      <p class="text-muted mb-4">
+        Internal developer documentation for pricing schemas, cost formulas, provider service mappings,
+        and cloud cost-modeling logic used across the project.
+      </p>
+
+      <div class="card mb-4">
+        <h2 class="mb-3"><i class="fa-solid fa-diagram-project me-2"></i>Provider Pricing Schemas</h2>
+        <p>
+          These documents describe how cloud provider pricing data is fetched,
+          normalized, and mapped into the unified twin2clouds pricing model.
+        </p>
+        <ul class="mt-3">
+          <li>
+            <a class="fw-semibold" href="/docs/docs-aws-pricing.html">
+              <i class="fa-brands fa-aws me-1"></i> AWS Pricing Schema
+            </a>
+            <span class="text-muted d-block ms-4 small">
+              Full list of pricing dimensions, tiers, static fields, and
+              how mappings feed the cost formulas.
+            </span>
+          </li>
+          <li class="mt-2 text-muted">
+            <i class="fa-brands fa-microsoft me-1"></i>
+            Azure Pricing Schema — <em>coming soon</em>
+          </li>
+          <li class="mt-1 text-muted">
+            <i class="fa-brands fa-google me-1"></i>
+            Google Cloud Pricing Schema — <em>coming soon</em>
+          </li>
         </ul>
       </div>
 
-      <div class="card">
-        <h2>2. Formulas & Calculation Mappings</h2>
-        <p>Documentation of cost formulas.</p>
-        <p><a href="/docs/docs-formulas.html">Open Formulas →</a></p>
+      <div class="card mb-4">
+        <h2 class="mb-3"><i class="fa-solid fa-calculator me-2"></i>Formulas & Calculation Mapping</h2>
+        <p>
+          A full definition of the <b>cost formulas (CM, CE, CA, CS, CU, CTransfer)</b> used to compute
+          cloud costs dynamically, based on pricing fields and workloads.
+        </p>
+        <ul class="mt-3">
+          <li>
+            <a href="/docs/docs-formulas.html" class="fw-semibold">
+              Open Formulas & Service Mapping →
+            </a>
+            <span class="text-muted d-block small ms-4">
+              Includes unified formulas, provider mappings, and all parameter definitions.
+            </span>
+          </li>
+        </ul>
       </div>
-
-      <div class="card">
-        <h2>3. Reference Material</h2>
-        <p><a href="/references/EDT_25__CloudDT_engineering.pdf">Download PDF</a></p>
-        <p><a
-            href="https://docs.aws.amazon.com/code-library/latest/ug/pricing_example_pricing_GetProducts_section.html">AWS:
-            get_products</a></p>
+      
+      <div class="card mb-4">
+        <h2 class="mb-3"><i class="fa-solid fa-book-open me-2"></i>Reference Material</h2>
+        <p>
+          Additional documents and external resources used to design or validate pricing models.
+        </p>
+        <ul class="mt-3">
+          <li class="mb-2">
+            <a href="/references/EDT_25__CloudDT_engineering.pdf" class="fw-semibold">
+              <i class="fa-solid fa-file-pdf me-1"></i> Download Cloud Pricing & Cost Modeling (PDF)
+            </a>
+          </li>
+          <li>
+            <a href="https://docs.aws.amazon.com/code-library/latest/ug/pricing_example_pricing_GetProducts_section.html"
+              class="fw-semibold">
+              <i class="fa-brands fa-aws me-1"></i>AWS get_products Reference
+            </a>
+          </li>
+        </ul>
       </div>
 
     </main>
+
 
   </div>
 
