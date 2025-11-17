@@ -115,7 +115,7 @@
       },
       "description": "Azure Functions pricing per execution and runtime duration."
     },
-    "cosmosDB": {
+    "storage_hot": {
       "formula_refs": ["CA", "CS"],
       "parameters": {
         "c_a": "requestUnitPrice",

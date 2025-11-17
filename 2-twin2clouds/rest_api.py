@@ -6,9 +6,10 @@ import os
 from enum import Enum
 
 from fastapi import FastAPI, Body
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 
 from py.logger import logger
 from py.utils import print_stack_trace
@@ -41,19 +42,28 @@ app = FastAPI(
         "digital twins across multiple cloud providers (AWS, Azure, Google). "
         "This API serves both the web UI and the computational engine that calculates "
         "the most cost-efficient provider setup for each architectural layer."
+        "<h3>🔗 Useful Links</h3>"
+        "<h4>🖥️ Web Interface</h4>"
+        "<ul><li><a href=\"/ui\" target=\"_blank\"><strong>Open Web UI</strong></a></br>"
+        "  The graphical Twin2Clouds interface for configuring scenarios.</li></ul>"
+        "<h4>📘 Documentation</h4>"
+        "<ul><li><a href=\"/documentation/overview\" target=\"_blank\"><strong>Documentation Overview</strong></a></li></ul>"
     ),
     openapi_tags=[
-        {"name": "WebUI", "description": "Endpoints for serving the web-based user interface."},
+        # {"name": "WebUI", "description": "Endpoints for serving the web-based user interface."},
         {"name": "Calculation", "description": "Endpoints related to cloud cost calculation."},
         {"name": "Pricing", "description": "Endpoints for fetching cloud service pricing data."},
     ] 
 )
 
-# --------- Initialize configuration once ----------
 @app.on_event("startup")
 def startup_event():
     logger.info("✅ API ready.")
     
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse("references/favicon.ico")
+
     
 # --------------------------------------------------
 # Input model for calculation
@@ -97,6 +107,14 @@ class CalcParams(BaseModel):
 # --------------------------------------------------
 # UI endpoint
 # --------------------------------------------------
+
+app.mount("/js", StaticFiles(directory="js"), name="js")
+app.mount("/css", StaticFiles(directory="css"), name="css")
+app.mount("/pricing", StaticFiles(directory="pricing"), name="static-pricing")
+app.mount("/docs", StaticFiles(directory="docs"), name="docs")
+app.mount("/references", StaticFiles(directory="references"), name="references")
+
+
 @app.get(
     "/ui",
     tags=["WebUI"],
@@ -106,20 +124,56 @@ class CalcParams(BaseModel):
         "for Twin2Clouds. This page allows users to configure digital twin scenarios "
         "and trigger cloud cost calculations through the API."
     ),
-    response_description="The index.html web interface file."
+    response_description="The index.html web interface file.",
+    include_in_schema=False
 )
 def serve_ui():
     return FileResponse("index.html")
 
+# --------------------------------------------------
+# UI Documentation endpoint
+
+@app.get(
+    "/documentation/overview",
+    tags=["WebUI"],
+    summary="Documentation Overview", include_in_schema=False,
+    description=(
+        "Serves the **Twin2Clouds Documentation Overview** page.<br><br>"
+        "📘 <a href='/documentation/overview' target='_blank'>Open Documentation Overview in a new tab</a><br><br>"
+        "Provides navigation to AWS, Azure, and Google Cloud pricing schema documentation "
+        "as well as cost formula definitions."
+    ),
+)
+def serve_docs_overview():
+    return FileResponse("docs/docs-overview.html")
 
 
-# Serve static assets (JavaScript and CSS)
-app.mount("/js", StaticFiles(directory="js"), name="js")
-app.mount("/css", StaticFiles(directory="css"), name="css")
-app.mount("/pricing", StaticFiles(directory="pricing"), name="static-pricing")
-app.mount("/docs", StaticFiles(directory="docs"), name="docs")
-app.mount("/references", StaticFiles(directory="references"), name="references")
+@app.get(
+    "/documentation/aws_pricing",
+    tags=["WebUI"],
+    summary="AWS Pricing Schema Documentation", include_in_schema=False,
+    description=(
+        "Serves the **AWS Pricing Documentation** page describing how each AWS service "
+        "price is fetched, calculated, or set as static.<br><br>"
+        "📘 <a href='/documentation/aws_pricing' target='_blank'>Open AWS Pricing Documentation in a new tab</a>"
+    ),
+)
+def serve_docs_aws():
+    return FileResponse("docs/docs-aws-pricing.html")
 
+
+@app.get(
+    "/documentation/formulas",
+    tags=["WebUI"],
+    summary="Formulas and Service Mapping Documentation", include_in_schema=False,
+    description=(
+        "Serves the **Formulas Documentation** page detailing all cost calculation formulas, "
+        "parameter definitions, and mapping between services and cost model formulas.<br><br>"
+        "📘 <a href='/documentation/formulas' target='_blank'>Open Formulas Documentation in a new tab</a>"
+    ),
+)
+def serve_docs_formulas():
+    return FileResponse("docs/docs-formulas.html")
 
 # --------------------------------------------------
 # Calculation endpoint
@@ -207,8 +261,8 @@ def calc(params: CalcParams = Body(
     
         
     
-@app.get("/api/calculate_up_to_date_pricing", tags=["Pricing"], summary="Calculate Up-to-Date Cloud Pricing")
-def calculate_up_to_date_pricing_endpoint(additional_debug: bool = False):
+@app.get("/api/fetch_up_to_date_pricing", tags=["Pricing"], summary="Fetch Up-to-Date Cloud Pricing")
+def fetch_up_to_date_pricing_endpoint(additional_debug: bool = False):
     """
     Trigger the calculation of up-to-date cloud pricing across AWS, Azure, and GCP.
     This function loads the latest pricing data and computes costs based on predefined workloads.
@@ -222,47 +276,3 @@ def calculate_up_to_date_pricing_endpoint(additional_debug: bool = False):
         print_stack_trace()
         return {"error": str(e)}
     
-# --------------------------------------------------
-# Documentation endpoints
-# --------------------------------------------------
-@app.get(
-    "/documentation/overview",
-    tags=["WebUI"],
-    summary="Documentation Overview",
-    description=(
-        "Serves the **Twin2Clouds Documentation Overview** page.<br><br>"
-        "📘 <a href='/documentation/overview' target='_blank'>Open Documentation Overview in a new tab</a><br><br>"
-        "Provides navigation to AWS, Azure, and Google Cloud pricing schema documentation "
-        "as well as cost formula definitions."
-    ),
-)
-def serve_docs_overview():
-    return FileResponse("docs/docs-overview.html")
-
-
-@app.get(
-    "/documentation/aws_pricing",
-    tags=["WebUI"],
-    summary="AWS Pricing Schema Documentation",
-    description=(
-        "Serves the **AWS Pricing Documentation** page describing how each AWS service "
-        "price is fetched, calculated, or set as static.<br><br>"
-        "📘 <a href='/documentation/aws_pricing' target='_blank'>Open AWS Pricing Documentation in a new tab</a>"
-    ),
-)
-def serve_docs_aws():
-    return FileResponse("docs/docs-aws-pricing.html")
-
-
-@app.get(
-    "/documentation/formulas",
-    tags=["WebUI"],
-    summary="Formulas and Service Mapping Documentation",
-    description=(
-        "Serves the **Formulas Documentation** page detailing all cost calculation formulas, "
-        "parameter definitions, and mapping between services and cost model formulas.<br><br>"
-        "📘 <a href='/documentation/formulas' target='_blank'>Open Formulas Documentation in a new tab</a>"
-    ),
-)
-def serve_docs_formulas():
-    return FileResponse("docs/docs-formulas.html")

@@ -48,59 +48,6 @@ import {
   calculateTransferCostFromAzureCoolToAzureArchive
 } from "./data_transfer.js";
 
-// const {
-//   calculateAWSCostDataAcquisition,
-//   calculateAzureCostDataAcquisition,
-// } = require("./layer_data_acquisition.js");
-
-// const {
-//   calculateAWSCostDataProcessing,
-//   calculateAzureCostDataProcessing,
-// } = require("./layer_data_processing.js");
-
-// const {
-//   calculateDynamoDBCost,
-//   calculateCosmosDBCost,
-//   calculateS3InfrequentAccessCost,
-//   calculateAzureBlobStorageCost,
-//   calculateS3GlacierDeepArchiveCost,
-//   calculateAzureBlobStorageArchiveCost,
-// } = require("./layer_data_storage.js");
-
-// const {
-//   calculateAWSIoTTwinMakerCost,
-//   calculateAzureDigitalTwinsCost,
-// } = require("./layer_twin_management.js");
-
-// const {
-//   calculateAmazonManagedGrafanaCost,
-//   calculateAzureManagedGrafanaCost,
-// } = require("./layer_data_visualization.js");
-
-// const {
-//   calculateTransferCostFromL2AWSToAWSHot,
-//   calculateTransferCostFromL2AWSToAzureHot,
-//   calculateTransferCostFromL2AzureToAWSHot,
-//   calculateTransferCostFromL2AzureToAzureHot,
-//   calculateTransferCostFromAWSHotToAWSCool,
-//   calculateTransferCostFromAWSHotToAzureCool,
-//   calculateTransferCostsFromAzureHotToAWSCool,
-//   calculateTransferCostFromAzureHotToAzureCool,
-//   calculateTransferCostFromAWSCoolToAWSArchive,
-//   calculateTransferCostFromAWSCoolToAzureArchive,
-//   calculateTransferCostFromAzureCoolToAWSArchive,
-//   calculateTransferCostFromAzureCoolToAzureArchive,
-// } = require("./data_transfer.js");
-
-// const { 
-//   buildGraphForStorage, 
-//   findCheapestStoragePath 
-// } = require("./provider_decision.js");
-
-// const { 
-//   loadPricingData 
-// } = require("./json_handler.js");
-
 /**
  * 
  * @returns Params object from UI input

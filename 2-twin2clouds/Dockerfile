@@ -28,6 +28,7 @@ RUN pip install \
     colorlog \
     boto3 \
     azure-mgmt-consumption \
+    azure-mgmt-resource \
     azure-identity \
     google-auth \
     google-auth-oauthlib \

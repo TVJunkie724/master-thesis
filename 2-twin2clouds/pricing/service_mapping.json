@@ -5,11 +5,11 @@
   },
   "storage_cool": {
     "aws": "AmazonS3",
-    "azure": "Storage"
+    "azure": "BlobStorageCool"
   },
   "storage_archive": {
     "aws": "AmazonS3",
-    "azure": "StorageArchive"
+    "azure": "BlobStorageArchive"
   },
   "iot": {
     "aws": "AWSIoT",
