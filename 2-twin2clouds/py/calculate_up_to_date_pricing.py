@@ -12,8 +12,8 @@ import py.config_loader as config_loader
 import py.constants as CONSTANTS
 from py.logger import logger
 from py.cloud_price_fetcher_aws import fetch_aws_price, STATIC_DEFAULTS
+from py.cloud_price_fetcher_azure import fetch_azure_price, STATIC_DEFAULTS_AZURE
 # Future:
-# from py.cloud_price_fetcher_azure import fetch_azure_price
 # from py.cloud_price_fetcher_google import fetch_google_price
 
 
@@ -28,10 +28,8 @@ def calculate_up_to_date_pricing(additional_debug = False):
 
     output = {}
     
-    # TESTING
-    # additional_debug = True
-    
     service_mapping = config_loader.load_json_file(CONSTANTS.SERVICE_MAPPING_FILE_PATH)
+
 
     if "aws" in credentials:
         print("")
@@ -41,6 +39,8 @@ def calculate_up_to_date_pricing(additional_debug = False):
         aws_credentials = credentials.get("aws", {})
         output["aws"] = fetch_aws_data(aws_credentials, service_mapping, providers_config.get("aws", {}), additional_debug)
 
+    ## TODO - TESTING ONLY
+    additional_debug = True
     if "azure" in credentials:
         print("")
         logger.info("========================================================")
@@ -97,14 +97,14 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, aws_services_co
 
     fetched = {}
     
-    for neutral_service in aws_services_config.keys():
-        try:
-            logger.info(f"--- Service: {neutral_service} ---")
-            fetched[neutral_service] = fetch_aws_price(aws_credentials, service_mapping, neutral_service, region, additional_debug)
-        except Exception as e:
-            logger.debug(traceback.format_exc())
-            logger.error(f"⚠️ Failed to fetch AWS service {neutral_service}: {e}")
-            fetched[neutral_service] = {}
+    # for neutral_service in aws_services_config.keys():
+    #     try:
+    #         logger.info(f"--- Service: {neutral_service} ---")
+    #         fetched[neutral_service] = fetch_aws_price(aws_credentials, service_mapping, neutral_service, region, additional_debug)
+    #     except Exception as e:
+    #         logger.debug(traceback.format_exc())
+    #         logger.error(f"⚠️ Failed to fetch AWS service {neutral_service}: {e}")
+    #         fetched[neutral_service] = {}
 
     logger.info("🧩 Building AWS pricing schema...")
     aws = {}
@@ -208,10 +208,17 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, azure_servi
     fetched = {}
 
     for neutral_service_name in azure_services_config.keys():
-        logger.info(f"--- Azure Service (placeholder): {neutral_service_name} ---")
-        fetched[neutral_service_name] = {}  # no fetching yet
+        try:
+            logger.info(f"--- Azure Service: {neutral_service_name} ---")
+            fetched[neutral_service_name] = fetch_azure_price(service_mapping, neutral_service_name, region, additional_debug)
+        except Exception as e:
+            logger.debug(traceback.format_exc())
+            logger.error(f"⚠️ Failed to fetch Azure service {neutral_service_name}: {e}")
+            fetched[neutral_service_name] = {}
+        
     
     logger.info(f"🚀 Building Azure structure (region: {region})")
+    print(json.dumps(fetched, indent=2))
     azure = {}
 
     # Transfer
