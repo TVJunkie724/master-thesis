@@ -39,8 +39,6 @@ def calculate_up_to_date_pricing(additional_debug = False):
         aws_credentials = credentials.get("aws", {})
         output["aws"] = fetch_aws_data(aws_credentials, service_mapping, providers_config.get("aws", {}), additional_debug)
 
-    ## TODO - TESTING ONLY
-    additional_debug = True
     if "azure" in credentials:
         print("")
         logger.info("========================================================")
@@ -63,26 +61,93 @@ def calculate_up_to_date_pricing(additional_debug = False):
     return output
 
 
-from py.cloud_price_fetcher_aws import STATIC_DEFAULTS
-from py.logger import logger
+# ============================================================
+# STATIC DEFAULTS FOR GCP
+# ============================================================
+STATIC_DEFAULTS_GCP = {
+    "transfer": {
+        "egressPrice": 0.12
+    },
+    "iot": {
+        "pricePerMessage": 0.0000004,
+        "pricePerDeviceAndMonth": 0
+    },
+    "functions": {
+        "requestPrice": 0.0000004,
+        "durationPrice": 0.0000025,
+        "freeRequests": 2_000_000,
+        "freeComputeTime": 400_000
+    },
+    "storage_hot": {
+        "writePrice": 0.0000018,
+        "readPrice": 0.0000006,
+        "storagePrice": 0.18,
+        "freeStorage": 1
+    },
+    "storage_cool": {
+        "storagePrice": 0.01,
+        "upfrontPrice": 0.0,
+        "requestPrice": 0.00001,
+        "dataRetrievalPrice": 0.01
+    },
+    "storage_archive": {
+        "storagePrice": 0.0012,
+        "lifecycleAndWritePrice": 0.00005,
+        "dataRetrievalPrice": 0.05
+    },
+    "twinmaker": {
+        "entityPrice": 0.05,
+        "unifiedDataAccessAPICallsPrice": 0.0000015,
+        "queryPrice": 0.00005
+    },
+    "grafana": {
+        "editorPrice": 9.0,
+        "viewerPrice": 5.0
+    }
+}
 
-def _get_or_warn(neutral_service, provider_service, key, fetched_dict, default_value):
+
+# ============================================================
+# HELPER FUNCTION
+# ============================================================
+def _get_or_warn(provider_name, neutral_service, provider_service, key, fetched_dict, default_value, static_defaults):
     """
     Returns a fetched value or default.
-    - Logs info if the value is static (in STATIC_DEFAULTS).
+    - Logs info if the value is static (in static_defaults).
     - Logs warning if the value had to fall back.
     """
-    if neutral_service in STATIC_DEFAULTS.keys() and key in STATIC_DEFAULTS[neutral_service]:
-        logger.info(f"      ℹ️ Using static value for AWS.{provider_service}.{key}")
-    if key in fetched_dict and fetched_dict[key] is not None:
-        return fetched_dict[key]
+    # Handle None case - if fetcher failed completely
+    if fetched_dict is None:
+        fetched_dict = {}
     
-    
-    logger.warning(f"   ⚠️ Using fallback for AWS.{provider_service}.{key} (not returned by API)")
-    return default_value
+    is_in_static = neutral_service in static_defaults and key in static_defaults[neutral_service]
+    is_in_fetched = key in fetched_dict and fetched_dict[key] is not None
+
+    if provider_name == "AWS":
+        # AWS fetcher merges defaults, so we can't distinguish easily.
+        # We keep the old behavior: log if it's a known static default key.
+        if is_in_static:
+            logger.info(f"      ℹ️ Using static value for {provider_name}.{provider_service}.{key}")
+        
+        if is_in_fetched:
+            return fetched_dict[key]
+        else:
+             logger.warning(f"   ⚠️ Using fallback for {provider_name}.{provider_service}.{key} (not returned by API)")
+             return default_value
+
+    else:
+        # Azure/GCP: fetched_dict only contains DYNAMIC values.
+        if is_in_fetched:
+            return fetched_dict[key]
+        
+        if is_in_static:
+            logger.info(f"      ℹ️ Using static value for {provider_name}.{provider_service}.{key}")
+            return default_value
+            
+        logger.warning(f"   ⚠️ Using fallback for {provider_name}.{provider_service}.{key} (not returned by API)")
+        return default_value
 
 
-    
 # ============================================================
 # AWS FETCHING AND SCHEMA BUILD
 # ============================================================
@@ -95,16 +160,23 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, aws_services_co
     region = aws_credentials.get("aws_region", "eu-central-1")
     logger.info(f"🚀 Fetching AWS pricing for region: {region}")
 
+    # Load AWS credentials once for all services
+    try:
+        client_credentials = config_loader.load_aws_credentials()
+    except Exception as e:
+        logger.error(f"Failed to load AWS credentials: {e}")
+        client_credentials = None
+
     fetched = {}
     
-    # for neutral_service in aws_services_config.keys():
-    #     try:
-    #         logger.info(f"--- Service: {neutral_service} ---")
-    #         fetched[neutral_service] = fetch_aws_price(aws_credentials, service_mapping, neutral_service, region, additional_debug)
-    #     except Exception as e:
-    #         logger.debug(traceback.format_exc())
-    #         logger.error(f"⚠️ Failed to fetch AWS service {neutral_service}: {e}")
-    #         fetched[neutral_service] = {}
+    for neutral_service in aws_services_config.keys():
+        try:
+            logger.info(f"--- Service: {neutral_service} ---")
+            fetched[neutral_service] = fetch_aws_price(neutral_service, region, client_credentials, additional_debug)
+        except Exception as e:
+            logger.debug(traceback.format_exc())
+            logger.error(f"⚠️ Failed to fetch AWS service {neutral_service}: {e}")
+            fetched[neutral_service] = {}
 
     logger.info("🧩 Building AWS pricing schema...")
     aws = {}
@@ -120,14 +192,14 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, aws_services_co
             "tier4": {"limit": "Infinity", "price": 0.05},
         }),
     }
-    aws["egressPrice"] = _get_or_warn(neutral_service, provider_service, "egressPrice", transfer, 0.09)
+    aws["egressPrice"] = _get_or_warn("AWS", neutral_service, provider_service, "egressPrice", transfer, 0.09, STATIC_DEFAULTS)
 
     neutral_service, provider_service = "iot", "iotCore"
     iot = fetched.get(neutral_service, {})
     message_tiers = iot.get("messageTiers", {})
     aws[provider_service] = {
-        "pricePerDeviceAndMonth": _get_or_warn(neutral_service, provider_service, "pricePerDeviceAndMonth", iot, 0.0035),
-        "priceRulesTriggered": _get_or_warn(neutral_service, provider_service, "priceRulesTriggered", iot, 0.00000015),
+        "pricePerDeviceAndMonth": _get_or_warn("AWS", neutral_service, provider_service, "pricePerDeviceAndMonth", iot, 0.0035, STATIC_DEFAULTS),
+        "priceRulesTriggered": _get_or_warn("AWS", neutral_service, provider_service, "priceRulesTriggered", iot, 0.00000015, STATIC_DEFAULTS),
         "pricing_tiers": {
             "tier1": {"limit": 1_000_000_000, "price": message_tiers.get("tier_first", 0.000001)},
             "tier2": {"limit": 5_000_000_000, "price": message_tiers.get("tier_next", 0.0000008)},
@@ -139,29 +211,29 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, aws_services_co
     fn = fetched.get(neutral_service, {})
     duration_tiers = fn.get("durationTiers", {})
     aws[provider_service] = {
-        "requestPrice": _get_or_warn(neutral_service, provider_service, "requestPrice", fn, 0.0000002),
+        "requestPrice": _get_or_warn("AWS", neutral_service, provider_service, "requestPrice", fn, 0.0000002, STATIC_DEFAULTS),
         "durationPrice": duration_tiers.get("tier1", 0.0000166667),
-        "freeRequests": _get_or_warn(neutral_service, provider_service, "freeRequests", fn, 1_000_000),
-        "freeComputeTime": _get_or_warn(neutral_service, provider_service, "freeComputeTime", fn, 400_000),
+        "freeRequests": _get_or_warn("AWS", neutral_service, provider_service, "freeRequests", fn, 1_000_000, STATIC_DEFAULTS),
+        "freeComputeTime": _get_or_warn("AWS", neutral_service, provider_service, "freeComputeTime", fn, 400_000, STATIC_DEFAULTS),
     }
 
     neutral_service, provider_service = "storage_hot", "dynamoDB"
     ddb = fetched.get(neutral_service, {})
     aws[provider_service] = {
-        "writePrice": _get_or_warn(neutral_service, provider_service, "writePrice", ddb, 0.000000625),
-        "readPrice": _get_or_warn(neutral_service, provider_service, "readPrice", ddb, 0.000000125),
-        "storagePrice": _get_or_warn(neutral_service, provider_service, "storagePrice", ddb, 0.25),
-        "freeStorage": _get_or_warn(neutral_service, provider_service, "freeStorage", ddb, 25),
+        "writePrice": _get_or_warn("AWS", neutral_service, provider_service, "writePrice", ddb, 0.000000625, STATIC_DEFAULTS),
+        "readPrice": _get_or_warn("AWS", neutral_service, provider_service, "readPrice", ddb, 0.000000125, STATIC_DEFAULTS),
+        "storagePrice": _get_or_warn("AWS", neutral_service, provider_service, "storagePrice", ddb, 0.25, STATIC_DEFAULTS),
+        "freeStorage": _get_or_warn("AWS", neutral_service, provider_service, "freeStorage", ddb, 25, STATIC_DEFAULTS),
     }
 
     neutral_service, provider_service = "storage_cool", "s3InfrequentAccess"
     s3ia = fetched.get(neutral_service, {})
     egress_price = aws["egressPrice"]
     aws[provider_service] = {
-        "storagePrice": _get_or_warn(neutral_service, provider_service, "storagePrice", s3ia, 0.0125),
-        "upfrontPrice": _get_or_warn(neutral_service, provider_service, "upfrontPrice", s3ia, 0.0001),
-        "requestPrice": _get_or_warn(neutral_service, provider_service, "requestPrice", s3ia, 0.00001),
-        "dataRetrievalPrice": _get_or_warn(neutral_service, provider_service, "dataRetrievalPrice", s3ia, 0.01),
+        "storagePrice": _get_or_warn("AWS", neutral_service, provider_service, "storagePrice", s3ia, 0.0125, STATIC_DEFAULTS),
+        "upfrontPrice": _get_or_warn("AWS", neutral_service, provider_service, "upfrontPrice", s3ia, 0.0001, STATIC_DEFAULTS),
+        "requestPrice": _get_or_warn("AWS", neutral_service, provider_service, "requestPrice", s3ia, 0.00001, STATIC_DEFAULTS),
+        "dataRetrievalPrice": _get_or_warn("AWS", neutral_service, provider_service, "dataRetrievalPrice", s3ia, 0.01, STATIC_DEFAULTS),
         "transferCostFromDynamoDB": round(egress_price * 1.1, 8),
         "transferCostFromCosmosDB": round(egress_price * 0.55, 8),
     }
@@ -169,24 +241,24 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, aws_services_co
     neutral_service, provider_service = "storage_archive", "s3GlacierDeepArchive"
     s3ga = fetched.get(neutral_service, {})
     aws[provider_service] = {
-        "storagePrice": _get_or_warn(neutral_service, provider_service, "storagePrice", s3ga, 0.00099),
-        "lifecycleAndWritePrice": _get_or_warn(neutral_service, provider_service, "lifecycleAndWritePrice", s3ga, 0.00005),
-        "dataRetrievalPrice": _get_or_warn(neutral_service, provider_service, "dataRetrievalPrice", s3ga, 0.0025),
+        "storagePrice": _get_or_warn("AWS", neutral_service, provider_service, "storagePrice", s3ga, 0.00099, STATIC_DEFAULTS),
+        "lifecycleAndWritePrice": _get_or_warn("AWS", neutral_service, provider_service, "lifecycleAndWritePrice", s3ga, 0.00005, STATIC_DEFAULTS),
+        "dataRetrievalPrice": _get_or_warn("AWS", neutral_service, provider_service, "dataRetrievalPrice", s3ga, 0.0025, STATIC_DEFAULTS),
     }
 
     neutral_service, provider_service = "twinmaker", "iotTwinMaker"
     tm = fetched.get(neutral_service, {})
     aws[provider_service] = {
-        "unifiedDataAccessAPICallsPrice": _get_or_warn(neutral_service, provider_service, "unifiedDataAccessAPICallsPrice", tm, 0.0000015),
-        "entityPrice": _get_or_warn(neutral_service, provider_service, "entityPrice", tm, 0.05),
-        "queryPrice": _get_or_warn(neutral_service, provider_service, "queryPrice", tm, 0.00005),
+        "unifiedDataAccessAPICallsPrice": _get_or_warn("AWS", neutral_service, provider_service, "unifiedDataAccessAPICallsPrice", tm, 0.0000015, STATIC_DEFAULTS),
+        "entityPrice": _get_or_warn("AWS", neutral_service, provider_service, "entityPrice", tm, 0.05, STATIC_DEFAULTS),
+        "queryPrice": _get_or_warn("AWS", neutral_service, provider_service, "queryPrice", tm, 0.00005, STATIC_DEFAULTS),
     }
 
     neutral_service, provider_service = "grafana", "awsManagedGrafana"
     gf = fetched.get(neutral_service, {})
     aws[provider_service] = {
-        "editorPrice": _get_or_warn(neutral_service, provider_service, "editorPrice", gf, 9.0),
-        "viewerPrice": _get_or_warn(neutral_service, provider_service, "viewerPrice", gf, 5.0),
+        "editorPrice": _get_or_warn("AWS", neutral_service, provider_service, "editorPrice", gf, 9.0, STATIC_DEFAULTS),
+        "viewerPrice": _get_or_warn("AWS", neutral_service, provider_service, "viewerPrice", gf, 5.0, STATIC_DEFAULTS),
     }
 
     logger.info("✅ AWS pricing schema built successfully.")
@@ -199,8 +271,7 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, aws_services_co
 # ============================================================
 def fetch_azure_data(azure_credentials: dict, service_mapping: dict, azure_services_config: dict, additional_debug=False) -> dict:
     """
-    Placeholder for Azure fetching — iterates through config like AWS,
-    builds canonical structure, logs defaults (fetching not yet implemented).
+    Fetches Azure pricing using fetch_azure_price() and builds the canonical structure.
     """
     region = azure_credentials.get("azure_region", "westeurope")
     logger.info(f"🚀 Fetching Azure pricing for region: {region}")
@@ -210,7 +281,7 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, azure_servi
     for neutral_service_name in azure_services_config.keys():
         try:
             logger.info(f"--- Azure Service: {neutral_service_name} ---")
-            fetched[neutral_service_name] = fetch_azure_price(service_mapping, neutral_service_name, region, additional_debug)
+            fetched[neutral_service_name] = fetch_azure_price(neutral_service_name, region, additional_debug)
         except Exception as e:
             logger.debug(traceback.format_exc())
             logger.error(f"⚠️ Failed to fetch Azure service {neutral_service_name}: {e}")
@@ -218,86 +289,179 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, azure_servi
         
     
     logger.info(f"🚀 Building Azure structure (region: {region})")
-    print(json.dumps(fetched, indent=2))
+    
     azure = {}
 
     # Transfer
-    azure["transfer"] = {
-        "pricing_tiers": {
+    neutral_service, provider_service = "transfer", "transfer"
+    transfer = fetched.get(neutral_service, {})
+    azure[provider_service] = {
+        "pricing_tiers": transfer.get("pricing_tiers", {
             "freeTier": {"limit": 100, "price": 0},
-            "tier1": {"limit": 10240, "price": 0.08},
-            "tier2": {"limit": 40960, "price": 0.065},
-            "tier3": {"limit": 102400, "price": 0.06},
-            "tier4": {"limit": "Infinity", "price": 0.04},
-        }
+            "tier1": {"limit": 10240, "price": 0.087}, 
+            "tier2": {"limit": 51200, "price": 0.083},
+            "tier3": {"limit": 102400, "price": 0.07},
+            "tier4": {"limit": "Infinity", "price": 0.05},
+        })
     }
 
     # IoT Hub
-    azure["iotHub"] = {
-        "pricing_tiers": {
-            "tier1": {"limit": 120_000_000, "threshold": 12_000_000, "price": 25},
-            "tier2": {"limit": 1_800_000_000, "threshold": 180_000_000, "price": 250},
-            "tier3": {"limit": "Infinity", "threshold": 9_000_000_000, "price": 2500},
-        }
-    }
+    neutral_service, provider_service = "iot", "iotHub"
+    iot = fetched.get(neutral_service, {})
+    if "pricing_tiers" not in iot:
+        logger.warning(f"   ⚠️ Using fallback for Azure.{provider_service}.pricing_tiers (not returned by API)")
+        azure[provider_service] = STATIC_DEFAULTS_AZURE["iot"]
+    else:
+        azure[provider_service] = iot
 
     # Azure Functions
-    azure["functions"] = {
-        "requestPrice": 0.0000002,
-        "durationPrice": 0.0000166667,
-        "freeRequests": 1_000_000,
-        "freeComputeTime": 400_000,
+    neutral_service, provider_service = "functions", "functions"
+    fn = fetched.get(neutral_service, {})
+    azure[provider_service] = {
+        "requestPrice": _get_or_warn("Azure", neutral_service, provider_service, "requestPrice", fn, 0.0000002, STATIC_DEFAULTS_AZURE),
+        "durationPrice": _get_or_warn("Azure", neutral_service, provider_service, "durationPrice", fn, 0.000016, STATIC_DEFAULTS_AZURE),
+        "freeRequests": _get_or_warn("Azure", neutral_service, provider_service, "freeRequests", fn, 1_000_000, STATIC_DEFAULTS_AZURE),
+        "freeComputeTime": _get_or_warn("Azure", neutral_service, provider_service, "freeComputeTime", fn, 400_000, STATIC_DEFAULTS_AZURE),
     }
 
     # CosmosDB (storage_hot)
-    azure["cosmosDB"] = {
-        "storagePrice": 0.25,
-        "requestPrice": 0.0584,
-        "minimumRequestUnits": 400,
-        "RUsPerWrite": 1,
-        "RUsPerRead": 10,
+    neutral_service, provider_service = "storage_hot", "cosmosDB"
+    sh = fetched.get(neutral_service, {})
+    azure[provider_service] = {
+        "requestPrice": _get_or_warn("Azure", neutral_service, provider_service, "requestPrice", sh, 0.0584, STATIC_DEFAULTS_AZURE),
+        "minimumRequestUnits": _get_or_warn("Azure", neutral_service, provider_service, "minimumRequestUnits", sh, 400, STATIC_DEFAULTS_AZURE),
+        "RUsPerRead": _get_or_warn("Azure", neutral_service, provider_service, "RUsPerRead", sh, 1, STATIC_DEFAULTS_AZURE),
+        "RUsPerWrite": _get_or_warn("Azure", neutral_service, provider_service, "RUsPerWrite", sh, 10, STATIC_DEFAULTS_AZURE),
+        "storagePrice": _get_or_warn("Azure", neutral_service, provider_service, "storagePrice", sh, 0.25, STATIC_DEFAULTS_AZURE),
     }
 
     # Blob Storage Cool (storage_cool)
-    azure["blobStorageCool"] = {
-        "storagePrice": 0.015,
-        "writePrice": 0.00001,
-        "readPrice": 0.000001,
-        "dataRetrievalPrice": 0.01,
-        "transferCostFromCosmosDB": 0.05,
+    neutral_service, provider_service = "storage_cool", "blobStorageCool"
+    sc = fetched.get(neutral_service, {})
+    azure[provider_service] = {
+        "storagePrice": _get_or_warn("Azure", neutral_service, provider_service, "storagePrice", sc, 0.01, STATIC_DEFAULTS_AZURE),
+        "upfrontPrice": _get_or_warn("Azure", neutral_service, provider_service, "upfrontPrice", sc, 0.0001, STATIC_DEFAULTS_AZURE),
+        "writePrice": _get_or_warn("Azure", neutral_service, provider_service, "writePrice", sc, 0.02, STATIC_DEFAULTS_AZURE),
+        "readPrice": _get_or_warn("Azure", neutral_service, provider_service, "readPrice", sc, 0.01, STATIC_DEFAULTS_AZURE),
+        "dataRetrievalPrice": _get_or_warn("Azure", neutral_service, provider_service, "dataRetrievalPrice", sc, 0.01, STATIC_DEFAULTS_AZURE),
+        "transferCostFromCosmosDB": 0.087, # Approx
     }
 
     # Blob Storage Archive (storage_archive)
-    azure["blobStorageArchive"] = {
-        "storagePrice": 0.00099,
-        "writePrice": 0.000013,
-        "dataRetrievalPrice": 0.02,
+    neutral_service, provider_service = "storage_archive", "blobStorageArchive"
+    sa = fetched.get(neutral_service, {})
+    azure[provider_service] = {
+        "storagePrice": _get_or_warn("Azure", neutral_service, provider_service, "storagePrice", sa, 0.00099, STATIC_DEFAULTS_AZURE),
+        "writePrice": _get_or_warn("Azure", neutral_service, provider_service, "writePrice", sa, 0.02, STATIC_DEFAULTS_AZURE),
+        "dataRetrievalPrice": _get_or_warn("Azure", neutral_service, provider_service, "dataRetrievalPrice", sa, 0.02, STATIC_DEFAULTS_AZURE),
     }
 
     # Azure Digital Twins
-    azure["azureDigitalTwins"] = {
-        "messagePrice": 0.000001,
-        "operationPrice": 0.0000025,
-        "queryPrice": 0.0000005,
-        "queryUnitTiers": [
-            {"lower": 1, "upper": 99, "value": 15},
-            {"lower": 100, "upper": 9999, "value": 1500},
-            {"lower": 10000, "value": 4000},
-        ],
+    neutral_service, provider_service = "twinmaker", "azureDigitalTwins"
+    tm = fetched.get(neutral_service, {})
+    azure[provider_service] = {
+        "messagePrice": _get_or_warn("Azure", neutral_service, provider_service, "messagePrice", tm, 0.000001, STATIC_DEFAULTS_AZURE),
+        "operationPrice": _get_or_warn("Azure", neutral_service, provider_service, "operationPrice", tm, 0.0000025, STATIC_DEFAULTS_AZURE),
+        "queryPrice": _get_or_warn("Azure", neutral_service, provider_service, "queryPrice", tm, 0.0000005, STATIC_DEFAULTS_AZURE),
+        "queryUnitTiers": tm.get("queryUnitTiers", STATIC_DEFAULTS_AZURE["twinmaker"]["queryUnitTiers"]),
     }
 
     # Managed Grafana
-    azure["azureManagedGrafana"] = {"userPrice": 6.0, "hourlyPrice": 0.069}
+    neutral_service, provider_service = "grafana", "azureManagedGrafana"
+    gf = fetched.get(neutral_service, {})
+    azure[provider_service] = {
+        "userPrice": _get_or_warn("Azure", neutral_service, provider_service, "userPrice", gf, 6.0, STATIC_DEFAULTS_AZURE),
+        "hourlyPrice": _get_or_warn("Azure", neutral_service, provider_service, "hourlyPrice", gf, 0.069, STATIC_DEFAULTS_AZURE),
+    }
 
-    logger.info("✅ Azure placeholder schema built successfully.")
+    logger.info("✅ Azure pricing schema built successfully.")
     return azure
 
 
 # ============================================================
-# GOOGLE PLACEHOLDER STRUCTURE
+# GOOGLE CLOUD DATA AND SCHEMA BUILD
 # ============================================================
 def fetch_google_data(google_credentials: dict, service_mapping: dict, google_services_config: dict, additional_debug=False) -> dict:
+    """
+    Fetches Google Cloud pricing.
+    Currently uses static defaults as the dynamic fetcher is not yet fully implemented.
+    """
     region = google_credentials.get("gcp_region", "europe-west1")
     logger.info(f"🚀 Fetching Google Cloud pricing for region: {region}")
-    logger.warning(f"⚠️ Google Cloud fetching not implemented yet (region: {region}).")
-    return {}
+    
+    fetched = {} 
+    # Since fetching is not implemented, fetched is empty.
+    # We rely on _get_or_warn to use defaults from STATIC_DEFAULTS_GCP.
+
+    gcp = {}
+    
+    neutral_service, provider_service = "transfer", "transfer"
+    transfer = fetched.get(neutral_service, {})
+    gcp[provider_service] = {
+        "pricing_tiers": {
+            "freeTier": {"limit": 100, "price": 0},
+            "tier1": {"limit": 10240, "price": 0.12},
+            "tier2": {"limit": "Infinity", "price": 0.08},
+        },
+    }
+    gcp["egressPrice"] = _get_or_warn("GCP", neutral_service, provider_service, "egressPrice", transfer, 0.12, STATIC_DEFAULTS_GCP)
+
+    neutral_service, provider_service = "iot", "iot"
+    iot = fetched.get(neutral_service, {})
+    gcp[provider_service] = {
+        "pricePerMessage": _get_or_warn("GCP", neutral_service, provider_service, "pricePerMessage", iot, 0.0000004, STATIC_DEFAULTS_GCP),
+        "pricePerDeviceAndMonth": _get_or_warn("GCP", neutral_service, provider_service, "pricePerDeviceAndMonth", iot, 0, STATIC_DEFAULTS_GCP),
+    }
+
+    neutral_service, provider_service = "functions", "functions"
+    fn = fetched.get(neutral_service, {})
+    gcp[provider_service] = {
+        "requestPrice": _get_or_warn("GCP", neutral_service, provider_service, "requestPrice", fn, 0.0000004, STATIC_DEFAULTS_GCP),
+        "durationPrice": _get_or_warn("GCP", neutral_service, provider_service, "durationPrice", fn, 0.0000025, STATIC_DEFAULTS_GCP),
+        "freeRequests": _get_or_warn("GCP", neutral_service, provider_service, "freeRequests", fn, 2_000_000, STATIC_DEFAULTS_GCP),
+        "freeComputeTime": _get_or_warn("GCP", neutral_service, provider_service, "freeComputeTime", fn, 400_000, STATIC_DEFAULTS_GCP),
+    }
+
+    neutral_service, provider_service = "storage_hot", "storage_hot"
+    sh = fetched.get(neutral_service, {})
+    gcp[provider_service] = {
+        "writePrice": _get_or_warn("GCP", neutral_service, provider_service, "writePrice", sh, 0.0000018, STATIC_DEFAULTS_GCP),
+        "readPrice": _get_or_warn("GCP", neutral_service, provider_service, "readPrice", sh, 0.0000006, STATIC_DEFAULTS_GCP),
+        "storagePrice": _get_or_warn("GCP", neutral_service, provider_service, "storagePrice", sh, 0.18, STATIC_DEFAULTS_GCP),
+        "freeStorage": _get_or_warn("GCP", neutral_service, provider_service, "freeStorage", sh, 1, STATIC_DEFAULTS_GCP),
+    }
+
+    neutral_service, provider_service = "storage_cool", "storage_cool"
+    sc = fetched.get(neutral_service, {})
+    gcp[provider_service] = {
+        "storagePrice": _get_or_warn("GCP", neutral_service, provider_service, "storagePrice", sc, 0.01, STATIC_DEFAULTS_GCP),
+        "upfrontPrice": _get_or_warn("GCP", neutral_service, provider_service, "upfrontPrice", sc, 0.0, STATIC_DEFAULTS_GCP),
+        "requestPrice": _get_or_warn("GCP", neutral_service, provider_service, "requestPrice", sc, 0.00001, STATIC_DEFAULTS_GCP),
+        "dataRetrievalPrice": _get_or_warn("GCP", neutral_service, provider_service, "dataRetrievalPrice", sc, 0.01, STATIC_DEFAULTS_GCP),
+    }
+
+    neutral_service, provider_service = "storage_archive", "storage_archive"
+    sa = fetched.get(neutral_service, {})
+    gcp[provider_service] = {
+        "storagePrice": _get_or_warn("GCP", neutral_service, provider_service, "storagePrice", sa, 0.0012, STATIC_DEFAULTS_GCP),
+        "lifecycleAndWritePrice": _get_or_warn("GCP", neutral_service, provider_service, "lifecycleAndWritePrice", sa, 0.00005, STATIC_DEFAULTS_GCP),
+        "dataRetrievalPrice": _get_or_warn("GCP", neutral_service, provider_service, "dataRetrievalPrice", sa, 0.05, STATIC_DEFAULTS_GCP),
+    }
+
+    neutral_service, provider_service = "twinmaker", "twinmaker"
+    tm = fetched.get(neutral_service, {})
+    gcp[provider_service] = {
+        "entityPrice": _get_or_warn("GCP", neutral_service, provider_service, "entityPrice", tm, 0.05, STATIC_DEFAULTS_GCP),
+        "unifiedDataAccessAPICallsPrice": _get_or_warn("GCP", neutral_service, provider_service, "unifiedDataAccessAPICallsPrice", tm, 0.0000015, STATIC_DEFAULTS_GCP),
+        "queryPrice": _get_or_warn("GCP", neutral_service, provider_service, "queryPrice", tm, 0.00005, STATIC_DEFAULTS_GCP),
+    }
+
+    neutral_service, provider_service = "grafana", "grafana"
+    gf = fetched.get(neutral_service, {})
+    gcp[provider_service] = {
+        "editorPrice": _get_or_warn("GCP", neutral_service, provider_service, "editorPrice", gf, 9.0, STATIC_DEFAULTS_GCP),
+        "viewerPrice": _get_or_warn("GCP", neutral_service, provider_service, "viewerPrice", gf, 5.0, STATIC_DEFAULTS_GCP),
+    }
+
+    logger.info("✅ GCP pricing schema built successfully (using defaults).")
+    return gcp

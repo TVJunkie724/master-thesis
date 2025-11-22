@@ -1,21 +1,22 @@
-import boto3, json, traceback, copy
-import py.constants as CONSTANTS
-from py.config_loader import load_json_file, load_aws_credentials
+import boto3
+import json
+import re
+from typing import Dict, Any, Optional, List
 from py.logger import logger
+import py.constants as CONSTANTS
+import py.config_loader as config_loader
+from py.fetch_data import initial_fetch_aws
 
-# -------------------------------------------------------------------
-# Region mapping + defaults
-# -------------------------------------------------------------------
-AWS_REGION_NAMES = {
-    "us-east-1": "US East (N. Virginia)",
-    "us-east-2": "US East (Ohio)",
-    "us-west-1": "US West (N. California)",
-    "us-west-2": "US West (Oregon)",
-    "eu-central-1": "EU (Frankfurt)",
-    "eu-west-1": "EU (Ireland)",
-    "ap-southeast-1": "Asia Pacific (Singapore)",
-    "ap-northeast-1": "Asia Pacific (Tokyo)"
-}
+# --------------------------------------------------------------------
+# 1. Dynamic Region Loading
+# --------------------------------------------------------------------
+def _load_aws_regions() -> Dict[str, str]:
+    """
+    Load AWS regions using the shared initial fetch logic (with caching).
+    """
+    return initial_fetch_aws.fetch_region_map()
+
+AWS_REGION_NAMES = _load_aws_regions()
 
 STATIC_DEFAULTS = {
     "transfer": {"egressPrice": 0.09},
@@ -90,6 +91,14 @@ AWS_SERVICE_KEYWORDS = {
         "include": ["data transfer", "transfer out", "egress", "internet"],
         "fields": {
             "egressPrice": ["data transfer", "transfer out", "data transferred out", "egress", "internet", "out to"]
+        },
+    },
+    "grafana": {
+        "include": ["grafana", "workspace", "user"],
+        "exclude": ["enterprise", "support"],
+        "fields": {
+            "editorPrice": ["editor", "admin", "active user"],
+            "viewerPrice": ["viewer"],
         },
     },
 }
@@ -211,74 +220,125 @@ def _parse_transfer_dimensions(price_list, field_map, debug=False):
 
 
 def fetch_twinmaker_pricing(region_human, pricing_client, debug=False):
-    """Fetch IoT TwinMaker + Queries pricing using unified parser."""
     field_map = AWS_SERVICE_KEYWORDS["twinmaker"]["fields"]
-    include_keywords = AWS_SERVICE_KEYWORDS["twinmaker"]["include"]
-
-    all_prices = {}
-    for svc in ["IOTTwinMaker", "IOTTwinMakerQueries"]:
-        for with_location in (True, False):
-            price_list = _fetch_pricing_response(pricing_client, svc, region_human, with_location=with_location)
-            partial = _parse_price_dimensions(price_list, field_map, include_keywords, [], debug)
-            all_prices.update(partial)
-    defaults = {
-        "entityPrice": 0.05,
-        "unifiedDataAccessAPICallsPrice": 0.0000015,
-        "queryPrice": 0.00005,
-    }
-    for k, v in defaults.items():
-        if k not in all_prices:
-            logger.warning(f"⚠️ Using default for twinmaker.{k} (not returned by API)")
-            all_prices[k] = v
-    logger.info(f"✅ Final IoT TwinMaker pricing: {all_prices}")
-    print("")
-    return all_prices
-
-
-# -------------------------------------------------------------------
-# Main unified fetcher
-# -------------------------------------------------------------------
-def fetch_aws_price(credentials: dict, service_mapping: dict, neutral_service_name: str, region_name: str, debug=False):
-    """Fetch AWS pricing for any neutral service, dispatching specialized handlers as needed."""
-    aws_credentials = copy.deepcopy(credentials)
-    aws_credentials["region_name"] = aws_credentials.pop("aws_region", None)
+    prices = {}
     
+    # Try both service codes as AWS sometimes changes them
+    for service_code in ["IOTTwinMaker", "IOTTwinMakerQueries"]:
+        price_list = _fetch_pricing_response(pricing_client, service_code, region_human)
+        fetched = _parse_price_dimensions(price_list, field_map, debug=debug)
+        prices.update(fetched)
+
+    return prices
+
+
+# -------------------------------------------------------------------
+# Main Fetcher
+# -------------------------------------------------------------------
+def fetch_aws_price(service_name, region_code, aws_credentials=None, debug=False):
+    """
+    Fetch pricing for a specific AWS service in a given region.
+    Uses boto3 Pricing API with keyword matching.
+    """
+    region_human = AWS_REGION_NAMES.get(region_code)
+    if not region_human:
+        logger.warning(f"⚠️ Unknown AWS region code: {region_code}")
+        return None
+
+    # Normalize service name
+    neutral_service_name = service_name.lower().replace(" ", "_")
+    
+    # Handle Grafana specifically (Static for now, dynamic TODO)
     if neutral_service_name == "grafana":
         prices = STATIC_DEFAULTS["grafana"]
         logger.info(f"ℹ️ Using static Grafana pricing")
-        logger.info(f"✅ Final AWS prices for {neutral_service_name}: {prices}")
-        print("")
         return prices
 
-    pricing_client = boto3.client("pricing", **aws_credentials)
-    region_human = AWS_REGION_NAMES.get(region_name, region_name)
+    # Check if we have keywords for this service
+    service_config = AWS_SERVICE_KEYWORDS.get(neutral_service_name)
+    if not service_config:
+        logger.warning(f"⚠️ No keyword config for service: {service_name}")
+        return STATIC_DEFAULTS.get(neutral_service_name)
 
+    logger.info(f"🔍 Fetching AWS {service_name} pricing for {region_human}...")
+    
+    try:
+        # Use provided credentials or load them
+        if aws_credentials is None:
+            client_args = config_loader.load_aws_credentials()
+        else:
+            client_args = aws_credentials.copy()
+            # Ensure region_name is set for pricing API
+            client_args["region_name"] = client_args.get("region_name", "us-east-1")
+        
+        # Pricing API endpoint is only in us-east-1 or ap-south-1 usually
+        pricing_client = boto3.client("pricing", **client_args)
+    except Exception as e:
+        logger.error(f"Failed to create boto3 client: {e}")
+        return STATIC_DEFAULTS.get(neutral_service_name)
+
+    # Special handling for Transfer (complex tiered pricing)
     if neutral_service_name == "transfer":
         return fetch_transfer_pricing(region_human, pricing_client, debug)
+
+    # Special handling for TwinMaker (multiple service codes)
     if neutral_service_name == "twinmaker":
-        return fetch_twinmaker_pricing(region_human, pricing_client, debug)
-
-    # Normal path
-    service_code = service_mapping.get(neutral_service_name, {}).get("aws", neutral_service_name)
-    if neutral_service_name == "storage_archive":
-        service_code = "AmazonS3"
-
-    logger.info(f"--- Fetching AWS prices for {neutral_service_name} ({service_code}) in {region_human} ---")
-
-    try:
-        price_list = _fetch_pricing_response(pricing_client, service_code, region_human)
-        service_cfg = AWS_SERVICE_KEYWORDS.get(neutral_service_name, {})
-        field_map = service_cfg.get("fields", {})
-        include = service_cfg.get("include", [])
-        exclude = service_cfg.get("exclude", [])
-        prices = _parse_price_dimensions(price_list, field_map, include, exclude, debug)
-        if neutral_service_name in STATIC_DEFAULTS:
-            prices = {**prices, **STATIC_DEFAULTS[neutral_service_name]}
-        logger.info(f"✅ Final AWS prices for {neutral_service_name}: {prices}")
-        print("")
+        prices = fetch_twinmaker_pricing(region_human, pricing_client, debug)
+        if not prices:
+             logger.warning(f"⚠️ Failed to fetch TwinMaker prices, using defaults.")
+             # Fallback logic could go here if needed
         return prices
 
-    except Exception as e:
-        logger.debug(traceback.format_exc())
-        logger.error(f"⚠️ AWS pricing fetch failed for {neutral_service_name}: {e}")
-        return STATIC_DEFAULTS.get(neutral_service_name, {})
+    # Standard handling for other services
+    # We need to guess the AWS ServiceCode. This is tricky without a map.
+    # Common ones: AmazonEC2, AmazonS3, AmazonDynamoDB, AWSLambda, AmazonIoTCore
+    service_code_map = {
+        "iot": "AmazonIoTCore",
+        "functions": "AWSLambda",
+        "storage_hot": "AmazonDynamoDB",
+        "storage_cool": "AmazonS3",
+        "storage_archive": "AmazonS3",
+    }
+    
+    aws_service_code = service_code_map.get(neutral_service_name)
+    if not aws_service_code:
+        logger.warning(f"⚠️ No AWS ServiceCode mapped for {service_name}")
+        return STATIC_DEFAULTS.get(neutral_service_name)
+
+    price_list = _fetch_pricing_response(pricing_client, aws_service_code, region_human)
+    
+    # Parse dimensions
+    prices = _parse_price_dimensions(
+        price_list, 
+        service_config["fields"], 
+        include_keywords=service_config.get("include"),
+        exclude_keywords=service_config.get("exclude"),
+        debug=debug
+    )
+
+    # Handle tiers if defined (e.g. Lambda duration)
+    if "tier_keywords" in service_config and isinstance(service_config["tier_keywords"], dict):
+        for tier_group, tiers in service_config["tier_keywords"].items():
+            tier_data = {}
+            for tier_name, keywords in tiers.items():
+                # Re-scan price list for these specific tier keywords
+                tier_prices = _parse_price_dimensions(
+                    price_list, 
+                    {tier_name: keywords}, # temporary field map
+                    include_keywords=service_config.get("include"),
+                    exclude_keywords=service_config.get("exclude"),
+                    debug=debug
+                )
+                if tier_prices:
+                    tier_data[tier_name] = list(tier_prices.values())[0]
+            if tier_data:
+                prices[tier_group] = tier_data
+
+    # Merge with defaults if missing keys
+    defaults = STATIC_DEFAULTS.get(neutral_service_name, {})
+    for k, v in defaults.items():
+        if k not in prices:
+            prices[k] = v
+            if debug: logger.debug(f"   ℹ️ Using default for {k}: {v}")
+
+    return prices

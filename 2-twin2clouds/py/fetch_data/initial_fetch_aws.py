@@ -19,14 +19,19 @@ def fetch_region_map() -> Dict[str, str]:
             "us-east-1": "US East (N. Virginia)"
         }
     """
+    # Check if we have a fresh local file
+    if utils.is_file_fresh(CONSTANTS.AWS_REGIONS_FILE_PATH, max_age_days=7):
+        logger.info(f"✅ Using cached AWS regions from {CONSTANTS.AWS_REGIONS_FILE_PATH}")
+        return config_loader.load_json_file(CONSTANTS.AWS_REGIONS_FILE_PATH)
+
     logger.info("---------------------------------------------------")
     logger.info("Fetching AWS region map from Pricing API")
     try:
         client_args = config_loader.load_aws_credentials()
         region_map = {}
 
-        # NOTE: The Pricing API is only available in specific regions (e.g., us-east-1)
-        pricing_client = boto3.client("pricing", region_name="us-east-1", **client_args)
+        # NOTE: The Pricing API is only available in specific regions (e.g., eu-central-1)
+        pricing_client = boto3.client("pricing", region_name="eu-central-1", **client_args)
         response = pricing_client.get_products(
             ServiceCode="AmazonEC2",
             Filters=[{"Type": "TERM_MATCH", "Field": "preInstalledSw", "Value": "NA"}],
@@ -55,58 +60,6 @@ def fetch_region_map() -> Dict[str, str]:
             logger.error("No local AWS regions file found. Cannot proceed.")
             raise e
         logger.warning("Loading AWS region map from local file as fallback.")
-        regions = utils.load_json_file(CONSTANTS.AWS_REGIONS_FILE_PATH)
+        regions = config_loader.load_json_file(CONSTANTS.AWS_REGIONS_FILE_PATH)
         regions_sorted = dict(sorted(regions.items()))
         return regions_sorted
-
-
-# --------------------------------------------------------------------
-# Service Codes
-# --------------------------------------------------------------------
-def fetch_aws_service_codes() -> Dict[str, str]:
-    """
-    Fetch all AWS service codes from the Pricing API index and return a friendly name mapping.
-    Example:
-        {
-            "ec2": "AmazonEC2",
-            "s3": "AmazonS3",
-            ...
-        }
-    """
-    logger.info("---------------------------------------------------")
-    logger.info("Fetching AWS service codes from Pricing API index")
-    try:
-        resp = requests.get(CONSTANTS.AWS_PRICING_API_URL, timeout=10)
-        resp.raise_for_status()
-
-        data = resp.json()
-        offers = data.get("offers", {})
-
-        service_codes_map = {}
-        for svc_code in offers.keys():
-            friendly = (
-                svc_code.lower()
-                .replace("amazon", "")
-                .replace("aws", "")
-                .replace(".", "_")
-                .strip("_")
-            )
-            service_codes_map[friendly] = svc_code
-
-        service_dict_sorted = dict(sorted(service_codes_map.items()))
-        
-
-        with open(CONSTANTS.AWS_SERVICE_CODES_FILE_PATH, "w") as f:
-            json.dump(service_dict_sorted, f, indent=2)
-
-        logger.info(f"Saved {len(service_dict_sorted)} AWS services to {CONSTANTS.AWS_SERVICE_CODES_FILE_PATH}")
-        return service_dict_sorted
-    except Exception as e:
-        logger.error(f"Failed to fetch AWS service codes: {e}")
-        if not utils.file_exists(CONSTANTS.AWS_SERVICE_CODES_FILE_PATH):
-            logger.error("No local AWS service codes file found. Cannot proceed.")
-            raise e
-        logger.warning("Loading AWS service codes from local file as fallback.")
-        services = utils.load_json_file(CONSTANTS.AWS_SERVICE_CODES_FILE_PATH)
-        services_sorted = dict(sorted(services.items()))
-        return services_sorted

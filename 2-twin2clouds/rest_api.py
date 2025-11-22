@@ -84,6 +84,7 @@ class CalcParams(BaseModel):
     amountOfActiveViewers: int
     dashboardRefreshesPerHour: int
     dashboardActiveHoursPerDay: int
+    currency: str = "USD" # Default to USD, can be "EUR"
 
     class Config:
         json_schema_extra = {
@@ -99,7 +100,8 @@ class CalcParams(BaseModel):
                 "amountOfActiveEditors": 0,
                 "amountOfActiveViewers": 0,
                 "dashboardRefreshesPerHour": 2,
-                "dashboardActiveHoursPerDay": 0
+                "dashboardActiveHoursPerDay": 0,
+                "currency": "USD"
             }
         }
         
@@ -184,8 +186,8 @@ def serve_docs_formulas():
     summary="Calculate Cloud Costs and Determine Cheapest Provider Setup",
     description=(
         "This endpoint receives a complete set of **Digital Twin scenario parameters**, "
-        "passes them to the Node.js computation module (`cost_calculation.js`), and returns "
-        "the calculated cost breakdown for AWS and Azure, along with the optimal provider "
+        "processes them through the Python calculation engine, and returns "
+        "the calculated cost breakdown for AWS, Azure, and GCP, along with the optimal provider "
         "per architectural layer (L1–L5)."
         "\n"
         "**Layers overview:**\n"
@@ -204,22 +206,23 @@ def serve_docs_formulas():
                     "example": {
                         "result": {
                             "calculationResult": {
-                                "L1": "AWS",
-                                "L2": {"Hot": "AWS", "Cool": "Azure", "Archive": "Azure"},
-                                "L3": "Azure",
-                                "L4": "AWS",
-                                "L5": "Azure"
+                                "L1": "GCP",
+                                "L2": {"Hot": "AWS", "Cool": "GCP", "Archive": "AWS"},
+                                "L3": "AWS",
+                                "L4": "GCP",
+                                "L5": "GCP"
                             },
                             "awsCosts": "...",
                             "azureCosts": "...",
-                            "cheapestPath": ["L1_AWS", "L2_Azure_Hot", "L2_Azure_Cool", "L2_Azure_Archive", "L3_Azure", "L4_AWS", "L5_Azure"]
+                            "gcpCosts": "...",
+                            "cheapestPath": ["L1_GCP", "L2_AWS_Hot", "L2_GCP_Cool", "L2_AWS_Archive", "L3_AWS", "L4_GCP", "L5_GCP"]
                         }
                     }
                 }
             },
         },
         400: {"description": "Invalid input parameters."},
-        500: {"description": "Internal error during cost calculation or Node script execution."},
+        500: {"description": "Internal error during cost calculation."},
     },
 )
 
@@ -237,37 +240,80 @@ def calc(params: CalcParams = Body(
         "amountOfActiveEditors": 2,
         "amountOfActiveViewers": 10,
         "dashboardRefreshesPerHour": 4,
-        "dashboardActiveHoursPerDay": 8
+        "dashboardActiveHoursPerDay": 8,
+        "currency": "USD"
     }
 )):
     """
     Perform a cloud cost optimization calculation based on Digital Twin configuration parameters.
     """
-    payload = json.dumps(params.dict())
-
-    result = subprocess.run(
-        ["node", "js/calculation/cost_calculation.js", "calculateCheapestCostsFromApiCall", payload],
-        capture_output=True,
-        text=True
-    )
-
-    if result.returncode != 0:
-        return {"error": result.stderr.strip()}
-
     try:
-        return {"result": json.loads(result.stdout.strip())}
-    except Exception:
-        return {"raw_output on error": result.stdout.strip()}
+        from py.calculation.engine import calculate_cheapest_costs
+        
+        # Convert Pydantic model to dict
+        params_dict = params.dict()
+        
+        # Calculate costs using Python engine
+        result = calculate_cheapest_costs(params_dict)
+        
+        return {"result": result}
+    except Exception as e:
+        logger.error(f"Error during calculation: {e}")
+        print_stack_trace()
+        return {"error": str(e)}
     
         
     
-@app.get("/api/fetch_up_to_date_pricing", tags=["Pricing"], summary="Fetch Up-to-Date Cloud Pricing")
+@app.get(
+    "/api/fetch_up_to_date_pricing", 
+    tags=["Pricing"], 
+    summary="Fetch Up-to-Date Cloud Pricing",
+    description=(
+        "Triggers the pricing fetcher to retrieve the latest cloud service pricing from AWS, Azure, and GCP. "
+        "This endpoint fetches dynamic pricing from cloud provider APIs where available, and uses static defaults "
+        "for services that don't have accessible pricing APIs.\n\n"
+        "**Process:**\n"
+        "1. Fetches AWS pricing using boto3 Pricing API\n"
+        "2. Fetches Azure pricing using Azure Retail Prices API\n"
+        "3. Uses GCP static defaults (dynamic fetching to be implemented)\n"
+        "4. Saves results to `pricing/fetched_data/pricing_dynamic.json`\n\n"
+        "**Parameters:**\n"
+        "- `additional_debug` (optional): Enable verbose debug logging for pricing fetcher operations"
+    ),
+    response_description="The complete pricing schema for all three cloud providers",
+    responses={
+        200: {
+            "description": "Successfully fetched and saved pricing data.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "aws": {"transfer": "...", "iot": "...", "functions": "..."},
+                        "azure": {"transfer": "...", "iotHub": "...", "functions": "..."},
+                        "gcp": {"transfer": "...", "iot": "...", "functions": "..."}
+                    }
+                }
+            }
+        },
+        500: {"description": "Error during pricing fetch operation."}
+    }
+)
 def fetch_up_to_date_pricing_endpoint(additional_debug: bool = False):
     """
     Trigger the calculation of up-to-date cloud pricing across AWS, Azure, and GCP.
-    This function loads the latest pricing data and computes costs based on predefined workloads.
+    This function loads the latest pricing data and saves it to pricing_dynamic.json.
+    Pricing is only re-fetched if the existing file is older than 7 days.
     """
     try:
+        from py.utils import is_file_fresh
+        
+        # Check if we have a fresh pricing file (< 7 days old)
+        if is_file_fresh(CONSTANTS.DYNAMIC_PRICING_FILE_PATH, max_age_days=7):
+            logger.info("✅ Using cached pricing data (less than 7 days old)")
+            fetched_pricing_result = load_json_file(CONSTANTS.DYNAMIC_PRICING_FILE_PATH)
+            return fetched_pricing_result
+        
+        # File is stale or doesn't exist, fetch new pricing
+        logger.info("🔄 Fetching fresh pricing data from cloud providers...")
         calculate_up_to_date_pricing(additional_debug)
         fetched_pricing_result = load_json_file(CONSTANTS.DYNAMIC_PRICING_FILE_PATH)
         return fetched_pricing_result
@@ -275,4 +321,5 @@ def fetch_up_to_date_pricing_endpoint(additional_debug: bool = False):
         logger.error(f"Error during up-to-date pricing calculation: {e}")
         print_stack_trace()
         return {"error": str(e)}
+
     

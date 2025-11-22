@@ -1,34 +1,42 @@
 {
   "functions": {
     "aws": "AWSLambda",
-    "azure": "Functions"
+    "azure": "Functions",
+    "gcp": "CloudFunctions"
   },
   "storage_cool": {
     "aws": "AmazonS3",
-    "azure": "BlobStorageCool"
+    "azure": "BlobStorageCool",
+    "gcp": "CloudStorageNearline"
   },
   "storage_archive": {
     "aws": "AmazonS3",
-    "azure": "BlobStorageArchive"
+    "azure": "BlobStorageArchive",
+    "gcp": "CloudStorageArchive"
   },
   "iot": {
     "aws": "AWSIoT",
-    "azure": "IoTHub"
+    "azure": "IoTHub",
+    "gcp": "CloudPubSub"
   },
   "eventBus": {
     "aws": "AmazonEventBridge",
-    "azure": "ServiceBus"
+    "azure": "ServiceBus",
+    "gcp": "Eventarc"
   },
   "storage_hot": {
     "aws": "AmazonDynamoDB",
-    "azure": "CosmosDB"
+    "azure": "CosmosDB",
+    "gcp": "Firestore"
   },
   "twinmaker": {
     "aws": "IOTTwinMaker",
-    "azure": "DigitalTwins"
+    "azure": "DigitalTwins",
+    "gcp": "SupplyChainTwin"
   },
   "grafana": {
     "aws": "AmazonManagedGrafana",
-    "azure": "AzureManagedGrafana"
+    "azure": "AzureManagedGrafana",
+    "gcp": "CloudMonitoring"
   }
 }

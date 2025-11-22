@@ -2,19 +2,24 @@ import json
 from google.cloud import billing_v1
 from py.logger import logger
 import py.utils as utils
-from py.config_loader import load_gcp_credentials, load_credentials_file
-from py.constants import GCP_REGIONS_FILE_PATH, GCP_SERVICES_FILE_PATH
+import py.config_loader as config_loader
+from py.constants import GCP_REGIONS_FILE_PATH
 
 
 def fetch_gcp_regions():
     """
     Fetch all GCP regions from the Cloud Billing Catalog API and save to gcp_regions.json.
     """
+    # Check if we have a fresh local file
+    if utils.is_file_fresh(GCP_REGIONS_FILE_PATH, max_age_days=7):
+        logger.info(f"✅ Using cached GCP regions from {GCP_REGIONS_FILE_PATH}")
+        return config_loader.load_json_file(GCP_REGIONS_FILE_PATH)
+
     logger.info("---------------------------------------------------")
     logger.info("Fetching GCP regions from Cloud Billing Catalog API")
     
     try:
-        credentials = load_gcp_credentials()
+        credentials = config_loader.load_gcp_credentials()
         client = billing_v1.CloudCatalogClient(credentials=credentials)
 
         regions_set = set()
@@ -39,48 +44,6 @@ def fetch_gcp_regions():
             logger.error("No local GCP regions file found. Cannot proceed.")
             raise e
         logger.warning("Loading GCP regions from local file as fallback.")
-        regions = utils.load_json_file(GCP_REGIONS_FILE_PATH)
+        regions = config_loader.load_json_file(GCP_REGIONS_FILE_PATH)
         regions_sorted = dict(sorted(regions.items()))
         return regions_sorted
-
-def fetch_gcp_services():
-    """
-    Fetch all GCP services and their SKUs from the Cloud Billing Catalog API and save to gcp_skus.json.
-    """
-    logger.info("---------------------------------------------------")
-    logger.info("Fetching GCP services and SKUs from Cloud Billing Catalog API")
-    
-    try:
-        credentials = load_gcp_credentials()
-        client = billing_v1.CloudCatalogClient(credentials=credentials)
-
-        service_sku_map = {}
-
-        for service in client.list_services():
-            service_name = service.display_name
-            service_sku_map[service_name] = {}
-
-            for sku in client.list_skus(parent=service.name):
-                cat = sku.category
-                if cat:
-                    friendly_name = f"{cat.resource_group} / {cat.usage_type}"
-                else:
-                    friendly_name = sku.description
-                service_sku_map[service_name][friendly_name] = sku.name
-
-        with open(GCP_SERVICES_FILE_PATH, "w") as f:
-            json.dump(service_sku_map, f, indent=2)
-
-        services_sorted = dict(sorted(service_sku_map.items()))
-
-        logger.info(f"Saved {len(services_sorted)} GCP SKUs to {GCP_SERVICES_FILE_PATH}")
-        return services_sorted
-    except Exception as e:
-        logger.error(f"Failed to fetch GCP services and SKUs: {e}")
-        if not utils.file_exists(GCP_SERVICES_FILE_PATH):
-            logger.error("No local GCP services file found. Cannot proceed.")
-            raise e
-        logger.warning("Loading GCP services from local file as fallback.")
-        services = utils.load_json_file(GCP_SERVICES_FILE_PATH)
-        services_sorted = dict(sorted(services.items()))
-        return services_sorted

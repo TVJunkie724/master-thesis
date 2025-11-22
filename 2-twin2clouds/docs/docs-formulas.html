@@ -3,15 +3,13 @@
 
 <head>
   <meta charset="utf-8">
-  <title>Cost Formulas & Service Mapping — Multi-Cloud</title>
+  <title>Cost Formulas & Service Mapping — Twin2Clouds Documentation</title>
   <link rel="icon" type="image/x-icon" href="../references/favicon.ico">
   <meta name="viewport" content="width=device-width,initial-scale=1">
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
   <link rel="stylesheet" href="../css/docs_styles.css" />
-
 </head>
 
 <body>
@@ -19,358 +17,191 @@
     <aside id="nav-placeholder"></aside>
 
     <main class="p-4">
-      <header>
-        <h1>Cost Formulas & Service Mapping</h1>
-        <p class="text-muted">Describes mathematical formulas used for dynamic pricing and how each provider’s services
-          map to them.</p>
-      </header>
+      <h1 class="mb-3">
+        <i class="fa-solid fa-calculator me-2"></i> Cost Formulas & Service Mapping
+      </h1>
 
-        <div class="card">
-          <h2>1️⃣ Formula Overview</h2>
-          <p>Each formula is defined in <code>formulas.json</code>.
-            Mathematical symbols correspond to service-specific parameters, typically fetched dynamically from AWS or
-            Azure APIs.</p>
+      <p class="text-muted mb-4">
+        Mathematical formulas used for dynamic pricing and how each provider's services map to them.
+      </p>
 
-          <table class="t2c-table t2c-3col">
+      <!-- Formula Overview -->
+      <div class="card mb-4">
+        <h2 class="mb-3"><i class="fa-solid fa-square-root-variable me-2"></i>Formula Overview</h2>
+        <p>These formulas are derived from the project's research methodology and standard cloud pricing models. Symbols
+          correspond to service-specific parameters fetched dynamically.</p>
+
+        <table class="table table-hover table-bordered">
+          <thead>
             <tr>
               <th>ID</th>
               <th>Name</th>
               <th>Expression</th>
               <th>Description</th>
             </tr>
+          </thead>
+          <tbody>
             <tr>
-              <td class="mono">CM</td>
-              <td>Message-Based Cost</td>
+              <td class="mono fw-bold">CM</td>
+              <td>Message-Based</td>
               <td><code>c_m * N_m</code></td>
-              <td>Cost for IoT message ingestion (IoT Core, IoT Hub).</td>
+              <td>IoT message ingestion (IoT Core, IoT Hub).</td>
             </tr>
             <tr>
-              <td class="mono">CE</td>
-              <td>Execution-Based Cost</td>
+              <td class="mono fw-bold">CE</td>
+              <td>Execution-Based</td>
               <td><code>c_e * max(0, N_e − freeRequests) + c_t * max(0, T_e − freeComputeTime)</code></td>
-              <td>Combines per-request and per-duration serverless billing.</td>
+              <td>Serverless compute (Lambda, Functions).</td>
             </tr>
             <tr>
-              <td class="mono">CA</td>
-              <td>Action-Based Cost</td>
+              <td class="mono fw-bold">CA</td>
+              <td>Action-Based</td>
               <td><code>c_a * N_a</code></td>
-              <td>Applies to API calls, reads/writes, or retrievals.</td>
+              <td>API calls, reads/writes, retrievals.</td>
             </tr>
             <tr>
-              <td class="mono">CS</td>
-              <td>Storage-Based Cost</td>
+              <td class="mono fw-bold">CS</td>
+              <td>Storage-Based</td>
               <td><code>c_s * V * D</code></td>
-              <td>Storage cost per GB-month over duration D.</td>
+              <td>Storage per GB-month (S3, Blob, DynamoDB).</td>
             </tr>
             <tr>
-              <td class="mono">CU</td>
-              <td>User-Based Cost</td>
+              <td class="mono fw-bold">CU</td>
+              <td>User-Based</td>
               <td><code>(c_u_editor * N_editor + c_u_viewer * N_viewer) + c_u_hour * H</code></td>
-              <td>User-licensed services (Grafana) per user and workspace hour.</td>
+              <td>User licensing (Grafana).</td>
             </tr>
             <tr>
-              <td class="mono">CTransfer</td>
-              <td>Data Transfer Cost</td>
-              <td><code>c_transfer * GB_transferred</code></td>
-              <td>Egress data transfer per GB to Internet or other clouds.</td>
-            </tr>
-          </table>
-
-          <p>📘 See theoretical foundation in the paper:
-            <a href="./references/formulas_paper.pdf">Cloud Pricing and Cost Modeling (PDF)</a>
-          </p>
-        </div>
-
-        <div class="card">
-          <h2>2️⃣ Parameter Definitions</h2>
-          <p>Common parameters used across formulas:</p>
-          <pre>{
-  "c_m": "price per message",
-  "N_m": "total messages",
-  "c_e": "price per execution",
-  "T_e": "total compute seconds",
-  "c_s": "price per GB-month",
-  "V": "storage volume",
-  "D": "duration months",
-  "c_u_editor": "price per editor",
-  "H": "total hours per billing period"
-}</pre>
-        </div>
-
-        <div class="card">
-          <h2>3️⃣ Service → Formula Mapping</h2>
-          <p>This section shows how services from each provider use one or multiple cost formulas defined above.
-            Each parameter mapping follows the structure of <code>service_calc_params.json</code>.</p>
-
-          <h3>AWS Services</h3>
-          <table class="t2c-table t2c-3col">
-            <tr>
-              <th>Service</th>
-              <th>Formula(s)</th>
-              <th>Parameter Mappings</th>
-              <th>Description</th>
-            </tr>
-
-            <tr>
-              <td>AWS IoT Core</td>
-              <td class="mono">CM</td>
-              <td>
-                <code>c_m → pricePerMessage</code><br>
-                <code>N_m → numberOfMessages</code>
-              </td>
-              <td>Message ingestion cost per IoT message published or received.</td>
-            </tr>
-
-            <tr>
-              <td>AWS Lambda</td>
-              <td class="mono">CE</td>
-              <td>
-                <code>c_e → requestPrice</code><br>
-                <code>N_e → numberOfRequests</code><br>
-                <code>freeRequests → freeRequests</code><br>
-                <code>c_t → durationPrice</code><br>
-                <code>T_e → totalGBSeconds</code><br>
-                <code>freeComputeTime → freeComputeTime</code>
-              </td>
-              <td>Serverless compute billed by request and GB-second of execution time.</td>
-            </tr>
-
-            <tr>
-              <td>DynamoDB (storage_hot)</td>
-              <td class="mono">CA + CS</td>
-              <td>
-                <code>c_a_read → readPrice</code><br>
-                <code>N_a_read → numberOfReads</code><br>
-                <code>c_a_write → writePrice</code><br>
-                <code>N_a_write → numberOfWrites</code><br>
-                <code>c_s → storagePrice</code><br>
-                <code>V → storageVolume</code><br>
-                <code>D → durationMonths</code>
-              </td>
-              <td>Read/write request pricing combined with per-GB-month data storage.</td>
-            </tr>
-
-            <tr>
-              <td>S3 Infrequent Access (storage_cool)</td>
-              <td class="mono">CS</td>
-              <td>
-                <code>c_s → storagePrice</code><br>
-                <code>V → storageVolume</code><br>
-                <code>D → durationMonths</code>
-              </td>
-              <td>Cold storage cost per GB-month of retained data.</td>
-            </tr>
-
-            <tr>
-              <td>S3 Glacier Deep Archive (storage_archive)</td>
-              <td class="mono">CS + CA</td>
-              <td>
-                <code>c_s → storagePrice</code><br>
-                <code>V → storageVolume</code><br>
-                <code>D → durationMonths</code><br>
-                <code>c_a → retrievalPrice</code><br>
-                <code>N_a → retrievedGB</code>
-              </td>
-              <td>Archival storage plus retrieval fees for accessed data.</td>
-            </tr>
-
-            <tr>
-              <td>IoT TwinMaker</td>
-              <td class="mono">CA</td>
-              <td>
-                <code>c_a → queryPrice</code><br>
-                <code>N_a → numberOfQueries</code>
-              </td>
-              <td>Per-query or entity operation cost for digital twin data.</td>
-            </tr>
-
-            <tr>
-              <td>AWS Managed Grafana</td>
-              <td class="mono">CU</td>
-              <td>
-                <code>c_u_editor → editorPrice</code><br>
-                <code>N_editor → numberOfEditors</code><br>
-                <code>c_u_viewer → viewerPrice</code><br>
-                <code>N_viewer → numberOfViewers</code><br>
-                <code>c_u_hour → workspaceHourlyPrice</code><br>
-                <code>H → hoursPerMonth</code>
-              </td>
-              <td>Cost for Grafana user licensing and optional workspace runtime.</td>
-            </tr>
-
-            <tr>
+              <td class="mono fw-bold">CTransfer</td>
               <td>Data Transfer</td>
-              <td class="mono">CTransfer</td>
-              <td>
-                <code>c_transfer → egressPrice</code><br>
-                <code>GB_transferred → transferVolume</code>
-              </td>
-              <td>Egress data transfer charged per GB.</td>
+              <td><code>c_transfer * GB_transferred</code></td>
+              <td>Egress data transfer.</td>
             </tr>
-          </table>
+          </tbody>
+        </table>
+      </div>
 
-          <h3>Azure Services</h3>
-          <table class="t2c-table t2c-3col">
+      <!-- Parameter Definitions -->
+      <div class="card mb-4">
+        <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Parameter Definitions</h2>
+        <div class="row">
+          <div class="col-md-6">
+            <ul class="list-group list-group-flush">
+              <li class="list-group-item"><code>c_m</code>: Price per message</li>
+              <li class="list-group-item"><code>N_m</code>: Total messages</li>
+              <li class="list-group-item"><code>c_e</code>: Price per execution</li>
+              <li class="list-group-item"><code>T_e</code>: Total compute seconds</li>
+              <li class="list-group-item"><code>c_s</code>: Price per GB-month</li>
+            </ul>
+          </div>
+          <div class="col-md-6">
+            <ul class="list-group list-group-flush">
+              <li class="list-group-item"><code>V</code>: Storage volume (GB)</li>
+              <li class="list-group-item"><code>D</code>: Duration (months)</li>
+              <li class="list-group-item"><code>c_u</code>: Price per user</li>
+              <li class="list-group-item"><code>H</code>: Total hours</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Service Mapping -->
+      <div class="card mb-4">
+        <h2 class="mb-3"><i class="fa-solid fa-link me-2"></i>Service → Formula Mapping</h2>
+
+        <h3 class="mt-4 mb-2 text-primary"><i class="fa-brands fa-aws me-2"></i>AWS Services</h3>
+        <table class="table table-hover table-bordered">
+          <thead>
             <tr>
               <th>Service</th>
-              <th>Formula(s)</th>
-              <th>Parameter Mappings</th>
-              <th>Description</th>
+              <th>Formula</th>
+              <th>Mapping</th>
             </tr>
-
+          </thead>
+          <tbody>
             <tr>
-              <td>Azure IoT Hub</td>
-              <td class="mono">CM</td>
-              <td>
-                <code>c_m → pricePerMessage</code><br>
-                <code>N_m → numberOfMessages</code>
-              </td>
-              <td>Message ingestion per message, with defined volume tiers.</td>
+              <td>IoT Core</td>
+              <td><span class="chip ok">CM</span></td>
+              <td><code>c_m → pricePerMessage</code></td>
             </tr>
-
             <tr>
-              <td>Azure Functions</td>
-              <td class="mono">CE</td>
-              <td>
-                <code>c_e → requestPrice</code><br>
-                <code>N_e → numberOfRequests</code><br>
-                <code>freeRequests → freeRequests</code><br>
-                <code>c_t → durationPrice</code><br>
-                <code>T_e → totalGBSeconds</code><br>
-                <code>freeComputeTime → freeComputeTime</code>
-              </td>
-              <td>Execution cost per request and runtime duration.</td>
+              <td>Lambda</td>
+              <td><span class="chip ok">CE</span></td>
+              <td><code>c_e → requestPrice</code>, <code>c_t → durationPrice</code></td>
             </tr>
-
             <tr>
-              <td>Cosmos DB (storage_hot)</td>
-              <td class="mono">CA + CS</td>
-              <td>
-                <code>c_a → requestUnitPrice</code><br>
-                <code>N_a → provisionedRU</code><br>
-                <code>c_s → storagePrice</code><br>
-                <code>V → storageVolume</code><br>
-                <code>D → durationMonths</code>
-              </td>
-              <td>Throughput and data storage billing combined.</td>
+              <td>DynamoDB</td>
+              <td><span class="chip ok">CA</span> + <span class="chip ok">CS</span></td>
+              <td><code>c_a → writePrice/readPrice</code>, <code>c_s → storagePrice</code></td>
             </tr>
-
             <tr>
-              <td>Blob Storage (storage_cool)</td>
-              <td class="mono">CS</td>
-              <td>
-                <code>c_s → storagePrice</code><br>
-                <code>V → storageVolume</code><br>
-                <code>D → durationMonths</code>
-              </td>
-              <td>Per GB-month cost for cool-tier object storage.</td>
+              <td>S3 (IA/Glacier)</td>
+              <td><span class="chip ok">CS</span> (+ <span class="chip ok">CA</span>)</td>
+              <td><code>c_s → storagePrice</code>, <code>c_a → retrievalPrice</code></td>
             </tr>
+          </tbody>
+        </table>
 
+        <h3 class="mt-4 mb-2 text-info"><i class="fa-brands fa-microsoft me-2"></i>Azure Services</h3>
+        <table class="table table-hover table-bordered">
+          <thead>
             <tr>
-              <td>Blob Storage (storage_archive)</td>
-              <td class="mono">CS + CA</td>
-              <td>
-                <code>c_s → storagePrice</code><br>
-                <code>V → storageVolume</code><br>
-                <code>D → durationMonths</code><br>
-                <code>c_a → dataRetrievalPrice</code><br>
-                <code>N_a → retrievedGB</code>
-              </td>
-              <td>Archive and retrieval combined pricing model.</td>
+              <th>Service</th>
+              <th>Formula</th>
+              <th>Mapping</th>
             </tr>
-
+          </thead>
+          <tbody>
             <tr>
-              <td>Azure Digital Twins</td>
-              <td class="mono">CA</td>
-              <td>
-                <code>c_a → operationPrice</code><br>
-                <code>N_a → numberOfOperations</code>
-              </td>
-              <td>Operations and queries billed per call or entity operation.</td>
+              <td>IoT Hub</td>
+              <td><span class="chip ok">CM</span></td>
+              <td><code>c_m → pricePerMessage</code></td>
             </tr>
-
             <tr>
-              <td>Azure Managed Grafana</td>
-              <td class="mono">CU</td>
-              <td>
-                <code>c_u → userPrice</code><br>
-                <code>N_u → numberOfUsers</code><br>
-                <code>c_u_hour → hourlyPrice</code><br>
-                <code>H → hoursPerMonth</code>
-              </td>
-              <td>Per-user and per-instance runtime billing.</td>
+              <td>Functions</td>
+              <td><span class="chip ok">CE</span></td>
+              <td><code>c_e → requestPrice</code>, <code>c_t → durationPrice</code></td>
             </tr>
-
             <tr>
-              <td>Azure Data Transfer</td>
-              <td class="mono">CTransfer</td>
-              <td>
-                <code>c_transfer → egressPrice</code><br>
-                <code>GB_transferred → transferVolume</code>
-              </td>
-              <td>Outbound data transfer per GB.</td>
+              <td>Cosmos DB</td>
+              <td><span class="chip ok">CA</span> + <span class="chip ok">CS</span></td>
+              <td><code>c_a → requestUnitPrice</code>, <code>c_s → storagePrice</code></td>
             </tr>
-          </table>
-        </div>
+            <tr>
+              <td>Blob Storage</td>
+              <td><span class="chip ok">CS</span> (+ <span class="chip ok">CA</span>)</td>
+              <td><code>c_s → storagePrice</code>, <code>c_a → retrievalPrice</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-        <div class="card">
-          <h2>4️⃣ Reference & Source Material</h2>
-          <p>
-            All cost and pricing formulas (<code>CM</code>, <code>CE</code>, <code>CA</code>, <code>CS</code>,
-            <code>CU</code>, <code>CTransfer</code>)
-            originate from the formal cost model presented in the following peer-reviewed publication:
+      <!-- Citation -->
+      <div class="card mb-4 border-primary">
+        <div class="card-body">
+          <h5 class="card-title text-primary"><i class="fa-solid fa-book me-2"></i>Scientific Foundation</h5>
+          <p class="card-text">
+            These formulas are based on the formal cost model presented in:
           </p>
-
-          <div class="section-note">
-            <div class="citation">
-
-              <div class="title-line">
-                <i class="fa-solid fa-book"></i> Citation
-              </div>
-
-              <div>
-                Philipp Gritsch, Deniz Pierer, Luca Berardinelli, Michael Felderer, and Sashko Ristov.
-                <em>“Twin2Clouds: Cost-Aware Digital Twin Engineering and Deployment Across Federated Clouds.”</em>
-                In <strong>Companion Proceedings of the IEEE/ACM International Conference on MODELS 2025
-                  (MODELS-C)</strong>,
-                IEEE, 2025.
-              </div>
-
-              <div class="meta indent">
-                Universities: University of Innsbruck (Austria), Johannes Kepler University Linz (Austria),
-                German Aerospace Center (DLR, Germany), University of Cologne (Germany).
-                <!-- DOI: <a href="https://doi.org/10.1109/MODELS-C68889.2025.00045"
-          target="_blank">10.1109/MODELS-C68889.2025.00045</a> -->
-                DOI: 10.1109/MODELS-C68889.2025.00045
-              </div>
-
-              <div>
-                This paper formalizes the <strong>cost and pricing primitives</strong> that underpin the formulas used
-                throughout this documentation and defines the mathematical foundation for mapping cloud services
-                (AWS, Azure) to cost categories and workload parameters.
-              </div>
-
-              <div class="indent" style="margin-top:0.7rem;">
-                🔗 <a href="../references/EDT_25__CloudDT_engineering.pdf" target="_blank">Download the full paper
-                  (PDF)</a>
-              </div>
-
-            </div>
-
-            <p>
-              For consistency, the implementation in this documentation directly mirrors the model presented in the
-              paper,
-              ensuring theoretical accuracy between the analytical and code-based cost calculations.
-            </p>
-          </div>
+          <blockquote class="blockquote fs-6">
+            <p>Philipp Gritsch, et al. <em>“Twin2Clouds: Cost-Aware Digital Twin Engineering...”</em> (MODELS 2025)</p>
+          </blockquote>
+          <a href="../references/EDT_25__CloudDT_engineering.pdf" target="_blank"
+            class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-file-pdf me-2"></i>Read Paper
+          </a>
+        </div>
+      </div>
 
     </main>
   </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
     style="display:none;">
     <i class="fa-solid fa-arrow-up"></i>
   </button>
-
   <script src="../js/docs-nav.js" defer></script>
 </body>
 

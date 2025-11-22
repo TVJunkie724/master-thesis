@@ -7,15 +7,15 @@
           "price": 0
         },
         "tier1": {
-          "limit": 10240,
+          "limit": 10240.0,
           "price": 0.09
         },
         "tier2": {
-          "limit": 51200,
+          "limit": 51200.0,
           "price": 0.085
         },
         "tier3": {
-          "limit": 102400,
+          "limit": 153600.0,
           "price": 0.07
         },
         "tier4": {
@@ -50,13 +50,13 @@
       "freeComputeTime": 400000
     },
     "dynamoDB": {
-      "writePrice": 6.25e-07,
-      "readPrice": 1.25e-07,
-      "storagePrice": 0.25,
+      "writePrice": 7.625e-07,
+      "readPrice": 1.525e-07,
+      "storagePrice": 0.306,
       "freeStorage": 25
     },
     "s3InfrequentAccess": {
-      "storagePrice": 0.0125,
+      "storagePrice": 0.0135,
       "upfrontPrice": 0.0001,
       "requestPrice": 1e-05,
       "dataRetrievalPrice": 0.01,
@@ -64,14 +64,14 @@
       "transferCostFromCosmosDB": 0.0495
     },
     "s3GlacierDeepArchive": {
-      "storagePrice": 0.00099,
-      "lifecycleAndWritePrice": 5e-05,
-      "dataRetrievalPrice": 0.0025
+      "storagePrice": 0.0225,
+      "lifecycleAndWritePrice": 3.6e-05,
+      "dataRetrievalPrice": 0.024
     },
     "iotTwinMaker": {
-      "unifiedDataAccessAPICallsPrice": 1.5e-06,
-      "entityPrice": 0.05,
-      "queryPrice": 5e-05
+      "unifiedDataAccessAPICallsPrice": 1.65e-06,
+      "entityPrice": 0.0525,
+      "queryPrice": 5.25e-05
     },
     "awsManagedGrafana": {
       "editorPrice": 9.0,
@@ -87,65 +87,71 @@
         },
         "tier1": {
           "limit": 10240,
-          "price": 0.08
+          "price": 0.087
         },
         "tier2": {
-          "limit": 40960,
-          "price": 0.065
+          "limit": 51200,
+          "price": 0.083
         },
         "tier3": {
           "limit": 102400,
-          "price": 0.06
+          "price": 0.07
         },
         "tier4": {
           "limit": "Infinity",
-          "price": 0.04
+          "price": 0.05
         }
       }
     },
     "iotHub": {
       "pricing_tiers": {
+        "freeTier": {
+          "limit": 240000,
+          "threshold": 0,
+          "price": 0
+        },
         "tier1": {
           "limit": 120000000,
           "threshold": 12000000,
-          "price": 25
+          "price": 25.0
         },
         "tier2": {
           "limit": 1800000000,
           "threshold": 180000000,
-          "price": 250
+          "price": 250.0
         },
         "tier3": {
           "limit": "Infinity",
           "threshold": 9000000000,
-          "price": 2500
+          "price": 2500.0
         }
       }
     },
     "functions": {
-      "requestPrice": 2e-07,
-      "durationPrice": 1.66667e-05,
+      "requestPrice": 0.0,
+      "durationPrice": 0.0,
       "freeRequests": 1000000,
       "freeComputeTime": 400000
     },
     "cosmosDB": {
-      "storagePrice": 0.25,
       "requestPrice": 0.0584,
       "minimumRequestUnits": 400,
-      "RUsPerWrite": 1,
-      "RUsPerRead": 10
+      "RUsPerRead": 1,
+      "RUsPerWrite": 10,
+      "storagePrice": 0.02
     },
     "blobStorageCool": {
-      "storagePrice": 0.015,
-      "writePrice": 1e-05,
-      "readPrice": 1e-06,
+      "storagePrice": 0.01,
+      "upfrontPrice": 0.0001,
+      "writePrice": 0.0,
+      "readPrice": 0.01,
       "dataRetrievalPrice": 0.01,
-      "transferCostFromCosmosDB": 0.05
+      "transferCostFromCosmosDB": 0.087
     },
     "blobStorageArchive": {
-      "storagePrice": 0.00099,
-      "writePrice": 1.3e-05,
-      "dataRetrievalPrice": 0.02
+      "storagePrice": 0.0018,
+      "writePrice": 0.0,
+      "dataRetrievalPrice": 0.024
     },
     "azureDigitalTwins": {
       "messagePrice": 1e-06,
@@ -173,5 +179,59 @@
       "hourlyPrice": 0.069
     }
   },
-  "gcp": {}
+  "gcp": {
+    "transfer": {
+      "pricing_tiers": {
+        "freeTier": {
+          "limit": 100,
+          "price": 0
+        },
+        "tier1": {
+          "limit": 10240,
+          "price": 0.12
+        },
+        "tier2": {
+          "limit": "Infinity",
+          "price": 0.08
+        }
+      }
+    },
+    "egressPrice": 0.12,
+    "iot": {
+      "pricePerMessage": 4e-07,
+      "pricePerDeviceAndMonth": 0
+    },
+    "functions": {
+      "requestPrice": 4e-07,
+      "durationPrice": 2.5e-06,
+      "freeRequests": 2000000,
+      "freeComputeTime": 400000
+    },
+    "storage_hot": {
+      "writePrice": 1.8e-06,
+      "readPrice": 6e-07,
+      "storagePrice": 0.18,
+      "freeStorage": 1
+    },
+    "storage_cool": {
+      "storagePrice": 0.01,
+      "upfrontPrice": 0.0,
+      "requestPrice": 1e-05,
+      "dataRetrievalPrice": 0.01
+    },
+    "storage_archive": {
+      "storagePrice": 0.0012,
+      "lifecycleAndWritePrice": 5e-05,
+      "dataRetrievalPrice": 0.05
+    },
+    "twinmaker": {
+      "entityPrice": 0.05,
+      "unifiedDataAccessAPICallsPrice": 1.5e-06,
+      "queryPrice": 5e-05
+    },
+    "grafana": {
+      "editorPrice": 9.0,
+      "viewerPrice": 5.0
+    }
+  }
 }

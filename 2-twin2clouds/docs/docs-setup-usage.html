@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Setup & Usage Guide — Twin2Clouds Documentation</title>
+    <link rel="icon" type="image/x-icon" href="../references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/docs_styles.css" />
+</head>
+
+<body>
+
+    <div class="layout">
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+            <h1 class="mb-3">
+                <i class="fa-solid fa-rocket me-2"></i> Setup & Usage Guide
+            </h1>
+
+            <p class="text-muted mb-4">
+                Complete guide to installing, configuring, and running the Twin2Clouds cost optimization platform.
+            </p>
+
+            <!-- Prerequisites -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-list-check me-2"></i>Prerequisites</h2>
+                <ul>
+                    <li><strong>Docker</strong> (recommended) or Python 3.9+</li>
+                    <li><strong>Cloud Provider Credentials:</strong>
+                        <ul>
+                            <li>AWS: Access Key ID, Secret Access Key, Region</li>
+                            <li>Azure: Subscription ID, Tenant ID, Region</li>
+                            <li>GCP: Service Account JSON, Project ID, Region</li>
+                        </ul>
+                    </li>
+                    <li><strong>Internet Connection:</strong> For fetching pricing data from cloud provider APIs</li>
+                </ul>
+            </div>
+
+            <!-- Installation -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-download me-2"></i>Installation</h2>
+
+                <h3 class="mb-2">Option 1: Docker (Recommended)</h3>
+                <pre class="p-3 rounded"><code># Clone the repository
+git clone &lt;repository-url&gt;
+cd 2-twin2clouds
+
+# Build and start the Docker container
+docker-compose up -d
+
+# The application will be available at http://localhost:5003
+</code></pre>
+
+                <h3 class="mb-2 mt-4">Option 2: Local Python Installation</h3>
+                <pre class="p-3 rounded"><code># Clone the repository
+git clone &lt;repository-url&gt;
+cd 2-twin2clouds
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the application
+python rest_api.py
+
+# The application will be available at http://localhost:5003
+</code></pre>
+            </div>
+
+            <!-- Configuration -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-gear me-2"></i>Configuration</h2>
+
+                <h3 class="mb-2">1. Cloud Provider Credentials</h3>
+                <p>Create or edit <code>config/config_credentials.json</code>:</p>
+                <pre class="p-3 rounded"><code>{
+  "aws": {
+    "aws_region": "eu-central-1",
+    "aws_access_key_id": "YOUR_AWS_ACCESS_KEY",
+    "aws_secret_access_key": "YOUR_AWS_SECRET_KEY"
+  },
+  "azure": {
+    "azure_region": "westeurope",
+    "azure_subscription_id": "YOUR_SUBSCRIPTION_ID",
+    "azure_tenant_id": "YOUR_TENANT_ID"
+  },
+  "gcp": {
+    "gcp_region": "europe-west1",
+    "gcp_project_id": "YOUR_PROJECT_ID",
+    "gcp_service_account_path": "path/to/service-account.json"
+  }
+}
+</code></pre>
+
+                <h3 class="mb-2 mt-4">2. Service Configuration (Optional)</h3>
+                <p>The application uses default configurations in <code>config/service_calc_params.json</code>. You can
+                    customize service parameters if needed.</p>
+            </div>
+
+            <!-- Usage -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-play me-2"></i>Usage</h2>
+
+                <h3 class="mb-2">Web Interface</h3>
+                <ol>
+                    <li>Navigate to <a href="http://localhost:5003/ui"
+                            target="_blank"><strong>http://localhost:5003/ui</strong></a></li>
+                    <li>Select your <strong>currency</strong> (USD or EUR)</li>
+                    <li>Configure your Digital Twin scenario:
+                        <ul>
+                            <li><strong>Layer 1:</strong> Number of devices, sending interval, message size</li>
+                            <li><strong>Layer 2:</strong> Hot, Cool, and Archive storage durations</li>
+                            <li><strong>Layer 4:</strong> 3D model requirements and entity count</li>
+                            <li><strong>Layer 5:</strong> Dashboard users and refresh rates</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>"Calculate Cost"</strong></li>
+                    <li>View the optimized cloud provider selection for each layer</li>
+                </ol>
+
+                <h3 class="mb-2 mt-4">REST API</h3>
+                <p>The application provides a comprehensive REST API. View the interactive API documentation at:</p>
+                <ul>
+                    <li><a href="http://localhost:5003/docs" target="_blank"><strong>Swagger UI:</strong>
+                            http://localhost:5003/docs</a></li>
+                    <li><a href="http://localhost:5003/redoc" target="_blank"><strong>ReDoc:</strong>
+                            http://localhost:5003/redoc</a></li>
+                </ul>
+
+                <h4 class="mt-3">Example API Request</h4>
+                <pre class="p-3 rounded"><code>PUT /api/calculate
+Content-Type: application/json
+
+{
+  "numberOfDevices": 100,
+  "deviceSendingIntervalInMinutes": 2,
+  "averageSizeOfMessageInKb": 0.25,
+  "hotStorageDurationInMonths": 1,
+  "coolStorageDurationInMonths": 3,
+  "archiveStorageDurationInMonths": 12,
+  "needs3DModel": false,
+  "entityCount": 0,
+  "amountOfActiveEditors": 2,
+  "amountOfActiveViewers": 10,
+  "dashboardRefreshesPerHour": 4,
+  "dashboardActiveHoursPerDay": 8,
+  "currency": "USD"
+}
+</code></pre>
+            </div>
+
+            <!-- Fetching Pricing Data -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-cloud-arrow-down me-2"></i>Fetching Pricing Data</h2>
+                <p>The application automatically caches pricing data for 7 days. To manually refresh:</p>
+                <pre class="p-3 rounded"><code>GET /api/fetch_up_to_date_pricing</code></pre>
+                <p class="mt-2">This endpoint:</p>
+                <ul>
+                    <li>Fetches current pricing from AWS, Azure, and GCP APIs</li>
+                    <li>Saves data to <code>pricing/fetched_data/pricing_dynamic.json</code></li>
+                    <li>Uses cached data if less than 7 days old</li>
+                </ul>
+            </div>
+
+            <!-- Caching Behavior -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-database me-2"></i>Caching Behavior</h2>
+                <p>The application implements intelligent caching to minimize API calls:</p>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Data Type</th>
+                            <th>Cache Duration</th>
+                            <th>File Location</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Cloud Pricing</td>
+                            <td>7 days</td>
+                            <td><code>pricing/fetched_data/pricing_dynamic.json</code></td>
+                        </tr>
+                        <tr>
+                            <td>Region Lists</td>
+                            <td>7 days</td>
+                            <td><code>pricing/fetched_data/[provider]_regions.json</code></td>
+                        </tr>
+                        <tr>
+                            <td>Currency Rates</td>
+                            <td>1 day</td>
+                            <td><code>pricing/fetched_data/currency.json</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Troubleshooting -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-wrench me-2"></i>Troubleshooting</h2>
+
+                <h3 class="mb-2">Common Issues</h3>
+                <ul>
+                    <li><strong>Pricing fetch fails:</strong> Verify cloud provider credentials are correct and have
+                        necessary permissions</li>
+                    <li><strong>Currency conversion errors:</strong> Ensure internet connection is available to fetch
+                        exchange rates</li>
+                    <li><strong>Port already in use:</strong> Change the port in <code>rest_api.py</code> or stop the
+                        conflicting service</li>
+                    <li><strong>Missing credentials:</strong> Create <code>config/config_credentials.json</code> with
+                        valid cloud credentials</li>
+                </ul>
+
+                <h3 class="mb-2 mt-4">Debug Mode</h3>
+                <p>Enable debug logging by setting the <code>DEBUG</code> environment variable:</p>
+                <pre class="p-3 rounded"><code>export DEBUG=True
+python rest_api.py
+</code></pre>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    <script src="../js/docs-nav.js" defer></script>
+</body>
+
+</html>
