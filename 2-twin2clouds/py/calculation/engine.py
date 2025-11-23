@@ -6,6 +6,10 @@ from py.config_loader import load_json_file
 import py.constants as CONSTANTS
 
 def calculate_aws_costs(params, pricing):
+    """
+    Calculates monthly costs for all AWS layers (1-5) and associated transfer costs.
+    Returns a dictionary containing cost breakdowns for each layer and transfer path.
+    """
     aws_result_data_acquisition = aws.calculate_aws_cost_data_acquisition(
         params["numberOfDevices"],
         params["deviceSendingIntervalInMinutes"],
@@ -118,6 +122,10 @@ def calculate_aws_costs(params, pricing):
     }
 
 def calculate_azure_costs(params, pricing):
+    """
+    Calculates monthly costs for all Azure layers (1-5) and associated transfer costs.
+    Returns a dictionary containing cost breakdowns for each layer and transfer path.
+    """
     azure_result_data_acquisition = azure.calculate_azure_cost_data_acquisition(
         params["numberOfDevices"],
         params["deviceSendingIntervalInMinutes"],
@@ -231,6 +239,10 @@ def calculate_azure_costs(params, pricing):
     }
 
 def calculate_gcp_costs(params, pricing):
+    """
+    Calculates monthly costs for all GCP layers (1-5) and associated transfer costs.
+    Returns a dictionary containing cost breakdowns for each layer and transfer path.
+    """
     gcp_result_data_acquisition = gcp.calculate_gcp_cost_data_acquisition(
         params["numberOfDevices"],
         params["deviceSendingIntervalInMinutes"],
@@ -342,6 +354,20 @@ def calculate_gcp_costs(params, pricing):
     }
 
 def calculate_cheapest_costs(params, pricing=None):
+    """
+    Orchestrates the cost calculation for all providers and determines the optimal (cheapest)
+    architecture path across layers.
+    
+    1. Calculates costs for AWS, Azure, and GCP independently.
+    2. Aggregates all possible transfer costs between providers and storage tiers.
+    3. Builds a graph representing storage tiers (Hot -> Cool -> Archive) and their connections.
+    4. Uses Dijkstra's algorithm (via decision.py) to find the cheapest path through storage layers.
+    5. Determines the cheapest provider for Layer 1 (Data Acquisition) and Layer 3 (Data Processing)
+       based on the selected Hot Storage provider to minimize transfer costs.
+    6. Determines the cheapest provider for Layer 4 (Twin Management) and Layer 5 (Visualization).
+    
+    Returns a comprehensive result object with the cheapest path, detailed costs, and currency info.
+    """
     if pricing is None:
         pricing = load_json_file(CONSTANTS.DYNAMIC_PRICING_FILE_PATH)
 
@@ -410,6 +436,8 @@ def calculate_cheapest_costs(params, pricing=None):
     # Determine L1 and L3 based on Hot Storage start
     # Logic: Minimize (L1 cost + Transfer to Hot)
     # L3 is coupled to Hot Storage provider (as per original logic)
+    # The cheapest storage path determines the "backbone" of the architecture.
+    # We then select the best L1 provider that minimizes the total cost of L1 + Transfer to that Hot Storage.
     
     hot_storage_provider = cheapest_storage["path"][0]
     
@@ -513,7 +541,6 @@ def calculate_cheapest_costs(params, pricing=None):
         "GCP_Cool_to_Azure_Archive": gcp_costs["transferCostCoolToArchiveAzure"],
         "GCP_Cool_to_GCP_Archive": gcp_costs["transferCostCoolToArchiveGCP"],
     }
-    print(gcp_costs)
 
     graph = decision.build_graph_for_storage(
         aws_costs["resultHot"],
@@ -533,6 +560,7 @@ def calculate_cheapest_costs(params, pricing=None):
         ["AWS_Hot", "Azure_Hot", "GCP_Hot"],
         ["AWS_Archive", "Azure_Archive", "GCP_Archive"]
     )
+    print(cheapest_storage)
 
     aws_costs_after_layer1 = aws_costs["dataAquisition"]["totalMonthlyCost"]
     azure_costs_after_layer1 = azure_costs["dataAquisition"]["totalMonthlyCost"]

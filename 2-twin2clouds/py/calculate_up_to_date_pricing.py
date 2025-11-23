@@ -30,7 +30,7 @@ def calculate_up_to_date_pricing(additional_debug = False):
     
     service_mapping = config_loader.load_json_file(CONSTANTS.SERVICE_MAPPING_FILE_PATH)
 
-
+    
     if "aws" in credentials:
         print("")
         logger.info("========================================================")
@@ -127,7 +127,7 @@ def _get_or_warn(provider_name, neutral_service, provider_service, key, fetched_
         # AWS fetcher merges defaults, so we can't distinguish easily.
         # We keep the old behavior: log if it's a known static default key.
         if is_in_static:
-            logger.info(f"      ℹ️ Using static value for {provider_name}.{provider_service}.{key}")
+            logger.info(f"    ℹ️ Using static value for {provider_name}.{provider_service}.{key}")
         
         if is_in_fetched:
             return fetched_dict[key]
@@ -141,7 +141,7 @@ def _get_or_warn(provider_name, neutral_service, provider_service, key, fetched_
             return fetched_dict[key]
         
         if is_in_static:
-            logger.info(f"      ℹ️ Using static value for {provider_name}.{provider_service}.{key}")
+            logger.info(f"    ℹ️ Using static value for {provider_name}.{provider_service}.{key}")
             return default_value
             
         logger.warning(f"   ⚠️ Using fallback for {provider_name}.{provider_service}.{key} (not returned by API)")
@@ -169,14 +169,14 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, aws_services_co
 
     fetched = {}
     
-    for neutral_service in aws_services_config.keys():
-        try:
-            logger.info(f"--- Service: {neutral_service} ---")
-            fetched[neutral_service] = fetch_aws_price(neutral_service, region, client_credentials, additional_debug)
-        except Exception as e:
-            logger.debug(traceback.format_exc())
-            logger.error(f"⚠️ Failed to fetch AWS service {neutral_service}: {e}")
-            fetched[neutral_service] = {}
+    #for neutral_service in aws_services_config.keys():
+    #    try:
+    #        logger.info(f"--- Service: {neutral_service} ---")
+    #        fetched[neutral_service] = fetch_aws_price(neutral_service, region, client_credentials, additional_debug)
+    #    except Exception as e:
+    #        logger.debug(traceback.format_exc())
+    #        logger.error(f"⚠️ Failed to fetch AWS service {neutral_service}: {e}")
+    #        fetched[neutral_service] = {}
 
     logger.info("🧩 Building AWS pricing schema...")
     aws = {}

@@ -5,6 +5,9 @@ def calculate_gcp_cost_data_acquisition(number_of_devices, device_sending_interv
     """
     Calculate GCP Data Acquisition Cost (Cloud Pub/Sub).
     Pub/Sub is priced by data volume (GB).
+    
+    Formula: Total Messages = Devices * (60 / Interval) * 24 * 30
+    Cost: Messages * Price Per Message (Approximation for volume-based pricing)
     """
     pricing_layer = pricing["gcp"]["iot"]
     
@@ -13,12 +16,7 @@ def calculate_gcp_cost_data_acquisition(number_of_devices, device_sending_interv
     
     # Data volume in GB
     data_volume_gb = (messages_per_month * average_size_of_message_in_kb) / (1024 * 1024)
-    
-    # Pub/Sub pricing is per GB (first 10GB free, but let's assume simple pricing for now or check tiers if available)
-    # Our pricing fetcher returns "pricePerMessage" which we approximated.
-    # Let's use the pricePerMessage if available, or fallback to volume based if we had volume pricing.
-    # The fetcher set pricePerMessage = 0.0000004 (approx).
-    
+        
     cost = messages_per_month * pricing_layer.get("pricePerMessage", 0)
     
     return {
@@ -31,6 +29,10 @@ def calculate_gcp_cost_data_acquisition(number_of_devices, device_sending_interv
 def calculate_gcp_cost_data_processing(number_of_devices, device_sending_interval_in_minutes, average_size_of_message_in_kb, pricing):
     """
     Calculate GCP Data Processing Cost (Cloud Functions).
+    
+    Formula: Executions = Devices * (60 / Interval) * 730 hours
+    Request Cost: (Executions - Free Tier) * Request Price
+    Compute Cost: (Total GB-Seconds - Free Tier) * Duration Price
     """
     pricing_layer = pricing["gcp"]["functions"]
     
@@ -66,6 +68,10 @@ def calculate_gcp_cost_data_processing(number_of_devices, device_sending_interva
 def calculate_firestore_cost(data_size_in_gb, total_messages_per_month, average_size_of_message_in_kb, duration_in_months, pricing):
     """
     Calculate GCP Hot Storage Cost (Firestore).
+    
+    Formula: Storage Cost = (Data Size - Free Tier) * Storage Price * Duration
+    Write Cost: Total Messages * Write Price
+    Read Cost: (Total Messages * 10) * Read Price (Assumption: 10 reads per write)
     """
     pricing_layer = pricing["gcp"]["storage_hot"]
     
@@ -93,6 +99,8 @@ def calculate_firestore_cost(data_size_in_gb, total_messages_per_month, average_
 def calculate_gcp_storage_cool_cost(data_size_in_gb, duration_in_months, pricing):
     """
     Calculate GCP Cool Storage Cost (Cloud Storage Nearline).
+    
+    Formula: Storage Cost = Data Size * Storage Price * Duration
     """
     pricing_layer = pricing["gcp"]["storage_cool"]
     
@@ -110,6 +118,8 @@ def calculate_gcp_storage_cool_cost(data_size_in_gb, duration_in_months, pricing
 def calculate_gcp_storage_archive_cost(data_size_in_gb, duration_in_months, pricing):
     """
     Calculate GCP Archive Storage Cost (Cloud Storage Archive).
+    
+    Formula: Storage Cost = Data Size * Storage Price * Duration
     """
     pricing_layer = pricing["gcp"]["storage_archive"]
     
@@ -125,6 +135,8 @@ def calculate_gcp_twin_maker_cost(entity_count, number_of_devices, device_sendin
     """
     Calculate GCP Twin Management Cost.
     Placeholder implementation using generic entity/operation pricing.
+    
+    Formula: Cost = Entity Count * Entity Price
     """
     pricing_layer = pricing["gcp"]["twinmaker"]
     
@@ -139,11 +151,13 @@ def calculate_gcp_twin_maker_cost(entity_count, number_of_devices, device_sendin
 def calculate_gcp_managed_grafana_cost(amount_of_active_users, pricing):
     """
     Calculate GCP Visualization Cost.
+    
+    Formula: Cost = Active Users * Price Per User
     """
     pricing_layer = pricing["gcp"]["grafana"]
     
     # Assuming a mix of editors and viewers or just a flat user price
-    # Let's use viewerPrice as base if userPrice not defined, or average
+    # Use viewerPrice as base if userPrice not defined, or average
     price_per_user = pricing_layer.get("viewerPrice", 5.0)
     
     cost = amount_of_active_users * price_per_user

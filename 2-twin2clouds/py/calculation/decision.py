@@ -13,6 +13,18 @@ def build_graph_for_storage(
     gcp_result_l3_archive,
     transfer_costs
 ):
+    """
+    Constructs a directed graph representing the possible storage paths and their costs.
+    
+    Nodes represent storage tiers on specific providers (e.g., "AWS_Hot", "Azure_Cool").
+    Edges represent the transfer costs between these tiers.
+    Node costs represent the monthly storage cost for that specific tier.
+    
+    Structure:
+    - Hot Storage Nodes: Start points (AWS_Hot, Azure_Hot, GCP_Hot)
+    - Cool Storage Nodes: Intermediate points
+    - Archive Storage Nodes: End points
+    """
     graph = {
         "AWS_Hot": {
             "costs": aws_result_hot["totalMonthlyCost"],
@@ -78,6 +90,21 @@ def build_graph_for_storage(
     return graph
 
 def find_cheapest_storage_path(graph, start_nodes, end_nodes):
+    """
+    Finds the path with the minimum total cost from any start node to any end node using Dijkstra's algorithm.
+    
+    Total Cost = Sum of (Node Costs + Edge Costs) along the path.
+    
+    Args:
+        graph: The graph structure returned by build_graph_for_storage.
+        start_nodes: List of possible starting nodes (Hot Storage tiers).
+        end_nodes: List of possible ending nodes (Archive Storage tiers).
+        
+    Returns:
+        A dictionary containing:
+        - "path": List of nodes in the cheapest path (e.g., ["AWS_Hot", "Azure_Cool", "GCP_Archive"])
+        - "cost": The total monthly cost of this path.
+    """
     costs = {node: float('inf') for node in graph}
     parents = {}
     pq = []

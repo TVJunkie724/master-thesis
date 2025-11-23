@@ -22,6 +22,8 @@ def calculate_aws_cost_data_acquisition(
     price_tier2 = pricing_tiers["tier2"]["price"]
     price_tier3 = pricing_tiers["tier3"]["price"]
 
+    # Formula: Total Messages = Devices * (60 / Interval) * 24 * 30
+    # Message Size Adjustment: Messages are billed in 5KB increments (AWS IoT Core)
     total_messages_per_month = math.ceil(
         number_of_devices * (1.0 / device_sending_interval_in_minutes) * 60 * 24 * 30
     )
@@ -85,6 +87,9 @@ def calculate_aws_cost_data_processing(
     allocated_memory_in_gb = 128.0 / 1024.0
     layer2_pricing = pricing["aws"]["lambda"]
 
+    # Formula: Executions = Devices * (60 / Interval) * 730 hours
+    # Duration Cost: (Total Compute Seconds * Memory in GB - Free Tier) * Duration Price
+    # Request Cost: (Total Requests - Free Tier) * Request Price
     executions_per_month = number_of_devices * (60.0 / device_sending_interval_in_minutes) * 730
 
     data_size_in_gb = (executions_per_month * average_size_of_message_in_kb) / (1024 * 1024)
@@ -119,6 +124,9 @@ def calculate_dynamodb_cost(
     storage_duration_in_months,
     pricing
 ):
+    # Formula: Storage Cost = (Data Size * Duration) * Storage Price
+    # Write Cost: (Total Messages * Message Size) * Write Price
+    # Read Cost: (Total Messages / 2) * Read Price (Assumption: 1 read per 2 writes)
     storage_needed_for_duration = data_size_in_gb * (storage_duration_in_months + 0.5)
 
     write_units_needed = total_messages_per_month * average_size_of_message_in_kb
@@ -155,6 +163,9 @@ def calculate_s3_infrequent_access_cost(
     request_price = pricing["aws"]["s3InfrequentAccess"]["requestPrice"]
     data_retrieval_price = pricing["aws"]["s3InfrequentAccess"]["dataRetrievalPrice"]
     
+    # Formula: Storage Cost = Data Size * Duration * Storage Price
+    # Request Cost: (Data Size * 1024 / 100) * 2 * Request Price (Assumption: 2 requests per 100MB)
+    # Retrieval Cost: (Data Size * Duration * 0.1 + Data Size) * Retrieval Price
     data_retrieval_amount = (data_size_in_gb * cool_storage_duration_in_months * 0.1) + data_size_in_gb
 
     amount_of_requests_needed = math.ceil((data_size_in_gb * 1024) / 100) * 2
@@ -175,6 +186,9 @@ def calculate_s3_glacier_deep_archive_cost(
     archive_storage_duration_in_months,
     pricing
 ):
+    # Formula: Storage Cost = Data Size * Duration * Storage Price
+    # Request Cost: Data Size * 2 * Lifecycle Price
+    # Retrieval Cost: 1% of Data Size * Retrieval Price
     storage_needed_for_duration = data_size_in_gb * archive_storage_duration_in_months
     amount_of_requests_needed = data_size_in_gb * 2
     data_retrieval_amount = 0.01 * storage_needed_for_duration
@@ -211,6 +225,9 @@ def calculate_aws_iot_twin_maker_cost(
     dashboard_active_hours_per_day,
     pricing
 ):
+    # Formula: Entity Cost = Entity Count * Entity Price
+    # API Cost: Total Messages * Unified Data Access Price
+    # Query Cost: Number of Queries * Query Price
     unified_data_access_api_calls_price = pricing["aws"]["iotTwinMaker"]["unifiedDataAccessAPICallsPrice"]
     entity_price = pricing["aws"]["iotTwinMaker"]["entityPrice"]
     query_price = pricing["aws"]["iotTwinMaker"]["queryPrice"]
@@ -242,6 +259,7 @@ def calculate_amazon_managed_grafana_cost(
     editor_price = pricing["aws"]["awsManagedGrafana"]["editorPrice"]
     viewer_price = pricing["aws"]["awsManagedGrafana"]["viewerPrice"]
 
+    # Formula: Total Cost = (Editors * Editor Price) + (Viewers * Viewer Price)
     total_monthly_cost = (amount_of_active_editors * editor_price) + \
                          (amount_of_active_viewers * viewer_price)
 

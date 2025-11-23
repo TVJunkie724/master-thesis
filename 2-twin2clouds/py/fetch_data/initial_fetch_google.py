@@ -6,7 +6,7 @@ import py.config_loader as config_loader
 from py.constants import GCP_REGIONS_FILE_PATH
 
 
-def fetch_gcp_regions():
+def fetch_region_map():
     """
     Fetch all GCP regions from the Cloud Billing Catalog API and save to gcp_regions.json.
     """

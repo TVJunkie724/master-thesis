@@ -9,7 +9,7 @@ import py.constants as CONSTANTS
 # ---------------------------------------------------------------
 # 1. Fetch all Azure regions
 # ---------------------------------------------------------------
-def fetch_azure_regions() -> Dict[str, str]:
+def fetch_region_map() -> Dict[str, str]:
     """
     Fetch all unique Azure region codes (armRegionName) and their display names (armRegionNameDisplay).
     """

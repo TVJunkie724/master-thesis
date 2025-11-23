@@ -4,13 +4,14 @@ def calculate_egress_cost(data_size_in_gb, transfer_config):
     """
     Generic function to calculate egress cost based on tiered pricing.
     transfer_config should have a 'pricing_tiers' key.
+    
+    Formula:
+    - Iterates through pricing tiers (e.g., 0-10TB, 10-40TB, etc.).
+    - Calculates cost for data falling within each tier.
+    - Sums up the costs.
     """
     pricing_tiers = transfer_config.get("pricing_tiers", {})
-    
-    # Sort tiers by limit if possible, or assume standard naming tier1, tier2...
-    # But the existing code accesses them by name.
-    # Let's try to be generic but robust.
-    
+
     # If pricing_tiers is empty, return 0
     if not pricing_tiers:
         return 0
@@ -25,9 +26,6 @@ def calculate_egress_cost(data_size_in_gb, transfer_config):
     remaining_data = data_size_in_gb - free_limit
     total_cost = 0.0
     
-    # We need an ordered list of tiers. 
-    # Assuming tier1, tier2, tier3...
-    # Let's look for keys starting with "tier" and sort them.
     tier_keys = [k for k in pricing_tiers.keys() if k.startswith("tier")]
     # Sort by the number in the key, e.g. tier1 < tier2
     def get_tier_num(k):
@@ -61,6 +59,10 @@ def calculate_egress_cost(data_size_in_gb, transfer_config):
     return total_cost
 
 def calculate_transfer_cost_from_aws_to_internet(data_size_in_gb, pricing):
+    """
+    Calculates data transfer cost from AWS to the Internet (Egress).
+    Uses AWS Data Transfer pricing tiers.
+    """
     transfer_pricing = pricing["aws"]["transfer"]["pricing_tiers"]
     free_tier_limit = transfer_pricing["freeTier"]["limit"]
     tier1_limit = transfer_pricing["tier1"]["limit"]
@@ -98,6 +100,10 @@ def calculate_transfer_cost_from_aws_to_internet(data_size_in_gb, pricing):
     return total_cost
 
 def calculate_transfer_cost_from_azure_to_internet(data_size_in_gb, pricing):
+    """
+    Calculates data transfer cost from Azure to the Internet (Egress).
+    Uses Azure Bandwidth pricing tiers.
+    """
     transfer_pricing = pricing["azure"]["transfer"]["pricing_tiers"]
     remaining_data = data_size_in_gb
     total_cost = 0.0
@@ -132,7 +138,11 @@ def calculate_transfer_cost_from_azure_to_internet(data_size_in_gb, pricing):
 
     return total_cost
 
+# ---------------------------------------------------------
 # Transfer costs between Layer 2 and Layer 3 (Hot)
+# ---------------------------------------------------------
+# Note: Intra-region transfer is typically free. Inter-region or Internet transfer incurs costs.
+# We assume different providers imply Internet transfer.
 
 def calculate_transfer_cost_from_l2_aws_to_aws_hot(data_size_in_gb):
     return 0
@@ -146,9 +156,14 @@ def calculate_transfer_cost_from_l2_azure_to_aws_hot(data_size_in_gb, pricing):
 def calculate_transfer_cost_from_l2_azure_to_azure_hot(data_size_in_gb):
     return 0
 
+# ---------------------------------------------------------
 # Transfer costs between Layer 3 (Hot) and Layer 3 (Cool)
-
+# ---------------------------------------------------------
 def calculate_transfer_cost_from_aws_hot_to_aws_cool(data_size_in_gb, pricing):
+    """
+    Calculates transfer cost from AWS DynamoDB (Hot) to AWS S3 IA (Cool).
+    Includes specific transfer costs defined in pricing configuration.
+    """
     transfer_cost = pricing["aws"]["s3InfrequentAccess"]["transferCostFromDynamoDB"]
     return data_size_in_gb * transfer_cost
 
@@ -156,19 +171,25 @@ def calculate_transfer_cost_from_aws_hot_to_azure_cool(data_size_in_gb, pricing)
     return calculate_transfer_cost_from_aws_to_internet(data_size_in_gb, pricing)
 
 def calculate_transfer_costs_from_azure_hot_to_aws_cool(data_size_in_gb, pricing):
+    """
+    Calculates transfer cost from Azure Cosmos DB (Hot) to AWS S3 IA (Cool).
+    Includes Cosmos DB data transfer cost + Azure Egress cost.
+    """
     transfer_cost_from_cosmos_to_s3 = pricing["aws"]["s3InfrequentAccess"]["transferCostFromCosmosDB"]
     return (data_size_in_gb * transfer_cost_from_cosmos_to_s3) + \
            calculate_transfer_cost_from_azure_to_internet(data_size_in_gb, pricing)
 
 def calculate_transfer_cost_from_azure_hot_to_azure_cool(data_size_in_gb, pricing):
     transfer_cost = pricing["azure"]["blobStorageCool"]["transferCostFromCosmosDB"]
-    # First 5GB are free? Logic from JS: dataSizeInGB <= 5 ? 0 : (dataSizeInGB - 5) * transferCostFromCosmosDBToAzure;
+    # First 5GB are free? 
+    # Logic from JS: dataSizeInGB <= 5 ? 0 : (dataSizeInGB - 5) * transferCostFromCosmosDBToAzure;
     if data_size_in_gb <= 5:
         return 0
     return (data_size_in_gb - 5) * transfer_cost
 
+# ---------------------------------------------------------
 # Transfer costs between Layer 3 (Cool) and Layer 3 (Archive)
-
+# ---------------------------------------------------------
 def calculate_transfer_cost_from_aws_cool_to_aws_archive(data_size_in_gb):
     return 0
 
@@ -197,7 +218,7 @@ def calculate_transfer_cost_from_l2_azure_to_gcp_hot(data_size_in_gb, pricing):
     return calculate_egress_cost(data_size_in_gb, pricing["azure"]["transfer"])
 
 def calculate_transfer_cost_from_gcp_hot_to_gcp_cool(data_size_in_gb, pricing):
-    # Internal transfer usually free or low cost, but let's check if we have a price
+    # Internal transfer usually free or low cost
     return 0
 
 def calculate_transfer_cost_from_gcp_hot_to_aws_cool(data_size_in_gb, pricing):

@@ -1,3 +1,6 @@
+/**
+ * DEPRECATED
+ */
 "use strict";
 
 let pricing;
@@ -196,7 +199,7 @@ async function calculateAWSCosts(params) {
   );
   var transferCostFromL2AWSToAzureHot =
     calculateTransferCostFromL2AWSToAzureHot(
-      awsResultDataProcessing.dataSizeInGB, 
+      awsResultDataProcessing.dataSizeInGB,
       pricing
     );
 
@@ -210,13 +213,13 @@ async function calculateAWSCosts(params) {
 
   var transferCostFromAWSHotToAWSCool =
     calculateTransferCostFromAWSHotToAWSCool(
-      awsResultHotDynamoDB.dataSizeInGB, 
+      awsResultHotDynamoDB.dataSizeInGB,
       pricing
     );
 
   var transferCostFromAWSHotToAzureCool =
     calculateTransferCostFromAWSHotToAzureCool(
-      awsResultHotDynamoDB.dataSizeInGB, 
+      awsResultHotDynamoDB.dataSizeInGB,
       pricing
     );
 
@@ -230,13 +233,13 @@ async function calculateAWSCosts(params) {
     calculateTransferCostFromAWSCoolToAWSArchive(awsResultL3Cool.dataSizeInGB);
   var transferCostFromAWSCoolToAzureArchive =
     calculateTransferCostFromAWSCoolToAzureArchive(
-      awsResultL3Cool.dataSizeInGB, 
+      awsResultL3Cool.dataSizeInGB,
       pricing
     );
 
   var awsResultL3Archive = calculateS3GlacierDeepArchiveCost(
     awsResultL3Cool.dataSizeInGB,
-    params.archiveStorageDurationInMonths, 
+    params.archiveStorageDurationInMonths,
     pricing
   );
 
@@ -305,7 +308,7 @@ async function calculateAzureCosts(params) {
 
   var transferCostFromL2AzureToAWSHot =
     calculateTransferCostFromL2AzureToAWSHot(
-      azureResultDataProcessing.dataSizeInGB, 
+      azureResultDataProcessing.dataSizeInGB,
       pricing
     );
 
@@ -324,13 +327,13 @@ async function calculateAzureCosts(params) {
 
   var transferCostFromAzureHotToAWSCool =
     calculateTransferCostsFromAzureHotToAWSCool(
-      azureResultHot.dataSizeInGB, 
+      azureResultHot.dataSizeInGB,
       pricing
     );
 
   var transferCostFromAzureHotToAzureCool =
     calculateTransferCostFromAzureHotToAzureCool(
-      azureResultHot.dataSizeInGB, 
+      azureResultHot.dataSizeInGB,
       pricing
     );
 
@@ -342,7 +345,7 @@ async function calculateAzureCosts(params) {
 
   var transferCostFromAzureCoolToAWSArchive =
     calculateTransferCostFromAzureCoolToAWSArchive(
-      azureResultLayer3CoolBlobStorage.dataSizeInGB, 
+      azureResultLayer3CoolBlobStorage.dataSizeInGB,
       pricing
     );
   var transferCostFromAzureCoolToAzureArchive =
@@ -825,7 +828,7 @@ if (typeof window !== "undefined") {
 // CLI runner (only runs in Node.js, not the browser)
 if (typeof process !== "undefined" && process.argv && import.meta.url) {
   if (process.argv[1] === new URL(import.meta.url).pathname) {
-    const [,, fn, ...args] = process.argv;
+    const [, , fn, ...args] = process.argv;
 
     async function main() {
       try {

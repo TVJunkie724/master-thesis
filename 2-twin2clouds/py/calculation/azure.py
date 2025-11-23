@@ -9,6 +9,9 @@ def calculate_azure_cost_data_acquisition(
     average_size_of_message_in_kb,
     pricing
 ):
+    # Formula: Total Messages = Devices * (60 / Interval) * 24 * 30
+    # Message Size Adjustment: Messages are billed in 4KB increments (Azure IoT Hub)
+    # Tier Selection: Selects cheapest tier (Basic/Standard B1/S1, B2/S2, B3/S3) that fits message volume
     layer_pricing = pricing["azure"]["iotHub"]
     pricing_tiers = layer_pricing["pricing_tiers"]
 
@@ -56,32 +59,15 @@ def calculate_azure_cost_data_processing(
     average_size_of_message_in_kb,
     pricing
 ):
-    # Reusing AWS logic as per JS implementation (costs and free tier are identical/similar enough for this model)
-    # But we need to import it or duplicate it. Duplicating for independence.
+    # Reusing AWS logic as per JS implementation (costs and free tier are identical for this model)
     
     execution_duration_in_ms = 100
     allocated_memory_in_gb = 128.0 / 1024.0
-    # Note: JS uses pricing.aws.lambda for Azure too? 
-    # "We execute the same function as for AWS since the costs and the free tier per month are identical"
-    # But it should probably use pricing.azure.functions if available.
-    # The JS code calls calculateAWSCostDataProcessing passing 'pricing'.
-    # And calculateAWSCostDataProcessing uses pricing.aws.lambda.
-    # So it effectively uses AWS pricing for Azure. 
-    # However, py/calculate_up_to_date_pricing.py has an "azure.functions" section.
-    # I should probably use that if I want to be correct, but to match JS exactly I might need to use AWS pricing?
-    # Let's check the JS again:
-    # function calculateAzureCostDataProcessing(...) { return calculateAWSCostDataProcessing(...); }
-    # And calculateAWSCostDataProcessing uses pricing.aws.lambda.
-    # So yes, it uses AWS pricing. 
-    # BUT, I should probably use Azure pricing if I have it.
-    # Let's stick to the JS logic for now to ensure "calculations ... should be kept", 
-    # but I will use the Azure pricing structure if it exists in the pricing object, 
-    # falling back to AWS if not, or just use the Azure pricing structure I see in calculate_up_to_date_pricing.py.
     
-    # Actually, let's look at calculate_up_to_date_pricing.py again.
-    # It defines azure["functions"] with requestPrice, durationPrice etc.
-    # So I should use that.
-    
+    # Formula: Executions = Devices * (60 / Interval) * 730 hours
+    # Duration Cost: (Total Compute Seconds * Memory in GB - Free Tier) * Duration Price
+    # Request Cost: (Total Requests - Free Tier) * Request Price
+    # Note: Uses Azure Functions Consumption Plan pricing
     layer2_pricing = pricing["azure"]["functions"]
 
     executions_per_month = number_of_devices * (60.0 / device_sending_interval_in_minutes) * 730
@@ -117,8 +103,14 @@ def calculate_cosmos_db_cost(
     storage_duration_in_months,
     pricing
 ):
+    # Formula: Storage Cost = (Data Size * Duration) * Storage Price
+    # RU/s Calculation: 
+    #   - Writes/sec = Total Messages / Seconds in Month
+    #   - Reads/sec = Writes/sec (Assumption)
+    #   - Total RUs = (Writes * Write Cost * Size Multiplier) + (Reads * Read Cost)
+    #   - Monthly Cost = Max(Total RUs, Min RUs) * Hourly Price * 730 + Storage Cost
     storage_needed_for_duration = data_size_in_gb * (storage_duration_in_months + 0.5)
-
+    
     request_units_needed = pricing["azure"]["cosmosDB"]["minimumRequestUnits"]
     writes_per_second = total_messages_per_month / (30 * 24 * 60 * 60)
     reads_per_second = writes_per_second
@@ -155,6 +147,10 @@ def calculate_azure_blob_storage_cost(
     amount_of_reads_needed = amount_of_writes_needed * 0.1
     data_retrieval_amount = (data_size_in_gb * 0.1) + data_size_in_gb
 
+    # Formula: Storage Cost = Data Size * Duration * Storage Price
+    # Write Cost: (Data Size * 1024 / 100) * Write Price (Assumption: 100KB blocks)
+    # Read Cost: Write Count * 0.1 * Read Price (Assumption: 10% reads)
+    # Retrieval Cost: (Data Size * 0.1 + Data Size) * Retrieval Price
     storage_price = pricing["azure"]["blobStorageCool"]["storagePrice"]
     write_price = pricing["azure"]["blobStorageCool"]["writePrice"]
     read_price = pricing["azure"]["blobStorageCool"]["readPrice"]
@@ -180,6 +176,9 @@ def calculate_azure_blob_storage_archive_cost(
     amount_of_writes_needed = data_size_in_gb
     data_retrieval_amount = storage_needed_for_duration * 0.01
 
+    # Formula: Storage Cost = Data Size * Duration * Storage Price
+    # Write Cost: Data Size * Write Price
+    # Retrieval Cost: 1% of Data Size * Retrieval Price
     storage_price = pricing["azure"]["blobStorageArchive"]["storagePrice"]
     write_price = pricing["azure"]["blobStorageArchive"]["writePrice"]
     data_retrieval_price = pricing["azure"]["blobStorageArchive"]["dataRetrievalPrice"]
@@ -211,6 +210,9 @@ def calculate_azure_digital_twins_cost(
     dashboard_active_hours_per_day,
     pricing
 ):
+    # Formula: Operation Cost = Total Messages * Operation Price
+    # Query Cost: Query Units * Query Price * Number of Queries
+    # Note: Query Units depend on device count tier
     message_price = pricing["azure"]["azureDigitalTwins"]["messagePrice"]
     operation_price = pricing["azure"]["azureDigitalTwins"]["operationPrice"]
     query_price = pricing["azure"]["azureDigitalTwins"]["queryPrice"]
@@ -247,6 +249,7 @@ def calculate_azure_managed_grafana_cost(
     amount_of_monthly_users,
     pricing
 ):
+    # Formula: Total Cost = (Users * User Price) + (Hourly Price * 730)
     user_price = pricing["azure"]["azureManagedGrafana"]["userPrice"]
     hourly_price = pricing["azure"]["azureManagedGrafana"]["hourlyPrice"]
     monthly_price = hourly_price * 730

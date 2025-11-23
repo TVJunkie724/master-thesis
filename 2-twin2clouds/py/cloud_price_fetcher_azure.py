@@ -6,27 +6,18 @@ import requests
 
 from py.logger import logger
 import py.constants as CONSTANTS
+from py.fetch_data import initial_fetch_azure
 
 # -----------------------------------------------------------------------------
 # REGION MAP + DEFAULTS
 # -----------------------------------------------------------------------------
+def _load_azure_regions() -> Dict[str, str]:
+    """
+    Load Azure regions using the shared initial fetch logic (with caching).
+    """
+    return initial_fetch_azure.fetch_region_map()
 
-AZURE_REGION_NAMES = {
-    "westeurope": "westeurope",
-    "northeurope": "northeurope",
-    "uksouth": "uksouth",
-    "ukwest": "ukwest",
-    "francecentral": "francecentral",
-    "germanywestcentral": "germanywestcentral",
-    "swedencentral": "swedencentral",
-    "eastus": "eastus",
-    "eastus2": "eastus2",
-    "westus": "westus",
-    "westus2": "westus2",
-    "centralus": "centralus",
-    "italynorth": "italynorth",
-    "switzerlandnorth": "switzerlandnorth",
-}
+AZURE_REGION_NAMES = _load_azure_regions()
 
 REGION_FALLBACK = {
     "westeurope": ["northeurope", "francecentral", "italynorth", "germanywestcentral"],
@@ -59,7 +50,8 @@ STATIC_DEFAULTS_AZURE = {
         "RUsPerRead": 1,
         "RUsPerWrite": 10,
     },
-    "storage_cool": {"upfrontPrice": 0.0001, "writePrice": 0.02, "readPrice": 0.01},
+    "storage_cool": {"upfrontPrice": 0.0001, "writePrice": 0.00001, "readPrice": 0.000001},
+    "storage_archive": {"writePrice": 0.000013},
     "twinmaker": {
         "messagePrice": 0.000001,
         "operationPrice": 0.0000025,
@@ -74,7 +66,7 @@ STATIC_DEFAULTS_AZURE = {
 }
 
 # -----------------------------------------------------------------------------
-# SERVICE KEYWORD MAP (similar to AWS structure)
+# SERVICE KEYWORD MAP
 # -----------------------------------------------------------------------------
 
 AZURE_SERVICE_KEYWORDS: Dict[str, Dict[str, Any]] = {
@@ -86,11 +78,11 @@ AZURE_SERVICE_KEYWORDS: Dict[str, Dict[str, Any]] = {
         },
         "include": ["Standard", "Functions"],
     },
-    "transfer": {
-        "serviceName": "Bandwidth",
-        "meters": {"egressPrice": {"meter_keywords": ["Data Transfer Out"], "unit_keywords": ["GB"]}},
-        "exclude": ["China"],
-    },
+    #"transfer": {
+    #    "serviceName": "Bandwidth",
+    #    "meters": {"egressPrice": {"meter_keywords": ["Data Transfer Out"], "unit_keywords": ["GB"]}},
+    #    "exclude": ["China"],
+    #},
     "iot": {"serviceName": "IoT Hub", "tiers": {"S1": "tier1", "S2": "tier2", "S3": "tier3"}},
     "storage_hot": {
         "serviceName": "Azure Cosmos DB",
@@ -102,21 +94,22 @@ AZURE_SERVICE_KEYWORDS: Dict[str, Dict[str, Any]] = {
         "meters": {
             "storagePrice": {"meter_keywords": ["cool", "data stored"], "unit_keywords": ["gb/month", "1 gb/month", "100 gb/month"]},
             "writePrice": {"meter_keywords": ["cold lrs data write"], "unit_keywords": ["gb"]},
-            "readPrice": {"meter_keywords": ["read"], "unit_keywords": ["gb"]},
+            "readPrice": {"meter_keywords": ["cold lrs read operations"], "unit_keywords": ["10K"]},
             "dataRetrievalPrice": {"meter_keywords": ["cool data retrieval"], "unit_keywords": ["gb", "per gb"]},
         },
-        "include": ["blob storage", "cool", "data stored"],
-        "exclude": ["reserved", "ra-grs", "grs", "zrs", "operation", "transaction", "disk", "tables", "data lake"],
+        "include": ["blob storage"],
+        #"exclude": ["reserved", "ra-grs", "grs", "zrs", "transaction", "disk", "tables", "data lake"],
     },
     "storage_archive": {
         "serviceName": ["Blob Storage", "Storage"],
         "meters": {
             "storagePrice": {"meter_keywords": ["archive", "data stored", "lrs"], "unit_keywords": ["gb/month", "1 gb/month", "100 gb/month"]},
             "writePrice": {"meter_keywords": ["Archive Data Write"], "unit_keywords": ["gb"]},
+            "readPrice": {"meter_keywords": ["archive read operations"], "unit_keywords": ["10K"]},
             "dataRetrievalPrice": {"meter_keywords": ["archive data retrieval"], "unit_keywords": ["gb", "per gb"]},
         },
-        "include": ["blob storage", "archive", "data stored"],
-        "exclude": ["reserved", "ra-grs", "grs", "zrs", "operation", "transaction", "disk", "tables", "data lake"],
+        "include": ["blob storage"],
+        #"exclude": ["reserved", "ra-grs", "grs", "zrs", "transaction", "disk", "tables", "data lake"],
     },
 }
 
@@ -188,8 +181,8 @@ def _get_unit_price(row: Optional[Dict[str, Any]]) -> Optional[float]:
     except:
         return None
 
-def _warn_static(neutral: str, field: str):
-    logger.warning(f" ℹ️ Using default value for Azure.{neutral}.{field} (not returned by API)")
+def _warn_static(neutral: str, field: str, debug: bool = False):
+    logger.info(f"    ℹ️ Using static value for Azure.{neutral}.{field} (not returned by API)")
 
 # -----------------------------------------------------------------------------
 # MATCHING
@@ -229,21 +222,21 @@ def _find_matching_row(
         if key == "storagePrice" and ("write" in meter or "read" in meter):
             continue
         # include
-        if include_kw and not any(x in product for x in include_kw):
+        exist_include_kw_in_product_or_meter = any(x in product for x in include_kw)
+        meter_kw_matches = meter_kw.lower() in meter
+        unit_kw_matches = unit_kw.lower() in unit
+        if not exist_include_kw_in_product_or_meter or not meter_kw_matches or not unit_kw_matches:
+            no_match_counter += 1
+            if debug: logger.debug(f"   ❌ No Match ({no_match_counter}): {filtered}")
             continue
-        if meter_kw.lower() not in meter:
-            continue
-        if unit_kw.lower() not in unit:
-            continue
+
         price = _get_unit_price(r)
         if price is None:
             continue
-        if price == 0 and key in STATIC_DEFAULTS_AZURE.get(neutral, {}):
-            price = STATIC_DEFAULTS_AZURE[neutral][key]
+
         if best is None or price < _get_unit_price(best):
             best = r
-        if debug:
-            logger.debug(f"   ✔️ Matched ({neutral} - {key}): {price} {currency} <= {filtered}")
+        logger.debug(f"   ✔️ Matched ({neutral} - {key}): {price} {currency} <= {filtered}")
     return best
 
 # -----------------------------------------------------------------------------
@@ -269,7 +262,7 @@ def _fetch_iot(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Dict[st
         if matched_price is None:
             if debug:
                 logger.debug(f"     ❌ No match for {neutral}.{tier_key} (sku_kw='{sku_label}')")
-            _warn_static(neutral, tier_key)
+            _warn_static(neutral, tier_key, debug)
             continue
         result["pricing_tiers"][tier_key] = {
             "limit": tier_defaults[tier_key]["limit"],
@@ -297,17 +290,83 @@ def _fetch_generic_meter_service(rows, neutral: str, debug: bool) -> Dict[str, A
         price = _get_unit_price(meter_match)
         if price is None:
             continue
+        if price == 0:
+            logger.warning(f" ℹ️ Zero price found for Azure.{neutral}.{key}")
+            if key in STATIC_DEFAULTS_AZURE.get(neutral, {}):
+                price = STATIC_DEFAULTS_AZURE[neutral][key]
+                logger.warning(f" ℹ️ Value was zero for Azure.{neutral}.{key}, using default: {price}")
         unit_text = (meter_match.get("unitOfMeasure") or "").lower()
         normalized = price
-        if "10" in unit_text:
-            normalized = price * (1_000_000 / 10)
-        elif "100" in unit_text:
-            normalized = price * (1_000_000 / 100)
+        if neutral not in ["storage_hot", "storage_cool", "storage_archive"]:
+            if "10" in unit_text:
+                normalized = price * (1_000_000 / 10)
+            elif "100" in unit_text:
+                normalized = price * (1_000_000 / 100)
         result[key] = normalized
         if key == "requestPricePerMillion":
             result["requestPrice"] = normalized / 1_000_000
         elif key == "durationPricePerGBSecond":
             result["durationPrice"] = normalized
+            
+    return result
+
+def _fetch_cosmos_db(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Dict[str, Any]:
+    """
+    Fetch Cosmos DB prices with specific RU/s unit conversion.
+    
+    Why this exists:
+    - The Generic Fetcher (`_fetch_generic_meter_service`) only handles simple unit normalization (e.g., 100GB -> 1GB).
+    - Azure prices Cosmos DB Request Units (RU/s) as "100 RU/s per Hour".
+    - Our calculation engine requires the cost of "1 RU/s per Month".
+    
+    Logic:
+    1. Fetches the hourly price for 100 RU/s.
+    2. Converts it to a monthly price for 1 RU/s using the formula:
+       (Price_per_100_RU_Hour * 730_Hours) / 100
+    """
+    spec = AZURE_SERVICE_KEYWORDS.get(neutral)
+    result = _fetch_generic_meter_service(rows, neutral, debug)
+    
+    # Convert requestPrice from "100 RU/s / Hour" to "1 RU/s / Month"
+    m = spec["meters"].get("requestPrice")
+    if m:
+        for mk in m["meter_keywords"]:
+            for uk in m["unit_keywords"]:
+                candidate = _find_matching_row(rows, mk, uk, neutral=neutral, key="requestPrice", debug=debug)
+                if candidate:
+                    price = _get_unit_price(candidate)
+                    if price is not None:
+                        # Conversion: Price (per 100 RU/s Hour) -> Per 1 RU/s Month
+                        # Formula: (Price * 730 hours) / 100 units
+                        converted = (price * 730) / 100
+                        result["requestPrice"] = converted
+                        if debug: logger.debug(f"   ℹ️ Converted Cosmos DB requestPrice: {price}/hr/100RU -> {converted}/mo/1RU")
+                    break
+    return result
+
+def _fetch_blob_storage(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Dict[str, Any]:
+    """
+    Fetch Blob Storage prices with specific operation unit conversion.
+    
+    Why this exists:
+    - The Generic Fetcher does not handle "per 10,000 operations" units safely for all services.
+    - Azure prices Blob Storage Read/Write operations per "10,000 operations".
+    - Our calculation engine calculates cost per single operation (e.g., total_messages * price_per_op).
+    
+    Logic:
+    1. Fetches the price for 10,000 operations.
+    2. Divides by 10,000 to get the price per single operation.
+    """
+    spec = AZURE_SERVICE_KEYWORDS.get(neutral)
+    result = _fetch_generic_meter_service(rows, neutral, debug)
+    
+    # Convert operations (per 10k) to per 1 for already-fetched prices
+    # for key in ["writePrice", "readPrice"]:
+    for key in ["readPrice"]:
+        if key in result and result[key] is not None:
+            original_price = result[key]
+            result[key] = original_price / 10_000
+            logger.debug(f"   ℹ️ Converted Blob Storage {key}: {original_price}/10k -> {result[key]}/1")
     return result
 
 # -----------------------------------------------------------------------------
@@ -327,11 +386,15 @@ def fetch_azure_price(service_name: str, region_code: str, debug: bool=False) ->
     default_statics = STATIC_DEFAULTS_AZURE.get(neutral, {})
     if not spec:
         for field in default_statics:
-            _warn_static(neutral, field)
+            _warn_static(neutral, field, debug)
+        logger.info(f"✅ Final Azure prices for {neutral}: {default_statics}")
+        print("")
         return copy.deepcopy(default_statics)
     service_names = spec.get("serviceName")
     rows = _iter_with_region_fallback(region, service_names, debug)
     if not rows:
+        logger.info(f"✅ Final Azure prices for {neutral}: {default_statics}")
+        print("")
         return copy.deepcopy(default_statics)
     # Determine which fetcher to use
     if neutral == "iot":
@@ -340,11 +403,18 @@ def fetch_azure_price(service_name: str, region_code: str, debug: bool=False) ->
         result = _fetch_generic_meter_service(rows, neutral, debug)
         for k, v in default_statics.items():
             if k not in result:
-                _warn_static(neutral, k)
+                _warn_static(neutral, k, debug)
                 result[k] = v
+    elif neutral == "storage_hot":
+        result = _fetch_cosmos_db(rows, neutral, debug)
+        result = {**default_statics, **result}
+    elif neutral in ["storage_cool", "storage_archive"]:
+        result = _fetch_blob_storage(rows, neutral, debug)
+        result = {**default_statics, **result}
     else:
         result = _fetch_generic_meter_service(rows, neutral, debug)
         # Merge defaults without overriding fetched values
         result = {**default_statics, **result}
     logger.info(f"✅ Final Azure prices for {neutral}: {result}")
+    print("")
     return result

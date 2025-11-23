@@ -23,6 +23,7 @@ def load_api_config():
 
     config = {}
     try:
+        print("")
         logger.info("🚀 Starting Twin2Clouds API...")
         config = load_config_file()
     except Exception as e:

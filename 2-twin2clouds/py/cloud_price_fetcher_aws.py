@@ -19,7 +19,6 @@ def _load_aws_regions() -> Dict[str, str]:
 AWS_REGION_NAMES = _load_aws_regions()
 
 STATIC_DEFAULTS = {
-    "transfer": {"egressPrice": 0.09},
     "iot": {"pricePerDeviceAndMonth": 0.0035},
     "functions": {"freeRequests": 1_000_000, "freeComputeTime": 400_000},
     "storage_hot": {"freeStorage": 25},
@@ -66,7 +65,7 @@ AWS_SERVICE_KEYWORDS = {
         "exclude": ["one zone", "intelligent tiering", "glacier", "archive", "checksum", "select"],
         "fields": {
             "storagePrice": ["gb-month of storage used", "gb-month prorated"],
-            # "requestPrice": ["get and all other requests", "per 1,000", "per 10,000"],
+            "requestPrice": ["get and all other requests", "per 1,000", "per 10,000"],
             "dataRetrievalPrice": ["retrieval fee", "per gb retrieved", "flat fee"],
         },
     },
@@ -103,6 +102,11 @@ AWS_SERVICE_KEYWORDS = {
     },
 }
 
+# -------------------------------------------------------------------
+# Helper
+# -------------------------------------------------------------------
+def _warn_static(neutral: str, field: str, debug: bool = False):
+    logger.info(f"    ℹ️ Using static value for AWS.{neutral}.{field} (not returned by API)")
 
 # -------------------------------------------------------------------
 # Shared: safe AWS Pricing API call
@@ -174,6 +178,7 @@ def fetch_transfer_pricing(region_human, pricing_client, debug=False):
 
     if not egress_prices:
         logger.warning(f"⚠️ No egress prices found for {region_human}, using static defaults.")
+        _warn_static("transfer", "", debug)
         return {
             "pricing_tiers": {
                 "freeTier": {"limit": 100, "price": 0},
@@ -190,8 +195,6 @@ def fetch_transfer_pricing(region_human, pricing_client, debug=False):
     for i, tier in enumerate(egress_prices, start=1):
         limit = tier["end"] if tier["end"] != float("inf") else "Infinity"
         pricing_tiers[f"tier{i}"] = {"limit": limit, "price": tier["price"]}
-    logger.info(f"✅ Final AWS transfer pricing tiers: {pricing_tiers}")
-    print("")
     return {"pricing_tiers": pricing_tiers, "egressPrice": egress_prices[0]["price"]}
 
 
@@ -251,13 +254,16 @@ def fetch_aws_price(service_name, region_code, aws_credentials=None, debug=False
     # Handle Grafana specifically (Static for now, dynamic TODO)
     if neutral_service_name == "grafana":
         prices = STATIC_DEFAULTS["grafana"]
-        logger.info(f"ℹ️ Using static Grafana pricing")
+        _warn_static(neutral_service_name, "grafana", debug)
+        logger.info(f"✅ Final AWS {neutral_service_name} pricing: {prices}")
+        print("")
         return prices
 
     # Check if we have keywords for this service
     service_config = AWS_SERVICE_KEYWORDS.get(neutral_service_name)
     if not service_config:
         logger.warning(f"⚠️ No keyword config for service: {service_name}")
+        _warn_static(neutral_service_name, "", debug)
         return STATIC_DEFAULTS.get(neutral_service_name)
 
     logger.info(f"🔍 Fetching AWS {service_name} pricing for {region_human}...")
@@ -275,11 +281,15 @@ def fetch_aws_price(service_name, region_code, aws_credentials=None, debug=False
         pricing_client = boto3.client("pricing", **client_args)
     except Exception as e:
         logger.error(f"Failed to create boto3 client: {e}")
+        _warn_static(neutral_service_name, "", debug)
         return STATIC_DEFAULTS.get(neutral_service_name)
 
     # Special handling for Transfer (complex tiered pricing)
     if neutral_service_name == "transfer":
-        return fetch_transfer_pricing(region_human, pricing_client, debug)
+        result = fetch_transfer_pricing(region_human, pricing_client, debug)
+        logger.info(f"✅ Final AWS {neutral_service_name} pricing: {result}")
+        print("")
+        return result
 
     # Special handling for TwinMaker (multiple service codes)
     if neutral_service_name == "twinmaker":
@@ -287,13 +297,15 @@ def fetch_aws_price(service_name, region_code, aws_credentials=None, debug=False
         if not prices:
              logger.warning(f"⚠️ Failed to fetch TwinMaker prices, using defaults.")
              # Fallback logic could go here if needed
+        logger.info(f"✅ Final AWS {neutral_service_name} pricing: {prices}")
+        print("")
         return prices
 
     # Standard handling for other services
     # We need to guess the AWS ServiceCode. This is tricky without a map.
     # Common ones: AmazonEC2, AmazonS3, AmazonDynamoDB, AWSLambda, AmazonIoTCore
     service_code_map = {
-        "iot": "AmazonIoTCore",
+        "iot": "AWSIoT",
         "functions": "AWSLambda",
         "storage_hot": "AmazonDynamoDB",
         "storage_cool": "AmazonS3",
@@ -303,6 +315,7 @@ def fetch_aws_price(service_name, region_code, aws_credentials=None, debug=False
     aws_service_code = service_code_map.get(neutral_service_name)
     if not aws_service_code:
         logger.warning(f"⚠️ No AWS ServiceCode mapped for {service_name}")
+        _warn_static(neutral_service_name, "", debug)
         return STATIC_DEFAULTS.get(neutral_service_name)
 
     price_list = _fetch_pricing_response(pricing_client, aws_service_code, region_human)
@@ -339,6 +352,8 @@ def fetch_aws_price(service_name, region_code, aws_credentials=None, debug=False
     for k, v in defaults.items():
         if k not in prices:
             prices[k] = v
-            if debug: logger.debug(f"   ℹ️ Using default for {k}: {v}")
+            _warn_static(neutral_service_name, k, debug)
 
+    logger.info(f"✅ Final AWS {neutral_service_name} pricing: {prices}")
+    print("")
     return prices
