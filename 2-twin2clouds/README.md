@@ -10,7 +10,7 @@ Twin2Clouds is a web application with a Python-based REST API backend for explor
 **Using Docker (Recommended):**
 
 ```bash
-# From the repo root
+# From the parent directory (workspace root)
 docker-compose up --build
 
 # Open in browser:
@@ -28,9 +28,9 @@ pip install -r requirements.txt
 # (See config/config_credentials.example.json for template)
 
 # Run the API server
-uvicorn rest_api:app --reload --host 0.0.0.0 --port 80
+uvicorn rest_api:app --reload --host 0.0.0.0 --port 5003
 
-# Open: http://localhost:80/ui
+# Open: http://localhost:5003/ui
 ```
 
 ### How to use
@@ -59,7 +59,7 @@ uvicorn rest_api:app --reload --host 0.0.0.0 --port 80
   - Archive: S3 Glacier vs Blob Storage Archive vs Cloud Storage Archive
 - **L3 Data Processing:** AWS Lambda vs Azure Functions vs Cloud Functions
 - **L4 Twin Management:** AWS IoT TwinMaker vs Azure Digital Twins (GCP uses self-hosted solution)
-- **L5 Visualization:** Amazon Managed Grafana vs Azure Managed Grafana vs self-hosted Grafana on GCP
+- **L5 Visualization:** Amazon Managed Grafana vs Azure Managed Grafana vs self-hosted Grafana on GCP (Note: GCP self-hosted costs are currently placeholders)
 
 Transfers between layers and clouds are modeled with tiered egress where applicable. The app computes the cheapest storage path across Hot → Cool → Archive including transfer fees.
 
@@ -91,7 +91,7 @@ Transfers between layers and clouds are modeled with tiered egress where applica
 **Dynamic Pricing (fetched from APIs):**
 - **AWS:** boto3 Pricing API for IoT Core, Lambda, DynamoDB, S3, Transfer, TwinMaker
 - **Azure:** Azure Retail Prices API for IoT Hub, Functions, CosmosDB, Blob Storage, Digital Twins
-- **GCP:** Static defaults (dynamic fetching to be implemented)
+- **GCP:** Static defaults (dynamic fetching to be implemented). Note: L4/L5 self-hosted solutions currently use placeholder costs.
 
 **Static Defaults:**
 - Used where dynamic APIs are unavailable or for specific fields
@@ -101,10 +101,10 @@ Transfers between layers and clouds are modeled with tiered egress where applica
 **Update Pricing:**
 ```bash
 # Via API endpoint
-curl "http://localhost:80/api/fetch_up_to_date_pricing"
+curl "http://localhost:5003/api/fetch_up_to_date_pricing"
 
 # Or via Python script
-docker exec <container> python update_pricing.py
+docker exec <container> python py/calculate_up_to_date_pricing.py
 ```
 
 ### API Endpoints

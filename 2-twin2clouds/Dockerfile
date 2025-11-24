@@ -21,20 +21,9 @@ COPY . /app
 RUN mkdir -p /app/docs/cds
 COPY --from=clarity-builder /build/node_modules/@cds/core /app/docs/cds
 
-RUN pip install \
-    requests \
-    fastapi \
-    uvicorn \
-    colorlog \
-    boto3 \
-    azure-mgmt-consumption \
-    azure-mgmt-resource \
-    azure-identity \
-    google-auth \
-    google-auth-oauthlib \
-    google-auth-httplib2 \
-    google-api-python-client \
-    google-cloud-billing
+COPY requirements.txt /app/requirements.txt
+
+RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 8000
 

@@ -1,20 +1,13 @@
-"""
-calculate_up_to_date_pricing.py
---------------------------------
-Generates up-to-date multi-cloud pricing JSON.
-Uses dynamic AWS fetching and placeholders for Azure & Google.
-"""
-
 import json
 import traceback
 from pathlib import Path
-import py.config_loader as config_loader
-import py.constants as CONSTANTS
-from py.logger import logger
-from py.cloud_price_fetcher_aws import fetch_aws_price, STATIC_DEFAULTS
-from py.cloud_price_fetcher_azure import fetch_azure_price, STATIC_DEFAULTS_AZURE
+import backend.config_loader as config_loader
+import backend.constants as CONSTANTS
+from backend.logger import logger
+from backend.cloud_price_fetcher_aws import fetch_aws_price, STATIC_DEFAULTS
+from backend.cloud_price_fetcher_azure import fetch_azure_price, STATIC_DEFAULTS_AZURE
 # Future:
-# from py.cloud_price_fetcher_google import fetch_google_price
+# from backend.cloud_price_fetcher_google import fetch_google_price
 
 
 # ============================================================
@@ -169,14 +162,14 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, aws_services_co
 
     fetched = {}
     
-    #for neutral_service in aws_services_config.keys():
-    #    try:
-    #        logger.info(f"--- Service: {neutral_service} ---")
-    #        fetched[neutral_service] = fetch_aws_price(neutral_service, region, client_credentials, additional_debug)
-    #    except Exception as e:
-    #        logger.debug(traceback.format_exc())
-    #        logger.error(f"⚠️ Failed to fetch AWS service {neutral_service}: {e}")
-    #        fetched[neutral_service] = {}
+    for neutral_service in aws_services_config.keys():
+        try:
+            logger.info(f"--- Service: {neutral_service} ---")
+            fetched[neutral_service] = fetch_aws_price(neutral_service, region, client_credentials, additional_debug)
+        except Exception as e:
+            logger.debug(traceback.format_exc())
+            logger.error(f"⚠️ Failed to fetch AWS service {neutral_service}: {e}")
+            fetched[neutral_service] = {}
 
     logger.info("🧩 Building AWS pricing schema...")
     aws = {}

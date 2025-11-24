@@ -4,9 +4,9 @@ import json, copy, traceback
 from typing import Dict, Any, Iterable, List, Optional
 import requests
 
-from py.logger import logger
-import py.constants as CONSTANTS
-from py.fetch_data import initial_fetch_azure
+from backend.logger import logger
+import backend.constants as CONSTANTS
+from backend.fetch_data import initial_fetch_azure
 
 # -----------------------------------------------------------------------------
 # REGION MAP + DEFAULTS

@@ -1,10 +1,10 @@
 from typing import Dict
 import requests
 import json
-from py.logger import logger
-import py.utils as utils
-import py.config_loader as config_loader
-import py.constants as CONSTANTS
+from backend.logger import logger
+import backend.utils as utils
+import backend.config_loader as config_loader
+import backend.constants as CONSTANTS
 
 # ---------------------------------------------------------------
 # 1. Fetch all Azure regions

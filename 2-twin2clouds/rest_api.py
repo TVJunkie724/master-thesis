@@ -11,12 +11,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 
-from py.logger import logger
-from py.utils import print_stack_trace
-import py.constants as CONSTANTS
+from backend.logger import logger
+from backend.utils import print_stack_trace
+import backend.constants as CONSTANTS
 
-from py.calculate_up_to_date_pricing import calculate_up_to_date_pricing
-from py.config_loader import load_config_file, load_json_file
+from backend.calculate_up_to_date_pricing import calculate_up_to_date_pricing
+from backend.config_loader import load_config_file, load_json_file
 
 
 def load_api_config():
@@ -249,7 +249,7 @@ def calc(params: CalcParams = Body(
     Perform a cloud cost optimization calculation based on Digital Twin configuration parameters.
     """
     try:
-        from py.calculation.engine import calculate_cheapest_costs
+        from backend.calculation.engine import calculate_cheapest_costs
         
         # Convert Pydantic model to dict
         params_dict = params.dict()
@@ -305,7 +305,7 @@ def fetch_up_to_date_pricing_endpoint(additional_debug: bool = False):
     Pricing is only re-fetched if the existing file is older than 7 days.
     """
     try:
-        from py.utils import is_file_fresh
+        from backend.utils import is_file_fresh
         
         # Check if we have a fresh pricing file (< 7 days old)
         if is_file_fresh(CONSTANTS.DYNAMIC_PRICING_FILE_PATH, max_age_days=7):

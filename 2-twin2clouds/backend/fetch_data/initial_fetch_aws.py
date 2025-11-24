@@ -2,10 +2,10 @@ from typing import Dict
 import boto3
 import json
 import requests
-from py.logger import logger
-import py.config_loader as config_loader
-import py.constants as CONSTANTS
-import py.utils as utils
+from backend.logger import logger
+import backend.config_loader as config_loader
+import backend.constants as CONSTANTS
+import backend.utils as utils
 
 # --------------------------------------------------------------------
 # Regions

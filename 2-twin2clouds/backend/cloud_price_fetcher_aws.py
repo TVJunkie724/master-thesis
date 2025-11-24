@@ -2,10 +2,10 @@ import boto3
 import json
 import re
 from typing import Dict, Any, Optional, List
-from py.logger import logger
-import py.constants as CONSTANTS
-import py.config_loader as config_loader
-from py.fetch_data import initial_fetch_aws
+from backend.logger import logger
+import backend.constants as CONSTANTS
+import backend.config_loader as config_loader
+from backend.fetch_data import initial_fetch_aws
 
 # --------------------------------------------------------------------
 # 1. Dynamic Region Loading

@@ -69,7 +69,7 @@ pip install -r requirements.txt
 python rest_api.py
 
 # The application will be available at http://localhost:5003
-</code></pre>
+                </code></pre>
             </div>
 
             <!-- Configuration -->
@@ -218,7 +218,7 @@ Content-Type: application/json
                 <h3 class="mb-2 mt-4">Debug Mode</h3>
                 <p>Enable debug logging by setting the <code>DEBUG</code> environment variable:</p>
                 <pre class="p-3 rounded"><code>export DEBUG=True
-python rest_api.py
+uvicorn rest_api:app --reload --host 0.0.0.0 --port 5003
 </code></pre>
             </div>
 

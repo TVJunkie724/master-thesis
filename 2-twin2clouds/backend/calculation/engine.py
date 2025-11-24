@@ -1,9 +1,9 @@
 
 import json
 import math
-from py.calculation import aws, azure, gcp, transfer, decision
-from py.config_loader import load_json_file
-import py.constants as CONSTANTS
+from backend.calculation import aws, azure, gcp, transfer, decision
+from backend.config_loader import load_json_file
+import backend.constants as CONSTANTS
 
 def calculate_aws_costs(params, pricing):
     """
@@ -657,7 +657,7 @@ def calculate_cheapest_costs(params, pricing=None):
     # Currency Conversion (USD -> EUR) if requested
     currency = params.get("currency", "USD")
     if currency == "EUR":
-        from py.pricing_utils import get_currency_rates
+        from backend.pricing_utils import get_currency_rates
         from decimal import Decimal
         
         try:

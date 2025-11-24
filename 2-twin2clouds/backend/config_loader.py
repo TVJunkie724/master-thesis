@@ -2,9 +2,9 @@ import boto3
 import json
 import os
 import time
-from py.logger import logger
+from backend.logger import logger
 from google.oauth2 import service_account
-import py.constants as CONSTANTS
+import backend.constants as CONSTANTS
 
 def load_json_file(file_path: str):
     try:

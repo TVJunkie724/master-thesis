@@ -1,9 +1,9 @@
 import json
 from google.cloud import billing_v1
-from py.logger import logger
-import py.utils as utils
-import py.config_loader as config_loader
-from py.constants import GCP_REGIONS_FILE_PATH
+from backend.logger import logger
+import backend.utils as utils
+import backend.config_loader as config_loader
+from backend.constants import GCP_REGIONS_FILE_PATH
 
 
 def fetch_region_map():

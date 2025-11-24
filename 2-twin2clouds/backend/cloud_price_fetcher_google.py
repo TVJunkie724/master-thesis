@@ -2,10 +2,10 @@ import json
 import re
 from typing import Dict, Any, Optional, List
 from google.cloud import billing_v1
-from py.logger import logger
-import py.constants as CONSTANTS
-from py.config_loader import load_gcp_credentials
-from py.fetch_data import initial_fetch_google
+from backend.logger import logger
+import backend.constants as CONSTANTS
+from backend.config_loader import load_gcp_credentials
+from backend.fetch_data import initial_fetch_google
 
 # -------------------------------------------------------------------
 # Region mapping + defaults
@@ -14,7 +14,7 @@ def _load_gcp_regions() -> Dict[str, str]:
     """
     Load GCP regions using the shared initial fetch logic (with caching).
     """
-    return initial_fetch_google.fetch_gcp_regions()
+    return initial_fetch_google.fetch_region_map()
 
 GCP_REGION_NAMES = _load_gcp_regions()
 

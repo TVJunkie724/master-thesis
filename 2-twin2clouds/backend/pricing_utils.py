@@ -1,9 +1,9 @@
 import requests
-from py.logger import logger
+from backend.logger import logger
 from decimal import Decimal, getcontext
-import py.config_loader as config_loader
-import py.utils as utils
-import py.constants as CONSTANTS
+import backend.config_loader as config_loader
+import backend.utils as utils
+import backend.constants as CONSTANTS
 import json
 import time
 

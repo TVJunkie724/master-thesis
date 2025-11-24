@@ -3,7 +3,7 @@ import sys
 from colorlog import ColoredFormatter
 import traceback
 import json
-import py.constants as CONSTANTS
+import backend.constants as CONSTANTS
 
 global logger
 config = {}
