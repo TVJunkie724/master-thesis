@@ -1,0 +1,77 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "Call_Azure_Function_A": {
+                "type": "Function",
+                "inputs": {
+                    "body": "@triggerBody()['InputData']",
+                    "function": {
+                        "id": "@triggerBody()['FunctionA_ResourceID']"
+                    }
+                },
+                "runAfter": {},
+                "metadata": {
+                    "operationName": "FunctionA"
+                }
+            },
+            "Call_Azure_Function_B": {
+                "type": "Function",
+                "inputs": {
+                    "body": {
+                        "fromA": "@body('Call_Azure_Function_A')['Payload']",
+                        "event": "@triggerBody()['InputData']"
+                    },
+                    "function": {
+                        "id": "@triggerBody()['FunctionB_ResourceID']"
+                    }
+                },
+                "runAfter": {
+                    "Call_Azure_Function_A": [
+                        "Succeeded"
+                    ]
+                },
+                "metadata": {
+                    "operationName": "FunctionB"
+                }
+            },
+            "Response": {
+                "type": "Response",
+                "inputs": {
+                    "body": "@body('Call_Azure_Function_B')",
+                    "statusCode": 200
+                },
+                "runAfter": {
+                    "Call_Azure_Function_B": [
+                        "Succeeded"
+                    ]
+                }
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "parameters": {},
+        "triggers": {
+            "manual": {
+                "type": "Request",
+                "kind": "Http",
+                "inputs": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "FunctionA_ResourceID": {
+                                "type": "string"
+                            },
+                            "FunctionB_ResourceID": {
+                                "type": "string"
+                            },
+                            "InputData": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

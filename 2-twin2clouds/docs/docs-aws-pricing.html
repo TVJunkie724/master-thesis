@@ -29,9 +29,10 @@
 
       <!-- Schema Overview -->
       <div class="card mb-4" id="schema">
-        <h2 class="mb-3"><i class="fa-solid fa-file-code me-2"></i>Schema Overview</h2>
-        <p>Target structure (AWS excerpt from <span class="mono">pricing.json</span>):</p>
-        <pre class="p-3 rounded border"><code>{
+        <div class="card-body">
+          <h2 class="mb-3"><i class="fa-solid fa-file-code me-2"></i>Schema Overview</h2>
+          <p>Target structure (AWS excerpt from <span class="mono">pricing.json</span>):</p>
+          <pre class="p-3 rounded border"><code>{
   "aws": {
     "transfer": { "pricing_tiers": 
         "freeTier": {"limit": ..., "price": ...},
@@ -51,7 +52,12 @@
       "freeRequests": 1000000,
       "freeComputeTime": 400000
     },
-    "dynamoDB": { "writePrice": ..., "readPrice": ..., "storagePrice": ..., "freeStorage": 25 },
+    "dynamoDB": { 
+      "writePrice": ..., 
+      "readPrice": ..., 
+      "storagePrice": ..., 
+      "freeStorage": 25 
+    },
     "s3InfrequentAccess": {
       "storagePrice": ...,
       "upfrontPrice": ...,
@@ -61,7 +67,19 @@
       "transferCostFromCosmosDB": ...
     },
     "s3GlacierDeepArchive": {
-      "storagePrice": ..., "lifecycleAndWritePrice": ..., "dataRetrievalPrice": ...
+      "storagePrice": ..., 
+      "lifecycleAndWritePrice": ..., 
+      "dataRetrievalPrice": ...
+    },
+    "apiGateway": {
+      "pricePerMillionCalls": ...,
+      "dataTransferOutPrice": ...
+    },
+    "stepFunctions": {
+      "pricePer1kStateTransitions": ...
+    },
+    "eventBridge": {
+      "pricePerMillionEvents": ...
     },
     "iotTwinMaker": {
       "unifiedDataAccessAPICallsPrice": ...,
@@ -74,306 +92,378 @@
     }
   }
 }</code></pre>
+        </div>
       </div>
       <div class="card mb-4" id="fetching">
-        <h2 class="mb-3"><i class="fa-solid fa-download me-2"></i>How Fetching Works</h2>
-        <p>We query the <strong>AWS Pricing API</strong> (<span class="mono">get_products</span>) per service code and
-          region.</p>
-        <ul>
-          <li><strong>Filtering:</strong> We filter by <span class="mono">location</span> and use curated
-            <strong>include/exclude keyword</strong> lists to match the specific <span
-              class="mono">priceDimensions[].description</span> we need.
-          </li>
-          <li><strong>Cleaning:</strong> We discard dimensions related to cross-AZ, global tables, or replication to
-            isolate the base per-unit metrics.</li>
-        </ul>
+        <div class="card-body">
+          <h2 class="mb-3"><i class="fa-solid fa-download me-2"></i>How Fetching Works</h2>
+          <p>We query the <strong>AWS Pricing API</strong> (<span class="mono">get_products</span>) per service code and
+            region.</p>
+          <ul>
+            <li><strong>Filtering:</strong> We filter by <span class="mono">location</span> and use curated
+              <strong>include/exclude keyword</strong> lists to match the specific <span
+                class="mono">priceDimensions[].description</span> we need.
+            </li>
+            <li><strong>Cleaning:</strong> We discard dimensions related to cross-AZ, global tables, or replication to
+              isolate the base per-unit metrics.</li>
+          </ul>
+        </div>
       </div>
 
       <!-- Services -->
       <div class="card mb-4" id="services">
-        <h2 class="mb-3"><i class="fa-solid fa-cubes me-2"></i>Services & Fields</h2>
+        <div class="card-body">
+          <h2 class="mb-3"><i class="fa-solid fa-cubes me-2"></i>Services & Fields</h2>
 
-        <!-- Transfer -->
-        <h3 class="mt-4 mb-2 text-primary">Data Transfer (Egress)</h3>
-        <p><strong>Service:</strong> AmazonEC2</p>
-        <table class="table table-hover table-bordered">
-          <thead>
-            <tr>
-              <th>Field</th>
-              <th>Source</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="mono">transfer.pricing_tiers</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Built from <em>per GB</em> “DataTransfer-Out-Bytes”. Uses beginRange/endRange.</td>
-            </tr>
-            <tr>
-              <td class="mono">egressPrice</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Lowest tier unit price (e.g., 0.09 $/GB).</td>
-            </tr>
-          </tbody>
-        </table>
+          <!-- Transfer -->
+          <h3 class="mt-4 mb-2 text-primary">Data Transfer (Egress)</h3>
+          <p><strong>Service:</strong> AmazonEC2</p>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Source</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">transfer.pricing_tiers</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Built from <em>per GB</em> “DataTransfer-Out-Bytes”. Uses beginRange/endRange.</td>
+              </tr>
+              <tr>
+                <td class="mono">egressPrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Lowest tier unit price (e.g., 0.09 $/GB).</td>
+              </tr>
+            </tbody>
+          </table>
 
-        <!-- IoT Core -->
-        <h3 class="mt-4 mb-2 text-primary">IoT Core (Layer 1)</h3>
-        <p><strong>Service:</strong> AWS IoTCore</p>
-        <table class="table table-hover table-bordered">
-          <thead>
-            <tr>
-              <th>Field</th>
-              <th>Source</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="mono">iotCore.pricePerDeviceAndMonth</td>
-              <td><span class="chip warn">Static</span></td>
-              <td>0.0035 $/device/month (not exposed in API).</td>
-            </tr>
-            <tr>
-              <td class="mono">iotCore.priceRulesTriggered</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Matched “per million rules triggered”.</td>
-            </tr>
-            <tr>
-              <td class="mono">iotCore.pricing_tiers</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Message tiers (“first 1B”, “next 4B”, etc.).</td>
-            </tr>
-          </tbody>
-        </table>
+          <!-- IoT Core -->
+          <h3 class="mt-4 mb-2 text-primary">IoT Core (Layer 1)</h3>
+          <p><strong>Service:</strong> AWS IoTCore</p>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Source</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">iotCore.pricePerDeviceAndMonth</td>
+                <td><span class="badge text-bg-warning">Static</span></td>
+                <td>0.0035 $/device/month (not exposed in API).</td>
+              </tr>
+              <tr>
+                <td class="mono">iotCore.priceRulesTriggered</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Matched “per million rules triggered”.</td>
+              </tr>
+              <tr>
+                <td class="mono">iotCore.pricing_tiers</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Message tiers (“first 1B”, “next 4B”, etc.).</td>
+              </tr>
+            </tbody>
+          </table>
 
-        <!-- Lambda -->
-        <h3 class="mt-4 mb-2 text-primary">Lambda (Layer 2)</h3>
-        <p><strong>Service:</strong> AWS Lambda</p>
-        <table class="table table-hover table-bordered">
-          <thead>
-            <tr>
-              <th>Field</th>
-              <th>Source</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="mono">requestPrice</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Matched “total requests”.</td>
-            </tr>
-            <tr>
-              <td class="mono">durationPrice</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Tier-1 price per GB-second.</td>
-            </tr>
-            <tr>
-              <td class="mono">freeRequests</td>
-              <td><span class="chip warn">Static</span></td>
-              <td>1,000,000 requests/month free tier.</td>
-            </tr>
-            <tr>
-              <td class="mono">freeComputeTime</td>
-              <td><span class="chip warn">Static</span></td>
-              <td>400,000 GB-s/month free tier.</td>
-            </tr>
-          </tbody>
-        </table>
+          <!-- Lambda -->
+          <h3 class="mt-4 mb-2 text-primary">Lambda (Layer 2)</h3>
+          <p><strong>Service:</strong> AWS Lambda</p>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Source</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">requestPrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Matched “total requests”.</td>
+              </tr>
+              <tr>
+                <td class="mono">durationPrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Tier-1 price per GB-second.</td>
+              </tr>
+              <tr>
+                <td class="mono">freeRequests</td>
+                <td><span class="badge text-bg-warning">Static</span></td>
+                <td>1,000,000 requests/month free tier.</td>
+              </tr>
+              <tr>
+                <td class="mono">freeComputeTime</td>
+                <td><span class="badge text-bg-warning">Static</span></td>
+                <td>400,000 GB-s/month free tier.</td>
+              </tr>
+            </tbody>
+          </table>
 
-        <!-- DynamoDB -->
-        <h3 class="mt-4 mb-2 text-primary">DynamoDB (Layer 3 - Hot)</h3>
-        <p><strong>Service:</strong> Amazon DynamoDB</p>
-        <table class="table table-hover table-bordered">
-          <thead>
-            <tr>
-              <th>Field</th>
-              <th>Source</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="mono">writePrice</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Per million write request units.</td>
-            </tr>
-            <tr>
-              <td class="mono">readPrice</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Per million read request units.</td>
-            </tr>
-            <tr>
-              <td class="mono">storagePrice</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Per GB-month storage.</td>
-            </tr>
-            <tr>
-              <td class="mono">freeStorage</td>
-              <td><span class="chip warn">Static</span></td>
-              <td>25 GB free tier.</td>
-            </tr>
-          </tbody>
-        </table>
+          <!-- DynamoDB -->
+          <h3 class="mt-4 mb-2 text-primary">DynamoDB (Layer 3 - Hot)</h3>
+          <p><strong>Service:</strong> Amazon DynamoDB</p>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Source</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">writePrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Per million write request units.</td>
+              </tr>
+              <tr>
+                <td class="mono">readPrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Per million read request units.</td>
+              </tr>
+              <tr>
+                <td class="mono">storagePrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Per GB-month storage.</td>
+              </tr>
+              <tr>
+                <td class="mono">freeStorage</td>
+                <td><span class="badge text-bg-warning">Static</span></td>
+                <td>25 GB free tier.</td>
+              </tr>
+            </tbody>
+          </table>
 
-        <!-- S3 IA -->
-        <h3 class="mt-4 mb-2 text-primary">S3 Infrequent Access (Layer 3 - Cool)</h3>
-        <p><strong>Service:</strong> Amazon S3</p>
-        <table class="table table-hover table-bordered">
-          <thead>
-            <tr>
-              <th>Field</th>
-              <th>Source</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="mono">storagePrice</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Per GB-month (Standard-IA).</td>
-            </tr>
-            <tr>
-              <td class="mono">requestPrice</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Per 10,000 GET requests.</td>
-            </tr>
-            <tr>
-              <td class="mono">dataRetrievalPrice</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Per GB retrieved.</td>
-            </tr>
-            <tr>
-              <td class="mono">upfrontPrice</td>
-              <td><span class="chip warn">Static</span></td>
-              <td>Overhead constant (0.0001).</td>
-            </tr>
-          </tbody>
-        </table>
+          <!-- S3 IA -->
+          <h3 class="mt-4 mb-2 text-primary">S3 Infrequent Access (Layer 3 - Cool)</h3>
+          <p><strong>Service:</strong> Amazon S3</p>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Source</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">storagePrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Per GB-month (Standard-IA).</td>
+              </tr>
+              <tr>
+                <td class="mono">requestPrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Per 10,000 GET requests.</td>
+              </tr>
+              <tr>
+                <td class="mono">dataRetrievalPrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Per GB retrieved.</td>
+              </tr>
+              <tr>
+                <td class="mono">upfrontPrice</td>
+                <td><span class="badge text-bg-warning">Static</span></td>
+                <td>Overhead constant (0.0001).</td>
+              </tr>
+            </tbody>
+          </table>
 
-        <!-- S3 Glacier -->
-        <h3 class="mt-4 mb-2 text-primary">S3 Glacier Deep Archive (Layer 3 - Archive)</h3>
-        <p><strong>Service:</strong> Amazon S3</p>
-        <table class="table table-hover table-bordered">
-          <thead>
-            <tr>
-              <th>Field</th>
-              <th>Source</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="mono">storagePrice</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Per GB-month (Glacier Deep Archive).</td>
-            </tr>
-            <tr>
-              <td class="mono">lifecycleAndWritePrice</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Per 1,000 Lifecycle requests.</td>
-            </tr>
-            <tr>
-              <td class="mono">dataRetrievalPrice</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Per GB Standard retrieval.</td>
-            </tr>
-          </tbody>
-        </table>
+          <!-- S3 Glacier -->
+          <h3 class="mt-4 mb-2 text-primary">S3 Glacier Deep Archive (Layer 3 - Archive)</h3>
+          <p><strong>Service:</strong> Amazon S3</p>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Source</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">storagePrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Per GB-month (Glacier Deep Archive).</td>
+              </tr>
+              <tr>
+                <td class="mono">lifecycleAndWritePrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Per 1,000 Lifecycle requests.</td>
+              </tr>
+              <tr>
+                <td class="mono">dataRetrievalPrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Per GB Standard retrieval.</td>
+              </tr>
+            </tbody>
+          </table>
 
-        <!-- TwinMaker -->
-        <h3 class="mt-4 mb-2 text-primary">IoT TwinMaker (Layer 4)</h3>
-        <p><strong>Service:</strong> AWS IoT TwinMaker</p>
-        <table class="table table-hover table-bordered">
-          <thead>
-            <tr>
-              <th>Field</th>
-              <th>Source</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="mono">entityPrice</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Per entity per month.</td>
-            </tr>
-            <tr>
-              <td class="mono">unifiedDataAccessAPICallsPrice</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Per million API calls.</td>
-            </tr>
-            <tr>
-              <td class="mono">queryPrice</td>
-              <td><span class="chip ok">Fetched</span></td>
-              <td>Per 10,000 queries.</td>
-            </tr>
-          </tbody>
-        </table>
+          <!-- API Gateway -->
+          <h3 class="mt-4 mb-2 text-primary">Data Access (Supporting)</h3>
+          <p><strong>Service:</strong> Amazon API Gateway</p>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Source</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">pricePerMillionCalls</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Price per million API calls (REST/HTTP).</td>
+              </tr>
+              <tr>
+                <td class="mono">dataTransferOutPrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Data transfer out price per GB (Internet).</td>
+              </tr>
+            </tbody>
+          </table>
 
-        <!-- Grafana -->
-        <h3 class="mt-4 mb-2 text-primary">Managed Grafana (Layer 5)</h3>
-        <p><strong>Service:</strong> Amazon Managed Grafana</p>
-        <table class="table table-hover table-bordered">
-          <thead>
-            <tr>
-              <th>Field</th>
-              <th>Source</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="mono">editorPrice</td>
-              <td><span class="chip warn">Static</span></td>
-              <td>$9.00 / editor / month.</td>
-            </tr>
-            <tr>
-              <td class="mono">viewerPrice</td>
-              <td><span class="chip warn">Static</span></td>
-              <td>$5.00 / viewer / month.</td>
-            </tr>
-          </tbody>
-        </table>
+          <!-- Step Functions -->
+          <h3 class="mt-4 mb-2 text-primary">Orchestration (Supporting)</h3>
+          <p><strong>Service:</strong> AWS Step Functions</p>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Source</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">pricePer1kStateTransitions</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Standard Workflow state transition price.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- EventBridge -->
+          <h3 class="mt-4 mb-2 text-primary">Event Bus (Supporting)</h3>
+          <p><strong>Service:</strong> Amazon EventBridge</p>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Source</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">pricePerMillionEvents</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Custom events put to event bus.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- TwinMaker -->
+          <h3 class="mt-4 mb-2 text-primary">IoT TwinMaker (Layer 4)</h3>
+          <p><strong>Service:</strong> AWS IoT TwinMaker</p>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Source</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">entityPrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Per entity per month.</td>
+              </tr>
+              <tr>
+                <td class="mono">unifiedDataAccessAPICallsPrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Per million API calls.</td>
+              </tr>
+              <tr>
+                <td class="mono">queryPrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Per 10,000 queries.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Grafana -->
+          <h3 class="mt-4 mb-2 text-primary">Managed Grafana (Layer 5)</h3>
+          <p><strong>Service:</strong> Amazon Managed Grafana</p>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Source</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">editorPrice</td>
+                <td><span class="badge text-bg-warning">Static</span></td>
+                <td>$9.00 / editor / month.</td>
+              </tr>
+              <tr>
+                <td class="mono">viewerPrice</td>
+                <td><span class="badge text-bg-warning">Static</span></td>
+                <td>$5.00 / viewer / month.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Calculated Fields -->
       <div class="card mb-4" id="calculated">
-        <h2 class="mb-3"><i class="fa-solid fa-calculator me-2"></i>Calculated Fields</h2>
-        <p>These values are derived in <span class="mono">apply_aws_derived_fields()</span> after fetching.</p>
-        <table class="table table-hover table-bordered">
-          <thead>
-            <tr>
-              <th>Field</th>
-              <th>Formula</th>
-              <th>Purpose</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="mono">s3InfrequentAccess.transferCostFromDynamoDB</td>
-              <td><code>egressPrice × 1.1</code></td>
-              <td>Est. transfer DynamoDB → S3 (10% overhead).</td>
-            </tr>
-            <tr>
-              <td class="mono">s3InfrequentAccess.transferCostFromCosmosDB</td>
-              <td><code>egressPrice × 0.55</code></td>
-              <td>Est. transfer Azure → AWS (approx. half egress).</td>
-            </tr>
-            <tr>
-              <td class="mono">iotCore.avgMessagePriceFor10M</td>
-              <td><code>mean(pricing_tiers)</code></td>
-              <td>Helper metric for quick estimations.</td>
-            </tr>
-            <tr>
-              <td class="mono">lambda.costPerExecutionExample</td>
-              <td><code>request + (duration × 0.128)</code></td>
-              <td>Avg cost per execution (128MB).</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="card-body">
+          <h2 class="mb-3"><i class="fa-solid fa-calculator me-2"></i>Calculated Fields</h2>
+          <p>These values are derived in <span class="mono">apply_aws_derived_fields()</span> after fetching.</p>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Formula</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">s3InfrequentAccess.transferCostFromDynamoDB</td>
+                <td><code>egressPrice × 1.1</code></td>
+                <td>Est. transfer DynamoDB → S3 (10% overhead).</td>
+              </tr>
+              <tr>
+                <td class="mono">s3InfrequentAccess.transferCostFromCosmosDB</td>
+                <td><code>egressPrice × 0.55</code></td>
+                <td>Est. transfer Azure → AWS (approx. half egress).</td>
+              </tr>
+              <tr>
+                <td class="mono">iotCore.avgMessagePriceFor10M</td>
+                <td><code>mean(pricing_tiers)</code></td>
+                <td>Helper metric for quick estimations.</td>
+              </tr>
+              <tr>
+                <td class="mono">lambda.costPerExecutionExample</td>
+                <td><code>request + (duration × 0.128)</code></td>
+                <td>Avg cost per execution (128MB).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
     </main>

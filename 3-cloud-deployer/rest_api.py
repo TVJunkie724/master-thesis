@@ -1,5 +1,7 @@
 import json
 from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List
 import os
@@ -25,7 +27,12 @@ logger = None
 app = FastAPI(
     title="Digital Twin Manager API",
     version="1.1",
-    description="API for deploying, destroying, and inspecting Digital Twin environment resources.",
+    description=(
+        "API for deploying, destroying, and inspecting Digital Twin environment resources."
+        "<h3>🔗 Useful Links</h3>"
+        "<h4>📘 Documentation</h4>"
+        "<ul><li><a href=\"/documentation/overview\" target=\"_blank\"><strong>Documentation Overview</strong></a></li></ul>"
+        ),
     openapi_tags=[
         {"name": "Info", "description": "Endpoints to check system status and configurations."},
         {"name": "Deployment", "description": "Endpoints to deploy or destroy core and IoT services."},
@@ -34,11 +41,17 @@ app = FastAPI(
     ]
 )
 
+app.mount("/js", StaticFiles(directory="js"), name="js")
+app.mount("/css", StaticFiles(directory="css"), name="css")
+app.mount("/docs", StaticFiles(directory="docs"), name="docs")
+app.mount("/references", StaticFiles(directory="references"), name="references")
+
 # --------- Initialize configuration once ----------
 @app.on_event("startup")
 def startup_event():
-    globals.initialize_all()
-    globals_aws.initialize_aws_clients()
+    globals.initialize_logger()
+    # globals.initialize_all()
+    # globals_aws.initialize_aws_clients()
     
     global logger
     logger = globals.logger
@@ -47,6 +60,10 @@ def startup_event():
     logger.info("✅ Globals initialized. API ready.")
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse("references/favicon.ico")
+    
 # --------- Root endpoint ----------
 @app.get("/", tags=["Info"])
 def read_root():
@@ -575,3 +592,21 @@ def get_lambda_logs(req: LambdaLogsRequest = Depends()) -> List[str]:
         globals.print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --------------------------------------------------
+# UI Documentation endpoint
+
+@app.get(
+    "/documentation/overview",
+    tags=["WebUI"],
+    summary="Documentation Overview", include_in_schema=False,
+    description=(
+        "Serves the **Twin2Clouds Documentation Overview** page.<br><br>"
+        "📘 <a href='/documentation/overview' target='_blank'>Open Documentation Overview in a new tab</a><br><br>"
+        "Provides navigation to AWS, Azure, and Google Cloud pricing schema documentation "
+        "as well as cost formula definitions."
+    ),
+)
+def serve_docs_overview():
+    return FileResponse("docs/docs-overview.html")

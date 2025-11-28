@@ -142,3 +142,48 @@ def link_to_twinmaker_component(workspace_name, entity_id, component_name):
 
 def link_to_grafana_workspace(workspace_id):
   return f"https://console.aws.amazon.com/grafana/home?region={globals.aws_grafana_client.meta.region_name}#/workspaces/{workspace_id}"
+
+def get_lambda_arn_by_name(function_name: str):
+    response = globals.aws_lambda_client.get_function(FunctionName=function_name)
+    return response["Configuration"]["FunctionArn"]
+
+def get_api_id_by_name(api_name):
+  paginator = globals.aws_apigateway_client.get_paginator('get_apis')
+
+  for page in paginator.paginate():
+    for api in page["Items"]:
+      if api["Name"] == api_name:
+        return api["ApiId"]
+
+  return None
+
+def get_api_route_id_by_key(route_key):
+  api_id = get_api_id_by_name(globals.api_name())
+  paginator = globals.aws_apigateway_client.get_paginator("get_routes")
+
+  for page in paginator.paginate(ApiId=api_id):
+    for route in page["Items"]:
+      if route["RouteKey"] == route_key:
+        return route["RouteId"]
+
+  return None
+
+def get_api_integration_id_by_uri(integration_uri):
+    api_id = get_api_id_by_name(globals.api_name())
+    paginator = globals.aws_apigateway_client.get_paginator("get_integrations")
+
+    for page in paginator.paginate(ApiId=api_id):
+      for integration in page["Items"]:
+        if integration.get("IntegrationUri") == integration_uri:
+          return integration["IntegrationId"]
+
+    return None
+
+def link_to_api(api_id):
+  return f"https://console.aws.amazon.com/apigateway/home?region={globals.aws_events_client.meta.region_name}#/apis/{api_id}"
+
+def link_to_api_integration(api_id, integration_id):
+  return f"https://console.aws.amazon.com/apigateway/home?region={globals.aws_events_client.meta.region_name}#/apis/{api_id}/integrations/{integration_id}"
+
+def link_to_api_route(api_id, route_id):
+  return f"https://console.aws.amazon.com/apigateway/home?region={globals.aws_events_client.meta.region_name}#/apis/{api_id}/routes/{route_id}"

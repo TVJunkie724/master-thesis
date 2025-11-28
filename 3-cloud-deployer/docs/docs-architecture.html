@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Architecture Overview — Deployer Documentation</title>
+    <link rel="icon" type="image/x-icon" href="../references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/docs_styles.css" />
+</head>
+
+<body>
+
+    <div class="layout">
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+            <h1 class="mb-3">
+                <i class="fa-solid fa-sitemap me-2"></i> Architecture Overview
+            </h1>
+
+            <p class="text-muted mb-4">
+                Understanding the 5-layer Digital Twin architecture and the modular deployer pattern.
+            </p>
+
+            <!-- System Overview -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-diagram-project me-2"></i>System Overview</h2>
+                <p>
+                    The Multi-Cloud Digital Twin Deployer implements a <strong>5-layer architecture</strong> where each
+                    layer can be deployed to different cloud providers (AWS, Azure, GCP). The system automates the
+                    provisioning of all necessary cloud resources, from IoT device connectivity to visualization
+                    dashboards.
+                </p>
+                <h4 class="mt-3">High-Level Data Flow</h4>
+                <pre class="p-3 rounded"><code>IoT Devices → L1 (IoT Service) → L2 (Dispatcher/Processor) → L2 (Persister)
+                                                    ↓
+                                        L3 Hot Storage (DynamoDB/etc.)
+                                                    ↓
+                                        L3 Cool Storage (S3 IA/etc.)
+                                                    ↓
+                                        L3 Archive Storage (Glacier/etc.)
+                                                    ↓
+                                     L4 Twin Management + L5 Visualization
+</code></pre>
+            </div>
+
+            <!--Architecture Layers -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-layer-group me-2"></i>Architecture Layers</h2>
+
+                <h3 class="mt-4 mb-2"><i class="fa-solid fa-1 me-2 text-primary"></i>Layer 1: Data Acquisition</h3>
+                <p><strong>Purpose:</strong> Ingest telemetry data from IoT devices and route it to processing
+                    functions.</p>
+                <p><strong>Services:</strong></p>
+                <ul>
+                    <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> IoT Core <span
+                            class="chip ok">Implemented</span></li>
+                    <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> IoT Hub <span
+                            class="chip warn">Planned</span></li>
+                    <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Cloud Pub/Sub <span
+                            class="chip warn">Planned</span></li>
+                </ul>
+                <p><strong>Components Deployed:</strong></p>
+                <ul>
+                    <li>IoT devices (Things/Devices)</li>
+                    <li>Security policies and certificates</li>
+                    <li>Message routing rules</li>
+                    <li>Dispatcher Lambda function triggered by IoT events</li>
+                </ul>
+
+                <h3 class="mt-4 mb-2"><i class="fa-solid fa-2 me-2 text-primary"></i>Layer 2: Data Processing</h3>
+                <p><strong>Purpose:</strong> Process, validate, and transform telemetry data before storage.</p>
+                <p><strong>Services:</strong></p>
+                <ul>
+                    <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> Lambda <span
+                            class="chip ok">Implemented</span></li>
+                    <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Azure Functions <span
+                            class="chip warn">Planned</span></li>
+                    <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Cloud Functions <span
+                            class="chip warn">Planned</span></li>
+                </ul>
+                <p><strong>Components Deployed:</strong></p>
+                <ul>
+                    <li>Dispatcher function (routes messages to device-specific processors)</li>
+                    <li>Device-specific processor functions (one per IoT device type)</li>
+                    <li>Persister function (writes data to hot storage)</li>
+                    <li>Event checker function (evaluates event conditions)</li>
+                    <li>Event feedback function (sends MQTT/event responses)</li>
+                    <li>Step Functions for complex event workflows</li>
+                </ul>
+
+                <h3 class="mt-4 mb-2"><i class="fa-solid fa-3 me-2 text-primary"></i>Layer 3: Storage Tiers</h3>
+                <p><strong>Purpose:</strong> Store data with different access patterns and retention policies across
+                    three tiers.</p>
+
+                <h4 class="mt-3"><strong>Hot Storage</strong> (Frequent Access)</h4>
+                <p><strong>Services:</strong></p>
+                <ul>
+                    <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> DynamoDB <span
+                            class="chip ok">Implemented</span></li>
+                    <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Cosmos DB <span
+                            class="chip warn">Planned</span></li>
+                    <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Firestore <span
+                            class="chip warn">Planned</span></li>
+                </ul>
+                <p><strong>Use Case:</strong> Recent data requiring low-latency access (configurable retention, default
+                    30 days)</p>
+
+                <h4 class="mt-3"><strong>Cool Storage</strong> (Infrequent Access)</h4>
+                <p><strong>Services:</strong></p>
+                <ul>
+                    <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> S3 Infrequent Access <span
+                            class="chip ok">Implemented</span></li>
+                    <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Blob Storage (Cool
+                        Tier) <span class="chip warn">Planned</span></li>
+                    <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Cloud Storage (Nearline)
+                        <span class="chip warn">Planned</span>
+                    </li>
+                </ul>
+                <p><strong>Use Case:</strong> Historical data accessed occasionally (configurable retention, default 90
+                    days)</p>
+
+                <h4 class="mt-3"><strong>Archive Storage</strong> (Rare Access)</h4>
+                <p><strong>Services:</strong></p>
+                <ul>
+                    <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> S3 Glacier Deep Archive
+                        <span class="chip ok">Implemented</span>
+                    </li>
+                    <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Blob Storage (Archive
+                        Tier) <span class="chip warn">Planned</span></li>
+                    <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Cloud Storage (Archive)
+                        <span class="chip warn">Planned</span>
+                    </li>
+                </ul>
+                <p><strong>Use Case:</strong> Long-term archival data (indefinite retention)</p>
+
+                <h4 class="mt-3"><strong>Data Access</strong> (External Integration)</h4>
+                <p><strong>Services:</strong></p>
+                <ul>
+                    <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> Amazon API Gateway <span
+                            class="chip ok">Implemented</span></li>
+                    <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Azure API Management
+                        <span class="chip warn">Planned</span>
+                    </li>
+                    <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> API Gateway
+                        <span class="chip warn">Planned</span>
+                    </li>
+                </ul>
+                <p><strong>Use Case:</strong> Secure external access to hot data (e.g., for cross-cloud TwinMaker
+                    integration)</p>
+
+                <p class="mt-3"><strong>Automated Data Movement:</strong> Scheduled functions automatically move data
+                    between tiers based on age.</p>
+
+                <h3 class="mt-4 mb-2"><i class="fa-solid fa-4 me-2 text-primary"></i>Layer 4: Twin Management</h3>
+                <p><strong>Purpose:</strong> Manage 3D models and digital twin entity relationships.</p>
+                <p><strong>Services:</strong></p>
+                <ul>
+                    <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> IoT TwinMaker <span
+                            class="chip ok">Implemented</span></li>
+                    <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Azure Digital Twins
+                        <span class="chip warn">Planned</span>
+                    </li>
+                    <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Self-hosted solution
+                        <span class="chip warn">Planned</span>
+                    </li>
+                </ul>
+                <p><strong>Components Deployed:</strong></p>
+                <ul>
+                    <li>TwinMaker workspace</li>
+                    <li>Entity hierarchy (rooms, machines, components)</li>
+                    <li>Component types (one per IoT device)</li>
+                    <li>Data connectors (Lambda functions for TwinMaker queries)</li>
+                    <li>S3 bucket for 3D assets</li>
+                </ul>
+
+                <h3 class="mt-4 mb-2"><i class="fa-solid fa-5 me-2 text-primary"></i>Layer 5: Visualization</h3>
+                <p><strong>Purpose:</strong> Provide dashboards and visualization for operators.</p>
+                <p><strong>Services:</strong></p>
+                <ul>
+                    <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> Amazon Managed Grafana <span
+                            class="chip ok">Implemented</span></li>
+                    <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Azure Managed Grafana
+                        <span class="chip warn">Planned</span>
+                    </li>
+                    <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Self-hosted Grafana <span
+                            class="chip warn">Planned</span></li>
+                </ul>
+                <p><strong>Components Deployed:</strong></p>
+                <ul>
+                    <li>Managed Grafana workspace</li>
+                    <li>IAM role for Grafana access to data sources</li>
+                    <li>CORS configuration for TwinMaker access</li>
+                </ul>
+            </div>
+
+            <!-- Deployer Pattern -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-code-branch me-2"></i>Deployer Pattern</h2>
+                <p>The project follows a <strong>modular deployer pattern</strong> that promotes separation of concerns
+                    and maintainability.</p>
+
+                <h3 class="mb-2 mt-3">Concepts</h3>
+                <ul>
+                    <li><strong>Deployer:</strong> Orchestrates multiple deploy entities (e.g.,
+                        <code>core_deployer.py</code>)
+                    </li>
+                    <li><strong>Deploy Entity:</strong> Manages deploy/destroy/info for a specific resource (e.g.,
+                        <code>deploy_dispatcher_lambda_function()</code>)
+                    </li>
+                    <li><strong>Resource Entity:</strong> One or more cloud resources managed as a unit</li>
+                </ul>
+
+                <h3 class="mb-2 mt-3">Structure Example</h3>
+                <pre class="p-3 rounded"><code>#!/usr/bin/env python
+# deployer_example.py
+
+# Deploy Entity 1: Dispatcher Lambda
+def deploy_dispatcher_lambda():
+    # Create IAM role
+    # Create Lambda function
+    # Configure triggers
+    pass
+
+def destroy_dispatcher_lambda():
+    # Delete Lambda function
+    # Delete IAM role
+    pass
+
+def info_dispatcher_lambda():
+    # Print Lambda info
+    pass
+
+# Deploy Entity 2: Persister Lambda
+def deploy_persister_lambda():
+    pass
+
+def destroy_persister_lambda():
+    pass
+
+def info_persister_lambda():
+    pass
+
+# Deployer orchestration
+def deploy(provider="aws"):
+    deploy_dispatcher_lambda()
+    deploy_persister_lambda()
+
+def destroy(provider="aws"):
+    # Reverse order!
+    destroy_persister_lambda()
+    destroy_dispatcher_lambda()
+
+def info(provider="aws"):
+    info_dispatcher_lambda()
+    info_persister_lambda()
+</code></pre>
+
+                <h3 class="mb-2 mt-3">Key Principles</h3>
+                <ul>
+                    <li><strong>Self-contained:</strong> Each deploy entity manages its own resources</li>
+                    <li><strong>Dependency ordering:</strong> Deployers ensure correct deployment order</li>
+                    <li><strong>Idempotent:</strong> Running deploy multiple times should be safe</li>
+                    <li><strong>Clean teardown:</strong> Destroy in reverse order to respect dependencies</li>
+                </ul>
+            </div>
+
+            <!-- Naming Convention -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-tag me-2"></i>Resource Naming Convention</h2>
+                <p>All cloud resources are prefixed with <code>digital_twin_name</code> to create a dedicated namespace.
+                </p>
+
+                <h4 class="mt-3">Example (digital_twin_name = "dt")</h4>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Resource Type</th>
+                            <th>Example Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Lambda Function</td>
+                            <td><code>dt-dispatcher</code></td>
+                        </tr>
+                        <tr>
+                            <td>DynamoDB Table</td>
+                            <td><code>dt-hot-iot-data</code></td>
+                        </tr>
+                        <tr>
+                            <td>S3 Bucket</td>
+                            <td><code>dt-cold-iot-data</code></td>
+                        </tr>
+                        <tr>
+                            <td>IoT Thing</td>
+                            <td><code>dt-temperature-sensor-1</code></td>
+                        </tr>
+                        <tr>
+                            <td>IAM Role</td>
+                            <td><code>dt-persister</code></td>
+                        </tr>
+                        <tr>
+                            <td>TwinMaker Workspace</td>
+                            <td><code>dt-twinmaker</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p class="mt-2"><strong>Benefits:</strong></p>
+                <ul>
+                    <li>Easy identification of twin resources</li>
+                    <li>Simple cleanup (delete all resources starting with prefix)</li>
+                    <li>Avoid naming conflicts with other resources</li>
+                    <li>Support multiple twins in same account</li>
+                </ul>
+            </div>
+
+            <!-- Multi-Cloud Considerations -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-globe me-2"></i>Multi-Cloud Architecture</h2>
+                <p>The deployer is designed to support mixed cloud providers per layer:</p>
+
+                <h4 class="mt-3">Example Multi-Cloud Deployment</h4>
+                <pre class="p-3 rounded"><code>{
+  "layer_1_provider": "gcp",        // Cloud Pub/Sub (cheapest)
+  "layer_2_provider": "gcp",        // Coupled with L1
+  "layer_3_hot_provider": "aws",    // DynamoDB (best performance)
+  "layer_3_cool_provider": "gcp",   // Cloud Storage Nearline (lowest cost)
+  "layer_3_archive_provider": "azure", // Blob Archive (best pricing)
+  "layer_4_provider": "aws",        // TwinMaker (native service)
+  "layer_5 _provider": "azure"       // Managed Grafana
+}
+</code></pre>
+
+                <p class="mt-2"><strong>Cross-Cloud Data Transfers:</strong></p>
+                <ul>
+                    <li>The deployer accounts for egress costs between providers</li>
+                    <li>Data transfer is automated via cloud-native connectors</li>
+                    <li>Layer 2 is coupled with Layer 3 Hot to minimize transfer costs</li>
+                </ul>
+
+                <div class="callout info mt-3">
+                    <strong><i class="fa-solid fa-info-circle me-2"></i>Note</strong>
+                    AWS is currently fully implemented. Azure and GCP deployers are in development and will follow the
+                    same modular pattern.
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    <script src="../js/docs-nav.js" defer></script>
+</body>
+
+</html>

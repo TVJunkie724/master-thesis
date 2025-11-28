@@ -18,6 +18,6 @@ RUN pip install \
 
 EXPOSE 8000
 
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app:/app/src
 
 CMD ["uvicorn", "rest_api:app", "--host", "0.0.0.0", "--port", "8000"]

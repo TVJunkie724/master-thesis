@@ -1527,3 +1527,109 @@ def remove_cors_from_twinmaker_s3_bucket():
       raise
 
   logger.info(f"CORS configuration removed from bucket: {bucket_name}")
+
+def create_api():
+  api_name = globals.api_name()
+
+  api = globals.aws_apigateway_client.create_api(
+      Name=api_name,
+      ProtocolType="HTTP"
+  )
+
+  print(f"Created API: {api_name}")
+
+  stage = globals.aws_apigateway_client.create_stage(
+    ApiId=api["ApiId"],
+    StageName="$default",
+    AutoDeploy=True
+  )
+
+  print(f"Created API Stage: {stage['StageName']}")
+
+def destroy_api():
+  api_name = globals.api_name()
+  api_id = util.get_api_id_by_name(api_name)
+
+  if api_id is None:
+    return
+
+  try:
+    globals.aws_apigateway_client.delete_api(ApiId=api_id)
+    print(f"Deleted API: {api_name}")
+  except globals.aws_apigateway_client.exceptions.NotFoundException:
+    pass
+
+
+def create_api_hot_reader_integration():
+  api_id = util.get_api_id_by_name(globals.api_name())
+  function_name = globals.hot_reader_lambda_function_name()
+  function_arn = util.get_lambda_arn_by_name(function_name)
+
+  integration = globals.aws_apigateway_client.create_integration(
+    ApiId=api_id,
+    IntegrationType="AWS_PROXY",
+    IntegrationUri=function_arn,
+    PayloadFormatVersion="2.0"
+  )
+
+  print("Created API Integration:", function_arn)
+
+  route_key = f"GET /{function_name}"
+
+  globals.aws_apigateway_client.create_route(
+    ApiId=api_id,
+    RouteKey=route_key,
+    Target=f"integrations/{integration['IntegrationId']}"
+  )
+
+  print("Created API Route:", route_key)
+
+  account_id = globals.aws_sts_client.get_caller_identity()['Account']
+  region = globals.aws_apigateway_client.meta.region_name
+  source_arn = f"arn:aws:execute-api:{region}:{account_id}:{api_id}/*/*/{function_name}"
+  statement_id = "api-gateway-invoke"
+
+  globals.aws_lambda_client.add_permission(
+      FunctionName=function_name,
+      StatementId=statement_id,
+      Action="lambda:InvokeFunction",
+      Principal="apigateway.amazonaws.com",
+      SourceArn=source_arn
+  )
+
+  print(f"Added permission to Lambda Function so API Gateway can invoke the function.")
+
+def destroy_api_hot_reader_integration():
+  function_name = globals.hot_reader_lambda_function_name()
+  statement_id = "api-gateway-invoke"
+
+  try:
+    globals.aws_lambda_client.remove_permission(FunctionName=function_name, StatementId=statement_id)
+    print(f"Removed permission from Lambda function: {statement_id}, {function_name}")
+  except globals.aws_lambda_client.exceptions.ResourceNotFoundException:
+    pass
+
+  api_id = util.get_api_id_by_name(globals.api_name())
+
+  if api_id is None:
+    return
+
+  route_key = f"GET /{function_name}"
+  route_id = util.get_api_route_id_by_key(route_key)
+
+  if route_id is not None:
+    try:
+      globals.aws_apigateway_client.delete_route(ApiId=api_id, RouteId=route_id)
+      print(f"Deleted API Route: {route_key}")
+    except globals.aws_apigateway_client.exceptions.NotFoundException:
+      pass
+
+  function_arn = util.get_lambda_arn_by_name(function_name)
+  integration_id = util.get_api_integration_id_by_uri(function_arn)
+
+  if integration_id is not None:
+    try:
+      globals.aws_apigateway_client.delete_integration(ApiId=api_id, IntegrationId=integration_id)
+      print(f"Deleted API Integration: {route_key}")
+    except globals.aws_apigateway_client.exceptions.NotFoundException:
+      pass

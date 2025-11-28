@@ -92,6 +92,8 @@ def deploy_l3_hot(provider=None):
       core_aws.create_hot_reader_lambda_function()
       core_aws.create_hot_reader_last_entry_iam_role()
       core_aws.create_hot_reader_last_entry_lambda_function()
+      core_aws.create_api()
+      core_aws.create_api_hot_reader_integration()
     case "azure":
       raise NotImplementedError("Azure deployment not implemented yet.")
     case "google":

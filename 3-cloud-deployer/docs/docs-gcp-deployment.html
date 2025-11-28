@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>GCP Deployment Guide — Deployer Documentation</title>
+    <link rel="icon" type="image/x-icon" href="../references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/docs_styles.css" />
+</head>
+
+<body>
+
+    <div class="layout">
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+            <h1 class="mb-3">
+                <i class="fa-brands fa-google me-2"></i> GCP Deployment Guide
+            </h1>
+
+            <p class="text-muted mb-4">
+                Guide to deploying Digital Twin layers on Google Cloud Platform (in development).
+            </p>
+
+            <div class="callout warn mb-4">
+                <strong><i class="fa-solid fa-construction me-2"></i>Status: In Development</strong>
+                GCP deployment is currently being implemented. Check back soon for updates.
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-cloud me-2"></i>Planned GCP Services</h2>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Layer</th>
+                            <th>Service</th>
+                            <th>Purpose</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>L1 - Data Acquisition</td>
+                            <td>Cloud Pub/Sub</td>
+                            <td>Message ingestion and routing</td>
+                        </tr>
+                        <tr>
+                            <td>L2 - Data Processing</td>
+                            <td>Cloud Functions</td>
+                            <td>Dispatcher, processors, persister functions</td>
+                        </tr>
+                        <tr>
+                            <td>L3 - Hot Storage</td>
+                            <td>Firestore</td>
+                            <td>Recent data with low-latency access</td>
+                        </tr>
+                        <tr>
+                            <td>L3 - Cool Storage</td>
+                            <td>Cloud Storage (Nearline)</td>
+                            <td>Historical data accessed occasionally</td>
+                        </tr>
+                        <tr>
+                            <td>L3 - Archive Storage</td>
+                            <td>Cloud Storage (Archive)</td>
+                            <td>Long-term archival data</td>
+                        </tr>
+                        <tr>
+                            <td>L3 - Data Access</td>
+                            <td>API Gateway</td>
+                            <td>External access to hot data (for TwinMaker)</td>
+                        </tr>
+                        <tr>
+                            <td>L4 - Twin Management</td>
+                            <td>Self-hosted solution</td>
+                            <td>Custom digital twin implementation</td>
+                        </tr>
+                        <tr>
+                            <td>L5 - Visualization</td>
+                            <td>Self-hosted Grafana</td>
+                            <td>Dashboards on GKE/Compute Engine</td>
+                        </tr>
+                        <tr>
+                            <td>Supporting</td>
+                            <td>Cloud IAM</td>
+                            <td>Access control and service accounts</td>
+                        </tr>
+                        <tr>
+                            <td>Supporting</td>
+                            <td>Cloud Scheduler</td>
+                            <td>Scheduled cron jobs</td>
+                        </tr>
+                        <tr>
+                            <td>Supporting</td>
+                            <td>Cloud Workflows</td>
+                            <td>Service orchestration</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-road me-2"></i>Implementation Roadmap</h2>
+                <p>The GCP deployer implementation follows a modular, layer-by-layer approach, strictly aligned with the
+                    AWS architecture:</p>
+
+                <div class="roadmap-content">
+                    <!-- Layer 1 -->
+                    <h3 class="mt-4 text-primary">Layer 1: Data Acquisition (Pub/Sub)</h3>
+                    <ul>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Service Account:</strong>
+                            <ul>
+                                <li><strong>Create:</strong> Dedicated Service Account (e.g.,
+                                    <code>sa-twin-ingest</code>).
+                                </li>
+                                <li><strong>Permissions:</strong> Assign <code>Pub/Sub Publisher</code> role.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Topics:</strong>
+                            <ul>
+                                <li><strong>Create:</strong> <code>iot-telemetry</code> (for sensor data) and
+                                    <code>iot-events</code> (for system events).
+                                </li>
+                                <li><strong>Interaction:</strong> Decouples ingestion from processing.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Subscriptions:</strong>
+                            <ul>
+                                <li><strong>Create:</strong> Push subscriptions for Cloud Functions (L2).</li>
+                                <li><strong>Config:</strong> Set acknowledgement deadline to 60s.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <!-- Layer 2 -->
+                    <h3 class="mt-4 text-primary">Layer 2: Data Processing (Cloud Functions)</h3>
+                    <ul>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Gen 2 Functions:</strong>
+                            <ul>
+                                <li><strong>Deploy:</strong> Python functions using Cloud Run underlying infrastructure.
+                                </li>
+                                <li><strong>Identity:</strong> Use dedicated Service Account with minimal privileges.
+                                </li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Triggers:</strong>
+                            <ul>
+                                <li><strong>Config:</strong> Eventarc triggers from Pub/Sub topics.</li>
+                                <li><strong>Interaction:</strong> Automatically invokes functions on new messages.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Persister Function:</strong>
+                            <ul>
+                                <li><strong>Action:</strong> Writes cleaned data to Firestore (L3).</li>
+                                <li><strong>Interaction:</strong> Invokes <strong>Event Checker</strong> function.</li>
+                                <li><strong>Permissions:</strong> Grant <code>Firestore User</code> and
+                                    <code>Storage Object Creator</code>.
+                                </li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Event Checker Function:</strong>
+                            <ul>
+                                <li><strong>Trigger:</strong> HTTP/Direct Invocation from Persister.</li>
+                                <li><strong>Logic:</strong> Detects anomalies and triggers alerts.</li>
+                                <li><strong>Interaction:</strong> Triggers <strong>Cloud Workflow</strong> (Supporting
+                                    Services).</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <!-- Layer 3 -->
+                    <h3 class="mt-4 text-primary">Layer 3: Storage & Access (Firestore, GCS, API Gateway)</h3>
+                    <ul>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Firestore (Hot):</strong>
+                            <ul>
+                                <li><strong>Create:</strong> Native mode database for hot telemetry.</li>
+                                <li><strong>Collection:</strong> Create <code>hot_data</code> collection.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Cloud Storage
+                                (Cool/Archive):</strong>
+                            <ul>
+                                <li><strong>Create:</strong> Buckets for "nearline" and "archive" storage classes.</li>
+                                <li><strong>Permissions:</strong> Ensure Service Accounts have
+                                    <code>Storage Object Admin</code> on specific buckets.
+                                </li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Hot-to-Cold Mover:</strong>
+                            <ul>
+                                <li><strong>Type:</strong> Cloud Scheduler + Cloud Function.</li>
+                                <li><strong>Action:</strong> Query old data from Firestore -> Write to
+                                    <code>nearline</code> bucket -> Delete from Firestore.
+                                </li>
+                                <li><strong>Parity:</strong> Matches AWS <code>hot_cold_mover</code> scheduled Lambda.
+                                </li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Cold-to-Archive Mover:</strong>
+                            <ul>
+                                <li><strong>Type:</strong> Cloud Scheduler + Cloud Function.</li>
+                                <li><strong>Action:</strong> Move objects from <code>nearline</code> to
+                                    <code>archive</code> bucket.
+                                </li>
+                                <li><strong>Parity:</strong> Matches AWS <code>cold_archive_mover</code> scheduled
+                                    Lambda.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Data Access (API Gateway):</strong>
+                            <ul>
+                                <li><strong>Create:</strong> API Gateway to manage access to Cloud Functions.</li>
+                                <li><strong>Action:</strong> Expose <code>Hot Reader</code> Function as an API.</li>
+                                <li><strong>Parity:</strong> Matches AWS API Gateway + <code>hot_reader</code> Lambda.
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <!-- Layer 4 -->
+                    <h3 class="mt-4 text-primary">Layer 4: Twin Management (Self-Hosted)</h3>
+                    <ul>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Compute Engine:</strong>
+                            <ul>
+                                <li><strong>Provision:</strong> e2-medium instance for custom twin manager.</li>
+                                <li><strong>Network:</strong> Configure firewall rules to allow internal traffic only.
+                                </li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Container:</strong>
+                            <ul>
+                                <li><strong>Deploy:</strong> Dockerized twin management service (custom Python/Node
+                                    app).</li>
+                                <li><strong>State:</strong> Connect to Firestore for twin state persistence.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <!-- Layer 5 -->
+                    <h3 class="mt-4 text-primary">Layer 5: Visualization (Self-Hosted Grafana)</h3>
+                    <ul>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Deployment:</strong>
+                            <ul>
+                                <li><strong>Action:</strong> Deploy Grafana OSS container on Compute Engine.</li>
+                                <li><strong>Volume:</strong> Mount persistent disk for dashboard storage.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Data Sources:</strong>
+                            <ul>
+                                <li><strong>Firestore:</strong> Configure via plugin to read hot data.</li>
+                                <li><strong>Cloud Monitoring:</strong> Connect for system metrics.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <!-- Supporting -->
+                    <h3 class="mt-4 text-primary">Supporting Services</h3>
+                    <ul>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Cloud Workflows (Event
+                                Workflow):</strong>
+                            <ul>
+                                <li><strong>Used in:</strong> Layer 2 (Triggered by Event Checker).</li>
+                                <li><strong>Create:</strong> Workflow definition.</li>
+                                <li><strong>Logic:</strong> Triggered by Event Checker -> Invokes
+                                    <code>Event Feedback</code> Function.
+                                </li>
+                                <li><strong>Parity:</strong> Matches AWS Step Functions (State Machine) orchestration.
+                                </li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Event Feedback Function:</strong>
+                            <ul>
+                                <li><strong>Used in:</strong> Layer 2 (Feedback Loop).</li>
+                                <li><strong>Create:</strong> Function to send feedback commands to devices (via
+                                    Pub/Sub).</li>
+                                <li><strong>Parity:</strong> Matches AWS <code>event-feedback</code> Lambda.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Hot Reader Function:</strong>
+                            <ul>
+                                <li><strong>Used in:</strong> Layer 3 (Data Access).</li>
+                                <li><strong>Create:</strong> Function to read data from Firestore for API Gateway.</li>
+                                <li><strong>Parity:</strong> Matches AWS <code>hot_reader</code> Lambda.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    <script src="../js/docs-nav.js" defer></script>
+</body>
+
+</html>

@@ -1,16 +1,16 @@
 services:
-  0twin2multicloud:
-    image: 0twin2multicloud
-    build: 
-      context: ./twin2multicloud_cli
-      dockerfile: /Dockerfile
-    ports:
-      - "5000:8000"
-    volumes:
-      - ./twin2multicloud_cli:/app
-    tty: true
-    networks:
-      - my_master_thesis_network
+  # 0twin2multicloud:
+  #   image: 0twin2multicloud
+  #   build: 
+  #     context: ./twin2multicloud_cli
+  #     dockerfile: /Dockerfile
+  #   ports:
+  #     - "5000:8000"
+  #   volumes:
+  #     - ./twin2multicloud_cli:/app
+  #   tty: true
+  #   networks:
+  #     - my_master_thesis_network
 
 #   1aasx-server-mock:
   #   ## !! see https://v3.admin-shell-io.com/swagger/index.html
@@ -103,19 +103,19 @@ services:
       - my_master_thesis_network
 
 ### for Testing purposes only ###
-  aws_cli:
-    image: amazon/aws-cli:latest
-    container_name: aws_cli
-    volumes:
-      - ./aws_cli:/aws_cli   
-      - ~/.aws:/root/.aws  
-    working_dir: /aws_cli
-    tty: true                   
-    stdin_open: true        
-    entrypoint: /bin/bash
-    # entrypoint: /bin/bash aws sts get-caller-identity
-    networks:
-      - my_master_thesis_network
+  # aws_cli:
+  #   image: amazon/aws-cli:latest
+  #   container_name: aws_cli
+  #   volumes:
+  #     - ./aws_cli:/aws_cli   
+  #     - ~/.aws:/root/.aws  
+  #   working_dir: /aws_cli
+  #   tty: true                   
+  #   stdin_open: true        
+  #   entrypoint: /bin/bash
+  #   # entrypoint: /bin/bash aws sts get-caller-identity
+  #   networks:
+  #     - my_master_thesis_network
 
 networks:
   my_master_thesis_network:

@@ -5,9 +5,30 @@ import logging
 import sys
 from colorlog import ColoredFormatter
 import traceback
-from util import contains_provider, validate_credentials
 
 logger = None
+
+# Required credentials fields for each provider  
+REQUIRED_CREDENTIALS_FIELDS = {
+    "aws": ["aws_access_key_id", "aws_secret_access_key", "aws_region"],
+    "azure": ["azure_subscription_id", "azure_client_id", "azure_client_secret", "azure_tenant_id", "azure_region"],
+    "google": ["gcp_project_id", "gcp_credentials_file", "gcp_region"]
+}
+
+def contains_provider(config_providers, provider_name):
+    """Check if any value in the provider config matches provider_name."""
+    return any(provider_name in str(v).lower() for v in config_providers.values())
+
+def validate_credentials(provider_name, credentials):
+    """Check if credentials exist and all required fields are present."""
+    provider_creds = credentials.get(provider_name, {})
+    if not provider_creds:
+        raise ValueError(f"{provider_name.upper()} credentials are required but not found.")
+    
+    missing_fields = [field for field in REQUIRED_CREDENTIALS_FIELDS[provider_name] if field not in provider_creds]
+    if missing_fields:
+        raise ValueError(f"{provider_name.upper()} credentials are missing fields: {missing_fields}")
+    return provider_creds
 
 config = {}
 config_iot_devices = []
@@ -59,7 +80,15 @@ def digital_twin_info():
     "config_events": config_events
   }
 
+def initialize_logger():
+  global logger
 
+  initialize_config()
+  
+  DEBUG_MODE = config.get("mode", "").upper() == "DEBUG"
+  logger = setup_logger(debug_mode=DEBUG_MODE)
+
+  logger.debug("Debug mode is active.")
 
 def setup_logger(debug_mode=False):
     logger = logging.getLogger("digital_twin")
@@ -137,8 +166,3 @@ def initialize_all():
                 config_credentials_google = valid_credentials
             case _:
                 raise ValueError(f"Unsupported provider: {provider}, valid providers are: {', '.join(valid_providers)}")
-
-  DEBUG_MODE = config.get("mode", "").upper() == "DEBUG"
-  logger = setup_logger(debug_mode=DEBUG_MODE)
-
-  logger.debug("Debug mode is active.")
