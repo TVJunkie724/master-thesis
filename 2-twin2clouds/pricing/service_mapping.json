@@ -48,5 +48,10 @@
     "aws": "AmazonAPIGateway",
     "azure": "API Management",
     "gcp": "ApiGateway"
+  },
+  "scheduler": {
+    "aws": "",
+    "azure": "",
+    "gcp": "CloudScheduler"
   }
 }

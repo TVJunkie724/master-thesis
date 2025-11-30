@@ -7,7 +7,9 @@ from backend.logger import logger
 from backend.cloud_price_fetcher_aws import fetch_aws_price, STATIC_DEFAULTS
 from backend.cloud_price_fetcher_azure import fetch_azure_price, STATIC_DEFAULTS_AZURE
 # Future:
-# from backend.cloud_price_fetcher_google import fetch_google_price
+from backend.cloud_price_fetcher_google import fetch_google_price, STATIC_DEFAULTS_GCP
+from google.cloud import billing_v1
+from backend.config_loader import load_gcp_credentials
 
 
 # ============================================================
@@ -115,30 +117,15 @@ def _get_or_warn(provider_name, neutral_service, provider_service, key, fetched_
     is_in_static = neutral_service in static_defaults and key in static_defaults[neutral_service]
     is_in_fetched = key in fetched_dict and fetched_dict[key] is not None
 
-    if provider_name == "AWS":
-        # AWS fetcher merges defaults, so we can't distinguish easily.
-        # We keep the old behavior: log if it's a known static default key.
-        if is_in_static:
-            logger.info(f"    ℹ️ Using static value for {provider_name}.{provider_service}.{key}")
-        
-        if is_in_fetched:
-            return fetched_dict[key]
-        else:
-             logger.warning(f"   ⚠️ Using fallback for {provider_name}.{provider_service}.{key} (not returned by API)")
-             return default_value
+    if is_in_fetched:
+        return fetched_dict[key]
 
+    if is_in_static:
+        logger.info(f"      ℹ️ Using static value for {provider_name}.{provider_service}.{key}")
+        default_value = static_defaults[neutral_service][key]
     else:
-        # Azure/GCP: fetched_dict only contains DYNAMIC values.
-        if is_in_fetched:
-            return fetched_dict[key]
-        
-        if is_in_static:
-            logger.info(f"    ℹ️ Using static value for {provider_name}.{provider_service}.{key}")
-            return default_value
-            
         logger.warning(f"   ⚠️ Using fallback for {provider_name}.{provider_service}.{key} (not returned by API)")
-        return default_value
-
+    return default_value
 
 # ============================================================
 # AWS FETCHING AND SCHEMA BUILD
@@ -167,8 +154,8 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, additional_debu
             service_code = service_codes_per_provider.get("aws", "")
 
             if not service_code:
-                logger.warning(f"⚠️ Service {neutral_service} has no AWS code, skipping")
-                raise ValueError(f"Service {neutral_service} has no AWS code")
+                logger.debug(f"ℹ️ Service {neutral_service} has no AWS code, skipping (optional)")
+                continue
 
             logger.info(f"--- Service: {neutral_service} ---")
             fetched[neutral_service] = fetch_aws_price(neutral_service, service_code, region, client_credentials, additional_debug)
@@ -304,8 +291,8 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, additional_
             service_code = service_codes_per_provider.get("azure", "")
 
             if not service_code:
-                logger.warning(f"⚠️ Service {neutral_service} has no Azure code, skipping")
-                raise ValueError(f"Service {neutral_service} has no Azure code")
+                logger.debug(f"ℹ️ Service {neutral_service} has no Azure code, skipping (optional)")
+                continue
 
             logger.info(f"--- Azure Service: {neutral_service} ---")
             fetched[neutral_service] = fetch_azure_price(neutral_service, region, additional_debug)
@@ -432,29 +419,37 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, additional_
 # ============================================================
 # GOOGLE CLOUD DATA AND SCHEMA BUILD
 # ============================================================
-def fetch_google_data(google_credentials: dict, service_mapping: dict, google_services_config: dict, additional_debug=False) -> dict:
+def fetch_google_data(google_credentials: dict, service_mapping: dict, additional_debug=False) -> dict:
     """
-    Fetches Google Cloud pricing.
-    Currently uses static defaults as the dynamic fetcher is not yet fully implemented.
+    Fetches Google Cloud pricing using fetch_google_price() and builds the canonical structure.
     """
     region = google_credentials.get("gcp_region", "europe-west1")
     logger.info(f"🚀 Fetching Google Cloud pricing for region: {region}")
     
     fetched = {} 
-    # Since fetching is not implemented, fetched is empty.
-    # We rely on _get_or_warn to use defaults from STATIC_DEFAULTS_GCP.
 
+    # Initialize Client ONCE
+    try:
+        credentials = load_gcp_credentials()
+        client = billing_v1.CloudCatalogClient(credentials=credentials)
+    except Exception as e:
+        logger.error(f"⚠️ Failed to initialize GCP Billing Client: {e}")
+        # Fallback to empty fetched dict, defaults will be used
+        client = None
 
     for neutral_service, service_codes_per_provider in service_mapping.items():
         try:
             service_code = service_codes_per_provider.get("gcp", "")
 
             if not service_code:
-                logger.warning(f"⚠️ Service {neutral_service} has no GCP code, skipping")
-                raise ValueError(f"Service {neutral_service} has no GCP code")
+                logger.debug(f"ℹ️ Service {neutral_service} has no GCP code, skipping (optional)")
+                continue
 
             logger.info(f"--- GCP Service: {neutral_service} ---")
-            # fetched[neutral_service] = fetch_google_price(neutral_service, region, additional_debug)
+            if client:
+                fetched[neutral_service] = fetch_google_price(client, neutral_service, region, additional_debug)
+            else:
+                fetched[neutral_service] = {}
         except ValueError as e:
             logger.error(e)
             raise
@@ -533,7 +528,42 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, google_se
         "viewerPrice": _get_or_warn("GCP", neutral_service, provider_service, "viewerPrice", gf, 5.0, STATIC_DEFAULTS_GCP),
     }
 
-    logger.info("✅ GCP pricing schema built successfully (using defaults).")
+    # Cloud Scheduler (scheduler)
+    neutral_service, provider_service = "scheduler", "cloudScheduler"
+    cs = fetched.get(neutral_service, {})
+    gcp[provider_service] = {
+        "jobPrice": _get_or_warn("GCP", neutral_service, provider_service, "jobPrice", cs, 0.10, STATIC_DEFAULTS_GCP),
+    }
+
+    # Cloud Workflows (orchestration)
+    neutral_service, provider_service = "orchestration", "cloudWorkflows"
+    cw = fetched.get(neutral_service, {})
+    gcp[provider_service] = {
+        "stepPrice": _get_or_warn("GCP", neutral_service, provider_service, "stepPrice", cw, 0.01, STATIC_DEFAULTS_GCP),
+    }
+
+    # Data Access (data_access)
+    neutral_service, provider_service = "data_access", "apiGateway"
+    da = fetched.get(neutral_service, {})
+    gcp[provider_service] = {
+        "pricePerMillionCalls": _get_or_warn("GCP", neutral_service, provider_service, "pricePerMillionCalls", da, 3.00, STATIC_DEFAULTS_GCP),
+        "dataTransferOutPrice": _get_or_warn("GCP", neutral_service, provider_service, "dataTransferOutPrice", da, 0.12, STATIC_DEFAULTS_GCP),
+    }
+
+    # Compute Engine (Self-Hosted)
+    # This is not in service_mapping usually, but we need it for the schema.
+    # We use defaults or fetch if we had a mapping. For now, use defaults.
+    provider_service = "computeEngine"
+    # No neutral service mapping for this specific block in the loop, so we use defaults directly
+    # or we can use a dummy neutral service if we want to use _get_or_warn with a key
+    # Let's use "computeEngine" as key in defaults
+    ce_defaults = STATIC_DEFAULTS_GCP.get("computeEngine", {})
+    gcp[provider_service] = {
+        "e2MediumPrice": ce_defaults.get("e2MediumPrice", 0.0335),
+        "storagePrice": ce_defaults.get("storagePrice", 0.04),
+    }
+
+    logger.info("✅ GCP pricing schema built successfully.")
     return gcp
 
 

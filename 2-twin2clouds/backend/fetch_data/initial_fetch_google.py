@@ -11,7 +11,7 @@ def fetch_region_map():
     Fetch all GCP regions from the Cloud Billing Catalog API and save to gcp_regions.json.
     """
     # Check if we have a fresh local file
-    if utils.is_file_fresh(GCP_REGIONS_FILE_PATH, max_age_days=7):
+    if utils.is_file_fresh(GCP_REGIONS_FILE_PATH, max_age_days=30):
         logger.info(f"✅ Using cached GCP regions from {GCP_REGIONS_FILE_PATH}")
         return config_loader.load_json_file(GCP_REGIONS_FILE_PATH)
 
@@ -23,13 +23,16 @@ def fetch_region_map():
         client = billing_v1.CloudCatalogClient(credentials=credentials)
 
         regions_set = set()
-
-        logger.info("Fetching GCP regions from Cloud Billing Catalog API")
+        logger.info("Fetching .... This can take about 5-10 minutes")
+        service_counter = 0
         for service in client.list_services():
+            logger.debug(f"Processing service ({service_counter}): {service.name}")
+            service_counter += 1
             for sku in client.list_skus(parent=service.name):
                 if sku.service_regions:
                     for region in sku.service_regions:
                         regions_set.add(region)
+                        logger.debug(f"Found region ({len(regions_set)}): {region}")
 
         regions_dict = {r: r for r in sorted(regions_set)}
 

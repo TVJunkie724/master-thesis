@@ -50,9 +50,6 @@ STATIC_DEFAULTS_AZURE = {
     "storage_cool": {"upfrontPrice": 0.0001, "writePrice": 0.00001, "readPrice": 0.000001},
     "storage_archive": {"writePrice": 0.000013},
     "twinmaker": {
-        "messagePrice": 0.000001,
-        "operationPrice": 0.0000025,
-        "queryPrice": 0.0000005,
         "queryUnitTiers": [
             {"lower": 1, "upper": 99, "value": 15},
             {"lower": 100, "upper": 9999, "value": 1500},
@@ -104,13 +101,7 @@ AZURE_SERVICE_KEYWORDS: Dict[str, Dict[str, Any]] = {
         },
         "include": ["Digital Twins"],
     },
-    "grafana": {
-        "meters": {
-            "userPrice": {"meter_keywords": ["Active User"], "unit_keywords": ["1"]},
-            "hourlyPrice": {"meter_keywords": ["Standard"], "unit_keywords": ["Hour"]},
-        },
-        "include": ["Grafana"],
-    },
+    "grafana": {},
     "orchestration": {
         "meters": {
             "pricePer1kStateTransitions": {"meter_keywords": ["Consumption Standard Connector Actions"], "unit_keywords": ["1"]}
@@ -175,7 +166,7 @@ def _fetch_rows_with_fallback(region: str, service_names: List[str], debug: bool
     if rows:
         return rows
         
-    logger.warning(f"No retail prices found for {service_names} in {region}. Tried: {tried_regions}")
+    logger.warning(f" ℹ️ No retail prices found for {service_names} in {region}. Tried: {tried_regions}")
     return []
 
 def _sanitize_row(row: Dict[str, Any]) -> Dict[str, Any]:
@@ -264,7 +255,7 @@ def _normalize_price(price: float, unit_text: str, neutral_service: str) -> floa
 def _fetch_iot_hub(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Dict[str, Any]:
     """Fetch IoT Hub tiered pricing."""
     if debug:
-        logger.debug(f"--- Available rows for {neutral} ({len(rows)}) ---")
+        logger.debug(f"-- Available rows for {neutral} ({len(rows)}) --")
         for r in rows:
             logger.debug("    " + str(_sanitize_row(r)))
         logger.debug("------------------------------------------------")
@@ -295,7 +286,7 @@ def _fetch_iot_hub(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Dic
 def _fetch_standard(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Dict[str, Any]:
     """Standard fetcher for most services, handling unit normalization."""
     if debug:
-        logger.debug(f"--- Available rows for {neutral} ({len(rows)}) ---")
+        logger.debug(f"-- Available rows for {neutral} ({len(rows)}) --")
         more_than_10_rows = len(rows) > 10
         for r in (rows if not more_than_10_rows else rows[:10]):
             logger.debug("    " + str(_sanitize_row(r)))
@@ -307,7 +298,15 @@ def _fetch_standard(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Di
     spec = AZURE_SERVICE_KEYWORDS.get(neutral)
     result = {}
     
-    for key, m in spec["meters"].items():
+    meter_items = None
+    try:
+        # Meters not specified -> skip
+        # Assume all required values are in STATIC_DEFAULTS_AZURE
+        meter_items = spec["meters"]
+    except KeyError:
+        return result
+
+    for key, m in meter_items.items():
         match = None
         # Try all combinations of meter/unit keywords
         for mk in m["meter_keywords"]:
@@ -371,7 +370,6 @@ def fetch_azure_price(service_name: str, region_code: str, debug: bool=False) ->
     
     if not azure_service_name:
         logger.warning(f"⚠️ No Azure service mapping for {neutral}")
-        # Return empty so _get_or_warn can handle defaults and logging
         return {} 
 
     # 3. Fetch Rows
@@ -380,14 +378,12 @@ def fetch_azure_price(service_name: str, region_code: str, debug: bool=False) ->
     service_names = [azure_service_name] if isinstance(azure_service_name, str) else azure_service_name
     
     # Special handling for storage types that map to multiple Azure services in our config
-    # (Though the map above handles most of this, we keep this for safety if logic changes)
     if neutral in ["storage_cool", "storage_archive"] and not isinstance(service_names, list):
          service_names = ["Blob Storage", "Storage"] 
 
     rows = _fetch_rows_with_fallback(region, service_names, debug)
     
     if not rows:
-        # Return empty so _get_or_warn can handle defaults and logging
         fetched = {}
 
     # 4. Dispatch to Fetcher
@@ -396,10 +392,12 @@ def fetch_azure_price(service_name: str, region_code: str, debug: bool=False) ->
     else:
         fetched = _fetch_standard(rows, neutral, debug)
 
-    # 5. Return Fetched Only
-    # We do NOT merge with defaults here. This allows the caller (calculate_up_to_date_pricing)
-    # to detect missing values and use _get_or_warn to log "Using static value" or "Using fallback".
-    
+    # 5. Apply Defaults if values could not be fetched and log the use of defaults
+    for key, value in defaults.items():
+        if key not in fetched:
+            # fetched[key] = value
+            logger.info(f"    ℹ️ Using static value for Azure.{neutral}.{key}")
+
     logger.info(f"✅ Final Azure prices for {neutral}: {fetched}")
     print("")
     return fetched
