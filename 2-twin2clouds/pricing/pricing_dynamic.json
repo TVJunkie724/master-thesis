@@ -26,8 +26,8 @@
     },
     "egressPrice": 0.09,
     "iotCore": {
-      "pricePerDeviceAndMonth": 0.0035,
-      "priceRulesTriggered": 1.5e-07,
+      "pricePerDeviceAndMonth": 1.5e-06,
+      "priceRulesTriggered": 1.8e-07,
       "pricing_tiers": {
         "tier1": {
           "limit": 1000000000,
@@ -50,32 +50,42 @@
       "freeComputeTime": 400000
     },
     "dynamoDB": {
-      "writePrice": 6.25e-07,
-      "readPrice": 1.25e-07,
-      "storagePrice": 0.25,
+      "writePrice": 7.625e-07,
+      "readPrice": 1.525e-07,
+      "storagePrice": 0.306,
       "freeStorage": 25
     },
     "s3InfrequentAccess": {
-      "storagePrice": 0.0125,
+      "storagePrice": 0.0135,
       "upfrontPrice": 0.0001,
-      "requestPrice": 1e-05,
+      "requestPrice": 1e-06,
       "dataRetrievalPrice": 0.01,
       "transferCostFromDynamoDB": 0.099,
       "transferCostFromCosmosDB": 0.0495
     },
     "s3GlacierDeepArchive": {
-      "storagePrice": 0.00099,
-      "lifecycleAndWritePrice": 5e-05,
-      "dataRetrievalPrice": 0.0025
+      "storagePrice": 0.0225,
+      "lifecycleAndWritePrice": 3.6e-05,
+      "dataRetrievalPrice": 0.024
     },
     "iotTwinMaker": {
-      "unifiedDataAccessAPICallsPrice": 1.5e-06,
-      "entityPrice": 0.05,
-      "queryPrice": 5e-05
+      "unifiedDataAccessAPICallsPrice": 1.65e-06,
+      "entityPrice": 0.0525,
+      "queryPrice": 5.25e-05
     },
     "awsManagedGrafana": {
       "editorPrice": 9.0,
       "viewerPrice": 5.0
+    },
+    "stepFunctions": {
+      "pricePer1kStateTransitions": 2.5e-05
+    },
+    "eventBridge": {
+      "pricePerMillionEvents": 1.15e-06
+    },
+    "apiGateway": {
+      "pricePerMillionCalls": 1.2e-06,
+      "dataTransferOutPrice": 0.09
     }
   }
 }

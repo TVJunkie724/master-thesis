@@ -31,7 +31,7 @@ def fetch_region_map() -> Dict[str, str]:
         region_map = {}
 
         # NOTE: The Pricing API is only available in specific regions (e.g., eu-central-1)
-        pricing_client = boto3.client("pricing", region_name="eu-central-1", **client_args)
+        pricing_client = boto3.client("pricing", **client_args)
         response = pricing_client.get_products(
             ServiceCode="AmazonEC2",
             Filters=[{"Type": "TERM_MATCH", "Field": "preInstalledSw", "Value": "NA"}],

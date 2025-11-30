@@ -1,22 +1,23 @@
 import boto3
 import json
 import re
-from typing import Dict, Any, Optional, List
+import os
+from typing import Dict, Any, Optional, List, Callable
+
 from backend.logger import logger
 import backend.constants as CONSTANTS
 import backend.config_loader as config_loader
 from backend.fetch_data import initial_fetch_aws
 
 # --------------------------------------------------------------------
-# 1. Dynamic Region Loading
+# Constants & Configuration
 # --------------------------------------------------------------------
-def _load_aws_regions() -> Dict[str, str]:
-    """
-    Load AWS regions using the shared initial fetch logic (with caching).
-    """
-    return initial_fetch_aws.fetch_region_map()
 
-AWS_REGION_NAMES = _load_aws_regions()
+# Load region map once at module level
+AWS_REGION_NAMES = initial_fetch_aws.fetch_region_map()
+
+# Load service mapping once at module level
+SERVICE_MAPPING = config_loader.load_service_mapping()
 
 STATIC_DEFAULTS = {
     "iot": {"pricePerDeviceAndMonth": 0.0035},
@@ -26,9 +27,6 @@ STATIC_DEFAULTS = {
     "grafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
 }
 
-# -------------------------------------------------------------------
-# Keyword patterns for matching
-# -------------------------------------------------------------------
 AWS_SERVICE_KEYWORDS = {
     "iot": {
         "include": ["iot", "message", "rule", "device shadow", "registry"],
@@ -90,7 +88,7 @@ AWS_SERVICE_KEYWORDS = {
         "include": ["data transfer", "transfer out", "egress", "internet"],
         "fields": {
             "egressPrice": ["data transfer", "transfer out", "data transferred out", "egress", "internet", "out to"]
-        },
+        }
     },
     "grafana": {
         "include": ["grafana", "workspace", "user"],
@@ -100,18 +98,58 @@ AWS_SERVICE_KEYWORDS = {
             "viewerPrice": ["viewer"],
         },
     },
+    "orchestration": {
+        "include": ["standard", "state transition"],
+        "fields": {
+            "pricePer1kStateTransitions": ["per 1,000 state transitions", "state transition"]
+        }
+    },
+    "event_bus": {
+        "include": ["custom event", "invocations"],
+        "fields": {
+            "pricePerMillionEvents": ["per million scheduled invocations"]
+        }
+    },
+    "data_access": {
+        "include": ["requests", "api gateway"],
+        "fields": {
+            "pricePerMillionCalls": ["api gateway http api (first 300 million)"],
+        }
+    },
 }
 
 # -------------------------------------------------------------------
-# Helper
+# Helper Functions
 # -------------------------------------------------------------------
+
 def _warn_static(neutral: str, field: str, debug: bool = False):
+    """Log a warning that a static default value is being used."""
     logger.info(f"    ℹ️ Using static value for AWS.{neutral}.{field} (not returned by API)")
 
-# -------------------------------------------------------------------
-# Shared: safe AWS Pricing API call
-# -------------------------------------------------------------------
-def _fetch_pricing_response(pricing_client, service_code, region_human, usagetype=None, with_location=True):
+def _get_pricing_client(aws_credentials: Optional[Dict[str, Any]] = None) -> Any:
+    """
+    Create and return a boto3 pricing client.
+    Defaults to loading credentials from config if not provided.
+    Always uses 'us-east-1' for the Pricing API.
+    """
+    try:
+        if aws_credentials is None:
+            client_args = config_loader.load_aws_credentials()
+        else:
+            client_args = aws_credentials.copy()
+            # Ensure region_name is set for pricing API
+            client_args["region_name"] = client_args.get("region_name", "us-east-1")
+        
+        return boto3.client("pricing", **client_args)
+    except Exception as e:
+        logger.error(f"Failed to create boto3 client: {e}")
+        return None
+
+def _fetch_api_products(pricing_client, service_code: str, region_human: str, usagetype: Optional[str] = None, with_location: bool = True) -> List[str]:
+    """
+    Fetch product list from AWS Pricing API.
+    Handles filters for region and usage type.
+    """
     filters = []
     if usagetype:
         filters.append({"Type": "TERM_MATCH", "Field": "usagetype", "Value": usagetype})
@@ -125,11 +163,10 @@ def _fetch_pricing_response(pricing_client, service_code, region_human, usagetyp
         logger.debug(f"⚠️ Query failed for {service_code} ({'with' if with_location else 'without'} location): {e}")
         return []
 
-
-# -------------------------------------------------------------------
-# Generic price-dimension parser (used by all services)
-# -------------------------------------------------------------------
-def _parse_price_dimensions(price_list, field_map, include_keywords=None, exclude_keywords=None, debug=False):
+def _extract_prices_from_api_response(price_list: List[str], field_map: Dict[str, List[str]], include_keywords: List[str] = None, exclude_keywords: List[str] = None, debug: bool = False) -> Dict[str, float]:
+    """
+    Parse the raw JSON response from AWS Pricing API to extract prices matching the field map.
+    """
     prices = {}
     seen_pairs = set()
     include_keywords = include_keywords or []
@@ -137,48 +174,78 @@ def _parse_price_dimensions(price_list, field_map, include_keywords=None, exclud
 
     for prod_json in price_list:
         prod = json.loads(prod_json)
-        for term in prod.get("terms", {}).get("OnDemand", {}).values():
+        # Iterate over all OnDemand terms
+        terms = prod.get("terms", {}).get("OnDemand", {}).values()
+        for term in terms:
+            # Iterate over all price dimensions in the term
             for dim in term.get("priceDimensions", {}).values():
                 desc = dim.get("description", "").lower()
                 price = float(dim.get("pricePerUnit", {}).get("USD", 0))
+                
                 if price == 0:
                     continue
 
+                # Check inclusion keywords
                 if include_keywords and not any(k in desc for k in include_keywords):
                     if debug: logger.debug(f"   ❌ No Match: {desc.strip()} {price}")
                     continue
+                
+                # Check exclusion keywords
                 if any(x in desc for x in exclude_keywords):
                     if debug: logger.debug(f"   ❌ Excluded: {desc.strip()} {price}")
                     continue
 
+                # Check against field map
                 for key, patterns in field_map.items():
                     if any(p in desc for p in patterns):
                         pair = (key, round(price, 12))
-                        if pair in seen_pairs:
-                            break
-                        prices[key] = price
-                        seen_pairs.add(pair)
-                        if debug: logger.debug(f"   ✔️ Matched:  {desc.strip()} → {key} = {price}")
-                        break
+                        if pair not in seen_pairs:
+                            prices[key] = price
+                            seen_pairs.add(pair)
+                            if debug: logger.debug(f"   ✔️ Matched:  {desc.strip()} → {key} = {price}")
+                        break # Stop checking other keys for this dimension
     return prices
 
+# -------------------------------------------------------------------
+# Specialized Fetchers
+# -------------------------------------------------------------------
 
-# -------------------------------------------------------------------
-# Specialized: Transfer + TwinMaker
-# -------------------------------------------------------------------
-def fetch_transfer_pricing(region_human, pricing_client, debug=False):
+def _fetch_transfer_prices(region_human: str, pricing_client: Any, debug: bool = False) -> Dict[str, Any]:
+    """
+    Specialized fetcher for Data Transfer.
+    Fetches prices from AmazonEC2 and AWSDataTransfer to build tiered egress pricing.
+    """
     field_map = AWS_SERVICE_KEYWORDS["transfer"]["fields"]
     egress_prices = []
+    
+    # Fetch from both potential sources
     for service_code in ["AmazonEC2", "AWSDataTransfer"]:
         for with_location in (True, False):
-            price_list = _fetch_pricing_response(
+            price_list = _fetch_api_products(
                 pricing_client, service_code, region_human, usagetype="DataTransfer-Out-Bytes", with_location=with_location
             )
-            egress_prices += _parse_transfer_dimensions(price_list, field_map, debug)
+            
+            # Parse tiers specifically for transfer
+            for prod_json in price_list:
+                prod = json.loads(prod_json)
+                for term in prod.get("terms", {}).get("OnDemand", {}).values():
+                    for dim in term.get("priceDimensions", {}).values():
+                        desc = dim.get("description", "").lower()
+                        price = float(dim.get("pricePerUnit", {}).get("USD", 0))
+                        if price == 0: continue
+                        
+                        if any(p in desc for p in field_map.get("egressPrice", [])) and "per gb" in desc:
+                            egress_prices.append({
+                                "desc": desc,
+                                "price": price,
+                                "begin": float(dim.get("beginRange", "0")),
+                                "end": float(dim.get("endRange", "inf")),
+                            })
+                            if debug: logger.debug(f"   ✔️ Matched transfer tier: {desc} → {price}")
 
     if not egress_prices:
         logger.warning(f"⚠️ No egress prices found for {region_human}, using static defaults.")
-        _warn_static("transfer", "", debug)
+        _warn_static("transfer", "egressPrice", debug)
         return {
             "pricing_tiers": {
                 "freeTier": {"limit": 100, "price": 0},
@@ -190,138 +257,98 @@ def fetch_transfer_pricing(region_human, pricing_client, debug=False):
             "egressPrice": 0.09,
         }
 
+    # Sort and build tier structure
     egress_prices.sort(key=lambda x: x["begin"])
     pricing_tiers = {"freeTier": {"limit": 100, "price": 0}}
     for i, tier in enumerate(egress_prices, start=1):
         limit = tier["end"] if tier["end"] != float("inf") else "Infinity"
         pricing_tiers[f"tier{i}"] = {"limit": limit, "price": tier["price"]}
+        
     return {"pricing_tiers": pricing_tiers, "egressPrice": egress_prices[0]["price"]}
 
-
-def _parse_transfer_dimensions(price_list, field_map, debug=False):
-    """Parse transfer-specific dimensions into tier objects."""
-    tiers = []
-    for prod_json in price_list:
-        prod = json.loads(prod_json)
-        for term in prod.get("terms", {}).get("OnDemand", {}).values():
-            for dim in term.get("priceDimensions", {}).values():
-                desc = dim.get("description", "").lower()
-                price = float(dim.get("pricePerUnit", {}).get("USD", 0))
-                if price == 0:
-                    continue
-                if any(p in desc for p in field_map.get("egressPrice", [])) and "per gb" in desc:
-                    tiers.append(
-                        {
-                            "desc": desc,
-                            "price": price,
-                            "begin": float(dim.get("beginRange", "0")),
-                            "end": float(dim.get("endRange", "inf")),
-                        }
-                    )
-                    if debug: logger.debug(f"   ✔️ Matched transfer tier: {desc} → {price}")
-    return tiers
-
-
-def fetch_twinmaker_pricing(region_human, pricing_client, debug=False):
+def _fetch_twinmaker_prices(region_human: str, pricing_client: Any, debug: bool = False) -> Dict[str, float]:
+    """
+    Specialized fetcher for TwinMaker.
+    Checks multiple service codes (IOTTwinMaker, IOTTwinMakerQueries).
+    """
     field_map = AWS_SERVICE_KEYWORDS["twinmaker"]["fields"]
     prices = {}
     
-    # Try both service codes as AWS sometimes changes them
     for service_code in ["IOTTwinMaker", "IOTTwinMakerQueries"]:
-        price_list = _fetch_pricing_response(pricing_client, service_code, region_human)
-        fetched = _parse_price_dimensions(price_list, field_map, debug=debug)
+        price_list = _fetch_api_products(pricing_client, service_code, region_human)
+        fetched = _extract_prices_from_api_response(price_list, field_map, debug=debug)
         prices.update(fetched)
 
     return prices
 
+def _fetch_grafana_prices(region_human: str, pricing_client: Any, debug: bool = False) -> Dict[str, float]:
+    """
+    Specialized fetcher for Grafana.
+    Currently returns static defaults as dynamic fetching is TODO.
+    """
+    prices = STATIC_DEFAULTS["grafana"]
+    _warn_static("grafana", "grafana", debug)
+    return prices
+
+# Dispatch dictionary for specialized services
+SPECIALIZED_FETCHERS: Dict[str, Callable] = {
+    "transfer": _fetch_transfer_prices,
+    "twinmaker": _fetch_twinmaker_prices,
+    "grafana": _fetch_grafana_prices,
+}
 
 # -------------------------------------------------------------------
 # Main Fetcher
 # -------------------------------------------------------------------
-def fetch_aws_price(service_name, region_code, aws_credentials=None, debug=False):
+
+def fetch_aws_price(service_name: str, service_code: str, region_code: str, aws_credentials: Optional[Dict] = None, debug: bool = False) -> Dict[str, Any]:
     """
     Fetch pricing for a specific AWS service in a given region.
-    Uses boto3 Pricing API with keyword matching.
+    
+    Args:
+        service_name: Neutral service name (e.g., 'storage_hot').
+        service_code: AWS Service Code (e.g., 'AmazonDynamoDB').
+        region_code: AWS Region Code (e.g., 'eu-central-1').
+        aws_credentials: Optional dictionary of AWS credentials.
+        debug: Boolean to enable debug logging.
+        
+    Returns:
+        Dictionary of fetched prices.
     """
     region_human = AWS_REGION_NAMES.get(region_code)
     if not region_human:
         logger.warning(f"⚠️ Unknown AWS region code: {region_code}")
-        return None
+        return {}
 
-    # Normalize service name
     neutral_service_name = service_name.lower().replace(" ", "_")
     
-    # Handle Grafana specifically (Static for now, dynamic TODO)
-    if neutral_service_name == "grafana":
-        prices = STATIC_DEFAULTS["grafana"]
-        _warn_static(neutral_service_name, "grafana", debug)
+    # 1. Initialize Client
+    pricing_client = _get_pricing_client(aws_credentials)
+    if not pricing_client:
+        _warn_static(neutral_service_name, "client_error", debug)
+        return STATIC_DEFAULTS.get(neutral_service_name, {})
+
+    logger.info(f"🔍 Fetching AWS {service_name} pricing for {region_human}...")
+
+    # 2. Check for Specialized Fetcher
+    if neutral_service_name in SPECIALIZED_FETCHERS:
+        prices = SPECIALIZED_FETCHERS[neutral_service_name](region_human, pricing_client, debug)
         logger.info(f"✅ Final AWS {neutral_service_name} pricing: {prices}")
         print("")
         return prices
 
-    # Check if we have keywords for this service
+    # 3. Standard Fetching Logic
     service_config = AWS_SERVICE_KEYWORDS.get(neutral_service_name)
     if not service_config:
         logger.warning(f"⚠️ No keyword config for service: {service_name}")
-        _warn_static(neutral_service_name, "", debug)
-        return STATIC_DEFAULTS.get(neutral_service_name)
+        _warn_static(neutral_service_name, "no_config", debug)
+        return STATIC_DEFAULTS.get(neutral_service_name, {})
 
-    logger.info(f"🔍 Fetching AWS {service_name} pricing for {region_human}...")
+    # Fetch raw products
+    price_list = _fetch_api_products(pricing_client, service_code, region_human)
     
-    try:
-        # Use provided credentials or load them
-        if aws_credentials is None:
-            client_args = config_loader.load_aws_credentials()
-        else:
-            client_args = aws_credentials.copy()
-            # Ensure region_name is set for pricing API
-            client_args["region_name"] = client_args.get("region_name", "us-east-1")
-        
-        # Pricing API endpoint is only in us-east-1 or ap-south-1 usually
-        pricing_client = boto3.client("pricing", **client_args)
-    except Exception as e:
-        logger.error(f"Failed to create boto3 client: {e}")
-        _warn_static(neutral_service_name, "", debug)
-        return STATIC_DEFAULTS.get(neutral_service_name)
-
-    # Special handling for Transfer (complex tiered pricing)
-    if neutral_service_name == "transfer":
-        result = fetch_transfer_pricing(region_human, pricing_client, debug)
-        logger.info(f"✅ Final AWS {neutral_service_name} pricing: {result}")
-        print("")
-        return result
-
-    # Special handling for TwinMaker (multiple service codes)
-    if neutral_service_name == "twinmaker":
-        prices = fetch_twinmaker_pricing(region_human, pricing_client, debug)
-        if not prices:
-             logger.warning(f"⚠️ Failed to fetch TwinMaker prices, using defaults.")
-             # Fallback logic could go here if needed
-        logger.info(f"✅ Final AWS {neutral_service_name} pricing: {prices}")
-        print("")
-        return prices
-
-    # Standard handling for other services
-    # We need to guess the AWS ServiceCode. This is tricky without a map.
-    # Common ones: AmazonEC2, AmazonS3, AmazonDynamoDB, AWSLambda, AmazonIoTCore
-    service_code_map = {
-        "iot": "AWSIoT",
-        "functions": "AWSLambda",
-        "storage_hot": "AmazonDynamoDB",
-        "storage_cool": "AmazonS3",
-        "storage_archive": "AmazonS3",
-    }
-    
-    aws_service_code = service_code_map.get(neutral_service_name)
-    if not aws_service_code:
-        logger.warning(f"⚠️ No AWS ServiceCode mapped for {service_name}")
-        _warn_static(neutral_service_name, "", debug)
-        return STATIC_DEFAULTS.get(neutral_service_name)
-
-    price_list = _fetch_pricing_response(pricing_client, aws_service_code, region_human)
-    
-    # Parse dimensions
-    prices = _parse_price_dimensions(
+    # Extract prices
+    prices = _extract_prices_from_api_response(
         price_list, 
         service_config["fields"], 
         include_keywords=service_config.get("include"),
@@ -329,15 +356,14 @@ def fetch_aws_price(service_name, region_code, aws_credentials=None, debug=False
         debug=debug
     )
 
-    # Handle tiers if defined (e.g. Lambda duration)
+    # Handle tiers if defined
     if "tier_keywords" in service_config and isinstance(service_config["tier_keywords"], dict):
         for tier_group, tiers in service_config["tier_keywords"].items():
             tier_data = {}
             for tier_name, keywords in tiers.items():
-                # Re-scan price list for these specific tier keywords
-                tier_prices = _parse_price_dimensions(
+                tier_prices = _extract_prices_from_api_response(
                     price_list, 
-                    {tier_name: keywords}, # temporary field map
+                    {tier_name: keywords}, 
                     include_keywords=service_config.get("include"),
                     exclude_keywords=service_config.get("exclude"),
                     debug=debug
@@ -347,7 +373,7 @@ def fetch_aws_price(service_name, region_code, aws_credentials=None, debug=False
             if tier_data:
                 prices[tier_group] = tier_data
 
-    # Merge with defaults if missing keys
+    # 4. Merge with Defaults
     defaults = STATIC_DEFAULTS.get(neutral_service_name, {})
     for k, v in defaults.items():
         if k not in prices:

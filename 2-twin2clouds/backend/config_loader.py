@@ -112,27 +112,12 @@ def load_gcp_credentials():
 # --------------------------------------------------------------------
 # Service Codes Loaders
 # --------------------------------------------------------------------
-def load_aws_service_codes_file():
+def load_service_mapping():
     """
-    Load AWS service codes from a JSON file.  (for fallback purposes)
+    Load service mapping from a JSON file.  (for fallback purposes)
     """
-    logger.info("    Loading AWS service codes from local file.")
-    return load_json_file(CONSTANTS.AWS_SERVICE_CODES_FILE_PATH)
-
-
-def load_azure_service_codes_file():
-    """
-    Load AZURE service codes from a JSON file.  (for fallback purposes)
-    """
-    logger.info("    Loading AZURE service codes from local file.")
-    return load_json_file(CONSTANTS.AZURE_SERVICE_CODES_FILE_PATH)
-
-def load_google_service_codes_file():
-    """
-    Load GCP service codes from a JSON file. (for fallback purposes)
-    """
-    logger.info("    Loading GCP service codes from local file.")
-    return load_json_file(CONSTANTS.GCP_SERVICES_FILE_PATH)
+    logger.info("✅ Loading service mapping from local file.")
+    return load_json_file(CONSTANTS.SERVICE_MAPPING_FILE_PATH)
 
 # --------------------------------------------------------------------
 # Regions Loaders

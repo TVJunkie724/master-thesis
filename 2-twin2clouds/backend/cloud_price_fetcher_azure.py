@@ -1,23 +1,23 @@
-# Refactored Azure price fetcher matching AWS structure and logging style
+# Refactored Azure price fetcher - Simplified & Readable
 
-import json, copy, traceback
+import json, copy
 from typing import Dict, Any, Iterable, List, Optional
 import requests
 
 from backend.logger import logger
-import backend.constants as CONSTANTS
+import backend.config_loader as config_loader
 from backend.fetch_data import initial_fetch_azure
 
 # -----------------------------------------------------------------------------
-# REGION MAP + DEFAULTS
+# CONFIGURATION & CONSTANTS
 # -----------------------------------------------------------------------------
-def _load_azure_regions() -> Dict[str, str]:
-    """
-    Load Azure regions using the shared initial fetch logic (with caching).
-    """
-    return initial_fetch_azure.fetch_region_map()
 
-AZURE_REGION_NAMES = _load_azure_regions()
+RETAIL_API_BASE = "https://prices.azure.com/api/retail/prices"
+HTTP_TIMEOUT = 12
+
+# Load region map and service mapping
+AZURE_REGION_NAMES = initial_fetch_azure.fetch_region_map()
+SERVICE_MAPPING = config_loader.load_service_mapping()
 
 REGION_FALLBACK = {
     "westeurope": ["northeurope", "francecentral", "italynorth", "germanywestcentral"],
@@ -29,9 +29,6 @@ REGION_FALLBACK = {
     "westus": ["westus2", "centralus", "eastus"],
     "centralus": ["eastus", "westus"],
 }
-
-RETAIL_API_BASE = "https://prices.azure.com/api/retail/prices"
-HTTP_TIMEOUT = 12
 
 STATIC_DEFAULTS_AZURE = {
     "transfer": {"egressPrice": 0.08},
@@ -63,34 +60,25 @@ STATIC_DEFAULTS_AZURE = {
         ],
     },
     "grafana": {"userPrice": 6.0, "hourlyPrice": 0.069},
+    "orchestration": {"pricePer1kStateTransitions": 0.000125}, # Raw price per 1 action
+    "event_bus": {"pricePerMillionEvents": 0.60}, # Raw price per 1M events
+    "data_access": {"pricePerMillionCalls": 0.042}, # Raw price per 10K calls (4.20 per 1M)
 }
-
-# -----------------------------------------------------------------------------
-# SERVICE KEYWORD MAP
-# -----------------------------------------------------------------------------
 
 AZURE_SERVICE_KEYWORDS: Dict[str, Dict[str, Any]] = {
     "functions": {
-        "serviceName": "Functions",
         "meters": {
-            "requestPrice": {"meter_keywords": ["Total Executions"], "unit_keywords": ["10", "1 Million", "1M"]},
-            "durationPrice": {"meter_keywords": ["Execution Time"], "unit_keywords": ["GB Second", "GiB Second", "GiB Hour"]},
+            "requestPrice": {"meter_keywords": ["Standard Total Executions"], "unit_keywords": ["1 Million", "1M", "10"]},
+            "durationPrice": {"meter_keywords": ["Always Ready Execution Time"], "unit_keywords": ["GB Second", "GiB Second", "GiB Hour"]},
         },
-        "include": ["Standard", "Functions"],
+        "include": [], # Removed "Functions" to be more permissive
     },
-    #"transfer": {
-    #    "serviceName": "Bandwidth",
-    #    "meters": {"egressPrice": {"meter_keywords": ["Data Transfer Out"], "unit_keywords": ["GB"]}},
-    #    "exclude": ["China"],
-    #},
-    "iot": {"serviceName": "IoT Hub", "tiers": {"S1": "tier1", "S2": "tier2", "S3": "tier3"}},
+    "iot": {"tiers": {"S1": "tier1", "S2": "tier2", "S3": "tier3"}},
     "storage_hot": {
-        "serviceName": "Azure Cosmos DB",
-        "meters": {"storagePrice": {"meter_keywords": ["Standard Data Stored"], "unit_keywords": ["gb/month", "1 gb/month", "100 gb/month"]}},
-        "include": ["Cosmos DB"],
+        "meters": {"storagePrice": {"meter_keywords": ["Data Stored"], "unit_keywords": ["gb/month", "1 gb/month", "100 gb/month"]}},
+        "include": [], # Removed "Cosmos DB" to be more permissive
     },
     "storage_cool": {
-        "serviceName": ["Blob Storage", "Storage"],
         "meters": {
             "storagePrice": {"meter_keywords": ["cool", "data stored"], "unit_keywords": ["gb/month", "1 gb/month", "100 gb/month"]},
             "writePrice": {"meter_keywords": ["cold lrs data write"], "unit_keywords": ["gb"]},
@@ -98,10 +86,8 @@ AZURE_SERVICE_KEYWORDS: Dict[str, Dict[str, Any]] = {
             "dataRetrievalPrice": {"meter_keywords": ["cool data retrieval"], "unit_keywords": ["gb", "per gb"]},
         },
         "include": ["blob storage"],
-        #"exclude": ["reserved", "ra-grs", "grs", "zrs", "transaction", "disk", "tables", "data lake"],
     },
     "storage_archive": {
-        "serviceName": ["Blob Storage", "Storage"],
         "meters": {
             "storagePrice": {"meter_keywords": ["archive", "data stored", "lrs"], "unit_keywords": ["gb/month", "1 gb/month", "100 gb/month"]},
             "writePrice": {"meter_keywords": ["Archive Data Write"], "unit_keywords": ["gb"]},
@@ -109,312 +95,311 @@ AZURE_SERVICE_KEYWORDS: Dict[str, Dict[str, Any]] = {
             "dataRetrievalPrice": {"meter_keywords": ["archive data retrieval"], "unit_keywords": ["gb", "per gb"]},
         },
         "include": ["blob storage"],
-        #"exclude": ["reserved", "ra-grs", "grs", "zrs", "transaction", "disk", "tables", "data lake"],
+    },
+    "twinmaker": {
+        "meters": {
+            "messagePrice": {"meter_keywords": ["Standard Message"], "unit_keywords": ["1K"]},
+            "operationPrice": {"meter_keywords": ["Standard Operations"], "unit_keywords": ["1K"]},
+            "queryPrice": {"meter_keywords": ["Standard Query Units"], "unit_keywords": ["1K"]},
+        },
+        "include": ["Digital Twins"],
+    },
+    "grafana": {
+        "meters": {
+            "userPrice": {"meter_keywords": ["Active User"], "unit_keywords": ["1"]},
+            "hourlyPrice": {"meter_keywords": ["Standard"], "unit_keywords": ["Hour"]},
+        },
+        "include": ["Grafana"],
+    },
+    "orchestration": {
+        "meters": {
+            "pricePer1kStateTransitions": {"meter_keywords": ["Consumption Standard Connector Actions"], "unit_keywords": ["1"]}
+        },
+    },
+    "event_bus": {
+        "meters": {
+            "pricePerMillionEvents": {"meter_keywords": ["Standard Event Operations"], "unit_keywords": ["1M", "100K"]}
+        },
+    },
+    "data_access": {
+        "meters": {
+            "pricePerMillionCalls": {"meter_keywords": ["Consumption Calls"], "unit_keywords": ["10K"]}
+        },
     },
 }
 
-logged_rows = set()
-no_match_counter = 0
-
 # -----------------------------------------------------------------------------
-# RETAIL API HELPERS
+# API & MATCHING HELPERS
 # -----------------------------------------------------------------------------
 
 def _retail_query_items(params: Dict[str, str]) -> Iterable[Dict[str, Any]]:
+    """Yields all items from the Azure Retail API for the given params."""
     next_link = RETAIL_API_BASE
     first = True
     while next_link:
-        resp = requests.get(next_link, params=params if first else None, timeout=HTTP_TIMEOUT)
-        first = False
-        if resp.status_code != 200:
-            logger.warning(f"Azure Retail API {resp.status_code}: {resp.text[:300]}")
+        try:
+            resp = requests.get(next_link, params=params if first else None, timeout=HTTP_TIMEOUT)
+            if resp.status_code != 200:
+                logger.warning(f"Azure Retail API {resp.status_code}: {resp.text[:200]}")
+                return
+            data = resp.json()
+            for item in data.get("Items", []):
+                yield item
+            next_link = data.get("NextPageLink")
+            first = False
+        except Exception as e:
+            logger.error(f"Error querying Azure Retail API: {e}")
             return
-        data = resp.json()
-        for item in data.get("Items", []):
-            yield item
-        next_link = data.get("NextPageLink")
 
-def _iter_with_region_fallback(region: str, service_names, debug: bool = False) -> List[Dict[str, Any]]:
-    """Fetch rows for given service names, trying region fallbacks."""
+def _fetch_rows_with_fallback(region: str, service_names: List[str], debug: bool = False) -> List[Dict[str, Any]]:
+    """Fetch pricing rows, trying the primary region then fallbacks."""
     region = region.lower()
-    tried = []
-    rows: List[Dict[str, Any]] = []
-    if isinstance(service_names, str):
-        service_names = [service_names]
+    tried_regions = []
+    
+    # 1. Try primary + fallback regions
     for r in [region] + REGION_FALLBACK.get(region, []):
-        tried.append(r)
-        odata_filter = f"armRegionName eq '{r}' and (" + " or ".join([f"serviceName eq '{s}'" for s in service_names]) + ")"
-        fetched = list(_retail_query_items({"$filter": odata_filter}))
-        if fetched:
-            rows.extend(fetched)
+        tried_regions.append(r)
+        # Construct OData filter: armRegionName eq 'r' and (serviceName eq 's1' or ...)
+        service_filter = " or ".join([f"serviceName eq '{s}'" for s in service_names])
+        odata_filter = f"armRegionName eq '{r}' and ({service_filter})"
+        
+        rows = list(_retail_query_items({"$filter": odata_filter}))
         if rows:
             if r != region and debug:
                 logger.debug(f"   ℹ️ Used fallback region '{r}' for {service_names}")
             return rows
-    # no region match, try without region filter
-    odata_filter = " or ".join([f"serviceName eq '{s}'" for s in service_names])
-    fetched = list(_retail_query_items({"$filter": odata_filter}))
-    if fetched:
-        rows.extend(fetched)
+
+    # 2. Last resort: Try without region filter (global services)
+    service_filter = " or ".join([f"serviceName eq '{s}'" for s in service_names])
+    rows = list(_retail_query_items({"$filter": service_filter}))
+    if rows:
         return rows
-    logger.warning(f"No retail prices found for {service_names} in {region}. Tried: {tried}")
+        
+    logger.warning(f"No retail prices found for {service_names} in {region}. Tried: {tried_regions}")
     return []
 
-# -----------------------------------------------------------------------------
-# SMALL HELPERS
-# -----------------------------------------------------------------------------
+def _sanitize_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Filter out noisy fields for cleaner logging."""
+    # Strict allowlist as requested
+    keep = {"productName", "meterName", "skuName", "unitOfMeasure", "unitPrice", "currencyCode", "serviceName"}
+    return {k: v for k, v in row.items() if k in keep}
 
-def _filter_row(row: Dict[str, Any]):
-    return {
-        "unitPrice": row.get("unitPrice"),
-        "meterName": row.get("meterName"),
-        "unitOfMeasure": row.get("unitOfMeasure"),
-        "skuName": row.get("skuName"),
-        "productName": row.get("productName"),
-    }
+def _find_best_match(rows: List[Dict[str, Any]], meter_kw: str, unit_kw: str, include_kw: List[str], debug: bool) -> Optional[Dict[str, Any]]:
+    """Find the best matching row based on keywords, prioritizing non-zero prices."""
+    best_row = None
+    best_price = None
+    candidates = []
 
-def _get_unit_price(row: Optional[Dict[str, Any]]) -> Optional[float]:
-    if not row:
-        return None
-    try:
-        return float(row.get("unitPrice", 0))
-    except:
-        return None
-
-def _warn_static(neutral: str, field: str, debug: bool = False):
-    logger.info(f"    ℹ️ Using static value for Azure.{neutral}.{field} (not returned by API)")
-
-# -----------------------------------------------------------------------------
-# MATCHING
-# -----------------------------------------------------------------------------
-def _find_matching_row(
-    rows: List[Dict[str, Any]],
-    meter_kw: str,
-    unit_kw: str,
-    *,
-    neutral: str,
-    key: str,
-    debug: bool,
-):
-    spec = AZURE_SERVICE_KEYWORDS.get(neutral, {})
-    include_kw = [x.lower() for x in spec.get("include", [])]
-    exclude_kw = [x.lower() for x in spec.get("exclude", [])]
-    best = None
-    global no_match_counter, logged_rows
     for r in rows:
-        filtered = _filter_row(r)
         product = (r.get("productName") or "").lower()
         meter = (r.get("meterName") or "").lower()
         unit = (r.get("unitOfMeasure") or "").lower()
         sku = (r.get("skuName") or "").lower()
-        currency = r.get("currencyCode")
-        row_sig = (neutral, key, product, meter, unit, sku)
-        if row_sig in logged_rows:
-            continue
-        logged_rows.add(row_sig)
-        # exclude
-        if any(x in product or x in meter or x in sku for x in exclude_kw):
-            continue
-        if any(x in product or x in sku for x in ["grs", "ra-grs", "zrs", "gzs"]):
-            continue
-        if "reserved" in product:
-            continue
-        if key == "storagePrice" and ("write" in meter or "read" in meter):
-            continue
-        # include
-        exist_include_kw_in_product_or_meter = any(x in product for x in include_kw)
-        meter_kw_matches = meter_kw.lower() in meter
-        unit_kw_matches = unit_kw.lower() in unit
-        if not exist_include_kw_in_product_or_meter or not meter_kw_matches or not unit_kw_matches:
-            no_match_counter += 1
-            if debug: logger.debug(f"   ❌ No Match ({no_match_counter}): {filtered}")
-            continue
+        price = float(r.get("unitPrice", 0))
 
-        price = _get_unit_price(r)
-        if price is None:
-            continue
+        # 1. Basic Filtering
+        if "reserved" in product: continue
+        if include_kw and not all(k.lower() in product for k in include_kw): continue 
+        if meter_kw.lower() not in meter: continue
+        if unit_kw.lower() not in unit: continue
+        
+        candidates.append(r)
 
-        if best is None or price < _get_unit_price(best):
-            best = r
-        logger.debug(f"   ✔️ Matched ({neutral} - {key}): {price} {currency} <= {filtered}")
-    return best
+        # 2. Prioritization Logic
+        # We want the cheapest *paid* option if possible, or free if that's all there is.
+        # But we prefer a non-zero price over a zero price to avoid "free tier" traps when we want unit costs.
+        
+        if best_row is None:
+            best_row = r
+            best_price = price
+        elif best_price == 0 and price > 0:
+            best_row = r
+            best_price = price
+        elif price > 0 and price < best_price:
+            best_row = r
+            best_price = price
+            
+    if not best_row and debug:
+         # Log why we didn't find a match if we expected one
+         if candidates:
+             logger.debug(f"   ⚠️ Found {len(candidates)} candidates but none selected (logic error?):")
+             for c in candidates[:3]:
+                 logger.debug(f"      - {_sanitize_row(c)}")
+         else:
+             # If no candidates, we might want to know what we missed
+             pass
+            
+    return best_row
 
 # -----------------------------------------------------------------------------
-# SERVICE FETCHERS
+# PRICE NORMALIZATION
 # -----------------------------------------------------------------------------
-def _fetch_iot(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Dict[str, Any]:
+
+def _normalize_price(price: float, unit_text: str, neutral_service: str) -> float:
+    """Normalize price to a standard unit (usually per 1 or per 1M)."""
+    unit_text = unit_text.lower()
+    
+    # Special Case: Logic Apps (Actions are per 1, we want per 1k)
+    if neutral_service == "orchestration" and "1" in unit_text:
+        return price * 1000
+
+    # Special Case: Blob Storage (Operations are per 10k, we want per 1)
+    if neutral_service in ["storage_cool", "storage_archive"] and "10k" in unit_text:
+        return price / 10_000
+
+    # Standard Normalization (to per 1M or per GB)
+    if "10k" in unit_text:
+        return price * 100 # 10k * 100 = 1M
+    elif "10" in unit_text:
+        return price * 100_000 # 10 * 100k = 1M
+    elif "100" in unit_text:
+        return price * 10_000 # 100 * 10k = 1M
+        
+    return price
+
+# -----------------------------------------------------------------------------
+# FETCHERS
+# -----------------------------------------------------------------------------
+
+def _fetch_iot_hub(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Dict[str, Any]:
+    """Fetch IoT Hub tiered pricing."""
+    if debug:
+        logger.debug(f"--- Available rows for {neutral} ({len(rows)}) ---")
+        for r in rows:
+            logger.debug("    " + str(_sanitize_row(r)))
+        logger.debug("------------------------------------------------")
+
     defaults = STATIC_DEFAULTS_AZURE["iot"]
-    tier_defaults = defaults["pricing_tiers"]
-    result = {"pricing_tiers": {"freeTier": tier_defaults["freeTier"].copy()}}
-    SKU_MAP = AZURE_SERVICE_KEYWORDS[neutral]["tiers"]
-    filtered = [_filter_row(r) for r in rows]
-    for sku_label, tier_key in SKU_MAP.items():
-        matched_price = None
-        for r in filtered:
-            sku = r.get("skuName") or ""
-            meter = r.get("meterName") or ""
-            if sku_label in sku and "unit" in meter.lower():
-                price = _get_unit_price(r)
-                if price:
-                    matched_price = price
-                    logger.debug(f"   ✔️ Match {neutral}.{tier_key} sku='{sku}' meter='{meter}' price={price}")
-                    break
-        if matched_price is None:
-            if debug:
-                logger.debug(f"     ❌ No match for {neutral}.{tier_key} (sku_kw='{sku_label}')")
-            _warn_static(neutral, tier_key, debug)
-            continue
-        result["pricing_tiers"][tier_key] = {
-            "limit": tier_defaults[tier_key]["limit"],
-            "threshold": tier_defaults[tier_key]["threshold"],
-            "price": matched_price,
-        }
-    return result
-
-def _fetch_generic_meter_service(rows, neutral: str, debug: bool) -> Dict[str, Any]:
-    spec = AZURE_SERVICE_KEYWORDS.get(neutral)
-    result = {}
-    for key, m in spec["meters"].items():
-        meter_match = None
-        for mk in m["meter_keywords"]:
-            for uk in m["unit_keywords"]:
-                candidate = _find_matching_row(rows, mk, uk, neutral=neutral, key=key, debug=debug)
-                if candidate:
-                    meter_match = candidate
-                    break
-            if meter_match:
-                break
-        if not meter_match:
-            logger.debug(f"---❌ Unable to find: {neutral}.{key}")
-            continue
-        price = _get_unit_price(meter_match)
-        if price is None:
-            continue
-        if price == 0:
-            logger.warning(f" ℹ️ Zero price found for Azure.{neutral}.{key}")
-            if key in STATIC_DEFAULTS_AZURE.get(neutral, {}):
-                price = STATIC_DEFAULTS_AZURE[neutral][key]
-                logger.warning(f" ℹ️ Value was zero for Azure.{neutral}.{key}, using default: {price}")
-        unit_text = (meter_match.get("unitOfMeasure") or "").lower()
-        normalized = price
-        if neutral not in ["storage_hot", "storage_cool", "storage_archive"]:
-            if "10" in unit_text:
-                normalized = price * (1_000_000 / 10)
-            elif "100" in unit_text:
-                normalized = price * (1_000_000 / 100)
-        result[key] = normalized
-        if key == "requestPricePerMillion":
-            result["requestPrice"] = normalized / 1_000_000
-        elif key == "durationPricePerGBSecond":
-            result["durationPrice"] = normalized
+    result = {"pricing_tiers": {"freeTier": defaults["pricing_tiers"]["freeTier"].copy()}}
+    
+    sku_map = AZURE_SERVICE_KEYWORDS[neutral]["tiers"]
+    
+    for sku_label, tier_key in sku_map.items():
+        # Find row matching SKU and "unit" meter
+        match = next((r for r in rows if sku_label in (r.get("skuName") or "") and "unit" in (r.get("meterName") or "").lower()), None)
+        
+        if match:
+            price = float(match.get("unitPrice", 0))
+            result["pricing_tiers"][tier_key] = {
+                "limit": defaults["pricing_tiers"][tier_key]["limit"],
+                "threshold": defaults["pricing_tiers"][tier_key]["threshold"],
+                "price": price
+            }
+            if debug: logger.debug(f"   ✔️ Matched IoT {tier_key}: {_sanitize_row(match)}")
+        else:
+            if debug: logger.debug(f"   ❌ IoT {tier_key} not found (SKU: {sku_label})")
+            pass
             
     return result
 
-def _fetch_cosmos_db(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Dict[str, Any]:
-    """
-    Fetch Cosmos DB prices with specific RU/s unit conversion.
-    
-    Why this exists:
-    - The Generic Fetcher (`_fetch_generic_meter_service`) only handles simple unit normalization (e.g., 100GB -> 1GB).
-    - Azure prices Cosmos DB Request Units (RU/s) as "100 RU/s per Hour".
-    - Our calculation engine requires the cost of "1 RU/s per Month".
-    
-    Logic:
-    1. Fetches the hourly price for 100 RU/s.
-    2. Converts it to a monthly price for 1 RU/s using the formula:
-       (Price_per_100_RU_Hour * 730_Hours) / 100
-    """
+def _fetch_standard(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Dict[str, Any]:
+    """Standard fetcher for most services, handling unit normalization."""
+    if debug:
+        logger.debug(f"--- Available rows for {neutral} ({len(rows)}) ---")
+        more_than_10_rows = len(rows) > 10
+        for r in (rows if not more_than_10_rows else rows[:10]):
+            logger.debug("    " + str(_sanitize_row(r)))
+        if more_than_10_rows:
+            logger.debug("    ...")
+            logger.debug("    (and {} more)")
+        logger.debug("------------------------------------------------")
+
     spec = AZURE_SERVICE_KEYWORDS.get(neutral)
-    result = _fetch_generic_meter_service(rows, neutral, debug)
+    result = {}
     
-    # Convert requestPrice from "100 RU/s / Hour" to "1 RU/s / Month"
-    m = spec["meters"].get("requestPrice")
-    if m:
+    for key, m in spec["meters"].items():
+        match = None
+        # Try all combinations of meter/unit keywords
         for mk in m["meter_keywords"]:
             for uk in m["unit_keywords"]:
-                candidate = _find_matching_row(rows, mk, uk, neutral=neutral, key="requestPrice", debug=debug)
-                if candidate:
-                    price = _get_unit_price(candidate)
-                    if price is not None:
-                        # Conversion: Price (per 100 RU/s Hour) -> Per 1 RU/s Month
-                        # Formula: (Price * 730 hours) / 100 units
-                        converted = (price * 730) / 100
-                        result["requestPrice"] = converted
-                        if debug: logger.debug(f"   ℹ️ Converted Cosmos DB requestPrice: {price}/hr/100RU -> {converted}/mo/1RU")
-                    break
-    return result
+                match = _find_best_match(rows, mk, uk, spec.get("include", []), debug)
+                if match: break
+            if match: break
+            
+        if match:
+            raw_price = float(match.get("unitPrice", 0))
+            unit_text = match.get("unitOfMeasure", "")
+            
+            # Use default if API returns 0 (and we have a default)
+            if raw_price == 0 and key in STATIC_DEFAULTS_AZURE.get(neutral, {}):
+                logger.warning(f" ℹ️ Zero price for {neutral}.{key}, using default.")
+                result[key] = STATIC_DEFAULTS_AZURE[neutral][key]
+                continue
 
-def _fetch_blob_storage(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Dict[str, Any]:
-    """
-    Fetch Blob Storage prices with specific operation unit conversion.
-    
-    Why this exists:
-    - The Generic Fetcher does not handle "per 10,000 operations" units safely for all services.
-    - Azure prices Blob Storage Read/Write operations per "10,000 operations".
-    - Our calculation engine calculates cost per single operation (e.g., total_messages * price_per_op).
-    
-    Logic:
-    1. Fetches the price for 10,000 operations.
-    2. Divides by 10,000 to get the price per single operation.
-    """
-    spec = AZURE_SERVICE_KEYWORDS.get(neutral)
-    result = _fetch_generic_meter_service(rows, neutral, debug)
-    
-    # Convert operations (per 10k) to per 1 for already-fetched prices
-    # for key in ["writePrice", "readPrice"]:
-    for key in ["readPrice"]:
-        if key in result and result[key] is not None:
-            original_price = result[key]
-            result[key] = original_price / 10_000
-            logger.debug(f"   ℹ️ Converted Blob Storage {key}: {original_price}/10k -> {result[key]}/1")
+            # Normalize
+            final_price = _normalize_price(raw_price, unit_text, neutral)
+            
+            # Special Post-Processing
+            if neutral == "storage_hot" and key == "requestPrice":
+                # Cosmos DB: 100 RU/s/hr -> 1 RU/s/mo
+                final_price = (raw_price * 730) / 100
+                
+            result[key] = final_price
+            
+            # Derived fields
+            if key == "requestPricePerMillion":
+                result["requestPrice"] = final_price / 1_000_000
+            elif key == "durationPricePerGBSecond":
+                result["durationPrice"] = final_price
+
+            if debug:
+                logger.debug(f"   ✔️ Matched {neutral}.{key}: {_sanitize_row(match)}")
+                logger.debug(f"      Price: {raw_price} ({unit_text}) -> Normalized: {final_price}")
+        else:
+            if debug: 
+                logger.debug(f"   ❌ {neutral}.{key} not found.")
+                logger.debug(f"      Searched for meter_kw='{m['meter_keywords']}' unit_kw='{m['unit_keywords']}'")
+
     return result
 
 # -----------------------------------------------------------------------------
-# MAIN ENTRY
+# MAIN ENTRY POINT
 # -----------------------------------------------------------------------------
+
 def fetch_azure_price(service_name: str, region_code: str, debug: bool=False) -> Dict[str, Any]:
-    """Fetch Azure pricing for a given service.
-
-    Args:
-        service_name: The neutral service identifier (e.g., 'functions', 'transfer').
-        region_code: Azure region code (e.g., 'westeurope').
-        debug: Enable debug logging.
     """
-    region = AZURE_REGION_NAMES.get(region_code.lower(), region_code.lower())
+    Fetch Azure pricing for a given service.
+    """
     neutral = service_name.lower()
-    spec = AZURE_SERVICE_KEYWORDS.get(neutral)
-    default_statics = STATIC_DEFAULTS_AZURE.get(neutral, {})
-    if not spec:
-        for field in default_statics:
-            _warn_static(neutral, field, debug)
-        logger.info(f"✅ Final Azure prices for {neutral}: {default_statics}")
-        print("")
-        return copy.deepcopy(default_statics)
-    service_names = spec.get("serviceName")
-    rows = _iter_with_region_fallback(region, service_names, debug)
+    
+    # 1. Get Service Name from Mapping
+    mapping = SERVICE_MAPPING.get(neutral, {})
+    azure_service_name = mapping.get("azure")
+
+    # 2. Prepare Defaults
+    defaults = copy.deepcopy(STATIC_DEFAULTS_AZURE.get(neutral, {}))
+    
+    if not azure_service_name:
+        logger.warning(f"⚠️ No Azure service mapping for {neutral}")
+        # Return empty so _get_or_warn can handle defaults and logging
+        return {} 
+
+    # 3. Fetch Rows
+    region = AZURE_REGION_NAMES.get(region_code.lower(), region_code.lower())
+    # Handle case where service name might be a list (e.g. storage) or single string
+    service_names = [azure_service_name] if isinstance(azure_service_name, str) else azure_service_name
+    
+    # Special handling for storage types that map to multiple Azure services in our config
+    # (Though the map above handles most of this, we keep this for safety if logic changes)
+    if neutral in ["storage_cool", "storage_archive"] and not isinstance(service_names, list):
+         service_names = ["Blob Storage", "Storage"] 
+
+    rows = _fetch_rows_with_fallback(region, service_names, debug)
+    
     if not rows:
-        logger.info(f"✅ Final Azure prices for {neutral}: {default_statics}")
-        print("")
-        return copy.deepcopy(default_statics)
-    # Determine which fetcher to use
+        # Return empty so _get_or_warn can handle defaults and logging
+        fetched = {}
+
+    # 4. Dispatch to Fetcher
     if neutral == "iot":
-        result = _fetch_iot(rows, neutral, debug)
-    elif neutral == "functions":
-        result = _fetch_generic_meter_service(rows, neutral, debug)
-        for k, v in default_statics.items():
-            if k not in result:
-                _warn_static(neutral, k, debug)
-                result[k] = v
-    elif neutral == "storage_hot":
-        result = _fetch_cosmos_db(rows, neutral, debug)
-        result = {**default_statics, **result}
-    elif neutral in ["storage_cool", "storage_archive"]:
-        result = _fetch_blob_storage(rows, neutral, debug)
-        result = {**default_statics, **result}
+        fetched = _fetch_iot_hub(rows, neutral, debug)
     else:
-        result = _fetch_generic_meter_service(rows, neutral, debug)
-        # Merge defaults without overriding fetched values
-        result = {**default_statics, **result}
-    logger.info(f"✅ Final Azure prices for {neutral}: {result}")
+        fetched = _fetch_standard(rows, neutral, debug)
+
+    # 5. Return Fetched Only
+    # We do NOT merge with defaults here. This allows the caller (calculate_up_to_date_pricing)
+    # to detect missing values and use _get_or_warn to log "Using static value" or "Using fallback".
+    
+    logger.info(f"✅ Final Azure prices for {neutral}: {fetched}")
     print("")
-    return result
+    return fetched

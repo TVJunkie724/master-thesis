@@ -49,7 +49,11 @@
       "egressPrice": 0.12
     },
     "pubSub": {
-      "pricePerMessage": 0.0005 // Converted to 1M basis
+      "pricePerGiB": 0.04 // Fetched (Throughput)
+    },
+    "eventBus": {
+      "pricePerGiB": 0.04, // Same as Pub/Sub
+      "pricePerMessage": 0.00004
     },
     "cloudFunctions": {
       "invocationPrice": 0.40,
@@ -132,9 +136,9 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="mono">pricePerMessage</td>
+                                <td class="mono">pricePerGiB</td>
                                 <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Per million messages (approx. based on data volume).</td>
+                                <td>Throughput cost per GiB (e.g., $40/TiB ≈ $0.04/GiB).</td>
                             </tr>
                         </tbody>
                     </table>
@@ -344,6 +348,31 @@
                         </tbody>
                     </table>
 
+                </div>
+            </div>
+
+            <!-- Calculated Fields -->
+            <div class="card mb-4" id="calculated">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-calculator me-2"></i>Calculated Fields</h2>
+                    <p>These values are derived in <span class="mono">apply_google_derived_fields()</span> after
+                        fetching.</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Formula</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">pubSub.pricePerMessage</td>
+                                <td><code>pricePerGiB * (avgMessageSize / 1024²)</code></td>
+                                <td>Converts throughput cost to per-message cost.</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

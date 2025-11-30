@@ -21,8 +21,7 @@ def calculate_up_to_date_pricing(additional_debug = False):
 
     output = {}
     
-    service_mapping = config_loader.load_json_file(CONSTANTS.SERVICE_MAPPING_FILE_PATH)
-
+    service_mapping = config_loader.load_service_mapping()
     
     if "aws" in credentials:
         print("")
@@ -30,7 +29,7 @@ def calculate_up_to_date_pricing(additional_debug = False):
         logger.info("Fetching AWS pricing...")
         logger.info("========================================================")
         aws_credentials = credentials.get("aws", {})
-        output["aws"] = fetch_aws_data(aws_credentials, service_mapping, providers_config.get("aws", {}), additional_debug)
+        output["aws"] = fetch_aws_data(aws_credentials, service_mapping, additional_debug)
 
     if "azure" in credentials:
         print("")
@@ -38,7 +37,7 @@ def calculate_up_to_date_pricing(additional_debug = False):
         logger.info("Fetching Azure pricing...")
         logger.info("========================================================")
         azure_credentials = credentials.get("azure", {})
-        output["azure"] = fetch_azure_data(azure_credentials, service_mapping, providers_config.get("azure", {}), additional_debug)
+        output["azure"] = fetch_azure_data(azure_credentials, service_mapping, additional_debug)
 
     if "gcp" in credentials:
         print("")
@@ -46,7 +45,7 @@ def calculate_up_to_date_pricing(additional_debug = False):
         logger.info("Fetching GCP pricing...")
         logger.info("========================================================")
         google_credentials = credentials.get("gcp", {})
-        output["gcp"] = fetch_google_data(google_credentials, service_mapping, providers_config.get("gcp", {}), additional_debug)
+        # output["gcp"] = fetch_google_data(google_credentials, service_mapping, additional_debug)
 
     Path(CONSTANTS.DYNAMIC_PRICING_FILE_PATH).write_text(json.dumps(output, indent=2))
     print("")
@@ -144,7 +143,7 @@ def _get_or_warn(provider_name, neutral_service, provider_service, key, fetched_
 # ============================================================
 # AWS FETCHING AND SCHEMA BUILD
 # ============================================================
-def fetch_aws_data(aws_credentials: dict, service_mapping: dict, aws_services_config: dict, additional_debug=False) -> dict:
+def fetch_aws_data(aws_credentials: dict, service_mapping: dict, additional_debug=False) -> dict:
     """
     Fetches all AWS service pricing using fetch_aws_price()
     and builds the canonical AWS pricing.json structure.
@@ -162,10 +161,20 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, aws_services_co
 
     fetched = {}
     
-    for neutral_service in aws_services_config.keys():
+    # Fetch AWS services
+    for neutral_service, service_codes_per_provider in service_mapping.items():
         try:
+            service_code = service_codes_per_provider.get("aws", "")
+
+            if not service_code:
+                logger.warning(f"⚠️ Service {neutral_service} has no AWS code, skipping")
+                raise ValueError(f"Service {neutral_service} has no AWS code")
+
             logger.info(f"--- Service: {neutral_service} ---")
-            fetched[neutral_service] = fetch_aws_price(neutral_service, region, client_credentials, additional_debug)
+            fetched[neutral_service] = fetch_aws_price(neutral_service, service_code, region, client_credentials, additional_debug)
+        except ValueError as e:
+            logger.error(e)
+            raise
         except Exception as e:
             logger.debug(traceback.format_exc())
             logger.error(f"⚠️ Failed to fetch AWS service {neutral_service}: {e}")
@@ -254,6 +263,25 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, aws_services_co
         "viewerPrice": _get_or_warn("AWS", neutral_service, provider_service, "viewerPrice", gf, 5.0, STATIC_DEFAULTS),
     }
 
+    neutral_service, provider_service = "orchestration", "stepFunctions"
+    sf = fetched.get(neutral_service, {})
+    aws[provider_service] = {
+        "pricePer1kStateTransitions": _get_or_warn("AWS", neutral_service, provider_service, "pricePer1kStateTransitions", sf, 0.025, STATIC_DEFAULTS),
+    }
+
+    neutral_service, provider_service = "event_bus", "eventBridge"
+    eb = fetched.get(neutral_service, {})
+    aws[provider_service] = {
+        "pricePerMillionEvents": _get_or_warn("AWS", neutral_service, provider_service, "pricePerMillionEvents", eb, 1.00, STATIC_DEFAULTS),
+    }
+
+    neutral_service, provider_service = "data_access", "apiGateway"
+    ag = fetched.get(neutral_service, {})
+    aws[provider_service] = {
+        "pricePerMillionCalls": _get_or_warn("AWS", neutral_service, provider_service, "pricePerMillionCalls", ag, 3.50, STATIC_DEFAULTS),
+        "dataTransferOutPrice": _get_or_warn("AWS", neutral_service, provider_service, "dataTransferOutPrice", ag, 0.09, STATIC_DEFAULTS),
+    }
+
     logger.info("✅ AWS pricing schema built successfully.")
     return aws
 
@@ -262,7 +290,7 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, aws_services_co
 # ============================================================
 # FETCHING AZURE DATA AND SCHEMA BUILD
 # ============================================================
-def fetch_azure_data(azure_credentials: dict, service_mapping: dict, azure_services_config: dict, additional_debug=False) -> dict:
+def fetch_azure_data(azure_credentials: dict, service_mapping: dict, additional_debug=False) -> dict:
     """
     Fetches Azure pricing using fetch_azure_price() and builds the canonical structure.
     """
@@ -271,14 +299,23 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, azure_servi
     
     fetched = {}
 
-    for neutral_service_name in azure_services_config.keys():
+    for neutral_service, service_codes_per_provider in service_mapping.items():
         try:
-            logger.info(f"--- Azure Service: {neutral_service_name} ---")
-            fetched[neutral_service_name] = fetch_azure_price(neutral_service_name, region, additional_debug)
+            service_code = service_codes_per_provider.get("azure", "")
+
+            if not service_code:
+                logger.warning(f"⚠️ Service {neutral_service} has no Azure code, skipping")
+                raise ValueError(f"Service {neutral_service} has no Azure code")
+
+            logger.info(f"--- Azure Service: {neutral_service} ---")
+            fetched[neutral_service] = fetch_azure_price(neutral_service, region, additional_debug)
+        except ValueError as e:
+            logger.error(e)
+            raise
         except Exception as e:
             logger.debug(traceback.format_exc())
-            logger.error(f"⚠️ Failed to fetch Azure service {neutral_service_name}: {e}")
-            fetched[neutral_service_name] = {}
+            logger.error(f"⚠️ Failed to fetch Azure service {neutral_service}: {e}")
+            fetched[neutral_service] = {}
         
     
     logger.info(f"🚀 Building Azure structure (region: {region})")
@@ -367,6 +404,27 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, azure_servi
         "hourlyPrice": _get_or_warn("Azure", neutral_service, provider_service, "hourlyPrice", gf, 0.069, STATIC_DEFAULTS_AZURE),
     }
 
+    # Logic Apps (orchestration)
+    neutral_service, provider_service = "orchestration", "logicApps"
+    la = fetched.get(neutral_service, {})
+    azure[provider_service] = {
+        "pricePer1kStateTransitions": _get_or_warn("Azure", neutral_service, provider_service, "pricePer1kStateTransitions", la, 0.025, STATIC_DEFAULTS_AZURE),
+    }
+
+    # Event Grid (event_bus)
+    neutral_service, provider_service = "event_bus", "eventGrid"
+    eg = fetched.get(neutral_service, {})
+    azure[provider_service] = {
+        "pricePerMillionEvents": _get_or_warn("Azure", neutral_service, provider_service, "pricePerMillionEvents", eg, 0.60, STATIC_DEFAULTS_AZURE),
+    }
+
+    # API Management (data_access)
+    neutral_service, provider_service = "data_access", "apiManagement"
+    am = fetched.get(neutral_service, {})
+    azure[provider_service] = {
+        "pricePerMillionCalls": _get_or_warn("Azure", neutral_service, provider_service, "pricePerMillionCalls", am, 3.50, STATIC_DEFAULTS_AZURE),
+    }
+
     logger.info("✅ Azure pricing schema built successfully.")
     return azure
 
@@ -385,6 +443,25 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, google_se
     fetched = {} 
     # Since fetching is not implemented, fetched is empty.
     # We rely on _get_or_warn to use defaults from STATIC_DEFAULTS_GCP.
+
+
+    for neutral_service, service_codes_per_provider in service_mapping.items():
+        try:
+            service_code = service_codes_per_provider.get("gcp", "")
+
+            if not service_code:
+                logger.warning(f"⚠️ Service {neutral_service} has no GCP code, skipping")
+                raise ValueError(f"Service {neutral_service} has no GCP code")
+
+            logger.info(f"--- GCP Service: {neutral_service} ---")
+            # fetched[neutral_service] = fetch_google_price(neutral_service, region, additional_debug)
+        except ValueError as e:
+            logger.error(e)
+            raise
+        except Exception as e:
+            logger.debug(traceback.format_exc())
+            logger.error(f"⚠️ Failed to fetch GCP service {neutral_service}: {e}")
+            fetched[neutral_service] = {}
 
     gcp = {}
     
@@ -458,3 +535,9 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, google_se
 
     logger.info("✅ GCP pricing schema built successfully (using defaults).")
     return gcp
+
+
+if __name__ == "__main__":
+    import sys
+    additional_debug = "additional_debug=true" in sys.argv
+    calculate_up_to_date_pricing(additional_debug=additional_debug)
