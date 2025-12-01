@@ -1,20 +1,37 @@
 import json
 from google.cloud import billing_v1
+import json
+from google.cloud import billing_v1
 from backend.logger import logger
 import backend.utils as utils
 import backend.config_loader as config_loader
 from backend.constants import GCP_REGIONS_FILE_PATH
+from typing import Dict
 
 
-def fetch_region_map():
+def fetch_region_map(force_update: bool = False) -> Dict[str, str]:
     """
     Fetch all GCP regions from the Cloud Billing Catalog API and save to gcp_regions.json.
+    
+    Args:
+        force_update (bool): If True, forces a fresh API fetch. 
+                             If False, attempts to load from local file.
+                             
+    Returns:
+        Dict[str, str]: Map of region codes.
+        
+    Raises:
+        FileNotFoundError: If force_update is False and the local file is missing.
     """
-    # Check if we have a fresh local file
-    if utils.is_file_fresh(GCP_REGIONS_FILE_PATH, max_age_days=30):
-        logger.info(f"✅ Using cached GCP regions from {GCP_REGIONS_FILE_PATH}")
-        return config_loader.load_json_file(GCP_REGIONS_FILE_PATH)
+    # 1. Try loading from file if not forced
+    if not force_update:
+        if utils.file_exists(GCP_REGIONS_FILE_PATH):
+            logger.info(f"✅ Loading GCP regions from {GCP_REGIONS_FILE_PATH}")
+            return config_loader.load_json_file(GCP_REGIONS_FILE_PATH)
+        else:
+            raise FileNotFoundError(f"GCP regions file not found at {GCP_REGIONS_FILE_PATH}. Call with force_update=True to fetch.")
 
+    # 2. Fetch from API
     logger.info("---------------------------------------------------")
     logger.info("Fetching GCP regions from Cloud Billing Catalog API")
     
@@ -43,10 +60,4 @@ def fetch_region_map():
         return regions_dict
     except Exception as e:
         logger.error(f"Failed to fetch GCP regions: {e}")
-        if not utils.file_exists(GCP_REGIONS_FILE_PATH):
-            logger.error("No local GCP regions file found. Cannot proceed.")
-            raise e
-        logger.warning("Loading GCP regions from local file as fallback.")
-        regions = config_loader.load_json_file(GCP_REGIONS_FILE_PATH)
-        regions_sorted = dict(sorted(regions.items()))
-        return regions_sorted
+        raise e

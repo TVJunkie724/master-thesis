@@ -6,7 +6,7 @@ import requests
 
 from backend.logger import logger
 import backend.config_loader as config_loader
-from backend.fetch_data import initial_fetch_azure
+# from backend.fetch_data import initial_fetch_azure # No longer needed for global load
 
 # -----------------------------------------------------------------------------
 # CONFIGURATION & CONSTANTS
@@ -15,9 +15,9 @@ from backend.fetch_data import initial_fetch_azure
 RETAIL_API_BASE = "https://prices.azure.com/api/retail/prices"
 HTTP_TIMEOUT = 12
 
-# Load region map and service mapping
-AZURE_REGION_NAMES = initial_fetch_azure.fetch_region_map()
-SERVICE_MAPPING = config_loader.load_service_mapping()
+# Global loading removed. Passed as arguments now.
+# AZURE_REGION_NAMES = ...
+# SERVICE_MAPPING = ...
 
 REGION_FALLBACK = {
     "westeurope": ["northeurope", "francecentral", "italynorth", "germanywestcentral"],
@@ -355,14 +355,14 @@ def _fetch_standard(rows: List[Dict[str, Any]], neutral: str, debug: bool) -> Di
 # MAIN ENTRY POINT
 # -----------------------------------------------------------------------------
 
-def fetch_azure_price(service_name: str, region_code: str, debug: bool=False) -> Dict[str, Any]:
+def fetch_azure_price(service_name: str, region_code: str, region_map: Dict[str, str], service_mapping: Dict[str, Any], debug: bool=False) -> Dict[str, Any]:
     """
     Fetch Azure pricing for a given service.
     """
     neutral = service_name.lower()
     
-    # 1. Get Service Name from Mapping
-    mapping = SERVICE_MAPPING.get(neutral, {})
+    # 1. Get Service Name from Mapping (passed as argument)
+    mapping = service_mapping.get(neutral, {})
     azure_service_name = mapping.get("azure")
 
     # 2. Prepare Defaults
@@ -373,7 +373,9 @@ def fetch_azure_price(service_name: str, region_code: str, debug: bool=False) ->
         return {} 
 
     # 3. Fetch Rows
-    region = AZURE_REGION_NAMES.get(region_code.lower(), region_code.lower())
+    # Use region_map passed as argument
+    region = region_map.get(region_code.lower(), region_code.lower())
+    
     # Handle case where service name might be a list (e.g. storage) or single string
     service_names = [azure_service_name] if isinstance(azure_service_name, str) else azure_service_name
     
@@ -385,18 +387,19 @@ def fetch_azure_price(service_name: str, region_code: str, debug: bool=False) ->
     
     if not rows:
         fetched = {}
-
-    # 4. Dispatch to Fetcher
-    if neutral == "iot":
-        fetched = _fetch_iot_hub(rows, neutral, debug)
     else:
-        fetched = _fetch_standard(rows, neutral, debug)
+        # 4. Dispatch to Fetcher
+        if neutral == "iot":
+            fetched = _fetch_iot_hub(rows, neutral, debug)
+        else:
+            fetched = _fetch_standard(rows, neutral, debug)
 
     # 5. Apply Defaults if values could not be fetched and log the use of defaults
     for key, value in defaults.items():
         if key not in fetched:
             # fetched[key] = value
             logger.info(f"    ℹ️ Using static value for Azure.{neutral}.{key}")
+            fetched[key] = value
 
     logger.info(f"✅ Final Azure prices for {neutral}: {fetched}")
     print("")

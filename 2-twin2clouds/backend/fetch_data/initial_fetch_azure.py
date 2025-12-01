@@ -9,15 +9,29 @@ import backend.constants as CONSTANTS
 # ---------------------------------------------------------------
 # 1. Fetch all Azure regions
 # ---------------------------------------------------------------
-def fetch_region_map() -> Dict[str, str]:
+def fetch_region_map(force_update: bool = False) -> Dict[str, str]:
     """
     Fetch all unique Azure region codes (armRegionName) and their display names (armRegionNameDisplay).
+    
+    Args:
+        force_update (bool): If True, forces a fresh API fetch. 
+                             If False, attempts to load from local file.
+                             
+    Returns:
+        Dict[str, str]: Map of region codes to display names.
+        
+    Raises:
+        FileNotFoundError: If force_update is False and the local file is missing.
     """
-    # Check if we have a fresh local file
-    if utils.is_file_fresh(CONSTANTS.AZURE_REGIONS_FILE_PATH, max_age_days=7):
-        logger.info(f"✅ Using cached Azure regions from {CONSTANTS.AZURE_REGIONS_FILE_PATH}")
-        return config_loader.load_json_file(CONSTANTS.AZURE_REGIONS_FILE_PATH)
+    # 1. Try loading from file if not forced
+    if not force_update:
+        if utils.file_exists(CONSTANTS.AZURE_REGIONS_FILE_PATH):
+            logger.info(f"✅ Loading Azure regions from {CONSTANTS.AZURE_REGIONS_FILE_PATH}")
+            return config_loader.load_json_file(CONSTANTS.AZURE_REGIONS_FILE_PATH)
+        else:
+            raise FileNotFoundError(f"Azure regions file not found at {CONSTANTS.AZURE_REGIONS_FILE_PATH}. Call with force_update=True to fetch.")
 
+    # 2. Fetch from API
     logger.info("---------------------------------------------------")
     logger.info("Fetching Azure regions from Retail Prices API")
     try:
@@ -42,11 +56,5 @@ def fetch_region_map() -> Dict[str, str]:
         return regions_sorted
     except Exception as e:
         logger.error(f"Failed to fetch Azure regions: {e}")
-        if not utils.file_exists(CONSTANTS.AZURE_REGIONS_FILE_PATH):
-            logger.error("No local Azure regions file found. Cannot proceed.")
-            raise e
-        logger.warning("Loading Azure regions from local file as fallback.")
-        regions = config_loader.load_json_file(CONSTANTS.AZURE_REGIONS_FILE_PATH)
-        regions_sorted = dict(sorted(regions.items()))  
-        return regions_sorted
+        raise e
         

@@ -6,15 +6,11 @@ import backend.constants as CONSTANTS
 from backend.logger import logger
 from backend.fetch_data.cloud_price_fetcher_aws import fetch_aws_price, STATIC_DEFAULTS
 from backend.fetch_data.cloud_price_fetcher_azure import fetch_azure_price, STATIC_DEFAULTS_AZURE
-# Future:
 from backend.fetch_data.cloud_price_fetcher_google import fetch_google_price, STATIC_DEFAULTS_GCP
 from google.cloud import billing_v1
 from backend.config_loader import load_gcp_credentials
 
 
-# ============================================================
-# ENTRYPOINT
-# ============================================================
 # ============================================================
 # ENTRYPOINT
 # ============================================================
@@ -41,8 +37,16 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
             logger.info("========================================================")
             logger.info("Fetching AWS pricing...")
             logger.info("========================================================")
+            
+            # Load Region Map
+            try:
+                region_map = config_loader.load_json_file(CONSTANTS.AWS_REGIONS_FILE_PATH)
+            except Exception as e:
+                logger.error(f"Failed to load AWS region map: {e}. Need to fetch regions first.")
+                raise e
+
             aws_credentials = credentials.get("aws", {})
-            output_data = fetch_aws_data(aws_credentials, service_mapping, additional_debug)
+            output_data = fetch_aws_data(aws_credentials, service_mapping, region_map, additional_debug)
             target_file_path = CONSTANTS.AWS_PRICING_FILE_PATH
         else:
             logger.warning("AWS credentials missing, skipping fetch.")
@@ -53,8 +57,16 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
             logger.info("========================================================")
             logger.info("Fetching Azure pricing...")
             logger.info("========================================================")
+            
+            # Load Region Map
+            try:
+                region_map = config_loader.load_json_file(CONSTANTS.AZURE_REGIONS_FILE_PATH)
+            except Exception as e:
+                logger.error(f"Failed to load Azure region map: {e}. Need to fetch regions first.")
+                raise e
+                
             azure_credentials = credentials.get("azure", {})
-            output_data = fetch_azure_data(azure_credentials, service_mapping, additional_debug)
+            output_data = fetch_azure_data(azure_credentials, service_mapping, region_map, additional_debug)
             target_file_path = CONSTANTS.AZURE_PRICING_FILE_PATH
         else:
             logger.warning("Azure credentials missing, skipping fetch.")
@@ -65,8 +77,16 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
             logger.info("========================================================")
             logger.info("Fetching GCP pricing...")
             logger.info("========================================================")
+            
+            # Load Region Map
+            try:
+                region_map = config_loader.load_json_file(CONSTANTS.GCP_REGIONS_FILE_PATH)
+            except Exception as e:
+                logger.error(f"Failed to load GCP region map: {e}. Need to fetch regions first.")
+                raise e
+
             google_credentials = credentials.get("gcp", {})
-            output_data = fetch_google_data(google_credentials, service_mapping, additional_debug)
+            output_data = fetch_google_data(google_credentials, service_mapping, region_map, additional_debug)
             target_file_path = CONSTANTS.GCP_PRICING_FILE_PATH
         else:
             logger.warning("GCP credentials missing, skipping fetch.")
@@ -109,7 +129,7 @@ def _get_or_warn(provider_name, neutral_service, provider_service, key, fetched_
 # ============================================================
 # AWS FETCHING AND SCHEMA BUILD
 # ============================================================
-def fetch_aws_data(aws_credentials: dict, service_mapping: dict, additional_debug=False) -> dict:
+def fetch_aws_data(aws_credentials: dict, service_mapping: dict, region_map: dict, additional_debug=False) -> dict:
     """
     Fetches all AWS service pricing using fetch_aws_price()
     and builds the canonical AWS pricing.json structure.
@@ -137,7 +157,8 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, additional_debu
                 continue
 
             logger.info(f"--- Service: {neutral_service} ---")
-            fetched[neutral_service] = fetch_aws_price(neutral_service, service_code, region, client_credentials, additional_debug)
+            # Pass region_map here
+            fetched[neutral_service] = fetch_aws_price(neutral_service, service_code, region, region_map, client_credentials, additional_debug)
         except ValueError as e:
             logger.error(e)
             raise
@@ -256,7 +277,7 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, additional_debu
 # ============================================================
 # FETCHING AZURE DATA AND SCHEMA BUILD
 # ============================================================
-def fetch_azure_data(azure_credentials: dict, service_mapping: dict, additional_debug=False) -> dict:
+def fetch_azure_data(azure_credentials: dict, service_mapping: dict, region_map: dict, additional_debug=False) -> dict:
     """
     Fetches Azure pricing using fetch_azure_price() and builds the canonical structure.
     """
@@ -274,7 +295,8 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, additional_
                 continue
 
             logger.info(f"--- Azure Service: {neutral_service} ---")
-            fetched[neutral_service] = fetch_azure_price(neutral_service, region, additional_debug)
+            # Pass region_map and service_mapping here
+            fetched[neutral_service] = fetch_azure_price(neutral_service, region, region_map, service_mapping, additional_debug)
         except ValueError as e:
             logger.error(e)
             raise
@@ -398,7 +420,7 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, additional_
 # ============================================================
 # GOOGLE CLOUD DATA AND SCHEMA BUILD
 # ============================================================
-def fetch_google_data(google_credentials: dict, service_mapping: dict, additional_debug=False) -> dict:
+def fetch_google_data(google_credentials: dict, service_mapping: dict, region_map: dict, additional_debug=False) -> dict:
     """
     Fetches Google Cloud pricing using fetch_google_price() and builds the canonical structure.
     """
@@ -426,7 +448,8 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, additiona
 
             logger.info(f"--- GCP Service: {neutral_service} ---")
             if client:
-                fetched[neutral_service] = fetch_google_price(client, neutral_service, region, additional_debug)
+                # Pass region_map here
+                fetched[neutral_service] = fetch_google_price(client, neutral_service, region, region_map, additional_debug)
             else:
                 fetched[neutral_service] = {}
         except ValueError as e:
@@ -530,25 +553,6 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, additiona
         "viewerPrice": 0
     }
     
-    # neutral_service, provider_service = "computeEngine", "computeEngine"
-    # # Reuse fetched data from twinmaker if available, as it maps to the same GCP service (Compute Engine)
-    # # This avoids an empty fetch since 'computeEngine' is not in service_mapping.
-    # ce = fetched.get("twinmaker", {})
-    # if not ce:
-    #     ce = fetched.get("grafana", {})
-    
-    # e2_core_price_ce = ce.get("e2CorePrice", 0.0)
-    # e2_ram_price_ce = ce.get("e2RamPrice", 0.0)
-    # e2_medium_price_ce = (2 * e2_core_price_ce) + (4 * e2_ram_price_ce)
-
-    # if e2_medium_price_ce == 0:
-    #     e2_medium_price_ce = STATIC_DEFAULTS_GCP["computeEngine"]["e2MediumPrice"]
-
-    # gcp[provider_service] = {
-    #     "e2MediumPrice": e2_medium_price_ce,
-    #     "storagePrice": _get_or_warn("GCP", neutral_service, provider_service, "storagePrice", ce, 0.04, STATIC_DEFAULTS_GCP)
-    # }
-
     neutral_service, provider_service = "data_access", "apiGateway"
     da = fetched.get(neutral_service, {})
     # For dataTransferOutPrice, we reuse the transfer service's egress price which is standard internet egress

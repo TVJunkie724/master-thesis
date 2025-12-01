@@ -4,19 +4,15 @@ from typing import Dict, Any, Optional, List
 from google.cloud import billing_v1
 from backend.logger import logger
 import backend.constants as CONSTANTS
-from backend.config_loader import load_service_mapping
-from backend.fetch_data import initial_fetch_google
+# from backend.config_loader import load_service_mapping # Not used
+# from backend.fetch_data import initial_fetch_google # No longer needed
 
 # -------------------------------------------------------------------
 # Region mapping + defaults
 # -------------------------------------------------------------------
-def _load_gcp_regions() -> Dict[str, str]:
-    """
-    Load GCP regions using the shared initial fetch logic (with caching).
-    """
-    return initial_fetch_google.fetch_region_map()
 
-GCP_REGION_NAMES = _load_gcp_regions()
+# Global loading removed. Passed as arguments now.
+# GCP_REGION_NAMES = ...
 
 STATIC_DEFAULTS_GCP = {
     "transfer": {"egressPrice": 0.12},
@@ -256,11 +252,11 @@ def _normalize_price(price: float, unit_text: str) -> float:
 # -------------------------------------------------------------------
 # Main Fetcher
 # -------------------------------------------------------------------
-def fetch_google_price(client: billing_v1.CloudCatalogClient, service_name: str, region_code: str, debug: bool = False) -> Dict[str, Any]:
+def fetch_google_price(client: billing_v1.CloudCatalogClient, service_name: str, region_code: str, region_map: Dict[str, str], debug: bool = False) -> Dict[str, Any]:
     """
     Fetch pricing for a specific GCP service in a given region.
     """
-    region_human = GCP_REGION_NAMES.get(region_code, region_code)
+    region_human = region_map.get(region_code, region_code)
     
     logger.info(f"🔍 Fetching GCP {service_name} pricing for {region_human}...")
 

@@ -7,17 +7,15 @@ from typing import Dict, Any, Optional, List, Callable
 from backend.logger import logger
 import backend.constants as CONSTANTS
 import backend.config_loader as config_loader
-from backend.fetch_data import initial_fetch_aws
+# from backend.fetch_data import initial_fetch_aws # No longer needed for global load
 
 # --------------------------------------------------------------------
 # Constants & Configuration
 # --------------------------------------------------------------------
 
-# Load region map once at module level
-AWS_REGION_NAMES = initial_fetch_aws.fetch_region_map()
-
-# Load service mapping once at module level
-SERVICE_MAPPING = config_loader.load_service_mapping()
+# Global loading removed. Passed as arguments now.
+# AWS_REGION_NAMES = ...
+# SERVICE_MAPPING = ...
 
 STATIC_DEFAULTS = {
     "iot": {"pricePerDeviceAndMonth": 0.0035},
@@ -301,7 +299,7 @@ SPECIALIZED_FETCHERS: Dict[str, Callable] = {
 # Main Fetcher
 # -------------------------------------------------------------------
 
-def fetch_aws_price(service_name: str, service_code: str, region_code: str, aws_credentials: Optional[Dict] = None, debug: bool = False) -> Dict[str, Any]:
+def fetch_aws_price(service_name: str, service_code: str, region_code: str, region_map: Dict[str, str], aws_credentials: Optional[Dict] = None, debug: bool = False) -> Dict[str, Any]:
     """
     Fetch pricing for a specific AWS service in a given region.
     
@@ -309,13 +307,14 @@ def fetch_aws_price(service_name: str, service_code: str, region_code: str, aws_
         service_name: Neutral service name (e.g., 'storage_hot').
         service_code: AWS Service Code (e.g., 'AmazonDynamoDB').
         region_code: AWS Region Code (e.g., 'eu-central-1').
+        region_map: Mapping of region codes to human-readable names.
         aws_credentials: Optional dictionary of AWS credentials.
         debug: Boolean to enable debug logging.
         
     Returns:
         Dictionary of fetched prices.
     """
-    region_human = AWS_REGION_NAMES.get(region_code)
+    region_human = region_map.get(region_code)
     if not region_human:
         logger.warning(f"⚠️ Unknown AWS region code: {region_code}")
         return {}

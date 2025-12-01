@@ -1,4 +1,5 @@
 requests
+httpx
 pytest
 fastapi
 uvicorn

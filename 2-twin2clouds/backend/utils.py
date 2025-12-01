@@ -51,3 +51,28 @@ def is_file_fresh(file_path: str, max_age_days: int = 7) -> bool:
     except Exception as e:
         logger.warning(f"Error checking file freshness for {file_path}: {e}")
         return False
+
+def get_file_age_string(file_path: str) -> str:
+    """
+    Get a human-readable string representing the age of a file.
+    Returns "N days" or "N hours" (if < 1 day).
+    Returns "File not found" if the file doesn't exist.
+    """
+    if not os.path.isfile(file_path):
+        return "File not found"
+        
+    try:
+        import time
+        file_mod_time = os.path.getmtime(file_path)
+        current_time = time.time()
+        age_seconds = current_time - file_mod_time
+        
+        days = age_seconds / (24 * 3600)
+        if days >= 1:
+            return f"{days:.0f} days"
+        else:
+            hours = age_seconds / 3600
+            return f"{hours:.0f} hours"
+    except Exception as e:
+        logger.warning(f"Error checking file age for {file_path}: {e}")
+        return "Unknown"
