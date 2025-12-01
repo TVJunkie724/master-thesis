@@ -1,80 +1,61 @@
 import pytest
 import json
 from unittest.mock import patch, MagicMock
-from backend.cloud_price_fetcher_aws import fetch_aws_price, _parse_price_dimensions
+from backend.fetch_data.cloud_price_fetcher_aws import fetch_aws_price, _extract_prices_from_api_response
 
-def test_parse_price_dimensions_basic():
-    """Test basic price dimension parsing"""
-    
-    # Mock price list response - must be JSON strings
-    price_list = [
-        json.dumps({
-            "product": {
-                "attributes": {
-                    "description": "IoT Core message pricing"
-                }
-            },
-            "terms": {
-                "OnDemand": {
-                    "term1": {
-                        "priceDimensions": {
-                            "dim1": {
-                                "pricePerUnit": {"USD": "0.000001"},
-                                "description": "Per 1 million messages"
-                            }
+# Mock data for AWS Pricing API response
+def create_mock_price_item(description, price_per_unit, unit="USD"):
+    return json.dumps({
+        "product": {
+            "attributes": {
+                "description": description
+            }
+        },
+        "terms": {
+            "OnDemand": {
+                "term1": {
+                    "priceDimensions": {
+                        "dim1": {
+                            "description": description,
+                            "pricePerUnit": {unit: str(price_per_unit)}
                         }
                     }
                 }
             }
-        })
-    ]
-    
-    field_map = {
-        "pricePerMessage": ["message", "per 1 million"]
-    }
-    
-    # Execute
-    result = _parse_price_dimensions(
-        price_list, 
-        field_map, 
-        include_keywords=["iot", "message"],
-        debug=False
-    )
-    
-    # Verify
-    assert "pricePerMessage" in result
-    assert result["pricePerMessage"] == 0.000001
+        }
+    })
 
-def test_parse_price_dimensions_with_exclusion():
-    """Test that exclusion keywords filter out unwanted results"""
-    
+def test_extract_prices_from_api_response_basic():
+    """Test basic price extraction"""
     price_list = [
-        json.dumps({
-            "product": {
-                "attributes": {
-                    "description": "LoRaWAN message pricing"  # Should be excluded
-                }
-            },
-            "terms": {
-                "OnDemand": {
-                    "term1": {
-                        "priceDimensions": {
-                            "dim1": {
-                                "pricePerUnit": {"USD": "0.999"},
-                                "description": "LoRaWAN messages"
-                            }
-                        }
-                    }
-                }
-            }
-        })
+        create_mock_price_item("IoT Core message pricing", 0.000001)
     ]
     
     field_map = {
         "pricePerMessage": ["message"]
     }
     
-    result = _parse_price_dimensions(
+    result = _extract_prices_from_api_response(
+        price_list, 
+        field_map, 
+        include_keywords=["iot", "message"],
+        debug=False
+    )
+    
+    assert "pricePerMessage" in result
+    assert result["pricePerMessage"] == 0.000001
+
+def test_extract_prices_from_api_response_with_exclusion():
+    """Test that exclusion keywords filter out unwanted results"""
+    price_list = [
+        create_mock_price_item("LoRaWAN message pricing", 0.999)
+    ]
+    
+    field_map = {
+        "pricePerMessage": ["message"]
+    }
+    
+    result = _extract_prices_from_api_response(
         price_list,
         field_map,
         include_keywords=["iot", "message"],
@@ -82,95 +63,71 @@ def test_parse_price_dimensions_with_exclusion():
         debug=False
     )
     
-    # Should not find a match due to exclusion
     assert "pricePerMessage" not in result
 
-@patch('backend.cloud_price_fetcher_aws.config_loader.load_aws_credentials')
-@patch('backend.cloud_price_fetcher_aws.boto3.client')
-@patch('backend.cloud_price_fetcher_aws._fetch_pricing_response')
-def test_fetch_aws_price_iot(mock_fetch_response, mock_boto_client, mock_load_creds):
+@patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
+@patch('backend.fetch_data.cloud_price_fetcher_aws._fetch_api_products')
+def test_fetch_aws_price_iot(mock_fetch_products, mock_get_client):
     """Test fetching AWS IoT Core pricing"""
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
     
-    # Mock credentials
-    mock_load_creds.return_value = {"region_name": "us-east-1"}
-    
-    # Mock pricing response - must be JSON strings
-    mock_fetch_response.return_value = [
-        json.dumps({
-            "product": {
-                "attributes": {
-                    "description": "AWS IoT Core message pricing"
-                }
-            },
-            "terms": {
-                "OnDemand": {
-                    "term1": {
-                        "priceDimensions": {
-                            "dim1": {
-                                "pricePerUnit": {"USD": "0.000001"},
-                                "description": "per 1 million messages"
-                            }
-                        }
-                    }
-                }
-            }
-        })
+    # Mock product list
+    mock_fetch_products.return_value = [
+        create_mock_price_item("AWS IoT Core message pricing", 0.000001)
     ]
     
-    # Execute
-    result = fetch_aws_price("iot", "us-east-1", debug=False)
+    region_map = {"us-east-1": "US East (N. Virginia)"}
     
-    # Verify
+    result = fetch_aws_price("iot", "AmazonIoT", "us-east-1", region_map, debug=False)
+    
     assert result is not None
-    assert "pricePerMessage" in result or "pricePerDeviceAndMonth" in result
+    assert "pricePerMessage" in result
+    assert result["pricePerMessage"] == 0.000001
 
-@patch('backend.cloud_price_fetcher_aws.config_loader.load_aws_credentials')
-@patch('backend.cloud_price_fetcher_aws.boto3.client')
-@patch('backend.cloud_price_fetcher_aws._fetch_pricing_response')
-def test_fetch_aws_price_lambda(mock_fetch_response, mock_boto_client, mock_load_creds):
+@patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
+@patch('backend.fetch_data.cloud_price_fetcher_aws._fetch_api_products')
+def test_fetch_aws_price_lambda(mock_fetch_products, mock_get_client):
     """Test fetching AWS Lambda pricing"""
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
     
-    # Mock credentials
-    mock_load_creds.return_value = {"region_name": "us-east-1"}
-    
-    mock_fetch_response.return_value = [
-        json.dumps({
-            "product": {
-                "attributes": {
-                    "description": "AWS Lambda request pricing"
-                }
-            },
-            "terms": {
-                "OnDemand": {
-                    "term1": {
-                        "priceDimensions": {
-                            "dim1": {
-                                "pricePerUnit": {"USD": "0.0000002"},
-                                "description": "per request"
-                            }
-                        }
-                    }
-                }
-            }
-        })
+    mock_fetch_products.return_value = [
+        create_mock_price_item("AWS Lambda total requests pricing", 0.0000002)
     ]
     
-    result = fetch_aws_price("functions", "us-east-1", debug=False)
+    region_map = {"us-east-1": "US East (N. Virginia)"}
+    
+    result = fetch_aws_price("functions", "AWSLambda", "us-east-1", region_map, debug=False)
     
     assert result is not None
-    # Lambda should have free tier defaults even if not fetched dynamically
+    assert "requestPrice" in result
+    # Defaults should be merged
     assert "freeRequests" in result
-    assert "freeComputeTime" in result
+    assert result["freeRequests"] == 1_000_000
 
-def test_parse_price_dimensions_empty_list():
-    """Test parsing with empty price list"""
+@patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
+def test_fetch_aws_price_client_error(mock_get_client):
+    """Test handling of client creation failure"""
+    mock_get_client.return_value = None
     
-    result = _parse_price_dimensions(
-        [],
-        {"pricePerMessage": ["message"]},
-        include_keywords=["iot"],
-        debug=False
-    )
+    region_map = {"us-east-1": "US East (N. Virginia)"}
     
-    # Should return empty dict or defaults
-    assert isinstance(result, dict)
+    result = fetch_aws_price("iot", "AmazonIoT", "us-east-1", region_map, debug=False)
+    
+    # Should return static defaults
+    assert result is not None
+    assert "pricePerDeviceAndMonth" in result
+
+@patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
+@patch('backend.fetch_data.cloud_price_fetcher_aws._fetch_api_products')
+def test_fetch_aws_price_unknown_service(mock_fetch_products, mock_get_client):
+    """Test fetching for an unknown service"""
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
+    
+    region_map = {"us-east-1": "US East (N. Virginia)"}
+    
+    result = fetch_aws_price("unknown_service", "Unknown", "us-east-1", region_map, debug=False)
+    
+    assert result == {}

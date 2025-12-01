@@ -94,8 +94,8 @@
                         <li><code><strong>logger.py</strong></code> - Logging configuration</li>
                     </ul>
 
-                    <h3 class="mt-4 mb-2"><code>pricing/</code> - Pricing Data</h3>
-                    <h4><code>pricing/fetched_data/</code></h4>
+                    <h3 class="mt-4 mb-2"><code>json/</code> - Pricing Data</h3>
+                    <h4><code>json/fetched_data/</code></h4>
                     <ul>
                         <li><code><strong>pricing_aws.json</strong></code> - Cached AWS pricing data (7-day TTL)</li>
                         <li><code><strong>pricing_azure.json</strong></code> - Cached Azure pricing data (7-day TTL)
@@ -189,7 +189,7 @@
                         <li>Parameters passed to calculation engine → <code>backend/calculation/engine.py</code>
                             <code>calculate_cheapest_costs()</code>
                         </li>
-                        <li>Pricing data loaded → <code>pricing/fetched_data/pricing_*.json</code></li>
+                        <li>Pricing data loaded → <code>json/fetched_data/pricing_*.json</code></li>
                         <li>Cost calculated for each provider:
                             <ul>
                                 <li><code>calculate_aws_costs()</code> → calls <code>backend/calculation/aws.py</code>
@@ -197,7 +197,8 @@
                                 </li>
                                 <li><code>calculate_azure_costs()</code> → calls
                                     <code>backend/calculation/azure.py</code>
-                                    formulas</li>
+                                    formulas
+                                </li>
                                 <li><code>calculate_gcp_costs()</code> → calls <code>backend/calculation/gcp.py</code>
                                     formulas
                                 </li>
@@ -214,7 +215,8 @@
                         <li>User or system triggers pricing fetch → <code>POST /api/fetch_pricing/{provider}</code></li>
                         <li>Check cache freshness → <code>backend/utils.py</code> <code>is_file_fresh()</code></li>
                         <li>If stale, fetch new pricing →
-                            <code>backend/fetch_data/calculate_up_to_date_pricing.py</code></li>
+                            <code>backend/fetch_data/calculate_up_to_date_pricing.py</code>
+                        </li>
                         <li>Fetch from specific provider:
                             <ul>
                                 <li>AWS → <code>cloud_price_fetcher_aws.py</code> (boto3 Pricing API)</li>
@@ -223,8 +225,9 @@
                             </ul>
                         </li>
                         <li>Validate schema → <code>backend/pricing_utils.py</code>
-                            <code>validate_pricing_schema()</code></li>
-                        <li>Save to cache → <code>pricing/fetched_data/pricing_{provider}.json</code></li>
+                            <code>validate_pricing_schema()</code>
+                        </li>
+                        <li>Save to cache → <code>json/fetched_data/pricing_{provider}.json</code></li>
                     </ol>
                 </div>
             </div>
@@ -261,7 +264,7 @@
                         <li><strong>1-day cache:</strong> Currency exchange rates (more volatile)</li>
                         <li>Cache validation uses file modification timestamps via <code>utils.is_file_fresh()</code>
                         </li>
-                        <li>Cache files are stored in <code>pricing/fetched_data/</code></li>
+                        <li>Cache files are stored in <code>json/fetched_data/</code></li>
                     </ul>
                 </div>
             </div>

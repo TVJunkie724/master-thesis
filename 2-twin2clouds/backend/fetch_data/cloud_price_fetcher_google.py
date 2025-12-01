@@ -27,6 +27,9 @@ STATIC_DEFAULTS_GCP = {
     "storage_cool": {
         "upfrontPrice": 0.0,
     },
+    "storage_archive": {
+        "upfrontPrice": 0.0,
+    },
     "twinmaker": {
         "entityPrice": 0.05,
         "unifiedDataAccessAPICallsPrice": 0.0000015,
@@ -252,7 +255,7 @@ def _normalize_price(price: float, unit_text: str) -> float:
 # -------------------------------------------------------------------
 # Main Fetcher
 # -------------------------------------------------------------------
-def fetch_google_price(client: billing_v1.CloudCatalogClient, service_name: str, region_code: str, region_map: Dict[str, str], debug: bool = False) -> Dict[str, Any]:
+def fetch_gcp_price(client: billing_v1.CloudCatalogClient, service_name: str, region_code: str, region_map: Dict[str, str], debug: bool = False) -> Dict[str, Any]:
     """
     Fetch pricing for a specific GCP service in a given region.
     """

@@ -6,14 +6,14 @@ import pytest
 import json
 from pathlib import Path
 from unittest.mock import patch, mock_open
-from backend.calculate_up_to_date_pricing import fetch_aws_data, fetch_azure_data
+from backend.fetch_data.calculate_up_to_date_pricing import fetch_aws_data, fetch_azure_data
 
 # Load template once for all tests
-TEMPLATE_PATH = Path("/app/pricing/pricing.json")  # Docker path
+TEMPLATE_PATH = Path("/app/json/pricing.json")  # Docker path
 with open(TEMPLATE_PATH) as f:
     TEMPLATE = json.load(f)
 
-@patch('backend.calculate_up_to_date_pricing.fetch_aws_price')
+@patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_aws_price')
 def test_aws_iot_core_schema(mock_fetch):
     """Validate AWS IoT Core output matches template structure"""
     
@@ -39,7 +39,7 @@ def test_aws_iot_core_schema(mock_fetch):
     # Check for expected structure (keys may vary but should have pricing fields)
     assert len(result_iot) > 0
 
-@patch('backend.calculate_up_to_date_pricing.fetch_aws_price')
+@patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_aws_price')
 def test_aws_lambda_schema(mock_fetch):
     """Validate AWS Lambda output matches template structure"""
     
@@ -70,7 +70,7 @@ def test_aws_lambda_schema(mock_fetch):
     assert isinstance(result_lambda.get("freeRequests"), (int, float))
     assert isinstance(result_lambda.get("freeComputeTime"), (int, float))
 
-@patch('backend.calculate_up_to_date_pricing.fetch_aws_price')
+@patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_aws_price')
 def test_aws_dynamodb_schema(mock_fetch):
     """Validate AWS DynamoDB output matches template structure"""
     
@@ -95,7 +95,7 @@ def test_aws_dynamodb_schema(mock_fetch):
     # Should have pricing fields
     assert any(key in result_ddb for key in ["writePrice", "readPrice", "storagePrice"])
 
-@patch('backend.calculate_up_to_date_pricing.fetch_aws_price')
+@patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_aws_price')
 def test_aws_s3_schema(mock_fetch):
     """Validate AWS S3 output matches template structure"""
     
@@ -118,7 +118,7 @@ def test_aws_s3_schema(mock_fetch):
     assert isinstance(result_s3, dict)
     assert any(key in result_s3 for key in ["storagePrice", "requestPrice"])
 
-@patch('backend.calculate_up_to_date_pricing.fetch_azure_price')
+@patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_azure_price')
 def test_azure_iot_hub_schema(mock_fetch):
     """Validate Azure IoT Hub output matches template structure"""
     
@@ -149,7 +149,7 @@ def test_azure_iot_hub_schema(mock_fetch):
                 # Tiers should have numeric values
                 assert any(isinstance(v, (int, float)) for v in tier_data.values())
 
-@patch('backend.calculate_up_to_date_pricing.fetch_azure_price')
+@patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_azure_price')
 def test_azure_functions_schema(mock_fetch):
     """Validate Azure Functions output matches template structure"""
     
@@ -174,7 +174,7 @@ def test_azure_functions_schema(mock_fetch):
     assert "freeRequests" in result_func
     assert "freeComputeTime" in result_func
 
-@patch('backend.calculate_up_to_date_pricing.fetch_azure_price')
+@patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_azure_price')
 def test_azure_cosmos_db_schema(mock_fetch):
     """Validate Azure Cosmos DB output matches template structure"""
     
@@ -197,7 +197,7 @@ def test_azure_cosmos_db_schema(mock_fetch):
     assert isinstance(result_cosmos, dict)
     assert any(key in result_cosmos for key in ["storagePrice", "requestPrice"])
 
-@patch('backend.calculate_up_to_date_pricing.fetch_azure_price')
+@patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_azure_price')
 def test_azure_blob_storage_schema(mock_fetch):
     """Validate Azure Blob Storage output matches template structure"""
     

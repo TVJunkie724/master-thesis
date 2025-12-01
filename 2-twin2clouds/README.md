@@ -80,9 +80,9 @@ Transfers between layers and clouds are modeled with tiered egress where applica
 - `css/styles.css` - Styling
 
 **Configuration:**
-- `pricing/fetched_data/pricing_dynamic.json` - Auto-generated dynamic pricing data
-- `pricing/service_mapping.json` - Service name mapping across providers
-- `pricing/service_calc_params.json` - Calculation parameters per service
+- `json/fetched_data/pricing_dynamic.json` - Auto-generated dynamic pricing data
+- `json/service_mapping.json` - Service name mapping across providers
+- `json/service_calc_params.json` - Calculation parameters per service
 - `config/config_credentials.json` - Cloud provider API credentials
 
 
@@ -122,7 +122,7 @@ docker exec <container> python py/calculate_up_to_date_pricing.py
 - `py/` - Python calculation engine and pricing fetchers
 - `js/` - Frontend JavaScript (API client, UI helpers)
 - `css/` - Stylesheets
-- `pricing/` - Pricing data and configuration
+- `json/` - Pricing data and configuration
 - `config/` - Credentials and configuration files
 - `docs/` - Documentation HTML pages
 

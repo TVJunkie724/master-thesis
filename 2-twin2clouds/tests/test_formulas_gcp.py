@@ -16,7 +16,7 @@ def test_gcp_iot_formula():
     pricing = {
         "gcp": {
             "iot": {
-                "pricePerMessage": 0.001 # Simplified
+                "pricePerGiB": 1.0 
             }
         }
     }
@@ -26,10 +26,13 @@ def test_gcp_iot_formula():
     
     # Verification
     # Messages = 4,380,000
-    # Cost = 4,380,000 * 0.001 = 4380
+    # Data Volume (GB) = (4,380,000 * 1) / (1024 * 1024) = 4.1771484375
+    # Cost = 4.1771484375 * 1.0 = 4.1771484375
     
+    expected_cost = (expected_messages * msg_size) / (1024 * 1024) * 1.0
+
     assert result["totalMessagesPerMonth"] == expected_messages
-    assert result["totalMonthlyCost"] == 4380.0
+    assert result["totalMonthlyCost"] == pytest.approx(expected_cost, rel=1e-5)
 
 def test_gcp_functions_formula():
     # Formula: CE

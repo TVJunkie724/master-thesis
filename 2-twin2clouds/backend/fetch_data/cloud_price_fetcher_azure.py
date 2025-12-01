@@ -6,7 +6,6 @@ import requests
 
 from backend.logger import logger
 import backend.config_loader as config_loader
-# from backend.fetch_data import initial_fetch_azure # No longer needed for global load
 
 # -----------------------------------------------------------------------------
 # CONFIGURATION & CONSTANTS
@@ -14,10 +13,6 @@ import backend.config_loader as config_loader
 
 RETAIL_API_BASE = "https://prices.azure.com/api/retail/prices"
 HTTP_TIMEOUT = 12
-
-# Global loading removed. Passed as arguments now.
-# AZURE_REGION_NAMES = ...
-# SERVICE_MAPPING = ...
 
 REGION_FALLBACK = {
     "westeurope": ["northeurope", "francecentral", "italynorth", "germanywestcentral"],
@@ -66,14 +61,14 @@ AZURE_SERVICE_KEYWORDS: Dict[str, Dict[str, Any]] = {
     "functions": {
         "meters": {
             "requestPrice": {"meter_keywords": ["Standard Total Executions"], "unit_keywords": ["1 Million", "1M", "10"]},
-            "durationPrice": {"meter_keywords": ["Always Ready Execution Time"], "unit_keywords": ["GB Second", "GiB Second", "GiB Hour"]},
+            "durationPrice": {"meter_keywords": ["Always Ready Execution Time"], "unit_keywords": ["GB Second", "GiB Second", "GiB Hour", "GB-s"]},
         },
-        "include": [], # Removed "Functions" to be more permissive
+        "include": [], 
     },
     "iot": {"tiers": {"S1": "tier1", "S2": "tier2", "S3": "tier3"}},
     "storage_hot": {
         "meters": {"storagePrice": {"meter_keywords": ["Data Stored"], "unit_keywords": ["gb/month", "1 gb/month", "100 gb/month"]}},
-        "include": [], # Removed "Cosmos DB" to be more permissive
+        "include": [], 
     },
     "storage_cool": {
         "meters": {

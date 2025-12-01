@@ -88,7 +88,10 @@ def test_find_cheapest_storage_path_branching():
 @patch('backend.calculation.engine.gcp')
 @patch('backend.calculation.engine.transfer')
 @patch('backend.calculation.engine.load_json_file')
-def test_calculate_cheapest_costs_mocked(mock_load_json, mock_transfer, mock_gcp, mock_azure, mock_aws):
+@patch('backend.calculation.engine.validate_pricing_schema')
+def test_calculate_cheapest_costs_mocked(mock_validate, mock_load_json, mock_transfer, mock_gcp, mock_azure, mock_aws):
+    # Mock validation to pass
+    mock_validate.return_value = {"status": "valid", "missing_keys": []}
     # Setup Mock Data
     mock_params = {
         "numberOfDevices": 100,
@@ -104,7 +107,7 @@ def test_calculate_cheapest_costs_mocked(mock_load_json, mock_transfer, mock_gcp
         "entityCount": 10,
         "needs3DModel": False
     }
-    mock_pricing = {"some": "data"}
+    mock_pricing = {"aws": {"enabled": True}, "azure": {"enabled": True}, "gcp": {"enabled": True}}
     mock_load_json.return_value = mock_pricing
 
     # Helper to create a standard cost result

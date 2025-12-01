@@ -6,7 +6,7 @@ import backend.constants as CONSTANTS
 from backend.logger import logger
 from backend.fetch_data.cloud_price_fetcher_aws import fetch_aws_price, STATIC_DEFAULTS
 from backend.fetch_data.cloud_price_fetcher_azure import fetch_azure_price, STATIC_DEFAULTS_AZURE
-from backend.fetch_data.cloud_price_fetcher_google import fetch_google_price, STATIC_DEFAULTS_GCP
+from backend.fetch_data.cloud_price_fetcher_google import fetch_gcp_price, STATIC_DEFAULTS_GCP
 from google.cloud import billing_v1
 from backend.config_loader import load_gcp_credentials
 
@@ -455,7 +455,7 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, region_ma
             logger.info(f"--- GCP Service: {neutral_service} ---")
             if client:
                 # Pass region_map here
-                fetched[neutral_service] = fetch_google_price(client, neutral_service, region, region_map, additional_debug)
+                fetched[neutral_service] = fetch_gcp_price(client, neutral_service, region, region_map, additional_debug)
             else:
                 fetched[neutral_service] = {}
         except ValueError as e:

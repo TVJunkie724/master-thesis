@@ -1,6 +1,6 @@
 from pathlib import Path
 
-PRICING_BASE_PATH = Path("pricing")
+PRICING_BASE_PATH = Path("json")
 
 #--------------------------------------------------------------------
 # Configuration file paths

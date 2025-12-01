@@ -2,8 +2,10 @@
 import json
 import math
 from backend.calculation import aws, azure, gcp, transfer, decision
-from backend.config_loader import load_json_file
+from backend.config_loader import load_json_file, load_combined_pricing
 import backend.constants as CONSTANTS
+from backend.pricing_utils import validate_pricing_schema
+from backend.logger import logger
 
 def calculate_aws_costs(params, pricing):
     """
@@ -357,154 +359,17 @@ def calculate_cheapest_costs(params, pricing=None):
     """
     Orchestrates the cost calculation for all providers and determines the optimal (cheapest)
     architecture path across layers.
-    
-    1. Calculates costs for AWS, Azure, and GCP independently.
-    2. Aggregates all possible transfer costs between providers and storage tiers.
-    3. Builds a graph representing storage tiers (Hot -> Cool -> Archive) and their connections.
-    4. Uses Dijkstra's algorithm (via decision.py) to find the cheapest path through storage layers.
-    5. Determines the cheapest provider for Layer 1 (Data Acquisition) and Layer 3 (Data Processing)
-       based on the selected Hot Storage provider to minimize transfer costs.
-    6. Determines the cheapest provider for Layer 4 (Twin Management) and Layer 5 (Visualization).
-    
-    Returns a comprehensive result object with the cheapest path, detailed costs, and currency info.
     """
     if pricing is None:
-        pricing = load_json_file(CONSTANTS.DYNAMIC_PRICING_FILE_PATH)
+        pricing = load_combined_pricing()
 
-    aws_costs = calculate_aws_costs(params, pricing)
-    azure_costs = calculate_azure_costs(params, pricing)
-    gcp_costs = calculate_gcp_costs(params, pricing)
-
-    transfer_costs = {
-        "L1_AWS_to_AWS_Hot": aws_costs["transferCostL2ToHotAWS"],
-        "L1_AWS_to_Azure_Hot": aws_costs["transferCostL2ToHotAzure"],
-        "L1_AWS_to_GCP_Hot": aws_costs["transferCostL2ToHotGCP"],
-        "L1_Azure_to_AWS_Hot": azure_costs["transferCostL2ToHotAWS"],
-        "L1_Azure_to_Azure_Hot": azure_costs["transferCostL2ToHotAzure"],
-        "L1_Azure_to_GCP_Hot": azure_costs["transferCostL2ToHotGCP"],
-        "L1_GCP_to_AWS_Hot": gcp_costs["transferCostL2ToHotAWS"],
-        "L1_GCP_to_Azure_Hot": gcp_costs["transferCostL2ToHotAzure"],
-        "L1_GCP_to_GCP_Hot": gcp_costs["transferCostL2ToHotGCP"],
-
-        "AWS_Hot_to_AWS_Cool": aws_costs["transferCostHotToCoolAWS"],
-        "AWS_Hot_to_Azure_Cool": aws_costs["transferCostHotToCoolAzure"],
-        "AWS_Hot_to_GCP_Cool": aws_costs["transferCostHotToCoolGCP"],
-        "Azure_Hot_to_AWS_Cool": azure_costs["transferCostHotToCoolAWS"],
-        "Azure_Hot_to_Azure_Cool": azure_costs["transferCostHotToCoolAzure"],
-        "Azure_Hot_to_GCP_Cool": azure_costs["transferCostHotToCoolGCP"],
-        "GCP_Hot_to_AWS_Cool": gcp_costs["transferCostHotToCoolAWS"],
-        "GCP_Hot_to_Azure_Cool": gcp_costs["transferCostHotToCoolAzure"],
-        "GCP_Hot_to_GCP_Cool": gcp_costs["transferCostHotToCoolGCP"],
-
-        "AWS_Cool_to_AWS_Archive": aws_costs["transferCostCoolToArchiveAWS"],
-        "AWS_Cool_to_Azure_Archive": aws_costs["transferCostCoolToArchiveAzure"],
-        "AWS_Cool_to_GCP_Archive": aws_costs["transferCostCoolToArchiveGCP"],
-        "Azure_Cool_to_AWS_Archive": azure_costs["transferCostCoolToArchiveAWS"],
-        "Azure_Cool_to_Azure_Archive": azure_costs["transferCostCoolToArchiveAzure"],
-        "Azure_Cool_to_GCP_Archive": azure_costs["transferCostCoolToArchiveGCP"],
-        "GCP_Cool_to_AWS_Archive": gcp_costs["transferCostCoolToArchiveAWS"],
-        "GCP_Cool_to_Azure_Archive": gcp_costs["transferCostCoolToArchiveAzure"],
-        "GCP_Cool_to_GCP_Archive": gcp_costs["transferCostCoolToArchiveGCP"],
-    }
-
-    graph = decision.build_graph_for_storage(
-        aws_costs["resultHot"],
-        azure_costs["resultHot"],
-        gcp_costs["resultHot"],
-        aws_costs["resultL3Cool"],
-        azure_costs["resultL3Cool"],
-        gcp_costs["resultL3Cool"],
-        aws_costs["resultL3Archive"],
-        azure_costs["resultL3Archive"],
-        gcp_costs["resultL3Archive"],
-        transfer_costs
-    )
-
-    cheapest_storage = decision.find_cheapest_storage_path(
-        graph,
-        ["AWS_Hot", "Azure_Hot", "GCP_Hot"],
-        ["AWS_Archive", "Azure_Archive", "GCP_Archive"]
-    )
-
-    aws_costs_after_layer1 = aws_costs["dataAquisition"]["totalMonthlyCost"]
-    azure_costs_after_layer1 = azure_costs["dataAquisition"]["totalMonthlyCost"]
-    gcp_costs_after_layer1 = gcp_costs["dataAquisition"]["totalMonthlyCost"]
-
-    cheaper_provider_for_layer1 = ""
-    cheaper_provider_for_layer3 = ""
-    
-    # Determine L1 and L3 based on Hot Storage start
-    # Logic: Minimize (L1 cost + Transfer to Hot)
-    # L3 is coupled to Hot Storage provider (as per original logic)
-    # The cheapest storage path determines the "backbone" of the architecture.
-    # We then select the best L1 provider that minimizes the total cost of L1 + Transfer to that Hot Storage.
-    
-    hot_storage_provider = cheapest_storage["path"][0]
-    
-    l1_options = [
-        ("L1_AWS", aws_costs_after_layer1 + transfer_costs.get(f"L1_AWS_to_{hot_storage_provider}", 0)),
-        ("L1_Azure", azure_costs_after_layer1 + transfer_costs.get(f"L1_Azure_to_{hot_storage_provider}", 0)),
-        ("L1_GCP", gcp_costs_after_layer1 + transfer_costs.get(f"L1_GCP_to_{hot_storage_provider}", 0))
-    ]
-    
-    # Sort by cost
-    l1_options.sort(key=lambda x: x[1])
-    cheaper_provider_for_layer1 = l1_options[0][0]
-    
-    if hot_storage_provider == "AWS_Hot":
-        cheaper_provider_for_layer3 = "L3_AWS"
-    elif hot_storage_provider == "Azure_Hot":
-        cheaper_provider_for_layer3 = "L3_Azure"
-    elif hot_storage_provider == "GCP_Hot":
-        cheaper_provider_for_layer3 = "L3_GCP"
-    else:
-        print("Storage Path incorrect!")
-
-    # Layer 5
-    l5_options = [
-        ("L5_AWS", aws_costs["resultL5"]["totalMonthlyCost"]),
-        ("L5_Azure", azure_costs["resultL5"]["totalMonthlyCost"]),
-        ("L5_GCP", gcp_costs["resultL5"]["totalMonthlyCost"])
-    ]
-    l5_options.sort(key=lambda x: x[1])
-    cheaper_provider_layer5 = l5_options[0][0]
-
-    cheapest_path = []
-    cheapest_path.append(cheaper_provider_for_layer1)
-    for x in cheapest_storage["path"]:
-        cheapest_path.append("L2_" + x)
-    cheapest_path.append(cheaper_provider_for_layer3)
-
-    # Layer 4
-    l4_options = []
-    if aws_costs["resultL4"]:
-        l4_options.append(("L4_AWS", aws_costs["resultL4"]["totalMonthlyCost"]))
-    if azure_costs["resultL4"]:
-        l4_options.append(("L4_Azure", azure_costs["resultL4"]["totalMonthlyCost"]))
-    if gcp_costs["resultL4"]:
-        l4_options.append(("L4_GCP", gcp_costs["resultL4"]["totalMonthlyCost"]))
-    
-    if l4_options:
-        l4_options.sort(key=lambda x: x[1])
-        cheaper_provider_layer4 = l4_options[0][0]
-    else:
-        cheaper_provider_layer4 = "L4_None"
-
-    cheapest_path.append(cheaper_provider_layer4)
-    cheapest_path.append(cheaper_provider_layer5)
-
-    calculation_result_obj = {}
-    calculation_result_obj["L1"] = cheaper_provider_for_layer1.split("_")[1]
-
-    calculation_result_l2_list = [x.split("_")[0] for x in cheapest_storage["path"]]
-    
-    calculation_result_obj["L2"] = {}
-
-
-
-def calculate_cheapest_costs(params, pricing=None):
-    if pricing is None:
-        pricing = load_json_file(CONSTANTS.DYNAMIC_PRICING_FILE_PATH)
+    # Validate pricing data
+    for provider in ["aws", "azure", "gcp"]:
+        if provider in pricing:
+            validation = validate_pricing_schema(provider, pricing[provider])
+            if validation["status"] != "valid":
+                logger.error(f"❌ Invalid pricing data for {provider}: {validation['missing_keys']}")
+                raise ValueError(f"Invalid pricing data for {provider}. Missing keys: {validation['missing_keys']}. Please fetch new pricing data.")
 
     aws_costs = calculate_aws_costs(params, pricing) if pricing.get("aws") else {}
     azure_costs = calculate_azure_costs(params, pricing) if pricing.get("azure") else {}

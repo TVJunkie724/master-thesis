@@ -113,7 +113,7 @@ class CalcParams(BaseModel):
 
 app.mount("/js", StaticFiles(directory="js"), name="js")
 app.mount("/css", StaticFiles(directory="css"), name="css")
-app.mount("/pricing", StaticFiles(directory="pricing"), name="static-pricing")
+app.mount("/json", StaticFiles(directory="json"), name="static-json")
 app.mount("/docs", StaticFiles(directory="docs"), name="docs")
 app.mount("/references", StaticFiles(directory="references"), name="references")
 
@@ -269,12 +269,12 @@ def calc(params: CalcParams = Body(
         
     
 @app.post("/api/fetch_pricing/aws", tags=["Pricing"], summary="Fetch AWS Pricing")
-def fetch_pricing_aws(additional_debug: bool = False):
+def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False):
     """
-    Fetches AWS pricing if the local file is older than 7 days.
+    Fetches AWS pricing if the local file is older than 7 days, or if force_fetch is True.
     """
     try:
-        if is_file_fresh(CONSTANTS.AWS_PRICING_FILE_PATH, max_age_days=7):
+        if not force_fetch and is_file_fresh(CONSTANTS.AWS_PRICING_FILE_PATH, max_age_days=7):
             logger.info("✅ Using cached AWS pricing data")
             return load_json_file(CONSTANTS.AWS_PRICING_FILE_PATH)
         
@@ -285,12 +285,12 @@ def fetch_pricing_aws(additional_debug: bool = False):
         return {"error": str(e)}
 
 @app.post("/api/fetch_pricing/azure", tags=["Pricing"], summary="Fetch Azure Pricing")
-def fetch_pricing_azure(additional_debug: bool = False):
+def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = False):
     """
-    Fetches Azure pricing if the local file is older than 7 days.
+    Fetches Azure pricing if the local file is older than 7 days, or if force_fetch is True.
     """
     try:
-        if is_file_fresh(CONSTANTS.AZURE_PRICING_FILE_PATH, max_age_days=7):
+        if not force_fetch and is_file_fresh(CONSTANTS.AZURE_PRICING_FILE_PATH, max_age_days=7):
             logger.info("✅ Using cached Azure pricing data")
             return load_json_file(CONSTANTS.AZURE_PRICING_FILE_PATH)
         
@@ -301,12 +301,12 @@ def fetch_pricing_azure(additional_debug: bool = False):
         return {"error": str(e)}
 
 @app.post("/api/fetch_pricing/gcp", tags=["Pricing"], summary="Fetch GCP Pricing")
-def fetch_pricing_gcp(additional_debug: bool = False):
+def fetch_pricing_gcp(additional_debug: bool = False, force_fetch: bool = False):
     """
-    Fetches GCP pricing if the local file is older than 7 days.
+    Fetches GCP pricing if the local file is older than 7 days, or if force_fetch is True.
     """
     try:
-        if is_file_fresh(CONSTANTS.GCP_PRICING_FILE_PATH, max_age_days=7):
+        if not force_fetch and is_file_fresh(CONSTANTS.GCP_PRICING_FILE_PATH, max_age_days=7):
             logger.info("✅ Using cached GCP pricing data")
             return load_json_file(CONSTANTS.GCP_PRICING_FILE_PATH)
         
