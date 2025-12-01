@@ -27,6 +27,11 @@ AWS_REGIONS_FILE_PATH = BASE_FETCHED_DATA_PATH / "aws_regions.json"
 AZURE_REGIONS_FILE_PATH = BASE_FETCHED_DATA_PATH / "azure_regions.json"
 GCP_REGIONS_FILE_PATH = BASE_FETCHED_DATA_PATH / "gcp_regions.json"
 
+AWS_PRICING_FILE_PATH = PRICING_BASE_PATH / "fetched_data" / "pricing_dynamic_aws.json"
+AZURE_PRICING_FILE_PATH = PRICING_BASE_PATH / "fetched_data" / "pricing_dynamic_azure.json"
+GCP_PRICING_FILE_PATH = PRICING_BASE_PATH / "fetched_data" / "pricing_dynamic_gcp.json"
+
+# Legacy path for backward compatibility if needed, or to be removed
 DYNAMIC_PRICING_FILE_PATH = PRICING_BASE_PATH / "pricing_dynamic.json"
 
 #--------------------------------------------------------------------

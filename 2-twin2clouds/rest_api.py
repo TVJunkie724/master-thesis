@@ -9,16 +9,13 @@ from fastapi import FastAPI, Body
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 
 from backend.logger import logger
-from backend.utils import print_stack_trace
+from backend.utils import print_stack_trace, is_file_fresh
 import backend.constants as CONSTANTS
 
-from backend.calculate_up_to_date_pricing import calculate_up_to_date_pricing
-from backend.config_loader import load_config_file, load_json_file
-
-
+from backend.fetch_data.calculate_up_to_date_pricing import calculate_up_to_date_pricing
+from backend.config_loader import load_config_file, load_json_file, load_combined_pricing
 def load_api_config():
 
     config = {}
@@ -255,7 +252,10 @@ def calc(params: CalcParams = Body(
         params_dict = params.dict()
         
         # Calculate costs using Python engine
-        result = calculate_cheapest_costs(params_dict)
+        # Calculate costs using Python engine
+        # We now load combined pricing from separate files
+        pricing_data = load_combined_pricing()
+        result = calculate_cheapest_costs(params_dict, pricing=pricing_data)
         
         return {"result": result}
     except Exception as e:
@@ -265,62 +265,52 @@ def calc(params: CalcParams = Body(
     
         
     
-@app.get(
-    "/api/fetch_up_to_date_pricing", 
-    tags=["Pricing"], 
-    summary="Fetch Up-to-Date Cloud Pricing",
-    description=(
-        "Triggers the pricing fetcher to retrieve the latest cloud service pricing from AWS, Azure, and GCP. "
-        "This endpoint fetches dynamic pricing from cloud provider APIs where available, and uses static defaults "
-        "for services that don't have accessible pricing APIs.\n\n"
-        "**Process:**\n"
-        "1. Fetches AWS pricing using boto3 Pricing API\n"
-        "2. Fetches Azure pricing using Azure Retail Prices API\n"
-        "3. Uses GCP static defaults (dynamic fetching to be implemented)\n"
-        "4. Saves results to `pricing/fetched_data/pricing_dynamic.json`\n\n"
-        "**Parameters:**\n"
-        "- `additional_debug` (optional): Enable verbose debug logging for pricing fetcher operations"
-    ),
-    response_description="The complete pricing schema for all three cloud providers",
-    responses={
-        200: {
-            "description": "Successfully fetched and saved pricing data.",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "aws": {"transfer": "...", "iot": "...", "functions": "..."},
-                        "azure": {"transfer": "...", "iotHub": "...", "functions": "..."},
-                        "gcp": {"transfer": "...", "iot": "...", "functions": "..."}
-                    }
-                }
-            }
-        },
-        500: {"description": "Error during pricing fetch operation."}
-    }
-)
-def fetch_up_to_date_pricing_endpoint(additional_debug: bool = False):
+@app.post("/api/fetch_pricing/aws", tags=["Pricing"], summary="Fetch AWS Pricing")
+def fetch_pricing_aws(additional_debug: bool = False):
     """
-    Trigger the calculation of up-to-date cloud pricing across AWS, Azure, and GCP.
-    This function loads the latest pricing data and saves it to pricing_dynamic.json.
-    Pricing is only re-fetched if the existing file is older than 7 days.
+    Fetches AWS pricing if the local file is older than 7 days.
     """
     try:
-        from backend.utils import is_file_fresh
+        if is_file_fresh(CONSTANTS.AWS_PRICING_FILE_PATH, max_age_days=7):
+            logger.info("✅ Using cached AWS pricing data")
+            return load_json_file(CONSTANTS.AWS_PRICING_FILE_PATH)
         
-        # Check if we have a fresh pricing file (< 7 days old)
-        if is_file_fresh(CONSTANTS.DYNAMIC_PRICING_FILE_PATH, max_age_days=7):
-            logger.info("✅ Using cached pricing data (less than 7 days old)")
-            fetched_pricing_result = load_json_file(CONSTANTS.DYNAMIC_PRICING_FILE_PATH)
-            return fetched_pricing_result
-        
-        # File is stale or doesn't exist, fetch new pricing
-        logger.info("🔄 Fetching fresh pricing data from cloud providers...")
-        calculate_up_to_date_pricing(additional_debug)
-        fetched_pricing_result = load_json_file(CONSTANTS.DYNAMIC_PRICING_FILE_PATH)
-        return fetched_pricing_result
+        logger.info("🔄 Fetching fresh AWS pricing...")
+        return calculate_up_to_date_pricing("aws", additional_debug)
     except Exception as e:
-        logger.error(f"Error during up-to-date pricing calculation: {e}")
-        print_stack_trace()
+        logger.error(f"Error fetching AWS pricing: {e}")
+        return {"error": str(e)}
+
+@app.post("/api/fetch_pricing/azure", tags=["Pricing"], summary="Fetch Azure Pricing")
+def fetch_pricing_azure(additional_debug: bool = False):
+    """
+    Fetches Azure pricing if the local file is older than 7 days.
+    """
+    try:
+        if is_file_fresh(CONSTANTS.AZURE_PRICING_FILE_PATH, max_age_days=7):
+            logger.info("✅ Using cached Azure pricing data")
+            return load_json_file(CONSTANTS.AZURE_PRICING_FILE_PATH)
+        
+        logger.info("🔄 Fetching fresh Azure pricing...")
+        return calculate_up_to_date_pricing("azure", additional_debug)
+    except Exception as e:
+        logger.error(f"Error fetching Azure pricing: {e}")
+        return {"error": str(e)}
+
+@app.post("/api/fetch_pricing/gcp", tags=["Pricing"], summary="Fetch GCP Pricing")
+def fetch_pricing_gcp(additional_debug: bool = False):
+    """
+    Fetches GCP pricing if the local file is older than 7 days.
+    """
+    try:
+        if is_file_fresh(CONSTANTS.GCP_PRICING_FILE_PATH, max_age_days=7):
+            logger.info("✅ Using cached GCP pricing data")
+            return load_json_file(CONSTANTS.GCP_PRICING_FILE_PATH)
+        
+        logger.info("🔄 Fetching fresh GCP pricing...")
+        return calculate_up_to_date_pricing("gcp", additional_debug)
+    except Exception as e:
+        logger.error(f"Error fetching GCP pricing: {e}")
         return {"error": str(e)}
 
     

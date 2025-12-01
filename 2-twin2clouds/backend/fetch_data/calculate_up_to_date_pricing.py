@@ -4,10 +4,10 @@ from pathlib import Path
 import backend.config_loader as config_loader
 import backend.constants as CONSTANTS
 from backend.logger import logger
-from backend.cloud_price_fetcher_aws import fetch_aws_price, STATIC_DEFAULTS
-from backend.cloud_price_fetcher_azure import fetch_azure_price, STATIC_DEFAULTS_AZURE
+from backend.fetch_data.cloud_price_fetcher_aws import fetch_aws_price, STATIC_DEFAULTS
+from backend.fetch_data.cloud_price_fetcher_azure import fetch_azure_price, STATIC_DEFAULTS_AZURE
 # Future:
-from backend.cloud_price_fetcher_google import fetch_google_price, STATIC_DEFAULTS_GCP
+from backend.fetch_data.cloud_price_fetcher_google import fetch_google_price, STATIC_DEFAULTS_GCP
 from google.cloud import billing_v1
 from backend.config_loader import load_gcp_credentials
 
@@ -15,44 +15,70 @@ from backend.config_loader import load_gcp_credentials
 # ============================================================
 # ENTRYPOINT
 # ============================================================
-def calculate_up_to_date_pricing(additional_debug = False):
-    logger.info("🔄 Starting multi-cloud pricing update...")
+# ============================================================
+# ENTRYPOINT
+# ============================================================
+def calculate_up_to_date_pricing(target_provider: str, additional_debug = False):
+    """
+    Fetches pricing for a specific provider and saves it to its dedicated file.
+    target_provider must be one of: 'aws', 'azure', 'gcp'.
+    """
+    logger.info(f"🔄 Starting pricing update for provider: {target_provider}")
+
+    valid_providers = ["aws", "azure", "gcp"]
+    if target_provider not in valid_providers:
+        raise ValueError(f"Invalid target_provider: {target_provider}. Must be one of {valid_providers}")
 
     credentials = config_loader.load_credentials_file()
-    providers_config = config_loader.load_json_file(CONSTANTS.SERVICE_CALC_PARAMS_FILE_PATH)
-
-    output = {}
-    
     service_mapping = config_loader.load_service_mapping()
     
-    if "aws" in credentials:
-        print("")
-        logger.info("========================================================")
-        logger.info("Fetching AWS pricing...")
-        logger.info("========================================================")
-        aws_credentials = credentials.get("aws", {})
-        output["aws"] = fetch_aws_data(aws_credentials, service_mapping, additional_debug)
+    output_data = {}
+    target_file_path = None
 
-    if "azure" in credentials:
-        print("")
-        logger.info("========================================================")
-        logger.info("Fetching Azure pricing...")
-        logger.info("========================================================")
-        azure_credentials = credentials.get("azure", {})
-        output["azure"] = fetch_azure_data(azure_credentials, service_mapping, additional_debug)
+    if target_provider == "aws":
+        if "aws" in credentials:
+            print("")
+            logger.info("========================================================")
+            logger.info("Fetching AWS pricing...")
+            logger.info("========================================================")
+            aws_credentials = credentials.get("aws", {})
+            output_data = fetch_aws_data(aws_credentials, service_mapping, additional_debug)
+            target_file_path = CONSTANTS.AWS_PRICING_FILE_PATH
+        else:
+            logger.warning("AWS credentials missing, skipping fetch.")
 
-    if "gcp" in credentials:
-        print("")
-        logger.info("========================================================")
-        logger.info("Fetching GCP pricing...")
-        logger.info("========================================================")
-        google_credentials = credentials.get("gcp", {})
-        output["gcp"] = fetch_google_data(google_credentials, service_mapping, additional_debug)
+    elif target_provider == "azure":
+        if "azure" in credentials:
+            print("")
+            logger.info("========================================================")
+            logger.info("Fetching Azure pricing...")
+            logger.info("========================================================")
+            azure_credentials = credentials.get("azure", {})
+            output_data = fetch_azure_data(azure_credentials, service_mapping, additional_debug)
+            target_file_path = CONSTANTS.AZURE_PRICING_FILE_PATH
+        else:
+            logger.warning("Azure credentials missing, skipping fetch.")
 
-    Path(CONSTANTS.DYNAMIC_PRICING_FILE_PATH).write_text(json.dumps(output, indent=2))
-    print("")
-    logger.info("✅ Wrote pricing_dynamic.json successfully!")
-    return output
+    elif target_provider == "gcp":
+        if "gcp" in credentials:
+            print("")
+            logger.info("========================================================")
+            logger.info("Fetching GCP pricing...")
+            logger.info("========================================================")
+            google_credentials = credentials.get("gcp", {})
+            output_data = fetch_google_data(google_credentials, service_mapping, additional_debug)
+            target_file_path = CONSTANTS.GCP_PRICING_FILE_PATH
+        else:
+            logger.warning("GCP credentials missing, skipping fetch.")
+
+    if target_file_path and output_data:
+        Path(target_file_path).write_text(json.dumps(output_data, indent=2))
+        print("")
+        logger.info(f"✅ Wrote {target_file_path.name} successfully!")
+        return output_data
+    else:
+        logger.warning(f"⚠️ No data fetched for {target_provider} or credentials missing.")
+        return {}
 
 # ============================================================
 # HELPER FUNCTION
@@ -558,4 +584,4 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, additiona
 if __name__ == "__main__":
     import sys
     additional_debug = "additional_debug=true" in sys.argv
-    calculate_up_to_date_pricing(additional_debug=additional_debug)
+    calculate_up_to_date_pricing("gcp", additional_debug=additional_debug)

@@ -506,9 +506,9 @@ def calculate_cheapest_costs(params, pricing=None):
     if pricing is None:
         pricing = load_json_file(CONSTANTS.DYNAMIC_PRICING_FILE_PATH)
 
-    aws_costs = calculate_aws_costs(params, pricing)
-    azure_costs = calculate_azure_costs(params, pricing)
-    gcp_costs = calculate_gcp_costs(params, pricing)
+    aws_costs = calculate_aws_costs(params, pricing) if pricing.get("aws") else {}
+    azure_costs = calculate_azure_costs(params, pricing) if pricing.get("azure") else {}
+    gcp_costs = calculate_gcp_costs(params, pricing) if pricing.get("gcp") else {}
 
     transfer_costs = {
         "L1_AWS_to_AWS_Hot": aws_costs["transferCostL2ToHotAWS"],
