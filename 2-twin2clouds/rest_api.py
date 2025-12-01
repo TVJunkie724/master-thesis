@@ -11,11 +11,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from backend.logger import logger
-from backend.utils import print_stack_trace, is_file_fresh
+from backend.utils import print_stack_trace, is_file_fresh, get_file_age_string
 import backend.constants as CONSTANTS
 
 from backend.fetch_data.calculate_up_to_date_pricing import calculate_up_to_date_pricing
 from backend.config_loader import load_config_file, load_json_file, load_combined_pricing
+from backend.fetch_data import initial_fetch_aws, initial_fetch_azure, initial_fetch_google
 def load_api_config():
 
     config = {}
@@ -51,6 +52,8 @@ app = FastAPI(
         # {"name": "WebUI", "description": "Endpoints for serving the web-based user interface."},
         {"name": "Calculation", "description": "Endpoints related to cloud cost calculation."},
         {"name": "Pricing", "description": "Endpoints for fetching cloud service pricing data."},
+        {"name": "Regions", "description": "Endpoints for fetching cloud regions."},
+        {"name": "File Status", "description": "Endpoints for checking the age of data files."},
     ] 
 )
 
@@ -313,4 +316,64 @@ def fetch_pricing_gcp(additional_debug: bool = False):
         logger.error(f"Error fetching GCP pricing: {e}")
         return {"error": str(e)}
 
-    
+# --------------------------------------------------
+# Region Fetching Endpoints
+# --------------------------------------------------
+
+@app.post("/api/fetch_regions/aws", tags=["Regions"], summary="Fetch AWS Regions")
+def fetch_regions_aws():
+    """Force update AWS regions from API."""
+    try:
+        logger.info("🔄 Fetching fresh AWS regions...")
+        return initial_fetch_aws.fetch_region_map(force_update=True)
+    except Exception as e:
+        logger.error(f"Error fetching AWS regions: {e}")
+        return {"error": str(e)}
+
+@app.post("/api/fetch_regions/azure", tags=["Regions"], summary="Fetch Azure Regions")
+def fetch_regions_azure():
+    """Force update Azure regions from API."""
+    try:
+        logger.info("🔄 Fetching fresh Azure regions...")
+        return initial_fetch_azure.fetch_region_map(force_update=True)
+    except Exception as e:
+        logger.error(f"Error fetching Azure regions: {e}")
+        return {"error": str(e)}
+
+@app.post("/api/fetch_regions/gcp", tags=["Regions"], summary="Fetch GCP Regions")
+def fetch_regions_gcp():
+    """Force update GCP regions from API."""
+    try:
+        logger.info("🔄 Fetching fresh GCP regions...")
+        return initial_fetch_google.fetch_region_map(force_update=True)
+    except Exception as e:
+        logger.error(f"Error fetching GCP regions: {e}")
+        return {"error": str(e)}
+
+# --------------------------------------------------
+# File Age Endpoints
+# --------------------------------------------------
+
+@app.get("/api/regions_age/aws", tags=["File Status"], summary="Get AWS Regions File Age")
+def get_regions_age_aws():
+    return {"age": get_file_age_string(CONSTANTS.AWS_REGIONS_FILE_PATH)}
+
+@app.get("/api/regions_age/azure", tags=["File Status"], summary="Get Azure Regions File Age")
+def get_regions_age_azure():
+    return {"age": get_file_age_string(CONSTANTS.AZURE_REGIONS_FILE_PATH)}
+
+@app.get("/api/regions_age/gcp", tags=["File Status"], summary="Get GCP Regions File Age")
+def get_regions_age_gcp():
+    return {"age": get_file_age_string(CONSTANTS.GCP_REGIONS_FILE_PATH)}
+
+@app.get("/api/pricing_age/aws", tags=["File Status"], summary="Get AWS Pricing File Age")
+def get_pricing_age_aws():
+    return {"age": get_file_age_string(CONSTANTS.AWS_PRICING_FILE_PATH)}
+
+@app.get("/api/pricing_age/azure", tags=["File Status"], summary="Get Azure Pricing File Age")
+def get_pricing_age_azure():
+    return {"age": get_file_age_string(CONSTANTS.AZURE_PRICING_FILE_PATH)}
+
+@app.get("/api/pricing_age/gcp", tags=["File Status"], summary="Get GCP Pricing File Age")
+def get_pricing_age_gcp():
+    return {"age": get_file_age_string(CONSTANTS.GCP_PRICING_FILE_PATH)}
