@@ -7,7 +7,7 @@ def calculate_gcp_cost_data_acquisition(number_of_devices, device_sending_interv
     Pub/Sub is priced by data volume (GB).
     
     Formula: Total Messages = Devices * (60 / Interval) * 24 * 30
-    Cost: Messages * Price Per Message (Approximation for volume-based pricing)
+    Cost: Data Volume (GB) * Price Per GB
     """
     pricing_layer = pricing["gcp"]["iot"]
     
@@ -17,7 +17,8 @@ def calculate_gcp_cost_data_acquisition(number_of_devices, device_sending_interv
     # Data volume in GB
     data_volume_gb = (messages_per_month * average_size_of_message_in_kb) / (1024 * 1024)
         
-    cost = messages_per_month * pricing_layer.get("pricePerMessage", 0)
+    # Use pricePerGiB (volume based)
+    cost = data_volume_gb * pricing_layer.get("pricePerGiB", 0)
     
     return {
         "provider": "GCP",
@@ -134,14 +135,22 @@ def calculate_gcp_storage_archive_cost(data_size_in_gb, duration_in_months, pric
 def calculate_gcp_twin_maker_cost(entity_count, number_of_devices, device_sending_interval_in_minutes, dashboard_refreshes_per_hour, dashboard_active_hours_per_day, pricing):
     """
     Calculate GCP Twin Management Cost.
-    Placeholder implementation using generic entity/operation pricing.
+    GCP uses Compute Engine (IaaS) for this layer.
     
-    Formula: Cost = Entity Count * Entity Price
+    Formula: Cost = (Instance Price * 730 hours) + (Storage Price * Storage Size)
     """
     pricing_layer = pricing["gcp"]["twinmaker"]
     
-    # Placeholder logic similar to AWS/Azure
-    cost = entity_count * pricing_layer.get("entityPrice", 0)
+    # Instance Cost (e2-medium)
+    instance_cost = pricing_layer.get("e2MediumPrice", 0) * 730
+    
+    # Storage Cost (Assuming 100GB for the twin model/db as a baseline, or use entity_count proxy?)
+    # For now, let's assume a fixed storage size or derive from entities.
+    # Let's assume 50GB for OS + Data.
+    storage_size_gb = 50 
+    storage_cost = storage_size_gb * pricing_layer.get("storagePrice", 0)
+    
+    cost = instance_cost + storage_cost
     
     return {
         "provider": "GCP",
@@ -151,16 +160,20 @@ def calculate_gcp_twin_maker_cost(entity_count, number_of_devices, device_sendin
 def calculate_gcp_managed_grafana_cost(amount_of_active_users, pricing):
     """
     Calculate GCP Visualization Cost.
+    GCP uses Compute Engine (IaaS) for this layer.
     
-    Formula: Cost = Active Users * Price Per User
+    Formula: Cost = (Instance Price * 730 hours) + (Storage Price * Storage Size)
     """
     pricing_layer = pricing["gcp"]["grafana"]
     
-    # Assuming a mix of editors and viewers or just a flat user price
-    # Use viewerPrice as base if userPrice not defined, or average
-    price_per_user = pricing_layer.get("viewerPrice", 5.0)
+    # Instance Cost (e2-medium)
+    instance_cost = pricing_layer.get("e2MediumPrice", 0) * 730
     
-    cost = amount_of_active_users * price_per_user
+    # Storage Cost (Assuming 20GB for Grafana DB/Logs)
+    storage_size_gb = 20
+    storage_cost = storage_size_gb * pricing_layer.get("storagePrice", 0)
+    
+    cost = instance_cost + storage_cost
     
     return {
         "provider": "GCP",

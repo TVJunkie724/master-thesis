@@ -47,59 +47,12 @@ def calculate_up_to_date_pricing(additional_debug = False):
         logger.info("Fetching GCP pricing...")
         logger.info("========================================================")
         google_credentials = credentials.get("gcp", {})
-        # output["gcp"] = fetch_google_data(google_credentials, service_mapping, additional_debug)
+        output["gcp"] = fetch_google_data(google_credentials, service_mapping, additional_debug)
 
     Path(CONSTANTS.DYNAMIC_PRICING_FILE_PATH).write_text(json.dumps(output, indent=2))
     print("")
     logger.info("✅ Wrote pricing_dynamic.json successfully!")
     return output
-
-
-# ============================================================
-# STATIC DEFAULTS FOR GCP
-# ============================================================
-STATIC_DEFAULTS_GCP = {
-    "transfer": {
-        "egressPrice": 0.12
-    },
-    "iot": {
-        "pricePerMessage": 0.0000004,
-        "pricePerDeviceAndMonth": 0
-    },
-    "functions": {
-        "requestPrice": 0.0000004,
-        "durationPrice": 0.0000025,
-        "freeRequests": 2_000_000,
-        "freeComputeTime": 400_000
-    },
-    "storage_hot": {
-        "writePrice": 0.0000018,
-        "readPrice": 0.0000006,
-        "storagePrice": 0.18,
-        "freeStorage": 1
-    },
-    "storage_cool": {
-        "storagePrice": 0.01,
-        "upfrontPrice": 0.0,
-        "requestPrice": 0.00001,
-        "dataRetrievalPrice": 0.01
-    },
-    "storage_archive": {
-        "storagePrice": 0.0012,
-        "lifecycleAndWritePrice": 0.00005,
-        "dataRetrievalPrice": 0.05
-    },
-    "twinmaker": {
-        "entityPrice": 0.05,
-        "unifiedDataAccessAPICallsPrice": 0.0000015,
-        "queryPrice": 0.00005
-    },
-    "grafana": {
-        "editorPrice": 9.0,
-        "viewerPrice": 5.0
-    }
-}
-
 
 # ============================================================
 # HELPER FUNCTION
@@ -474,7 +427,7 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, additiona
     neutral_service, provider_service = "iot", "iot"
     iot = fetched.get(neutral_service, {})
     gcp[provider_service] = {
-        "pricePerMessage": _get_or_warn("GCP", neutral_service, provider_service, "pricePerMessage", iot, 0.0000004, STATIC_DEFAULTS_GCP),
+        "pricePerGiB": _get_or_warn("GCP", neutral_service, provider_service, "pricePerMessage", iot, 0.0000004, STATIC_DEFAULTS_GCP),
         "pricePerDeviceAndMonth": _get_or_warn("GCP", neutral_service, provider_service, "pricePerDeviceAndMonth", iot, 0, STATIC_DEFAULTS_GCP),
     }
 
@@ -515,55 +468,90 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, additiona
 
     neutral_service, provider_service = "twinmaker", "twinmaker"
     tm = fetched.get(neutral_service, {})
+    # TwinMaker on GCP maps to Compute Engine (Self-Hosted)
+    # e2-medium: 2 vCPU + 4GB RAM
+    e2_core_price = tm.get("e2CorePrice", 0.0)
+    e2_ram_price = tm.get("e2RamPrice", 0.0)
+    e2_medium_price = (2 * e2_core_price) + (4 * e2_ram_price)
+    
+    # Fallback to static if 0
+    if e2_medium_price == 0:
+        e2_medium_price = STATIC_DEFAULTS_GCP["computeEngine"]["e2MediumPrice"]
+        
     gcp[provider_service] = {
-        "entityPrice": _get_or_warn("GCP", neutral_service, provider_service, "entityPrice", tm, 0.05, STATIC_DEFAULTS_GCP),
-        "unifiedDataAccessAPICallsPrice": _get_or_warn("GCP", neutral_service, provider_service, "unifiedDataAccessAPICallsPrice", tm, 0.0000015, STATIC_DEFAULTS_GCP),
-        "queryPrice": _get_or_warn("GCP", neutral_service, provider_service, "queryPrice", tm, 0.00005, STATIC_DEFAULTS_GCP),
+        "e2MediumPrice": e2_medium_price,
+        "storagePrice": _get_or_warn("GCP", neutral_service, provider_service, "storagePrice", tm, 0.04, STATIC_DEFAULTS_GCP),
+        # These are not used for GCP "TwinMaker" (Compute Engine) but kept for schema consistency if needed, or zeroed out
+        "entityPrice": 0, 
+        "unifiedDataAccessAPICallsPrice": 0,
+        "queryPrice": 0
     }
 
     neutral_service, provider_service = "grafana", "grafana"
-    gf = fetched.get(neutral_service, {})
-    gcp[provider_service] = {
-        "editorPrice": _get_or_warn("GCP", neutral_service, provider_service, "editorPrice", gf, 9.0, STATIC_DEFAULTS_GCP),
-        "viewerPrice": _get_or_warn("GCP", neutral_service, provider_service, "viewerPrice", gf, 5.0, STATIC_DEFAULTS_GCP),
-    }
+    gr = fetched.get(neutral_service, {})
+    # Grafana on GCP maps to Compute Engine (Self-Hosted)
+    e2_core_price_gr = gr.get("e2CorePrice", 0.0)
+    e2_ram_price_gr = gr.get("e2RamPrice", 0.0)
+    e2_medium_price_gr = (2 * e2_core_price_gr) + (4 * e2_ram_price_gr)
+    
+    if e2_medium_price_gr == 0:
+        e2_medium_price_gr = STATIC_DEFAULTS_GCP["computeEngine"]["e2MediumPrice"]
 
-    # Cloud Scheduler (scheduler)
-    neutral_service, provider_service = "scheduler", "cloudScheduler"
-    cs = fetched.get(neutral_service, {})
     gcp[provider_service] = {
-        "jobPrice": _get_or_warn("GCP", neutral_service, provider_service, "jobPrice", cs, 0.10, STATIC_DEFAULTS_GCP),
+        "e2MediumPrice": e2_medium_price_gr,
+        "storagePrice": _get_or_warn("GCP", neutral_service, provider_service, "storagePrice", gr, 0.04, STATIC_DEFAULTS_GCP),
+        "editorPrice": 0,
+        "viewerPrice": 0
     }
+    
+    # neutral_service, provider_service = "computeEngine", "computeEngine"
+    # # Reuse fetched data from twinmaker if available, as it maps to the same GCP service (Compute Engine)
+    # # This avoids an empty fetch since 'computeEngine' is not in service_mapping.
+    # ce = fetched.get("twinmaker", {})
+    # if not ce:
+    #     ce = fetched.get("grafana", {})
+    
+    # e2_core_price_ce = ce.get("e2CorePrice", 0.0)
+    # e2_ram_price_ce = ce.get("e2RamPrice", 0.0)
+    # e2_medium_price_ce = (2 * e2_core_price_ce) + (4 * e2_ram_price_ce)
 
-    # Cloud Workflows (orchestration)
-    neutral_service, provider_service = "orchestration", "cloudWorkflows"
-    cw = fetched.get(neutral_service, {})
-    gcp[provider_service] = {
-        "stepPrice": _get_or_warn("GCP", neutral_service, provider_service, "stepPrice", cw, 0.01, STATIC_DEFAULTS_GCP),
-    }
+    # if e2_medium_price_ce == 0:
+    #     e2_medium_price_ce = STATIC_DEFAULTS_GCP["computeEngine"]["e2MediumPrice"]
 
-    # Data Access (data_access)
+    # gcp[provider_service] = {
+    #     "e2MediumPrice": e2_medium_price_ce,
+    #     "storagePrice": _get_or_warn("GCP", neutral_service, provider_service, "storagePrice", ce, 0.04, STATIC_DEFAULTS_GCP)
+    # }
+
     neutral_service, provider_service = "data_access", "apiGateway"
     da = fetched.get(neutral_service, {})
+    # For dataTransferOutPrice, we reuse the transfer service's egress price which is standard internet egress
+    egress_price = gcp.get("transfer", {}).get("egressPrice", 0.12)
+    
+    # Scale pricePerMillionCalls by 1M because the fetcher normalizes to per-call, but the key implies per-million
+    normalized_default = STATIC_DEFAULTS_GCP["data_access"]["pricePerMillionCalls"] / 1_000_000
+    price_per_call_val = _get_or_warn("GCP", neutral_service, provider_service, "pricePerMillionCalls", da, normalized_default, STATIC_DEFAULTS_GCP)
+    
+    # Now scale up for the final output
+    final_price_per_million = price_per_call_val * 1_000_000
+
     gcp[provider_service] = {
-        "pricePerMillionCalls": _get_or_warn("GCP", neutral_service, provider_service, "pricePerMillionCalls", da, 3.00, STATIC_DEFAULTS_GCP),
-        "dataTransferOutPrice": _get_or_warn("GCP", neutral_service, provider_service, "dataTransferOutPrice", da, 0.12, STATIC_DEFAULTS_GCP),
+        "pricePerMillionCalls": final_price_per_million,
+        "dataTransferOutPrice": egress_price
+    }
+    
+    neutral_service, provider_service = "orchestration", "cloudWorkflows"
+    cw = fetched.get("orchestration", {}) # Mapped to orchestration in fetcher
+    gcp[provider_service] = {
+        "stepPrice": _get_or_warn("GCP", "orchestration", provider_service, "stepPrice", cw, 0.000001, STATIC_DEFAULTS_GCP)
     }
 
-    # Compute Engine (Self-Hosted)
-    # This is not in service_mapping usually, but we need it for the schema.
-    # We use defaults or fetch if we had a mapping. For now, use defaults.
-    provider_service = "computeEngine"
-    # No neutral service mapping for this specific block in the loop, so we use defaults directly
-    # or we can use a dummy neutral service if we want to use _get_or_warn with a key
-    # Let's use "computeEngine" as key in defaults
-    ce_defaults = STATIC_DEFAULTS_GCP.get("computeEngine", {})
+    neutral_service, provider_service = "scheduler", "cloudScheduler"
+    sch = fetched.get(neutral_service, {})
     gcp[provider_service] = {
-        "e2MediumPrice": ce_defaults.get("e2MediumPrice", 0.0335),
-        "storagePrice": ce_defaults.get("storagePrice", 0.04),
+        "jobPrice": _get_or_warn("GCP", neutral_service, provider_service, "jobPrice", sch, 0.10, STATIC_DEFAULTS_GCP)
     }
 
-    logger.info("✅ GCP pricing schema built successfully.")
     return gcp
 
 

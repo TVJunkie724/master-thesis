@@ -20,7 +20,7 @@ GCP_REGION_NAMES = _load_gcp_regions()
 
 STATIC_DEFAULTS_GCP = {
     "transfer": {"egressPrice": 0.12},
-    "iot": {"pricePerMessage": 0.0000004, "pricePerDeviceAndMonth": 0},
+    "iot": {"pricePerGiB": 0.0000004, "pricePerDeviceAndMonth": 0},
     "functions": {
         "freeRequests": 2_000_000,
         "freeComputeTime": 400_000
@@ -97,37 +97,130 @@ GCP_SERVICE_KEYWORDS = {
             "jobPrice": {"desc_keywords": ["Job"], "unit_keywords": ["job month", "count"]}
         }
     },
-    "orchestration": {
+    "orchestration": { # Maps to Cloud Workflows
         "service_display_name": "Workflows",
         "meters": {
-            "stepPrice": {"desc_keywords": ["Steps"], "unit_keywords": ["1000", "count"]}
+            "stepPrice": {"desc_keywords": ["Steps"], "unit_keywords": ["count"]}
+        }
+    },
+    "cloudWorkflows": { # Alias for clarity if needed, or separate
+        "service_display_name": "Workflows",
+        "meters": {
+            "stepPrice": {"desc_keywords": ["Steps"], "unit_keywords": ["count"]}
+        }
+    },
+    "apiGateway": {
+        "service_display_name": "Google Service Control",
+        "meters": {
+            "pricePerMillionCalls": {
+                "desc_keywords": ["Operations"],
+                "unit_keywords": ["count"]
+            }
+        }
+    },
+    "apiGateway_egress": {
+        "service_display_name": "API Gateway",
+        "meters": {
+            "dataTransferOutPrice": {
+                "desc_keywords": ["Internet Egress", "Intercontinental"],
+                "unit_keywords": ["gibibyte"]
+            }
+        }
+    },
+    "computeEngine": {
+        "service_display_name": "Compute Engine",
+        "meters": {
+            "e2Core": {
+                "desc_keywords": ["E2 Instance Core"],
+                "unit_keywords": ["hour"]
+            },
+            "e2Ram": {
+                "desc_keywords": ["E2 Instance Ram"],
+                "unit_keywords": ["gibibyte hour"]
+            },
+            "storagePrice": {
+                "desc_keywords": ["Balanced PD Capacity"],
+                "unit_keywords": ["gibibyte month"]
+            }
         }
     },
     "data_access": {
-        "service_display_name": "API Gateway",
+        "service_display_name": "Google Service Control",
         "meters": {
-            "pricePerMillionCalls": {"desc_keywords": ["API Calls"], "unit_keywords": ["1000000", "count"]}
+            "pricePerMillionCalls": {
+                "desc_keywords": ["Operations"],
+                "unit_keywords": ["count"]
+            }
         }
     },
     "iot": {
         "service_display_name": "Cloud Pub/Sub",
         "meters": {
-            "pricePerMessage": {"desc_keywords": ["Message Delivery"], "unit_keywords": ["gibibyte", "tebibyte"]} # Pub/Sub is volume based usually
+            "pricePerGiB": {"desc_keywords": ["Message Delivery"], "unit_keywords": ["gibibyte", "tebibyte"]}
         }
     },
     "event_bus": {
         "service_display_name": "Cloud Pub/Sub",
         "meters": {
-            "pricePerMessage": {"desc_keywords": ["Message Delivery"], "unit_keywords": ["gibibyte", "tebibyte"]}
+            "pricePerGiB": {"desc_keywords": ["Message Delivery"], "unit_keywords": ["gibibyte", "tebibyte"]}
         }
     },
     "twinmaker": {
         "service_display_name": "Compute Engine",
-        "meters": {} # Relies on defaults
+        "meters": {
+            "e2CorePrice": {
+                "desc_keywords": ["E2 Instance Core"], 
+                "unit_keywords": ["hour"],
+                "negative_keywords": ["Spot", "Preemptible"]
+            },
+            "e2RamPrice": {
+                "desc_keywords": ["E2 Instance Ram"], 
+                "unit_keywords": ["gibibyte hour"],
+                "negative_keywords": ["Spot", "Preemptible"]
+            },
+            "storagePrice": {"desc_keywords": ["Balanced PD Capacity"], "unit_keywords": ["gibibyte month"]}
+        }
     },
     "grafana": {
         "service_display_name": "Compute Engine",
-        "meters": {} # Relies on defaults
+        "meters": {
+            "e2CorePrice": {
+                "desc_keywords": ["E2 Instance Core"], 
+                "unit_keywords": ["hour"],
+                "negative_keywords": ["Spot", "Preemptible"]
+            },
+            "e2RamPrice": {
+                "desc_keywords": ["E2 Instance Ram"], 
+                "unit_keywords": ["gibibyte hour"],
+                "negative_keywords": ["Spot", "Preemptible"]
+            },
+            "storagePrice": {"desc_keywords": ["Balanced PD Capacity"], "unit_keywords": ["gibibyte month"]}
+        }
+    },
+    "computeEngine": {
+        "service_display_name": "Compute Engine",
+        "meters": {
+            "e2CorePrice": {
+                "desc_keywords": ["E2 Instance Core"], 
+                "unit_keywords": ["hour"],
+                "negative_keywords": ["Spot", "Preemptible"]
+            },
+            "e2RamPrice": {
+                "desc_keywords": ["E2 Instance Ram"], 
+                "unit_keywords": ["gibibyte hour"],
+                "negative_keywords": ["Spot", "Preemptible"]
+            },
+            "storagePrice": {"desc_keywords": ["Balanced PD Capacity"], "unit_keywords": ["gibibyte month"]}
+        }
+    },
+    "data_access": {
+        "service_display_name": "Google Service Control",
+        "meters": {
+            "pricePerMillionCalls": {
+                "desc_keywords": ["Operations"],
+                "unit_keywords": ["count"]
+            }
+        }
     }
 }
 
@@ -229,6 +322,11 @@ def fetch_google_price(client: billing_v1.CloudCatalogClient, service_name: str,
                 if not all(k.lower() in desc for k in meter_conf["desc_keywords"]):
                     continue
                 
+                # Negative Keyword Check
+                if "negative_keywords" in meter_conf:
+                    if any(nk.lower() in desc for nk in meter_conf["negative_keywords"]):
+                        continue
+
                 # Pricing Info Check
                 if not sku.pricing_info:
                     continue

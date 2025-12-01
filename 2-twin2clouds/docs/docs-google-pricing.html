@@ -27,12 +27,6 @@
                 <span class="mono">pricing.json</span> (Google Cloud section).
             </p>
 
-            <div class="alert alert-warning" role="alert">
-                <i class="fa-solid fa-triangle-exclamation me-2"></i>
-                <strong>Note:</strong> Google Cloud pricing is currently <strong>static</strong>. Dynamic fetching via
-                the Google Cloud Billing Catalog API is planned for a future release.
-            </div>
-
             <!-- Schema Overview -->
             <div class="card mb-4" id="schema">
                 <div class="card-body">
@@ -42,37 +36,38 @@
   "google": {
     "transfer": {
       "pricing_tiers": {
-        "freeTier": { "limit": 100, "price": 0 },
-        "tier1": { "limit": 10240, "price": 0.12 },
-        "tier2": { "limit": "Infinity", "price": 0.08 }
+        "freeTier": {"limit": 100,"price": 0},
+        "tier1": {"limit": 10240,"price": 0.12},
+        "tier2": {"limit": "Infinity","price": 0.08}
       },
       "egressPrice": 0.12
     },
-    "pubSub": {
-      "pricePerGiB": 0.04 // Fetched (Throughput)
+    "iot": {
+      "pricePerGiB": 0.0390625,
+      "pricePerDeviceAndMonth": 0
     },
-    "eventBus": {
-      "pricePerGiB": 0.04, // Same as Pub/Sub
-      "pricePerMessage": 0.00004
+    "functions": {
+      "requestPrice": 0.0000004,
+      "durationPrice": 0.0000025,
+      "freeRequests": 2000000,
+      "freeComputeTime": 400000
     },
-    "cloudFunctions": {
-      "invocationPrice": 0.40,
-      "gbSecondPrice": 0.0000025,
-      "ghzSecondPrice": 0.0000100
+    "storage_hot": {
+      "writePrice": 0.0000018,
+      "readPrice": 0.0000006,
+      "storagePrice": 0.135,
+      "freeStorage": 1
     },
-    "firestore": {
-      "documentReadPrice": 0.06,
-      "documentWritePrice": 0.18,
-      "documentDeletePrice": 0.02,
-      "storagePrice": 0.18
+    "storage_cool": {
+      "storagePrice": 0.011,
+      "upfrontPrice": 0.00,
+      "requestPrice": 0.000026,
+      "dataRetrievalPrice": 0.01
     },
-    "cloudStorageNearline": {
-      "storagePrice": 0.010,
-      "operationPrice": 0.01
-    },
-    "cloudStorageArchive": {
-      "storagePrice": 0.0012,
-      "operationPrice": 0.05
+    "storage_archive": {
+      "storagePrice": 0.0014,
+      "lifecycleAndWritePrice": 0.000065,
+      "dataRetrievalPrice": 0.05
     },
     "apiGateway": {
       "pricePerMillionCalls": 3.00,
@@ -82,49 +77,33 @@
       "jobPrice": 0.10
     },
     "cloudWorkflows": {
-      "stepPrice": 0.01
+      "stepPrice": 0.000025
     },
-    "computeEngine": {
-      "e2MediumPrice": 0.0335,
-      "storagePrice": 0.04
+    "twinmaker": {
+      "e2MediumPrice": 0.0608511,
+      "storagePrice": 0.20,
+      "entityPrice": 0,
+      "unifiedDataAccessAPICallsPrice": 0,
+      "queryPrice": 0
+    },
+    "grafana": {
+      "e2MediumPrice": 0.0608511,
+      "storagePrice": 0.20,
+      "editorPrice": 0,
+      "viewerPrice": 0
     }
   }
 }</code></pre>
                 </div>
             </div>
 
-            <!-- Services -->
+            <!-- Services & Fields -->
             <div class="card mb-4" id="services">
                 <div class="card-body">
-                    <h2 class="mb-3"><i class="fa-solid fa-cubes me-2"></i>Services & Fields</h2>
+                    <h2 class="mb-3"><i class="fa-solid fa-list-check me-2"></i>Services & Fields</h2>
 
-                    <!-- Transfer -->
-                    <h3 class="mt-4 mb-2 text-primary">Data Transfer (Egress)</h3>
-                    <p><strong>Service:</strong> Network</p>
-                    <table class="table table-hover table-bordered">
-                        <thead>
-                            <tr>
-                                <th>Field</th>
-                                <th>Source</th>
-                                <th>Notes</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td class="mono">transfer.pricing_tiers</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Tiered pricing (First 100GB free/cheap, then tiered).</td>
-                            </tr>
-                            <tr>
-                                <td class="mono">egressPrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Base egress price ($0.12/GB).</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <!-- Pub/Sub -->
-                    <h3 class="mt-4 mb-2 text-primary">Cloud Pub/Sub (Layer 1 & Event Bus)</h3>
+                    <!-- IoT (Pub/Sub) -->
+                    <h3 class="mt-4 mb-2 text-primary">IoT Ingestion (Cloud Pub/Sub)</h3>
                     <p><strong>Service:</strong> Cloud Pub/Sub</p>
                     <table class="table table-hover table-bordered">
                         <thead>
@@ -137,14 +116,19 @@
                         <tbody>
                             <tr>
                                 <td class="mono">pricePerGiB</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Throughput cost per GiB (e.g., $40/TiB ≈ $0.04/GiB).</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Throughput cost per GiB.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">pricePerDeviceAndMonth</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Cost per active device (if applicable).</td>
                             </tr>
                         </tbody>
                     </table>
 
-                    <!-- Functions -->
-                    <h3 class="mt-4 mb-2 text-primary">Cloud Functions (Layer 2)</h3>
+                    <!-- Cloud Functions -->
+                    <h3 class="mt-4 mb-2 text-primary">Serverless Compute</h3>
                     <p><strong>Service:</strong> Cloud Functions</p>
                     <table class="table table-hover table-bordered">
                         <thead>
@@ -156,25 +140,30 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="mono">invocationPrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Per million invocations ($0.40).</td>
+                                <td class="mono">requestPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per invocation.</td>
                             </tr>
                             <tr>
-                                <td class="mono">gbSecondPrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Per GB-second ($0.0000025).</td>
+                                <td class="mono">durationPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per GB-second.</td>
                             </tr>
                             <tr>
-                                <td class="mono">ghzSecondPrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Per GHz-second ($0.0000100).</td>
+                                <td class="mono">freeRequests</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>2 million free invocations/month.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">freeComputeTime</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>400,000 GB-seconds free/month.</td>
                             </tr>
                         </tbody>
                     </table>
 
                     <!-- Firestore -->
-                    <h3 class="mt-4 mb-2 text-primary">Firestore (Layer 3 - Hot)</h3>
+                    <h3 class="mt-4 mb-2 text-primary">NoSQL Database</h3>
                     <p><strong>Service:</strong> Cloud Firestore</p>
                     <table class="table table-hover table-bordered">
                         <thead>
@@ -186,30 +175,30 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="mono">documentReadPrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Per 100,000 reads ($0.06).</td>
+                                <td class="mono">readPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per document read.</td>
                             </tr>
                             <tr>
-                                <td class="mono">documentWritePrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Per 100,000 writes ($0.18).</td>
-                            </tr>
-                            <tr>
-                                <td class="mono">documentDeletePrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Per 100,000 deletes ($0.02).</td>
+                                <td class="mono">writePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per document write.</td>
                             </tr>
                             <tr>
                                 <td class="mono">storagePrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Per GB-month ($0.18).</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per GB-month.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">freeStorage</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>1 GiB free storage.</td>
                             </tr>
                         </tbody>
                     </table>
 
-                    <!-- Cloud Storage (Cool) -->
-                    <h3 class="mt-4 mb-2 text-primary">Layer 3 (Cool): Cloud Storage</h3>
+                    <!-- Cloud Storage (Nearline) -->
+                    <h3 class="mt-4 mb-2 text-primary">Object Storage (Cool)</h3>
                     <p><strong>Service:</strong> Cloud Storage (Nearline)</p>
                     <table class="table table-hover table-bordered">
                         <thead>
@@ -221,20 +210,30 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="mono">cloudStorageNearline.storagePrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Nearline storage per GB-month ($0.010).</td>
+                                <td class="mono">storagePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Nearline storage per GB-month.</td>
                             </tr>
                             <tr>
-                                <td class="mono">cloudStorageNearline.operationPrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Nearline operations (approx).</td>
+                                <td class="mono">upfrontPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Upfront cost (if applicable).</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">requestPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per 10,000 requests.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">dataRetrievalPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per GB retrieval.</td>
                             </tr>
                         </tbody>
                     </table>
 
                     <!-- Cloud Storage (Archive) -->
-                    <h3 class="mt-4 mb-2 text-primary">Layer 3 (Archive): Cloud Storage</h3>
+                    <h3 class="mt-4 mb-2 text-primary">Object Storage (Archive)</h3>
                     <p><strong>Service:</strong> Cloud Storage (Archive)</p>
                     <table class="table table-hover table-bordered">
                         <thead>
@@ -246,20 +245,25 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="mono">cloudStorageArchive.storagePrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Archive storage per GB-month ($0.0012).</td>
+                                <td class="mono">storagePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Archive storage per GB-month.</td>
                             </tr>
                             <tr>
-                                <td class="mono">cloudStorageArchive.operationPrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Archive operations (approx).</td>
+                                <td class="mono">lifecycleAndWritePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Lifecycle transitions and writes.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">dataRetrievalPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per GB retrieval.</td>
                             </tr>
                         </tbody>
                     </table>
 
                     <!-- API Gateway -->
-                    <h3 class="mt-4 mb-2 text-primary">Data Access (Supporting)</h3>
+                    <h3 class="mt-4 mb-2 text-primary">Data Access</h3>
                     <p><strong>Service:</strong> API Gateway</p>
                     <table class="table table-hover table-bordered">
                         <thead>
@@ -272,19 +276,19 @@
                         <tbody>
                             <tr>
                                 <td class="mono">pricePerMillionCalls</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Per million calls ($3.00).</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per million calls.</td>
                             </tr>
                             <tr>
                                 <td class="mono">dataTransferOutPrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
                                 <td>Standard egress rates apply.</td>
                             </tr>
                         </tbody>
                     </table>
 
                     <!-- Cloud Scheduler -->
-                    <h3 class="mt-4 mb-2 text-primary">Orchestration (Supporting)</h3>
+                    <h3 class="mt-4 mb-2 text-primary">Orchestration</h3>
                     <p><strong>Service:</strong> Cloud Scheduler</p>
                     <table class="table table-hover table-bordered">
                         <thead>
@@ -297,14 +301,14 @@
                         <tbody>
                             <tr>
                                 <td class="mono">jobPrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Per job per month ($0.10).</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per job per month.</td>
                             </tr>
                         </tbody>
                     </table>
 
                     <!-- Cloud Workflows -->
-                    <h3 class="mt-4 mb-2 text-primary">Orchestration (Supporting)</h3>
+                    <h3 class="mt-4 mb-2 text-primary">Orchestration</h3>
                     <p><strong>Service:</strong> Cloud Workflows</p>
                     <table class="table table-hover table-bordered">
                         <thead>
@@ -317,14 +321,14 @@
                         <tbody>
                             <tr>
                                 <td class="mono">stepPrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Per 1,000 steps ($0.01).</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per 1,000 steps.</td>
                             </tr>
                         </tbody>
                     </table>
 
-                    <!-- Compute Engine -->
-                    <h3 class="mt-4 mb-2 text-primary">Self-Hosted L4/L5</h3>
+                    <!-- TwinMaker -->
+                    <h3 class="mt-4 mb-2 text-primary">IoT TwinMaker (Self-Hosted)</h3>
                     <p><strong>Service:</strong> Compute Engine (e2-medium)</p>
                     <table class="table table-hover table-bordered">
                         <thead>
@@ -337,42 +341,67 @@
                         <tbody>
                             <tr>
                                 <td class="mono">e2MediumPrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Hourly price for e2-medium instance ($0.0335).</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Hourly price for e2-medium instance.</td>
                             </tr>
                             <tr>
                                 <td class="mono">storagePrice</td>
-                                <td><span class="badge text-bg-info">Fetchable (Planned)</span></td>
-                                <td>Standard Persistent Disk per GB-month ($0.04).</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Standard Persistent Disk per GB-month.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">entityPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Per entity (if applicable).</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">unifiedDataAccessAPICallsPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Per API call.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">queryPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Per query.</td>
                             </tr>
                         </tbody>
                     </table>
 
-                </div>
-            </div>
-
-            <!-- Calculated Fields -->
-            <div class="card mb-4" id="calculated">
-                <div class="card-body">
-                    <h2 class="mb-3"><i class="fa-solid fa-calculator me-2"></i>Calculated Fields</h2>
-                    <p>These values are derived in <span class="mono">apply_google_derived_fields()</span> after
-                        fetching.</p>
+                    <!-- Grafana -->
+                    <h3 class="mt-4 mb-2 text-primary">Managed Grafana (Self-Hosted)</h3>
+                    <p><strong>Service:</strong> Compute Engine (e2-medium)</p>
                     <table class="table table-hover table-bordered">
                         <thead>
                             <tr>
                                 <th>Field</th>
-                                <th>Formula</th>
-                                <th>Purpose</th>
+                                <th>Source</th>
+                                <th>Notes</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="mono">pubSub.pricePerMessage</td>
-                                <td><code>pricePerGiB * (avgMessageSize / 1024²)</code></td>
-                                <td>Converts throughput cost to per-message cost.</td>
+                                <td class="mono">e2MediumPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Hourly price for e2-medium instance.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">storagePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Standard Persistent Disk per GB-month.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">editorPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Per editor user.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">viewerPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Per viewer user.</td>
                             </tr>
                         </tbody>
                     </table>
+
                 </div>
             </div>
 

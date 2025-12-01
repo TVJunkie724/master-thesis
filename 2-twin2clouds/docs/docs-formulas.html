@@ -31,8 +31,7 @@
         <div class="card-body">
           <h2 class="mb-3"><i class="fa-solid fa-square-root-variable me-2"></i>Formula Overview</h2>
           <p>These formulas are derived from the project's research methodology and standard cloud pricing models.
-            Symbols
-            correspond to service-specific parameters fetched dynamically.</p>
+            Symbols correspond to service-specific parameters fetched dynamically.</p>
 
           <table class="table table-hover table-bordered">
             <thead>
@@ -131,6 +130,10 @@
                   per user/hour</li>
                 <li class="list-group-item"><code data-bs-toggle="tooltip" title="Total hours">H</code>: Total hours
                 </li>
+                <li class="list-group-item"><code data-bs-toggle="tooltip"
+                    title="Price per GB transferred">c_transfer</code>: Price per GB</li>
+                <li class="list-group-item"><code data-bs-toggle="tooltip"
+                    title="Total GB transferred">GB_transferred</code>: Total GB</li>
               </ul>
             </div>
           </div>
@@ -214,6 +217,23 @@
                   <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → pricePerMillionEvents</code>
                 </td>
               </tr>
+              <tr>
+                <td>IoT TwinMaker</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span> +
+                  <span class="badge text-bg-success" data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span></td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → apiCalls/queryPrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per GB-month">c_s</span> → entityPrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Managed Grafana</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="User-Based Cost">CU</span></td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per editor">c_u_editor</span> → editorPrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per viewer">c_u_viewer</span> → viewerPrice</code>
+                </td>
+              </tr>
             </tbody>
           </table>
 
@@ -272,7 +292,8 @@
                 <td>Logic Apps</td>
                 <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>
                 </td>
-                <td><code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → actionPrice</code></td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → actionPrice</code>
+                </td>
               </tr>
               <tr>
                 <td>Event Grid</td>
@@ -281,6 +302,20 @@
                 <td>
                   <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → pricePerMillionOperations</code>
                 </td>
+              </tr>
+              <tr>
+                <td>Digital Twins</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span> +
+                  <span class="badge text-bg-success" data-bs-toggle="tooltip" title="Message-Based Cost">CM</span></td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → operation/queryPrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per message">c_m</span> → messagePrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Managed Grafana</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="User-Based Cost">CU</span></td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per user/hour">c_u</span> → userPrice</code></td>
               </tr>
             </tbody>
           </table>
@@ -298,9 +333,10 @@
             <tbody>
               <tr>
                 <td>Cloud Pub/Sub</td>
-                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Message-Based Cost">CM</span>
-                </td>
-                <td><code><span data-bs-toggle="tooltip" title="Price per message">c_m</span> → pricePerMessage</code>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip"
+                    title="Data Transfer Cost">CTransfer</span></td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per GB transferred">c_transfer</span> → pricePerGiB</code>
                 </td>
               </tr>
               <tr>
@@ -346,16 +382,27 @@
                 <td>Cloud Scheduler</td>
                 <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>
                 </td>
-                <td><code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → jobPrice</code></td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → jobPrice</code>
+                </td>
               </tr>
               <tr>
                 <td>Cloud Workflows</td>
                 <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>
                 </td>
-                <td><code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → stepPrice</code></td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → stepPrice</code>
+                </td>
               </tr>
               <tr>
-                <td>Compute Engine</td>
+                <td>IoT TwinMaker (Self-Hosted)</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="User-Based Cost">CU</span> +
+                  <span class="badge text-bg-success" data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span>
+                </td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per hour">c_u_hour</span> → e2MediumPrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per GB-month">c_s</span> → storagePrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Managed Grafana (Self-Hosted)</td>
                 <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="User-Based Cost">CU</span> +
                   <span class="badge text-bg-success" data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span>
                 </td>
@@ -374,41 +421,30 @@
         <div class="card-body">
           <h2 class="mb-3"><i class="fa-solid fa-comment-dots me-2"></i>Formula Mapping Rationale</h2>
           <p>
-            The following section explains the reasoning behind mapping specific cloud services to the abstract cost
-            formulas defined above. This mapping ensures that the diverse pricing models of AWS, Azure, and Google Cloud
-            are normalized into a common mathematical framework.
-          </p>
-
-          <h4 class="mt-4 text-primary">Ingestion Services (IoT Core, IoT Hub, Pub/Sub)</h4>
-          <p>
-            <strong>Mapped to: <span class="badge text-bg-success" data-bs-toggle="tooltip"
-                title="Message-Based Cost">CM</span> (Message-Based)</strong><br>
-            These services are primarily billed based on the volume of data ingestion, specifically the number of
-            messages or operations processed. The <strong>CM</strong> formula
-            (<code><span data-bs-toggle="tooltip" title="Price per message">c_m</span> * <span data-bs-toggle="tooltip" title="Number of messages">N_m</span></code>)
-            directly captures
-            this volume-based pricing model, where
-            <code><span data-bs-toggle="tooltip" title="Price per message">c_m</span></code> represents the cost per
-            million messages (or
-            operations) and <code><span data-bs-toggle="tooltip" title="Number of messages">N_m</span></code> is the
-            total message count. This abstracts away minor differences like
-            message size metering (e.g., 5KB vs 64KB chunks) into a normalized "message" unit.
-          </p>
-
-          <h4 class="mt-4 text-primary">Serverless Compute (Lambda, Functions)</h4>
-          <p>
-            <strong>Mapped to: <span class="badge text-bg-success" data-bs-toggle="tooltip"
-                title="Execution-Based Cost">CE</span> (Execution-Based)</strong><br>
-            Serverless compute costs are a function of two distinct variables: the number of requests (invocations) and
+            Serverless compute costs are a function of two distinct variables: the number of requests
+            (invocations) and
             the duration of execution, which is often weighted by the amount of memory allocated. The
             <strong>CE</strong>
             formula
             (<code><span data-bs-toggle="tooltip" title="Price per execution">c_e</span> * <span data-bs-toggle="tooltip" title="Number of executions">N_e</span> + <span data-bs-toggle="tooltip" title="Price per time unit">c_t</span> * <span data-bs-toggle="tooltip" title="Total execution time">T_e</span></code>)
             accurately models this by summing the request cost
-            (<code><span data-bs-toggle="tooltip" title="Price per execution">c_e</span></code>) and the compute-time
+            (<code><span data-bs-toggle="tooltip" title="Price per execution">c_e</span></code>) and the
+            compute-time
             cost (<code><span data-bs-toggle="tooltip" title="Price per time unit">c_t</span></code>). It also
             accommodates free tiers by
             subtracting free requests and compute seconds from the total usage.
+          </p>
+
+          <h4 class="mt-4 text-primary">Ingestion Services (IoT Core, IoT Hub, Pub/Sub)</h4>
+          <p>
+            <strong>Mapped to: <span class="badge text-bg-success" data-bs-toggle="tooltip"
+                title="Message-Based Cost">CM</span> (Message-Based) OR <span class="badge text-bg-success"
+                data-bs-toggle="tooltip" title="Data Transfer Cost">CTransfer</span> (Volume-Based)</strong><br>
+            IoT ingestion services typically charge based on the number of messages processed (AWS IoT Core,
+            Azure IoT Hub), which maps to <strong>CM</strong>. However, Google Cloud Pub/Sub charges based on
+            data volume (GiB transferred), which maps to <strong>CTransfer</strong>
+            (<code><span data-bs-toggle="tooltip" title="Price per GB transferred">c_transfer</span> * <span data-bs-toggle="tooltip" title="Total GB transferred">GB_transferred</span></code>).
+            This distinction is crucial for accurate cross-provider comparison.
           </p>
 
           <h4 class="mt-4 text-primary">NoSQL & Document Databases (DynamoDB, Cosmos DB, Firestore)</h4>
@@ -430,10 +466,13 @@
             <strong>Mapped to: <span class="badge text-bg-success" data-bs-toggle="tooltip"
                 title="Storage-Based Cost">CS</span> (Storage-Based) [+ <span class="badge text-bg-success"
                 data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>]</strong><br>
-            The primary cost driver for object storage is the volume of data stored over time, which is modeled by
-            <strong>CS</strong>. However, retrieval costs (especially for cooler tiers like Glacier or Archive) and API
+            The primary cost driver for object storage is the volume of data stored over time, which is modeled
+            by
+            <strong>CS</strong>. However, retrieval costs (especially for cooler tiers like Glacier or Archive)
+            and API
             requests (PUT/GET/LIST) can be significant. These are modeled as additional <strong>Action-Based
-              (CA)</strong> components to ensure the total cost of ownership is accurate, particularly for archival
+              (CA)</strong> components to ensure the total cost of ownership is accurate, particularly for
+            archival
             strategies where retrieval costs can exceed storage savings.
           </p>
 
@@ -445,7 +484,8 @@
             API gateways are typically charged per API call received, which fits the <strong>CA</strong> model
             perfectly.
             Additionally, data egress fees are often applied at this layer when data leaves the cloud provider's
-            network. These egress costs are captured by the <strong>CTransfer</strong> formula, ensuring that the cost
+            network. These egress costs are captured by the <strong>CTransfer</strong> formula, ensuring that
+            the cost
             of serving data to external clients is fully accounted for.
           </p>
 
@@ -453,9 +493,11 @@
           <p>
             <strong>Mapped to: <span class="badge text-bg-success" data-bs-toggle="tooltip"
                 title="Action-Based Cost">CA</span> (Action-Based)</strong><br>
-            These services are billed per discrete unit of work, such as a state transition, a workflow step, or an
+            These services are billed per discrete unit of work, such as a state transition, a workflow step, or
+            an
             event published. The <strong>Action-Based (CA)</strong> formula provides a direct mapping to these
-            usage-based pricing units (e.g., per 1,000 state transitions or per million events), allowing for precise
+            usage-based pricing units (e.g., per 1,000 state transitions or per million events), allowing for
+            precise
             cost estimation based on workflow complexity and event volume.
           </p>
 
@@ -464,11 +506,13 @@
             <strong>Mapped to: <span class="badge text-bg-success" data-bs-toggle="tooltip"
                 title="User-Based Cost">CU</span> (User/Time-Based) + <span class="badge text-bg-success"
                 data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span></strong><br>
-            Virtual machines incur costs based on running time (hourly or per-second) and attached persistent storage.
+            Virtual machines incur costs based on running time (hourly or per-second) and attached persistent
+            storage.
             The <strong>CU</strong> formula captures the time-based compute cost
             (<code><span data-bs-toggle="tooltip" title="Price per hour">c_u_hour</span> * <span data-bs-toggle="tooltip" title="Total hours">H</span></code>),
             effectively
-            treating the "User" variable as a "Time" variable in this context. The <strong>CS</strong> formula handles
+            treating the "User" variable as a "Time" variable in this context. The <strong>CS</strong> formula
+            handles
             the cost of the persistent disk storage attached to the instance.
           </p>
         </div>
@@ -482,7 +526,8 @@
             These formulas are based on the formal cost model presented in:
           </p>
           <blockquote class="blockquote fs-6">
-            <p>Philipp Gritsch, et al. <em>“Twin2Clouds: Cost-Aware Digital Twin Engineering...”</em> (MODELS 2025)</p>
+            <p>Philipp Gritsch, et al. <em>“Twin2Clouds: Cost-Aware Digital Twin Engineering...”</em> (MODELS
+              2025)</p>
           </blockquote>
           <a href="../references/EDT_25__CloudDT_engineering.pdf" target="_blank"
             class="btn btn-outline-primary btn-sm">
