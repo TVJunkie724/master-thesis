@@ -92,6 +92,12 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
             logger.warning("GCP credentials missing, skipping fetch.")
 
     if target_file_path and output_data:
+        # Validate schema
+        from backend.pricing_utils import validate_pricing_schema
+        validation = validate_pricing_schema(target_provider, output_data)
+        if validation["status"] != "valid":
+            logger.warning(f"⚠️ Pricing data for {target_provider} is incomplete. Missing keys: {validation['missing_keys']}")
+            
         Path(target_file_path).write_text(json.dumps(output_data, indent=2))
         print("")
         logger.info(f"✅ Wrote {target_file_path.name} successfully!")

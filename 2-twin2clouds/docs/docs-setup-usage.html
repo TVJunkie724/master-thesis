@@ -168,14 +168,31 @@ Content-Type: application/json
             <div class="card mb-4">
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-cloud-arrow-down me-2"></i>Fetching Pricing Data</h2>
-                    <p>The application automatically caches pricing data for 7 days. To manually refresh:</p>
-                    <pre class="p-3 rounded"><code>GET /api/fetch_up_to_date_pricing</code></pre>
-                    <p class="mt-2">This endpoint:</p>
-                    <ul>
-                        <li>Fetches current pricing from AWS, Azure, and GCP APIs</li>
-                        <li>Saves data to <code>pricing/fetched_data/pricing_dynamic.json</code></li>
-                        <li>Uses cached data if less than 7 days old</li>
-                    </ul>
+                    <p>The application caches pricing data for 7 days. To force a refresh, you can use the API
+                        endpoints:</p>
+
+                    <h4 class="h6">Update All Providers</h4>
+                    <p>You can trigger updates for specific providers via the API:</p>
+                    <pre class="p-3 rounded"><code># Fetch AWS Pricing
+curl -X POST http://localhost:5003/api/fetch_pricing/aws
+
+# Fetch Azure Pricing
+curl -X POST http://localhost:5003/api/fetch_pricing/azure
+
+# Fetch GCP Pricing
+curl -X POST http://localhost:5003/api/fetch_pricing/gcp</code></pre>
+
+                    <h4 class="h6 mt-3">Update Currency Rates</h4>
+                    <p>To update the USD/EUR exchange rates:</p>
+                    <pre class="p-3 rounded"><code>curl -X POST http://localhost:5003/api/fetch_currency</code></pre>
+
+                    <h4 class="h6 mt-3">Check Data Status</h4>
+                    <p>To check the age and validity of the cached data:</p>
+                    <pre class="p-3 rounded"><code># Check AWS Data Age
+curl http://localhost:5003/api/pricing_age/aws
+
+# Check Currency Data Age
+curl http://localhost:5003/api/currency_age</code></pre>
                 </div>
             </div>
 
@@ -196,7 +213,7 @@ Content-Type: application/json
                             <tr>
                                 <td>Cloud Pricing</td>
                                 <td>7 days</td>
-                                <td><code>pricing/fetched_data/pricing_dynamic.json</code></td>
+                                <td><code>pricing/fetched_data/pricing_[provider].json</code></td>
                             </tr>
                             <tr>
                                 <td>Region Lists</td>

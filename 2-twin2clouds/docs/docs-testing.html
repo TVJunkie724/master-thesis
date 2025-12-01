@@ -72,7 +72,7 @@
                             <div class="mb-4">
                                 <h4 class="h5">2. Schema Validation</h4>
                                 <p><strong>Purpose:</strong> Checks JSON structure of the pricing output.</p>
-                                <p><strong>Files:</strong> <code>tests/test_pricing_schema.py</code></p>
+                                <p><strong>Files:</strong> <code>tests/test_pricing_validation.py</code></p>
                                 <ul>
                                     <li>Required cloud providers presence</li>
                                     <li>Service structure completeness</li>
@@ -100,7 +100,7 @@
                             <div class="mb-4">
                                 <h4 class="h5">4. Dynamic Pricing Integration</h4>
                                 <p><strong>Purpose:</strong> Tests API fetching and parsing from cloud providers.</p>
-                                <p><strong>Files:</strong> <code>tests/test_price_fetcher_*.py</code></p>
+                                <p><strong>Files:</strong> <code>tests/test_calculate_pricing_refactored.py</code></p>
                                 <ul>
                                     <li>API response parsing</li>
                                     <li>Unit normalization</li>
@@ -112,7 +112,7 @@
                             <div class="mb-4">
                                 <h4 class="h5">5. System Orchestration</h4>
                                 <p><strong>Purpose:</strong> Tests end-to-end pricing pipeline and error handling.</p>
-                                <p><strong>Files:</strong> <code>tests/test_pricing_orchestration.py</code></p>
+                                <p><strong>Files:</strong> <code>tests/test_rest_api_endpoints.py</code></p>
                                 <ul>
                                     <li>Data fetch and consolidation</li>
                                     <li>Helper function logic</li>
@@ -184,25 +184,25 @@ pytest tests/test_optimization.py -v
                     <p>Tests are organized by functional area in the <code>tests/</code> directory:</p>
                     <div class="table-responsive">
                         <pre class="p-3 rounded"><code>tests/
-├── test_formulas_aws.py         # AWS cost formula verification
-├── test_formulas_azure.py       # Azure cost formula verification
-├── test_formulas_gcp.py         # GCP cost formula verification
-├── test_optimization.py         # Decision graph and path optimization
-├── test_price_fetcher_aws.py    # AWS pricing API integration
-├── test_price_fetcher_azure.py  # Azure pricing API integration
-├── test_price_fetcher_gcp.py    # GCP pricing defaults
-├── test_pricing_orchestration.py # End-to-end orchestration
-└── test_pricing_schema.py       # JSON schema validation
+├── test_formulas_aws.py               # AWS cost formula verification
+├── test_formulas_azure.py             # Azure cost formula verification
+├── test_formulas_gcp.py               # GCP cost formula verification
+├── test_optimization.py               # Decision graph and path optimization
+├── test_calculate_pricing_refactored.py # Dynamic pricing integration tests
+├── test_rest_api_endpoints.py         # API endpoint integration tests
+├── test_pricing_validation.py         # JSON schema validation
+├── test_utils_file_age.py             # File age utility tests
+└── test_integration.py                # End-to-end orchestration
 </code></pre>
                     </div>
 
                     <h3 class="h5 mt-4">Test Naming Conventions</h3>
                     <ul>
                         <li><code>test_formulas_*.py</code> - Cost calculation formula tests</li>
-                        <li><code>test_price_fetcher_*.py</code> - Dynamic pricing integration tests</li>
-                        <li><code>test_pricing_schema.py</code> - Output schema validation tests</li>
+                        <li><code>test_calculate_pricing_refactored.py</code> - Dynamic pricing integration tests</li>
+                        <li><code>test_pricing_validation.py</code> - Output schema validation tests</li>
                         <li><code>test_optimization.py</code> - Algorithm and decision logic tests</li>
-                        <li><code>test_pricing_orchestration.py</code> - System integration tests</li>
+                        <li><code>test_rest_api_endpoints.py</code> - API endpoint integration tests</li>
                     </ul>
                 </div>
             </div>

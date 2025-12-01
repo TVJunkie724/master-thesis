@@ -71,3 +71,87 @@ def eur_to_usd(amount_eur: float) -> float:
     except Exception as e:
         logger.error(f"Currency conversion error (EUR->USD): {e}")
         return amount_eur # Fallback: return original amount
+
+def validate_pricing_schema(provider: str, data: dict) -> dict:
+    """
+    Validates that the pricing data contains all expected keys for the given provider.
+    
+    Args:
+        provider (str): 'aws', 'azure', or 'gcp'
+        data (dict): The loaded pricing JSON data
+        
+    Returns:
+        dict: {
+            "status": "valid" | "incomplete" | "missing",
+            "missing_keys": [list of missing keys]
+        }
+    """
+    if not data:
+        return {"status": "missing", "missing_keys": []}
+
+    expected_schema = {
+        "aws": {
+            "transfer": ["pricing_tiers", "egressPrice"],
+            "iotCore": ["pricePerDeviceAndMonth", "priceRulesTriggered", "pricing_tiers"],
+            "lambda": ["requestPrice", "durationPrice", "freeRequests", "freeComputeTime"],
+            "dynamoDB": ["writePrice", "readPrice", "storagePrice", "freeStorage"],
+            "s3InfrequentAccess": ["storagePrice", "upfrontPrice", "requestPrice", "dataRetrievalPrice", "transferCostFromDynamoDB", "transferCostFromCosmosDB"],
+            "s3GlacierDeepArchive": ["storagePrice", "lifecycleAndWritePrice", "dataRetrievalPrice"],
+            "iotTwinMaker": ["unifiedDataAccessAPICallsPrice", "entityPrice", "queryPrice"],
+            "awsManagedGrafana": ["editorPrice", "viewerPrice"],
+            "stepFunctions": ["pricePer1kStateTransitions"],
+            "eventBridge": ["pricePerMillionEvents"],
+            "apiGateway": ["pricePerMillionCalls", "dataTransferOutPrice"]
+        },
+        "azure": {
+            "transfer": ["pricing_tiers"],
+            "iotHub": ["pricing_tiers"], # IoT Hub structure is complex, just check root
+            "functions": ["requestPrice", "durationPrice", "freeRequests", "freeComputeTime"],
+            "cosmosDB": ["requestPrice", "minimumRequestUnits", "RUsPerRead", "RUsPerWrite", "storagePrice"],
+            "blobStorageCool": ["storagePrice", "upfrontPrice", "writePrice", "readPrice", "dataRetrievalPrice", "transferCostFromCosmosDB"],
+            "blobStorageArchive": ["storagePrice", "writePrice", "dataRetrievalPrice"],
+            "azureDigitalTwins": ["messagePrice", "operationPrice", "queryPrice", "queryUnitTiers"],
+            "azureManagedGrafana": ["userPrice", "hourlyPrice"],
+            "logicApps": ["pricePer1kStateTransitions"],
+            "eventGrid": ["pricePerMillionEvents"],
+            "apiManagement": ["pricePerMillionCalls"]
+        },
+        "gcp": {
+            "transfer": ["pricing_tiers", "egressPrice"],
+            "iot": ["pricePerGiB", "pricePerDeviceAndMonth"],
+            "functions": ["requestPrice", "durationPrice", "freeRequests", "freeComputeTime"],
+            "storage_hot": ["writePrice", "readPrice", "storagePrice", "freeStorage"],
+            "storage_cool": ["storagePrice", "upfrontPrice", "requestPrice", "dataRetrievalPrice"],
+            "storage_archive": ["storagePrice", "lifecycleAndWritePrice", "dataRetrievalPrice"],
+            "twinmaker": ["e2MediumPrice", "storagePrice"],
+            "grafana": ["e2MediumPrice", "storagePrice"],
+            "apiGateway": ["pricePerMillionCalls", "dataTransferOutPrice"],
+            "cloudWorkflows": ["stepPrice"],
+            "cloudScheduler": ["jobPrice"]
+        }
+    }
+
+    provider_schema = expected_schema.get(provider)
+    if not provider_schema:
+        return {"status": "unknown_provider", "missing_keys": []}
+
+    missing_keys = []
+    
+    for service, keys in provider_schema.items():
+        if service not in data:
+            missing_keys.append(f"{service} (missing service)")
+            continue
+            
+        service_data = data[service]
+        if not isinstance(service_data, dict):
+             # Some services might not be dicts if schema changed, but here we expect dicts
+             continue
+
+        for key in keys:
+            if key not in service_data:
+                missing_keys.append(f"{service}.{key}")
+
+    if missing_keys:
+        return {"status": "incomplete", "missing_keys": missing_keys}
+    
+    return {"status": "valid", "missing_keys": []}

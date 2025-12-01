@@ -366,14 +366,89 @@ def get_regions_age_azure():
 def get_regions_age_gcp():
     return {"age": get_file_age_string(CONSTANTS.GCP_REGIONS_FILE_PATH)}
 
-@app.get("/api/pricing_age/aws", tags=["File Status"], summary="Get AWS Pricing File Age")
+@app.get("/api/pricing_age/aws", tags=["File Status"])
 def get_pricing_age_aws():
-    return {"age": get_file_age_string(CONSTANTS.AWS_PRICING_FILE_PATH)}
+    age = get_file_age_string(CONSTANTS.AWS_PRICING_FILE_PATH)
+    status = "missing"
+    missing_keys = []
+    
+    if os.path.isfile(CONSTANTS.AWS_PRICING_FILE_PATH):
+        try:
+            from backend.pricing_utils import validate_pricing_schema
+            data = load_json_file(CONSTANTS.AWS_PRICING_FILE_PATH)
+            validation = validate_pricing_schema("aws", data)
+            status = validation["status"]
+            missing_keys = validation["missing_keys"]
+        except Exception as e:
+            logger.error(f"Failed to validate AWS pricing: {e}")
+            status = "error"
+            
+    return {
+        "age": age,
+        "status": status,
+        "missing_keys": missing_keys
+    }
 
-@app.get("/api/pricing_age/azure", tags=["File Status"], summary="Get Azure Pricing File Age")
+@app.get("/api/pricing_age/azure", tags=["File Status"])
 def get_pricing_age_azure():
-    return {"age": get_file_age_string(CONSTANTS.AZURE_PRICING_FILE_PATH)}
+    age = get_file_age_string(CONSTANTS.AZURE_PRICING_FILE_PATH)
+    status = "missing"
+    missing_keys = []
+    
+    if os.path.isfile(CONSTANTS.AZURE_PRICING_FILE_PATH):
+        try:
+            from backend.pricing_utils import validate_pricing_schema
+            data = load_json_file(CONSTANTS.AZURE_PRICING_FILE_PATH)
+            validation = validate_pricing_schema("azure", data)
+            status = validation["status"]
+            missing_keys = validation["missing_keys"]
+        except Exception as e:
+            logger.error(f"Failed to validate Azure pricing: {e}")
+            status = "error"
+            
+    return {
+        "age": age,
+        "status": status,
+        "missing_keys": missing_keys
+    }
 
-@app.get("/api/pricing_age/gcp", tags=["File Status"], summary="Get GCP Pricing File Age")
+@app.get("/api/pricing_age/gcp", tags=["File Status"])
 def get_pricing_age_gcp():
-    return {"age": get_file_age_string(CONSTANTS.GCP_PRICING_FILE_PATH)}
+    age = get_file_age_string(CONSTANTS.GCP_PRICING_FILE_PATH)
+    status = "missing"
+    missing_keys = []
+    
+    if os.path.isfile(CONSTANTS.GCP_PRICING_FILE_PATH):
+        try:
+            from backend.pricing_utils import validate_pricing_schema
+            data = load_json_file(CONSTANTS.GCP_PRICING_FILE_PATH)
+            validation = validate_pricing_schema("gcp", data)
+            status = validation["status"]
+            missing_keys = validation["missing_keys"]
+        except Exception as e:
+            logger.error(f"Failed to validate GCP pricing: {e}")
+            status = "error"
+            
+    return {
+        "age": age,
+        "status": status,
+        "missing_keys": missing_keys
+    }
+
+@app.get("/api/currency_age", tags=["File Status"], summary="Get Currency File Age")
+def get_currency_age():
+    return {"age": get_file_age_string(CONSTANTS.CURRENCY_CONVERSION_FILE_PATH)}
+
+@app.post("/api/fetch_currency", tags=["Pricing"], summary="Fetch Currency Rates")
+def fetch_currency_rates():
+    """
+    Fetches up-to-date currency rates (USD/EUR).
+    """
+    try:
+        from backend import pricing_utils
+        logger.info("🔄 Fetching fresh currency rates...")
+        rates = pricing_utils.get_currency_rates()
+        return rates
+    except Exception as e:
+        logger.error(f"Error fetching currency rates: {e}")
+        return {"error": str(e)}

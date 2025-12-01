@@ -40,10 +40,10 @@
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-diagram-project me-2"></i>Core Directories</h2>
 
-                    <h3 class="mt-3 mb-2"><code>py/</code> - Python Backend</h3>
+                    <h3 class="mt-3 mb-2"><code>backend/</code> - Python Backend</h3>
                     <p>Contains all Python modules for cost calculation, pricing fetching, and utilities.</p>
 
-                    <h4 class="mt-3"><code>py/calculation/</code> - Cost Calculation Engine</h4>
+                    <h4 class="mt-3"><code>backend/calculation/</code> - Cost Calculation Engine</h4>
                     <ul>
                         <li><code><strong>engine.py</strong></code> - Main calculation orchestrator, determines optimal
                             cloud provider per layer</li>
@@ -63,7 +63,7 @@
                             providers and tiers</li>
                     </ul>
 
-                    <h4 class="mt-3"><code>py/fetch_data/</code> - Dynamic Data Fetching</h4>
+                    <h4 class="mt-3"><code>backend/fetch_data/</code> - Dynamic Data Fetching</h4>
                     <ul>
                         <li><code><strong>initial_fetch_aws.py</strong></code> - Fetches AWS region lists with 7-day
                             caching
@@ -72,21 +72,21 @@
                             caching</li>
                         <li><code><strong>initial_fetch_google.py</strong></code> - Fetches GCP region lists with 7-day
                             caching</li>
-                    </ul>
-
-                    <h4 class="mt-3">Core Utilities</h4>
-                    <ul>
                         <li><code><strong>cloud_price_fetcher_aws.py</strong></code> - AWS Pricing API integration using
                             boto3</li>
                         <li><code><strong>cloud_price_fetcher_azure.py</strong></code> - Azure Retail Prices API
                             integration
                         </li>
-                        <li><code><strong>cloud_price_fetcher_google.py</strong></code> - GCP pricing fetcher (currently
-                            uses static defaults)</li>
+                        <li><code><strong>cloud_price_fetcher_google.py</strong></code> - GCP Cloud Billing Catalog API
+                            integration</li>
                         <li><code><strong>calculate_up_to_date_pricing.py</strong></code> - Orchestrates pricing fetches
                             from all providers</li>
-                        <li><code><strong>pricing_utils.py</strong></code> - Currency conversion (USD/EUR) with exchange
-                            rate caching</li>
+                    </ul>
+
+                    <h4 class="mt-3">Core Utilities</h4>
+                    <ul>
+                        <li><code><strong>pricing_utils.py</strong></code> - Currency conversion (USD/EUR) and schema
+                            validation</li>
                         <li><code><strong>config_loader.py</strong></code> - Loads configuration and credential files
                         </li>
                         <li><code><strong>constants.py</strong></code> - File paths and system constants</li>
@@ -97,8 +97,10 @@
                     <h3 class="mt-4 mb-2"><code>pricing/</code> - Pricing Data</h3>
                     <h4><code>pricing/fetched_data/</code></h4>
                     <ul>
-                        <li><code><strong>pricing_dynamic.json</strong></code> - Cached cloud pricing data (7-day TTL)
+                        <li><code><strong>pricing_aws.json</strong></code> - Cached AWS pricing data (7-day TTL)</li>
+                        <li><code><strong>pricing_azure.json</strong></code> - Cached Azure pricing data (7-day TTL)
                         </li>
+                        <li><code><strong>pricing_gcp.json</strong></code> - Cached GCP pricing data (7-day TTL)</li>
                         <li><code><strong>currency.json</strong></code> - Cached USD/EUR exchange rates (1-day TTL)</li>
                         <li><code><strong>aws_regions.json</strong></code> - AWS region mapping (7-day TTL)</li>
                         <li><code><strong>azure_regions.json</strong></code> - Azure region mapping (7-day TTL)</li>
@@ -151,10 +153,11 @@
                     <p>Main application entry point. Defines the REST API endpoints:</p>
                     <ul>
                         <li><code>PUT /api/calculate</code> - Calculate optimal cloud configuration</li>
-                        <li><code>GET /api/fetch_up_to_date_pricing</code> - Fetch/update cloud pricing data</li>
+                        <li><code>POST /api/fetch_pricing/{provider}</code> - Fetch provider pricing</li>
+                        <li><code>GET /api/pricing_age/{provider}</code> - Check pricing file status</li>
+                        <li><code>GET /api/currency_age</code> - Check currency file status</li>
                         <li><code>GET /ui</code> - Serve web interface</li>
                         <li><code>GET /docs</code> - Swagger API documentation</li>
-                        <li><code>GET /documentation/*</code> - Documentation pages</li>
                     </ul>
 
                     <h3 class="mt-4 mb-2"><code>index.html</code> - Web UI</h3>
@@ -183,42 +186,45 @@
                             <code>api-client.js</code>
                         </li>
                         <li>Request received by FastAPI → <code>rest_api.py</code> <code>calc()</code> endpoint</li>
-                        <li>Parameters passed to calculation engine → <code>py/calculation/engine.py</code>
+                        <li>Parameters passed to calculation engine → <code>backend/calculation/engine.py</code>
                             <code>calculate_cheapest_costs()</code>
                         </li>
-                        <li>Pricing data loaded → <code>pricing/fetched_data/pricing_dynamic.json</code></li>
+                        <li>Pricing data loaded → <code>pricing/fetched_data/pricing_*.json</code></li>
                         <li>Cost calculated for each provider:
                             <ul>
-                                <li><code>calculate_aws_costs()</code> → calls <code>py/calculation/aws.py</code>
+                                <li><code>calculate_aws_costs()</code> → calls <code>backend/calculation/aws.py</code>
                                     formulas
                                 </li>
-                                <li><code>calculate_azure_costs()</code> → calls <code>py/calculation/azure.py</code>
+                                <li><code>calculate_azure_costs()</code> → calls
+                                    <code>backend/calculation/azure.py</code>
                                     formulas</li>
-                                <li><code>calculate_gcp_costs()</code> → calls <code>py/calculation/gcp.py</code>
+                                <li><code>calculate_gcp_costs()</code> → calls <code>backend/calculation/gcp.py</code>
                                     formulas
                                 </li>
                             </ul>
                         </li>
-                        <li>Transfer costs calculated → <code>py/calculation/transfer.py</code></li>
-                        <li>Optimal path determined → <code>py/calculation/decision.py</code> graph algorithm</li>
-                        <li>Currency conversion applied (if EUR) → <code>py/pricing_utils.py</code></li>
+                        <li>Transfer costs calculated → <code>backend/calculation/transfer.py</code></li>
+                        <li>Optimal path determined → <code>backend/calculation/decision.py</code> graph algorithm</li>
+                        <li>Currency conversion applied (if EUR) → <code>backend/pricing_utils.py</code></li>
                         <li>Results returned to user → JSON response displayed in UI</li>
                     </ol>
 
                     <h3 class="mt-4 mb-2">Pricing Fetch Flow</h3>
                     <ol>
-                        <li>User or system triggers pricing fetch → <code>GET /api/fetch_up_to_date_pricing</code></li>
-                        <li>Check cache freshness → <code>py/utils.py</code> <code>is_file_fresh()</code></li>
-                        <li>If stale, fetch new pricing → <code>calculate_up_to_date_pricing.py</code></li>
-                        <li>Fetch from each provider:
+                        <li>User or system triggers pricing fetch → <code>POST /api/fetch_pricing/{provider}</code></li>
+                        <li>Check cache freshness → <code>backend/utils.py</code> <code>is_file_fresh()</code></li>
+                        <li>If stale, fetch new pricing →
+                            <code>backend/fetch_data/calculate_up_to_date_pricing.py</code></li>
+                        <li>Fetch from specific provider:
                             <ul>
                                 <li>AWS → <code>cloud_price_fetcher_aws.py</code> (boto3 Pricing API)</li>
                                 <li>Azure → <code>cloud_price_fetcher_azure.py</code> (Retail Prices API)</li>
-                                <li>GCP → <code>cloud_price_fetcher_google.py</code> (static defaults)</li>
+                                <li>GCP → <code>cloud_price_fetcher_google.py</code> (Cloud Billing Catalog API)</li>
                             </ul>
                         </li>
-                        <li>Normalize and merge pricing data</li>
-                        <li>Save to cache → <code>pricing/fetched_data/pricing_dynamic.json</code></li>
+                        <li>Validate schema → <code>backend/pricing_utils.py</code>
+                            <code>validate_pricing_schema()</code></li>
+                        <li>Save to cache → <code>pricing/fetched_data/pricing_{provider}.json</code></li>
                     </ol>
                 </div>
             </div>
@@ -230,16 +236,17 @@
 
                     <h3 class="mb-2">Adding a New Cloud Provider</h3>
                     <ol>
-                        <li>Create <code>py/calculation/[provider].py</code> with cost formulas</li>
-                        <li>Create <code>py/cloud_price_fetcher_[provider].py</code> for pricing API integration</li>
-                        <li>Add provider to <code>calculate_up_to_date_pricing.py</code></li>
-                        <li>Update <code>py/calculation/engine.py</code> to include provider in optimization</li>
+                        <li>Create <code>backend/calculation/[provider].py</code> with cost formulas</li>
+                        <li>Create <code>backend/fetch_data/cloud_price_fetcher_[provider].py</code> for pricing API
+                            integration</li>
+                        <li>Add provider to <code>backend/fetch_data/calculate_up_to_date_pricing.py</code></li>
+                        <li>Update <code>backend/calculation/engine.py</code> to include provider in optimization</li>
                         <li>Add provider credentials to <code>config/config_credentials.json</code></li>
                     </ol>
 
                     <h3 class="mt-4 mb-2">Adding a New Service/Layer</h3>
                     <ol>
-                        <li>Define cost formula in appropriate <code>py/calculation/[provider].py</code> files</li>
+                        <li>Define cost formula in appropriate <code>backend/calculation/[provider].py</code> files</li>
                         <li>Add service to <code>config/service_mapping.json</code></li>
                         <li>Add pricing fetcher logic to <code>cloud_price_fetcher_[provider].py</code></li>
                         <li>Update <code>calculate_up_to_date_pricing.py</code> schema builder</li>
