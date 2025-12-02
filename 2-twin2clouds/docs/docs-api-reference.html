@@ -90,7 +90,18 @@
 
                     <!-- Pricing Fetching -->
                     <h4 class="mt-4 text-primary"><i class="fa-solid fa-cloud-arrow-down me-2"></i>Pricing Fetching</h4>
-                    <p>Triggers a fresh fetch of cloud provider pricing data. Results are cached for 7 days.</p>
+                    <p>Triggers a fresh fetch of cloud provider pricing data. Results are cached for <strong>7
+                            days</strong>.</p>
+
+                    <div class="alert border mb-3">
+                        <strong>Parameters:</strong>
+                        <ul class="mb-0">
+                            <li><code>force_fetch</code> (bool, default: false) - Ignore cache and force fresh fetch.
+                            </li>
+                            <li><code>additional_debug</code> (bool, default: false) - Enable verbose logging.</li>
+                        </ul>
+                    </div>
+
                     <table class="table table-hover table-bordered align-middle">
                         <thead>
                             <tr>
@@ -157,7 +168,7 @@
 
                     <!-- Currency -->
                     <h4 class="mt-4 text-warning"><i class="fa-solid fa-coins me-2"></i>Currency</h4>
-                    <p>Manage currency conversion rates (USD/EUR).</p>
+                    <p>Manage currency conversion rates (USD/EUR). Rates are cached for <strong>1 day</strong>.</p>
                     <table class="table table-hover table-bordered align-middle">
                         <thead>
                             <tr>
@@ -182,7 +193,23 @@
 
                     <!-- Region Fetching -->
                     <h4 class="mt-4 text-info"><i class="fa-solid fa-globe me-2"></i>Region Lists</h4>
-                    <p>Force update the available regions list for a provider.</p>
+                    <p>Force update the available regions list for a provider.
+                        <br>Cache Duration: <strong>7 days</strong> (AWS/Azure), <strong>30 days</strong> (GCP).
+                    </p>
+
+                    <div class="alert alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                        <strong>Warning:</strong> Fetching GCP regions takes about <strong>5-10 minutes</strong>!
+                    </div>
+
+                    <div class="alert border mb-3">
+                        <strong>Parameters:</strong>
+                        <ul class="mb-0">
+                            <li><code>force_fetch</code> (bool, default: false) - Ignore cache and force fresh fetch.
+                            </li>
+                        </ul>
+                    </div>
+
                     <table class="table table-hover table-bordered align-middle">
                         <thead>
                             <tr>

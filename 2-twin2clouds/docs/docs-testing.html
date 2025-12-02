@@ -189,7 +189,8 @@ pytest tests/test_optimization.py -v
 ├── test_formulas_gcp.py               # GCP cost formula verification
 ├── test_optimization.py               # Decision graph and path optimization
 ├── test_calculate_pricing_refactored.py # Dynamic pricing integration tests
-├── test_rest_api_endpoints.py         # API endpoint integration tests
+├── test_rest_api_endpoints.py         # General API endpoint tests (File Age, Currency)
+├── test_rest_api_regions.py           # Region fetching endpoint tests
 ├── test_pricing_validation.py         # JSON schema validation
 ├── test_utils_file_age.py             # File age utility tests
 └── test_integration.py                # End-to-end orchestration
@@ -202,7 +203,8 @@ pytest tests/test_optimization.py -v
                         <li><code>test_calculate_pricing_refactored.py</code> - Dynamic pricing integration tests</li>
                         <li><code>test_pricing_validation.py</code> - Output schema validation tests</li>
                         <li><code>test_optimization.py</code> - Algorithm and decision logic tests</li>
-                        <li><code>test_rest_api_endpoints.py</code> - API endpoint integration tests</li>
+                        <li><code>test_rest_api_endpoints.py</code> - General API endpoint tests</li>
+                        <li><code>test_rest_api_regions.py</code> - Region fetching tests</li>
                     </ul>
                 </div>
             </div>

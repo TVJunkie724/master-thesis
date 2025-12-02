@@ -271,7 +271,13 @@ def calc(params: CalcParams = Body(
 @app.post("/api/fetch_pricing/aws", tags=["Pricing"], summary="Fetch AWS Pricing")
 def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False):
     """
-    Fetches AWS pricing if the local file is older than 7 days, or if force_fetch is True.
+    Fetches the latest AWS pricing data.
+    
+    - **Cache Duration**: 7 days.
+    - **force_fetch**: If `true`, ignores the local cache and fetches fresh data from the AWS Price List API.
+    - **additional_debug**: Enables verbose logging during the fetch process.
+    
+    **Returns**: A JSON object containing the structured pricing data for AWS services.
     """
     try:
         if not force_fetch and is_file_fresh(CONSTANTS.AWS_PRICING_FILE_PATH, max_age_days=7):
@@ -287,7 +293,13 @@ def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False)
 @app.post("/api/fetch_pricing/azure", tags=["Pricing"], summary="Fetch Azure Pricing")
 def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = False):
     """
-    Fetches Azure pricing if the local file is older than 7 days, or if force_fetch is True.
+    Fetches the latest Azure pricing data.
+    
+    - **Cache Duration**: 7 days.
+    - **force_fetch**: If `true`, ignores the local cache and fetches fresh data from the Azure Retail Prices API.
+    - **additional_debug**: Enables verbose logging during the fetch process.
+    
+    **Returns**: A JSON object containing the structured pricing data for Azure services.
     """
     try:
         if not force_fetch and is_file_fresh(CONSTANTS.AZURE_PRICING_FILE_PATH, max_age_days=7):
@@ -303,7 +315,13 @@ def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = Fals
 @app.post("/api/fetch_pricing/gcp", tags=["Pricing"], summary="Fetch GCP Pricing")
 def fetch_pricing_gcp(additional_debug: bool = False, force_fetch: bool = False):
     """
-    Fetches GCP pricing if the local file is older than 7 days, or if force_fetch is True.
+    Fetches the latest Google Cloud Platform (GCP) pricing data.
+    
+    - **Cache Duration**: 7 days.
+    - **force_fetch**: If `true`, ignores the local cache and fetches fresh data from the Google Cloud Billing API.
+    - **additional_debug**: Enables verbose logging during the fetch process.
+    
+    **Returns**: A JSON object containing the structured pricing data for GCP services.
     """
     try:
         if not force_fetch and is_file_fresh(CONSTANTS.GCP_PRICING_FILE_PATH, max_age_days=7):
@@ -321,9 +339,20 @@ def fetch_pricing_gcp(additional_debug: bool = False, force_fetch: bool = False)
 # --------------------------------------------------
 
 @app.post("/api/fetch_regions/aws", tags=["Regions"], summary="Fetch AWS Regions")
-def fetch_regions_aws():
-    """Force update AWS regions from API."""
+def fetch_regions_aws(force_fetch: bool = False):
+    """
+    Fetches the latest list of available AWS regions.
+    
+    - **Cache Duration**: 7 days.
+    - **force_fetch**: If `true`, ignores the local cache and fetches fresh data from AWS.
+    
+    **Returns**: A dictionary mapping region codes (e.g., `us-east-1`) to human-readable names (e.g., `US East (N. Virginia)`).
+    """
     try:
+        if not force_fetch and is_file_fresh(CONSTANTS.AWS_REGIONS_FILE_PATH, max_age_days=7):
+            logger.info("✅ Using cached AWS regions data")
+            return load_json_file(CONSTANTS.AWS_REGIONS_FILE_PATH)
+
         logger.info("🔄 Fetching fresh AWS regions...")
         return initial_fetch_aws.fetch_region_map(force_update=True)
     except Exception as e:
@@ -331,9 +360,20 @@ def fetch_regions_aws():
         return {"error": str(e)}
 
 @app.post("/api/fetch_regions/azure", tags=["Regions"], summary="Fetch Azure Regions")
-def fetch_regions_azure():
-    """Force update Azure regions from API."""
+def fetch_regions_azure(force_fetch: bool = False):
+    """
+    Fetches the latest list of available Azure regions.
+    
+    - **Cache Duration**: 7 days.
+    - **force_fetch**: If `true`, ignores the local cache and fetches fresh data from Azure.
+    
+    **Returns**: A dictionary mapping region codes (e.g., `westeurope`) to human-readable names (e.g., `West Europe`).
+    """
     try:
+        if not force_fetch and is_file_fresh(CONSTANTS.AZURE_REGIONS_FILE_PATH, max_age_days=7):
+            logger.info("✅ Using cached Azure regions data")
+            return load_json_file(CONSTANTS.AZURE_REGIONS_FILE_PATH)
+
         logger.info("🔄 Fetching fresh Azure regions...")
         return initial_fetch_azure.fetch_region_map(force_update=True)
     except Exception as e:
@@ -341,9 +381,24 @@ def fetch_regions_azure():
         return {"error": str(e)}
 
 @app.post("/api/fetch_regions/gcp", tags=["Regions"], summary="Fetch GCP Regions")
-def fetch_regions_gcp():
-    """Force update GCP regions from API."""
+def fetch_regions_gcp(force_fetch: bool = False):
+    """
+    Fetches the latest list of available Google Cloud regions.
+    
+    ---------------
+    - **`WARNING`**: fetching GCP regions takes about 5-10 minutes!!!!!
+    ---------------
+    
+    - **Cache Duration**: 30 days.
+    - **force_fetch**: If `true`, ignores the local cache and fetches fresh data from GCP.
+    
+    **Returns**: A dictionary mapping region codes (e.g., `us-central1`) to human-readable names.
+    """
     try:
+        if not force_fetch and is_file_fresh(CONSTANTS.GCP_REGIONS_FILE_PATH, max_age_days=30):
+            logger.info("✅ Using cached GCP regions data")
+            return load_json_file(CONSTANTS.GCP_REGIONS_FILE_PATH)
+
         logger.info("🔄 Fetching fresh GCP regions...")
         return initial_fetch_google.fetch_region_map(force_update=True)
     except Exception as e:
@@ -356,18 +411,41 @@ def fetch_regions_gcp():
 
 @app.get("/api/regions_age/aws", tags=["File Status"], summary="Get AWS Regions File Age")
 def get_regions_age_aws():
+    """
+    Returns the age of the local AWS regions data file.
+    
+    **Returns**: A JSON object with the `age` string (e.g., "2 days", "5 hours").
+    """
     return {"age": get_file_age_string(CONSTANTS.AWS_REGIONS_FILE_PATH)}
 
 @app.get("/api/regions_age/azure", tags=["File Status"], summary="Get Azure Regions File Age")
 def get_regions_age_azure():
+    """
+    Returns the age of the local Azure regions data file.
+    
+    **Returns**: A JSON object with the `age` string.
+    """
     return {"age": get_file_age_string(CONSTANTS.AZURE_REGIONS_FILE_PATH)}
 
 @app.get("/api/regions_age/gcp", tags=["File Status"], summary="Get GCP Regions File Age")
 def get_regions_age_gcp():
+    """
+    Returns the age of the local GCP regions data file.
+    
+    **Returns**: A JSON object with the `age` string.
+    """
     return {"age": get_file_age_string(CONSTANTS.GCP_REGIONS_FILE_PATH)}
 
-@app.get("/api/pricing_age/aws", tags=["File Status"])
+@app.get("/api/pricing_age/aws", tags=["File Status"], summary="Get AWS Pricing File Status")
 def get_pricing_age_aws():
+    """
+    Checks the age and validity of the local AWS pricing data file.
+    
+    **Returns**:
+    - **age**: Time since last update (e.g., "3 days").
+    - **status**: Validation status (`valid`, `incomplete`, `missing`, `error`).
+    - **missing_keys**: List of missing service keys if status is `incomplete`.
+    """
     age = get_file_age_string(CONSTANTS.AWS_PRICING_FILE_PATH)
     status = "missing"
     missing_keys = []
@@ -389,8 +467,16 @@ def get_pricing_age_aws():
         "missing_keys": missing_keys
     }
 
-@app.get("/api/pricing_age/azure", tags=["File Status"])
+@app.get("/api/pricing_age/azure", tags=["File Status"], summary="Get Azure Pricing File Status")
 def get_pricing_age_azure():
+    """
+    Checks the age and validity of the local Azure pricing data file.
+    
+    **Returns**:
+    - **age**: Time since last update.
+    - **status**: Validation status (`valid`, `incomplete`, `missing`, `error`).
+    - **missing_keys**: List of missing service keys if status is `incomplete`.
+    """
     age = get_file_age_string(CONSTANTS.AZURE_PRICING_FILE_PATH)
     status = "missing"
     missing_keys = []
@@ -412,8 +498,16 @@ def get_pricing_age_azure():
         "missing_keys": missing_keys
     }
 
-@app.get("/api/pricing_age/gcp", tags=["File Status"])
+@app.get("/api/pricing_age/gcp", tags=["File Status"], summary="Get GCP Pricing File Status")
 def get_pricing_age_gcp():
+    """
+    Checks the age and validity of the local GCP pricing data file.
+    
+    **Returns**:
+    - **age**: Time since last update.
+    - **status**: Validation status (`valid`, `incomplete`, `missing`, `error`).
+    - **missing_keys**: List of missing service keys if status is `incomplete`.
+    """
     age = get_file_age_string(CONSTANTS.GCP_PRICING_FILE_PATH)
     status = "missing"
     missing_keys = []
@@ -437,12 +531,21 @@ def get_pricing_age_gcp():
 
 @app.get("/api/currency_age", tags=["File Status"], summary="Get Currency File Age")
 def get_currency_age():
+    """
+    Returns the age of the local currency conversion rates file.
+    
+    **Returns**: A JSON object with the `age` string.
+    """
     return {"age": get_file_age_string(CONSTANTS.CURRENCY_CONVERSION_FILE_PATH)}
 
 @app.post("/api/fetch_currency", tags=["Pricing"], summary="Fetch Currency Rates")
 def fetch_currency_rates():
     """
-    Fetches up-to-date currency rates (USD/EUR).
+    Fetches up-to-date currency exchange rates (USD/EUR).
+    
+    - **Cache Duration**: 1 day.
+    
+    **Returns**: A dictionary of currency rates (e.g., `{"USD": 1.0, "EUR": 0.92}`).
     """
     try:
         from backend import pricing_utils

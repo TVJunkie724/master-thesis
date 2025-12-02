@@ -49,11 +49,52 @@ The system is composed of three distinct but interconnected projects:
 4.  **Deploy**: User clicks "Deploy". The App passes the configuration to the **Deployer** (`3-cloud-deployer`).
 5.  **Execute**: The Deployer provisions the resources and returns the deployment status/endpoints to the App.
 
+## 4. The Management Platform (Vision)
+
+The ultimate goal is a unified **Flutter Application** that serves as the command center for the entire lifecycle of the digital twin.
+
+### 4.1. Architecture: The "Management Layer"
+To support the Flutter App, a persistent **Management Backend** is required (likely containerized alongside the deployer).
+*   **Database:** Stores user profiles, cloud credentials, twin configurations, API keys, and deployment state.
+*   **Authentication:** Handles User Login (OAuth via Google/Microsoft/University).
+*   **Orchestrator:** Wraps the `3-cloud-deployer` API and the `Cost Optimizer`.
+
+### 4.2. User Workflow
+1.  **Configuration & Optimization:**
+    *   User inputs requirements (data frequency, retention, etc.).
+    *   **Data Fetching:** System fetches current cloud pricing and region mappings.
+        *   **Live Logs:** App displays real-time status of price fetching (e.g., "Fetching AWS us-east-1 pricing...", "Updating Azure regions...").
+    *   **Cost Optimizer** runs and proposes a multi-cloud architecture (e.g., "L1 in AWS, L2 in Azure").
+    *   User reviews the proposal. Can manually override cloud choices (system warns if not cost-optimal).
+2.  **Deployment:**
+    *   User clicks "Deploy". (Or wants to separate deployment of layers and has the option to click on "Deploy L1", "Deploy L2", "Deploy L3", ...)
+    *   **Live Logs:** The app streams real-time logs from the deployer (via WebSocket/Stream) to show progress.
+3.  **Operation & Monitoring:**
+    *   **Twin List:** User sees all deployed twins.
+    *   **Dashboard:** Selecting a twin shows:
+        *   **Live Status:** Health of each layer.
+        *   **Error/Warning Log:** Real-time feed of system errors (e.g., "L2 Connector Timeout", "L1 Sensor Offline").
+        *   **Visualization:** Embedded Grafana view or link.
+        *   **Management:** Options to destroy or re-deploy specific layers to different clouds.
+        *   **???Cost???:** Real-time cost calculation based on current usage???
+        *   **???Billing???:** Real-time billing based on current usage???
+        *   **Specifications:** Full list of all specifications/configs made by the user for the twin.
+
+### 4.3. Error Handling Strategy
+Errors must be captured at every layer and surfaced to the user.
+*   **Sources:**
+    *   **Ingestion (L1):** Malformed data, device disconnects.
+    *   **Processing (L2):** Validation failures, cross-cloud connector timeouts.
+    *   **Storage (L3):** Write failures, quota exceeded.
+*   **Reporting:**
+    *   Critical errors are published to a centralized **Error Notification Topic** (or API).
+    *   The **Management Backend** subscribes to this topic and pushes alerts to the Flutter App.
+
 ## 5. Future Roadmap
 
 -   **Unified API**: Expose the Optimizer and Deployer as microservices consumed by the Flutter App.
--   **Real-Time Feedback**: The App should display real-time status from the Deployer during the provisioning phase.
--   **Paper Validation**: Use the App to gather real-world cost data from deployed twins to validate and refine the `EDT_25` theoretical formulas.
+-   **Real-Time Feedback**: The App should display real-time status from the Cost Optimizer before calculation phase and Deployer during the provisioning phase.
+-   **Paper Validation**: Use the App to gather real-world cost data from deployed twins to validate theoretical formulas.
 
 ## 6. References
 
