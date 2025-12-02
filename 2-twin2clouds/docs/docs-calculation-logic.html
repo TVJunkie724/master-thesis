@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Calculation Logic — Twin2Clouds Documentation</title>
+    <link rel="icon" type="image/x-icon" href="../references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/docs_styles.css" />
+</head>
+
+<body>
+
+    <div class="layout">
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+            <h1 class="mb-3">
+                <i class="fa-solid fa-microchip me-2"></i> Calculation Logic
+            </h1>
+
+            <p class="text-muted mb-4">
+                Detailed explanation of the Twin2Clouds optimization engine, including the graph-based pathfinding
+                algorithm and component-level cost formulas.
+            </p>
+
+            <!-- Optimization Algorithm -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-project-diagram me-2"></i>Optimization Algorithm</h2>
+                    <p>
+                        The core of Twin2Clouds is a <strong>Graph-Based Shortest Path Algorithm</strong> that
+                        determines the most cost-effective architecture across 5 layers and 3 cloud providers.
+                    </p>
+
+                    <h3 class="mt-4 text-primary">The Decision Graph</h3>
+                    <p>
+                        The system models the storage lifecycle as a directed acyclic graph (DAG) where:
+                    </p>
+                    <ul>
+                        <li><strong>Nodes</strong> represent storage states (e.g., <code>AWS_Hot</code>,
+                            <code>Azure_Cool</code>, <code>GCP_Archive</code>).
+                        </li>
+                        <li><strong>Edges</strong> represent data transitions (transfer) or retention periods.</li>
+                        <li><strong>Weights</strong> represent the total cost (Storage + Operations + Transfer) for that
+                            stage.</li>
+                    </ul>
+
+                    <div class="alert alert-info">
+                        <i class="fa-solid fa-info-circle me-2"></i>
+                        <strong>Goal:</strong> Find the path with the minimum total weight from <strong>Hot
+                            Storage</strong> to <strong>Archive Storage</strong>.
+                    </div>
+
+                    <h3 class="mt-4 text-primary">Selection Logic</h3>
+                    <ol>
+                        <li>
+                            <strong>Layer 2 (Storage) Path:</strong> The engine calculates the cost for all possible
+                            storage combinations (3 Hot * 3 Cool * 3 Archive = 27 paths) and selects the cheapest one.
+                            <br>
+                            <em>Example: AWS DynamoDB (Hot) &rarr; Azure Blob Cool &rarr; GCP Archive.</em>
+                        </li>
+                        <li>
+                            <strong>Layer 1 (Ingestion):</strong> The ingestion provider is selected to minimize the sum
+                            of:
+                            <ul>
+                                <li>Ingestion Cost (IoT Core/Hub/PubSub)</li>
+                                <li>Cross-Cloud Transfer to the selected Hot Storage provider.</li>
+                                <li>"Glue" Costs (Connector Functions) if the ingestion provider differs from the
+                                    storage provider.</li>
+                            </ul>
+                        </li>
+                        <li>
+                            <strong>Layer 3 (Processing):</strong> This layer is <strong>coupled</strong> to the Hot
+                            Storage provider to minimize latency and data transfer costs during active processing.
+                        </li>
+                        <li>
+                            <strong>Layers 4 & 5 (Twin & Viz):</strong> These are selected independently based on their
+                            standalone costs, as they consume processed data via APIs and are less sensitive to data
+                            gravity.
+                        </li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Component Formulas -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-calculator me-2"></i>Component Formulas</h2>
+                    <p>
+                        Each component's cost is calculated using specific formulas derived from provider pricing pages.
+                        See <a href="docs-formulas.html">Cost Formulas</a> for the mathematical definitions.
+                    </p>
+
+                    <h3 class="mt-4 mb-2 text-warning"><i class="fa-brands fa-aws me-2"></i>AWS Calculation</h3>
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Key Drivers</th>
+                                <th>Logic</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>IoT Core</strong></td>
+                                <td>Messages, Rules</td>
+                                <td>Tiered pricing based on message volume. Includes rule execution costs.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Lambda</strong></td>
+                                <td>Requests, Duration, Memory</td>
+                                <td><code>(Requests - Free) * Price + (GB-Seconds - Free) * Price</code>.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>DynamoDB</strong></td>
+                                <td>Storage, Writes, Reads</td>
+                                <td>Calculates Write Capacity Units (WCUs) and Read Capacity Units (RCUs) needed based
+                                    on message size and frequency.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>S3</strong></td>
+                                <td>Storage, Requests, Retrieval</td>
+                                <td>Includes standard storage cost plus request fees (PUT/GET) and data retrieval fees
+                                    for IA/Glacier tiers.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3 class="mt-4 mb-2 text-info"><i class="fa-brands fa-microsoft me-2"></i>Azure Calculation</h3>
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Key Drivers</th>
+                                <th>Logic</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>IoT Hub</strong></td>
+                                <td>Messages, Tier</td>
+                                <td>Selects the most cost-effective tier (Basic/Standard B1/S1, B2/S2, etc.) that
+                                    accommodates the monthly message volume.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Functions</strong></td>
+                                <td>Requests, Duration</td>
+                                <td>Uses Consumption Plan pricing. Similar formula to AWS Lambda.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Cosmos DB</strong></td>
+                                <td>RUs, Storage</td>
+                                <td>Estimates Request Units (RUs) per second based on write/read frequency and message
+                                    size.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Blob Storage</strong></td>
+                                <td>Storage, Operations</td>
+                                <td>Includes write/read operation costs and data retrieval fees for Cool/Archive tiers.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3 class="mt-4 mb-2 text-success"><i class="fa-brands fa-google me-2"></i>GCP Calculation</h3>
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Key Drivers</th>
+                                <th>Logic</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Pub/Sub</strong></td>
+                                <td>Data Volume (GB)</td>
+                                <td>Priced per GiB of data transferred/ingested, unlike message-based pricing of
+                                    AWS/Azure.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Cloud Functions</strong></td>
+                                <td>Invocations, GB-Seconds</td>
+                                <td>Standard serverless pricing model with free tier deduction.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Firestore</strong></td>
+                                <td>Writes, Reads, Storage</td>
+                                <td>Charged per document read/write operation and stored data volume.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Cloud Storage</strong></td>
+                                <td>Storage, Operations</td>
+                                <td>Standard object storage pricing for Nearline (Cool) and Archive classes.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Conditional Logic & Supporting Services -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-code-branch me-2"></i>Conditional Logic & Supporting Services
+                    </h2>
+                    <p>
+                        The engine calculates costs for optional features based on user configuration. These services
+                        are added to <strong>Layer 2 (Data Processing)</strong>.
+                    </p>
+
+                    <h4 class="mt-3">1. Event Checking</h4>
+                    <p><em>Triggered if <code>useEventChecking</code> is enabled.</em></p>
+                    <ul>
+                        <li><strong>Logic:</strong> Adds a serverless function execution for every message to evaluate
+                            conditions.</li>
+                        <li><strong>Cost:</strong> <code>Total Messages * Function Duration Cost</code>.</li>
+                    </ul>
+
+                    <h4 class="mt-3">2. Orchestration (Workflows)</h4>
+                    <p><em>Triggered if <code>triggerNotificationWorkflow</code> is enabled.</em></p>
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Provider</th>
+                                <th>Service</th>
+                                <th>Cost Formula</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><i class="fa-brands fa-aws text-warning"></i> AWS</td>
+                                <td>Step Functions</td>
+                                <td><code>Transitions * PricePerTransition</code></td>
+                            </tr>
+                            <tr>
+                                <td><i class="fa-brands fa-microsoft text-info"></i> Azure</td>
+                                <td>Logic Apps</td>
+                                <td><code>Actions * PricePerAction</code></td>
+                            </tr>
+                            <tr>
+                                <td><i class="fa-brands fa-google text-success"></i> GCP</td>
+                                <td>Cloud Workflows</td>
+                                <td><code>Steps * PricePerStep</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h4 class="mt-3">3. Feedback Loop</h4>
+                    <p><em>Triggered if <code>returnFeedbackToDevice</code> is enabled.</em></p>
+                    <ul>
+                        <li><strong>Logic:</strong> Sends a command back to the device via the IoT gateway.</li>
+                        <li><strong>Components:</strong>
+                            <ul>
+                                <li><strong>IoT Egress:</strong> Cost to send message (C2D).</li>
+                                <li><strong>Generator Function:</strong> Compute cost to generate the feedback payload.
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <h4 class="mt-3">4. Error Handling</h4>
+                    <p><em>Triggered if <code>integrateErrorHandling</code> is enabled.</em></p>
+                    <ul>
+                        <li><strong>Event Bus:</strong> Cost to route error events (EventBridge / Event Grid / PubSub).
+                        </li>
+                        <li><strong>Reporter Function:</strong> Compute cost to process the error.</li>
+                        <li><strong>Error Log:</strong> Write cost to a dedicated NoSQL table (DynamoDB / Cosmos DB /
+                            Firestore).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Glue Code Logic -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-link me-2"></i>"Glue" Code Logic</h2>
+                    <p>
+                        When services are distributed across different clouds, "Glue" code is required to bridge them.
+                        The engine automatically adds these costs to ensure a fair comparison with single-cloud
+                        architectures.
+                    </p>
+
+                    <h4 class="mt-3">1. Cross-Cloud Ingestion (L1 &rarr; L2)</h4>
+                    <p>
+                        Applied when the <strong>Ingestion Provider (L1)</strong> differs from the <strong>Storage
+                            Provider (L2)</strong>.
+                    </p>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Component</th>
+                                    <th>Location</th>
+                                    <th>Purpose</th>
+                                    <th>Cost Driver</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Connector Function</strong></td>
+                                    <td>L1 Provider</td>
+                                    <td>Reads from IoT Hub/Topic and pushes to external endpoint.</td>
+                                    <td>Lambda/Function Execution</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Ingestion Function</strong></td>
+                                    <td>L2 Provider</td>
+                                    <td>Receives external data and writes to Hot Storage.</td>
+                                    <td>Lambda/Function Execution</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Egress Traffic</strong></td>
+                                    <td>L1 Provider</td>
+                                    <td>Data transfer out to the internet.</td>
+                                    <td>GB Transferred * Egress Rate</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h4 class="mt-3">2. Cross-Cloud Visualization (L3 &rarr; L4/L5)</h4>
+                    <p>
+                        Applied when the <strong>Storage Provider (L3)</strong> differs from the <strong>Twin/Viz
+                            Provider (L4/L5)</strong>.
+                    </p>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Component</th>
+                                    <th>Location</th>
+                                    <th>Purpose</th>
+                                    <th>Cost Driver</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>API Gateway</strong></td>
+                                    <td>L3 Provider</td>
+                                    <td>Exposes secure HTTP endpoint for external queries.</td>
+                                    <td>Requests (per million)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Reader Function</strong></td>
+                                    <td>L3 Provider</td>
+                                    <td>Queries the Hot Storage and formats response.</td>
+                                    <td>Lambda/Function Execution</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Egress Traffic</strong></td>
+                                    <td>L3 Provider</td>
+                                    <td>Response data transfer out to the internet.</td>
+                                    <td>GB Transferred * Egress Rate</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    <script src="../js/docs-nav.js" defer></script>
+</body>
+
+</html>

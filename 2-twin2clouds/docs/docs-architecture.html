@@ -203,7 +203,10 @@
                     <h2 class="mb-3"><i class="fa-solid fa-puzzle-piece me-2"></i>Supporting Services</h2>
                     <p>
                         Beyond the core 5 layers, the architecture relies on essential supporting services to ensure
-                        security, scalability, and orchestration.
+                        security, scalability, and orchestration. These are enabled via specific <strong>conditional
+                            flags</strong>
+                        in the configuration (e.g., <code>useEventChecking</code>,
+                        <code>triggerNotificationWorkflow</code>).
                     </p>
 
                     <h3 class="mt-4 mb-2 text-primary">Data Access & Security</h3>
@@ -618,6 +621,28 @@
                         </li>
                         <li><strong>Complexity:</strong> Operational overhead of managing multi-cloud deployments</li>
                     </ul>
+
+                    <h3 class="mt-4 mb-2 text-primary">Cross-Cloud "Glue" Architecture</h3>
+                    <p>To enable seamless data flow between different cloud providers, Twin2Clouds automatically injects
+                        "glue" components:</p>
+                    <ul>
+                        <li><strong>L1 &rarr; L2 (Ingestion):</strong> When the ingestion layer (L1) and storage layer
+                            (L2)
+                            are on different clouds, a <strong>Connector Function</strong> (in L1) and an
+                            <strong>Ingestion
+                                Function</strong> (in L2) are added to securely bridge the gap.</li>
+                        <li><strong>L3 &rarr; L4/L5 (Visualization):</strong> When the processing layer (L3) differs
+                            from
+                            visualization layers, an <strong>API Gateway</strong> and <strong>Reader Function</strong>
+                            are
+                            deployed to expose data securely to the external dashboards.</li>
+                    </ul>
+                    <p>
+                        <a href="docs-calculation-logic.html#glue-code-logic" class="btn btn-sm btn-outline-primary">
+                            <i class="fa-solid fa-calculator me-1"></i> View Glue Code Cost Logic
+                        </a>
+                    </p>
+
                     <p class="alert alert-info mt-3">
                         <i class="fa-solid fa-info-circle me-2"></i>
                         <strong>Note:</strong> The current optimization focuses purely on cost. In production
