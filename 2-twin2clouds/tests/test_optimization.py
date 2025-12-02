@@ -116,7 +116,9 @@ def test_calculate_cheapest_costs_mocked(mock_validate, mock_load_json, mock_tra
             "provider": provider,
             "totalMonthlyCost": cost,
             "dataSizeInGB": 1.0,
-            "totalMessagesPerMonth": 1000
+            "totalMessagesPerMonth": 1000,
+            "transferCostFromCosmosDB": 0.0,
+            "transferCostFromDynamoDB": 0.0
         }
 
     # --- AWS Mocks ---
@@ -145,6 +147,29 @@ def test_calculate_cheapest_costs_mocked(mock_validate, mock_load_json, mock_tra
     mock_gcp.calculate_gcp_storage_archive_cost.return_value = create_cost_result(12, "GCP") # Archive
     mock_gcp.calculate_gcp_twin_maker_cost.return_value = create_cost_result(120, "GCP") # L4
     mock_gcp.calculate_gcp_managed_grafana_cost.return_value = create_cost_result(120, "GCP") # L5
+
+    # --- Glue Function Mocks ---
+    mock_aws.calculate_aws_connector_function_cost.return_value = 1.0
+    mock_aws.calculate_aws_ingestion_function_cost.return_value = 1.0
+    
+    mock_azure.calculate_azure_connector_function_cost.return_value = 1.0
+    mock_azure.calculate_azure_ingestion_function_cost.return_value = 1.0
+    
+    mock_gcp.calculate_gcp_connector_function_cost.return_value = 1.0
+    mock_gcp.calculate_gcp_ingestion_function_cost.return_value = 1.0
+
+    mock_gcp.calculate_gcp_connector_function_cost.return_value = 1.0
+    mock_gcp.calculate_gcp_ingestion_function_cost.return_value = 1.0
+
+    # --- Glue Function Mocks (L3 -> L4) ---
+    mock_aws.calculate_aws_api_gateway_cost.return_value = 1.0
+    mock_aws.calculate_aws_reader_function_cost.return_value = 1.0
+    
+    mock_azure.calculate_azure_api_management_cost.return_value = 1.0
+    mock_azure.calculate_azure_reader_function_cost.return_value = 1.0
+    
+    mock_gcp.calculate_gcp_api_gateway_cost.return_value = 1.0
+    mock_gcp.calculate_gcp_reader_function_cost.return_value = 1.0
 
     # --- Transfer Mocks ---
     # Helper to set return value on mock_transfer

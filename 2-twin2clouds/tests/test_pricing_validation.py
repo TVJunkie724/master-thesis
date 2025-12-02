@@ -11,9 +11,10 @@ def test_validate_pricing_schema_valid_aws():
         "s3GlacierDeepArchive": {"storagePrice": 0.1, "lifecycleAndWritePrice": 0.1, "dataRetrievalPrice": 0.1},
         "iotTwinMaker": {"unifiedDataAccessAPICallsPrice": 0.1, "entityPrice": 0.1, "queryPrice": 0.1},
         "awsManagedGrafana": {"editorPrice": 0.1, "viewerPrice": 0.1},
-        "stepFunctions": {"pricePer1kStateTransitions": 0.1},
+        "stepFunctions": {"pricePer1kStateTransitions": 0.1, "pricePerStateTransition": 0.1},
         "eventBridge": {"pricePerMillionEvents": 0.1},
-        "apiGateway": {"pricePerMillionCalls": 0.1, "dataTransferOutPrice": 0.1}
+        "apiGateway": {"pricePerMillionCalls": 0.1, "dataTransferOutPrice": 0.1},
+        "scheduler": {"jobPrice": 0.1}
     }
     result = validate_pricing_schema("aws", data)
     assert result["status"] == "valid"
