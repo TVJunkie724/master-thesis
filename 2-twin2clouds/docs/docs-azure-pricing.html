@@ -76,14 +76,13 @@
       "dataRetrievalPrice": ...
     },
     "apiManagement": {
-      "pricePerUnit": ...,
-      "sku": "Basic"
+      "pricePerMillionCalls": ...
     },
     "logicApps": {
-      "actionPrice": ...
+      "pricePer1kStateTransitions": ...
     },
     "eventGrid": {
-      "pricePerMillionOperations": ...
+      "pricePerMillionEvents": ...
     },
     "azureDigitalTwins": {
       "messagePrice": ...,
@@ -313,14 +312,9 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="mono">pricePerUnit</td>
+                                <td class="mono">pricePerMillionCalls</td>
                                 <td><span class="badge text-bg-success">Fetched</span></td>
-                                <td>Basic Tier unit price (approx. fixed monthly).</td>
-                            </tr>
-                            <tr>
-                                <td class="mono">sku</td>
-                                <td><span class="badge text-bg-warning">Static</span></td>
-                                <td>"Basic" (Developer/Standard also supported).</td>
+                                <td>Basic Tier unit price (normalized to per million).</td>
                             </tr>
                         </tbody>
                     </table>
@@ -338,7 +332,7 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="mono">actionPrice</td>
+                                <td class="mono">pricePer1kStateTransitions</td>
                                 <td><span class="badge text-bg-success">Fetched</span></td>
                                 <td>Per 1,000 actions (Standard/Consumption).</td>
                             </tr>
@@ -358,7 +352,7 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="mono">pricePerMillionOperations</td>
+                                <td class="mono">pricePerMillionEvents</td>
                                 <td><span class="badge text-bg-success">Fetched</span></td>
                                 <td>Per million operations.</td>
                             </tr>

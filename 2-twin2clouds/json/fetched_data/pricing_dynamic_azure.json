@@ -99,7 +99,8 @@
     "hourlyPrice": 0.069
   },
   "logicApps": {
-    "pricePer1kStateTransitions": 0.125
+    "pricePer1kStateTransitions": 0.125,
+    "pricePerStateTransition": 0.000125
   },
   "eventGrid": {
     "pricePerMillionEvents": 0.6

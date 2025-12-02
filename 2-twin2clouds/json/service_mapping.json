@@ -50,8 +50,13 @@
     "gcp": "ApiGateway"
   },
   "scheduler": {
-    "aws": "",
+    "aws": "AWSEvents",
     "azure": "",
     "gcp": "CloudScheduler"
+  },
+  "transfer": {
+    "aws": "AWSDataTransfer",
+    "azure": "Bandwidth",
+    "gcp": "ComputeEngine"
   }
 }

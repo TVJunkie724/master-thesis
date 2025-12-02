@@ -17,11 +17,11 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY . /app
+COPY ./2-twin2clouds/requirements.txt /app/requirements.txt
 
 RUN mkdir -p /app/docs/cds
 COPY --from=clarity-builder /build/node_modules/@cds/core /app/docs/cds
 
-COPY requirements.txt /app/requirements.txt
 
 RUN pip install --no-cache-dir -r requirements.txt
 

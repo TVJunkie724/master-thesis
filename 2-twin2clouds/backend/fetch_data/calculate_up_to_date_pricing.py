@@ -186,8 +186,8 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, region_map: dic
             "tier3": {"limit": 102400, "price": 0.07},
             "tier4": {"limit": "Infinity", "price": 0.05},
         }),
+        "egressPrice": _get_or_warn("AWS", neutral_service, provider_service, "egressPrice", transfer, 0.09, STATIC_DEFAULTS)
     }
-    aws["egressPrice"] = _get_or_warn("AWS", neutral_service, provider_service, "egressPrice", transfer, 0.09, STATIC_DEFAULTS)
 
     neutral_service, provider_service = "iot", "iotCore"
     iot = fetched.get(neutral_service, {})
@@ -223,7 +223,7 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, region_map: dic
 
     neutral_service, provider_service = "storage_cool", "s3InfrequentAccess"
     s3ia = fetched.get(neutral_service, {})
-    egress_price = aws["egressPrice"]
+    egress_price = aws["transfer"]["egressPrice"]
     aws[provider_service] = {
         "storagePrice": _get_or_warn("AWS", neutral_service, provider_service, "storagePrice", s3ia, 0.0125, STATIC_DEFAULTS),
         "upfrontPrice": _get_or_warn("AWS", neutral_service, provider_service, "upfrontPrice", s3ia, 0.0001, STATIC_DEFAULTS),
@@ -258,8 +258,10 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, region_map: dic
 
     neutral_service, provider_service = "orchestration", "stepFunctions"
     sf = fetched.get(neutral_service, {})
+    price_per_1k = _get_or_warn("AWS", neutral_service, provider_service, "pricePer1kStateTransitions", sf, 0.025, STATIC_DEFAULTS)
     aws[provider_service] = {
-        "pricePer1kStateTransitions": _get_or_warn("AWS", neutral_service, provider_service, "pricePer1kStateTransitions", sf, 0.025, STATIC_DEFAULTS),
+        "pricePer1kStateTransitions": price_per_1k,
+        "pricePerStateTransition": price_per_1k / 1000.0,
     }
 
     neutral_service, provider_service = "event_bus", "eventBridge"
@@ -272,7 +274,13 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, region_map: dic
     ag = fetched.get(neutral_service, {})
     aws[provider_service] = {
         "pricePerMillionCalls": _get_or_warn("AWS", neutral_service, provider_service, "pricePerMillionCalls", ag, 3.50, STATIC_DEFAULTS),
-        "dataTransferOutPrice": _get_or_warn("AWS", neutral_service, provider_service, "dataTransferOutPrice", ag, 0.09, STATIC_DEFAULTS),
+        "dataTransferOutPrice": aws["transfer"]["egressPrice"],
+    }
+
+    neutral_service, provider_service = "scheduler", "scheduler"
+    sch = fetched.get(neutral_service, {})
+    aws[provider_service] = {
+        "jobPrice": _get_or_warn("AWS", neutral_service, provider_service, "jobPrice", sch, 0.000001, STATIC_DEFAULTS),
     }
 
     logger.info("✅ AWS pricing schema built successfully.")
@@ -401,8 +409,10 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, region_map:
     # Logic Apps (orchestration)
     neutral_service, provider_service = "orchestration", "logicApps"
     la = fetched.get(neutral_service, {})
+    pricePer1kStateTransitions = _get_or_warn("Azure", neutral_service, provider_service, "pricePer1kStateTransitions", la, 0.025, STATIC_DEFAULTS_AZURE)
     azure[provider_service] = {
-        "pricePer1kStateTransitions": _get_or_warn("Azure", neutral_service, provider_service, "pricePer1kStateTransitions", la, 0.025, STATIC_DEFAULTS_AZURE),
+        "pricePer1kStateTransitions": pricePer1kStateTransitions,
+        "pricePerStateTransition": pricePer1kStateTransitions / 1000.0,
     }
 
     # Event Grid (event_bus)
@@ -476,13 +486,13 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, region_ma
             "tier1": {"limit": 10240, "price": 0.12},
             "tier2": {"limit": "Infinity", "price": 0.08},
         },
+        "egressPrice": _get_or_warn("GCP", neutral_service, provider_service, "egressPrice", transfer, 0.12, STATIC_DEFAULTS_GCP)
     }
-    gcp["egressPrice"] = _get_or_warn("GCP", neutral_service, provider_service, "egressPrice", transfer, 0.12, STATIC_DEFAULTS_GCP)
 
     neutral_service, provider_service = "iot", "iot"
     iot = fetched.get(neutral_service, {})
     gcp[provider_service] = {
-        "pricePerGiB": _get_or_warn("GCP", neutral_service, provider_service, "pricePerMessage", iot, 0.0000004, STATIC_DEFAULTS_GCP),
+        "pricePerGiB": _get_or_warn("GCP", neutral_service, provider_service, "pricePerGiB", iot, 0.0000004, STATIC_DEFAULTS_GCP),
         "pricePerDeviceAndMonth": _get_or_warn("GCP", neutral_service, provider_service, "pricePerDeviceAndMonth", iot, 0, STATIC_DEFAULTS_GCP),
     }
 
@@ -593,5 +603,9 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, region_ma
 
 if __name__ == "__main__":
     import sys
+    target_provider = "gcp" # Default
+    if len(sys.argv) > 1 and sys.argv[1] in ["aws", "azure", "gcp"]:
+        target_provider = sys.argv[1]
+    
     additional_debug = "additional_debug=true" in sys.argv
-    calculate_up_to_date_pricing("gcp", additional_debug=additional_debug)
+    calculate_up_to_date_pricing(target_provider, additional_debug=additional_debug)

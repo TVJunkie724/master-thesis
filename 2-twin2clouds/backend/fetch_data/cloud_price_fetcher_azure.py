@@ -112,6 +112,12 @@ AZURE_SERVICE_KEYWORDS: Dict[str, Dict[str, Any]] = {
             "pricePerMillionCalls": {"meter_keywords": ["Consumption Calls"], "unit_keywords": ["10K"]}
         },
     },
+    "transfer": {
+        "meters": {
+            "egressPrice": {"meter_keywords": ["Data Transfer Out"], "unit_keywords": ["GB"]}
+        },
+        "include": ["Bandwidth"],
+    },
 }
 
 # -----------------------------------------------------------------------------

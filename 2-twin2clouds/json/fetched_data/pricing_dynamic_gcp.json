@@ -13,11 +13,11 @@
         "limit": "Infinity",
         "price": 0.08
       }
-    }
+    },
+    "egressPrice": 0.12
   },
-  "egressPrice": 0.12,
   "iot": {
-    "pricePerGiB": 4e-07,
+    "pricePerGiB": 0.0390625,
     "pricePerDeviceAndMonth": 0
   },
   "functions": {
@@ -28,42 +28,42 @@
   },
   "storage_hot": {
     "writePrice": 1.8e-06,
-    "readPrice": 6e-07,
-    "storagePrice": 0.18,
+    "readPrice": 3.3e-07,
+    "storagePrice": 0.135,
     "freeStorage": 1
   },
   "storage_cool": {
-    "storagePrice": 0.01,
+    "storagePrice": 0.011,
     "upfrontPrice": 0.0,
-    "requestPrice": 1e-05,
+    "requestPrice": 2.6e-05,
     "dataRetrievalPrice": 0.01
   },
   "storage_archive": {
-    "storagePrice": 0.0012,
-    "lifecycleAndWritePrice": 5e-05,
+    "storagePrice": 0.0014,
+    "lifecycleAndWritePrice": 6.5e-05,
     "dataRetrievalPrice": 0.05
   },
   "twinmaker": {
-    "e2MediumPrice": 0.0335,
-    "storagePrice": 0.04,
+    "e2MediumPrice": 0.0608511,
+    "storagePrice": 0.2,
     "entityPrice": 0,
     "unifiedDataAccessAPICallsPrice": 0,
     "queryPrice": 0
   },
   "grafana": {
-    "e2MediumPrice": 0.0335,
-    "storagePrice": 0.04,
+    "e2MediumPrice": 0.0608511,
+    "storagePrice": 0.2,
     "editorPrice": 0,
     "viewerPrice": 0
   },
   "apiGateway": {
-    "pricePerMillionCalls": 3000000.0,
+    "pricePerMillionCalls": 3.0,
     "dataTransferOutPrice": 0.12
   },
   "cloudWorkflows": {
-    "stepPrice": 1e-06
+    "stepPrice": 2.5e-05
   },
   "cloudScheduler": {
-    "jobPrice": 0.1
+    "jobPrice": 0.003225806
   }
 }

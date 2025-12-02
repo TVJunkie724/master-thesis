@@ -6,24 +6,24 @@
         "price": 0
       },
       "tier1": {
-        "limit": 10240,
+        "limit": 10240.0,
         "price": 0.09
       },
       "tier2": {
-        "limit": 51200,
+        "limit": 51200.0,
         "price": 0.085
       },
       "tier3": {
-        "limit": 102400,
+        "limit": 153600.0,
         "price": 0.07
       },
       "tier4": {
         "limit": "Infinity",
         "price": 0.05
       }
-    }
+    },
+    "egressPrice": 0.09
   },
-  "egressPrice": 0.09,
   "iotCore": {
     "pricePerDeviceAndMonth": 1.5e-06,
     "priceRulesTriggered": 1.8e-07,
@@ -58,7 +58,7 @@
     "storagePrice": 0.0135,
     "upfrontPrice": 0.0001,
     "requestPrice": 1e-06,
-    "dataRetrievalPrice": 0.01,
+    "dataRetrievalPrice": 0.012,
     "transferCostFromDynamoDB": 0.099,
     "transferCostFromCosmosDB": 0.0495
   },
@@ -77,7 +77,8 @@
     "viewerPrice": 5.0
   },
   "stepFunctions": {
-    "pricePer1kStateTransitions": 2.5e-05
+    "pricePer1kStateTransitions": 2.5e-05,
+    "pricePerStateTransition": 2.5000000000000002e-08
   },
   "eventBridge": {
     "pricePerMillionEvents": 1.15e-06
@@ -85,5 +86,8 @@
   "apiGateway": {
     "pricePerMillionCalls": 1.2e-06,
     "dataTransferOutPrice": 0.09
+  },
+  "scheduler": {
+    "jobPrice": 1e-06
   }
 }

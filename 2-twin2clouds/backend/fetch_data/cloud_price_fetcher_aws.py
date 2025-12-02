@@ -18,11 +18,12 @@ import backend.config_loader as config_loader
 # SERVICE_MAPPING = ...
 
 STATIC_DEFAULTS = {
-    "iot": {"pricePerDeviceAndMonth": 0.0035},
+    "iot": {"pricePerDeviceAndMonth": 0.0035, "priceRulesTriggered": 0.00000015},
     "functions": {"freeRequests": 1_000_000, "freeComputeTime": 400_000},
     "storage_hot": {"freeStorage": 25},
     "storage_cool": {"upfrontPrice": 0.0001},
     "grafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
+    "scheduler": {"jobPrice": 0.000001}, # Fallback if fetch fails
 }
 
 AWS_SERVICE_KEYWORDS = {
@@ -40,12 +41,18 @@ AWS_SERVICE_KEYWORDS = {
         "include": ["lambda", "request", "invocation", "compute", "gb-second"],
         "exclude": ["edge", "provisioned", "ephemeral", "poller", "streaming", "arm", "snapstart"],
         "fields": {
-            "requestPrice": ["total requests"],
+            "requestPrice": ["total requests", "request", "requests", "per request", "lambda-managed-instances-request"],
             "durationPrice": ["total compute", "gb-second"],
         },
         "tier_keywords": {
             "durationTiers": {"tier1": ["tier-1", "first"], "tier2": ["tier-2", "next"], "tier3": ["tier-3", "over"]}
         },
+    },
+    "scheduler": {
+        "include": ["scheduler", "scheduled", "invocation"],
+        "fields": {
+            "jobPrice": ["scheduled invocation", "invocation"]
+        }
     },
     "storage_hot": {
         "include": ["read", "write", "storage"],
@@ -57,12 +64,12 @@ AWS_SERVICE_KEYWORDS = {
         },
     },
     "storage_cool": {
-        "include": ["standard-infrequent access", "standard-ia", "infrequent access"],
+        "include": ["standard-infrequent access", "standard-ia", "infrequent access", "standard - infrequent access", "standard retrieval"],
         "exclude": ["one zone", "intelligent tiering", "glacier", "archive", "checksum", "select"],
         "fields": {
             "storagePrice": ["gb-month of storage used", "gb-month prorated"],
             "requestPrice": ["get and all other requests", "per 1,000", "per 10,000"],
-            "dataRetrievalPrice": ["retrieval fee", "per gb retrieved", "flat fee"],
+            "dataRetrievalPrice": ["retrieval fee", "per gb retrieved", "flat fee", "data retrieval"],
         },
     },
     "storage_archive": {
@@ -85,7 +92,7 @@ AWS_SERVICE_KEYWORDS = {
     "transfer": {
         "include": ["data transfer", "transfer out", "egress", "internet"],
         "fields": {
-            "egressPrice": ["data transfer", "transfer out", "data transferred out", "egress", "internet", "out to"]
+            "egressPrice": ["data transfer", "transfer out", "data transferred out", "egress", "internet", "out to", "external datatransfer"]
         }
     },
     "grafana": {
@@ -109,9 +116,10 @@ AWS_SERVICE_KEYWORDS = {
         }
     },
     "data_access": {
-        "include": ["requests", "api gateway"],
+        "include": ["requests", "api gateway", "data transfer"],
         "fields": {
             "pricePerMillionCalls": ["api gateway http api (first 300 million)"],
+            "dataTransferOutPrice": ["data transfer"],
         }
     },
 }
@@ -143,20 +151,33 @@ def _get_pricing_client(aws_credentials: Optional[Dict[str, Any]] = None) -> Any
         logger.error(f"Failed to create boto3 client: {e}")
         return None
 
-def _fetch_api_products(pricing_client, service_code: str, region_human: str, usagetype: Optional[str] = None, with_location: bool = True) -> List[str]:
+def _fetch_api_products(pricing_client, service_code: str, region_human: str, usagetype: Optional[str] = None, with_location: bool = True, extra_filters: Optional[List[Dict[str, str]]] = None) -> List[str]:
     """
     Fetch product list from AWS Pricing API.
-    Handles filters for region and usage type.
+    Handles filters for region, usage type, and arbitrary extra filters.
     """
     filters = []
     if usagetype:
         filters.append({"Type": "TERM_MATCH", "Field": "usagetype", "Value": usagetype})
     if with_location:
         filters.append({"Type": "TERM_MATCH", "Field": "location", "Value": region_human})
+    
+    if extra_filters:
+        filters.extend(extra_filters)
 
     try:
-        response = pricing_client.get_products(ServiceCode=service_code, Filters=filters, MaxResults=100)
-        return response.get("PriceList", [])
+        paginator = pricing_client.get_paginator('get_products')
+        page_iterator = paginator.paginate(
+            ServiceCode=service_code, 
+            Filters=filters, 
+            PaginationConfig={'MaxItems': 2000}  # Limit to avoid excessive fetching, but enough for Lambda/S3
+        )
+        
+        all_products = []
+        for page in page_iterator:
+            all_products.extend(page.get("PriceList", []))
+            
+        return all_products
     except Exception as e:
         logger.debug(f"⚠️ Query failed for {service_code} ({'with' if with_location else 'without'} location): {e}")
         return []
@@ -211,35 +232,50 @@ def _extract_prices_from_api_response(price_list: List[str], field_map: Dict[str
 def _fetch_transfer_prices(region_human: str, pricing_client: Any, debug: bool = False) -> Dict[str, Any]:
     """
     Specialized fetcher for Data Transfer.
-    Fetches prices from AmazonEC2 and AWSDataTransfer to build tiered egress pricing.
+    Fetches prices from AWSDataTransfer using fromLocation (Region) -> toLocation (External).
     """
     field_map = AWS_SERVICE_KEYWORDS["transfer"]["fields"]
     egress_prices = []
     
-    # Fetch from both potential sources
-    for service_code in ["AmazonEC2", "AWSDataTransfer"]:
-        for with_location in (True, False):
-            price_list = _fetch_api_products(
-                pricing_client, service_code, region_human, usagetype="DataTransfer-Out-Bytes", with_location=with_location
-            )
-            
-            # Parse tiers specifically for transfer
-            for prod_json in price_list:
-                prod = json.loads(prod_json)
-                for term in prod.get("terms", {}).get("OnDemand", {}).values():
-                    for dim in term.get("priceDimensions", {}).values():
-                        desc = dim.get("description", "").lower()
-                        price = float(dim.get("pricePerUnit", {}).get("USD", 0))
-                        if price == 0: continue
-                        
-                        if any(p in desc for p in field_map.get("egressPrice", [])) and "per gb" in desc:
-                            egress_prices.append({
-                                "desc": desc,
-                                "price": price,
-                                "begin": float(dim.get("beginRange", "0")),
-                                "end": float(dim.get("endRange", "inf")),
-                            })
-                            if debug: logger.debug(f"   ✔️ Matched transfer tier: {desc} → {price}")
+    # We specifically want:
+    # Service: AWSDataTransfer
+    # fromLocation: <Current Region>
+    # toLocation: External
+    # transferType: AWS Outbound
+    
+    extra_filters = [
+        {"Type": "TERM_MATCH", "Field": "fromLocation", "Value": region_human},
+        {"Type": "TERM_MATCH", "Field": "toLocation", "Value": "External"},
+        {"Type": "TERM_MATCH", "Field": "transferType", "Value": "AWS Outbound"},
+    ]
+
+    # Note: with_location=False because we are using 'fromLocation' instead of 'location'
+    price_list = _fetch_api_products(
+        pricing_client, 
+        "AWSDataTransfer", 
+        region_human, 
+        with_location=False, 
+        extra_filters=extra_filters
+    )
+    
+    # Parse tiers specifically for transfer
+    for prod_json in price_list:
+        prod = json.loads(prod_json)
+        for term in prod.get("terms", {}).get("OnDemand", {}).values():
+            for dim in term.get("priceDimensions", {}).values():
+                desc = dim.get("description", "").lower()
+                price = float(dim.get("pricePerUnit", {}).get("USD", 0))
+                if price == 0: continue
+                
+                # We trust the filters, but double check description just in case
+                if "data transfer" in desc or "out" in desc:
+                    egress_prices.append({
+                        "desc": desc,
+                        "price": price,
+                        "begin": float(dim.get("beginRange", "0")),
+                        "end": float(dim.get("endRange", "inf")),
+                    })
+                    if debug: logger.debug(f"   ✔️ Matched transfer tier: {desc} → {price}")
 
     if not egress_prices:
         logger.warning(f"⚠️ No egress prices found for {region_human}, using static defaults.")

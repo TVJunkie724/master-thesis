@@ -89,6 +89,9 @@
     "awsManagedGrafana": {
       "editorPrice": ...,
       "viewerPrice": ...
+    },
+    "scheduler": {
+      "jobPrice": ...
     }
   }
 }</code></pre>
@@ -421,6 +424,26 @@
                 <td class="mono">viewerPrice</td>
                 <td><span class="badge text-bg-warning">Static</span></td>
                 <td>$5.00 / viewer / month.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Scheduler -->
+          <h3 class="mt-4 mb-2 text-primary">Scheduler (Orchestration)</h3>
+          <p><strong>Service:</strong> Amazon EventBridge Scheduler</p>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Source</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">jobPrice</td>
+                <td><span class="badge text-bg-success">Fetched</span></td>
+                <td>Per job per month.</td>
               </tr>
             </tbody>
           </table>

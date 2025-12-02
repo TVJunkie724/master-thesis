@@ -372,8 +372,13 @@ def fetch_gcp_price(client: billing_v1.CloudCatalogClient, service_name: str, re
         logger.error(f"Error listing SKUs for {service_name}: {e}")
         return {}
 
-    # 6. Defaults are handled by the caller (_get_or_warn), so we just return what we found.
-    
+    # 6. Merge with Defaults (CRITICAL FIX)
+    defaults = STATIC_DEFAULTS_GCP.get(service_name, {})
+    for k, v in defaults.items():
+        if k not in fetched:
+            fetched[k] = v
+            logger.info(f"   ℹ️ Using static value for GCP.{service_name}.{k}")
+
     logger.info(f"✅ Final GCP {service_name} pricing: {fetched}")
     print("")
     return fetched

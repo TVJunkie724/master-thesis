@@ -99,9 +99,10 @@ def validate_pricing_schema(provider: str, data: dict) -> dict:
             "s3GlacierDeepArchive": ["storagePrice", "lifecycleAndWritePrice", "dataRetrievalPrice"],
             "iotTwinMaker": ["unifiedDataAccessAPICallsPrice", "entityPrice", "queryPrice"],
             "awsManagedGrafana": ["editorPrice", "viewerPrice"],
-            "stepFunctions": ["pricePer1kStateTransitions"],
+            "stepFunctions": ["pricePer1kStateTransitions", "pricePerStateTransition"],
             "eventBridge": ["pricePerMillionEvents"],
-            "apiGateway": ["pricePerMillionCalls", "dataTransferOutPrice"]
+            "apiGateway": ["pricePerMillionCalls", "dataTransferOutPrice"],
+            "scheduler": ["jobPrice"]
         },
         "azure": {
             "transfer": ["pricing_tiers"],
@@ -112,7 +113,7 @@ def validate_pricing_schema(provider: str, data: dict) -> dict:
             "blobStorageArchive": ["storagePrice", "writePrice", "dataRetrievalPrice"],
             "azureDigitalTwins": ["messagePrice", "operationPrice", "queryPrice", "queryUnitTiers"],
             "azureManagedGrafana": ["userPrice", "hourlyPrice"],
-            "logicApps": ["pricePer1kStateTransitions"],
+            "logicApps": ["pricePer1kStateTransitions", "pricePerStateTransition"],
             "eventGrid": ["pricePerMillionEvents"],
             "apiManagement": ["pricePerMillionCalls"]
         },
