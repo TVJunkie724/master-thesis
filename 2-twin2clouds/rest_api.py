@@ -86,6 +86,16 @@ class CalcParams(BaseModel):
     dashboardRefreshesPerHour: int
     dashboardActiveHoursPerDay: int
     currency: str = "USD" # Default to USD, can be "EUR"
+    
+    # New parameters for supporter services
+    useEventChecking: bool = False
+    triggerNotificationWorkflow: bool = False
+    returnFeedbackToDevice: bool = False
+    integrateErrorHandling: bool = False
+    
+    orchestrationActionsPerMessage: int = 3
+    eventsPerMessage: int = 1
+    apiCallsPerDashboardRefresh: int = 1
 
     class Config:
         json_schema_extra = {
@@ -102,7 +112,14 @@ class CalcParams(BaseModel):
                 "amountOfActiveViewers": 0,
                 "dashboardRefreshesPerHour": 2,
                 "dashboardActiveHoursPerDay": 0,
-                "currency": "USD"
+                "currency": "USD",
+                "useEventChecking": True,
+                "triggerNotificationWorkflow": True,
+                "returnFeedbackToDevice": False,
+                "integrateErrorHandling": True,
+                "orchestrationActionsPerMessage": 3,
+                "eventsPerMessage": 1,
+                "apiCallsPerDashboardRefresh": 1
             }
         }
         
@@ -242,7 +259,14 @@ def calc(params: CalcParams = Body(
         "amountOfActiveViewers": 10,
         "dashboardRefreshesPerHour": 4,
         "dashboardActiveHoursPerDay": 8,
-        "currency": "USD"
+        "currency": "USD",
+        "useEventChecking": True,
+        "triggerNotificationWorkflow": True,
+        "returnFeedbackToDevice": False,
+        "integrateErrorHandling": True,
+        "orchestrationActionsPerMessage": 3,
+        "eventsPerMessage": 1,
+        "apiCallsPerDashboardRefresh": 1
     }
 )):
     """

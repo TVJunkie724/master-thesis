@@ -23,7 +23,13 @@ def calculate_aws_costs(params, pricing):
         params["numberOfDevices"],
         params["deviceSendingIntervalInMinutes"],
         params["averageSizeOfMessageInKb"],
-        pricing
+        pricing,
+        use_event_checking=params.get("useEventChecking", False),
+        trigger_notification_workflow=params.get("triggerNotificationWorkflow", False),
+        return_feedback_to_device=params.get("returnFeedbackToDevice", False),
+        integrate_error_handling=params.get("integrateErrorHandling", False),
+        orchestration_actions_per_message=params.get("orchestrationActionsPerMessage", 3),
+        events_per_message=params.get("eventsPerMessage", 1)
     )
 
     transfer_cost_from_l2_aws_to_aws_hot = transfer.calculate_transfer_cost_from_l2_aws_to_aws_hot(
@@ -139,7 +145,13 @@ def calculate_azure_costs(params, pricing):
         params["numberOfDevices"],
         params["deviceSendingIntervalInMinutes"],
         params["averageSizeOfMessageInKb"],
-        pricing
+        pricing,
+        use_event_checking=params.get("useEventChecking", False),
+        trigger_notification_workflow=params.get("triggerNotificationWorkflow", False),
+        return_feedback_to_device=params.get("returnFeedbackToDevice", False),
+        integrate_error_handling=params.get("integrateErrorHandling", False),
+        orchestration_actions_per_message=params.get("orchestrationActionsPerMessage", 3),
+        events_per_message=params.get("eventsPerMessage", 1)
     )
 
     transfer_cost_from_l2_azure_to_aws_hot = transfer.calculate_transfer_cost_from_l2_azure_to_aws_hot(
@@ -256,7 +268,13 @@ def calculate_gcp_costs(params, pricing):
         params["numberOfDevices"],
         params["deviceSendingIntervalInMinutes"],
         params["averageSizeOfMessageInKb"],
-        pricing
+        pricing,
+        use_event_checking=params.get("useEventChecking", False),
+        trigger_notification_workflow=params.get("triggerNotificationWorkflow", False),
+        return_feedback_to_device=params.get("returnFeedbackToDevice", False),
+        integrate_error_handling=params.get("integrateErrorHandling", False),
+        orchestration_actions_per_message=params.get("orchestrationActionsPerMessage", 3),
+        events_per_message=params.get("eventsPerMessage", 1)
     )
 
     transfer_cost_from_l2_gcp_to_aws_hot = transfer.calculate_transfer_cost_from_l2_gcp_to_aws_hot(
@@ -440,10 +458,44 @@ def calculate_cheapest_costs(params, pricing=None):
     
     hot_storage_provider = cheapest_storage["path"][0]
     
+
+    
+    # Add Cross-Cloud Glue Costs (L1 -> L2)
+    # If L1 != L2 (Hot Storage Provider), add Connector + Ingestion costs
+    # Note: L2 is coupled to Hot Storage Provider in this model for simplicity of "Hot Path"
+    
+    # AWS L1
+    l1_aws_cost = aws_costs_after_layer1 + transfer_costs.get(f"L1_AWS_to_{hot_storage_provider}", 0)
+    if hot_storage_provider != "AWS_Hot":
+        # L1=AWS, L2!=AWS. Add AWS Connector + Target Ingestion
+        l1_aws_cost += aws.calculate_aws_connector_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+        if hot_storage_provider == "Azure_Hot":
+            l1_aws_cost += azure.calculate_azure_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+        elif hot_storage_provider == "GCP_Hot":
+            l1_aws_cost += gcp.calculate_gcp_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+
+    # Azure L1
+    l1_azure_cost = azure_costs_after_layer1 + transfer_costs.get(f"L1_Azure_to_{hot_storage_provider}", 0)
+    if hot_storage_provider != "Azure_Hot":
+        l1_azure_cost += azure.calculate_azure_connector_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+        if hot_storage_provider == "AWS_Hot":
+            l1_azure_cost += aws.calculate_aws_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+        elif hot_storage_provider == "GCP_Hot":
+            l1_azure_cost += gcp.calculate_gcp_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+
+    # GCP L1
+    l1_gcp_cost = gcp_costs_after_layer1 + transfer_costs.get(f"L1_GCP_to_{hot_storage_provider}", 0)
+    if hot_storage_provider != "GCP_Hot":
+        l1_gcp_cost += gcp.calculate_gcp_connector_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+        if hot_storage_provider == "AWS_Hot":
+            l1_gcp_cost += aws.calculate_aws_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+        elif hot_storage_provider == "Azure_Hot":
+            l1_gcp_cost += azure.calculate_azure_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+
     l1_options = [
-        ("L1_AWS", aws_costs_after_layer1 + transfer_costs.get(f"L1_AWS_to_{hot_storage_provider}", 0)),
-        ("L1_Azure", azure_costs_after_layer1 + transfer_costs.get(f"L1_Azure_to_{hot_storage_provider}", 0)),
-        ("L1_GCP", gcp_costs_after_layer1 + transfer_costs.get(f"L1_GCP_to_{hot_storage_provider}", 0))
+        ("L1_AWS", l1_aws_cost),
+        ("L1_Azure", l1_azure_cost),
+        ("L1_GCP", l1_gcp_cost)
     ]
     
     # Sort by cost
@@ -482,6 +534,41 @@ def calculate_cheapest_costs(params, pricing=None):
         l4_options.append(("L4_Azure", azure_costs["resultL4"]["totalMonthlyCost"]))
     if gcp_costs["resultL4"]:
         l4_options.append(("L4_GCP", gcp_costs["resultL4"]["totalMonthlyCost"]))
+    
+    # Add Cross-Cloud Glue Costs (L3 -> L4)
+    # If L3 != L4, add L3 API Gateway + L3 Hot Reader
+    # L3 Provider is derived from hot_storage_provider (e.g., "AWS_Hot" -> "AWS")
+    l3_provider_name = hot_storage_provider.split("_")[0] # AWS, Azure, GCP
+    
+    # Calculate common glue costs for L3
+    l3_api_gateway_cost = 0
+    l3_reader_cost = 0
+    
+    # Number of dashboard queries
+    num_queries = params["dashboardActiveHoursPerDay"] * params["dashboardRefreshesPerHour"] * 30
+    
+    if l3_provider_name == "AWS":
+        l3_api_gateway_cost = aws.calculate_aws_api_gateway_cost(num_queries, pricing)
+        l3_reader_cost = aws.calculate_aws_reader_function_cost(num_queries, pricing)
+    elif l3_provider_name == "Azure":
+        l3_api_gateway_cost = azure.calculate_azure_api_management_cost(num_queries, pricing)
+        l3_reader_cost = azure.calculate_azure_reader_function_cost(num_queries, pricing)
+    elif l3_provider_name == "GCP":
+        l3_api_gateway_cost = gcp.calculate_gcp_api_gateway_cost(num_queries, pricing)
+        l3_reader_cost = gcp.calculate_gcp_reader_function_cost(num_queries, pricing)
+
+    # Update L4 options with glue costs
+    updated_l4_options = []
+    for l4_name, l4_cost in l4_options:
+        l4_provider_name = l4_name.split("_")[1] # AWS, Azure, GCP
+        
+        final_cost = l4_cost
+        if l4_provider_name != l3_provider_name:
+            final_cost += l3_api_gateway_cost + l3_reader_cost
+            
+        updated_l4_options.append((l4_name, final_cost))
+    
+    l4_options = updated_l4_options
     
     if l4_options:
         l4_options.sort(key=lambda x: x[1])

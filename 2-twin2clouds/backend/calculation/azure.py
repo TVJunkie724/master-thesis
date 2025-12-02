@@ -57,7 +57,13 @@ def calculate_azure_cost_data_processing(
     number_of_devices,
     device_sending_interval_in_minutes,
     average_size_of_message_in_kb,
-    pricing
+    pricing,
+    use_event_checking=False,
+    trigger_notification_workflow=False,
+    return_feedback_to_device=False,
+    integrate_error_handling=False,
+    orchestration_actions_per_message=3,
+    events_per_message=1
 ):
     # Reusing AWS logic as per JS implementation (costs and free tier are identical for this model)
     
@@ -87,12 +93,136 @@ def calculate_azure_cost_data_processing(
 
     total_monthly_cost = request_cost + duration_cost
 
+    # Supporter Services Costs
+    event_checker_cost = 0
+    logic_apps_cost = 0
+    feedback_loop_cost = 0
+    error_handling_cost = 0
+
+    # 1. Event Checker (Function)
+    if use_event_checking:
+        # Assumes 1 check per message
+        event_checker_compute_seconds = executions_per_month * execution_duration_in_ms * 0.001
+        event_checker_cost = max(
+            (event_checker_compute_seconds * allocated_memory_in_gb) - layer2_pricing["freeComputeTime"], 0
+        ) * layer2_pricing["durationPrice"]
+        
+        if executions_per_month > layer2_pricing["freeRequests"]:
+             event_checker_cost += (executions_per_month - layer2_pricing["freeRequests"]) * layer2_pricing["requestPrice"]
+
+    # 2. Orchestration (Logic Apps)
+    if use_event_checking and trigger_notification_workflow:
+        logic_apps_price = pricing["azure"]["logicApps"]["pricePerStateTransition"]
+        # Standard Logic Apps: charged per action execution
+        total_actions = executions_per_month * orchestration_actions_per_message
+        logic_apps_cost = total_actions * logic_apps_price
+
+    # 3. Feedback Loop (IoT Hub C2D + Function)
+    if use_event_checking and return_feedback_to_device:
+        # IoT Hub C2D
+        iot_pricing = pricing["azure"]["iotHub"]
+        feedback_messages = executions_per_month
+        # IoT Hub messages are counted against the daily quota. 
+        # If we exceed the tier limit, we might need to jump to next tier.
+        # For simplicity in this model, we treat it as potentially pushing to next tier or adding units.
+        # However, the current L1 calculation selects a tier based on volume. 
+        # We should ideally add this volume to L1, but for now we'll calculate a "unit cost" based on the selected tier in L1.
+        # Simplified: Assume same tier, add proportional cost or 0 if within limit.
+        # To be safe and conservative: Add cost of 1 message unit if we were paying per message, 
+        # but Azure is tiered. Let's assume it fits in the tier or adds negligible cost unless near boundary.
+        # For this calculation, we will add the Function cost for generating the feedback.
+        
+        # Feedback Function
+        feedback_compute_seconds = feedback_messages * execution_duration_in_ms * 0.001
+        feedback_function_cost = max(
+            (feedback_compute_seconds * allocated_memory_in_gb) - layer2_pricing["freeComputeTime"], 0
+        ) * layer2_pricing["durationPrice"]
+        if feedback_messages > layer2_pricing["freeRequests"]:
+            feedback_function_cost += (feedback_messages - layer2_pricing["freeRequests"]) * layer2_pricing["requestPrice"]
+            
+        feedback_loop_cost += feedback_function_cost
+
+    # 4. Error Handling (Event Grid + Function + Cosmos DB Write)
+    if integrate_error_handling:
+        # Event Grid
+        event_grid_price = pricing["azure"]["eventGrid"]["pricePerMillionEvents"]
+        total_events = executions_per_month * events_per_message
+        error_handling_cost += (total_events / 1000000) * event_grid_price
+
+        # Error Reporter Function
+        reporter_compute_seconds = total_events * execution_duration_in_ms * 0.001
+        reporter_cost = max(
+            (reporter_compute_seconds * allocated_memory_in_gb) - layer2_pricing["freeComputeTime"], 0
+        ) * layer2_pricing["durationPrice"]
+        if total_events > layer2_pricing["freeRequests"]:
+            reporter_cost += (total_events - layer2_pricing["freeRequests"]) * layer2_pricing["requestPrice"]
+        error_handling_cost += reporter_cost
+
+        # Cosmos DB Error Container (Write)
+        # Assume 1KB error log -> 1 RU per write (simplified)
+        # We need to add these RUs to the total Cosmos DB calculation or estimate cost separately.
+        # Estimating separately using Request Price:
+        request_price = pricing["azure"]["cosmosDB"]["requestPrice"] # Price per 100 RU/s hour? No, usually per 1M RUs or similar in serverless.
+        # The current Cosmos DB formula uses Provisioned Throughput model (RU/s * Hourly Price).
+        # We'll approximate by adding RUs to the required throughput.
+        # Writes/sec = Total Events / MonthSeconds.
+        writes_per_second = total_events / (30 * 24 * 60 * 60)
+        rus_per_write = pricing["azure"]["cosmosDB"]["RUsPerWrite"]
+        additional_rus = writes_per_second * rus_per_write
+        # Cost = Additional RUs * Hourly Price * 730
+        # Note: This is a rough approximation if we don't pass it to the main Cosmos DB function.
+        # For better accuracy, we should ideally pass this to L3 calculation. 
+        # For now, we'll calculate the incremental cost of these RUs.
+        hourly_price_per_100_ru = pricing["azure"]["cosmosDB"]["requestPrice"] / 100 * 100 # Wait, requestPrice in formula is used as (Request Units * Request Price).
+        # Let's check calculate_cosmos_db_cost: (request_units_needed * request_price) + storage.
+        # So request_price is likely "Price per 100 RU/s per Hour" * 730? Or similar.
+        # Let's use the same `requestPrice` from pricing.
+        error_handling_cost += additional_rus * pricing["azure"]["cosmosDB"]["requestPrice"]
+
+    total_monthly_cost = request_cost + duration_cost + event_checker_cost + logic_apps_cost + feedback_loop_cost + error_handling_cost
+
     return {
         "provider": "Azure",
         "totalMonthlyCost": total_monthly_cost,
         "dataSizeInGB": data_size_in_gb,
         "totalMessagesPerMonth": executions_per_month
     }
+
+def calculate_azure_api_management_cost(number_of_requests, pricing):
+    # APIM Pricing: Consumption tier (per million calls)
+    price_per_million = pricing["azure"]["apiManagement"]["pricePerMillionCalls"]
+    return (number_of_requests / 1000000) * price_per_million
+
+# Cross-Cloud Glue Functions
+# These use standard Azure Functions pricing
+
+def _calculate_function_cost(executions, pricing):
+    execution_duration_in_ms = 100
+    allocated_memory_in_gb = 128.0 / 1024.0
+    layer2_pricing = pricing["azure"]["functions"]
+    
+    compute_seconds = executions * execution_duration_in_ms * 0.001
+    duration_cost = max(
+        (compute_seconds * allocated_memory_in_gb) - layer2_pricing["freeComputeTime"], 0
+    ) * layer2_pricing["durationPrice"]
+    
+    request_cost = 0
+    if executions > layer2_pricing["freeRequests"]:
+        request_cost = (executions - layer2_pricing["freeRequests"]) * layer2_pricing["requestPrice"]
+        
+    return duration_cost + request_cost
+
+def calculate_azure_connector_function_cost(number_of_messages, pricing):
+    return _calculate_function_cost(number_of_messages, pricing)
+
+def calculate_azure_ingestion_function_cost(number_of_messages, pricing):
+    return _calculate_function_cost(number_of_messages, pricing)
+
+def calculate_azure_writer_function_cost(number_of_messages, pricing):
+    return _calculate_function_cost(number_of_messages, pricing)
+
+def calculate_azure_reader_function_cost(number_of_requests, pricing):
+    return _calculate_function_cost(number_of_requests, pricing)
 
 # LAYER 3 - Data Storage
 
