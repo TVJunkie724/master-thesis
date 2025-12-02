@@ -120,8 +120,6 @@
                         <li><span class="badge text-bg-warning">Todo</span> <strong>IoT Hub:</strong>
                             <ul>
                                 <li><strong>Create:</strong> IoT Hub (Standard Tier S1).</li>
-                                <li><strong>Permissions:</strong> Create Shared Access Policy <code>iothubowner</code>
-                                    for admin access.</li>
                                 <li><strong>Interaction:</strong> Provides connection strings for devices.</li>
                             </ul>
                         </li>
@@ -130,7 +128,32 @@
                                 <li><strong>Create:</strong> Event Grid System Topic for IoT Hub.</li>
                                 <li><strong>Action:</strong> Configure Message Routing to send telemetry to Event Grid.
                                 </li>
-                                <li><strong>Interaction:</strong> Decouples ingestion from processing (L2).</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Dispatcher Function:</strong>
+                            <ul>
+                                <li><strong>Trigger:</strong> Event Grid Trigger (subscribes to IoT Hub events).</li>
+                                <li><strong>Single Cloud:</strong> Routes incoming telemetry to local processor
+                                    functions.</li>
+                                <li><strong>Multi Cloud:</strong> Routes messages to a local <strong>Connector
+                                        Function</strong> if the processor is on another cloud.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Connector Function [Multi-Cloud
+                                Only]:</strong>
+                            <ul>
+                                <li><strong>Created:</strong> Only if Layer 2 is on a different cloud provider.</li>
+                                <li><strong>Logic:</strong> Masquerades as a processor function. Wraps the event and
+                                    sends it via HTTP POST to the remote cloud's Ingestion API.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Ingestion Function [Multi-Cloud
+                                Only]:</strong>
+                            <ul>
+                                <li><strong>Created:</strong> Only if Layer 1 is on a different cloud provider.</li>
+                                <li><strong>Trigger:</strong> HTTP Trigger.</li>
+                                <li><strong>Logic:</strong> Receives events from a remote Connector and invokes the
+                                    local Processor function.</li>
                             </ul>
                         </li>
                     </ul>
@@ -141,33 +164,26 @@
                         <li><span class="badge text-bg-warning">Todo</span> <strong>Function App:</strong>
                             <ul>
                                 <li><strong>Create:</strong> Function App (Consumption Plan, Python v2).</li>
-                                <li><strong>Identity:</strong> Enable <strong>System-Assigned Managed Identity</strong>
-                                    directly on the Function App resource.</li>
-                                <li><strong>Permissions:</strong> Assign <code>Storage Blob Data Owner</code> (for
-                                    internal storage) and <code>Azure Digital Twins Data Owner</code> (for L4) to this
-                                    identity.</li>
-                            </ul>
-                        </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Dispatcher Function:</strong>
-                            <ul>
-                                <li><strong>Trigger:</strong> Event Grid Trigger (subscribes to IoT Hub events).</li>
-                                <li><strong>Logic:</strong> Routes incoming telemetry to appropriate processors.</li>
+                                <li><strong>Identity:</strong> Enable <strong>System-Assigned Managed Identity</strong>.
+                                </li>
                             </ul>
                         </li>
                         <li><span class="badge text-bg-warning">Todo</span> <strong>Persister Function:</strong>
                             <ul>
-                                <li><strong>Action:</strong> Writes cleaned data to L3 (Cosmos/Blob).</li>
-                                <li><strong>Interaction:</strong> Invokes <strong>Event Checker</strong> function.</li>
-                                <li><strong>Permissions:</strong> Grant Managed Identity access to Cosmos DB
-                                    (<code>Cosmos DB Built-in Data Contributor</code>).</li>
+                                <li><strong>Single Cloud:</strong> Writes cleaned data to Cosmos DB using SDK.</li>
+                                <li><strong>Multi Cloud:</strong> Sends data via HTTP POST to the remote cloud's
+                                    <strong>Writer API</strong> (if L3 is remote).
+                                </li>
+                                <li><strong>Interaction:</strong> Invokes <strong>Event Checker</strong> function (if
+                                    enabled).</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Event Checker Function:</strong>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Event Checker Function
+                                [Optional]:</strong>
                             <ul>
                                 <li><strong>Trigger:</strong> HTTP/Direct Invocation from Persister.</li>
                                 <li><strong>Logic:</strong> Detects anomalies (e.g., temp > threshold).</li>
-                                <li><strong>Interaction:</strong> Triggers <strong>Logic App</strong> workflow
-                                    (Supporting Services).</li>
+                                <li><strong>Interaction:</strong> Triggers <strong>Logic App</strong> workflow.</li>
                             </ul>
                         </li>
                     </ul>
@@ -178,9 +194,16 @@
                         <li><span class="badge text-bg-warning">Todo</span> <strong>Cosmos DB (Hot):</strong>
                             <ul>
                                 <li><strong>Create:</strong> Azure Cosmos DB for NoSQL account.</li>
-                                <li><strong>Container:</strong> Create <code>HotData</code> container with partition key
-                                    <code>/deviceId</code>.
-                                </li>
+                                <li><strong>Container:</strong> Create <code>HotData</code> container.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Writer Function [Multi-Cloud
+                                Only]:</strong>
+                            <ul>
+                                <li><strong>Created:</strong> Only if Layer 2 is on a different cloud provider.</li>
+                                <li><strong>Trigger:</strong> HTTP Trigger.</li>
+                                <li><strong>Logic:</strong> Receives JSON data from a remote Persister and writes it to
+                                    Cosmos DB.</li>
                             </ul>
                         </li>
                         <li><span class="badge text-bg-warning">Todo</span> <strong>Blob Storage
@@ -198,8 +221,6 @@
                                 <li><strong>Action:</strong> Query old data from Cosmos DB -> Write to
                                     <code>cool-storage</code> -> Delete from Cosmos.
                                 </li>
-                                <li><strong>Parity:</strong> Matches AWS <code>hot_cold_mover</code> scheduled Lambda.
-                                </li>
                             </ul>
                         </li>
                         <li><span class="badge text-bg-warning">Todo</span> <strong>Cold-to-Archive Mover:</strong>
@@ -208,16 +229,15 @@
                                 <li><strong>Action:</strong> Move objects from <code>cool-storage</code> to
                                     <code>archive-storage</code>.
                                 </li>
-                                <li><strong>Parity:</strong> Matches AWS <code>cold_archive_mover</code> scheduled
-                                    Lambda.</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Data Access (APIM):</strong>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Data Access (APIM) [Multi-Cloud
+                                Only]:</strong>
                             <ul>
                                 <li><strong>Create:</strong> API Management (Consumption Tier).</li>
                                 <li><strong>Action:</strong> Expose <code>Hot Reader</code> Function as an API.</li>
-                                <li><strong>Parity:</strong> Matches AWS API Gateway + <code>hot_reader</code> Lambda.
-                                </li>
+                                <li><strong>Purpose:</strong> Required only if L4/L5 are on a different cloud or using
+                                    self-hosted tools that cannot access Cosmos DB natively.</li>
                             </ul>
                         </li>
                     </ul>
@@ -228,8 +248,6 @@
                         <li><span class="badge text-bg-warning">Todo</span> <strong>Instance:</strong>
                             <ul>
                                 <li><strong>Create:</strong> Azure Digital Twins instance.</li>
-                                <li><strong>Permissions:</strong> Assign <code>Azure Digital Twins Data Owner</code> to
-                                    your user (for setup) and Function App (for updates).</li>
                             </ul>
                         </li>
                         <li><span class="badge text-bg-warning">Todo</span> <strong>Models & Graph:</strong>
@@ -245,13 +263,14 @@
                         <li><span class="badge text-bg-warning">Todo</span> <strong>Workspace:</strong>
                             <ul>
                                 <li><strong>Create:</strong> Azure Managed Grafana workspace (Standard).</li>
-                                <li><strong>Identity:</strong> Enable System-Assigned Managed Identity.</li>
                             </ul>
                         </li>
                         <li><span class="badge text-bg-warning">Todo</span> <strong>Data Sources:</strong>
                             <ul>
-                                <li><strong>Azure Monitor:</strong> For visualizing metrics.</li>
-                                <li><strong>Azure Digital Twins:</strong> Connect using Managed Identity.</li>
+                                <li><strong>Single Cloud:</strong> Native plugins for Azure Monitor, Azure Digital
+                                    Twins, and Cosmos DB.</li>
+                                <li><strong>Multi Cloud:</strong> Generic JSON plugin to read from remote API Gateway
+                                    (if L3 is remote and not Cosmos DB).</li>
                             </ul>
                         </li>
                     </ul>
@@ -260,30 +279,94 @@
                     <h3 class="mt-4 text-primary">Supporting Services</h3>
                     <ul>
                         <li><span class="badge text-bg-warning">Todo</span> <strong>Logic Apps (Event
-                                Workflow):</strong>
+                                Workflow) [Optional]:</strong>
                             <ul>
                                 <li><strong>Used in:</strong> Layer 2 (Triggered by Event Checker).</li>
                                 <li><strong>Create:</strong> Logic App (Consumption).</li>
-                                <li><strong>Workflow:</strong> Triggered by Event Checker -> Invokes
-                                    <code>Event Feedback</code> Function.
-                                </li>
-                                <li><strong>Parity:</strong> Matches AWS Step Functions (State Machine) orchestration.
-                                </li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Event Feedback Function:</strong>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Event Feedback Function
+                                [Optional]:</strong>
                             <ul>
                                 <li><strong>Used in:</strong> Layer 2 (Feedback Loop).</li>
                                 <li><strong>Create:</strong> Function to send feedback commands to devices (via IoT
                                     Hub).</li>
-                                <li><strong>Parity:</strong> Matches AWS <code>event-feedback</code> Lambda.</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Hot Reader Function:</strong>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Hot Reader Function [Multi-Cloud
+                                Only]:</strong>
                             <ul>
                                 <li><strong>Used in:</strong> Layer 3 (Data Access).</li>
                                 <li><strong>Create:</strong> Function to read data from Cosmos DB for APIM.</li>
-                                <li><strong>Parity:</strong> Matches AWS <code>hot_reader</code> Lambda.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Error Handling System
+                                [Optional]:</strong>
+                            <ul>
+                                <li><strong>Event Grid (System Topic):</strong>
+                                    <ul>
+                                        <li><strong>Topic:</strong> <code>{digital_twin_name}-errors</code>.</li>
+                                        <li><strong>Purpose:</strong> Centralized error routing.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Error Reporter Function:</strong>
+                                    <ul>
+                                        <li><strong>Trigger:</strong> Event Grid Trigger.</li>
+                                        <li><strong>Logic:</strong> Formats error and writes to <strong>Cosmos DB Error
+                                                Container</strong>.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Error Container (Cosmos DB):</strong>
+                                    <ul>
+                                        <li><strong>Container:</strong> <code>SystemErrors</code>.</li>
+                                        <li><strong>Purpose:</strong> Persistent storage for system errors (Cloud-Side
+                                            Persistence).</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-cogs me-2"></i>Technical Specifications</h2>
+                <div class="roadmap-content">
+                    <h3 class="mt-4 text-primary">Cross-Cloud Implementation Details</h3>
+                    <ul>
+                        <li><strong>Configuration & Discovery:</strong>
+                            <ul>
+                                <li><strong>Mechanism:</strong> Application Settings (Environment Variables).</li>
+                                <li><strong>Variables:</strong> <code>REMOTE_INGESTION_URL</code>,
+                                    <code>REMOTE_WRITER_URL</code>, <code>REMOTE_READER_URL</code>.
+                                </li>
+                            </ul>
+                        </li>
+                        <li><strong>Authentication (Public Endpoints):</strong>
+                            <ul>
+                                <li><strong>Mechanism:</strong> Function Keys (x-functions-key header).</li>
+                                <li><strong>Ingestion/Writer API:</strong> Protected via Function Level Authorization.
+                                </li>
+                            </ul>
+                        </li>
+                        <li><strong>Error Handling Strategy:</strong>
+                            <ul>
+                                <li><strong>Pipeline:</strong> Components publish to <strong>Event Grid</strong>.</li>
+                                <li><strong>Persistence:</strong> Reporter writes to <strong>Cosmos DB</strong>
+                                    (Cloud-First).</li>
+                                <li><strong>Reliability:</strong> Connectors implement exponential backoff retries. Dead
+                                    Letter Queues (DLQ) configured.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Data Contracts:</strong>
+                            <ul>
+                                <li><strong>Format:</strong> Standard JSON Envelope
+                                    <pre class="p-3 rounded"><code>{ 
+    "source": "azure", 
+    "layer": "L2", 
+    "payload": {...},
+    "timestamp": "2023-10-27T10:00:00Z"
+}</code></pre>
                             </ul>
                         </li>
                     </ul>

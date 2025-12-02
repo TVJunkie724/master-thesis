@@ -27,8 +27,9 @@
             </p>
 
             <div class="callout info mb-4">
-                <strong><i class="fa-solid fa-check-circle me-2"></i>Status: Fully Implemented</strong>
-                AWS deployment is fully operational for all 5 layers.
+                <strong><i class="fa-solid fa-check-circle me-2"></i>Status: Core Fully Implemented</strong>
+                Core single-cloud deployment is fully operational. Multi-cloud extensions and Error Handling are in
+                development.
             </div>
 
             <div class="card mb-4">
@@ -90,7 +91,7 @@
                         <tr>
                             <td>Supporting</td>
                             <td>EventBridge</td>
-                            <td>Scheduled data movers</td>
+                            <td>Scheduled data movers, Error routing</td>
                         </tr>
                         <tr>
                             <td>Supporting</td>
@@ -121,11 +122,28 @@
                         <li><strong>Dispatcher Function:</strong>
                             <ul>
                                 <li><strong>Runtime:</strong> Python 3.13.</li>
-                                <li><strong>Logic:</strong> Acts as the central router, inspecting incoming MQTT
-                                    messages and routing them to specific processor functions based on topic or payload.
-                                </li>
-                                <li><strong>Interaction:</strong> Decouples ingestion from processing, allowing for
-                                    scalable message handling.</li>
+                                <li><strong>Logic:</strong> Acts as the central router.</li>
+                                <li><strong>Single Cloud:</strong> Routes incoming MQTT messages to local processor
+                                    functions.</li>
+                                <li><strong>Multi Cloud:</strong> Routes messages to a local <strong>Connector
+                                        Lambda</strong> if the processor is on another cloud.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Connector Function [Multi-Cloud
+                                Only]:</strong>
+                            <ul>
+                                <li><strong>Created:</strong> Only if Layer 2 is on a different cloud provider.</li>
+                                <li><strong>Logic:</strong> Masquerades as a processor function. Wraps the event and
+                                    sends it via HTTP POST to the remote cloud's Ingestion API.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Ingestion Function [Multi-Cloud
+                                Only]:</strong>
+                            <ul>
+                                <li><strong>Created:</strong> Only if Layer 1 is on a different cloud provider.</li>
+                                <li><strong>Trigger:</strong> Function URL (HTTP).</li>
+                                <li><strong>Logic:</strong> Receives events from a remote Connector and invokes the
+                                    local Processor function.</li>
                             </ul>
                         </li>
                         <li><strong>IoT Rule:</strong>
@@ -134,8 +152,6 @@
                                 </li>
                                 <li><strong>Action:</strong> Triggers the Dispatcher Lambda for every message published
                                     to the topic.</li>
-                                <li><strong>Permission:</strong> Explicitly grants IoT Core permission to invoke the
-                                    specific Lambda function.</li>
                             </ul>
                         </li>
                     </ul>
@@ -147,38 +163,44 @@
                             <ul>
                                 <li><strong>Role:</strong> <code>{digital_twin_name}-persister-role</code> (DynamoDB
                                     Full Access).</li>
-                                <li><strong>Logic:</strong> Validates and cleans raw telemetry data before writing it to
-                                    the hot storage layer (DynamoDB).</li>
+                                <li><strong>Logic:</strong> Validates and cleans raw telemetry data.</li>
+                                <li><strong>Single Cloud:</strong> Writes directly to DynamoDB using <code>boto3</code>.
+                                </li>
+                                <li><strong>Multi Cloud:</strong> Sends data via HTTP POST to the remote cloud's
+                                    <strong>Writer API</strong> (if L3 is remote).
+                                </li>
                                 <li><strong>Interaction:</strong> Asynchronously invokes the <strong>Event
-                                        Checker</strong> to screen for anomalies without blocking the ingestion
-                                    pipeline.</li>
+                                        Checker</strong> (if enabled).</li>
                             </ul>
                         </li>
-                        <li><strong>Event Checker Function:</strong>
+                        <li><strong>Event Checker Function [ <span class="badge text-bg-warning">Todo</span>
+                                Optional ]:</strong>
                             <ul>
                                 <li><strong>Role:</strong> <code>{digital_twin_name}-event-checker-role</code> (Step
                                     Functions Access).</li>
                                 <li><strong>Logic:</strong> Evaluates data against defined thresholds (e.g., temperature
                                     > 80°C).</li>
                                 <li><strong>Interaction:</strong> If an anomaly is detected, it triggers the
-                                    <strong>Step Function</strong> workflow to handle the event.</li>
+                                    <strong>Step Function</strong> workflow.
+                                </li>
                             </ul>
                         </li>
-                        <li><strong>Event Workflow (Step Functions):</strong>
+                        <li><strong>Event Workflow (Step Functions) [ <span class="badge text-bg-warning">Todo</span>
+                                Optional ]:</strong>
                             <ul>
                                 <li><strong>Type:</strong> Standard State Machine.</li>
                                 <li><strong>Definition:</strong> Orchestrates a multi-step remediation process (e.g.,
-                                    <code>LambdaA</code> -> <code>LambdaB</code>).</li>
-                                <li><strong>Purpose:</strong> Ensures reliable execution of complex business logic with
-                                    built-in retries and error handling.</li>
+                                    <code>LambdaA</code> -> <code>LambdaB</code>).
+                                </li>
                             </ul>
                         </li>
-                        <li><strong>Event Feedback Function:</strong>
+                        <li><strong>Event Feedback Function [ <span class="badge text-bg-warning">Todo</span>
+                                Optional ]:</strong>
                             <ul>
                                 <li><strong>Role:</strong> <code>{digital_twin_name}-event-feedback-role</code> (IoT
                                     Data Access).</li>
                                 <li><strong>Logic:</strong> Closes the control loop by publishing commands back to the
-                                    device via MQTT (e.g., "Shutdown").</li>
+                                    device via MQTT.</li>
                             </ul>
                         </li>
                     </ul>
@@ -189,41 +211,43 @@
                         <li><strong>DynamoDB (Hot):</strong>
                             <ul>
                                 <li><strong>Table:</strong> <code>{digital_twin_name}-hot-iot-data</code>.</li>
-                                <li><strong>Purpose:</strong> Stores high-frequency, low-latency data for real-time
-                                    dashboards.</li>
-                                <li><strong>Schema:</strong> Uses <code>deviceId</code> as Partition Key and
-                                    <code>timestamp</code> as Sort Key for efficient time-series queries.</li>
+                                <li><strong>Purpose:</strong> Stores high-frequency, low-latency data.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Writer Function [Multi-Cloud
+                                Only]:</strong>
+                            <ul>
+                                <li><strong>Created:</strong> Only if Layer 2 is on a different cloud provider.</li>
+                                <li><strong>Trigger:</strong> Function URL (HTTP).</li>
+                                <li><strong>Logic:</strong> Receives JSON data from a remote Persister and writes it to
+                                    DynamoDB.</li>
                             </ul>
                         </li>
                         <li><strong>S3 Buckets (Cool/Archive):</strong>
                             <ul>
-                                <li><strong>Cool:</strong> <code>{digital_twin_name}-cool-storage</code> (Standard-IA)
-                                    for data accessed monthly.</li>
+                                <li><strong>Cool:</strong> <code>{digital_twin_name}-cool-storage</code> (Standard-IA).
+                                </li>
                                 <li><strong>Archive:</strong> <code>{digital_twin_name}-archive-storage</code> (Glacier
-                                    Deep Archive) for long-term compliance retention.</li>
+                                    Deep Archive).</li>
                             </ul>
                         </li>
                         <li><strong>Hot-to-Cold Mover:</strong>
                             <ul>
                                 <li><strong>Type:</strong> Scheduled Lambda (EventBridge Rule).</li>
-                                <li><strong>Schedule:</strong> Runs daily (cron).</li>
-                                <li><strong>Logic:</strong> Queries data older than 7 days from DynamoDB, batches it to
-                                    S3 Cool, and deletes it from the hot table to manage costs.</li>
+                                <li><strong>Logic:</strong> Moves data from DynamoDB to S3 Cool.</li>
                             </ul>
                         </li>
                         <li><strong>Cold-to-Archive Mover:</strong>
                             <ul>
                                 <li><strong>Type:</strong> Scheduled Lambda (EventBridge Rule).</li>
-                                <li><strong>Schedule:</strong> Runs daily (cron).</li>
-                                <li><strong>Logic:</strong> Transitions objects older than 90 days from S3 Cool to
-                                    Glacier Deep Archive for lowest-cost storage.</li>
+                                <li><strong>Logic:</strong> Moves data from S3 Cool to Glacier Deep Archive.</li>
                             </ul>
                         </li>
-                        <li><strong>Data Access (API Gateway):</strong>
+                        <li><strong>Data Access (API Gateway) [Multi-Cloud Only]:</strong>
                             <ul>
                                 <li><strong>API:</strong> REST API exposing the <code>Hot Reader</code> Lambda.</li>
-                                <li><strong>Purpose:</strong> Provides a standardized interface for external consumers
-                                    (like TwinMaker or custom apps) to query hot data securely.</li>
+                                <li><strong>Purpose:</strong> Required only if L4/L5 are on a different cloud or using
+                                    self-hosted tools that cannot access DynamoDB natively.</li>
                             </ul>
                         </li>
                     </ul>
@@ -234,17 +258,15 @@
                         <li><strong>Workspace:</strong>
                             <ul>
                                 <li><strong>Created:</strong> <code>{digital_twin_name}</code> workspace.</li>
-                                <li><strong>Role:</strong> <code>{digital_twin_name}-twinmaker-role</code>.</li>
-                                <li><strong>Purpose:</strong> The central container for all digital twin resources,
-                                    including entities, scenes, and resource libraries.</li>
+                                <li><strong>Purpose:</strong> Central container for digital twin resources.</li>
                             </ul>
                         </li>
                         <li><strong>Entities & Components:</strong>
                             <ul>
-                                <li><strong>Entities:</strong> Virtual representations of physical devices in a
-                                    hierarchy.</li>
-                                <li><strong>Components:</strong> Data connectors that bind entities to their data
-                                    sources (e.g., mapping a "Temperature" property to the API Gateway endpoint).</li>
+                                <li><strong>Components:</strong> Data connectors.</li>
+                                <li><strong>Single Cloud:</strong> Uses native DynamoDB/Lambda connector.</li>
+                                <li><strong>Multi Cloud:</strong> Uses generic REST connector to call remote API
+                                    Gateway.</li>
                             </ul>
                         </li>
                     </ul>
@@ -255,15 +277,14 @@
                         <li><strong>Workspace:</strong>
                             <ul>
                                 <li><strong>Created:</strong> <code>{digital_twin_name}-grafana</code>.</li>
-                                <li><strong>Auth:</strong> Integrated with AWS SSO / SAML for secure user access.</li>
-                                <li><strong>Role:</strong> Grants Grafana permission to read from TwinMaker and S3.</li>
                             </ul>
                         </li>
                         <li><strong>Dashboards:</strong>
                             <ul>
                                 <li><strong>Source:</strong> Uses the AWS IoT TwinMaker plugin.</li>
-                                <li><strong>Visualization:</strong> Combines 3D Scene Viewers (spatial context) with
-                                    Time Series panels (temporal data) for a complete operational view.</li>
+                                <li><strong>Single Cloud:</strong> Reads directly from TwinMaker/DynamoDB.</li>
+                                <li><strong>Multi Cloud:</strong> Reads from TwinMaker (which reads from remote API).
+                                </li>
                             </ul>
                         </li>
                     </ul>
@@ -274,22 +295,89 @@
                         <li><strong>IAM (Access Control):</strong>
                             <ul>
                                 <li><strong>Used in:</strong> All Layers.</li>
-                                <li><strong>Implementation:</strong> Creates granular, least-privilege roles for every
-                                    service to ensure secure service-to-service communication.</li>
                             </ul>
                         </li>
                         <li><strong>EventBridge (Scheduler):</strong>
                             <ul>
                                 <li><strong>Used in:</strong> Layer 3 (Lifecycle Management).</li>
-                                <li><strong>Implementation:</strong> Manages cron schedules for data mover functions,
-                                    ensuring automated data lifecycle transitions.</li>
                             </ul>
                         </li>
-                        <li><strong>Step Functions (Orchestration):</strong>
+                        <li><strong>Step Functions (Orchestration) [Optional]:</strong>
                             <ul>
                                 <li><strong>Used in:</strong> Layer 2 (Event Workflow).</li>
-                                <li><strong>Implementation:</strong> Provides state management and visual workflows for
-                                    complex event handling logic, superior to chaining Lambda functions directly.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Error Handling System
+                                [Optional]:</strong>
+                            <ul>
+                                <li><strong>EventBridge (Error Bus):</strong>
+                                    <ul>
+                                        <li><strong>Pattern:</strong>
+                                            <code>{ "source": ["aws.lambda"], "detail-type": "Error" }</code>.
+                                        </li>
+                                        <li><strong>Purpose:</strong> Centralized error aggregation.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Error Reporter Lambda:</strong>
+                                    <ul>
+                                        <li><strong>Trigger:</strong> EventBridge Rule.</li>
+                                        <li><strong>Logic:</strong> Formats error and writes to <strong>DynamoDB Error
+                                                Table</strong>.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Error Table (DynamoDB):</strong>
+                                    <ul>
+                                        <li><strong>Table:</strong> <code>{digital_twin_name}-system-errors</code>.</li>
+                                        <li><strong>Purpose:</strong> Persistent storage for system errors (Cloud-Side
+                                            Persistence).</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-cogs me-2"></i>Technical Specifications</h2>
+                <div class="roadmap-content">
+                    <h3 class="mt-4 text-primary">Cross-Cloud Implementation Details</h3>
+                    <ul>
+                        <li><strong>Configuration & Discovery:</strong>
+                            <ul>
+                                <li><strong>Mechanism:</strong> Environment Variables injected at deployment time.</li>
+                                <li><strong>Variables:</strong> <code>REMOTE_INGESTION_URL</code>,
+                                    <code>REMOTE_WRITER_URL</code>, <code>REMOTE_READER_URL</code>.
+                                </li>
+                            </ul>
+                        </li>
+                        <li><strong>Authentication (Public Endpoints):</strong>
+                            <ul>
+                                <li><strong>Mechanism:</strong> AWS IAM (SigV4) for internal calls; API Keys for
+                                    cross-cloud.</li>
+                                <li><strong>Ingestion/Writer API:</strong> Protected via Function URL IAM Auth or API
+                                    Gateway Key.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Error Handling Strategy:</strong>
+                            <ul>
+                                <li><strong>Pipeline:</strong> Components publish to <strong>EventBridge</strong>.</li>
+                                <li><strong>Persistence:</strong> Reporter writes to <strong>DynamoDB</strong>
+                                    (Cloud-First).</li>
+                                <li><strong>Reliability:</strong> Connectors implement exponential backoff retries. Dead
+                                    Letter Queues (DLQ) configured.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Data Contracts:</strong>
+                            <ul>
+                                <li><strong>Format:</strong> Standard JSON Envelope
+                                    <pre class="p-3 rounded"><code>{ 
+    "source": "aws", 
+    "layer": "L2", 
+    "payload": {...},
+    "timestamp": "2023-10-27T10:00:00Z"
+}</code></pre>
+                                </li>
                             </ul>
                         </li>
                     </ul>
