@@ -129,3 +129,8 @@
 .cost-card:hover .flip-indicator {
   opacity: 1;
 }
+
+/* Hover effect for service links */
+.hover-underline:hover {
+  text-decoration: underline !important;
+}

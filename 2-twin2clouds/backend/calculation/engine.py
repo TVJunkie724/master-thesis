@@ -101,6 +101,7 @@ def calculate_aws_costs(params, pricing):
         params["deviceSendingIntervalInMinutes"],
         params["dashboardRefreshesPerHour"],
         params["dashboardActiveHoursPerDay"],
+        params["average3DModelSizeInMB"],
         pricing
     )
 
@@ -217,16 +218,16 @@ def calculate_azure_costs(params, pricing):
         pricing
     )
 
-    azure_result_layer4 = None
-    if not params["needs3DModel"]:
-        azure_result_layer4 = azure.calculate_azure_digital_twins_cost(
-            params["numberOfDevices"],
-            params["deviceSendingIntervalInMinutes"],
-            params["averageSizeOfMessageInKb"],
-            params["dashboardRefreshesPerHour"],
-            params["dashboardActiveHoursPerDay"],
-            pricing
-        )
+    azure_result_layer4 = azure.calculate_azure_digital_twins_cost(
+        params["numberOfDevices"],
+        params["deviceSendingIntervalInMinutes"],
+        params["averageSizeOfMessageInKb"],
+        params["dashboardRefreshesPerHour"],
+        params["dashboardActiveHoursPerDay"],
+        params["entityCount"],
+        params["average3DModelSizeInMB"],
+        pricing
+    )
 
     azure_result_layer5 = azure.calculate_azure_managed_grafana_cost(
         params["amountOfActiveEditors"] + params["amountOfActiveViewers"],
@@ -346,6 +347,7 @@ def calculate_gcp_costs(params, pricing):
         params["deviceSendingIntervalInMinutes"],
         params["dashboardRefreshesPerHour"],
         params["dashboardActiveHoursPerDay"],
+        params["average3DModelSizeInMB"],
         pricing
     )
 
@@ -461,57 +463,109 @@ def calculate_cheapest_costs(params, pricing=None):
     # saving $10 on storage leads to paying $1000 extra in processing or transfer fees.
     # -------------------------------------------------------------------------
 
-    # 1. Calculate combined costs
-    aws_l2_l3_total = aws_costs["resultHot"]["totalMonthlyCost"] + aws_costs["dataProcessing"]["totalMonthlyCost"]
-    azure_l2_l3_total = azure_costs["resultHot"]["totalMonthlyCost"] + azure_costs["dataProcessing"]["totalMonthlyCost"]
-    gcp_l2_l3_total = gcp_costs["resultHot"]["totalMonthlyCost"] + gcp_costs["dataProcessing"]["totalMonthlyCost"]
-
-    l2_l3_options = [
-        ("AWS_Hot", aws_l2_l3_total),
-        ("Azure_Hot", azure_l2_l3_total),
-        ("GCP_Hot", gcp_l2_l3_total)
-    ]
-    l2_l3_options.sort(key=lambda x: x[1])
+    # 1. Calculate combined costs (Unlocked Optimization)
+    # We evaluate all 9 combinations of L2 Hot + L3 to find the global minimum.
     
-    # 2. Select the best provider for the Hot Path
-    best_hot_provider = l2_l3_options[0][0] # e.g., "Azure_Hot"
-
-    # 3. Check if this overrides the "Cheapest L2" (for UI warning)
-    # Find who would have been chosen if we only looked at L2
-    l2_only_options = [
-        ("AWS_Hot", aws_costs["resultHot"]["totalMonthlyCost"]),
-        ("Azure_Hot", azure_costs["resultHot"]["totalMonthlyCost"]),
-        ("GCP_Hot", gcp_costs["resultHot"]["totalMonthlyCost"])
+    # Helper to get costs and data
+    l2_candidates = [
+        {"provider": "AWS", "key": "AWS_Hot", "cost": aws_costs["resultHot"]["totalMonthlyCost"], "data_gb": aws_costs["resultHot"]["dataSizeInGB"]},
+        {"provider": "Azure", "key": "Azure_Hot", "cost": azure_costs["resultHot"]["totalMonthlyCost"], "data_gb": azure_costs["resultHot"]["dataSizeInGB"]},
+        {"provider": "GCP", "key": "GCP_Hot", "cost": gcp_costs["resultHot"]["totalMonthlyCost"], "data_gb": gcp_costs["resultHot"]["dataSizeInGB"]}
     ]
-    l2_only_options.sort(key=lambda x: x[1])
-    cheapest_l2_provider = l2_only_options[0][0]
+    
+    l3_candidates = [
+        {"provider": "AWS", "key": "L3_AWS", "cost": aws_costs["dataProcessing"]["totalMonthlyCost"]},
+        {"provider": "Azure", "key": "L3_Azure", "cost": azure_costs["dataProcessing"]["totalMonthlyCost"]},
+        {"provider": "GCP", "key": "L3_GCP", "cost": gcp_costs["dataProcessing"]["totalMonthlyCost"]}
+    ]
+    
+    combinations = []
+    messages_per_month = params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730
 
+    for l2 in l2_candidates:
+        for l3 in l3_candidates:
+            base_cost = l2["cost"] + l3["cost"]
+            transfer_fee = 0
+            glue_cost = 0
+            
+            if l2["provider"] != l3["provider"]:
+                # Cross-Cloud Transfer (Egress from L2)
+                # Note: Using simplified egress pricing or specific transfer keys
+                if l2["provider"] == "AWS":
+                    egress_price = pricing["aws"]["transfer"].get("egressPrice", 0.09)
+                elif l2["provider"] == "Azure":
+                    # Use Tier 1 as safe estimate
+                    try:
+                        egress_price = pricing["azure"]["transfer"]["pricing_tiers"]["tier1"]["price"]
+                    except KeyError:
+                        egress_price = 0.087
+                elif l2["provider"] == "GCP":
+                    egress_price = pricing["gcp"]["transfer"].get("egressPrice", 0.12)
+                
+                transfer_fee = l2["data_gb"] * egress_price
+                
+                # Glue Code (Reader Function at L3)
+                if l3["provider"] == "AWS":
+                    glue_cost = aws.calculate_aws_connector_function_cost(messages_per_month, pricing)
+                elif l3["provider"] == "Azure":
+                    glue_cost = azure.calculate_azure_connector_function_cost(messages_per_month, pricing)
+                elif l3["provider"] == "GCP":
+                    glue_cost = gcp.calculate_gcp_connector_function_cost(messages_per_month, pricing)
+
+            total_cost = base_cost + transfer_fee + glue_cost
+            combinations.append({
+                "l2_key": l2["key"],
+                "l3_key": l3["key"],
+                "l2_provider": l2["provider"],
+                "l3_provider": l3["provider"],
+                "total_cost": total_cost,
+                "base_cost": base_cost,
+                "l2_cost": l2["cost"], # New: Breakdown
+                "l3_cost": l3["cost"], # New: Breakdown
+                "transfer_cost": transfer_fee,
+                "glue_cost": glue_cost
+            })
+
+    # Sort by total cost
+    combinations.sort(key=lambda x: x["total_cost"])
+    l2_l3_combinations = combinations
+    best_combination = combinations[0]
+    
+    best_hot_provider = best_combination["l2_key"]
+    best_l3_provider_key = best_combination["l3_key"] # e.g. "L3_AWS"
+    
+    print(f"Optimal L2+L3: {best_hot_provider} + {best_l3_provider_key} (Cost: ${best_combination['total_cost']:.2f})")
+
+    # 3. Check for Overrides (Warnings)
+    
+    # L2 Override Check
+    l2_only_options = sorted(l2_candidates, key=lambda x: x["cost"])
+    cheapest_l2_provider = l2_only_options[0]["key"]
+    
     l2_optimization_override = None
     if best_hot_provider != cheapest_l2_provider:
         l2_optimization_override = {
-            "selectedProvider": best_hot_provider.split("_")[0], # AWS
-            "cheapestL2Provider": cheapest_l2_provider.split("_")[0], # Azure
-            "savings": l2_only_options[0][1] - [x[1] for x in l2_only_options if x[0] == best_hot_provider][0] # Negative value showing higher storage cost
+            "selectedProvider": best_hot_provider.split("_")[0],
+            "cheapestL2Provider": cheapest_l2_provider.split("_")[0],
+            "savings": l2_only_options[0]["cost"] - [x["cost"] for x in l2_only_options if x["key"] == best_hot_provider][0]
         }
 
-    # 4. Check if L3 is suboptimal (locked by L2)
-    # Find who would have been chosen if we only looked at L3
-    l3_only_options = [
-        ("AWS_Hot", aws_costs["dataProcessing"]["totalMonthlyCost"]),
-        ("Azure_Hot", azure_costs["dataProcessing"]["totalMonthlyCost"]),
-        ("GCP_Hot", gcp_costs["dataProcessing"]["totalMonthlyCost"])
-    ]
-    l3_only_options.sort(key=lambda x: x[1])
-    cheapest_l3_provider = l3_only_options[0][0]
-
+    # L3 Override Check
+    l3_only_options = sorted(l3_candidates, key=lambda x: x["cost"])
+    cheapest_l3_provider = l3_only_options[0]["key"]
+    
     l3_optimization_override = None
-    # If the selected provider (best_hot_provider) is NOT the cheapest L3 provider
-    if best_hot_provider != cheapest_l3_provider:
+    if best_l3_provider_key != cheapest_l3_provider:
          l3_optimization_override = {
-            "selectedProvider": best_hot_provider.split("_")[0], # AWS
-            "cheapestL3Provider": cheapest_l3_provider.split("_")[0], # Azure
-            "savings": l3_only_options[0][1] - [x[1] for x in l3_only_options if x[0] == best_hot_provider][0]
+            "selectedProvider": best_l3_provider_key.split("_")[1], # AWS from L3_AWS
+            "cheapestL3Provider": cheapest_l3_provider.split("_")[1],
+            "savings": l3_only_options[0]["cost"] - [x["cost"] for x in l3_only_options if x["key"] == best_l3_provider_key][0]
         }
+    
+    # Cross-Cloud Warning (New)
+    # If we selected a cross-cloud path, we might want to flag it if it's interesting
+    # For now, the existing override warnings will handle "Why didn't you pick cheapest L2?"
+    # We might need to adjust the text in UI to explain "Global Optimization" vs "Locking"
 
     # 5. Find cheapest storage path STARTING from our optimized provider
     # We force the start node to be our chosen provider to respect Data Gravity
@@ -542,51 +596,52 @@ def calculate_cheapest_costs(params, pricing=None):
     # Note: L2 is coupled to Hot Storage Provider in this model for simplicity of "Hot Path"
     
     # AWS L1
-    l1_aws_cost = aws_costs_after_layer1 + transfer_costs.get(f"L1_AWS_to_{hot_storage_provider}", 0)
+    l1_aws_base = aws_costs_after_layer1
+    l1_aws_transfer = transfer_costs.get(f"L1_AWS_to_{hot_storage_provider}", 0)
+    l1_aws_glue = 0
     if hot_storage_provider != "AWS_Hot":
-        # L1=AWS, L2!=AWS. Add AWS Connector + Target Ingestion
-        l1_aws_cost += aws.calculate_aws_connector_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+        l1_aws_glue += aws.calculate_aws_connector_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
         if hot_storage_provider == "Azure_Hot":
-            l1_aws_cost += azure.calculate_azure_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+            l1_aws_glue += azure.calculate_azure_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
         elif hot_storage_provider == "GCP_Hot":
-            l1_aws_cost += gcp.calculate_gcp_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+            l1_aws_glue += gcp.calculate_gcp_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+    l1_aws_total = l1_aws_base + l1_aws_transfer + l1_aws_glue
 
     # Azure L1
-    l1_azure_cost = azure_costs_after_layer1 + transfer_costs.get(f"L1_Azure_to_{hot_storage_provider}", 0)
+    l1_azure_base = azure_costs_after_layer1
+    l1_azure_transfer = transfer_costs.get(f"L1_Azure_to_{hot_storage_provider}", 0)
+    l1_azure_glue = 0
     if hot_storage_provider != "Azure_Hot":
-        l1_azure_cost += azure.calculate_azure_connector_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+        l1_azure_glue += azure.calculate_azure_connector_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
         if hot_storage_provider == "AWS_Hot":
-            l1_azure_cost += aws.calculate_aws_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+            l1_azure_glue += aws.calculate_aws_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
         elif hot_storage_provider == "GCP_Hot":
-            l1_azure_cost += gcp.calculate_gcp_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+            l1_azure_glue += gcp.calculate_gcp_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+    l1_azure_total = l1_azure_base + l1_azure_transfer + l1_azure_glue
 
     # GCP L1
-    l1_gcp_cost = gcp_costs_after_layer1 + transfer_costs.get(f"L1_GCP_to_{hot_storage_provider}", 0)
+    l1_gcp_base = gcp_costs_after_layer1
+    l1_gcp_transfer = transfer_costs.get(f"L1_GCP_to_{hot_storage_provider}", 0)
+    l1_gcp_glue = 0
     if hot_storage_provider != "GCP_Hot":
-        l1_gcp_cost += gcp.calculate_gcp_connector_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+        l1_gcp_glue += gcp.calculate_gcp_connector_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
         if hot_storage_provider == "AWS_Hot":
-            l1_gcp_cost += aws.calculate_aws_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+            l1_gcp_glue += aws.calculate_aws_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
         elif hot_storage_provider == "Azure_Hot":
-            l1_gcp_cost += azure.calculate_azure_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+            l1_gcp_glue += azure.calculate_azure_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+    l1_gcp_total = l1_gcp_base + l1_gcp_transfer + l1_gcp_glue
 
-    l1_options = [
-        ("L1_AWS", l1_aws_cost),
-        ("L1_Azure", l1_azure_cost),
-        ("L1_GCP", l1_gcp_cost)
+    l1_detailed_options = [
+        {"provider": "AWS", "base_cost": l1_aws_base, "transfer_cost": l1_aws_transfer, "glue_cost": l1_aws_glue, "total_cost": l1_aws_total},
+        {"provider": "Azure", "base_cost": l1_azure_base, "transfer_cost": l1_azure_transfer, "glue_cost": l1_azure_glue, "total_cost": l1_azure_total},
+        {"provider": "GCP", "base_cost": l1_gcp_base, "transfer_cost": l1_gcp_transfer, "glue_cost": l1_gcp_glue, "total_cost": l1_gcp_total}
     ]
     
-    # Sort by cost
-    l1_options.sort(key=lambda x: x[1])
-    cheaper_provider_for_layer1 = l1_options[0][0]
-    
-    if hot_storage_provider == "AWS_Hot":
-        cheaper_provider_for_layer3 = "L3_AWS"
-    elif hot_storage_provider == "Azure_Hot":
-        cheaper_provider_for_layer3 = "L3_Azure"
-    elif hot_storage_provider == "GCP_Hot":
-        cheaper_provider_for_layer3 = "L3_GCP"
-    else:
-        print("Storage Path incorrect!")
+    # Sort by total cost
+    l1_detailed_options.sort(key=lambda x: x["total_cost"])
+    cheaper_provider_for_layer1 = "L1_" + l1_detailed_options[0]["provider"]
+    # Use the optimized L3 provider we found earlier (Unlocked Optimization)
+    cheaper_provider_for_layer3 = best_l3_provider_key
 
     # Layer 5
     l5_options = [
@@ -606,16 +661,16 @@ def calculate_cheapest_costs(params, pricing=None):
     # Layer 4
     l4_options = []
     if aws_costs["resultL4"]:
-        l4_options.append(("L4_AWS", aws_costs["resultL4"]["totalMonthlyCost"]))
+        l4_options.append({"key": "L4_AWS", "base_cost": aws_costs["resultL4"]["totalMonthlyCost"]})
     if azure_costs["resultL4"]:
-        l4_options.append(("L4_Azure", azure_costs["resultL4"]["totalMonthlyCost"]))
+        l4_options.append({"key": "L4_Azure", "base_cost": azure_costs["resultL4"]["totalMonthlyCost"]})
     if gcp_costs["resultL4"]:
-        l4_options.append(("L4_GCP", gcp_costs["resultL4"]["totalMonthlyCost"]))
+        l4_options.append({"key": "L4_GCP", "base_cost": gcp_costs["resultL4"]["totalMonthlyCost"]})
     
     # Add Cross-Cloud Glue Costs (L3 -> L4)
     # If L3 != L4, add L3 API Gateway + L3 Hot Reader
-    # L3 Provider is derived from hot_storage_provider (e.g., "AWS_Hot" -> "AWS")
-    l3_provider_name = hot_storage_provider.split("_")[0] # AWS, Azure, GCP
+    # L3 Provider is derived from the OPTIMAL L3 provider found in step 2
+    l3_provider_name = best_l3_provider_key.split("_")[1] # AWS, Azure, GCP
     
     # Calculate common glue costs for L3
     l3_api_gateway_cost = 0
@@ -634,50 +689,75 @@ def calculate_cheapest_costs(params, pricing=None):
         l3_api_gateway_cost = gcp.calculate_gcp_api_gateway_cost(num_queries, pricing)
         l3_reader_cost = gcp.calculate_gcp_reader_function_cost(num_queries, pricing)
 
-    # Update L4 options with glue costs
+    # Update L4 options with glue costs AND update the main result objects
     updated_l4_options = []
-    for l4_name, l4_cost in l4_options:
-        l4_provider_name = l4_name.split("_")[1] # AWS, Azure, GCP
+    for opt in l4_options:
+        l4_provider_name = opt["key"].split("_")[1] # AWS, Azure, GCP
         
-        final_cost = l4_cost
+        glue_cost = 0
         if l4_provider_name != l3_provider_name:
-            final_cost += l3_api_gateway_cost + l3_reader_cost
+            glue_cost = l3_api_gateway_cost + l3_reader_cost
             
-        updated_l4_options.append((l4_name, final_cost))
+        opt["glue_cost"] = glue_cost
+        opt["total_cost"] = opt["base_cost"] + glue_cost
+        updated_l4_options.append(opt)
+
+        # Update the main cost dictionary for this provider so the UI receives the full cost
+        if l4_provider_name == "AWS" and aws_costs.get("resultL4"):
+             aws_costs["resultL4"]["glueCodeCost"] = glue_cost
+             aws_costs["resultL4"]["totalMonthlyCost"] += glue_cost
+        elif l4_provider_name == "Azure" and azure_costs.get("resultL4"):
+             azure_costs["resultL4"]["glueCodeCost"] = glue_cost
+             azure_costs["resultL4"]["totalMonthlyCost"] += glue_cost
+        elif l4_provider_name == "GCP" and gcp_costs.get("resultL4"):
+             gcp_costs["resultL4"]["glueCodeCost"] = glue_cost
+             gcp_costs["resultL4"]["totalMonthlyCost"] += glue_cost
     
-    l4_options = updated_l4_options
+    l4_detailed_options = updated_l4_options
     
-    if l4_options:
-        l4_options.sort(key=lambda x: x[1])
-        cheaper_provider_layer4 = l4_options[0][0]
+    if l4_detailed_options:
+        l4_detailed_options.sort(key=lambda x: x["total_cost"])
+        cheaper_provider_layer4 = l4_detailed_options[0]["key"]
     else:
         cheaper_provider_layer4 = "L4_None"
 
     cheapest_path.append(cheaper_provider_layer4)
     cheapest_path.append(cheaper_provider_layer5)
 
-    # 7. Check for L4 Optimization Override
-    l4_only_options = [
-        ("AWS", aws_costs["resultL4"]["totalMonthlyCost"] if aws_costs["resultL4"] else 0),
-        ("Azure", azure_costs["resultL4"]["totalMonthlyCost"] if azure_costs["resultL4"] else 0),
-        ("GCP", gcp_costs["resultL4"]["totalMonthlyCost"] if gcp_costs["resultL4"] else 0)
-    ]
-    # Filter out 0 costs if any (unless all are 0)
-    l4_valid_options = [x for x in l4_only_options if x[1] > 0]
-    if not l4_valid_options: l4_valid_options = l4_only_options
-    
-    l4_valid_options.sort(key=lambda x: x[1])
-    cheapest_l4_provider = l4_valid_options[0][0]
-    
-    selected_l4_provider = cheaper_provider_layer4.split("_")[1] if cheaper_provider_layer4 != "L4_None" else "None"
-    
-    l4_optimization_override = None
-    if selected_l4_provider != "None" and selected_l4_provider != cheapest_l4_provider:
-        l4_optimization_override = {
-            "selectedProvider": selected_l4_provider,
-            "cheapestL4Provider": cheapest_l4_provider,
-            "savings": l4_valid_options[0][1] - [x[1] for x in l4_valid_options if x[0] == selected_l4_provider][0]
+    # 6. Check for L1 Optimization Override
+    l1_only_options = sorted(l1_detailed_options, key=lambda x: x["base_cost"])
+    cheapest_l1_provider = l1_only_options[0]["provider"]
+    selected_l1_provider = cheaper_provider_for_layer1.split("_")[1]
+
+    l1_optimization_override = None
+    if selected_l1_provider != cheapest_l1_provider:
+        l1_optimization_override = {
+            "selectedProvider": selected_l1_provider,
+            "cheapestProvider": cheapest_l1_provider,
+            "savings": l1_only_options[0]["base_cost"] - [x["base_cost"] for x in l1_detailed_options if x["provider"] == selected_l1_provider][0],
+            "candidates": l1_detailed_options
         }
+
+    # 7. Check for L4 Optimization Override
+    l4_optimization_override = None
+    
+    # Filter out None/0 costs
+    l4_valid_options = [x for x in l4_detailed_options if x["base_cost"] > 0]
+    
+    if l4_valid_options:
+        # Sort by BASE cost for override check
+        l4_valid_options_by_base = sorted(l4_valid_options, key=lambda x: x["base_cost"])
+        cheapest_l4_provider = l4_valid_options_by_base[0]["key"].split("_")[1]
+        
+        selected_l4_provider = cheaper_provider_layer4.split("_")[1] if cheaper_provider_layer4 != "L4_None" else "None"
+        
+        if selected_l4_provider != "None" and selected_l4_provider != cheapest_l4_provider:
+            l4_optimization_override = {
+                "selectedProvider": selected_l4_provider,
+                "cheapestProvider": cheapest_l4_provider,
+                "savings": l4_valid_options_by_base[0]["base_cost"] - [x["base_cost"] for x in l4_valid_options if x["key"] == f"L4_{selected_l4_provider}"][0],
+                "candidates": l4_detailed_options
+            }
 
     # 8. Check for L2 Cool Optimization Override
     # Extract selected Cool provider from cheapest_storage path
@@ -696,12 +776,119 @@ def calculate_cheapest_costs(params, pricing=None):
     l2_cool_only_options.sort(key=lambda x: x[1])
     cheapest_cool_provider = l2_cool_only_options[0][0]
     
+    # Calculate Cool Storage Combinations for UI Table (Full Path: Hot -> Cool -> Archive)
+    cool_combinations = []
+    hot_provider = best_hot_provider.split("_")[0] # e.g. "Azure"
+    
+    # Get Data Volume (using Hot provider's data size as proxy for transfer)
+    data_vol = 0
+    if hot_provider == "AWS": data_vol = aws_costs["resultHot"]["dataSizeInGB"]
+    elif hot_provider == "Azure": data_vol = azure_costs["resultHot"]["dataSizeInGB"]
+    elif hot_provider == "GCP": data_vol = gcp_costs["resultHot"]["dataSizeInGB"]
+
+    archive_options_map = {
+        "AWS": aws_costs["resultL3Archive"]["totalMonthlyCost"],
+        "Azure": azure_costs["resultL3Archive"]["totalMonthlyCost"],
+        "GCP": gcp_costs["resultL3Archive"]["totalMonthlyCost"]
+    }
+
+    for opt in l2_cool_only_options:
+        cool_prov = opt[0]
+        cool_cost = opt[1]
+        
+        # 1. Transfer Hot -> Cool
+        # Use pre-calculated transfer costs from the main dictionary to ensure consistency
+        # Key format: "{HotProvider}_Hot_to_{CoolProvider}_Cool"
+        transfer_key = f"{hot_provider}_Hot_to_{cool_prov}_Cool"
+        trans_h_c = transfer_costs.get(transfer_key, 0)
+
+        # 2. Find Best Archive for this Cool Provider
+        best_archive_for_cool = None
+        min_path_cost = float('inf')
+
+        for arch_prov, arch_cost in archive_options_map.items():
+            # Transfer Cool -> Archive
+            # Use pre-calculated transfer costs
+            # Key format: "{CoolProvider}_Cool_to_{ArchiveProvider}_Archive"
+            transfer_key_ca = f"{cool_prov}_Cool_to_{arch_prov}_Archive"
+            trans_c_a = transfer_costs.get(transfer_key_ca, 0)
+            
+            total_path_cost = cool_cost + trans_h_c + arch_cost + trans_c_a
+            
+            if total_path_cost < min_path_cost:
+                min_path_cost = total_path_cost
+                best_archive_for_cool = {
+                    "archive_provider": arch_prov,
+                    "archive_cost": arch_cost,
+                    "trans_c_a": trans_c_a,
+                    "total_path_cost": total_path_cost
+                }
+
+        if best_archive_for_cool:
+            cool_combinations.append({
+                "path": f"{hot_provider} -> {cool_prov} -> {best_archive_for_cool['archive_provider']}",
+                "trans_h_c": trans_h_c,
+                "cool_cost": cool_cost,
+                "trans_c_a": best_archive_for_cool['trans_c_a'],
+                "archive_cost": best_archive_for_cool['archive_cost'],
+                "total_cost": best_archive_for_cool['total_path_cost']
+            })
+
+    cool_combinations.sort(key=lambda x: x["total_cost"])
+
     l2_cool_optimization_override = None
     if selected_cool_provider != "None" and selected_cool_provider != cheapest_cool_provider:
          l2_cool_optimization_override = {
             "selectedProvider": selected_cool_provider,
             "cheapestProvider": cheapest_cool_provider,
-            "savings": l2_cool_only_options[0][1] - [x[1] for x in l2_cool_only_options if x[0] == selected_cool_provider][0]
+            "savings": 0 # Savings are complex in full path, leaving 0 or calculating diff
+        }
+
+    # 9. Check for L2 Archive Optimization Override
+    selected_archive_provider = "None"
+    for segment in cheapest_storage["path"]:
+        if "Archive" in segment:
+            selected_archive_provider = segment.split("_")[0]
+            break
+            
+    l2_archive_only_options = [
+        ("AWS", aws_costs["resultL3Archive"]["totalMonthlyCost"]),
+        ("Azure", azure_costs["resultL3Archive"]["totalMonthlyCost"]),
+        ("GCP", gcp_costs["resultL3Archive"]["totalMonthlyCost"])
+    ]
+    l2_archive_only_options.sort(key=lambda x: x[1])
+    cheapest_archive_provider = l2_archive_only_options[0][0]
+
+    # Calculate Archive Combinations (Cool -> Archive)
+    archive_combinations = []
+    # We need the SELECTED Cool provider for this context
+    current_cool_provider = selected_cool_provider if selected_cool_provider != "None" else hot_provider # Fallback
+
+    for opt in l2_archive_only_options:
+        arch_prov = opt[0]
+        arch_cost = opt[1]
+        trans_c_a = 0
+        
+        # Use pre-calculated transfer costs
+        # Key format: "{CoolProvider}_Cool_to_{ArchiveProvider}_Archive"
+        transfer_key = f"{current_cool_provider}_Cool_to_{arch_prov}_Archive"
+        trans_c_a = transfer_costs.get(transfer_key, 0)
+
+        archive_combinations.append({
+            "path": f"... -> {current_cool_provider} -> {arch_prov}",
+            "trans_c_a": trans_c_a,
+            "archive_cost": arch_cost,
+            "total_cost": arch_cost + trans_c_a
+        })
+    
+    archive_combinations.sort(key=lambda x: x["total_cost"])
+
+    l2_archive_optimization_override = None
+    if selected_archive_provider != "None" and selected_archive_provider != cheapest_archive_provider:
+        l2_archive_optimization_override = {
+            "selectedProvider": selected_archive_provider,
+            "cheapestProvider": cheapest_archive_provider,
+            "savings": l2_archive_only_options[0][1] - [x[1] for x in l2_archive_only_options if x[0] == selected_archive_provider][0]
         }
 
     calculation_result_obj = {}
@@ -732,7 +919,12 @@ def calculate_cheapest_costs(params, pricing=None):
         "l2OptimizationOverride": l2_optimization_override,
         "l3OptimizationOverride": l3_optimization_override,
         "l4OptimizationOverride": l4_optimization_override,
-        "l2CoolOptimizationOverride": l2_cool_optimization_override
+        "l1OptimizationOverride": l1_optimization_override,
+        "l2CoolOptimizationOverride": l2_cool_optimization_override,
+        "l2ArchiveOptimizationOverride": l2_archive_optimization_override,
+        "l2_l3_combinations": l2_l3_combinations,
+        "l2_cool_combinations": cool_combinations,
+        "l2_archive_combinations": archive_combinations
     }
     
     # Currency Conversion (USD -> EUR) if requested

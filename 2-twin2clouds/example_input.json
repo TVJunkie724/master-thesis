@@ -18,5 +18,6 @@
     "integrateErrorHandling": true,
     "orchestrationActionsPerMessage": 3,
     "eventsPerMessage": 1,
-    "apiCallsPerDashboardRefresh": 1
+    "apiCallsPerDashboardRefresh": 1,
+    "average3DModelSizeInMB": 100
 }

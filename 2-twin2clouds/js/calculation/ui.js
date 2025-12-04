@@ -24,6 +24,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Initialize Entity Input Visibility
   toggleEntityInput();
+  toggleEventsInput();
+  toggleOrchestrationInput();
+
+  // Add event listeners for toggles
+  document.getElementById("useEventChecking").addEventListener("change", toggleEventsInput);
+  document.getElementById("triggerNotificationWorkflow").addEventListener("change", toggleOrchestrationInput);
 
   // Select Preset 1 by default
   const firstPreset = document.querySelector('.preset-btn');
@@ -53,6 +59,7 @@ function fillScenario(
   archiveStorageMonths,
   needs3DModel,
   numberOfEntities,
+  average3DModelSizeInMB,
   amountOfActiveEditors,
   amountOfActiveViewers,
   dashboardRefreshesPerHour,
@@ -85,6 +92,7 @@ function fillScenario(
   document.getElementById("monthlyEditors").value = amountOfActiveEditors;
   document.getElementById("monthlyViewers").value = amountOfActiveViewers;
   document.getElementById("entityCount").value = numberOfEntities;
+  document.getElementById("average3DModelSizeInMB").value = average3DModelSizeInMB;
   document.getElementById("dashboardRefreshesPerHour").value = dashboardRefreshesPerHour;
   document.getElementById("dashboardActiveHoursPerDay").value = dashboardActiveHoursPerDay;
 
@@ -113,7 +121,10 @@ function fillScenario(
   }
 
   // Re-run toggleEntityInput to ensure UI state matches
+  // Re-run toggleEntityInput to ensure UI state matches
   toggleEntityInput();
+  toggleEventsInput();
+  toggleOrchestrationInput();
 }
 
 function flipCard(card) {
@@ -136,11 +147,46 @@ function toggleEntityInput() {
   const entityInputContainer = document.getElementById("entityInputContainer");
 
   // Show input if "Yes" is selected, hide if "No" is selected
+  // Show input if "Yes" is selected, hide if "No" is selected
   if (needs3DModel === "yes") {
     entityInputContainer.classList.remove("d-none");
     entityInputContainer.classList.add("d-block");
+
+    // Enforce min value of 1 if currently 0 or empty
+    const entityCountInput = document.getElementById("entityCount");
+    if (entityCountInput && (!entityCountInput.value || parseInt(entityCountInput.value) < 1)) {
+      entityCountInput.value = 1;
+    }
   } else {
     entityInputContainer.classList.remove("d-block");
     entityInputContainer.classList.add("d-none");
+  }
+}
+
+function toggleEventsInput() {
+  const checkbox = document.getElementById("useEventChecking");
+  const container = document.getElementById("eventsPerMessageContainer");
+  if (checkbox && container) {
+    if (checkbox.checked) {
+      container.classList.remove("d-none");
+      container.classList.add("d-block");
+    } else {
+      container.classList.remove("d-block");
+      container.classList.add("d-none");
+    }
+  }
+}
+
+function toggleOrchestrationInput() {
+  const checkbox = document.getElementById("triggerNotificationWorkflow");
+  const container = document.getElementById("orchestrationActionsPerMessageContainer");
+  if (checkbox && container) {
+    if (checkbox.checked) {
+      container.classList.remove("d-none");
+      container.classList.add("d-block");
+    } else {
+      container.classList.remove("d-block");
+      container.classList.add("d-none");
+    }
   }
 }

@@ -96,6 +96,7 @@ class CalcParams(BaseModel):
     orchestrationActionsPerMessage: int = 3
     eventsPerMessage: int = 1
     apiCallsPerDashboardRefresh: int = 1
+    average3DModelSizeInMB: float = 100.0
 
     class Config:
         json_schema_extra = {
@@ -107,7 +108,7 @@ class CalcParams(BaseModel):
                 "coolStorageDurationInMonths": 3,
                 "archiveStorageDurationInMonths": 12,
                 "needs3DModel": False,
-                "entityCount": 0,
+                "entityCount": 1,
                 "amountOfActiveEditors": 0,
                 "amountOfActiveViewers": 0,
                 "dashboardRefreshesPerHour": 2,

@@ -262,25 +262,28 @@ def calculate_gcp_storage_archive_cost(data_size_in_gb, duration_in_months, pric
         "dataSizeInGB": data_size_in_gb
     }
 
-def calculate_gcp_twin_maker_cost(entity_count, number_of_devices, device_sending_interval_in_minutes, dashboard_refreshes_per_hour, dashboard_active_hours_per_day, pricing):
+def calculate_gcp_twin_maker_cost(entity_count, number_of_devices, device_sending_interval_in_minutes, dashboard_refreshes_per_hour, dashboard_active_hours_per_day, average_3d_model_size_in_mb, pricing):
     """
     Calculate GCP Twin Management Cost.
     GCP uses Compute Engine (IaaS) for this layer.
     
-    Formula: Cost = (Instance Price * 730 hours) + (Storage Price * Storage Size)
+    Formula: Cost = (Instance Price * 730 hours) + (Storage Price * Storage Size) + (Model Storage Price * Model Size)
     """
     pricing_layer = pricing["gcp"]["twinmaker"]
+    cloud_storage_price = pricing["gcp"]["storage_cool"]["storagePrice"]
     
     # Instance Cost (e2-medium)
     instance_cost = pricing_layer.get("e2MediumPrice", 0) * 730
     
-    # Storage Cost (Assuming 100GB for the twin model/db as a baseline, or use entity_count proxy?)
-    # For now, let's assume a fixed storage size or derive from entities.
-    # Let's assume 50GB for OS + Data.
+    # Storage Cost (Assuming 50GB for OS + Data on the instance)
     storage_size_gb = 50 
     storage_cost = storage_size_gb * pricing_layer.get("storagePrice", 0)
+
+    # 3D Model Storage Cost (Cloud Storage Nearline)
+    total_model_storage_gb = (entity_count * average_3d_model_size_in_mb) / 1024.0
+    model_storage_cost = total_model_storage_gb * cloud_storage_price
     
-    cost = instance_cost + storage_cost
+    cost = instance_cost + storage_cost + model_storage_cost
     
     return {
         "provider": "GCP",

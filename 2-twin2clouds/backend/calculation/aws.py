@@ -334,14 +334,17 @@ def calculate_aws_iot_twin_maker_cost(
     device_sending_interval_in_minutes,
     dashboard_refreshes_per_hour,
     dashboard_active_hours_per_day,
+    average_3d_model_size_in_mb,
     pricing
 ):
     # Formula: Entity Cost = Entity Count * Entity Price
     # API Cost: Total Messages * Unified Data Access Price
     # Query Cost: Number of Queries * Query Price
+    # Storage Cost: (Entity Count * Average Model Size) * S3 Storage Price
     unified_data_access_api_calls_price = pricing["aws"]["iotTwinMaker"]["unifiedDataAccessAPICallsPrice"]
     entity_price = pricing["aws"]["iotTwinMaker"]["entityPrice"]
     query_price = pricing["aws"]["iotTwinMaker"]["queryPrice"]
+    s3_storage_price = pricing["aws"]["s3InfrequentAccess"]["storagePrice"]
 
     total_messages_per_month = math.ceil(
         number_of_devices * (1.0 / device_sending_interval_in_minutes) * 60 * 24 * 30
@@ -351,9 +354,15 @@ def calculate_aws_iot_twin_maker_cost(
         dashboard_refreshes_per_hour, dashboard_active_hours_per_day
     )
 
+    # Calculate 3D Model Storage Cost
+    # Assumption: Each entity has an associated 3D model asset of the given average size
+    total_model_storage_gb = (entity_count * average_3d_model_size_in_mb) / 1024.0
+    storage_cost = total_model_storage_gb * s3_storage_price
+
     total_monthly_cost = (entity_count * entity_price) + \
                          (total_messages_per_month * unified_data_access_api_calls_price) + \
-                         (number_of_queries * query_price)
+                         (number_of_queries * query_price) + \
+                         storage_cost
     
     return {
         "provider": "AWS",

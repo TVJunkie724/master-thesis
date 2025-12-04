@@ -14,6 +14,7 @@
 
   <link rel="stylesheet" href="./css/styles.css" />
   <script src="./js/calculation/ui.js" defer></script>
+  <script src="./js/ui-components.js" defer></script>
   <script src="./js/api-client.js" defer></script>
 </head>
 
@@ -59,7 +60,8 @@
                   <strong class="text-primary">Layer 1: Data Acquisition</strong>
                   <p class="mb-0 text-muted small">Ingests telemetry data from your IoT devices. It handles secure
                     connectivity, message routing, and device management using services like <em>AWS IoT Core</em>,
-                    <em>Azure IoT Hub</em>, or <em>GCP Cloud Pub/Sub</em>.</p>
+                    <em>Azure IoT Hub</em>, or <em>GCP Cloud Pub/Sub</em>.
+                  </p>
                 </li>
                 <li class="list-group-item">
                   <strong class="text-primary">Layer 2: Data Processing</strong>
@@ -104,7 +106,7 @@
         <div class="card h-100 border-0 shadow-sm">
           <div class="card-body">
             <button class="btn btn-outline-primary w-100 mb-3 preset-btn"
-              onclick="fillScenario(this, 100, 2, 0.25, 1, 3, 12, 'no', 0, 2, 0, 12, 1, true, 1, true, true, 3, false, 1)">
+              onclick="fillScenario(this, 100, 2, 0.25, 1, 3, 12, 'no', 0, 100, 2, 0, 12, 1, true, 1, true, true, 3, false, 1)">
               Preset 1 (Smart Home)
             </button>
             <p class="card-text small text-muted">Small scale, low frequency. Ideal for home automation with few
@@ -116,7 +118,7 @@
         <div class="card h-100 border-0 shadow-sm">
           <div class="card-body">
             <button class="btn btn-outline-primary w-100 mb-3 preset-btn"
-              onclick="fillScenario(this, 4000, 0.5, 0.5, 3, 12, 36 , 'no', 0, 25, 10, 60, 4, true, 1, true, true, 5, true, 10)">
+              onclick="fillScenario(this, 4000, 0.5, 0.5, 3, 12, 36 , 'no', 0, 100, 25, 10, 60, 4, true, 1, true, true, 5, true, 10)">
               Preset 2 (Smart Industrial)
             </button>
             <p class="card-text small text-muted">Medium scale, high frequency. Typical for factory monitoring with
@@ -128,7 +130,7 @@
         <div class="card h-100 border-0 shadow-sm">
           <div class="card-body">
             <button class="btn btn-outline-primary w-100 mb-3 preset-btn"
-              onclick="fillScenario(this, 30000, 0.1, 0.8, 3, 12, 24, 'yes' , 1200, 100, 300, 120, 8, true, 5, true, true, 10, true, 100)">
+              onclick="fillScenario(this, 30000, 0.1, 0.8, 3, 12, 24, 'yes' , 1200, 100, 100, 300, 120, 8, true, 5, true, true, 10, true, 100)">
               Preset 3 (Large Building)
             </button>
             <p class="card-text small text-muted">Large scale, very high frequency. Complex building management with
@@ -218,7 +220,7 @@
                   title="If enabled, incoming messages are checked against defined rules to trigger alerts. Adds processing cost."></i></label>
             </div>
           </div>
-          <div class="col-md-6">
+          <div class="col-md-6" id="eventsPerMessageContainer">
             <label for="eventsPerMessage" class="form-label">Events per Message <i
                 class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
                 title="The average number of event rules evaluated per message. More rules = higher compute cost."></i></label>
@@ -248,7 +250,7 @@
                   title="If enabled, specific events trigger a multi-step workflow (e.g., sending an email, updating a ticket)."></i></label>
             </div>
           </div>
-          <div class="col-md-6">
+          <div class="col-md-6" id="orchestrationActionsPerMessageContainer">
             <label for="orchestrationActionsPerMessage" class="form-label">Actions per Message <i
                 class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
                 title="The number of steps in the orchestration workflow. More steps increase orchestration costs."></i></label>
@@ -287,10 +289,19 @@
         </div>
 
         <div id="entityInputContainer" class="mb-4">
-          <label for="entityCount" class="form-label">Number of 3D Entities <i
-              class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
-              title="The number of distinct 3D objects or components in your digital twin scene."></i></label>
-          <input type="number" id="entityCount" class="form-control" min="1" placeholder="Enter number of entities" />
+          <div class="mb-3">
+            <label for="entityCount" class="form-label">Number of 3D Entities <i
+                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                title="The number of distinct 3D objects or components in your digital twin scene."></i></label>
+            <input type="number" id="entityCount" class="form-control" min="1" value="1"
+              placeholder="Enter number of entities" />
+          </div>
+          <div class="mb-3">
+            <label for="average3DModelSizeInMB" class="form-label">Average 3D Model Size (MB) <i
+                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                title="The average file size of each 3D model asset in Megabytes. Used to calculate storage costs."></i></label>
+            <input type="number" id="average3DModelSizeInMB" class="form-control" min="0.1" step="0.1" value="100" />
+          </div>
         </div>
 
         <hr class="my-4">
@@ -341,19 +352,21 @@
           </div>
         </div>
 
-        <div class="d-grid gap-2 col-md-6 mx-auto mb-4">
-          <button class="btn btn-primary btn-lg shadow" onclick="calculateCheapestCostsFromUI()">
-            <i class="bi bi-calculator me-2"></i>Calculate Cost
-          </button>
-        </div>
+        <hr class="my-4">
 
-        <div class="mb-5 w-50 mx-auto">
+        <div class="mb-4 w-50 mx-auto">
           <label for="currency" class="form-label fw-bold">Currency <i class="bi bi-info-circle text-primary ms-1"
               data-bs-toggle="tooltip" title="Select your preferred currency for cost estimation."></i></label>
           <select id="currency" class="form-select">
             <option value="USD" selected>USD ($)</option>
             <option value="EUR">EUR (€)</option>
           </select>
+        </div>
+
+        <div class="d-grid gap-2 col-md-6 mx-auto mb-5">
+          <button class="btn btn-primary btn-lg shadow" onclick="calculateCheapestCostsFromUI()">
+            <i class="bi bi-calculator me-2"></i>Calculate Cost
+          </button>
         </div>
 
         <hr class="my-5 border-3 border-top border-primary opacity-25">

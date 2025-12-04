@@ -338,14 +338,18 @@ def calculate_azure_digital_twins_cost(
     message_size_in_kb,
     dashboard_refreshes_per_hour,
     dashboard_active_hours_per_day,
+    entity_count,
+    average_3d_model_size_in_mb,
     pricing
 ):
     # Formula: Operation Cost = Total Messages * Operation Price
     # Query Cost: Query Units * Query Price * Number of Queries
     # Note: Query Units depend on device count tier
+    # Storage Cost: (Entity Count * Average Model Size) * Blob Storage Price
     message_price = pricing["azure"]["azureDigitalTwins"]["messagePrice"]
     operation_price = pricing["azure"]["azureDigitalTwins"]["operationPrice"]
     query_price = pricing["azure"]["azureDigitalTwins"]["queryPrice"]
+    blob_storage_price = pricing["azure"]["blobStorageCool"]["storagePrice"]
 
     total_messages_per_month = math.ceil(
         number_of_devices * (1.0 / device_sending_interval_in_minutes) * 60 * 24 * 30
@@ -364,9 +368,14 @@ def calculate_azure_digital_twins_cost(
         dashboard_refreshes_per_hour, dashboard_active_hours_per_day
     )
 
-    total_monthly_cost = (total_messages_per_month * operation_price) + \
-                         (math.ceil(message_size_in_kb) * number_of_queries * operation_price) + \
-                         (query_units * query_price * number_of_queries)
+    # Calculate 3D Model Storage Cost (Blob Storage Cool)
+    total_model_storage_gb = (entity_count * average_3d_model_size_in_mb) / 1024.0
+    storage_cost = total_model_storage_gb * blob_storage_price
+
+    total_monthly_cost = ((total_messages_per_month / 1000) * message_price) + \
+                         (math.ceil(message_size_in_kb) * (number_of_queries / 1000) * operation_price) + \
+                         (query_units * query_price * (number_of_queries / 1000)) + \
+                         storage_cost
 
     return {
         "provider": "Azure",
