@@ -159,7 +159,7 @@ async function calculateCheapestCostsFromUI() {
         await updateHtml(
             results.awsCosts,
             results.azureCosts,
-            results.gcpCosts || results.azureCosts, // Fallback if GCP not in response
+            results.gcpCosts,
             results.cheapestPath,
             params.currency,
             params, // Pass params for detailed service logic

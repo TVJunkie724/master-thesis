@@ -277,7 +277,7 @@ function getServicesForLayer(layerKey, candidateProvider, params, selectedProvid
 /**
  * Generate individual layer comparison card
  */
-function generateLayerCard(layer, title, awsUrl, awsName, azureUrl, azureName, gcpUrl, gcpName, description = "", currency = "USD", layerKey = "", params = {}, selectedProviders = {}) {
+function generateLayerCard(layer, title, currency = "USD", layerKey = "", params = {}, selectedProviders = {}) {
     const formatCost = (cost) => (cost !== undefined && cost !== null) ? cost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A";
     const currencySymbol = currency === "EUR" ? "€" : "$";
 
@@ -337,8 +337,7 @@ function generateLayerCard(layer, title, awsUrl, awsName, azureUrl, azureName, g
         return `<span class="${badgeClass}">${currencySymbol}${formatCost(cost)}</span>${label}`;
     };
 
-    // Special handling for L4 when omitted - REVERTED
-    // if (layerKey === 'l4' && layer.aws === 0 && layer.azure === 0 && layer.gcp === 0) { ... }
+
 
     return `
     <div class="col">
@@ -394,32 +393,8 @@ ${generateServiceList('gcp')}
  * Generate full result HTML
  */
 function generateResultHTML(comparison, path, currency, params, selectedProviders) {
-    const card = (layer, title, desc, layerKey) => {
-        const awsUrl = layerKey === 'l1' ? "https://aws.amazon.com/iot-core/" :
-            layerKey === 'l2_hot' ? "https://aws.amazon.com/dynamodb/" :
-                layerKey === 'l2_cool' ? "https://aws.amazon.com/s3/" :
-                    layerKey === 'l2_archive' ? "https://aws.amazon.com/s3/storage-classes/glacier/" :
-                        layerKey === 'l3' ? "https://aws.amazon.com/lambda/" :
-                            layerKey === 'l4' ? "https://aws.amazon.com/iot-twinmaker/" :
-                                "https://aws.amazon.com/grafana/";
-
-        const azureUrl = layerKey === 'l1' ? "https://azure.microsoft.com/en-us/products/iot-hub/" :
-            layerKey === 'l2_hot' ? "https://azure.microsoft.com/en-us/products/cosmos-db/" :
-                layerKey === 'l2_cool' ? "https://azure.microsoft.com/en-us/products/storage/blobs/" :
-                    layerKey === 'l2_archive' ? "https://azure.microsoft.com/en-us/products/storage/blobs/" :
-                        layerKey === 'l3' ? "https://azure.microsoft.com/en-us/products/functions/" :
-                            layerKey === 'l4' ? "https://azure.microsoft.com/en-us/products/digital-twins/" :
-                                "https://azure.microsoft.com/en-us/products/managed-grafana/";
-
-        const gcpUrl = layerKey === 'l1' ? "https://cloud.google.com/pubsub" :
-            layerKey === 'l2_hot' ? "https://cloud.google.com/firestore" :
-                layerKey === 'l2_cool' ? "https://cloud.google.com/storage" :
-                    layerKey === 'l2_archive' ? "https://cloud.google.com/storage" :
-                        layerKey === 'l3' ? "https://cloud.google.com/functions" :
-                            layerKey === 'l4' ? "https://cloud.google.com/firestore" :
-                                "https://grafana.com/";
-
-        return generateLayerCard(layer, title, awsUrl, "", azureUrl, "", gcpUrl, "", desc, currency, layerKey, params, selectedProviders);
+    const card = (layer, title, layerKey) => {
+        return generateLayerCard(layer, title, currency, layerKey, params, selectedProviders);
     };
 
     return `
@@ -432,13 +407,13 @@ function generateResultHTML(comparison, path, currency, params, selectedProvider
     </div>
 
     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-5">
-        ${card(comparison.layer1, "Layer 1: Data Acquisition", "Ingestion & Messaging", "l1")}
-        ${card(comparison.layer2a, "Layer 2: Hot Storage", "High-speed access", "l2_hot")}
-        ${card(comparison.layer2b, "Layer 2: Cool Storage", "Infrequent access", "l2_cool")}
-        ${card(comparison.layer2c, "Layer 2: Archive Storage", "Long-term retention", "l2_archive")}
-        ${card(comparison.layer3, "Layer 3: Data Processing", "Compute & Transformation", "l3")}
-        ${card(comparison.layer4, "Layer 4: Twin Management", "Digital Twin Graph", "l4")}
-        ${card(comparison.layer5, "Layer 5: Visualization", "Dashboards & Analytics", "l5")}
+        ${card(comparison.layer1, "Layer 1: Data Acquisition", "l1")}
+        ${card(comparison.layer2a, "Layer 2: Hot Storage", "l2_hot")}
+        ${card(comparison.layer2b, "Layer 2: Cool Storage", "l2_cool")}
+        ${card(comparison.layer2c, "Layer 2: Archive Storage", "l2_archive")}
+        ${card(comparison.layer3, "Layer 3: Data Processing", "l3")}
+        ${card(comparison.layer4, "Layer 4: Twin Management", "l4")}
+        ${card(comparison.layer5, "Layer 5: Visualization", "l5")}
     </div>
     `;
 }
@@ -609,7 +584,7 @@ async function updateHtml(awsCosts, azureCosts, gcpCosts, cheapestPath, currency
     // Parse cheapest path to identify selected providers
     // Path format: ['L1_AWS', 'L2_AWS_Hot', 'L2_AWS_Cool', 'L2_AWS_Archive', 'L3_AWS', 'L4_AWS', 'L5_AWS']
     // Note: The backend returns a list of strings.
-    // (Moved to top of function)
+
 
     const formattedCheapestPath = cheapestPath
         .map((segment) => {

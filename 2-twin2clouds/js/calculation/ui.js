@@ -121,7 +121,6 @@ function fillScenario(
   }
 
   // Re-run toggleEntityInput to ensure UI state matches
-  // Re-run toggleEntityInput to ensure UI state matches
   toggleEntityInput();
   toggleEventsInput();
   toggleOrchestrationInput();
@@ -146,7 +145,6 @@ function toggleEntityInput() {
   const needs3DModel = needs3DModelInput.value;
   const entityInputContainer = document.getElementById("entityInputContainer");
 
-  // Show input if "Yes" is selected, hide if "No" is selected
   // Show input if "Yes" is selected, hide if "No" is selected
   if (needs3DModel === "yes") {
     entityInputContainer.classList.remove("d-none");
