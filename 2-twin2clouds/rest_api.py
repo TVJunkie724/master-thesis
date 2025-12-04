@@ -280,7 +280,7 @@ def calc(params: CalcParams = Body(
         params_dict = params.dict()
         
         # Calculate costs using Python engine
-        # Calculate costs using Python engine
+
         # We now load combined pricing from separate files
         pricing_data = load_combined_pricing()
         result = calculate_cheapest_costs(params_dict, pricing=pricing_data)

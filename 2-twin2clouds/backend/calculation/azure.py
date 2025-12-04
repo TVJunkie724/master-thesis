@@ -122,14 +122,6 @@ def calculate_azure_cost_data_processing(
         # IoT Hub C2D
         iot_pricing = pricing["azure"]["iotHub"]
         feedback_messages = executions_per_month
-        # IoT Hub messages are counted against the daily quota. 
-        # If we exceed the tier limit, we might need to jump to next tier.
-        # For simplicity in this model, we treat it as potentially pushing to next tier or adding units.
-        # However, the current L1 calculation selects a tier based on volume. 
-        # We should ideally add this volume to L1, but for now we'll calculate a "unit cost" based on the selected tier in L1.
-        # Simplified: Assume same tier, add proportional cost or 0 if within limit.
-        # To be safe and conservative: Add cost of 1 message unit if we were paying per message, 
-        # but Azure is tiered. Let's assume it fits in the tier or adds negligible cost unless near boundary.
         # For this calculation, we will add the Function cost for generating the feedback.
         
         # Feedback Function

@@ -534,7 +534,7 @@ def calculate_cheapest_costs(params, pricing=None):
     best_hot_provider = best_combination["l2_key"]
     best_l3_provider_key = best_combination["l3_key"] # e.g. "L3_AWS"
     
-    print(f"Optimal L2+L3: {best_hot_provider} + {best_l3_provider_key} (Cost: ${best_combination['total_cost']:.2f})")
+
 
     # 3. Check for Overrides (Warnings)
     
@@ -574,7 +574,7 @@ def calculate_cheapest_costs(params, pricing=None):
         [best_hot_provider], 
         ["AWS_Archive", "Azure_Archive", "GCP_Archive"]
     )
-    print(f"Optimized Storage Path (L2+L3): {cheapest_storage}")
+
 
     aws_costs_after_layer1 = aws_costs["dataAquisition"]["totalMonthlyCost"]
     azure_costs_after_layer1 = azure_costs["dataAquisition"]["totalMonthlyCost"]

@@ -16,7 +16,6 @@ def calculate_aws_cost_data_acquisition(
     
     tier1_limit = pricing_tiers["tier1"]["limit"]
     tier2_limit = pricing_tiers["tier2"]["limit"]
-    # tier3_limit = pricing_tiers["tier3"]["limit"] # Infinity
 
     price_tier1 = pricing_tiers["tier1"]["price"]
     price_tier2 = pricing_tiers["tier2"]["price"]
