@@ -259,6 +259,15 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, region_map: dic
     neutral_service, provider_service = "orchestration", "stepFunctions"
     sf = fetched.get(neutral_service, {})
     price_per_1k = _get_or_warn("AWS", neutral_service, provider_service, "pricePer1kStateTransitions", sf, 0.025, STATIC_DEFAULTS)
+    
+    # SANITY CHECK: The Pricing API often returns the price per *single* request (e.g. 0.000025) 
+    # even when the dimension description says "Per 1,000 State Transitions".
+    # If the value is suspiciously low (< 0.001), we assume it's the per-request price 
+    # and multiply by 1,000 to normalize it to the expected "Per 1k" unit.
+    if price_per_1k < 0.001:
+        logger.info(f"   ⚠️ Detected per-request price for Step Functions ({price_per_1k:.8f}). Normalizing to Per 1k.")
+        price_per_1k *= 1000.0
+
     aws[provider_service] = {
         "pricePer1kStateTransitions": price_per_1k,
         "pricePerStateTransition": price_per_1k / 1000.0,

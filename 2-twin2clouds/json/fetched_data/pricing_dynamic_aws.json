@@ -77,8 +77,8 @@
     "viewerPrice": 5.0
   },
   "stepFunctions": {
-    "pricePer1kStateTransitions": 2.5e-05,
-    "pricePerStateTransition": 2.5000000000000002e-08
+    "pricePer1kStateTransitions": 0.025,
+    "pricePerStateTransition": 2.5e-05
   },
   "eventBridge": {
     "pricePerMillionEvents": 1.15e-06
