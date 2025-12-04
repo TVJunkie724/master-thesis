@@ -5,130 +5,366 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/x-icon" href="/references/favicon.ico">
-  <title>
-    Twin2Clouds
-  </title>
+  <title>Twin2Clouds</title>
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
   <link rel="stylesheet" href="./css/styles.css" />
-  <script src="./js/calculation/ui.js"></script>
-  <script src="./js/api-client.js"></script>
+  <script src="./js/calculation/ui.js" defer></script>
+  <script src="./js/api-client.js" defer></script>
 </head>
 
-<body>
-  <div class="container">
-    <h1>
-      Twin2Clouds: Engineering a cost-efficient Digital Twin for your specific
-      use-case!
-    </h1>
+<body class="bg-light">
+  <div class="container py-5">
+    <header class="text-center mb-5">
+      <h1 class="display-4 fw-bold text-primary">Twin2Clouds Cost Optimizer</h1>
+      <p class="lead text-muted">Calculate and optimize your Multi-Cloud Digital Twin costs</p>
+    </header>
+
+    <!-- Architecture Overview Section (Accordion) -->
+    <div class="accordion mb-5" id="architectureAccordion">
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="headingOne">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+            data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+            <span class="h5 mb-0"><i class="bi bi-diagram-3 me-2"></i>Architecture Overview</span>
+          </button>
+        </h2>
+        <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne"
+          data-bs-parent="#architectureAccordion">
+          <div class="accordion-body">
+            <p class="lead text-center mb-4">
+              <strong>Twin2Clouds</strong> helps you design a cost-optimized, multi-cloud Digital Twin architecture
+              tailored to your specific needs.
+              By analyzing your device count, data volume, and storage requirements, it intelligently selects the most
+              cost-effective combination of services from
+              <span class="badge bg-warning text-dark">AWS</span>, <span class="badge bg-primary">Azure</span>, and
+              <span class="badge bg-success">Google Cloud</span>.
+            </p>
+
+            <div class="text-center mb-4">
+              <img src="references/architecture_diagram.png" alt="Twin2Clouds Multi-Cloud Architecture Diagram"
+                class="img-fluid rounded shadow-sm border">
+            </div>
+
+            <div class="architecture-description">
+              <p>The system follows a robust <strong>5-Layer Architecture</strong> designed for scalability and
+                cost-efficiency:</p>
+
+              <ul class="list-group list-group-flush">
+                <li class="list-group-item">
+                  <strong class="text-primary">Layer 1: Data Acquisition</strong>
+                  <p class="mb-0 text-muted small">Ingests telemetry data from your IoT devices. It handles secure
+                    connectivity, message routing, and device management using services like <em>AWS IoT Core</em>,
+                    <em>Azure IoT Hub</em>, or <em>GCP Cloud Pub/Sub</em>.</p>
+                </li>
+                <li class="list-group-item">
+                  <strong class="text-primary">Layer 2: Data Processing</strong>
+                  <p class="mb-0 text-muted small">Validates, transforms, and routes data. It uses serverless functions
+                    (<em>Lambda</em>, <em>Azure Functions</em>) to dispatch messages, check for critical events, and
+                    persist data to storage.</p>
+                </li>
+                <li class="list-group-item">
+                  <strong class="text-primary">Layer 3: Storage Tiers</strong>
+                  <p class="mb-0 text-muted small">Optimizes data retention across three tiers to minimize costs:</p>
+                  <ul class="small text-muted">
+                    <li><strong>Hot Storage:</strong> (e.g., <em>DynamoDB</em>) for recent data requiring low-latency
+                      access.</li>
+                    <li><strong>Cool Storage:</strong> (e.g., <em>S3 IA</em>) for historical data accessed occasionally.
+                    </li>
+                    <li><strong>Archive Storage:</strong> (e.g., <em>Glacier</em>) for long-term compliance data.</li>
+                  </ul>
+                </li>
+                <li class="list-group-item">
+                  <strong class="text-primary">Layer 4: Twin Management</strong>
+                  <p class="mb-0 text-muted small">Manages the digital representation of your physical assets, including
+                    3D models and spatial relationships, using services like <em>AWS IoT TwinMaker</em> or <em>Azure
+                      Digital Twins</em>.</p>
+                </li>
+                <li class="list-group-item">
+                  <strong class="text-primary">Layer 5: Visualization</strong>
+                  <p class="mb-0 text-muted small">Provides real-time dashboards for operators to monitor the twin's
+                    state, utilizing managed services like <em>Amazon Managed Grafana</em>.</p>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="my-5">
 
     <!-- Scenario Buttons -->
-    <div class="scenario-buttons">
-      <button onclick="fillScenario(100, 2, 0.25, 1, 3, 12, 'no', 0, 2, 0, 12, 1)">
-        Preset 1 (Smart Home)
-      </button>
-      <button onclick="fillScenario(4000, 0.5, 0.5, 3, 12, 36 , 'no', 0, 25, 10, 60, 4)">
-        Preset 2 (Smart Industrial Facility)
-      </button>
-      <button onclick="fillScenario(30000, 0.1, 0.8, 3, 12, 24, 'yes' , 1200, 100, 300, 120, 8)">
-        Preset 3 (Smart Large Building)
-      </button>
-    </div>
-    <br />
-
-    <label for="currency">Currency:</label>
-    <select id="currency">
-      <option value="USD" selected>USD ($)</option>
-      <option value="EUR">EUR (€)</option>
-    </select>
-    <br /><br />
-
-    <h2>Layer 1/3 - IoT Device & Data Processing</h2>
-
-    <label for="devices">Number of Devices:</label>
-    <input type="number" id="devices" required /><br /><br />
-
-    <label for="interval">Device Sending Interval (Minutes between message):</label>
-    <input type="number" id="interval" required /><br /><br />
-
-    <label for="messageSize">Average Size of Message (KB):</label>
-    <input type="number" id="messageSize" required /><br /><br />
-
-    <hr />
-    <h2>Layer 2 - Storage</h2>
-
-    <label for="hotStorageDurationInMonths">Hot Storage Duration (Months):</label>
-    <div class="slider-container">
-      <input type="range" id="hotStorageDurationInMonths" min="1" max="12" value="3"
-        oninput="updateSliderStyle(this)" />
-      <span class="slider-value">6</span>
-    </div>
-    <br /><br />
-
-    <label for="coolStorageDurationInMonths">Cool Storage Duration (Months):</label>
-    <div class="slider-container">
-      <input type="range" id="coolStorageDurationInMonths" min="1" max="24" value="6"
-        oninput="updateSliderStyle(this)" />
-      <span class="slider-value">12</span>
-    </div>
-    <br /><br />
-
-    <label for="archiveStorageDurationInMonths">Archive Storage Duration (Months):</label>
-    <div class="slider-container">
-      <input type="range" id="archiveStorageDurationInMonths" min="6" max="36" value="12"
-        oninput="updateSliderStyle(this)" />
-      <span class="slider-value">6</span>
-    </div>
-    <br /><br />
-
-    <hr />
-    <h2>Layer 4 - Twin Management</h2>
-    <label>Is a 3D Model of the Digital Twin Necessary?</label>
-    <div class="radio-container">
-      <input type="radio" id="modelYes" name="needs3DModel" value="yes" onclick="toggleEntityInput()" checked />
-      <label for="modelYes">Yes</label>
-
-      <input type="radio" id="modelNo" name="needs3DModel" value="no" onclick="toggleEntityInput()" />
-      <label for="modelNo">No</label>
+    <div class="row row-cols-1 row-cols-md-3 g-4 mb-5 text-center">
+      <div class="col">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="card-body">
+            <button class="btn btn-outline-primary w-100 mb-3 preset-btn"
+              onclick="fillScenario(this, 100, 2, 0.25, 1, 3, 12, 'no', 0, 2, 0, 12, 1, true, 1, true, true, 3, false, 1)">
+              Preset 1 (Smart Home)
+            </button>
+            <p class="card-text small text-muted">Small scale, low frequency. Ideal for home automation with few
+              devices.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="card-body">
+            <button class="btn btn-outline-primary w-100 mb-3 preset-btn"
+              onclick="fillScenario(this, 4000, 0.5, 0.5, 3, 12, 36 , 'no', 0, 25, 10, 60, 4, true, 1, true, true, 5, true, 10)">
+              Preset 2 (Smart Industrial)
+            </button>
+            <p class="card-text small text-muted">Medium scale, high frequency. Typical for factory monitoring with
+              critical alerts.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="card-body">
+            <button class="btn btn-outline-primary w-100 mb-3 preset-btn"
+              onclick="fillScenario(this, 30000, 0.1, 0.8, 3, 12, 24, 'yes' , 1200, 100, 300, 120, 8, true, 5, true, true, 10, true, 100)">
+              Preset 3 (Large Building)
+            </button>
+            <p class="card-text small text-muted">Large scale, very high frequency. Complex building management with
+              extensive 3D models.</p>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Entity Input (Initially Visible Since "Yes" is Default) -->
-    <div id="entityInputContainer">
-      <label for="entityCount">Number of 3D Entities:</label>
-      <input type="number" id="entityCount" min="1" placeholder="Enter number of entities" />
+    <div class="card shadow-sm p-4 mb-5">
+      <div class="card-body">
+
+        <h4 class="mb-3 text-primary">Layer 1 & 3 - Workload Parameters</h4>
+        <p class="text-muted small mb-4">
+          Layer 1 (Ingestion) and Layer 3 (Processing) are grouped here because their costs are both driven by the same
+          workload parameters: device count, message frequency, and message size.
+        </p>
+
+        <div class="row g-3 mb-4">
+          <div class="col-md-4">
+            <label for="devices" class="form-label">Number of Devices <i class="bi bi-info-circle text-primary ms-1"
+                data-bs-toggle="tooltip"
+                title="The total number of IoT devices connecting to the system. Directly impacts ingestion and connection costs."></i></label>
+            <input type="number" id="devices" class="form-control" required />
+          </div>
+          <div class="col-md-4">
+            <label for="interval" class="form-label">Sending Interval (Min) <i
+                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                title="How often each device sends a message (in minutes). Lower intervals mean more messages and higher processing costs."></i></label>
+            <input type="number" id="interval" class="form-control" required />
+          </div>
+          <div class="col-md-4">
+            <label for="messageSize" class="form-label">Message Size (KB) <i class="bi bi-info-circle text-primary ms-1"
+                data-bs-toggle="tooltip"
+                title="The average size of each telemetry message in Kilobytes. Larger messages increase storage and transfer costs."></i></label>
+            <input type="number" id="messageSize" class="form-control" required />
+          </div>
+        </div>
+
+        <hr class="my-4">
+
+        <h4 class="mb-3 text-primary">Layer 2 - Storage & Event Checking</h4>
+        <p class="text-muted small mb-4">This layer handles data storage retention and initial event filtering logic.
+        </p>
+
+        <div class="mb-3">
+          <label for="hotStorageDurationInMonths" class="form-label">Hot Storage Duration (Months) <i
+              class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+              title="How long data is kept in high-speed storage (e.g., DynamoDB). Expensive but fast access."></i></label>
+          <div class="d-flex align-items-center">
+            <input type="range" id="hotStorageDurationInMonths" class="form-range flex-grow-1 me-3" min="1" max="12"
+              value="3" oninput="updateSliderValue(this)">
+            <span class="badge bg-secondary slider-value">3</span>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label for="coolStorageDurationInMonths" class="form-label">Cool Storage Duration (Months) <i
+              class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+              title="How long data is kept in cost-effective storage (e.g., S3 IA). Cheaper than hot storage."></i></label>
+          <div class="d-flex align-items-center">
+            <input type="range" id="coolStorageDurationInMonths" class="form-range flex-grow-1 me-3" min="1" max="24"
+              value="6" oninput="updateSliderValue(this)">
+            <span class="badge bg-secondary slider-value">6</span>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label for="archiveStorageDurationInMonths" class="form-label">Archive Storage Duration (Months) <i
+              class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+              title="How long data is kept in long-term archive storage (e.g., Glacier). Lowest cost, slow retrieval."></i></label>
+          <div class="d-flex align-items-center">
+            <input type="range" id="archiveStorageDurationInMonths" class="form-range flex-grow-1 me-3" min="6" max="36"
+              value="12" oninput="updateSliderValue(this)">
+            <span class="badge bg-secondary slider-value">12</span>
+          </div>
+        </div>
+
+        <hr class="my-4 border-secondary border-opacity-25 border-dashed">
+
+        <div class="row g-3 align-items-center mb-3">
+          <div class="col-md-6">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="useEventChecking">
+              <label class="form-check-label fw-bold" for="useEventChecking">Enable Event Checking? <i
+                  class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                  title="If enabled, incoming messages are checked against defined rules to trigger alerts. Adds processing cost."></i></label>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label for="eventsPerMessage" class="form-label">Events per Message <i
+                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                title="The average number of event rules evaluated per message. More rules = higher compute cost."></i></label>
+            <input type="number" id="eventsPerMessage" class="form-control" value="1" min="1" />
+          </div>
+        </div>
+
+        <div class="form-check form-switch mb-4">
+          <input class="form-check-input" type="checkbox" id="returnFeedbackToDevice">
+          <label class="form-check-label fw-bold" for="returnFeedbackToDevice">Return Feedback to Device? <i
+              class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+              title="If enabled, the system sends a confirmation or command back to the device after processing. Increases egress traffic."></i></label>
+        </div>
+
+        <hr class="my-4">
+
+        <h4 class="mb-3 text-primary">Layer 3 - Orchestration</h4>
+        <p class="text-muted small mb-4">This layer manages complex workflows, state transitions, and error handling
+          processes.</p>
+
+        <div class="row g-3 align-items-center mb-3">
+          <div class="col-md-6">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="triggerNotificationWorkflow">
+              <label class="form-check-label fw-bold" for="triggerNotificationWorkflow">Trigger Notification Workflow?
+                <i class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                  title="If enabled, specific events trigger a multi-step workflow (e.g., sending an email, updating a ticket)."></i></label>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label for="orchestrationActionsPerMessage" class="form-label">Actions per Message <i
+                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                title="The number of steps in the orchestration workflow. More steps increase orchestration costs."></i></label>
+            <input type="number" id="orchestrationActionsPerMessage" class="form-control" value="3" min="1" />
+          </div>
+        </div>
+
+        <div class="form-check form-switch mb-4">
+          <input class="form-check-input" type="checkbox" id="integrateErrorHandling">
+          <label class="form-check-label fw-bold" for="integrateErrorHandling">Integrate Error Handling? <i
+              class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+              title="If enabled, adds robust error handling logic to workflows. Increases reliability but adds slight overhead."></i></label>
+        </div>
+
+        <hr class="my-4">
+
+        <h4 class="mb-3 text-primary">Layer 4 - Twin Management</h4>
+        <p class="text-muted small mb-4">Manages 3D models and digital twin representations.</p>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">Is a 3D Model Necessary? <i class="bi bi-info-circle text-primary ms-1"
+              data-bs-toggle="tooltip"
+              title="Does your use case require a 3D visual representation of the assets?"></i></label>
+          <div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="needs3DModel" id="modelYes" value="yes"
+                onclick="toggleEntityInput()" checked>
+              <label class="form-check-label" for="modelYes">Yes</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="needs3DModel" id="modelNo" value="no"
+                onclick="toggleEntityInput()">
+              <label class="form-check-label" for="modelNo">No</label>
+            </div>
+          </div>
+        </div>
+
+        <div id="entityInputContainer" class="mb-4">
+          <label for="entityCount" class="form-label">Number of 3D Entities <i
+              class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+              title="The number of distinct 3D objects or components in your digital twin scene."></i></label>
+          <input type="number" id="entityCount" class="form-control" min="1" placeholder="Enter number of entities" />
+        </div>
+
+        <hr class="my-4">
+
+        <h4 class="mb-3 text-primary">Layer 5 - Data Visualization</h4>
+        <p class="text-muted small mb-4">Provides dashboards and visualization for operators.</p>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label for="dashboardRefreshesPerHour" class="form-label">Refresh Period (Refreshes/Hour) <i
+                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                title="How many times per hour the dashboard data is updated. Frequent updates increase API costs."></i></label>
+            <input type="number" id="dashboardRefreshesPerHour" class="form-control" required />
+          </div>
+          <div class="col-md-6">
+            <label for="apiCallsPerDashboardRefresh" class="form-label">API Calls per Refresh <i
+                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                title="Number of backend API calls made each time the dashboard refreshes. Depends on dashboard complexity."></i></label>
+            <input type="number" id="apiCallsPerDashboardRefresh" class="form-control" value="1" min="1" />
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label for="dashboardActiveHoursPerDay" class="form-label">Active Hours (Hours/Day) <i
+              class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+              title="The number of hours per day the dashboard is actively being viewed by operators."></i></label>
+          <div class="d-flex align-items-center">
+            <input type="range" id="dashboardActiveHoursPerDay" class="form-range flex-grow-1 me-3" min="1" max="24"
+              value="2" oninput="updateSliderValue(this)">
+            <span class="badge bg-secondary slider-value">2</span>
+          </div>
+        </div>
+
+        <div id="visualizationInputContainer" class="row g-3 mb-4">
+          <div class="col-md-6">
+            <label for="monthlyEditors" class="form-label">Monthly Editors <i
+                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                title="Number of users who can create or edit dashboards. Usually incurs a higher license fee."></i></label>
+            <input type="number" id="monthlyEditors" class="form-control" min="0"
+              placeholder="Enter number of editors" />
+          </div>
+          <div class="col-md-6">
+            <label for="monthlyViewers" class="form-label">Monthly Viewers <i
+                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                title="Number of users who only view dashboards."></i></label>
+            <input type="number" id="monthlyViewers" class="form-control" min="0"
+              placeholder="Enter number of viewers" />
+          </div>
+        </div>
+
+        <div class="d-grid gap-2 col-md-6 mx-auto mb-4">
+          <button class="btn btn-primary btn-lg shadow" onclick="calculateCheapestCostsFromUI()">
+            <i class="bi bi-calculator me-2"></i>Calculate Cost
+          </button>
+        </div>
+
+        <div class="mb-5 w-50 mx-auto">
+          <label for="currency" class="form-label fw-bold">Currency <i class="bi bi-info-circle text-primary ms-1"
+              data-bs-toggle="tooltip" title="Select your preferred currency for cost estimation."></i></label>
+          <select id="currency" class="form-select">
+            <option value="USD" selected>USD ($)</option>
+            <option value="EUR">EUR (€)</option>
+          </select>
+        </div>
+
+        <hr class="my-5 border-3 border-top border-primary opacity-25">
+
+        <div id="result" class="result"></div>
+      </div>
     </div>
-    <br />
-
-    <!-- Visualization Layer Inputs -->
-
-    <hr />
-    <h2>Layer 5 - Data Visualization</h2>
-    <label for="dashboardRefreshesPerHour">Dashboard Refresh Period (Refreshes/Hour)</label>
-
-    <input type="number" id="dashboardRefreshesPerHour" required /><br /><br />
-
-
-    <label for="dashboardActiveHoursPerDay">Dashboard Active Hours (Hours/Day)</label>
-
-    <div class="slider-container">
-      <input type="range" id="dashboardActiveHoursPerDay" min="1" max="24" value="2"
-        oninput="updateSliderStyle(this)" />
-      <span class="slider-value">2</span>
-    </div>
-    <br /><br />
-
-    <div id="visualizationInputContainer">
-      <label for="monthlyEditors">Number of Monthly Dashboard Editors:</label>
-      <input type="number" id="monthlyEditors" min="0" placeholder="Enter number of editors" />
-
-      <label for="monthlyViewers">Number of Monthly Dashboard Viewers:</label>
-      <input type="number" id="monthlyViewers" min="0" placeholder="Enter number of viewers" />
-    </div>
-
-    <div class="btn-spacer">
-      <button class="calcBtn" onclick="calculateCheapestCostsFromUI()">Calculate Cost</button>
-    </div>
-
-    <div id="result" class="result"></div>
   </div>
+
+  <!-- Bootstrap Bundle with Popper -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>

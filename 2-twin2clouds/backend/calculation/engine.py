@@ -438,12 +438,89 @@ def calculate_cheapest_costs(params, pricing=None):
         transfer_costs
     )
 
+    # -------------------------------------------------------------------------
+    # COMBINED L2 (HOT STORAGE) + L3 (DATA PROCESSING) OPTIMIZATION
+    # -------------------------------------------------------------------------
+    # Rationale: "Data Gravity" & Total System Cost
+    #
+    # We optimize the selection of the "Hot Path" (L2 Hot Storage + L3 Data Processing)
+    # by considering the COMBINED cost of both layers rather than selecting L2 in isolation.
+    #
+    # The Problem:
+    # - Storage (L2) might be cheapest on Provider A (e.g., Azure).
+    # - Processing (L3) might be cheapest on Provider B (e.g., AWS).
+    #
+    # If we strictly picked the cheapest L2 (Provider A), we would be forced to either:
+    # 1. Run L3 on Provider A (which might be very expensive for processing).
+    # 2. Run L3 on Provider B (cheaper processing), BUT pay massive "Egress" (Data Transfer)
+    #    costs to move data from A to B, plus "Ingestion" costs at B.
+    #
+    # The Solution:
+    # We calculate `Cost(L2) + Cost(L3)` for each provider and pick the minimum sum.
+    # This ensures we find the "Global Minimum" for the hot path, avoiding scenarios where
+    # saving $10 on storage leads to paying $1000 extra in processing or transfer fees.
+    # -------------------------------------------------------------------------
+
+    # 1. Calculate combined costs
+    aws_l2_l3_total = aws_costs["resultHot"]["totalMonthlyCost"] + aws_costs["dataProcessing"]["totalMonthlyCost"]
+    azure_l2_l3_total = azure_costs["resultHot"]["totalMonthlyCost"] + azure_costs["dataProcessing"]["totalMonthlyCost"]
+    gcp_l2_l3_total = gcp_costs["resultHot"]["totalMonthlyCost"] + gcp_costs["dataProcessing"]["totalMonthlyCost"]
+
+    l2_l3_options = [
+        ("AWS_Hot", aws_l2_l3_total),
+        ("Azure_Hot", azure_l2_l3_total),
+        ("GCP_Hot", gcp_l2_l3_total)
+    ]
+    l2_l3_options.sort(key=lambda x: x[1])
+    
+    # 2. Select the best provider for the Hot Path
+    best_hot_provider = l2_l3_options[0][0] # e.g., "Azure_Hot"
+
+    # 3. Check if this overrides the "Cheapest L2" (for UI warning)
+    # Find who would have been chosen if we only looked at L2
+    l2_only_options = [
+        ("AWS_Hot", aws_costs["resultHot"]["totalMonthlyCost"]),
+        ("Azure_Hot", azure_costs["resultHot"]["totalMonthlyCost"]),
+        ("GCP_Hot", gcp_costs["resultHot"]["totalMonthlyCost"])
+    ]
+    l2_only_options.sort(key=lambda x: x[1])
+    cheapest_l2_provider = l2_only_options[0][0]
+
+    l2_optimization_override = None
+    if best_hot_provider != cheapest_l2_provider:
+        l2_optimization_override = {
+            "selectedProvider": best_hot_provider.split("_")[0], # AWS
+            "cheapestL2Provider": cheapest_l2_provider.split("_")[0], # Azure
+            "savings": l2_only_options[0][1] - [x[1] for x in l2_only_options if x[0] == best_hot_provider][0] # Negative value showing higher storage cost
+        }
+
+    # 4. Check if L3 is suboptimal (locked by L2)
+    # Find who would have been chosen if we only looked at L3
+    l3_only_options = [
+        ("AWS_Hot", aws_costs["dataProcessing"]["totalMonthlyCost"]),
+        ("Azure_Hot", azure_costs["dataProcessing"]["totalMonthlyCost"]),
+        ("GCP_Hot", gcp_costs["dataProcessing"]["totalMonthlyCost"])
+    ]
+    l3_only_options.sort(key=lambda x: x[1])
+    cheapest_l3_provider = l3_only_options[0][0]
+
+    l3_optimization_override = None
+    # If the selected provider (best_hot_provider) is NOT the cheapest L3 provider
+    if best_hot_provider != cheapest_l3_provider:
+         l3_optimization_override = {
+            "selectedProvider": best_hot_provider.split("_")[0], # AWS
+            "cheapestL3Provider": cheapest_l3_provider.split("_")[0], # Azure
+            "savings": l3_only_options[0][1] - [x[1] for x in l3_only_options if x[0] == best_hot_provider][0]
+        }
+
+    # 5. Find cheapest storage path STARTING from our optimized provider
+    # We force the start node to be our chosen provider to respect Data Gravity
     cheapest_storage = decision.find_cheapest_storage_path(
         graph,
-        ["AWS_Hot", "Azure_Hot", "GCP_Hot"],
+        [best_hot_provider], 
         ["AWS_Archive", "Azure_Archive", "GCP_Archive"]
     )
-    print(cheapest_storage)
+    print(f"Optimized Storage Path (L2+L3): {cheapest_storage}")
 
     aws_costs_after_layer1 = aws_costs["dataAquisition"]["totalMonthlyCost"]
     azure_costs_after_layer1 = azure_costs["dataAquisition"]["totalMonthlyCost"]
@@ -579,6 +656,54 @@ def calculate_cheapest_costs(params, pricing=None):
     cheapest_path.append(cheaper_provider_layer4)
     cheapest_path.append(cheaper_provider_layer5)
 
+    # 7. Check for L4 Optimization Override
+    l4_only_options = [
+        ("AWS", aws_costs["resultL4"]["totalMonthlyCost"] if aws_costs["resultL4"] else 0),
+        ("Azure", azure_costs["resultL4"]["totalMonthlyCost"] if azure_costs["resultL4"] else 0),
+        ("GCP", gcp_costs["resultL4"]["totalMonthlyCost"] if gcp_costs["resultL4"] else 0)
+    ]
+    # Filter out 0 costs if any (unless all are 0)
+    l4_valid_options = [x for x in l4_only_options if x[1] > 0]
+    if not l4_valid_options: l4_valid_options = l4_only_options
+    
+    l4_valid_options.sort(key=lambda x: x[1])
+    cheapest_l4_provider = l4_valid_options[0][0]
+    
+    selected_l4_provider = cheaper_provider_layer4.split("_")[1] if cheaper_provider_layer4 != "L4_None" else "None"
+    
+    l4_optimization_override = None
+    if selected_l4_provider != "None" and selected_l4_provider != cheapest_l4_provider:
+        l4_optimization_override = {
+            "selectedProvider": selected_l4_provider,
+            "cheapestL4Provider": cheapest_l4_provider,
+            "savings": l4_valid_options[0][1] - [x[1] for x in l4_valid_options if x[0] == selected_l4_provider][0]
+        }
+
+    # 8. Check for L2 Cool Optimization Override
+    # Extract selected Cool provider from cheapest_storage path
+    # Path format: ['AWS_Hot', 'GCP_Cool', 'GCP_Archive']
+    selected_cool_provider = "None"
+    for segment in cheapest_storage["path"]:
+        if "Cool" in segment:
+            selected_cool_provider = segment.split("_")[0] # AWS
+            break
+            
+    l2_cool_only_options = [
+        ("AWS", aws_costs["resultL3Cool"]["totalMonthlyCost"]),
+        ("Azure", azure_costs["resultL3Cool"]["totalMonthlyCost"]),
+        ("GCP", gcp_costs["resultL3Cool"]["totalMonthlyCost"])
+    ]
+    l2_cool_only_options.sort(key=lambda x: x[1])
+    cheapest_cool_provider = l2_cool_only_options[0][0]
+    
+    l2_cool_optimization_override = None
+    if selected_cool_provider != "None" and selected_cool_provider != cheapest_cool_provider:
+         l2_cool_optimization_override = {
+            "selectedProvider": selected_cool_provider,
+            "cheapestProvider": cheapest_cool_provider,
+            "savings": l2_cool_only_options[0][1] - [x[1] for x in l2_cool_only_options if x[0] == selected_cool_provider][0]
+        }
+
     calculation_result_obj = {}
     calculation_result_obj["L1"] = cheaper_provider_for_layer1.split("_")[1]
 
@@ -603,7 +728,11 @@ def calculate_cheapest_costs(params, pricing=None):
         "cheapestPath": cheapest_path,
         "awsCosts": aws_costs,
         "azureCosts": azure_costs,
-        "gcpCosts": gcp_costs
+        "gcpCosts": gcp_costs,
+        "l2OptimizationOverride": l2_optimization_override,
+        "l3OptimizationOverride": l3_optimization_override,
+        "l4OptimizationOverride": l4_optimization_override,
+        "l2CoolOptimizationOverride": l2_cool_optimization_override
     }
     
     # Currency Conversion (USD -> EUR) if requested

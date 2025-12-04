@@ -82,7 +82,7 @@ def calculate_azure_cost_data_processing(
 
     request_cost = 0
     if executions_per_month > layer2_pricing["freeRequests"]:
-        request_cost = (executions_per_month - layer2_pricing["freeRequests"]) * layer2_pricing["requestPrice"]
+        request_cost = ((executions_per_month - layer2_pricing["freeRequests"]) / 1000000) * layer2_pricing["requestPrice"]
 
     total_compute_seconds = executions_per_month * execution_duration_in_ms * 0.001
 
@@ -108,7 +108,7 @@ def calculate_azure_cost_data_processing(
         ) * layer2_pricing["durationPrice"]
         
         if executions_per_month > layer2_pricing["freeRequests"]:
-             event_checker_cost += (executions_per_month - layer2_pricing["freeRequests"]) * layer2_pricing["requestPrice"]
+             event_checker_cost += ((executions_per_month - layer2_pricing["freeRequests"]) / 1000000) * layer2_pricing["requestPrice"]
 
     # 2. Orchestration (Logic Apps)
     if use_event_checking and trigger_notification_workflow:
@@ -138,7 +138,7 @@ def calculate_azure_cost_data_processing(
             (feedback_compute_seconds * allocated_memory_in_gb) - layer2_pricing["freeComputeTime"], 0
         ) * layer2_pricing["durationPrice"]
         if feedback_messages > layer2_pricing["freeRequests"]:
-            feedback_function_cost += (feedback_messages - layer2_pricing["freeRequests"]) * layer2_pricing["requestPrice"]
+            feedback_function_cost += ((feedback_messages - layer2_pricing["freeRequests"]) / 1000000) * layer2_pricing["requestPrice"]
             
         feedback_loop_cost += feedback_function_cost
 
@@ -155,7 +155,7 @@ def calculate_azure_cost_data_processing(
             (reporter_compute_seconds * allocated_memory_in_gb) - layer2_pricing["freeComputeTime"], 0
         ) * layer2_pricing["durationPrice"]
         if total_events > layer2_pricing["freeRequests"]:
-            reporter_cost += (total_events - layer2_pricing["freeRequests"]) * layer2_pricing["requestPrice"]
+            reporter_cost += ((total_events - layer2_pricing["freeRequests"]) / 1000000) * layer2_pricing["requestPrice"]
         error_handling_cost += reporter_cost
 
         # Cosmos DB Error Container (Write)
@@ -208,7 +208,7 @@ def _calculate_function_cost(executions, pricing):
     
     request_cost = 0
     if executions > layer2_pricing["freeRequests"]:
-        request_cost = (executions - layer2_pricing["freeRequests"]) * layer2_pricing["requestPrice"]
+        request_cost = ((executions - layer2_pricing["freeRequests"]) / 1000000) * layer2_pricing["requestPrice"]
         
     return duration_cost + request_cost
 
