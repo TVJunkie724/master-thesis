@@ -15,6 +15,10 @@
     - [x] adapt coloring in cheapest path in ui (after calculation)
     - [x] for google twinmaker and grafana, add info that services are self-hosted 
 
+- [ ] run and fix tests
+- [ ] update docs (with changes in pricing calculations, web ui, rest api, architecture? and concerning deployment roadmap)
+- [ ] update architecture section in ui
+
 ## flutter later
 - [ ] add section after header with buttons for fetching up-to-date prices and regions??? on page load, the age of the json files should be shown, for the user to decide if he wants to update them or not
 - [ ] let the user decide after calculation, if he wants to stick with GCP (if even chosed via calculation engine) or switch to another provider
