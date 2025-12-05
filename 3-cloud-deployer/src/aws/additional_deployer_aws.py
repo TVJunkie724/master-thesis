@@ -1,7 +1,7 @@
 import time
 import globals
 import aws.globals_aws as globals_aws
-from globals import logger_proxy as logger
+from logger import logger
 import util
 from botocore.exceptions import ClientError
 

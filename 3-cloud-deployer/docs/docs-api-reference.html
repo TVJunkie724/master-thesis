@@ -28,8 +28,8 @@
 
             <div class="callout info mb-4">
                 <strong><i class="fa-solid fa-lightbulb me-2"></i>Interactive Documentation</strong>
-                Access interactive Swagger UI at <code>http://localhost:8000/docs</code> or ReDoc at
-                <code>http://localhost:8000/redoc</code>
+                Access interactive Swagger UI at <code><a href="/docs">/docs</a></code> or ReDoc at
+                <code><a href="/redoc">/redoc</a></code>
             </div>
 
             <!-- Deployment Endpoints -->
@@ -101,6 +101,23 @@
                 <p>Destroy the entire digital twin environment.</p>
                 <p><strong>Warning:</strong> This deletes all resources and data. Use with caution!</p>
                 <pre class="p-3 rounded"><code>POST /destroy?provider=aws</code></pre>
+
+                <h3 class="mt-4">POST /destroy_l{1-5}</h3>
+                <p>Destroy resources by specific layer.</p>
+                <ul>
+                    <li><code>POST /destroy_l1</code> - Destroy L1</li>
+                    <li><code>POST /destroy_l2</code> - Destroy L2</li>
+                    <li><code>POST /destroy_l3</code> - Destroy L3</li>
+                    <li><code>POST /destroy_l4</code> - Destroy L4</li>
+                    <li><code>POST /destroy_l5</code> - Destroy L5</li>
+                </ul>
+                <p><strong>Example:</strong></p>
+                <pre class="p-3 rounded"><code>POST /destroy_l1?provider=aws</code></pre>
+
+                <h3 class="mt-4">POST /recreate_updated_events</h3>
+                <p>Redeploy Event Actions (L2 -> L2) and Event Checker (L2) to update logic efficiently.</p>
+                <p><strong>Usage:</strong></p>
+                <pre class="p-3 rounded"><code>POST /recreate_updated_events?provider=aws</code></pre>
             </div>
 
             <!-- Status Endpoints -->
@@ -202,6 +219,22 @@
                 <pre
                     class="p-3 rounded"><code>GET /lambda_logs?local_function_name=dispatcher&n=20&filter_system_logs=true</code></pre>
                 <p><strong>Response:</strong> Array of log message strings</p>
+
+                <h3 class="mt-4">POST /lambda_invoke</h3>
+                <p>Invoke a Lambda function with a custom payload.</p>
+                <p><strong>Request Body (LambdaInvokeRequest):</strong></p>
+                <pre class="p-3 rounded"><code>{
+  "local_function_name": "dispatcher",
+  "payload": { "key": "value" },
+  "sync": true
+}</code></pre>
+                <p><strong>Parameters:</strong></p>
+                <ul>
+                    <li><code>local_function_name</code>: Name of the function (e.g., "dispatcher")</li>
+                    <li><code>payload</code>: JSON payload to send</li>
+                    <li><code>sync</code>: <code>true</code> for RequestResponse, <code>false</code> for Event (async)
+                    </li>
+                </ul>
             </div>
 
             <!-- Error Responses -->

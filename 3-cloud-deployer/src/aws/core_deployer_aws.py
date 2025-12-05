@@ -2,7 +2,7 @@ import json
 import os
 import time
 import globals
-from globals import logger_proxy as logger
+from logger import logger
 import aws.globals_aws as globals_aws
 import util
 from botocore.exceptions import ClientError

@@ -1,4 +1,4 @@
-from globals import logger_proxy as logger
+from logger import logger
 import aws.additional_deployer_aws as hierarchy_deployer_aws
 from botocore.exceptions import ClientError
 

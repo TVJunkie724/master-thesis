@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+requests
+boto3
+colorlog
+pytest
+moto[server]
+httpx

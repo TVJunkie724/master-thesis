@@ -51,3 +51,19 @@ class LambdaLogsRequest(BaseModel):
     local_function_name: str = Field(..., description="Name of the local Lambda function to fetch logs from.")
     n: int = Field(10, description="Number of log lines to fetch (default 10).")
     filter_system_logs: bool = Field(True, description="Exclude AWS system logs like INIT_START, START, END, REPORT.")
+
+
+class LambdaInvokeRequest(BaseModel):
+    local_function_name: str = Field(..., description="Name of the local Lambda function to invoke.")
+    payload: dict = Field(..., description="JSON payload to pass to the function.")
+    sync: bool = Field(True, description="If true, waits for response (RequestResponse). If false, async (Event).")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "local_function_name": "temperature-processor",
+                "payload": {"temperature": 45.5, "unit": "C"},
+                "sync": True
+            }
+        }
+

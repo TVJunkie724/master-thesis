@@ -8,13 +8,9 @@ RUN apt-get update && apt-get install -y curl \
 
 WORKDIR /app
 COPY . /app
+COPY ./3-cloud-deployer/requirements.txt /app/requirements.txt
 
-RUN pip install \
-    fastapi \
-    uvicorn \
-    requests \
-    boto3 \
-    colorlog
+RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 8000
 

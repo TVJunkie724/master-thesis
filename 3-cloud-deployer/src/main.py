@@ -7,8 +7,9 @@ import deployers.iot_deployer as iot_deployer
 import info
 import deployers.additional_deployer as hierarchy_deployer
 import deployers.event_action_deployer as event_action_deployer
+import deployers.init_values_deployer as init_values_deployer
 
-logger = None
+from logger import logger, print_stack_trace
 
 def help_menu():
     print("""
@@ -25,6 +26,11 @@ Individual core layer deployments:
   deploy_l3 <provider>        - Deploys core layer 3 services (hot, cold, archive).
   deploy_l4 <provider>        - Deploys core layer 4 services for the specified provider.
   deploy_l5 <provider>        - Deploys core layer 5 services for the specified provider.
+  destroy_l1 <provider>       - Destroys core layer 1 services for the specified provider.
+  destroy_l2 <provider>       - Destroys core layer 2 services for the specified provider.
+  destroy_l3 <provider>       - Destroys core layer 3 services (hot, cold, archive).
+  destroy_l4 <provider>       - Destroys core layer 4 services for the specified provider.
+  destroy_l5 <provider>       - Destroys core layer 5 services for the specified provider.
 
 Check/Info deployment status:
   check <provider>            - Runs all checks (L1 to L5) for the specified provider.
@@ -63,9 +69,11 @@ deployment_commands = {
         core_deployer.deploy(provider=provider), 
         iot_deployer.deploy(provider=provider),
         hierarchy_deployer.deploy(provider=provider),
-        event_action_deployer.deploy(provider=provider)
+        event_action_deployer.deploy(provider=provider),
+        init_values_deployer.deploy(provider=provider)
       ),
     "destroy": lambda provider: (
+        init_values_deployer.destroy(provider=provider),
         event_action_deployer.destroy(provider=provider),
         hierarchy_deployer.destroy(provider=provider),
         iot_deployer.destroy(provider=provider), 
@@ -82,13 +90,20 @@ deployment_commands = {
     "deploy_l3": lambda provider: core_deployer.deploy_l3(provider=provider),
     "deploy_l4": lambda provider: core_deployer.deploy_l4(provider=provider),
     "deploy_l5": lambda provider: core_deployer.deploy_l5(provider=provider),
+
+    "destroy_l1": lambda provider: core_deployer.destroy_l1(provider=provider),
+    "destroy_l2": lambda provider: core_deployer.destroy_l2(provider=provider),
+    "destroy_l3": lambda provider: core_deployer.destroy_l3(provider=provider),
+    "destroy_l4": lambda provider: core_deployer.destroy_l4(provider=provider),
+    "destroy_l5": lambda provider: core_deployer.destroy_l5(provider=provider),
 }
 
 info_commands = {
     "check": lambda provider: (
       info.check(provider=provider),
       hierarchy_deployer.info(provider=provider),
-      event_action_deployer.info(provider=provider)
+      event_action_deployer.info(provider=provider),
+      init_values_deployer.info(provider=provider)
     ),
 
     # Individual layer checks
@@ -105,7 +120,6 @@ VALID_PROVIDERS = {"aws", "azure", "google"}
 def main():
     globals.initialize_all()
     globals_aws.initialize_aws_clients()
-    logger = globals.logger
     
     valid_providers = ("aws", "azure", "google")
     
@@ -147,7 +161,7 @@ def main():
                 logger.info(f"Executing '{command} {provider}'...")
                 deployment_commands[command](provider=provider)
             except Exception as e:
-                globals.print_stack_trace()
+                print_stack_trace()
                 logger.error(f"Error during '{command} {provider}': {e}")
             continue
           
@@ -172,7 +186,7 @@ def main():
             logger.info(f"Executing '{command} {provider}'...")
             info_commands[command](provider=provider)
         except Exception as e:
-            globals.print_stack_trace()
+            print_stack_trace()
             logger.error(f"Error during '{command} {provider}': {str(e)}")
         continue
 

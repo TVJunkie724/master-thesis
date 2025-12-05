@@ -2,24 +2,58 @@
   {
     "id": "temperature-sensor-1",
     "properties": [
-      { "name": "temperature", "dataType": "DOUBLE" }
+      {
+        "name": "temperature",
+        "dataType": "DOUBLE",
+        "initValue": 25.0
+      }
     ],
     "constProperties": [
-      { "name": "serial-number", "dataType": "STRING", "value": "1232323" }
+      {
+        "name": "serial-number",
+        "dataType": "STRING",
+        "value": "1232323"
+      }
     ]
   },
   {
     "id": "temperature-sensor-2",
     "properties": [
-      { "name": "temperature", "dataType": "DOUBLE" }
+      {
+        "name": "temperature",
+        "dataType": "DOUBLE",
+        "initValue": 22.0
+      },
+      {
+        "name": "maxTemperature",
+        "dataType": "DOUBLE",
+        "initValue": 60.0
+      }
+    ],
+    "constProperties": [
+      {
+        "name": "serial-number",
+        "dataType": "STRING",
+        "value": "temp-sens-143323"
+      }
     ]
   },
   {
     "id": "pressure-sensor-1",
     "properties": [
-      { "name": "pressure", "dataType": "DOUBLE" },
-      { "name": "density", "dataType": "DOUBLE" },
-      { "name": "hardness", "dataType": "DOUBLE" }
+      {
+        "name": "pressure",
+        "dataType": "DOUBLE",
+        "initValue": 1000.0
+      },
+      {
+        "name": "density",
+        "dataType": "DOUBLE"
+      },
+      {
+        "name": "hardness",
+        "dataType": "DOUBLE"
+      }
     ]
   }
 ]

@@ -16,12 +16,12 @@ import info
 import deployers.additional_deployer as hierarchy_deployer
 import deployers.event_action_deployer as event_action_deployer
 import aws.lambda_manager as lambda_manager
-from aws.api_lambda_schemas import LambdaUpdateRequest, LambdaLogsRequest
+from aws.api_lambda_schemas import LambdaUpdateRequest, LambdaLogsRequest, LambdaInvokeRequest
 from util import pretty_json
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
-logger = None
+from logger import logger, print_stack_trace
 
 # --------- Initialize FastAPI app ----------
 app = FastAPI(
@@ -31,11 +31,12 @@ app = FastAPI(
         "API for deploying, destroying, and inspecting Digital Twin environment resources."
         "<h3>🔗 Useful Links</h3>"
         "<h4>📘 Documentation</h4>"
-        "<ul><li><a href=\"/documentation/overview\" target=\"_blank\"><strong>Documentation Overview</strong></a></li></ul>"
+        "<ul><li><a href=\"/documentation/docs-overview.html\" target=\"_blank\"><strong>Documentation Overview</strong></a></li></ul>"
         ),
     openapi_tags=[
         {"name": "Info", "description": "Endpoints to check system status and configurations."},
-        {"name": "Deployment", "description": "Endpoints to deploy or destroy core and IoT services."},
+        {"name": "Deployment", "description": "Endpoints to deploy core and IoT services."},
+        {"name": "Destroy", "description": "Endpoints to destroy core and IoT services."},
         {"name": "Status", "description": "Endpoints to inspect the deployment status of all layers and configured resources."},
         {"name": "AWS", "description": "Endpoints to update and fetch logs from Lambda functions."}
     ]
@@ -43,18 +44,15 @@ app = FastAPI(
 
 app.mount("/js", StaticFiles(directory="js"), name="js")
 app.mount("/css", StaticFiles(directory="css"), name="css")
-app.mount("/docs", StaticFiles(directory="docs"), name="docs")
+app.mount("/documentation", StaticFiles(directory="docs"), name="docs")
 app.mount("/references", StaticFiles(directory="references"), name="references")
 
 # --------- Initialize configuration once ----------
 @app.on_event("startup")
 def startup_event():
-    globals.initialize_logger()
-    # globals.initialize_all()
-    # globals_aws.initialize_aws_clients()
+    globals.initialize_all()
+    globals_aws.initialize_aws_clients()
     
-    global logger
-    logger = globals.logger
     
     
     logger.info("✅ Globals initialized. API ready.")
@@ -96,12 +94,41 @@ def deploy_all(provider: str = Query("aws", description="Cloud provider: aws, az
         event_action_deployer.deploy(provider)
         return {"message": "Core and IoT services deployed successfully"}
     except Exception as e:
-        globals.print_stack_trace()
-        logger.error(str(e))
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/destroy", tags=["Deployment"])
+@app.post("/recreate_updated_events", tags=["Deployment"])
+def recreate_updated_events(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
+    """
+    Redeploys the events (event_actions and event_checker).
+    """
+    try:
+        provider = provider.lower()
+        event_action_deployer.redeploy(provider)
+        core_deployer.redeploy_l2_event_checker(provider)
+        return {"message": "Events recreated successfully"}
+    except Exception as e:
+        print_stack_trace()
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/recreate_updated_events", tags=["Deployment"])
+def recreate_updated_events(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
+    """
+    Redeploys the events (event_actions and event_checker).
+    """
+    try:
+        provider = provider.lower()
+        event_action_deployer.redeploy(provider)
+        core_deployer.redeploy_l2_event_checker(provider)
+        return {"message": "Events recreated successfully"}
+    except Exception as e:
+        print_stack_trace()
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/destroy", tags=["Destroy"])
 def destroy_all(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
     """
     Destroys the full digital twin environment including IoT devices, processors, and TwinMaker components.
@@ -122,7 +149,7 @@ def destroy_all(provider: str = Query("aws", description="Cloud provider: aws, a
         core_deployer.destroy(provider)
         return {"message": "Core and IoT services destroyed successfully"}
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -144,8 +171,29 @@ def deploy_l1_endpoint(provider: str = Query("aws", description="Cloud provider:
         core_deployer.deploy_l1(provider)
         return {"message": "L1 deployment (IoT Dispatcher Layer) completed successfully."}
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/destroy_l1", tags=["Destroy"])
+def destroy_l1_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
+    """
+    Destroy Level 1 (L1) – IoT Dispatcher Layer.
+
+    Actions performed:
+    - Deletes IoT topic rule.
+    - Deletes dispatcher Lambda function.
+    - Deletes dispatcher IAM role.
+    
+    Returns:
+        JSON message confirming L1 destruction.
+    """
+    try:
+        provider = provider.lower()
+        core_deployer.destroy_l1(provider)
+        return {"message": "L1 destruction (IoT Dispatcher Layer) completed successfully."}
+    except Exception as e:
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -166,7 +214,28 @@ def deploy_l2_endpoint(provider: str = Query("aws", description="Cloud provider:
         core_deployer.deploy_l2(provider)
         return {"message": "L2 deployment (Persister Layer) completed successfully."}
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/destroy_l2", tags=["Destroy"])
+def destroy_l2_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
+    """
+    Destroy Level 2 (L2) – Persister / Processor Layer.
+
+    Actions performed:
+    - Deletes persister Lambda function.
+    - Deletes persister IAM role.
+    
+    Returns:
+        JSON message confirming L2 destruction.
+    """
+    try:
+        provider = provider.lower()
+        core_deployer.destroy_l2(provider)
+        return {"message": "L2 destruction (Persister Layer) completed successfully."}
+    except Exception as e:
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -197,7 +266,38 @@ def deploy_l3_endpoint(provider: str = Query("aws", description="Cloud provider:
         core_deployer.deploy_l3_archive(provider)
         return {"message": "L3 deployment (Hot, Cold, Archive Storage) completed successfully."}
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/destroy_l3", tags=["Destroy"])
+def destroy_l3_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
+    """
+    Destroy Level 3 (L3) – Storage Layers.
+
+    Actions performed:
+    - Hot Storage:
+        - Deletes DynamoDB table for IoT device data.
+        - Deletes IAM role and Lambda function to move hot data to cold storage.
+        - Deletes hot-to-cold data mover via EventBridge.
+    - Cold Storage:
+        - Deletes S3 bucket for cold storage.
+        - Deletes IAM role and Lambda function to move cold data to archive.
+        - Deletes cold-to-archive mover via EventBridge.
+    - Archive Storage:
+        - Deletes S3 bucket for archive storage.
+    
+    Returns:
+        JSON message confirming L3 destruction (hot, cold, archive).
+    """
+    try:
+        provider = provider.lower()
+        core_deployer.destroy_l3_hot(provider)
+        core_deployer.destroy_l3_cold(provider)
+        core_deployer.destroy_l3_archive(provider)
+        return {"message": "L3 destruction (Hot, Cold, Archive Storage) completed successfully."}
+    except Exception as e:
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -220,10 +320,31 @@ def deploy_l4_endpoint(provider: str = Query("aws", description="Cloud provider:
         core_deployer.deploy_l4(provider)
         return {"message": "L4 TwinMaker deployment completed successfully."}
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/destroy_l4", tags=["Destroy"])
+def destroy_l4_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
+    """
+    Destroy Level 4 (L4) – TwinMaker Layer.
+
+    Actions performed:
+    - Deletes TwinMaker workspace.
+    - Deletes TwinMaker S3 bucket.
+    - Deletes TwinMaker IAM role and Lambda connector.
+    
+    Returns:
+        JSON message confirming L4 destruction.
+    """
+    try:
+        provider = provider.lower()
+        core_deployer.destroy_l4(provider)
+        return {"message": "L4 TwinMaker destruction completed successfully."}
+    except Exception as e:
+        print_stack_trace()
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/deploy_l5", tags=["Deployment"])
 def deploy_l5_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
@@ -243,10 +364,30 @@ def deploy_l5_endpoint(provider: str = Query("aws", description="Cloud provider:
         core_deployer.deploy_l5(provider)
         return {"message": "L5 Grafana deployment completed successfully."}
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/destroy_l5", tags=["Destroy"])
+def destroy_l5_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
+    """
+    Destroy Level 5 (L5) – Visualization Layer.
+
+    Actions performed:
+    - Deletes Grafana workspace.
+    - Deletes Grafana IAM role.
+    
+    Returns:
+        JSON message confirming L5 destruction.
+    """
+    try:
+        provider = provider.lower()
+        core_deployer.destroy_l5(provider)
+        return {"message": "L5 Grafana destruction completed successfully."}
+    except Exception as e:
+        print_stack_trace()
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --------- Check/Info Deployment Status ----------
 @app.get("/check", tags=["Status"])
@@ -264,7 +405,7 @@ def check_endpoint(provider: str = Query("aws", description="Cloud provider: aws
         event_action_deployer.info(provider)
         return {"message": f"System check (all layers) completed for provider '{provider}'. See logs for detailed status."}
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -278,7 +419,7 @@ def check_l1_endpoint(provider: str = Query("aws", description="Cloud provider: 
         info.check_l1(provider)
         return {"message": f"Check L1 completed for provider '{provider}'."}
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -291,7 +432,7 @@ def check_l2_endpoint(provider: str = Query("aws", description="Cloud provider: 
         info.check_l2(provider)
         return {"message": f"Check L2 completed for provider '{provider}'."}
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -304,7 +445,7 @@ def check_l3_endpoint(provider: str = Query("aws", description="Cloud provider: 
         info.check_l3(provider)
         return {"message": f"Check L3 completed for provider '{provider}'."}
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -317,7 +458,7 @@ def check_l4_endpoint(provider: str = Query("aws", description="Cloud provider: 
         info.check_l4(provider)
         return {"message": f"Check L4 completed for provider '{provider}'."}
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -330,7 +471,7 @@ def check_l5_endpoint(provider: str = Query("aws", description="Cloud provider: 
         info.check_l5(provider)
         return {"message": f"Check L5 completed for provider '{provider}'."}
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -361,7 +502,7 @@ def get_main_config():
     try:
         return pretty_json(globals.config)
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
     
@@ -400,7 +541,7 @@ def get_iot_config():
     try:
         return pretty_json(globals.config_iot_devices)
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -428,7 +569,7 @@ def get_providers_config():
     try:
         return pretty_json(globals.config_providers)
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -459,7 +600,7 @@ def get_providers_config():
 #     try:
 #         return pretty_json(globals.config_credentials)
 #     except Exception as e:
-#         globals.print_stack_trace()
+#         print_stack_trace()
 #         logger.error(str(e))
 #         raise HTTPException(status_code=500, detail=str(e))
     
@@ -506,7 +647,7 @@ def get_config_hierarchy():
             data = json.load(f)
         return pretty_json(data)
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -539,7 +680,7 @@ def get_config_events():
             data = json.load(f)
         return pretty_json(data)
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -568,7 +709,7 @@ def lambda_update(req: LambdaUpdateRequest):
             lambda_manager.update_function(req.local_function_name)
         return {"message": f"Lambda {req.local_function_name} updated successfully"}
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -589,7 +730,20 @@ def get_lambda_logs(req: LambdaLogsRequest = Depends()) -> List[str]:
         logs = lambda_manager.fetch_logs(req.local_function_name, n=req.n, filter_system_logs=req.filter_system_logs)
         return logs
     except Exception as e:
-        globals.print_stack_trace()
+        print_stack_trace()
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/lambda_invoke", tags=["AWS"])
+def lambda_invoke(req: LambdaInvokeRequest):
+    """
+    Invokes a lambda function.
+    """
+    try:
+        lambda_manager.invoke_function(req.local_function_name, req.payload, req.sync)
+        return {"message": f"Lambda {req.local_function_name} invoked successfully"}
+    except Exception as e:
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 

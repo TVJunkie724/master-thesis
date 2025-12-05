@@ -31,73 +31,150 @@
                 <pre class="p-3 rounded"><code>cd src
 python main.py
 </code></pre>
-                <p class="mt-2">You'll see the interactive prompt:</p>
-                <pre class="p-3 rounded"><code>Welcome to the Digital Twin Manager. Type 'help' for commands.
->>>
-</code></pre>
+                <div class="alert alert-secondary mt-2"
+                    style="background-color: rgba(30, 41, 59, 0.5); border-color: var(--bg-card-border); color: var(--text-main);">
+                    <i class="fa-solid fa-terminal me-2"></i> Interactive Prompt:
+                    <code>Welcome to the Digital Twin Manager. Type 'help' for commands.</code>
+                </div>
             </div>
 
+            <!-- Deployment Commands -->
             <div class="card mb-4">
-                <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Available Commands</h2>
+                <h2 class="mb-3"><i class="fa-solid fa-cloud-upload me-2"></i>Deployment & Destruction</h2>
 
-                <h3 class="mt-4">deploy</h3>
-                <p>Deploy the entire digital twin environment.</p>
-                <p><strong>Usage:</strong></p>
-                <pre class="p-3 rounded"><code>>>> deploy
-</code></pre>
-                <p><strong>Actions:</strong></p>
+                <h5 class="text-primary mt-2">Core Commands</h5>
+                <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                            <th>Example</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>deploy [provider]</code></td>
+                            <td>Deploy entire environment (L1-L5).</td>
+                            <td><code>deploy aws</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>destroy [provider]</code></td>
+                            <td>Destroy entire environment. <strong>Irreversible!</strong></td>
+                            <td><code>destroy aws</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="text-primary mt-4">Granular Operations</h5>
+                <p>Manage individual layers (L1: IoT, L2: Compute, L3: Storage, L4: TwinMaker, L5: Grafana).</p>
+                <table class="table table-sm table-bordered">
+                    <tbody>
+                        <tr>
+                            <td><code>deploy_l1</code> ... <code>deploy_l5</code></td>
+                            <td>Deploy specific layer.</td>
+                            <td><code>deploy_l1 aws</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>destroy_l1</code> ... <code>destroy_l5</code></td>
+                            <td>Destroy specific layer.</td>
+                            <td><code>destroy_l1 aws</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="text-primary mt-4">Events</h5>
+                <p><code>recreate_updated_events</code>: Redeploy only Event Actions and Checker logic for rapid
+                    iteration.</p>
+            </div>
+
+            <!-- Verification Commands -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-check-circle me-2"></i>Verification & Status</h2>
+                <table class="table table-bordered table-striped">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>info</code></td>
+                            <td>Show summary of deployed resources (ARNs, IDs).</td>
+                        </tr>
+                        <tr>
+                            <td><code>check</code></td>
+                            <td>Run verification checks for all layers.</td>
+                        </tr>
+                        <tr>
+                            <td><code>check_l1</code> ... <code>check_l5</code></td>
+                            <td>Run checks for a specific layer.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Configuration Commands -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-gear me-2"></i>Configuration Inspection</h2>
+                <p>Inspect currently loaded configuration files.</p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="list-group">
+                            <li class="list-group-item"><code>info_config</code> (Main)</li>
+                            <li class="list-group-item"><code>info_config_iot_devices</code></li>
+                            <li class="list-group-item"><code>info_config_providers</code></li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul class="list-group">
+                            <li class="list-group-item"><code>info_config_credentials</code></li>
+                            <li class="list-group-item"><code>info_config_hierarchy</code></li>
+                            <li class="list-group-item"><code>info_config_events</code></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lambda Commands -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-brands fa-aws me-2"></i>Lambda Management</h2>
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Command</th>
+                            <th>Usage</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>lambda_update</code></td>
+                            <td><code>lambda_update &lt;name&gt;</code></td>
+                            <td>Zip and update code for local function. Use <code>default-processor</code> to update all
+                                processors.</td>
+                        </tr>
+                        <tr>
+                            <td><code>lambda_logs</code></td>
+                            <td><code>lambda_logs &lt;name&gt; [n]</code></td>
+                            <td>Fetch last <code>n</code> logs from CloudWatch.</td>
+                        </tr>
+                        <tr>
+                            <td><code>lambda_invoke</code></td>
+                            <td><code>lambda_invoke &lt;name&gt; [payload] [sync]</code></td>
+                            <td>Invoke function synchronously or asynchronously.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Other Commands -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-bars me-2"></i>Other</h2>
                 <ul>
-                    <li>Runs sanity checks on configuration</li>
-                    <li>Deploys core infrastructure (Lambda, storage, TwinMaker, Grafana)</li>
-                    <li>Deploys IoT devices and processors</li>
-                    <li>Creates entity hierarchy in TwinMaker</li>
-                    <li>Deploys event action Lambda functions</li>
-                    <li>Initializes device shadow values</li>
+                    <li><code>help</code> - Show the help menu.</li>
+                    <li><code>exit</code> - Exit the CLI (or <code>Ctrl+C</code>).</li>
                 </ul>
-                <p><strong>Typical Time:</strong> 5-15 minutes</p>
-
-                <h3 class="mt-4">destroy</h3>
-                <p>Destroy all deployed resources.</p>
-                <p><strong>Usage:</strong></p>
-                <pre class="p-3 rounded"><code>>>> destroy
-</code></pre>
-                <p><strong>Warning:</strong> This deletes all cloud resources and data. The operation is irreversible!
-                </p>
-                <p><strong>Actions (in reverse dependency order):</strong></p>
-                <ul>
-                    <li>Deletes initialization values</li>
-                    <li>Deletes event actions</li>
-                    <li>Deletes entity hierarchy</li>
-                    <li>Deletes IoT devices and processors</li>
-                    <li>Deletes core infrastructure</li>
-                </ul>
-
-                <h3 class="mt-4">info</h3>
-                <p>List all deployed resources and their status.</p>
-                <p><strong>Usage:</strong></p>
-                <pre class="p-3 rounded"><code>>>> info
-</code></pre>
-                <p><strong>Output includes:</strong></p>
-                <ul>
-                    <li>Lambda functions with ARNs</li>
-                    <li>IoT Things and certificates</li>
-                    <li>Storage resources (DynamoDB tables, S3 buckets)</li>
-                    <li>TwinMaker workspace and entities</li>
-                    <li>Grafana workspace</li>
-                </ul>
-
-                <h3 class="mt-4">help</h3>
-                <p>Show available commands.</p>
-                <p><strong>Usage:</strong></p>
-                <pre class="p-3 rounded"><code>>>> help
-</code></pre>
-
-                <h3 class="mt-4">exit</h3>
-                <p>Exit the CLI.</p>
-                <p><strong>Usage:</strong></p>
-                <pre class="p-3 rounded"><code>>>> exit
-</code></pre>
-                <p>Alternatively, press <kbd>Ctrl+C</kbd> or <kbd>Ctrl+D</kbd></p>
             </div>
 
             <div class="card mb-4">
@@ -130,7 +207,7 @@ python main.py
                         </tr>
                         <tr>
                             <td>Layer-specific deployment</td>
-                            <td><span class="chip warn">No</span></td>
+                            <td><span class="chip ok">Yes</span></td>
                             <td><span class="chip ok">Yes</span></td>
                         </tr>
                         <tr>
@@ -140,7 +217,7 @@ python main.py
                         </tr>
                         <tr>
                             <td>Lambda management</td>
-                            <td><span class="chip warn">No</span></td>
+                            <td><span class="chip ok">Yes</span></td>
                             <td><span class="chip ok">Yes</span></td>
                         </tr>
                         <tr>
@@ -150,8 +227,8 @@ python main.py
                         </tr>
                         <tr>
                             <td>Provider selection</td>
-                            <td>Via config file</td>
-                            <td>Via query parameter</td>
+                            <td>Argument (e.g. <code>deploy aws</code>)</td>
+                            <td>Query Param (<code>?provider=aws</code>)</td>
                         </tr>
                     </tbody>
                 </table>
@@ -160,6 +237,7 @@ python main.py
         </main>
     </div>
 
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
         style="display:none;">

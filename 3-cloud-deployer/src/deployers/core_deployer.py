@@ -2,15 +2,19 @@ import globals
 import aws.core_deployer_aws as core_aws
 from botocore.exceptions import ClientError
 
-logger = globals.logger
+from logger import logger
 
 def deploy_l1(provider=None):
   if provider is None:
     raise ValueError("Provider must be specified for deployment.")
   match provider:
     case "aws":
+      logger.info("Deploying L1 for AWS...")
+      logger.info("Creating dispatcher IAM role...")
       core_aws.create_dispatcher_iam_role()
+      logger.info("Creating dispatcher lambda function...")
       core_aws.create_dispatcher_lambda_function()
+      logger.info("Creating dispatcher IoT rule...")
       core_aws.create_dispatcher_iot_rule()
     case "azure":
       raise NotImplementedError("Azure deployment not implemented yet.")
@@ -24,8 +28,12 @@ def destroy_l1(provider=None):
     raise ValueError("Provider must be specified for deployment.")
   match provider:
     case "aws":
+      logger.info("Destroying L1 for AWS...")
+      logger.info("Destroying dispatcher IoT rule...")
       core_aws.destroy_dispatcher_iot_rule()
+      logger.info("Destroying dispatcher lambda function...")
       core_aws.destroy_dispatcher_lambda_function()
+      logger.info("Destroying dispatcher IAM role...")
       core_aws.destroy_dispatcher_iam_role()
     case "azure":
       raise NotImplementedError("Azure deployment not implemented yet.")

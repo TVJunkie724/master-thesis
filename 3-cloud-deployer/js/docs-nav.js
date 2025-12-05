@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!placeholder) return;
 
   try {
-    const resp = await fetch("../docs/docs-nav.html");
+    const resp = await fetch("docs-nav.html");
     placeholder.innerHTML = await resp.text();
   } catch (err) {
     console.error("Navigation load failed:", err);

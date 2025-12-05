@@ -1,4 +1,4 @@
-from globals import logger_proxy as logger
+from logger import logger
 import aws.globals_aws as globals_aws
 from botocore.exceptions import ClientError
 import util
