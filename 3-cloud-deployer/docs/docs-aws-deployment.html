@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>AWS Deployment Guide — Deployer Documentation</title>
+    <link rel="icon" type="image/x-icon" href="../references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/docs_styles.css" />
+</head>
+
+<body>
+
+    <div class="layout">
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+            <h1 class="mb-3">
+                <i class="fa-brands fa-aws me-2"></i> AWS Deployment Guide
+            </h1>
+
+            <p class="text-muted mb-4">
+                Complete guide to deploying Digital Twin layers on Amazon Web Services (AWS).
+            </p>
+
+            <div class="callout info mb-4">
+                <strong><i class="fa-solid fa-check-circle me-2"></i>Status: Core Fully Implemented</strong>
+                Core single-cloud deployment is fully operational. Multi-cloud extensions and Error Handling are in
+                development.
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-cloud me-2"></i>AWS Services Used</h2>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Layer</th>
+                            <th>Service</th>
+                            <th>Purpose</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>L1 - Data Acquisition</td>
+                            <td>AWS IoT Core</td>
+                            <td>Device connectivity, message routing</td>
+                        </tr>
+                        <tr>
+                            <td>L2 - Data Processing</td>
+                            <td>AWS Lambda</td>
+                            <td>Dispatcher, processors, persister functions</td>
+                        </tr>
+                        <tr>
+                            <td>L3 - Hot Storage</td>
+                            <td>DynamoDB</td>
+                            <td>Recent data with low-latency access</td>
+                        </tr>
+                        <tr>
+                            <td>L3 - Cool Storage</td>
+                            <td>S3 Infrequent Access</td>
+                            <td>Historical data accessed occasionally</td>
+                        </tr>
+                        <tr>
+                            <td>L3 - Archive Storage</td>
+                            <td>S3 Glacier Deep Archive</td>
+                            <td>Long-term archival data</td>
+                        </tr>
+                        <tr>
+                            <td>L3 - Data Access</td>
+                            <td>Amazon API Gateway</td>
+                            <td>External access to hot data (for TwinMaker)</td>
+                        </tr>
+                        <tr>
+                            <td>L4 - Twin Management</td>
+                            <td>AWS IoT TwinMaker</td>
+                            <td>3D digital twin models and queries</td>
+                        </tr>
+                        <tr>
+                            <td>L5 - Visualization</td>
+                            <td>Amazon Managed Grafana</td>
+                            <td>Dashboards and monitoring</td>
+                        </tr>
+                        <tr>
+                            <td>Supporting</td>
+                            <td>IAM</td>
+                            <td>Access control, roles, policies</td>
+                        </tr>
+                        <tr>
+                            <td>Supporting</td>
+                            <td>EventBridge</td>
+                            <td>Scheduled data movers, Error routing</td>
+                        </tr>
+                        <tr>
+                            <td>Supporting</td>
+                            <td>Step Functions</td>
+                            <td>Event workflow orchestration</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-road me-2"></i>Implementation Roadmap</h2>
+                <p>The AWS deployer implementation follows a modular, layer-by-layer approach:</p>
+
+                <div class="roadmap-content">
+                    <!-- Layer 1 -->
+                    <h3 class="mt-4 text-primary">Layer 1: Data Acquisition (IoT Core)</h3>
+                    <ul>
+                        <li><strong>Dispatcher IAM Role:</strong>
+                            <ul>
+                                <li><strong>Created:</strong> <code>{digital_twin_name}-dispatcher-role</code></li>
+                                <li><strong>Purpose:</strong> Defines permissions for the entry-point Lambda function.
+                                </li>
+                                <li><strong>Policies:</strong> Attaches <code>AWSLambdaBasicExecutionRole</code> for
+                                    logging and <code>AWSLambdaRole</code> for invoking other functions.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Dispatcher Function:</strong>
+                            <ul>
+                                <li><strong>Runtime:</strong> Python 3.13.</li>
+                                <li><strong>Logic:</strong> Acts as the central router.</li>
+                                <li><strong>Single Cloud:</strong> Routes incoming MQTT messages to local processor
+                                    functions.</li>
+                                <li><strong>Multi Cloud:</strong> Routes messages to a local <strong>Connector
+                                        Lambda</strong> if the processor is on another cloud.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Connector Function [Multi-Cloud
+                                Only]:</strong>
+                            <ul>
+                                <li><strong>Created:</strong> Only if Layer 2 is on a different cloud provider.</li>
+                                <li><strong>Logic:</strong> Masquerades as a processor function. Wraps the event and
+                                    sends it via HTTP POST to the remote cloud's Ingestion API.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Ingestion Function [Multi-Cloud
+                                Only]:</strong>
+                            <ul>
+                                <li><strong>Created:</strong> Only if Layer 1 is on a different cloud provider.</li>
+                                <li><strong>Trigger:</strong> Function URL (HTTP).</li>
+                                <li><strong>Logic:</strong> Receives events from a remote Connector and invokes the
+                                    local Processor function.</li>
+                            </ul>
+                        </li>
+                        <li><strong>IoT Rule:</strong>
+                            <ul>
+                                <li><strong>SQL:</strong> <code>SELECT * FROM '{digital_twin_name}/iot-data'</code>.
+                                </li>
+                                <li><strong>Action:</strong> Triggers the Dispatcher Lambda for every message published
+                                    to the topic.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <!-- Layer 2 -->
+                    <h3 class="mt-4 text-primary">Layer 2: Data Processing (Lambda & Step Functions)</h3>
+                    <ul>
+                        <li><strong>Persister Function:</strong>
+                            <ul>
+                                <li><strong>Role:</strong> <code>{digital_twin_name}-persister-role</code> (DynamoDB
+                                    Full Access).</li>
+                                <li><strong>Logic:</strong> Validates and cleans raw telemetry data.</li>
+                                <li><strong>Single Cloud:</strong> Writes directly to DynamoDB using <code>boto3</code>.
+                                </li>
+                                <li><strong>Multi Cloud:</strong> Sends data via HTTP POST to the remote cloud's
+                                    <strong>Writer API</strong> (if L3 is remote).
+                                </li>
+                                <li><strong>Interaction:</strong> Asynchronously invokes the <strong>Event
+                                        Checker</strong> (if enabled).</li>
+                            </ul>
+                        </li>
+                        <li><strong>Event Checker Function [ <span class="badge text-bg-warning">Todo</span>
+                                Optional ]:</strong>
+                            <ul>
+                                <li><strong>Role:</strong> <code>{digital_twin_name}-event-checker-role</code> (Step
+                                    Functions Access).</li>
+                                <li><strong>Logic:</strong> Evaluates data against defined thresholds (e.g., temperature
+                                    > 80°C).</li>
+                                <li><strong>Interaction:</strong> If an anomaly is detected, it triggers the
+                                    <strong>Step Function</strong> workflow.
+                                </li>
+                            </ul>
+                        </li>
+                        <li><strong>Event Workflow (Step Functions) [ <span class="badge text-bg-warning">Todo</span>
+                                Optional ]:</strong>
+                            <ul>
+                                <li><strong>Type:</strong> Standard State Machine.</li>
+                                <li><strong>Definition:</strong> Orchestrates a multi-step remediation process (e.g.,
+                                    <code>LambdaA</code> -> <code>LambdaB</code>).
+                                </li>
+                            </ul>
+                        </li>
+                        <li><strong>Event Feedback Function [ <span class="badge text-bg-warning">Todo</span>
+                                Optional ]:</strong>
+                            <ul>
+                                <li><strong>Role:</strong> <code>{digital_twin_name}-event-feedback-role</code> (IoT
+                                    Data Access).</li>
+                                <li><strong>Logic:</strong> Closes the control loop by publishing commands back to the
+                                    device via MQTT.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <!-- Layer 3 -->
+                    <h3 class="mt-4 text-primary">Layer 3: Storage & Access (DynamoDB, S3, API Gateway)</h3>
+                    <ul>
+                        <li><strong>DynamoDB (Hot):</strong>
+                            <ul>
+                                <li><strong>Table:</strong> <code>{digital_twin_name}-hot-iot-data</code>.</li>
+                                <li><strong>Purpose:</strong> Stores high-frequency, low-latency data.</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Writer Function [Multi-Cloud
+                                Only]:</strong>
+                            <ul>
+                                <li><strong>Created:</strong> Only if Layer 2 is on a different cloud provider.</li>
+                                <li><strong>Trigger:</strong> Function URL (HTTP).</li>
+                                <li><strong>Logic:</strong> Receives JSON data from a remote Persister and writes it to
+                                    DynamoDB.</li>
+                            </ul>
+                        </li>
+                        <li><strong>S3 Buckets (Cool/Archive):</strong>
+                            <ul>
+                                <li><strong>Cool:</strong> <code>{digital_twin_name}-cool-storage</code> (Standard-IA).
+                                </li>
+                                <li><strong>Archive:</strong> <code>{digital_twin_name}-archive-storage</code> (Glacier
+                                    Deep Archive).</li>
+                            </ul>
+                        </li>
+                        <li><strong>Hot-to-Cold Mover:</strong>
+                            <ul>
+                                <li><strong>Type:</strong> Scheduled Lambda (EventBridge Rule).</li>
+                                <li><strong>Logic:</strong> Moves data from DynamoDB to S3 Cool.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Cold-to-Archive Mover:</strong>
+                            <ul>
+                                <li><strong>Type:</strong> Scheduled Lambda (EventBridge Rule).</li>
+                                <li><strong>Logic:</strong> Moves data from S3 Cool to Glacier Deep Archive.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Data Access (API Gateway) [Multi-Cloud Only]:</strong>
+                            <ul>
+                                <li><strong>API:</strong> REST API exposing the <code>Hot Reader</code> Lambda.</li>
+                                <li><strong>Purpose:</strong> Required only if L4/L5 are on a different cloud or using
+                                    self-hosted tools that cannot access DynamoDB natively.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <!-- Layer 4 -->
+                    <h3 class="mt-4 text-primary">Layer 4: Twin Management (IoT TwinMaker)</h3>
+                    <ul>
+                        <li><strong>Workspace:</strong>
+                            <ul>
+                                <li><strong>Created:</strong> <code>{digital_twin_name}</code> workspace.</li>
+                                <li><strong>Purpose:</strong> Central container for digital twin resources.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Entities & Components:</strong>
+                            <ul>
+                                <li><strong>Components:</strong> Data connectors.</li>
+                                <li><strong>Single Cloud:</strong> Uses native DynamoDB/Lambda connector.</li>
+                                <li><strong>Multi Cloud:</strong> Uses generic REST connector to call remote API
+                                    Gateway.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <!-- Layer 5 -->
+                    <h3 class="mt-4 text-primary">Layer 5: Visualization (Managed Grafana)</h3>
+                    <ul>
+                        <li><strong>Workspace:</strong>
+                            <ul>
+                                <li><strong>Created:</strong> <code>{digital_twin_name}-grafana</code>.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Dashboards:</strong>
+                            <ul>
+                                <li><strong>Source:</strong> Uses the AWS IoT TwinMaker plugin.</li>
+                                <li><strong>Single Cloud:</strong> Reads directly from TwinMaker/DynamoDB.</li>
+                                <li><strong>Multi Cloud:</strong> Reads from TwinMaker (which reads from remote API).
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <!-- Supporting -->
+                    <h3 class="mt-4 text-primary">Supporting Services</h3>
+                    <ul>
+                        <li><strong>IAM (Access Control):</strong>
+                            <ul>
+                                <li><strong>Used in:</strong> All Layers.</li>
+                            </ul>
+                        </li>
+                        <li><strong>EventBridge (Scheduler):</strong>
+                            <ul>
+                                <li><strong>Used in:</strong> Layer 3 (Lifecycle Management).</li>
+                            </ul>
+                        </li>
+                        <li><strong>Step Functions (Orchestration) [Optional]:</strong>
+                            <ul>
+                                <li><strong>Used in:</strong> Layer 2 (Event Workflow).</li>
+                            </ul>
+                        </li>
+                        <li><span class="badge text-bg-warning">Todo</span> <strong>Error Handling System
+                                [Optional]:</strong>
+                            <ul>
+                                <li><strong>EventBridge (Error Bus):</strong>
+                                    <ul>
+                                        <li><strong>Pattern:</strong>
+                                            <code>{ "source": ["aws.lambda"], "detail-type": "Error" }</code>.
+                                        </li>
+                                        <li><strong>Purpose:</strong> Centralized error aggregation.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Error Reporter Lambda:</strong>
+                                    <ul>
+                                        <li><strong>Trigger:</strong> EventBridge Rule.</li>
+                                        <li><strong>Logic:</strong> Formats error and writes to <strong>DynamoDB Error
+                                                Table</strong>.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Error Table (DynamoDB):</strong>
+                                    <ul>
+                                        <li><strong>Table:</strong> <code>{digital_twin_name}-system-errors</code>.</li>
+                                        <li><strong>Purpose:</strong> Persistent storage for system errors (Cloud-Side
+                                            Persistence).</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-cogs me-2"></i>Technical Specifications</h2>
+                <div class="roadmap-content">
+                    <h3 class="mt-4 text-primary">Cross-Cloud Implementation Details</h3>
+                    <ul>
+                        <li><strong>Configuration & Discovery:</strong>
+                            <ul>
+                                <li><strong>Mechanism:</strong> Environment Variables injected at deployment time.</li>
+                                <li><strong>Variables:</strong> <code>REMOTE_INGESTION_URL</code>,
+                                    <code>REMOTE_WRITER_URL</code>, <code>REMOTE_READER_URL</code>.
+                                </li>
+                            </ul>
+                        </li>
+                        <li><strong>Authentication (Public Endpoints):</strong>
+                            <ul>
+                                <li><strong>Mechanism:</strong> AWS IAM (SigV4) for internal calls; API Keys for
+                                    cross-cloud.</li>
+                                <li><strong>Ingestion/Writer API:</strong> Protected via Function URL IAM Auth or API
+                                    Gateway Key.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Error Handling Strategy:</strong>
+                            <ul>
+                                <li><strong>Pipeline:</strong> Components publish to <strong>EventBridge</strong>.</li>
+                                <li><strong>Persistence:</strong> Reporter writes to <strong>DynamoDB</strong>
+                                    (Cloud-First).</li>
+                                <li><strong>Reliability:</strong> Connectors implement exponential backoff retries. Dead
+                                    Letter Queues (DLQ) configured.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Data Contracts:</strong>
+                            <ul>
+                                <li><strong>Format:</strong> Standard JSON Envelope
+                                    <pre class="p-3 rounded"><code>{ 
+    "source": "aws", 
+    "layer": "L2", 
+    "payload": {...},
+    "timestamp": "2023-10-27T10:00:00Z"
+}</code></pre>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-rocket me-2"></i>Quick Deployment</h2>
+                <pre class="p-3 rounded"><code># Deploy all layers to AWS
+curl -X POST "http://localhost:8000/deploy?provider=aws"
+</code></pre>
+                <p class="mt-2">Full deployment typically takes 5-15 minutes depending on the number of IoT devices and
+                    complexity.</p>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-layer-group me-2"></i>Layer-by-Layer Deployment</h2>
+                <p>For better control and debugging, deploy each layer individually:</p>
+                <pre class="p-3 rounded"><code># Layer 1: IoT Dispatcher
+curl -X POST "http://localhost:8000/deploy_l1?provider=aws"
+
+# Layer 2: Persister/Processor
+curl -X POST "http://localhost:8000/deploy_l2?provider=aws"
+
+# Layer 3: Storage (Hot, Cool, Archive)
+curl -X POST "http://localhost:8000/deploy_l3?provider=aws"
+
+# Layer 4: TwinMaker
+curl -X POST "http://localhost:8000/deploy_l4?provider=aws"
+
+# Layer 5: Grafana
+curl -X POST "http://localhost:8000/deploy_l5?provider=aws"
+</code></pre>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-list-check me-2"></i>Deployment Verification</h2>
+                <p>After deployment, verify resources in AWS Console:</p>
+                <ol>
+                    <li><strong>IoT Core:</strong> Check Things, Certificates, Policies, and Rules</li>
+                    <li><strong>Lambda:</strong> Verify functions starting with <code>{digital_twin_name}-</code></li>
+                    <li><strong>DynamoDB:</strong> Check table <code>{digital_twin_name}-hot-iot-data</code></li>
+                    <li><strong>S3:</strong> Verify buckets for cold, archive, and TwinMaker</li>
+                    <li><strong>TwinMaker:</strong> Check workspace and entities</li>
+                    <li><strong>Grafana:</strong> Access workspace URL from console</li>
+                </ol>
+
+                <p class="mt-3">Or use the API:</p>
+                <pre class="p-3 rounded"><code>curl "http://localhost:8000/check?provider=aws"
+</code></pre>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-wrench me-2"></i>AWS-Specific Troubleshooting</h2>
+                <ul>
+                    <li><strong>IAM propagation delays:</strong> Wait 30-60 seconds after creating IAM roles</li>
+                    <li><strong>DynamoDB table not deleting:</strong> Tables can take several minutes to delete</li>
+                    <li><strong>S3 bucket deletion fails:</strong> Buckets must be empty. The deployer empties them
+                        automatically.</li>
+                    <li><strong>Lambda deployment package too large:</strong> Keep dependencies minimal in Lambda
+                        functions</li>
+                    <li><strong>TwinMaker workspace creation fails:</strong> Ensure S3 bucket is created first</li>
+                </ul>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    <script src="../js/docs-nav.js" defer></script>
+</body>
+
+</html>

@@ -1,0 +1,136 @@
+/* Flip Card Styles */
+.cost-card-container {
+  perspective: 1000px;
+  cursor: pointer;
+  height: 320px;
+  /* Fixed height for consistency */
+  position: relative;
+  z-index: 1;
+}
+
+.cost-card-container.flipped {
+  z-index: 10;
+}
+
+.cost-card {
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.cost-card-container.flipped .cost-card {
+  transform: rotateY(180deg);
+}
+
+.card-front,
+.card-back {
+  backface-visibility: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  /* Bootstrap classes handle padding/bg/border */
+}
+
+.card-back {
+  transform: rotateY(180deg);
+}
+
+/* Scrollable Content for Card Back */
+.card-back-content {
+  width: 100%;
+  overflow-y: auto;
+  max-height: 210px;
+  /* Adjusted to fit within 320px card */
+  padding-right: 5px;
+}
+
+/* Custom Scrollbar */
+.card-back-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.card-back-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.card-back-content::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.card-back-content::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
+
+/* Optimal Path Styles */
+.path-segment {
+  font-weight: bold;
+  color: #0d6efd;
+  /* Bootstrap primary */
+}
+
+.arrow {
+  margin: 0 10px;
+  color: #6c757d;
+  /* Bootstrap secondary */
+}
+
+/* Ensure tooltips don't get cut off if used inside overflow containers */
+.tooltip {
+  z-index: 10000;
+}
+
+/* Provider Colors */
+.border-aws {
+  border-color: #ff9900 !important;
+  border-width: 2px !important;
+}
+
+.border-azure {
+  border-color: #0078d4 !important;
+  border-width: 2px !important;
+}
+
+.border-gcp {
+  border-color: #34a853 !important;
+  border-width: 2px !important;
+}
+
+.badge-aws {
+  background-color: #ff9900;
+  color: #000;
+}
+
+.badge-azure {
+  background-color: #0078d4;
+  color: #fff;
+}
+
+.badge-gcp {
+  background-color: #34a853;
+  color: #fff;
+}
+
+/* Flip Indicator */
+.flip-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 1.2rem;
+  color: #6c757d;
+  opacity: 0.5;
+  transition: opacity 0.3s;
+}
+
+.cost-card:hover .flip-indicator {
+  opacity: 1;
+}
+
+/* Hover effect for service links */
+.hover-underline:hover {
+  text-decoration: underline !important;
+}

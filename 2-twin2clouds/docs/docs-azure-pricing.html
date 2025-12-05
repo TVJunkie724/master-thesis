@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Azure Pricing Schema — Twin2Clouds Documentation</title>
+    <link rel="icon" type="image/x-icon" href="../references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/docs_styles.css" />
+</head>
+
+<body>
+
+    <div class="layout">
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+            <h1 class="mb-3">
+                <i class="fa-brands fa-microsoft me-2 text-info"></i> Azure Pricing Schema
+            </h1>
+
+            <p class="text-muted mb-4">
+                Field sources, fetched dimensions, static defaults, and calculated logic for
+                <span class="mono">pricing.json</span> (Azure section).
+            </p>
+
+            <!-- Schema Overview -->
+            <div class="card mb-4" id="schema">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-file-code me-2"></i>Schema Overview</h2>
+                    <p>Target structure (Azure excerpt from <span class="mono">pricing.json</span>):</p>
+                    <pre class="p-3 rounded border"><code>{
+  "azure": {
+    "transfer": {
+      "pricing_tiers": {
+        "freeTier": { "limit": 5, "price": 0 },
+        "tier1": { "limit": 9995, "price": ... },
+        "tier2": { "limit": 40000, "price": ... },
+        "tier3": { "limit": 100000, "price": ... },
+        "tier4": { "limit": "Infinity", "price": ... }
+      }
+    },
+    "iot": {
+      "pricing_tiers": {
+        "freeTier": { "limit": 240000, "threshold": 0, "price": 0 },
+        "tier1": { "limit": 120000000, "threshold": 12000000, "price": ... },
+        "tier2": { "limit": 1800000000, "threshold": 180000000, "price": ... },
+        "tier3": { "limit": "Infinity", "threshold": 1800000000, "price": ... }
+      }
+    },
+    "functions": {
+      "requestPrice": 0.20,
+      "durationPrice": 0.000016,
+      "freeRequests": 1000000,
+      "freeComputeTime": 400000
+    },
+    "cosmosDB": {
+      "storagePrice": ...,
+      "requestPrice": ...,
+      "minimumRequestUnits": 400,
+      "RUsPerRead": 1,
+      "RUsPerWrite": 10
+    },
+    "blobStorageCool": {
+      "storagePrice": ...,
+      "writePrice": ...,
+      "readPrice": ...,
+      "dataRetrievalPrice": ...
+    },
+    "blobStorageArchive": {
+      "storagePrice": ...,
+      "writePrice": ...,
+      "dataRetrievalPrice": ...
+    },
+    "apiManagement": {
+      "pricePerMillionCalls": ...
+    },
+    "logicApps": {
+      "pricePer1kStateTransitions": ...
+    },
+    "eventGrid": {
+      "pricePerMillionEvents": ...
+    },
+    "azureDigitalTwins": {
+      "messagePrice": ...,
+      "operationPrice": ...,
+      "queryPrice": ...,
+      "queryUnitTiers": [...]
+    },
+    "azureManagedGrafana": {
+      "userPrice": ...,
+      "hourlyPrice": ...
+    }
+  }
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="card mb-4" id="fetching">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-download me-2"></i>How Fetching Works</h2>
+                    <p>We query the <strong>Azure Retail Prices API</strong> (<span
+                            class="mono">https://prices.azure.com/api/retail/prices</span>).</p>
+                    <ul>
+                        <li><strong>Filtering:</strong> We filter by <span class="mono">armRegionName</span> and use
+                            OData
+                            filters to match specific <span class="mono">serviceName</span>, <span
+                                class="mono">productName</span>,
+                            and <span class="mono">skuName</span>.</li>
+                        <li><strong>Fallback:</strong> If the API returns no data for a specific region (common for
+                            smaller
+                            regions), we fall back to a nearby major region (e.g., <code>germanynorth</code> →
+                            <code>westeurope</code>).
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Services -->
+            <div class="card mb-4" id="services">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-cubes me-2"></i>Services & Fields</h2>
+
+                    <!-- Transfer -->
+                    <h3 class="mt-4 mb-2 text-primary">Data Transfer (Egress)</h3>
+                    <p><strong>Service:</strong> Bandwidth</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">transfer.pricing_tiers</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Standard Internet Egress tiers (First 5GB free, then tiered).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- IoT Hub -->
+                    <h3 class="mt-4 mb-2 text-primary">IoT Hub (Layer 1)</h3>
+                    <p><strong>Service:</strong> IoT Hub</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">pricing_tiers</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Fetches Basic/Standard tier prices (B1/S1, B2/S2, B3/S3).</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">freeTier</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Free tier limits (8k messages/day).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Functions -->
+                    <h3 class="mt-4 mb-2 text-primary">Azure Functions (Layer 2)</h3>
+                    <p><strong>Service:</strong> Azure Functions</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">requestPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>$0.20 per million executions.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">durationPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>$0.000016 per GB-second.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">freeRequests</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>1,000,000 executions/month free.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Layer 3: Hot (Cosmos DB) -->
+                    <h3 class="mt-4 mb-2 text-primary">Layer 3 (Hot): Cosmos DB</h3>
+                    <p><strong>Service:</strong> Azure Cosmos DB (NoSQL)</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">storagePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Cosmos DB storage per GB-month.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">requestPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Per 1M RU/s (approx).</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">RUsPerWrite</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>RUs consumed per write (10).</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">RUsPerRead</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>RUs consumed per read (1).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Layer 3: Cool (Blob Storage) -->
+                    <h3 class="mt-4 mb-2 text-primary">Layer 3 (Cool): Blob Storage</h3>
+                    <p><strong>Service:</strong> Azure Blob Storage (Cool Tier)</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">storagePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Cool Blob storage per GB-month.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">writePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per 10,000 write operations.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">readPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per 10,000 read operations.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">dataRetrievalPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per GB retrieval.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Layer 3: Archive (Blob Storage) -->
+                    <h3 class="mt-4 mb-2 text-primary">Layer 3 (Archive): Blob Storage</h3>
+                    <p><strong>Service:</strong> Azure Blob Storage (Archive Tier)</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">storagePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Archive Blob storage per GB-month.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">writePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per 10,000 write operations.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">dataRetrievalPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per GB retrieval.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- API Management -->
+                    <h3 class="mt-4 mb-2 text-primary">Data Access (Supporting)</h3>
+                    <p><strong>Service:</strong> Azure API Management</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">pricePerMillionCalls</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Basic Tier unit price (normalized to per million).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Logic Apps -->
+                    <h3 class="mt-4 mb-2 text-primary">Orchestration (Supporting)</h3>
+                    <p><strong>Service:</strong> Azure Logic Apps</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">pricePer1kStateTransitions</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per 1,000 actions (Standard/Consumption).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Event Grid -->
+                    <h3 class="mt-4 mb-2 text-primary">Event Bus (Supporting)</h3>
+                    <p><strong>Service:</strong> Azure Event Grid</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">pricePerMillionEvents</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per million operations.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Digital Twins -->
+                    <h3 class="mt-4 mb-2 text-primary">Azure Digital Twins (Layer 4)</h3>
+                    <p><strong>Service:</strong> Azure Digital Twins</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">messagePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per 1,000 messages.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">operationPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per 1,000 operations.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">queryPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per 1,000 query units (QU).</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">queryUnitTiers</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Base QUs based on device count.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Grafana -->
+                    <h3 class="mt-4 mb-2 text-primary">Managed Grafana (Layer 5)</h3>
+                    <p><strong>Service:</strong> Azure Managed Grafana</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">userPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>$9.00 / user / month (Standard).</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">hourlyPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Instance hourly rate (if applicable).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+
+            <!-- High Volume Cost Warning -->
+            <div class="card mb-4 border-warning">
+                <div class="card-header bg-warning-subtle text-warning-emphasis">
+                    <h2 class="h5 mb-0"><i class="fa-solid fa-triangle-exclamation me-2"></i>High Usage & Cost Anomalies
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Startups and small projects often use <strong>Standard Plan</strong> serverless services (e.g.,
+                        Logic Apps Consumption)
+                        successfully. However, at massive scale (e.g., <strong>billions</strong> of messages per month),
+                        these standard
+                        tiers can become prohibitively expensive.
+                    </p>
+
+                    <p class="mb-0">
+                        <strong>Example:</strong> For 30,000 devices sending every 6 seconds (~13 billion
+                        messages/month),
+                        using <strong>Logic Apps Consumption</strong> workflows would theoretically cost
+                        <strong>millions of dollars</strong>.
+                        <br>
+                        <em>Twin2Clouds calculates the "list price" cost. In a real-world high-volume scenario, you
+                            would switch to
+                            <strong>Standard Workflows (v2)</strong> or negotiate an Enterprise Agreement, which is not
+                            reflected here.</em>
+                    </p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    <script src="../js/docs-nav.js" defer></script>
+</body>
+
+</html>

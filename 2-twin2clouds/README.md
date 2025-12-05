@@ -1,29 +1,41 @@
 ## Twin2Clouds: Cost‑Efficient Digital Twin Engineering — Artifact
 
-This repository contains the Twin2Clouds, accompanying our paper at EDTConf'25 [(conf.researchr.org/home/edtconf-2025)](https://conf.researchr.org/home/edtconf-2025). We will add the Title and citation information once the publication is available.
+This repository contains Twin2Clouds, accompanying our paper at EDTConf'25 [(conf.researchr.org/home/edtconf-2025)](https://conf.researchr.org/home/edtconf-2025). We will add the Title and citation information once the publication is available.
 
-Twin2Clouds is a small, client‑side web app for exploring cost trade‑offs of engineering a Digital Twin across major cloud providers (AWS, Azure) and layers (Data Acquisition, Storage tiers, Processing, Twin Management, Visualization). It computes monthly cost estimates and suggests a cost‑efficient provider path across layers given scenario inputs.
+Twin2Clouds is a web application with a Python-based REST API backend for exploring cost trade‑offs of engineering a Digital Twin across major cloud providers (**AWS, Azure, and GCP**) and layers (Data Acquisition, Storage tiers, Processing, Twin Management, Visualization). It computes monthly cost estimates and suggests a cost‑efficient provider path across layers given scenario inputs.
 
 
 ### Quick start
 
-- Serve the folder with any static web server. Examples:
+**Using Docker (Recommended):**
 
 ```bash
-# From the repo root
-python3 -m http.server 8000
-# then open: http://localhost:8000/index.html
+# From the parent directory (workspace root)
+docker-compose up --build
+
+# Open in browser:
+# - Web UI: http://localhost:80/ui
+# - API Docs: http://localhost:80/docs
 ```
 
+**Manual setup:**
+
 ```bash
-# Or with Node.js
-npx --yes serve .
-# then open the URL shown, e.g.: http://localhost:3000/index.html
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure credentials in config/config_credentials.json
+# (See config/config_credentials.example.json for template)
+
+# Run the API server
+uvicorn rest_api:app --reload --host 0.0.0.0 --port 5003
+
+# Open: http://localhost:5003/ui
 ```
 
 ### How to use
 
-1. Open `index.html` in your browser via the local server.
+1. Open the Web UI at `/ui` in your browser
 2. Either click a preset (Smart Home / Industrial / Large Building) or fill in:
    - Number of devices
    - Device sending interval (minutes)
@@ -32,47 +44,96 @@ npx --yes serve .
    - 3D model needed? If yes, number of 3D entities
    - Dashboard refreshes per hour and active hours per day
    - Monthly Grafana users: editors and viewers
-3. Click “Calculate Cost”.
+3. Click "Calculate Cost"
 4. Review:
-   - Optimal cost path banner (e.g., `L1_AWS → L2_Azure_Hot → …`)
-   - Flip each card to see which specific services are compared and links to providers
+   - Optimal cost path banner (e.g., `L1_GCP → L2_AWS_Hot → L2_GCP_Cool → ...`)
+   - Provider costs for each layer (AWS, Azure, GCP)
+   - Flip each card to see which specific services are compared
 
 ### What it compares
 
-- L1 Data Acquisition: AWS IoT Core vs Azure IoT Hub
-- L2 Storage tiers: Hot (DynamoDB vs Cosmos DB), Cool (S3 Infrequent Access vs Blob Storage Cool), Archive (S3 Glacier Deep Archive vs Blob Storage Archive)
-- L3 Data Processing: AWS Lambda vs Azure Functions
-- L4 Twin Management: AWS IoT TwinMaker or Azure Digital Twins (depending on 3D model need)
-- L5 Visualization: Amazon Managed Grafana vs Azure Managed Grafana
+- **L1 Data Acquisition:** AWS IoT Core vs Azure IoT Hub vs Google Cloud Pub/Sub
+- **L2 Storage tiers:** 
+  - Hot: DynamoDB vs Cosmos DB vs Firestore
+  - Cool: S3 Infrequent Access vs Blob Storage Cool vs Cloud Storage Nearline
+  - Archive: S3 Glacier vs Blob Storage Archive vs Cloud Storage Archive
+- **L3 Data Processing:** AWS Lambda vs Azure Functions vs Cloud Functions
+- **L4 Twin Management:** AWS IoT TwinMaker vs Azure Digital Twins (GCP uses self-hosted solution)
+- **L5 Visualization:** Amazon Managed Grafana vs Azure Managed Grafana vs self-hosted Grafana on GCP (Note: GCP self-hosted costs are currently placeholders)
 
-Transfers between layers and clouds are modeled with tiered egress where applicable; the app computes a cheapest storage path across Hot → Cool → Archive including transfer fees.
+Transfers between layers and clouds are modeled with tiered egress where applicable. The app computes the cheapest storage path across Hot → Cool → Archive including transfer fees.
 
-### Pricing and assumptions
+### Architecture
 
-- All pricing and thresholds are defined in `pricing.json`. Update values there to align with current provider pricing.
-- Some calculations make clearly stated simplifications (e.g., tiered egress, request units, message size thresholds, minimum storage durations). See the inline comments in `layer_*.js` files.
+**Backend (Python):**
+- `rest_api.py` - FastAPI REST API serving the web UI and calculation endpoints
+- `py/calculation/engine.py` - Main calculation orchestration
+- `py/calculation/aws.py`, `azure.py`, `gcp.py` - Provider-specific cost calculations
+- `py/calculation/decision.py` - Decision graph for optimal provider selection
+- `py/calculate_up_to_date_pricing.py` - Dynamic pricing fetcher for cloud services
+- `py/cloud_price_fetcher_*.py` - Provider-specific pricing API clients
+
+**Frontend:**
+- `index.html` - Web UI
+- `js/api-client.js` - API communication and result display
+- `js/calculation/ui.js` - UI helpers (sliders, presets, form handling)
+- `css/styles.css` - Styling
+
+**Configuration:**
+- `json/fetched_data/pricing_dynamic.json` - Auto-generated dynamic pricing data
+- `json/service_mapping.json` - Service name mapping across providers
+- `json/service_calc_params.json` - Calculation parameters per service
+- `config/config_credentials.json` - Cloud provider API credentials
+
+
+### Pricing and Data Sources
+
+**Dynamic Pricing (fetched from APIs):**
+- **AWS:** boto3 Pricing API for IoT Core, Lambda, DynamoDB, S3, Transfer, TwinMaker
+- **Azure:** Azure Retail Prices API for IoT Hub, Functions, CosmosDB, Blob Storage, Digital Twins
+- **GCP:** Static defaults (dynamic fetching to be implemented). Note: L4/L5 self-hosted solutions currently use placeholder costs.
+
+**Static Defaults:**
+- Used where dynamic APIs are unavailable or for specific fields
+- Logged during pricing updates with warnings for transparency
+- See `py/cloud_price_fetcher_*.py` for STATIC_DEFAULTS definitions
+
+**Update Pricing:**
+```bash
+# Via API endpoint
+curl "http://localhost:5003/api/fetch_up_to_date_pricing"
+
+# Or via Python script
+docker exec <container> python py/calculate_up_to_date_pricing.py
+```
+
+### API Endpoints
+
+- `GET /ui` - Web interface
+- `PUT /api/calculate` - Calculate costs for given parameters
+- `GET /api/fetch_up_to_date_pricing` - Fetch latest cloud pricing
+- `GET /docs` - Interactive API documentation (Swagger UI)
+- `GET /redoc` - Alternative API documentation (ReDoc)
 
 ### Repository layout
 
-- `index.html`: UI and script inclusion
-- `styles.css`: styling
-- `ui.js`: UI helpers (sliders, presets, conditional inputs)
-- `pricing.json`: provider pricing and tiers used by the calculators
-- `data_transfer.js`: cross‑layer/cloud transfer cost helpers
-- `layer_data_acquisition.js`: L1 calculators
-- `layer_data_storage.js`: L2 (Hot/Cool/Archive) calculators
-- `layer_data_processing.js`: L3 calculators
-- `layer_twin_management.js`: L4 calculators
-- `layer_data_visualization.js`: L5 calculators
-- `cost_calculation.js`: orchestrates inputs, calls calculators, builds results, and suggests the optimal path
-- `EDT_25__CloudDT_engineering (3).pdf`: accepted manuscript
+- `rest_api.py` - FastAPI application
+- `index.html` - Web UI
+- `py/` - Python calculation engine and pricing fetchers
+- `js/` - Frontend JavaScript (API client, UI helpers)
+- `css/` - Stylesheets
+- `json/` - Pricing data and configuration
+- `config/` - Credentials and configuration files
+- `docs/` - Documentation HTML pages
 
 ### Reproducibility
 
-- The app is deterministic for a given set of inputs and `pricing.json`.
-- To reproduce figures or numbers from the paper, use the presets and note the exact `pricing.json` revision used.
+- The app is deterministic for a given set of inputs and pricing data
+- Pricing data is timestamped in `pricing_dynamic.json`
+- To reproduce results, use the same preset inputs and pricing file revision
+- Static defaults are clearly logged during pricing updates
 
-Note: This code accompanies our paper accepted at [Conference/Journal]. The paper is not yet published; a preprint will be linked here once available.
+Note: This code accompanies our paper accepted at EDTConf'25. The paper is not yet published; a preprint will be linked here once available.
 
 ### Citation
 

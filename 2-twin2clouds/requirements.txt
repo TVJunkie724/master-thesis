@@ -1,0 +1,15 @@
+requests
+httpx
+pytest
+fastapi
+uvicorn
+colorlog
+boto3
+azure-mgmt-consumption
+azure-mgmt-resource
+azure-identity
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+google-cloud-billing

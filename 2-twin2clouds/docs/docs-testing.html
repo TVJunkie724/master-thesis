@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Testing Guide — Twin2Clouds Documentation</title>
+    <link rel="icon" type="image/x-icon" href="../references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/docs_styles.css" />
+</head>
+
+<body>
+
+    <div class="layout">
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+            <h1 class="mb-3">
+                <i class="fa-solid fa-vial me-2"></i> Testing Guide
+            </h1>
+
+            <p class="text-muted mb-4">
+                Comprehensive automated test suite ensuring 100% functional and unit coverage of the cost optimization
+                engine, including pricing formulas, dynamic data fetching, and graph algorithms.
+            </p>
+
+            <!-- Testing Overview -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-chart-pie me-2"></i>Testing Overview</h2>
+                    <p>
+                        Twin2Clouds employs a rigorous testing strategy to verify the accuracy of multi-cloud cost
+                        estimations. The test suite covers every layer of the application, from low-level pricing
+                        formulas to complex graph pathfinding algorithms and API orchestration.
+                    </p>
+
+                    <div class="alert alert-success">
+                        <i class="fa-solid fa-check-circle me-2"></i>
+                        <strong>100% Coverage Achieved:</strong> The suite provides complete code coverage for all
+                        backend logic, including:
+                        <ul class="mb-0 mt-2">
+                            <li><strong>Formulas:</strong> Mathematical correctness for AWS, Azure, and GCP.</li>
+                            <li><strong>Fetchers:</strong> Parsing logic for dynamic cloud pricing APIs.</li>
+                            <li><strong>Optimization:</strong> Dijkstra's algorithm for cheapest path selection.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test Categories -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-list-check me-2"></i>Test Categories</h2>
+
+                    <div class="row">
+                        <!-- Unit Tests Column -->
+                        <div class="col-md-6">
+                            <h3 class="h4 text-primary border-bottom pb-2 mb-3">Unit Tests</h3>
+
+                            <div class="mb-4">
+                                <h4 class="h5">1. Formula Verification</h4>
+                                <p><strong>Purpose:</strong> Validates cost calculations in isolation.</p>
+                                <p><strong>Files:</strong> <code>tests/test_formulas_*.py</code></p>
+                                <ul>
+                                    <li>Compute & Lambda costs</li>
+                                    <li>Storage tier calculations (Hot/Cool/Archive)</li>
+                                    <li>Message ingestion (IoT Core/Hub)</li>
+                                    <li>L4 Twin services (TwinMaker, Digital Twins)</li>
+                                </ul>
+                            </div>
+
+                            <div class="mb-4">
+                                <h4 class="h5">2. Algorithm Logic</h4>
+                                <p><strong>Purpose:</strong> valid logic for checking graph construction and
+                                    pathfinding.</p>
+                                <p><strong>Files:</strong> <code>tests/test_optimization.py</code></p>
+                                <ul>
+                                    <li>Graph node/edge construction</li>
+                                    <li>Dijkstra's shortest path algorithm</li>
+                                    <li>Handling of transfer costs between nodes</li>
+                                </ul>
+                            </div>
+
+                            <div class="mb-4">
+                                <h4 class="h5">3. Data Transfer</h4>
+                                <p><strong>Purpose:</strong> Validates bandwidth and egress logic.</p>
+                                <p><strong>Files:</strong> <code>tests/test_transfer.py</code></p>
+                                <ul>
+                                    <li>Tiered bandwidth limits</li>
+                                    <li>Cross-region transfer costs</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Integration Tests Column -->
+                        <div class="col-md-6">
+                            <h3 class="h4 text-success border-bottom pb-2 mb-3">Integration Tests</h3>
+
+                            <div class="mb-4">
+                                <h4 class="h5">4. Dynamic Price Fetching</h4>
+                                <p><strong>Purpose:</strong> Tests parsing of real-world pricing API responses.</p>
+                                <p><strong>Files:</strong> <code>tests/test_price_fetcher_*.py</code></p>
+                                <ul>
+                                    <li>AWS Price List API parsing</li>
+                                    <li>Azure Retail Prices API parsing</li>
+                                    <li>GCP Cloud Billing Catalog parsing</li>
+                                    <li>Keyword filtering and fallback logic</li>
+                                </ul>
+                            </div>
+
+                            <div class="mb-4">
+                                <h4 class="h5">5. System Orchestration</h4>
+                                <p><strong>Purpose:</strong> Tests the full pricing pipeline from Request to JSON
+                                    Response.</p>
+                                <p><strong>Files:</strong> <code>tests/test_pricing_orchestration.py</code></p>
+                                <ul>
+                                    <li>Data fetch consolidation</li>
+                                    <li>Engine execution flow</li>
+                                    <li>JSON Schema validation (`test_pricing_schema.py`)</li>
+                                </ul>
+                            </div>
+
+                            <div class="mb-4">
+                                <h4 class="h5">6. REST API Endpoints</h4>
+                                <p><strong>Purpose:</strong> Verifies the FastAPI application.</p>
+                                <p><strong>Files:</strong> <code>tests/test_rest_api_endpoints.py</code></p>
+                                <ul>
+                                    <li>Validation of input parameters</li>
+                                    <li>Region list endpoints</li>
+                                    <li>File age and cache status</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Running Tests -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-play me-2"></i>Running Tests</h2>
+
+                    <h3 class="mb-2">Quick Start (Script)</h3>
+                    <p>The easiest way to run tests is using the provided script which handles Docker execution:</p>
+                    <pre class="p-3 rounded"><code># Windows
+.\run-tests.bat
+
+# Linux / Mac
+./run_tests.sh</code></pre>
+
+                    <h3 class="mb-2 mt-4">Manual Execution (Docker)</h3>
+                    <p>Tests are designed to run inside the Docker container where all dependencies are installed.</p>
+                    <pre class="p-3 rounded"><code># Run all tests (Recommended)
+docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest /app/tests/ -v
+
+# Run with coverage report (if configured)
+docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest /app/tests/ --cov=backend
+
+# Run specific category
+docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest /app/tests/test_formulas_aws.py -v
+</code></pre>
+
+                    <div class="alert alert-info mt-4">
+                        <i class="fa-solid fa-circle-info me-2"></i>
+                        <strong>Note:</strong>
+                        Ensure the Docker container is running before executing tests manually:
+                        <pre class="p-2 rounded mt-2"><code>docker-compose up -d</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test Organization -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-folder-tree me-2"></i>Test Organization</h2>
+                    <p>Tests are organized by functional area in the <code>tests/</code> directory:</p>
+                    <div class="table-responsive">
+                        <pre class="p-3 rounded"><code>tests/
+├── test_formulas_*.py               # Cost calculation formula tests (Unit)
+├── test_price_fetcher_*.py          # Cloud Pricing API parsers (Integration/Unit)
+├── test_optimization.py             # Dijkstra & Graph Logic (Unit)
+├── test_transfer.py                 # Data Transfer Logic (Unit)
+├── test_l4_glue_code.py             # Cross-cloud glue code logic (Unit/Integration)
+├── test_pricing_orchestration.py    # End-to-end Engine Tests (Integration)
+├── test_pricing_schema.py           # Output JSON Schema Validation
+├── test_rest_api_*.py               # FastAPI Endpoint Tests
+└── test_utils_*.py                  # Utility functions
+</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Writing New Tests -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-code me-2"></i>Writing New Tests</h2>
+
+                    <h3 class="h5">Formula Tests</h3>
+                    <p>Use <code>test_formulas_*.py</code> for mathematical verification. Always use
+                        <code>pytest.approx</code> for floating point comparisons.
+                    </p>
+                    <pre class="p-3 rounded"><code>def test_new_service_formula():
+    pricing = {"aws": {"service": {"price": 1.5}}}
+    result = calculate_cost(100, pricing)
+    assert result["totalCost"] == pytest.approx(150.0)
+</code></pre>
+
+                    <h3 class="h5 mt-4">Fetcher Tests</h3>
+                    <p>Use <code>unittest.mock</code> to mock API responses in `test_price_fetcher_*.py`. Ensure you
+                        target the specific service being fetched.</p>
+                </div>
+            </div>
+
+            <!-- CI/CD Integration -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-gears me-2"></i>Continuous Integration</h2>
+                    <p>The test suite is designed for easy integration into CI/CD pipelines:</p>
+
+                    <h3 class="h5">GitHub Actions Example</h3>
+                    <pre class="p-3 rounded"><code>name: Test Suite
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Start Docker containers
+        run: docker-compose up -d
+      
+      - name: Run tests
+        run: |
+          docker exec master-thesis-2twin2clouds-1 \
+            python -m pytest /app/tests/ -v --junitxml=test-results.xml
+      
+      - name: Publish test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: test-results.xml
+</code></pre>
+
+                    <h3 class="h5 mt-4">Jenkins Example</h3>
+                    <pre class="p-3 rounded"><code>pipeline {
+    agent any
+    
+    stages {
+        stage('Test') {
+            steps {
+                sh 'docker-compose up -d'
+                sh '''
+                    docker exec master-thesis-2twin2clouds-1 \
+                    python -m pytest /app/tests/ -v
+                '''
+            }
+        }
+    }
+    
+    post {
+        always {
+            sh 'docker-compose down'
+        }
+    }
+}
+</code></pre>
+                </div>
+            </div>
+
+            <!-- Troubleshooting -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-triangle-exclamation me-2"></i>Troubleshooting</h2>
+
+                    <h3 class="h5">Container Not Running</h3>
+                    <p><strong>Error:</strong> "Docker container is not running!"</p>
+                    <p><strong>Solution:</strong> Start the container first:</p>
+                    <pre class="p-3 rounded"><code>docker-compose up -d</code></pre>
+
+                    <h3 class="h5 mt-4">Module Import Errors</h3>
+                    <p><strong>Error:</strong> "ModuleNotFoundError" or import failures</p>
+                    <p><strong>Solution:</strong> Ensure <code>PYTHONPATH</code> is set correctly:</p>
+                    <pre
+                        class="p-3 rounded"><code>docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest /app/tests/ -v</code></pre>
+
+                    <h3 class="h5 mt-4">Missing Dependencies</h3>
+                    <p><strong>Error:</strong> "No module named 'pytest'" or similar</p>
+                    <p><strong>Solution:</strong> Rebuild the Docker container:</p>
+                    <pre class="p-3 rounded"><code>docker-compose down
+docker-compose build --no-cache
+docker-compose up -d</code></pre>
+
+                    <h3 class="h5 mt-4">Test Failures Due to File Paths</h3>
+                    <p><strong>Issue:</strong> Tests fail with file not found errors</p>
+                    <p><strong>Solution:</strong> Ensure you're using container paths (<code>/app/</code>) not local
+                        paths
+                        when running in Docker.</p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    <script src="../js/docs-nav.js" defer></script>
+</body>
+
+</html>

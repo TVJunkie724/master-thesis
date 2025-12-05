@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Setup & Usage Guide — Deployer Documentation</title>
+    <link rel="icon" type="image/x-icon" href="../references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/docs_styles.css" />
+</head>
+
+<body>
+
+    <div class="layout">
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+            <h1 class="mb-3">
+                <i class="fa-solid fa-rocket me-2"></i> Setup & Usage Guide
+            </h1>
+
+            <p class="text-muted mb-4">
+                Complete guide to installing, configuring, and running the Multi-Cloud Digital Twin Deployer.
+            </p>
+
+            <!-- Prerequisites -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-list-check me-2"></i>Prerequisites</h2>
+                <ul>
+                    <li><strong>Python 3.8+</strong></li>
+                    <li><strong>Docker</strong> (recommended for API deployment)</li>
+                    <li><strong>Cloud Provider Credentials:</strong>
+                        <ul>
+                            <li><strong>AWS:</strong> Access Key ID, Secret Access Key, Region</li>
+                            <li><strong>Azure (future):</strong> Subscription ID, Client ID, Client Secret, Tenant ID
+                            </li>
+                            <li><strong>GCP (future):</strong> Service Account JSON, Project ID, Region</li>
+                        </ul>
+                    </li>
+                    <li><strong>Cloud Provider Permissions:</strong>
+                        <ul>
+                            <li>IAM/RBAC role creation and management</li>
+                            <li>Serverless function deployment (Lambda/Functions/Cloud Functions)</li>
+                            <li>IoT service access (IoT Core/IoT Hub/Pub/Sub)</li>
+                            <li>Storage creation (DynamoDB, S3, Cosmos DB, Blob Storage, etc.)</li>
+                            <li>Twin management services (TwinMaker, Digital Twins)</li>
+                            <li>Grafana workspace management</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Installation -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-download me-2"></i>Installation</h2>
+
+                <h3 class="mb-2">Option 1: Docker (Recommended for REST API)</h3>
+                <pre class="p-3 rounded"><code># Clone the repository
+git clone &lt;repository-url&gt;
+cd 3-cloud-deployer
+
+# Build the Docker image
+docker build -t digital-twin-deployer .
+
+# Run the container
+docker run -d \\
+  -p 8000:8000 \\
+  -v $(pwd):/app \\
+  --name dt-deployer \\
+  digital-twin-deployer
+
+# Access the API at http://localhost:8000/docs
+</code></pre>
+
+                <h3 class="mb-2 mt-4">Option 2: Local Python Installation</h3>
+                <pre class="p-3 rounded"><code># Clone the repository
+git clone &lt;repository-url&gt;
+cd 3-cloud-deployer
+
+# Install dependencies
+pip install fastapi uvicorn boto3 requests colorlog
+
+# For CLI usage
+cd src
+python main.py
+
+# For REST API
+uvicorn rest_api:app --host 0.0.0.0 --port 8000
+</code></pre>
+            </div>
+
+            <!-- Configuration -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-gear me-2"></i>Configuration</h2>
+
+                <h3 class="mb-2">1. Cloud Provider Credentials</h3>
+                <p>Create <code>config_credentials.json</code> from the example file:</p>
+                <pre class="p-3 rounded"><code>cp config_credentials.json.example config_credentials.json
+</code></pre>
+
+                <p class="mt-3">Then edit with your credentials:</p>
+                <pre class="p-3 rounded"><code>{
+  "aws": {
+    "aws_access_key_id": "YOUR_AWS_ACCESS_KEY",
+    "aws_secret_access_key": "YOUR_AWS_SECRET_KEY",
+    "aws_region": "eu-central-1"
+  },
+  "azure": {
+    "azure_subscription_id": "YOUR_SUBSCRIPTION_ID",
+    "azure_client_id": "YOUR_CLIENT_ID",
+    "azure_client_secret": "YOUR_CLIENT_SECRET",
+    "azure_tenant_id": "YOUR_TENANT_ID",
+    "azure_region": "westeurope"
+  },
+  "google": {
+    "gcp_project_id": "YOUR_PROJECT_ID",
+    "gcp_credentials_file": "path/to/credentials.json",
+    "gcp_region": "europe-west1"
+  }
+}
+</code></pre>
+
+                <div class="callout warn mt-3">
+                    <strong><i class="fa-solid fa-exclamation-triangle me-2"></i>Security Warning</strong>
+                    Never commit <code>config_credentials.json</code> to version control! This file is in
+                    <code>.gitignore</code>.
+                </div>
+
+                <h3 class="mb-2 mt-4">2. Main Configuration</h3>
+                <p>Edit <code>config.json</code> to set your digital twin parameters:</p>
+                <pre class="p-3 rounded"><code>{
+  "digital_twin_name": "my-dt",
+  "layer_3_hot_to_cold_interval_days": 30,
+  "layer_3_cold_to_archive_interval_days": 90
+}
+</code></pre>
+
+                <h3 class="mb-2 mt-4">3. IoT Device Configuration</h3>
+                <p>Define your IoT devices in <code>config_iot_devices.json</code>:</p>
+                <pre class="p-3 rounded"><code>[
+  {
+    "id": "temperature-sensor-1",
+    "properties": [
+      { "name": "temperature", "dataType": "DOUBLE" }
+    ]
+  },
+  {
+    "id": "pressure-sensor-1",
+    "properties": [
+      { "name": "pressure", "dataType": "DOUBLE" },
+      { "name": "density", "dataType": "DOUBLE" }
+    ]
+  }
+]
+</code></pre>
+
+                <p class="mt-2">For complete configuration reference, see <a
+                        href="docs-configuration.html">Configuration Documentation</a>.</p>
+            </div>
+
+            <!-- Usage -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-play me-2"></i>Usage</h2>
+
+                <h3 class="mb-2">REST API (Recommended)</h3>
+                <ol>
+                    <li>Start the API server (see Installation)</li>
+                    <li>Navigate to <a href="/docs" target="_blank"><strong>/docs</strong></a></li>
+                    <li>Use the interactive Swagger UI to deploy your digital twin</li>
+                </ol>
+
+                <h4 class="mt-3">Example API Requests</h4>
+                <pre class="p-3 rounded"><code># Deploy entire digital twin to AWS
+curl -X POST "http://localhost:8000/deploy?provider=aws"
+
+# Deploy only Layer 1 (IoT)
+curl -X POST "http://localhost:8000/deploy_l1?provider=aws"
+
+# Check deployment status
+curl "http://localhost:8000/check?provider=aws"
+
+# Get IoT device configuration
+curl "http://localhost:8000/info/config_iot_devices"
+
+# Destroy digital twin
+curl -X POST "http://localhost:8000/destroy?provider=aws"
+</code></pre>
+
+                <h3 class="mb-2 mt-4">CLI Interface</h3>
+                <pre class="p-3 rounded"><code># Start the CLI
+cd src
+python main.py
+
+# You'll see an interactive prompt:
+Welcome to the Digital Twin Manager. Type 'help' for commands.
+&gt;&gt;&gt; 
+
+# Available commands:
+&gt;&gt;&gt; deploy    # Deploy all resources
+&gt;&gt;&gt; destroy   # Destroy all resources
+&gt;&gt;&gt; info      # List deployed resources
+&gt;&gt;&gt; help      # Show help menu
+&gt;&gt;&gt; exit      # Exit the program
+</code></pre>
+            </div>
+
+            <!-- Deployment Workflow -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-diagram-project me-2"></i>Typical Deployment Workflow</h2>
+                <ol>
+                    <li><strong>Configure</strong> your digital twin (devices, hierarchy, events)</li>
+                    <li><strong>Set cloud provider</strong> in <code>config_providers.json</code>
+                        <ul>
+                            <li>Use <code>"aws"</code> for all layers (currently supported)</li>
+                            <li>Mix providers per layer when Azure/GCP support is added</li>
+                        </ul>
+                    </li>
+                    <li><strong>Deploy layer by layer</strong> (recommended):
+                        <ul>
+                            <li>POST <code>/deploy_l1</code> - IoT Dispatcher</li>
+                            <li>POST <code>/deploy_l2</code> - Persister/Processor</li>
+                            <li>POST <code>/deploy_l3</code> - Storage (Hot, Cool, Archive)</li>
+                            <li>POST <code>/deploy_l4</code> - TwinMaker</li>
+                            <li>POST <code>/deploy_l5</code> - Grafana</li>
+                        </ul>
+                    </li>
+                    <li><strong>Verify</strong> deployment with GET <code>/check</code></li>
+                    <li><strong>Test</strong> IoT data ingestion with device simulator</li>
+                </ol>
+
+                <div class="callout info mt-3">
+                    <strong><i class="fa-solid fa-lightbulb me-2"></i>Pro Tip</strong>
+                    Deploy layer-by-layer instead of all at once. This makes debugging easier and allows you to verify
+                    each layer before proceeding.
+                </div>
+            </div>
+
+            <!-- Docker Commands -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-brands fa-docker me-2"></i>Docker Commands</h2>
+
+                <h4 class="mt-3">Viewing Logs</h4>
+                <pre class="p-3 rounded"><code># Follow logs
+docker logs -f dt-deployer
+
+# View last 100 lines
+docker logs --tail 100 dt-deployer
+</code></pre>
+
+                <h4 class="mt-3">Managing Container</h4>
+                <pre class="p-3 rounded"><code># Stop container
+docker stop dt-deployer
+
+# Start stopped container
+docker start dt-deployer
+
+# Restart container
+docker restart dt-deployer
+
+# Remove container
+docker rm dt-deployer
+
+# Rebuild image
+docker build -t digital-twin-deployer .
+</code></pre>
+            </div>
+
+            <!-- Troubleshooting -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-wrench me-2"></i>Troubleshooting</h2>
+
+                <h3 class="mb-2">Common Issues</h3>
+                <ul>
+                    <li><strong>IAM propagation delays:</strong> Wait 30-60 seconds after creating IAM roles before
+                        deploying dependent resources</li>
+                    <li><strong>Port already in use:</strong> Change the port in Docker run command:
+                        <code>-p 8001:8000</code>
+                    </li>
+                    <li><strong>Missing credentials:</strong> Verify <code>config_credentials.json</code> exists and
+                        contains valid credentials</li>
+                    <li><strong>Resource already exists:</strong> Run <code>/destroy</code> to clean up, then redeploy
+                    </li>
+                    <li><strong>Docker volume issues:</strong> Ensure current directory is mounted:
+                        <code>-v $(pwd):/app</code>
+                    </li>
+                </ul>
+
+                <h3 class="mb-2 mt-4">Debug Mode</h3>
+                <p>Check the API logs or container logs for detailed error messages. All errors are logged with stack
+                    traces.</p>
+
+                <h3 class="mb-2 mt-4">Getting Help</h3>
+                <pre class="p-3 rounded"><code># View API documentation
+http://localhost:8000/docs
+
+# View CLI help
+python main.py
+&gt;&gt;&gt; help
+</code></pre>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    <script src="../js/docs-nav.js" defer></script>
+</body>
+
+</html>

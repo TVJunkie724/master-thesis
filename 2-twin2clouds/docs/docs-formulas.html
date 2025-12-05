@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Formulas & Service Mapping — Twin2Clouds Documentation</title>
+  <link rel="icon" type="image/x-icon" href="../references/favicon.ico">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/docs_styles.css" />
+</head>
+
+<body>
+
+  <div class="layout">
+    <aside id="nav-placeholder"></aside>
+
+    <main class="p-4">
+      <h1 class="mb-3">
+        <i class="fa-solid fa-calculator me-2"></i> Cost Formulas & Service Mapping
+      </h1>
+
+      <p class="text-muted mb-4">
+        Mathematical formulas used for dynamic pricing and how each provider's services map to them.
+      </p>
+
+      <!-- Formula Overview -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <h2 class="mb-3"><i class="fa-solid fa-square-root-variable me-2"></i>Formula Overview</h2>
+          <p>These formulas are derived from the project's research methodology and standard cloud pricing models.
+            Symbols correspond to service-specific parameters fetched dynamically.</p>
+
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Expression</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Message-Based Cost">CM</span>
+                </td>
+                <td>Message-Based</td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per message">c_m</span> * <span data-bs-toggle="tooltip" title="Number of messages">N_m</span></code>
+                </td>
+                <td>IoT message ingestion (IoT Core, IoT Hub).</td>
+              </tr>
+              <tr>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Execution-Based Cost">CE</span>
+                </td>
+                <td>Execution-Based</td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per execution">c_e</span> * max(0, <span data-bs-toggle="tooltip" title="Number of executions">N_e</span> − freeRequests) + <span data-bs-toggle="tooltip" title="Price per time unit">c_t</span> * max(0, <span data-bs-toggle="tooltip" title="Total execution time">T_e</span> − freeComputeTime)</code>
+                </td>
+                <td>Serverless compute (Lambda, Functions).</td>
+              </tr>
+              <tr>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>
+                </td>
+                <td>Action-Based</td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> * <span data-bs-toggle="tooltip" title="Number of actions">N_a</span></code>
+                </td>
+                <td>API calls, reads/writes, retrievals.</td>
+              </tr>
+              <tr>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span>
+                </td>
+                <td>Storage-Based</td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per GB-month">c_s</span> * <span data-bs-toggle="tooltip" title="Storage volume (GB)">V</span> * <span data-bs-toggle="tooltip" title="Duration (months)">D</span></code>
+                </td>
+                <td>Storage per GB-month (S3, Blob, DynamoDB).</td>
+              </tr>
+              <tr>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="User-Based Cost">CU</span></td>
+                <td>User-Based</td>
+                <td>
+                  <code>(<span data-bs-toggle="tooltip" title="Price per editor">c_u_editor</span> * <span data-bs-toggle="tooltip" title="Number of editors">N_editor</span> + <span data-bs-toggle="tooltip" title="Price per viewer">c_u_viewer</span> * <span data-bs-toggle="tooltip" title="Number of viewers">N_viewer</span>) + <span data-bs-toggle="tooltip" title="Price per hour">c_u_hour</span> * <span data-bs-toggle="tooltip" title="Total hours">H</span></code>
+                </td>
+                <td>User licensing (Grafana) or VM Time.</td>
+              </tr>
+              <tr>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip"
+                    title="Data Transfer Cost">CTransfer</span></td>
+                <td>Data Transfer</td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per GB transferred">c_transfer</span> * <span data-bs-toggle="tooltip" title="Total GB transferred">GB_transferred</span></code>
+                </td>
+                <td>Egress data transfer.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Parameter Definitions -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Parameter Definitions</h2>
+          <div class="row">
+            <div class="col-md-6">
+              <ul class="list-group list-group-flush">
+                <li class="list-group-item"><code data-bs-toggle="tooltip" title="Price per message">c_m</code>: Price
+                  per message</li>
+                <li class="list-group-item"><code data-bs-toggle="tooltip" title="Total number of messages">N_m</code>:
+                  Total messages</li>
+                <li class="list-group-item"><code data-bs-toggle="tooltip" title="Price per execution">c_e</code>: Price
+                  per execution</li>
+                <li class="list-group-item"><code data-bs-toggle="tooltip" title="Total execution time">T_e</code>:
+                  Total compute seconds</li>
+                <li class="list-group-item"><code data-bs-toggle="tooltip" title="Price per GB-month">c_s</code>: Price
+                  per GB-month</li>
+              </ul>
+            </div>
+            <div class="col-md-6">
+              <ul class="list-group list-group-flush">
+                <li class="list-group-item"><code data-bs-toggle="tooltip" title="Storage volume (GB)">V</code>: Storage
+                  volume (GB)</li>
+                <li class="list-group-item"><code data-bs-toggle="tooltip" title="Duration (months)">D</code>: Duration
+                  (months)</li>
+                <li class="list-group-item"><code data-bs-toggle="tooltip" title="Price per user/hour">c_u</code>: Price
+                  per user/hour</li>
+                <li class="list-group-item"><code data-bs-toggle="tooltip" title="Total hours">H</code>: Total hours
+                </li>
+                <li class="list-group-item"><code data-bs-toggle="tooltip"
+                    title="Price per GB transferred">c_transfer</code>: Price per GB</li>
+                <li class="list-group-item"><code data-bs-toggle="tooltip"
+                    title="Total GB transferred">GB_transferred</code>: Total GB</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Service Mapping -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <h2 class="mb-3"><i class="fa-solid fa-link me-2"></i>Service → Formula Mapping</h2>
+
+          <!-- AWS -->
+          <h3 class="mt-4 mb-2 text-primary"><i class="fa-brands fa-aws me-2"></i>AWS Services</h3>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Formula</th>
+                <th>Mapping</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>IoT Core</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Message-Based Cost">CM</span>
+                </td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per message">c_m</span> → pricePerMessage</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Lambda</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Execution-Based Cost">CE</span>
+                </td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per execution">c_e</span> → requestPrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per time unit">c_t</span> → durationPrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>DynamoDB</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span> +
+                  <span class="badge text-bg-success" data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span>
+                </td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → writePrice/readPrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per GB-month">c_s</span> → storagePrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>S3 (IA/Glacier)</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span> (+
+                  <span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>)
+                </td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per GB-month">c_s</span> → storagePrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → retrievalPrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>API Gateway</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span> +
+                  <span class="badge text-bg-success" data-bs-toggle="tooltip"
+                    title="Data Transfer Cost">CTransfer</span>
+                </td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → pricePerMillionCalls</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per GB transferred">c_transfer</span> → dataTransferOutPrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Step Functions</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>
+                </td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → pricePer1kStateTransitions</code>
+                </td>
+              </tr>
+              <tr>
+                <td>EventBridge</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>
+                </td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → pricePerMillionEvents</code>
+                </td>
+              </tr>
+              <tr>
+                <td>IoT TwinMaker</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span> +
+                  <span class="badge text-bg-success" data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span></td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → apiCalls/queryPrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per GB-month">c_s</span> → entityPrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Managed Grafana</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="User-Based Cost">CU</span></td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per editor">c_u_editor</span> → editorPrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per viewer">c_u_viewer</span> → viewerPrice</code>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Azure -->
+          <h3 class="mt-4 mb-2 text-info"><i class="fa-brands fa-microsoft me-2"></i>Azure Services</h3>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Formula</th>
+                <th>Mapping</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>IoT Hub</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Message-Based Cost">CM</span>
+                </td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per message">c_m</span> → pricePerMessage</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Functions</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Execution-Based Cost">CE</span>
+                </td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per execution">c_e</span> → requestPrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per time unit">c_t</span> → durationPrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Cosmos DB</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span> +
+                  <span class="badge text-bg-success" data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span>
+                </td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → requestUnitPrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per GB-month">c_s</span> → storagePrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Blob Storage</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span> (+
+                  <span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>)
+                </td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per GB-month">c_s</span> → storagePrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → retrievalPrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>API Management</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>
+                </td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → pricePerUnit</code>
+                  (Normalized)</td>
+              </tr>
+              <tr>
+                <td>Logic Apps</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>
+                </td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → actionPrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Event Grid</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>
+                </td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → pricePerMillionOperations</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Digital Twins</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span> +
+                  <span class="badge text-bg-success" data-bs-toggle="tooltip" title="Message-Based Cost">CM</span></td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → operation/queryPrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per message">c_m</span> → messagePrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Managed Grafana</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="User-Based Cost">CU</span></td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per user/hour">c_u</span> → userPrice</code></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Google Cloud -->
+          <h3 class="mt-4 mb-2 text-danger"><i class="fa-brands fa-google me-2"></i>Google Cloud Services</h3>
+          <table class="table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Formula</th>
+                <th>Mapping</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Cloud Pub/Sub</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip"
+                    title="Data Transfer Cost">CTransfer</span></td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per GB transferred">c_transfer</span> → pricePerGiB</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Cloud Functions</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Execution-Based Cost">CE</span>
+                </td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per execution">c_e</span> → invocationPrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per time unit">c_t</span> → gbSecondPrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Firestore</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span> +
+                  <span class="badge text-bg-success" data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span>
+                </td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → documentRead/WritePrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per GB-month">c_s</span> → storagePrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Cloud Storage</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span> (+
+                  <span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>)
+                </td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per GB-month">c_s</span> → storagePrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → operationPrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>API Gateway</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span> +
+                  <span class="badge text-bg-success" data-bs-toggle="tooltip"
+                    title="Data Transfer Cost">CTransfer</span>
+                </td>
+                <td>
+                  <code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → pricePerMillionCalls</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per GB transferred">c_transfer</span> → dataTransferOutPrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Cloud Scheduler</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>
+                </td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → jobPrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Cloud Workflows</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>
+                </td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> → stepPrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>IoT TwinMaker (Self-Hosted)</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="User-Based Cost">CU</span> +
+                  <span class="badge text-bg-success" data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span>
+                </td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per hour">c_u_hour</span> → e2MediumPrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per GB-month">c_s</span> → storagePrice</code>
+                </td>
+              </tr>
+              <tr>
+                <td>Managed Grafana (Self-Hosted)</td>
+                <td><span class="badge text-bg-success" data-bs-toggle="tooltip" title="User-Based Cost">CU</span> +
+                  <span class="badge text-bg-success" data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span>
+                </td>
+                <td><code><span data-bs-toggle="tooltip" title="Price per hour">c_u_hour</span> → e2MediumPrice</code>,
+                  <code><span data-bs-toggle="tooltip" title="Price per GB-month">c_s</span> → storagePrice</code>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+        </div>
+      </div>
+
+      <!-- Formula Mapping Rationale -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <h2 class="mb-3"><i class="fa-solid fa-comment-dots me-2"></i>Formula Mapping Rationale</h2>
+          <p>
+            Serverless compute costs are a function of two distinct variables: the number of requests
+            (invocations) and
+            the duration of execution, which is often weighted by the amount of memory allocated. The
+            <strong>CE</strong>
+            formula
+            (<code><span data-bs-toggle="tooltip" title="Price per execution">c_e</span> * <span data-bs-toggle="tooltip" title="Number of executions">N_e</span> + <span data-bs-toggle="tooltip" title="Price per time unit">c_t</span> * <span data-bs-toggle="tooltip" title="Total execution time">T_e</span></code>)
+            accurately models this by summing the request cost
+            (<code><span data-bs-toggle="tooltip" title="Price per execution">c_e</span></code>) and the
+            compute-time
+            cost (<code><span data-bs-toggle="tooltip" title="Price per time unit">c_t</span></code>). It also
+            accommodates free tiers by
+            subtracting free requests and compute seconds from the total usage.
+          </p>
+
+          <h4 class="mt-4 text-primary">Ingestion Services (IoT Core, IoT Hub, Pub/Sub)</h4>
+          <p>
+            <strong>Mapped to: <span class="badge text-bg-success" data-bs-toggle="tooltip"
+                title="Message-Based Cost">CM</span> (Message-Based) OR <span class="badge text-bg-success"
+                data-bs-toggle="tooltip" title="Data Transfer Cost">CTransfer</span> (Volume-Based)</strong><br>
+            IoT ingestion services typically charge based on the number of messages processed (AWS IoT Core,
+            Azure IoT Hub), which maps to <strong>CM</strong>. However, Google Cloud Pub/Sub charges based on
+            data volume (GiB transferred), which maps to <strong>CTransfer</strong>
+            (<code><span data-bs-toggle="tooltip" title="Price per GB transferred">c_transfer</span> * <span data-bs-toggle="tooltip" title="Total GB transferred">GB_transferred</span></code>).
+            This distinction is crucial for accurate cross-provider comparison.
+          </p>
+
+          <h4 class="mt-4 text-primary">NoSQL & Document Databases (DynamoDB, Cosmos DB, Firestore)</h4>
+          <p>
+            <strong>Mapped to: <span class="badge text-bg-success" data-bs-toggle="tooltip"
+                title="Action-Based Cost">CA</span> (Action-Based) + <span class="badge text-bg-success"
+                data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span> (Storage-Based)</strong><br>
+            Modern cloud databases typically charge for two main components: the storage of data at rest and the
+            throughput (reads/writes) used to access it. We map the storage component to <strong>CS</strong>
+            (<code><span data-bs-toggle="tooltip" title="Price per GB-month">c_s</span> * <span data-bs-toggle="tooltip" title="Storage volume (GB)">V</span> * <span data-bs-toggle="tooltip" title="Duration (months)">D</span></code>)
+            and the throughput/operation component to <strong>CA</strong>
+            (<code><span data-bs-toggle="tooltip" title="Price per action">c_a</span> * <span data-bs-toggle="tooltip" title="Number of actions">N_a</span></code>).
+            This separation allows for a granular breakdown of static vs. active costs, which
+            is crucial for optimizing workloads with high storage but low access frequency (or vice versa).
+          </p>
+
+          <h4 class="mt-4 text-primary">Object Storage (S3, Blob Storage, Cloud Storage)</h4>
+          <p>
+            <strong>Mapped to: <span class="badge text-bg-success" data-bs-toggle="tooltip"
+                title="Storage-Based Cost">CS</span> (Storage-Based) [+ <span class="badge text-bg-success"
+                data-bs-toggle="tooltip" title="Action-Based Cost">CA</span>]</strong><br>
+            The primary cost driver for object storage is the volume of data stored over time, which is modeled
+            by
+            <strong>CS</strong>. However, retrieval costs (especially for cooler tiers like Glacier or Archive)
+            and API
+            requests (PUT/GET/LIST) can be significant. These are modeled as additional <strong>Action-Based
+              (CA)</strong> components to ensure the total cost of ownership is accurate, particularly for
+            archival
+            strategies where retrieval costs can exceed storage savings.
+          </p>
+
+          <h4 class="mt-4 text-primary">API Gateways & Management</h4>
+          <p>
+            <strong>Mapped to: <span class="badge text-bg-success" data-bs-toggle="tooltip"
+                title="Action-Based Cost">CA</span> (Action-Based) + <span class="badge text-bg-success"
+                data-bs-toggle="tooltip" title="Data Transfer Cost">CTransfer</span></strong><br>
+            API gateways are typically charged per API call received, which fits the <strong>CA</strong> model
+            perfectly.
+            Additionally, data egress fees are often applied at this layer when data leaves the cloud provider's
+            network. These egress costs are captured by the <strong>CTransfer</strong> formula, ensuring that
+            the cost
+            of serving data to external clients is fully accounted for.
+          </p>
+
+          <h4 class="mt-4 text-primary">Orchestration & Messaging (Step Functions, Logic Apps, EventBridge)</h4>
+          <p>
+            <strong>Mapped to: <span class="badge text-bg-success" data-bs-toggle="tooltip"
+                title="Action-Based Cost">CA</span> (Action-Based)</strong><br>
+            These services are billed per discrete unit of work, such as a state transition, a workflow step, or
+            an
+            event published. The <strong>Action-Based (CA)</strong> formula provides a direct mapping to these
+            usage-based pricing units (e.g., per 1,000 state transitions or per million events), allowing for
+            precise
+            cost estimation based on workflow complexity and event volume.
+          </p>
+
+          <h4 class="mt-4 text-primary">Self-Hosted Components (VMs / Compute Engine)</h4>
+          <p>
+            <strong>Mapped to: <span class="badge text-bg-success" data-bs-toggle="tooltip"
+                title="User-Based Cost">CU</span> (User/Time-Based) + <span class="badge text-bg-success"
+                data-bs-toggle="tooltip" title="Storage-Based Cost">CS</span></strong><br>
+            Virtual machines incur costs based on running time (hourly or per-second) and attached persistent
+            storage.
+            The <strong>CU</strong> formula captures the time-based compute cost
+            (<code><span data-bs-toggle="tooltip" title="Price per hour">c_u_hour</span> * <span data-bs-toggle="tooltip" title="Total hours">H</span></code>),
+            effectively
+            treating the "User" variable as a "Time" variable in this context. The <strong>CS</strong> formula
+            handles
+            the cost of the persistent disk storage attached to the instance.
+          </p>
+        </div>
+      </div>
+
+      <!-- Citation -->
+      <div class="card mb-4 border-primary">
+        <div class="card-body">
+          <h5 class="card-title text-primary"><i class="fa-solid fa-book me-2"></i>Scientific Foundation</h5>
+          <p class="card-text">
+            These formulas are based on the formal cost model presented in:
+          </p>
+          <blockquote class="blockquote fs-6">
+            <p>Philipp Gritsch, et al. <em>“Twin2Clouds: Cost-Aware Digital Twin Engineering...”</em> (MODELS
+              2025)</p>
+          </blockquote>
+          <a href="../references/EDT_25__CloudDT_engineering.pdf" target="_blank"
+            class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-file-pdf me-2"></i>Read Paper
+          </a>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+    style="display:none;">
+    <i class="fa-solid fa-arrow-up"></i>
+  </button>
+  <script src="../js/docs-nav.js" defer></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+      var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+      })
+    });
+  </script>
+</body>
+
+</html>

@@ -5,9 +5,30 @@ import logging
 import sys
 from colorlog import ColoredFormatter
 import traceback
-from util import contains_provider, validate_credentials
 
-logger = None
+from logger import logger
+
+# Required credentials fields for each provider  
+REQUIRED_CREDENTIALS_FIELDS = {
+    "aws": ["aws_access_key_id", "aws_secret_access_key", "aws_region"],
+    "azure": ["azure_subscription_id", "azure_client_id", "azure_client_secret", "azure_tenant_id", "azure_region"],
+    "google": ["gcp_project_id", "gcp_credentials_file", "gcp_region"]
+}
+
+def contains_provider(config_providers, provider_name):
+    """Check if any value in the provider config matches provider_name."""
+    return any(provider_name in str(v).lower() for v in config_providers.values())
+
+def validate_credentials(provider_name, credentials):
+    """Check if credentials exist and all required fields are present."""
+    provider_creds = credentials.get(provider_name, {})
+    if not provider_creds:
+        raise ValueError(f"{provider_name.upper()} credentials are required but not found.")
+    
+    missing_fields = [field for field in REQUIRED_CREDENTIALS_FIELDS[provider_name] if field not in provider_creds]
+    if missing_fields:
+        raise ValueError(f"{provider_name.upper()} credentials are missing fields: {missing_fields}")
+    return provider_creds
 
 config = {}
 config_iot_devices = []
@@ -59,58 +80,9 @@ def digital_twin_info():
     "config_events": config_events
   }
 
-
-
-def setup_logger(debug_mode=False):
-    logger = logging.getLogger("digital_twin")
-    logger.setLevel(logging.DEBUG if debug_mode else logging.INFO)
-
-    # Create console handler
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.DEBUG if debug_mode else logging.INFO)
-
-    # Create colored formatter
-    formatter = ColoredFormatter(
-        "%(log_color)s[%(levelname)s] %(message)s",
-        log_colors={
-            "DEBUG":    "cyan",
-            "INFO":     "green",
-            "WARNING":  "yellow",
-            "ERROR":    "red",
-            "CRITICAL": "red,bg_white",
-        }
-    )
-    handler.setFormatter(formatter)
-
-    if not logger.handlers:
-        logger.addHandler(handler)
-
-    return logger
-
-def get_debug_mode():
-  return config.get("mode", "").upper() == "DEBUG"
-
-def print_stack_trace():
-  """
-  Print the stack trace if debug_mode is enabled.
-
-  Args:
-      debug_mode (bool, optional): _description_. Defaults to False.
-  """
-  if get_debug_mode():
-    error_msg = traceback.format_exc()
-    logger.error(error_msg)
-  
-class LoggerProxy:
-    def __getattr__(self, name):
-        if logger is None:
-            raise RuntimeError("Logger not initialized yet.")
-        return getattr(logger, name)
-
-logger_proxy = LoggerProxy()
-
 def initialize_all():
-  global logger
+  global config
+  global config_credentials
   global config_credentials_aws
   global config_credentials_azure
   global config_credentials_google
@@ -138,7 +110,5 @@ def initialize_all():
             case _:
                 raise ValueError(f"Unsupported provider: {provider}, valid providers are: {', '.join(valid_providers)}")
 
-  DEBUG_MODE = config.get("mode", "").upper() == "DEBUG"
-  logger = setup_logger(debug_mode=DEBUG_MODE)
-
-  logger.debug("Debug mode is active.")
+def api_name():
+  return config["digital_twin_name"] + "-api"

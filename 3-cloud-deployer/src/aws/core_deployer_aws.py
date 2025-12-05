@@ -2,9 +2,10 @@ import json
 import os
 import time
 import globals
-from globals import logger_proxy as logger
+from logger import logger
 import aws.globals_aws as globals_aws
 import util
+import aws.util_aws as util_aws
 from botocore.exceptions import ClientError
 
 def create_dispatcher_iam_role():
@@ -258,7 +259,7 @@ def create_persister_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(globals.lambda_functions_path, "persister"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(globals_aws.lambda_functions_path, "persister"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -306,7 +307,7 @@ def create_event_checker_iam_role():
       )
   )
 
-  print(f"Created IAM role: {role_name}")
+  logger.info(f"Created IAM role: {role_name}")
 
   policy_arns = [
     "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
@@ -320,7 +321,7 @@ def create_event_checker_iam_role():
       PolicyArn=policy_arn
     )
 
-    print(f"Attached IAM policy ARN: {policy_arn}")
+    logger.info(f"Attached IAM policy ARN: {policy_arn}")
 
   policy_name = "TwinmakerAccess"
 
@@ -361,9 +362,9 @@ def create_event_checker_iam_role():
       }
     )
   )
-  print(f"Attached inline IAM policy: {policy_name}")
+  logger.info(f"Attached inline IAM policy: {policy_name}")
 
-  print(f"Waiting for propagation...")
+  logger.info(f"Waiting for propagation...")
 
   time.sleep(20)
 
@@ -391,7 +392,7 @@ def destroy_event_checker_iam_role():
 
     # delete the role
     globals_aws.aws_iam_client.delete_role(RoleName=role_name)
-    print(f"Deleted IAM role: {role_name}")
+    logger.info(f"Deleted IAM role: {role_name}")
   except ClientError as e:
     if e.response["Error"]["Code"] != "NoSuchEntity":
       raise
@@ -422,14 +423,14 @@ def create_event_checker_lambda_function():
     }
   )
 
-  print(f"Created Lambda function: {function_name}")
+  logger.info(f"Created Lambda function: {function_name}")
 
 def destroy_event_checker_lambda_function():
   function_name = globals_aws.event_checker_lambda_function_name()
 
   try:
     globals_aws.aws_lambda_client.delete_function(FunctionName=function_name)
-    print(f"Deleted Lambda function: {function_name}")
+    logger.info(f"Deleted Lambda function: {function_name}")
   except ClientError as e:
     if e.response["Error"]["Code"] != "ResourceNotFoundException":
       raise
@@ -674,7 +675,7 @@ def create_cold_s3_bucket():
 def destroy_cold_s3_bucket():
   bucket_name = globals_aws.cold_s3_bucket_name()
 
-  util.destroy_s3_bucket(bucket_name)
+  util_aws.destroy_s3_bucket(bucket_name)
 
 
 def create_cold_archive_mover_iam_role():
@@ -863,7 +864,7 @@ def create_archive_s3_bucket():
 def destroy_archive_s3_bucket():
   bucket_name = globals_aws.archive_s3_bucket_name()
 
-  util.destroy_s3_bucket(bucket_name)
+  util_aws.destroy_s3_bucket(bucket_name)
 
 
 def create_hot_reader_iam_role():
@@ -1013,7 +1014,7 @@ def create_hot_reader_last_entry_iam_role():
       )
   )
 
-  print(f"Created IAM role: {role_name}")
+  logger.info(f"Created IAM role: {role_name}")
 
   policy_arns = [
     "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
@@ -1026,7 +1027,7 @@ def create_hot_reader_last_entry_iam_role():
       PolicyArn=policy_arn
     )
 
-    print(f"Attached IAM policy ARN: {policy_arn}")
+    logger.info(f"Attached IAM policy ARN: {policy_arn}")
 
   policy_name = "TwinmakerAccess"
 
@@ -1048,9 +1049,9 @@ def create_hot_reader_last_entry_iam_role():
       }
     )
   )
-  print(f"Attached inline IAM policy: {policy_name}")
+  logger.info(f"Attached inline IAM policy: {policy_name}")
 
-  print(f"Waiting for propagation...")
+  logger.info(f"Waiting for propagation...")
 
   time.sleep(20)
 
@@ -1074,7 +1075,7 @@ def destroy_hot_reader_last_entry_iam_role():
       )
 
     globals_aws.aws_iam_client.delete_role(RoleName=role_name)
-    print(f"Deleted IAM role: {role_name}")
+    logger.info(f"Deleted IAM role: {role_name}")
   except ClientError as e:
     if e.response["Error"]["Code"] != "NoSuchEntity":
       raise
@@ -1105,14 +1106,14 @@ def create_hot_reader_last_entry_lambda_function():
     }
   )
 
-  print(f"Created Lambda function: {function_name}")
+  logger.info(f"Created Lambda function: {function_name}")
 
 def destroy_hot_reader_last_entry_lambda_function():
   function_name = globals_aws.hot_reader_last_entry_lambda_function_name()
 
   try:
     globals_aws.aws_lambda_client.delete_function(FunctionName=function_name)
-    print(f"Deleted Lambda function: {function_name}")
+    logger.info(f"Deleted Lambda function: {function_name}")
   except ClientError as e:
     if e.response["Error"]["Code"] != "ResourceNotFoundException":
       raise
@@ -1132,7 +1133,7 @@ def create_twinmaker_s3_bucket():
 def destroy_twinmaker_s3_bucket():
   bucket_name = globals_aws.twinmaker_s3_bucket_name()
 
-  util.destroy_s3_bucket(bucket_name)
+  util_aws.destroy_s3_bucket(bucket_name)
 
 
 def create_twinmaker_iam_role():
@@ -1424,6 +1425,63 @@ def destroy_grafana_iam_role():
       raise
 
 
+
+def create_grafana_iam_role():
+  role_name = globals_aws.grafana_iam_role_name()
+
+  trust_policy = {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Principal": {
+          "Service": "grafana.amazonaws.com"
+        },
+        "Action": "sts:AssumeRole"
+      }
+    ]
+  }
+
+  try:
+    globals_aws.aws_iam_client.create_role(
+      RoleName=role_name,
+      AssumeRolePolicyDocument=json.dumps(trust_policy)
+    )
+    logger.info(f"Created IAM role: {role_name}")
+  except globals_aws.aws_iam_client.exceptions.EntityAlreadyExistsException:
+    logger.info(f"IAM role already exists: {role_name}")
+
+  # Attach generic administrator policy for simplicty in this scope
+  # In production, this should be scoped down.
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+  globals_aws.aws_iam_client.attach_role_policy(
+    RoleName=role_name,
+    PolicyArn=policy_arn
+  )
+  logger.info(f"Attached policy {policy_arn} to role {role_name}")
+
+def destroy_grafana_iam_role():
+  role_name = globals_aws.grafana_iam_role_name()
+
+  try:
+    # detach managed policies
+    response = globals_aws.aws_iam_client.list_attached_role_policies(RoleName=role_name)
+    for policy in response["AttachedPolicies"]:
+        globals_aws.aws_iam_client.detach_role_policy(RoleName=role_name, PolicyArn=policy["PolicyArn"])
+
+    # delete inline policies
+    response = globals_aws.aws_iam_client.list_role_policies(RoleName=role_name)
+    for policy_name in response["PolicyNames"]:
+        globals_aws.aws_iam_client.delete_role_policy(RoleName=role_name, PolicyName=policy_name)
+
+    # delete the role
+    globals_aws.aws_iam_client.delete_role(RoleName=role_name)
+    logger.info(f"Deleted IAM role: {role_name}")
+  except ClientError as e:
+    if e.response["Error"]["Code"] != "NoSuchEntity":
+      raise
+
+
 def create_grafana_workspace():
   workspace_name = globals_aws.grafana_workspace_name()
   role_name = globals_aws.grafana_iam_role_name()
@@ -1469,7 +1527,7 @@ def destroy_grafana_workspace():
   workspace_name = globals_aws.grafana_workspace_name()
 
   try:
-    workspace_id = util.get_grafana_workspace_id_by_name(workspace_name)
+    workspace_id = util_aws.get_grafana_workspace_id_by_name(workspace_name)
     globals_aws.aws_grafana_client.delete_workspace(workspaceId=workspace_id)
   except ClientError as e:
     if e.response["Error"]["Code"] == "ResourceNotFoundException":
@@ -1494,7 +1552,7 @@ def destroy_grafana_workspace():
 
 def add_cors_to_twinmaker_s3_bucket():
   bucket_name = globals_aws.twinmaker_s3_bucket_name()
-  grafana_workspace_id = util.get_grafana_workspace_id_by_name(globals_aws.grafana_workspace_name())
+  grafana_workspace_id = util_aws.get_grafana_workspace_id_by_name(globals_aws.grafana_workspace_name())
 
   globals_aws.aws_s3_client.put_bucket_cors(
       Bucket=bucket_name,
@@ -1527,3 +1585,109 @@ def remove_cors_from_twinmaker_s3_bucket():
       raise
 
   logger.info(f"CORS configuration removed from bucket: {bucket_name}")
+
+def create_api():
+  api_name = globals.api_name()
+
+  api = globals_aws.aws_apigateway_client.create_api(
+      Name=api_name,
+      ProtocolType="HTTP"
+  )
+
+  logger.info(f"Created API: {api_name}")
+
+  stage = globals_aws.aws_apigateway_client.create_stage(
+    ApiId=api["ApiId"],
+    StageName="$default",
+    AutoDeploy=True
+  )
+
+  logger.info(f"Created API Stage: {stage['StageName']}")
+
+def destroy_api():
+  api_name = globals.api_name()
+  api_id = util_aws.get_api_id_by_name(api_name)
+
+  if api_id is None:
+    return
+
+  try:
+    globals_aws.aws_apigateway_client.delete_api(ApiId=api_id)
+    logger.info(f"Deleted API: {api_name}")
+  except globals_aws.aws_apigateway_client.exceptions.NotFoundException:
+    pass
+
+
+def create_api_hot_reader_integration():
+  api_id = util_aws.get_api_id_by_name(globals.api_name())
+  function_name = globals_aws.hot_reader_lambda_function_name()
+  function_arn = util_aws.get_lambda_arn_by_name(function_name)
+
+  integration = globals_aws.aws_apigateway_client.create_integration(
+    ApiId=api_id,
+    IntegrationType="AWS_PROXY",
+    IntegrationUri=function_arn,
+    PayloadFormatVersion="2.0"
+  )
+
+  print("Created API Integration:", function_arn)
+
+  route_key = f"GET /{function_name}"
+
+  globals_aws.aws_apigateway_client.create_route(
+    ApiId=api_id,
+    RouteKey=route_key,
+    Target=f"integrations/{integration['IntegrationId']}"
+  )
+
+  print("Created API Route:", route_key)
+
+  account_id = globals_aws.aws_sts_client.get_caller_identity()['Account']
+  region = globals_aws.aws_apigateway_client.meta.region_name
+  source_arn = f"arn:aws:execute-api:{region}:{account_id}:{api_id}/*/*/{function_name}"
+  statement_id = "api-gateway-invoke"
+
+  globals_aws.aws_lambda_client.add_permission(
+      FunctionName=function_name,
+      StatementId=statement_id,
+      Action="lambda:InvokeFunction",
+      Principal="apigateway.amazonaws.com",
+      SourceArn=source_arn
+  )
+
+  logger.info(f"Added permission to Lambda Function so API Gateway can invoke the function.")
+
+def destroy_api_hot_reader_integration():
+  function_name = globals_aws.hot_reader_lambda_function_name()
+  statement_id = "api-gateway-invoke"
+
+  try:
+    globals_aws.aws_lambda_client.remove_permission(FunctionName=function_name, StatementId=statement_id)
+    logger.info(f"Removed permission from Lambda function: {statement_id}, {function_name}")
+  except globals_aws.aws_lambda_client.exceptions.ResourceNotFoundException:
+    pass
+
+  api_id = util_aws.get_api_id_by_name(globals.api_name())
+
+  if api_id is None:
+    return
+
+  route_key = f"GET /{function_name}"
+  route_id = util_aws.get_api_route_id_by_key(route_key)
+
+  if route_id is not None:
+    try:
+      globals_aws.aws_apigateway_client.delete_route(ApiId=api_id, RouteId=route_id)
+      logger.info(f"Deleted API Route: {route_key}")
+    except globals_aws.aws_apigateway_client.exceptions.NotFoundException:
+      pass
+
+  function_arn = util_aws.get_lambda_arn_by_name(function_name)
+  integration_id = util_aws.get_api_integration_id_by_uri(function_arn)
+
+  if integration_id is not None:
+    try:
+      globals_aws.aws_apigateway_client.delete_integration(ApiId=api_id, IntegrationId=integration_id)
+      logger.info(f"Deleted API Integration: {route_key}")
+    except globals_aws.aws_apigateway_client.exceptions.NotFoundException:
+      pass

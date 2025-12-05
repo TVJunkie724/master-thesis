@@ -1,5 +1,5 @@
 import globals
-from globals import logger_proxy as logger
+from logger import logger
 import aws.info_aws as info_aws
 from botocore.exceptions import ClientError
 import util

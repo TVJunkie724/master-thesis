@@ -1,0 +1,69 @@
+{
+  "transfer": {
+    "pricing_tiers": {
+      "freeTier": {
+        "limit": 100,
+        "price": 0
+      },
+      "tier1": {
+        "limit": 10240,
+        "price": 0.12
+      },
+      "tier2": {
+        "limit": "Infinity",
+        "price": 0.08
+      }
+    },
+    "egressPrice": 0.12
+  },
+  "iot": {
+    "pricePerGiB": 0.0390625,
+    "pricePerDeviceAndMonth": 0
+  },
+  "functions": {
+    "requestPrice": 4e-07,
+    "durationPrice": 2.5e-06,
+    "freeRequests": 2000000,
+    "freeComputeTime": 400000
+  },
+  "storage_hot": {
+    "writePrice": 1.8e-06,
+    "readPrice": 3.3e-07,
+    "storagePrice": 0.135,
+    "freeStorage": 1
+  },
+  "storage_cool": {
+    "storagePrice": 0.011,
+    "upfrontPrice": 0.0,
+    "requestPrice": 2.6e-05,
+    "dataRetrievalPrice": 0.01
+  },
+  "storage_archive": {
+    "storagePrice": 0.0014,
+    "lifecycleAndWritePrice": 6.5e-05,
+    "dataRetrievalPrice": 0.05
+  },
+  "twinmaker": {
+    "e2MediumPrice": 0.0608511,
+    "storagePrice": 0.2,
+    "entityPrice": 0,
+    "unifiedDataAccessAPICallsPrice": 0,
+    "queryPrice": 0
+  },
+  "grafana": {
+    "e2MediumPrice": 0.0608511,
+    "storagePrice": 0.2,
+    "editorPrice": 0,
+    "viewerPrice": 0
+  },
+  "apiGateway": {
+    "pricePerMillionCalls": 3.0,
+    "dataTransferOutPrice": 0.12
+  },
+  "cloudWorkflows": {
+    "stepPrice": 2.5e-05
+  },
+  "cloudScheduler": {
+    "jobPrice": 0.003225806
+  }
+}

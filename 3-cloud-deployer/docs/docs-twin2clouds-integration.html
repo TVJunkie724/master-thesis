@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Twin2Clouds Integration — Deployer Documentation</title>
+    <link rel="icon" type="image/x-icon" href="../references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/docs_styles.css" />
+</head>
+
+<body>
+
+    <div class="layout">
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+            <h1 class="mb-3">
+                <i class="fa-solid fa-link me-2"></i> Twin2Clouds Integration
+            </h1>
+
+            <p class="text-muted mb-4">
+                How the deployer integrates with the Twin2Clouds cost optimizer for multi-cloud deployment
+                recommendations.
+            </p>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-diagram-project me-2"></i>Integration Overview</h2>
+                <p>
+                    The Multi-Cloud Digital Twin Deployer is designed to work seamlessly with
+                    <strong>Twin2Clouds</strong>, a cost optimization platform that analyzes digital twin scenarios and
+                    recommends the most cost-efficient cloud provider for each architectural layer.
+                </p>
+
+                <h4 class="mt-3">Workflow</h4>
+                <ol>
+                    <li><strong>Define Scenario:</strong> User configures digital twin parameters in Twin2Clouds web UI
+                        (devices, data volume, storage duration, etc.)</li>
+                    <li><strong>Cost Analysis:</strong> Twin2Clouds calculates monthly costs for AWS, Azure, and GCP
+                        across all 5 layers</li>
+                    <li><strong>Optimization:</strong> Decision engine determines optimal provider per layer, minimizing
+                        total cost</li>
+                    <li><strong>Export Configuration:</strong> User receives recommended
+                        <code>config_providers.json</code>
+                    </li>
+                    <li><strong>Deploy:</strong> This deployer executes the multi-cloud deployment automatically</li>
+                </ol>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-exchange-alt me-2"></i>Example Integration</h2>
+
+                <h4 class="mt-3">Step 1: Twin2Clouds Analysis</h4>
+                <p>User defines scenario in Twin2Clouds:</p>
+                <ul>
+                    <li>100 devices sending data every 2 minutes</li>
+                    <li>30 days hot storage, 90 days cool, 365 days archive</li>
+                    <li>3D model with 50 entities</li>
+                    <li>5 Grafana editors, 20 viewers</li>
+                </ul>
+
+                <h4 class="mt-3">Step 2: Cost Optimizer Output</h4>
+                <p>Twin2Clouds recommends:</p>
+                <pre class="p-3 rounded"><code>Optimal Path: L1_GCP → L2_GCP → L2_AWS_Hot → L2_GCP_Cool → L2_Azure_Archive → L4_AWS → L5_AWS
+
+Monthly Cost: $287.45
+  - L1 (GCP Pub/Sub): $12.30
+  - L2 (GCP Cloud Functions): $8.90
+  - L3 Hot (AWS DynamoDB): $45.20
+  - L3 Cool (GCP Cloud Storage Nearline): $8.10
+  - L3 Archive (Azure Blob Archive): $2.15
+  - L4 (AWS TwinMaker): $180.50
+  - L5 (AWS Managed Grafana): $30.30
+</code></pre>
+
+                <h4 class="mt-3">Step 3: Update Deployer Configuration</h4>
+                <p>Update <code>config_providers.json</code> with recommendations:</p>
+                <pre class="p-3 rounded"><code>{
+  "layer_1_provider": "google",
+  "layer_2_provider": "google",
+  "layer_3_hot_provider": "aws",
+  "layer_3_cool_provider": "google",
+  "layer_3_archive_provider": "azure",
+  "layer_4_provider": "aws",
+  "layer_5_provider": "aws"
+}</code></pre>
+
+                <h4 class="mt-3">Step 4: Deploy Multi-Cloud Twin</h4>
+                <pre class="p-3 rounded"><code># Deploy using the REST API
+curl -X POST "http://localhost:8000/deploy"
+
+# Or layer by layer for better control
+curl -X POST "http://localhost:8000/deploy_l1?provider=google"
+curl -X POST "http://localhost:8000/deploy_l2?provider=google"
+curl -X POST "http://localhost:8000/deploy_l3?provider=aws"  # Hot uses AWS
+# ... etc
+</code></pre>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-shuffle me-2"></i>Cross-Cloud Data Transfers</h2>
+                <p>When deploying across multiple cloud providers, the deployer automatically handles:</p>
+                <ul>
+                    <li><strong>L1 → L3 Hot Transfer:</strong> Data from IoT service to hot storage (may incur egress
+                        costs)</li>
+                    <li><strong>L3 Hot → L3 Cool Transfer:</strong> Automated migration via mover functions</li>
+                    <li><strong>L3 Cool → L3 Archive Transfer:</strong> Long-term archival migration</li>
+                    <li><strong>Data Connectors:</strong> TwinMaker and Grafana access data across clouds via APIs</li>
+                </ul>
+
+                <div class="callout info">
+                    <strong><i class="fa-solid fa-info-circle me-2"></i>Note</strong>
+                    Twin2Clouds cost analysis includes cross-cloud egress charges in its optimization calculations.
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-link-slash me-2"></i>Current Limitations</h2>
+                <p>While the deployer is designed for multi-cloud, some limitations currently exist:</p>
+                <ul>
+                    <li><strong>AWS Only:</strong> Currently only AWS deployment is fully implemented</li>
+                    <li><strong>Manual Configuration:</strong> User must manually update
+                        <code>config_providers.json</code>
+                    </li>
+                    <li><strong>No Automatic Export:</strong> Twin2Clouds doesn't yet automatically export deployer
+                        config</li>
+                </ul>
+
+                <h4 class="mt-3">Future Enhancements</h4>
+                <ul>
+                    <li>Direct API integration between Twin2Clouds and deployer</li>
+                    <li>One-click deployment from Twin2Clouds web UI</li>
+                    <li>Real-time cost monitoring and optimization suggestions</li>
+                    <li>Automatic re-deployment when cost patterns change</li>
+                </ul>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-book me-2"></i>Related Documentation</h2>
+                <ul>
+                    <li><a href="http://localhost:5003/ui" target="_blank">Twin2Clouds Web UI</a></li>
+                    <li><a href="http://localhost:5003/docs/docs-overview.html" target="_blank">Twin2Clouds
+                            Documentation</a></li>
+                    <li><a href="docs-configuration.html" target="_blank">Deployer Configuration Reference</a>
+                    </li>
+                    <li><a href="docs-architecture.html" target="_blank">Multi-Cloud Architecture</a></li>
+                </ul>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    <script src="../js/docs-nav.js" defer></script>
+</body>
+
+</html>

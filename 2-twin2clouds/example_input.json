@@ -1,0 +1,23 @@
+{
+    "numberOfDevices": 100,
+    "deviceSendingIntervalInMinutes": 2.0,
+    "averageSizeOfMessageInKb": 0.25,
+    "hotStorageDurationInMonths": 1,
+    "coolStorageDurationInMonths": 3,
+    "archiveStorageDurationInMonths": 12,
+    "needs3DModel": false,
+    "entityCount": 0,
+    "amountOfActiveEditors": 2,
+    "amountOfActiveViewers": 10,
+    "dashboardRefreshesPerHour": 4,
+    "dashboardActiveHoursPerDay": 8,
+    "currency": "USD",
+    "useEventChecking": true,
+    "triggerNotificationWorkflow": true,
+    "returnFeedbackToDevice": false,
+    "integrateErrorHandling": true,
+    "orchestrationActionsPerMessage": 3,
+    "eventsPerMessage": 1,
+    "apiCallsPerDashboardRefresh": 1,
+    "average3DModelSizeInMB": 100
+}

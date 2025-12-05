@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Google Cloud Pricing Schema — Twin2Clouds Documentation</title>
+    <link rel="icon" type="image/x-icon" href="../references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/docs_styles.css" />
+</head>
+
+<body>
+
+    <div class="layout">
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+            <h1 class="mb-3">
+                <i class="fa-brands fa-google me-2 text-danger"></i> Google Cloud Pricing Schema
+            </h1>
+
+            <p class="text-muted mb-4">
+                Field sources, fetched dimensions, static defaults, and calculated logic for
+                <span class="mono">pricing.json</span> (Google Cloud section).
+            </p>
+
+            <!-- Schema Overview -->
+            <div class="card mb-4" id="schema">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-file-code me-2"></i>Schema Overview</h2>
+                    <p>Target structure (Google excerpt from <span class="mono">pricing.json</span>):</p>
+                    <pre class="p-3 rounded border"><code>{
+  "google": {
+    "transfer": {
+      "pricing_tiers": {
+        "freeTier": {"limit": 100,"price": 0},
+        "tier1": {"limit": 10240,"price": 0.12},
+        "tier2": {"limit": "Infinity","price": 0.08}
+      },
+      "egressPrice": 0.12
+    },
+    "iot": {
+      "pricePerGiB": 0.0390625,
+      "pricePerDeviceAndMonth": 0
+    },
+    "functions": {
+      "requestPrice": 0.0000004,
+      "durationPrice": 0.0000025,
+      "freeRequests": 2000000,
+      "freeComputeTime": 400000
+    },
+    "storage_hot": {
+      "writePrice": 0.0000018,
+      "readPrice": 0.0000006,
+      "storagePrice": 0.135,
+      "freeStorage": 1
+    },
+    "storage_cool": {
+      "storagePrice": 0.011,
+      "upfrontPrice": 0.00,
+      "requestPrice": 0.000026,
+      "dataRetrievalPrice": 0.01
+    },
+    "storage_archive": {
+      "storagePrice": 0.0014,
+      "lifecycleAndWritePrice": 0.000065,
+      "dataRetrievalPrice": 0.05
+    },
+    "apiGateway": {
+      "pricePerMillionCalls": 3.00,
+      "dataTransferOutPrice": 0.12
+    },
+    "cloudScheduler": {
+      "jobPrice": 0.10
+    },
+    "cloudWorkflows": {
+      "stepPrice": 0.000025
+    },
+    "twinmaker": {
+      "e2MediumPrice": 0.0608511,
+      "storagePrice": 0.20,
+      "entityPrice": 0,
+      "unifiedDataAccessAPICallsPrice": 0,
+      "queryPrice": 0
+    },
+    "grafana": {
+      "e2MediumPrice": 0.0608511,
+      "storagePrice": 0.20,
+      "editorPrice": 0,
+      "viewerPrice": 0
+    }
+  }
+}</code></pre>
+                </div>
+            </div>
+
+            <!-- Services & Fields -->
+            <div class="card mb-4" id="services">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-list-check me-2"></i>Services & Fields</h2>
+
+                    <!-- IoT (Pub/Sub) -->
+                    <h3 class="mt-4 mb-2 text-primary">IoT Ingestion (Cloud Pub/Sub)</h3>
+                    <p><strong>Service:</strong> Cloud Pub/Sub</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">pricePerGiB</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Throughput cost per GiB.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">pricePerDeviceAndMonth</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Cost per active device (if applicable).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Cloud Functions -->
+                    <h3 class="mt-4 mb-2 text-primary">Serverless Compute</h3>
+                    <p><strong>Service:</strong> Cloud Functions</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">requestPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per invocation.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">durationPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per GB-second.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">freeRequests</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>2 million free invocations/month.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">freeComputeTime</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>400,000 GB-seconds free/month.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Firestore -->
+                    <h3 class="mt-4 mb-2 text-primary">NoSQL Database</h3>
+                    <p><strong>Service:</strong> Cloud Firestore</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">readPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per document read.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">writePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per document write.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">storagePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per GB-month.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">freeStorage</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>1 GiB free storage.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Cloud Storage (Nearline) -->
+                    <h3 class="mt-4 mb-2 text-primary">Object Storage (Cool)</h3>
+                    <p><strong>Service:</strong> Cloud Storage (Nearline)</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">storagePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Nearline storage per GB-month.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">upfrontPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Upfront cost (if applicable).</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">requestPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per 10,000 requests.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">dataRetrievalPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per GB retrieval.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Cloud Storage (Archive) -->
+                    <h3 class="mt-4 mb-2 text-primary">Object Storage (Archive)</h3>
+                    <p><strong>Service:</strong> Cloud Storage (Archive)</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">storagePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Archive storage per GB-month.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">lifecycleAndWritePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Lifecycle transitions and writes.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">dataRetrievalPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per GB retrieval.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- API Gateway -->
+                    <h3 class="mt-4 mb-2 text-primary">Data Access</h3>
+                    <p><strong>Service:</strong> API Gateway</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">pricePerMillionCalls</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per million calls.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">dataTransferOutPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Standard egress rates apply.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Cloud Scheduler -->
+                    <h3 class="mt-4 mb-2 text-primary">Orchestration</h3>
+                    <p><strong>Service:</strong> Cloud Scheduler</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">jobPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per job per month.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Cloud Workflows -->
+                    <h3 class="mt-4 mb-2 text-primary">Orchestration</h3>
+                    <p><strong>Service:</strong> Cloud Workflows</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">stepPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Per 1,000 steps.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- TwinMaker -->
+                    <h3 class="mt-4 mb-2 text-primary">IoT TwinMaker (Self-Hosted)</h3>
+                    <p><strong>Service:</strong> Compute Engine (e2-medium)</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">e2MediumPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Hourly price for e2-medium instance.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">storagePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Standard Persistent Disk per GB-month.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">entityPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Per entity (if applicable).</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">unifiedDataAccessAPICallsPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Per API call.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">queryPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Per query.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Grafana -->
+                    <h3 class="mt-4 mb-2 text-primary">Managed Grafana (Self-Hosted)</h3>
+                    <p><strong>Service:</strong> Compute Engine (e2-medium)</p>
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Source</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">e2MediumPrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Hourly price for e2-medium instance.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">storagePrice</td>
+                                <td><span class="badge text-bg-success">Fetched</span></td>
+                                <td>Standard Persistent Disk per GB-month.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">editorPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Per editor user.</td>
+                            </tr>
+                            <tr>
+                                <td class="mono">viewerPrice</td>
+                                <td><span class="badge text-bg-warning">Static</span></td>
+                                <td>Per viewer user.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                </div>
+            </div>
+
+
+            <!-- High Volume Cost Warning -->
+            <div class="card mb-4 border-warning">
+                <div class="card-header bg-warning-subtle text-warning-emphasis">
+                    <h2 class="h5 mb-0"><i class="fa-solid fa-triangle-exclamation me-2"></i>High Usage & Cost Anomalies
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Startups and small projects often use <strong>Standard Plan</strong> serverless services (e.g.,
+                        Cloud Workflows)
+                        successfully. However, at massive scale (e.g., <strong>billions</strong> of messages per month),
+                        these standard
+                        tiers can become prohibitively expensive.
+                    </p>
+
+                    <p class="mb-0">
+                        <strong>Example:</strong> For 30,000 devices sending every 6 seconds (~13 billion
+                        messages/month),
+                        using <strong>Cloud Workflows</strong> would theoretically cost <strong>millions of
+                            dollars</strong> due to per-step pricing.
+                        <br>
+                        <em>Twin2Clouds calculates the "list price" cost. In a real-world high-volume scenario, you
+                            would architect differently
+                            (e.g., batch processing with Dataflow) or negotiate an Enterprise Agreement, which is not
+                            reflected here.</em>
+                    </p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    <script src="../js/docs-nav.js" defer></script>
+</body>
+
+</html>

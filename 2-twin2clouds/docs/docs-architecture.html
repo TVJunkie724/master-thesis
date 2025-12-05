@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Architecture Overview — Twin2Clouds Documentation</title>
+    <link rel="icon" type="image/x-icon" href="../references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/docs_styles.css" />
+</head>
+
+<body>
+
+    <div class="layout">
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+            <h1 class="mb-3">
+                <i class="fa-solid fa-sitemap me-2"></i> Architecture Overview
+            </h1>
+
+            <p class="text-muted mb-4">
+                High-level design of the Twin2Clouds optimization engine and its integration within the Digital Twin
+                ecosystem.
+            </p>
+
+            <!-- System Context -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-project-diagram me-2"></i>System Context</h2>
+                    <p>
+                        Twin2Clouds sits between the user's requirements and the infrastructure deployment.
+                        It transforms abstract requirements into a concrete, cost-optimized deployment plan.
+                    </p>
+
+                    <div class="p-3 bg-dark rounded text-center mb-3" style="font-family: monospace; color: #a5b4fc;">
+                        User Requirements <i class="fa-solid fa-arrow-right mx-2 text-muted"></i>
+                        <strong>Twin2Clouds (Optimizer)</strong> <i class="fa-solid fa-arrow-right mx-2 text-muted"></i>
+                        JSON Configuration <i class="fa-solid fa-arrow-right mx-2 text-muted"></i>
+                        <a href="../../3-cloud-deployer/docs/docs-overview.html" class="text-info">Cloud Deployer</a> <i
+                            class="fa-solid fa-arrow-right mx-2 text-muted"></i>
+                        Multi-Cloud Infrastructure
+                    </div>
+
+                    <p><strong>Key Outputs:</strong></p>
+                    <ul>
+                        <li><code>config_providers.json</code>: Maps each architectural layer (L1-L5) to the cheapest
+                            cloud
+                            provider (AWS, Azure, or GCP).</li>
+                        <li><code>config.json</code>: Global parameters (e.g., storage retention periods).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- System Overview -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-diagram-project me-2"></i>System Overview</h2>
+                    <p>
+                        Twin2Clouds implements a <strong>5-layer Digital Twin architecture</strong> designed to optimize
+                        cost by selecting the most cost-effective cloud provider for each architectural layer. The
+                        system
+                        evaluates AWS, Azure, and Google Cloud Platform (GCP) services and determines the optimal
+                        configuration based on given workload parameters.
+                    </p>
+                    <img src="../references/layer_architecture_overview_1763755975125.png"
+                        alt="5-Layer Architecture Diagram" class="img-fluid rounded shadow mt-3"
+                        style="max-width: 100%;">
+                </div>
+            </div>
+
+            <!-- Layer Descriptions -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-layer-group me-2"></i>Architecture Layers</h2>
+
+                    <h3 class="mt-4 mb-2"><i class="fa-solid fa-1 me-2 text-primary"></i>Layer 1: Data Acquisition &
+                        Processing</h3>
+                    <p><strong>Purpose:</strong> Ingest and process telemetry data from IoT devices.</p>
+                    <p><strong>Services:</strong></p>
+                    <ul>
+                        <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> IoT Core</li>
+                        <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> IoT Hub</li>
+                        <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Cloud IoT Core</li>
+                    </ul>
+                    <p><strong>Cost Factors:</strong></p>
+                    <ul>
+                        <li>Number of connected devices</li>
+                        <li>Message frequency (messages per month)</li>
+                        <li>Data ingestion volume</li>
+                        <li>Rules engine operations</li>
+                    </ul>
+
+                    <h3 class="mt-4 mb-2"><i class="fa-solid fa-2 me-2 text-primary"></i>Layer 2: Storage</h3>
+                    <p><strong>Purpose:</strong> Store telemetry data with different access patterns and retention
+                        policies.
+                    </p>
+                    <p>Storage is divided into three tiers based on access frequency:</p>
+
+                    <h4 class="mt-3"><strong>Hot Storage</strong> (Frequent Access)</h4>
+                    <p><strong>Services:</strong></p>
+                    <ul>
+                        <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> DynamoDB</li>
+                        <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> CosmosDB</li>
+                        <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Firestore</li>
+                    </ul>
+                    <p><strong>Use Case:</strong> Recent data requiring low-latency access (e.g., last 1-3 months)</p>
+
+                    <h4 class="mt-3"><strong>Cool Storage</strong> (Infrequent Access)</h4>
+                    <p><strong>Services:</strong></p>
+                    <ul>
+                        <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> S3 Infrequent Access
+                        </li>
+                        <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Blob Storage (Cool
+                            Tier)</li>
+                        <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Cloud Storage
+                            (Nearline)
+                        </li>
+                    </ul>
+                    <p><strong>Use Case:</strong> Historical data accessed occasionally (e.g., 3-12 months)</p>
+
+                    <h4 class="mt-3"><strong>Archive Storage</strong> (Rare Access)</h4>
+                    <p><strong>Services:</strong></p>
+                    <ul>
+                        <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> S3 Glacier Deep Archive
+                        </li>
+                        <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Blob Storage
+                            (Archive
+                            Tier)</li>
+                        <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Cloud Storage
+                            (Archive)
+                        </li>
+                    </ul>
+                    <p><strong>Use Case:</strong> Long-term archival data (e.g., 12+ months)</p>
+
+                    <h3 class="mt-4 mb-2"><i class="fa-solid fa-3 me-2 text-primary"></i>Layer 3: Data Processing &
+                        Integration</h3>
+                    <p><strong>Purpose:</strong> Process, transform, and route data between storage tiers.</p>
+                    <p><strong>Services:</strong></p>
+                    <ul>
+                        <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> Lambda</li>
+                        <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Azure Functions
+                        </li>
+                        <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Cloud Functions</li>
+                    </ul>
+                    <p><strong>Cost Factors:</strong></p>
+                    <ul>
+                        <li>Number of function invocations</li>
+                        <li>Compute time (GB-seconds)</li>
+                        <li>Memory allocation</li>
+                    </ul>
+                    <p><strong>Note:</strong> Layer 3 is coupled with the provider selected for Layer 2 Hot Storage to
+                        minimize data transfer costs.</p>
+
+                    <h3 class="mt-4 mb-2"><i class="fa-solid fa-4 me-2 text-primary"></i>Layer 4: Twin Management</h3>
+                    <p><strong>Purpose:</strong> Manage 3D models and digital twin representations.</p>
+                    <p><strong>Services:</strong></p>
+                    <ul>
+                        <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> IoT TwinMaker</li>
+                        <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Azure Digital Twins
+                        </li>
+                        <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Self-hosted
+                            equivalent
+                        </li>
+                    </ul>
+                    <p><strong>Cost Factors:</strong></p>
+                    <ul>
+                        <li>Number of 3D entities</li>
+                        <li>API calls for data access</li>
+                        <li>Query operations</li>
+                    </ul>
+                    <p><strong>Note:</strong> This layer is optional and only included if 3D models are required.</p>
+
+                    <h3 class="mt-4 mb-2"><i class="fa-solid fa-5 me-2 text-primary"></i>Layer 5: Data Visualization
+                    </h3>
+                    <p><strong>Purpose:</strong> Provide dashboards and visualization for operators.</p>
+                    <p><strong>Services:</strong></p>
+                    <ul>
+                        <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> Amazon Managed Grafana
+                        </li>
+                        <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Azure Managed
+                            Grafana
+                        </li>
+                        <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Self-hosted Grafana
+                            (Note: Cost model is currently a placeholder)</li>
+                    </ul>
+                    <p><strong>Cost Factors:</strong></p>
+                    <ul>
+                        <li>Number of editor users</li>
+                        <li>Number of viewer users</li>
+                        <li>Dashboard refresh frequency</li>
+                        <li>Active hours per day</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Supporting Services -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-puzzle-piece me-2"></i>Supporting Services</h2>
+                    <p>
+                        Beyond the core 5 layers, the architecture relies on essential supporting services to ensure
+                        security, scalability, and orchestration. These are enabled via specific <strong>conditional
+                            flags</strong>
+                        in the configuration (e.g., <code>useEventChecking</code>,
+                        <code>triggerNotificationWorkflow</code>).
+                    </p>
+
+                    <h3 class="mt-4 mb-2 text-primary">Data Access & Security</h3>
+                    <p><strong>Purpose:</strong> Secure entry points for external applications and user management.</p>
+                    <ul>
+                        <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS API Gateway:</strong> Managed REST
+                            APIs.</li>
+                        <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure API Management:</strong> API
+                            gateway and portal.</li>
+                        <li><i class="fa-brands fa-google text-success"></i> <strong>GCP API Gateway:</strong> Fully
+                            managed gateway.</li>
+                    </ul>
+
+                    <h3 class="mt-4 mb-2 text-primary">Event Bus</h3>
+                    <p><strong>Purpose:</strong> Decoupling services via asynchronous event messaging.</p>
+                    <ul>
+                        <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS EventBridge:</strong> Serverless
+                            event bus.</li>
+                        <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure Event Grid:</strong> Managed
+                            event routing.</li>
+                        <li><i class="fa-brands fa-google text-success"></i> <strong>GCP Pub/Sub:</strong> Global
+                            messaging and event streaming.</li>
+                    </ul>
+
+                    <h3 class="mt-4 mb-2 text-primary">Orchestration</h3>
+                    <p><strong>Purpose:</strong> Managing stateful workflows and complex business logic.</p>
+                    <ul>
+                        <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS Step Functions:</strong> Visual
+                            workflow orchestration.</li>
+                        <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure Logic Apps:</strong>
+                            Automated workflows and integrations.</li>
+                        <li><i class="fa-brands fa-google text-success"></i> <strong>GCP Cloud Workflows:</strong>
+                            Orchestrate microservices.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Service Selection Rationale -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-check-double me-2"></i>Service Selection Rationale</h2>
+                    <p>
+                        Specific cloud services were chosen over alternatives within the same provider to optimize for
+                        <strong>cost, scalability, and operational simplicity</strong>. The following tables detail the
+                        decision-making process for both core and supporting layers.
+                    </p>
+
+                    <h3 class="mt-4 mb-2"><i class="fa-brands fa-aws text-warning me-2"></i>AWS</h3>
+                    <table class="table table-bordered table-hover">
+                        <thead>
+                            <tr>
+                                <th>Selected Service</th>
+                                <th>Alternative Considered</th>
+                                <th>Reason for Selection</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Core Layers -->
+                            <tr>
+                                <td><strong>IoT Core</strong></td>
+                                <td>Kinesis Data Streams</td>
+                                <td>
+                                    <strong>IoT-Specific Features:</strong> IoT Core provides a native MQTT broker,
+                                    Device Shadows, and a Registry, which are essential for managing millions of
+                                    intermittent device connections. Kinesis is a raw data streaming service that lacks
+                                    these device management capabilities and would require building a custom MQTT
+                                    frontend.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>DynamoDB</strong></td>
+                                <td>RDS / Aurora</td>
+                                <td>
+                                    <strong>Schema Flexibility & Scaling:</strong> Telemetry data often varies in
+                                    structure. DynamoDB's NoSQL model handles this flexibility effortlessly.
+                                    Furthermore, its serverless provisioned/on-demand capacity scales to zero or
+                                    millions of requests without the connection limit bottlenecks or idle instance costs
+                                    associated with relational databases like RDS.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Lambda</strong></td>
+                                <td>EC2 / Fargate</td>
+                                <td>
+                                    <strong>Event-Driven Efficiency:</strong> Lambda incurs zero cost when idle, making
+                                    it perfect for sporadic IoT events. It integrates natively with S3 and DynamoDB
+                                    triggers. Using EC2 or Fargate would require maintaining running instances
+                                    (incurring minimum costs) and managing scaling rules, adding unnecessary operational
+                                    overhead.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>IoT TwinMaker</strong></td>
+                                <td>IoT SiteWise</td>
+                                <td>
+                                    <strong>3D Context:</strong> TwinMaker is specifically designed to bind 3D models to
+                                    IoT data, enabling spatial visualization. SiteWise focuses on hierarchical asset
+                                    modeling and metrics but lacks the native 3D scene composition capabilities required
+                                    for a visual digital twin.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Managed Grafana</strong></td>
+                                <td>QuickSight</td>
+                                <td>
+                                    <strong>Operational vs. BI:</strong> Grafana is optimized for real-time operational
+                                    monitoring with high-frequency refresh rates, which is critical for digital twins.
+                                    QuickSight is a Business Intelligence (BI) tool better suited for historical
+                                    reporting and aggregations.
+                                </td>
+                            </tr>
+                            <!-- Supporting Services -->
+                            <tr>
+                                <td><strong>API Gateway</strong></td>
+                                <td>Application Load Balancer (ALB)</td>
+                                <td>
+                                    <strong>API Management:</strong> While ALB handles HTTP traffic, API Gateway
+                                    provides essential API-first features like usage plans, API keys, throttling, and
+                                    direct integration with Lambda and other AWS services without needing an
+                                    intermediate compute layer.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>EventBridge</strong></td>
+                                <td>SNS (Simple Notification Service)</td>
+                                <td>
+                                    <strong>Content Filtering & Integration:</strong> EventBridge offers advanced
+                                    content-based filtering and a schema registry, allowing for more complex event
+                                    routing patterns than SNS. It also has deeper integration with SaaS partners and AWS
+                                    services for building decoupled event-driven architectures.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Step Functions</strong></td>
+                                <td>Lambda Orchestration</td>
+                                <td>
+                                    <strong>State Management:</strong> Orchestrating complex workflows inside a single
+                                    Lambda function leads to "spaghetti code" and timeout risks. Step Functions provides
+                                    a visual state machine with built-in error handling, retries, and long-running
+                                    execution capabilities, separating workflow logic from business logic.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3 class="mt-4 mb-2"><i class="fa-brands fa-microsoft text-info me-2"></i>Azure</h3>
+                    <table class="table table-bordered table-hover">
+                        <thead>
+                            <tr>
+                                <th>Selected Service</th>
+                                <th>Alternative Considered</th>
+                                <th>Reason for Selection</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Core Layers -->
+                            <tr>
+                                <td><strong>IoT Hub</strong></td>
+                                <td>Event Hubs</td>
+                                <td>
+                                    <strong>Bi-Directional Communication:</strong> IoT Hub is designed specifically for
+                                    IoT, supporting Cloud-to-Device (C2D) messaging and device twins. Event Hubs is a
+                                    high-throughput big data ingestion service (similar to Kafka) but lacks the ability
+                                    to send commands back to devices or manage device identity securely.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Cosmos DB</strong></td>
+                                <td>SQL Database / Table Storage</td>
+                                <td>
+                                    <strong>Global Scale & Performance:</strong> Cosmos DB offers turnkey global
+                                    distribution and single-digit millisecond latency guarantees. While Table Storage is
+                                    cheaper, it lacks the indexing capabilities and performance SLAs required for
+                                    real-time digital twin queries. SQL Database struggles with the massive write
+                                    throughput of telemetry without complex sharding.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Azure Functions</strong></td>
+                                <td>App Service</td>
+                                <td>
+                                    <strong>Consumption Pricing:</strong> The Consumption plan allows costs to scale to
+                                    zero when no events are processing. App Service plans require a dedicated VM (even
+                                    if small), incurring fixed monthly costs regardless of traffic, which is less
+                                    efficient for event-driven IoT workloads.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Azure Digital Twins</strong></td>
+                                <td>Cosmos DB (Graph API)</td>
+                                <td>
+                                    <strong>Domain Modeling:</strong> ADT provides a native Digital Twins Definition
+                                    Language (DTDL) and a live execution environment for updating the graph based on
+                                    events. Building a comparable twin engine on raw Cosmos DB Graph API would require
+                                    significant custom development for state management and event propagation.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Managed Grafana</strong></td>
+                                <td>Power BI</td>
+                                <td>
+                                    <strong>Real-Time Visualization:</strong> Similar to AWS, Grafana is chosen for its
+                                    superior handling of real-time time-series data and operational dashboards. Power BI
+                                    is a powerful enterprise reporting tool but is less agile for the sub-second updates
+                                    often desired in twin visualizations.
+                                </td>
+                            </tr>
+                            <!-- Supporting Services -->
+                            <tr>
+                                <td><strong>API Management</strong></td>
+                                <td>Application Gateway</td>
+                                <td>
+                                    <strong>Full Lifecycle Management:</strong> API Management provides a developer
+                                    portal, policy enforcement (rate limiting, auth), and versioning out of the box.
+                                    Application Gateway is primarily a Layer 7 load balancer and lacks these
+                                    developer-centric API governance features.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Event Grid</strong></td>
+                                <td>Service Bus</td>
+                                <td>
+                                    <strong>Reactive vs. Enterprise Messaging:</strong> Event Grid is designed for
+                                    high-scale, low-latency "push" event routing (reactive). Service Bus is for "pull"
+                                    enterprise messaging (queues/topics) with transactional guarantees. For triggering
+                                    functions based on state changes, Event Grid's lightweight push model is more
+                                    efficient and cost-effective.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Logic Apps</strong></td>
+                                <td>Durable Functions</td>
+                                <td>
+                                    <strong>Visual Integration:</strong> Logic Apps offers a low-code, visual designer
+                                    with hundreds of pre-built connectors (Office 365, Salesforce, etc.), making it
+                                    superior for integration-heavy workflows. Durable Functions requires writing code
+                                    for orchestration, which is better for complex compute problems but overkill for
+                                    standard business process automation.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3 class="mt-4 mb-2"><i class="fa-brands fa-google text-success me-2"></i>Google Cloud</h3>
+                    <table class="table table-bordered table-hover">
+                        <thead>
+                            <tr>
+                                <th>Selected Service</th>
+                                <th>Alternative Considered</th>
+                                <th>Reason for Selection</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Core Layers -->
+                            <tr>
+                                <td><strong>Cloud Pub/Sub</strong></td>
+                                <td>Direct HTTP Ingestion</td>
+                                <td>
+                                    <strong>Decoupling & Reliability:</strong> Direct HTTP ingestion couples the device
+                                    directly to the processing logic, creating a bottleneck and risk of data loss during
+                                    spikes. Pub/Sub acts as a global, durable buffer that absorbs traffic spikes and
+                                    allows multiple downstream services to consume the same data stream independently.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Firestore</strong></td>
+                                <td>Cloud SQL / Bigtable</td>
+                                <td>
+                                    <strong>Serverless & Mobile-First:</strong> Firestore provides a serverless document
+                                    model that scales automatically. Cloud SQL requires instance management and
+                                    connection pooling. Bigtable is excellent for petabyte-scale data but has a high
+                                    minimum cost (nodes) that makes it prohibitively expensive for smaller or variable
+                                    digital twin deployments.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Cloud Functions</strong></td>
+                                <td>Cloud Run</td>
+                                <td>
+                                    <strong>Simplicity:</strong> For simple, single-purpose event handlers (e.g., "on
+                                    database write, do X"), Cloud Functions offers a simpler deployment model with less
+                                    configuration than containerizing an application for Cloud Run. (Note: Cloud Run is
+                                    a valid alternative for more complex microservices).
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Self-Hosted Custom</strong></td>
+                                <td>Supply Chain Twin</td>
+                                <td>
+                                    <strong>Flexibility:</strong> GCP lacks a general-purpose Digital Twin service.
+                                    Industry-specific solutions like Supply Chain Twin are too rigid for general use
+                                    cases. A custom solution using Firestore and Cloud Functions provides the necessary
+                                    flexibility to model any domain.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Self-Hosted Grafana</strong></td>
+                                <td>Cloud Monitoring / Looker</td>
+                                <td>
+                                    <strong>Unified Visualization:</strong> Cloud Monitoring is infrastructure-focused,
+                                    and Looker is for BI. Self-hosting Grafana (e.g., on Cloud Run) allows for a
+                                    unified, customizable operational dashboard that matches the capabilities of the
+                                    managed Grafana services on AWS and Azure.
+                                </td>
+                            </tr>
+                            <!-- Supporting Services -->
+                            <tr>
+                                <td><strong>API Gateway</strong></td>
+                                <td>Cloud Endpoints</td>
+                                <td>
+                                    <strong>Managed Service:</strong> API Gateway is a fully managed service that is
+                                    easier to set up for serverless backends (Functions, Run). Cloud Endpoints often
+                                    requires deploying an ESP (Extensible Service Proxy) container sidecar, adding
+                                    operational complexity for simple serverless APIs.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Cloud Workflows</strong></td>
+                                <td>Cloud Composer (Airflow)</td>
+                                <td>
+                                    <strong>Low Latency Orchestration:</strong> Cloud Workflows is serverless, has no
+                                    cold starts, and is designed for low-latency service orchestration. Cloud Composer
+                                    is a managed Airflow environment designed for heavy data engineering pipelines; it
+                                    is slow to start, expensive (requires running environment), and overkill for API
+                                    orchestration.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Cloud Provider Mapping -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-cloud me-2"></i>Cloud Provider Service Mapping</h2>
+                    <p>The following table shows how cloud services are mapped across providers for each layer:</p>
+                    <img src="../references/provider_service_mapping_v6.png" alt="Provider Service Mapping"
+                        class="img-fluid rounded shadow mt-3" style="max-width: 100%;">
+                </div>
+            </div>
+
+            <!-- Cost Optimization Strategy -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-chart-line me-2"></i>Cost Optimization Strategy</h2>
+                    <p>Twin2Clouds uses a sophisticated decision engine to determine the optimal cloud provider for each
+                        layer. The optimization process follows a strict <strong>dependency chain</strong>:</p>
+
+                    <h3 class="mb-2 mt-4 text-primary">Step 1: Global L2+L3
+                        Optimization (The Hot Path)</h3>
+                    <p>
+                        The engine <strong>first</strong> calculates the cheapest combination of Layer 2 Hot Storage and
+                        Layer 3 Data Processing for a single
+                        "active month". This is the most critical decision because high-frequency data processing and
+                        hot actions create the strongest "Data Gravity."
+                    </p>
+                    <div class="alert border">
+                        <strong>Why start here?</strong> Moving large volumes of hot data across clouds for every
+                        processing event would be prohibitively expensive due to egress costs.
+                        Therefore, Layer 3 is tightly coupled to the Layer 2 Hot Storage provider.
+                    </div>
+                    <p>
+                        The result of this step determines the <strong>Primary Cloud Provider</strong> (the Anchor),
+                        which is then locked in for:
+                    </p>
+                    <ul>
+                        <li><i class="fa-solid fa-lock me-2 text-muted"></i>Layer 2 Hot Storage</li>
+                        <li><i class="fa-solid fa-lock me-2 text-muted"></i>Layer 3 Processing</li>
+                    </ul>
+
+                    <h3 class="mb-2 mt-4 text-primary">Step 2: Full Path Storage
+                        Optimization</h3>
+                    <p>
+                        Once the "Hot Data Anchor" is fixed (from Step 1), the engine calculates the cheapest full
+                        lifecycle path for the data (Hot &rarr; Cool &rarr; Archive).
+                        It uses a graph-based pathfinder to evaluate every possible transition.
+                    </p>
+                    <p><strong>The Lookahead Logic:</strong></p>
+                    <ul>
+                        <li>The <strong>Start Node</strong> is fixed to the Hot Storage provider chosen in Step 1.</li>
+                        <li>The system explores moving data to <strong>any</strong> cloud for Cool Storage and
+                            <strong>any</strong> cloud for Archive Storage.
+                        </li>
+                        <li>It weighs the <strong>Storage Savings</strong> of moving to a cheaper tier against the
+                            one-time
+                            <strong>Transfer Costs</strong> (Retrieval + Egress).
+                        </li>
+                    </ul>
+                    <p>
+                        Example outcome: <span class="badge bg-light text-dark">AWS Hot (Locked)</span> &rarr; <span
+                            class="badge bg-light text-dark">GCP Cool (Cheaper Storage)</span> &rarr; <span
+                            class="badge bg-light text-dark">AWS Archive (Deep Archive)</span>.
+                    </p>
+
+                    <h3 class="mb-2 mt-4 text-primary">Step 3: Independent Layers</h3>
+                    <p>
+                        Finally, Layer 4 (Twin Management) and Layer 5 (Visualization) are calculated relatively
+                        independently.
+                        However, if they differ from the Layer 3 provider, "Glue Code" costs (API Gateways, etc.) are
+                        added to bridge the data gap.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Data Flow -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-flow me-2"></i>Data Flow</h2>
+                    <p>The typical data flow through the system:</p>
+                    <ol>
+                        <li><strong>Ingestion:</strong> IoT devices send telemetry to Layer 1 (IoT Hub/Core)</li>
+                        <li><strong>Processing:</strong> Layer 3 serverless functions process and validate the data</li>
+                        <li><strong>Hot Storage:</strong> Recent data is stored in Layer 2 Hot
+                            (DynamoDB/CosmosDB/Firestore)
+                        </li>
+                        <li><strong>Tiering:</strong> Data ages and is moved to Cool → Archive storage tiers</li>
+                        <li><strong>Twin Updates:</strong> Layer 4 maintains the digital twin model (if enabled)</li>
+                        <li><strong>Visualization:</strong> Layer 5 dashboards query and display data to users</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Cross-Cloud Considerations -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-shuffle me-2"></i>Cross-Cloud Considerations</h2>
+                    <p>When the optimizer selects services from different cloud providers, it accounts for:</p>
+                    <ul>
+                        <li><strong>Egress Costs:</strong> Data transfer charges when moving data between clouds</li>
+                        <li><strong>Latency:</strong> Network latency between providers (currently not factored into
+                            cost)
+                        </li>
+                        <li><strong>Complexity:</strong> Operational overhead of managing multi-cloud deployments</li>
+                    </ul>
+
+                    <h3 class="mt-4 mb-2 text-primary">Cross-Cloud "Glue" Architecture</h3>
+                    <p>To enable seamless data flow between different cloud providers, Twin2Clouds automatically injects
+                        "glue" components:</p>
+                    <ul>
+                        <li><strong>L1 &rarr; L2 (Ingestion):</strong> When the ingestion layer (L1) and storage layer
+                            (L2)
+                            are on different clouds, a <strong>Connector Function</strong> (in L1) and an
+                            <strong>Ingestion
+                                Function</strong> (in L2) are added to securely bridge the gap.
+                        </li>
+                        <li><strong>L3 &rarr; L4/L5 (Visualization):</strong> When the processing layer (L3) differs
+                            from
+                            visualization layers, an <strong>API Gateway</strong> and <strong>Reader Function</strong>
+                            are
+                            deployed to expose data securely to the external dashboards.</li>
+                    </ul>
+                    <p>
+                        <a href="docs-calculation-logic.html#glue-code-logic" class="btn btn-sm btn-outline-primary">
+                            <i class="fa-solid fa-calculator me-1"></i> View Glue Code Cost Logic
+                        </a>
+                    </p>
+
+                    <p class="alert alert-info mt-3">
+                        <i class="fa-solid fa-info-circle me-2"></i>
+                        <strong>Note:</strong> The current optimization focuses purely on cost. In production
+                        deployments,
+                        latency requirements should also be considered, as well as data sovereignty and operational
+                        complexity.
+                    </p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    <script src="../js/docs-nav.js" defer></script>
+</body>
+
+</html>

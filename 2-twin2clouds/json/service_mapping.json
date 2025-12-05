@@ -1,0 +1,62 @@
+{
+  "functions": {
+    "aws": "AWSLambda",
+    "azure": "Functions",
+    "gcp": "CloudFunctions"
+  },
+  "storage_cool": {
+    "aws": "AmazonS3",
+    "azure": "Storage",
+    "gcp": "CloudStorageNearline"
+  },
+  "storage_archive": {
+    "aws": "AmazonS3",
+    "azure": "Storage",
+    "gcp": "CloudStorageArchive"
+  },
+  "iot": {
+    "aws": "AWSIoT",
+    "azure": "IoT Hub",
+    "gcp": "CloudPubSub"
+  },
+  "storage_hot": {
+    "aws": "AmazonDynamoDB",
+    "azure": "Azure Cosmos DB",
+    "gcp": "Firestore"
+  },
+  "twinmaker": {
+    "aws": "IOTTwinMaker",
+    "azure": "Digital Twins",
+    "gcp": "ComputeEngine"
+  },
+  "grafana": {
+    "aws": "AmazonManagedGrafana",
+    "azure": "Grafana",
+    "gcp": "ComputeEngine"
+  },
+  "event_bus": {
+    "aws": "AWSEvents",
+    "azure": "Event Grid",
+    "gcp": "CloudPubSub"
+  },
+  "orchestration": {
+    "aws": "AmazonStates",
+    "azure": "Logic Apps",
+    "gcp": "CloudWorkflows"
+  },
+  "data_access": {
+    "aws": "AmazonAPIGateway",
+    "azure": "API Management",
+    "gcp": "ApiGateway"
+  },
+  "scheduler": {
+    "aws": "AWSEvents",
+    "azure": "",
+    "gcp": "CloudScheduler"
+  },
+  "transfer": {
+    "aws": "AWSDataTransfer",
+    "azure": "Bandwidth",
+    "gcp": "ComputeEngine"
+  }
+}
