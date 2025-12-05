@@ -149,3 +149,59 @@ def test_aws_s3_formula():
     expected_cost = 1.25 + 20.48 + 1.10
     
     assert result["totalMonthlyCost"] == pytest.approx(expected_cost, rel=1e-5)
+
+def test_aws_iot_twin_maker_formula():
+    # Formula:
+    # Entities: N_entity * c_entity
+    # API: N_msg * c_api
+    # Queries: N_query * c_query
+    # Storage: (N_entity * Size_avg) * c_storage
+    
+    entity_count = 100
+    devices = 10
+    interval = 1 # min
+    
+    # Messages: 10 * 60 * 730 = 438,000 (Use 730 or 720? Code uses 24*30=720)
+    # aws.py:349: number_of_devices * (1.0 / interval) * 60 * 24 * 30
+    # = 10 * 60 * 720 = 432,000
+    expected_messages = 432000
+    
+    # Queries: Active * Refreshes * 30
+    dashboard_refreshes = 1
+    active_hours = 1
+    # 1 * 1 * 30 = 30 queries
+    expected_queries = 30
+    
+    avg_3d_model_size_mb = 100
+    # Storage: 100 * 100 MB = 10,000 MB = 9.765625 GB
+    expected_storage_gb = 9.765625
+    
+    pricing = {
+        "aws": {
+            "iotTwinMaker": {
+                "entityPrice": 0.5,
+                "unifiedDataAccessAPICallsPrice": 0.000001, # Per request?
+                "queryPrice": 0.000002,
+                "pricePerVideo": 0.0,
+                "pricePerMessage": 0.0
+            },
+            "s3InfrequentAccess": {
+                "storagePrice": 0.02
+            }
+        }
+    }
+    
+    result = aws.calculate_aws_iot_twin_maker_cost(
+        entity_count, devices, interval, 
+        dashboard_refreshes, active_hours, avg_3d_model_size_mb, pricing
+    )
+    
+    # Cost Calc:
+    # Entity: 100 * 0.5 = 50.0
+    # API: 432,000 * 0.000001 = 0.432
+    # Query: 30 * 0.000002 = 0.00006
+    # Storage: 9.765625 * 0.02 = 0.1953125
+    
+    expected_cost = 50.0 + 0.432 + 0.00006 + 0.1953125
+    
+    assert result["totalMonthlyCost"] == pytest.approx(expected_cost, rel=1e-5)

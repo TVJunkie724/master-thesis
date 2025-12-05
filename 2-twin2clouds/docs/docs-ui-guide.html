@@ -113,6 +113,7 @@
             <!-- Results -->
             <div class="card mb-4">
                 <div class="card-body">
+
                     <h2 class="mb-3"><i class="fa-solid fa-chart-pie me-2"></i>Interpreting Results</h2>
                     <p>
                         Click <strong>Calculate Cost</strong> to run the optimization. The results section will display:
@@ -126,6 +127,36 @@
                         </li>
                         <li><strong>Cost Breakdown:</strong> Detailed costs for AWS, Azure, and GCP for comparison.</li>
                     </ul>
+
+                    <h3 class="mt-4 text-primary" id="optimization-notes">Optimization Notes (Glue Code)</h3>
+                    <p>
+                        If the optimal architecture spans multiple clouds (e.g., AWS IoT &rarr; Azure Storage), the UI
+                        displays
+                        <strong>Optimization Notes</strong> tables. These highlight the "hidden" costs of cross-cloud
+                        integration:
+                    </p>
+
+                    <div class="card border mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title text-muted"> <i class="fa-solid fa-table me-2"></i>Table Logic</h5>
+                            <p class="card-text">
+                                When <strong>Provider A (Source)</strong> sends data to <strong>Provider B
+                                    (Destination)</strong>, specific intermediate resources are required:
+                            </p>
+                            <ul>
+                                <li><strong>Egress Traffic:</strong> Cost to send data out of the source cloud via the
+                                    internet.</li>
+                                <li><strong>Connector Function:</strong> A serverless function (Lambda/Azure
+                                    Function/Cloud Function) at the source to read/push data.</li>
+                                <li><strong>Ingestion Function:</strong> A serverless function at the destination to
+                                    receive/write data.</li>
+                            </ul>
+                            <p class="card-text small text-muted">
+                                <em>The "Optimization Note" table explicitly lists these add-on costs so you can see why
+                                    a multi-cloud option might be more expensive than expected.</em>
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
 

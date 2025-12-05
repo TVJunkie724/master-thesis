@@ -69,7 +69,7 @@ def test_azure_functions_formula():
     # Compute: 7300 * 0.1 * 0.001 * (128/1024) = 91.25 GB-s
     # Duration Cost: 91.25 * 0.000016 = 0.00146
     
-    expected_cost = 1460 + 0.00146
+    expected_cost = (7300 / 1000000 * 0.20) + 0.00146
     
     assert result["totalMonthlyCost"] == pytest.approx(expected_cost, rel=1e-5)
 
@@ -148,5 +148,70 @@ def test_azure_blob_formula():
     # Cost Retrieval: 110 * 0.01 = 1.1
     
     expected_cost = 1.0 + 51.2 + 0.4096 + 1.1
+    
+    assert result["totalMonthlyCost"] == pytest.approx(expected_cost, rel=1e-5)
+
+def test_azure_digital_twins_formula():
+    # Formula: 
+    # Messages: (Total / 1000) * c_msg
+    # Operations: Size_KB * (Queries / 1000) * c_op (Is this right? Code check)
+    # Queries: Units * c_query * (Queries / 1000)
+    # Storage: (Entity * Size_avg) * c_storage
+    
+    entity_count = 100
+    devices = 10
+    interval = 1
+    
+    # Messages: 10 * 60 * 720 = 432,000
+    expected_messages = 432000
+    
+    dashboard_refreshes = 1
+    active_hours = 1
+    # Queries: 30
+    expected_queries = 30
+    
+    avg_3d_model_size_mb = 100
+    # Storage: 9.765625 GB
+    
+    pricing = {
+        "azure": {
+            "azureDigitalTwins": {
+                "messagePrice": 0.10, # Per 1000 messages (as per code division)
+                "operationPrice": 0.05,
+                "queryPrice": 0.50,
+                "queryUnitTiers": [
+                    {"lower": 0, "upper": 100, "value": 500} # 500 QUs
+                ]
+            },
+            "blobStorageCool": {
+                "storagePrice": 0.02
+            }
+        }
+    }
+    
+    message_size = 1.5 # KB
+    
+    result = azure.calculate_azure_digital_twins_cost(
+        devices, interval, message_size,
+        dashboard_refreshes, active_hours,
+        entity_count, avg_3d_model_size_mb, pricing
+    )
+    
+    # Cost Calc:
+    # Messages: (432,000 / 1000) * 0.10 = 432 * 0.10 = 43.2
+    
+    # Operation (Query overhead based on message size?): 
+    # Code: math.ceil(message_size) * (queries / 1000) * operation
+    # ceil(1.5) = 2
+    # queries / 1000 = 0.03
+    # 2 * 0.03 * 0.05 = 0.003
+    
+    # Query Units:
+    # 500 units * 0.50 * 0.03 = 7.5
+    
+    # Storage:
+    # 9.765625 * 0.02 = 0.1953125
+    
+    expected_cost = 43.2 + 0.003 + 7.5 + 0.1953125
     
     assert result["totalMonthlyCost"] == pytest.approx(expected_cost, rel=1e-5)

@@ -46,7 +46,7 @@ app = FastAPI(
         "<ul><li><a href=\"/ui\" target=\"_blank\"><strong>Open Web UI</strong></a></br>"
         "  The graphical Twin2Clouds interface for configuring scenarios.</li></ul>"
         "<h4>📘 Documentation</h4>"
-        "<ul><li><a href=\"/documentation/overview\" target=\"_blank\"><strong>Documentation Overview</strong></a></li></ul>"
+        "<ul><li><a href=\"/documentation/docs-overview.html\" target=\"_blank\"><strong>Documentation Overview</strong></a></li></ul>"
     ),
     openapi_tags=[
         # {"name": "WebUI", "description": "Endpoints for serving the web-based user interface."},
@@ -132,7 +132,7 @@ class CalcParams(BaseModel):
 app.mount("/js", StaticFiles(directory="js"), name="js")
 app.mount("/css", StaticFiles(directory="css"), name="css")
 app.mount("/json", StaticFiles(directory="json"), name="static-json")
-app.mount("/docs", StaticFiles(directory="docs"), name="docs")
+app.mount("/documentation", StaticFiles(directory="docs"), name="docs")
 app.mount("/references", StaticFiles(directory="references"), name="references")
 
 
@@ -152,49 +152,8 @@ def serve_ui():
     return FileResponse("index.html")
 
 # --------------------------------------------------
-# UI Documentation endpoint
-
-@app.get(
-    "/documentation/overview",
-    tags=["WebUI"],
-    summary="Documentation Overview", include_in_schema=False,
-    description=(
-        "Serves the **Twin2Clouds Documentation Overview** page.<br><br>"
-        "📘 <a href='/documentation/overview' target='_blank'>Open Documentation Overview in a new tab</a><br><br>"
-        "Provides navigation to AWS, Azure, and Google Cloud pricing schema documentation "
-        "as well as cost formula definitions."
-    ),
-)
-def serve_docs_overview():
-    return FileResponse("docs/docs-overview.html")
-
-
-@app.get(
-    "/documentation/aws_pricing",
-    tags=["WebUI"],
-    summary="AWS Pricing Schema Documentation", include_in_schema=False,
-    description=(
-        "Serves the **AWS Pricing Documentation** page describing how each AWS service "
-        "price is fetched, calculated, or set as static.<br><br>"
-        "📘 <a href='/documentation/aws_pricing' target='_blank'>Open AWS Pricing Documentation in a new tab</a>"
-    ),
-)
-def serve_docs_aws():
-    return FileResponse("docs/docs-aws-pricing.html")
-
-
-@app.get(
-    "/documentation/formulas",
-    tags=["WebUI"],
-    summary="Formulas and Service Mapping Documentation", include_in_schema=False,
-    description=(
-        "Serves the **Formulas Documentation** page detailing all cost calculation formulas, "
-        "parameter definitions, and mapping between services and cost model formulas.<br><br>"
-        "📘 <a href='/documentation/formulas' target='_blank'>Open Formulas Documentation in a new tab</a>"
-    ),
-)
-def serve_docs_formulas():
-    return FileResponse("docs/docs-formulas.html")
+# UI Documentation endpoint - REMOVED (Served statically via /documentation)
+# --------------------------------------------------
 
 # --------------------------------------------------
 # Calculation endpoint

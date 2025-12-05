@@ -65,12 +65,36 @@
                                     <li>Message ingestion costs</li>
                                     <li>Compute execution costs</li>
                                     <li>Storage tier calculations</li>
-                                    <li>Data transfer costs</li>
+                                    <li>L4 Twin services (TwinMaker, Digital Twins)</li>
                                 </ul>
                             </div>
 
                             <div class="mb-4">
-                                <h4 class="h5">2. Schema Validation</h4>
+                                <h4 class="h5">2. Data Transfer Validation</h4>
+                                <p><strong>Purpose:</strong> Validates egress and inter-layer transfer cost
+                                    calculations.</p>
+                                <p><strong>Files:</strong> <code>tests/test_transfer.py</code></p>
+                                <ul>
+                                    <li>Tiered bandwidth limits</li>
+                                    <li>Cross-region transfer costs</li>
+                                    <li>Free tier egress logic</li>
+                                </ul>
+                            </div>
+
+                            <div class="mb-4">
+                                <h4 class="h5">3. Cross-Cloud Glue Code</h4>
+                                <p><strong>Purpose:</strong> Validates costs for connecting different cloud providers.
+                                </p>
+                                <p><strong>Files:</strong> <code>tests/test_l4_glue_code.py</code></p>
+                                <ul>
+                                    <li>Connector functions (L1->L2, L2->L3)</li>
+                                    <li>Ingestion/Writer/Reader proxies</li>
+                                    <li>API Gateway/Management overhead</li>
+                                </ul>
+                            </div>
+
+                            <div class="mb-4">
+                                <h4 class="h5">4. Schema Validation</h4>
                                 <p><strong>Purpose:</strong> Checks JSON structure of the pricing output.</p>
                                 <p><strong>Files:</strong> <code>tests/test_pricing_validation.py</code></p>
                                 <ul>
@@ -80,9 +104,14 @@
                                     <li>Pricing tier structures</li>
                                 </ul>
                             </div>
+                        </div>
+
+                        <!-- Integration Tests Column -->
+                        <div class="col-md-6">
+                            <h3 class="h4 text-success border-bottom pb-2 mb-3">Integration Tests</h3>
 
                             <div class="mb-4">
-                                <h4 class="h5">3. Optimization Algorithms</h4>
+                                <h4 class="h5">5. Optimization Algorithms</h4>
                                 <p><strong>Purpose:</strong> Verifies graph logic and cost minimization.</p>
                                 <p><strong>Files:</strong> <code>tests/test_optimization.py</code></p>
                                 <ul>
@@ -91,14 +120,9 @@
                                     <li>Provider selection across layers</li>
                                 </ul>
                             </div>
-                        </div>
-
-                        <!-- Integration Tests Column -->
-                        <div class="col-md-6">
-                            <h3 class="h4 text-success border-bottom pb-2 mb-3">Integration Tests</h3>
 
                             <div class="mb-4">
-                                <h4 class="h5">4. Dynamic Pricing Integration</h4>
+                                <h4 class="h5">6. Dynamic Pricing Integration</h4>
                                 <p><strong>Purpose:</strong> Tests API fetching and parsing from cloud providers.</p>
                                 <p><strong>Files:</strong> <code>tests/test_calculate_pricing_refactored.py</code></p>
                                 <ul>
@@ -110,7 +134,7 @@
                             </div>
 
                             <div class="mb-4">
-                                <h4 class="h5">5. System Orchestration</h4>
+                                <h4 class="h5">7. System Orchestration</h4>
                                 <p><strong>Purpose:</strong> Tests end-to-end pricing pipeline and error handling.</p>
                                 <p><strong>Files:</strong> <code>tests/test_rest_api_endpoints.py</code></p>
                                 <ul>
@@ -187,6 +211,8 @@ pytest tests/test_optimization.py -v
 ├── test_formulas_aws.py               # AWS cost formula verification
 ├── test_formulas_azure.py             # Azure cost formula verification
 ├── test_formulas_gcp.py               # GCP cost formula verification
+├── test_transfer.py                   # Data transfer cost verification
+├── test_l4_glue_code.py               # Cross-cloud glue code logic
 ├── test_optimization.py               # Decision graph and path optimization
 ├── test_calculate_pricing_refactored.py # Dynamic pricing integration tests
 ├── test_rest_api_endpoints.py         # General API endpoint tests (File Age, Currency)
@@ -200,11 +226,12 @@ pytest tests/test_optimization.py -v
                     <h3 class="h5 mt-4">Test Naming Conventions</h3>
                     <ul>
                         <li><code>test_formulas_*.py</code> - Cost calculation formula tests</li>
+                        <li><code>test_transfer.py</code> - Data transfer logic tests</li>
+                        <li><code>test_l4_glue_code.py</code> - L4 cross-cloud glue code tests</li>
                         <li><code>test_calculate_pricing_refactored.py</code> - Dynamic pricing integration tests</li>
                         <li><code>test_pricing_validation.py</code> - Output schema validation tests</li>
                         <li><code>test_optimization.py</code> - Algorithm and decision logic tests</li>
                         <li><code>test_rest_api_endpoints.py</code> - General API endpoint tests</li>
-                        <li><code>test_rest_api_regions.py</code> - Region fetching tests</li>
                     </ul>
                 </div>
             </div>

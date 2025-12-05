@@ -105,9 +105,14 @@ def test_calculate_cheapest_costs_mocked(mock_validate, mock_load_json, mock_tra
         "dashboardRefreshesPerHour": 1,
         "dashboardActiveHoursPerDay": 8,
         "entityCount": 10,
-        "needs3DModel": False
+        "needs3DModel": False,
+        "average3DModelSizeInMB": 50
     }
-    mock_pricing = {"aws": {"enabled": True}, "azure": {"enabled": True}, "gcp": {"enabled": True}}
+    mock_pricing = {
+        "aws": {"enabled": True, "transfer": {"egressPrice": 0.09}},
+        "azure": {"enabled": True, "transfer": {"pricing_tiers": {"tier1": {"price": 0.087}}}},
+        "gcp": {"enabled": True, "transfer": {"egressPrice": 0.12}}
+    }
     mock_load_json.return_value = mock_pricing
 
     # Helper to create a standard cost result

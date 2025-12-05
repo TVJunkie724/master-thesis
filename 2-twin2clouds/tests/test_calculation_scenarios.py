@@ -115,7 +115,8 @@ def test_supporter_services_costs(mock_validate, mock_load_pricing):
         "returnFeedbackToDevice": True,
         "integrateErrorHandling": True,
         "orchestrationActionsPerMessage": 1,
-        "eventsPerMessage": 1
+        "eventsPerMessage": 1,
+        "average3DModelSizeInMB": 50
     }
 
     result = engine.calculate_cheapest_costs(params)
@@ -177,6 +178,7 @@ def test_cross_cloud_glue_costs(mock_validate, mock_load_pricing):
         "amountOfActiveViewers": 0,
         "dashboardRefreshesPerHour": 1,
         "dashboardActiveHoursPerDay": 1,
+        "average3DModelSizeInMB": 50,
         "currency": "USD"
     }
     

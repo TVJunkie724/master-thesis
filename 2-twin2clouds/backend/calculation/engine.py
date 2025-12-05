@@ -741,8 +741,9 @@ def calculate_cheapest_costs(params, pricing=None):
     # 7. Check for L4 Optimization Override
     l4_optimization_override = None
     
-    # Filter out None/0 costs
-    l4_valid_options = [x for x in l4_detailed_options if x["base_cost"] > 0]
+    # Filter out None/0 costs? No, 0 is a valid cost (Free).
+    # Only filter if we treat 0 as "unavailable". But unavailability is handled by the "if resultL4" check above.
+    l4_valid_options = l4_detailed_options
     
     if l4_valid_options:
         # Sort by BASE cost for override check

@@ -554,39 +554,60 @@
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-chart-line me-2"></i>Cost Optimization Strategy</h2>
                     <p>Twin2Clouds uses a sophisticated decision engine to determine the optimal cloud provider for each
-                        layer:</p>
+                        layer. The optimization process follows a strict <strong>dependency chain</strong>:</p>
 
-                    <h3 class="mb-2 mt-3">Layer 1 & 3 Selection</h3>
+                    <h3 class="mb-2 mt-4 text-primary">Step 1: Global L2+L3
+                        Optimization (The Hot Path)</h3>
                     <p>
-                        The system selects the provider that minimizes the combined cost of data acquisition (L1) and
-                        data
-                        transfer to the selected hot storage provider. Layer 3 is automatically coupled with the Layer 2
-                        hot
-                        storage provider to minimize data movement costs.
+                        The engine <strong>first</strong> calculates the cheapest combination of Layer 2 Hot Storage and
+                        Layer 3 Data Processing for a single
+                        "active month". This is the most critical decision because high-frequency data processing and
+                        hot actions create the strongest "Data Gravity."
                     </p>
-
-                    <h3 class="mb-2 mt-3">Layer 2 Storage Path</h3>
+                    <div class="alert border">
+                        <strong>Why start here?</strong> Moving large volumes of hot data across clouds for every
+                        processing event would be prohibitively expensive due to egress costs.
+                        Therefore, Layer 3 is tightly coupled to the Layer 2 Hot Storage provider.
+                    </div>
                     <p>
-                        The storage layers (Hot → Cool → Archive) are optimized using a graph-based path-finding
-                        algorithm
-                        that considers:
+                        The result of this step determines the <strong>Primary Cloud Provider</strong> (the Anchor),
+                        which is then locked in for:
                     </p>
                     <ul>
-                        <li>Storage costs per GB</li>
-                        <li>Data transfer costs between tiers</li>
-                        <li>Cross-cloud egress charges</li>
-                        <li>Data retrieval prices</li>
+                        <li><i class="fa-solid fa-lock me-2 text-muted"></i>Layer 2 Hot Storage</li>
+                        <li><i class="fa-solid fa-lock me-2 text-muted"></i>Layer 3 Processing</li>
+                    </ul>
+
+                    <h3 class="mb-2 mt-4 text-primary">Step 2: Full Path Storage
+                        Optimization</h3>
+                    <p>
+                        Once the "Hot Data Anchor" is fixed (from Step 1), the engine calculates the cheapest full
+                        lifecycle path for the data (Hot &rarr; Cool &rarr; Archive).
+                        It uses a graph-based pathfinder to evaluate every possible transition.
+                    </p>
+                    <p><strong>The Lookahead Logic:</strong></p>
+                    <ul>
+                        <li>The <strong>Start Node</strong> is fixed to the Hot Storage provider chosen in Step 1.</li>
+                        <li>The system explores moving data to <strong>any</strong> cloud for Cool Storage and
+                            <strong>any</strong> cloud for Archive Storage.
+                        </li>
+                        <li>It weighs the <strong>Storage Savings</strong> of moving to a cheaper tier against the
+                            one-time
+                            <strong>Transfer Costs</strong> (Retrieval + Egress).
+                        </li>
                     </ul>
                     <p>
-                        The system finds the cheapest path through all storage tiers, allowing mixing providers if
-                        beneficial (e.g., AWS Hot → GCP Cool → AWS Archive).
+                        Example outcome: <span class="badge bg-light text-dark">AWS Hot (Locked)</span> &rarr; <span
+                            class="badge bg-light text-dark">GCP Cool (Cheaper Storage)</span> &rarr; <span
+                            class="badge bg-light text-dark">AWS Archive (Deep Archive)</span>.
                     </p>
 
-                    <h3 class="mb-2 mt-3">Layer 4 & 5 Selection</h3>
+                    <h3 class="mb-2 mt-4 text-primary">Step 3: Independent Layers</h3>
                     <p>
-                        Twin Management and Visualization layers are selected independently based on their individual
-                        costs
-                        since they don't have significant data dependencies on other layers.
+                        Finally, Layer 4 (Twin Management) and Layer 5 (Visualization) are calculated relatively
+                        independently.
+                        However, if they differ from the Layer 3 provider, "Glue Code" costs (API Gateways, etc.) are
+                        added to bridge the data gap.
                     </p>
                 </div>
             </div>
@@ -630,7 +651,8 @@
                             (L2)
                             are on different clouds, a <strong>Connector Function</strong> (in L1) and an
                             <strong>Ingestion
-                                Function</strong> (in L2) are added to securely bridge the gap.</li>
+                                Function</strong> (in L2) are added to securely bridge the gap.
+                        </li>
                         <li><strong>L3 &rarr; L4/L5 (Visualization):</strong> When the processing layer (L3) differs
                             from
                             visualization layers, an <strong>API Gateway</strong> and <strong>Reader Function</strong>

@@ -58,8 +58,11 @@
   "integrateErrorHandling": true,
   "orchestrationActionsPerMessage": 3,
   "eventsPerMessage": 1,
-  "apiCallsPerDashboardRefresh": 1
+  "apiCallsPerDashboardRefresh": 1,
+  "average3DModelSizeInMB": 100.0
 }</code></pre>
+                    <small class="text-muted">Note: <code>average3DModelSizeInMB</code> defaults to 100.0 if not
+                        provided.</small>
 
                     <h4 class="mt-3">Response Example</h4>
                     <pre class="p-3 rounded"><code>{
@@ -113,7 +116,7 @@
                         <thead>
                             <tr>
                                 <th style="width: 100px;">Method</th>
-                                <th>Endpoint</th>
+                                <th style="width: 400px;">Endpoint</th>
                                 <th>Description</th>
                             </tr>
                         </thead>
@@ -144,7 +147,7 @@
                         <thead>
                             <tr>
                                 <th style="width: 100px;">Method</th>
-                                <th>Endpoint</th>
+                                <th style="width: 400px;">Endpoint</th>
                                 <th>Description</th>
                             </tr>
                         </thead>
@@ -166,13 +169,6 @@
                         </tbody>
                     </table>
 
-                    <h5 class="mt-3">Response Example (Pricing Age)</h5>
-                    <pre class="p-3 rounded"><code>{
-  "age": "2 days",
-  "status": "valid",      // Options: "valid", "incomplete", "missing", "error"
-  "missing_keys": []      // List of missing schema keys if status is "incomplete"
-}</code></pre>
-
                     <!-- Currency -->
                     <h4 class="mt-4 text-warning"><i class="fa-solid fa-coins me-2"></i>Currency</h4>
                     <p>Manage currency conversion rates (USD/EUR). Rates are cached for <strong>1 day</strong>.</p>
@@ -180,7 +176,7 @@
                         <thead>
                             <tr>
                                 <th style="width: 100px;">Method</th>
-                                <th>Endpoint</th>
+                                <th style="width: 400px;">Endpoint</th>
                                 <th>Description</th>
                             </tr>
                         </thead>
@@ -209,19 +205,11 @@
                         <strong>Warning:</strong> Fetching GCP regions takes about <strong>5-10 minutes</strong>!
                     </div>
 
-                    <div class="alert border mb-3">
-                        <strong>Parameters:</strong>
-                        <ul class="mb-0">
-                            <li><code>force_fetch</code> (bool, default: false) - Ignore cache and force fresh fetch.
-                            </li>
-                        </ul>
-                    </div>
-
                     <table class="table table-hover table-bordered align-middle">
                         <thead>
                             <tr>
                                 <th style="width: 100px;">Method</th>
-                                <th>Endpoint</th>
+                                <th style="width: 400px;">Endpoint</th>
                                 <th>Description</th>
                             </tr>
                         </thead>

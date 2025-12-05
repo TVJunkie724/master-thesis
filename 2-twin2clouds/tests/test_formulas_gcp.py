@@ -123,3 +123,40 @@ def test_gcp_storage_formula():
     # Storage: 100 * 0.02 * 1 = 2.0
     
     assert result["totalMonthlyCost"] == 2.0
+
+def test_gcp_twin_maker_formula():
+    # Formula: Instance + Storage + Model Storage
+    
+    entity_count = 100
+    devices = 10
+    interval = 1
+    dashboard_refreshes = 1
+    active_hours = 1
+    avg_3d_model_size_mb = 100
+    
+    pricing = {
+        "gcp": {
+            "twinmaker": {
+                "e2MediumPrice": 0.04, # Hourly
+                "storagePrice": 0.05   # Disk GB
+            },
+            "storage_cool": {
+                "storagePrice": 0.02   # Bucket GB
+            }
+        }
+    }
+    
+    result = gcp.calculate_gcp_twin_maker_cost(
+        entity_count, devices, interval,
+        dashboard_refreshes, active_hours,
+        avg_3d_model_size_mb, pricing
+    )
+    
+    # Cost Calc:
+    # Instance: 0.04 * 730 = 29.2
+    # Disk: 50 * 0.05 = 2.5
+    # Model Storage: (100 * 100 / 1024) * 0.02 = 9.765625 * 0.02 = 0.1953125
+    
+    expected_cost = 29.2 + 2.5 + 0.1953125
+    
+    assert result["totalMonthlyCost"] == pytest.approx(expected_cost, rel=1e-5)
