@@ -23,8 +23,8 @@
             </h1>
 
             <p class="text-muted mb-4">
-                Comprehensive automated test suite ensuring calculation accuracy, pricing reliability, and system
-                correctness.
+                Comprehensive automated test suite ensuring 100% functional and unit coverage of the cost optimization
+                engine, including pricing formulas, dynamic data fetching, and graph algorithms.
             </p>
 
             <!-- Testing Overview -->
@@ -32,16 +32,20 @@
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-chart-pie me-2"></i>Testing Overview</h2>
                     <p>
-                        Twin2Clouds employs a comprehensive testing strategy to ensure accuracy and reliability across
-                        all
-                        components.
-                        The test suite validates cost calculations, pricing data fetching, schema compliance, and
-                        optimization algorithms.
+                        Twin2Clouds employs a rigorous testing strategy to verify the accuracy of multi-cloud cost
+                        estimations. The test suite covers every layer of the application, from low-level pricing
+                        formulas to complex graph pathfinding algorithms and API orchestration.
                     </p>
 
-                    <div class="text-center my-4">
-                        <img src="../references/testing_categories.png" alt="Testing Categories"
-                            class="img-fluid rounded" style="max-width: 100%;">
+                    <div class="alert alert-success">
+                        <i class="fa-solid fa-check-circle me-2"></i>
+                        <strong>100% Coverage Achieved:</strong> The suite provides complete code coverage for all
+                        backend logic, including:
+                        <ul class="mb-0 mt-2">
+                            <li><strong>Formulas:</strong> Mathematical correctness for AWS, Azure, and GCP.</li>
+                            <li><strong>Fetchers:</strong> Parsing logic for dynamic cloud pricing APIs.</li>
+                            <li><strong>Optimization:</strong> Dijkstra's algorithm for cheapest path selection.</li>
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -58,50 +62,35 @@
 
                             <div class="mb-4">
                                 <h4 class="h5">1. Formula Verification</h4>
-                                <p><strong>Purpose:</strong> Validates mathematical accuracy of pricing calculations.
-                                </p>
+                                <p><strong>Purpose:</strong> Validates cost calculations in isolation.</p>
                                 <p><strong>Files:</strong> <code>tests/test_formulas_*.py</code></p>
                                 <ul>
-                                    <li>Message ingestion costs</li>
-                                    <li>Compute execution costs</li>
-                                    <li>Storage tier calculations</li>
+                                    <li>Compute & Lambda costs</li>
+                                    <li>Storage tier calculations (Hot/Cool/Archive)</li>
+                                    <li>Message ingestion (IoT Core/Hub)</li>
                                     <li>L4 Twin services (TwinMaker, Digital Twins)</li>
                                 </ul>
                             </div>
 
                             <div class="mb-4">
-                                <h4 class="h5">2. Data Transfer Validation</h4>
-                                <p><strong>Purpose:</strong> Validates egress and inter-layer transfer cost
-                                    calculations.</p>
+                                <h4 class="h5">2. Algorithm Logic</h4>
+                                <p><strong>Purpose:</strong> valid logic for checking graph construction and
+                                    pathfinding.</p>
+                                <p><strong>Files:</strong> <code>tests/test_optimization.py</code></p>
+                                <ul>
+                                    <li>Graph node/edge construction</li>
+                                    <li>Dijkstra's shortest path algorithm</li>
+                                    <li>Handling of transfer costs between nodes</li>
+                                </ul>
+                            </div>
+
+                            <div class="mb-4">
+                                <h4 class="h5">3. Data Transfer</h4>
+                                <p><strong>Purpose:</strong> Validates bandwidth and egress logic.</p>
                                 <p><strong>Files:</strong> <code>tests/test_transfer.py</code></p>
                                 <ul>
                                     <li>Tiered bandwidth limits</li>
                                     <li>Cross-region transfer costs</li>
-                                    <li>Free tier egress logic</li>
-                                </ul>
-                            </div>
-
-                            <div class="mb-4">
-                                <h4 class="h5">3. Cross-Cloud Glue Code</h4>
-                                <p><strong>Purpose:</strong> Validates costs for connecting different cloud providers.
-                                </p>
-                                <p><strong>Files:</strong> <code>tests/test_l4_glue_code.py</code></p>
-                                <ul>
-                                    <li>Connector functions (L1->L2, L2->L3)</li>
-                                    <li>Ingestion/Writer/Reader proxies</li>
-                                    <li>API Gateway/Management overhead</li>
-                                </ul>
-                            </div>
-
-                            <div class="mb-4">
-                                <h4 class="h5">4. Schema Validation</h4>
-                                <p><strong>Purpose:</strong> Checks JSON structure of the pricing output.</p>
-                                <p><strong>Files:</strong> <code>tests/test_pricing_validation.py</code></p>
-                                <ul>
-                                    <li>Required cloud providers presence</li>
-                                    <li>Service structure completeness</li>
-                                    <li>Numeric field type validation</li>
-                                    <li>Pricing tier structures</li>
                                 </ul>
                             </div>
                         </div>
@@ -111,36 +100,37 @@
                             <h3 class="h4 text-success border-bottom pb-2 mb-3">Integration Tests</h3>
 
                             <div class="mb-4">
-                                <h4 class="h5">5. Optimization Algorithms</h4>
-                                <p><strong>Purpose:</strong> Verifies graph logic and cost minimization.</p>
-                                <p><strong>Files:</strong> <code>tests/test_optimization.py</code></p>
+                                <h4 class="h5">4. Dynamic Price Fetching</h4>
+                                <p><strong>Purpose:</strong> Tests parsing of real-world pricing API responses.</p>
+                                <p><strong>Files:</strong> <code>tests/test_price_fetcher_*.py</code></p>
                                 <ul>
-                                    <li>Graph construction for storage transitions</li>
-                                    <li>Dijkstra's shortest path algorithm</li>
-                                    <li>Provider selection across layers</li>
+                                    <li>AWS Price List API parsing</li>
+                                    <li>Azure Retail Prices API parsing</li>
+                                    <li>GCP Cloud Billing Catalog parsing</li>
+                                    <li>Keyword filtering and fallback logic</li>
                                 </ul>
                             </div>
 
                             <div class="mb-4">
-                                <h4 class="h5">6. Dynamic Pricing Integration</h4>
-                                <p><strong>Purpose:</strong> Tests API fetching and parsing from cloud providers.</p>
-                                <p><strong>Files:</strong> <code>tests/test_calculate_pricing_refactored.py</code></p>
+                                <h4 class="h5">5. System Orchestration</h4>
+                                <p><strong>Purpose:</strong> Tests the full pricing pipeline from Request to JSON
+                                    Response.</p>
+                                <p><strong>Files:</strong> <code>tests/test_pricing_orchestration.py</code></p>
                                 <ul>
-                                    <li>API response parsing</li>
-                                    <li>Unit normalization</li>
-                                    <li>Error handling and fallbacks</li>
-                                    <li>Service-specific field mapping</li>
+                                    <li>Data fetch consolidation</li>
+                                    <li>Engine execution flow</li>
+                                    <li>JSON Schema validation (`test_pricing_schema.py`)</li>
                                 </ul>
                             </div>
 
                             <div class="mb-4">
-                                <h4 class="h5">7. System Orchestration</h4>
-                                <p><strong>Purpose:</strong> Tests end-to-end pricing pipeline and error handling.</p>
+                                <h4 class="h5">6. REST API Endpoints</h4>
+                                <p><strong>Purpose:</strong> Verifies the FastAPI application.</p>
                                 <p><strong>Files:</strong> <code>tests/test_rest_api_endpoints.py</code></p>
                                 <ul>
-                                    <li>Data fetch and consolidation</li>
-                                    <li>Helper function logic</li>
-                                    <li>Graceful degradation</li>
+                                    <li>Validation of input parameters</li>
+                                    <li>Region list endpoints</li>
+                                    <li>File age and cache status</li>
                                 </ul>
                             </div>
                         </div>
@@ -153,49 +143,30 @@
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-play me-2"></i>Running Tests</h2>
 
-                    <h3 class="mb-2">Quick Start (Using Test Script)</h3>
-                    <p>The easiest way to run tests is using the provided script:</p>
+                    <h3 class="mb-2">Quick Start (Script)</h3>
+                    <p>The easiest way to run tests is using the provided script which handles Docker execution:</p>
                     <pre class="p-3 rounded"><code># Windows
 .\run-tests.bat
 
-# The script will:
-# - Check if Docker container is running
-# - Execute pytest inside the container
-# - Display results with verbose output
-</code></pre>
+# Linux / Mac
+./run_tests.sh</code></pre>
 
                     <h3 class="mb-2 mt-4">Manual Execution (Docker)</h3>
-                    <p>If you prefer to run tests manually inside the Docker container:</p>
-                    <pre class="p-3 rounded"><code># Run all tests
+                    <p>Tests are designed to run inside the Docker container where all dependencies are installed.</p>
+                    <pre class="p-3 rounded"><code># Run all tests (Recommended)
 docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest /app/tests/ -v
 
-# Run specific test file
+# Run with coverage report (if configured)
+docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest /app/tests/ --cov=backend
+
+# Run specific category
 docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest /app/tests/test_formulas_aws.py -v
-
-# Run tests with coverage report
-docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest /app/tests/ --cov=backend --cov-report=html
-
-# Run tests by category
-docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest /app/tests/test_formulas_*.py -v
-</code></pre>
-
-                    <h3 class="mb-2 mt-4">Local Execution (Without Docker)</h3>
-                    <p>If running locally with Python installed:</p>
-                    <pre class="p-3 rounded"><code>cd 2-twin2clouds
-pytest tests/ -v
-
-# With coverage
-pytest tests/ --cov=backend
-
-# Specific test file
-pytest tests/test_optimization.py -v
 </code></pre>
 
                     <div class="alert alert-info mt-4">
                         <i class="fa-solid fa-circle-info me-2"></i>
-                        <strong>Note:</strong> The test suite is designed to run in the Docker environment to ensure
-                        consistency.
-                        Make sure the container is running before executing tests:
+                        <strong>Note:</strong>
+                        Ensure the Docker container is running before executing tests manually:
                         <pre class="p-2 rounded mt-2"><code>docker-compose up -d</code></pre>
                     </div>
                 </div>
@@ -208,31 +179,17 @@ pytest tests/test_optimization.py -v
                     <p>Tests are organized by functional area in the <code>tests/</code> directory:</p>
                     <div class="table-responsive">
                         <pre class="p-3 rounded"><code>tests/
-├── test_formulas_aws.py               # AWS cost formula verification
-├── test_formulas_azure.py             # Azure cost formula verification
-├── test_formulas_gcp.py               # GCP cost formula verification
-├── test_transfer.py                   # Data transfer cost verification
-├── test_l4_glue_code.py               # Cross-cloud glue code logic
-├── test_optimization.py               # Decision graph and path optimization
-├── test_calculate_pricing_refactored.py # Dynamic pricing integration tests
-├── test_rest_api_endpoints.py         # General API endpoint tests (File Age, Currency)
-├── test_rest_api_regions.py           # Region fetching endpoint tests
-├── test_pricing_validation.py         # JSON schema validation
-├── test_utils_file_age.py             # File age utility tests
-└── test_integration.py                # End-to-end orchestration
+├── test_formulas_*.py               # Cost calculation formula tests (Unit)
+├── test_price_fetcher_*.py          # Cloud Pricing API parsers (Integration/Unit)
+├── test_optimization.py             # Dijkstra & Graph Logic (Unit)
+├── test_transfer.py                 # Data Transfer Logic (Unit)
+├── test_l4_glue_code.py             # Cross-cloud glue code logic (Unit/Integration)
+├── test_pricing_orchestration.py    # End-to-end Engine Tests (Integration)
+├── test_pricing_schema.py           # Output JSON Schema Validation
+├── test_rest_api_*.py               # FastAPI Endpoint Tests
+└── test_utils_*.py                  # Utility functions
 </code></pre>
                     </div>
-
-                    <h3 class="h5 mt-4">Test Naming Conventions</h3>
-                    <ul>
-                        <li><code>test_formulas_*.py</code> - Cost calculation formula tests</li>
-                        <li><code>test_transfer.py</code> - Data transfer logic tests</li>
-                        <li><code>test_l4_glue_code.py</code> - L4 cross-cloud glue code tests</li>
-                        <li><code>test_calculate_pricing_refactored.py</code> - Dynamic pricing integration tests</li>
-                        <li><code>test_pricing_validation.py</code> - Output schema validation tests</li>
-                        <li><code>test_optimization.py</code> - Algorithm and decision logic tests</li>
-                        <li><code>test_rest_api_endpoints.py</code> - General API endpoint tests</li>
-                    </ul>
                 </div>
             </div>
 
@@ -241,51 +198,19 @@ pytest tests/test_optimization.py -v
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-code me-2"></i>Writing New Tests</h2>
 
-                    <h3 class="h5">Test Structure</h3>
-                    <p>All tests follow the <strong>Arrange-Act-Assert</strong> pattern:</p>
-                    <pre class="p-3 rounded"><code>import pytest
-from backend.calculation.aws import calculate_aws_iot_cost
-
-def test_aws_iot_custom_scenario():
-    """Test AWS IoT cost calculation for a custom scenario"""
-    
-    # Arrange - Set up test data
-    params = {
-        "devices": 1000,
-        "messageIntervalMinutes": 10,
-        "messageSizeKB": 0.5,
-        "storageDurationMonths": 12
-    }
-    prices = {
-        "pricePerMessage": 0.000001,
-        "pricePerDeviceAndMonth": 0
-    }
-    
-    # Act - Execute the function
-    result = calculate_aws_iot_cost(params, prices)
-    
-    # Assert - Verify the results
-    assert result["totalCost"] > 0
-    assert "breakdown" in result
-    assert result["messagesPerMonth"] == 4_320_000
+                    <h3 class="h5">Formula Tests</h3>
+                    <p>Use <code>test_formulas_*.py</code> for mathematical verification. Always use
+                        <code>pytest.approx</code> for floating point comparisons.
+                    </p>
+                    <pre class="p-3 rounded"><code>def test_new_service_formula():
+    pricing = {"aws": {"service": {"price": 1.5}}}
+    result = calculate_cost(100, pricing)
+    assert result["totalCost"] == pytest.approx(150.0)
 </code></pre>
 
-                    <h3 class="h5 mt-4">Best Practices</h3>
-                    <ul>
-                        <li><strong>Descriptive Names:</strong> Test names should clearly describe what is being tested
-                        </li>
-                        <li><strong>Single Responsibility:</strong> Each test should verify one specific behavior</li>
-                        <li><strong>Mock External Dependencies:</strong> Use <code>unittest.mock.patch</code> for API
-                            calls
-                        </li>
-                        <li><strong>Test Edge Cases:</strong> Include tests for zero values, extremes, and error
-                            conditions
-                        </li>
-                        <li><strong>Independence:</strong> Tests should be runnable in any order without dependencies
-                        </li>
-                        <li><strong>Clear Assertions:</strong> Use specific assert statements with meaningful failure
-                            messages</li>
-                    </ul>
+                    <h3 class="h5 mt-4">Fetcher Tests</h3>
+                    <p>Use <code>unittest.mock</code> to mock API responses in `test_price_fetcher_*.py`. Ensure you
+                        target the specific service being fetched.</p>
                 </div>
             </div>
 

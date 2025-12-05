@@ -283,39 +283,6 @@ hr {
   color: var(--text-muted) !important;
 }
 
-/* Alerts (replacing .callout) */
-.alert {
-  padding: 1rem 1.2rem;
-  border-radius: 6px;
-  margin: 1rem 0;
-  border: none;
-  border-left: 4px solid;
-  color: var(--text-main);
-}
-
-.alert-info,
-.alert-primary {
-  background: rgba(59, 130, 246, 0.12);
-  border-color: #3b82f6;
-  color: var(--text-main);
-}
-
-.alert-warning {
-  background: rgba(245, 158, 11, 0.12);
-  border-color: #f59e0b;
-  color: var(--text-main);
-}
-
-.alert-danger {
-  background: rgba(220, 38, 38, 0.12);
-  border-color: #dc2626;
-  color: var(--text-main);
-}
-
-.alert strong {
-  margin-bottom: 4px;
-}
-
 
 /* ============================================================
    SIDEBAR SECTION HEADERS

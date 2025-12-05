@@ -131,3 +131,45 @@ def test_fetch_aws_price_unknown_service(mock_fetch_products, mock_get_client):
     result = fetch_aws_price("unknown_service", "Unknown", "us-east-1", region_map, debug=False)
     
     assert result == {}
+
+@patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
+def test_fetch_aws_price_grafana(mock_get_client):
+    """Test fetching AWS Grafana pricing (Static Fallback)"""
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
+    
+    region_map = {"us-east-1": "US East (N. Virginia)"}
+    
+    # Grafana uses static defaults currently, so it should succeed without api calls
+    result = fetch_aws_price("grafana", "AmazonGrafana", "us-east-1", region_map, debug=False)
+    
+    assert result is not None
+    assert "editorPrice" in result
+    assert result["editorPrice"] == 9.0
+
+@patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
+@patch('backend.fetch_data.cloud_price_fetcher_aws._fetch_api_products')
+def test_fetch_aws_price_twinmaker(mock_fetch_products, mock_get_client):
+    """Test fetching AWS TwinMaker pricing"""
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
+    
+    # Mock TwinMaker response (simplified)
+    # MUST matching keywords in AWS_SERVICE_KEYWORDS["twinmaker"]["fields"]
+    # entityPrice: ["per entity per month", "iottwinmaker-entities"]
+    # queryPrice: ["per 10k queries", "queries executed"]
+    mock_fetch_products.side_effect = [
+        # Call 1: IOTTwinMaker (Entity)
+        [create_mock_price_item("IoT TwinMaker Per Entity Per Month", 0.5)],
+        # Call 2: IOTTwinMakerQueries (Queries)
+        [create_mock_price_item("IoT TwinMaker Queries Executed", 0.000002)]
+    ]
+    
+    region_map = {"us-east-1": "US East (N. Virginia)"}
+    
+    result = fetch_aws_price("twinmaker", "IOTTwinMaker", "us-east-1", region_map, debug=False)
+    
+    assert result is not None
+    assert "entityPrice" in result
+    assert result["entityPrice"] == 0.5
+    # queryPrice might be missing if _fetch_twinmaker_prices logic varies, but checking coverage

@@ -1,13 +1,3 @@
-# STAGE 1 — Node builder (Clarity Core)
-FROM node:18 AS clarity-builder
-
-WORKDIR /build
-
-RUN npm init -y
-RUN npm install @clr/ui @cds/core --save
-
-
-# STAGE 2 — Python runtime
 FROM python:3.11-slim
 
 RUN apt-get update \
