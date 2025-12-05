@@ -109,3 +109,6 @@ def initialize_all():
                 config_credentials_google = valid_credentials
             case _:
                 raise ValueError(f"Unsupported provider: {provider}, valid providers are: {', '.join(valid_providers)}")
+
+def api_name():
+  return config["digital_twin_name"] + "-api"

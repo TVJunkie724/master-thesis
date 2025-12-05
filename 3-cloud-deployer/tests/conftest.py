@@ -18,8 +18,8 @@ def mock_env_vars():
     os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
     os.environ["AWS_SECURITY_TOKEN"] = "testing"
     os.environ["AWS_SESSION_TOKEN"] = "testing"
-    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-    os.environ["REGION"] = "us-east-1"
+    os.environ["AWS_DEFAULT_REGION"] = "eu-central-1"
+    os.environ["REGION"] = "eu-central-1"
 
 @pytest.fixture(scope="function", autouse=True)
 def mock_globals(monkeypatch):
@@ -53,7 +53,7 @@ def mock_globals(monkeypatch):
     test_credentials_aws = {
         "aws_access_key_id": "testing",
         "aws_secret_access_key": "testing",
-        "aws_region": "us-east-1"
+        "aws_region": "eu-central-1"
     }
 
     monkeypatch.setattr(globals, "config", test_config)

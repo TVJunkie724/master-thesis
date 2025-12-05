@@ -11,7 +11,7 @@ def aws_credentials():
     os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
     os.environ["AWS_SECURITY_TOKEN"] = "testing"
     os.environ["AWS_SESSION_TOKEN"] = "testing"
-    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
+    os.environ["AWS_DEFAULT_REGION"] = "eu-central-1"
 
 @pytest.fixture(scope="function")
 def mock_aws_context(aws_credentials):
@@ -19,6 +19,15 @@ def mock_aws_context(aws_credentials):
     Start moto services and initialize globals_aws clients.
     """
     with mock_aws():
+        # Setup Globals
+        globals_aws.globals.config_credentials_aws = {
+            "aws_access_key_id": "testing",
+            "aws_secret_access_key": "testing",
+            "aws_region": "eu-central-1"
+        }
+        globals_aws.globals.config = {
+            "digital_twin_name": "test-twin"
+        }
         # Initialize clients (they will use the mocked boto3 because of mock_aws context)
         globals_aws.initialize_aws_clients()
         yield

@@ -12,7 +12,7 @@ def test_create_dispatcher_iam_role(mock_aws_context):
     
     core_aws.create_dispatcher_iam_role()
     
-    client = boto3.client("iam", region_name="us-east-1")
+    client = boto3.client("iam")
     role_name = globals_aws.dispatcher_iam_role_name()
     
     # Check Role
@@ -30,7 +30,7 @@ def test_create_dispatcher_lambda_function(mock_aws_context):
     
     core_aws.create_dispatcher_lambda_function()
     
-    client = boto3.client("lambda", region_name="us-east-1")
+    client = boto3.client("lambda")
     func_name = globals_aws.dispatcher_lambda_function_name()
     
     resp = client.get_function(FunctionName=func_name)
@@ -45,7 +45,7 @@ def test_destroy_dispatcher_lambda_function(mock_aws_context):
     
     core_aws.destroy_dispatcher_lambda_function()
     
-    client = boto3.client("lambda", region_name="us-east-1")
+    client = boto3.client("lambda")
     with pytest.raises(client.exceptions.ResourceNotFoundException):
         client.get_function(FunctionName=globals_aws.dispatcher_lambda_function_name())
 
@@ -57,7 +57,7 @@ def test_dispatcher_iot_rule(mock_aws_context):
     
     core_aws.create_dispatcher_iot_rule()
     
-    client = boto3.client("iot", region_name="us-east-1")
+    client = boto3.client("iot")
     rule_name = globals_aws.dispatcher_iot_rule_name()
     
     resp = client.get_topic_rule(ruleName=rule_name)

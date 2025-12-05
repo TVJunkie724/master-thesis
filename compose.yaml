@@ -89,8 +89,8 @@ services:
   3cloud-deployer:
     image: 3cloud-deployer
     build: 
-      context: ./3-cloud-deployer
-      dockerfile: /Dockerfile
+      context: .
+      dockerfile: ./3-cloud-deployer/Dockerfile
     ports:
       - "5004:8000"
     volumes: 

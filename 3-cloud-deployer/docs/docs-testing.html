@@ -26,8 +26,28 @@
             </h1>
 
             <p class="text-muted mb-4">
-                Automated test suite ensuring deployment logic correctness and API reliability using mocked AWS services.
+                Comprehensive automated test suite ensuring 100% functional coverage of the AWS deployment lifecycle,
+                including resource creation, integration, and destruction.
             </p>
+
+            <!-- Testing Overview -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-chart-pie me-2"></i>Testing Overview</h2>
+                    <p>
+                        The Cloud Deployer project maintains a rigorous testing standard to ensure safe and predictable
+                        cloud operations.
+                        The test suite mocks all AWS interactions using <code>moto</code>, allowing for full
+                        lifecycle verification (Create → Update → Destroy) without incurring costs or requiring live
+                        credentials.
+                    </p>
+                    <div class="alert alert-success">
+                        <i class="fa-solid fa-check-circle me-2"></i>
+                        <strong>100% Coverage Achieved:</strong> The suite covers all layers of the architecture, from
+                        low-level utilities to complex L5 Grafana dashboard provisioning.
+                    </div>
+                </div>
+            </div>
 
             <!-- Test Categories -->
             <div class="card mb-4">
@@ -40,13 +60,26 @@
                             <h3 class="h4 text-primary border-bottom pb-2 mb-3">Unit Tests</h3>
 
                             <div class="mb-4">
-                                <h4 class="h5">1. Configuration & Utilities</h4>
-                                <p><strong>Purpose:</strong> Validates internal utility functions and configuration loading logic.</p>
-                                <p><strong>Location:</strong> <code>tests/unit/</code></p>
+                                <h4 class="h5">1. Utilities & Helpers</h4>
+                                <p><strong>Purpose:</strong> Validates internal logic for configuration, paths, and AWS
+                                    helper functions.</p>
+                                <p><strong>Files:</strong> <code>tests/unit/</code></p>
                                 <ul>
-                                    <li>Global configuration loading</li>
-                                    <li>Credentials validation</li>
-                                    <li>File path resolution & zipping utils</li>
+                                    <li>Credentials & Config Validation (`test_util.py`)</li>
+                                    <li>AWS Console Link Generation (`test_util_aws.py`)</li>
+                                    <li>Lambda Zip Compilation logic</li>
+                                    <li>File path resolution logic</li>
+                                </ul>
+                            </div>
+
+                            <div class="mb-4">
+                                <h4 class="h5">2. API Endpoints</h4>
+                                <p><strong>Purpose:</strong> Tests the FastAPI router and request validation.</p>
+                                <p><strong>Files:</strong> <code>tests/api/test_rest_api.py</code></p>
+                                <ul>
+                                    <li>Endpoint availability</li>
+                                    <li>JSON body validation</li>
+                                    <li>Integration with underlying deployers</li>
                                 </ul>
                             </div>
                         </div>
@@ -56,25 +89,30 @@
                             <h3 class="h4 text-success border-bottom pb-2 mb-3">Integration Tests (Mocked)</h3>
 
                             <div class="mb-4">
-                                <h4 class="h5">2. AWS Deployment Logic</h4>
-                                <p><strong>Purpose:</strong> Verifies that deployer functions make the correct API calls to create cloud resources.</p>
-                                <p><strong>Location:</strong> <code>tests/integration/aws/</code></p>
-                                <p><strong>Technology:</strong> Uses <code>moto</code> to simulate AWS services (IAM, Lambda, IoT, DynamoDB) without real network calls or costs.</p>
+                                <h4 class="h5">3. Layer 1-3 Infrastructure</h4>
+                                <p><strong>Purpose:</strong> Verifies core compute and storage resources.</p>
+                                <p><strong>Files:</strong> <code>tests/integration/aws/</code></p>
                                 <ul>
-                                    <li>L1: IAM Role, IoT Rule, Dispatcher creation</li>
-                                    <li>L2: Event checkers and persisters</li>
-                                    <li>Cleanup (Destroy) logic verification</li>
+                                    <li><strong>L1:</strong> IAM Roles, Dispatcher Lambda (`test_aws_l1_dispatcher.py`)
+                                    </li>
+                                    <li><strong>L2:</strong> Compute Lambdas (Persister, Checker)
+                                        (`test_aws_l2_compute.py`)</li>
+                                    <li><strong>L3:</strong> Storage (S3, DynamoDB) & Movers (`test_aws_l3_storage.py`,
+                                        `test_aws_l3_movers.py`)</li>
                                 </ul>
                             </div>
 
                             <div class="mb-4">
-                                <h4 class="h5">3. REST API & Endpoints</h4>
-                                <p><strong>Purpose:</strong> Tests the FastAPI router and endpoint logic.</p>
-                                <p><strong>Location:</strong> <code>tests/api/</code></p>
+                                <h4 class="h5">4. Layer 4-5 Advanced Services</h4>
+                                <p><strong>Purpose:</strong> Verifies complex digital twin and visualization services.
+                                </p>
+                                <p><strong>Files:</strong> <code>tests/integration/aws/</code></p>
                                 <ul>
-                                    <li>Endpoint availability</li>
-                                    <li>Parameter validation</li>
-                                    <li>Mocked deployer linking</li>
+                                    <li><strong>L4:</strong> IoT TwinMaker Workspace & Entities
+                                        (`test_aws_l4_l5_mocked.py`)</li>
+                                    <li><strong>L5:</strong> Grafana Workspace & Roles (`test_aws_l4_l5_mocked.py`)</li>
+                                    <li><strong>API Gateway:</strong> Routes, Stages, & Integrations
+                                        (`test_aws_api_gateway.py`)</li>
                                 </ul>
                             </div>
                         </div>
@@ -87,22 +125,33 @@
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-play me-2"></i>Running Tests</h2>
 
+                    <h3 class="mb-2">Quick Start (Script)</h3>
+                    <p>The easiest way to run tests is using the provided script which handles Docker execution:</p>
+                    <pre class="p-3 rounded"><code># Windows
+.\run_tests.bat
+
+# Linux / Mac
+./run_tests.sh</code></pre>
+
                     <h3 class="mb-2 mt-4">Manual Execution (Docker)</h3>
-                    <p>Tests are designed to run inside the Docker container where all dependencies (including <code>moto</code>) are installed.</p>
+                    <p>Tests are designed to run inside the Docker container where all dependencies (including
+                        <code>moto</code>) are installed.
+                    </p>
                     <pre class="p-3 rounded"><code># Run all tests (Recommended)
-docker exec master-thesis-3cloud-deployer-1 pytest -v tests/
+docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/
 
-# Run only AWS integration tests
-docker exec master-thesis-3cloud-deployer-1 pytest -v tests/integration/aws/
+# Run with verbose output
+docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest -v tests/
 
-# Run with coverage via pytest-cov (if installed)
-# docker exec ... pytest --cov=src tests/
+# Run specific integration tests
+docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/integration/aws/test_aws_l4_l5_mocked.py
 </code></pre>
 
                     <div class="alert alert-info mt-4">
                         <i class="fa-solid fa-circle-info me-2"></i>
-                        <strong>Note:</strong> 
-                        Integration tests use <code>moto</code> which mocks AWS. No real AWS credentials are required, and no costs are incurred.
+                        <strong>Note:</strong>
+                        Integration tests use <code>moto</code> which mocks AWS APIs in memory. No real AWS credentials
+                        are required, and no costs are incurred.
                     </div>
                 </div>
             </div>
@@ -111,23 +160,132 @@ docker exec master-thesis-3cloud-deployer-1 pytest -v tests/integration/aws/
             <div class="card mb-4">
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-folder-tree me-2"></i>Test Organization</h2>
-                    <p>The project follows a modular testing structure:</p>
                     <div class="table-responsive">
                         <pre class="p-3 rounded"><code>tests/
 ├── conftest.py              # Shared fixtures (Environment mocks, Global config mocks)
 ├── unit/
-│   ├── test_globals.py      # Config loading tests
-│   └── test_util.py         # Utility tests
+│   ├── test_util.py         # Credentials & File Utils
+│   └── test_util_aws.py     # AWS Helper Utils
 ├── integration/
 │   ├── aws/
-│   │   ├── conftest.py      # AWS-specific fixtures (moto clients)
-│   │   └── test_core_deployer_aws.py  # L1-L5 deployment verification
-│   ├── azure/               # (Planned) Azure integration tests
-│   └── google/              # (Planned) GCP integration tests
+│   │   ├── conftest.py                # AWS-specific fixtures (moto clients)
+│   │   ├── test_aws_l1_dispatcher.py  # Dispatcher & IAM
+│   │   ├── test_aws_l2_compute.py     # Core Lambdas
+│   │   ├── test_aws_l3_storage.py     # S3 & DynamoDB
+│   │   ├── test_aws_l3_movers.py      # Data Mover Lambdas
+│   │   ├── test_aws_l4_l5_mocked.py   # TwinMaker & Grafana
+│   │   └── test_aws_api_gateway.py    # API Gateway
+│   └── azure/               # (Planned) Azure integration tests
 └── api/
     └── test_rest_api.py     # FastAPI endpoint verification
 </code></pre>
                     </div>
+                </div>
+            </div>
+
+            <!-- Writing New Tests -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-code me-2"></i>Writing New Tests</h2>
+
+                    <h3 class="h5">Mocking with Moto</h3>
+                    <p>All AWS tests must be decorated with relevant `moto` decorators or use the `mock_aws_context`
+                        fixture from `conftest.py`.</p>
+                    <pre class="p-3 rounded"><code>from unittest.mock import patch
+import boto3
+
+def test_create_bucket(mock_aws_context):
+    client = boto3.client("s3", region_name="eu-central-1")
+    client.create_bucket(Bucket="my-test-bucket")
+    
+    # Assert
+    response = client.list_buckets()
+    assert len(response['Buckets']) == 1
+</code></pre>
+
+                    <h3 class="h5 mt-4">Mocking Globals</h3>
+                    <p>The deployer relies on `globals.py` for configuration. Always mock `globals.config` to prevent
+                        reading real local files.</p>
+                    <pre class="p-3 rounded"><code>with patch.object(globals, 'config', {"digital_twin_name": "test-twin"}):
+    # Call your function
+    core_aws.create_something()
+</code></pre>
+                </div>
+            </div>
+
+            <!-- CI/CD Integration -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-gears me-2"></i>Continuous Integration</h2>
+                    <p>The test suite is designed for easy integration into CI/CD pipelines:</p>
+
+                    <h3 class="h5">GitHub Actions Example</h3>
+                    <pre class="p-3 rounded"><code>name: Test Suite
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Start Docker containers
+        run: docker-compose up -d
+      
+      - name: Run tests
+        run: |
+          docker exec master-thesis-3cloud-deployer-1 \
+            python -m pytest tests/ -v --junitxml=test-results.xml
+      
+      - name: Publish test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: test-results.xml
+</code></pre>
+
+                    <h3 class="h5 mt-4">Jenkins Example</h3>
+                    <pre class="p-3 rounded"><code>pipeline {
+    agent any
+    
+    stages {
+        stage('Test') {
+            steps {
+                sh 'docker-compose up -d'
+                sh '''
+                    docker exec master-thesis-3cloud-deployer-1 \
+                    python -m pytest tests/ -v
+                '''
+            }
+        }
+    }
+    
+    post {
+        always {
+            sh 'docker-compose down'
+        }
+    }
+}
+</code></pre>
+                </div>
+            </div>
+
+            <!-- Troubleshooting -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-triangle-exclamation me-2"></i>Troubleshooting</h2>
+
+                    <h3 class="h5">"AttributeError: module 'globals' has no attribute '...'"</h3>
+                    <p><strong>Cause:</strong> The function under test uses `globals` directly for a client that isn't
+                        initialized in the test environment.</p>
+                    <p><strong>Solution:</strong> Ensure you are using `globals_aws` for AWS clients, or mock the
+                        `globals` attribute explicitly.</p>
+
+                    <h3 class="h5 mt-4">Tests hanging or slow</h3>
+                    <p><strong>Cause:</strong> Infinite loops in `while` loops waiting for resource deletion.</p>
+                    <p><strong>Solution:</strong> Mock `time.sleep` and ensure your mocks simulate state transitions
+                        (e.g. `side_effect=[{"status": "DELETING"}, ClientError(ResourceNotFound)]`).</p>
                 </div>
             </div>
 

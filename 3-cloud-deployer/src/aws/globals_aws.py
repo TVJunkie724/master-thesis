@@ -16,6 +16,7 @@ aws_twinmaker_client = {}
 aws_grafana_client = {}
 aws_logs_client = {}
 aws_iot_data_client = {}
+aws_apigateway_client = {}
 
 def initialize_aws_clients():
   initialize_aws_iam_client()
@@ -29,6 +30,7 @@ def initialize_aws_clients():
   initialize_aws_grafana_client()
   initialize_aws_logs_client()
   initialize_aws_iot_data_client()
+  initialize_aws_apigateway_client()
 
 def initialize_aws_iam_client():
   global config
@@ -106,6 +108,14 @@ def initialize_aws_logs_client():
   global config
   global aws_logs_client
   aws_logs_client = boto3.client("logs",
+    aws_access_key_id=globals.config_credentials_aws["aws_access_key_id"],
+    aws_secret_access_key=globals.config_credentials_aws["aws_secret_access_key"],
+    region_name=globals.config_credentials_aws["aws_region"])
+
+def initialize_aws_apigateway_client():
+  global config
+  global aws_apigateway_client
+  aws_apigateway_client = boto3.client("apigatewayv2",
     aws_access_key_id=globals.config_credentials_aws["aws_access_key_id"],
     aws_secret_access_key=globals.config_credentials_aws["aws_secret_access_key"],
     region_name=globals.config_credentials_aws["aws_region"])
