@@ -917,6 +917,7 @@ def calculate_cheapest_costs(params, pricing=None):
         "awsCosts": aws_costs,
         "azureCosts": azure_costs,
         "gcpCosts": gcp_costs,
+        "inputParamsUsed": params,
         "l2OptimizationOverride": l2_optimization_override,
         "l3OptimizationOverride": l3_optimization_override,
         "l4OptimizationOverride": l4_optimization_override,

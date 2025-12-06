@@ -557,9 +557,9 @@ def create_lambda_chain_step_function():
   response = globals_aws.aws_iam_client.get_role(RoleName=role_name)
   role_arn = response["Role"]["Arn"]
 
-  # Read definition from file in src/state_machines
+  # Read definition from file in upload folder
   # globals.py is in src/, so we can compute path relative to it
-  sf_def_path = os.path.join(os.path.dirname(globals.__file__), "state_machines", "aws_step_function.json")
+  sf_def_path = os.path.join(util.get_path_in_project(CONSTANTS.STATE_MACHINES_DIR_NAME), CONSTANTS.AWS_STATE_MACHINE_FILE)
   
   with open(sf_def_path, 'r') as f:
       definition = f.read()

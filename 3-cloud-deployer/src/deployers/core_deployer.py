@@ -79,6 +79,12 @@ def deploy_l2(provider=None):
           core_aws.create_event_checker_iam_role()
           core_aws.create_event_checker_lambda_function()
 
+      # Deploy Event Actions (Lambda Actions for Events)
+      # These are dynamically defined in config_events.json and are part of L2 logic
+      logger.info("Deploying Event Actions (L2)...")
+      import deployers.event_action_deployer as event_action_deployer
+      event_action_deployer.deploy(provider)
+
     case "azure":
       raise NotImplementedError("Azure deployment not implemented yet.")
     case "google":

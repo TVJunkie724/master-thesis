@@ -1,0 +1,54 @@
+{
+    "main": {
+        "params": [
+            "args"
+        ],
+        "steps": [
+            {
+                "init": {
+                    "assign": [
+                        {
+                            "inputData": "${args.InputData}"
+                        },
+                        {
+                            "funcA_url": "${args.FunctionA_URL}"
+                        },
+                        {
+                            "funcB_url": "${args.FunctionB_URL}"
+                        }
+                    ]
+                }
+            },
+            {
+                "callFunctionA": {
+                    "call": "http.post",
+                    "args": {
+                        "url": "${funcA_url}",
+                        "body": {
+                            "input": "${inputData}"
+                        }
+                    },
+                    "result": "resultA"
+                }
+            },
+            {
+                "callFunctionB": {
+                    "call": "http.post",
+                    "args": {
+                        "url": "${funcB_url}",
+                        "body": {
+                            "fromA": "${resultA.body}",
+                            "event": "${inputData}"
+                        }
+                    },
+                    "result": "resultB"
+                }
+            },
+            {
+                "returnResult": {
+                    "return": "${resultB.body}"
+                }
+            }
+        ]
+    }
+}

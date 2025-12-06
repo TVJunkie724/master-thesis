@@ -1,3 +1,4 @@
+from enum import Enum
 from fastapi import FastAPI, HTTPException, Query, Depends, UploadFile, File
 import json
 from fastapi.staticfiles import StaticFiles
@@ -24,6 +25,11 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
 from logger import logger, print_stack_trace
 
+class ProviderEnum(str, Enum):
+    aws = "aws"
+    azure = "azure"
+    google = "google"
+
 # --------- Initialize FastAPI app ----------
 app = FastAPI(
     title="Digital Twin Manager API",
@@ -39,7 +45,7 @@ app = FastAPI(
         {"name": "Info", "description": "Endpoints to check system status and configurations."},
         {"name": "Deployment", "description": "Endpoints to deploy core and IoT services."},
         {"name": "Destroy", "description": "Endpoints to destroy core and IoT services."},
-        {"name": "Status", "description": "Endpoints to inspect the deployment status of all layers and configured resources."},
+        {"name": "Status", "description": "Endpoints to inspect the deployment status of all resources."},
         {"name": "AWS", "description": "Endpoints to update and fetch logs from Lambda functions."}
     ]
 )
@@ -326,6 +332,59 @@ async def update_function_file(
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.put("/projects/{project_name}/state_machines/{provider}", tags=["Projects"])
+async def upload_state_machine(
+    project_name: str,
+    provider: ProviderEnum,
+    file: UploadFile = File(...)
+):
+    """
+    Uploads and validates a state machine definition file for a specific provider.
+    
+    Args:
+        project_name (str): Project context.
+        provider (ProviderEnum): 'aws', 'azure', or 'google'.
+        file (UploadFile): The JSON definition file.
+    """
+    try:
+        # provider is now an Enum member, get the value
+        provider_value = provider.value.lower()
+        target_filename = None
+        if provider_value == "aws":
+            target_filename = CONSTANTS.AWS_STATE_MACHINE_FILE
+        elif provider_value == "azure":
+             target_filename = CONSTANTS.AZURE_STATE_MACHINE_FILE
+        elif provider_value == "google":
+             target_filename = CONSTANTS.GOOGLE_STATE_MACHINE_FILE
+        else:
+             # Should be caught by FastAPI validation, but safe fallback
+             raise ValueError("Invalid provider. Must be 'aws', 'azure', or 'google'.")
+
+        content = await file.read()
+        content_str = content.decode('utf-8')
+        
+        # 1. Validate Content matches Provider Signature
+        file_manager.validate_state_machine_content(target_filename, content_str)
+        
+        # 2. Save File
+        upload_dir = os.path.join(globals.project_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME, project_name)
+        sm_dir = os.path.join(upload_dir, CONSTANTS.STATE_MACHINES_DIR_NAME)
+        
+        if not os.path.exists(sm_dir):
+             os.makedirs(sm_dir)   
+             
+        target_file = os.path.join(sm_dir, target_filename)
+        with open(target_file, 'w') as f:
+            f.write(content_str)
+            
+        return {"message": f"State machine '{target_filename}' uploaded and verified for provider '{provider_value}'."}
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 def validate_project_context(project_name: str):
     """
@@ -354,6 +413,7 @@ def deploy_all(
     """
     validate_project_context(project_name)
     try:
+        file_manager.verify_project_structure(project_name)
         provider = provider.lower()
         core_deployer.deploy(provider)
         iot_deployer.deploy(provider)
@@ -578,6 +638,7 @@ def check_endpoint(
     """Runs all checks (L1 to L5) for the specified provider."""
     validate_project_context(project_name)
     try:
+        file_manager.verify_project_structure(project_name)
         provider = provider.lower()
         info.check(provider)
         hierarchy_deployer.info(provider)
