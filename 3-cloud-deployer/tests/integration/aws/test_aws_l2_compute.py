@@ -43,6 +43,13 @@ def test_create_event_checker_lambda_function(mock_aws_context):
     globals_aws.aws_iam_client.attach_role_policy = MagicMock()
     core_aws.create_event_checker_iam_role()
     
+    # Pre-requisites: Event Feedback and Lambda Chain
+    core_aws.create_event_feedback_iam_role()
+    core_aws.create_event_feedback_lambda_function()
+    
+    core_aws.create_lambda_chain_iam_role()
+    core_aws.create_lambda_chain_step_function()
+    
     core_aws.create_event_checker_lambda_function()
     
     client = boto3.client("lambda")
@@ -78,6 +85,14 @@ def test_destroy_event_checker_lambda_function(mock_aws_context):
     """Verify Event Checker creation and destruction."""
     globals_aws.aws_iam_client.attach_role_policy = MagicMock()
     core_aws.create_event_checker_iam_role()
+    
+    # Pre-requisites: Event Feedback and Lambda Chain
+    core_aws.create_event_feedback_iam_role()
+    core_aws.create_event_feedback_lambda_function()
+    
+    core_aws.create_lambda_chain_iam_role()
+    core_aws.create_lambda_chain_step_function()
+    
     core_aws.create_event_checker_lambda_function()
     
     core_aws.destroy_event_checker_lambda_function()

@@ -8,7 +8,7 @@ import constants as CONSTANTS
 
 def update_function(local_function_name, environment=None):
   if local_function_name == "default-processor":
-    compiled_function = util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, local_function_name))
+    compiled_function = util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), local_function_name))
 
     for iot_device in globals.config_iot_devices:
       function_name = globals.config["digital_twin_name"] + "-" + iot_device["id"] + "-processor"
@@ -36,7 +36,7 @@ def update_function(local_function_name, environment=None):
 
   globals_aws.aws_lambda_client.update_function_code(
     FunctionName=function_name,
-    ZipFile=util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, local_function_name)),
+    ZipFile=util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), local_function_name)),
     Publish=True
   )
 

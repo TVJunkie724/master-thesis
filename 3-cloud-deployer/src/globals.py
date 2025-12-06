@@ -6,10 +6,9 @@ import sys
 from colorlog import ColoredFormatter
 import traceback
 
-from logger import logger
+from logger import logger, print_stack_trace, configure_logger_from_file
 
 import constants as CONSTANTS
-
 def contains_provider(config_providers, provider_name):
     """Check if any value in the provider config matches provider_name."""
     return any(provider_name in str(v).lower() for v in config_providers.values())
@@ -34,38 +33,61 @@ config_credentials_google = None
 config_providers = {}
 config_hierarchy = []
 config_events = []
+CURRENT_PROJECT = "template"
+
+def get_project_upload_path():
+    return os.path.join(project_path(), "upload", CURRENT_PROJECT)
+
+def set_active_project(project_name):
+    global CURRENT_PROJECT
+    
+    # Simple validation using os.path to prevent directory traversal
+    safe_name = os.path.basename(project_name)
+    if safe_name != project_name:
+        raise ValueError("Invalid project name.")
+        
+    target_path = os.path.join(project_path(), "upload", safe_name)
+    if not os.path.exists(target_path):
+         raise ValueError(f"Project '{project_name}' does not exist.")
+         
+    CURRENT_PROJECT = project_name
+    initialize_all()
 
 def project_path():
   return os.path.dirname(os.path.dirname(__file__))
 
 def initialize_config():
   global config
-  with open(f"{project_path()}/upload/config.json", "r") as file:
+  config_path = os.path.join(get_project_upload_path(), "config.json")
+  with open(config_path, "r") as file:
     config = json.load(file)
+  
+  # Re-configure logger based on new config
+  configure_logger_from_file(config_path)
 
 def initialize_config_iot_devices():
   global config_iot_devices
-  with open(f"{project_path()}/upload/config_iot_devices.json", "r") as file:
+  with open(os.path.join(get_project_upload_path(), "config_iot_devices.json"), "r") as file:
     config_iot_devices = json.load(file)
 
 def initialize_config_events():
   global config_events
-  with open(f"{project_path()}/upload/config_events.json", "r") as file:
+  with open(os.path.join(get_project_upload_path(), "config_events.json"), "r") as file:
     config_events = json.load(file)
 
 def initialize_config_hierarchy():
   global config_hierarchy
-  with open(f"{project_path()}/upload/config_hierarchy.json", "r") as file:
+  with open(os.path.join(get_project_upload_path(), "config_hierarchy.json"), "r") as file:
     config_hierarchy = json.load(file)
 
 def initialize_config_credentials():
   global config_credentials
-  with open(f"{project_path()}/upload/config_credentials.json", "r") as file:
+  with open(os.path.join(get_project_upload_path(), "config_credentials.json"), "r") as file:
     config_credentials = json.load(file)
 
 def initialize_config_providers():
   global config_providers
-  with open(f"{project_path()}/upload/config_providers.json", "r") as file:
+  with open(os.path.join(get_project_upload_path(), "config_providers.json"), "r") as file:
     config_providers = json.load(file)
     
 def digital_twin_info():

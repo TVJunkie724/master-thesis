@@ -1,5 +1,5 @@
+from fastapi import FastAPI, HTTPException, Query, Depends, UploadFile, File
 import json
-from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
@@ -16,6 +16,7 @@ import info
 import deployers.additional_deployer as hierarchy_deployer
 import deployers.event_action_deployer as event_action_deployer
 import aws.lambda_manager as lambda_manager
+import file_manager
 from aws.api_lambda_schemas import LambdaUpdateRequest, LambdaLogsRequest, LambdaInvokeRequest
 from util import pretty_json
 
@@ -26,7 +27,7 @@ from logger import logger, print_stack_trace
 # --------- Initialize FastAPI app ----------
 app = FastAPI(
     title="Digital Twin Manager API",
-    version="1.1",
+    version="1.2",
     description=(
         "API for deploying, destroying, and inspecting Digital Twin environment resources."
         "<h3>🔗 Useful Links</h3>"
@@ -34,6 +35,7 @@ app = FastAPI(
         "<ul><li><a href=\"/documentation/docs-overview.html\" target=\"_blank\"><strong>Documentation Overview</strong></a></li></ul>"
         ),
     openapi_tags=[
+        {"name": "Projects", "description": "Endpoints to manage Digital Twin projects (upload, switch, list)."},
         {"name": "Info", "description": "Endpoints to check system status and configurations."},
         {"name": "Deployment", "description": "Endpoints to deploy core and IoT services."},
         {"name": "Destroy", "description": "Endpoints to destroy core and IoT services."},
@@ -48,9 +50,12 @@ app.mount("/documentation", StaticFiles(directory="docs"), name="docs")
 @app.on_event("startup")
 def startup_event():
     globals.initialize_all()
+    # globals_aws.initialize_aws_clients() # Lazy init is safer or move after project set?
+    # globals_aws clients depend on region from config?
+    # Actually clients are initialized with empty config first or default?
+    # If config changes (project switch), we might need to re-init clients if region changes.
+    # But for now, let's stick to existing logic.
     globals_aws.initialize_aws_clients()
-    
-    
     
     logger.info("✅ Globals initialized. API ready.")
 
@@ -65,24 +70,114 @@ def read_root():
     """
     Check if the API is running.
     """
-    return {"status": "API is running"}
+    return {"status": "API is running", "active_project": globals.CURRENT_PROJECT}
 
+# --------- Project Management ----------
+
+@app.get("/projects", tags=["Projects"])
+def list_projects():
+    """
+    List all available projects.
+    """
+    try:
+        projects = file_manager.list_projects()
+        return {"projects": projects, "active_project": globals.CURRENT_PROJECT}
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/projects", tags=["Projects"])
+async def create_project(project_name: str = Query(..., description="Name of the new project"), file: UploadFile = File(...)):
+    """
+    Upload a new project zip file.
+    """
+    try:
+        content = await file.read()
+        file_manager.create_project_from_zip(project_name, content)
+        return {"message": f"Project '{project_name}' created successfully."}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/projects/{project_name}/activate", tags=["Projects"])
+def activate_project(project_name: str):
+    """
+    Switch the active project.
+    """
+    try:
+        globals.set_active_project(project_name)
+        # Re-init clients might be needed if region changed? 
+        # For now assuming clients handle it or region is same. 
+        # But rigorous way: globals_aws.initialize_aws_clients()
+        globals_aws.initialize_aws_clients()
+        return {"message": f"Active project switched to '{project_name}'."}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/projects/{project_name}/config/{config_type}", tags=["Projects"])
+async def update_config(project_name: str, config_type: str, file: UploadFile = File(...)):
+    """
+    Update a specific configuration file for a project.
+    config_type: 'config', 'iot', 'events', 'hierarchy', 'credentials', 'providers'
+    """
+    config_map = {
+        "config": "config.json",
+        "iot": "config_iot_devices.json",
+        "events": "config_events.json",
+        "hierarchy": "config_hierarchy.json",
+        "credentials": "config_credentials.json",
+        "providers": "config_providers.json"
+    }
+    
+    if config_type not in config_map:
+        raise HTTPException(status_code=400, detail=f"Invalid config type. Valid types: {list(config_map.keys())}")
+        
+    filename = config_map[config_type]
+    
+    try:
+        content = await file.read()
+        # Parse JSON to validate
+        json_content = json.loads(content)
+        file_manager.update_config_file(project_name, filename, json_content)
+        return {"message": f"Configuration '{filename}' updated for project '{project_name}'."}
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON content.")
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def validate_project_context(project_name: str):
+    """
+    Validates that the requested project name matches the active project.
+    If project_name is None, defaults to 'template' path implicitly, 
+    but here we enforce explicit match if provided, or default check.
+    """
+    # If user provided a project name, it MUST match current project.
+    # If they didn't provide one, we assume they mean current project?
+    # User requirement: "specify the project name to be sure the correct project is deployed"
+    # So we should probably require it or match it against default.
+    
+    # Let's align with CLI: accept param, if no match -> error.
+    if project_name != globals.CURRENT_PROJECT:
+         raise HTTPException(status_code=409, detail=f"SAFETY ERROR: Requested project '{project_name}' does not match active project '{globals.CURRENT_PROJECT}'. Please switch active project first.")
 
 # --------- Core + IoT Deploy/Destroy ----------
 # Core and IoT deployment
 @app.post("/deploy", tags=["Deployment"])
-def deploy_all(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
+def deploy_all(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
     """
     Deploys the full digital twin environment including IoT devices, processors, and TwinMaker components.
-
-    Steps performed:
-    - Level 1 (L1): Creates IoT Things, certificates, and IoT policies for all configured devices.
-    - Level 2 (L2): Creates IAM roles and Lambda functions for processors.
-    - Level 4 (L4): Creates TwinMaker component types for each IoT device.
-
-    Returns:
-        JSON message confirming deployment started or completed.
     """
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         core_deployer.deploy(provider)
@@ -96,25 +191,14 @@ def deploy_all(provider: str = Query("aws", description="Cloud provider: aws, az
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/recreate_updated_events", tags=["Deployment"])
-def recreate_updated_events(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
+def recreate_updated_events(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
     """
     Redeploys the events (event_actions and event_checker).
     """
-    try:
-        provider = provider.lower()
-        event_action_deployer.redeploy(provider)
-        core_deployer.redeploy_l2_event_checker(provider)
-        return {"message": "Events recreated successfully"}
-    except Exception as e:
-        print_stack_trace()
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/recreate_updated_events", tags=["Deployment"])
-def recreate_updated_events(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
-    """
-    Redeploys the events (event_actions and event_checker).
-    """
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         event_action_deployer.redeploy(provider)
@@ -126,18 +210,14 @@ def recreate_updated_events(provider: str = Query("aws", description="Cloud prov
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/destroy", tags=["Destroy"])
-def destroy_all(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
+def destroy_all(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
     """
-    Destroys the full digital twin environment including IoT devices, processors, and TwinMaker components.
-
-    Steps performed:
-    - Level 4 (L4): Deletes TwinMaker component types for all IoT devices.
-    - Level 2 (L2): Deletes processor Lambda functions and IAM roles.
-    - Level 1 (L1): Deletes IoT Things, certificates, and IoT policies.
-
-    Returns:
-        JSON message confirming destruction started or completed.
+    Destroys the full digital twin environment.
     """
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         event_action_deployer.destroy(provider),
@@ -151,18 +231,12 @@ def destroy_all(provider: str = Query("aws", description="Cloud provider: aws, a
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/deploy_l1", tags=["Deployment"])
-def deploy_l1_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
-    """
-    Deploy Level 1 (L1) – IoT Dispatcher Layer.
-
-    Actions performed:
-    - Creates IAM role for dispatcher Lambda function.
-    - Deploys dispatcher Lambda function.
-    - Configures IoT topic rule to forward IoT device data to Lambda.
-    
-    Returns:
-        JSON message confirming L1 deployment.
-    """
+def deploy_l1_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
+    """Deploy Level 1 (L1) – IoT Dispatcher Layer."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         core_deployer.deploy_l1(provider)
@@ -173,18 +247,12 @@ def deploy_l1_endpoint(provider: str = Query("aws", description="Cloud provider:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/destroy_l1", tags=["Destroy"])
-def destroy_l1_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
-    """
-    Destroy Level 1 (L1) – IoT Dispatcher Layer.
-
-    Actions performed:
-    - Deletes IoT topic rule.
-    - Deletes dispatcher Lambda function.
-    - Deletes dispatcher IAM role.
-    
-    Returns:
-        JSON message confirming L1 destruction.
-    """
+def destroy_l1_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
+    """Destroy Level 1 (L1) – IoT Dispatcher Layer."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         core_deployer.destroy_l1(provider)
@@ -195,17 +263,12 @@ def destroy_l1_endpoint(provider: str = Query("aws", description="Cloud provider
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/deploy_l2", tags=["Deployment"])
-def deploy_l2_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
-    """
-    Deploy Level 2 (L2) – Persister / Processor Layer.
-
-    Actions performed:
-    - Creates IAM role for persister Lambda function.
-    - Deploys persister Lambda function to process and store IoT data.
-    
-    Returns:
-        JSON message confirming L2 deployment.
-    """
+def deploy_l2_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
+    """Deploy Level 2 (L2) – Persister / Processor Layer."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         core_deployer.deploy_l2(provider)
@@ -216,17 +279,12 @@ def deploy_l2_endpoint(provider: str = Query("aws", description="Cloud provider:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/destroy_l2", tags=["Destroy"])
-def destroy_l2_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
-    """
-    Destroy Level 2 (L2) – Persister / Processor Layer.
-
-    Actions performed:
-    - Deletes persister Lambda function.
-    - Deletes persister IAM role.
-    
-    Returns:
-        JSON message confirming L2 destruction.
-    """
+def destroy_l2_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
+    """Destroy Level 2 (L2) – Persister / Processor Layer."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         core_deployer.destroy_l2(provider)
@@ -237,25 +295,12 @@ def destroy_l2_endpoint(provider: str = Query("aws", description="Cloud provider
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/deploy_l3", tags=["Deployment"])
-def deploy_l3_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
-    """
-    Deploy Level 3 (L3) – Storage Layers.
-
-    Actions performed:
-    - Hot Storage:
-        - Creates DynamoDB table for IoT device data.
-        - Creates IAM role and Lambda function to move hot data to cold storage.
-        - Schedules hot-to-cold data mover via EventBridge.
-    - Cold Storage:
-        - Creates S3 bucket for cold storage.
-        - Creates IAM role and Lambda function to move cold data to archive.
-        - Schedules cold-to-archive mover via EventBridge.
-    - Archive Storage:
-        - Creates S3 bucket for archive storage.
-    
-    Returns:
-        JSON message confirming L3 deployment (hot, cold, archive).
-    """
+def deploy_l3_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
+    """Deploy Level 3 (L3) – Storage Layers."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         core_deployer.deploy_l3_hot(provider)
@@ -268,25 +313,12 @@ def deploy_l3_endpoint(provider: str = Query("aws", description="Cloud provider:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/destroy_l3", tags=["Destroy"])
-def destroy_l3_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
-    """
-    Destroy Level 3 (L3) – Storage Layers.
-
-    Actions performed:
-    - Hot Storage:
-        - Deletes DynamoDB table for IoT device data.
-        - Deletes IAM role and Lambda function to move hot data to cold storage.
-        - Deletes hot-to-cold data mover via EventBridge.
-    - Cold Storage:
-        - Deletes S3 bucket for cold storage.
-        - Deletes IAM role and Lambda function to move cold data to archive.
-        - Deletes cold-to-archive mover via EventBridge.
-    - Archive Storage:
-        - Deletes S3 bucket for archive storage.
-    
-    Returns:
-        JSON message confirming L3 destruction (hot, cold, archive).
-    """
+def destroy_l3_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
+    """Destroy Level 3 (L3) – Storage Layers."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         core_deployer.destroy_l3_hot(provider)
@@ -299,19 +331,12 @@ def destroy_l3_endpoint(provider: str = Query("aws", description="Cloud provider
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/deploy_l4", tags=["Deployment"])
-def deploy_l4_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
-    """
-    Deploy Level 4 (L4) – TwinMaker Layer.
-
-    Actions performed:
-    - Creates S3 bucket for TwinMaker assets.
-    - Creates IAM role for TwinMaker workspace.
-    - Creates TwinMaker workspace.
-    - Creates IAM role and Lambda connector for TwinMaker.
-    
-    Returns:
-        JSON message confirming L4 deployment.
-    """
+def deploy_l4_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
+    """Deploy Level 4 (L4) – TwinMaker Layer."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         core_deployer.deploy_l4(provider)
@@ -322,18 +347,12 @@ def deploy_l4_endpoint(provider: str = Query("aws", description="Cloud provider:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/destroy_l4", tags=["Destroy"])
-def destroy_l4_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
-    """
-    Destroy Level 4 (L4) – TwinMaker Layer.
-
-    Actions performed:
-    - Deletes TwinMaker workspace.
-    - Deletes TwinMaker S3 bucket.
-    - Deletes TwinMaker IAM role and Lambda connector.
-    
-    Returns:
-        JSON message confirming L4 destruction.
-    """
+def destroy_l4_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
+    """Destroy Level 4 (L4) – TwinMaker Layer."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         core_deployer.destroy_l4(provider)
@@ -344,18 +363,12 @@ def destroy_l4_endpoint(provider: str = Query("aws", description="Cloud provider
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/deploy_l5", tags=["Deployment"])
-def deploy_l5_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
-    """
-    Deploy Level 5 (L5) – Visualization Layer.
-
-    Actions performed:
-    - Creates IAM role for Grafana.
-    - Creates Grafana workspace.
-    - Configures CORS for TwinMaker S3 bucket to allow Grafana access.
-    
-    Returns:
-        JSON message confirming L5 deployment.
-    """
+def deploy_l5_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
+    """Deploy Level 5 (L5) – Visualization Layer."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         core_deployer.deploy_l5(provider)
@@ -366,17 +379,12 @@ def deploy_l5_endpoint(provider: str = Query("aws", description="Cloud provider:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/destroy_l5", tags=["Destroy"])
-def destroy_l5_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
-    """
-    Destroy Level 5 (L5) – Visualization Layer.
-
-    Actions performed:
-    - Deletes Grafana workspace.
-    - Deletes Grafana IAM role.
-    
-    Returns:
-        JSON message confirming L5 destruction.
-    """
+def destroy_l5_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
+    """Destroy Level 5 (L5) – Visualization Layer."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         core_deployer.destroy_l5(provider)
@@ -388,17 +396,16 @@ def destroy_l5_endpoint(provider: str = Query("aws", description="Cloud provider
 
 # --------- Check/Info Deployment Status ----------
 @app.get("/check", tags=["Status"])
-def check_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
-    """
-    Runs all checks (L1 to L5) for the specified provider.
-
-    Returns:
-        JSON message indicating the system check was executed.
-    """
+def check_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
+    """Runs all checks (L1 to L5) for the specified provider."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         info.check(provider)
-        hierarchy_deployer.info(provider),
+        hierarchy_deployer.info(provider)
         event_action_deployer.info(provider)
         return {"message": f"System check (all layers) completed for provider '{provider}'. See logs for detailed status."}
     except Exception as e:
@@ -409,8 +416,12 @@ def check_endpoint(provider: str = Query("aws", description="Cloud provider: aws
 
 # Individual layer check endpoints
 @app.get("/check_l1", tags=["Status"])
-def check_l1_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
+def check_l1_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
     """Check Level 1 (IoT Dispatcher Layer) for the specified provider."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         info.check_l1(provider)
@@ -422,8 +433,12 @@ def check_l1_endpoint(provider: str = Query("aws", description="Cloud provider: 
 
 
 @app.get("/check_l2", tags=["Status"])
-def check_l2_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
+def check_l2_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
     """Check Level 2 (Persister & Processor Layer) for the specified provider."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         info.check_l2(provider)
@@ -435,8 +450,12 @@ def check_l2_endpoint(provider: str = Query("aws", description="Cloud provider: 
 
 
 @app.get("/check_l3", tags=["Status"])
-def check_l3_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
+def check_l3_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
     """Check Level 3 (Hot, Cold, Archive Storage) for the specified provider."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         info.check_l3(provider)
@@ -448,8 +467,12 @@ def check_l3_endpoint(provider: str = Query("aws", description="Cloud provider: 
 
 
 @app.get("/check_l4", tags=["Status"])
-def check_l4_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
+def check_l4_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
     """Check Level 4 (TwinMaker Layer) for the specified provider."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         info.check_l4(provider)
@@ -461,8 +484,12 @@ def check_l4_endpoint(provider: str = Query("aws", description="Cloud provider: 
 
 
 @app.get("/check_l5", tags=["Status"])
-def check_l5_endpoint(provider: str = Query("aws", description="Cloud provider: aws, azure, or google")):
+def check_l5_endpoint(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
     """Check Level 5 (Grafana / Visualization Layer) for the specified provider."""
+    validate_project_context(project_name)
     try:
         provider = provider.lower()
         info.check_l5(provider)

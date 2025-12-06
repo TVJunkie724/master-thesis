@@ -142,7 +142,12 @@ def link_to_twinmaker_component(workspace_name, entity_id, component_name):
   return f"https://console.aws.amazon.com/iottwinmaker/home?region={globals_aws.aws_twinmaker_client.meta.region_name}#/workspaces/{workspace_name}/entities/{entity_id}/components/{component_name}"
 
 def link_to_grafana_workspace(workspace_id):
-  return f"https://console.aws.amazon.com/grafana/home?region={globals_aws.aws_grafana_client.meta.region_name}#/workspaces/{workspace_id}"
+  return f"https://console.aws.amazon.com/grafana/home?region={globals.config_credentials_aws['aws_region']}#/workspaces/{workspace_id}"
+
+def link_to_step_function(sf_arn):
+  import urllib.parse
+  encoded_arn = urllib.parse.quote(sf_arn, safe='')
+  return f"https://console.aws.amazon.com/states/home?region={globals.config_credentials_aws['aws_region']}#/statemachines/view/{encoded_arn}?type=standard"
 
 def get_lambda_arn_by_name(function_name: str):
     response = globals_aws.aws_lambda_client.get_function(FunctionName=function_name)

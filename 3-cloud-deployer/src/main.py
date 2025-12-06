@@ -139,26 +139,76 @@ def main():
       command = parts[0]
       args = parts[1:]
 
+      # Project Management Commands
+      if command == "list_projects":
+        import file_manager
+        projects = file_manager.list_projects()
+        print(f"Available projects: {projects}")
+        print(f"Active project: {globals.CURRENT_PROJECT}")
+        continue
+      
+      elif command == "set_project":
+        if not args:
+            print("Error: Project name required.")
+            continue
+        try:
+            globals.set_active_project(args[0])
+            print(f"Active project set to: {globals.CURRENT_PROJECT}")
+        except ValueError as e:
+            print(f"Error: {e}")
+        continue
+
+      elif command == "create_project":
+          if len(args) < 2:
+              print("Usage: create_project <zip_path> <project_name>")
+              continue
+          zip_path = args[0]
+          project_name = args[1]
+          import file_manager
+          try:
+              file_manager.create_project_from_zip(project_name, zip_path)
+              print(f"Project '{project_name}' created successfully.")
+          except Exception as e:
+              print(f"Error creating project: {e}")
+          continue
+
+      # Common argument parsing for provider and project
+      provider = None
+      project = "template"
+      
+      # Helper to parse [provider] [project] arguments
+      # Strategy: first arg is provider (if valid), second is project
+      # Or via named flags if we wanted, but sticking to positional for compatibility if possible,
+      # but adding project makes it tricky.
+      # Let's use simple logic:
+      # If command in deployment_commands or info_commands:
+      # args[0] = provider
+      # args[1] = project (optional, default="template")
+      
+      if command in deployment_commands or command in info_commands:
+          if not args:
+              print(f"Error: Provider argument required for '{command}'. Valid: {', '.join(valid_providers)}")
+              continue
+          
+          provider = args[0].lower()
+          if provider not in VALID_PROVIDERS:
+               print(f"Error: invalid provider '{provider}'. Valid: {', '.join(VALID_PROVIDERS)}")
+               continue
+          
+          # Check for optional project argument
+          if len(args) > 1:
+              project = args[1]
+          
+          # SAFETY CHECK
+          if project != globals.CURRENT_PROJECT:
+              logger.error(f"SAFETY ERROR: Requested project '{project}' does not match active project '{globals.CURRENT_PROJECT}'.")
+              logger.error(f"Please switch to '{project}' using 'set_project {project}' before executing this command.")
+              continue
 
       # deployment commands
       if command in deployment_commands:
-            if not args:
-                valid_providers = VALID_PROVIDERS.copy()
-                logger.error(
-                    f"Error:\n"
-                    f"   provider argument required for '{command}'.\n"
-                    f"   Valid arguments are: '{', '.join(valid_providers)}'\n"
-                    f"   Example: '{command} {valid_providers.pop()}'"
-                )
-                continue
-
-            provider = args[0].lower()
-            if provider not in VALID_PROVIDERS:
-                logger.error(f"Error: invalid provider '{provider}'. Valid providers: {', '.join(VALID_PROVIDERS)}")
-                continue
-
             try:
-                logger.info(f"Executing '{command} {provider}'...")
+                logger.info(f"Executing '{command} {provider}' on project '{project}'...")
                 deployment_commands[command](provider=provider)
             except Exception as e:
                 print_stack_trace()
@@ -167,23 +217,8 @@ def main():
           
       # info commands
       elif command in info_commands:
-        if not args:
-            valid_providers = VALID_PROVIDERS.copy()
-            logger.error(
-                f"Error:\n"
-                f"   provider argument required for '{command}'.\n"
-                f"   Valid arguments are: '{', '.join(valid_providers)}'\n"
-                f"   Example: '{command} {valid_providers.pop()}'"
-            )
-            continue
-
-        provider = args[0].lower()
-        if provider not in VALID_PROVIDERS:
-            logger.error(f"Error: invalid provider '{provider}'. Valid providers: {', '.join(VALID_PROVIDERS)}")
-            continue
-
         try:
-            logger.info(f"Executing '{command} {provider}'...")
+            logger.info(f"Executing '{command} {provider}' on project '{project}'...")
             info_commands[command](provider=provider)
         except Exception as e:
             print_stack_trace()
@@ -191,25 +226,73 @@ def main():
         continue
 
       # other commands
-      elif command == "lambda_update":
-        if len(args) > 1:
-          lambda_manager.update_function(args[0], json.loads(args[1]))
-        else:
-          lambda_manager.update_function(args[0])
-      elif command == "lambda_logs":
-        if len(args) > 2:
-          print("".join(lambda_manager.fetch_logs(args[0], int(args[1]), args[2].lower() in ("true", "1", "yes", "y"))))
-        elif len(args) > 1:
-          print("".join(lambda_manager.fetch_logs(args[0], int(args[1]))))
-        else:
-          print("".join(lambda_manager.fetch_logs(args[0])))
-      elif command == "lambda_invoke":
-        if len(args) > 2:
-          lambda_manager.invoke_function(args[0], json.loads(args[1]), args[2].lower() in ("true", "1", "yes", "y"))
-        elif len(args) > 1:
-          lambda_manager.invoke_function(args[0], json.loads(args[1]))
-        else:
-          lambda_manager.invoke_function(args[0])
+      # Lambda commands also need safety check? User didn't explicitly ask for CLI lambda safety but API.
+      # But good to be consistent. Lambda commands take local_function_name.
+      # If we add project param it breaks signature.
+      # For now, let's assume lambda commands operate on active project context implicitly, 
+      # but since they don't take a project arg, we can't cross-check.
+      # We just trust CURRENT_PROJECT is what the user wants. 
+      # EXCEPT if we want to force user to be aware.
+      # "Safety check" implies verifying user INTENT vs STATE.
+      # If user just types `lambda_update foo`, they imply "current state".
+      # If user types `deploy aws other_project`, they imply "other_project".
+      # So for lambda commands, we warn if they are ambiguous? No, just let them run on CURRENT_PROJECT.
+      
+      elif command in ("lambda_update", "lambda_logs", "lambda_invoke"):
+          # Safety Check Logic for Lambda Commands
+          # Check if the last argument is a valid project name
+          # If so, validate it against CURRENT_PROJECT and remove it from args
+          projects = []
+          try:
+              import file_manager
+              projects = file_manager.list_projects()
+          except ImportError:
+              logger.warning("Could not import file_manager for project validation.")
+          
+          # We only consider the last arg a project if we have enough args
+          # lambda_update needs at least 1 arg (name) -> if 2 provided, 2nd could be env (json) OR project.
+          # lambda_invoke needs at least 1 arg (name) -> if 2 provided, 2nd could be payload OR project.
+          # This ambiguity is solved by checking if the value is in the known projects list.
+          # But what if a project is named "{}"? Project names are folders, usually safe.
+          
+          target_project = None
+          
+          if args and projects and args[-1] in projects:
+               target_project = args[-1]
+               args = args[:-1]
+               
+          if target_project and target_project != globals.CURRENT_PROJECT:
+               logger.error(f"SAFETY ERROR: Requested project '{target_project}' does not match active project '{globals.CURRENT_PROJECT}'.")
+               logger.error(f"Please switch to '{target_project}' using 'set_project {target_project}' before executing this command.")
+               continue
+
+          if command == "lambda_update":
+            if len(args) > 1:
+              lambda_manager.update_function(args[0], json.loads(args[1]))
+            elif len(args) > 0:
+              lambda_manager.update_function(args[0])
+            else:
+                print("Usage: lambda_update <local_function_name> <o:environment> [project_name]")
+
+          elif command == "lambda_logs":
+            if len(args) > 2:
+              print("".join(lambda_manager.fetch_logs(args[0], int(args[1]), args[2].lower() in ("true", "1", "yes", "y"))))
+            elif len(args) > 1:
+              print("".join(lambda_manager.fetch_logs(args[0], int(args[1]))))
+            elif len(args) > 0:
+              print("".join(lambda_manager.fetch_logs(args[0])))
+            else:
+                print("Usage: lambda_logs <local_function_name> <o:n> <o:filter_system_logs> [project_name]")
+
+          elif command == "lambda_invoke":
+            if len(args) > 2:
+              lambda_manager.invoke_function(args[0], json.loads(args[1]), args[2].lower() in ("true", "1", "yes", "y"))
+            elif len(args) > 1:
+              lambda_manager.invoke_function(args[0], json.loads(args[1]))
+            elif len(args) > 0:
+              lambda_manager.invoke_function(args[0])
+            else:
+                 print("Usage: lambda_invoke <local_function_name> <o:payload> <o:sync> [project_name]")
 
       elif command == "help":
         help_menu()

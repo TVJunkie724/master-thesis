@@ -6,3 +6,4 @@ colorlog
 pytest
 moto[server]
 httpx
+python-multipart

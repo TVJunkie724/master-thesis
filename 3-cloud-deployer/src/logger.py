@@ -63,9 +63,20 @@ logger_proxy = LoggerProxy()
 
 
 
-with open(CONSTANTS.CONFIG_FILE_PATH) as f:
-    config = json.load(f)
-DEBUG_MODE = config.get("mode", "").upper() == "DEBUG"
+# Removed circular dependency on globals/constants for config loading.
+# Logger defaults to INFO unless initialized/reconfigured later.
+DEBUG_MODE = False # Default
 logger = setup_logger(debug_mode=DEBUG_MODE)
 
-logger.debug("Debug mode is active.")
+def configure_logger_from_file(config_path):
+    global logger, DEBUG_MODE
+    try:
+        with open(config_path) as f:
+            config = json.load(f)
+        DEBUG_MODE = config.get("mode", "").upper() == "DEBUG"
+        # Re-setup logger with new mode
+        logger = setup_logger(debug_mode=DEBUG_MODE)
+        if DEBUG_MODE:
+            logger.debug("Debug mode is active.")
+    except Exception as e:
+        logger.warning(f"Failed to configure logger from file: {e}. Using default settings.")

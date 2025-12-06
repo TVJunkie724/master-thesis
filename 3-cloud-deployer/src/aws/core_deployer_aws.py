@@ -91,7 +91,7 @@ def create_dispatcher_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, "dispatcher"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "dispatcher"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -260,7 +260,7 @@ def create_persister_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, "persister"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "persister"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -313,7 +313,9 @@ def create_event_checker_iam_role():
   policy_arns = [
     "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
     "arn:aws:iam::aws:policy/service-role/AWSLambdaRole",
-    "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess_v2"
+    "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess_v2",
+    "arn:aws:iam::aws:policy/AWSLambda_ReadOnlyAccess",
+    "arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess"
   ]
 
   for policy_arn in policy_arns:
@@ -406,12 +408,21 @@ def create_event_checker_lambda_function():
   response = globals_aws.aws_iam_client.get_role(RoleName=role_name)
   role_arn = response['Role']['Arn']
 
+  region = globals_aws.aws_lambda_client.meta.region_name
+  account_id = globals_aws.aws_sts_client.get_caller_identity()['Account']
+  lambda_chain_name = globals_aws.lambda_chain_step_function_name()
+  lambda_chain_arn = f"arn:aws:states:{region}:{account_id}:stateMachine:{lambda_chain_name}"
+
+  event_feedback_lambda_function = globals_aws.event_feedback_lambda_function_name()
+  response = globals_aws.aws_lambda_client.get_function(FunctionName=event_feedback_lambda_function)
+  event_feedback_lambda_function_arn = response["Configuration"]["FunctionArn"]
+
   globals_aws.aws_lambda_client.create_function(
     FunctionName=function_name,
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, "event-checker"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "event-checker"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -419,7 +430,9 @@ def create_event_checker_lambda_function():
     Environment={
       "Variables": {
         "DIGITAL_TWIN_INFO": json.dumps(globals.digital_twin_info()),
-        "TWINMAKER_WORKSPACE_NAME": globals_aws.twinmaker_workspace_name()
+        "TWINMAKER_WORKSPACE_NAME": globals_aws.twinmaker_workspace_name(),
+        "LAMBDA_CHAIN_STEP_FUNCTION_ARN": lambda_chain_arn,
+        "EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN": event_feedback_lambda_function_arn
       }
     }
   )
@@ -440,6 +453,284 @@ def redeploy_event_checker_lambda_function():
   destroy_event_checker_lambda_function()
   create_event_checker_lambda_function()
 
+
+def create_lambda_chain_iam_role():
+  role_name = globals_aws.lambda_chain_iam_role_name()
+
+  globals_aws.aws_iam_client.create_role(
+      RoleName=role_name,
+      AssumeRolePolicyDocument=json.dumps(
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "states.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        }
+      )
+  )
+
+  logger.info(f"Created IAM role: {role_name}")
+
+  policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+    "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+  ]
+
+  for policy_arn in policy_arns:
+    globals_aws.aws_iam_client.attach_role_policy(
+      RoleName=role_name,
+      PolicyArn=policy_arn
+    )
+
+    logger.info(f"Attached IAM policy ARN: {policy_arn}")
+
+  logger.info(f"Waiting for propagation...")
+
+  time.sleep(20)
+
+def destroy_lambda_chain_iam_role():
+  role_name = globals_aws.lambda_chain_iam_role_name()
+
+  try:
+    response = globals_aws.aws_iam_client.list_attached_role_policies(RoleName=role_name)
+    for policy in response["AttachedPolicies"]:
+        globals_aws.aws_iam_client.detach_role_policy(RoleName=role_name, PolicyArn=policy["PolicyArn"])
+
+    response = globals_aws.aws_iam_client.list_role_policies(RoleName=role_name)
+    for policy_name in response["PolicyNames"]:
+        globals_aws.aws_iam_client.delete_role_policy(RoleName=role_name, PolicyName=policy_name)
+
+    response = globals_aws.aws_iam_client.list_instance_profiles_for_role(RoleName=role_name)
+    for profile in response["InstanceProfiles"]:
+      globals_aws.aws_iam_client.remove_role_from_instance_profile(
+        InstanceProfileName=profile["InstanceProfileName"],
+        RoleName=role_name
+      )
+
+    globals_aws.aws_iam_client.delete_role(RoleName=role_name)
+    logger.info(f"Deleted IAM role: {role_name}")
+  except ClientError as e:
+    if e.response["Error"]["Code"] != "NoSuchEntity":
+      raise
+
+def check_lambda_chain_iam_role():
+  role_name = globals_aws.lambda_chain_iam_role_name()
+
+  try:
+    globals_aws.aws_iam_client.get_role(RoleName=role_name)
+    logger.info(f"✅ Lambda-Chain IAM Role exists: {util.link_to_iam_role(role_name)}")
+  except ClientError as e:
+    if e.response["Error"]["Code"] == "NoSuchEntity":
+      logger.info(f"❌ Lambda-Chain IAM Role missing: {role_name}")
+    else:
+      raise
+
+
+def create_lambda_chain_step_function():
+  sf_name = globals_aws.lambda_chain_step_function_name()
+  role_name = globals_aws.lambda_chain_iam_role_name()
+
+  response = globals_aws.aws_iam_client.get_role(RoleName=role_name)
+  role_arn = response["Role"]["Arn"]
+
+  # Read definition from file in src/state_machines
+  # globals.py is in src/, so we can compute path relative to it
+  sf_def_path = os.path.join(os.path.dirname(globals.__file__), "state_machines", "aws_step_function.json")
+  
+  with open(sf_def_path, 'r') as f:
+      definition = f.read()
+
+  globals_aws.aws_sf_client.create_state_machine(
+    name=sf_name,
+    roleArn=role_arn,
+    definition=definition
+  )
+
+  logger.info(f"Created Step Function: {sf_name}")
+
+def destroy_lambda_chain_step_function():
+  sf_name = globals_aws.lambda_chain_step_function_name()
+  region = globals_aws.aws_lambda_client.meta.region_name
+  account_id = globals_aws.aws_sts_client.get_caller_identity()['Account']
+  sf_arn = f"arn:aws:states:{region}:{account_id}:stateMachine:{sf_name}"
+
+  try:
+    globals_aws.aws_sf_client.describe_state_machine(stateMachineArn=sf_arn)
+  except ClientError as e:
+    if e.response["Error"]["Code"] == "StateMachineDoesNotExist":
+      return
+
+  globals_aws.aws_sf_client.delete_state_machine(stateMachineArn=sf_arn)
+  logger.info(f"Deletion of Step Function initiated: {sf_name}")
+
+  while True:
+    try:
+      globals_aws.aws_sf_client.describe_state_machine(stateMachineArn=sf_arn)
+      time.sleep(2)
+    except ClientError as e:
+      if e.response["Error"]["Code"] == "StateMachineDoesNotExist":
+        break
+      else:
+        raise
+
+  logger.info(f"Deleted Step Function: {sf_name}")
+
+def check_lambda_chain_step_function():
+  sf_name = globals_aws.lambda_chain_step_function_name()
+  region = globals_aws.aws_lambda_client.meta.region_name
+  account_id = globals_aws.aws_sts_client.get_caller_identity()['Account']
+  sf_arn = f"arn:aws:states:{region}:{account_id}:stateMachine:{sf_name}"
+
+  try:
+    globals_aws.aws_sf_client.describe_state_machine(stateMachineArn=sf_arn)
+    logger.info(f"✅ Lambda-Chain Step Function exists: {util.link_to_step_function(sf_arn)}")
+  except ClientError as e:
+    if e.response["Error"]["Code"] == "StateMachineDoesNotExist":
+      logger.info(f"❌ Lambda-Chain Step Function missing: {sf_name}")
+    else:
+      raise
+
+def redeploy_lambda_chain_step_function():
+    destroy_lambda_chain_step_function()
+    create_lambda_chain_step_function()
+
+
+def create_event_feedback_iam_role():
+  role_name = globals_aws.event_feedback_iam_role_name()
+
+  globals_aws.aws_iam_client.create_role(
+      RoleName=role_name,
+      AssumeRolePolicyDocument=json.dumps(
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        }
+      )
+  )
+
+  logger.info(f"Created IAM role: {role_name}")
+
+  policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+    "arn:aws:iam::aws:policy/AWSIoTDataAccess"
+  ]
+
+  for policy_arn in policy_arns:
+    globals_aws.aws_iam_client.attach_role_policy(
+      RoleName=role_name,
+      PolicyArn=policy_arn
+    )
+
+    logger.info(f"Attached IAM policy ARN: {policy_arn}")
+
+  logger.info(f"Waiting for propagation...")
+
+  time.sleep(20)
+
+def destroy_event_feedback_iam_role():
+  role_name = globals_aws.event_feedback_iam_role_name()
+
+  try:
+    response = globals_aws.aws_iam_client.list_attached_role_policies(RoleName=role_name)
+    for policy in response["AttachedPolicies"]:
+        globals_aws.aws_iam_client.detach_role_policy(RoleName=role_name, PolicyArn=policy["PolicyArn"])
+
+    response = globals_aws.aws_iam_client.list_role_policies(RoleName=role_name)
+    for policy_name in response["PolicyNames"]:
+        globals_aws.aws_iam_client.delete_role_policy(RoleName=role_name, PolicyName=policy_name)
+
+    response = globals_aws.aws_iam_client.list_instance_profiles_for_role(RoleName=role_name)
+    for profile in response["InstanceProfiles"]:
+      globals_aws.aws_iam_client.remove_role_from_instance_profile(
+        InstanceProfileName=profile["InstanceProfileName"],
+        RoleName=role_name
+      )
+
+    globals_aws.aws_iam_client.delete_role(RoleName=role_name)
+    logger.info(f"Deleted IAM role: {role_name}")
+  except ClientError as e:
+    if e.response["Error"]["Code"] != "NoSuchEntity":
+      raise
+
+def check_event_feedback_iam_role():
+  role_name = globals_aws.event_feedback_iam_role_name()
+
+  try:
+    globals_aws.aws_iam_client.get_role(RoleName=role_name)
+    logger.info(f"✅ Event-Feedback IAM Role exists: {util.link_to_iam_role(role_name)}")
+  except ClientError as e:
+    if e.response["Error"]["Code"] == "NoSuchEntity":
+      logger.info(f"❌ Event-Feedback IAM Role missing: {role_name}")
+    else:
+      raise
+
+
+def create_event_feedback_lambda_function():
+  function_name = globals_aws.event_feedback_lambda_function_name()
+  role_name = globals_aws.event_feedback_iam_role_name()
+
+  response = globals_aws.aws_iam_client.get_role(RoleName=role_name)
+  role_arn = response["Role"]["Arn"]
+
+  # Use util.get_path_in_project to resolve active project path
+  globals_aws.aws_lambda_client.create_function(
+    FunctionName=function_name,
+    Runtime="python3.13",
+    Role=role_arn,
+    Handler="lambda_function.lambda_handler", #  file.function
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "event-feedback"))},
+    Description="",
+    Timeout=3, # seconds
+    MemorySize=128, # MB
+    Publish=True,
+    Environment={
+      "Variables": {
+        "DIGITAL_TWIN_INFO": json.dumps(globals.digital_twin_info())
+      }
+    }
+  )
+
+  logger.info(f"Created Lambda function: {function_name}")
+
+def destroy_event_feedback_lambda_function():
+  function_name = globals_aws.event_feedback_lambda_function_name()
+
+  try:
+    globals_aws.aws_lambda_client.delete_function(FunctionName=function_name)
+    logger.info(f"Deleted Lambda function: {function_name}")
+  except ClientError as e:
+    if e.response["Error"]["Code"] != "ResourceNotFoundException":
+      raise
+
+def check_event_feedback_lambda_function():
+  function_name = globals_aws.event_feedback_lambda_function_name()
+
+  try:
+    globals_aws.aws_lambda_client.get_function(FunctionName=function_name)
+    logger.info(f"✅ Event-Feedback Lambda Function exists: {util.link_to_lambda_function(function_name)}")
+  except ClientError as e:
+    if e.response["Error"]["Code"] == "ResourceNotFoundException":
+      logger.info(f"❌ Event-Feedback Lambda Function missing: {function_name}")
+    else:
+      raise
+
+def redeploy_event_feedback_lambda_function():
+    destroy_event_feedback_lambda_function()
+    create_event_feedback_lambda_function()
 
 def create_hot_dynamodb_table():
   table_name = globals_aws.hot_dynamodb_table_name()
@@ -566,7 +857,7 @@ def create_hot_cold_mover_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, "hot-to-cold-mover"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "hot-to-cold-mover"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -761,7 +1052,7 @@ def create_cold_archive_mover_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, "cold-to-archive-mover"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "cold-to-archive-mover"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -968,7 +1259,7 @@ def create_hot_reader_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, "hot-reader"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "hot-reader"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -1094,7 +1385,7 @@ def create_hot_reader_last_entry_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, "hot-reader-last-entry"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "hot-reader-last-entry"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB

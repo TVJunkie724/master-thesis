@@ -31,6 +31,10 @@ def check_l2(provider=None):
             info_aws.check_persister_lambda_function()
             info_aws.check_event_checker_iam_role()
             info_aws.check_event_checker_lambda_function()
+            info_aws.check_lambda_chain_iam_role()
+            info_aws.check_lambda_chain_step_function()
+            info_aws.check_event_feedback_iam_role()
+            info_aws.check_event_feedback_lambda_function()
             for iot_device in globals.config_iot_devices:
                 info_aws.check_processor_iam_role(iot_device)
                 info_aws.check_processor_lambda_function(iot_device)

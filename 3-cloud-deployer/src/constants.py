@@ -3,15 +3,20 @@ from pathlib import Path
 #--------------------------------------------------------------------
 # Configuration file paths
 #--------------------------------------------------------------------
-BASE_CONFIG_DIR = Path("upload")
+ 
 
-CONFIG_FILE_PATH = BASE_CONFIG_DIR / "config.json"
-CREDENTIALS_FILE_PATH = BASE_CONFIG_DIR / "config_credentials.json"
-GCP_CREDENTIALS_BASE_FILE_PATH = BASE_CONFIG_DIR 
+IOT_DATA_DIR_NAME = "iot_devices_auth"
+LAMBDA_FUNCTIONS_DIR_NAME = "lambda_functions"
+EVENT_ACTIONS_DIR_NAME = "event_actions"
 
-IOT_DATA_PATH = "iot_devices_auth"
-LAMBDA_FUNCTIONS_PATH = "upload/lambda_functions"
-EVENT_ACTIONS_PATH = "upload/event_actions"
+REQUIRED_CONFIG_FILES = [
+    "config.json",
+    "config_iot_devices.json",
+    "config_events.json",
+    "config_hierarchy.json",
+    "config_credentials.json",
+    "config_providers.json"
+]
 
 REQUIRED_CREDENTIALS_FIELDS = {
     "aws": ["aws_access_key_id", "aws_secret_access_key", "aws_region"],

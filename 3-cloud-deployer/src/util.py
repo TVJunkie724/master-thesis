@@ -29,6 +29,15 @@ def validate_credentials(provider_name, credentials):
         raise ValueError(f"{provider_name.upper()} credentials are missing fields: {missing_fields}")
     return provider_creds
 
+def get_path_in_project(subpath=""):
+    """
+    Returns the absolute path to a file or directory within the currently active project's upload directory.
+    """
+    project_upload_path = globals.get_project_upload_path()
+    if subpath:
+        return os.path.join(project_upload_path, subpath)
+    return project_upload_path
+
 def resolve_folder_path(folder_path):
   rel_path = os.path.join(globals.project_path(), folder_path)
 

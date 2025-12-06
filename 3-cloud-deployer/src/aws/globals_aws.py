@@ -1,5 +1,6 @@
 import boto3
 import globals 
+import util 
 
 import constants as CONSTANTS
 
@@ -15,6 +16,7 @@ aws_grafana_client = {}
 aws_logs_client = {}
 aws_iot_data_client = {}
 aws_apigateway_client = {}
+aws_sf_client = {}
 
 def initialize_aws_clients():
   initialize_aws_iam_client()
@@ -29,6 +31,7 @@ def initialize_aws_clients():
   initialize_aws_logs_client()
   initialize_aws_iot_data_client()
   initialize_aws_apigateway_client()
+  initialize_aws_sf_client()
 
 def initialize_aws_iam_client():
   global config
@@ -217,3 +220,23 @@ def initialize_aws_iot_data_client():
     aws_access_key_id=globals.config_credentials_aws["aws_access_key_id"],
     aws_secret_access_key=globals.config_credentials_aws["aws_secret_access_key"],
     region_name=globals.config_credentials_aws["aws_region"])
+
+def initialize_aws_sf_client():
+  global config
+  global aws_sf_client
+  aws_sf_client = boto3.client("stepfunctions",
+    aws_access_key_id=globals.config_credentials_aws["aws_access_key_id"],
+    aws_secret_access_key=globals.config_credentials_aws["aws_secret_access_key"],
+    region_name=globals.config_credentials_aws["aws_region"])
+
+def lambda_chain_iam_role_name():
+  return globals.config["digital_twin_name"] + "-lambda-chain"
+
+def lambda_chain_step_function_name():
+  return globals.config["digital_twin_name"] + "-lambda-chain"
+
+def event_feedback_iam_role_name():
+  return globals.config["digital_twin_name"] + "-event-feedback"
+
+def event_feedback_lambda_function_name():
+  return globals.config["digital_twin_name"] + "-event-feedback"

@@ -86,7 +86,7 @@ def create_lambda_function(function_name):
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.EVENT_ACTIONS_PATH, function_name))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.EVENT_ACTIONS_DIR_NAME), function_name))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
