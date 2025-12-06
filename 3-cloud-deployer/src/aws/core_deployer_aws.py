@@ -80,6 +80,10 @@ def destroy_dispatcher_iam_role():
       raise
 
 
+
+# Helper path for core lambda functions
+CORE_LAMBDA_DIR = os.path.join(globals.project_path(), "src", "aws", "lambda_functions")
+
 def create_dispatcher_lambda_function():
   function_name = globals_aws.dispatcher_lambda_function_name()
   role_name = globals_aws.dispatcher_iam_role_name()
@@ -92,7 +96,7 @@ def create_dispatcher_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "dispatcher"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CORE_LAMBDA_DIR, "dispatcher"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -261,7 +265,7 @@ def create_persister_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "persister"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CORE_LAMBDA_DIR, "persister"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -409,21 +413,32 @@ def create_event_checker_lambda_function():
   response = globals_aws.aws_iam_client.get_role(RoleName=role_name)
   role_arn = response['Role']['Arn']
 
-  region = globals_aws.aws_lambda_client.meta.region_name
-  account_id = globals_aws.aws_sts_client.get_caller_identity()['Account']
-  lambda_chain_name = globals_aws.lambda_chain_step_function_name()
-  lambda_chain_arn = f"arn:aws:states:{region}:{account_id}:stateMachine:{lambda_chain_name}"
+  # Fetch ARNs only if features are enabled to avoid errors if resources don't exist
+  lambda_chain_arn = "NONE"
+  if globals.is_optimization_enabled("triggerNotificationWorkflow") and globals.is_optimization_enabled("useEventChecking"):
+      region = globals_aws.aws_lambda_client.meta.region_name
+      account_id = globals_aws.aws_sts_client.get_caller_identity()['Account']
+      lambda_chain_name = globals_aws.lambda_chain_step_function_name()
+      lambda_chain_arn = f"arn:aws:states:{region}:{account_id}:stateMachine:{lambda_chain_name}"
 
-  event_feedback_lambda_function = globals_aws.event_feedback_lambda_function_name()
-  response = globals_aws.aws_lambda_client.get_function(FunctionName=event_feedback_lambda_function)
-  event_feedback_lambda_function_arn = response["Configuration"]["FunctionArn"]
+  event_feedback_lambda_function_arn = "NONE"
+  if globals.is_optimization_enabled("returnFeedbackToDevice") and globals.is_optimization_enabled("useEventChecking"):
+      event_feedback_lambda_function = globals_aws.event_feedback_lambda_function_name()
+      # NOTE: Logic assumes event feedback lambda creates successfully before this or we handle it gracefully.
+      # For now, we attempt to get it. If it fails, deployment might fail, which is acceptable if ordering is wrong.
+      try:
+          response = globals_aws.aws_lambda_client.get_function(FunctionName=event_feedback_lambda_function)
+          event_feedback_lambda_function_arn = response["Configuration"]["FunctionArn"]
+      except Exception as e:
+          logger.warning(f"Could not retrieve Event Feedback Lambda ARN: {e}")
+          event_feedback_lambda_function_arn = "UNKNOWN"
 
   globals_aws.aws_lambda_client.create_function(
     FunctionName=function_name,
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "event-checker"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CORE_LAMBDA_DIR, "event-checker"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -433,7 +448,9 @@ def create_event_checker_lambda_function():
         "DIGITAL_TWIN_INFO": json.dumps(globals.digital_twin_info()),
         "TWINMAKER_WORKSPACE_NAME": globals_aws.twinmaker_workspace_name(),
         "LAMBDA_CHAIN_STEP_FUNCTION_ARN": lambda_chain_arn,
-        "EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN": event_feedback_lambda_function_arn
+        "EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN": event_feedback_lambda_function_arn,
+        "USE_STEP_FUNCTIONS": str(globals.is_optimization_enabled("triggerNotificationWorkflow")).lower(),
+        "USE_FEEDBACK": str(globals.is_optimization_enabled("returnFeedbackToDevice")).lower()
       }
     }
   )
@@ -687,7 +704,6 @@ def create_event_feedback_lambda_function():
   response = globals_aws.aws_iam_client.get_role(RoleName=role_name)
   role_arn = response["Role"]["Arn"]
 
-  # Use util.get_path_in_project to resolve active project path
   globals_aws.aws_lambda_client.create_function(
     FunctionName=function_name,
     Runtime="python3.13",
@@ -875,7 +891,7 @@ def create_hot_cold_mover_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "hot-to-cold-mover"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CORE_LAMBDA_DIR, "hot-to-cold-mover"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -1070,7 +1086,7 @@ def create_cold_archive_mover_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "cold-to-archive-mover"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CORE_LAMBDA_DIR, "cold-to-archive-mover"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -1277,7 +1293,7 @@ def create_hot_reader_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "hot-reader"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CORE_LAMBDA_DIR, "hot-reader"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -1403,7 +1419,7 @@ def create_hot_reader_last_entry_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "hot-reader-last-entry"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CORE_LAMBDA_DIR, "hot-reader-last-entry"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB

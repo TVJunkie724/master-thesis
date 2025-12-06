@@ -62,8 +62,23 @@ def deploy_l2(provider=None):
     case "aws":
       core_aws.create_persister_iam_role()
       core_aws.create_persister_lambda_function()
-      core_aws.create_event_checker_iam_role()
-      core_aws.create_event_checker_lambda_function()
+      
+      # Optional: Event Checker and its dependencies
+      if globals.is_optimization_enabled("useEventChecking"):
+          # Optional: Notification Workflow (Dependent on Event Checker)
+          if globals.is_optimization_enabled("triggerNotificationWorkflow"):
+              core_aws.create_lambda_chain_iam_role()
+              core_aws.create_lambda_chain_step_function()
+          
+          # Optional: Feedback Loop (Dependent on Event Checker)
+          if globals.is_optimization_enabled("returnFeedbackToDevice"):
+              core_aws.create_event_feedback_iam_role()
+              core_aws.create_event_feedback_lambda_function()
+          
+          # Create Event Checker LAST so it can access ARNs of dependencies
+          core_aws.create_event_checker_iam_role()
+          core_aws.create_event_checker_lambda_function()
+
     case "azure":
       raise NotImplementedError("Azure deployment not implemented yet.")
     case "google":
@@ -76,6 +91,12 @@ def destroy_l2(provider=None):
     raise ValueError("Provider must be specified for deployment.")
   match provider:
     case "aws":
+      # Destroy Optional Resources (Safe even if not created)
+      core_aws.destroy_event_feedback_lambda_function()
+      core_aws.destroy_event_feedback_iam_role()
+      core_aws.destroy_lambda_chain_step_function()
+      core_aws.destroy_lambda_chain_iam_role()
+      
       core_aws.destroy_event_checker_lambda_function()
       core_aws.destroy_event_checker_iam_role()
       core_aws.destroy_persister_lambda_function()
@@ -100,8 +121,12 @@ def deploy_l3_hot(provider=None):
       core_aws.create_hot_reader_lambda_function()
       core_aws.create_hot_reader_last_entry_iam_role()
       core_aws.create_hot_reader_last_entry_lambda_function()
-      core_aws.create_api()
-      core_aws.create_api_hot_reader_integration()
+      
+      # Conditional: API Gateway
+      if globals.should_deploy_api_gateway(provider):
+          core_aws.create_api()
+          core_aws.create_api_hot_reader_integration()
+
     case "azure":
       raise NotImplementedError("Azure deployment not implemented yet.")
     case "google":
@@ -114,6 +139,8 @@ def destroy_l3_hot(provider=None):
     raise ValueError("Provider must be specified for deployment.")  
   match provider:
     case "aws":
+      core_aws.destroy_api_hot_reader_integration()
+      core_aws.destroy_api()
       core_aws.destroy_hot_reader_last_entry_lambda_function()
       core_aws.destroy_hot_reader_last_entry_iam_role()
       core_aws.destroy_hot_reader_lambda_function()

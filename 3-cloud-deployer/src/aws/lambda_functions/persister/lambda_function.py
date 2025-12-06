@@ -22,5 +22,5 @@ def lambda_handler(event, context):
 
     dynamodb_table.put_item(Item=item)
 
-    lambda_client.invoke(FunctionName=EVENT_CHECKER_LAMBDA_NAME, InvocationType="Event", Payload=json.dumps(event).encode("utf-8"))
-    
+    if os.environ.get("USE_EVENT_CHECKING", "false").lower() == "true":
+        lambda_client.invoke(FunctionName=EVENT_CHECKER_LAMBDA_NAME, InvocationType="Event", Payload=json.dumps(event).encode("utf-8"))

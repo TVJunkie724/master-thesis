@@ -119,24 +119,34 @@ def activate_project(project_name: str):
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
+from enum import Enum
+
+class ConfigType(str, Enum):
+    config = "config"
+    iot = "iot"
+    events = "events"
+    hierarchy = "hierarchy"
+    credentials = "credentials"
+    providers = "providers"
+    optimization = "optimization" # Added optimization
+
 @app.put("/projects/{project_name}/config/{config_type}", tags=["Projects"])
-async def update_config(project_name: str, config_type: str, file: UploadFile = File(...)):
+async def update_config(project_name: str, config_type: ConfigType, file: UploadFile = File(...)):
     """
     Update a specific configuration file for a project.
-    config_type: 'config', 'iot', 'events', 'hierarchy', 'credentials', 'providers'
+    config_type: Select from the dropdown.
     """
     config_map = {
-        "config": "config.json",
-        "iot": "config_iot_devices.json",
-        "events": "config_events.json",
-        "hierarchy": "config_hierarchy.json",
-        "credentials": "config_credentials.json",
-        "providers": "config_providers.json"
+        ConfigType.config: "config.json",
+        ConfigType.iot: "config_iot_devices.json",
+        ConfigType.events: "config_events.json",
+        ConfigType.hierarchy: "config_hierarchy.json",
+        ConfigType.credentials: "config_credentials.json",
+        ConfigType.providers: "config_providers.json",
+        ConfigType.optimization: "config_optimization.json"
     }
     
-    if config_type not in config_map:
-        raise HTTPException(status_code=400, detail=f"Invalid config type. Valid types: {list(config_map.keys())}")
-        
+    # Enum ensures valid value, so specific check is redundant but safe
     filename = config_map[config_type]
     
     try:
@@ -147,6 +157,171 @@ async def update_config(project_name: str, config_type: str, file: UploadFile = 
         return {"message": f"Configuration '{filename}' updated for project '{project_name}'."}
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON content.")
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --------- Validation Endpoints ----------
+
+@app.post("/validate/zip", tags=["Validation"])
+async def validate_zip(file: UploadFile = File(...)):
+    """
+    Validates a project zip file without extracting it.
+    
+    Checks performed:
+    - Zip integrity.
+    - Presence of all required configuration files.
+    - Path traversal safety (Zip Slip).
+    - Content schema validation for all config files.
+    
+    Returns:
+        JSON message indicating validity.
+    """
+    try:
+        content = await file.read()
+        file_manager.validate_project_zip(content)
+        return {"message": "Project zip is valid and secure."}
+    except ValueError as e:
+        # Return 400 for validation errors (client side error)
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/validate/config/{config_type}", tags=["Validation"])
+async def validate_config(config_type: ConfigType, file: UploadFile = File(...)):
+    """
+    Validates a specific configuration file against its schema.
+    
+    Args:
+        config_type: Select from the dropdown.
+        file (UploadFile): The configuration file to validate.
+        
+    Returns:
+        JSON message indicating validity.
+    """
+    config_map = {
+        ConfigType.config: "config.json",
+        ConfigType.iot: "config_iot_devices.json",
+        ConfigType.events: "config_events.json",
+        ConfigType.hierarchy: "config_hierarchy.json",
+        ConfigType.credentials: "config_credentials.json",
+        ConfigType.providers: "config_providers.json",
+        ConfigType.optimization: "config_optimization.json"
+    }
+    
+    filename = config_map[config_type]
+    
+    try:
+        content = await file.read()
+        content_str = content.decode('utf-8')
+        file_manager.validate_config_content(filename, content_str)
+        return {"message": f"Configuration '{filename}' is valid."}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+class FunctionValidationRequest(BaseModel):
+    project_name: str
+    function_name: str
+    filename: str
+    code: str
+
+@app.post("/validate/function", tags=["Validation"])
+def validate_function(req: FunctionValidationRequest):
+    """
+    Validates Python code for a specific function based on its provider.
+    
+    Prerequisites:
+        - The project's 'config_providers.json' must be uploaded to determine the target provider.
+        
+    Args:
+        req (FunctionValidationRequest): JSON body containing project context and code.
+        
+    Returns:
+        JSON message indicating validity.
+    """
+    try:
+        # Determine provider first to check for dependency errors
+        provider = file_manager.get_provider_for_function(req.project_name, req.function_name)
+        
+        # Select appropriate validator
+        if provider == "aws":
+            file_manager.validate_python_code_aws(req.code)
+        elif provider == "azure":
+            file_manager.validate_python_code_azure(req.code)
+        elif provider == "google":
+            file_manager.validate_python_code_google(req.code)
+            
+        return {"message": f"Function code is valid for provider '{provider}'."}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --------- Upload Endpoints ----------
+
+@app.post("/projects/{project_name}/upload/zip", tags=["Projects"])
+async def update_project_zip(project_name: str, file: UploadFile = File(...)):
+    """
+    Updates an existing project by overwriting it with a new validated zip file.
+    
+    Process:
+    1. Validates the zip format, integrity, and safety (Zip Slip).
+    2. Validates content of all config files inside.
+    3. Overwrites existing project files.
+    
+    Args:
+        project_name (str): The project to update.
+        file (UploadFile): The zip file.
+    """
+    # Enforce active project check? Or allow updating inactive projects?
+    # Logic in file_manager doesn't strictly depend on active status, only hot-reload does.
+    # But for safety, updates usually happen on active or inactive. Let's allow any.
+    
+    try:
+        content = await file.read()
+        file_manager.update_project_from_zip(project_name, content)
+        return {"message": f"Project '{project_name}' updated successfully from zip."}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/projects/{project_name}/functions/{function_name}/file", tags=["Projects"])
+async def update_function_file(
+    project_name: str, 
+    function_name: str, 
+    target_filename: str = Query(..., description="Target filename (e.g., lambda_function.py)"), 
+    file: UploadFile = File(...)
+):
+    """
+    Uploads and updates a specific code file for a function.
+    
+    Crucial:
+    - This endpoint performs strict provider-specific code validation before saving.
+    - 'target_filename' ensures the file is saved with the correct system name, regardless of the uploaded filename.
+    
+    Args:
+        project_name (str): Project context.
+        function_name (str): Function directory (e.g., 'persister').
+        target_filename (str): Name to save the file as (MUST be provided).
+        file (UploadFile): The code file.
+    """
+    try:
+        content = await file.read()
+        content_str = content.decode('utf-8')
+        
+        file_manager.update_function_code_file(project_name, function_name, target_filename, content_str)
+        return {"message": f"File '{target_filename}' updated for function '{function_name}'."}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
@@ -770,21 +945,3 @@ def lambda_invoke(req: LambdaInvokeRequest):
         print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# --------------------------------------------------
-# UI Documentation endpoint
-
-@app.get(
-    "/documentation/overview",
-    tags=["WebUI"],
-    summary="Documentation Overview", include_in_schema=False,
-    description=(
-        "Serves the **Twin2Clouds Documentation Overview** page.<br><br>"
-        "📘 <a href='/documentation/overview' target='_blank'>Open Documentation Overview in a new tab</a><br><br>"
-        "Provides navigation to AWS, Azure, and Google Cloud pricing schema documentation "
-        "as well as cost formula definitions."
-    ),
-)
-def serve_docs_overview():
-    return FileResponse("docs/docs-overview.html")

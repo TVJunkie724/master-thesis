@@ -1,0 +1,21 @@
+{
+    "result": {
+        "calculationResult": {
+            "L1": "GCP",
+            "L2": {
+                "Hot": "AWS",
+                "Cool": "GCP",
+                "Archive": "GCP"
+            },
+            "L3": "AWS",
+            "L4": "AWS",
+            "L5": "GCP"
+        },
+        "inputParamsUsed": {
+            "useEventChecking": true,
+            "triggerNotificationWorkflow": true,
+            "returnFeedbackToDevice": false,
+            "integrateErrorHandling": true
+        }
+    }
+}

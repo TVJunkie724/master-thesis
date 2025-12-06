@@ -30,6 +30,7 @@ config_credentials = {}
 config_credentials_aws = None
 config_credentials_azure = None
 config_credentials_google = None
+config_optimization = {}
 config_providers = {}
 config_hierarchy = []
 config_events = []
@@ -89,6 +90,43 @@ def initialize_config_providers():
   global config_providers
   with open(os.path.join(get_project_upload_path(), CONSTANTS.CONFIG_PROVIDERS_FILE), "r") as file:
     config_providers = json.load(file)
+
+def initialize_config_optimization():
+    global config_optimization
+    path = os.path.join(get_project_upload_path(), CONSTANTS.CONFIG_OPTIMIZATION_FILE)
+    if os.path.exists(path):
+        with open(path, "r") as file:
+            config_optimization = json.load(file)
+    else:
+        logger.warning(f"Optimization config file not found at {path}. Defaulting to empty config.")
+        config_optimization = {}
+
+def is_optimization_enabled(param_key):
+    """
+    Checks if a specific optimization parameter is enabled in config_optimization.
+    Structure: result > inputParamsUsed > [param_key]
+    Defaults to False if key or file is missing.
+    """
+    try:
+        return config_optimization.get("result", {}).get("inputParamsUsed", {}).get(param_key, False)
+    except Exception:
+        return False
+
+def should_deploy_api_gateway(current_provider):
+    """
+    Determines if API Gateway should be deployed for the current provider.
+    Logic: 
+      1. Current provider MUST be the L3 Hot provider.
+      2. AND (L3 Hot != L4 OR L3 Hot != L5)
+    """
+    l3_hot = config_providers.get("layer_3_hot_provider")
+    l4 = config_providers.get("layer_4_provider")
+    l5 = config_providers.get("layer_5_provider")
+    
+    if current_provider != l3_hot:
+        return False
+        
+    return (l3_hot != l4) or (l3_hot != l5)
     
 def digital_twin_info():
   return {
@@ -110,6 +148,7 @@ def initialize_all():
   initialize_config_hierarchy()
   initialize_config_credentials()
   initialize_config_providers()
+  initialize_config_optimization()
   
   
   # check credentials based on providers in use
