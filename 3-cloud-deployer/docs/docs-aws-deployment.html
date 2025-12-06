@@ -27,9 +27,9 @@
             </p>
 
             <div class="callout info mb-4">
-                <strong><i class="fa-solid fa-check-circle me-2"></i>Status: Core Fully Implemented</strong>
-                Core single-cloud deployment is fully operational. Multi-cloud extensions and Error Handling are in
-                development.
+                <strong><i class="fa-solid fa-check-circle me-2"></i>Status: Core & Advanced Logic Implemented</strong>
+                Core single-cloud deployment and L2 Event Processing are operational. L3 Data Access (API Gateway) is
+                available. Multi-cloud extensions and Error Handling are in development.
             </div>
 
             <div class="card mb-4">
@@ -173,8 +173,8 @@
                                         Checker</strong> (if enabled).</li>
                             </ul>
                         </li>
-                        <li><strong>Event Checker Function [ <span class="badge text-bg-warning">Todo</span>
-                                Optional ]:</strong>
+                        <li><strong>Event Checker Function [ Optional <span class="badge text-bg-warning">Todo</span>
+                                ]:</strong>
                             <ul>
                                 <li><strong>Role:</strong> <code>{digital_twin_name}-event-checker-role</code> (Step
                                     Functions Access).</li>
@@ -185,8 +185,8 @@
                                 </li>
                             </ul>
                         </li>
-                        <li><strong>Event Workflow (Step Functions) [ <span class="badge text-bg-warning">Todo</span>
-                                Optional ]:</strong>
+                        <li><strong>Event Workflow (Step Functions) [ Optional <span
+                                    class="badge text-bg-warning">Todo</span> ]:</strong>
                             <ul>
                                 <li><strong>Type:</strong> Standard State Machine.</li>
                                 <li><strong>Definition:</strong> Orchestrates a multi-step remediation process (e.g.,
@@ -194,8 +194,8 @@
                                 </li>
                             </ul>
                         </li>
-                        <li><strong>Event Feedback Function [ <span class="badge text-bg-warning">Todo</span>
-                                Optional ]:</strong>
+                        <li><strong>Event Feedback Function [ Optional <span class="badge text-bg-warning">Todo</span>
+                                ]:</strong>
                             <ul>
                                 <li><strong>Role:</strong> <code>{digital_twin_name}-event-feedback-role</code> (IoT
                                     Data Access).</li>
@@ -245,7 +245,7 @@
                         </li>
                         <li><strong>Data Access (API Gateway) [Multi-Cloud Only]:</strong>
                             <ul>
-                                <li><strong>API:</strong> REST API exposing the <code>Hot Reader</code> Lambda.</li>
+                                <li><strong>API:</strong> HTTP API exposing the <code>Hot Reader</code> Lambda.</li>
                                 <li><strong>Purpose:</strong> Required only if L4/L5 are on a different cloud or using
                                     self-hosted tools that cannot access DynamoDB natively.</li>
                             </ul>

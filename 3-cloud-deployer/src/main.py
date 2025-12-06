@@ -1,5 +1,6 @@
 import json
 import globals
+import constants as CONSTANTS
 import aws.globals_aws as globals_aws
 import aws.lambda_manager as lambda_manager
 import deployers.core_deployer as core_deployer
@@ -174,7 +175,7 @@ def main():
 
       # Common argument parsing for provider and project
       provider = None
-      project = "template"
+      project = CONSTANTS.DEFAULT_PROJECT_NAME
       
       # Helper to parse [provider] [project] arguments
       # Strategy: first arg is provider (if valid), second is project

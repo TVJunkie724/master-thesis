@@ -33,10 +33,10 @@ config_credentials_google = None
 config_providers = {}
 config_hierarchy = []
 config_events = []
-CURRENT_PROJECT = "template"
+CURRENT_PROJECT = CONSTANTS.DEFAULT_PROJECT_NAME
 
 def get_project_upload_path():
-    return os.path.join(project_path(), "upload", CURRENT_PROJECT)
+    return os.path.join(project_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME, CURRENT_PROJECT)
 
 def set_active_project(project_name):
     global CURRENT_PROJECT
@@ -46,7 +46,7 @@ def set_active_project(project_name):
     if safe_name != project_name:
         raise ValueError("Invalid project name.")
         
-    target_path = os.path.join(project_path(), "upload", safe_name)
+    target_path = os.path.join(project_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
     if not os.path.exists(target_path):
          raise ValueError(f"Project '{project_name}' does not exist.")
          
@@ -58,7 +58,7 @@ def project_path():
 
 def initialize_config():
   global config
-  config_path = os.path.join(get_project_upload_path(), "config.json")
+  config_path = os.path.join(get_project_upload_path(), CONSTANTS.CONFIG_FILE)
   with open(config_path, "r") as file:
     config = json.load(file)
   
@@ -67,27 +67,27 @@ def initialize_config():
 
 def initialize_config_iot_devices():
   global config_iot_devices
-  with open(os.path.join(get_project_upload_path(), "config_iot_devices.json"), "r") as file:
+  with open(os.path.join(get_project_upload_path(), CONSTANTS.CONFIG_IOT_DEVICES_FILE), "r") as file:
     config_iot_devices = json.load(file)
 
 def initialize_config_events():
   global config_events
-  with open(os.path.join(get_project_upload_path(), "config_events.json"), "r") as file:
+  with open(os.path.join(get_project_upload_path(), CONSTANTS.CONFIG_EVENTS_FILE), "r") as file:
     config_events = json.load(file)
 
 def initialize_config_hierarchy():
   global config_hierarchy
-  with open(os.path.join(get_project_upload_path(), "config_hierarchy.json"), "r") as file:
+  with open(os.path.join(get_project_upload_path(), CONSTANTS.CONFIG_HIERARCHY_FILE), "r") as file:
     config_hierarchy = json.load(file)
 
 def initialize_config_credentials():
   global config_credentials
-  with open(os.path.join(get_project_upload_path(), "config_credentials.json"), "r") as file:
+  with open(os.path.join(get_project_upload_path(), CONSTANTS.CONFIG_CREDENTIALS_FILE), "r") as file:
     config_credentials = json.load(file)
 
 def initialize_config_providers():
   global config_providers
-  with open(os.path.join(get_project_upload_path(), "config_providers.json"), "r") as file:
+  with open(os.path.join(get_project_upload_path(), CONSTANTS.CONFIG_PROVIDERS_FILE), "r") as file:
     config_providers = json.load(file)
     
 def digital_twin_info():

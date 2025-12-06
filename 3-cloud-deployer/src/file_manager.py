@@ -42,7 +42,7 @@ def create_project_from_zip(project_name, zip_source):
 
     validate_project_zip(zip_source)
     
-    target_dir = os.path.join(globals.project_path(), "upload", safe_name)
+    target_dir = os.path.join(globals.project_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
     if os.path.exists(target_dir):
         raise ValueError(f"Project '{project_name}' already exists.")
         
@@ -57,7 +57,7 @@ def list_projects():
     """
     Returns a list of available project names.
     """
-    upload_dir = os.path.join(globals.project_path(), "upload")
+    upload_dir = os.path.join(globals.project_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME)
     projects = []
     if os.path.exists(upload_dir):
         for item in os.listdir(upload_dir):
@@ -71,7 +71,7 @@ def update_config_file(project_name, config_filename, config_content):
     Hot-reloads if the project is currently active.
     """
     safe_name = os.path.basename(project_name)
-    target_dir = os.path.join(globals.project_path(), "upload", safe_name)
+    target_dir = os.path.join(globals.project_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
     
     if not os.path.exists(target_dir):
         raise ValueError(f"Project '{project_name}' does not exist.")
@@ -95,15 +95,15 @@ def update_config_file(project_name, config_filename, config_content):
     # Hot Reload
     if project_name == globals.CURRENT_PROJECT:
         logger.info(f"Hot-reloading configuration for active project '{project_name}'...")
-        if config_filename == "config.json":
+        if config_filename == CONSTANTS.CONFIG_FILE:
             globals.initialize_config()
-        elif config_filename == "config_iot_devices.json":
+        elif config_filename == CONSTANTS.CONFIG_IOT_DEVICES_FILE:
             globals.initialize_config_iot_devices()
-        elif config_filename == "config_events.json":
+        elif config_filename == CONSTANTS.CONFIG_EVENTS_FILE:
             globals.initialize_config_events()
-        elif config_filename == "config_hierarchy.json":
+        elif config_filename == CONSTANTS.CONFIG_HIERARCHY_FILE:
             globals.initialize_config_hierarchy()
-        elif config_filename == "config_credentials.json":
+        elif config_filename == CONSTANTS.CONFIG_CREDENTIALS_FILE:
             globals.initialize_config_credentials()
-        elif config_filename == "config_providers.json":
+        elif config_filename == CONSTANTS.CONFIG_PROVIDERS_FILE:
             globals.initialize_config_providers()
