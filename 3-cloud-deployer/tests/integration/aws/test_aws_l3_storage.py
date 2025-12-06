@@ -100,6 +100,11 @@ def test_destroy_hot_dynamodb_table(mock_aws_context):
     with pytest.raises(client.exceptions.ResourceNotFoundException):
         client.describe_table(TableName=table_name)
 
+    # Verify Backup Created
+    backups = client.list_backups(TableName=table_name)
+    assert len(backups["BackupSummaries"]) > 0
+    assert backups["BackupSummaries"][-1]["BackupStatus"] == "AVAILABLE"
+
 def test_destroy_cold_s3_bucket(mock_aws_context):
     """Verify Cold S3 bucket destruction."""
     core_aws.create_cold_s3_bucket()

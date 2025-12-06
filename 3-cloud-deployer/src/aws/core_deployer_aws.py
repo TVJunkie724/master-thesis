@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from datetime import datetime, timezone
 import globals
 from logger import logger
 import aws.globals_aws as globals_aws
@@ -757,18 +758,35 @@ def create_hot_dynamodb_table():
 
 def destroy_hot_dynamodb_table():
   table_name = globals_aws.hot_dynamodb_table_name()
+  timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+  backup_name = f"{table_name}-backup-{timestamp}"
 
   try:
-    globals_aws.aws_dynamodb_client.delete_table(TableName=table_name)
+    response = globals_aws.aws_dynamodb_client.create_backup(TableName=table_name, BackupName=backup_name)
   except ClientError as e:
-    if e.response['Error']['Code'] == 'ResourceNotFoundException':
+    if e.response["Error"]["Code"] == "ResourceNotFoundException" or e.response["Error"]["Code"] == "TableNotFoundException":
       return
     else:
       raise
 
+  backup_arn = response["BackupDetails"]["BackupArn"]
+  logger.info(f"Backup of DynamoDb table initiated: {backup_name}, {backup_arn}")
+
+  while True:
+    response_d = globals_aws.aws_dynamodb_client.describe_backup(BackupArn=backup_arn)
+    status = response_d["BackupDescription"]["BackupDetails"]["BackupStatus"]
+
+    if status == "AVAILABLE" or status == "ACTIVE":
+      break
+
+    time.sleep(5)
+
+  logger.info("Backup creation of DynamoDb table succeeded.")
+
+  globals_aws.aws_dynamodb_client.delete_table(TableName=table_name)
   logger.info(f"Deletion of DynamoDb table initiated: {table_name}")
 
-  waiter = globals_aws.aws_dynamodb_client.get_waiter('table_not_exists')
+  waiter = globals_aws.aws_dynamodb_client.get_waiter("table_not_exists")
   waiter.wait(TableName=table_name)
 
   logger.info(f"Deleted DynamoDb table: {table_name}")
@@ -1922,7 +1940,7 @@ def create_api_hot_reader_integration():
     PayloadFormatVersion="2.0"
   )
 
-  print("Created API Integration:", function_arn)
+  logger.info(f"Created API Integration: {function_arn}")
 
   route_key = f"GET /{function_name}"
 
@@ -1932,7 +1950,7 @@ def create_api_hot_reader_integration():
     Target=f"integrations/{integration['IntegrationId']}"
   )
 
-  print("Created API Route:", route_key)
+  logger.info(f"Created API Route: {route_key}")
 
   account_id = globals_aws.aws_sts_client.get_caller_identity()['Account']
   region = globals_aws.aws_apigateway_client.meta.region_name

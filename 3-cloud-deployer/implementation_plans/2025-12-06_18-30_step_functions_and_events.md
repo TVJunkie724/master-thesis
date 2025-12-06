@@ -1,4 +1,4 @@
-# Lambda CLI Update Implementation Plan
+# Porting Step Functions, Events, and AWS Refactoring Implementation Plan
 
 ## Goal
 Update `lambda_update`, `lambda_logs`, and `lambda_invoke` commands in `src/main.py` to support an optional `project_name` argument and enforce safety checks against `globals.CURRENT_PROJECT`.
