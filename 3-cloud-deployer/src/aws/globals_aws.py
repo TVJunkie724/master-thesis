@@ -1,9 +1,7 @@
 import boto3
 import globals 
 
-iot_data_path = "iot_devices_auth"
-lambda_functions_path = "lambda_functions"
-event_actions_path = "event_actions"
+import constants as CONSTANTS
 
 aws_iam_client = {}
 aws_lambda_client = {}

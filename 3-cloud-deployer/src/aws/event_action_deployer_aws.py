@@ -6,6 +6,7 @@ from logger import logger
 import aws.globals_aws as globals_aws
 import util
 from botocore.exceptions import ClientError
+import constants as CONSTANTS
 
 def create_iam_role(role_name):
   globals_aws.aws_iam_client.create_role(
@@ -85,7 +86,7 @@ def create_lambda_function(function_name):
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(globals_aws.event_actions_path, function_name))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.EVENT_ACTIONS_PATH, function_name))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB

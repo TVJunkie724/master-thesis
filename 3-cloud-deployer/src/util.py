@@ -6,11 +6,7 @@ import json
 from botocore.exceptions import ClientError
 from fastapi.responses import JSONResponse
 
-REQUIRED_CREDENTIALS_FIELDS = {
-    "aws": ["aws_access_key_id", "aws_secret_access_key", "aws_region"],
-    "azure": ["azure_subscription_id", "azure_client_id", "azure_client_secret", "azure_tenant_id", "azure_region"],
-    "google": ["gcp_project_id", "gcp_credentials_file", "gcp_region"]
-}
+import constants as CONSTANTS
 
 def pretty_json(data):
     """Return JSON with indentation and UTF-8 encoding."""
@@ -28,7 +24,7 @@ def validate_credentials(provider_name, credentials):
     if not provider_creds:
         raise ValueError(f"{provider_name.upper()} credentials are required but not found.")
     
-    missing_fields = [field for field in REQUIRED_CREDENTIALS_FIELDS[provider_name] if field not in provider_creds]
+    missing_fields = [field for field in CONSTANTS.REQUIRED_CREDENTIALS_FIELDS[provider_name] if field not in provider_creds]
     if missing_fields:
         raise ValueError(f"{provider_name.upper()} credentials are missing fields: {missing_fields}")
     return provider_creds

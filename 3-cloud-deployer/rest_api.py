@@ -42,10 +42,7 @@ app = FastAPI(
     ]
 )
 
-app.mount("/js", StaticFiles(directory="js"), name="js")
-app.mount("/css", StaticFiles(directory="css"), name="css")
 app.mount("/documentation", StaticFiles(directory="docs"), name="docs")
-app.mount("/references", StaticFiles(directory="references"), name="references")
 
 # --------- Initialize configuration once ----------
 @app.on_event("startup")
@@ -60,7 +57,7 @@ def startup_event():
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    return FileResponse("references/favicon.ico")
+    return FileResponse("docs/references/favicon.ico")
     
 # --------- Root endpoint ----------
 @app.get("/", tags=["Info"])

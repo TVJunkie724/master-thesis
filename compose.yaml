@@ -96,6 +96,7 @@ services:
     volumes: 
       - ./3-cloud-deployer:/app/
       - ./config_credentials.json:/config/config_credentials.json
+      - ./config_credentials.json:/app/upload/config_credentials.json
       - ./config.json:/config/config.json
       - ./google_master-thesis-475915-7f20314ddb42.json:/config/gcp_credentials.json
     tty: true

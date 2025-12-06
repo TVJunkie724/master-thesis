@@ -7,6 +7,7 @@ from botocore.exceptions import ClientError
 import shutil
 import time
 import util
+import constants as CONSTANTS
 
 
 def create_iot_thing(iot_device):
@@ -20,7 +21,7 @@ def create_iot_thing(iot_device):
   certificate_arn = cert_response['certificateArn']
   logger.info(f"Created IoT Certificate: {cert_response['certificateId']}")
 
-  dir = f"{globals_aws.iot_data_path}/{iot_device['id']}/"
+  dir = f"{CONSTANTS.IOT_DATA_PATH}/{iot_device['id']}/"
   os.makedirs(os.path.dirname(dir), exist_ok=True)
 
   with open(f"{dir}certificate.pem.crt", "w") as f:
@@ -108,7 +109,7 @@ def destroy_iot_thing(iot_device):
       raise
 
   try:
-    shutil.rmtree(f"{globals_aws.iot_data_path}/{iot_device['id']}")
+    shutil.rmtree(f"{CONSTANTS.IOT_DATA_PATH}/{iot_device['id']}")
   except FileNotFoundError:
     pass
 
@@ -186,7 +187,7 @@ def create_processor_lambda_function(iot_device):
   response = globals_aws.aws_iam_client.get_role(RoleName=role_name)
   role_arn = response['Role']['Arn']
 
-  if os.path.exists(os.path.join(globals.project_path(), globals_aws.lambda_functions_path, function_name)):
+  if os.path.exists(os.path.join(globals.project_path(), CONSTANTS.LAMBDA_FUNCTIONS_PATH, function_name)):
     function_name_local = function_name
   else:
     function_name_local = "default-processor"
@@ -196,7 +197,7 @@ def create_processor_lambda_function(iot_device):
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(globals_aws.lambda_functions_path, function_name_local))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, function_name_local))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB

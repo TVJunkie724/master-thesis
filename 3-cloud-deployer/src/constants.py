@@ -1,25 +1,21 @@
 from pathlib import Path
 
-PRICING_BASE_PATH = Path("json")
-
 #--------------------------------------------------------------------
 # Configuration file paths
 #--------------------------------------------------------------------
-BASE_CONFIG_DIR = Path(".")
+BASE_CONFIG_DIR = Path("upload")
 
 CONFIG_FILE_PATH = BASE_CONFIG_DIR / "config.json"
 CREDENTIALS_FILE_PATH = BASE_CONFIG_DIR / "config_credentials.json"
 GCP_CREDENTIALS_BASE_FILE_PATH = BASE_CONFIG_DIR 
 
-#--------------------------------------------------------------------
-# File paths for storing fetched data
-#--------------------------------------------------------------------
-BASE_FETCHED_DATA_PATH = PRICING_BASE_PATH / "fetched_data"
+IOT_DATA_PATH = "iot_devices_auth"
+LAMBDA_FUNCTIONS_PATH = "upload/lambda_functions"
+EVENT_ACTIONS_PATH = "upload/event_actions"
 
-CURRENCY_CONVERSION_FILE_PATH = BASE_FETCHED_DATA_PATH / "currency.json"
+REQUIRED_CREDENTIALS_FIELDS = {
+    "aws": ["aws_access_key_id", "aws_secret_access_key", "aws_region"],
+    "azure": ["azure_subscription_id", "azure_client_id", "azure_client_secret", "azure_tenant_id", "azure_region"],
+    "google": ["gcp_project_id", "gcp_credentials_file", "gcp_region"]
+} 
 
-#--------------------------------------------------------------------
-# Fetching URLs
-#--------------------------------------------------------------------
-AWS_PRICING_API_URL = "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/index.json"
-AZURE_RETAIL_PRICES_URL = "https://prices.azure.com/api/retail/prices"

@@ -7,6 +7,7 @@ import aws.globals_aws as globals_aws
 import util
 import aws.util_aws as util_aws
 from botocore.exceptions import ClientError
+import constants as CONSTANTS
 
 def create_dispatcher_iam_role():
   role_name = globals_aws.dispatcher_iam_role_name()
@@ -90,7 +91,7 @@ def create_dispatcher_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(globals_aws.lambda_functions_path, "dispatcher"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, "dispatcher"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -259,7 +260,7 @@ def create_persister_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(globals_aws.lambda_functions_path, "persister"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, "persister"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -410,7 +411,7 @@ def create_event_checker_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(globals_aws.lambda_functions_path, "event-checker"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, "event-checker"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -565,7 +566,7 @@ def create_hot_cold_mover_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(globals_aws.lambda_functions_path, "hot-to-cold-mover"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, "hot-to-cold-mover"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -760,7 +761,7 @@ def create_cold_archive_mover_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(globals_aws.lambda_functions_path, "cold-to-archive-mover"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, "cold-to-archive-mover"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -967,7 +968,7 @@ def create_hot_reader_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(globals_aws.lambda_functions_path, "hot-reader"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, "hot-reader"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB
@@ -1093,7 +1094,7 @@ def create_hot_reader_last_entry_lambda_function():
     Runtime="python3.13",
     Role=role_arn,
     Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(globals_aws.lambda_functions_path, "hot-reader-last-entry"))},
+    Code={"ZipFile": util.compile_lambda_function(os.path.join(CONSTANTS.LAMBDA_FUNCTIONS_PATH, "hot-reader-last-entry"))},
     Description="",
     Timeout=3, # seconds
     MemorySize=128, # MB

@@ -8,12 +8,7 @@ import traceback
 
 from logger import logger
 
-# Required credentials fields for each provider  
-REQUIRED_CREDENTIALS_FIELDS = {
-    "aws": ["aws_access_key_id", "aws_secret_access_key", "aws_region"],
-    "azure": ["azure_subscription_id", "azure_client_id", "azure_client_secret", "azure_tenant_id", "azure_region"],
-    "google": ["gcp_project_id", "gcp_credentials_file", "gcp_region"]
-}
+import constants as CONSTANTS
 
 def contains_provider(config_providers, provider_name):
     """Check if any value in the provider config matches provider_name."""
@@ -25,7 +20,7 @@ def validate_credentials(provider_name, credentials):
     if not provider_creds:
         raise ValueError(f"{provider_name.upper()} credentials are required but not found.")
     
-    missing_fields = [field for field in REQUIRED_CREDENTIALS_FIELDS[provider_name] if field not in provider_creds]
+    missing_fields = [field for field in CONSTANTS.REQUIRED_CREDENTIALS_FIELDS[provider_name] if field not in provider_creds]
     if missing_fields:
         raise ValueError(f"{provider_name.upper()} credentials are missing fields: {missing_fields}")
     return provider_creds
@@ -45,32 +40,32 @@ def project_path():
 
 def initialize_config():
   global config
-  with open(f"{project_path()}/config.json", "r") as file:
+  with open(f"{project_path()}/upload/config.json", "r") as file:
     config = json.load(file)
 
 def initialize_config_iot_devices():
   global config_iot_devices
-  with open(f"{project_path()}/config_iot_devices.json", "r") as file:
+  with open(f"{project_path()}/upload/config_iot_devices.json", "r") as file:
     config_iot_devices = json.load(file)
 
 def initialize_config_events():
   global config_events
-  with open(f"{project_path()}/config_events.json", "r") as file:
+  with open(f"{project_path()}/upload/config_events.json", "r") as file:
     config_events = json.load(file)
 
 def initialize_config_hierarchy():
   global config_hierarchy
-  with open(f"{project_path()}/config_hierarchy.json", "r") as file:
+  with open(f"{project_path()}/upload/config_hierarchy.json", "r") as file:
     config_hierarchy = json.load(file)
 
 def initialize_config_credentials():
   global config_credentials
-  with open(f"{project_path()}/config_credentials.json", "r") as file:
+  with open(f"{project_path()}/upload/config_credentials.json", "r") as file:
     config_credentials = json.load(file)
 
 def initialize_config_providers():
   global config_providers
-  with open(f"{project_path()}/config_providers.json", "r") as file:
+  with open(f"{project_path()}/upload/config_providers.json", "r") as file:
     config_providers = json.load(file)
     
 def digital_twin_info():
