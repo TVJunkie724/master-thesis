@@ -36,9 +36,24 @@ def lambda_handler(event, context):
                     "statusCode": response.getcode(),
                     "body": response.read().decode('utf-8')
                 }
-        except Exception as e:
+        except urllib.error.HTTPError as e:
+            # client error: Do not retry
+            if 400 <= e.code < 500:
+                print(f"Client Error ({e.code}): {e.reason}. Not Retrying.")
+                raise e # Fail fast
+            
+            # server error: Retry
             if attempt < max_retries:
-                print(f"Attempt {attempt+1} failed: {e}. Retrying in {retry_delay}s...")
+                 print(f"Server Error ({e.code}): {e.reason}. Retrying in {retry_delay}s...")
+                 time.sleep(retry_delay)
+                 retry_delay *= 2
+            else:
+                 raise e
+
+        except Exception as e:
+            # Network/Connection error
+            if attempt < max_retries:
+                print(f"Connection Attempt {attempt+1} failed: {e}. Retrying in {retry_delay}s...")
                 time.sleep(retry_delay)
                 retry_delay *= 2
             else:

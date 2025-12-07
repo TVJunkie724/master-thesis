@@ -37,7 +37,7 @@ def extract_const_value(string):
     elif string.startswith("INTEGER"):
         return int(string[8:-1])
     elif string.startswith("STRING"):
-        string[7:-1]
+        return string[7:-1]
     return string
 
 
@@ -71,7 +71,7 @@ def lambda_handler(event, context):
 
             match operation:
                 case "<": result = param1_value < param2_value
-                case ">": result = param1_value < param2_value
+                case ">": result = param1_value > param2_value
                 case "==": result = param1_value == param2_value
 
             if result:
@@ -120,4 +120,6 @@ def lambda_handler(event, context):
                     print("Feedback sent.")
 
         except Exception as ex:
-            print("Something went wrong:", ex)
+            print(f"Event Check Failed for event {e}: {ex}")
+            # Continue checking other events despite one failure
+            continue

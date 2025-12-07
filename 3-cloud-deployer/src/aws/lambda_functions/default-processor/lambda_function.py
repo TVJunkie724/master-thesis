@@ -19,6 +19,9 @@ def lambda_handler(event, context):
     print("Hello from Default Processor!")
     print("Event: " + json.dumps(event))
 
-    payload = process(event)
-
-    lambda_client.invoke(FunctionName=PERSISTER_LAMBDA_NAME, InvocationType="Event", Payload=json.dumps(payload).encode("utf-8"))
+    try:
+        payload = process(event)
+        lambda_client.invoke(FunctionName=PERSISTER_LAMBDA_NAME, InvocationType="Event", Payload=json.dumps(payload).encode("utf-8"))
+    except Exception as e:
+        print(f"Default Processor Error: {e}")
+        raise e

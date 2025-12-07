@@ -42,12 +42,19 @@ def lambda_handler(event, context):
         }
 
     # 3. Invoke Local Processor
-    twin_name = DIGITAL_TWIN_INFO.get("config", {}).get("digital_twin_name")
-    processor_name = f"{twin_name}-{device_id}-processor" # Always invokes the local processor
+    try:
+        twin_name = DIGITAL_TWIN_INFO.get("config", {}).get("digital_twin_name")
+        processor_name = f"{twin_name}-{device_id}-processor" # Always invokes the local processor
+        
+        lambda_client.invoke(FunctionName=processor_name, InvocationType="Event", Payload=json.dumps(actual_event).encode("utf-8"))
     
-    lambda_client.invoke(FunctionName=processor_name, InvocationType="Event", Payload=json.dumps(actual_event).encode("utf-8"))
-
-    return {
-        "statusCode": 200,
-        "body": json.dumps({"status": "Success", "invoked": processor_name})
-    }
+        return {
+            "statusCode": 200,
+            "body": json.dumps({"status": "Success", "invoked": processor_name})
+        }
+    except Exception as e:
+        print(f"Ingestion Invocation Failed: {e}")
+        return {
+            "statusCode": 500,
+            "body": json.dumps(f"Internal Server Error: Failed to invoke processor {str(e)}")
+        }

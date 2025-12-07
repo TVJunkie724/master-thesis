@@ -65,14 +65,14 @@ class TestValidation(unittest.TestCase):
 
     def test_validate_config_file_list_malformed(self):
         """Test list-based config receiving dict or missing keys"""
-        # IOT file expects list
+        # IOT file expects list of objects with required keys (id, properties)
         with self.assertRaises(ValueError) as cm:
-             validator.validate_config_content(CONSTANTS.CONFIG_IOT_DEVICES_FILE, [{"id": "1"}]) # Missing type
-        self.assertIn("Missing key 'type'", str(cm.exception))
+             validator.validate_config_content(CONSTANTS.CONFIG_IOT_DEVICES_FILE, [{"other": "1"}]) # Missing required keys
+        self.assertIn("Missing key 'id'", str(cm.exception))
 
     def test_validate_config_events_complex(self):
         """Test nested validation in config_events.json"""
-        # 1. Missing Action Fields
+        # 1. Missing Action Fields (functionName)
         content = [{"condition": "x", "action": {"type": "lambda"}}]
         with self.assertRaises(ValueError) as cm:
             validator.validate_config_content(CONSTANTS.CONFIG_EVENTS_FILE, content)
@@ -157,6 +157,7 @@ class TestValidation(unittest.TestCase):
     def _create_zip_with_configs(self, configs=None, extra_files=None):
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w') as zf:
+            # Write all required config files
             for req in CONSTANTS.REQUIRED_CONFIG_FILES:
                 content = "{}"
                 if req in [CONSTANTS.CONFIG_IOT_DEVICES_FILE, CONSTANTS.CONFIG_EVENTS_FILE, CONSTANTS.CONFIG_HIERARCHY_FILE]:
@@ -166,11 +167,23 @@ class TestValidation(unittest.TestCase):
                         "digital_twin_name": "t", 
                         "hot_storage_size_in_days": 1, "cold_storage_size_in_days": 1, "mode": "b"
                     })
+                elif req == CONSTANTS.CONFIG_PROVIDERS_FILE:
+                    content = json.dumps({
+                        "layer_1_provider": "aws",
+                        "layer_2_provider": "aws",
+                        "layer_3_hot_provider": "aws"
+                    })
                 
                 if configs and req in configs:
                     content = json.dumps(configs[req])
                 
                 zf.writestr(req, content)
+            
+            # Explicitly add optimization file (not in REQUIRED_CONFIG_FILES)
+            opt_content = json.dumps({"result": {}})
+            if configs and CONSTANTS.CONFIG_OPTIMIZATION_FILE in configs:
+                opt_content = json.dumps(configs[CONSTANTS.CONFIG_OPTIMIZATION_FILE])
+            zf.writestr(CONSTANTS.CONFIG_OPTIMIZATION_FILE, opt_content)
             
             if extra_files:
                 for name, content in extra_files.items():
@@ -180,7 +193,7 @@ class TestValidation(unittest.TestCase):
 
     def test_validate_zip_feedback_missing(self):
         """Test zip with returnFeedbackToDevice=True but missing feedback logic"""
-        opt = {"result": {"optimization": {"returnFeedbackToDevice": True}}}
+        opt = {"result": {"inputParamsUsed": {"returnFeedbackToDevice": True}}}
         zip_buf = self._create_zip_with_configs({CONSTANTS.CONFIG_OPTIMIZATION_FILE: opt})
         with self.assertRaises(ValueError) as cm:
              validator.validate_project_zip(zip_buf)
@@ -188,14 +201,14 @@ class TestValidation(unittest.TestCase):
 
     def test_validate_zip_feedback_success(self):
         """Test zip with returnFeedbackToDevice=True AND feedback logic present"""
-        opt = {"result": {"optimization": {"returnFeedbackToDevice": True}}}
+        opt = {"result": {"inputParamsUsed": {"returnFeedbackToDevice": True}}}
         extras = {f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event-feedback/lambda_function.py": ""}
         zip_buf = self._create_zip_with_configs({CONSTANTS.CONFIG_OPTIMIZATION_FILE: opt}, extras)
         validator.validate_project_zip(zip_buf)
 
     def test_validate_zip_event_checks_missing_code(self):
         """Test useEventChecking=True but missing function code"""
-        opt = {"result": {"optimization": {"useEventChecking": True}}}
+        opt = {"result": {"inputParamsUsed": {"useEventChecking": True}}}
         events = [{"condition": "x", "action": {"type": "lambda", "functionName": "my-func"}}]
         configs = {CONSTANTS.CONFIG_OPTIMIZATION_FILE: opt, CONSTANTS.CONFIG_EVENTS_FILE: events}
         
@@ -206,7 +219,7 @@ class TestValidation(unittest.TestCase):
 
     def test_validate_zip_workflow_missing_provider_conf(self):
         """Test triggerNotificationWorkflow check defaulting to AWS if provider config missing/empty"""
-        opt = {"result": {"optimization": {"triggerNotificationWorkflow": True}}}
+        opt = {"result": {"inputParamsUsed": {"triggerNotificationWorkflow": True}}}
         # Default AWS -> expects aws_step_function.json
         configs = {CONSTANTS.CONFIG_OPTIMIZATION_FILE: opt}
         zip_buf = self._create_zip_with_configs(configs)

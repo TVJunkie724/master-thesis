@@ -32,6 +32,12 @@ def create_valid_zip_bytes():
                 content = "[]"
             elif fname == CONSTANTS.CONFIG_OPTIMIZATION_FILE:
                 content = json.dumps({"result": {}})
+            elif fname == CONSTANTS.CONFIG_PROVIDERS_FILE:
+                content = json.dumps({
+                    "layer_1_provider": "aws",
+                    "layer_2_provider": "aws",
+                    "layer_3_hot_provider": "aws"
+                })
             
             zf.writestr(fname, content)
     bio.seek(0)

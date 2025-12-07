@@ -17,10 +17,25 @@ def lambda_handler(event, context):
     print("Hello from Persister!")
     print("Event: " + json.dumps(event))
 
-    item = event.copy()
-    item["id"] = str(item.pop("time"))
+    try:
+        if "time" not in event:
+             raise ValueError("Missing 'time' in event, cannot persist.")
 
-    dynamodb_table.put_item(Item=item)
+        item = event.copy()
+        item["id"] = str(item.pop("time")) # DynamoDB Primary SK is 'id' (time)
 
-    if os.environ.get("USE_EVENT_CHECKING", "false").lower() == "true":
-        lambda_client.invoke(FunctionName=EVENT_CHECKER_LAMBDA_NAME, InvocationType="Event", Payload=json.dumps(event).encode("utf-8"))
+        dynamodb_table.put_item(Item=item)
+        print("Item persisted.")
+
+        if os.environ.get("USE_EVENT_CHECKING", "false").lower() == "true":
+            try:
+                lambda_client.invoke(FunctionName=EVENT_CHECKER_LAMBDA_NAME, InvocationType="Event", Payload=json.dumps(event).encode("utf-8"))
+            except Exception as e:
+                print(f"Warning: Failed to invoke Event Checker: {e}")
+                # Do not fail the whole lambda if event check fails? 
+                # Usually fine, but if alerts are critical, maybe we should log error.
+                pass 
+                
+    except Exception as e:
+        print(f"Persister Error: {e}")
+        raise e

@@ -36,6 +36,12 @@ def lambda_handler(event, context):
 
         table.put_item(Item=data_to_write)
         
+    except ValueError as e:
+        print(f"Validation Error: {e}")
+        return {
+            "statusCode": 400,
+            "body": json.dumps(f"Bad Request: {str(e)}")
+        }
     except Exception as e:
         print(f"Error writing to DB: {e}")
         return {

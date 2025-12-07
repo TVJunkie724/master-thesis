@@ -225,7 +225,7 @@ def validate_project_zip(zip_source):
 
 
         # 6. Dependency Validation (Optimization Flags)
-        optimization = opt_config.get("result", {}).get("optimization", {})
+        optimization = opt_config.get("result", {}).get("inputParamsUsed", {})
         
         if optimization.get("useEventChecking", False):
             # Check Event Actions
@@ -367,7 +367,7 @@ def verify_project_structure(project_name):
     except Exception:
         opt_config = {}
 
-    optimization = opt_config.get("result", {}).get("optimization", {})
+    optimization = opt_config.get("result", {}).get("inputParamsUsed", {})
     
     # Check Event Checking Dependencies
     if optimization.get("useEventChecking", False):

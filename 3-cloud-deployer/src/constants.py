@@ -23,9 +23,9 @@ REQUIRED_CONFIG_FILES = [
 
 # Keys required in specific config files
 CONFIG_SCHEMAS = {
-    CONFIG_FILE: ["digital_twin_name", "digital_twin_description"],
-    CONFIG_IOT_DEVICES_FILE: ["iotDeviceId", "description", "manufacturer", "sensors"],
-    CONFIG_EVENTS_FILE: ["name", "paramName", "condition", "threshold", "action"],
+    CONFIG_FILE: ["digital_twin_name", "hot_storage_size_in_days", "cold_storage_size_in_days", "mode"],
+    CONFIG_IOT_DEVICES_FILE: ["id", "properties"],  # Matches template: id, properties
+    CONFIG_EVENTS_FILE: ["condition", "action"],  # Matches template: condition, action
     CONFIG_HIERARCHY_FILE: ["name", "type"],
     CONFIG_OPTIMIZATION_FILE: ["result"],
     CONFIG_CREDENTIALS_FILE: [], # Dynamic check based on provider
@@ -48,6 +48,8 @@ EVENT_ACTIONS_DIR_NAME = "event_actions"
 PROJECT_UPLOAD_DIR_NAME = "upload"
 STATE_MACHINES_DIR_NAME = "state_machines"
 
+AWS_CORE_LAMBDA_DIR_NAME = "src/aws/lambda_functions"
+
 # ==========================================
 # 3. State Machine Definitions
 # ==========================================
@@ -67,7 +69,25 @@ STATE_MACHINE_SIGNATURES = {
 DEFAULT_PROJECT_NAME = "template"
 
 # ==========================================
-# 6. Layer & Function Mappings
+# 5. AWS Policy ARNs
+# ==========================================
+AWS_POLICY_LAMBDA_BASIC_EXECUTION = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+AWS_POLICY_LAMBDA_ROLE = "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+AWS_POLICY_DYNAMODB_FULL_ACCESS = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess_v2"
+AWS_POLICY_S3_FULL_ACCESS = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+AWS_POLICY_LAMBDA_READ_ONLY = "arn:aws:iam::aws:policy/AWSLambda_ReadOnlyAccess"
+AWS_POLICY_STEP_FUNCTIONS_FULL_ACCESS = "arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess"
+AWS_POLICY_IOT_DATA_ACCESS = "arn:aws:iam::aws:policy/AWSIoTDataAccess"
+AWS_POLICY_ADMIN_ACCESS = "arn:aws:iam::aws:policy/AdministratorAccess"
+
+# ==========================================
+# 6. AWS Resource Constants
+# ==========================================
+AWS_CRON_HOT_TO_COLD = "cron(0 12 * * ? *)"
+AWS_CRON_COLD_TO_ARCHIVE = "cron(0 18 * * ? *)"
+
+# ==========================================
+# 7. Layer & Function Mappings
 # ==========================================
 # Mapping functions to their provider layer for code validation
 FUNCTION_LAYER_MAPPING = {

@@ -16,37 +16,49 @@ def lambda_handler(event, context):
     print("Hello from Hot Reader!")
     print("Event: " + json.dumps(event))
 
-    entity = twinmaker_client.get_entity(workspaceId=event["workspaceId"], entityId=event["entityId"])
-    components = entity.get("components", {})
-    component_info = components.get(event["componentName"])
-    component_type_id = component_info.get("componentTypeId")
+    try:
+        entity = twinmaker_client.get_entity(workspaceId=event["workspaceId"], entityId=event["entityId"])
+        components = entity.get("components", {})
+        component_info = components.get(event["componentName"])
+        if not component_info:
+             raise ValueError(f"Component {event['componentName']} not found.")
+        
+        component_type_id = component_info.get("componentTypeId")
 
-    iot_device_id = component_type_id.removeprefix(DIGITAL_TWIN_INFO["config"]["digital_twin_name"] + "-")
+        iot_device_id = component_type_id.removeprefix(DIGITAL_TWIN_INFO["config"]["digital_twin_name"] + "-")
 
-    response = dynamodb_table.query(
-        KeyConditionExpression=Key("iotDeviceId").eq(iot_device_id) &
-                               Key("id").between(event["startTime"], event["endTime"])
-        )
-    items = response["Items"]
+        response = dynamodb_table.query(
+            KeyConditionExpression=Key("iotDeviceId").eq(iot_device_id) &
+                                   Key("id").between(event["startTime"], event["endTime"])
+            )
+        items = response["Items"]
 
-    property_values = []
+        property_values = []
 
-    for property_name in event["selectedProperties"]:
-        property_type = f"{event["properties"][property_name]["definition"]["dataType"]["type"].capitalize()}Value"
+        for property_name in event["selectedProperties"]:
+            property_type = f"{event['properties'][property_name]['definition']['dataType']['type'].capitalize()}Value"
 
-        entry = {
-            "entityPropertyReference": {
-                "propertyName": property_name
-            },
-            "values": []
-        }
+            entry = {
+                "entityPropertyReference": {
+                    "propertyName": property_name
+                },
+                "values": []
+            }
 
-        for item in items:
-            entry["values"].append({
-                "time": item["id"],
-                "value": { property_type: item[property_name] }
-            })
+            for item in items:
+                entry["values"].append({
+                    "time": item["id"],
+                    "value": { property_type: item[property_name] }
+                })
 
-        property_values.append(entry)
+            property_values.append(entry)
 
-    return { "propertyValues": property_values }
+        return { "propertyValues": property_values }
+
+    except Exception as e:
+        print(f"Hot Reader Error: {e}")
+        # TwinMaker expects specific error signatures or empty results?
+        # Typically, TwinMaker reads just want the data or nothing.
+        # Returning empty to avoid breaking the dashboard, but logging error.
+        print("Returning empty propertyValues due to error.")
+        return { "propertyValues": [] }
