@@ -108,7 +108,42 @@ async def simulator_stream(websocket: WebSocket, project_name: str, provider: st
 
 
 # ==========================================
-# 2. Download Package
+# 2. Template Utilities
+# ==========================================
+def _get_template_dir(provider: str) -> str:
+    """Returns the path to the templates directory for the given provider."""
+    return os.path.join(globals.project_path(), "src", "iot_device_simulator", provider, "templates")
+
+
+def _load_template(provider: str, template_name: str, variables: dict = None) -> str:
+    """
+    Loads a template file and substitutes variables.
+    
+    Args:
+        provider: Cloud provider (aws, azure, google).
+        template_name: Name of the template file (e.g., 'README.md.template').
+        variables: Dictionary of variables to substitute (uses {{key}} syntax).
+    
+    Returns:
+        Template content with variables substituted.
+    """
+    template_path = os.path.join(_get_template_dir(provider), template_name)
+    
+    if not os.path.exists(template_path):
+        raise FileNotFoundError(f"Template not found: {template_path}")
+    
+    with open(template_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    if variables:
+        for key, value in variables.items():
+            content = content.replace(f"{{{{{key}}}}}", str(value))
+    
+    return content
+
+
+# ==========================================
+# 3. Download Package
 # ==========================================
 @router.get("/projects/{project_name}/simulator/{provider}/download")
 async def download_simulator_package(project_name: str, provider: str):
@@ -170,91 +205,27 @@ async def download_simulator_package(project_name: str, provider: str):
             if os.path.exists(fp):
                 zip_file.write(fp, f"src/{f}")
         
-        # 6. README.md
-        readme_content = f"""# IoT Device Simulator Package
+        # 6. Generated Files from Templates
+        template_vars = {
+            "project_name": project_name,
+            "provider": provider,
+            "device_id": device_id,
+            "endpoint": endpoint,
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+        
+        # README.md (with variable substitution)
+        zip_file.writestr("README.md", _load_template(provider, "README.md.template", template_vars))
+        
+        # requirements.txt (static)
+        zip_file.writestr("requirements.txt", _load_template(provider, "requirements.txt"))
+        
+        # Dockerfile (static)
+        zip_file.writestr("Dockerfile", _load_template(provider, "Dockerfile"))
+        
+        # docker-compose.yml (with variable substitution)
+        zip_file.writestr("docker-compose.yml", _load_template(provider, "docker-compose.yml.template", template_vars))
 
-**Project**: {project_name}
-**Provider**: {provider}
-**Device ID**: {device_id}
-**Endpoint**: {endpoint}
-**Generated**: {datetime.datetime.now().isoformat()}
-
-## Prerequisites
-- Python 3.9+
-- pip
-- Docker (optional)
-
-## Setup
-1. Extract this zip file.
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## Usage
-
-### Option 1: Python
-Run the simulator:
-```bash
-python src/main.py
-```
-
-### Option 2: Docker
-Build and run:
-```bash
-docker-compose up --build
-```
-Or manually:
-```bash
-docker build -t iot-simulator .
-docker run -it iot-simulator
-```
-
-### Available Commands
-- `send` - Send the next payload from payloads.json to AWS IoT Core.
-- `help` - Show available commands.
-- `exit` - Exit the simulator.
-
-## File Structure
-- `config.json` - Simulator configuration.
-- `payloads.json` - Payload data.
-- `AmazonRootCA1.pem` - AWS Root CA.
-- `certificates/` - Device certificates.
-- `src/` - Simulator Python code.
-"""
-        zip_file.writestr("README.md", readme_content)
-
-        # 7. requirements.txt
-        zip_file.writestr("requirements.txt", "AWSIoTPythonSDK>=1.4.9\n")
-
-        # 8. Dockerfile
-        dockerfile_content = """FROM python:3.11-slim
-
-WORKDIR /app
-
-# Copy all files
-COPY . .
-
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Run main.py
-CMD ["python", "src/main.py"]
-"""
-        zip_file.writestr("Dockerfile", dockerfile_content)
-
-        # 9. docker-compose.yml
-        compose_content = f"""version: '3.8'
-
-services:
-  simulator:
-    build: .
-    container_name: iot_simulator_{device_id}
-    stdin_open: true   # Keep stdin open for interactive commands
-    tty: true          # Allocate a pseudo-TTY
-    restart: unless-stopped
-"""
-        zip_file.writestr("docker-compose.yml", compose_content)
 
     zip_buffer.seek(0)
     

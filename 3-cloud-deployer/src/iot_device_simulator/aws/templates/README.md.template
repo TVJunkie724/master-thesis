@@ -1,0 +1,50 @@
+# IoT Device Simulator Package
+
+**Project**: {{project_name}}
+**Provider**: {{provider}}
+**Device ID**: {{device_id}}
+**Endpoint**: {{endpoint}}
+**Generated**: {{timestamp}}
+
+## Prerequisites
+- Python 3.9+
+- pip
+- Docker (optional)
+
+## Setup
+1. Extract this zip file.
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## Usage
+
+### Option 1: Python
+Run the simulator:
+```bash
+python src/main.py
+```
+
+### Option 2: Docker
+Build and run:
+```bash
+docker-compose up --build
+```
+Or manually:
+```bash
+docker build -t iot-simulator .
+docker run -it iot-simulator
+```
+
+### Available Commands
+- `send` - Send the next payload from payloads.json to AWS IoT Core.
+- `help` - Show available commands.
+- `exit` - Exit the simulator.
+
+## File Structure
+- `config.json` - Simulator configuration.
+- `payloads.json` - Payload data.
+- `AmazonRootCA1.pem` - AWS Root CA.
+- `certificates/` - Device certificates.
+- `src/` - Simulator Python code.

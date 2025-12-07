@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  simulator:
+    build: .
+    container_name: iot_simulator_{{device_id}}
+    stdin_open: true   # Keep stdin open for interactive commands
+    tty: true          # Allocate a pseudo-TTY
+    restart: unless-stopped
