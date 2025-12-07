@@ -181,36 +181,90 @@ def destroy_processor_iam_role(iot_device):
 
 
 def create_processor_lambda_function(iot_device):
-  function_name = globals_aws.processor_lambda_function_name(iot_device)
-  role_name = globals_aws.processor_iam_role_name(iot_device)
+  l1_provider = globals.config_providers.get("layer_1_provider", "aws")
+  l2_provider = globals.config_providers.get("layer_2_provider", "aws")
+  
+  # Scenario 1: L2 is Remote (e.g. AWS -> Azure)
+  if l2_provider != "aws":
+      function_name = globals_aws.connector_lambda_function_name(iot_device)
+      # No separate role needed? Connector is simple. 
+      # Reuse processor role or create new one? Processor role is fine.
+      role_name = globals_aws.processor_iam_role_name(iot_device) 
+      
+      response = globals_aws.aws_iam_client.get_role(RoleName=role_name)
+      role_arn = response['Role']['Arn']
+      
+      # Connection Info
+      conn_id = f"{l1_provider}_l1_to_{l2_provider}_l2"
+      connections = globals.config_inter_cloud.get("connections", {})
+      conn = connections.get(conn_id, {})
+      remote_url = conn.get("url", "")
+      token = conn.get("token", "")
+      
+      if not remote_url or not token:
+          logger.warning(f"Missing inter-cloud connection info for {conn_id}. Connector may fail.")
 
-  response = globals_aws.aws_iam_client.get_role(RoleName=role_name)
-  role_arn = response['Role']['Arn']
-
-  if os.path.exists(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), function_name)):
-    function_name_local = function_name
+      globals_aws.aws_lambda_client.create_function(
+        FunctionName=function_name,
+        Runtime="python3.13",
+        Role=role_arn,
+        Handler="lambda_function.lambda_handler", 
+        Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "connector"))},
+        Description="Connector to Remote L2",
+        Timeout=10, 
+        MemorySize=128, 
+        Publish=True,
+        Environment={
+          "Variables": {
+            "REMOTE_INGESTION_URL": remote_url,
+            "INTER_CLOUD_TOKEN": token
+          }
+        }
+      )
+      logger.info(f"Created Connector Lambda function: {function_name}")
+      
+  # Scenario 2: L2 is Local (AWS)
   else:
-    function_name_local = "default-processor"
+      function_name = globals_aws.processor_lambda_function_name(iot_device)
+      role_name = globals_aws.processor_iam_role_name(iot_device)
+      
+      response = globals_aws.aws_iam_client.get_role(RoleName=role_name)
+      role_arn = response['Role']['Arn']
+      
+      # Determine path to user's custom logic
+      # It should be in upload/<project>/lambda_functions/processors/<iotDeviceId>/process.py
+      # If not found, use default.
+      
+      # Check specific device folder first
+      custom_rel_path = f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/processors/{iot_device['iotDeviceId']}/process.py"
+      if not os.path.exists(os.path.join(util.get_path_in_project(), custom_rel_path)):
+          # Check default folder
+          custom_rel_path = f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/processors/default_processor/process.py"
+      
+      # Wrapper System Code
+      wrapper_path = os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "processor_wrapper")
+      
+      # Merge
+      zip_bytes = util.compile_merged_lambda_function(wrapper_path, custom_rel_path)
 
-  globals_aws.aws_lambda_client.create_function(
-    FunctionName=function_name,
-    Runtime="python3.13",
-    Role=role_arn,
-    Handler="lambda_function.lambda_handler", #  file.function
-    Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), function_name_local))},
-    Description="",
-    Timeout=3, # seconds
-    MemorySize=128, # MB
-    Publish=True,
-    Environment={
-      "Variables": {
-        "DIGITAL_TWIN_INFO": json.dumps(globals.digital_twin_info()),
-        "PERSISTER_LAMBDA_NAME": globals_aws.persister_lambda_function_name()
-      }
-    }
-  )
-
-  logger.info(f"Created Lambda function: {function_name}")
+      globals_aws.aws_lambda_client.create_function(
+        FunctionName=function_name,
+        Runtime="python3.13",
+        Role=role_arn,
+        Handler="lambda_function.lambda_handler", 
+        Code={"ZipFile": zip_bytes},
+        Description="Merged Processor (Wrapper + User Logic)",
+        Timeout=3,
+        MemorySize=128, 
+        Publish=True,
+        Environment={
+          "Variables": {
+            "DIGITAL_TWIN_INFO": json.dumps(globals.digital_twin_info()),
+            "PERSISTER_LAMBDA_NAME": globals_aws.persister_lambda_function_name()
+          }
+        }
+      )
+      logger.info(f"Created Merged Processor Lambda function: {function_name}")
 
 def destroy_processor_lambda_function(iot_device):
   function_name = globals_aws.processor_lambda_function_name(iot_device)

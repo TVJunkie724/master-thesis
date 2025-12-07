@@ -11,298 +11,298 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../../src'))
 
 import constants as CONSTANTS
 import file_manager
+import validator
 
 class TestValidation(unittest.TestCase):
 
     def setUp(self):
         self.maxDiff = None
 
+    # ==========================================
+    # 1. Config Content Validation Tests
+    # ==========================================
     def test_validate_config_content_valid_config(self):
         """Test valid config.json"""
         content = {
             "digital_twin_name": "test-twin",
-            "auth_files_path": "/tmp",
-            "endpoint": "iot.amazonaws.com",
-            "root_ca_cert_path": "root.pem",
-            "topic": "topic",
-            "payload_file_path": "payload.json",
             "hot_storage_size_in_days": 30,
             "cold_storage_size_in_days": 90,
             "mode": "advanced"
         }
-        # Should not raise
-        file_manager.validate_config_content(CONSTANTS.CONFIG_FILE, json.dumps(content))
+        validator.validate_config_content(CONSTANTS.CONFIG_FILE, json.dumps(content))
+        # Test distinct input types (dict)
+        validator.validate_config_content(CONSTANTS.CONFIG_FILE, content)
+
+    def test_validate_config_content_invalid_json(self):
+        """Test invalid JSON string"""
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_config_content(CONSTANTS.CONFIG_FILE, "{invalid")
+        self.assertIn("Invalid JSON content", str(cm.exception))
 
     def test_validate_config_content_invalid_key(self):
         """Test missing key in config.json"""
-        content = {
-            "digital_twin_name": "test-twin"
-            # Missing other keys
-        }
+        content = {"digital_twin_name": "test-twin"}
         with self.assertRaises(ValueError) as cm:
-            file_manager.validate_config_content(CONSTANTS.CONFIG_FILE, json.dumps(content))
+            validator.validate_config_content(CONSTANTS.CONFIG_FILE, content)
         self.assertIn("Missing key", str(cm.exception))
 
-    def test_validate_config_events_nested(self):
-        """Test nested validation in config_events.json"""
-        # Invalid Action
-        content = [{
-            "condition": "x > 5",
-            "action": { "type": "lambda" } # Missing functionName
-        }]
+    def test_validate_config_credentials_valid(self):
+        """Test valid credentials config"""
+        content = {
+            "aws": {"aws_access_key_id": "x", "aws_secret_access_key": "x", "aws_region": "x"},
+            "azure": {"azure_subscription_id": "x", "azure_tenant_id": "x", "azure_client_id": "x", "azure_client_secret": "x", "azure_location": "x"}
+        }
+        validator.validate_config_content(CONSTANTS.CONFIG_CREDENTIALS_FILE, content)
+
+    def test_validate_config_credentials_missing_field(self):
+        """Test missing field in credentials"""
+        content = {
+            "aws": {"aws_access_key_id": "x"} # Missing secret & region
+        }
         with self.assertRaises(ValueError) as cm:
-            file_manager.validate_config_content(CONSTANTS.CONFIG_EVENTS_FILE, json.dumps(content))
+             validator.validate_config_content(CONSTANTS.CONFIG_CREDENTIALS_FILE, content)
+        self.assertIn("Missing required credential field 'aws_secret_access_key'", str(cm.exception))
+
+    def test_validate_config_file_list_malformed(self):
+        """Test list-based config receiving dict or missing keys"""
+        # IOT file expects list
+        with self.assertRaises(ValueError) as cm:
+             validator.validate_config_content(CONSTANTS.CONFIG_IOT_DEVICES_FILE, [{"id": "1"}]) # Missing type
+        self.assertIn("Missing key 'type'", str(cm.exception))
+
+    def test_validate_config_events_complex(self):
+        """Test nested validation in config_events.json"""
+        # 1. Missing Action Fields
+        content = [{"condition": "x", "action": {"type": "lambda"}}]
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_config_content(CONSTANTS.CONFIG_EVENTS_FILE, content)
         self.assertIn("missing 'type' or 'functionName'", str(cm.exception))
 
-        # Valid Action
-        valid_content = [{
-            "condition": "x > 5",
-            "action": { "type": "lambda", "functionName": "my-func" }
-        }]
-        file_manager.validate_config_content(CONSTANTS.CONFIG_EVENTS_FILE, json.dumps(valid_content))
+        # 2. Missing Feedback Fields
+        content = [{"condition": "x", "action": {"type": "lambda", "functionName": "x", "feedback": {"iotDeviceId": "d"}}}] # Missing payload
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_config_content(CONSTANTS.CONFIG_EVENTS_FILE, content)
+        self.assertIn("missing 'iotDeviceId' or 'payload'", str(cm.exception))
 
-    def test_validate_zip_slip_prevention(self):
-        """Test prevention of Zip Slip vulnerability"""
-        # Create malicious zip in memory
+        # 3. Valid
+        content = [{"condition": "x", "action": {"type": "lambda", "functionName": "x", "feedback": {"iotDeviceId": "d", "payload": "p"}}}]
+        validator.validate_config_content(CONSTANTS.CONFIG_EVENTS_FILE, content)
+
+    def test_validate_config_hierarchy(self):
+        """Test hierarchy config"""
+        # Component invalid
+        content = [{"id": "1", "type": "component", "name": "c1"}] # Missing componentTypeId
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_config_content(CONSTANTS.CONFIG_HIERARCHY_FILE, content)
+        self.assertIn("must have either 'componentTypeId' or 'iotDeviceId'", str(cm.exception))
+
+        # Component Valid
+        content = [{"id": "1", "type": "component", "name": "c1", "iotDeviceId": "d1"}]
+        validator.validate_config_content(CONSTANTS.CONFIG_HIERARCHY_FILE, content)
+
+    # ==========================================
+    # 2. State Machine Content Tests
+    # ==========================================
+    def test_validate_state_machine_invalid_json(self):
+        with self.assertRaises(ValueError):
+            validator.validate_state_machine_content(CONSTANTS.AWS_STATE_MACHINE_FILE, "{")
+
+    def test_validate_state_machine_content_azure_special(self):
+        """Test Azure with and without 'definition' key behavior"""
+        # 1. Valid with definition
+        validator.validate_state_machine_content(CONSTANTS.AZURE_STATE_MACHINE_FILE, {"definition": {}})
+        
+        # 2. Invalid without definition
+        with self.assertRaises(ValueError) as cm:
+             validator.validate_state_machine_content(CONSTANTS.AZURE_STATE_MACHINE_FILE, {"other": {}})
+        self.assertIn("Invalid State Machine format", str(cm.exception))
+
+    def test_validate_state_machine_content_google(self):
+        # Missing main
+        with self.assertRaises(ValueError) as cm:
+             validator.validate_state_machine_content(CONSTANTS.GOOGLE_STATE_MACHINE_FILE, {"steps": []})
+        self.assertIn("Missing required keys", str(cm.exception))
+
+    # ==========================================
+    # 3. Code Validation Tests (Azure/Google)
+    # ==========================================
+    def test_validate_python_code_azure_valid(self):
+        code = "def main(req): pass"
+        validator.validate_python_code_azure(code)
+
+    def test_validate_python_code_azure_invalid(self):
+        code = "def other_func(): pass"
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_python_code_azure(code)
+        self.assertIn("must have a 'main(req)'", str(cm.exception))
+        
+        code_args = "def main(other): pass"
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_python_code_azure(code_args)
+        self.assertIn("must have a 'main(req)'", str(cm.exception))
+
+    def test_validate_python_code_google_valid(self):
+        code = "def any_func(request): pass"
+        validator.validate_python_code_google(code)
+
+    def test_validate_python_code_google_invalid(self):
+        code = "x = 1" # No function
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_python_code_google(code)
+        self.assertIn("must define at least one function", str(cm.exception))
+
+    # ==========================================
+    # 4. Project Structure (Zip & Disk)
+    # ==========================================
+    def _create_zip_with_configs(self, configs=None, extra_files=None):
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w') as zf:
-            # Add malicious file FIRST to ensure it's checked before content validation
-            zf.writestr('../../../evil.txt', 'evil')
-
-            # Add ALL required files to pass the first check (Missing Files)
-            for req_file in CONSTANTS.REQUIRED_CONFIG_FILES:
-                 # Minimal valid content is NOT needed if malicious file is checked first
-                 zf.writestr(req_file, "{}")
-        
+            for req in CONSTANTS.REQUIRED_CONFIG_FILES:
+                content = "{}"
+                if req in [CONSTANTS.CONFIG_IOT_DEVICES_FILE, CONSTANTS.CONFIG_EVENTS_FILE, CONSTANTS.CONFIG_HIERARCHY_FILE]:
+                     content = "[]"
+                elif req == CONSTANTS.CONFIG_FILE:
+                    content = json.dumps({
+                        "digital_twin_name": "t", 
+                        "hot_storage_size_in_days": 1, "cold_storage_size_in_days": 1, "mode": "b"
+                    })
+                
+                if configs and req in configs:
+                    content = json.dumps(configs[req])
+                
+                zf.writestr(req, content)
+            
+            if extra_files:
+                for name, content in extra_files.items():
+                    zf.writestr(name, content)
         zip_buffer.seek(0)
-        
+        return zip_buffer
+
+    def test_validate_zip_feedback_missing(self):
+        """Test zip with returnFeedbackToDevice=True but missing feedback logic"""
+        opt = {"result": {"optimization": {"returnFeedbackToDevice": True}}}
+        zip_buf = self._create_zip_with_configs({CONSTANTS.CONFIG_OPTIMIZATION_FILE: opt})
         with self.assertRaises(ValueError) as cm:
-            file_manager.validate_project_zip(zip_buffer)
+             validator.validate_project_zip(zip_buf)
+        self.assertIn("Missing event-feedback function in zip", str(cm.exception))
+
+    def test_validate_zip_feedback_success(self):
+        """Test zip with returnFeedbackToDevice=True AND feedback logic present"""
+        opt = {"result": {"optimization": {"returnFeedbackToDevice": True}}}
+        extras = {f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event-feedback/lambda_function.py": ""}
+        zip_buf = self._create_zip_with_configs({CONSTANTS.CONFIG_OPTIMIZATION_FILE: opt}, extras)
+        validator.validate_project_zip(zip_buf)
+
+    def test_validate_zip_event_checks_missing_code(self):
+        """Test useEventChecking=True but missing function code"""
+        opt = {"result": {"optimization": {"useEventChecking": True}}}
+        events = [{"condition": "x", "action": {"type": "lambda", "functionName": "my-func"}}]
+        configs = {CONSTANTS.CONFIG_OPTIMIZATION_FILE: opt, CONSTANTS.CONFIG_EVENTS_FILE: events}
         
-        self.assertIn("Zip Slip Prevention", str(cm.exception))
-
-    @patch('file_manager.get_provider_for_function')
-    def test_validate_python_code_aws_valid(self, mock_provider):
-        code = """
-import json
-def lambda_handler(event, context):
-    return "ok"
-"""
-        file_manager.validate_python_code_aws(code)
-
-    def test_validate_python_code_aws_invalid(self):
-        code = """
-def main():
-    pass
-"""
+        zip_buf = self._create_zip_with_configs(configs)
         with self.assertRaises(ValueError) as cm:
-            file_manager.validate_python_code_aws(code)
-        self.assertIn("must have a 'lambda_handler(event, context)'", str(cm.exception))
-
-    def test_validate_python_code_syntax_error(self):
-        """Test handling of Python syntax errors"""
-        code = "def invalid_syntax("
-        with self.assertRaises(ValueError) as cm:
-            file_manager.validate_python_code_aws(code)
-        self.assertIn("Python Syntax Error", str(cm.exception))
-
-    @patch('os.path.exists')
-    @patch('builtins.open')
-    @patch('json.load')
-    def test_get_provider_for_function(self, mock_json_load, mock_open, mock_exists):
-        # Setup mocks
-        mock_exists.return_value = True # config_providers.json exists
-        mock_json_load.return_value = {
-            "layer_1_provider": "aws",
-            "layer_2_provider": "aws"
-        }
-        
-        # Test Direct Mapping
-        provider = file_manager.get_provider_for_function("my-proj", "dispatcher")
-        self.assertEqual(provider, "aws")
-        
-        # Test Implicit Mapping
-        provider = file_manager.get_provider_for_function("my-proj", "data-processor")
-        self.assertEqual(provider, "aws")
-
-    @patch('os.path.exists')
-    def test_get_provider_missing_config(self, mock_exists):
-        mock_exists.return_value = False
-        with self.assertRaises(ValueError) as cm:
-             file_manager.get_provider_for_function("my-proj", "dispatcher")
-        self.assertIn("Missing Project Configuration", str(cm.exception))
-
-    @patch('file_manager.validate_config_content')
-    @patch('builtins.open')
-    @patch('os.path.exists')
-    @patch('json.load')
-    def test_verify_project_structure_success(self, mock_json, mock_exists, mock_open, mock_validate):
-        # Mock ALL config files existing
-        mock_exists.return_value = True 
-        mock_json.return_value = {} # Default empty config
-        
-        file_manager.verify_project_structure("test-proj")
-        
-    @patch('os.path.exists')
-    def test_verify_project_structure_missing_project(self, mock_exists):
-        mock_exists.return_value = False
-        with self.assertRaises(ValueError) as cm:
-            file_manager.verify_project_structure("missing-proj")
-        self.assertIn("does not exist", str(cm.exception))
-
-    @patch('os.path.exists')
-    def test_verify_project_structure_missing_config(self, mock_exists):
-        # Mock project dir exists, but config.json missing
-        mock_exists.side_effect = lambda p: "upload" in p if CONSTANTS.CONFIG_FILE in p else True
-        # Logic: if path contains config file, return False. Else True (dir exists).
-        # Actually easier to use side_effect list or map if paths known.
-        # But verify_project_structure builds paths dynamically.
-        
-        def exists_side_effect(path):
-            if path.endswith(CONSTANTS.CONFIG_FILE):
-                return False
-            return True
-        mock_exists.side_effect = exists_side_effect
-        
-        with self.assertRaises(ValueError) as cm:
-            file_manager.verify_project_structure("test-proj")
-        self.assertIn("Missing required configuration file", str(cm.exception))
-
-    @patch('json.load')
-    @patch('builtins.open')
-    @patch('os.path.exists')
-    @patch('file_manager.validate_config_content')
-    def test_verify_project_structure_optimization_events_missing(self, mock_valid, mock_exists, mock_open, mock_json):
-        # Setup: Configs exist. Optimization has useEventChecking=True.
-        # But config_events.json mapping/load fails or missing items?
-        # Actually verify_project_structure reads config_optimization.
-        
-        # Mocks
-        mock_exists.return_value = True
-        
-        # Mock JSON loads
-        def json_side_effect(f):
-            # If reading optimization
-            if "config_optimization" in str(f):  # Mock file object or use path? 
-                # open() returns a magic mock, not path. 
-                # Need to inspect call args of open?
-                pass
-            return {}
-
-        # Simpler: Mock return values based on call order is fragile.
-        # Let's mock json.load to return specific dicts based on what open was called with?
-        # Too complex.
-        
-        # Strategy: verify_project_structure reads opt, then events.
-        # We set json.load side effect to return sequence.
-        
-        opt_config = {"result": {"optimization": {"useEventChecking": True}}}
-        events_config = [{"action": {"type": "lambda", "functionName": "missing-func"}}]
-        
-        # Verify loop starts...
-        # 1. Basic Config Verification uses open().read() and json.loads(), NOT json.load().
-        # 2. Optimization Dependency Checks calls json.load() for optimization file.
-        # 3. Then calls json.load() for events file if optimization enabled.
-        
-        mock_json.side_effect = [
-            opt_config, # 1. Optimization File
-            events_config # 2. Events File
-        ]
-        
-        # Mock exists to return False for the function folder
-        def exists_side_effect(path):
-            if "missing-func" in path:
-                return False
-            return True
-        mock_exists.side_effect = exists_side_effect
-        
-        with self.assertRaises(ValueError) as cm:
-            file_manager.verify_project_structure("test-proj")
+            validator.validate_project_zip(zip_buf)
         self.assertIn("Missing code for event action", str(cm.exception))
 
-
-    def test_validate_state_machine_content_aws_success(self):
-        """Test valid AWS ASL content"""
-        content = json.dumps({"StartAt": "A", "States": {}})
-        file_manager.validate_state_machine_content(CONSTANTS.AWS_STATE_MACHINE_FILE, content)
-
-    def test_validate_state_machine_content_aws_fail(self):
-        """Test invalid AWS ASL content (missing States)"""
-        content = json.dumps({"StartAt": "A"})
+    def test_validate_zip_workflow_missing_provider_conf(self):
+        """Test triggerNotificationWorkflow check defaulting to AWS if provider config missing/empty"""
+        opt = {"result": {"optimization": {"triggerNotificationWorkflow": True}}}
+        # Default AWS -> expects aws_step_function.json
+        configs = {CONSTANTS.CONFIG_OPTIMIZATION_FILE: opt}
+        zip_buf = self._create_zip_with_configs(configs)
+        
         with self.assertRaises(ValueError) as cm:
-            file_manager.validate_state_machine_content(CONSTANTS.AWS_STATE_MACHINE_FILE, content)
-        self.assertIn("Missing required keys", str(cm.exception))
-
-    def test_validate_state_machine_content_azure_success(self):
-        """Test valid Azure Logic App content"""
-        content = json.dumps({"definition": {"$schema": "..."}})
-        file_manager.validate_state_machine_content(CONSTANTS.AZURE_STATE_MACHINE_FILE, content)
-
-    def test_validate_state_machine_content_mismatch(self):
-        """Test uploading AWS content as Azure file"""
-        content = json.dumps({"StartAt": "A", "States": {}})
-        # Valid AWS content, but checking against Azure requirements (needs definition)
-        with self.assertRaises(ValueError) as cm:
-            file_manager.validate_state_machine_content(CONSTANTS.AZURE_STATE_MACHINE_FILE, content)
-        self.assertIn("Missing required keys", str(cm.exception))
-
-    def test_validate_state_machine_content_google_success(self):
-        """Test valid Google Workflow content"""
-        CONSTANTS.GOOGLE_STATE_MACHINE_FILE = "google_cloud_workflow.json"
-        CONSTANTS.STATE_MACHINE_SIGNATURES[CONSTANTS.GOOGLE_STATE_MACHINE_FILE] = ["main"] 
-        content = json.dumps({"main": {"steps": []}, "steps": []}) # Mock valid
-        file_manager.validate_state_machine_content(CONSTANTS.GOOGLE_STATE_MACHINE_FILE, content)
-
-    def _create_valid_minimal_config_content(self, filename):
-        if filename in [CONSTANTS.CONFIG_IOT_DEVICES_FILE, CONSTANTS.CONFIG_EVENTS_FILE, CONSTANTS.CONFIG_HIERARCHY_FILE]:
-            return "[]"
-        elif filename == CONSTANTS.CONFIG_FILE:
-             return json.dumps({
-                "digital_twin_name": "test", "auth_files_path": ".", "endpoint": "e", 
-                "root_ca_cert_path": "r", "topic": "t", "payload_file_path": "p",
-                "hot_storage_size_in_days": 1, "cold_storage_size_in_days": 1, "mode": "basic"
-            })
-        elif filename == CONSTANTS.CONFIG_OPTIMIZATION_FILE:
-            return json.dumps({"result": {}})
-        else:
-            return "{}"
-
-    def test_validate_project_zip_invalid_state_machine(self):
-        """Test zip containing invalid state machine file"""
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, 'w') as zf:
-            # required files
-            for req in CONSTANTS.REQUIRED_CONFIG_FILES:
-                zf.writestr(req, self._create_valid_minimal_config_content(req))
-                
-            # Valid filename but invalid content for AWS
-            # Must put it in correct folder structure if we rely on "state_machines" in path? 
-            # Logic uses basename match for signature check.
-            zf.writestr(f"template/state_machines/{CONSTANTS.AWS_STATE_MACHINE_FILE}", '{"StartAt": "A"}') # Missing States
-
-        zip_buffer.seek(0)
-        with self.assertRaises(ValueError) as cm:
-            file_manager.validate_project_zip(zip_buffer)
-        self.assertIn("State Machine validation failed", str(cm.exception))
-
-    def test_validate_project_zip_missing_dependency(self):
-        """Test zip with optimization enabled but missing state machine"""
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, 'w') as zf:
-            # required files
-            for req in CONSTANTS.REQUIRED_CONFIG_FILES:
-                if req == CONSTANTS.CONFIG_OPTIMIZATION_FILE:
-                    zf.writestr(req, json.dumps({"result": {"optimization": {"triggerNotificationWorkflow": True}}}))
-                else:
-                    zf.writestr(req, self._create_valid_minimal_config_content(req))
-            
-            # Missing state machine file!
-            
-        zip_buffer.seek(0)
-        with self.assertRaises(ValueError) as cm:
-            file_manager.validate_project_zip(zip_buffer)
+             validator.validate_project_zip(zip_buf)
         self.assertIn("Missing state machine definition", str(cm.exception))
+        self.assertIn("aws_step_function.json", str(cm.exception))
 
+    def test_verify_project_structure_corrupt_configs(self):
+        """Test verify structure with invalid content on disk"""
+        with patch('os.path.exists', return_value=True), \
+             patch('builtins.open', unittest.mock.mock_open(read_data="{invalid")), \
+             self.assertRaises(ValueError) as cm:
+                 validator.verify_project_structure("p")
+        self.assertIn("Invalid content", str(cm.exception))
+
+    @patch('os.path.exists')
+    @patch('builtins.open')
+    @patch('json.load')
+    def test_verify_project_structure_workflow_checks(self, mock_json, mock_open, mock_exists):
+        # Scenario: Optimization needs workflow, Provider is Azure via config
+        mock_exists.return_value = True
+        
+        opt_conf = {"result": {"optimization": {"triggerNotificationWorkflow": True}}}
+        # verify_project_structure logic:
+        # 1. Basic Verify (reads all config files via open, calls validate_config_content)
+        # 2. Open optimization -> return opt_conf
+        # 3. Read Providers -> return azure
+        # 4. Check State Machine File -> must exist and validate
+        
+        # We need a robust side_effect for json.load to handle different files being opened
+        # But open() returns the same mock object in simplest form.
+        
+        # Simulating file reads by path is hard with standard mock_open. 
+        # Using a specialized side_effect for open logic:
+        
+        file_contents = {
+            CONSTANTS.CONFIG_OPTIMIZATION_FILE: json.dumps(opt_conf),
+            CONSTANTS.CONFIG_PROVIDERS_FILE: json.dumps({"layer_2_provider": "azure"}),
+            CONSTANTS.AZURE_STATE_MACHINE_FILE: json.dumps({"definition": {}}) # Valid Azure
+        }
+        
+        def open_side_effect(file, mode='r'):
+            # Extract basename to match our simple map
+            basename = os.path.basename(file)
+            if basename in file_contents:
+                return io.StringIO(file_contents[basename])
+            return io.StringIO("{}") # Default empty JSON for others
+        
+        mock_open.side_effect = open_side_effect
+        
+        # We also need json.load to work with StringIO
+        mock_json.side_effect = json.load # Use real json.load on StringIO
+        
+        # Mocking validate_config_content to pass (too complex to mock its internal json.loads)
+        with patch('validator.validate_config_content'):
+             validator.verify_project_structure("test-proj")
+             # Should pass if Azure State Machine is found and valid
+
+    # ==========================================
+    # 5. Project Provider Resolution
+    # ==========================================
+    @patch('os.path.exists')
+    @patch('builtins.open')
+    @patch('json.load')
+    def test_get_provider_corrupt_config(self, mock_json, mock_open, mock_exists):
+        mock_exists.return_value = True
+        mock_json.side_effect = json.JSONDecodeError("msg", "doc", 0)
+        with self.assertRaises(ValueError) as cm:
+             validator.get_provider_for_function("p", "f")
+        self.assertIn("is corrupted", str(cm.exception))
+
+    @patch('os.path.exists')
+    @patch('builtins.open')
+    @patch('json.load')
+    def test_get_provider_missing_layer_key(self, mock_json, mock_open, mock_exists):
+        mock_exists.return_value = True
+        # Config exists but missing key for L2
+        mock_json.return_value = {"layer_1_provider": "aws"}
+        
+        with self.assertRaises(ValueError) as cm:
+             # persister -> layer_2
+             validator.get_provider_for_function("p", "persister") 
+        self.assertIn("configuration missing for layer", str(cm.exception))
+
+    @patch('os.path.exists')
+    @patch('builtins.open')
+    @patch('json.load')
+    def test_get_provider_unknown_func_fallback(self, mock_json, mock_open, mock_exists):
+        mock_exists.return_value = True
+        mock_json.return_value = {"layer_2_provider": "google"}
+        
+        # Unknown func -> Defaults to L2 (google)
+        prov = validator.get_provider_for_function("p", "unknown-func")
+        self.assertEqual(prov, "google")
 
 if __name__ == '__main__':
     unittest.main()

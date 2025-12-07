@@ -32,6 +32,7 @@ config_credentials_azure = None
 config_credentials_google = None
 config_optimization = {}
 config_providers = {}
+config_inter_cloud = {}
 config_hierarchy = []
 config_events = []
 CURRENT_PROJECT = CONSTANTS.DEFAULT_PROJECT_NAME
@@ -91,6 +92,31 @@ def initialize_config_providers():
   with open(os.path.join(get_project_upload_path(), CONSTANTS.CONFIG_PROVIDERS_FILE), "r") as file:
     config_providers = json.load(file)
 
+def initialize_config_inter_cloud():
+  global config_inter_cloud
+  path = os.path.join(get_project_upload_path(), CONSTANTS.CONFIG_INTER_CLOUD_FILE)
+  if os.path.exists(path):
+    with open(path, "r") as file:
+      config_inter_cloud = json.load(file)
+  else:
+    logger.info(f"Inter-cloud config file not found at {path}. Defaulting to empty config.")
+    config_inter_cloud = {}
+
+def get_inter_cloud_token(connection_id):
+    """
+    Retrieves the token for a specific connection ID.
+    Raises ValueError if missing.
+    """
+    connections = config_inter_cloud.get("connections", {})
+    connection = connections.get(connection_id)
+    if not connection:
+        raise ValueError(f"Connection '{connection_id}' not found in {CONSTANTS.CONFIG_INTER_CLOUD_FILE}.")
+    
+    token = connection.get("token")
+    if not token:
+        raise ValueError(f"Token missing for connection '{connection_id}'.")
+    return token
+
 def initialize_config_optimization():
     global config_optimization
     path = os.path.join(get_project_upload_path(), CONSTANTS.CONFIG_OPTIMIZATION_FILE)
@@ -149,6 +175,7 @@ def initialize_all():
   initialize_config_credentials()
   initialize_config_providers()
   initialize_config_optimization()
+  initialize_config_inter_cloud()
   
   
   # check credentials based on providers in use

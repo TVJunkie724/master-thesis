@@ -39,6 +39,9 @@ def deploy_l2(provider=None):
       for iot_device in globals.config_iot_devices:
         iot_deployer_aws.create_processor_iam_role(iot_device)
         iot_deployer_aws.create_processor_lambda_function(iot_device)
+        
+      # Conditional: Ingestion Function (Multi-Cloud L1 -> L2)
+      iot_deployer_aws.create_ingestion_lambda_function()
     case "azure":
       raise NotImplementedError("Azure deployment not implemented yet.")
     case "google":
@@ -54,6 +57,8 @@ def destroy_l2(provider=None):
       for iot_device in globals.config_iot_devices:
         iot_deployer_aws.destroy_processor_lambda_function(iot_device)
         iot_deployer_aws.destroy_processor_iam_role(iot_device)
+      
+      iot_deployer_aws.destroy_ingestion_lambda_function()
     case "azure":
       raise NotImplementedError("Azure deployment not implemented yet.")
     case "google":

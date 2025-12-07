@@ -75,3 +75,52 @@ def compile_lambda_function(folder_path):
     zip_code = f.read()
 
   return zip_code
+
+def compile_merged_lambda_function(base_path, custom_file_path):
+    """
+    Merges a base system wrapper folder with a custom user file, then zips it.
+    
+    Args:
+        base_path (str): Path to the system wrapper code (e.g. processor_wrapper)
+        custom_file_path (str): Relative path (from project upload) to the user's custom code (e.g. process.py)
+        
+    Returns:
+        bytes: The zipped deployment package.
+    """
+    import shutil
+    import tempfile
+    
+    # 1. Resolve Paths
+    abs_base_path = resolve_folder_path(base_path)
+    # custom_file_path is relative to the project upload directory
+    abs_custom_path = os.path.join(get_path_in_project(), custom_file_path)
+    
+    if not os.path.exists(abs_base_path):
+        raise FileNotFoundError(f"Base path not found: {abs_base_path}")
+    if not os.path.exists(abs_custom_path):
+        raise FileNotFoundError(f"Custom file not found: {abs_custom_path}")
+
+    # 2. Create Temp Build Directory
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # 3. Copy Base System Code
+        # We copy individual files to avoid copying hidden .git or other artifacts if present
+        for item in os.listdir(abs_base_path):
+            s = os.path.join(abs_base_path, item)
+            d = os.path.join(temp_dir, item)
+            if os.path.isfile(s):
+                shutil.copy2(s, d)
+            elif os.path.isdir(s):
+                shutil.copytree(s, d)
+        
+        # 4. Copy Custom User Code
+        # Destination is standard 'process.py' as expected by wrapper
+        dest_custom_path = os.path.join(temp_dir, "process.py")
+        shutil.copy2(abs_custom_path, dest_custom_path)
+        
+        # 5. Zip the Result
+        zip_path = zip_directory(temp_dir, zip_name="merged_function.zip")
+        
+        with open(zip_path, "rb") as f:
+            zip_code = f.read()
+            
+    return zip_code

@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 import globals
 import file_manager
+import src.validator as validator
 import constants as CONSTANTS
 import util
 from rest_api import app
@@ -19,7 +20,20 @@ def create_valid_zip_bytes():
     bio = io.BytesIO()
     with zipfile.ZipFile(bio, 'w') as zf:
         for fname in CONSTANTS.REQUIRED_CONFIG_FILES:
-            zf.writestr(fname, "{}")
+            content = "{}"
+            if fname == CONSTANTS.CONFIG_FILE:
+                content = json.dumps({
+                    "digital_twin_name": "digital-twin",
+                    "hot_storage_size_in_days": 30,
+                    "cold_storage_size_in_days": 90,
+                    "mode": "DEBUG"
+                })
+            elif fname in [CONSTANTS.CONFIG_IOT_DEVICES_FILE, CONSTANTS.CONFIG_EVENTS_FILE, CONSTANTS.CONFIG_HIERARCHY_FILE]:
+                content = "[]"
+            elif fname == CONSTANTS.CONFIG_OPTIMIZATION_FILE:
+                content = json.dumps({"result": {}})
+            
+            zf.writestr(fname, content)
     bio.seek(0)
     return bio.getvalue()
 
@@ -48,7 +62,7 @@ def reset_globals():
 def test_validate_project_zip_valid():
     zip_bytes = create_valid_zip_bytes()
     # Should not raise
-    file_manager.validate_project_zip(zip_bytes)
+    validator.validate_project_zip(zip_bytes)
 
 def test_validate_project_zip_missing_files():
     bio = io.BytesIO()
@@ -56,8 +70,8 @@ def test_validate_project_zip_missing_files():
         zf.writestr("config.json", "{}")
     bio.seek(0)
     
-    with pytest.raises(ValueError, match="Missing required files"):
-        file_manager.validate_project_zip(bio.getvalue())
+    with pytest.raises(ValueError, match="Missing required configuration"):
+        validator.validate_project_zip(bio.getvalue())
 
 def test_create_project_from_zip_success():
     project_name = "test_proj_1"
@@ -139,7 +153,12 @@ def test_api_update_config():
     project_name = "test_proj_config"
     file_manager.create_project_from_zip(project_name, create_valid_zip_bytes())
     
-    new_config = {"new_key": "new_value"}
+    new_config = {
+        "digital_twin_name": "digital-twin-updated",
+        "hot_storage_size_in_days": 30,
+        "cold_storage_size_in_days": 90,
+        "mode": "DEBUG"
+    }
     files = {"file": ("config.json", json.dumps(new_config), "application/json")}
     
     response = client.put(f"/projects/{project_name}/config/config", files=files)

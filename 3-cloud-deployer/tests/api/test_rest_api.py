@@ -38,8 +38,8 @@ def test_lambda_invoke(mock_invoke):
 
 
 
-@patch("rest_api.event_action_deployer")
-@patch("rest_api.core_deployer")
+@patch("api.deployment.event_action_deployer")
+@patch("api.deployment.core_deployer")
 def test_recreate_updated_events(mock_core, mock_actions):
     """Verify redeploy events endpoint deployment sequence."""
     response = client.post("/recreate_updated_events?provider=aws")
@@ -49,7 +49,7 @@ def test_recreate_updated_events(mock_core, mock_actions):
     mock_actions.redeploy.assert_called_once_with("aws")
     mock_core.redeploy_l2_event_checker.assert_called_once_with("aws")
 
-@patch("file_manager.verify_project_structure")
+@patch("src.validator.verify_project_structure")
 @patch("deployers.core_deployer.deploy")
 @patch("deployers.iot_deployer.deploy")
 @patch("deployers.additional_deployer.deploy")
@@ -62,7 +62,7 @@ def test_deploy_all_verification(mock_event, mock_hier, mock_iot, mock_core, moc
     mock_core.assert_called_once()
 
 
-@patch("file_manager.validate_state_machine_content")
+@patch("src.validator.validate_state_machine_content")
 def test_upload_state_machine_success(mock_validate):
     """Test successful state machine upload."""
     files = {'file': ('aws_step_function.json', '{"StartAt": "x", "States": {}}', 'application/json')}
@@ -71,15 +71,16 @@ def test_upload_state_machine_success(mock_validate):
     assert "uploaded and verified" in response.json()["message"]
     mock_validate.assert_called_once()
 
-@patch("file_manager.validate_state_machine_content")
+@patch("src.validator.validate_state_machine_content")
 def test_upload_state_machine_invalid_provider(mock_validate):
     """Test upload with invalid provider."""
     files = {'file': ('aws_step_function.json', '{}', 'application/json')}
     response = client.put("/projects/template/state_machines/unknown", files=files)
-    assert response.status_code == 400
-    assert "Invalid provider" in response.json()["detail"]
+    assert response.status_code == 422
+    # Just verify it's a validation error structure (list of errors)
+    assert isinstance(response.json()["detail"], list)
 
-@patch("file_manager.validate_state_machine_content")
+@patch("src.validator.validate_state_machine_content")
 def test_upload_state_machine_validation_fail(mock_validate):
     """Test upload validation failure."""
     mock_validate.side_effect = ValueError("Missing content")

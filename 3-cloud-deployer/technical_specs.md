@@ -20,27 +20,28 @@ To enable functions in one cloud to communicate with resources in another, dynam
 | `REMOTE_AUTH_TOKEN` | (Optional) Static API Key for cross-cloud authentication (if not using IAM/OIDC). | `x-api-key-value` |
 
 ## 2. Authentication for Public Endpoints
-
-Since cross-cloud communication occurs over the public internet via HTTP, strict authentication is mandatory.
-
-### Strategy by Provider
-
-#### AWS (Receiver)
-*   **Mechanism:** **AWS IAM (SigV4)** is preferred for internal calls, but for cross-cloud, **Function URL with IAM Auth** or **API Gateway with API Key** is used.
-*   **Recommendation:** Use **API Gateway with API Keys** for simplicity in cross-cloud scenarios where the caller is a generic HTTP client (like an Azure Function).
-    *   **Header:** `x-api-key: <generated-key>`
-
-#### Azure (Receiver)
-*   **Mechanism:** **Function Keys**.
-*   **Implementation:** Azure Functions have built-in key management (`default` or `master` keys).
-*   **Header:** `x-functions-key: <function-key>`
-
-#### GCP (Receiver)
-*   **Mechanism:** **OIDC Tokens** (Service Account Identity).
-*   **Implementation:** The calling function (e.g., in AWS) generates an OIDC token signed by its identity provider, or (simpler for MVP) use a shared **API Key** validated by the receiving function or API Gateway.
-*   **Recommendation:** For the initial MVP, a shared **Secret Token** stored in Secrets Manager (AWS/GCP) or Key Vault (Azure) and injected as an env var is acceptable.
-
-## 3. Data Payload Contracts
+ 
+ Cross-cloud communication occurs over public HTTPs, necessitating robust authentication. To minimize complexity while maintaining security, a **Shared Secret Token** strategy is implemented.
+ 
+ ### Strategy: Function URL + Shared Token
+ 
+ 1.  **Transport Security:** HTTPS (TLS 1.2+) provided by AWS Lambda Function URLs (or Azure/GCP equivalents).
+ 2.  **Authentication:** Application-Layer validation using a secure token.
+     *   **Header:** Request MUST include `X-Inter-Cloud-Token: <value>`.
+     *   **Validation:** Receivers (Ingestion, Writer) validate this header against their local `INTER_CLOUD_TOKEN` environment variable.
+     *   **Rejection:** Requests with missing or mismatched tokens return `403 Forbidden`.
+ 
+ ### Why this approach?
+ *   **Isolation:** Separate tokens can be used for different connections (e.g., Token A for AWS->Azure, Token B for Azure->AWS IAM), limiting blast radius.
+ *   **Simplicity:** Avoids the overhead of managing OIDC federations for simple telemetry plumbing.
+ *   **No Native IAM Exposure:** Remote clouds are NOT given native IAM credentials (AK/SK). This prevents a compromised remote component from scanning resources or escalating privileges within the target cloud. Ideally, the Writer function is a "dumb gateway" that only allows writing to one specific resource.
+ 
+ ### Token Management
+ *   Tokens are stored in `config_inter_cloud.json` on the deployment machine.
+ *   They are injected as Environment Variables during deployment.
+ *   *Future Enhancement:* Rotate tokens via Secrets Manager.
+ 
+ ## 3. Data Payload Contracts
 
 To ensure interoperability, all "Connector" functions must wrap their payloads in a standard "Inter-Cloud Envelope".
 

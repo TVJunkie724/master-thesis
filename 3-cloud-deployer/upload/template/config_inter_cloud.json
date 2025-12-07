@@ -1,0 +1,16 @@
+{
+    "connections": {
+        "aws_l1_to_azure_l2": {
+            "provider": "azure",
+            "function": "ingestion",
+            "token": "generated-secure-token",
+            "url": "https://func-ingest-xyz.azurewebsites.net/api/ingest"
+        },
+        "azure_l2_to_aws_l3": {
+            "provider": "aws",
+            "function": "writer",
+            "token": "generated-secure-token",
+            "url": "https://lambda-url-id.lambda-url.region.on.aws/"
+        }
+    }
+}

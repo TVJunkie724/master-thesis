@@ -104,6 +104,7 @@ def create_dispatcher_lambda_function():
     Environment={
       "Variables": {
         "DIGITAL_TWIN_INFO": json.dumps(globals.digital_twin_info()),
+        "TARGET_FUNCTION_SUFFIX": "-connector" if globals.config_providers.get("layer_2_provider", "aws") != "aws" else "-processor"
       }
     }
   )
@@ -252,6 +253,72 @@ def destroy_persister_iam_role():
     if e.response["Error"]["Code"] != "NoSuchEntity":
       raise
 
+
+def create_writer_lambda_function():
+  """
+  Deploys Writer Function if L2 is Remote and L3 is Local (AWS).
+  """
+  l2_provider = globals.config_providers.get("layer_2_provider", "aws")
+  l3_provider = globals.config_providers.get("layer_3_hot_provider", "aws")
+
+  if l2_provider != "aws" and l3_provider == "aws":
+      function_name = globals_aws.writer_lambda_function_name()
+      # Reuse Persister role? Valid, as it has DynamoDB access.
+      role_name = globals_aws.persister_iam_role_name()
+
+      try:
+          response = globals_aws.aws_iam_client.get_role(RoleName=role_name)
+          role_arn = response['Role']['Arn']
+      except ClientError:
+          logger.error(f"Persister Role {role_name} not found. Writer deployment failed.")
+          return
+
+      # Token
+      conn_id = f"{l2_provider}_l2_to_{l3_provider}_l3"
+      token = globals.get_inter_cloud_token(conn_id)
+
+      globals_aws.aws_lambda_client.create_function(
+        FunctionName=function_name,
+        Runtime="python3.13",
+        Role=role_arn, # Reuse Persister Role
+        Handler="lambda_function.lambda_handler", 
+        Code={"ZipFile": util.compile_lambda_function(os.path.join(util.get_path_in_project(CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME), "writer"))},
+        Description="Writer from Remote L2",
+        Timeout=10, 
+        MemorySize=128, 
+        Publish=True,
+        Environment={
+          "Variables": {
+             "INTER_CLOUD_TOKEN": token,
+             "DYNAMODB_TABLE_NAME": globals_aws.hot_dynamodb_table_name()
+          }
+        }
+      )
+      
+      # Enable Function URL
+      globals_aws.aws_lambda_client.create_function_url_config(
+        FunctionName=function_name,
+        AuthType='NONE'
+      )
+      # Add Permission for public access
+      globals_aws.aws_lambda_client.add_permission(
+        FunctionName=function_name,
+        StatementId="FunctionURLAllowPublicAccess",
+        Action="lambda:InvokeFunctionUrl",
+        Principal="*",
+        FunctionUrlAuthType="NONE"
+      )
+
+      logger.info(f"Created Writer Lambda function: {function_name}")
+
+def destroy_writer_lambda_function():
+  function_name = globals_aws.writer_lambda_function_name()
+  try:
+    globals_aws.aws_lambda_client.delete_function(FunctionName=function_name)
+    logger.info(f"Deleted Writer Lambda function: {function_name}")
+  except ClientError as e:
+    if e.response["Error"]["Code"] != "ResourceNotFoundException":
+      logger.warning(f"Failed to delete writer function: {e}")
 
 def create_persister_lambda_function():
   function_name = globals_aws.persister_lambda_function_name()

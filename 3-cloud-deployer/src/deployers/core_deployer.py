@@ -128,6 +128,9 @@ def deploy_l3_hot(provider=None):
       core_aws.create_hot_reader_last_entry_iam_role()
       core_aws.create_hot_reader_last_entry_lambda_function()
       
+      # Conditional: Writer Function (Multi-Cloud L2 -> L3)
+      core_aws.create_writer_lambda_function()
+      
       # Conditional: API Gateway
       if globals.should_deploy_api_gateway(provider):
           core_aws.create_api()
@@ -149,6 +152,8 @@ def destroy_l3_hot(provider=None):
       core_aws.destroy_api()
       core_aws.destroy_hot_reader_last_entry_lambda_function()
       core_aws.destroy_hot_reader_last_entry_iam_role()
+      
+      core_aws.destroy_writer_lambda_function()
       core_aws.destroy_hot_reader_lambda_function()
       core_aws.destroy_hot_reader_iam_role()
       core_aws.destroy_hot_cold_mover_event_rule()

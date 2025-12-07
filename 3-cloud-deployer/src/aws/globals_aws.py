@@ -240,3 +240,11 @@ def event_feedback_iam_role_name():
 
 def event_feedback_lambda_function_name():
   return globals.config["digital_twin_name"] + "-event-feedback"
+def connector_lambda_function_name(iot_device):
+    return f"{globals.config['digital_twin_name']}-{iot_device['iotDeviceId']}-connector"
+
+def ingestion_lambda_function_name():
+    return f"{globals.config['digital_twin_name']}-ingestion"
+
+def writer_lambda_function_name():
+    return f"{globals.config['digital_twin_name']}-writer"

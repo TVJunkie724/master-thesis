@@ -14,7 +14,7 @@ client = TestClient(app)
 
 class TestValidationAPI(unittest.TestCase):
 
-    @patch('file_manager.validate_project_zip')
+    @patch('src.validator.validate_project_zip')
     def test_validate_zip_endpoint(self, mock_validate):
         # Mock successful validation
         mock_validate.return_value = None 
@@ -25,7 +25,7 @@ class TestValidationAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("valid and secure", response.json()["message"])
 
-    @patch('file_manager.validate_project_zip')
+    @patch('src.validator.validate_project_zip')
     def test_validate_zip_endpoint_failure(self, mock_validate):
         # Mock validation failure
         mock_validate.side_effect = ValueError("Zip Slip deteced")
@@ -36,7 +36,7 @@ class TestValidationAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("Zip Slip deteced", response.json()["detail"])
 
-    @patch('file_manager.validate_config_content')
+    @patch('src.validator.validate_config_content')
     def test_validate_config_endpoint_enum(self, mock_validate):
         # Test that Enum works (e.g. 'events' is accepted)
         mock_validate.return_value = None
@@ -51,8 +51,8 @@ class TestValidationAPI(unittest.TestCase):
         response = client.post("/validate/config/invalid_type", files=files)
         self.assertEqual(response.status_code, 422) # FastAPI validation error for Enum
 
-    @patch('file_manager.get_provider_for_function')
-    @patch('file_manager.validate_python_code_aws')
+    @patch('src.validator.get_provider_for_function')
+    @patch('src.validator.validate_python_code_aws')
     def test_validate_function_endpoint(self, mock_validate_aws, mock_get_provider):
         mock_get_provider.return_value = "aws"
         mock_validate_aws.return_value = None
