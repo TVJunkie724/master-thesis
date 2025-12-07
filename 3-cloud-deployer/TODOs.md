@@ -7,10 +7,12 @@
 - [x] check upload endpoints, it should be possible to either upload a binary or base64 encoded string or a file by filepath? is filepath feasable? dont forget to update description on endpoint change
 - [x] implement TODO functions in AWS roadmap, use roadmap, project code base and technical_specs.md as reference
 - [x] check all lambda functions for additional error handling
-- [ ] split core deployer by layer into separate files
+- [x] split core deployer by layer into separate files
 - [ ] make device simulator adaptable by user? which part of the code / the files can be moved to /upload/project_name directory
-- [ ] implement error handling with optional parameters (check if implemented in cost optimizer first)
+- [ ] OPTIONAL: implement error handling with optional parameters (check if implemented in cost optimizer first)
 
-- [ ] update documentation for all changes
+- [x] update documentation for all changes
+- [x] let claude opus search for bugs in whole project
 
-- [ ] let claude opus search for bugs in whole project?
+- [ ] investigate which permissions in the aws cloud are required to fulfill the full requirements of the deployer
+    - [ ] add endpoint to check which permissions are given for the given user (using given credentials)

@@ -237,6 +237,47 @@
                 </ul>
             </div>
 
+            <!-- Projects Endpoints -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-folder me-2"></i>Projects Endpoints</h2>
+
+                <h3 class="mt-4">GET /projects</h3>
+                <p>List all available projects.</p>
+
+                <h3 class="mt-4">POST /projects</h3>
+                <p>Create new project from uploaded zip file.</p>
+                <p><strong>Request Body:</strong> <code>multipart/form-data</code> with <code>file</code> and
+                    <code>project_name</code></p>
+
+                <h3 class="mt-4">PUT /projects/{project_name}/activate</h3>
+                <p>Switch active project context.</p>
+
+                <h3 class="mt-4">GET /projects/{project_name}/validate</h3>
+                <p>Validate project structure and configuration files.</p>
+
+                <h3 class="mt-4">PUT /projects/{project_name}/config/{config_type}</h3>
+                <p>Update specific config file. Config types: <code>config</code>, <code>iot</code>,
+                    <code>events</code>, <code>hierarchy</code>, <code>credentials</code>, <code>providers</code>,
+                    <code>optimization</code></p>
+            </div>
+
+            <!-- Validation Endpoints -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-check-double me-2"></i>Validation Endpoints</h2>
+
+                <h3 class="mt-4">POST /validate/zip</h3>
+                <p>Validate project zip file structure and contents.</p>
+
+                <h3 class="mt-4">POST /validate/config/{config_type}</h3>
+                <p>Validate specific configuration file content.</p>
+
+                <h3 class="mt-4">POST /validate/state-machine</h3>
+                <p>Validate Step Functions state machine definition.</p>
+
+                <h3 class="mt-4">POST /validate/function-code</h3>
+                <p>Validate Lambda function code by provider (aws/azure/google).</p>
+            </div>
+
             <!-- Error Responses -->
             <div class="card mb-4">
                 <h2 class="mb-3"><i class="fa-solid fa-exclamation-triangle me-2"></i>Error Responses</h2>
@@ -258,7 +299,12 @@
                         <tr>
                             <td>400</td>
                             <td>Bad Request</td>
-                            <td>Invalid parameters</td>
+                            <td>Invalid parameters or provider</td>
+                        </tr>
+                        <tr>
+                            <td>409</td>
+                            <td>Conflict</td>
+                            <td>Project name doesn't match active project (safety check)</td>
                         </tr>
                         <tr>
                             <td>500</td>

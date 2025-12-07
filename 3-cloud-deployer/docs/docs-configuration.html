@@ -36,8 +36,9 @@
         <h4 class="mt-3">Schema</h4>
         <pre class="p-3 rounded"><code>{
   "digital_twin_name": "string",
-  "layer_3_hot_to_cold_interval_days": number,
-  "layer_3_cold_to_archive_interval_days": number
+  "hot_storage_size_in_days": number,
+  "cold_storage_size_in_days": number,
+  "mode": "string"
 }</code></pre>
 
         <h4 class="mt-3">Fields</h4>
@@ -56,14 +57,19 @@
               <td>Prefix for all cloud resources. Used as namespace identifier.</td>
             </tr>
             <tr>
-              <td class="mono">layer_3_hot_to_cold_interval_days</td>
+              <td class="mono">hot_storage_size_in_days</td>
               <td>number</td>
-              <td>Number of days after which hot storage data is moved to cool storage</td>
+              <td>Number of days data remains in hot storage before moving to cold</td>
             </tr>
             <tr>
-              <td class="mono">layer_3_cold_to_archive_interval_days</td>
+              <td class="mono">cold_storage_size_in_days</td>
               <td>number</td>
-              <td>Number of days after which cool storage data is moved to archive</td>
+              <td>Number of days data remains in cold storage before moving to archive</td>
+            </tr>
+            <tr>
+              <td class="mono">mode</td>
+              <td>string</td>
+              <td>Deployment mode: "DEBUG" or "PRODUCTION"</td>
             </tr>
           </tbody>
         </table>
@@ -71,8 +77,9 @@
         <h4 class="mt-3">Example</h4>
         <pre class="p-3 rounded"><code>{
   "digital_twin_name": "my-dt",
-  "layer_3_hot_to_cold_interval_days": 30,
-  "layer_3_cold_to_archive_interval_days": 90
+  "hot_storage_size_in_days": 30,
+  "cold_storage_size_in_days": 90,
+  "mode": "DEBUG"
 }</code></pre>
       </div>
 
@@ -110,10 +117,70 @@
 
         <h4 class="mt-3">GCP Credentials (Planned)</h4>
         <pre class="p-3 rounded"><code>{
-  "google": {
+  "gcp": {
     "gcp_project_id": "your-project-id",
     "gcp_credentials_file": "/path/to/service-account.json",
     "gcp_region": "europe-west1"
+  }
+}</code></pre>
+      </div>
+
+      <!-- Inter-Cloud Config -->
+      <div class="card mb-4">
+        <h2 class="mb-3"><i class="fa-solid fa-network-wired me-2"></i>config_inter_cloud.json</h2>
+        <p><strong>Purpose:</strong> Cross-cloud connection configuration for multi-cloud deployments.</p>
+        <p><strong>Location:</strong> <code>./config_inter_cloud.json</code></p>
+
+        <div class="callout info">
+          <strong><i class="fa-solid fa-info-circle me-2"></i>Optional File</strong>
+          This file is only required when deploying across multiple cloud providers.
+        </div>
+
+        <h4 class="mt-3">Schema</h4>
+        <pre class="p-3 rounded"><code>{
+  "connections": {
+    "{source}_l1_to_{target}_l2": {
+      "url": "string",
+      "token": "string"
+    }
+  }
+}</code></pre>
+
+        <h4 class="mt-3">Fields</h4>
+        <table class="t2c-table">
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Type</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">connections</td>
+              <td>object</td>
+              <td>Map of connection identifiers to connection details</td>
+            </tr>
+            <tr>
+              <td class="mono">url</td>
+              <td>string</td>
+              <td>Remote ingestion endpoint URL</td>
+            </tr>
+            <tr>
+              <td class="mono">token</td>
+              <td>string</td>
+              <td>Authentication token for the remote endpoint</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h4 class="mt-3">Example</h4>
+        <pre class="p-3 rounded"><code>{
+  "connections": {
+    "aws_l1_to_azure_l2": {
+      "url": "https://my-azure-function.azurewebsites.net/api/ingest",
+      "token": "your-secret-token"
+    }
   }
 }</code></pre>
       </div>

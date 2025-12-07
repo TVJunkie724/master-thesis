@@ -162,22 +162,41 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
                     <h2 class="mb-3"><i class="fa-solid fa-folder-tree me-2"></i>Test Organization</h2>
                     <div class="table-responsive">
                         <pre class="p-3 rounded"><code>tests/
-├── conftest.py              # Shared fixtures (Environment mocks, Global config mocks)
+├── conftest.py                           # Shared fixtures (Environment mocks, Global config mocks)
+├── test_lambda_cli_safety.py             # Lambda CLI safety checks
+├── test_multi_project.py                 # Multi-project management tests
+│
 ├── unit/
-│   ├── test_util.py         # Credentials & File Utils
-│   └── test_util_aws.py     # AWS Helper Utils
-├── integration/
-│   ├── aws/
-│   │   ├── conftest.py                # AWS-specific fixtures (moto clients)
-│   │   ├── test_aws_l1_dispatcher.py  # Dispatcher & IAM
-│   │   ├── test_aws_l2_compute.py     # Core Lambdas
-│   │   ├── test_aws_l3_storage.py     # S3 & DynamoDB
-│   │   ├── test_aws_l3_movers.py      # Data Mover Lambdas
-│   │   ├── test_aws_l4_l5_mocked.py   # TwinMaker & Grafana
-│   │   └── test_aws_api_gateway.py    # API Gateway
-│   └── azure/               # (Planned) Azure integration tests
-└── api/
-    └── test_rest_api.py     # FastAPI endpoint verification
+│   ├── test_globals.py                   # Global configuration tests
+│   ├── test_util.py                      # Credentials & File Utils
+│   ├── test_util_aws.py                  # AWS Helper Utils
+│   ├── test_validation.py                # Input validation tests
+│   └── lambda_functions/
+│       ├── test_event_checker.py         # Event Checker Lambda logic
+│       └── test_persister.py             # Persister Lambda logic
+│
+├── api/
+│   ├── test_rest_api.py                  # FastAPI endpoint verification
+│   └── test_uploads.py                   # File upload handling tests
+│
+├── deployers/
+│   └── test_aws_connector_logic.py       # AWS Connector Lambda logic
+│
+└── integration/
+    ├── test_api_validation.py            # API validation integration tests
+    ├── aws/
+    │   ├── conftest.py                   # AWS-specific fixtures (moto clients)
+    │   ├── test_aws_api_gateway.py       # API Gateway routes & stages
+    │   ├── test_aws_dynamic_deployment.py # Dynamic deployment scenarios
+    │   ├── test_aws_event_actions.py     # Event action handling
+    │   ├── test_aws_l1_dispatcher.py     # L1: Dispatcher & IAM
+    │   ├── test_aws_l2_compute.py        # L2: Core Lambdas
+    │   ├── test_aws_l2_helpers.py        # L2: Compute helper utils
+    │   ├── test_aws_l3_movers.py         # L3: Data Mover Lambdas
+    │   ├── test_aws_l3_readers.py        # L3: Storage reader functions
+    │   ├── test_aws_l3_storage.py        # L3: S3 & DynamoDB
+    │   └── test_aws_l4_l5_mocked.py      # L4/L5: TwinMaker & Grafana
+    └── azure/                            # (Planned) Azure integration tests
 </code></pre>
                     </div>
                 </div>

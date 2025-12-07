@@ -1,10 +1,12 @@
+from typing import Literal
+
 import globals
 import aws.core_deployer_aws as core_aws
-from botocore.exceptions import ClientError
-
 from logger import logger
 
-def deploy_l1(provider=None):
+Provider = Literal["aws", "azure", "google"]
+
+def deploy_l1(provider: str | None = None) -> None:
   if provider is None:
     raise ValueError("Provider must be specified for deployment.")
   match provider:
@@ -23,7 +25,7 @@ def deploy_l1(provider=None):
     case _:
       raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
 
-def destroy_l1(provider=None):
+def destroy_l1(provider: str | None = None) -> None:
   if provider is None:
     raise ValueError("Provider must be specified for deployment.")
   match provider:
@@ -42,12 +44,12 @@ def destroy_l1(provider=None):
     case _:
       raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
 
-def redeploy_l2_event_checker(provider=None):
+def redeploy_l2_event_checker(provider: str | None = None) -> None:
   if provider is None:
     raise ValueError("Provider must be specified for deployment.")
   match provider:
     case "aws":
-      core_aws.redeploy_event_checker_lambda_function
+      core_aws.redeploy_event_checker_lambda_function()
     case "azure":
       raise NotImplementedError("Azure deployment not implemented yet.")
     case "google":
@@ -55,7 +57,7 @@ def redeploy_l2_event_checker(provider=None):
     case _:
       raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
 
-def deploy_l2(provider=None):
+def deploy_l2(provider: str | None = None) -> None:
   if provider is None:
     raise ValueError("Provider must be specified for deployment.")
   match provider:
@@ -92,7 +94,7 @@ def deploy_l2(provider=None):
     case _:
       raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
 
-def destroy_l2(provider=None):
+def destroy_l2(provider: str | None = None) -> None:
   if provider is None:
     raise ValueError("Provider must be specified for deployment.")
   match provider:
@@ -114,7 +116,7 @@ def destroy_l2(provider=None):
     case _:
       raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
 
-def deploy_l3_hot(provider=None):
+def deploy_l3_hot(provider: str | None = None) -> None:
   if provider is None:
     raise ValueError("Provider must be specified for deployment.")
   match provider:

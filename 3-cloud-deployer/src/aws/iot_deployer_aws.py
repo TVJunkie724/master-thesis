@@ -60,7 +60,7 @@ def destroy_iot_thing(iot_device):
     principals = principals_resp.get('principals', [])
 
     if len(principals) > 1:
-      raise "Error at deleting IoT Thing: Too many principals or certificates attached. Not sure which one to delete."
+      raise ValueError("Error at deleting IoT Thing: Too many principals or certificates attached. Not sure which one to delete.")
 
     for principal in principals:
       globals_aws.aws_iot_client.detach_thing_principal(thingName=thing_name, principal=principal)
@@ -138,8 +138,8 @@ def create_processor_iam_role(iot_device):
   logger.info(f"Created IAM role: {role_name}")
 
   policy_arns = [
-    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-    "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+    CONSTANTS.AWS_POLICY_LAMBDA_BASIC_EXECUTION,
+    CONSTANTS.AWS_POLICY_LAMBDA_ROLE
   ]
 
   for policy_arn in policy_arns:
@@ -202,7 +202,10 @@ def create_processor_lambda_function(iot_device):
       token = conn.get("token", "")
       
       if not remote_url or not token:
-          logger.warning(f"Missing inter-cloud connection info for {conn_id}. Connector may fail.")
+          raise ValueError(
+              f"Missing inter-cloud connection info for '{conn_id}'. "
+              f"Ensure config_inter_cloud.json contains 'url' and 'token' for this connection."
+          )
 
       globals_aws.aws_lambda_client.create_function(
         FunctionName=function_name,
@@ -267,11 +270,20 @@ def create_processor_lambda_function(iot_device):
       logger.info(f"Created Merged Processor Lambda function: {function_name}")
 
 def destroy_processor_lambda_function(iot_device):
-  function_name = globals_aws.processor_lambda_function_name(iot_device)
-
+  # Try to delete processor lambda (single-cloud scenario)
+  processor_function_name = globals_aws.processor_lambda_function_name(iot_device)
   try:
-    globals_aws.aws_lambda_client.delete_function(FunctionName=function_name)
-    logger.info(f"Deleted Lambda function: {function_name}")
+    globals_aws.aws_lambda_client.delete_function(FunctionName=processor_function_name)
+    logger.info(f"Deleted Lambda function: {processor_function_name}")
+  except ClientError as e:
+    if e.response["Error"]["Code"] != "ResourceNotFoundException":
+      raise
+
+  # Also try to delete connector lambda (multi-cloud scenario)
+  connector_function_name = globals_aws.connector_lambda_function_name(iot_device)
+  try:
+    globals_aws.aws_lambda_client.delete_function(FunctionName=connector_function_name)
+    logger.info(f"Deleted Lambda function: {connector_function_name}")
   except ClientError as e:
     if e.response["Error"]["Code"] != "ResourceNotFoundException":
       raise

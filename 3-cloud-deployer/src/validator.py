@@ -402,7 +402,7 @@ def verify_project_structure(project_name):
                      with open(providers_file, 'r') as f:
                          prov_config = json.load(f)
                          provider = prov_config.get("layer_2_provider", "aws").lower() 
-                 except:
+                 except Exception:
                      pass
             
              target_file = CONSTANTS.AWS_STATE_MACHINE_FILE

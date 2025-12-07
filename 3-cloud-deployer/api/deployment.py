@@ -5,7 +5,8 @@ import deployers.core_deployer as core_deployer
 import deployers.iot_deployer as iot_deployer
 import deployers.additional_deployer as hierarchy_deployer
 import deployers.event_action_deployer as event_action_deployer
-from api.dependencies import validate_project_context
+import deployers.init_values_deployer as init_values_deployer
+from api.dependencies import validate_project_context, validate_provider
 from logger import print_stack_trace, logger
 
 router = APIRouter()
@@ -22,11 +23,12 @@ def deploy_all(
     validate_project_context(project_name)
     try:
         validator.verify_project_structure(project_name)
-        provider = provider.lower()
+        provider = validate_provider(provider)
         core_deployer.deploy(provider)
         iot_deployer.deploy(provider)
         hierarchy_deployer.deploy(provider)
         event_action_deployer.deploy(provider)
+        init_values_deployer.deploy(provider)
         return {"message": "Core and IoT services deployed successfully"}
     except Exception as e:
         print_stack_trace()
@@ -164,10 +166,10 @@ def destroy_l3_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        core_deployer.destroy_l3_hot(provider)
-        core_deployer.destroy_l3_cold(provider)
         core_deployer.destroy_l3_archive(provider)
-        return {"message": "L3 destruction (Hot, Cold, Archive Storage) completed successfully."}
+        core_deployer.destroy_l3_cold(provider)
+        core_deployer.destroy_l3_hot(provider)
+        return {"message": "L3 destruction (Archive, Cold, Hot Storage) completed successfully."}
     except Exception as e:
         print_stack_trace()
         logger.error(str(e))

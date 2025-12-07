@@ -129,7 +129,7 @@
                                         Lambda</strong> if the processor is on another cloud.</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Connector Function [Multi-Cloud
+                        <li><strong>Connector Function [Multi-Cloud
                                 Only]:</strong>
                             <ul>
                                 <li><strong>Created:</strong> Only if Layer 2 is on a different cloud provider.</li>
@@ -137,7 +137,7 @@
                                     sends it via HTTP POST to the remote cloud's Ingestion API.</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Ingestion Function [Multi-Cloud
+                        <li><strong>Ingestion Function [Multi-Cloud
                                 Only]:</strong>
                             <ul>
                                 <li><strong>Created:</strong> Only if Layer 1 is on a different cloud provider.</li>
@@ -211,7 +211,7 @@
                                 <li><strong>Purpose:</strong> Stores high-frequency, low-latency data.</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Writer Function [Multi-Cloud
+                        <li><strong>Writer Function [Multi-Cloud
                                 Only]:</strong>
                             <ul>
                                 <li><strong>Created:</strong> Only if Layer 2 is on a different cloud provider.</li>
@@ -384,7 +384,7 @@
             <div class="card mb-4">
                 <h2 class="mb-3"><i class="fa-solid fa-rocket me-2"></i>Quick Deployment</h2>
                 <pre class="p-3 rounded"><code># Deploy all layers to AWS
-curl -X POST "http://localhost:8000/deploy?provider=aws"
+curl -X POST "{API_HOST}/deploy?provider=aws&project_name=template"
 </code></pre>
                 <p class="mt-2">Full deployment typically takes 5-15 minutes depending on the number of IoT devices and
                     complexity.</p>
@@ -394,19 +394,19 @@ curl -X POST "http://localhost:8000/deploy?provider=aws"
                 <h2 class="mb-3"><i class="fa-solid fa-layer-group me-2"></i>Layer-by-Layer Deployment</h2>
                 <p>For better control and debugging, deploy each layer individually:</p>
                 <pre class="p-3 rounded"><code># Layer 1: IoT Dispatcher
-curl -X POST "http://localhost:8000/deploy_l1?provider=aws"
+curl -X POST "{API_HOST}/deploy_l1?provider=aws&project_name=template"
 
 # Layer 2: Persister/Processor
-curl -X POST "http://localhost:8000/deploy_l2?provider=aws"
+curl -X POST "{API_HOST}/deploy_l2?provider=aws&project_name=template"
 
 # Layer 3: Storage (Hot, Cool, Archive)
-curl -X POST "http://localhost:8000/deploy_l3?provider=aws"
+curl -X POST "{API_HOST}/deploy_l3?provider=aws&project_name=template"
 
 # Layer 4: TwinMaker
-curl -X POST "http://localhost:8000/deploy_l4?provider=aws"
+curl -X POST "{API_HOST}/deploy_l4?provider=aws&project_name=template"
 
 # Layer 5: Grafana
-curl -X POST "http://localhost:8000/deploy_l5?provider=aws"
+curl -X POST "{API_HOST}/deploy_l5?provider=aws&project_name=template"
 </code></pre>
             </div>
 
@@ -423,7 +423,7 @@ curl -X POST "http://localhost:8000/deploy_l5?provider=aws"
                 </ol>
 
                 <p class="mt-3">Or use the API:</p>
-                <pre class="p-3 rounded"><code>curl "http://localhost:8000/check?provider=aws"
+                <pre class="p-3 rounded"><code>curl "{API_HOST}/check?provider=aws&project_name=template"
 </code></pre>
             </div>
 

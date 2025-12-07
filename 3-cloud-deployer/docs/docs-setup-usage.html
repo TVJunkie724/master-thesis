@@ -133,8 +133,9 @@ uvicorn rest_api:app --host 0.0.0.0 --port 8000
                 <p>Edit <code>config.json</code> to set your digital twin parameters:</p>
                 <pre class="p-3 rounded"><code>{
   "digital_twin_name": "my-dt",
-  "layer_3_hot_to_cold_interval_days": 30,
-  "layer_3_cold_to_archive_interval_days": 90
+  "hot_storage_size_in_days": 30,
+  "cold_storage_size_in_days": 90,
+  "mode": "DEBUG"
 }
 </code></pre>
 

@@ -131,7 +131,8 @@ def create_persister_lambda_function():
       "Variables": {
         "DIGITAL_TWIN_INFO": json.dumps(globals.digital_twin_info()),
         "DYNAMODB_TABLE_NAME": globals_aws.hot_dynamodb_table_name(),
-        "EVENT_CHECKER_LAMBDA_NAME": globals_aws.event_checker_lambda_function_name()
+        "EVENT_CHECKER_LAMBDA_NAME": globals_aws.event_checker_lambda_function_name(),
+        "USE_EVENT_CHECKING": str(globals.is_optimization_enabled("useEventChecking")).lower()
       }
     }
   )
@@ -472,6 +473,12 @@ def create_lambda_chain_step_function():
   if not os.path.exists(sf_def_path):
        # try root upload dir
        sf_def_path = os.path.join(globals.get_project_upload_path(), CONSTANTS.AWS_STATE_MACHINE_FILE)
+
+  if not os.path.exists(sf_def_path):
+      raise FileNotFoundError(
+          f"State machine definition not found. Please ensure '{CONSTANTS.AWS_STATE_MACHINE_FILE}' "
+          f"exists in the '{CONSTANTS.STATE_MACHINES_DIR_NAME}/' folder or project root."
+      )
 
   with open(sf_def_path, 'r') as f:
       definition = f.read()

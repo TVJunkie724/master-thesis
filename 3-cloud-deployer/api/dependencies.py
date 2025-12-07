@@ -29,3 +29,19 @@ def validate_project_context(project_name: str):
     """
     if project_name != globals.CURRENT_PROJECT:
          raise HTTPException(status_code=409, detail=f"SAFETY ERROR: Requested project '{project_name}' does not match active project '{globals.CURRENT_PROJECT}'. Please switch active project first.")
+
+VALID_PROVIDERS = {"aws", "azure", "google", "gcp"}
+
+def validate_provider(provider: str) -> str:
+    """
+    Validates and normalizes the provider string.
+    Returns normalized provider name or raises HTTPException.
+    """
+    provider_lower = provider.lower()
+    if provider_lower not in VALID_PROVIDERS:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid provider '{provider}'. Valid providers are: aws, azure, google"
+        )
+    return provider_lower
+

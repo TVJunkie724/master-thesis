@@ -35,8 +35,8 @@ CONFIG_SCHEMAS = {
 
 REQUIRED_CREDENTIALS_FIELDS = {
     "aws": ["aws_access_key_id", "aws_secret_access_key", "aws_region"],
-    "azure": ["azure_subscription_id", "azure_tenant_id", "azure_client_id", "azure_client_secret", "azure_location"],
-    "google": ["google_project_id", "google_region", "google_zone", "google_application_credentials"]
+    "azure": ["azure_subscription_id", "azure_tenant_id", "azure_client_id", "azure_client_secret", "azure_region"],
+    "gcp": ["gcp_project_id", "gcp_credentials_file", "gcp_region"]
 }
 
 # ==========================================

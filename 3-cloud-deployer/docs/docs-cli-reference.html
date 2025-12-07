@@ -82,6 +82,28 @@ python main.py
                     </tbody>
                 </table>
 
+                <h5 class="text-primary mt-4">Project Management</h5>
+                <p>Manage multiple project configurations.</p>
+                <table class="table table-sm table-bordered">
+                    <tbody>
+                        <tr>
+                            <td><code>list_projects</code></td>
+                            <td>List all available projects in the upload directory.</td>
+                            <td><code>list_projects</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>set_project [name]</code></td>
+                            <td>Switch active project context.</td>
+                            <td><code>set_project my-twin</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>create_project [zip] [name]</code></td>
+                            <td>Create new project from zip file.</td>
+                            <td><code>create_project project.zip my-twin</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
                 <h5 class="text-primary mt-4">Events</h5>
                 <p><code>recreate_updated_events</code>: Redeploy only Event Actions and Checker logic for rapid
                     iteration.</p>
