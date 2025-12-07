@@ -243,6 +243,20 @@
                         </li>
                     </ul>
 
+                    <!-- Layer 4 & 5 Note -->
+                    <div class="callout info mt-4 mb-3">
+                        <strong><i class="fa-solid fa-lightbulb me-2"></i>Note: Self-Hosted Approach Under
+                            Review</strong>
+                        <p class="mb-0 small">
+                            The current roadmap uses Compute Engine VMs for L4/L5, which is valid for thesis scope due
+                            to simpler configuration.
+                            Before production implementation, alternatives such as <strong>Cloud Run</strong> (lower
+                            operational overhead, serverless containers)
+                            or <strong>GKE Autopilot</strong> (Kubernetes-native features) should be evaluated. This
+                            decision will be discussed after initial implementation.
+                        </p>
+                    </div>
+
                     <!-- Layer 4 -->
                     <h3 class="mt-4 text-primary">Layer 4: Twin Management (Self-Hosted)</h3>
                     <ul>
@@ -301,8 +315,8 @@
                                 <li><strong>Create:</strong> Function to read data from Firestore for API Gateway.</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Error Handling System
-                                [Optional]:</strong>
+                        <li><span class="badge text-bg-secondary">Optional</span> <strong>Error Handling System
+                                [Under Review]:</strong>
                             <ul>
                                 <li><strong>Cloud Pub/Sub (Error Topic):</strong>
                                     <ul>

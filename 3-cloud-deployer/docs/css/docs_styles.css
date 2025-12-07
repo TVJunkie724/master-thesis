@@ -68,6 +68,22 @@ main {
   padding: 2rem;
   height: auto;
   overflow: visible;
+  min-width: 0;
+}
+
+/* Mobile responsive layout */
+@media (max-width: 768px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  main {
+    padding: 1rem;
+  }
 }
 
 
@@ -77,10 +93,12 @@ pre {
   padding: 1rem;
   border-radius: 6px;
   white-space: pre-wrap;
-  word-break: break-word;
+  word-wrap: break-word;
+  word-break: break-all;
   font-family: "JetBrains Mono", Consolas, monospace;
   font-size: 0.9rem;
   overflow-x: auto;
+  max-width: 100%;
   color: #e2e8f0;
 }
 
