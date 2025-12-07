@@ -239,5 +239,121 @@ class TestDownloadPackageIntegration:
         # A full test would require extensive mocking of file operations
 
 
+class TestDownloadPackageEdgeCases:
+    """Edge case tests for download package endpoint logic."""
+
+    def test_download_invalid_provider_returns_400(self):
+        """Test download returns 400 for invalid provider."""
+        response = client.get("/projects/any-project/simulator/azure/download")
+        assert response.status_code == 400
+        
+    def test_download_invalid_provider_google(self):
+        """Test download returns 400 for google provider."""
+        response = client.get("/projects/any-project/simulator/google/download")
+        assert response.status_code == 400
+
+    def test_download_nonexistent_project(self):
+        """Test download returns 404 for non-existent project."""
+        response = client.get("/projects/definitely-not-a-project-12345/simulator/aws/download")
+        assert response.status_code == 404
+
+
+class TestWebSocketSimulatorStream:
+    """
+    Tests for the WebSocket simulator stream endpoint.
+    
+    TODO: Implement full WebSocket tests using httpx AsyncClient or pytest-asyncio.
+    These require:
+    - Async test setup with pytest-asyncio
+    - Mocking subprocess.Popen for stdin/stdout
+    - Testing the asyncio.to_thread blocking read pattern
+    - Verifying process cleanup on disconnect
+    
+    Reference: https://fastapi.tiangolo.com/advanced/testing-websockets/
+    """
+
+    @pytest.mark.skip(reason="TODO: Requires async WebSocket test setup")
+    def test_websocket_invalid_provider(self):
+        """Test WebSocket rejects invalid provider."""
+        # TODO: Use TestClient with statement for WebSocket
+        # with client.websocket_connect("/projects/p/simulator/unknown/stream") as ws:
+        #     data = ws.receive_json()
+        #     assert data["type"] == "error"
+        pass
+
+    @pytest.mark.skip(reason="TODO: Requires async WebSocket test setup")
+    @patch('os.path.exists')
+    def test_websocket_project_not_found(self, mock_exists):
+        """Test WebSocket returns error for non-existent project."""
+        mock_exists.return_value = False
+        # TODO: Implement with actual WebSocket connection
+        pass
+
+    @pytest.mark.skip(reason="TODO: Requires async WebSocket test setup")
+    @patch('os.path.exists')
+    def test_websocket_missing_config(self, mock_exists):
+        """Test WebSocket returns error when config missing."""
+        def exists_side_effect(path):
+            if "config_generated" in path:
+                return False
+            return True
+        mock_exists.side_effect = exists_side_effect
+        # TODO: Implement with actual WebSocket connection
+        pass
+
+    @pytest.mark.skip(reason="TODO: Requires async WebSocket test setup")
+    @patch('os.path.exists')
+    def test_websocket_missing_payloads(self, mock_exists):
+        """Test WebSocket returns error when payloads missing."""
+        def exists_side_effect(path):
+            if "payloads.json" in path:
+                return False
+            return True
+        mock_exists.side_effect = exists_side_effect
+        # TODO: Implement with actual WebSocket connection
+        pass
+
+    @pytest.mark.skip(reason="TODO: Requires async WebSocket test setup with subprocess mocking")
+    def test_websocket_subprocess_handling(self):
+        """Test WebSocket properly manages subprocess lifecycle."""
+        # TODO: Verify terminate/kill is called on disconnect
+        # TODO: Test stdin write for commands
+        # TODO: Test stdout streaming to client
+        pass
+
+
+
+class TestSimulatorValidationEdgeCases:
+    """Additional edge case tests for payload validation."""
+
+    def test_payload_with_extra_fields(self):
+        """Test payload with extra fields beyond iotDeviceId."""
+        payload = json.dumps([
+            {"iotDeviceId": "d1", "temperature": 25, "humidity": 60, "nested": {"a": 1}}
+        ])
+        is_valid, errors, warnings = validator.validate_simulator_payloads(payload)
+        assert is_valid is True
+
+    def test_payload_with_special_characters(self):
+        """Test payload with special characters in device ID."""
+        payload = json.dumps([{"iotDeviceId": "device-1_test.sensor"}])
+        is_valid, errors, warnings = validator.validate_simulator_payloads(payload)
+        assert is_valid is True
+
+    def test_payload_large_array(self):
+        """Test validation with large payload array."""
+        payload = json.dumps([{"iotDeviceId": f"device-{i}"} for i in range(100)])
+        is_valid, errors, warnings = validator.validate_simulator_payloads(payload)
+        assert is_valid is True
+        assert len(errors) == 0
+
+    def test_payload_unicode_content(self):
+        """Test payload with unicode content."""
+        payload = json.dumps([{"iotDeviceId": "device-1", "message": "温度センサー"}])
+        is_valid, errors, warnings = validator.validate_simulator_payloads(payload)
+        assert is_valid is True
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
