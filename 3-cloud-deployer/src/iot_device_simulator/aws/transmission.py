@@ -8,13 +8,17 @@ from datetime import datetime, timezone
 payload_index = 0
 
 
+
 def send_mqtt(payload):
-  iot_device_id = payload["iotDeviceId"]
-  auth_path = os.path.join(globals.project_path(), globals.config["auth_files_path"], iot_device_id)
+  iot_device_id = globals.config["device_id"] # Use configured device ID for connection
+  
+  # Optional: Check if payload ID matches device ID
+  if payload.get("iotDeviceId") != iot_device_id:
+      print(f"WARNING: Payload iotDeviceId '{payload.get('iotDeviceId')}' does not match configured device '{iot_device_id}'")
 
   client = AWSIoTMQTTClient(iot_device_id)
   client.configureEndpoint(globals.config["endpoint"], 8883)
-  client.configureCredentials(os.path.join(globals.project_path(), globals.config["root_ca_cert_path"]), os.path.join(auth_path, "private.pem.key"), os.path.join(auth_path, "certificate.pem.crt"))
+  client.configureCredentials(globals.config["root_ca_path"], globals.config["key_path"], globals.config["cert_path"])
 
   topic = globals.config["topic"]
 
@@ -28,7 +32,7 @@ def send_mqtt(payload):
 def send():
   global payload_index
 
-  payloads_path = os.path.join(globals.project_path(), globals.config["payload_file_path"])
+  payloads_path = globals.config["payload_path"]
 
   with open(payloads_path, "r", encoding="utf-8") as f:
     payloads = json.load(f)

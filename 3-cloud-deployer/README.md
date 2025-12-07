@@ -430,7 +430,7 @@ Welcome to the Digital Twin Manager. Type 'help' for commands.
 │   │   ├── default-processor/       # Default data processor
 │   │   ├── hot-to-cold-mover/       # Hot → Cold data mover
 │   │   └── cold-to-archive-mover/   # Cold → Archive data mover
-│   └── event_actions/               # Custom event handlers
+│   └── event_actions/               # Custom event handlers (inside lambda_functions)
 └── README.md                        # This file
 ```
 

@@ -17,7 +17,7 @@
     "action": {
       "type": "lambda",
       "functionName": "high-temperature-callback-2",
-      "pathToCode": "event_actions/high-temperature-callback-2",
+      "pathToCode": "lambda_functions/event_actions/high-temperature-callback-2",
       "autoDeploy": true,
       "feedback": {
         "type": "mqtt",

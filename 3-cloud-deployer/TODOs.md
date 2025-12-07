@@ -14,5 +14,10 @@
 - [x] update documentation for all changes
 - [x] let claude opus search for bugs in whole project
 
+- [ ] for validation endpoints, maybe add get endpoints for most of them to also check existing files in the project (config files, functions, ...? )
+- [ ] when uploading the zip file, the project structure is extended with its contents, but i would also like to save the whole zip file (with timestamp in naming, in case a new version is uploaded) in the upload/project_name directory
+- [ ] there should be further endpoints to download the iot devices configuration files (payload, certificates, etc, whatever is needed to run the simulator manually somewhere else)
 - [ ] investigate which permissions in the aws cloud are required to fulfill the full requirements of the deployer
     - [ ] add endpoint to check which permissions are given for the given user (using given credentials)
+
+- [ ] swagger fastapi dark theme? fastapi-swagger-dark package?

@@ -5,6 +5,8 @@ import src.validator as validator
 from api.dependencies import ConfigType, ProviderEnum
 from logger import logger
 from api.utils import extract_file_content
+import os
+import globals
 
 router = APIRouter()
 
@@ -181,6 +183,65 @@ def validate_function_code(req: FunctionCodeValidationRequest):
         return {"message": f"Code is valid for {req.provider}."}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# 5. Simulator Payload Validation
+# ==========================================
+@router.post("/validate/simulator/payloads", tags=["Validation"])
+async def validate_simulator_payloads_only(request: Request, project_name: str = Query(None, description="Optional project name context")):
+    """
+    Validates uploaded payloads.json content.
+    """
+    try:
+        content = await extract_file_content(request)
+        content_str = content.decode('utf-8')
+        
+        is_valid, errors, warnings = validator.validate_simulator_payloads(content_str, project_name=project_name)
+        
+        return {
+            "valid": is_valid,
+            "errors": errors,
+            "warnings": warnings
+        }
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/validate/simulator/payloads/{project_name}", tags=["Validation"])
+async def validate_simulator_payloads_for_project(project_name: str, request: Request):
+    """
+    Validates uploaded payloads.json content against a specific project.
+    """
+    return await validate_simulator_payloads_only(request, project_name)
+
+@router.get("/projects/{project_name}/simulator/{provider}/payloads/validate", tags=["Validation"])
+def validate_existing_simulator_payloads(project_name: str, provider: str):
+    """
+    Validates the currently uploaded payloads.json for the project.
+    """
+    if provider != "aws":
+        raise HTTPException(status_code=400, detail="Only 'aws' provider is currently supported.")
+        
+    try:
+        path = os.path.join(globals.project_path(), "upload", project_name, "iot_device_simulator", provider, "payloads.json")
+        if not os.path.exists(path):
+             raise HTTPException(status_code=404, detail="Payloads file not found.")
+             
+        with open(path, 'r') as f:
+            content_str = f.read()
+            
+        is_valid, errors, warnings = validator.validate_simulator_payloads(content_str, project_name=project_name)
+        
+        return {
+            "valid": is_valid,
+            "errors": errors,
+            "warnings": warnings
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))

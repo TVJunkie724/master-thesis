@@ -9,8 +9,18 @@ def help_menu():
       exit                        - Exit the program.
   """)
 
+import argparse
+
 def main():
-    globals.initialize_config()
+    parser = argparse.ArgumentParser(description="IoT Device Simulator")
+    parser.add_argument("--project", help="Name of the project (for integrated mode)")
+    args = parser.parse_args()
+
+    try:
+        globals.initialize_config(project_name=args.project)
+    except Exception as e:
+        print(f"Error initializing simulator: {e}")
+        return
 
     print("Welcome to the IoT Device Simulator. Type 'help' for commands.")
 

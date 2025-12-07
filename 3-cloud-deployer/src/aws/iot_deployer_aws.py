@@ -10,6 +10,57 @@ import util
 import constants as CONSTANTS
 
 
+
+def _generate_simulator_config(iot_device):
+    """
+    Generates config_generated.json for the IoT device simulator.
+    Called after device certificate creation.
+    
+    This file contains all runtime information the simulator needs:
+    - AWS IoT endpoint (fetched dynamically)
+    - MQTT topic (derived from digital_twin_name)
+    - Paths to device certificates (relative to config file location)
+    - Path to Root CA (bundled in src/)
+    - Path to payloads.json (same directory as config)
+    """
+    import globals
+    
+    # 1. Fetch IoT Endpoint (dynamically via Boto3)
+    endpoint_response = globals_aws.aws_iot_client.describe_endpoint(endpointType='iot:Data-ATS')
+    endpoint = endpoint_response['endpointAddress']
+    
+    # 2. Derive topic from digital_twin_name
+    topic = globals.config["digital_twin_name"] + "/iot-data"
+    
+    # 3. Paths
+    device_id = iot_device['id']
+    
+    # Resolve Root CA path (bundled in src)
+    # This is an absolute path since it's in the system code, not project data
+    # We are in src/aws/ so we need to go up to src/ then into iot_device_simulator/aws/
+    root_ca_path = os.path.abspath(os.path.join(
+        os.path.dirname(__file__), "..", "iot_device_simulator", "aws", "AmazonRootCA1.pem"
+    ))
+    
+    config_data = {
+        "endpoint": endpoint,
+        "topic": topic,
+        "device_id": device_id,
+        # Relative paths from config file location (upload/{project}/iot_device_simulator/aws/)
+        "cert_path": f"../../iot_devices_auth/{device_id}/certificate.pem.crt",
+        "key_path": f"../../iot_devices_auth/{device_id}/private.pem.key",
+        "root_ca_path": root_ca_path,  # Absolute path to bundled Root CA
+        "payload_path": "payloads.json"  # Same directory as config_generated.json
+    }
+    
+    # 4. Write to upload/{project}/iot_device_simulator/aws/
+    sim_dir = os.path.join(util.get_path_in_project(), "iot_device_simulator", "aws")
+    os.makedirs(sim_dir, exist_ok=True)
+    config_path = os.path.join(sim_dir, "config_generated.json")
+    with open(config_path, "w") as f:
+        json.dump(config_data, f, indent=2)
+    logger.info(f"Generated simulator config: {config_path}")
+
 def create_iot_thing(iot_device):
   thing_name = globals_aws.iot_thing_name(iot_device)
   policy_name = globals_aws.iot_thing_policy_name(iot_device)
@@ -50,6 +101,8 @@ def create_iot_thing(iot_device):
 
   globals_aws.aws_iot_client.attach_policy(policyName=policy_name, target=certificate_arn)
   logger.info(f"Attached IoT Policy to Certificate")
+
+  _generate_simulator_config(iot_device)
 
 def destroy_iot_thing(iot_device):
   thing_name = globals_aws.iot_thing_name(iot_device)

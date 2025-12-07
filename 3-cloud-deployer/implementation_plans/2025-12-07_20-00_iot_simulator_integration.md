@@ -102,18 +102,22 @@ Based on code analysis (`dispatcher/lambda_function.py`, `transmission.py`), pay
 #### Source Code (`src/`)
 ```text
 src/iot_device_simulator/
+├── __init__.py              # [NEW] Python package marker (empty file)
 ├── aws/
+│   ├── __init__.py          # [NEW] Python package marker (empty file)
 │   ├── main.py              # Entry point (moved from src/src/)
 │   ├── transmission.py      # MQTT logic (moved from src/src/)
 │   ├── globals.py           # Config loading (moved from src/src/)
 │   └── AmazonRootCA1.pem    # Static Root CA (moved from parent)
 ├── azure/ (Future - Placeholder structure)
+│   ├── __init__.py          # [NEW] Python package marker (empty file)
 │   └── .gitkeep
 ├── google/ (Future - Placeholder structure)
+│   ├── __init__.py          # [NEW] Python package marker (empty file)
 │   └── .gitkeep
 └── config.json.example      # Renamed from config.json, kept for reference
 ```
-**Reasoning**: Provider-specific code is isolated. The Root CA is bundled with the AWS-specific code where it logically belongs.
+**Reasoning**: Provider-specific code is isolated. The Root CA is bundled with the AWS-specific code where it logically belongs. `__init__.py` files are required for Python to recognize these directories as importable packages.
 
 #### Upload Template (`upload/template/`)
 ```text
@@ -213,6 +217,18 @@ upload/template/iot_device_simulator/
 
 ### 4. API Integration
 
+#### [MODIFY] `rest_api.py`
+**Task**: Register the new simulator router.
+*   **Location**: Import section (line ~16) and router includes (line ~60).
+*   **Changes**:
+    ```python
+    # Add import (after existing api imports)
+    from api import projects, validation, deployment, status, info, aws_gateway, simulator
+    
+    # Add router include (after existing includes)
+    app.include_router(simulator.router)
+    ```
+
 #### [NEW] `api/simulator.py`
 *   **Endpoint**: `WebSocket /projects/{project_name}/simulator/{provider}/stream`
 *   **On Connect**:
@@ -235,6 +251,149 @@ upload/template/iot_device_simulator/
             *   `{"command": "help"}` -> writes `help\n` to stdin.
             *   `{"command": "exit"}` -> writes `exit\n` to stdin.
 *   **On Disconnect**: Terminate subprocess.
+
+#### [NEW] Download Simulator Package Endpoint
+*   **Endpoint**: `GET /projects/{project_name}/simulator/{provider}/download`
+*   **Purpose**: Allow users to download a **complete, standalone simulator package** that can be run on an external machine, real IoT device, or shared with a team member.
+*   **Response**: A zip file containing the **full simulator** (code + config + certs + Docker):
+    ```text
+    simulator_package_{project_name}_{provider}.zip
+    ├── README.md                 # Setup and usage guide (auto-generated)
+    ├── requirements.txt          # Python dependencies (e.g., AWSIoTPythonSDK)
+    ├── Dockerfile                # Docker setup (auto-generated)
+    ├── docker-compose.yml        # Docker Compose for easy startup
+    ├── config.json               # Copy of config_generated.json (renamed for clarity)
+    ├── payloads.json             # User's payload definitions
+    ├── AmazonRootCA1.pem         # Root CA certificate
+    ├── certificates/
+    │   └── {device_id}/
+    │       ├── certificate.pem.crt
+    │       └── private.pem.key
+    └── src/                      # Simulator Python code
+        ├── main.py               # Entry point
+        ├── transmission.py       # MQTT logic
+        └── globals.py            # Config loading
+    ```
+*   **Logic**:
+    1.  **Validate**: Project exists, provider is supported, `config_generated.json` exists.
+    2.  **Gather Files**:
+        *   `upload/{project}/iot_device_simulator/{provider}/config_generated.json` -> `config.json`
+        *   `upload/{project}/iot_device_simulator/{provider}/payloads.json` -> `payloads.json`
+        *   `src/iot_device_simulator/{provider}/AmazonRootCA1.pem` -> `AmazonRootCA1.pem`
+        *   `src/iot_device_simulator/{provider}/*.py` -> `src/*.py` (all Python files)
+        *   `upload/{project}/iot_devices_auth/{device_id}/*` -> `certificates/{device_id}/*`
+            *   The `device_id` is read from `config_generated.json`.
+    3.  **Transform config.json Paths for Standalone Use**:
+        *   The original `config_generated.json` has paths relative to the project's upload directory.
+        *   For standalone use, paths must be relative to the zip's root.
+        *   **Transformation**:
+            ```python
+            # Original (from config_generated.json):
+            "cert_path": "../../iot_devices_auth/{id}/certificate.pem.crt"
+            "key_path": "../../iot_devices_auth/{id}/private.pem.key"
+            "root_ca_path": "/absolute/path/to/AmazonRootCA1.pem"
+            "payload_path": "payloads.json"
+            
+            # Transformed (for standalone zip):
+            "cert_path": "certificates/{id}/certificate.pem.crt"
+            "key_path": "certificates/{id}/private.pem.key"
+            "root_ca_path": "AmazonRootCA1.pem"
+            "payload_path": "payloads.json"  # Unchanged (already relative)
+            ```
+    4.  **Generate README.md**: Create a dynamically generated guide (see template below).
+    5.  **Generate requirements.txt**: Include `AWSIoTPythonSDK` (for AWS provider).
+    6.  **Generate Dockerfile**: Create a Docker setup that starts the simulator.
+    7.  **Generate docker-compose.yml**: For easy `docker-compose up` startup.
+    8.  **Create Zip**: Use `zipfile` module to create an in-memory zip.
+    9.  **Return**: `StreamingResponse` with `Content-Disposition: attachment; filename=simulator_package_{project}_{provider}.zip`.
+*   **Use Case**: User wants to run the simulator on an external machine, real IoT device, or share the config with a team member.
+
+**README.md Template (Generated Dynamically)**:
+```markdown
+# IoT Device Simulator Package
+
+**Project**: {project_name}
+**Provider**: {provider}
+**Device ID**: {device_id}
+**Endpoint**: {endpoint}
+**Generated**: {timestamp}
+
+## Prerequisites
+- Python 3.9+
+- pip
+
+## Setup
+1. Extract this zip file.
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## Usage
+Run the simulator:
+```bash
+python src/main.py
+```
+
+### Available Commands
+- `send` - Send the next payload from payloads.json to AWS IoT Core.
+- `help` - Show available commands.
+- `exit` - Exit the simulator.
+
+## File Structure
+- `config.json` - Simulator configuration (endpoint, topic, paths).
+- `payloads.json` - Payload data to send (edit this to change what data is sent).
+- `AmazonRootCA1.pem` - AWS Root CA certificate (do not modify).
+- `certificates/` - Device certificates (do not modify).
+- `src/` - Simulator Python code.
+
+## Notes
+- The simulator will cycle through payloads in `payloads.json`.
+- Each payload must have an `iotDeviceId` field matching the device.
+- Timestamps (`time` field) are auto-filled if empty.
+```
+
+**Dockerfile Template (Generated Dynamically)**:
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy all files
+COPY . .
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Run simulator interactively
+CMD ["python", "src/main.py"]
+```
+
+**docker-compose.yml Template (Generated Dynamically)**:
+```yaml
+version: '3.8'
+
+services:
+  simulator:
+    build: .
+    container_name: iot_simulator_{device_id}
+    stdin_open: true   # Keep stdin open for interactive commands
+    tty: true          # Allocate a pseudo-TTY
+    restart: unless-stopped
+```
+
+**Usage with Docker** (included in README.md):
+```bash
+# Option 1: Run with Docker
+docker build -t iot-simulator .
+docker run -it iot-simulator
+
+# Option 2: Run with Docker Compose
+docker-compose up --build
+```
+
+> [!NOTE]
+> **Security Consideration**: This endpoint exposes private keys. It should be protected in production environments. For now (development/thesis scope), it's acceptable. Future: Add authentication or require explicit user confirmation.
 
 #### Deployment State Caching (Future Vision)
 > [!NOTE]
@@ -327,6 +486,12 @@ Following the pattern in `api/validation.py`, we add dedicated validation endpoi
 | MOVE | `src/iot_device_simulator/AmazonRootCA1.pem` | `src/iot_device_simulator/aws/AmazonRootCA1.pem` | Bundled with AWS code |
 | MOVE | `src/iot_device_simulator/payloads.json` | `upload/template/iot_device_simulator/aws/payloads.json` | User adaptable |
 | RENAME | `src/iot_device_simulator/config.json` | `src/iot_device_simulator/config.json.example` | Kept for reference only |
+| CREATE | N/A | `src/iot_device_simulator/__init__.py` | Python package marker (empty file) |
+| CREATE | N/A | `src/iot_device_simulator/aws/__init__.py` | Python package marker (empty file) |
+| CREATE | N/A | `src/iot_device_simulator/azure/__init__.py` | Python package marker (empty file) |
+| CREATE | N/A | `src/iot_device_simulator/google/__init__.py` | Python package marker (empty file) |
+| CREATE | N/A | `src/iot_device_simulator/azure/.gitkeep` | Placeholder for future Azure implementation |
+| CREATE | N/A | `src/iot_device_simulator/google/.gitkeep` | Placeholder for future Google implementation |
 | DELETE | `src/iot_device_simulator/src/` (empty after moves) | N/A | Cleanup empty directory |
 
 ---

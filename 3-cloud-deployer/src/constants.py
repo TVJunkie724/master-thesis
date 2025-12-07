@@ -44,7 +44,7 @@ REQUIRED_CREDENTIALS_FIELDS = {
 # ==========================================
 IOT_DATA_DIR_NAME = "iot_devices_auth"
 LAMBDA_FUNCTIONS_DIR_NAME = "lambda_functions"
-EVENT_ACTIONS_DIR_NAME = "event_actions"
+EVENT_ACTIONS_DIR_NAME = "lambda_functions/event_actions"
 PROJECT_UPLOAD_DIR_NAME = "upload"
 STATE_MACHINES_DIR_NAME = "state_machines"
 

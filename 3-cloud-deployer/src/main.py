@@ -60,6 +60,7 @@ Lambda management:
                               - Invokes the specified lambda function.
 
 Other commands:
+  simulate <provider> [project] - Runs the IoT Device Simulator interactively.
   help                        - Show this help menu.
   exit                        - Exit the program.
 """)
@@ -294,6 +295,49 @@ def main():
               lambda_manager.invoke_function(args[0])
             else:
                  print("Usage: lambda_invoke <local_function_name> <o:payload> <o:sync> [project_name]")
+
+      elif command == "simulate":
+          if not args:
+              print("Usage: simulate <provider> [project_name]")
+              continue
+          
+          provider = args[0].lower()
+          project_name = args[1] if len(args) > 1 else globals.CURRENT_PROJECT
+          
+          if project_name != globals.CURRENT_PROJECT:
+               logger.error(f"SAFETY ERROR: Requested project '{project_name}' does not match active project '{globals.CURRENT_PROJECT}'.")
+               logger.error(f"Please switch to '{project_name}' using 'set_project {project_name}'.")
+               continue
+
+          if provider != "aws":
+              print(f"Error: Provider '{provider}' not supported yet. Only 'aws'.")
+              continue
+
+          import os
+          import util
+          # Pre-flight checks
+          # Path logic: currently running from project root
+          config_path = f"upload/{project_name}/iot_device_simulator/{provider}/config_generated.json"
+          payload_path = f"upload/{project_name}/iot_device_simulator/{provider}/payloads.json"
+          
+          if not os.path.exists(config_path):
+              print(f"Error: Simulator config not found at '{config_path}'. Please deploy L1 first.")
+              continue
+          if not os.path.exists(payload_path):
+              print(f"Error: Payloads file not found at '{payload_path}'. Please ensure it exists.")
+              continue
+          
+          # Run
+          import subprocess
+          import sys
+          sim_script = f"src/iot_device_simulator/{provider}/main.py"
+          try:
+              logger.info(f"Starting simulator for {provider} on {project_name}...")
+              subprocess.call([sys.executable, sim_script, "--project", project_name])
+          except KeyboardInterrupt:
+              print("\nSimulator stopped.")
+          except Exception as e:
+              print(f"Error running simulator: {e}")
 
       elif command == "help":
         help_menu()

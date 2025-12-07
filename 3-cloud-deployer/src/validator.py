@@ -424,3 +424,66 @@ def verify_project_structure(project_name):
                  raise ValueError(f"Invalid state machine content for '{provider}': {e}")
 
     logger.info(f"Project structure verified for '{project_name}'.")
+
+# ==========================================
+# 6. Simulator Payload Validation
+# ==========================================
+def validate_simulator_payloads(content_str, project_name=None):
+    """
+    Validates the content of payloads.json.
+    Args:
+        content_str (str): JSON content string.
+        project_name (str, optional): Project name to check iotDeviceId existence.
+    Returns:
+        (is_valid: bool, errors: list[str], warnings: list[str])
+    """
+    errors = []
+    warnings = []
+    
+    try:
+        data = json.loads(content_str)
+    except json.JSONDecodeError as e:
+        return False, [f"Invalid JSON: {e}"], []
+
+    if not isinstance(data, list):
+         return False, ["Payloads must be a JSON array (list)."], []
+
+    if not data:
+         warnings.append("Payloads list is empty.")
+
+    # Check structure
+    seen_ids = set()
+    for idx, item in enumerate(data):
+        if not isinstance(item, dict):
+            errors.append(f"Item at index {idx} is not a JSON object.")
+            continue
+            
+        if "iotDeviceId" not in item:
+            errors.append(f"Item at index {idx} missing required key 'iotDeviceId'.")
+        else:
+            seen_ids.add(item["iotDeviceId"])
+
+    if errors:
+        return False, errors, warnings
+        
+    # Optional Project Context Check
+    if project_name:
+        try:
+             upload_dir = os.path.join(globals.project_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME, project_name)
+             iot_config_path = os.path.join(upload_dir, CONSTANTS.CONFIG_IOT_DEVICES_FILE)
+             
+             if not os.path.exists(iot_config_path):
+                 warnings.append(f"Project '{project_name}' has no {CONSTANTS.CONFIG_IOT_DEVICES_FILE}. Cannot verify device IDs.")
+             else:
+                 with open(iot_config_path, 'r') as f:
+                     iot_config = json.load(f)
+                 
+                 valid_ids = {d.get("id") for d in iot_config}
+                 
+                 for seen_id in seen_ids:
+                     if seen_id not in valid_ids:
+                         warnings.append(f"Device ID '{seen_id}' in payloads not found in project configuration.")
+        except Exception as e:
+            warnings.append(f"Could not verify device IDs against project: {e}")
+
+    return True, [], warnings

@@ -208,3 +208,35 @@ async def upload_state_machine(
     except Exception as e:
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/projects/{project_name}/simulator/{provider}/payloads", tags=["Projects"])
+async def upload_simulator_payloads(project_name: str, provider: str, request: Request):
+    """
+    Uploads payloads.json for the simulator.
+    Validates structure before saving.
+    """
+    if provider != "aws":
+        raise HTTPException(status_code=400, detail="Only 'aws' provider is currently supported.")
+
+    try:
+        content = await extract_file_content(request)
+        content_str = content.decode('utf-8')
+        
+        is_valid, errors, warnings = validator.validate_simulator_payloads(content_str, project_name=project_name)
+        
+        if not is_valid:
+            raise ValueError(f"Payload validation failed: {errors}")
+            
+        # Save
+        path = os.path.join(globals.project_path(), "upload", project_name, "iot_device_simulator", provider)
+        os.makedirs(path, exist_ok=True)
+        with open(os.path.join(path, "payloads.json"), "w") as f:
+            f.write(content_str)
+            
+        return {"message": "Payloads uploaded successfully.", "warnings": warnings}
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
