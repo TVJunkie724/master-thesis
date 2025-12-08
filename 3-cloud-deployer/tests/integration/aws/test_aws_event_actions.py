@@ -22,7 +22,7 @@ def test_redeploy_event_actions(mock_sleep, mock_aws_context):
     
     # Mock util.compile_lambda_function to avoid needing real files
     with patch.object(globals, "config_events", mock_event_config), \
-         patch("aws.event_action_deployer_aws.util.compile_lambda_function", return_value=b"mock-zip"):
+         patch("util.compile_lambda_function", return_value=b"mock-zip"):
          
         # 1. Deploy
         globals_aws.aws_iam_client.attach_role_policy = MagicMock()

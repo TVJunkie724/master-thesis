@@ -1,3 +1,16 @@
+"""
+AWS IoT Deployer - IoT Device Infrastructure Management.
+
+This module handles creation, destruction, and management of IoT-specific 
+infrastructure including IoT Things, device certificates, processor Lambdas,
+and TwinMaker component types.
+
+Migration Status:
+    - Uses legacy globals/globals_aws pattern for configuration and clients.
+    - Future migration: Add provider parameter to each function.
+    - Works correctly as-is - no immediate migration required.
+"""
+
 import json
 import globals
 from logger import logger

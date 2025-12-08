@@ -1,3 +1,14 @@
+"""
+AWS Resource Info - Status Check Functions.
+
+This module provides functions to check the existence and status of AWS resources.
+
+Migration Status:
+    - Uses legacy globals_aws pattern for client access and naming.
+    - Future migration: Add provider parameter to each function.
+    - Works correctly as-is - no immediate migration required.
+"""
+
 from logger import logger
 import aws.globals_aws as globals_aws
 from botocore.exceptions import ClientError

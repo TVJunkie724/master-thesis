@@ -1,113 +1,100 @@
-import globals
-import aws.iot_deployer_aws as iot_deployer_aws
-from botocore.exceptions import ClientError
+"""
+IoT Deployer - Device-specific Infrastructure Deployment.
 
-def deploy_l1(provider=None):
-  if provider is None:
-    raise ValueError("Provider must be specified for deployment.")
-  match provider:
-    case "aws":
-      for iot_device in globals.config_iot_devices:
-        iot_deployer_aws.create_iot_thing(iot_device)
-    case "azure":
-      raise NotImplementedError("Azure deployment not implemented yet.")
-    case "google":
-      raise NotImplementedError("Google deployment not implemented yet.")
-    case _:
-      raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
+This module provides backward-compatible entry points that delegate to
+the new providers-based deployment system (src/providers/iot_deployer.py).
 
-def destroy_l1(provider=None):
-  if provider is None:
-    raise ValueError("Provider must be specified for deployment.")
-  match provider:
-    case "aws":
-      for iot_device in globals.config_iot_devices:
-        iot_deployer_aws.destroy_iot_thing(iot_device)
-    case "azure":
-      raise NotImplementedError("Azure deployment not implemented yet.")
-    case "google":
-      raise NotImplementedError("Google deployment not implemented yet.")
-    case _:
-      raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
+DEPRECATION NOTICE:
+    This module is deprecated. Use src/providers/iot_deployer.py directly with
+    a properly constructed DeploymentContext for new code.
+"""
+
+import warnings
+
+# Issue deprecation warning on import
+warnings.warn(
+    "deployers.iot_deployer is deprecated. Use src/providers/iot_deployer.py instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
+# Import the new deployer that uses providers pattern
+import providers.iot_deployer as new_iot_deployer
+import providers.deployer as core_deployer
 
 
-def deploy_l2(provider=None):
-  if provider is None:
-    raise ValueError("Provider must be specified for deployment.")
-  match provider:
-    case "aws":
-      for iot_device in globals.config_iot_devices:
-        iot_deployer_aws.create_processor_iam_role(iot_device)
-        iot_deployer_aws.create_processor_lambda_function(iot_device)
-        
-      # Conditional: Ingestion Function (Multi-Cloud L1 -> L2)
-      iot_deployer_aws.create_ingestion_lambda_function()
-    case "azure":
-      raise NotImplementedError("Azure deployment not implemented yet.")
-    case "google":
-      raise NotImplementedError("Google deployment not implemented yet.")
-    case _:
-      raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
-
-def destroy_l2(provider=None):
-  if provider is None:
-    raise ValueError("Provider must be specified for deployment.")
-  match provider:
-    case "aws":
-      for iot_device in globals.config_iot_devices:
-        iot_deployer_aws.destroy_processor_lambda_function(iot_device)
-        iot_deployer_aws.destroy_processor_iam_role(iot_device)
-      
-      iot_deployer_aws.destroy_ingestion_lambda_function()
-    case "azure":
-      raise NotImplementedError("Azure deployment not implemented yet.")
-    case "google":
-      raise NotImplementedError("Google deployment not implemented yet.")
-    case _:
-      raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
-
-def deploy_l4(provider=None):
-  if provider is None:
-    raise ValueError("Provider must be specified for deployment.")
-  match provider:
-    case "aws":
-      for iot_device in globals.config_iot_devices:
-        iot_deployer_aws.create_twinmaker_component_type(iot_device)
-    case "azure":
-      raise NotImplementedError("Azure deployment not implemented yet.")
-    case "google":
-      raise NotImplementedError("Google deployment not implemented yet.")
-    case _:
-      raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
-
-def destroy_l4(provider=None):
-  if provider is None:
-    raise ValueError("Provider must be specified for deployment.")
-  match provider:
-    case "aws":
-      for iot_device in globals.config_iot_devices:
-        iot_deployer_aws.destroy_twinmaker_component_type(iot_device)
-    case "azure":
-      raise NotImplementedError("Azure deployment not implemented yet.")
-    case "google":
-      raise NotImplementedError("Google deployment not implemented yet.")
-    case _:
-      raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
+def _get_context():
+    """Get a deployment context from globals for backward compatibility."""
+    return core_deployer._create_legacy_context()
 
 
+# ==========================================
+# Layer 1 - IoT Devices
+# ==========================================
 
-def deploy(provider=None):
-  if provider is None:
-    raise ValueError("Provider must be specified for deployment.")
-  
-  deploy_l1(provider)
-  deploy_l2(provider)
-  deploy_l4(provider)
+def deploy_l1(provider: str | None = None) -> None:
+    if provider is None:
+        raise ValueError("Provider must be specified for deployment.")
+    context = _get_context()
+    new_iot_deployer.deploy_l1(context, provider)
 
-def destroy(provider=None):
-  if provider is None:
-    raise ValueError("Provider must be specified for deployment.")
-  
-  destroy_l4(provider)
-  destroy_l2(provider)
-  destroy_l1(provider)
+
+def destroy_l1(provider: str | None = None) -> None:
+    if provider is None:
+        raise ValueError("Provider must be specified for deployment.")
+    context = _get_context()
+    new_iot_deployer.destroy_l1(context, provider)
+
+
+# ==========================================
+# Layer 2 - Device Processors
+# ==========================================
+
+def deploy_l2(provider: str | None = None) -> None:
+    if provider is None:
+        raise ValueError("Provider must be specified for deployment.")
+    context = _get_context()
+    new_iot_deployer.deploy_l2(context, provider)
+
+
+def destroy_l2(provider: str | None = None) -> None:
+    if provider is None:
+        raise ValueError("Provider must be specified for deployment.")
+    context = _get_context()
+    new_iot_deployer.destroy_l2(context, provider)
+
+
+# ==========================================
+# Layer 4 - TwinMaker Component Types
+# ==========================================
+
+def deploy_l4(provider: str | None = None) -> None:
+    if provider is None:
+        raise ValueError("Provider must be specified for deployment.")
+    context = _get_context()
+    new_iot_deployer.deploy_l4(context, provider)
+
+
+def destroy_l4(provider: str | None = None) -> None:
+    if provider is None:
+        raise ValueError("Provider must be specified for deployment.")
+    context = _get_context()
+    new_iot_deployer.destroy_l4(context, provider)
+
+
+# ==========================================
+# Full Deployment
+# ==========================================
+
+def deploy(provider: str | None = None) -> None:
+    if provider is None:
+        raise ValueError("Provider must be specified for deployment.")
+    context = _get_context()
+    new_iot_deployer.deploy(context, provider)
+
+
+def destroy(provider: str | None = None) -> None:
+    if provider is None:
+        raise ValueError("Provider must be specified for deployment.")
+    context = _get_context()
+    new_iot_deployer.destroy(context, provider)
