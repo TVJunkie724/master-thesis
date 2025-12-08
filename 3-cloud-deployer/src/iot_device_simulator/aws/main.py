@@ -1,3 +1,14 @@
+"""
+IoT Device Simulator - Main Entry Point.
+
+This module provides the CLI interface for the IoT device simulator,
+allowing interactive commands to send test payloads to IoT Core.
+
+Migration Status:
+    - Uses globals for device configuration (separate context from main app).
+    - This is a standalone utility - no migration needed.
+"""
+
 import globals
 import transmission
 

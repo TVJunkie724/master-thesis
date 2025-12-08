@@ -1,3 +1,15 @@
+"""
+Info - Infrastructure Status Checks.
+
+This module provides status check functions to verify deployed resources
+across all layers and providers.
+
+Migration Status:
+    - Uses globals.config_iot_devices for device iteration.
+    - Future migration: Accept config as parameter.
+    - Works correctly as-is - no immediate migration required.
+"""
+
 import globals
 from logger import logger
 import aws.info_aws as info_aws

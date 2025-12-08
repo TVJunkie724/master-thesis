@@ -1,3 +1,14 @@
+"""
+IoT Device Simulator - MQTT Transmission.
+
+This module handles MQTT communication with AWS IoT Core,
+sending test payloads from the configured payloads.json file.
+
+Migration Status:
+    - Uses globals for device certificates and endpoint config.
+    - This is a standalone utility - no migration needed.
+"""
+
 import globals
 import os
 import json

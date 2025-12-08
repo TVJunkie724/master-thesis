@@ -1,3 +1,15 @@
+"""
+Validator - Configuration and Structure Validation.
+
+This module provides comprehensive validation for configuration files,
+state machines, zip archives, Python code, and project structure.
+
+Migration Status:
+    - Uses globals for project path resolution in some functions.
+    - Future migration: Add optional project_path parameters.
+    - Works correctly as-is - no immediate migration required.
+"""
+
 import os
 import zipfile
 import json

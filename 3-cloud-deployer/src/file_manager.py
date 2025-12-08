@@ -1,3 +1,15 @@
+"""
+File Manager - Project File Operations.
+
+This module provides functions for creating projects from zip files,
+managing configuration files, and updating function code.
+
+Migration Status:
+    - Uses globals.project_path() for file system operations.
+    - Future migration: Add optional project_path parameters.
+    - Works correctly as-is - no immediate migration required.
+"""
+
 import os
 import zipfile
 import json
