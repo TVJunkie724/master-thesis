@@ -1,3 +1,15 @@
+"""
+Additional Deployer - TwinMaker Hierarchy Management Wrapper.
+
+DEPRECATED: Use aws.additional_deployer_aws directly or the new providers pattern.
+"""
+import warnings
+warnings.warn(
+    "deployers.additional_deployer is deprecated.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 from logger import logger
 import aws.additional_deployer_aws as hierarchy_deployer_aws
 from botocore.exceptions import ClientError

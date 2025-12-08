@@ -1,3 +1,15 @@
+"""
+Init Values Deployer - IoT Initial Values Wrapper.
+
+DEPRECATED: Use aws.init_values_deployer_aws directly or the new providers pattern.
+"""
+import warnings
+warnings.warn(
+    "deployers.init_values_deployer is deprecated.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 import aws.init_values_deployer_aws as init_values_deployer_aws
 
 def deploy(provider=None):

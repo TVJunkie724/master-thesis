@@ -115,7 +115,8 @@ def test_set_active_project_not_found():
 
 def test_get_path_in_project():
     globals.set_active_project("template") # Ensure default
-    path = util.get_path_in_project("subdir/file.txt")
+    upload_path = globals.get_project_upload_path()
+    path = util.get_path_in_project("subdir/file.txt", project_path=upload_path)
     expected = os.path.join(globals.project_path(), "upload", "template", "subdir", "file.txt")
     assert path == expected
 

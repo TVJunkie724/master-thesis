@@ -45,13 +45,11 @@ class TestUtil:
         assert path == "/app/src"
 
     @patch("os.path.exists")
-    @patch("globals.project_path")
-    def test_resolve_folder_path_absolute(self, mock_project_path, mock_exists):
+    def test_resolve_folder_path_absolute(self, mock_exists):
         """Verify resolve_folder_path resolves absolute paths correctly."""
-        mock_project_path.return_value = "/app"
         mock_exists.side_effect = [False, True]  # Relative fails, Absolute exists
         
-        path = util.resolve_folder_path("/tmp/test")
+        path = util.resolve_folder_path("/tmp/test", project_path="/app")
         assert path == os.path.abspath("/tmp/test")
 
     @patch("os.path.exists")

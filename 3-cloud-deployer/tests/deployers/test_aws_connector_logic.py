@@ -63,7 +63,7 @@ class TestAWSConnectorLogic(unittest.TestCase):
 
     def test_compile_merged_lambda_function(self):
         # Action
-        zip_bytes = util.compile_merged_lambda_function(self.wrapper_dir, self.custom_path)
+        zip_bytes = util.compile_merged_lambda_function(self.wrapper_dir, self.custom_path, project_path=self.upload_dir)
         
         # Verify
         with tempfile.NamedTemporaryFile(delete=False) as tf:

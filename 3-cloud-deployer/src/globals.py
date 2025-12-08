@@ -31,7 +31,10 @@ from logger import logger, print_stack_trace, configure_logger_from_file
 
 import constants as CONSTANTS
 # Import shared utility functions from util.py to avoid duplication
-from util import contains_provider, validate_credentials
+try:
+    from util import contains_provider, validate_credentials
+except ModuleNotFoundError:
+    from src.util import contains_provider, validate_credentials
 
 config = {}
 config_iot_devices = []

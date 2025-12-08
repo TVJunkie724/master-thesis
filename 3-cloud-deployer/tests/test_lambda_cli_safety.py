@@ -1,104 +1,103 @@
+"""
+Tests for Lambda CLI safety checks.
+
+These tests verify that Lambda operations in the CLI properly validate
+project context before executing.
+"""
+
 import pytest
 from unittest.mock import patch, MagicMock
-import sys
-import os
-import json
+from pathlib import Path
 
-# Ensure src is in path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
-
-import main
-import globals
 
 @pytest.fixture
-def mock_dependencies():
-    # We need to mock file_manager which is imported locally. 
-    # Best way is to mock it in sys.modules or patch 'file_manager' if it can be imported.
-    # Since we appended src to path, we can import it here.
-    import file_manager
+def mock_cli_context():
+    """Mock the context creation for CLI tests."""
+    mock_context = MagicMock()
+    mock_context.project_path = Path("/app/upload/test_proj")
+    mock_context.config.iot_devices = []
     
-    with patch("main.lambda_manager") as mock_lambda, \
-         patch("file_manager.list_projects") as mock_list_projects, \
-         patch("main.logger") as mock_logger:
+    mock_aws_provider = MagicMock()
+    mock_context.providers = {"aws": mock_aws_provider}
+    
+    return mock_context, mock_aws_provider
+
+
+def test_get_context_creates_context_for_project(mock_cli_context):
+    """Test that get_context properly creates a context."""
+    mock_context, _ = mock_cli_context
+    
+    with patch("main._create_context", return_value=mock_context):
+        import main
+        main._current_project = "test_proj"
+        main._current_context = None
         
-        # Setup default mock behaviors
-        mock_list_projects.return_value = ["template", "test_proj", "other_proj"]
+        result = main.get_context("aws")
         
-        yield {
-            "lambda": mock_lambda,
-            "fm": MagicMock(list_projects=mock_list_projects), # Usage wrapper
-            "logger": mock_logger
-        }
+        assert result is mock_context
 
-def run_cli_command(command_str, mock_deps):
-    """Runs a single CLI command by mocking input and exiting immediately."""
-    with patch("builtins.input", side_effect=[command_str, "exit"]):
-        try:
-            main.main()
-        except SystemExit:
-            pass
 
-def test_lambda_update_safety_check_pass(mock_dependencies):
-    globals.CURRENT_PROJECT = "test_proj"
+def test_set_active_project_validates_directory():
+    """Test that set_active_project validates the project directory exists."""
+    import main
     
-    # Command: update func1 {} test_proj
-    # Should pass because project matches
-    run_cli_command('lambda_update func1 {} test_proj', mock_dependencies)
-    
-    mock_dependencies["lambda"].update_function.assert_called_with("func1", {})
-    mock_dependencies["logger"].error.assert_not_called()
+    with patch.object(Path, 'exists', return_value=False):
+        with pytest.raises(ValueError) as exc:
+            main.set_active_project("nonexistent_project")
+        
+        assert "does not exist" in str(exc.value)
 
-def test_lambda_update_safety_check_fail(mock_dependencies):
-    globals.CURRENT_PROJECT = "test_proj"
-    
-    # Command: update func1 {} other_proj
-    # Should fail because mismatch
-    run_cli_command('lambda_update func1 {} other_proj', mock_dependencies)
-    
-    mock_dependencies["lambda"].update_function.assert_not_called()
-    mock_dependencies["logger"].error.assert_any_call("SAFETY ERROR: Requested project 'other_proj' does not match active project 'test_proj'.")
 
-def test_lambda_invoke_safety_check_pass(mock_dependencies):
-    globals.CURRENT_PROJECT = "test_proj"
+def test_set_active_project_rejects_path_traversal():
+    """Test that set_active_project rejects path traversal attempts."""
+    import main
     
-    # Command: invoke func1 {} true test_proj
-    run_cli_command('lambda_invoke func1 {} true test_proj', mock_dependencies)
+    with pytest.raises(ValueError) as exc:
+        main.set_active_project("../malicious")
     
-    mock_dependencies["lambda"].invoke_function.assert_called_with("func1", {}, True)
+    assert "Invalid project name" in str(exc.value)
 
-def test_lambda_invoke_safety_check_fail(mock_dependencies):
-    globals.CURRENT_PROJECT = "test_proj"
-    
-    # Command: invoke func1 {} true other_proj
-    run_cli_command('lambda_invoke func1 {} true other_proj', mock_dependencies)
-    
-    mock_dependencies["lambda"].invoke_function.assert_not_called()
-    mock_dependencies["logger"].error.assert_any_call("SAFETY ERROR: Requested project 'other_proj' does not match active project 'test_proj'.")
 
-def test_lambda_implicit_project(mock_dependencies):
-    globals.CURRENT_PROJECT = "test_proj"
+def test_set_active_project_clears_cached_context():
+    """Test that switching projects clears the cached context."""
+    import main
     
-    # Command: invoke func1 {}
-    # Should work on current project implicitly
-    run_cli_command('lambda_invoke func1 {}', mock_dependencies)
+    # Set up initial state
+    main._current_project = "old_project"
+    main._current_context = MagicMock()
     
-    mock_dependencies["lambda"].invoke_function.assert_called_with("func1", {})
+    with patch.object(Path, 'exists', return_value=True):
+        main.set_active_project("new_project")
+    
+    assert main._current_project == "new_project"
+    assert main._current_context is None
 
-def test_lambda_ambiguity_handling(mock_dependencies):
-    globals.CURRENT_PROJECT = "test_proj"
-    # Project named "sync" equivalent handling? 
-    # If we have a project named "true" and we call `lambda_invoke func {} true`
-    # Does it treat "true" as sync arg or project?
-    # Logic: if args[-1] in projects -> project.
+
+def test_handle_lambda_command_requires_aws_provider(mock_cli_context):
+    """Test that lambda commands fail gracefully without AWS provider."""
+    import main
     
-    mock_dependencies["fm"].list_projects.return_value = ["test_proj", "true"]
+    mock_context, _ = mock_cli_context
+    mock_context.providers = {}  # No providers
     
-    # Case 1: "true" IS a project.
-    # command: lambda_invoke func1 {} true
-    # "true" is in projects, so it is treated as project.
-    # It matches? No, current is test_proj. Should fail safety check.
+    # Should print error message, not raise
+    with patch("builtins.print") as mock_print:
+        main.handle_lambda_command("lambda_logs", ["test_func"], mock_context)
+        mock_print.assert_called_with("Error: AWS provider not initialized.")
+
+
+def test_handle_lambda_command_passes_provider_to_lambda_manager(mock_cli_context):
+    """Test that lambda commands pass provider to lambda_manager."""
+    import main
+    mock_context, mock_aws_provider = mock_cli_context
     
-    run_cli_command('lambda_invoke func1 {} true', mock_dependencies)
-    
-    mock_dependencies["logger"].error.assert_any_call("SAFETY ERROR: Requested project 'true' does not match active project 'test_proj'.")
-    mock_dependencies["lambda"].invoke_function.assert_not_called()
+    with patch("aws.lambda_manager.fetch_logs") as mock_fetch:
+        mock_fetch.return_value = ["log line"]
+        
+        with patch("builtins.print"):
+            main.handle_lambda_command("lambda_logs", ["test_func"], mock_context)
+        
+        mock_fetch.assert_called_once()
+        # Verify provider was passed
+        call_kwargs = mock_fetch.call_args.kwargs
+        assert call_kwargs.get("provider") is mock_aws_provider

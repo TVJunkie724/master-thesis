@@ -4,29 +4,32 @@ Sanity Checker - Pre-deployment Validation.
 This module provides pre-deployment sanity checks to validate configuration
 before deploying resources.
 
-Migration Status:
-    - Functions accept optional config parameter for new pattern.
-    - Falls back to globals.config for backward compatibility.
+All functions now REQUIRE the config parameter. Legacy globals fallback removed.
 """
 
 import re
-from typing import Optional
+from typing import Union
+from core.context import ProjectConfig
 
 
-def check_digital_twin_name(config: Optional[dict] = None) -> None:
+def check_digital_twin_name(config: Union[dict, ProjectConfig]) -> None:
     """Validate the digital twin name meets requirements.
     
     Args:
-        config: Optional configuration dict. If None, uses globals.config
+        config: Configuration dict or ProjectConfig (REQUIRED)
         
     Raises:
         ValueError: If name is too long or contains invalid characters
     """
     if config is None:
-        import globals
-        config = globals.config
+        raise ValueError("config is required - globals fallback has been removed")
     
-    dt_name = config.get("digital_twin_name", "")
+    # Handle both dict and ProjectConfig
+    if hasattr(config, 'digital_twin_name'):
+        dt_name = config.digital_twin_name
+    else:
+        dt_name = config.get("digital_twin_name", "")
+    
     max_length = 10
     dt_name_len = len(dt_name)
 
@@ -38,11 +41,11 @@ def check_digital_twin_name(config: Optional[dict] = None) -> None:
         raise ValueError(f"Digital Twin Name does not satisfy this regex: {valid_pattern}")
 
 
-def check(provider: Optional[str] = None, config: Optional[dict] = None) -> None:
+def check(provider: str = None, config: Union[dict, ProjectConfig] = None) -> None:
     """Run all sanity checks.
     
     Args:
         provider: Optional provider name (currently unused)
-        config: Optional configuration dict. If None, uses globals.config
+        config: Configuration dict or ProjectConfig (REQUIRED)
     """
     check_digital_twin_name(config)

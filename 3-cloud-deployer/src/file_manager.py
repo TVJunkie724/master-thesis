@@ -4,36 +4,48 @@ File Manager - Project File Operations.
 This module provides functions for creating projects from zip files,
 managing configuration files, and updating function code.
 
-Migration Status:
-    - Uses globals.project_path() for file system operations.
-    - Future migration: Add optional project_path parameters.
-    - Works correctly as-is - no immediate migration required.
+All functions now REQUIRE the project_path parameter.
+Legacy globals fallback has been removed.
 """
 
 import os
 import zipfile
 import json
 import shutil
-import globals
 import constants as CONSTANTS
 from logger import logger
 import io
 import src.validator as validator
 
+
+def _get_project_base_path():
+    """Get the base path for projects. Uses PYTHONPATH or app detection."""
+    # Prefer /app in container, fallback to parent of src/
+    app_path = "/app"
+    if os.path.exists(app_path):
+        return app_path
+    # Fallback: go up from this file's directory
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
 # ==========================================
 # 1. Project Creation & Update (Zip Handling)
 # ==========================================
-def create_project_from_zip(project_name, zip_source):
+def create_project_from_zip(project_name, zip_source, project_path: str = None):
     """
     Creates a new project from a validated zip file.
     
     Args:
         project_name (str): Name of the project to create.
         zip_source (str | BytesIO): Zip file source.
+        project_path (str): Base project path. If None, auto-detected.
         
     Raises:
         ValueError: If project name is invalid, project already exists, or zip is invalid.
     """
+    if project_path is None:
+        project_path = _get_project_base_path()
+    
     # Simple validation using os.path to prevent directory traversal
     safe_name = os.path.basename(project_name)
     if safe_name != project_name:
@@ -46,7 +58,7 @@ def create_project_from_zip(project_name, zip_source):
     # Validate before extraction (Universal Validation)
     validator.validate_project_zip(zip_source)
     
-    target_dir = os.path.join(globals.project_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
     if os.path.exists(target_dir):
         raise ValueError(f"Project '{project_name}' already exists.")
         
@@ -58,17 +70,22 @@ def create_project_from_zip(project_name, zip_source):
         
     logger.info(f"Created project '{project_name}' from zip.")
 
-def update_project_from_zip(project_name, zip_source):
+
+def update_project_from_zip(project_name, zip_source, project_path: str = None):
     """
     Updates an existing project from a zip file (Overwrites existing files).
     
     Args:
         project_name (str): Name of the project to update.
         zip_source (str | BytesIO): Zip file source.
+        project_path (str): Base project path. If None, auto-detected.
         
     Raises:
         ValueError: If project name is invalid or zip is invalid.
     """
+    if project_path is None:
+        project_path = _get_project_base_path()
+    
     safe_name = os.path.basename(project_name)
     if safe_name != project_name:
         raise ValueError("Invalid project name.")
@@ -79,7 +96,7 @@ def update_project_from_zip(project_name, zip_source):
     # Validate entire zip content first (Universal Validation)
     validator.validate_project_zip(zip_source)
         
-    target_dir = os.path.join(globals.project_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
     
     if not os.path.exists(target_dir):
          os.makedirs(target_dir)
@@ -90,14 +107,21 @@ def update_project_from_zip(project_name, zip_source):
         
     logger.info(f"Updated project '{project_name}' from zip.")
 
+
 # ==========================================
 # 2. Project Listing
 # ==========================================
-def list_projects():
+def list_projects(project_path: str = None):
     """
     Returns a list of available project names.
+    
+    Args:
+        project_path: Base project path. If None, auto-detected.
     """
-    upload_dir = os.path.join(globals.project_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME)
+    if project_path is None:
+        project_path = _get_project_base_path()
+    
+    upload_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME)
     projects = []
     if os.path.exists(upload_dir):
         for item in os.listdir(upload_dir):
@@ -105,16 +129,25 @@ def list_projects():
                 projects.append(item)
     return projects
 
+
 # ==========================================
 # 3. Configuration Management
 # ==========================================
-def update_config_file(project_name, config_filename, config_content):
+def update_config_file(project_name, config_filename, config_content, project_path: str = None):
     """
     Updates a specific configuration file for a project.
-    Hot-reloads if the project is currently active.
+    
+    Args:
+        project_name: Name of the project
+        config_filename: Name of the config file
+        config_content: JSON content to write
+        project_path: Base project path. If None, auto-detected.
     """
+    if project_path is None:
+        project_path = _get_project_base_path()
+    
     safe_name = os.path.basename(project_name)
-    target_dir = os.path.join(globals.project_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
     
     if not os.path.exists(target_dir):
         raise ValueError(f"Project '{project_name}' does not exist.")
@@ -137,44 +170,41 @@ def update_config_file(project_name, config_filename, config_content):
         json.dump(json_content, f, indent=2)
         
     logger.info(f"Updated {config_filename} for project '{project_name}'.")
-    
-    # Hot Reload
-    if project_name == globals.CURRENT_PROJECT:
-        logger.info(f"Hot-reloading configuration for active project '{project_name}'...")
-        if config_filename == CONSTANTS.CONFIG_FILE:
-            globals.initialize_config()
-        elif config_filename == CONSTANTS.CONFIG_IOT_DEVICES_FILE:
-            globals.initialize_config_iot_devices()
-        elif config_filename == CONSTANTS.CONFIG_EVENTS_FILE:
-            globals.initialize_config_events()
-        elif config_filename == CONSTANTS.CONFIG_HIERARCHY_FILE:
-            globals.initialize_config_hierarchy()
-        elif config_filename == CONSTANTS.CONFIG_CREDENTIALS_FILE:
-            globals.initialize_config_credentials()
-        elif config_filename == CONSTANTS.CONFIG_PROVIDERS_FILE:
-            globals.initialize_config_providers()
+
 
 # ==========================================
 # 4. Function Management
 # ==========================================
-def get_provider_for_function(project_name, function_name):
-    """Proxy for backward compatibility or direct access"""
-    return validator.get_provider_for_function(project_name, function_name)
+def get_provider_for_function(project_name, function_name, project_path: str = None):
+    """Proxy for validator.get_provider_for_function"""
+    if project_path is None:
+        project_path = _get_project_base_path()
+    return validator.get_provider_for_function(project_name, function_name, project_path)
 
-def update_function_code_file(project_name, function_name, file_name, code_content):
+
+def update_function_code_file(project_name, function_name, file_name, code_content, project_path: str = None):
     """
     Updates the code file for a specific function, with provider-specific validation.
-    target_filename is enforced by caller (rest_api) or file_name here to be 'lambda_function.py' typically.
+    
+    Args:
+        project_name: Name of the project
+        function_name: Name of the function
+        file_name: Name of the file to update
+        code_content: Code content to write
+        project_path: Base project path. If None, auto-detected.
     """
+    if project_path is None:
+        project_path = _get_project_base_path()
+    
     safe_project_name = os.path.basename(project_name)
-    target_dir = os.path.join(globals.project_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_project_name, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, function_name)
+    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_project_name, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, function_name)
     
     if not os.path.exists(target_dir):
         raise ValueError(f"Function directory '{function_name}' does not exist in project '{project_name}'.")
 
     # Validate Python Code
     if file_name.endswith(".py"):
-        provider = validator.get_provider_for_function(project_name, function_name)
+        provider = validator.get_provider_for_function(project_name, function_name, project_path)
         if provider == "aws":
             validator.validate_python_code_aws(code_content)
         elif provider == "azure":

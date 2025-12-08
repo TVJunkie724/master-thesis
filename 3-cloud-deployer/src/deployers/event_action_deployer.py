@@ -1,3 +1,15 @@
+"""
+Event Action Deployer - Lambda Event Actions Wrapper.
+
+DEPRECATED: Use aws.event_action_deployer_aws directly or the new providers pattern.
+"""
+import warnings
+warnings.warn(
+    "deployers.event_action_deployer is deprecated.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 import aws.event_action_deployer_aws as event_action_deployer_aws
 from botocore.exceptions import ClientError
 

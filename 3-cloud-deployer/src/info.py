@@ -4,28 +4,37 @@ Info - Infrastructure Status Checks.
 This module provides status check functions to verify deployed resources
 across all layers and providers.
 
-Migration Status:
-    - Uses globals.config_iot_devices for device iteration.
-    - Future migration: Accept config as parameter.
-    - Works correctly as-is - no immediate migration required.
+All functions now REQUIRE the config parameter.
+Legacy globals fallback has been removed.
 """
 
-import globals
 from logger import logger
 import aws.info_aws as info_aws
 from botocore.exceptions import ClientError
-import util
+from typing import Union
+from core.context import ProjectConfig
 
-def check_l1(provider=None):
+
+def check_l1(provider: str = None, config: Union[dict, ProjectConfig] = None):
+    """Check Layer 1 (IoT) resources."""
     if provider is None:
         raise ValueError("Provider must be specified for info/check.")
+    if config is None:
+        raise ValueError("config is required - globals fallback has been removed")
+    
+    # Get iot_devices from config
+    if hasattr(config, 'iot_devices'):
+        iot_devices = config.iot_devices
+    else:
+        iot_devices = config.get('iot_devices', [])
+    
     match provider:
         case "aws":
           info_aws.check_dispatcher_iam_role()
           info_aws.check_dispatcher_lambda_function()
           info_aws.check_dispatcher_iot_rule()
 
-          for iot_device in globals.config_iot_devices:
+          for iot_device in iot_devices:
             info_aws.check_iot_thing(iot_device)
         case "azure":
             raise NotImplementedError("Azure info/check not implemented yet.")
@@ -34,9 +43,19 @@ def check_l1(provider=None):
         case _:
             raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
 
-def check_l2(provider=None):
+
+def check_l2(provider: str = None, config: Union[dict, ProjectConfig] = None):
+    """Check Layer 2 (Compute) resources."""
     if provider is None:
         raise ValueError("Provider must be specified for info/check.")
+    if config is None:
+        raise ValueError("config is required - globals fallback has been removed")
+    
+    if hasattr(config, 'iot_devices'):
+        iot_devices = config.iot_devices
+    else:
+        iot_devices = config.get('iot_devices', [])
+    
     match provider:
         case "aws":
             info_aws.check_persister_iam_role()
@@ -47,7 +66,7 @@ def check_l2(provider=None):
             info_aws.check_lambda_chain_step_function()
             info_aws.check_event_feedback_iam_role()
             info_aws.check_event_feedback_lambda_function()
-            for iot_device in globals.config_iot_devices:
+            for iot_device in iot_devices:
                 info_aws.check_processor_iam_role(iot_device)
                 info_aws.check_processor_lambda_function(iot_device)
         case "azure":
@@ -57,7 +76,9 @@ def check_l2(provider=None):
         case _:
             raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
 
-def check_l3_hot(provider=None):
+
+def check_l3_hot(provider: str = None, config: Union[dict, ProjectConfig] = None):
+    """Check Layer 3 Hot (Storage) resources."""
     if provider is None:
         raise ValueError("Provider must be specified for info/check.")
     match provider:
@@ -77,7 +98,9 @@ def check_l3_hot(provider=None):
         case _:
             raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
 
-def check_l3_cold(provider=None):
+
+def check_l3_cold(provider: str = None, config: Union[dict, ProjectConfig] = None):
+    """Check Layer 3 Cold (Storage) resources."""
     if provider is None:
         raise ValueError("Provider must be specified for info/check.")
     match provider:
@@ -94,7 +117,8 @@ def check_l3_cold(provider=None):
             raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
 
 
-def check_l3_archive(provider=None):
+def check_l3_archive(provider: str = None, config: Union[dict, ProjectConfig] = None):
+    """Check Layer 3 Archive (Storage) resources."""
     if provider is None:
         raise ValueError("Provider must be specified for info/check.")
     match provider:
@@ -107,22 +131,34 @@ def check_l3_archive(provider=None):
         case _:
             raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
 
-def check_l3(provider=None):
-    if provider is None:
-        raise ValueError("Provider must be specified for info/check.")
-    check_l3_hot(provider)
-    check_l3_cold(provider)
-    check_l3_archive(provider)
 
-def check_l4(provider=None):
+def check_l3(provider: str = None, config: Union[dict, ProjectConfig] = None):
+    """Check all Layer 3 (Storage) resources."""
     if provider is None:
         raise ValueError("Provider must be specified for info/check.")
+    check_l3_hot(provider, config)
+    check_l3_cold(provider, config)
+    check_l3_archive(provider, config)
+
+
+def check_l4(provider: str = None, config: Union[dict, ProjectConfig] = None):
+    """Check Layer 4 (TwinMaker) resources."""
+    if provider is None:
+        raise ValueError("Provider must be specified for info/check.")
+    if config is None:
+        raise ValueError("config is required - globals fallback has been removed")
+    
+    if hasattr(config, 'iot_devices'):
+        iot_devices = config.iot_devices
+    else:
+        iot_devices = config.get('iot_devices', [])
+    
     match provider:
         case "aws":
             info_aws.check_twinmaker_s3_bucket()
             info_aws.check_twinmaker_iam_role()
             info_aws.check_twinmaker_workspace()
-            for iot_device in globals.config_iot_devices:
+            for iot_device in iot_devices:
                 info_aws.check_twinmaker_component_type(iot_device)
         case "azure":
             raise NotImplementedError("Azure info/check not implemented yet.")
@@ -131,7 +167,9 @@ def check_l4(provider=None):
         case _:
             raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
 
-def check_l5(provider=None):
+
+def check_l5(provider: str = None, config: Union[dict, ProjectConfig] = None):
+    """Check Layer 5 (Grafana) resources."""
     if provider is None:
         raise ValueError("Provider must be specified for info/check.")
     match provider:
@@ -145,17 +183,20 @@ def check_l5(provider=None):
         case _:
             raise ValueError(f"Unsupported provider: '{provider}'. Supported providers are: 'aws', 'azure', 'google'.")
 
-def check(provider=None):
-    """Run all checks for the specified provider"""
+
+def check(provider: str = None, config: Union[dict, ProjectConfig] = None):
+    """Run all checks for the specified provider."""
     if provider is None:
         raise ValueError("Provider must be specified for info/check.")
+    if config is None:
+        raise ValueError("config is required - globals fallback has been removed")
     
     try:
-        check_l1(provider)
-        check_l2(provider)
-        check_l3(provider)
-        check_l4(provider)
-        check_l5(provider)
+        check_l1(provider, config)
+        check_l2(provider, config)
+        check_l3(provider, config)
+        check_l4(provider, config)
+        check_l5(provider, config)
     except Exception as e:
         logger.error(f"Error during info/check: {str(e)}")
         raise

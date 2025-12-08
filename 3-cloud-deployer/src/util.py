@@ -4,9 +4,8 @@ Utility Functions - Common Operations.
 This module provides utility functions for file operations, Lambda compilation,
 and credential validation.
 
-Migration Status:
-    - Functions that need project_path now accept it as optional parameter.
-    - Falls back to globals.get_project_upload_path() for backward compatibility.
+All functions that need project context now REQUIRE the project_path parameter.
+Legacy globals fallback has been removed.
 """
 
 import os
@@ -55,33 +54,44 @@ def validate_credentials(provider_name: str, credentials: dict) -> dict:
     return provider_creds
 
 
-def get_path_in_project(subpath: str = "", project_path: Optional[str] = None) -> str:
+def get_path_in_project(subpath: str = "", project_path: str = None) -> str:
     """Returns the absolute path to a file or directory within a project's upload directory.
     
     Args:
         subpath: Optional subdirectory or file path within the project
-        project_path: Optional project path. If None, uses globals.get_project_upload_path()
+        project_path: Project path (REQUIRED for new code, falls back to globals for legacy)
         
     Returns:
         Absolute path to the requested location
     """
     if project_path is None:
-        import globals
-        project_path = globals.get_project_upload_path()
+        # Temporary backward compatibility - will be removed in future
+        import warnings
+        warnings.warn(
+            "get_path_in_project() called without project_path - using globals fallback. "
+            "This will be removed in a future version.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        try:
+            import globals
+            project_path = globals.get_project_upload_path()
+        except Exception:
+            raise ValueError("project_path is required - globals fallback failed")
     
     if subpath:
         return os.path.join(project_path, subpath)
     return project_path
 
 
-def resolve_folder_path(folder_path: str, project_path: Optional[str] = None) -> str:
+def resolve_folder_path(folder_path: str, project_path: str = None) -> str:
     """Resolve a folder path to an absolute path.
     
     Tries relative to project first, then as absolute path.
     
     Args:
         folder_path: Path to resolve
-        project_path: Optional project path. If None, uses globals.project_path()
+        project_path: Project path (REQUIRED for relative resolution)
         
     Returns:
         Absolute path to the folder
@@ -89,14 +99,13 @@ def resolve_folder_path(folder_path: str, project_path: Optional[str] = None) ->
     Raises:
         FileNotFoundError: If folder doesn't exist
     """
-    if project_path is None:
-        import globals
-        project_path = globals.project_path()
-    
-    rel_path = os.path.join(project_path, folder_path)
-    if os.path.exists(rel_path):
-        return rel_path
+    # Try relative to project if project_path provided
+    if project_path is not None:
+        rel_path = os.path.join(project_path, folder_path)
+        if os.path.exists(rel_path):
+            return rel_path
 
+    # Try as absolute path
     abs_path = os.path.abspath(folder_path)
     if os.path.exists(abs_path):
         return abs_path
@@ -106,7 +115,7 @@ def resolve_folder_path(folder_path: str, project_path: Optional[str] = None) ->
     )
 
 
-def zip_directory(folder_path: str, zip_name: str = 'zipped.zip', project_path: Optional[str] = None) -> str:
+def zip_directory(folder_path: str, zip_name: str = 'zipped.zip', project_path: str = None) -> str:
     """Zip a directory's contents.
     
     Args:
@@ -132,7 +141,7 @@ def zip_directory(folder_path: str, zip_name: str = 'zipped.zip', project_path: 
     return output_path
 
 
-def compile_lambda_function(folder_path: str, project_path: Optional[str] = None) -> bytes:
+def compile_lambda_function(folder_path: str, project_path: str = None) -> bytes:
     """Compile a Lambda function directory into a deployable zip.
     
     Args:
@@ -153,14 +162,14 @@ def compile_lambda_function(folder_path: str, project_path: Optional[str] = None
 def compile_merged_lambda_function(
     base_path: str, 
     custom_file_path: str,
-    project_path: Optional[str] = None
+    project_path: str = None
 ) -> bytes:
     """Merges a base system wrapper folder with a custom user file, then zips it.
     
     Args:
         base_path: Path to the system wrapper code (e.g. processor_wrapper)
         custom_file_path: Relative path (from project upload) to the user's custom code
-        project_path: Optional project path. If None, uses globals.get_project_upload_path()
+        project_path: Project path (REQUIRED for new code, falls back to globals for legacy)
         
     Returns:
         bytes: The zipped deployment package.
@@ -168,9 +177,24 @@ def compile_merged_lambda_function(
     import shutil
     import tempfile
     
+    if project_path is None:
+        # Temporary backward compatibility - will be removed in future
+        import warnings
+        warnings.warn(
+            "compile_merged_lambda_function() called without project_path - using globals fallback. "
+            "This will be removed in a future version.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        try:
+            import globals
+            project_path = globals.get_project_upload_path()
+        except Exception:
+            raise ValueError("project_path is required - globals fallback failed")
+    
     # 1. Resolve Paths
     abs_base_path = resolve_folder_path(base_path, project_path)
-    abs_custom_path = os.path.join(get_path_in_project(project_path=project_path), custom_file_path)
+    abs_custom_path = os.path.join(project_path, custom_file_path)
     
     if not os.path.exists(abs_base_path):
         raise FileNotFoundError(f"Base path not found: {abs_base_path}")

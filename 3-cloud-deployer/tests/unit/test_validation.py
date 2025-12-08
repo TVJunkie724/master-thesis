@@ -235,7 +235,7 @@ class TestValidation(unittest.TestCase):
         with patch('os.path.exists', return_value=True), \
              patch('builtins.open', unittest.mock.mock_open(read_data="{invalid")), \
              self.assertRaises(ValueError) as cm:
-                 validator.verify_project_structure("p")
+                 validator.verify_project_structure("p", project_path="/app")
         self.assertIn("Invalid content", str(cm.exception))
 
     @patch('os.path.exists')
@@ -278,7 +278,7 @@ class TestValidation(unittest.TestCase):
         
         # Mocking validate_config_content to pass (too complex to mock its internal json.loads)
         with patch('validator.validate_config_content'):
-             validator.verify_project_structure("test-proj")
+             validator.verify_project_structure("test-proj", project_path="/app")
              # Should pass if Azure State Machine is found and valid
 
     # ==========================================
@@ -291,7 +291,7 @@ class TestValidation(unittest.TestCase):
         mock_exists.return_value = True
         mock_json.side_effect = json.JSONDecodeError("msg", "doc", 0)
         with self.assertRaises(ValueError) as cm:
-             validator.get_provider_for_function("p", "f")
+             validator.get_provider_for_function("p", "f", project_path="/app")
         self.assertIn("is corrupted", str(cm.exception))
 
     @patch('os.path.exists')
@@ -304,7 +304,7 @@ class TestValidation(unittest.TestCase):
         
         with self.assertRaises(ValueError) as cm:
              # persister -> layer_2
-             validator.get_provider_for_function("p", "persister") 
+             validator.get_provider_for_function("p", "persister", project_path="/app") 
         self.assertIn("configuration missing for layer", str(cm.exception))
 
     @patch('os.path.exists')
@@ -315,7 +315,7 @@ class TestValidation(unittest.TestCase):
         mock_json.return_value = {"layer_2_provider": "google"}
         
         # Unknown func -> Defaults to L2 (google)
-        prov = validator.get_provider_for_function("p", "unknown-func")
+        prov = validator.get_provider_for_function("p", "unknown-func", project_path="/app")
         self.assertEqual(prov, "google")
 
 if __name__ == '__main__':
