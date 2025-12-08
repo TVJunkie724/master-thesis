@@ -650,11 +650,13 @@ def calculate_cheapest_costs(params, pricing=None):
     cheaper_provider_for_layer3 = best_l3_provider_key
 
     # Layer 5
+    # GCP self-hosted Grafana option is conditional based on user preference
     l5_options = [
         ("L5_AWS", aws_costs["resultL5"]["totalMonthlyCost"]),
         ("L5_Azure", azure_costs["resultL5"]["totalMonthlyCost"]),
-        ("L5_GCP", gcp_costs["resultL5"]["totalMonthlyCost"])
     ]
+    if params.get("allowGcpSelfHostedL5", True):
+        l5_options.append(("L5_GCP", gcp_costs["resultL5"]["totalMonthlyCost"]))
     l5_options.sort(key=lambda x: x[1])
     cheaper_provider_layer5 = l5_options[0][0]
 
@@ -665,12 +667,13 @@ def calculate_cheapest_costs(params, pricing=None):
     cheapest_path.append(cheaper_provider_for_layer3)
 
     # Layer 4
+    # GCP self-hosted option is conditional based on user preference
     l4_options = []
-    if aws_costs["resultL4"]:
+    if aws_costs.get("resultL4"):
         l4_options.append({"key": "L4_AWS", "base_cost": aws_costs["resultL4"]["totalMonthlyCost"]})
-    if azure_costs["resultL4"]:
+    if azure_costs.get("resultL4"):
         l4_options.append({"key": "L4_Azure", "base_cost": azure_costs["resultL4"]["totalMonthlyCost"]})
-    if gcp_costs["resultL4"]:
+    if gcp_costs.get("resultL4") and params.get("allowGcpSelfHostedL4", True):
         l4_options.append({"key": "L4_GCP", "base_cost": gcp_costs["resultL4"]["totalMonthlyCost"]})
     
     # Add Cross-Cloud Glue Costs (L3 -> L4)

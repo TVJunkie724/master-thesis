@@ -1,5 +1,28 @@
+"""
+GCP Cost Calculation Module
+============================
+Calculates costs for GCP services (Pub/Sub, Cloud Functions, Firestore, Cloud Storage, Compute Engine).
+
+HARDCODED ASSUMPTIONS (consistent across all providers):
+  - Cloud Functions execution duration: 100ms
+  - Cloud Functions memory allocation: 128 MB
+  - Hours per month: 730 (industry standard)
+
+These assumptions match typical serverless function configurations and ensure
+fair cost comparison across AWS/Azure/GCP providers.
+
+Note: GCP uses self-hosted solutions for L4 (Twin Management) and L5 (Grafana)
+running on Compute Engine (e2-medium instances), as GCP doesn't offer native
+equivalents to AWS TwinMaker or Azure Digital Twins.
+
+Formula documentation: docs/docs-formulas.html
+"""
 
 import math
+
+# LAYER 1 - Data Acquisition
+# Service: Google Cloud Pub/Sub
+# Formula: CTransfer (Volume-Based) - differs from AWS/Azure which use per-message
 
 def calculate_gcp_cost_data_acquisition(number_of_devices, device_sending_interval_in_minutes, average_size_of_message_in_kb, pricing):
     """
@@ -48,8 +71,10 @@ def calculate_gcp_cost_data_processing(
     """
     pricing_layer = pricing["gcp"]["functions"]
     
-    execution_duration_ms = 100 # Assumption
-    allocated_memory_gb = 128 / 1024 # Assumption
+    # Hardcoded assumptions - same across all providers for fair comparison.
+    # These values represent typical serverless function configurations.
+    execution_duration_ms = 100  # Conservative estimate for simple data processing
+    allocated_memory_gb = 128 / 1024  # 128 MB in GB
     
     executions_per_month = number_of_devices * (60 / device_sending_interval_in_minutes) * 730
     
@@ -202,21 +227,34 @@ def calculate_firestore_cost(data_size_in_gb, total_messages_per_month, average_
     
     Formula: Storage Cost = (Data Size - Free Tier) * Storage Price * Duration
     Write Cost: Total Messages * Write Price
-    Read Cost: (Total Messages * 10) * Read Price (Assumption: 10 reads per write)
+    Read Cost: (Total Messages / 2) * Read Price
+    
+    Read Ratio Assumption: 1 read per 2 writes (0.5x)
+    Rationale: In a Digital Twin architecture, most data is written by IoT devices
+    and read less frequently by dashboards. Dashboard queries are batched/aggregated.
+    This matches AWS DynamoDB assumptions for fair cross-provider comparison.
+    
+    Storage Buffer (+0.5 months): Accounts for mid-month data accumulation.
+    As data grows throughout the month, the average storage used is approximately
+    half the final amount, hence we add 0.5 months to prorate the storage cost.
+    This aligns with AWS DynamoDB and Azure Cosmos DB calculations.
     """
     pricing_layer = pricing["gcp"]["storage_hot"]
     
-    # Storage Cost
-    storage_cost = max(data_size_in_gb - pricing_layer.get("freeStorage", 0), 0) * pricing_layer.get("storagePrice", 0) * duration_in_months
+    # Storage Buffer: Add 0.5 months for mid-month accumulation (same as AWS/Azure)
+    storage_duration_adjusted = duration_in_months + 0.5
     
-    # Operation Cost (Writes)
-    # Assuming each message is a write
+    # Storage Cost
+    storage_cost = max(data_size_in_gb - pricing_layer.get("freeStorage", 0), 0) * pricing_layer.get("storagePrice", 0) * storage_duration_adjusted
+    
+    # Operation Cost (Writes) - each message is a write
     write_cost = total_messages_per_month * pricing_layer.get("writePrice", 0)
     
     # Operation Cost (Reads)
-    # Assumption: 10 reads per write (similar to Azure/AWS assumptions in original code?)
-    # Original AWS code: read_units = total_messages_per_month * 10 (if not provided)
-    reads_per_month = total_messages_per_month * 10
+    # Read Ratio: 1 read per 2 writes (aligned with AWS DynamoDB)
+    # Previous value of 10:1 was incorrect - Firestore has no inherent ratio,
+    # it simply charges per operation. We model expected DT workload patterns.
+    reads_per_month = total_messages_per_month / 2.0  # 1 read per 2 writes
     read_cost = reads_per_month * pricing_layer.get("readPrice", 0)
     
     total_monthly_cost = storage_cost + write_cost + read_cost
@@ -232,17 +270,32 @@ def calculate_gcp_storage_cool_cost(data_size_in_gb, duration_in_months, pricing
     Calculate GCP Cool Storage Cost (Cloud Storage Nearline).
     
     Formula: Storage Cost = Data Size * Storage Price * Duration
+    Write Cost: (Data Size * 1024 / 100) * Write Price per 10K operations
+    Read Cost: Write Count * 0.1 * Read Price (10% reads)
+    Retrieval Cost: (Data Size * 0.1 + Data Size) * Retrieval Price
+    
+    Operation costs added for equivalency with AWS/Azure cool storage calculations.
     """
     pricing_layer = pricing["gcp"]["storage_cool"]
     
+    # Storage Cost
     storage_cost = data_size_in_gb * pricing_layer.get("storagePrice", 0) * duration_in_months
     
-    # Retrieval cost (if applicable, but usually calculated upon transfer out)
-    # Here we just calculate storage cost for the duration
+    # Operation Costs (aligned with AWS/Azure for fair comparison)
+    # Write operations: Similar to Azure blob calculation
+    amount_of_writes = math.ceil((data_size_in_gb * 1024) / 100)  # 1 write per 100KB block
+    amount_of_reads = amount_of_writes * 0.1  # 10% read assumption
+    data_retrieval_amount = (data_size_in_gb * 0.1) + data_size_in_gb  # 10% retrieval + initial write
+    
+    write_cost = amount_of_writes * pricing_layer.get("writePrice", 0)
+    read_cost = amount_of_reads * pricing_layer.get("readPrice", 0)
+    retrieval_cost = data_retrieval_amount * pricing_layer.get("dataRetrievalPrice", 0)
+    
+    total_monthly_cost = storage_cost + write_cost + read_cost + retrieval_cost
     
     return {
         "provider": "GCP",
-        "totalMonthlyCost": storage_cost,
+        "totalMonthlyCost": total_monthly_cost,
         "dataSizeInGB": data_size_in_gb
     }
 
@@ -251,14 +304,30 @@ def calculate_gcp_storage_archive_cost(data_size_in_gb, duration_in_months, pric
     Calculate GCP Archive Storage Cost (Cloud Storage Archive).
     
     Formula: Storage Cost = Data Size * Storage Price * Duration
+    Write Cost: Data Size * Write Price (lifecycle transition)
+    Retrieval Cost: 1% of Data Size * Retrieval Price
+    
+    Operation costs added for equivalency with AWS Glacier/Azure Archive calculations.
     """
     pricing_layer = pricing["gcp"]["storage_archive"]
     
-    storage_cost = data_size_in_gb * pricing_layer.get("storagePrice", 0) * duration_in_months
+    # Storage Cost
+    storage_needed_for_duration = data_size_in_gb * duration_in_months
+    storage_cost = storage_needed_for_duration * pricing_layer.get("storagePrice", 0)
+    
+    # Write Cost (lifecycle transition - aligned with AWS Glacier)
+    amount_of_writes = data_size_in_gb * 2  # Similar to AWS: 2 writes per GB
+    write_cost = amount_of_writes * pricing_layer.get("writePrice", 0)
+    
+    # Retrieval Cost (1% retrieval assumption - aligned with AWS Glacier)
+    data_retrieval_amount = storage_needed_for_duration * 0.01
+    retrieval_cost = data_retrieval_amount * pricing_layer.get("dataRetrievalPrice", 0)
+    
+    total_monthly_cost = storage_cost + write_cost + retrieval_cost
     
     return {
         "provider": "GCP",
-        "totalMonthlyCost": storage_cost,
+        "totalMonthlyCost": total_monthly_cost,
         "dataSizeInGB": data_size_in_gb
     }
 
@@ -290,19 +359,40 @@ def calculate_gcp_twin_maker_cost(entity_count, number_of_devices, device_sendin
         "totalMonthlyCost": cost
     }
 
+# LAYER 5 - Data Visualization
+# Service: Self-Hosted Grafana on Compute Engine
+#
+# PRICING MODEL COMPARISON (why different formulas are comparable):
+# - AWS Managed Grafana: Per-seat licensing (editors + viewers). No instance cost.
+# - Azure Managed Grafana: Per-seat + instance hours. Includes infrastructure.
+# - GCP (Self-Hosted): VM cost (e2-medium) + disk. No per-seat fees.
+#
+# GCP doesn't offer a managed Grafana service, so we calculate the cost of running
+# a self-hosted Grafana instance on Compute Engine. This is a fair comparison because
+# it represents the actual cost a GCP customer would incur for this capability.
+#
+# All three represent the actual cost of running Grafana dashboards on each provider.
+# The pricing models differ, but outputs are directly comparable monthly costs.
+
 def calculate_gcp_managed_grafana_cost(amount_of_active_users, pricing):
     """
-    Calculate GCP Visualization Cost.
-    GCP uses Compute Engine (IaaS) for this layer.
+    Calculate GCP Visualization Cost (Self-Hosted Grafana).
+    
+    GCP uses Compute Engine (IaaS) for this layer as there's no managed Grafana service.
+    This calculates the cost of running a self-hosted Grafana instance.
+    
+    Note: User count is not directly used in cost calculation since self-hosted
+    Grafana doesn't have per-seat licensing. The instance can handle multiple users
+    within its capacity limits.
     
     Formula: Cost = (Instance Price * 730 hours) + (Storage Price * Storage Size)
     """
     pricing_layer = pricing["gcp"]["grafana"]
     
-    # Instance Cost (e2-medium)
+    # Instance Cost (e2-medium - suitable for small/medium Grafana deployments)
     instance_cost = pricing_layer.get("e2MediumPrice", 0) * 730
     
-    # Storage Cost (Assuming 20GB for Grafana DB/Logs)
+    # Storage Cost (20GB for Grafana DB/Logs - typical deployment)
     storage_size_gb = 20
     storage_cost = storage_size_gb * pricing_layer.get("storagePrice", 0)
     

@@ -6,6 +6,42 @@
 "use strict";
 
 /**
+ * Set UI to "dirty" state - inputs have changed since last calculation
+ * Enables calculate button and dims results to indicate stale data
+ */
+function setDirtyState() {
+    const btn = document.getElementById("calculateBtn");
+    const results = document.getElementById("result");
+
+    if (btn) {
+        btn.disabled = false;
+        btn.classList.remove("btn-secondary");
+        btn.classList.add("btn-primary");
+    }
+    if (results && results.innerHTML.trim() !== "") {
+        results.style.opacity = "0.5";
+    }
+}
+
+/**
+ * Set UI to "fresh" state - calculation just completed
+ * Disables calculate button and shows results at full opacity
+ */
+function setFreshState() {
+    const btn = document.getElementById("calculateBtn");
+    const results = document.getElementById("result");
+
+    if (btn) {
+        btn.disabled = true;
+        btn.classList.remove("btn-primary");
+        btn.classList.add("btn-secondary");
+    }
+    if (results) {
+        results.style.opacity = "1";
+    }
+}
+
+/**
  * Read parameters from UI form
  * @returns {Object|null} Parameters object or null if validation fails
  */
@@ -40,6 +76,10 @@ async function readParamsFromUi() {
     const integrateErrorHandling = (document.getElementById("integrateErrorHandling") || {}).checked;
     const apiCallsPerDashboardRefresh = parseInt(document.getElementById("apiCallsPerDashboardRefresh").value);
 
+    // GCP Self-Hosted Options (L4/L5)
+    const allowGcpSelfHostedL4 = document.getElementById("allowGcpSelfHostedL4").checked;
+    const allowGcpSelfHostedL5 = document.getElementById("allowGcpSelfHostedL5").checked;
+
     const currency = document.getElementById("currency").value;
 
     const params = {
@@ -63,6 +103,8 @@ async function readParamsFromUi() {
         orchestrationActionsPerMessage,
         integrateErrorHandling,
         apiCallsPerDashboardRefresh,
+        allowGcpSelfHostedL4,
+        allowGcpSelfHostedL5,
         currency,
     };
 
@@ -174,6 +216,10 @@ async function calculateCheapestCostsFromUI() {
             results.l1OptimizationOverride, // Pass L1 override info
             results.l4OptimizationOverride // Pass L4 override info
         );
+
+        // Mark UI as fresh (results are current)
+        setFreshState();
+
         console.log("params", params);
         console.log("results", results);
 

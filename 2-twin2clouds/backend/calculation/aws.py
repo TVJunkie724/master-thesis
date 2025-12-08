@@ -1,9 +1,24 @@
+"""
+AWS Cost Calculation Module
+============================
+Calculates costs for AWS services (IoT Core, Lambda, DynamoDB, S3, TwinMaker, Grafana).
+
+HARDCODED ASSUMPTIONS (consistent across all providers):
+  - Lambda/Functions execution duration: 100ms
+  - Lambda/Functions memory allocation: 128 MB
+  - Hours per month: 730 (industry standard)
+
+These assumptions match the actual deployer Lambda configurations (MemorySize=128, Timeout=3s).
+Using consistent values across AWS/Azure/GCP ensures fair cost comparison.
+
+Formula documentation: docs/docs-formulas.html
+"""
 
 import math
 
 # LAYER 1 - Data Acquisition
-# This section calculates costs for AWS IoT Core data acquisition.
-# Formula details are documented in docs/docs-formulas.html.
+# Service: AWS IoT Core
+# Formula: CM (Message-Based) with tiered pricing
 
 def calculate_aws_cost_data_acquisition(
     number_of_devices,
@@ -21,10 +36,11 @@ def calculate_aws_cost_data_acquisition(
     price_tier2 = pricing_tiers["tier2"]["price"]
     price_tier3 = pricing_tiers["tier3"]["price"]
 
-    # Formula: Total Messages = Devices * (60 / Interval) * 24 * 30
-    # Message Size Adjustment: Messages are billed in 5KB increments (AWS IoT Core)
+    # Formula: Total Messages = Devices * (60 / Interval) * 730 hours
+    # Using 730 hours/month (industry standard) for consistency with L2 calculations.
+    # Message Size Adjustment: Messages are billed in 5KB increments (AWS IoT Core).
     total_messages_per_month = math.ceil(
-        number_of_devices * (1.0 / device_sending_interval_in_minutes) * 60 * 24 * 30
+        number_of_devices * (1.0 / device_sending_interval_in_minutes) * 60 * 730
     )
     
     data_size_in_gb = (total_messages_per_month * average_size_of_message_in_kb) / (1024 * 1024)
@@ -88,8 +104,10 @@ def calculate_aws_cost_data_processing(
     orchestration_actions_per_message=3,
     events_per_message=1
 ):
-    execution_duration_in_ms = 100
-    allocated_memory_in_gb = 128.0 / 1024.0
+    # Hardcoded assumptions - same across all providers for fair comparison.
+    # These values match the deployer's Lambda configuration (MemorySize=128).
+    execution_duration_in_ms = 100  # Conservative estimate for simple data processing
+    allocated_memory_in_gb = 128.0 / 1024.0  # 128 MB in GB
     layer2_pricing = pricing["aws"]["lambda"]
 
     # Formula: Executions = Devices * (60 / Interval) * 730 hours
@@ -236,11 +254,19 @@ def calculate_dynamodb_cost(
 ):
     # Formula: Storage Cost = (Data Size * Duration) * Storage Price
     # Write Cost: (Total Messages * Message Size) * Write Price
-    # Read Cost: (Total Messages / 2) * Read Price (Assumption: 1 read per 2 writes)
+    # Read Cost: (Total Messages / 2) * Read Price
+    # 
+    # Read Ratio Assumption: 1 read per 2 writes (0.5x)
+    # Rationale: In a Digital Twin architecture, most data is written by IoT devices
+    # and read less frequently by dashboards. Dashboard queries are batched/aggregated.
+    #
+    # Storage Buffer (+0.5 months): Accounts for mid-month data accumulation.
+    # As data grows throughout the month, the average storage used is approximately
+    # half the final amount, hence we add 0.5 months to prorate the storage cost.
     storage_needed_for_duration = data_size_in_gb * (storage_duration_in_months + 0.5)
 
     write_units_needed = total_messages_per_month * average_size_of_message_in_kb
-    read_units_needed = total_messages_per_month / 2.0
+    read_units_needed = total_messages_per_month / 2.0  # 1 read per 2 writes
 
     write_price = pricing["aws"]["dynamoDB"]["writePrice"]
     read_price = pricing["aws"]["dynamoDB"]["readPrice"]
@@ -345,8 +371,9 @@ def calculate_aws_iot_twin_maker_cost(
     query_price = pricing["aws"]["iotTwinMaker"]["queryPrice"]
     s3_storage_price = pricing["aws"]["s3InfrequentAccess"]["storagePrice"]
 
+    # Use 730 hours/month for consistency across all layers (industry standard)
     total_messages_per_month = math.ceil(
-        number_of_devices * (1.0 / device_sending_interval_in_minutes) * 60 * 24 * 30
+        number_of_devices * (1.0 / device_sending_interval_in_minutes) * 60 * 730
     )
 
     number_of_queries = calculate_number_of_queries_to_layer4_from_dashboard(
@@ -369,12 +396,27 @@ def calculate_aws_iot_twin_maker_cost(
     }
 
 # LAYER 5 - Data Visualization
+# Service: Amazon Managed Grafana
+#
+# PRICING MODEL COMPARISON (why different formulas are comparable):
+# - AWS Managed Grafana: Per-seat licensing (editors + viewers). No instance cost.
+# - Azure Managed Grafana: Per-seat + instance hours. Includes infrastructure.
+# - GCP (Self-Hosted): VM cost (e2-medium) + disk. No per-seat fees.
+#
+# All three represent the actual cost of running Grafana dashboards on each provider.
+# The pricing models differ, but outputs are directly comparable monthly costs.
 
 def calculate_amazon_managed_grafana_cost(
     amount_of_active_editors,
     amount_of_active_viewers,
     pricing
 ):
+    """
+    Calculate AWS Managed Grafana visualization cost.
+    
+    AWS uses a pure per-seat model with differentiated editor/viewer pricing.
+    No infrastructure costs are charged separately - they're included in seat prices.
+    """
     editor_price = pricing["aws"]["awsManagedGrafana"]["editorPrice"]
     viewer_price = pricing["aws"]["awsManagedGrafana"]["viewerPrice"]
 

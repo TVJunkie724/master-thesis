@@ -15,7 +15,7 @@ client = TestClient(app)
 # File Age Tests
 # ----------------------------------------------------------------
 
-@patch("rest_api.get_file_age_string")
+@patch("api.file_status.get_file_age_string")
 def test_get_regions_age_aws(mock_get_age):
     """Test GET /api/regions_age/aws returns age string."""
     mock_get_age.return_value = "5 days"
@@ -28,8 +28,8 @@ def test_get_regions_age_aws(mock_get_age):
     mock_get_age.assert_called_with(CONSTANTS.AWS_REGIONS_FILE_PATH)
 
 def test_get_pricing_age():
-    with patch("rest_api.get_file_age_string") as mock_age, \
-         patch("rest_api.load_json_file") as mock_load, \
+    with patch("api.file_status.get_file_age_string") as mock_age, \
+         patch("api.file_status.load_json_file") as mock_load, \
          patch("backend.pricing_utils.validate_pricing_schema") as mock_validate, \
          patch("os.path.isfile") as mock_isfile:
         
@@ -49,8 +49,8 @@ def test_get_pricing_age():
         mock_validate.assert_called_with("aws", {"some": "data"})
 
 def test_get_pricing_age_incomplete():
-    with patch("rest_api.get_file_age_string") as mock_age, \
-         patch("rest_api.load_json_file") as mock_load, \
+    with patch("api.file_status.get_file_age_string") as mock_age, \
+         patch("api.file_status.load_json_file") as mock_load, \
          patch("backend.pricing_utils.validate_pricing_schema") as mock_validate, \
          patch("os.path.isfile") as mock_isfile:
         
@@ -67,7 +67,7 @@ def test_get_pricing_age_incomplete():
             "missing_keys": ["service.key"]
         }
 
-@patch("rest_api.get_file_age_string")
+@patch("api.file_status.get_file_age_string")
 def test_get_currency_age(mock_get_age):
     """Test GET /api/currency_age returns age string."""
     mock_get_age.return_value = "1 day"

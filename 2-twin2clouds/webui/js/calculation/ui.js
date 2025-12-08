@@ -45,6 +45,8 @@ document.addEventListener("DOMContentLoaded", function () {
         btn.classList.remove('active', 'btn-primary');
         btn.classList.add('btn-outline-primary');
       });
+      // Mark UI as dirty (inputs changed)
+      if (typeof setDirtyState === 'function') setDirtyState();
     });
   });
 });
@@ -70,7 +72,9 @@ function fillScenario(
   triggerNotificationWorkflow,
   orchestrationActionsPerMessage,
   integrateErrorHandling,
-  apiCallsPerDashboardRefresh
+  apiCallsPerDashboardRefresh,
+  allowGcpSelfHostedL4 = true,
+  allowGcpSelfHostedL5 = true
 ) {
   document.getElementById("devices").value = devices;
   document.getElementById("interval").value = interval;
@@ -105,6 +109,10 @@ function fillScenario(
   (document.getElementById("integrateErrorHandling") || {}).checked = integrateErrorHandling;
   document.getElementById("apiCallsPerDashboardRefresh").value = apiCallsPerDashboardRefresh;
 
+  // GCP Self-Hosted Options
+  document.getElementById("allowGcpSelfHostedL4").checked = allowGcpSelfHostedL4;
+  document.getElementById("allowGcpSelfHostedL5").checked = allowGcpSelfHostedL5;
+
   // Update slider UI
   updateSliderValue(document.getElementById("hotStorageDurationInMonths"));
   updateSliderValue(document.getElementById("coolStorageDurationInMonths"));
@@ -124,6 +132,9 @@ function fillScenario(
   toggleEntityInput();
   toggleEventsInput();
   toggleOrchestrationInput();
+
+  // Mark UI as dirty (preset changed inputs)
+  if (typeof setDirtyState === 'function') setDirtyState();
 }
 
 function flipCard(card) {

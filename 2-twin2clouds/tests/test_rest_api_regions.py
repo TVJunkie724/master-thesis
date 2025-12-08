@@ -15,8 +15,8 @@ def test_fetch_regions_aws_default():
     Should default to force_fetch=False.
     If file is fresh, should use cache.
     """
-    with patch("rest_api.is_file_fresh") as mock_is_fresh, \
-         patch("rest_api.load_json_file") as mock_load, \
+    with patch("api.regions.is_file_fresh") as mock_is_fresh, \
+         patch("api.regions.load_json_file") as mock_load, \
          patch("backend.fetch_data.initial_fetch_aws.fetch_region_map") as mock_fetch:
         
         # Case: File is fresh
@@ -34,7 +34,7 @@ def test_fetch_regions_aws_force():
     Test POST /api/fetch_regions/aws with force_fetch=True.
     Should ignore cache and call fetch_region_map.
     """
-    with patch("rest_api.is_file_fresh") as mock_is_fresh, \
+    with patch("api.regions.is_file_fresh") as mock_is_fresh, \
          patch("backend.fetch_data.initial_fetch_aws.fetch_region_map") as mock_fetch:
         
         # Case: File is fresh, but we force update
@@ -52,7 +52,7 @@ def test_fetch_regions_aws_stale():
     Test POST /api/fetch_regions/aws when file is stale.
     Should call fetch_region_map even if force_fetch=False.
     """
-    with patch("rest_api.is_file_fresh") as mock_is_fresh, \
+    with patch("api.regions.is_file_fresh") as mock_is_fresh, \
          patch("backend.fetch_data.initial_fetch_aws.fetch_region_map") as mock_fetch:
         
         # Case: File is stale
@@ -70,8 +70,8 @@ def test_fetch_regions_aws_stale():
 # ----------------------------------------------------------------
 
 def test_fetch_regions_azure_default():
-    with patch("rest_api.is_file_fresh") as mock_is_fresh, \
-         patch("rest_api.load_json_file") as mock_load, \
+    with patch("api.regions.is_file_fresh") as mock_is_fresh, \
+         patch("api.regions.load_json_file") as mock_load, \
          patch("backend.fetch_data.initial_fetch_azure.fetch_region_map") as mock_fetch:
         
         mock_is_fresh.return_value = True
@@ -84,7 +84,7 @@ def test_fetch_regions_azure_default():
         mock_fetch.assert_not_called()
 
 def test_fetch_regions_azure_force():
-    with patch("rest_api.is_file_fresh") as mock_is_fresh, \
+    with patch("api.regions.is_file_fresh") as mock_is_fresh, \
          patch("backend.fetch_data.initial_fetch_azure.fetch_region_map") as mock_fetch:
         
         mock_is_fresh.return_value = True
@@ -101,8 +101,8 @@ def test_fetch_regions_azure_force():
 # ----------------------------------------------------------------
 
 def test_fetch_regions_gcp_default():
-    with patch("rest_api.is_file_fresh") as mock_is_fresh, \
-         patch("rest_api.load_json_file") as mock_load, \
+    with patch("api.regions.is_file_fresh") as mock_is_fresh, \
+         patch("api.regions.load_json_file") as mock_load, \
          patch("backend.fetch_data.initial_fetch_google.fetch_region_map") as mock_fetch:
         
         mock_is_fresh.return_value = True
@@ -115,7 +115,7 @@ def test_fetch_regions_gcp_default():
         mock_fetch.assert_not_called()
 
 def test_fetch_regions_gcp_force():
-    with patch("rest_api.is_file_fresh") as mock_is_fresh, \
+    with patch("api.regions.is_file_fresh") as mock_is_fresh, \
          patch("backend.fetch_data.initial_fetch_google.fetch_region_map") as mock_fetch:
         
         mock_is_fresh.return_value = True

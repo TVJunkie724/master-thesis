@@ -4,15 +4,15 @@ from backend.calculation import aws
 
 def test_aws_iot_core_formula():
     # Formula: CM = c_m * N_m
-    # N_m = Devices * (60/Interval) * 24 * 30
+    # N_m = Devices * (60/Interval) * 730 (industry standard hours/month)
     
     # Setup
     devices = 100
     interval = 1 # minute
     msg_size = 1 # KB
     
-    # Expected Messages: 100 * 60 * 24 * 30 = 4,320,000
-    expected_messages = 4320000
+    # Expected Messages: 100 * 60 * 730 = 4,380,000
+    expected_messages = 4380000
     
     pricing = {
         "aws": {
@@ -161,10 +161,8 @@ def test_aws_iot_twin_maker_formula():
     devices = 10
     interval = 1 # min
     
-    # Messages: 10 * 60 * 730 = 438,000 (Use 730 or 720? Code uses 24*30=720)
-    # aws.py:349: number_of_devices * (1.0 / interval) * 60 * 24 * 30
-    # = 10 * 60 * 720 = 432,000
-    expected_messages = 432000
+    # Messages: 10 * 60 * 730 = 438,000
+    expected_messages = 438000
     
     # Queries: Active * Refreshes * 30
     dashboard_refreshes = 1
@@ -198,10 +196,10 @@ def test_aws_iot_twin_maker_formula():
     
     # Cost Calc:
     # Entity: 100 * 0.5 = 50.0
-    # API: 432,000 * 0.000001 = 0.432
+    # API: 438,000 * 0.000001 = 0.438
     # Query: 30 * 0.000002 = 0.00006
     # Storage: 9.765625 * 0.02 = 0.1953125
     
-    expected_cost = 50.0 + 0.432 + 0.00006 + 0.1953125
+    expected_cost = 50.0 + 0.438 + 0.00006 + 0.1953125
     
     assert result["totalMonthlyCost"] == pytest.approx(expected_cost, rel=1e-5)

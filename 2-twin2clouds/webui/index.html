@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/x-icon" href="/references/favicon.ico">
+  <link rel="icon" type="image/x-icon" href="/documentation/references/favicon.ico">
   <title>Twin2Clouds</title>
 
   <!-- Bootstrap 5 CSS -->
@@ -47,8 +47,8 @@
             </p>
 
             <div class="text-center mb-4">
-              <img src="references/architecture_diagram.png" alt="Twin2Clouds Multi-Cloud Architecture Diagram"
-                class="img-fluid rounded shadow-sm border">
+              <img src="/documentation/references/architecture_diagram.png"
+                alt="Twin2Clouds Multi-Cloud Architecture Diagram" class="img-fluid rounded shadow-sm border">
             </div>
 
             <div class="architecture-description">
@@ -106,7 +106,7 @@
         <div class="card h-100 border-0 shadow-sm">
           <div class="card-body">
             <button class="btn btn-outline-primary w-100 mb-3 preset-btn"
-              onclick="fillScenario(this, 100, 2, 0.25, 1, 3, 12, 'no', 0, 100, 2, 0, 12, 1, true, 1, true, true, 3, false, 1)">
+              onclick="fillScenario(this, 100, 2, 0.25, 1, 3, 12, 'no', 0, 100, 2, 0, 12, 1, true, 1, true, true, 3, false, 1, true, true)">
               Preset 1 (Smart Home)
             </button>
             <p class="card-text small text-muted">Small scale, low frequency. Ideal for home automation with few
@@ -118,7 +118,7 @@
         <div class="card h-100 border-0 shadow-sm">
           <div class="card-body">
             <button class="btn btn-outline-primary w-100 mb-3 preset-btn"
-              onclick="fillScenario(this, 4000, 0.5, 0.5, 3, 12, 36 , 'no', 0, 100, 25, 10, 60, 4, true, 1, true, true, 5, true, 10)">
+              onclick="fillScenario(this, 4000, 0.5, 0.5, 3, 12, 36 , 'no', 0, 100, 25, 10, 60, 4, true, 1, true, true, 5, true, 10, false, false)">
               Preset 2 (Smart Industrial)
             </button>
             <p class="card-text small text-muted">Medium scale, high frequency. Typical for factory monitoring with
@@ -130,7 +130,7 @@
         <div class="card h-100 border-0 shadow-sm">
           <div class="card-body">
             <button class="btn btn-outline-primary w-100 mb-3 preset-btn"
-              onclick="fillScenario(this, 30000, 0.1, 0.8, 3, 12, 24, 'yes' , 1200, 100, 100, 300, 120, 8, true, 5, true, true, 10, true, 100)">
+              onclick="fillScenario(this, 30000, 0.1, 0.8, 3, 12, 24, 'yes' , 1200, 100, 100, 300, 120, 8, true, 5, true, true, 10, true, 100, false, false)">
               Preset 3 (Large Building)
             </button>
             <p class="card-text small text-muted">Large scale, very high frequency. Complex building management with
@@ -154,19 +154,19 @@
             <label for="devices" class="form-label">Number of Devices <i class="bi bi-info-circle text-primary ms-1"
                 data-bs-toggle="tooltip"
                 title="The total number of IoT devices connecting to the system. Directly impacts ingestion and connection costs."></i></label>
-            <input type="number" id="devices" class="form-control" required />
+            <input type="number" id="devices" class="form-control" min="1" required />
           </div>
           <div class="col-md-4">
             <label for="interval" class="form-label">Sending Interval (Min) <i
                 class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
                 title="How often each device sends a message (in minutes). Lower intervals mean more messages and higher processing costs."></i></label>
-            <input type="number" id="interval" class="form-control" required />
+            <input type="number" id="interval" class="form-control" min="0.1" step="0.1" required />
           </div>
           <div class="col-md-4">
             <label for="messageSize" class="form-label">Message Size (KB) <i class="bi bi-info-circle text-primary ms-1"
                 data-bs-toggle="tooltip"
                 title="The average size of each telemetry message in Kilobytes. Larger messages increase storage and transfer costs."></i></label>
-            <input type="number" id="messageSize" class="form-control" required />
+            <input type="number" id="messageSize" class="form-control" min="0.01" step="0.01" required />
           </div>
         </div>
 
@@ -320,6 +320,15 @@
           </div>
         </div>
 
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" id="allowGcpSelfHostedL4" checked>
+          <label class="form-check-label fw-bold" for="allowGcpSelfHostedL4">
+            Include GCP (Self-Hosted on Compute Engine)
+            <i class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+              title="GCP lacks a managed Twin service like AWS TwinMaker or Azure Digital Twins. Enabling this includes a self-hosted solution running on Compute Engine (e2-medium VM) in the cost comparison."></i>
+          </label>
+        </div>
+
       </div>
     </div>
 
@@ -334,7 +343,7 @@
             <label for="dashboardRefreshesPerHour" class="form-label">Refresh Period (Refreshes/Hour) <i
                 class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
                 title="How many times per hour the dashboard data is updated. Frequent updates increase API costs."></i></label>
-            <input type="number" id="dashboardRefreshesPerHour" class="form-control" required />
+            <input type="number" id="dashboardRefreshesPerHour" class="form-control" min="0" required />
           </div>
           <div class="col-md-6">
             <label for="apiCallsPerDashboardRefresh" class="form-label">API Calls per Refresh <i
@@ -372,6 +381,15 @@
           </div>
         </div>
 
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" id="allowGcpSelfHostedL5" checked>
+          <label class="form-check-label fw-bold" for="allowGcpSelfHostedL5">
+            Include GCP (Self-Hosted Grafana on Compute Engine)
+            <i class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+              title="GCP lacks a managed Grafana service like AWS Managed Grafana or Azure Managed Grafana. Enabling this includes a self-hosted Grafana instance running on Compute Engine in the cost comparison."></i>
+          </label>
+        </div>
+
       </div>
     </div>
 
@@ -388,7 +406,7 @@
         </div>
 
         <div class="d-grid gap-2 col-md-6 mx-auto mb-5">
-          <button class="btn btn-primary btn-lg shadow" onclick="calculateCheapestCostsFromUI()">
+          <button id="calculateBtn" class="btn btn-primary btn-lg shadow" onclick="calculateCheapestCostsFromUI()">
             <i class="bi bi-calculator me-2"></i>Calculate Cost
           </button>
         </div>

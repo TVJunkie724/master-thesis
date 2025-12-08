@@ -4,12 +4,13 @@ from backend.calculation import azure
 
 def test_azure_iot_hub_formula():
     # Formula: CM = c_m * N_m (Tiered)
+    # Using 730 hours/month (industry standard)
     
     devices = 100
     interval = 1
     msg_size = 1
     
-    expected_messages = 4320000
+    expected_messages = 4380000  # 100 * 60 * 730
     
     pricing = {
         "azure": {
@@ -27,16 +28,11 @@ def test_azure_iot_hub_formula():
     result = azure.calculate_azure_cost_data_acquisition(devices, interval, msg_size, pricing)
     
     # Verification
-    # Messages = 4,320,000
+    # Messages = 4,380,000 (100 * 60 * 730)
     # Fits in Tier 2 (Limit 6,000,000)
-    # Threshold = 6,000,000 units per unit? No, threshold is daily/monthly limit per unit.
-    # azure.py logic:
-    # if total <= tier1.limit: ...
-    # elif total <= tier2.limit: threshold = tier2.threshold, price = tier2.price
-    # cost = ceil(total / threshold) * price
-    
-    # Here: 4.32M <= 6M. Threshold = 6M. Price = 50.
-    # Cost = ceil(4.32M / 6M) * 50 = 1 * 50 = 50.
+    # azure.py logic: cost = ceil(total / threshold) * price
+    # Here: 4.38M <= 6M. Threshold = 6M. Price = 50.
+    # Cost = ceil(4.38M / 6M) * 50 = 1 * 50 = 50.
     
     assert result["totalMessagesPerMonth"] == expected_messages
     assert result["totalMonthlyCost"] == 50.0
@@ -162,8 +158,8 @@ def test_azure_digital_twins_formula():
     devices = 10
     interval = 1
     
-    # Messages: 10 * 60 * 720 = 432,000
-    expected_messages = 432000
+    # Messages: 10 * 60 * 730 = 438,000
+    expected_messages = 438000
     
     dashboard_refreshes = 1
     active_hours = 1
@@ -198,7 +194,7 @@ def test_azure_digital_twins_formula():
     )
     
     # Cost Calc:
-    # Messages: (432,000 / 1000) * 0.10 = 432 * 0.10 = 43.2
+    # Messages: (438,000 / 1000) * 0.10 = 438 * 0.10 = 43.8
     
     # Operation (Query overhead based on message size?): 
     # Code: math.ceil(message_size) * (queries / 1000) * operation
@@ -212,6 +208,6 @@ def test_azure_digital_twins_formula():
     # Storage:
     # 9.765625 * 0.02 = 0.1953125
     
-    expected_cost = 43.2 + 0.003 + 7.5 + 0.1953125
+    expected_cost = 43.8 + 0.003 + 7.5 + 0.1953125
     
     assert result["totalMonthlyCost"] == pytest.approx(expected_cost, rel=1e-5)

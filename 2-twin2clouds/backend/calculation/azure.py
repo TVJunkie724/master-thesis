@@ -1,7 +1,24 @@
+"""
+Azure Cost Calculation Module
+============================
+Calculates costs for Azure services (IoT Hub, Functions, Cosmos DB, Blob Storage, Digital Twins, Grafana).
+
+HARDCODED ASSUMPTIONS (consistent across all providers):
+  - Functions execution duration: 100ms
+  - Functions memory allocation: 128 MB
+  - Hours per month: 730 (industry standard)
+
+These assumptions match typical serverless function configurations and ensure
+fair cost comparison across AWS/Azure/GCP providers.
+
+Formula documentation: docs/docs-formulas.html
+"""
 
 import math
 
 # LAYER 1 - Data Acquisition
+# Service: Azure IoT Hub
+# Formula: CM (Message-Based) with unit-based tiering (B1/S1, B2/S2, B3/S3)
 
 def calculate_azure_cost_data_acquisition(
     number_of_devices,
@@ -9,14 +26,15 @@ def calculate_azure_cost_data_acquisition(
     average_size_of_message_in_kb,
     pricing
 ):
-    # Formula: Total Messages = Devices * (60 / Interval) * 24 * 30
-    # Message Size Adjustment: Messages are billed in 4KB increments (Azure IoT Hub)
-    # Tier Selection: Selects cheapest tier (Basic/Standard B1/S1, B2/S2, B3/S3) that fits message volume
+    # Formula: Total Messages = Devices * (60 / Interval) * 730 hours
+    # Using 730 hours/month (industry standard) for consistency with L2 calculations.
+    # Message Size Adjustment: Messages are billed in 4KB increments (Azure IoT Hub).
+    # Tier Selection: Selects cheapest tier (Basic/Standard B1/S1, B2/S2, B3/S3) that fits message volume.
     layer_pricing = pricing["azure"]["iotHub"]
     pricing_tiers = layer_pricing["pricing_tiers"]
 
     total_messages_per_month = math.ceil(
-        number_of_devices * (1.0 / device_sending_interval_in_minutes) * 60 * 24 * 30
+        number_of_devices * (1.0 / device_sending_interval_in_minutes) * 60 * 730
     )
     
     data_size_in_gb = (total_messages_per_month * average_size_of_message_in_kb) / (1024 * 1024)
@@ -67,8 +85,10 @@ def calculate_azure_cost_data_processing(
 ):
     # Reusing AWS logic as per JS implementation (costs and free tier are identical for this model)
     
-    execution_duration_in_ms = 100
-    allocated_memory_in_gb = 128.0 / 1024.0
+    # Hardcoded assumptions - same across all providers for fair comparison.
+    # These values represent typical serverless function configurations.
+    execution_duration_in_ms = 100  # Conservative estimate for simple data processing
+    allocated_memory_in_gb = 128.0 / 1024.0  # 128 MB in GB
     
     # Formula: Executions = Devices * (60 / Interval) * 730 hours
     # Duration Cost: (Total Compute Seconds * Memory in GB - Free Tier) * Duration Price
@@ -226,11 +246,19 @@ def calculate_cosmos_db_cost(
     pricing
 ):
     # Formula: Storage Cost = (Data Size * Duration) * Storage Price
-    # RU/s Calculation: 
+    # RU/s Calculation:
     #   - Writes/sec = Total Messages / Seconds in Month
-    #   - Reads/sec = Writes/sec (Assumption)
+    #   - Reads/sec = Writes/sec (1:1 ratio assumption)
     #   - Total RUs = (Writes * Write Cost * Size Multiplier) + (Reads * Read Cost)
     #   - Monthly Cost = Max(Total RUs, Min RUs) * Hourly Price * 730 + Storage Cost
+    #
+    # Read Ratio Assumption: 1:1 (reads equal writes)
+    # Rationale: Cosmos DB uses Request Units where reads/writes have different RU costs.
+    # For Digital Twin workloads, we assume dashboard queries match ingestion rate.
+    #
+    # Storage Buffer (+0.5 months): Accounts for mid-month data accumulation.
+    # As data grows throughout the month, the average storage used is approximately
+    # half the final amount, hence we add 0.5 months to prorate the storage cost.
     storage_needed_for_duration = data_size_in_gb * (storage_duration_in_months + 0.5)
     
     request_units_needed = pricing["azure"]["cosmosDB"]["minimumRequestUnits"]
@@ -343,8 +371,9 @@ def calculate_azure_digital_twins_cost(
     query_price = pricing["azure"]["azureDigitalTwins"]["queryPrice"]
     blob_storage_price = pricing["azure"]["blobStorageCool"]["storagePrice"]
 
+    # Use 730 hours/month for consistency across all layers (industry standard)
     total_messages_per_month = math.ceil(
-        number_of_devices * (1.0 / device_sending_interval_in_minutes) * 60 * 24 * 30
+        number_of_devices * (1.0 / device_sending_interval_in_minutes) * 60 * 730
     )
 
     query_unit_tiers = pricing["azure"]["azureDigitalTwins"]["queryUnitTiers"]
@@ -375,11 +404,27 @@ def calculate_azure_digital_twins_cost(
     }
 
 # LAYER 5 - Data Visualization
+# Service: Azure Managed Grafana
+#
+# PRICING MODEL COMPARISON (why different formulas are comparable):
+# - AWS Managed Grafana: Per-seat licensing (editors + viewers). No instance cost.
+# - Azure Managed Grafana: Per-seat + instance hours. Includes infrastructure.
+# - GCP (Self-Hosted): VM cost (e2-medium) + disk. No per-seat fees.
+#
+# All three represent the actual cost of running Grafana dashboards on each provider.
+# The pricing models differ, but outputs are directly comparable monthly costs.
 
 def calculate_azure_managed_grafana_cost(
     amount_of_monthly_users,
     pricing
 ):
+    """
+    Calculate Azure Managed Grafana visualization cost.
+    
+    Azure uses a hybrid model: per-seat pricing PLUS instance hourly costs.
+    This reflects Azure's managed service where you pay for both user access
+    and the underlying infrastructure.
+    """
     # Formula: Total Cost = (Users * User Price) + (Hourly Price * 730)
     user_price = pricing["azure"]["azureManagedGrafana"]["userPrice"]
     hourly_price = pricing["azure"]["azureManagedGrafana"]["hourlyPrice"]

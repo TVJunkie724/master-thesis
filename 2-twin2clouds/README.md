@@ -58,32 +58,50 @@ uvicorn rest_api:app --reload --host 0.0.0.0 --port 5003
   - Cool: S3 Infrequent Access vs Blob Storage Cool vs Cloud Storage Nearline
   - Archive: S3 Glacier vs Blob Storage Archive vs Cloud Storage Archive
 - **L3 Data Processing:** AWS Lambda vs Azure Functions vs Cloud Functions
-- **L4 Twin Management:** AWS IoT TwinMaker vs Azure Digital Twins (GCP uses self-hosted solution)
-- **L5 Visualization:** Amazon Managed Grafana vs Azure Managed Grafana vs self-hosted Grafana on GCP (Note: GCP self-hosted costs are currently placeholders)
+- **L4 Twin Management:** AWS IoT TwinMaker vs Azure Digital Twins vs GCP self-hosted (Compute Engine)
+- **L5 Visualization:** Amazon Managed Grafana vs Azure Managed Grafana vs GCP self-hosted Grafana (Compute Engine)
+
+> **Note:** GCP lacks native managed services for L4 (Twin Management) and L5 (Visualization). The calculator includes self-hosted Compute Engine alternatives by default. Use the **"Include GCP Self-Hosted"** toggle in each layer to include or exclude these options from the optimization.
 
 Transfers between layers and clouds are modeled with tiered egress where applicable. The app computes the cheapest storage path across Hot → Cool → Archive including transfer fees.
 
 ### Architecture
 
 **Backend (Python):**
-- `rest_api.py` - FastAPI REST API serving the web UI and calculation endpoints
-- `py/calculation/engine.py` - Main calculation orchestration
-- `py/calculation/aws.py`, `azure.py`, `gcp.py` - Provider-specific cost calculations
-- `py/calculation/decision.py` - Decision graph for optimal provider selection
-- `py/calculate_up_to_date_pricing.py` - Dynamic pricing fetcher for cloud services
-- `py/cloud_price_fetcher_*.py` - Provider-specific pricing API clients
+- `rest_api.py` - FastAPI REST API with router-based architecture
+- `api/` - API endpoint routers (calculation, pricing, regions, file_status, credentials)
+- `backend/calculation/engine.py` - Main calculation orchestration
+- `backend/calculation/aws.py`, `azure.py`, `gcp.py` - Provider-specific cost calculations
+- `backend/calculation/decision.py` - Decision graph for optimal provider selection
+- `backend/credentials_checker.py` - Cloud credential validation logic
+- `backend/fetch_data/` - Dynamic pricing fetchers for cloud services
 
 **Frontend:**
 - `index.html` - Web UI
 - `js/api-client.js` - API communication and result display
-- `js/calculation/ui.js` - UI helpers (sliders, presets, form handling)
-- `css/styles.css` - Styling
+- `js/ui-components.js` - UI helpers (sliders, presets, form handling)
+- `css/styles.css` - Main application styles
 
 **Configuration:**
-- `json/fetched_data/pricing_dynamic.json` - Auto-generated dynamic pricing data
+- `json/fetched_data/pricing_dynamic_*.json` - Auto-generated dynamic pricing data
 - `json/service_mapping.json` - Service name mapping across providers
-- `json/service_calc_params.json` - Calculation parameters per service
 - `config/config_credentials.json` - Cloud provider API credentials
+
+
+### Credential Validation
+
+Before fetching pricing data, verify your credentials are correctly configured:
+
+```bash
+# Check AWS credentials
+curl http://localhost:5003/api/credentials/check/aws
+
+# Check GCP credentials
+curl http://localhost:5003/api/credentials/check/gcp
+
+# Check Azure configuration
+curl http://localhost:5003/api/credentials/check/azure
+```
 
 
 ### Pricing and Data Sources
@@ -96,35 +114,37 @@ Transfers between layers and clouds are modeled with tiered egress where applica
 **Static Defaults:**
 - Used where dynamic APIs are unavailable or for specific fields
 - Logged during pricing updates with warnings for transparency
-- See `py/cloud_price_fetcher_*.py` for STATIC_DEFAULTS definitions
+- See `backend/fetch_data/cloud_price_fetcher_*.py` for STATIC_DEFAULTS definitions
 
 **Update Pricing:**
 ```bash
 # Via API endpoint
-curl "http://localhost:5003/api/fetch_up_to_date_pricing"
-
-# Or via Python script
-docker exec <container> python py/calculate_up_to_date_pricing.py
+curl -X POST "http://localhost:5003/api/fetch_pricing/aws"
+curl -X POST "http://localhost:5003/api/fetch_pricing/azure"
+curl -X POST "http://localhost:5003/api/fetch_pricing/gcp"
 ```
 
 ### API Endpoints
 
-- `GET /ui` - Web interface
-- `PUT /api/calculate` - Calculate costs for given parameters
-- `GET /api/fetch_up_to_date_pricing` - Fetch latest cloud pricing
-- `GET /docs` - Interactive API documentation (Swagger UI)
-- `GET /redoc` - Alternative API documentation (ReDoc)
+| Category | Method | Endpoint | Description |
+|----------|--------|----------|-------------|
+| UI | GET | `/ui` | Web interface |
+| Calculation | PUT | `/api/calculate` | Calculate costs for given parameters |
+| Pricing | POST | `/api/fetch_pricing/{provider}` | Fetch latest cloud pricing |
+| Credentials | GET | `/api/credentials/check/{provider}` | Validate credentials from config |
+| Credentials | POST | `/api/credentials/check/{provider}` | Validate credentials from body |
+| Docs | GET | `/docs` | Interactive API documentation (Swagger UI) |
 
 ### Repository layout
 
-- `rest_api.py` - FastAPI application
-- `index.html` - Web UI
-- `py/` - Python calculation engine and pricing fetchers
-- `js/` - Frontend JavaScript (API client, UI helpers)
-- `css/` - Stylesheets
+- `rest_api.py` - FastAPI application entry point
+- `api/` - API routers (modular endpoints)
+- `backend/` - Calculation engine, pricing fetchers, utilities
+- `webui/` - Web UI (index.html, js/, css/)
 - `json/` - Pricing data and configuration
 - `config/` - Credentials and configuration files
-- `docs/` - Documentation HTML pages
+- `docs/` - Documentation HTML pages (with css/, js/, references/ subdirectories)
+- `tests/` - Unit and integration tests
 
 ### Reproducibility
 

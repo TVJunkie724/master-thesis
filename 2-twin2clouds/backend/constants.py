@@ -9,7 +9,8 @@ BASE_CONFIG_DIR = Path("/config")
 
 CONFIG_FILE_PATH = BASE_CONFIG_DIR / "config.json"
 CREDENTIALS_FILE_PATH = BASE_CONFIG_DIR / "config_credentials.json"
-GCP_CREDENTIALS_BASE_FILE_PATH = BASE_CONFIG_DIR 
+GCP_CREDENTIALS_BASE_FILE_PATH = BASE_CONFIG_DIR
+GCP_CREDENTIALS_FILE_PATH = BASE_CONFIG_DIR / "gcp_credentials.json"
 
 #--------------------------------------------------------------------
 # File paths for storing fetched data

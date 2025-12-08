@@ -70,6 +70,8 @@ def test_gcp_functions_formula():
 
 def test_gcp_firestore_formula():
     # Formula: CS + CA
+    # Read ratio: 1 read per 2 writes (0.5x) - aligned with AWS DynamoDB
+    # Storage buffer: +0.5 months for mid-month accumulation
     
     data_size = 10
     messages = 1000
@@ -91,19 +93,17 @@ def test_gcp_firestore_formula():
     result = gcp.calculate_firestore_cost(data_size, messages, msg_size, duration, pricing)
     
     # Verification
-    # Storage: 10 * 0.18 * 1 = 1.8
-    
+    # Storage: 10 * 0.18 * (1 + 0.5) = 10 * 0.18 * 1.5 = 2.7 (includes buffer)
     # Writes: 1000 * 1.0 = 1000
+    # Reads: 1000 / 2 = 500 (0.5x ratio - aligned with AWS)
+    # Cost Reads: 500 * 0.5 = 250
     
-    # Reads: 1000 * 10 = 10000 (Assumption in code: 10 reads per write)
-    # Cost Reads: 10000 * 0.5 = 5000
-    
-    expected_cost = 1.8 + 1000 + 5000
+    expected_cost = 2.7 + 1000 + 250
     
     assert result["totalMonthlyCost"] == expected_cost
 
 def test_gcp_storage_formula():
-    # Formula: CS
+    # Formula: CS + CA (includes operation costs for equivalency with AWS/Azure)
     
     data_size = 100
     duration = 1
@@ -111,7 +111,10 @@ def test_gcp_storage_formula():
     pricing = {
         "gcp": {
             "storage_cool": {
-                "storagePrice": 0.02
+                "storagePrice": 0.02,
+                "writePrice": 0.05,  # Per operation
+                "readPrice": 0.004,
+                "dataRetrievalPrice": 0.01
             }
         }
     }
@@ -121,8 +124,16 @@ def test_gcp_storage_formula():
     
     # Verification
     # Storage: 100 * 0.02 * 1 = 2.0
+    # Writes: ceil(100 * 1024 / 100) = 1024
+    # Cost Writes: 1024 * 0.05 = 51.2
+    # Reads: 1024 * 0.1 = 102.4
+    # Cost Reads: 102.4 * 0.004 = 0.4096
+    # Retrieval: (100 * 0.1) + 100 = 110
+    # Cost Retrieval: 110 * 0.01 = 1.1
     
-    assert result["totalMonthlyCost"] == 2.0
+    expected_cost = 2.0 + 51.2 + 0.4096 + 1.1
+    
+    assert result["totalMonthlyCost"] == pytest.approx(expected_cost, rel=1e-5)
 
 def test_gcp_twin_maker_formula():
     # Formula: Instance + Storage + Model Storage
