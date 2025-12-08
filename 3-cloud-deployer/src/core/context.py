@@ -126,6 +126,39 @@ class ProjectConfig:
             True
         """
         return self.optimization.get(flag_name, False)
+    
+    def should_deploy_api_gateway(self, current_provider: str) -> bool:
+        """
+        Determine if API Gateway should be deployed for the current provider.
+        
+        API Gateway is needed when L3 Hot Storage is accessed by L4 or L5
+        running on a different cloud. This creates a cross-cloud data path.
+        
+        Logic:
+            1. Current provider MUST be the L3 Hot provider
+            2. AND (L3 Hot != L4 OR L3 Hot != L5)
+        
+        Args:
+            current_provider: The provider name checking deployment ("aws", etc.)
+        
+        Returns:
+            True if API Gateway should be deployed, False otherwise
+        
+        Example:
+            >>> config.providers = {"layer_3_hot_provider": "aws", "layer_4_provider": "azure"}
+            >>> config.should_deploy_api_gateway("aws")
+            True  # AWS L3 Hot accessed by Azure L4
+        """
+        l3_hot = self.providers.get("layer_3_hot_provider", "aws")
+        l4 = self.providers.get("layer_4_provider", "aws")
+        l5 = self.providers.get("layer_5_provider", "aws")
+        
+        # Only deploy if current provider hosts L3 Hot
+        if current_provider != l3_hot:
+            return False
+        
+        # Deploy if L4 or L5 is on a different cloud
+        return (l3_hot != l4) or (l3_hot != l5)
 
 
 @dataclass

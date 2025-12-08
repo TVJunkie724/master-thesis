@@ -1,3 +1,27 @@
+"""
+DEPRECATED: This module is deprecated and will be removed in a future version.
+
+Use the new pattern-based approach instead:
+- For AWS clients: src/providers/aws/clients.py
+- For resource naming: src/providers/aws/naming.py
+- For provider: src/providers/aws/provider.py
+
+Migration Guide:
+    OLD: globals_aws.aws_iam_client
+    NEW: provider.clients["iam"]
+    
+    OLD: globals_aws.dispatcher_iam_role_name()
+    NEW: provider.naming.dispatcher_iam_role()
+
+This file remains for backward compatibility during the migration period.
+"""
+import warnings
+warnings.warn(
+    "globals_aws module is deprecated. Use src/providers/aws/ instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 import boto3
 import globals 
 import util 

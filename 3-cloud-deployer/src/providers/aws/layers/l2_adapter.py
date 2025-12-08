@@ -3,6 +3,10 @@ Layer 2 (Compute) Adapter for AWS.
 
 This module provides context-based wrappers around the existing Layer 2
 deployment functions in src/aws/deployer_layers/layer_2_compute.py.
+
+Note:
+    The underlying layer code still uses globals internally.
+    This adapter provides the context-based interface.
 """
 
 from typing import TYPE_CHECKING
@@ -37,7 +41,6 @@ def deploy_l2(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
         create_event_feedback_iam_role,
         create_event_feedback_lambda_function,
     )
-    import globals
     
     logger.info(f"[L2] Deploying Layer 2 (Compute) for {context.config.digital_twin_name}")
     context.set_active_layer(2)
@@ -46,12 +49,12 @@ def deploy_l2(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     create_persister_iam_role()
     create_persister_lambda_function()
     
-    # Optional event processing (based on optimization flags)
-    if globals.use_event_checking():
+    # Optional event processing (check via context)
+    if context.config.is_optimization_enabled("useEventChecking"):
         create_event_checker_iam_role()
         create_event_checker_lambda_function()
         
-        if globals.use_notification_workflow():
+        if context.config.is_optimization_enabled("triggerNotificationWorkflow"):
             create_lambda_chain_iam_role()
             create_lambda_chain_step_function()
             create_event_feedback_iam_role()
@@ -95,3 +98,4 @@ def destroy_l2(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     destroy_persister_iam_role()
     
     logger.info(f"[L2] Layer 2 destruction complete")
+

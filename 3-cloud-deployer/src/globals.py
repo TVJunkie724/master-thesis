@@ -1,3 +1,24 @@
+"""
+DEPRECATED: This module is deprecated and will be removed in a future version.
+
+Use the new pattern-based approach instead:
+- For configuration: src/core/config_loader.py, src/core/context.py
+- For providers: src/providers/ package
+- For deployment: src/providers/aws/deployer_strategy.py
+
+Migration Guide:
+    OLD: import globals; twin_name = globals.config["digital_twin_name"]
+    NEW: context.config.digital_twin_name
+
+This file remains for backward compatibility during the migration period.
+"""
+import warnings
+warnings.warn(
+    "globals module is deprecated. Use src/core/context.py instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 import json
 import os
 import boto3

@@ -8,6 +8,10 @@ Layer 3 is split into three tiers for multi-cloud flexibility:
 - Hot: DynamoDB (recent data, low latency)
 - Cold: S3 Standard-IA (older data, occasional access)
 - Archive: S3 Glacier (long-term storage)
+
+Note:
+    The underlying layer code still uses globals internally.
+    This adapter provides the context-based interface.
 """
 
 from typing import TYPE_CHECKING
@@ -39,7 +43,6 @@ def deploy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> None
         create_hot_reader_last_entry_iam_role,
         create_hot_reader_last_entry_lambda_function,
     )
-    import globals
     
     logger.info(f"[L3-Hot] Deploying Layer 3 Hot Storage for {context.config.digital_twin_name}")
     context.set_active_layer("3_hot")
@@ -50,8 +53,8 @@ def deploy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> None
     create_hot_reader_last_entry_iam_role()
     create_hot_reader_last_entry_lambda_function()
     
-    # API Gateway is handled separately if needed for multi-cloud
-    if globals.api_gateway_needs_to_be_deployed():
+    # API Gateway for cross-cloud access (check via context)
+    if context.config.should_deploy_api_gateway("aws"):
         from src.aws.deployer_layers.layer_3_storage import create_l3_api_gateway
         create_l3_api_gateway()
     
@@ -90,10 +93,6 @@ def deploy_l3_cold(context: 'DeploymentContext', provider: 'AWSProvider') -> Non
         1. S3 Bucket (Standard-IA tier)
         2. Hot-to-Cold Mover IAM Role and Lambda
         3. EventBridge Rule for scheduled migration
-    
-    Args:
-        context: Deployment context with config and credentials
-        provider: Initialized AWSProvider instance
     """
     from src.aws.deployer_layers.layer_3_storage import (
         create_cold_s3_bucket,
@@ -141,10 +140,6 @@ def deploy_l3_archive(context: 'DeploymentContext', provider: 'AWSProvider') -> 
         1. S3 Bucket (Glacier Deep Archive tier)
         2. Cold-to-Archive Mover IAM Role and Lambda
         3. EventBridge Rule for scheduled migration
-    
-    Args:
-        context: Deployment context with config and credentials
-        provider: Initialized AWSProvider instance
     """
     from src.aws.deployer_layers.layer_3_storage import (
         create_archive_s3_bucket,
@@ -182,3 +177,4 @@ def destroy_l3_archive(context: 'DeploymentContext', provider: 'AWSProvider') ->
     destroy_archive_s3_bucket()
     
     logger.info(f"[L3-Archive] Layer 3 Archive Storage destruction complete")
+
