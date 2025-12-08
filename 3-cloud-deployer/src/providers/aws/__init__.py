@@ -32,7 +32,7 @@ Usage:
     provider.initialize_clients(credentials, "my-twin")
 """
 
-from core.registry import ProviderRegistry
+from src.core.registry import ProviderRegistry
 from .provider import AWSProvider
 
 # Auto-register this provider when the module is imported

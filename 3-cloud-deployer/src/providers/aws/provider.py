@@ -7,7 +7,7 @@ It manages boto3 clients and provides resource naming conventions.
 Design Pattern: Abstract Factory (Provider Pattern)
     AWSProvider creates and manages a family of related AWS objects:
     - SDK clients (boto3 clients for various services)
-    - Resource naming functions
+    - Resource naming (via AWSNaming class)
     - Deployer strategy (AWSDeployerStrategy)
 
 Integration with Existing Code:
@@ -18,10 +18,10 @@ Integration with Existing Code:
 
 from typing import Dict, Any, TYPE_CHECKING
 
-from providers.base import BaseProvider, generate_resource_name
+from src.providers.base import BaseProvider
 
 if TYPE_CHECKING:
-    from core.protocols import DeployerStrategy
+    from src.core.protocols import DeployerStrategy
 
 
 class AWSProvider(BaseProvider):
@@ -34,6 +34,7 @@ class AWSProvider(BaseProvider):
     Attributes:
         name: Always "aws" for this provider
         clients: Dictionary of initialized boto3 clients
+        naming: AWSNaming instance for resource name generation
     
     Example Usage:
         provider = AWSProvider()
@@ -47,7 +48,7 @@ class AWSProvider(BaseProvider):
         lambda_client = provider.clients["lambda"]
         
         # Generate resource names
-        role_name = provider.get_resource_name("dispatcher-role")
+        role_name = provider.naming.dispatcher_iam_role()
         
         # Get deployment strategy
         strategy = provider.get_deployer_strategy()
@@ -60,11 +61,29 @@ class AWSProvider(BaseProvider):
         """Initialize AWS provider with empty state."""
         super().__init__()
         self._region: str = ""
+        self._naming = None
     
     @property
     def region(self) -> str:
         """Get the AWS region for this provider instance."""
         return self._region
+    
+    @property
+    def naming(self):
+        """
+        Get the AWSNaming instance for this provider.
+        
+        Returns:
+            AWSNaming instance configured with this provider's twin name
+        
+        Raises:
+            RuntimeError: If provider not initialized
+        """
+        if not self._naming:
+            raise RuntimeError(
+                "Provider not initialized. Call initialize_clients() first."
+            )
+        return self._naming
     
     def initialize_clients(self, credentials: dict, twin_name: str) -> None:
         """
@@ -82,45 +101,33 @@ class AWSProvider(BaseProvider):
         
         Raises:
             ConfigurationError: If required credentials are missing
-            
-        Note:
-            This imports boto3 lazily to avoid import errors when
-            AWS SDK is not installed (e.g., when only using Azure).
         """
-        import boto3
+        # Lazy import to avoid issues when AWS SDK not installed
+        from .clients import create_aws_clients
+        from .naming import AWSNaming
         
         # Store configuration
         self._twin_name = twin_name
         self._region = credentials.get("aws_region", "eu-central-1")
         
-        # Common client configuration
-        client_config = {
-            "aws_access_key_id": credentials.get("aws_access_key_id"),
-            "aws_secret_access_key": credentials.get("aws_secret_access_key"),
-            "region_name": self._region,
-        }
+        # Initialize naming helper
+        self._naming = AWSNaming(twin_name)
         
-        # Initialize all required AWS clients
-        # These match the clients created in src/aws/globals_aws.py
-        self._clients = {
-            "iam": boto3.client("iam", **client_config),
-            "lambda": boto3.client("lambda", **client_config),
-            "iot": boto3.client("iot", **client_config),
-            "dynamodb": boto3.client("dynamodb", **client_config),
-            "s3": boto3.client("s3", **client_config),
-            "events": boto3.client("events", **client_config),
-            "sfn": boto3.client("stepfunctions", **client_config),
-            "twinmaker": boto3.client("iottwinmaker", **client_config),
-            "grafana": boto3.client("grafana", **client_config),
-            "apigateway": boto3.client("apigatewayv2", **client_config),
-            "sts": boto3.client("sts", **client_config),
-        }
+        # Create all clients using centralized function
+        self._clients = create_aws_clients(
+            access_key_id=credentials.get("aws_access_key_id", ""),
+            secret_access_key=credentials.get("aws_secret_access_key", ""),
+            region=self._region
+        )
         
         self._initialized = True
     
     def get_resource_name(self, resource_type: str, suffix: str = "") -> str:
         """
         Generate an AWS resource name with twin prefix.
+        
+        Note: For specific resource names, prefer using self.naming which
+        provides type-safe methods like naming.dispatcher_iam_role().
         
         AWS has specific naming constraints for different resource types:
         - IAM: alphanumeric plus +=,.@-_ (max 64 chars)
@@ -129,7 +136,7 @@ class AWSProvider(BaseProvider):
         - S3: lowercase alphanumeric plus .- (max 63 chars)
         
         This method generates names that are valid for most services.
-        For S3, use get_s3_bucket_name() which lowercases the name.
+        For S3, use naming.cold_s3_bucket() etc. which lowercase the name.
         
         Args:
             resource_type: Type of resource (e.g., "dispatcher", "hot-table")
@@ -138,7 +145,9 @@ class AWSProvider(BaseProvider):
         Returns:
             Formatted name like "{twin_name}-{resource_type}[-{suffix}]"
         """
-        return generate_resource_name(self.twin_name, resource_type, suffix)
+        if suffix:
+            return f"{self.twin_name}-{resource_type}-{suffix}"
+        return f"{self.twin_name}-{resource_type}"
     
     def get_s3_bucket_name(self, suffix: str = "") -> str:
         """
@@ -176,3 +185,4 @@ class AWSProvider(BaseProvider):
         """
         from .deployer_strategy import AWSDeployerStrategy
         return AWSDeployerStrategy(self)
+

@@ -83,24 +83,19 @@ class AWSDeployerStrategy:
         
         Args:
             context: Deployment context with config and credentials
-        
-        TODO (Phase 2):
-            Integrate with src/aws/deployer_layers/layer_1_iot.py:
-            - create_dispatcher_iam_role()
-            - create_dispatcher_lambda_function()
-            - create_dispatcher_iot_rule()
         """
-        # Phase 2: Integrate existing code
-        # from aws.deployer_layers.layer_1_iot import (
-        #     create_dispatcher_iam_role,
-        #     create_dispatcher_lambda_function,
-        #     create_dispatcher_iot_rule,
-        # )
-        raise NotImplementedError("Phase 2: Integrate AWS L1 deployment")
+        from .layers.l1_adapter import deploy_l1 as _deploy_l1
+        _deploy_l1(context, self._provider)
     
     def destroy_l1(self, context: 'DeploymentContext') -> None:
-        """Destroy Layer 1 resources in reverse order."""
-        raise NotImplementedError("Phase 2: Integrate AWS L1 destruction")
+        """
+        Destroy Layer 1 resources in reverse order.
+        
+        Args:
+            context: Deployment context with config and credentials
+        """
+        from .layers.l1_adapter import destroy_l1 as _destroy_l1
+        _destroy_l1(context, self._provider)
     
     # ==========================================
     # Layer 2: Data Processing
@@ -115,15 +110,14 @@ class AWSDeployerStrategy:
             2. Event Checker Lambda (optional, anomaly detection)
             3. Step Function State Machine (optional, event workflow)
             4. Event Feedback Lambda (optional, device commands)
-        
-        TODO (Phase 2):
-            Integrate with src/aws/deployer_layers/layer_2_compute.py
         """
-        raise NotImplementedError("Phase 2: Integrate AWS L2 deployment")
+        from .layers.l2_adapter import deploy_l2 as _deploy_l2
+        _deploy_l2(context, self._provider)
     
     def destroy_l2(self, context: 'DeploymentContext') -> None:
         """Destroy Layer 2 resources in reverse order."""
-        raise NotImplementedError("Phase 2: Integrate AWS L2 destruction")
+        from .layers.l2_adapter import destroy_l2 as _destroy_l2
+        _destroy_l2(context, self._provider)
     
     # ==========================================
     # Layer 3: Storage (Split by tier)
@@ -138,15 +132,14 @@ class AWSDeployerStrategy:
             2. Hot Reader Lambda (queries for TwinMaker)
             3. Hot Reader IAM Role
             4. API Gateway (optional, for cross-cloud access)
-        
-        TODO (Phase 2):
-            Integrate with src/aws/deployer_layers/layer_3_storage.py
         """
-        raise NotImplementedError("Phase 2: Integrate AWS L3 hot deployment")
+        from .layers.l3_adapter import deploy_l3_hot as _deploy_l3_hot
+        _deploy_l3_hot(context, self._provider)
     
     def destroy_l3_hot(self, context: 'DeploymentContext') -> None:
         """Destroy Layer 3 Hot Storage resources."""
-        raise NotImplementedError("Phase 2: Integrate AWS L3 hot destruction")
+        from .layers.l3_adapter import destroy_l3_hot as _destroy_l3_hot
+        _destroy_l3_hot(context, self._provider)
     
     def deploy_l3_cold(self, context: 'DeploymentContext') -> None:
         """
@@ -156,15 +149,14 @@ class AWSDeployerStrategy:
             1. S3 Bucket (Infrequent Access tier)
             2. Hot-to-Cold Mover Lambda + IAM Role
             3. EventBridge Rule (scheduled trigger)
-        
-        TODO (Phase 2):
-            Integrate with src/aws/deployer_layers/layer_3_storage.py
         """
-        raise NotImplementedError("Phase 2: Integrate AWS L3 cold deployment")
+        from .layers.l3_adapter import deploy_l3_cold as _deploy_l3_cold
+        _deploy_l3_cold(context, self._provider)
     
     def destroy_l3_cold(self, context: 'DeploymentContext') -> None:
         """Destroy Layer 3 Cold Storage resources."""
-        raise NotImplementedError("Phase 2: Integrate AWS L3 cold destruction")
+        from .layers.l3_adapter import destroy_l3_cold as _destroy_l3_cold
+        _destroy_l3_cold(context, self._provider)
     
     def deploy_l3_archive(self, context: 'DeploymentContext') -> None:
         """
@@ -174,15 +166,14 @@ class AWSDeployerStrategy:
             1. S3 Bucket (Glacier tier)
             2. Cold-to-Archive Mover Lambda + IAM Role
             3. EventBridge Rule (scheduled trigger)
-        
-        TODO (Phase 2):
-            Integrate with src/aws/deployer_layers/layer_3_storage.py
         """
-        raise NotImplementedError("Phase 2: Integrate AWS L3 archive deployment")
+        from .layers.l3_adapter import deploy_l3_archive as _deploy_l3_archive
+        _deploy_l3_archive(context, self._provider)
     
     def destroy_l3_archive(self, context: 'DeploymentContext') -> None:
         """Destroy Layer 3 Archive Storage resources."""
-        raise NotImplementedError("Phase 2: Integrate AWS L3 archive destruction")
+        from .layers.l3_adapter import destroy_l3_archive as _destroy_l3_archive
+        _destroy_l3_archive(context, self._provider)
     
     # ==========================================
     # Layer 4: Twin Management
@@ -197,15 +188,14 @@ class AWSDeployerStrategy:
             2. Component Types (one per device type)
             3. Entity Hierarchy
             4. S3 Bucket for 3D assets
-        
-        TODO (Phase 2):
-            Integrate with src/aws/deployer_layers/layer_4_twinmaker.py
         """
-        raise NotImplementedError("Phase 2: Integrate AWS L4 deployment")
+        from .layers.l4_adapter import deploy_l4 as _deploy_l4
+        _deploy_l4(context, self._provider)
     
     def destroy_l4(self, context: 'DeploymentContext') -> None:
         """Destroy Layer 4 resources in reverse order."""
-        raise NotImplementedError("Phase 2: Integrate AWS L4 destruction")
+        from .layers.l4_adapter import destroy_l4 as _destroy_l4
+        _destroy_l4(context, self._provider)
     
     # ==========================================
     # Layer 5: Visualization
@@ -218,15 +208,14 @@ class AWSDeployerStrategy:
         Creates:
             1. Grafana Workspace (Amazon Managed Grafana)
             2. IAM Role for Grafana data source access
-        
-        TODO (Phase 2):
-            Integrate with src/aws/deployer_layers/layer_5_grafana.py
         """
-        raise NotImplementedError("Phase 2: Integrate AWS L5 deployment")
+        from .layers.l5_adapter import deploy_l5 as _deploy_l5
+        _deploy_l5(context, self._provider)
     
     def destroy_l5(self, context: 'DeploymentContext') -> None:
         """Destroy Layer 5 resources in reverse order."""
-        raise NotImplementedError("Phase 2: Integrate AWS L5 destruction")
+        from .layers.l5_adapter import destroy_l5 as _destroy_l5
+        _destroy_l5(context, self._provider)
     
     # ==========================================
     # Convenience Methods
