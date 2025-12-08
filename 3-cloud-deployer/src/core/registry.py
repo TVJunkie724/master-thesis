@@ -87,7 +87,8 @@ class ProviderRegistry:
         """
         if name in cls._providers:
             existing_class = cls._providers[name]
-            if existing_class is not provider_class:
+            # Check by class name since same class can be imported from different paths
+            if existing_class.__name__ != provider_class.__name__:
                 raise ValueError(
                     f"Provider '{name}' is already registered with {existing_class.__name__}. "
                     f"Cannot re-register with {provider_class.__name__}."

@@ -18,7 +18,7 @@ Integration with Existing Code:
 
 from typing import Dict, Any, TYPE_CHECKING
 
-from src.providers.base import BaseProvider
+from providers.base import BaseProvider
 
 if TYPE_CHECKING:
     from src.core.protocols import DeployerStrategy

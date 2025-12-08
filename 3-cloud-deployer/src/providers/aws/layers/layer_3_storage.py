@@ -16,13 +16,13 @@ import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from logger import logger
-import src.util as util
-import src.aws.util_aws as util_aws
+# util is imported lazily inside functions to avoid circular import
+import aws.util_aws as util_aws
 from botocore.exceptions import ClientError
-import src.constants as CONSTANTS
+import constants as CONSTANTS
 
 if TYPE_CHECKING:
-    from src.providers.aws.provider import AWSProvider
+    from providers.aws.provider import AWSProvider
     from src.core.context import ProjectConfig
 
 
@@ -179,6 +179,7 @@ def create_hot_cold_mover_lambda_function(provider: 'AWSProvider', config: 'Proj
 
     core_lambda_dir = os.path.join(project_path, CONSTANTS.AWS_CORE_LAMBDA_DIR_NAME)
 
+    import util  # Lazy import to avoid circular dependency
     lambda_client.create_function(
         FunctionName=function_name,
         Runtime="python3.13",
@@ -334,6 +335,7 @@ def create_cold_archive_mover_lambda_function(provider: 'AWSProvider', config: '
 
     core_lambda_dir = os.path.join(project_path, CONSTANTS.AWS_CORE_LAMBDA_DIR_NAME)
 
+    import util  # Lazy import to avoid circular dependency
     lambda_client.create_function(
         FunctionName=function_name,
         Runtime="python3.13",
@@ -489,6 +491,7 @@ def create_hot_reader_lambda_function(provider: 'AWSProvider', config: 'ProjectC
 
     core_lambda_dir = os.path.join(project_path, CONSTANTS.AWS_CORE_LAMBDA_DIR_NAME)
 
+    import util  # Lazy import to avoid circular dependency
     lambda_client.create_function(
         FunctionName=function_name,
         Runtime="python3.13",
@@ -561,6 +564,7 @@ def create_hot_reader_last_entry_lambda_function(provider: 'AWSProvider', config
 
     core_lambda_dir = os.path.join(project_path, CONSTANTS.AWS_CORE_LAMBDA_DIR_NAME)
 
+    import util  # Lazy import to avoid circular dependency
     lambda_client.create_function(
         FunctionName=function_name,
         Runtime="python3.13",

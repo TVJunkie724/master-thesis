@@ -15,12 +15,12 @@ import os
 import time
 from typing import TYPE_CHECKING
 from logger import logger
-import src.util as util
+# util is imported lazily inside functions to avoid circular import
 from botocore.exceptions import ClientError
-import src.constants as CONSTANTS
+import constants as CONSTANTS
 
 if TYPE_CHECKING:
-    from src.providers.aws.provider import AWSProvider
+    from providers.aws.provider import AWSProvider
     from src.core.context import ProjectConfig
 
 
@@ -131,6 +131,7 @@ def create_persister_lambda_function(
 
     core_lambda_dir = os.path.join(project_path, CONSTANTS.AWS_CORE_LAMBDA_DIR_NAME)
 
+    import util  # Lazy import to avoid circular dependency
     lambda_client.create_function(
         FunctionName=function_name,
         Runtime="python3.13",
@@ -260,6 +261,7 @@ def create_event_checker_lambda_function(
 
     core_lambda_dir = os.path.join(project_path, CONSTANTS.AWS_CORE_LAMBDA_DIR_NAME)
 
+    import util  # Lazy import to avoid circular dependency
     lambda_client.create_function(
         FunctionName=function_name,
         Runtime="python3.13",
@@ -459,6 +461,7 @@ def create_event_feedback_lambda_function(
 
     lambda_dir = os.path.join(upload_path, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, "event-feedback")
 
+    import util  # Lazy import to avoid circular dependency
     lambda_client.create_function(
         FunctionName=function_name,
         Runtime="python3.13",

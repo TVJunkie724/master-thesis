@@ -1,102 +1,132 @@
+"""
+Integration tests for L2 Compute components using new provider pattern.
+"""
+
 import pytest
 import boto3
-import json
-import aws.core_deployer_aws as core_aws
-import aws.globals_aws as globals_aws
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+from moto import mock_aws
 
-def test_create_persister_iam_role(mock_aws_context):
-    """Verify Persister IAM role is created and policies are attached (mocked)."""
-    # Mock attach_role_policy
-    globals_aws.aws_iam_client.attach_role_policy = MagicMock()
-    
-    core_aws.create_persister_iam_role()
-    
-    client = boto3.client("iam")
-    role_name = globals_aws.persister_iam_role_name()
-    
-    # Check Role
-    role = client.get_role(RoleName=role_name)
-    assert role["Role"]["RoleName"] == role_name
-    
-    # Check Attach Calls
-    assert globals_aws.aws_iam_client.attach_role_policy.called
 
-def test_create_persister_lambda_function(mock_aws_context):
-    """Verify Persister Lambda function is created."""
-    # Pre-requisite: Role must exist
-    globals_aws.aws_iam_client.attach_role_policy = MagicMock()
-    core_aws.create_persister_iam_role()
-    
-    core_aws.create_persister_lambda_function()
-    
-    client = boto3.client("lambda")
-    func_name = globals_aws.persister_lambda_function_name()
-    
-    resp = client.get_function(FunctionName=func_name)
-    assert resp["Configuration"]["FunctionName"] == func_name
-    # Verify environment variables if any specific ones are expected
+class TestPersister:
+    """Tests for Persister components."""
 
-def test_create_event_checker_lambda_function(mock_aws_context):
-    """Verify Event Checker Lambda function is created."""
-    # Pre-requisite: Role must exist
-    globals_aws.aws_iam_client.attach_role_policy = MagicMock()
-    core_aws.create_event_checker_iam_role()
-    
-    # Pre-requisites: Event Feedback and Lambda Chain
-    core_aws.create_event_feedback_iam_role()
-    core_aws.create_event_feedback_lambda_function()
-    
-    core_aws.create_lambda_chain_iam_role()
-    core_aws.create_lambda_chain_step_function()
-    
-    core_aws.create_event_checker_lambda_function()
-    
-    client = boto3.client("lambda")
-    func_name = globals_aws.event_checker_lambda_function_name()
-    
-    resp = client.get_function(FunctionName=func_name)
-    assert resp["Configuration"]["FunctionName"] == func_name
+    def test_create_persister_iam_role(self, mock_provider):
+        """Verify Persister IAM role creation."""
+        from src.providers.aws.layers.layer_2_compute import create_persister_iam_role
+        
+        create_persister_iam_role(mock_provider)
+        
+        role_name = mock_provider.naming.persister_iam_role()
+        response = mock_provider.clients["iam"].get_role(RoleName=role_name)
+        assert response["Role"]["RoleName"] == role_name
 
-def test_destroy_persister_lambda_function(mock_aws_context):
-    """Verify Persister creation and destruction."""
-    globals_aws.aws_iam_client.attach_role_policy = MagicMock()
-    core_aws.create_persister_iam_role()
-    core_aws.create_persister_lambda_function()
-    
-    core_aws.destroy_persister_lambda_function()
-    
-    client = boto3.client("lambda")
-    with pytest.raises(client.exceptions.ResourceNotFoundException):
-        client.get_function(FunctionName=globals_aws.persister_lambda_function_name())
+    def test_destroy_persister_iam_role(self, mock_provider):
+        """Verify Persister IAM role destruction."""
+        from src.providers.aws.layers.layer_2_compute import (
+            create_persister_iam_role, destroy_persister_iam_role
+        )
+        
+        create_persister_iam_role(mock_provider)
+        destroy_persister_iam_role(mock_provider)
+        
+        role_name = mock_provider.naming.persister_iam_role()
+        with pytest.raises(mock_provider.clients["iam"].exceptions.NoSuchEntityException):
+            mock_provider.clients["iam"].get_role(RoleName=role_name)
 
-def test_destroy_persister_iam_role(mock_aws_context):
-    """Verify Persister IAM role destruction."""
-    globals_aws.aws_iam_client.attach_role_policy = MagicMock()
-    core_aws.create_persister_iam_role()
-    
-    core_aws.destroy_persister_iam_role()
-    
-    client = boto3.client("iam")
-    with pytest.raises(client.exceptions.NoSuchEntityException):
-        client.get_role(RoleName=globals_aws.persister_iam_role_name())
+    @patch("util.compile_lambda_function")
+    def test_create_persister_lambda_function(self, mock_compile, mock_provider, mock_config, project_path):
+        """Verify Persister Lambda creation."""
+        from src.providers.aws.layers.layer_2_compute import (
+            create_persister_iam_role, create_persister_lambda_function
+        )
+        
+        mock_compile.return_value = b"fake-zip-content"
+        
+        create_persister_iam_role(mock_provider)
+        create_persister_lambda_function(mock_provider, mock_config, project_path)
+        
+        function_name = mock_provider.naming.persister_lambda_function()
+        response = mock_provider.clients["lambda"].get_function(FunctionName=function_name)
+        assert response["Configuration"]["FunctionName"] == function_name
 
-def test_destroy_event_checker_lambda_function(mock_aws_context):
-    """Verify Event Checker creation and destruction."""
-    globals_aws.aws_iam_client.attach_role_policy = MagicMock()
-    core_aws.create_event_checker_iam_role()
-    
-    # Pre-requisites: Event Feedback and Lambda Chain
-    core_aws.create_event_feedback_iam_role()
-    core_aws.create_event_feedback_lambda_function()
-    
-    core_aws.create_lambda_chain_iam_role()
-    core_aws.create_lambda_chain_step_function()
-    
-    core_aws.create_event_checker_lambda_function()
-    
-    core_aws.destroy_event_checker_lambda_function()
-    
-    client = boto3.client("lambda")
-    with pytest.raises(client.exceptions.ResourceNotFoundException):
-        client.get_function(FunctionName=globals_aws.event_checker_lambda_function_name())
+
+class TestEventChecker:
+    """Tests for Event Checker components."""
+
+    def test_create_event_checker_iam_role(self, mock_provider):
+        """Verify Event Checker IAM role creation."""
+        from src.providers.aws.layers.layer_2_compute import create_event_checker_iam_role
+        
+        create_event_checker_iam_role(mock_provider)
+        
+        role_name = mock_provider.naming.event_checker_iam_role()
+        response = mock_provider.clients["iam"].get_role(RoleName=role_name)
+        assert response["Role"]["RoleName"] == role_name
+
+    def test_destroy_event_checker_iam_role(self, mock_provider):
+        """Verify Event Checker IAM role destruction."""
+        from src.providers.aws.layers.layer_2_compute import (
+            create_event_checker_iam_role, destroy_event_checker_iam_role
+        )
+        
+        create_event_checker_iam_role(mock_provider)
+        destroy_event_checker_iam_role(mock_provider)
+        
+        role_name = mock_provider.naming.event_checker_iam_role()
+        with pytest.raises(mock_provider.clients["iam"].exceptions.NoSuchEntityException):
+            mock_provider.clients["iam"].get_role(RoleName=role_name)
+
+
+class TestLambdaChain:
+    """Tests for Lambda Chain (Step Function) components."""
+
+    def test_create_lambda_chain_iam_role(self, mock_provider):
+        """Verify Lambda Chain IAM role creation."""
+        from src.providers.aws.layers.layer_2_compute import create_lambda_chain_iam_role
+        
+        create_lambda_chain_iam_role(mock_provider)
+        
+        role_name = mock_provider.naming.lambda_chain_iam_role()
+        response = mock_provider.clients["iam"].get_role(RoleName=role_name)
+        assert response["Role"]["RoleName"] == role_name
+
+    def test_destroy_lambda_chain_iam_role(self, mock_provider):
+        """Verify Lambda Chain IAM role destruction."""
+        from src.providers.aws.layers.layer_2_compute import (
+            create_lambda_chain_iam_role, destroy_lambda_chain_iam_role
+        )
+        
+        create_lambda_chain_iam_role(mock_provider)
+        destroy_lambda_chain_iam_role(mock_provider)
+        
+        role_name = mock_provider.naming.lambda_chain_iam_role()
+        with pytest.raises(mock_provider.clients["iam"].exceptions.NoSuchEntityException):
+            mock_provider.clients["iam"].get_role(RoleName=role_name)
+
+
+class TestEventFeedback:
+    """Tests for Event Feedback components."""
+
+    def test_create_event_feedback_iam_role(self, mock_provider):
+        """Verify Event Feedback IAM role creation."""
+        from src.providers.aws.layers.layer_2_compute import create_event_feedback_iam_role
+        
+        create_event_feedback_iam_role(mock_provider)
+        
+        role_name = mock_provider.naming.event_feedback_iam_role()
+        response = mock_provider.clients["iam"].get_role(RoleName=role_name)
+        assert response["Role"]["RoleName"] == role_name
+
+    def test_destroy_event_feedback_iam_role(self, mock_provider):
+        """Verify Event Feedback IAM role destruction."""
+        from src.providers.aws.layers.layer_2_compute import (
+            create_event_feedback_iam_role, destroy_event_feedback_iam_role
+        )
+        
+        create_event_feedback_iam_role(mock_provider)
+        destroy_event_feedback_iam_role(mock_provider)
+        
+        role_name = mock_provider.naming.event_feedback_iam_role()
+        with pytest.raises(mock_provider.clients["iam"].exceptions.NoSuchEntityException):
+            mock_provider.clients["iam"].get_role(RoleName=role_name)

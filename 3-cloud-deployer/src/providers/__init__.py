@@ -3,7 +3,7 @@ Provider implementations package.
 
 This package contains cloud provider implementations for AWS, Azure, and GCP.
 Each provider is a self-contained module that implements the CloudProvider
-protocol from core.protocols.
+protocol from src.core.protocols.
 
 Auto-Registration:
     Importing this package triggers registration of all providers with

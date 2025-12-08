@@ -13,11 +13,11 @@ import json
 import time
 from typing import TYPE_CHECKING
 from logger import logger
-import src.aws.util_aws as util_aws
+import aws.util_aws as util_aws
 from botocore.exceptions import ClientError
 
 if TYPE_CHECKING:
-    from src.providers.aws.provider import AWSProvider
+    from providers.aws.provider import AWSProvider
 
 
 def _destroy_iam_role(provider: 'AWSProvider', role_name: str) -> None:

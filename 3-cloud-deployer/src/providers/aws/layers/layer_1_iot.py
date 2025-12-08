@@ -14,12 +14,11 @@ import os
 import time
 from typing import TYPE_CHECKING
 from logger import logger
-import src.util as util
 from botocore.exceptions import ClientError
-import src.constants as CONSTANTS
+import constants as CONSTANTS
 
 if TYPE_CHECKING:
-    from src.providers.aws.provider import AWSProvider
+    from providers.aws.provider import AWSProvider
     from src.core.context import ProjectConfig
 
 
@@ -145,6 +144,9 @@ def create_dispatcher_lambda_function(
     # Lambda source path
     core_lambda_dir = os.path.join(project_path, CONSTANTS.AWS_CORE_LAMBDA_DIR_NAME)
 
+    # Lazy import to avoid circular dependency with globals
+    import util
+    
     lambda_client.create_function(
         FunctionName=function_name,
         Runtime="python3.13",

@@ -21,7 +21,7 @@ Phase 2 Work:
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.context import DeploymentContext
+    from src.core.context import DeploymentContext
     from .provider import AWSProvider
 
 

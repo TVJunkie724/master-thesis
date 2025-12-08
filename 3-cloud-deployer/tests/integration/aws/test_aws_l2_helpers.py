@@ -1,50 +1,42 @@
+"""
+Integration tests for L2 helper functions using new provider pattern.
+These tests verify the event checker and related helper functions.
+"""
+
 import pytest
-import boto3
-import aws.core_deployer_aws as core_aws
-import aws.globals_aws as globals_aws
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+from moto import mock_aws
 
-def test_create_event_checker_iam_role(mock_aws_context):
+
+def test_create_event_checker_iam_role(mock_provider):
     """Verify Event Checker IAM role creation."""
-    # Mock attach_role_policy
-    globals_aws.aws_iam_client.attach_role_policy = MagicMock()
+    from src.providers.aws.layers.layer_2_compute import create_event_checker_iam_role
     
-    core_aws.create_event_checker_iam_role()
+    create_event_checker_iam_role(mock_provider)
     
-    client = boto3.client("iam")
-    role_name = globals_aws.event_checker_iam_role_name()
-    
-    # Check Role
-    role = client.get_role(RoleName=role_name)
-    assert role["Role"]["RoleName"] == role_name
-    
-    # Verify we tried to attach policies
-    assert globals_aws.aws_iam_client.attach_role_policy.call_count >= 1
+    role_name = mock_provider.naming.event_checker_iam_role()
+    response = mock_provider.clients["iam"].get_role(RoleName=role_name)
+    assert response["Role"]["RoleName"] == role_name
 
-def test_redeploy_event_checker_lambda_function(mock_aws_context):
-    """Verify Event Checker Lambda redeployment logic."""
-    # Setup: Create initial function
-    globals_aws.aws_iam_client.attach_role_policy = MagicMock()
 
-    core_aws.create_event_checker_iam_role()
-
-    # Pre-requisites: Event Feedback and Lambda Chain
-    core_aws.create_event_feedback_iam_role()
-    core_aws.create_event_feedback_lambda_function()
+@patch("util.compile_lambda_function")
+def test_redeploy_event_checker_lambda_function(mock_compile, mock_provider, mock_config, project_path):
+    """Verify Event Checker Lambda can be redeployed with updates."""
+    from src.providers.aws.layers.layer_2_compute import (
+        create_event_checker_iam_role, create_event_checker_lambda_function,
+        destroy_event_checker_lambda_function
+    )
     
-    core_aws.create_lambda_chain_iam_role()
-    core_aws.create_lambda_chain_step_function()
+    mock_compile.return_value = b"fake-zip-content"
     
-    core_aws.create_event_checker_lambda_function()
+    # Create initial
+    create_event_checker_iam_role(mock_provider)
+    create_event_checker_lambda_function(mock_provider, mock_config, project_path)
     
-    # Verify it exists
-    client = boto3.client("lambda")
-    func_name = globals_aws.event_checker_lambda_function_name()
-    assert client.get_function(FunctionName=func_name)
+    # Destroy and recreate to simulate redeployment
+    destroy_event_checker_lambda_function(mock_provider)
+    create_event_checker_lambda_function(mock_provider, mock_config, project_path)
     
-    # Redeploy (should destroy and recreating)
-    # We can't easily spy on destroy/create without mocking core_aws itself, 
-    # but we can verify the function still exists and no error was raised.
-    core_aws.redeploy_event_checker_lambda_function()
-    
-    assert client.get_function(FunctionName=func_name)
+    function_name = mock_provider.naming.event_checker_lambda_function()
+    response = mock_provider.clients["lambda"].get_function(FunctionName=function_name)
+    assert response["Configuration"]["FunctionName"] == function_name

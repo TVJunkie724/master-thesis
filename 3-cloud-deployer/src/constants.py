@@ -74,7 +74,9 @@ DEFAULT_PROJECT_NAME = "template"
 AWS_POLICY_LAMBDA_BASIC_EXECUTION = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 AWS_POLICY_LAMBDA_ROLE = "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
 AWS_POLICY_DYNAMODB_FULL_ACCESS = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess_v2"
+AWS_POLICY_DYNAMODB_READ_ONLY = "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
 AWS_POLICY_S3_FULL_ACCESS = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+AWS_POLICY_S3_READ_ONLY = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
 AWS_POLICY_LAMBDA_READ_ONLY = "arn:aws:iam::aws:policy/AWSLambda_ReadOnlyAccess"
 AWS_POLICY_STEP_FUNCTIONS_FULL_ACCESS = "arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess"
 AWS_POLICY_IOT_DATA_ACCESS = "arn:aws:iam::aws:policy/AWSIoTDataAccess"
@@ -85,6 +87,10 @@ AWS_POLICY_ADMIN_ACCESS = "arn:aws:iam::aws:policy/AdministratorAccess"
 # ==========================================
 AWS_CRON_HOT_TO_COLD = "cron(0 12 * * ? *)"
 AWS_CRON_COLD_TO_ARCHIVE = "cron(0 18 * * ? *)"
+
+# Aliases for layer files
+AWS_HOT_COLD_SCHEDULE = AWS_CRON_HOT_TO_COLD
+AWS_COLD_ARCHIVE_SCHEDULE = AWS_CRON_COLD_TO_ARCHIVE
 
 # ==========================================
 # 7. Layer & Function Mappings

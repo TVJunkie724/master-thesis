@@ -1,65 +1,112 @@
+"""
+Integration tests for L1 Dispatcher components using new provider pattern.
+"""
+
 import pytest
 import boto3
-import json
-import aws.core_deployer_aws as core_aws
-import aws.globals_aws as globals_aws
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+from moto import mock_aws
 
-def test_create_dispatcher_iam_role(mock_aws_context):
-    """Verify IAM role is created and policies are attached (mocked)."""
-    # Mock attach_role_policy to bypass moto missing managed policies
-    globals_aws.aws_iam_client.attach_role_policy = MagicMock()
-    
-    core_aws.create_dispatcher_iam_role()
-    
-    client = boto3.client("iam")
-    role_name = globals_aws.dispatcher_iam_role_name()
-    
-    # Check Role
-    role = client.get_role(RoleName=role_name)
-    assert role["Role"]["RoleName"] == role_name
-    
-    # Check Attach Calls
-    assert globals_aws.aws_iam_client.attach_role_policy.call_count >= 2
 
-def test_create_dispatcher_lambda_function(mock_aws_context):
-    """Verify Lambda function is created."""
-    # Pre-requisite: Role must exist (and we mock attach)
-    globals_aws.aws_iam_client.attach_role_policy = MagicMock()
-    core_aws.create_dispatcher_iam_role()
-    
-    core_aws.create_dispatcher_lambda_function()
-    
-    client = boto3.client("lambda")
-    func_name = globals_aws.dispatcher_lambda_function_name()
-    
-    resp = client.get_function(FunctionName=func_name)
-    assert resp["Configuration"]["FunctionName"] == func_name
-    assert "DIGITAL_TWIN_INFO" in resp["Configuration"]["Environment"]["Variables"]
+class TestDispatcherIAMRole:
+    """Tests for Dispatcher IAM Role."""
 
-def test_destroy_dispatcher_lambda_function(mock_aws_context):
-    """Verify deletion."""
-    globals_aws.aws_iam_client.attach_role_policy = MagicMock()
-    core_aws.create_dispatcher_iam_role()
-    core_aws.create_dispatcher_lambda_function()
-    
-    core_aws.destroy_dispatcher_lambda_function()
-    
-    client = boto3.client("lambda")
-    with pytest.raises(client.exceptions.ResourceNotFoundException):
-        client.get_function(FunctionName=globals_aws.dispatcher_lambda_function_name())
+    def test_create_dispatcher_iam_role(self, mock_provider):
+        """Verify Dispatcher IAM role creation."""
+        from src.providers.aws.layers.layer_1_iot import create_dispatcher_iam_role
+        
+        create_dispatcher_iam_role(mock_provider)
+        
+        role_name = mock_provider.naming.dispatcher_iam_role()
+        response = mock_provider.clients["iam"].get_role(RoleName=role_name)
+        assert response["Role"]["RoleName"] == role_name
 
-def test_dispatcher_iot_rule(mock_aws_context):
-    """Verify IoT Rule Creation."""
-    globals_aws.aws_iam_client.attach_role_policy = MagicMock()
-    core_aws.create_dispatcher_iam_role()
-    core_aws.create_dispatcher_lambda_function()
-    
-    core_aws.create_dispatcher_iot_rule()
-    
-    client = boto3.client("iot")
-    rule_name = globals_aws.dispatcher_iot_rule_name()
-    
-    resp = client.get_topic_rule(ruleName=rule_name)
-    assert resp["rule"]["ruleName"] == rule_name
-    assert "SELECT * FROM" in resp["rule"]["sql"]
+    def test_destroy_dispatcher_iam_role(self, mock_provider):
+        """Verify Dispatcher IAM role destruction."""
+        from src.providers.aws.layers.layer_1_iot import (
+            create_dispatcher_iam_role, destroy_dispatcher_iam_role
+        )
+        
+        create_dispatcher_iam_role(mock_provider)
+        destroy_dispatcher_iam_role(mock_provider)
+        
+        role_name = mock_provider.naming.dispatcher_iam_role()
+        with pytest.raises(mock_provider.clients["iam"].exceptions.NoSuchEntityException):
+            mock_provider.clients["iam"].get_role(RoleName=role_name)
+
+
+class TestDispatcherLambda:
+    """Tests for Dispatcher Lambda Function."""
+
+    @patch("util.compile_lambda_function")
+    def test_create_dispatcher_lambda_function(self, mock_compile, mock_provider, mock_config, project_path):
+        """Verify Dispatcher Lambda creation."""
+        from src.providers.aws.layers.layer_1_iot import (
+            create_dispatcher_iam_role, create_dispatcher_lambda_function
+        )
+        
+        mock_compile.return_value = b"fake-zip-content"
+        
+        create_dispatcher_iam_role(mock_provider)
+        create_dispatcher_lambda_function(mock_provider, mock_config, project_path)
+        
+        function_name = mock_provider.naming.dispatcher_lambda_function()
+        response = mock_provider.clients["lambda"].get_function(FunctionName=function_name)
+        assert response["Configuration"]["FunctionName"] == function_name
+
+    @patch("util.compile_lambda_function")
+    def test_destroy_dispatcher_lambda_function(self, mock_compile, mock_provider, mock_config, project_path):
+        """Verify Dispatcher Lambda destruction."""
+        from src.providers.aws.layers.layer_1_iot import (
+            create_dispatcher_iam_role, create_dispatcher_lambda_function, destroy_dispatcher_lambda_function
+        )
+        
+        mock_compile.return_value = b"fake-zip-content"
+        
+        create_dispatcher_iam_role(mock_provider)
+        create_dispatcher_lambda_function(mock_provider, mock_config, project_path)
+        destroy_dispatcher_lambda_function(mock_provider)
+        
+        function_name = mock_provider.naming.dispatcher_lambda_function()
+        with pytest.raises(mock_provider.clients["lambda"].exceptions.ResourceNotFoundException):
+            mock_provider.clients["lambda"].get_function(FunctionName=function_name)
+
+
+class TestIoTRule:
+    """Tests for IoT Topic Rule."""
+
+    @patch("util.compile_lambda_function")
+    def test_create_dispatcher_iot_rule(self, mock_compile, mock_provider, mock_config, project_path):
+        """Verify IoT rule creation."""
+        from src.providers.aws.layers.layer_1_iot import (
+            create_dispatcher_iam_role, create_dispatcher_lambda_function, create_dispatcher_iot_rule
+        )
+        
+        mock_compile.return_value = b"fake-zip-content"
+        
+        create_dispatcher_iam_role(mock_provider)
+        create_dispatcher_lambda_function(mock_provider, mock_config, project_path)
+        create_dispatcher_iot_rule(mock_provider, mock_config)
+        
+        rule_name = mock_provider.naming.dispatcher_iot_rule()
+        response = mock_provider.clients["iot"].get_topic_rule(ruleName=rule_name)
+        assert response["rule"]["ruleName"] == rule_name
+
+    @patch("util.compile_lambda_function")
+    def test_destroy_dispatcher_iot_rule(self, mock_compile, mock_provider, mock_config, project_path):
+        """Verify IoT rule destruction."""
+        from src.providers.aws.layers.layer_1_iot import (
+            create_dispatcher_iam_role, create_dispatcher_lambda_function, 
+            create_dispatcher_iot_rule, destroy_dispatcher_iot_rule
+        )
+        
+        mock_compile.return_value = b"fake-zip-content"
+        
+        create_dispatcher_iam_role(mock_provider)
+        create_dispatcher_lambda_function(mock_provider, mock_config, project_path)
+        create_dispatcher_iot_rule(mock_provider, mock_config)
+        destroy_dispatcher_iot_rule(mock_provider)
+        
+        rule_name = mock_provider.naming.dispatcher_iot_rule()
+        with pytest.raises(mock_provider.clients["iot"].exceptions.ResourceNotFoundException):
+            mock_provider.clients["iot"].get_topic_rule(ruleName=rule_name)

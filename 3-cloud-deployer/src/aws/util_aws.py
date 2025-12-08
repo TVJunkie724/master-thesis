@@ -19,39 +19,57 @@ def iot_rule_exists(rule_name):
               return True
   return False
 
-def destroy_s3_bucket(bucket_name):
+def destroy_s3_bucket(bucket_name, s3_client=None):
+  """Delete S3 bucket and all its contents.
+  
+  Args:
+    bucket_name: Name of the S3 bucket to delete
+    s3_client: Optional boto3 S3 client. If None, uses globals_aws.aws_s3_client
+  """
+  if s3_client is None:
+    s3_client = globals_aws.aws_s3_client
+    
   try:
-    paginator = globals_aws.aws_s3_client.get_paginator('list_objects_v2')
+    paginator = s3_client.get_paginator('list_objects_v2')
     for page in paginator.paginate(Bucket=bucket_name):
       if 'Contents' in page:
         objects = [{'Key': obj['Key']} for obj in page['Contents']]
-        globals_aws.aws_s3_client.delete_objects(Bucket=bucket_name, Delete={'Objects': objects})
+        s3_client.delete_objects(Bucket=bucket_name, Delete={'Objects': objects})
     print(f"Deleted all objects from S3 Bucket: {bucket_name}")
   except ClientError as e:
     if e.response['Error']['Code'] != 'NoSuchBucket':
       raise
 
   try:
-    paginator = globals_aws.aws_s3_client.get_paginator('list_object_versions')
+    paginator = s3_client.get_paginator('list_object_versions')
     for page in paginator.paginate(Bucket=bucket_name):
       versions = page.get('Versions', []) + page.get('DeleteMarkers', [])
       if versions:
         objects = [{'Key': v['Key'], 'VersionId': v['VersionId']} for v in versions]
-        globals_aws.aws_s3_client.delete_objects(Bucket=bucket_name, Delete={'Objects': objects})
+        s3_client.delete_objects(Bucket=bucket_name, Delete={'Objects': objects})
     print(f"Deleted all object versions from S3 Bucket: {bucket_name}")
   except ClientError as e:
     if e.response['Error']['Code'] != 'NoSuchBucket':
       raise
 
   try:
-    globals_aws.aws_s3_client.delete_bucket(Bucket=bucket_name)
+    s3_client.delete_bucket(Bucket=bucket_name)
     print(f"Deleted S3 Bucket: {bucket_name}")
   except ClientError as e:
     if e.response['Error']['Code'] != 'NoSuchBucket':
       raise
 
-def get_grafana_workspace_id_by_name(workspace_name):
-    paginator = globals_aws.aws_grafana_client.get_paginator("list_workspaces")
+def get_grafana_workspace_id_by_name(workspace_name, grafana_client=None):
+    """Get Grafana workspace ID by name.
+    
+    Args:
+        workspace_name: Name of the Grafana workspace
+        grafana_client: Optional boto3 Grafana client. If None, uses globals_aws.aws_grafana_client
+    """
+    if grafana_client is None:
+        grafana_client = globals_aws.aws_grafana_client
+    
+    paginator = grafana_client.get_paginator("list_workspaces")
 
     for page in paginator.paginate():
         for workspace in page["workspaces"]:
