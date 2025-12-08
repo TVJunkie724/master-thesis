@@ -59,6 +59,9 @@ Lambda management:
   lambda_invoke <local_function_name> <o:payload> <o:sync>          
                               - Invokes the specified lambda function.
 
+Credential validation:
+  check_credentials <provider> - Validates credentials against required permissions for deployment.
+
 Other commands:
   simulate <provider> [project] - Runs the IoT Device Simulator interactively.
   help                        - Show this help menu.
@@ -338,6 +341,59 @@ def main():
               print("\nSimulator stopped.")
           except Exception as e:
               print(f"Error running simulator: {e}")
+
+      elif command == "check_credentials":
+          if not args:
+              print("Usage: check_credentials <provider>")
+              print("Valid providers: aws (azure and gcp coming soon)")
+              continue
+          
+          provider = args[0].lower()
+          if provider != "aws":
+              print(f"Error: Provider '{provider}' not supported yet. Only 'aws' is currently supported.")
+              continue
+          
+          # Import and use the credentials checker
+          import sys
+          import os
+          sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "api"))
+          from credentials_checker import check_aws_credentials_from_config
+          
+          logger.info(f"Checking AWS credentials for project '{globals.CURRENT_PROJECT}'...")
+          
+          result = check_aws_credentials_from_config(globals.CURRENT_PROJECT)
+          
+          # Display results
+          print(f"\n{'='*60}")
+          print(f"Status: {result['status'].upper()}")
+          print(f"Message: {result['message']}")
+          print(f"{'='*60}")
+          
+          if result.get('caller_identity'):
+              print(f"\nCaller Identity:")
+              print(f"  Account: {result['caller_identity']['account']}")
+              print(f"  ARN: {result['caller_identity']['arn']}")
+          
+          if result.get('missing_check_permission'):
+              print(f"\n⚠️  Missing permission to check: {result['missing_check_permission']}")
+          
+          if result.get('summary', {}).get('total_required', 0) > 0:
+              summary = result['summary']
+              print(f"\nSummary:")
+              print(f"  Total Required: {summary['total_required']}")
+              print(f"  ✅ Valid: {summary['valid']}")
+              print(f"  ❌ Missing: {summary['missing']}")
+              
+              # Show missing permissions by service
+              if summary['missing'] > 0 and result.get('by_service'):
+                  print(f"\nMissing Permissions by Service:")
+                  for service, data in result['by_service'].items():
+                      if data.get('missing'):
+                          print(f"  {service}:")
+                          for perm in data['missing']:
+                              print(f"    - {perm}")
+          
+          print()
 
       elif command == "help":
         help_menu()

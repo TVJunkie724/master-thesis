@@ -103,6 +103,147 @@
             </div>
 
             <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-key me-2"></i>Required IAM Permissions</h2>
+
+                <div class="callout info mb-3">
+                    <strong><i class="fa-solid fa-lightbulb me-2"></i>Pre-Deployment Verification</strong>
+                    Use <code>check_credentials aws</code> (CLI) or <code>POST /credentials/check/aws</code> (API)
+                    to verify your credentials have all required permissions before deploying.
+                </div>
+
+                <p>Your AWS credentials need the following permissions to deploy all 5 layers:</p>
+
+                <h5 class="text-primary mt-4">Layer 1 - Data Acquisition</h5>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Required Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>IAM</td>
+                            <td><code>CreateRole</code>, <code>DeleteRole</code>, <code>GetRole</code>,
+                                <code>AttachRolePolicy</code>, <code>DetachRolePolicy</code>,
+                                <code>ListAttachedRolePolicies</code>, <code>ListRolePolicies</code>,
+                                <code>DeleteRolePolicy</code></td>
+                        </tr>
+                        <tr>
+                            <td>Lambda</td>
+                            <td><code>CreateFunction</code>, <code>DeleteFunction</code>, <code>GetFunction</code>,
+                                <code>AddPermission</code>, <code>RemovePermission</code></td>
+                        </tr>
+                        <tr>
+                            <td>IoT Core</td>
+                            <td><code>CreateThing</code>, <code>DeleteThing</code>, <code>DescribeThing</code>,
+                                <code>CreateKeysAndCertificate</code>, <code>CreatePolicy</code>,
+                                <code>DeletePolicy</code>, <code>AttachThingPrincipal</code>,
+                                <code>DetachThingPrincipal</code>, <code>AttachPolicy</code>, <code>DetachPolicy</code>,
+                                <code>CreateTopicRule</code>, <code>DeleteTopicRule</code>,
+                                <code>DescribeEndpoint</code></td>
+                        </tr>
+                        <tr>
+                            <td>STS</td>
+                            <td><code>GetCallerIdentity</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="text-primary mt-4">Layer 2 - Data Processing</h5>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Required Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>IAM</td>
+                            <td><code>PutRolePolicy</code>, <code>UpdateAssumeRolePolicy</code></td>
+                        </tr>
+                        <tr>
+                            <td>Step Functions</td>
+                            <td><code>CreateStateMachine</code>, <code>DeleteStateMachine</code>,
+                                <code>DescribeStateMachine</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="text-primary mt-4">Layer 3 - Storage</h5>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Required Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>DynamoDB</td>
+                            <td><code>CreateTable</code>, <code>DeleteTable</code>, <code>CreateBackup</code>,
+                                <code>DescribeBackup</code></td>
+                        </tr>
+                        <tr>
+                            <td>S3</td>
+                            <td><code>CreateBucket</code>, <code>DeleteBucket</code>, <code>PutBucketCors</code>,
+                                <code>GetBucketCors</code>, <code>DeleteBucketCors</code>, <code>ListBucket</code>,
+                                <code>DeleteObject</code></td>
+                        </tr>
+                        <tr>
+                            <td>EventBridge</td>
+                            <td><code>PutRule</code>, <code>DeleteRule</code>, <code>DescribeRule</code>,
+                                <code>PutTargets</code>, <code>RemoveTargets</code>, <code>ListTargetsByRule</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="text-primary mt-4">Layer 4 - Twin Management</h5>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Required Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>IoT TwinMaker</td>
+                            <td><code>CreateWorkspace</code>, <code>DeleteWorkspace</code>, <code>GetWorkspace</code>,
+                                <code>ListEntities</code>, <code>DeleteEntity</code>, <code>ListScenes</code>,
+                                <code>DeleteScene</code>, <code>ListComponentTypes</code>,
+                                <code>DeleteComponentType</code>, <code>CreateComponentType</code>,
+                                <code>GetComponentType</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="text-primary mt-4">Layer 5 - Visualization</h5>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Required Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Grafana</td>
+                            <td><code>CreateWorkspace</code>, <code>DeleteWorkspace</code>,
+                                <code>DescribeWorkspace</code>, <code>ListWorkspaces</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="callout warn mt-4">
+                    <strong><i class="fa-solid fa-exclamation-triangle me-2"></i>Recommended Policy</strong>
+                    For simplicity, you can use the <code>AdministratorAccess</code> managed policy during development.
+                    For production, create a custom policy with only the permissions listed above.
+                </div>
+            </div>
+
+            <div class="card mb-4">
                 <h2 class="mb-3"><i class="fa-solid fa-road me-2"></i>Implementation Roadmap</h2>
                 <p>The AWS deployer implementation follows a modular, layer-by-layer approach:</p>
 

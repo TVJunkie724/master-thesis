@@ -13,7 +13,7 @@ import aws.globals_aws as globals_aws
 from logger import logger
 
 # Import API routers
-from api import projects, validation, deployment, status, info, aws_gateway, simulator
+from api import projects, validation, deployment, status, info, aws_gateway, simulator, credentials
 
 # --------- Lifespan context manager (replaces deprecated on_event) ----------
 @asynccontextmanager
@@ -60,4 +60,5 @@ app.include_router(deployment.router)
 app.include_router(status.router)
 app.include_router(aws_gateway.router)
 app.include_router(simulator.router)
+app.include_router(credentials.router)
 

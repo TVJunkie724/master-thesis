@@ -92,13 +92,14 @@ pre {
   border: 1px solid #1c2740;
   padding: 1rem;
   border-radius: 6px;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  word-break: break-all;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
   font-family: "JetBrains Mono", Consolas, monospace;
   font-size: 0.9rem;
   overflow-x: auto;
-  max-width: 100%;
+  max-width: 100% !important;
   color: #e2e8f0;
 }
 
@@ -106,6 +107,10 @@ pre code {
   background: none;
   padding: 0;
   color: inherit;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
 }
 
 
@@ -298,6 +303,7 @@ main a:hover {
   padding: 1.4rem;
   margin-bottom: 1.5rem;
   color: var(--text-main);
+  overflow-x: auto;
 }
 
 .card ul {

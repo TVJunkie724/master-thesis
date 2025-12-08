@@ -1,0 +1,89 @@
+"""
+Credentials API Router
+
+Provides endpoints for validating cloud credentials against required permissions.
+Currently supports AWS, with Azure and GCP planned for future.
+"""
+from fastapi import APIRouter, Query
+from pydantic import BaseModel, Field
+from typing import Optional
+
+from api.credentials_checker import check_aws_credentials, check_aws_credentials_from_config
+
+router = APIRouter(prefix="/credentials", tags=["Credentials"])
+
+
+class AWSCredentialsRequest(BaseModel):
+    """Request body for AWS credential validation."""
+    aws_access_key_id: str = Field(..., description="AWS Access Key ID")
+    aws_secret_access_key: str = Field(..., description="AWS Secret Access Key")
+    aws_region: str = Field(..., description="AWS Region (e.g., 'eu-central-1')")
+    aws_session_token: Optional[str] = Field(
+        None, 
+        description="Optional AWS Session Token for temporary credentials (from STS)"
+    )
+
+
+class CredentialsCheckResponse(BaseModel):
+    """Response schema for credential validation."""
+    status: str = Field(..., description="Result status: 'valid', 'partial', 'invalid', 'check_failed', or 'error'")
+    message: str = Field(..., description="Human-readable result message")
+    caller_identity: Optional[dict] = Field(None, description="AWS caller identity if credentials are valid")
+    can_list_policies: bool = Field(..., description="Whether the credentials can list their own policies")
+    missing_check_permission: Optional[str] = Field(None, description="Permission missing to perform the check (if can_list_policies is False)")
+    by_layer: dict = Field(..., description="Permission results organized by deployment layer (layer_1 through layer_5)")
+    by_service: dict = Field(..., description="Permission results organized by AWS service with layer references")
+    summary: dict = Field(..., description="Summary with total_required, valid, and missing counts")
+
+
+@router.post(
+    "/check/aws",
+    response_model=CredentialsCheckResponse,
+    summary="Validate AWS credentials from request body",
+    description=(
+        "Validates AWS credentials against all required permissions for the deployer. "
+        "Accepts credentials directly in the request body. "
+        "Returns categorized results by layer and by service."
+    )
+)
+async def check_aws_from_body(request: AWSCredentialsRequest):
+    """
+    Validate AWS credentials from request body against all required permissions.
+    
+    Checks permissions for all 5 deployment layers:
+    - **Layer 1**: IoT Core, Lambda (Dispatcher)
+    - **Layer 2**: Lambda (Processor), Step Functions
+    - **Layer 3**: DynamoDB, S3, EventBridge  
+    - **Layer 4**: IoT TwinMaker
+    - **Layer 5**: Amazon Managed Grafana
+    
+    Returns a categorized list of valid and missing permissions.
+    """
+    return check_aws_credentials(request.model_dump())
+
+
+@router.get(
+    "/check/aws",
+    response_model=CredentialsCheckResponse,
+    summary="Validate AWS credentials from project config",
+    description=(
+        "Validates AWS credentials from the project's config_credentials.json file. "
+        "Uses the active project if no project name is specified. "
+        "Returns categorized results by layer and by service."
+    )
+)
+async def check_aws_from_config(
+    project: Optional[str] = Query(
+        None, 
+        description="Project name to load credentials from. Uses active project if not specified."
+    )
+):
+    """
+    Validate AWS credentials from project's config_credentials.json.
+    
+    Reads the AWS credentials from the specified project's configuration file
+    and validates them against all required permissions.
+    
+    If no project is specified, uses the currently active project.
+    """
+    return check_aws_credentials_from_config(project)

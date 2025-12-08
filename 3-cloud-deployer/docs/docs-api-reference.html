@@ -247,7 +247,8 @@
                 <h3 class="mt-4">POST /projects</h3>
                 <p>Create new project from uploaded zip file.</p>
                 <p><strong>Request Body:</strong> <code>multipart/form-data</code> with <code>file</code> and
-                    <code>project_name</code></p>
+                    <code>project_name</code>
+                </p>
 
                 <h3 class="mt-4">PUT /projects/{project_name}/activate</h3>
                 <p>Switch active project context.</p>
@@ -258,8 +259,98 @@
                 <h3 class="mt-4">PUT /projects/{project_name}/config/{config_type}</h3>
                 <p>Update specific config file. Config types: <code>config</code>, <code>iot</code>,
                     <code>events</code>, <code>hierarchy</code>, <code>credentials</code>, <code>providers</code>,
-                    <code>optimization</code></p>
+                    <code>optimization</code>
+                </p>
             </div>
+
+            <!-- Credential Validation Endpoints -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-key me-2"></i>Credential Validation Endpoints</h2>
+
+                <div class="callout info mb-3">
+                    <strong><i class="fa-solid fa-lightbulb me-2"></i>Pre-Deployment Check</strong>
+                    Use these endpoints to verify your cloud credentials have all required permissions before deploying.
+                </div>
+
+                <h3 class="mt-4">POST /credentials/check/aws</h3>
+                <p>Validate AWS credentials provided in the request body against all required deployment permissions.
+                </p>
+                <p><strong>Request Body:</strong></p>
+                <pre class="p-3 rounded"><code>{
+  "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+  "aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+  "aws_region": "eu-central-1",
+  "aws_session_token": "optional-session-token"
+}</code></pre>
+                <p><strong>Response:</strong></p>
+                <pre class="p-3 rounded"><code>{
+  "status": "valid",
+  "message": "All required permissions are present.",
+  "caller_identity": {
+    "account": "123456789012",
+    "arn": "arn:aws:iam::123456789012:user/deployer",
+    "user_id": "AIDAEXAMPLE"
+  },
+  "can_list_policies": true,
+  "by_layer": {
+    "layer_1": { "status": "valid", "services": {...} },
+    "layer_2": { "status": "valid", "services": {...} },
+    ...
+  },
+  "by_service": {
+    "iam": { "valid": [...], "missing": [], "used_in_layers": ["layer_1", "layer_2"] },
+    ...
+  },
+  "summary": {
+    "total_required": 75,
+    "valid": 75,
+    "missing": 0
+  }
+}</code></pre>
+
+                <h3 class="mt-4">GET /credentials/check/aws</h3>
+                <p>Validate AWS credentials from the project's <code>config_credentials.json</code> file.</p>
+                <p><strong>Query Parameters:</strong></p>
+                <ul>
+                    <li><code>project</code> (string, optional): Project name to load credentials from. Uses active
+                        project if not specified.</li>
+                </ul>
+                <p><strong>Example:</strong></p>
+                <pre class="p-3 rounded"><code>GET /credentials/check/aws?project=my-twin-project</code></pre>
+
+                <h4 class="mt-4">Response Status Values</h4>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>valid</code></td>
+                            <td>All required permissions are present</td>
+                        </tr>
+                        <tr>
+                            <td><code>partial</code></td>
+                            <td>Some permissions are missing</td>
+                        </tr>
+                        <tr>
+                            <td><code>invalid</code></td>
+                            <td>No required permissions are present or credentials are invalid</td>
+                        </tr>
+                        <tr>
+                            <td><code>check_failed</code></td>
+                            <td>Cannot check permissions (credentials lack access to list their own policies)</td>
+                        </tr>
+                        <tr>
+                            <td><code>error</code></td>
+                            <td>Configuration or system error</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
 
             <!-- Validation Endpoints -->
             <div class="card mb-4">

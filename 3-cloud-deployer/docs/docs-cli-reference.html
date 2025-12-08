@@ -190,6 +190,51 @@ python main.py
                 </table>
             </div>
 
+            <!-- Credential Validation Commands -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-key me-2"></i>Credential Validation</h2>
+
+                <div class="callout info mb-3">
+                    <strong><i class="fa-solid fa-lightbulb me-2"></i>Pre-Deployment Check</strong>
+                    Verify your credentials have all required permissions before deploying.
+                </div>
+
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                            <th>Example</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>check_credentials [provider]</code></td>
+                            <td>Validate credentials have required permissions for full deployment.</td>
+                            <td><code>check_credentials aws</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="text-primary mt-4">Output</h5>
+                <p>Displays a summary of:</p>
+                <ul>
+                    <li><strong>Caller Identity</strong> - AWS Account and ARN</li>
+                    <li><strong>Summary</strong> - Total required, valid, and missing permissions count</li>
+                    <li><strong>Missing Permissions by Service</strong> - Categorized list of any missing permissions
+                    </li>
+                </ul>
+
+                <h5 class="text-primary mt-4">Status Values</h5>
+                <ul>
+                    <li><code>VALID</code> - All required permissions are present</li>
+                    <li><code>PARTIAL</code> - Some permissions are missing</li>
+                    <li><code>INVALID</code> - Credentials are invalid or no permissions found</li>
+                    <li><code>CHECK_FAILED</code> - Cannot check permissions (lacks permission to list own policies)
+                    </li>
+                </ul>
+            </div>
+
             <!-- Other Commands -->
             <div class="card mb-4">
                 <h2 class="mb-3"><i class="fa-solid fa-bars me-2"></i>Other</h2>

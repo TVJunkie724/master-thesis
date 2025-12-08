@@ -123,6 +123,20 @@ cd src
 python main.py
 ```
 
+### Verify Your Credentials (Recommended)
+
+Before deploying, verify your credentials have the required permissions:
+
+```bash
+# Via CLI
+>>> check_credentials aws
+
+# Via API
+curl "http://localhost:8000/credentials/check/aws"
+```
+
+This will check if your AWS credentials have all necessary permissions for the full deployment and report any missing permissions.
+
 ---
 
 ## Documentation
@@ -399,7 +413,15 @@ Welcome to the Digital Twin Manager. Type 'help' for commands.
 | POST | `/lambda_update` | Update Lambda function code |
 | GET | `/lambda_logs` | Fetch Lambda logs |
 
+### Credential Validation
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/credentials/check/aws` | Validate AWS credentials from request body |
+| GET | `/credentials/check/aws` | Validate AWS credentials from project config |
+
 ---
+
 
 ## Project Structure
 
