@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Twin2Clouds Documentation — Future Work</title>
+    <link rel="icon" type="image/x-icon" href="references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <link rel="stylesheet" href="css/docs_styles.css" />
+
+</head>
+
+<body>
+
+    <div class="layout">
+
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+
+            <h1 class="mb-3">
+                <i class="fa-solid fa-rocket me-2"></i>Future Work
+            </h1>
+
+            <p class="text-muted mb-4">
+                This page documents planned architectural improvements and enhancement opportunities.
+                These items are not required for the current functionality but would improve
+                code quality, maintainability, and adherence to design patterns.
+            </p>
+
+            <!-- Strategy Pattern: Full Encapsulation -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-chess me-2"></i>Strategy Pattern: Full Encapsulation</h2>
+                </div>
+                <div class="card-body">
+                    <h5>Current State</h5>
+                    <p>
+                        Calculator classes (<code>AWSCalculator</code>, <code>AzureCalculator</code>,
+                        <code>GCPCalculator</code>) currently <strong>delegate</strong> to standalone functions:
+                    </p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>class AWSCalculator:
+    def calculate_data_acquisition(self, params, pricing):
+        return calculate_aws_cost_data_acquisition(...)  # Delegation</code></pre>
+
+                    <h5>Proposed Change</h5>
+                    <p>
+                        Move the formula logic <strong>directly into</strong> the Calculator class methods,
+                        eliminating the standalone functions.
+                    </p>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="alert alert-success">
+                                <h6><i class="fa-solid fa-check me-1"></i> Pros</h6>
+                                <ul class="mb-0">
+                                    <li>Single source of truth for provider logic</li>
+                                    <li>True OOP encapsulation</li>
+                                    <li>No redundant wrapper layer</li>
+                                    <li>Cleaner architecture</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert alert-warning">
+                                <h6><i class="fa-solid fa-exclamation-triangle me-1"></i> Cons</h6>
+                                <ul class="mb-0">
+                                    <li>~50 functions to move across 3 files</li>
+                                    <li>Formula tests must be updated</li>
+                                    <li>Higher refactoring risk</li>
+                                    <li>Class files become larger</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5>Implementation Steps</h5>
+                    <ol>
+                        <li>Move <code>calculate_aws_*</code> function bodies into <code>AWSCalculator</code> methods
+                        </li>
+                        <li>Update <code>test_formulas_aws.py</code> to test class methods</li>
+                        <li>Remove unused standalone functions</li>
+                        <li>Repeat for Azure and GCP</li>
+                    </ol>
+
+                    <p class="text-muted mb-0">
+                        <strong>Estimated Effort:</strong> 4-6 hours · <strong>Risk:</strong> Medium
+                    </p>
+                </div>
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+
+    <script src="js/docs-nav.js" defer></script>
+</body>
+
+</html>

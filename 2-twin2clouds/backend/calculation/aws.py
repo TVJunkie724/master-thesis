@@ -15,6 +15,243 @@ Formula documentation: docs/docs-formulas.html
 """
 
 import math
+from typing import Dict, Any
+
+from backend.calculation.base import CalculationParams, LayerResult
+from backend.calculation.builders import LayerResultBuilder
+
+
+def _build_layer_result(
+    provider: str,
+    cost: float,
+    data_size: float = None,
+    messages: float = None,
+    **components
+) -> Dict[str, Any]:
+    """
+    Helper function to build LayerResult using Builder pattern.
+    
+    This provides a clean integration point for the Builder pattern
+    while maintaining backward compatibility with existing code.
+    
+    Args:
+        provider: Provider name (e.g., "AWS")
+        cost: Total monthly cost
+        data_size: Optional data size in GB
+        messages: Optional message count
+        **components: Additional cost breakdown components
+        
+    Returns:
+        LayerResult dictionary
+    """
+    builder = LayerResultBuilder(provider).set_cost(cost)
+    
+    if data_size is not None:
+        builder.set_data_size(data_size)
+    if messages is not None:
+        builder.set_messages(messages)
+    
+    for name, value in components.items():
+        builder.add_component(name, value)
+    
+    if components:
+        builder.include_components()
+    
+    return builder.build()
+
+
+# =============================================================================
+# AWSCalculator - Strategy Pattern Implementation
+# =============================================================================
+
+class AWSCalculator:
+    """
+    AWS cost calculator implementing the CloudProviderCalculator Protocol.
+    
+    This class wraps the existing standalone calculation functions,
+    providing a unified interface for the calculation engine.
+    
+    Architecture Note (Current State)
+    ----------------------------------
+    Currently, this class DELEGATES to standalone functions:
+    
+        def calculate_data_acquisition(self, params, pricing):
+            return calculate_aws_cost_data_acquisition(...)  # Standalone function
+    
+    This approach was chosen because:
+    - The standalone functions contain proven, tested formula logic
+    - Existing formula tests (test_formulas_aws.py) directly test these functions
+    - Minimal refactoring risk - no formula logic changes
+    
+    Future Work: Full Encapsulation
+    ---------------------------------
+    To achieve "true" OOP Strategy Pattern, the calculator class methods should
+    contain the formula logic directly instead of delegating. This would:
+    
+    Pros:
+        - Single source of truth for AWS calculations
+        - True encapsulation of provider logic
+        - Cleaner architecture without wrapper layer
+        
+    Cons:
+        - Requires moving ~15 functions' logic into class methods
+        - Formula tests would need to test class methods instead
+        - Higher refactoring effort
+        
+    To implement this change:
+        1. Move the body of each standalone function into its corresponding
+           class method (e.g., calculate_aws_cost_data_acquisition -> 
+           AWSCalculator.calculate_data_acquisition)
+        2. Update test_formulas_aws.py to instantiate AWSCalculator and
+           test class methods
+        3. Remove the now-unused standalone functions
+        4. Repeat for AzureCalculator and GCPCalculator
+    """
+    
+    name: str = "aws"
+    
+    def calculate_data_acquisition(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any]
+    ) -> LayerResult:
+        """Calculate AWS IoT Core ingestion costs."""
+        return calculate_aws_cost_data_acquisition(
+            params["numberOfDevices"],
+            params["deviceSendingIntervalInMinutes"],
+            params["averageSizeOfMessageInKb"],
+            pricing
+        )
+    
+    def calculate_data_processing(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any]
+    ) -> LayerResult:
+        """Calculate AWS Lambda processing costs."""
+        return calculate_aws_cost_data_processing(
+            params["numberOfDevices"],
+            params["deviceSendingIntervalInMinutes"],
+            params["averageSizeOfMessageInKb"],
+            pricing,
+            use_event_checking=params.get("useEventChecking", False),
+            trigger_notification_workflow=params.get("triggerNotificationWorkflow", False),
+            return_feedback_to_device=params.get("returnFeedbackToDevice", False),
+            integrate_error_handling=params.get("integrateErrorHandling", False),
+            orchestration_actions_per_message=params.get("orchestrationActionsPerMessage", 3),
+            events_per_message=params.get("eventsPerMessage", 1)
+        )
+    
+    def calculate_storage_hot(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any],
+        data_size_in_gb: float,
+        total_messages_per_month: float
+    ) -> LayerResult:
+        """Calculate AWS DynamoDB hot storage costs."""
+        return calculate_dynamodb_cost(
+            data_size_in_gb,
+            total_messages_per_month,
+            params["averageSizeOfMessageInKb"],
+            params["hotStorageDurationInMonths"],
+            pricing
+        )
+    
+    def calculate_storage_cool(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any],
+        data_size_in_gb: float
+    ) -> LayerResult:
+        """Calculate AWS S3 Infrequent Access cool storage costs."""
+        return calculate_s3_infrequent_access_cost(
+            data_size_in_gb,
+            params["coolStorageDurationInMonths"],
+            pricing
+        )
+    
+    def calculate_storage_archive(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any],
+        data_size_in_gb: float
+    ) -> LayerResult:
+        """Calculate AWS S3 Glacier Deep Archive storage costs."""
+        return calculate_s3_glacier_deep_archive_cost(
+            data_size_in_gb,
+            params["archiveStorageDurationInMonths"],
+            pricing
+        )
+    
+    def calculate_twin_management(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any]
+    ) -> LayerResult:
+        """Calculate AWS IoT TwinMaker costs."""
+        return calculate_aws_iot_twin_maker_cost(
+            params["entityCount"],
+            params["numberOfDevices"],
+            params["deviceSendingIntervalInMinutes"],
+            params["dashboardRefreshesPerHour"],
+            params["dashboardActiveHoursPerDay"],
+            params["average3DModelSizeInMB"],
+            pricing
+        )
+    
+    def calculate_visualization(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any]
+    ) -> LayerResult:
+        """Calculate Amazon Managed Grafana costs."""
+        return calculate_amazon_managed_grafana_cost(
+            params["amountOfActiveEditors"],
+            params["amountOfActiveViewers"],
+            pricing
+        )
+    
+    # -------------------------------------------------------------------------
+    # Cross-Cloud Glue Functions
+    # -------------------------------------------------------------------------
+    
+    def calculate_connector_function_cost(
+        self,
+        number_of_messages: float,
+        pricing: Dict[str, Any]
+    ) -> float:
+        """Calculate AWS Lambda connector function cost."""
+        return calculate_aws_connector_function_cost(number_of_messages, pricing)
+    
+    def calculate_ingestion_function_cost(
+        self,
+        number_of_messages: float,
+        pricing: Dict[str, Any]
+    ) -> float:
+        """Calculate AWS Lambda ingestion function cost."""
+        return calculate_aws_ingestion_function_cost(number_of_messages, pricing)
+    
+    def calculate_reader_function_cost(
+        self,
+        number_of_requests: float,
+        pricing: Dict[str, Any]
+    ) -> float:
+        """Calculate AWS Lambda reader function cost."""
+        return calculate_aws_reader_function_cost(number_of_requests, pricing)
+    
+    def calculate_api_gateway_cost(
+        self,
+        number_of_requests: float,
+        pricing: Dict[str, Any]
+    ) -> float:
+        """Calculate AWS API Gateway cost."""
+        return calculate_aws_api_gateway_cost(number_of_requests, pricing)
+
+
+# =============================================================================
+# Standalone Functions (Original Implementation)
+# =============================================================================
 
 # LAYER 1 - Data Acquisition
 # Service: AWS IoT Core
@@ -61,33 +298,33 @@ def calculate_aws_cost_data_acquisition(
         remaining_messages -= tier1_limit
     else:
         monthly_cost += remaining_messages * price_tier1
-        return {
-            "provider": "AWS",
-            "totalMonthlyCost": monthly_cost,
-            "totalMessagesPerMonth": total_messages_per_month,
-            "dataSizeInGB": math.ceil(data_size_in_gb)
-        }
+        return _build_layer_result(
+            provider="AWS",
+            cost=monthly_cost,
+            messages=total_messages_per_month,
+            data_size=math.ceil(data_size_in_gb)
+        )
 
     if remaining_messages > (tier2_limit - tier1_limit):
         monthly_cost += (tier2_limit - tier1_limit) * price_tier2
         remaining_messages -= (tier2_limit - tier1_limit)
     else:
         monthly_cost += remaining_messages * price_tier2
-        return {
-            "provider": "AWS",
-            "totalMonthlyCost": monthly_cost,
-            "totalMessagesPerMonth": total_messages_per_month,
-            "dataSizeInGB": math.ceil(data_size_in_gb)
-        }
+        return _build_layer_result(
+            provider="AWS",
+            cost=monthly_cost,
+            messages=total_messages_per_month,
+            data_size=math.ceil(data_size_in_gb)
+        )
 
     monthly_cost += remaining_messages * price_tier3
 
-    return {
-        "provider": "AWS",
-        "totalMonthlyCost": monthly_cost,
-        "totalMessagesPerMonth": total_messages_per_month,
-        "dataSizeInGB": math.ceil(data_size_in_gb)
-    }
+    return _build_layer_result(
+        provider="AWS",
+        cost=monthly_cost,
+        messages=total_messages_per_month,
+        data_size=math.ceil(data_size_in_gb)
+    )
 
 # LAYER 2 - Data Processing
 # Calculates request cost and compute duration cost using AWS Lambda pricing (see docs/docs-formulas.html)
@@ -199,12 +436,12 @@ def calculate_aws_cost_data_processing(
 
     total_monthly_cost = request_cost + duration_cost + event_checker_cost + step_functions_cost + feedback_loop_cost + error_handling_cost
 
-    return {
-        "provider": "AWS",
-        "totalMonthlyCost": total_monthly_cost,
-        "dataSizeInGB": data_size_in_gb,
-        "totalMessagesPerMonth": executions_per_month
-    }
+    return _build_layer_result(
+        provider="AWS",
+        cost=total_monthly_cost,
+        data_size=data_size_in_gb,
+        messages=executions_per_month
+    )
 
 def calculate_aws_api_gateway_cost(number_of_requests, pricing):
     # API Gateway Pricing: $1.00 per million requests (simplified tier)
@@ -283,11 +520,11 @@ def calculate_dynamodb_cost(
                          (read_price * read_units_needed) + \
                          total_storage_price
 
-    return {
-        "provider": "AWS",
-        "totalMonthlyCost": total_monthly_cost,
-        "dataSizeInGB": data_size_in_gb
-    }
+    return _build_layer_result(
+        provider="AWS",
+        cost=total_monthly_cost,
+        data_size=data_size_in_gb
+    )
 
 def calculate_s3_infrequent_access_cost(
     data_size_in_gb,
@@ -311,11 +548,11 @@ def calculate_s3_infrequent_access_cost(
                          (request_price * amount_of_requests_needed) + \
                          (data_retrieval_price * data_retrieval_amount)
 
-    return {
-        "provider": "AWS",
-        "totalMonthlyCost": total_monthly_cost,
-        "dataSizeInGB": data_size_in_gb
-    }
+    return _build_layer_result(
+        provider="AWS",
+        cost=total_monthly_cost,
+        data_size=data_size_in_gb
+    )
 
 def calculate_s3_glacier_deep_archive_cost(
     data_size_in_gb,
@@ -337,11 +574,11 @@ def calculate_s3_glacier_deep_archive_cost(
                          (amount_of_requests_needed * lifecycle_and_write_price) + \
                          (data_retrieval_amount * data_retrieval_price)
 
-    return {
-        "provider": "AWS",
-        "dataSizeInGB": data_size_in_gb,
-        "totalMonthlyCost": total_monthly_cost
-    }
+    return _build_layer_result(
+        provider="AWS",
+        cost=total_monthly_cost,
+        data_size=data_size_in_gb
+    )
 
 # LAYER 4 - Twin Management
 # Calculates Twin Management costs using IoT TwinMaker pricing (see docs/docs-formulas.html)
@@ -390,10 +627,10 @@ def calculate_aws_iot_twin_maker_cost(
                          (number_of_queries * query_price) + \
                          storage_cost
     
-    return {
-        "provider": "AWS",
-        "totalMonthlyCost": total_monthly_cost
-    }
+    return _build_layer_result(
+        provider="AWS",
+        cost=total_monthly_cost
+    )
 
 # LAYER 5 - Data Visualization
 # Service: Amazon Managed Grafana
@@ -424,7 +661,7 @@ def calculate_amazon_managed_grafana_cost(
     total_monthly_cost = (amount_of_active_editors * editor_price) + \
                          (amount_of_active_viewers * viewer_price)
 
-    return {
-        "provider": "AWS",
-        "totalMonthlyCost": total_monthly_cost
-    }
+    return _build_layer_result(
+        provider="AWS",
+        cost=total_monthly_cost
+    )

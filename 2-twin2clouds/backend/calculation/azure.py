@@ -15,6 +15,202 @@ Formula documentation: docs/docs-formulas.html
 """
 
 import math
+from typing import Dict, Any
+
+from backend.calculation.base import CalculationParams, LayerResult
+from backend.calculation.builders import LayerResultBuilder
+
+
+def _build_layer_result(
+    provider: str,
+    cost: float,
+    data_size: float = None,
+    messages: float = None,
+    **components
+) -> Dict[str, Any]:
+    """
+    Helper function to build LayerResult using Builder pattern.
+    See aws.py for detailed documentation.
+    """
+    builder = LayerResultBuilder(provider).set_cost(cost)
+    
+    if data_size is not None:
+        builder.set_data_size(data_size)
+    if messages is not None:
+        builder.set_messages(messages)
+    
+    for name, value in components.items():
+        builder.add_component(name, value)
+    
+    if components:
+        builder.include_components()
+    
+    return builder.build()
+
+
+# =============================================================================
+# AzureCalculator - Strategy Pattern Implementation
+# =============================================================================
+
+class AzureCalculator:
+    """
+    Azure cost calculator implementing the CloudProviderCalculator Protocol.
+    
+    This class wraps the existing standalone calculation functions,
+    providing a unified interface for the calculation engine.
+    
+    See AWSCalculator docstring for detailed architecture notes and future work.
+    The same approach (delegation to standalone functions) is used here.
+    
+    Future Work: Full Encapsulation
+    ---------------------------------
+    Move calculate_azure_* function bodies into class methods. See AWSCalculator
+    docstring for detailed pros/cons and implementation steps.
+    """
+    
+    name: str = "azure"
+    
+    def calculate_data_acquisition(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any]
+    ) -> LayerResult:
+        """Calculate Azure IoT Hub ingestion costs."""
+        return calculate_azure_cost_data_acquisition(
+            params["numberOfDevices"],
+            params["deviceSendingIntervalInMinutes"],
+            params["averageSizeOfMessageInKb"],
+            pricing
+        )
+    
+    def calculate_data_processing(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any]
+    ) -> LayerResult:
+        """Calculate Azure Functions processing costs."""
+        return calculate_azure_cost_data_processing(
+            params["numberOfDevices"],
+            params["deviceSendingIntervalInMinutes"],
+            params["averageSizeOfMessageInKb"],
+            pricing,
+            use_event_checking=params.get("useEventChecking", False),
+            trigger_notification_workflow=params.get("triggerNotificationWorkflow", False),
+            return_feedback_to_device=params.get("returnFeedbackToDevice", False),
+            integrate_error_handling=params.get("integrateErrorHandling", False),
+            orchestration_actions_per_message=params.get("orchestrationActionsPerMessage", 3),
+            events_per_message=params.get("eventsPerMessage", 1)
+        )
+    
+    def calculate_storage_hot(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any],
+        data_size_in_gb: float,
+        total_messages_per_month: float
+    ) -> LayerResult:
+        """Calculate Azure Cosmos DB hot storage costs."""
+        return calculate_cosmos_db_cost(
+            data_size_in_gb,
+            total_messages_per_month,
+            params["averageSizeOfMessageInKb"],
+            params["hotStorageDurationInMonths"],
+            pricing
+        )
+    
+    def calculate_storage_cool(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any],
+        data_size_in_gb: float
+    ) -> LayerResult:
+        """Calculate Azure Blob Storage Cool costs."""
+        return calculate_azure_blob_storage_cost(
+            data_size_in_gb,
+            params["coolStorageDurationInMonths"],
+            pricing
+        )
+    
+    def calculate_storage_archive(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any],
+        data_size_in_gb: float
+    ) -> LayerResult:
+        """Calculate Azure Blob Storage Archive costs."""
+        return calculate_azure_blob_storage_archive_cost(
+            data_size_in_gb,
+            params["archiveStorageDurationInMonths"],
+            pricing
+        )
+    
+    def calculate_twin_management(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any]
+    ) -> LayerResult:
+        """Calculate Azure Digital Twins costs."""
+        return calculate_azure_digital_twins_cost(
+            params["numberOfDevices"],
+            params["deviceSendingIntervalInMinutes"],
+            params["averageSizeOfMessageInKb"],
+            params["dashboardRefreshesPerHour"],
+            params["dashboardActiveHoursPerDay"],
+            params["entityCount"],
+            params["average3DModelSizeInMB"],
+            pricing
+        )
+    
+    def calculate_visualization(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any]
+    ) -> LayerResult:
+        """Calculate Azure Managed Grafana costs."""
+        # Azure combines editors + viewers into monthly users
+        total_users = params["amountOfActiveEditors"] + params["amountOfActiveViewers"]
+        return calculate_azure_managed_grafana_cost(total_users, pricing)
+    
+    # -------------------------------------------------------------------------
+    # Cross-Cloud Glue Functions
+    # -------------------------------------------------------------------------
+    
+    def calculate_connector_function_cost(
+        self,
+        number_of_messages: float,
+        pricing: Dict[str, Any]
+    ) -> float:
+        """Calculate Azure Functions connector cost."""
+        return calculate_azure_connector_function_cost(number_of_messages, pricing)
+    
+    def calculate_ingestion_function_cost(
+        self,
+        number_of_messages: float,
+        pricing: Dict[str, Any]
+    ) -> float:
+        """Calculate Azure Functions ingestion cost."""
+        return calculate_azure_ingestion_function_cost(number_of_messages, pricing)
+    
+    def calculate_reader_function_cost(
+        self,
+        number_of_requests: float,
+        pricing: Dict[str, Any]
+    ) -> float:
+        """Calculate Azure Functions reader cost."""
+        return calculate_azure_reader_function_cost(number_of_requests, pricing)
+    
+    def calculate_api_gateway_cost(
+        self,
+        number_of_requests: float,
+        pricing: Dict[str, Any]
+    ) -> float:
+        """Calculate Azure API Management cost."""
+        return calculate_azure_api_management_cost(number_of_requests, pricing)
+
+
+# =============================================================================
+# Standalone Functions (Original Implementation)
+# =============================================================================
 
 # LAYER 1 - Data Acquisition
 # Service: Azure IoT Hub
@@ -62,12 +258,12 @@ def calculate_azure_cost_data_acquisition(
     else:
         monthly_cost = monthly_azure_price
 
-    return {
-        "provider": "Azure",
-        "totalMonthlyCost": monthly_cost,
-        "totalMessagesPerMonth": total_messages_per_month,
-        "dataSizeInGB": math.ceil(data_size_in_gb)
-    }
+    return _build_layer_result(
+        provider="Azure",
+        cost=monthly_cost,
+        messages=total_messages_per_month,
+        data_size=math.ceil(data_size_in_gb)
+    )
 
 # LAYER 2 - Data Processing
 
@@ -193,12 +389,12 @@ def calculate_azure_cost_data_processing(
 
     total_monthly_cost = request_cost + duration_cost + event_checker_cost + logic_apps_cost + feedback_loop_cost + error_handling_cost
 
-    return {
-        "provider": "Azure",
-        "totalMonthlyCost": total_monthly_cost,
-        "dataSizeInGB": data_size_in_gb,
-        "totalMessagesPerMonth": executions_per_month
-    }
+    return _build_layer_result(
+        provider="Azure",
+        cost=total_monthly_cost,
+        data_size=data_size_in_gb,
+        messages=executions_per_month
+    )
 
 def calculate_azure_api_management_cost(number_of_requests, pricing):
     # APIM Pricing: Consumption tier (per million calls)
@@ -282,11 +478,11 @@ def calculate_cosmos_db_cost(
     total_monthly_cost = (request_units_needed * request_price) + \
                          (storage_needed_for_duration * storage_price)
 
-    return {
-        "provider": "Azure",
-        "totalMonthlyCost": total_monthly_cost,
-        "dataSizeInGB": data_size_in_gb
-    }
+    return _build_layer_result(
+        provider="Azure",
+        cost=total_monthly_cost,
+        data_size=data_size_in_gb
+    )
 
 def calculate_azure_blob_storage_cost(
     data_size_in_gb,
@@ -311,11 +507,11 @@ def calculate_azure_blob_storage_cost(
                          (amount_of_reads_needed * read_price) + \
                          (data_retrieval_amount * data_retrieval_price)
 
-    return {
-        "provider": "Azure",
-        "totalMonthlyCost": total_monthly_cost,
-        "dataSizeInGB": data_size_in_gb
-    }
+    return _build_layer_result(
+        provider="Azure",
+        cost=total_monthly_cost,
+        data_size=data_size_in_gb
+    )
 
 def calculate_azure_blob_storage_archive_cost(
     data_size_in_gb,
@@ -337,11 +533,11 @@ def calculate_azure_blob_storage_archive_cost(
                          (amount_of_writes_needed * write_price) + \
                          (data_retrieval_amount * data_retrieval_price)
 
-    return {
-        "provider": "Azure",
-        "dataSizeInGB": data_size_in_gb,
-        "totalMonthlyCost": total_monthly_cost
-    }
+    return _build_layer_result(
+        provider="Azure",
+        cost=total_monthly_cost,
+        data_size=data_size_in_gb
+    )
 
 # LAYER 4 - Twin Management
 
@@ -398,10 +594,10 @@ def calculate_azure_digital_twins_cost(
                          (query_units * query_price * (number_of_queries / 1000)) + \
                          storage_cost
 
-    return {
-        "provider": "Azure",
-        "totalMonthlyCost": total_monthly_cost
-    }
+    return _build_layer_result(
+        provider="Azure",
+        cost=total_monthly_cost
+    )
 
 # LAYER 5 - Data Visualization
 # Service: Azure Managed Grafana
@@ -432,7 +628,7 @@ def calculate_azure_managed_grafana_cost(
 
     total_monthly_cost = (amount_of_monthly_users * user_price) + monthly_price
 
-    return {
-        "provider": "Azure",
-        "totalMonthlyCost": total_monthly_cost
-    }
+    return _build_layer_result(
+        provider="Azure",
+        cost=total_monthly_cost
+    )

@@ -1,11 +1,43 @@
+"""
+Cost Calculation Engine
+========================
+Central orchestration module for multi-cloud cost calculations.
+
+This module uses the Strategy Pattern to calculate costs for each cloud provider
+(AWS, Azure, GCP) through a unified interface. Calculator instances are created
+at module load and used throughout engine functions.
+
+Architecture Note
+-----------------
+The engine uses Calculator class instances (_aws_calc, _azure_calc, _gcp_calc)
+which implement the CloudProviderCalculator Protocol. These calculators currently
+DELEGATE to standalone functions for the actual formula logic.
+
+Future Work
+-----------
+1. Full Encapsulation: Move formula logic from standalone functions into
+   Calculator class methods (see AWSCalculator docstring for details)
+2. Builder Pattern: Use LayerResultBuilder for constructing result dictionaries
+3. Factory Pattern: Use get_calculators() instead of direct instantiation
+"""
 
 import json
 import math
-from backend.calculation import aws, azure, gcp, transfer, decision
+from backend.calculation import transfer, decision
+from backend.calculation.aws import AWSCalculator
+from backend.calculation.azure import AzureCalculator
+from backend.calculation.gcp import GCPCalculator
 from backend.config_loader import load_json_file, load_combined_pricing
 import backend.constants as CONSTANTS
 from backend.pricing_utils import validate_pricing_schema
 from backend.logger import logger
+
+# Calculator instances (Strategy Pattern)
+# Future Work: Could use get_calculators() from base.py for dynamic registry
+_aws_calc = AWSCalculator()
+_azure_calc = AzureCalculator()
+_gcp_calc = GCPCalculator()
+
 
 def calculate_aws_costs(params, pricing):
     """
@@ -13,25 +45,9 @@ def calculate_aws_costs(params, pricing):
     Returns a dictionary containing cost breakdowns for each layer and transfer path.
     """
 
-    aws_result_data_acquisition = aws.calculate_aws_cost_data_acquisition(
-        params["numberOfDevices"],
-        params["deviceSendingIntervalInMinutes"],
-        params["averageSizeOfMessageInKb"],
-        pricing
-    )
+    aws_result_data_acquisition = _aws_calc.calculate_data_acquisition(params, pricing)
 
-    aws_result_data_processing = aws.calculate_aws_cost_data_processing(
-        params["numberOfDevices"],
-        params["deviceSendingIntervalInMinutes"],
-        params["averageSizeOfMessageInKb"],
-        pricing,
-        use_event_checking=params.get("useEventChecking", False),
-        trigger_notification_workflow=params.get("triggerNotificationWorkflow", False),
-        return_feedback_to_device=params.get("returnFeedbackToDevice", False),
-        integrate_error_handling=params.get("integrateErrorHandling", False),
-        orchestration_actions_per_message=params.get("orchestrationActionsPerMessage", 3),
-        events_per_message=params.get("eventsPerMessage", 1)
-    )
+    aws_result_data_processing = _aws_calc.calculate_data_processing(params, pricing)
 
     transfer_cost_from_l2_aws_to_aws_hot = transfer.calculate_transfer_cost_from_l2_aws_to_aws_hot(
         aws_result_data_processing["dataSizeInGB"]
@@ -47,12 +63,10 @@ def calculate_aws_costs(params, pricing):
         pricing
     )
 
-    aws_result_hot_dynamodb = aws.calculate_dynamodb_cost(
-        aws_result_data_processing["dataSizeInGB"],
-        aws_result_data_processing["totalMessagesPerMonth"],
-        params["averageSizeOfMessageInKb"],
-        params["hotStorageDurationInMonths"],
-        pricing
+    aws_result_hot_dynamodb = _aws_calc.calculate_storage_hot(
+        params, pricing,
+        data_size_in_gb=aws_result_data_processing["dataSizeInGB"],
+        total_messages_per_month=aws_result_data_processing["totalMessagesPerMonth"]
     )
 
     transfer_cost_from_aws_hot_to_aws_cool = transfer.calculate_transfer_cost_from_aws_hot_to_aws_cool(
@@ -70,10 +84,9 @@ def calculate_aws_costs(params, pricing):
         pricing
     )
 
-    aws_result_l3_cool = aws.calculate_s3_infrequent_access_cost(
-        aws_result_hot_dynamodb["dataSizeInGB"],
-        params["coolStorageDurationInMonths"],
-        pricing
+    aws_result_l3_cool = _aws_calc.calculate_storage_cool(
+        params, pricing,
+        data_size_in_gb=aws_result_hot_dynamodb["dataSizeInGB"]
     )
 
     transfer_cost_from_aws_cool_to_aws_archive = transfer.calculate_transfer_cost_from_aws_cool_to_aws_archive(
@@ -90,27 +103,14 @@ def calculate_aws_costs(params, pricing):
         pricing
     )
 
-    aws_result_l3_archive = aws.calculate_s3_glacier_deep_archive_cost(
-        aws_result_l3_cool["dataSizeInGB"],
-        params["archiveStorageDurationInMonths"],
-        pricing
+    aws_result_l3_archive = _aws_calc.calculate_storage_archive(
+        params, pricing,
+        data_size_in_gb=aws_result_l3_cool["dataSizeInGB"]
     )
 
-    aws_result_layer4 = aws.calculate_aws_iot_twin_maker_cost(
-        params["entityCount"],
-        params["numberOfDevices"],
-        params["deviceSendingIntervalInMinutes"],
-        params["dashboardRefreshesPerHour"],
-        params["dashboardActiveHoursPerDay"],
-        params["average3DModelSizeInMB"],
-        pricing
-    )
+    aws_result_layer4 = _aws_calc.calculate_twin_management(params, pricing)
 
-    aws_result_layer5 = aws.calculate_amazon_managed_grafana_cost(
-        params["amountOfActiveEditors"],
-        params["amountOfActiveViewers"],
-        pricing
-    )
+    aws_result_layer5 = _aws_calc.calculate_visualization(params, pricing)
 
     return {
         "dataAquisition": aws_result_data_acquisition,
@@ -137,25 +137,9 @@ def calculate_azure_costs(params, pricing):
     Returns a dictionary containing cost breakdowns for each layer and transfer path.
     """
 
-    azure_result_data_acquisition = azure.calculate_azure_cost_data_acquisition(
-        params["numberOfDevices"],
-        params["deviceSendingIntervalInMinutes"],
-        params["averageSizeOfMessageInKb"],
-        pricing
-    )
+    azure_result_data_acquisition = _azure_calc.calculate_data_acquisition(params, pricing)
 
-    azure_result_data_processing = azure.calculate_azure_cost_data_processing(
-        params["numberOfDevices"],
-        params["deviceSendingIntervalInMinutes"],
-        params["averageSizeOfMessageInKb"],
-        pricing,
-        use_event_checking=params.get("useEventChecking", False),
-        trigger_notification_workflow=params.get("triggerNotificationWorkflow", False),
-        return_feedback_to_device=params.get("returnFeedbackToDevice", False),
-        integrate_error_handling=params.get("integrateErrorHandling", False),
-        orchestration_actions_per_message=params.get("orchestrationActionsPerMessage", 3),
-        events_per_message=params.get("eventsPerMessage", 1)
-    )
+    azure_result_data_processing = _azure_calc.calculate_data_processing(params, pricing)
 
     transfer_cost_from_l2_azure_to_aws_hot = transfer.calculate_transfer_cost_from_l2_azure_to_aws_hot(
         azure_result_data_processing["dataSizeInGB"],
@@ -171,12 +155,10 @@ def calculate_azure_costs(params, pricing):
         pricing
     )
 
-    azure_result_hot = azure.calculate_cosmos_db_cost(
-        azure_result_data_processing["dataSizeInGB"],
-        azure_result_data_processing["totalMessagesPerMonth"],
-        params["averageSizeOfMessageInKb"],
-        params["hotStorageDurationInMonths"],
-        pricing
+    azure_result_hot = _azure_calc.calculate_storage_hot(
+        params, pricing,
+        data_size_in_gb=azure_result_data_processing["dataSizeInGB"],
+        total_messages_per_month=azure_result_data_processing["totalMessagesPerMonth"]
     )
 
     transfer_cost_from_azure_hot_to_aws_cool = transfer.calculate_transfer_costs_from_azure_hot_to_aws_cool(
@@ -194,10 +176,9 @@ def calculate_azure_costs(params, pricing):
         pricing
     )
 
-    azure_result_layer3_cool_blob_storage = azure.calculate_azure_blob_storage_cost(
-        azure_result_hot["dataSizeInGB"],
-        params["coolStorageDurationInMonths"],
-        pricing
+    azure_result_layer3_cool_blob_storage = _azure_calc.calculate_storage_cool(
+        params, pricing,
+        data_size_in_gb=azure_result_hot["dataSizeInGB"]
     )
 
     transfer_cost_from_azure_cool_to_aws_archive = transfer.calculate_transfer_cost_from_azure_cool_to_aws_archive(
@@ -214,27 +195,14 @@ def calculate_azure_costs(params, pricing):
         pricing
     )
 
-    azure_result_layer3_archive = azure.calculate_azure_blob_storage_archive_cost(
-        azure_result_layer3_cool_blob_storage["dataSizeInGB"],
-        params["archiveStorageDurationInMonths"],
-        pricing
+    azure_result_layer3_archive = _azure_calc.calculate_storage_archive(
+        params, pricing,
+        data_size_in_gb=azure_result_layer3_cool_blob_storage["dataSizeInGB"]
     )
 
-    azure_result_layer4 = azure.calculate_azure_digital_twins_cost(
-        params["numberOfDevices"],
-        params["deviceSendingIntervalInMinutes"],
-        params["averageSizeOfMessageInKb"],
-        params["dashboardRefreshesPerHour"],
-        params["dashboardActiveHoursPerDay"],
-        params["entityCount"],
-        params["average3DModelSizeInMB"],
-        pricing
-    )
+    azure_result_layer4 = _azure_calc.calculate_twin_management(params, pricing)
 
-    azure_result_layer5 = azure.calculate_azure_managed_grafana_cost(
-        params["amountOfActiveEditors"] + params["amountOfActiveViewers"],
-        pricing
-    )
+    azure_result_layer5 = _azure_calc.calculate_visualization(params, pricing)
 
     return {
         "dataAquisition": azure_result_data_acquisition,
@@ -260,25 +228,9 @@ def calculate_gcp_costs(params, pricing):
     Calculates monthly costs for all GCP layers (1-5) and associated transfer costs.
     Returns a dictionary containing cost breakdowns for each layer and transfer path.
     """
-    gcp_result_data_acquisition = gcp.calculate_gcp_cost_data_acquisition(
-        params["numberOfDevices"],
-        params["deviceSendingIntervalInMinutes"],
-        params["averageSizeOfMessageInKb"],
-        pricing
-    )
+    gcp_result_data_acquisition = _gcp_calc.calculate_data_acquisition(params, pricing)
 
-    gcp_result_data_processing = gcp.calculate_gcp_cost_data_processing(
-        params["numberOfDevices"],
-        params["deviceSendingIntervalInMinutes"],
-        params["averageSizeOfMessageInKb"],
-        pricing,
-        use_event_checking=params.get("useEventChecking", False),
-        trigger_notification_workflow=params.get("triggerNotificationWorkflow", False),
-        return_feedback_to_device=params.get("returnFeedbackToDevice", False),
-        integrate_error_handling=params.get("integrateErrorHandling", False),
-        orchestration_actions_per_message=params.get("orchestrationActionsPerMessage", 3),
-        events_per_message=params.get("eventsPerMessage", 1)
-    )
+    gcp_result_data_processing = _gcp_calc.calculate_data_processing(params, pricing)
 
     transfer_cost_from_l2_gcp_to_aws_hot = transfer.calculate_transfer_cost_from_l2_gcp_to_aws_hot(
         gcp_result_data_processing["dataSizeInGB"],
@@ -294,12 +246,10 @@ def calculate_gcp_costs(params, pricing):
         gcp_result_data_processing["dataSizeInGB"]
     )
 
-    gcp_result_hot = gcp.calculate_firestore_cost(
-        gcp_result_data_processing["dataSizeInGB"],
-        gcp_result_data_processing["totalMessagesPerMonth"],
-        params["averageSizeOfMessageInKb"],
-        params["hotStorageDurationInMonths"],
-        pricing
+    gcp_result_hot = _gcp_calc.calculate_storage_hot(
+        params, pricing,
+        data_size_in_gb=gcp_result_data_processing["dataSizeInGB"],
+        total_messages_per_month=gcp_result_data_processing["totalMessagesPerMonth"]
     )
 
     transfer_cost_from_gcp_hot_to_aws_cool = transfer.calculate_transfer_cost_from_gcp_hot_to_aws_cool(
@@ -317,10 +267,9 @@ def calculate_gcp_costs(params, pricing):
         pricing
     )
 
-    gcp_result_l3_cool = gcp.calculate_gcp_storage_cool_cost(
-        gcp_result_hot["dataSizeInGB"],
-        params["coolStorageDurationInMonths"],
-        pricing
+    gcp_result_l3_cool = _gcp_calc.calculate_storage_cool(
+        params, pricing,
+        data_size_in_gb=gcp_result_hot["dataSizeInGB"]
     )
 
     transfer_cost_from_gcp_cool_to_aws_archive = transfer.calculate_transfer_cost_from_gcp_cool_to_aws_archive(
@@ -337,26 +286,14 @@ def calculate_gcp_costs(params, pricing):
         gcp_result_l3_cool["dataSizeInGB"]
     )
 
-    gcp_result_l3_archive = gcp.calculate_gcp_storage_archive_cost(
-        gcp_result_l3_cool["dataSizeInGB"],
-        params["archiveStorageDurationInMonths"],
-        pricing
+    gcp_result_l3_archive = _gcp_calc.calculate_storage_archive(
+        params, pricing,
+        data_size_in_gb=gcp_result_l3_cool["dataSizeInGB"]
     )
 
-    gcp_result_layer4 = gcp.calculate_gcp_twin_maker_cost(
-        params["entityCount"],
-        params["numberOfDevices"],
-        params["deviceSendingIntervalInMinutes"],
-        params["dashboardRefreshesPerHour"],
-        params["dashboardActiveHoursPerDay"],
-        params["average3DModelSizeInMB"],
-        pricing
-    )
+    gcp_result_layer4 = _gcp_calc.calculate_twin_management(params, pricing)
 
-    gcp_result_layer5 = gcp.calculate_gcp_managed_grafana_cost(
-        params["amountOfActiveEditors"] + params["amountOfActiveViewers"],
-        pricing
-    )
+    gcp_result_layer5 = _gcp_calc.calculate_visualization(params, pricing)
 
     return {
         "dataAquisition": gcp_result_data_acquisition,
@@ -512,11 +449,11 @@ def calculate_cheapest_costs(params, pricing=None):
                 
                 # Glue Code (Reader Function at L3)
                 if l3["provider"] == "AWS":
-                    glue_cost = aws.calculate_aws_connector_function_cost(messages_per_month, pricing)
+                    glue_cost = _aws_calc.calculate_connector_function_cost(messages_per_month, pricing)
                 elif l3["provider"] == "Azure":
-                    glue_cost = azure.calculate_azure_connector_function_cost(messages_per_month, pricing)
+                    glue_cost = _azure_calc.calculate_connector_function_cost(messages_per_month, pricing)
                 elif l3["provider"] == "GCP":
-                    glue_cost = gcp.calculate_gcp_connector_function_cost(messages_per_month, pricing)
+                    glue_cost = _gcp_calc.calculate_connector_function_cost(messages_per_month, pricing)
 
             total_cost = base_cost + transfer_fee + glue_cost
             combinations.append({
@@ -606,11 +543,11 @@ def calculate_cheapest_costs(params, pricing=None):
     l1_aws_transfer = transfer_costs.get(f"L1_AWS_to_{hot_storage_provider}", 0)
     l1_aws_glue = 0
     if hot_storage_provider != "AWS_Hot":
-        l1_aws_glue += aws.calculate_aws_connector_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+        l1_aws_glue += _aws_calc.calculate_connector_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
         if hot_storage_provider == "Azure_Hot":
-            l1_aws_glue += azure.calculate_azure_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+            l1_aws_glue += _azure_calc.calculate_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
         elif hot_storage_provider == "GCP_Hot":
-            l1_aws_glue += gcp.calculate_gcp_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+            l1_aws_glue += _gcp_calc.calculate_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
     l1_aws_total = l1_aws_base + l1_aws_transfer + l1_aws_glue
 
     # Azure L1
@@ -618,11 +555,11 @@ def calculate_cheapest_costs(params, pricing=None):
     l1_azure_transfer = transfer_costs.get(f"L1_Azure_to_{hot_storage_provider}", 0)
     l1_azure_glue = 0
     if hot_storage_provider != "Azure_Hot":
-        l1_azure_glue += azure.calculate_azure_connector_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+        l1_azure_glue += _azure_calc.calculate_connector_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
         if hot_storage_provider == "AWS_Hot":
-            l1_azure_glue += aws.calculate_aws_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+            l1_azure_glue += _aws_calc.calculate_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
         elif hot_storage_provider == "GCP_Hot":
-            l1_azure_glue += gcp.calculate_gcp_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+            l1_azure_glue += _gcp_calc.calculate_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
     l1_azure_total = l1_azure_base + l1_azure_transfer + l1_azure_glue
 
     # GCP L1
@@ -630,11 +567,11 @@ def calculate_cheapest_costs(params, pricing=None):
     l1_gcp_transfer = transfer_costs.get(f"L1_GCP_to_{hot_storage_provider}", 0)
     l1_gcp_glue = 0
     if hot_storage_provider != "GCP_Hot":
-        l1_gcp_glue += gcp.calculate_gcp_connector_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+        l1_gcp_glue += _gcp_calc.calculate_connector_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
         if hot_storage_provider == "AWS_Hot":
-            l1_gcp_glue += aws.calculate_aws_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+            l1_gcp_glue += _aws_calc.calculate_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
         elif hot_storage_provider == "Azure_Hot":
-            l1_gcp_glue += azure.calculate_azure_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
+            l1_gcp_glue += _azure_calc.calculate_ingestion_function_cost(params["numberOfDevices"] * (60 / params["deviceSendingIntervalInMinutes"]) * 730, pricing)
     l1_gcp_total = l1_gcp_base + l1_gcp_transfer + l1_gcp_glue
 
     l1_detailed_options = [
@@ -689,14 +626,14 @@ def calculate_cheapest_costs(params, pricing=None):
     num_queries = params["dashboardActiveHoursPerDay"] * params["dashboardRefreshesPerHour"] * 30
     
     if l3_provider_name == "AWS":
-        l3_api_gateway_cost = aws.calculate_aws_api_gateway_cost(num_queries, pricing)
-        l3_reader_cost = aws.calculate_aws_reader_function_cost(num_queries, pricing)
+        l3_api_gateway_cost = _aws_calc.calculate_api_gateway_cost(num_queries, pricing)
+        l3_reader_cost = _aws_calc.calculate_reader_function_cost(num_queries, pricing)
     elif l3_provider_name == "Azure":
-        l3_api_gateway_cost = azure.calculate_azure_api_management_cost(num_queries, pricing)
-        l3_reader_cost = azure.calculate_azure_reader_function_cost(num_queries, pricing)
+        l3_api_gateway_cost = _azure_calc.calculate_api_gateway_cost(num_queries, pricing)
+        l3_reader_cost = _azure_calc.calculate_reader_function_cost(num_queries, pricing)
     elif l3_provider_name == "GCP":
-        l3_api_gateway_cost = gcp.calculate_gcp_api_gateway_cost(num_queries, pricing)
-        l3_reader_cost = gcp.calculate_gcp_reader_function_cost(num_queries, pricing)
+        l3_api_gateway_cost = _gcp_calc.calculate_api_gateway_cost(num_queries, pricing)
+        l3_reader_cost = _gcp_calc.calculate_reader_function_cost(num_queries, pricing)
 
     # Update L4 options with glue costs AND update the main result objects
     updated_l4_options = []

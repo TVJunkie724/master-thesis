@@ -19,6 +19,204 @@ Formula documentation: docs/docs-formulas.html
 """
 
 import math
+from typing import Dict, Any
+
+from backend.calculation.base import CalculationParams, LayerResult
+from backend.calculation.builders import LayerResultBuilder
+
+
+def _build_layer_result(
+    provider: str,
+    cost: float,
+    data_size: float = None,
+    messages: float = None,
+    **components
+) -> Dict[str, Any]:
+    """
+    Helper function to build LayerResult using Builder pattern.
+    See aws.py for detailed documentation.
+    """
+    builder = LayerResultBuilder(provider).set_cost(cost)
+    
+    if data_size is not None:
+        builder.set_data_size(data_size)
+    if messages is not None:
+        builder.set_messages(messages)
+    
+    for name, value in components.items():
+        builder.add_component(name, value)
+    
+    if components:
+        builder.include_components()
+    
+    return builder.build()
+
+
+# =============================================================================
+# GCPCalculator - Strategy Pattern Implementation
+# =============================================================================
+
+class GCPCalculator:
+    """
+    GCP cost calculator implementing the CloudProviderCalculator Protocol.
+    
+    This class wraps the existing standalone calculation functions,
+    providing a unified interface for the calculation engine.
+    
+    Note: GCP uses self-hosted Compute Engine instances for L4/L5 since
+    GCP doesn't offer native managed services for Digital Twins or Grafana.
+    
+    See AWSCalculator docstring for detailed architecture notes and future work.
+    The same approach (delegation to standalone functions) is used here.
+    
+    Future Work: Full Encapsulation
+    ---------------------------------
+    Move calculate_gcp_* function bodies into class methods. See AWSCalculator
+    docstring for detailed pros/cons and implementation steps.
+    """
+    
+    name: str = "gcp"
+    
+    def calculate_data_acquisition(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any]
+    ) -> LayerResult:
+        """Calculate GCP Pub/Sub ingestion costs."""
+        return calculate_gcp_cost_data_acquisition(
+            params["numberOfDevices"],
+            params["deviceSendingIntervalInMinutes"],
+            params["averageSizeOfMessageInKb"],
+            pricing
+        )
+    
+    def calculate_data_processing(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any]
+    ) -> LayerResult:
+        """Calculate GCP Cloud Functions processing costs."""
+        return calculate_gcp_cost_data_processing(
+            params["numberOfDevices"],
+            params["deviceSendingIntervalInMinutes"],
+            params["averageSizeOfMessageInKb"],
+            pricing,
+            use_event_checking=params.get("useEventChecking", False),
+            trigger_notification_workflow=params.get("triggerNotificationWorkflow", False),
+            return_feedback_to_device=params.get("returnFeedbackToDevice", False),
+            integrate_error_handling=params.get("integrateErrorHandling", False),
+            orchestration_actions_per_message=params.get("orchestrationActionsPerMessage", 3),
+            events_per_message=params.get("eventsPerMessage", 1)
+        )
+    
+    def calculate_storage_hot(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any],
+        data_size_in_gb: float,
+        total_messages_per_month: float
+    ) -> LayerResult:
+        """Calculate GCP Firestore hot storage costs."""
+        return calculate_firestore_cost(
+            data_size_in_gb,
+            total_messages_per_month,
+            params["averageSizeOfMessageInKb"],
+            params["hotStorageDurationInMonths"],
+            pricing
+        )
+    
+    def calculate_storage_cool(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any],
+        data_size_in_gb: float
+    ) -> LayerResult:
+        """Calculate GCP Cloud Storage Nearline cool storage costs."""
+        return calculate_gcp_storage_cool_cost(
+            data_size_in_gb,
+            params["coolStorageDurationInMonths"],
+            pricing
+        )
+    
+    def calculate_storage_archive(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any],
+        data_size_in_gb: float
+    ) -> LayerResult:
+        """Calculate GCP Cloud Storage Archive costs."""
+        return calculate_gcp_storage_archive_cost(
+            data_size_in_gb,
+            params["archiveStorageDurationInMonths"],
+            pricing
+        )
+    
+    def calculate_twin_management(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any]
+    ) -> LayerResult:
+        """Calculate GCP Twin Management costs (self-hosted on Compute Engine)."""
+        return calculate_gcp_twin_maker_cost(
+            params["entityCount"],
+            params["numberOfDevices"],
+            params["deviceSendingIntervalInMinutes"],
+            params["dashboardRefreshesPerHour"],
+            params["dashboardActiveHoursPerDay"],
+            params["average3DModelSizeInMB"],
+            pricing
+        )
+    
+    def calculate_visualization(
+        self,
+        params: CalculationParams,
+        pricing: Dict[str, Any]
+    ) -> LayerResult:
+        """Calculate GCP Grafana costs (self-hosted on Compute Engine)."""
+        # GCP uses self-hosted Grafana, user count is passed but not used directly
+        total_users = params["amountOfActiveEditors"] + params["amountOfActiveViewers"]
+        return calculate_gcp_managed_grafana_cost(total_users, pricing)
+    
+    # -------------------------------------------------------------------------
+    # Cross-Cloud Glue Functions
+    # -------------------------------------------------------------------------
+    
+    def calculate_connector_function_cost(
+        self,
+        number_of_messages: float,
+        pricing: Dict[str, Any]
+    ) -> float:
+        """Calculate GCP Cloud Functions connector cost."""
+        return calculate_gcp_connector_function_cost(number_of_messages, pricing)
+    
+    def calculate_ingestion_function_cost(
+        self,
+        number_of_messages: float,
+        pricing: Dict[str, Any]
+    ) -> float:
+        """Calculate GCP Cloud Functions ingestion cost."""
+        return calculate_gcp_ingestion_function_cost(number_of_messages, pricing)
+    
+    def calculate_reader_function_cost(
+        self,
+        number_of_requests: float,
+        pricing: Dict[str, Any]
+    ) -> float:
+        """Calculate GCP Cloud Functions reader cost."""
+        return calculate_gcp_reader_function_cost(number_of_requests, pricing)
+    
+    def calculate_api_gateway_cost(
+        self,
+        number_of_requests: float,
+        pricing: Dict[str, Any]
+    ) -> float:
+        """Calculate GCP API Gateway cost."""
+        return calculate_gcp_api_gateway_cost(number_of_requests, pricing)
+
+
+# =============================================================================
+# Standalone Functions (Original Implementation)
+# =============================================================================
 
 # LAYER 1 - Data Acquisition
 # Service: Google Cloud Pub/Sub
@@ -43,12 +241,12 @@ def calculate_gcp_cost_data_acquisition(number_of_devices, device_sending_interv
     # Use pricePerGiB (volume based)
     cost = data_volume_gb * pricing_layer.get("pricePerGiB", 0)
     
-    return {
-        "provider": "GCP",
-        "totalMonthlyCost": cost,
-        "dataSizeInGB": data_volume_gb,
-        "totalMessagesPerMonth": messages_per_month
-    }
+    return _build_layer_result(
+        provider="GCP",
+        cost=cost,
+        messages=messages_per_month,
+        data_size=data_volume_gb
+    )
 
 def calculate_gcp_cost_data_processing(
     number_of_devices,
@@ -176,12 +374,12 @@ def calculate_gcp_cost_data_processing(
 
     total_monthly_cost = request_cost + compute_cost + event_checker_cost + workflows_cost + feedback_loop_cost + error_handling_cost
     
-    return {
-        "provider": "GCP",
-        "totalMonthlyCost": total_monthly_cost,
-        "dataSizeInGB": data_size_in_gb,
-        "totalMessagesPerMonth": executions_per_month
-    }
+    return _build_layer_result(
+        provider="GCP",
+        cost=total_monthly_cost,
+        data_size=data_size_in_gb,
+        messages=executions_per_month
+    )
 
 def calculate_gcp_api_gateway_cost(number_of_requests, pricing):
     # API Gateway Pricing: Per million calls
@@ -259,11 +457,11 @@ def calculate_firestore_cost(data_size_in_gb, total_messages_per_month, average_
     
     total_monthly_cost = storage_cost + write_cost + read_cost
     
-    return {
-        "provider": "GCP",
-        "totalMonthlyCost": total_monthly_cost,
-        "dataSizeInGB": data_size_in_gb
-    }
+    return _build_layer_result(
+        provider="GCP",
+        cost=total_monthly_cost,
+        data_size=data_size_in_gb
+    )
 
 def calculate_gcp_storage_cool_cost(data_size_in_gb, duration_in_months, pricing):
     """
@@ -293,11 +491,11 @@ def calculate_gcp_storage_cool_cost(data_size_in_gb, duration_in_months, pricing
     
     total_monthly_cost = storage_cost + write_cost + read_cost + retrieval_cost
     
-    return {
-        "provider": "GCP",
-        "totalMonthlyCost": total_monthly_cost,
-        "dataSizeInGB": data_size_in_gb
-    }
+    return _build_layer_result(
+        provider="GCP",
+        cost=total_monthly_cost,
+        data_size=data_size_in_gb
+    )
 
 def calculate_gcp_storage_archive_cost(data_size_in_gb, duration_in_months, pricing):
     """
@@ -325,11 +523,11 @@ def calculate_gcp_storage_archive_cost(data_size_in_gb, duration_in_months, pric
     
     total_monthly_cost = storage_cost + write_cost + retrieval_cost
     
-    return {
-        "provider": "GCP",
-        "totalMonthlyCost": total_monthly_cost,
-        "dataSizeInGB": data_size_in_gb
-    }
+    return _build_layer_result(
+        provider="GCP",
+        cost=total_monthly_cost,
+        data_size=data_size_in_gb
+    )
 
 def calculate_gcp_twin_maker_cost(entity_count, number_of_devices, device_sending_interval_in_minutes, dashboard_refreshes_per_hour, dashboard_active_hours_per_day, average_3d_model_size_in_mb, pricing):
     """
@@ -354,10 +552,10 @@ def calculate_gcp_twin_maker_cost(entity_count, number_of_devices, device_sendin
     
     cost = instance_cost + storage_cost + model_storage_cost
     
-    return {
-        "provider": "GCP",
-        "totalMonthlyCost": cost
-    }
+    return _build_layer_result(
+        provider="GCP",
+        cost=cost
+    )
 
 # LAYER 5 - Data Visualization
 # Service: Self-Hosted Grafana on Compute Engine
@@ -398,7 +596,7 @@ def calculate_gcp_managed_grafana_cost(amount_of_active_users, pricing):
     
     cost = instance_cost + storage_cost
     
-    return {
-        "provider": "GCP",
-        "totalMonthlyCost": cost
-    }
+    return _build_layer_result(
+        provider="GCP",
+        cost=cost
+    )

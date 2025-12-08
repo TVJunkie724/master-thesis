@@ -83,13 +83,13 @@ def test_find_cheapest_storage_path_branching():
     assert result["cost"] == 17
     assert result["path"] == ["Start", "B", "End"]
 
-@patch('backend.calculation.engine.aws')
-@patch('backend.calculation.engine.azure')
-@patch('backend.calculation.engine.gcp')
+@patch('backend.calculation.engine._aws_calc')
+@patch('backend.calculation.engine._azure_calc')
+@patch('backend.calculation.engine._gcp_calc')
 @patch('backend.calculation.engine.transfer')
 @patch('backend.calculation.engine.load_json_file')
 @patch('backend.calculation.engine.validate_pricing_schema')
-def test_calculate_cheapest_costs_mocked(mock_validate, mock_load_json, mock_transfer, mock_gcp, mock_azure, mock_aws):
+def test_calculate_cheapest_costs_mocked(mock_validate, mock_load_json, mock_transfer, mock_gcp_calc, mock_azure_calc, mock_aws_calc):
     # Mock validation to pass
     mock_validate.return_value = {"status": "valid", "missing_keys": []}
     # Setup Mock Data
@@ -127,54 +127,54 @@ def test_calculate_cheapest_costs_mocked(mock_validate, mock_load_json, mock_tra
         }
 
     # --- AWS Mocks ---
-    mock_aws.calculate_aws_cost_data_acquisition.return_value = create_cost_result(100, "AWS")
-    mock_aws.calculate_aws_cost_data_processing.return_value = create_cost_result(100, "AWS")
-    mock_aws.calculate_dynamodb_cost.return_value = create_cost_result(100, "AWS") # Hot
-    mock_aws.calculate_s3_infrequent_access_cost.return_value = create_cost_result(50, "AWS") # Cool
-    mock_aws.calculate_s3_glacier_deep_archive_cost.return_value = create_cost_result(10, "AWS") # Archive
-    mock_aws.calculate_aws_iot_twin_maker_cost.return_value = create_cost_result(100, "AWS") # L4
-    mock_aws.calculate_amazon_managed_grafana_cost.return_value = create_cost_result(100, "AWS") # L5
+    mock_aws_calc.calculate_data_acquisition.return_value = create_cost_result(100, "AWS")
+    mock_aws_calc.calculate_data_processing.return_value = create_cost_result(100, "AWS")
+    mock_aws_calc.calculate_storage_hot.return_value = create_cost_result(100, "AWS") # Hot
+    mock_aws_calc.calculate_storage_cool.return_value = create_cost_result(50, "AWS") # Cool
+    mock_aws_calc.calculate_storage_archive.return_value = create_cost_result(10, "AWS") # Archive
+    mock_aws_calc.calculate_twin_management.return_value = create_cost_result(100, "AWS") # L4
+    mock_aws_calc.calculate_visualization.return_value = create_cost_result(100, "AWS") # L5
 
     # --- Azure Mocks ---
-    mock_azure.calculate_azure_cost_data_acquisition.return_value = create_cost_result(80, "Azure")
-    mock_azure.calculate_azure_cost_data_processing.return_value = create_cost_result(80, "Azure")
-    mock_azure.calculate_cosmos_db_cost.return_value = create_cost_result(80, "Azure") # Hot
-    mock_azure.calculate_azure_blob_storage_cost.return_value = create_cost_result(40, "Azure") # Cool
-    mock_azure.calculate_azure_blob_storage_archive_cost.return_value = create_cost_result(8, "Azure") # Archive
-    mock_azure.calculate_azure_digital_twins_cost.return_value = create_cost_result(80, "Azure") # L4
-    mock_azure.calculate_azure_managed_grafana_cost.return_value = create_cost_result(80, "Azure") # L5
+    mock_azure_calc.calculate_data_acquisition.return_value = create_cost_result(80, "Azure")
+    mock_azure_calc.calculate_data_processing.return_value = create_cost_result(80, "Azure")
+    mock_azure_calc.calculate_storage_hot.return_value = create_cost_result(80, "Azure") # Hot
+    mock_azure_calc.calculate_storage_cool.return_value = create_cost_result(40, "Azure") # Cool
+    mock_azure_calc.calculate_storage_archive.return_value = create_cost_result(8, "Azure") # Archive
+    mock_azure_calc.calculate_twin_management.return_value = create_cost_result(80, "Azure") # L4
+    mock_azure_calc.calculate_visualization.return_value = create_cost_result(80, "Azure") # L5
 
     # --- GCP Mocks ---
-    mock_gcp.calculate_gcp_cost_data_acquisition.return_value = create_cost_result(120, "GCP")
-    mock_gcp.calculate_gcp_cost_data_processing.return_value = create_cost_result(120, "GCP")
-    mock_gcp.calculate_firestore_cost.return_value = create_cost_result(120, "GCP") # Hot
-    mock_gcp.calculate_gcp_storage_cool_cost.return_value = create_cost_result(60, "GCP") # Cool
-    mock_gcp.calculate_gcp_storage_archive_cost.return_value = create_cost_result(12, "GCP") # Archive
-    mock_gcp.calculate_gcp_twin_maker_cost.return_value = create_cost_result(120, "GCP") # L4
-    mock_gcp.calculate_gcp_managed_grafana_cost.return_value = create_cost_result(120, "GCP") # L5
+    mock_gcp_calc.calculate_data_acquisition.return_value = create_cost_result(120, "GCP")
+    mock_gcp_calc.calculate_data_processing.return_value = create_cost_result(120, "GCP")
+    mock_gcp_calc.calculate_storage_hot.return_value = create_cost_result(120, "GCP") # Hot
+    mock_gcp_calc.calculate_storage_cool.return_value = create_cost_result(60, "GCP") # Cool
+    mock_gcp_calc.calculate_storage_archive.return_value = create_cost_result(12, "GCP") # Archive
+    mock_gcp_calc.calculate_twin_management.return_value = create_cost_result(120, "GCP") # L4
+    mock_gcp_calc.calculate_visualization.return_value = create_cost_result(120, "GCP") # L5
 
     # --- Glue Function Mocks ---
-    mock_aws.calculate_aws_connector_function_cost.return_value = 1.0
-    mock_aws.calculate_aws_ingestion_function_cost.return_value = 1.0
+    mock_aws_calc.calculate_connector_function_cost.return_value = 1.0
+    mock_aws_calc.calculate_ingestion_function_cost.return_value = 1.0
     
-    mock_azure.calculate_azure_connector_function_cost.return_value = 1.0
-    mock_azure.calculate_azure_ingestion_function_cost.return_value = 1.0
+    mock_azure_calc.calculate_connector_function_cost.return_value = 1.0
+    mock_azure_calc.calculate_ingestion_function_cost.return_value = 1.0
     
-    mock_gcp.calculate_gcp_connector_function_cost.return_value = 1.0
-    mock_gcp.calculate_gcp_ingestion_function_cost.return_value = 1.0
+    mock_gcp_calc.calculate_connector_function_cost.return_value = 1.0
+    mock_gcp_calc.calculate_ingestion_function_cost.return_value = 1.0
 
-    mock_gcp.calculate_gcp_connector_function_cost.return_value = 1.0
-    mock_gcp.calculate_gcp_ingestion_function_cost.return_value = 1.0
+    mock_gcp_calc.calculate_connector_function_cost.return_value = 1.0
+    mock_gcp_calc.calculate_ingestion_function_cost.return_value = 1.0
 
     # --- Glue Function Mocks (L3 -> L4) ---
-    mock_aws.calculate_aws_api_gateway_cost.return_value = 1.0
-    mock_aws.calculate_aws_reader_function_cost.return_value = 1.0
+    mock_aws_calc.calculate_api_gateway_cost.return_value = 1.0
+    mock_aws_calc.calculate_reader_function_cost.return_value = 1.0
     
-    mock_azure.calculate_azure_api_management_cost.return_value = 1.0
-    mock_azure.calculate_azure_reader_function_cost.return_value = 1.0
+    mock_azure_calc.calculate_api_gateway_cost.return_value = 1.0
+    mock_azure_calc.calculate_reader_function_cost.return_value = 1.0
     
-    mock_gcp.calculate_gcp_api_gateway_cost.return_value = 1.0
-    mock_gcp.calculate_gcp_reader_function_cost.return_value = 1.0
+    mock_gcp_calc.calculate_api_gateway_cost.return_value = 1.0
+    mock_gcp_calc.calculate_reader_function_cost.return_value = 1.0
 
     # --- Transfer Mocks ---
     # Helper to set return value on mock_transfer

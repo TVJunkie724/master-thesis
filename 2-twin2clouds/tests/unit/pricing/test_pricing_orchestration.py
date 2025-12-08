@@ -13,8 +13,8 @@ from backend.logger import logger
 
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_credentials_file')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_json_file')
-@patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_aws_price')
-@patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_azure_price')
+@patch('backend.fetch_data.cloud_price_fetcher_aws.fetch_aws_price')
+@patch('backend.fetch_data.cloud_price_fetcher_azure.fetch_azure_price')
 @patch('backend.fetch_data.cloud_price_fetcher_google.fetch_gcp_price')
 @patch('pathlib.Path.write_text')
 def test_calculate_up_to_date_pricing_integration(
@@ -134,7 +134,7 @@ def test_get_or_warn_with_static_value():
     # Should return static value (same as default in this case)
     assert result == 0.002
 
-@patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_aws_price')
+@patch('backend.fetch_data.cloud_price_fetcher_aws.fetch_aws_price')
 def test_fetch_aws_data_structure(mock_fetch):
     """Test that fetch_aws_data returns correct structure"""
     
@@ -152,7 +152,7 @@ def test_fetch_aws_data_structure(mock_fetch):
     assert "iotCore" in result or "iot" in result
     assert isinstance(result, dict)
 
-@patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_azure_price')
+@patch('backend.fetch_data.cloud_price_fetcher_azure.fetch_azure_price')
 def test_fetch_azure_data_structure(mock_fetch):
     """Test that fetch_azure_data returns correct structure"""
     
@@ -188,7 +188,7 @@ def test_fetch_google_data_structure(mock_fetch):
 
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_credentials_file')
 @patch('backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_json_file')
-@patch('backend.fetch_data.calculate_up_to_date_pricing.fetch_aws_price')
+@patch('backend.fetch_data.cloud_price_fetcher_aws.fetch_aws_price')
 @patch('pathlib.Path.write_text')
 def test_calculate_up_to_date_pricing_handles_errors(
     mock_write_text,

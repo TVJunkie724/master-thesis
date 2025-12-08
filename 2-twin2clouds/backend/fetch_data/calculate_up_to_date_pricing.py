@@ -4,11 +4,15 @@ from pathlib import Path
 import backend.config_loader as config_loader
 import backend.constants as CONSTANTS
 from backend.logger import logger
-from backend.fetch_data.cloud_price_fetcher_aws import fetch_aws_price, STATIC_DEFAULTS
-from backend.fetch_data.cloud_price_fetcher_azure import fetch_azure_price, STATIC_DEFAULTS_AZURE
-from backend.fetch_data.cloud_price_fetcher_google import fetch_gcp_price, STATIC_DEFAULTS_GCP
+from backend.fetch_data.cloud_price_fetcher_aws import STATIC_DEFAULTS
+from backend.fetch_data.cloud_price_fetcher_azure import STATIC_DEFAULTS_AZURE
+from backend.fetch_data.cloud_price_fetcher_google import STATIC_DEFAULTS_GCP
 from google.cloud import billing_v1
 from backend.config_loader import load_gcp_credentials
+
+# Factory Pattern: Centralized creation of price fetcher instances
+# All provider-specific fetching is done through the Factory
+from backend.fetch_data.factory import PriceFetcherFactory
 
 
 # ============================================================
@@ -137,7 +141,7 @@ def _get_or_warn(provider_name, neutral_service, provider_service, key, fetched_
 # ============================================================
 def fetch_aws_data(aws_credentials: dict, service_mapping: dict, region_map: dict, additional_debug=False) -> dict:
     """
-    Fetches all AWS service pricing using fetch_aws_price()
+    Fetches all AWS service pricing using the Factory Pattern
     and builds the canonical AWS pricing.json structure.
     Prints warnings for all fallback/default values or static defaults.
     """
@@ -151,9 +155,12 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, region_map: dic
         logger.error(f"Failed to load AWS credentials: {e}")
         client_credentials = None
 
+    # Factory Pattern: Create AWS fetcher instance
+    aws_fetcher = PriceFetcherFactory.create("aws")
+    
     fetched = {}
     
-    # Fetch AWS services
+    # Fetch AWS services using the Factory-created fetcher
     for neutral_service, service_codes_per_provider in service_mapping.items():
         try:
             service_code = service_codes_per_provider.get("aws", "")
@@ -163,8 +170,15 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, region_map: dic
                 continue
 
             logger.info(f"--- Service: {neutral_service} ---")
-            # Pass region_map here
-            fetched[neutral_service] = fetch_aws_price(neutral_service, service_code, region, region_map, client_credentials, additional_debug)
+            # Use Factory-created fetcher with provider-specific kwargs
+            fetched[neutral_service] = aws_fetcher.fetch_price(
+                service_name=neutral_service,
+                region_code=region,
+                region_map=region_map,
+                debug=additional_debug,
+                service_code=service_code,
+                aws_credentials=client_credentials
+            )
         except ValueError as e:
             logger.error(e)
             raise
@@ -302,10 +316,13 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, region_map: dic
 # ============================================================
 def fetch_azure_data(azure_credentials: dict, service_mapping: dict, region_map: dict, additional_debug=False) -> dict:
     """
-    Fetches Azure pricing using fetch_azure_price() and builds the canonical structure.
+    Fetches Azure pricing using the Factory Pattern and builds the canonical structure.
     """
     region = azure_credentials.get("azure_region", "westeurope")
     logger.info(f"🚀 Fetching Azure pricing for region: {region}")
+    
+    # Factory Pattern: Create Azure fetcher instance
+    azure_fetcher = PriceFetcherFactory.create("azure")
     
     fetched = {}
 
@@ -318,8 +335,14 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, region_map:
                 continue
 
             logger.info(f"--- Azure Service: {neutral_service} ---")
-            # Pass region_map and service_mapping here
-            fetched[neutral_service] = fetch_azure_price(neutral_service, region, region_map, service_mapping, additional_debug)
+            # Use Factory-created fetcher with provider-specific kwargs
+            fetched[neutral_service] = azure_fetcher.fetch_price(
+                service_name=neutral_service,
+                region_code=region,
+                region_map=region_map,
+                debug=additional_debug,
+                service_mapping=service_mapping
+            )
         except ValueError as e:
             logger.error(e)
             raise
@@ -447,21 +470,24 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, region_map:
 # ============================================================
 def fetch_google_data(google_credentials: dict, service_mapping: dict, region_map: dict, additional_debug=False) -> dict:
     """
-    Fetches Google Cloud pricing using fetch_google_price() and builds the canonical structure.
+    Fetches Google Cloud pricing using the Factory Pattern and builds the canonical structure.
     """
     region = google_credentials.get("gcp_region", "europe-west1")
     logger.info(f"🚀 Fetching Google Cloud pricing for region: {region}")
     
-    fetched = {} 
-
     # Initialize Client ONCE
     try:
         credentials = load_gcp_credentials()
-        client = billing_v1.CloudCatalogClient(credentials=credentials)
+        billing_client = billing_v1.CloudCatalogClient(credentials=credentials)
     except Exception as e:
         logger.error(f"⚠️ Failed to initialize GCP Billing Client: {e}")
         # Fallback to empty fetched dict, defaults will be used
-        client = None
+        billing_client = None
+
+    # Factory Pattern: Create GCP fetcher instance
+    gcp_fetcher = PriceFetcherFactory.create("gcp")
+    
+    fetched = {}
 
     for neutral_service, service_codes_per_provider in service_mapping.items():
         try:
@@ -472,9 +498,15 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, region_ma
                 continue
 
             logger.info(f"--- GCP Service: {neutral_service} ---")
-            if client:
-                # Pass region_map here
-                fetched[neutral_service] = fetch_gcp_price(client, neutral_service, region, region_map, additional_debug)
+            if billing_client:
+                # Use Factory-created fetcher with provider-specific kwargs
+                fetched[neutral_service] = gcp_fetcher.fetch_price(
+                    service_name=neutral_service,
+                    region_code=region,
+                    region_map=region_map,
+                    debug=additional_debug,
+                    billing_client=billing_client
+                )
             else:
                 fetched[neutral_service] = {}
         except ValueError as e:
