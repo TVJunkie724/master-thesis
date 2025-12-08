@@ -1,12 +1,8 @@
 """
 Layer 2 (Compute) Adapter for AWS.
 
-This module provides context-based wrappers around the existing Layer 2
-deployment functions in src/aws/deployer_layers/layer_2_compute.py.
-
-Note:
-    The underlying layer code still uses globals internally.
-    This adapter provides the context-based interface.
+This module provides context-based wrappers around the Layer 2
+deployment functions, passing provider and config explicitly.
 """
 
 from typing import TYPE_CHECKING
@@ -31,7 +27,7 @@ def deploy_l2(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
         context: Deployment context with config and credentials
         provider: Initialized AWSProvider instance
     """
-    from src.aws.deployer_layers.layer_2_compute import (
+    from .layer_2_compute import (
         create_persister_iam_role,
         create_persister_lambda_function,
         create_event_checker_iam_role,
@@ -45,20 +41,23 @@ def deploy_l2(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     logger.info(f"[L2] Deploying Layer 2 (Compute) for {context.config.digital_twin_name}")
     context.set_active_layer(2)
     
+    project_path = str(context.project_path.parent.parent)  # Get to src/
+    upload_path = str(context.project_path)
+    
     # Core components (always deployed)
-    create_persister_iam_role()
-    create_persister_lambda_function()
+    create_persister_iam_role(provider)
+    create_persister_lambda_function(provider, context.config, project_path)
     
     # Optional event processing (check via context)
     if context.config.is_optimization_enabled("useEventChecking"):
-        create_event_checker_iam_role()
-        create_event_checker_lambda_function()
+        create_event_checker_iam_role(provider)
+        create_event_checker_lambda_function(provider, context.config, project_path)
         
         if context.config.is_optimization_enabled("triggerNotificationWorkflow"):
-            create_lambda_chain_iam_role()
-            create_lambda_chain_step_function()
-            create_event_feedback_iam_role()
-            create_event_feedback_lambda_function()
+            create_lambda_chain_iam_role(provider)
+            create_lambda_chain_step_function(provider, upload_path)
+            create_event_feedback_iam_role(provider)
+            create_event_feedback_lambda_function(provider, context.config, upload_path)
     
     logger.info(f"[L2] Layer 2 deployment complete")
 
@@ -71,7 +70,7 @@ def destroy_l2(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
         context: Deployment context with config and credentials
         provider: Initialized AWSProvider instance
     """
-    from src.aws.deployer_layers.layer_2_compute import (
+    from .layer_2_compute import (
         destroy_persister_lambda_function,
         destroy_persister_iam_role,
         destroy_event_checker_lambda_function,
@@ -86,16 +85,15 @@ def destroy_l2(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     context.set_active_layer(2)
     
     # Destroy in reverse order (optional components first)
-    destroy_event_feedback_lambda_function()
-    destroy_event_feedback_iam_role()
-    destroy_lambda_chain_step_function()
-    destroy_lambda_chain_iam_role()
-    destroy_event_checker_lambda_function()
-    destroy_event_checker_iam_role()
+    destroy_event_feedback_lambda_function(provider)
+    destroy_event_feedback_iam_role(provider)
+    destroy_lambda_chain_step_function(provider)
+    destroy_lambda_chain_iam_role(provider)
+    destroy_event_checker_lambda_function(provider)
+    destroy_event_checker_iam_role(provider)
     
     # Core components
-    destroy_persister_lambda_function()
-    destroy_persister_iam_role()
+    destroy_persister_lambda_function(provider)
+    destroy_persister_iam_role(provider)
     
     logger.info(f"[L2] Layer 2 destruction complete")
-
