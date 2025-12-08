@@ -34,7 +34,7 @@ Usage:
 
 # Import provider modules to trigger auto-registration
 # Each module's __init__.py calls ProviderRegistry.register()
-# Note: Azure and GCP are commented out until implemented
 from . import aws
-# from . import azure  # Uncomment when implemented
-# from . import gcp    # Uncomment when implemented
+from . import azure
+from . import gcp
+
