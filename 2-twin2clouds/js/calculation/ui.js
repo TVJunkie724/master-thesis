@@ -102,7 +102,7 @@ function fillScenario(
   document.getElementById("returnFeedbackToDevice").checked = returnFeedbackToDevice;
   document.getElementById("triggerNotificationWorkflow").checked = triggerNotificationWorkflow;
   document.getElementById("orchestrationActionsPerMessage").value = orchestrationActionsPerMessage;
-  document.getElementById("integrateErrorHandling").checked = integrateErrorHandling;
+  (document.getElementById("integrateErrorHandling") || {}).checked = integrateErrorHandling;
   document.getElementById("apiCallsPerDashboardRefresh").value = apiCallsPerDashboardRefresh;
 
   // Update slider UI

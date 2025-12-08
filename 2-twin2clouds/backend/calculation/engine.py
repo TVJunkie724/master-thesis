@@ -12,6 +12,7 @@ def calculate_aws_costs(params, pricing):
     Calculates monthly costs for all AWS layers (1-5) and associated transfer costs.
     Returns a dictionary containing cost breakdowns for each layer and transfer path.
     """
+
     aws_result_data_acquisition = aws.calculate_aws_cost_data_acquisition(
         params["numberOfDevices"],
         params["deviceSendingIntervalInMinutes"],
@@ -135,6 +136,7 @@ def calculate_azure_costs(params, pricing):
     Calculates monthly costs for all Azure layers (1-5) and associated transfer costs.
     Returns a dictionary containing cost breakdowns for each layer and transfer path.
     """
+
     azure_result_data_acquisition = azure.calculate_azure_cost_data_acquisition(
         params["numberOfDevices"],
         params["deviceSendingIntervalInMinutes"],
@@ -391,6 +393,10 @@ def calculate_cheapest_costs(params, pricing=None):
                 logger.error(f"❌ Invalid pricing data for {provider}: {validation['missing_keys']}")
                 raise ValueError(f"Invalid pricing data for {provider}. Missing keys: {validation['missing_keys']}. Please fetch new pricing data.")
 
+    # TODO Error Handling is not yet planned for the whole project (deployer/architecture)
+    # disable integrate error handling for now
+    params["integrateErrorHandling"] = False
+    
     aws_costs = calculate_aws_costs(params, pricing) if pricing.get("aws") else {}
     azure_costs = calculate_azure_costs(params, pricing) if pricing.get("azure") else {}
     gcp_costs = calculate_gcp_costs(params, pricing) if pricing.get("gcp") else {}

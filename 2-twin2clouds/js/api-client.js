@@ -36,7 +36,8 @@ async function readParamsFromUi() {
     const returnFeedbackToDevice = document.getElementById("returnFeedbackToDevice").checked;
     const triggerNotificationWorkflow = document.getElementById("triggerNotificationWorkflow").checked;
     const orchestrationActionsPerMessage = parseInt(document.getElementById("orchestrationActionsPerMessage").value);
-    const integrateErrorHandling = document.getElementById("integrateErrorHandling").checked;
+
+    const integrateErrorHandling = (document.getElementById("integrateErrorHandling") || {}).checked;
     const apiCallsPerDashboardRefresh = parseInt(document.getElementById("apiCallsPerDashboardRefresh").value);
 
     const currency = document.getElementById("currency").value;
