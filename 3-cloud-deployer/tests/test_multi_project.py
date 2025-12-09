@@ -6,7 +6,7 @@ import json
 import io
 from fastapi.testclient import TestClient
 
-import globals
+import src.core.state as state
 import file_manager
 import src.validator as validator
 import constants as CONSTANTS
@@ -44,21 +44,21 @@ def create_valid_zip_bytes():
     return bio.getvalue()
 
 @pytest.fixture(autouse=True)
-def reset_globals():
-    """Reset globals state before each test"""
-    globals.CURRENT_PROJECT = "template"
+def reset_state():
+    """Reset state before each test"""
+    state.reset_state()
     # Ensure template dir exists (it should in dev, but explicit check help)
-    template_path = os.path.join(globals.project_path(), "upload", "template")
+    template_path = os.path.join(state.get_project_upload_path(), "template")
     if not os.path.exists(template_path):
         os.makedirs(template_path)
     # Cleanup any test projects
-    upload_path = os.path.join(globals.project_path(), "upload")
+    upload_path = state.get_project_upload_path()
     for item in os.listdir(upload_path):
         if item.startswith("test_proj_"):
             shutil.rmtree(os.path.join(upload_path, item))
     yield
     # Cleanup after
-    globals.CURRENT_PROJECT = "template"
+    state.reset_state()
     for item in os.listdir(upload_path):
         if item.startswith("test_proj_"):
             shutil.rmtree(os.path.join(upload_path, item))
@@ -85,7 +85,7 @@ def test_create_project_from_zip_success():
     
     file_manager.create_project_from_zip(project_name, zip_bytes)
     
-    target_dir = os.path.join(globals.project_path(), "upload", project_name)
+    target_dir = os.path.join(state.get_project_upload_path(), project_name)
     assert os.path.exists(target_dir)
     assert os.path.exists(os.path.join(target_dir, "config.json"))
 
@@ -105,19 +105,19 @@ def test_set_active_project_success():
     project_name = "test_proj_active"
     file_manager.create_project_from_zip(project_name, create_valid_zip_bytes())
     
-    globals.set_active_project(project_name)
-    assert globals.CURRENT_PROJECT == project_name
-    assert os.path.basename(globals.get_project_upload_path()) == project_name
-
+    state.set_active_project(project_name)
+    assert state.get_active_project() == project_name
+    
 def test_set_active_project_not_found():
     with pytest.raises(ValueError, match="does not exist"):
-        globals.set_active_project("non_existent_project")
+        state.set_active_project("non_existent_project")
 
 def test_get_path_in_project():
-    globals.set_active_project("template") # Ensure default
-    upload_path = globals.get_project_upload_path()
-    path = util.get_path_in_project("subdir/file.txt", project_path=upload_path)
-    expected = os.path.join(globals.project_path(), "upload", "template", "subdir", "file.txt")
+    state.set_active_project("template") # Ensure default
+    upload_path = state.get_project_upload_path()
+    project_path = os.path.join(upload_path, "template")
+    path = util.get_path_in_project("subdir/file.txt", project_path=project_path)
+    expected = os.path.join(state.get_project_base_path(), "upload", "template", "subdir", "file.txt")
     assert path == expected
 
 # --- API Tests ---
@@ -142,7 +142,7 @@ def test_api_create_project():
     
     assert response.status_code == 200
     assert f"Project '{project_name}' created" in response.json()["message"]
-    assert os.path.exists(os.path.join(globals.project_path(), "upload", project_name))
+    assert os.path.exists(os.path.join(state.get_project_upload_path(), project_name))
 
 def test_api_activate_project():
     project_name = "test_proj_api_activate"
@@ -150,7 +150,7 @@ def test_api_activate_project():
     
     response = client.put(f"/projects/{project_name}/activate")
     assert response.status_code == 200
-    assert globals.CURRENT_PROJECT == project_name
+    assert state.get_active_project() == project_name
 
 def test_api_activate_project_not_found():
     response = client.put("/projects/fake_project/activate")
@@ -172,7 +172,7 @@ def test_api_update_config():
     assert response.status_code == 200
     
     # Verify content
-    with open(os.path.join(globals.project_path(), "upload", project_name, "config.json")) as f:
+    with open(os.path.join(state.get_project_upload_path(), project_name, "config.json")) as f:
         stored_config = json.load(f)
     assert stored_config == new_config
 

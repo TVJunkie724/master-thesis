@@ -1,3 +1,10 @@
+"""
+Digital Twin Manager REST API.
+
+This is the main FastAPI application entry point.
+Uses lazy imports for globals to support the new provider pattern.
+"""
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -8,22 +15,20 @@ import sys
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
-import globals
-import aws.globals_aws as globals_aws
 from logger import logger
 
-# Import API routers
-from api import projects, validation, deployment, status, info, aws_gateway, simulator, credentials
+import src.core.state as state
 
-# --------- Lifespan context manager (replaces deprecated on_event) ----------
+# Import API routers
+from src.api import projects, validation, deployment, status, info, aws_gateway, simulator, credentials
+
+# --------- Lifespan context manager ----------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    globals.initialize_all()
-    globals_aws.initialize_aws_clients()
-    logger.info("✅ Globals initialized. API ready.")
+    logger.info(f"API Startup. Active Project: {state.get_active_project()}")
     yield
-    # Shutdown (if needed in future)
+    # Shutdown
 
 # --------- Initialize FastAPI app ----------
 app = FastAPI(
@@ -61,4 +66,3 @@ app.include_router(status.router)
 app.include_router(aws_gateway.router)
 app.include_router(simulator.router)
 app.include_router(credentials.router)
-

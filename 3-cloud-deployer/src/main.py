@@ -182,33 +182,39 @@ def handle_deploy(provider: str, context: DeploymentContext) -> None:
     deployer.deploy_all(context, provider)
     iot_deployer.deploy(context, provider)
     # Additional deployers
-    import aws.additional_deployer_aws as additional
-    import aws.event_action_deployer_aws as event_action
-    import aws.init_values_deployer_aws as init_values
+    import src.providers.aws.layers.layer_4_twinmaker as hierarchy_layer
+    import src.providers.aws.layers.layer_2_compute as compute_layer
+    import src.providers.aws.layers.layer_1_iot as iot_layer
     
     if provider == "aws":
         aws_provider = context.providers.get("aws")
         if aws_provider:
-            additional.create_twinmaker_hierarchy(provider=aws_provider, hierarchy=context.config.hierarchy)
-            event_action.deploy_lambda_actions(
+            hierarchy_layer.create_twinmaker_hierarchy(
                 provider=aws_provider, 
-                events=context.config.events,
-                project_path=str(context.project_path),
-                digital_twin_info=context.config.get_digital_twin_info()
+                hierarchy=context.config.hierarchy,
+                config=context.config
             )
-            init_values.deploy(provider=aws_provider, iot_devices=context.config.iot_devices)
+            compute_layer.deploy_lambda_actions(
+                provider=aws_provider, 
+                config=context.config,
+                project_path=str(context.project_path)
+            )
+            iot_layer.post_init_values_to_iot_core(
+                provider=aws_provider, 
+                iot_devices=context.config.iot_devices
+            )
 
 
 def handle_destroy(provider: str, context: DeploymentContext) -> None:
     """Handle full destruction."""
-    import aws.additional_deployer_aws as additional
-    import aws.event_action_deployer_aws as event_action
+    import src.providers.aws.layers.layer_4_twinmaker as hierarchy_layer
+    import src.providers.aws.layers.layer_2_compute as compute_layer
     
     if provider == "aws":
         aws_provider = context.providers.get("aws")
         if aws_provider:
-            event_action.destroy_lambda_actions(provider=aws_provider, events=context.config.events)
-            additional.destroy_twinmaker_hierarchy(provider=aws_provider, hierarchy=context.config.hierarchy)
+            compute_layer.destroy_lambda_actions(provider=aws_provider, config=context.config)
+            hierarchy_layer.destroy_twinmaker_hierarchy(provider=aws_provider, hierarchy=context.config.hierarchy)
     
     iot_deployer.destroy(context, provider)
     deployer.destroy_all(context, provider)
@@ -224,7 +230,7 @@ def handle_info_config(context: DeploymentContext) -> None:
 
 def handle_lambda_command(command: str, args: list, context: DeploymentContext) -> None:
     """Handle Lambda management commands."""
-    import aws.lambda_manager as lambda_manager
+    import src.providers.aws.lambda_manager as lambda_manager
     
     aws_provider = context.providers.get("aws")
     if not aws_provider:
@@ -426,11 +432,11 @@ def main():
                     deployer.destroy_l5(context, provider)
                 elif command == "check":
                     import info
-                    info.check(provider=provider, config=context.config)
+                    info.check(provider=provider, context=context)
                 elif command.startswith("check_l"):
                     import info
                     layer = command.replace("check_l", "")
-                    getattr(info, f"check_l{layer}")(provider=provider, config=context.config)
+                    getattr(info, f"check_l{layer}")(provider=provider, context=context)
                     
             except Exception as e:
                 print_stack_trace()

@@ -3,13 +3,14 @@ from fastapi.responses import StreamingResponse
 import subprocess
 import sys
 import asyncio
-import globals
 import os
 import json
 import zipfile
 import io
 import datetime
 from logger import logger
+import src.core.state as state
+
 
 router = APIRouter()
 
@@ -27,7 +28,7 @@ async def simulator_stream(websocket: WebSocket, project_name: str, provider: st
         return
 
     # Check Project Existence
-    project_path = os.path.join(globals.project_path(), "upload", project_name)
+    project_path = os.path.join(state.get_project_upload_path(), project_name)
     if not os.path.exists(project_path):
         await websocket.send_json({"type": "error", "data": f"Project '{project_name}' not found."})
         await websocket.close()
@@ -48,7 +49,7 @@ async def simulator_stream(websocket: WebSocket, project_name: str, provider: st
         return
 
     # 2. Start Subprocess
-    script_path = os.path.join(globals.project_path(), "src", "iot_device_simulator", provider, "main.py")
+    script_path = os.path.join(state.get_project_base_path(), "src", "iot_device_simulator", provider, "main.py")
     process = subprocess.Popen(
         [sys.executable, script_path, "--project", project_name],
         stdin=subprocess.PIPE,
@@ -112,7 +113,7 @@ async def simulator_stream(websocket: WebSocket, project_name: str, provider: st
 # ==========================================
 def _get_template_dir(provider: str) -> str:
     """Returns the path to the templates directory for the given provider."""
-    return os.path.join(globals.project_path(), "src", "iot_device_simulator", provider, "templates")
+    return os.path.join(state.get_project_base_path(), "src", "iot_device_simulator", provider, "templates")
 
 
 def _load_template(provider: str, template_name: str, variables: dict = None) -> str:
@@ -150,9 +151,9 @@ async def download_simulator_package(project_name: str, provider: str):
     if provider != "aws":
         raise HTTPException(status_code=400, detail=f"Provider '{provider}' not supported.")
 
-    base_dir = os.path.join(globals.project_path(), "upload", project_name, "iot_device_simulator", provider)
-    auth_dir = os.path.join(globals.project_path(), "upload", project_name, "iot_devices_auth")
-    src_dir = os.path.join(globals.project_path(), "src", "iot_device_simulator", provider)
+    base_dir = os.path.join(state.get_project_upload_path(), project_name, "iot_device_simulator", provider)
+    auth_dir = os.path.join(state.get_project_upload_path(), project_name, "iot_devices_auth")
+    src_dir = os.path.join(state.get_project_base_path(), "src", "iot_device_simulator", provider)
     root_ca_path = os.path.join(src_dir, "AmazonRootCA1.pem")
     config_path = os.path.join(base_dir, "config_generated.json")
     payload_path = os.path.join(base_dir, "payloads.json")

@@ -91,7 +91,7 @@ def test_handle_lambda_command_passes_provider_to_lambda_manager(mock_cli_contex
     import main
     mock_context, mock_aws_provider = mock_cli_context
     
-    with patch("aws.lambda_manager.fetch_logs") as mock_fetch:
+    with patch("src.providers.aws.lambda_manager.fetch_logs") as mock_fetch:
         mock_fetch.return_value = ["log line"]
         
         with patch("builtins.print"):

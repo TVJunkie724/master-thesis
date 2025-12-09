@@ -556,30 +556,60 @@ def check_aws_credentials_from_config(project_name: str = None) -> dict:
         Same format as check_aws_credentials()
     """
     try:
-        import globals
+        import src.core.state as state
         
-        # Use specified project or fall back to active project
+        # Determine project path
         if project_name:
-            original_project = globals.CURRENT_PROJECT
-            try:
-                globals.set_active_project(project_name)
-            except ValueError as e:
+            # Validate project exists
+            project_dir = os.path.join(state.get_project_upload_path(), project_name)
+            if not os.path.exists(project_dir):
                 return {
                     "status": "error",
-                    "message": f"Invalid project: {e}",
+                    "message": f"Invalid project: Project '{project_name}' does not exist.",
                     "caller_identity": None,
                     "can_list_policies": False,
                     "missing_check_permission": None,
                     "by_layer": {},
                     "by_service": {},
                     "summary": {"total_required": 0, "valid": 0, "missing": 0},
+                    "project_name": project_name
                 }
-        
+        else:
+            project_name = state.get_active_project()
+            project_dir = os.path.join(state.get_project_upload_path(), project_name)
+
         # Load credentials from config
-        if not hasattr(globals, "config_credentials") or not globals.config_credentials:
-            globals.load_config_file("config_credentials")
+        config_path = os.path.join(project_dir, "config_credentials.json")
+        if not os.path.exists(config_path):
+             return {
+                "status": "error",
+                "message": "No config_credentials.json found in project.",
+                "caller_identity": None,
+                "can_list_policies": False,
+                "missing_check_permission": None,
+                "by_layer": {},
+                "by_service": {},
+                "summary": {"total_required": 0, "valid": 0, "missing": 0},
+                "project_name": project_name
+            }
+
+        try:
+            with open(config_path, 'r') as f:
+                config_credentials = json.load(f)
+        except json.JSONDecodeError:
+             return {
+                "status": "error",
+                "message": "Invalid JSON in config_credentials.json",
+                "caller_identity": None,
+                "can_list_policies": False,
+                "missing_check_permission": None,
+                "by_layer": {},
+                "by_service": {},
+                "summary": {"total_required": 0, "valid": 0, "missing": 0},
+                "project_name": project_name
+            }
         
-        aws_creds = globals.config_credentials.get("aws", {})
+        aws_creds = config_credentials.get("aws", {})
         
         if not aws_creds:
             return {
@@ -591,22 +621,12 @@ def check_aws_credentials_from_config(project_name: str = None) -> dict:
                 "by_layer": {},
                 "by_service": {},
                 "summary": {"total_required": 0, "valid": 0, "missing": 0},
+                "project_name": project_name
             }
         
         # Check the credentials
         return check_aws_credentials(aws_creds)
         
-    except ImportError:
-        return {
-            "status": "error",
-            "message": "Failed to import globals module",
-            "caller_identity": None,
-            "can_list_policies": False,
-            "missing_check_permission": None,
-            "by_layer": {},
-            "by_service": {},
-            "summary": {"total_required": 0, "valid": 0, "missing": 0},
-        }
     except Exception as e:
         return {
             "status": "error",
@@ -617,6 +637,7 @@ def check_aws_credentials_from_config(project_name: str = None) -> dict:
             "by_layer": {},
             "by_service": {},
             "summary": {"total_required": 0, "valid": 0, "missing": 0},
+            "project_name": project_name
         }
 
 

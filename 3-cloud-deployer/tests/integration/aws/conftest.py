@@ -1,9 +1,7 @@
 import pytest
+import os
 import boto3
 from moto import mock_aws
-import aws.globals_aws as globals_aws
-import os
-
 @pytest.fixture(scope="function")
 def aws_credentials():
     """Mocked AWS Credentials for moto."""
@@ -13,24 +11,6 @@ def aws_credentials():
     os.environ["AWS_SESSION_TOKEN"] = "testing"
     os.environ["AWS_DEFAULT_REGION"] = "eu-central-1"
 
-@pytest.fixture(scope="function")
-def mock_aws_context(aws_credentials):
-    """
-    Start moto services and initialize globals_aws clients.
-    """
-    with mock_aws():
-        # Setup Globals
-        globals_aws.globals.config_credentials_aws = {
-            "aws_access_key_id": "testing",
-            "aws_secret_access_key": "testing",
-            "aws_region": "eu-central-1"
-        }
-        globals_aws.globals.config = {
-            "digital_twin_name": "test-twin"
-        }
-        # Initialize clients (they will use the mocked boto3 because of mock_aws context)
-        globals_aws.initialize_aws_clients()
-        yield
 
 
 @pytest.fixture(scope="function")
@@ -78,29 +58,7 @@ def mock_provider(aws_credentials):
         yield provider
 
 
-@pytest.fixture(scope="function")
-def mock_config():
-    """
-    Create a mock ProjectConfig for new layer functions.
-    """
-    from src.core.context import ProjectConfig
-    
-    return ProjectConfig(
-        digital_twin_name="test-twin",
-        hot_storage_size_in_days=7,
-        cold_storage_size_in_days=30,
-        mode="DEBUG",
-        iot_devices=[{"id": "device-1", "name": "temp-sensor", "properties": [{"name": "temp", "dataType": "DOUBLE"}]}],
-        events=[],
-        hierarchy={},
-        providers={
-            "layer_1_provider": "aws",
-            "layer_2_provider": "aws",
-            "layer_3_hot_provider": "aws",
-        },
-        optimization={},
-        inter_cloud={},
-    )
+
 
 
 @pytest.fixture(scope="function")
@@ -136,3 +94,9 @@ def mock_iam_policies(monkeypatch):
     # This will be applied after the mock_aws context sets up moto
     pass  # Actual patching happens in mock_provider where we control the client
 
+@pytest.fixture(scope="function")
+def mock_config(mock_project_config):
+    """
+    Alias for mock_project_config to support existing integration tests.
+    """
+    return mock_project_config

@@ -19,7 +19,7 @@ def test_create_event_checker_iam_role(mock_provider):
     assert response["Role"]["RoleName"] == role_name
 
 
-@patch("util.compile_lambda_function")
+@patch("src.util.compile_lambda_function")
 def test_redeploy_event_checker_lambda_function(mock_compile, mock_provider, mock_config, project_path):
     """Verify Event Checker Lambda can be redeployed with updates."""
     from src.providers.aws.layers.layer_2_compute import (

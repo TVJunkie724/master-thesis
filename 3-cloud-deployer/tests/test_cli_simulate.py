@@ -70,7 +70,7 @@ class TestCLISimulateCommand:
         # The CLI should print an error for 'azure' or 'google'
         assert True  # Placeholder for CLI test
 
-    @patch('globals.project_path')
+    @patch('src.core.state.get_project_upload_path')
     @patch('os.path.exists')
     def test_preflight_check_paths(self, mock_exists, mock_project_path):
         """Test that preflight checks use correct paths."""

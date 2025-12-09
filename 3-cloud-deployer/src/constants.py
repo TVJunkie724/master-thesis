@@ -48,7 +48,7 @@ EVENT_ACTIONS_DIR_NAME = "lambda_functions/event_actions"
 PROJECT_UPLOAD_DIR_NAME = "upload"
 STATE_MACHINES_DIR_NAME = "state_machines"
 
-AWS_CORE_LAMBDA_DIR_NAME = "src/aws/lambda_functions"
+AWS_CORE_LAMBDA_DIR_NAME = "src/providers/aws/lambda_functions"
 
 # ==========================================
 # 3. State Machine Definitions

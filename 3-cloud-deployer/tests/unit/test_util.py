@@ -35,13 +35,14 @@ class TestUtil:
             util.validate_credentials("aws", creds)
 
     @patch("os.path.exists")
-    @patch("globals.project_path")
-    def test_resolve_folder_path_relative(self, mock_project_path, mock_exists):
+    def test_resolve_folder_path_relative(self, mock_exists):
         """Verify resolve_folder_path resolves relative paths correctly."""
-        mock_project_path.return_value = "/app"
-        mock_exists.side_effect = [True]  # Relative path exists
+        # Note: If project_path is None, it uses abspath. 
+        # For this test to pass as written ("/app/src"), CWD must be /app or we should pass project_path
+        # But let's just make it pass project_path to be explicit and correct
+        mock_exists.side_effect = [True]
         
-        path = util.resolve_folder_path("src")
+        path = util.resolve_folder_path("src", project_path="/app")
         assert path == "/app/src"
 
     @patch("os.path.exists")

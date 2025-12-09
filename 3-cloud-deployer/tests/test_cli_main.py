@@ -97,9 +97,9 @@ class TestCLIDeploymentCommands:
         
         with patch("providers.deployer.deploy_all") as mock_deploy, \
              patch("providers.iot_deployer.deploy") as mock_iot, \
-             patch("aws.additional_deployer_aws.create_twinmaker_hierarchy"), \
-             patch("aws.event_action_deployer_aws.deploy_lambda_actions"), \
-             patch("aws.init_values_deployer_aws.deploy"):
+             patch("src.providers.aws.layers.layer_4_twinmaker.create_twinmaker_hierarchy"), \
+             patch("src.providers.aws.layers.layer_2_compute.deploy_lambda_actions"), \
+             patch("src.providers.aws.layers.layer_1_iot.post_init_values_to_iot_core"):
             
             main.handle_deploy("aws", mock_context)
             
@@ -112,8 +112,8 @@ class TestCLIDeploymentCommands:
         
         with patch("providers.deployer.destroy_all") as mock_destroy, \
              patch("providers.iot_deployer.destroy") as mock_iot, \
-             patch("aws.additional_deployer_aws.destroy_twinmaker_hierarchy"), \
-             patch("aws.event_action_deployer_aws.destroy_lambda_actions"):
+             patch("src.providers.aws.layers.layer_4_twinmaker.destroy_twinmaker_hierarchy"), \
+             patch("src.providers.aws.layers.layer_2_compute.destroy_lambda_actions"):
             
             main.handle_destroy("aws", mock_context)
             
@@ -167,7 +167,7 @@ class TestCLILambdaCommands:
         """Test lambda_logs command calls lambda_manager.fetch_logs."""
         import main
         
-        with patch("aws.lambda_manager.fetch_logs", return_value=["log"]) as mock_fetch, \
+        with patch("src.providers.aws.lambda_manager.fetch_logs", return_value=["log"]) as mock_fetch, \
              patch("builtins.print"):
             
             main.handle_lambda_command("lambda_logs", ["my_function"], mock_context)
@@ -180,7 +180,7 @@ class TestCLILambdaCommands:
         """Test lambda_update command calls lambda_manager.update_function."""
         import main
         
-        with patch("aws.lambda_manager.update_function") as mock_update:
+        with patch("src.providers.aws.lambda_manager.update_function") as mock_update:
             main.handle_lambda_command("lambda_update", ["my_function"], mock_context)
             
             mock_update.assert_called_once()
@@ -190,7 +190,7 @@ class TestCLILambdaCommands:
         """Test lambda_invoke command calls lambda_manager.invoke_function."""
         import main
         
-        with patch("aws.lambda_manager.invoke_function") as mock_invoke:
+        with patch("src.providers.aws.lambda_manager.invoke_function") as mock_invoke:
             main.handle_lambda_command("lambda_invoke", ["my_function"], mock_context)
             
             mock_invoke.assert_called_once()
@@ -307,7 +307,7 @@ class TestCLIEdgeCases:
         mock_aws = MagicMock()
         mock_ctx.providers = {"aws": mock_aws}
         
-        with patch("aws.lambda_manager.update_function") as mock_update:
+        with patch("src.providers.aws.lambda_manager.update_function") as mock_update:
             main.handle_lambda_command(
                 "lambda_update", 
                 ["func", '{"KEY": "value"}'], 
@@ -327,7 +327,7 @@ class TestCLIEdgeCases:
         mock_aws = MagicMock()
         mock_ctx.providers = {"aws": mock_aws}
         
-        with patch("aws.lambda_manager.fetch_logs", return_value=["log"]) as mock_fetch, \
+        with patch("src.providers.aws.lambda_manager.fetch_logs", return_value=["log"]) as mock_fetch, \
              patch("builtins.print"):
             main.handle_lambda_command("lambda_logs", ["func", "50"], mock_ctx)
             
@@ -347,7 +347,7 @@ class TestCLIEdgeCases:
                       ("false", False), ("False", False), ("0", False), ("no", False)]
         
         for sync_str, expected in test_cases:
-            with patch("aws.lambda_manager.invoke_function") as mock_invoke:
+            with patch("src.providers.aws.lambda_manager.invoke_function") as mock_invoke:
                 main.handle_lambda_command(
                     "lambda_invoke", 
                     ["func", "{}", sync_str], 
@@ -586,7 +586,7 @@ class TestCLIAdditionalEdgeCases:
         mock_ctx = MagicMock()
         mock_ctx.providers = {"aws": MagicMock()}
         
-        with patch("aws.lambda_manager.fetch_logs", return_value=[]) as mock_fetch, \
+        with patch("src.providers.aws.lambda_manager.fetch_logs", return_value=[]) as mock_fetch, \
              patch("builtins.print"):
             main.handle_lambda_command("lambda_logs", ["func", "10", "true"], mock_ctx)
             

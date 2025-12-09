@@ -1,15 +1,92 @@
 from fastapi import APIRouter, HTTPException, Query
-import file_manager
 import src.validator as validator
-import deployers.core_deployer as core_deployer
-import deployers.iot_deployer as iot_deployer
-import deployers.additional_deployer as hierarchy_deployer
-import deployers.event_action_deployer as event_action_deployer
-import deployers.init_values_deployer as init_values_deployer
 from api.dependencies import validate_project_context, validate_provider
 from logger import print_stack_trace, logger
 
+# New Provider Deployers
+import providers.deployer as core_deployer
+import providers.iot_deployer as iot_deployer
+
+# AWS Specific Deployers (Direct import until Provider Pattern is fully implemented for these)
+import src.providers.aws.layers.layer_4_twinmaker as hierarchy_deployer_aws
+import src.providers.aws.layers.layer_2_compute as event_action_deployer_aws
+import src.providers.aws.layers.layer_1_iot as init_values_deployer_aws
+
+from src.core.factory import create_context
+
+
+
 router = APIRouter()
+
+# Helper dispatcher functions to replicate facade logic inline
+def _deploy_hierarchy(context, provider: str):
+    if provider == "aws":
+        hierarchy_deployer_aws.create_twinmaker_hierarchy(
+            provider=context.providers["aws"],
+            hierarchy=context.config.hierarchy,
+            config={"digital_twin_name": context.config.digital_twin_name}
+        )
+    else:
+        raise NotImplementedError(f"{provider} hierarchy deployment not implemented.")
+
+def _destroy_hierarchy(context, provider: str):
+    if provider == "aws":
+        hierarchy_deployer_aws.destroy_twinmaker_hierarchy(
+            provider=context.providers["aws"],
+            hierarchy=context.config.hierarchy
+        )
+    else:
+        raise NotImplementedError(f"{provider} hierarchy destruction not implemented.")
+
+def _deploy_event_actions(context, provider: str):
+    if provider == "aws":
+        # Construct digital_twin_info for Lambda environment
+        digital_twin_info = {
+            "config": {
+                "digital_twin_name": context.config.digital_twin_name,
+                "hot_storage_size_in_days": context.config.hot_storage_size_in_days,
+                "cold_storage_size_in_days": context.config.cold_storage_size_in_days,
+                "mode": context.config.mode,
+            },
+            "config_iot_devices": context.config.iot_devices,
+            "config_events": context.config.events
+        }
+        
+        event_action_deployer_aws.deploy_lambda_actions(
+            provider=context.providers["aws"],
+            events=context.config.events,
+            project_path=str(context.project_path),
+            digital_twin_info=digital_twin_info
+        )
+    else:
+        raise NotImplementedError(f"{provider} event action deployment not implemented.")
+
+def _destroy_event_actions(context, provider: str):
+    if provider == "aws":
+        event_action_deployer_aws.destroy_lambda_actions(
+            provider=context.providers["aws"],
+            events=context.config.events
+        )
+    else:
+        raise NotImplementedError(f"{provider} event action destruction not implemented.")
+
+def _redeploy_event_actions(context, provider: str):
+    if provider == "aws":
+        _destroy_event_actions(context, provider)
+        _deploy_event_actions(context, provider)
+    else:
+        raise NotImplementedError(f"{provider} event action redeployment not implemented.")
+
+def _deploy_init_values(context, provider: str):
+    if provider == "aws":
+        # Assuming provider naming is available on the provider instance
+        init_values_deployer_aws.post_init_values_to_iot_core(
+            provider=context.providers["aws"],
+            iot_devices=context.config.iot_devices
+        )
+    else:
+        raise NotImplementedError(f"{provider} init values deployment not implemented.")
+
 
 # --------- Core + IoT Deploy/Destroy ----------
 @router.post("/deploy", tags=["Deployment"])
@@ -24,12 +101,26 @@ def deploy_all(
     try:
         validator.verify_project_structure(project_name)
         provider = validate_provider(provider)
-        core_deployer.deploy(provider)
-        iot_deployer.deploy(provider)
-        hierarchy_deployer.deploy(provider)
-        event_action_deployer.deploy(provider)
-        init_values_deployer.deploy(provider)
+        
+        context = create_context(project_name, provider)
+        
+        # Core & IoT
+        core_deployer.deploy_all(context, provider)
+        iot_deployer.deploy(context, provider)
+        
+        # Additional layers (using inline dispatch)
+        # Note: These legacy files still rely on internals or lazy globals, 
+        # but we are in the process of migrating them. 
+        # For now, we continue to call them as is, or pass provider/context if they support it.
+        # Based on previous edits, some support it.
+        
+        _deploy_hierarchy(context, provider)
+        _deploy_event_actions(context, provider)
+        _deploy_init_values(context, provider)
+        
         return {"message": "Core and IoT services deployed successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         print_stack_trace()
         logger.error(str(e))
@@ -46,8 +137,16 @@ def recreate_updated_events(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        event_action_deployer.redeploy(provider)
-        core_deployer.redeploy_l2_event_checker(provider)
+        context = create_context(project_name, provider)
+        
+        _redeploy_event_actions(context, provider)
+        
+        # Redeploy L2 event checker
+        if provider == "aws":
+            core_deployer.redeploy_event_checker(context, provider)
+        else:
+            raise NotImplementedError(f"{provider} redeployment not implemented.")
+
         return {"message": "Events recreated successfully"}
     except Exception as e:
         print_stack_trace()
@@ -65,10 +164,14 @@ def destroy_all(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        event_action_deployer.destroy(provider)
-        hierarchy_deployer.destroy(provider)
-        iot_deployer.destroy(provider)
-        core_deployer.destroy(provider)
+        context = create_context(project_name, provider)
+        
+        # Destroy in reverse order
+        _destroy_event_actions(context, provider)
+        _destroy_hierarchy(context, provider)
+        iot_deployer.destroy(context, provider)
+        core_deployer.destroy_all(context, provider)
+        
         return {"message": "Core and IoT services destroyed successfully"}
     except Exception as e:
         print_stack_trace()
@@ -84,7 +187,8 @@ def deploy_l1_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        core_deployer.deploy_l1(provider)
+        context = create_context(project_name, provider)
+        core_deployer.deploy_l1(context, provider)
         return {"message": "L1 deployment (IoT Dispatcher Layer) completed successfully."}
     except Exception as e:
         print_stack_trace()
@@ -100,7 +204,8 @@ def destroy_l1_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        core_deployer.destroy_l1(provider)
+        context = create_context(project_name, provider)
+        core_deployer.destroy_l1(context, provider)
         return {"message": "L1 destruction (IoT Dispatcher Layer) completed successfully."}
     except Exception as e:
         print_stack_trace()
@@ -116,7 +221,8 @@ def deploy_l2_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        core_deployer.deploy_l2(provider)
+        context = create_context(project_name, provider)
+        core_deployer.deploy_l2(context, provider)
         return {"message": "L2 deployment (Persister Layer) completed successfully."}
     except Exception as e:
         print_stack_trace()
@@ -132,7 +238,8 @@ def destroy_l2_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        core_deployer.destroy_l2(provider)
+        context = create_context(project_name, provider)
+        core_deployer.destroy_l2(context, provider)
         return {"message": "L2 destruction (Persister Layer) completed successfully."}
     except Exception as e:
         print_stack_trace()
@@ -148,9 +255,10 @@ def deploy_l3_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        core_deployer.deploy_l3_hot(provider)
-        core_deployer.deploy_l3_cold(provider)
-        core_deployer.deploy_l3_archive(provider)
+        context = create_context(project_name, provider)
+        core_deployer.deploy_l3_hot(context, provider)
+        core_deployer.deploy_l3_cold(context, provider)
+        core_deployer.deploy_l3_archive(context, provider)
         return {"message": "L3 deployment (Hot, Cold, Archive Storage) completed successfully."}
     except Exception as e:
         print_stack_trace()
@@ -166,9 +274,10 @@ def destroy_l3_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        core_deployer.destroy_l3_archive(provider)
-        core_deployer.destroy_l3_cold(provider)
-        core_deployer.destroy_l3_hot(provider)
+        context = create_context(project_name, provider)
+        core_deployer.destroy_l3_archive(context, provider)
+        core_deployer.destroy_l3_cold(context, provider)
+        core_deployer.destroy_l3_hot(context, provider)
         return {"message": "L3 destruction (Archive, Cold, Hot Storage) completed successfully."}
     except Exception as e:
         print_stack_trace()
@@ -184,7 +293,8 @@ def deploy_l4_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        core_deployer.deploy_l4(provider)
+        context = create_context(project_name, provider)
+        core_deployer.deploy_l4(context, provider)
         return {"message": "L4 TwinMaker deployment completed successfully."}
     except Exception as e:
         print_stack_trace()
@@ -200,7 +310,8 @@ def destroy_l4_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        core_deployer.destroy_l4(provider)
+        context = create_context(project_name, provider)
+        core_deployer.destroy_l4(context, provider)
         return {"message": "L4 TwinMaker destruction completed successfully."}
     except Exception as e:
         print_stack_trace()
@@ -216,7 +327,8 @@ def deploy_l5_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        core_deployer.deploy_l5(provider)
+        context = create_context(project_name, provider)
+        core_deployer.deploy_l5(context, provider)
         return {"message": "L5 Grafana deployment completed successfully."}
     except Exception as e:
         print_stack_trace()
@@ -232,7 +344,8 @@ def destroy_l5_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        core_deployer.destroy_l5(provider)
+        context = create_context(project_name, provider)
+        core_deployer.destroy_l5(context, provider)
         return {"message": "L5 Grafana destruction completed successfully."}
     except Exception as e:
         print_stack_trace()

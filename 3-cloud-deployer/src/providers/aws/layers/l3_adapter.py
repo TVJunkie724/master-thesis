@@ -147,3 +147,18 @@ def destroy_l3_archive(context: 'DeploymentContext', provider: 'AWSProvider') ->
     destroy_archive_s3_bucket(provider)
     
     logger.info(f"[L3-Archive] Layer 3 Archive Storage destruction complete")
+
+
+def info_l3(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
+    """
+    Check status of Layer 3 (Storage) components for AWS.
+    
+    Args:
+        context: Deployment context with config and credentials
+        provider: Initialized AWSProvider instance
+    """
+    from .layer_3_storage import info_l3 as _info_l3_impl
+    
+    logger.info(f"[L3] Checking status for {context.config.digital_twin_name}")
+    _info_l3_impl(context, provider)
+

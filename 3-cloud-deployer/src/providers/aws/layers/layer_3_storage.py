@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from logger import logger
 # util is imported lazily inside functions to avoid circular import
-import aws.util_aws as util_aws
+import src.providers.aws.util_aws as util_aws
 from botocore.exceptions import ClientError
 import constants as CONSTANTS
 
@@ -676,3 +676,201 @@ def destroy_l3_api_gateway(provider: 'AWSProvider') -> None:
 
     apigw_client.delete_api(ApiId=api_id)
     logger.info(f"Deleted API Gateway: {api_name}")
+
+
+# ==========================================
+# 10. Info / Status Checks
+# ==========================================
+
+def _links():
+    return util_aws
+
+def check_hot_dynamodb_table(provider: 'AWSProvider'):
+    table_name = provider.naming.hot_dynamodb_table()
+    client = provider.clients["dynamodb"]
+    try:
+        client.describe_table(TableName=table_name)
+        logger.info(f"✅ Hot DynamoDB Table exists: {_links().link_to_dynamodb_table(table_name, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceNotFoundException":
+            logger.error(f"❌ Hot DynamoDB Table missing: {table_name}")
+        else:
+            raise
+
+def check_hot_cold_mover_iam_role(provider: 'AWSProvider'):
+    role_name = provider.naming.hot_cold_mover_iam_role()
+    client = provider.clients["iam"]
+    try:
+        client.get_role(RoleName=role_name)
+        logger.info(f"✅ Hot-Cold Mover IAM Role exists: {_links().link_to_iam_role(role_name, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "NoSuchEntity":
+            logger.error(f"❌ Hot-Cold Mover IAM Role missing: {role_name}")
+        else:
+            raise
+
+def check_hot_cold_mover_lambda_function(provider: 'AWSProvider'):
+    function_name = provider.naming.hot_cold_mover_lambda_function()
+    client = provider.clients["lambda"]
+    try:
+        client.get_function(FunctionName=function_name)
+        logger.info(f"✅ Hot-Cold Mover Lambda Function exists: {_links().link_to_lambda_function(function_name, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceNotFoundException":
+            logger.error(f"❌ Hot-Cold Mover Lambda Function missing: {function_name}")
+        else:
+            raise
+
+def check_hot_cold_mover_event_rule(provider: 'AWSProvider'):
+    rule_name = provider.naming.hot_cold_mover_event_rule()
+    client = provider.clients["events"]
+    try:
+        client.describe_rule(Name=rule_name)
+        logger.info(f"✅ Hot-Cold Mover Event Rule exists: {_links().link_to_event_rule(rule_name, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceNotFoundException":
+            logger.error(f"❌ Hot-Cold Mover Event Rule missing: {rule_name}")
+        else:
+            raise
+
+def check_hot_reader_iam_role(provider: 'AWSProvider'):
+    role_name = provider.naming.hot_reader_iam_role()
+    client = provider.clients["iam"]
+    try:
+        client.get_role(RoleName=role_name)
+        logger.info(f"✅ Hot Reader IAM Role exists: {_links().link_to_iam_role(role_name, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "NoSuchEntity":
+            logger.error(f"❌ Hot Reader IAM Role missing: {role_name}")
+        else:
+            raise
+
+def check_hot_reader_lambda_function(provider: 'AWSProvider'):
+    function_name = provider.naming.hot_reader_lambda_function()
+    client = provider.clients["lambda"]
+    try:
+        client.get_function(FunctionName=function_name)
+        logger.info(f"✅ Hot Reader Lambda Function exists: {_links().link_to_lambda_function(function_name, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceNotFoundException":
+            logger.error(f"❌ Hot Reader Lambda Function missing: {function_name}")
+        else:
+            raise
+
+def check_hot_reader_last_entry_iam_role(provider: 'AWSProvider'):
+    role_name = provider.naming.hot_reader_last_entry_iam_role()
+    client = provider.clients["iam"]
+    try:
+        client.get_role(RoleName=role_name)
+        logger.info(f"✅ Hot Reader Last Entry IAM Role exists: {_links().link_to_iam_role(role_name, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "NoSuchEntity":
+            logger.error(f"❌ Hot Reader Last Entry IAM Role missing: {role_name}")
+        else:
+            raise
+
+def check_hot_reader_last_entry_lambda_function(provider: 'AWSProvider'):
+    function_name = provider.naming.hot_reader_last_entry_lambda_function()
+    client = provider.clients["lambda"]
+    try:
+        client.get_function(FunctionName=function_name)
+        logger.info(f"✅ Hot Reader Last Entry Lambda Function exists: {_links().link_to_lambda_function(function_name, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceNotFoundException":
+            logger.error(f"❌ Hot Reader Last Entry Lambda Function missing: {function_name}")
+        else:
+            raise
+
+def check_cold_s3_bucket(provider: 'AWSProvider'):
+    bucket_name = provider.naming.cold_s3_bucket()
+    client = provider.clients["s3"]
+    try:
+        client.head_bucket(Bucket=bucket_name)
+        logger.info(f"✅ Cold S3 Bucket exists: {_links().link_to_s3_bucket(bucket_name, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "404":
+            logger.error(f"❌ Cold S3 Bucket missing: {bucket_name}")
+        else:
+            # 403 Forbidden might imply existence but no access, still treat as check passed regarding existence?
+            # Or fail. For now default to raise if not 404.
+            raise
+
+def check_cold_archive_mover_iam_role(provider: 'AWSProvider'):
+    role_name = provider.naming.cold_archive_mover_iam_role()
+    client = provider.clients["iam"]
+    try:
+        client.get_role(RoleName=role_name)
+        logger.info(f"✅ Cold-Archive Mover IAM Role exists: {_links().link_to_iam_role(role_name, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "NoSuchEntity":
+            logger.error(f"❌ Cold-Archive Mover IAM Role missing: {role_name}")
+        else:
+            raise
+
+def check_cold_archive_mover_lambda_function(provider: 'AWSProvider'):
+    function_name = provider.naming.cold_archive_mover_lambda_function()
+    client = provider.clients["lambda"]
+    try:
+        client.get_function(FunctionName=function_name)
+        logger.info(f"✅ Cold-Archive Mover Lambda Function exists: {_links().link_to_lambda_function(function_name, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceNotFoundException":
+            logger.error(f"❌ Cold-Archive Mover Lambda Function missing: {function_name}")
+        else:
+            raise
+
+def check_cold_archive_mover_event_rule(provider: 'AWSProvider'):
+    rule_name = provider.naming.cold_archive_mover_event_rule()
+    client = provider.clients["events"]
+    try:
+        client.describe_rule(Name=rule_name)
+        logger.info(f"✅ Cold-Archive Mover Event Rule exists: {_links().link_to_event_rule(rule_name, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceNotFoundException":
+            logger.error(f"❌ Cold-Archive Mover Event Rule missing: {rule_name}")
+        else:
+            raise
+
+def check_archive_s3_bucket(provider: 'AWSProvider'):
+    bucket_name = provider.naming.archive_s3_bucket()
+    client = provider.clients["s3"]
+    try:
+        client.head_bucket(Bucket=bucket_name)
+        logger.info(f"✅ Archive S3 Bucket exists: {_links().link_to_s3_bucket(bucket_name, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "404":
+            logger.error(f"❌ Archive S3 Bucket missing: {bucket_name}")
+        else:
+            raise
+
+def info_l3_hot(provider: 'AWSProvider'):
+    check_hot_dynamodb_table(provider)
+    check_hot_reader_last_entry_iam_role(provider)
+    check_hot_reader_last_entry_lambda_function(provider)
+    # Check if Hot Reader is present (might be part of hot storage setup)
+    check_hot_reader_iam_role(provider)
+    check_hot_reader_lambda_function(provider)
+
+def info_l3_cold(provider: 'AWSProvider'):
+    check_cold_s3_bucket(provider)
+    check_hot_cold_mover_iam_role(provider)
+    check_hot_cold_mover_lambda_function(provider)
+    check_hot_cold_mover_event_rule(provider)
+
+def info_l3_archive(provider: 'AWSProvider'):
+    check_archive_s3_bucket(provider)
+    check_cold_archive_mover_iam_role(provider)
+    check_cold_archive_mover_lambda_function(provider)
+    check_cold_archive_mover_event_rule(provider)
+
+def info_l3(context: 'DeploymentContext', provider: 'AWSProvider'):
+    """Check status of all L3 components."""
+    logger.info("Checking Hot Storage...")
+    info_l3_hot(provider)
+    
+    logger.info("Checking Cold Storage...")
+    info_l3_cold(provider)
+    
+    logger.info("Checking Archive Storage...")
+    info_l3_archive(provider)
+

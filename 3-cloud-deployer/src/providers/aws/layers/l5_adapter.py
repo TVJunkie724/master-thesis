@@ -64,3 +64,18 @@ def destroy_l5(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     destroy_grafana_iam_role(provider)
     
     logger.info(f"[L5] Layer 5 destruction complete")
+
+
+def info_l5(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
+    """
+    Check status of Layer 5 (Visualization) components for AWS.
+    
+    Args:
+        context: Deployment context with config and credentials
+        provider: Initialized AWSProvider instance
+    """
+    from .layer_5_grafana import info_l5 as _info_l5_impl
+    
+    logger.info(f"[L5] Checking status for {context.config.digital_twin_name}")
+    _info_l5_impl(context, provider)
+

@@ -184,6 +184,10 @@ class AWSNaming:
         """Lambda function name for the writer (multi-cloud)."""
         return f"{self._twin_name}-writer"
     
+    def api_gateway(self) -> str:
+        """API Gateway name for cross-cloud access."""
+        return f"{self._twin_name}-api-gateway"
+    
     # ==========================================
     # Layer 4: Twin Management
     # ==========================================

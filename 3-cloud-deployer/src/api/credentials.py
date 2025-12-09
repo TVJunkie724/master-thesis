@@ -7,6 +7,7 @@ Currently supports AWS, with Azure and GCP planned for future.
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 from typing import Optional
+import json
 
 from api.credentials_checker import check_aws_credentials, check_aws_credentials_from_config
 

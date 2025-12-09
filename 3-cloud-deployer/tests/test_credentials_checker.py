@@ -8,10 +8,7 @@ from unittest.mock import Mock, patch, MagicMock
 import sys
 import os
 
-# Add api directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "api"))
-
-from credentials_checker import (
+from src.api.credentials_checker import (
     check_aws_credentials,
     check_aws_credentials_from_config,
     _get_all_required_permissions,
@@ -155,7 +152,7 @@ class TestCheckAWSCredentials:
         })
         assert result["status"] == "invalid"
     
-    @patch("credentials_checker.boto3.Session")
+    @patch("src.api.credentials_checker.boto3.Session")
     def test_invalid_credentials(self, mock_session):
         """Test with invalid credentials."""
         from botocore.exceptions import ClientError
@@ -177,7 +174,7 @@ class TestCheckAWSCredentials:
         assert result["status"] == "invalid"
         assert "Invalid credentials" in result["message"]
     
-    @patch("credentials_checker.boto3.Session")
+    @patch("src.api.credentials_checker.boto3.Session")
     def test_valid_credentials_full_access(self, mock_session):
         """Test with valid credentials that have full admin access."""
         # Mock STS client
@@ -228,7 +225,7 @@ class TestCheckAWSCredentials:
         assert result["can_list_policies"] is True
         assert result["summary"]["missing"] == 0
     
-    @patch("credentials_checker.boto3.Session")
+    @patch("src.api.credentials_checker.boto3.Session")
     def test_cannot_list_policies(self, mock_session):
         """Test when credentials can't list their own policies."""
         from botocore.exceptions import ClientError
@@ -266,31 +263,67 @@ class TestCheckAWSCredentials:
         assert result["missing_check_permission"] == "iam:ListUserPolicies"
 
 
+
 class TestCheckAWSCredentialsFromConfig:
     """Tests for loading credentials from config."""
     
-    def test_returns_error_structure_on_failure(self):
-        """Test that error responses have correct structure."""
-        # When called without proper globals setup, should return error dict
+    @patch("src.api.credentials_checker.os.path.exists")
+    @patch("src.core.state.get_project_upload_path")
+    def test_project_not_found(self, mock_get_path, mock_exists):
+        """Test validation when project doesn't exist."""
+        mock_get_path.return_value = "/tmp/upload"
+        mock_exists.return_value = False
+        
         result = check_aws_credentials_from_config("nonexistent_project")
         
-        # Should have all expected keys even on error
-        assert "status" in result
-        assert "message" in result
-        assert "caller_identity" in result
-        assert "can_list_policies" in result
-        assert "by_layer" in result
-        assert "by_service" in result
-        assert "summary" in result
-        
-        # Status should be error
         assert result["status"] == "error"
+        assert "Invalid project" in result["message"]
+
+    @patch("src.api.credentials_checker.check_aws_credentials")
+    @patch("builtins.open", new_callable=MagicMock)
+    @patch("src.api.credentials_checker.os.path.exists")
+    @patch("src.core.state.get_active_project")
+    @patch("src.core.state.get_project_upload_path")
+    def test_success_from_active_project(self, mock_get_path, mock_get_active, mock_exists, mock_open, mock_check):
+        """Test successful loading from active project."""
+        mock_get_path.return_value = "/tmp/upload"
+        mock_get_active.return_value = "my_project"
+        mock_exists.return_value = True # Both project dir and config file exist
+        
+        # Mock file content
+        mock_file = MagicMock()
+        mock_file.__enter__.return_value.read.return_value = '{"aws": {"aws_access_key_id": "key", "aws_secret_access_key": "secret"}}'
+        # Fix json.load to use read data or just mock json.load? 
+        # Easier to mock mock_open properly or patch json.load.
+        # Let's patch json.load to be safe and simple
+        with patch("json.load") as mock_json_load:
+            mock_json_load.return_value = {"aws": {"aws_access_key_id": "key", "aws_secret_access_key": "secret"}}
+            mock_check.return_value = {"status": "valid"}
+
+            result = check_aws_credentials_from_config() # Uses active project
+            
+            assert result["status"] == "valid"
+            mock_check.assert_called_once()  
+
+    @patch("src.api.credentials_checker.os.path.exists")
+    @patch("src.core.state.get_active_project")
+    @patch("src.core.state.get_project_upload_path")
+    def test_config_file_missing(self, mock_get_path, mock_get_active, mock_exists):
+        """Test when config file is missing."""
+        mock_get_path.return_value = "/tmp/upload"
+        mock_get_active.return_value = "my_project"
+        mock_exists.return_value = False
+        
+        result = check_aws_credentials_from_config()
+        
+        assert result["status"] == "error"
+        assert "No config_credentials.json" in result["message"]
 
 
 class TestSessionTokenSupport:
     """Tests for temporary credentials with session token."""
     
-    @patch("credentials_checker.boto3.Session")
+    @patch("src.api.credentials_checker.boto3.Session")
     def test_session_token_passed(self, mock_session):
         """Verify session token is passed to boto3."""
         from botocore.exceptions import ClientError

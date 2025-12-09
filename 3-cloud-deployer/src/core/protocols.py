@@ -363,3 +363,39 @@ class DeployerStrategy(Protocol):
         dependencies (e.g., can't delete IAM role while Lambda uses it).
         """
         ...
+    
+    # ==========================================
+    # Operations
+    # ==========================================
+    
+    def info_l1(self, context: 'DeploymentContext') -> None:
+        """Parameters: context (DeploymentContext)"""
+        ...
+
+    def info_l2(self, context: 'DeploymentContext') -> None:
+        """Parameters: context (DeploymentContext)"""
+        ...
+        
+    def info_l3_hot(self, context: 'DeploymentContext') -> None:
+        """Parameters: context (DeploymentContext)"""
+        ...
+        
+    def info_l3_cold(self, context: 'DeploymentContext') -> None:
+        """Parameters: context (DeploymentContext)"""
+        ...
+        
+    def info_l3_archive(self, context: 'DeploymentContext') -> None:
+        """Parameters: context (DeploymentContext)"""
+        ...
+        
+    def info_l4(self, context: 'DeploymentContext') -> None:
+        """Parameters: context (DeploymentContext)"""
+        ...
+        
+    def info_l5(self, context: 'DeploymentContext') -> None:
+        """Parameters: context (DeploymentContext)"""
+        ...
+    
+    def info_all(self, context: 'DeploymentContext') -> None:
+        """Parameters: context (DeploymentContext)"""
+        ...

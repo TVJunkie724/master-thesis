@@ -13,7 +13,7 @@ def load_lambda_module(path):
     spec.loader.exec_module(module)
     return module
 
-EVENT_CHECKER_PATH = "src/aws/lambda_functions/event-checker/lambda_function.py"
+EVENT_CHECKER_PATH = "src/providers/aws/lambda_functions/event-checker/lambda_function.py"
 
 class TestEventCheckerLambda(unittest.TestCase):
     def setUp(self):

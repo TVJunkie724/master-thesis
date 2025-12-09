@@ -14,7 +14,7 @@ def load_lambda_module(path):
     return module
 
 # Path to the lambda function
-PERSISTER_PATH = "src/aws/lambda_functions/persister/lambda_function.py"
+PERSISTER_PATH = "src/providers/aws/lambda_functions/persister/lambda_function.py"
 
 class TestPersisterLambda(unittest.TestCase):
     def setUp(self):

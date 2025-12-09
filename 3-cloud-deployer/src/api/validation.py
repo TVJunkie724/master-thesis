@@ -6,7 +6,16 @@ from api.dependencies import ConfigType, ProviderEnum
 from logger import logger
 from api.utils import extract_file_content
 import os
-import globals
+
+# Lazy import for globals
+_globals = None
+
+def _get_globals():
+    global _globals
+    if _globals is None:
+        import globals
+        _globals = globals
+    return _globals
 
 router = APIRouter()
 
@@ -226,7 +235,7 @@ def validate_existing_simulator_payloads(project_name: str, provider: str):
         raise HTTPException(status_code=400, detail="Only 'aws' provider is currently supported.")
         
     try:
-        path = os.path.join(globals.project_path(), "upload", project_name, "iot_device_simulator", provider, "payloads.json")
+        path = os.path.join(_get_globals().project_path(), "upload", project_name, "iot_device_simulator", provider, "payloads.json")
         if not os.path.exists(path):
              raise HTTPException(status_code=404, detail="Payloads file not found.")
              

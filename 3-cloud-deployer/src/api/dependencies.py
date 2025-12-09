@@ -1,8 +1,16 @@
+"""
+API Dependencies - Shared utilities for API endpoints.
+"""
+
 from enum import Enum
 from typing import Optional
 from fastapi import HTTPException
 from pydantic import BaseModel
-import globals
+
+# Lazy import for globals
+import src.core.state as state
+
+
 
 
 class Base64FileRequest(BaseModel):
@@ -27,8 +35,9 @@ def validate_project_context(project_name: str):
     """
     Validates that the requested project name matches the active project.
     """
-    if project_name != globals.CURRENT_PROJECT:
-         raise HTTPException(status_code=409, detail=f"SAFETY ERROR: Requested project '{project_name}' does not match active project '{globals.CURRENT_PROJECT}'. Please switch active project first.")
+    current_project = state.get_active_project()
+    if project_name != current_project:
+         raise HTTPException(status_code=409, detail=f"SAFETY ERROR: Requested project '{project_name}' does not match active project '{current_project}'. Please switch active project first.")
 
 VALID_PROVIDERS = {"aws", "azure", "google", "gcp"}
 
@@ -44,4 +53,3 @@ def validate_provider(provider: str) -> str:
             detail=f"Invalid provider '{provider}'. Valid providers are: aws, azure, google"
         )
     return provider_lower
-

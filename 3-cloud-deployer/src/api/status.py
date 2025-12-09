@@ -1,13 +1,20 @@
 from fastapi import APIRouter, HTTPException, Query
-import info
-import deployers.additional_deployer as hierarchy_deployer
-import deployers.event_action_deployer as event_action_deployer
+import src.info as info
 import file_manager
 import src.validator as validator
 from api.dependencies import validate_project_context
 from logger import print_stack_trace, logger
 
+# AWS Specific Deployers (Direct import until Provider Pattern is fully implemented for these)
+
+
+from src.core.factory import create_context
+
 router = APIRouter()
+
+# Helper dispatchers
+
+
 
 @router.get("/check", tags=["Status"])
 def check_endpoint(
@@ -19,9 +26,13 @@ def check_endpoint(
     try:
         validator.verify_project_structure(project_name)
         provider = provider.lower()
-        info.check(provider)
-        hierarchy_deployer.info(provider)
-        event_action_deployer.info(provider)
+        context = create_context(project_name, provider)
+        
+        info.check(provider, context=context)
+        
+        # Original code called these explicitly:
+
+        
         return {"message": f"System check (all layers) completed for provider '{provider}'. See logs for detailed status."}
     except Exception as e:
         print_stack_trace()
@@ -37,7 +48,8 @@ def check_l1_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        info.check_l1(provider)
+        context = create_context(project_name, provider)
+        info.check_l1(provider, context=context)
         return {"message": f"Check L1 completed for provider '{provider}'."}
     except Exception as e:
         print_stack_trace()
@@ -53,7 +65,8 @@ def check_l2_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        info.check_l2(provider)
+        context = create_context(project_name, provider)
+        info.check_l2(provider, context=context)
         return {"message": f"Check L2 completed for provider '{provider}'."}
     except Exception as e:
         print_stack_trace()
@@ -69,7 +82,8 @@ def check_l3_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        info.check_l3(provider)
+        context = create_context(project_name, provider)
+        info.check_l3(provider, context=context)
         return {"message": f"Check L3 completed for provider '{provider}'."}
     except Exception as e:
         print_stack_trace()
@@ -85,7 +99,8 @@ def check_l4_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        info.check_l4(provider)
+        context = create_context(project_name, provider)
+        info.check_l4(provider, context=context)
         return {"message": f"Check L4 completed for provider '{provider}'."}
     except Exception as e:
         print_stack_trace()
@@ -101,7 +116,8 @@ def check_l5_endpoint(
     validate_project_context(project_name)
     try:
         provider = provider.lower()
-        info.check_l5(provider)
+        context = create_context(project_name, provider)
+        info.check_l5(provider, context=context)
         return {"message": f"Check L5 completed for provider '{provider}'."}
     except Exception as e:
         print_stack_trace()

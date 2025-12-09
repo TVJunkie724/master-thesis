@@ -13,11 +13,12 @@ import json
 import time
 from typing import TYPE_CHECKING
 from logger import logger
-import aws.util_aws as util_aws
+import src.providers.aws.util_aws as util_aws
 from botocore.exceptions import ClientError
 
 if TYPE_CHECKING:
     from providers.aws.provider import AWSProvider
+    from src.core.context import DeploymentContext
 
 
 def _destroy_iam_role(provider: 'AWSProvider', role_name: str) -> None:
@@ -216,3 +217,47 @@ def remove_cors_from_twinmaker_s3_bucket(provider: 'AWSProvider') -> None:
     except ClientError as e:
         if e.response["Error"]["Code"] not in ("NoSuchBucket", "NoSuchCORSConfiguration"):
             raise
+
+
+# ==========================================
+# 10. Info / Status Checks
+# ==========================================
+
+def _links():
+    return util_aws
+
+def check_grafana_iam_role(provider: 'AWSProvider'):
+    role_name = provider.naming.grafana_iam_role()
+    client = provider.clients["iam"]
+
+    try:
+        client.get_role(RoleName=role_name)
+        logger.info(f"✅ Grafana IAM Role exists: {_links().link_to_iam_role(role_name, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "NoSuchEntity":
+            logger.error(f"❌ Grafana IAM Role missing: {role_name}")
+        else:
+            raise
+
+def check_grafana_workspace(provider: 'AWSProvider'):
+    workspace_name = provider.naming.grafana_workspace()
+    client = provider.clients["grafana"]
+    # get_grafana_workspace_id_by_name uses list_workspaces, so it's a good check + gets ID
+    try:
+        workspace_id = _links().get_grafana_workspace_id_by_name(workspace_name, grafana_client=client) 
+        client.describe_workspace(workspaceId=workspace_id)
+        logger.info(f"✅ Grafana Workspace exists: {_links().link_to_grafana_workspace(workspace_id, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceNotFoundException":
+            logger.error(f"❌ Grafana Workspace missing: {workspace_name}")
+        else:
+            raise
+    except ValueError: # Raised by get_grafana_workspace_id_by_name if not found
+         logger.error(f"❌ Grafana Workspace missing: {workspace_name}")
+
+
+def info_l5(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
+    """Check status of all L5 components."""
+    check_grafana_iam_role(provider)
+    check_grafana_workspace(provider)
+

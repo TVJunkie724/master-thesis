@@ -17,13 +17,12 @@ sys.modules['fastapi.responses'] = MagicMock()
 
 import util as util
 import constants as CONSTANTS
-import globals as globals
-import aws.globals_aws as globals_aws
+
 import validator as validator
 
 # Mock aws.iot_deployer_aws for logic testing without actual AWS calls
 # We need to test the logic branch, not the boto3 call itself
-import aws.iot_deployer_aws as iot_deployer_aws
+import src.providers.aws.layers.layer_2_compute as iot_deployer_aws
 
 class TestAWSConnectorLogic(unittest.TestCase):
 
@@ -45,21 +44,8 @@ class TestAWSConnectorLogic(unittest.TestCase):
         with open(abs_custom_path, "w") as f:
             f.write("def process(event): return event")
 
-        # Mock Globals
-        globals.CURRENT_PROJECT = "template"
-        
-        # Patch project_path to return self.test_dir
-        self.patcher = patch('globals.project_path', return_value=self.test_dir)
-        self.mock_project_path = self.patcher.start()
-        
-        # Patch get_project_upload_path because util uses it
-        self.patcher2 = patch('globals.get_project_upload_path', return_value=self.upload_dir)
-        self.mock_upload_path = self.patcher2.start()
-
     def tearDown(self):
         shutil.rmtree(self.test_dir)
-        self.patcher.stop()
-        self.patcher2.stop()
 
     def test_compile_merged_lambda_function(self):
         # Action
@@ -106,62 +92,92 @@ class TestAWSConnectorLogic(unittest.TestCase):
             self.fail("validate_config_content raised ValueError unexpectedly!")
 
     def test_naming_helpers(self):
-        # Mock global config
-        globals.config = {"digital_twin_name": "MyTwin"}
+        # Mock provider naming
+        from providers.aws.naming import AWSNaming
+        naming = AWSNaming("MyTwin")
         device = {"iotDeviceId": "sensor-1"}
         
-        self.assertEqual(globals_aws.connector_lambda_function_name(device), "MyTwin-sensor-1-connector")
-        self.assertEqual(globals_aws.ingestion_lambda_function_name(), "MyTwin-ingestion")
-        self.assertEqual(globals_aws.writer_lambda_function_name(), "MyTwin-writer")
+        self.assertEqual(naming.connector_lambda_function("sensor-1"), "MyTwin-sensor-1-connector")
+        self.assertEqual(naming.ingestion_lambda_function(), "MyTwin-ingestion")
+        self.assertEqual(naming.writer_lambda_function(), "MyTwin-writer")
 
-    @patch('aws.globals_aws.aws_lambda_client')
-    @patch('aws.globals_aws.aws_iam_client')
-    def test_deploy_connector_branch(self, mock_iam, mock_lambda):
+    def test_deploy_connector_branch(self):
         # Setup Multi-Cloud Scenario
-        globals.config_providers = {
+        mock_config = MagicMock()
+        mock_config.providers = {
             "layer_1_provider": "aws",
-            "layer_2_provider": "azure" # Remote!
+            "layer_2_provider": "azure"
         }
-        globals.config_inter_cloud = {
+        mock_config.inter_cloud = {
              "connections": {
                  "aws_l1_to_azure_l2": {"url": "http://azure", "token": "secret"}
              }
         }
+        mock_config.digital_twin_name = "Twin"
+        mock_config.mode = "test"
+        
+        mock_provider = MagicMock()
+        mock_iam = MagicMock()
+        mock_lambda = MagicMock()
+        mock_provider.clients = {"iam": mock_iam, "lambda": mock_lambda}
+        
+        # Mock naming
+        mock_naming = MagicMock()
+        mock_naming.processor_iam_role.return_value = "Twin-dev1-processor"
+        mock_naming.connector_lambda_function.return_value = "Twin-dev1-connector"
+        mock_provider.naming = mock_naming
         
         device = {"iotDeviceId": "dev1", "id": "dev1"}
         mock_iam.get_role.return_value = {'Role': {'Arn': 'arn:role'}}
         
         # Action
         try:
-            iot_deployer_aws.create_processor_lambda_function(device)
+            iot_deployer_aws.create_processor_lambda_function(
+                device, 
+                provider=mock_provider, 
+                config=mock_config, 
+                project_path=self.upload_dir
+            )
         except Exception as e:
             # We trap file not found because "connector" folder doesn't exist in temp dir
             # But we want to verify it TRIED to deploy connector name
             pass
             
-        # Since we mocked aws_lambda_client, we check calls
-        # However, util.compile_lambda_function will fail because folder doesn't exist.
-        # So we should mock util.compile_lambda_function too.
-        
-    @patch('util.compile_lambda_function', return_value=b'zip')    
-    @patch('aws.globals_aws.aws_lambda_client')
-    @patch('aws.globals_aws.aws_iam_client')
-    def test_deploy_connector_branch_logic(self, mock_iam, mock_lambda, mock_zip):
-        globals.config_providers = {
+    @patch('src.util.compile_lambda_function', return_value=b'zip')    
+    def test_deploy_connector_branch_logic(self, mock_zip):
+        mock_config = MagicMock()
+        mock_config.providers = {
             "layer_1_provider": "aws",
             "layer_2_provider": "azure" 
         }
-        globals.config_inter_cloud = {
+        mock_config.inter_cloud = {
              "connections": {
                  "aws_l1_to_azure_l2": {"url": "http://azure", "token": "secret"}
              }
         }
-        globals.config = {"digital_twin_name": "Twin"}
+        mock_config.digital_twin_name = "Twin"
+        mock_config.mode = "test"
+        
+        mock_provider = MagicMock()
+        mock_iam = MagicMock()
+        mock_lambda = MagicMock()
+        mock_provider.clients = {"iam": mock_iam, "lambda": mock_lambda}
+        
+        # Mock naming (using real logic for verification would be better but mock is simpler for isolation)
+        mock_naming = MagicMock()
+        mock_naming.processor_iam_role.return_value = "Twin-dev1-processor"
+        mock_naming.connector_lambda_function.return_value = "Twin-dev1-connector"
+        mock_provider.naming = mock_naming
         
         device = {"iotDeviceId": "dev1", "id": "dev1"}
         mock_iam.get_role.return_value = {'Role': {'Arn': 'arn:role'}}
         
-        iot_deployer_aws.create_processor_lambda_function(device)
+        iot_deployer_aws.create_processor_lambda_function(
+            device, 
+            provider=mock_provider, 
+            config=mock_config, 
+            project_path=self.upload_dir
+        )
         
         # Verify call arguments
         args, kwargs = mock_lambda.create_function.call_args

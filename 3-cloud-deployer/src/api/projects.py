@@ -1,14 +1,14 @@
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Path, Request
 import json
 import os
-import globals
 import file_manager
 import src.validator as validator
-import aws.globals_aws as globals_aws
 from api.dependencies import ConfigType, ProviderEnum
 import constants as CONSTANTS
 from logger import logger
 from api.utils import extract_file_content
+
+import src.core.state as state
 
 router = APIRouter()
 
@@ -22,7 +22,7 @@ def list_projects():
     """
     try:
         projects = file_manager.list_projects()
-        return {"projects": projects, "active_project": globals.CURRENT_PROJECT}
+        return {"projects": projects, "active_project": state.get_active_project()}
     except Exception as e:
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
@@ -51,8 +51,8 @@ def activate_project(project_name: str):
     Switch the active project.
     """
     try:
-        globals.set_active_project(project_name)
-        globals_aws.initialize_aws_clients()
+        state.set_active_project(project_name)
+        # Note: Global AWS client initialization is removed as we move to per-request DeploymentContext
         return {"message": f"Active project switched to '{project_name}'."}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -112,6 +112,8 @@ async def update_config(project_name: str, config_type: ConfigType, request: Req
         return {"message": f"Configuration '{filename}' updated for project '{project_name}'."}
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON content.")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
@@ -189,7 +191,7 @@ async def upload_state_machine(
         validator.validate_state_machine_content(target_filename, content_str)
         
         # 2. Save File
-        upload_dir = os.path.join(globals.project_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME, project_name)
+        upload_dir = os.path.join(state.get_project_base_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME, project_name)
         sm_dir = os.path.join(upload_dir, CONSTANTS.STATE_MACHINES_DIR_NAME)
         
         if not os.path.exists(sm_dir):
@@ -228,7 +230,7 @@ async def upload_simulator_payloads(project_name: str, provider: str, request: R
             raise ValueError(f"Payload validation failed: {errors}")
             
         # Save
-        path = os.path.join(globals.project_path(), "upload", project_name, "iot_device_simulator", provider)
+        path = os.path.join(state.get_project_base_path(), "upload", project_name, "iot_device_simulator", provider)
         os.makedirs(path, exist_ok=True)
         with open(os.path.join(path, "payloads.json"), "w") as f:
             f.write(content_str)

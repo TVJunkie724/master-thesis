@@ -18,27 +18,12 @@ if TYPE_CHECKING:
     from src.providers.aws.provider import AWSProvider
 
 
-def _get_legacy_context():
-    """Get clients and config from globals for legacy compatibility."""
-    import globals
-    import aws.globals_aws as globals_aws
-    import util
-    
-    return {
-        "lambda_client": globals_aws.aws_lambda_client,
-        "logs_client": globals_aws.aws_logs_client,
-        "digital_twin_name": globals.config["digital_twin_name"],
-        "iot_devices": globals.config_iot_devices,
-        "project_path": globals.get_project_upload_path(),
-        "compile_lambda": util.compile_lambda_function,
-        "get_path_in_project": util.get_path_in_project,
-    }
 
 
 def update_function(
     local_function_name: str,
     environment: dict = None,
-    provider: Optional['AWSProvider'] = None,
+    provider: 'AWSProvider' = None,
     project_path: str = None,
     iot_devices: list = None
 ) -> None:
@@ -47,21 +32,19 @@ def update_function(
     Args:
         local_function_name: Name of the local function directory
         environment: Optional environment variables dict
-        provider: Optional AWSProvider. If None, uses globals.
+        provider: AWSProvider instance.
         project_path: Path to project directory.
         iot_devices: List of IoT device configs for processor updates.
     """
-    import util
+    import src.util as util
     
-    if provider:
-        lambda_client = provider.clients["lambda"]
-        digital_twin_name = provider.naming.twin_name
-    else:
-        ctx = _get_legacy_context()
-        lambda_client = ctx["lambda_client"]
-        digital_twin_name = ctx["digital_twin_name"]
-        project_path = ctx["project_path"]
-        iot_devices = ctx["iot_devices"]
+    if provider is None:
+        raise ValueError("provider is required")
+    if project_path is None:
+        raise ValueError("project_path is required")
+
+    lambda_client = provider.clients["lambda"]
+    digital_twin_name = provider.naming.twin_name
     
     lambda_dir = os.path.join(project_path, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, local_function_name)
     
@@ -113,7 +96,7 @@ def fetch_logs(
     local_function_name: str,
     n: int = 10,
     filter_system_logs: bool = True,
-    provider: Optional['AWSProvider'] = None
+    provider: 'AWSProvider' = None
 ) -> List[str]:
     """Fetch recent logs from a Lambda function.
     
@@ -126,13 +109,11 @@ def fetch_logs(
     Returns:
         List of log messages
     """
-    if provider:
-        logs_client = provider.clients["logs"]
-        digital_twin_name = provider.naming.twin_name
-    else:
-        ctx = _get_legacy_context()
-        logs_client = ctx["logs_client"]
-        digital_twin_name = ctx["digital_twin_name"]
+    if provider is None:
+        raise ValueError("provider is required")
+
+    logs_client = provider.clients["logs"]
+    digital_twin_name = provider.naming.twin_name
     
     function_name = f"{digital_twin_name}-{local_function_name}"
     log_group = f"/aws/lambda/{function_name}"
@@ -164,7 +145,7 @@ def invoke_function(
     local_function_name: str,
     payload: dict = None,
     sync: bool = True,
-    provider: Optional['AWSProvider'] = None
+    provider: 'AWSProvider' = None
 ) -> Optional[dict]:
     """Invoke a Lambda function.
     
@@ -180,13 +161,11 @@ def invoke_function(
     if payload is None:
         payload = {}
     
-    if provider:
-        lambda_client = provider.clients["lambda"]
-        digital_twin_name = provider.naming.twin_name
-    else:
-        ctx = _get_legacy_context()
-        lambda_client = ctx["lambda_client"]
-        digital_twin_name = ctx["digital_twin_name"]
+    if provider is None:
+        raise ValueError("provider is required")
+
+    lambda_client = provider.clients["lambda"]
+    digital_twin_name = provider.naming.twin_name
     
     function_name = f"{digital_twin_name}-{local_function_name}"
     

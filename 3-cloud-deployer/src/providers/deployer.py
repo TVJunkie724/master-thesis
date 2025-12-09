@@ -188,62 +188,97 @@ def destroy_all(context: 'DeploymentContext', provider: str) -> None:
     destroy_l1(context, provider)
 
 
+
 # ==========================================
-# Legacy Compatibility Wrapper
-# (Temporarily bridges old globals-based calls)
+# Specialized Operations
 # ==========================================
 
-def _create_legacy_context():
-    """Create a DeploymentContext from legacy globals for backward compatibility."""
-    # Import here to avoid circular imports during transition
-    import globals
-    from pathlib import Path
-    from src.core.context import DeploymentContext, ProjectConfig
-    from src.core.registry import ProviderRegistry
+
+# ==========================================
+# Specialized Operations
+# ==========================================
+
+def redeploy_event_checker(context: 'DeploymentContext', provider: str) -> None:
+    """Redeploy the event checker function (AWS specific for now)."""
+    if provider != "aws":
+        raise NotImplementedError("Event checker redeployment only supported for AWS.")
     
-    # Build config from globals
-    config = ProjectConfig(
-        digital_twin_name=globals.config.get("digital_twin_name", ""),
-        hot_storage_size_in_days=globals.config.get("hot_storage_size_in_days", 7),
-        cold_storage_size_in_days=globals.config.get("cold_storage_size_in_days", 30),
-        mode=globals.config.get("mode", "DEBUG"),
-        iot_devices=globals.config_iot_devices,
-        events=globals.config_events,
-        hierarchy=globals.config_hierarchy,
-        providers=globals.config_providers,
-        optimization=globals.config_optimization,
-        inter_cloud=globals.config_inter_cloud,
-    )
+    if "aws" not in context.providers:
+        raise ValueError("AWS provider not initialized in context.")
+        
+    aws_provider = context.providers["aws"]
     
-    # Create context
-    context = DeploymentContext(
-        project_name=globals.CURRENT_PROJECT,
-        project_path=Path(globals.get_project_upload_path()),
-        config=config,
-    )
+    # helper import until generalized
+    from providers.aws.layers import layer_2_compute
     
-    # Initialize providers
-    for provider_name in {"aws", "azure", "gcp"}:
-        try:
-            provider = ProviderRegistry.get(provider_name)
-            creds = getattr(globals, f"config_credentials_{provider_name}", None)
-            if creds:
-                provider.initialize_clients(creds, config.digital_twin_name)
-                context.providers[provider_name] = provider
-        except (KeyError, AttributeError):
-            pass
-    
-    return context
+    logger.info("[L2] Redeploying Event Checker Lambda...")
+    try:
+        layer_2_compute.destroy_event_checker_lambda_function(aws_provider)
+    except Exception as e:
+        logger.warning(f"Failed to destroy event checker (might not exist): {e}")
+        
+    layer_2_compute.create_event_checker_lambda_function(aws_provider, context.config, context.project_path)
 
 
-# Legacy entry points (for backward compatibility)
-def deploy(provider: str) -> None:
-    """Legacy deploy function - creates context from globals."""
-    context = _create_legacy_context()
-    deploy_all(context, provider)
+# ==========================================
+# Info / Status Checks
+# ==========================================
+
+def info_l1(context: 'DeploymentContext', provider: str) -> None:
+    """Check status of Layer 1 (Data Acquisition) components."""
+    strategy = _get_strategy(context, provider)
+    strategy.info_l1(context)
 
 
-def destroy(provider: str) -> None:
-    """Legacy destroy function - creates context from globals."""
-    context = _create_legacy_context()
-    destroy_all(context, provider)
+def info_l2(context: 'DeploymentContext', provider: str) -> None:
+    """Check status of Layer 2 (Data Processing) components."""
+    strategy = _get_strategy(context, provider)
+    strategy.info_l2(context)
+
+
+def info_l3_hot(context: 'DeploymentContext', provider: str) -> None:
+    """Check status of Layer 3 Hot Storage components."""
+    strategy = _get_strategy(context, provider)
+    strategy.info_l3_hot(context)
+
+
+def info_l3_cold(context: 'DeploymentContext', provider: str) -> None:
+    """Check status of Layer 3 Cold Storage components."""
+    strategy = _get_strategy(context, provider)
+    strategy.info_l3_cold(context)
+
+
+def info_l3_archive(context: 'DeploymentContext', provider: str) -> None:
+    """Check status of Layer 3 Archive Storage components."""
+    strategy = _get_strategy(context, provider)
+    strategy.info_l3_archive(context)
+
+
+def info_l3(context: 'DeploymentContext', provider: str) -> None:
+    """Check status of all L3 storage tiers."""
+    info_l3_hot(context, provider)
+    info_l3_cold(context, provider)
+    info_l3_archive(context, provider)
+
+
+def info_l4(context: 'DeploymentContext', provider: str) -> None:
+    """Check status of Layer 4 (Digital Twin) components."""
+    strategy = _get_strategy(context, provider)
+    strategy.info_l4(context)
+
+
+def info_l5(context: 'DeploymentContext', provider: str) -> None:
+    """Check status of Layer 5 (Visualization) components."""
+    strategy = _get_strategy(context, provider)
+    strategy.info_l5(context)
+
+
+def info_all(context: 'DeploymentContext', provider: str) -> None:
+    """Check status of all layers."""
+    info_l1(context, provider)
+    info_l2(context, provider)
+    info_l3(context, provider)
+    info_l4(context, provider)
+    info_l5(context, provider)
+
+

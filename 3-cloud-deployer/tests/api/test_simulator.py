@@ -111,13 +111,13 @@ class TestSimulatorAPIEndpoints:
         assert "not supported" in response.json()["detail"]  
 
     @patch('src.validator.validate_simulator_payloads')
-    @patch('globals.project_path')
+    @patch('src.core.state.get_project_upload_path')
     @patch('os.makedirs')
     @patch('builtins.open')
-    def test_upload_payloads_valid(self, mock_open, mock_makedirs, mock_project_path, mock_validate):
+    def test_upload_payloads_valid(self, mock_open, mock_makedirs, mock_path, mock_validate):
         """Test PUT /projects/{project}/simulator/{provider}/payloads."""
         mock_validate.return_value = (True, [], [])
-        mock_project_path.return_value = "/fake/path"
+        mock_path.return_value = "/fake/path"
         mock_open.return_value.__enter__ = lambda s: s
         mock_open.return_value.__exit__ = MagicMock(return_value=False)
         mock_open.return_value.write = MagicMock()
@@ -200,13 +200,15 @@ class TestSimulatorCLICommand:
 class TestDownloadPackageIntegration:
     """Integration tests for the download package endpoint."""
 
-    @patch('globals.project_path')
+    @patch('src.core.state.get_project_upload_path')
+    @patch('src.core.state.get_project_base_path')
     @patch('os.path.exists')
     @patch('builtins.open')
     @patch('json.load')
-    def test_download_package_creates_valid_zip(self, mock_json, mock_open_file, mock_exists, mock_project_path):
+    def test_download_package_creates_valid_zip(self, mock_json, mock_open_file, mock_exists, mock_base_path, mock_upload_path):
         """Test that download creates a valid zip with expected contents."""
-        mock_project_path.return_value = "/fake/path"
+        mock_upload_path.return_value = "/fake/upload"
+        mock_base_path.return_value = "/fake/base"
         
         # Mock file existence checks
         def exists_side_effect(path):
@@ -268,54 +270,105 @@ class TestWebSocketSimulatorStream:
     Reference: https://fastapi.tiangolo.com/advanced/testing-websockets/
     """
 
-    @pytest.mark.skip(reason="TODO: Requires async WebSocket test setup")
     def test_websocket_invalid_provider(self):
         """Test WebSocket rejects invalid provider."""
-        # TODO: Use TestClient with statement for WebSocket
-        # with client.websocket_connect("/projects/p/simulator/unknown/stream") as ws:
-        #     data = ws.receive_json()
-        #     assert data["type"] == "error"
-        pass
+        with client.websocket_connect("/projects/p/simulator/unknown/stream") as websocket:
+            data = websocket.receive_json()
+            assert data["type"] == "error"
+            assert "not supported" in data["data"]
 
-    @pytest.mark.skip(reason="TODO: Requires async WebSocket test setup")
+    @patch('src.core.state.get_project_upload_path')
     @patch('os.path.exists')
-    def test_websocket_project_not_found(self, mock_exists):
+    def test_websocket_project_not_found(self, mock_exists, mock_path):
         """Test WebSocket returns error for non-existent project."""
-        mock_exists.return_value = False
-        # TODO: Implement with actual WebSocket connection
-        pass
+        mock_path.return_value = "/fake/uploads"
+        mock_exists.return_value = False # Project dir does not exist
+        
+        with client.websocket_connect("/projects/missing/simulator/aws/stream") as websocket:
+            data = websocket.receive_json()
+            assert data["type"] == "error"
+            assert "not found" in data["data"]
 
-    @pytest.mark.skip(reason="TODO: Requires async WebSocket test setup")
+    @patch('src.core.state.get_project_upload_path')
     @patch('os.path.exists')
-    def test_websocket_missing_config(self, mock_exists):
+    def test_websocket_missing_config(self, mock_exists, mock_path):
         """Test WebSocket returns error when config missing."""
+        mock_path.return_value = "/fake/uploads"
+        # exists side effect: Project Dir (True), Config (False)
+        # Sequence: Project Path check -> Config Path check
+        # Paths checked: /fake/uploads/proj, /fake/uploads/proj/iot.../config 
         def exists_side_effect(path):
-            if "config_generated" in path:
+            if path.endswith("config_generated.json"):
                 return False
             return True
+            
         mock_exists.side_effect = exists_side_effect
-        # TODO: Implement with actual WebSocket connection
-        pass
+        
+        with client.websocket_connect("/projects/proj/simulator/aws/stream") as websocket:
+            data = websocket.receive_json()
+            assert data["type"] == "error"
+            assert "config not found" in data["data"].lower()
 
-    @pytest.mark.skip(reason="TODO: Requires async WebSocket test setup")
+    @patch('src.core.state.get_project_upload_path')
     @patch('os.path.exists')
-    def test_websocket_missing_payloads(self, mock_exists):
+    def test_websocket_missing_payloads(self, mock_exists, mock_path):
         """Test WebSocket returns error when payloads missing."""
+        mock_path.return_value = "/fake/uploads"
+        
         def exists_side_effect(path):
-            if "payloads.json" in path:
+            if path.endswith("payloads.json"):
                 return False
             return True
         mock_exists.side_effect = exists_side_effect
-        # TODO: Implement with actual WebSocket connection
-        pass
+        
+        with client.websocket_connect("/projects/proj/simulator/aws/stream") as websocket:
+            data = websocket.receive_json()
+            assert data["type"] == "error"
+            assert "payloads file not found" in data["data"].lower()
 
-    @pytest.mark.skip(reason="TODO: Requires async WebSocket test setup with subprocess mocking")
-    def test_websocket_subprocess_handling(self):
+    @patch('subprocess.Popen')
+    @patch('src.core.state.get_project_upload_path')
+    @patch('src.core.state.get_project_base_path')
+    @patch('os.path.exists')
+    def test_websocket_subprocess_handling(self, mock_exists, mock_base, mock_upload, mock_popen):
         """Test WebSocket properly manages subprocess lifecycle."""
-        # TODO: Verify terminate/kill is called on disconnect
-        # TODO: Test stdin write for commands
-        # TODO: Test stdout streaming to client
-        pass
+        mock_upload.return_value = "/fake/uploads"
+        mock_base.return_value = "/fake/base"
+        mock_exists.return_value = True
+        
+        # Mock Process
+        mock_process = MagicMock()
+        mock_process.stdout.readline.side_effect = ["Log line 1\n", "Log line 2\n", ""] # simulate output then EOF
+        mock_process.stdin.write = MagicMock()
+        mock_process.terminate = MagicMock()
+        mock_popen.return_value = mock_process
+        
+        with client.websocket_connect("/projects/proj/simulator/aws/stream") as websocket:
+            # Verify Logs received
+            msg1 = websocket.receive_json()
+            assert msg1["type"] == "log"
+            assert msg1["data"] == "Log line 1"
+            
+            # Send Command
+            websocket.send_json({"command": "start"})
+            # Verify wrote to stdin
+            # Need to wait a bit as reading is async in server? 
+            # TestClient is synchronous but server runs in event loop.
+            # To verify side effect on mock we might need to sleep or check after.
+            
+            # Send Exit to cleanly close
+            websocket.send_json({"command": "exit"})
+            
+            # Connection might close or we close it
+            websocket.close()
+            
+        # Verify cleanup
+        mock_process.terminate.assert_called()
+        # Verify stdin writes
+        # Note: Timing issues might make this flaky without retry logic in real env, 
+        # but in mocked threaded env it should be reasonably consistent if implementation awaits stuff.
+        # Actually simulator.py:91 process.stdin.write called immediately on receive. Use any_call.
+        mock_process.stdin.write.assert_any_call("start\n")
 
 
 

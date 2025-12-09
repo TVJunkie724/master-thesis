@@ -34,7 +34,7 @@ class TestPersister:
         with pytest.raises(mock_provider.clients["iam"].exceptions.NoSuchEntityException):
             mock_provider.clients["iam"].get_role(RoleName=role_name)
 
-    @patch("util.compile_lambda_function")
+    @patch("src.util.compile_lambda_function")
     def test_create_persister_lambda_function(self, mock_compile, mock_provider, mock_config, project_path):
         """Verify Persister Lambda creation."""
         from src.providers.aws.layers.layer_2_compute import (

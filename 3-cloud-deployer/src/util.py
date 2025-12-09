@@ -65,19 +65,7 @@ def get_path_in_project(subpath: str = "", project_path: str = None) -> str:
         Absolute path to the requested location
     """
     if project_path is None:
-        # Temporary backward compatibility - will be removed in future
-        import warnings
-        warnings.warn(
-            "get_path_in_project() called without project_path - using globals fallback. "
-            "This will be removed in a future version.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        try:
-            import globals
-            project_path = globals.get_project_upload_path()
-        except Exception:
-            raise ValueError("project_path is required - globals fallback failed")
+        raise ValueError("project_path is required")
     
     if subpath:
         return os.path.join(project_path, subpath)
@@ -178,19 +166,7 @@ def compile_merged_lambda_function(
     import tempfile
     
     if project_path is None:
-        # Temporary backward compatibility - will be removed in future
-        import warnings
-        warnings.warn(
-            "compile_merged_lambda_function() called without project_path - using globals fallback. "
-            "This will be removed in a future version.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        try:
-            import globals
-            project_path = globals.get_project_upload_path()
-        except Exception:
-            raise ValueError("project_path is required - globals fallback failed")
+         raise ValueError("project_path is required")
     
     # 1. Resolve Paths
     abs_base_path = resolve_folder_path(base_path, project_path)

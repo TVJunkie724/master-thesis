@@ -1,9 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
 from pydantic import BaseModel
-import aws.lambda_manager as lambda_manager
-from aws.api_lambda_schemas import LambdaUpdateRequest, LambdaLogsRequest, LambdaInvokeRequest
+import src.providers.aws.lambda_manager as lambda_manager
+from src.providers.aws.api_lambda_schemas import LambdaUpdateRequest, LambdaLogsRequest, LambdaInvokeRequest
 from logger import print_stack_trace, logger
+import src.core.state as state
+from src.core.factory import create_context
 
 router = APIRouter()
 
@@ -25,10 +27,25 @@ def lambda_update(req: LambdaUpdateRequest):
         JSON message confirming the update.
     """
     try:
+        project_name = state.get_active_project()
+        context = create_context(project_name, "aws")
+        aws_provider = context.providers["aws"]
+        
         if req.environment:
-            lambda_manager.update_function(req.local_function_name, req.environment)
+            lambda_manager.update_function(
+                req.local_function_name, 
+                req.environment,
+                provider=aws_provider,
+                project_path=str(context.project_path),
+                iot_devices=context.config.iot_devices
+            )
         else:
-            lambda_manager.update_function(req.local_function_name)
+            lambda_manager.update_function(
+                req.local_function_name,
+                provider=aws_provider,
+                project_path=str(context.project_path),
+                iot_devices=context.config.iot_devices
+            )
         return {"message": f"Lambda {req.local_function_name} updated successfully"}
     except Exception as e:
         print_stack_trace()
@@ -49,7 +66,16 @@ def get_lambda_logs(req: LambdaLogsRequest = Depends()) -> List[str]:
         List of log messages as strings.
     """
     try:
-        logs = lambda_manager.fetch_logs(req.local_function_name, n=req.n, filter_system_logs=req.filter_system_logs)
+        project_name = state.get_active_project()
+        context = create_context(project_name, "aws")
+        aws_provider = context.providers["aws"]
+
+        logs = lambda_manager.fetch_logs(
+            req.local_function_name, 
+            n=req.n, 
+            filter_system_logs=req.filter_system_logs,
+            provider=aws_provider
+        )
         return logs
     except Exception as e:
         print_stack_trace()
@@ -62,7 +88,16 @@ def lambda_invoke(req: LambdaInvokeRequest):
     Invokes a lambda function.
     """
     try:
-        lambda_manager.invoke_function(req.local_function_name, req.payload, req.sync)
+        project_name = state.get_active_project()
+        context = create_context(project_name, "aws")
+        aws_provider = context.providers["aws"]
+
+        lambda_manager.invoke_function(
+            req.local_function_name, 
+            req.payload, 
+            req.sync,
+            provider=aws_provider
+        )
         return {"message": f"Lambda {req.local_function_name} invoked successfully"}
     except Exception as e:
         print_stack_trace()

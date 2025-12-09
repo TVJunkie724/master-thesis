@@ -19,9 +19,9 @@ def deploy_l2(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     
     Creates:
         1. Persister IAM Role and Lambda Function
-        2. Event Checker IAM Role and Lambda (if optimization enabled)
-        3. Step Function State Machine (if optimization enabled)
-        4. Event Feedback Lambda (if optimization enabled)
+        2. Processors (one per device type)
+        3. Event Checker Infrastructure (optional)
+        4. Event Actions (dynamic)
     
     Args:
         context: Deployment context with config and credentials
@@ -36,29 +36,52 @@ def deploy_l2(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
         create_lambda_chain_step_function,
         create_event_feedback_iam_role,
         create_event_feedback_lambda_function,
+        create_processor_iam_role,
+        create_processor_lambda_function,
+        deploy_lambda_actions,
     )
     
     logger.info(f"[L2] Deploying Layer 2 (Compute) for {context.config.digital_twin_name}")
     context.set_active_layer(2)
     
-    project_path = str(context.project_path.parent.parent)  # Get to src/
-    upload_path = str(context.project_path)
+    # Path to tool source code (where core lambdas live)
+    # Assuming standard structure: tool_root/src/providers/aws/lambda_functions
+    tool_root = str(context.project_path.parent.parent)
     
-    # Core components (always deployed)
+    # Path to user project (where config and custom lambdas live)
+    user_project_root = str(context.project_path)
+    
+    # 1. Persister (Core)
     create_persister_iam_role(provider)
-    create_persister_lambda_function(provider, context.config, project_path)
-    
-    # Optional event processing (check via context)
+    create_persister_lambda_function(provider, context.config, tool_root)
+
+    # 2. Processors
+    if context.config.iot_devices:
+        for device in context.config.iot_devices:
+            create_processor_iam_role(device, provider)
+            create_processor_lambda_function(device, provider, context.config, tool_root)
+
+    # 3. Event Checker (Optional)
     if context.config.is_optimization_enabled("useEventChecking"):
+        logger.info("[L2] Deploying Event Checking infrastructure...")
         create_event_checker_iam_role(provider)
-        create_event_checker_lambda_function(provider, context.config, project_path)
         
+        # Dependencies
         if context.config.is_optimization_enabled("triggerNotificationWorkflow"):
             create_lambda_chain_iam_role(provider)
-            create_lambda_chain_step_function(provider, upload_path)
+            create_lambda_chain_step_function(provider, user_project_root)
+            
+        if context.config.is_optimization_enabled("returnFeedbackToDevice"):
             create_event_feedback_iam_role(provider)
-            create_event_feedback_lambda_function(provider, context.config, upload_path)
-    
+            create_event_feedback_lambda_function(provider, context.config, tool_root)
+            
+        create_event_checker_lambda_function(provider, context.config, tool_root)
+
+    # 4. Event Actions (Dynamic)
+    if context.config.events:
+        logger.info("[L2] Deploying Event Action Lambdas...")
+        deploy_lambda_actions(provider, context.config, user_project_root)
+
     logger.info(f"[L2] Layer 2 deployment complete")
 
 
@@ -79,21 +102,56 @@ def destroy_l2(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
         destroy_lambda_chain_iam_role,
         destroy_event_feedback_lambda_function,
         destroy_event_feedback_iam_role,
+        destroy_processor_lambda_function,
+        destroy_processor_iam_role,
+        destroy_lambda_actions,
     )
     
     logger.info(f"[L2] Destroying Layer 2 (Compute) for {context.config.digital_twin_name}")
     context.set_active_layer(2)
     
-    # Destroy in reverse order (optional components first)
-    destroy_event_feedback_lambda_function(provider)
-    destroy_event_feedback_iam_role(provider)
-    destroy_lambda_chain_step_function(provider)
-    destroy_lambda_chain_iam_role(provider)
-    destroy_event_checker_lambda_function(provider)
-    destroy_event_checker_iam_role(provider)
+    # Destroy in reverse order
     
-    # Core components
+    # 4. Event Actions
+    if context.config.events:
+         destroy_lambda_actions(provider, context.config)
+
+    # 3. Event Checker & Dependencies
+    if context.config.is_optimization_enabled("useEventChecking"):
+        destroy_event_checker_lambda_function(provider)
+        
+        if context.config.is_optimization_enabled("returnFeedbackToDevice"):
+            destroy_event_feedback_lambda_function(provider)
+            destroy_event_feedback_iam_role(provider)
+            
+        if context.config.is_optimization_enabled("triggerNotificationWorkflow"):
+            destroy_lambda_chain_step_function(provider)
+            destroy_lambda_chain_iam_role(provider)
+            
+        destroy_event_checker_iam_role(provider)
+
+    # 2. Processors
+    if context.config.iot_devices:
+        for device in context.config.iot_devices:
+            destroy_processor_lambda_function(device, provider)
+            destroy_processor_iam_role(device, provider)
+
+    # 1. Persister
     destroy_persister_lambda_function(provider)
     destroy_persister_iam_role(provider)
     
     logger.info(f"[L2] Layer 2 destruction complete")
+
+
+def info_l2(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
+    """
+    Check status of Layer 2 (Data Processing) components for AWS.
+    
+    Args:
+        context: Deployment context with config and credentials
+        provider: Initialized AWSProvider instance
+    """
+    from .layer_2_compute import info_l2 as _info_l2_impl
+    
+    logger.info(f"[L2] Checking status for {context.config.digital_twin_name}")
+    _info_l2_impl(context, provider)

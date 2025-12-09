@@ -1,76 +1,107 @@
 import pytest
-import boto3
-from unittest.mock import MagicMock, patch
-import aws.core_deployer_aws as core_aws
-import aws.globals_aws as globals_aws
-import globals
-from botocore.exceptions import ClientError
+from unittest.mock import MagicMock, call
+from src.providers.aws.layers.layer_3_storage import create_l3_api_gateway, destroy_l3_api_gateway
 
-@pytest.mark.skip(reason="Tests use old globals pattern - waiting for API gateway layer migration")
 class TestAWSAPIGateway:
-    @patch("aws.core_deployer_aws.util_aws.get_api_id_by_name")
-    def test_create_destroy_api(self, mock_get_id, mock_aws_context):
-        """Verify API creation and destruction."""
-        # 1. Test Creation
-        globals_aws.aws_apigateway_client.create_api = MagicMock(return_value={"ApiId": "test-api-id", "Name": "test-api"})
-        globals_aws.aws_apigateway_client.create_stage = MagicMock(return_value={"StageName": "$default"})
-        
-        with patch.object(globals, 'config', {"digital_twin_name": "test-twin"}), \
-             patch("globals.api_name", return_value="test-api"):
-            core_aws.create_api()
-            globals_aws.aws_apigateway_client.create_api.assert_called_with(Name="test-api", ProtocolType="HTTP")
-            globals_aws.aws_apigateway_client.create_stage.assert_called()
+    """Test API Gateway creation and destruction in Layer 3."""
 
-        # 2. Test Destruction
-        mock_get_id.return_value = "test-api-id"
-        globals_aws.aws_apigateway_client.delete_api = MagicMock()
+    def test_create_l3_api_gateway(self, mock_provider, mock_project_config):
+        """Verify API Gateway creation."""
+        # Setup mocks
+        apigw_client = MagicMock()
+        lambda_client = MagicMock()
+        sts_client = MagicMock()
         
-        with patch.object(globals, 'config', {"digital_twin_name": "test-twin"}), \
-             patch("globals.api_name", return_value="test-api"):
-            core_aws.destroy_api()
-            globals_aws.aws_apigateway_client.delete_api.assert_called_with(ApiId="test-api-id")
+        mock_provider.clients["apigatewayv2"] = apigw_client
+        mock_provider.clients["lambda"] = lambda_client
+        mock_provider.clients["sts"] = sts_client
+        
+        # Mock returns
+        apigw_client.create_api.return_value = {"ApiId": "test-api-id"}
+        lambda_client.get_function.return_value = {"Configuration": {"FunctionArn": "arn:aws:lambda:eu-central-1:123456789012:function:test-twin-hot-reader"}}
+        lambda_client.meta.region_name = "eu-central-1"
+        sts_client.get_caller_identity.return_value = {"Account": "123456789012"}
+        apigw_client.create_integration.return_value = {"IntegrationId": "test-integration-id"}
+        
+        # Execute
+        create_l3_api_gateway(mock_provider, mock_project_config)
+        
+        # Verify API creation
+        apigw_client.create_api.assert_called_once_with(
+            Name="test-twin-api-gateway",
+            ProtocolType="HTTP",
+            Description="API Gateway for cross-cloud L3 access"
+        )
+        
+        # Verify Lambda interaction
+        lambda_client.get_function.assert_called_once_with(FunctionName="test-twin-hot-reader")
+        
+        # Verify Integration creation
+        apigw_client.create_integration.assert_called_once_with(
+            ApiId="test-api-id",
+            IntegrationType="AWS_PROXY",
+            IntegrationUri="arn:aws:lambda:eu-central-1:123456789012:function:test-twin-hot-reader",
+            PayloadFormatVersion="2.0"
+        )
+        
+        # Verify Route creation
+        apigw_client.create_route.assert_called_once_with(
+            ApiId="test-api-id",
+            RouteKey="GET /data",
+            Target="integrations/test-integration-id"
+        )
+        
+        # Verify Stage creation
+        apigw_client.create_stage.assert_called_once_with(
+            ApiId="test-api-id",
+            StageName="prod",
+            AutoDeploy=True
+        )
+        
+        # Verify Permission addition
+        lambda_client.add_permission.assert_called_once_with(
+            FunctionName="test-twin-hot-reader",
+            StatementId="apigw-invoke",
+            Action="lambda:InvokeFunction",
+            Principal="apigateway.amazonaws.com",
+            SourceArn="arn:aws:execute-api:eu-central-1:123456789012:test-api-id/*"
+        )
 
-    @patch("aws.core_deployer_aws.util_aws.get_api_id_by_name")
-    @patch("aws.core_deployer_aws.util_aws.get_lambda_arn_by_name")
-    @patch("aws.core_deployer_aws.util_aws.get_api_route_id_by_key")
-    @patch("aws.core_deployer_aws.util_aws.get_api_integration_id_by_uri")
-    def test_create_destroy_api_integration(self, mock_get_int_id, mock_get_route_id, mock_get_arn, mock_get_api_id, mock_aws_context):
-        """Verify API integration creation and destruction."""
-        mock_get_api_id.return_value = "test-api-id"
-        mock_get_arn.return_value = "arn:aws:lambda:eu-central-1:123:function:hot-reader"
+    def test_destroy_l3_api_gateway(self, mock_provider):
+        """Verify API Gateway destruction."""
+        # Setup mocks
+        apigw_client = MagicMock()
+        lambda_client = MagicMock()
         
-        # Mocks for Create
-        globals_aws.aws_apigateway_client.create_integration = MagicMock(return_value={"IntegrationId": "int-id"})
-        globals_aws.aws_apigateway_client.create_route = MagicMock()
-        globals_aws.aws_lambda_client.add_permission = MagicMock()
+        mock_provider.clients["apigatewayv2"] = apigw_client
+        mock_provider.clients["lambda"] = lambda_client
         
-        # Mocks for Destroy
-        globals_aws.aws_apigateway_client.delete_route = MagicMock()
-        globals_aws.aws_apigateway_client.delete_integration = MagicMock()
-        globals_aws.aws_lambda_client.remove_permission = MagicMock()
-
-        # Mock config needing BOTH digital_twin_name (for lambda name) and hot_reader_name
-        mock_config = {
-            "digital_twin_name": "test-twin",
-            "hot_reader_name": "hot-reader"
+        # Mock existing API found
+        apigw_client.get_apis.return_value = {
+            "Items": [
+                {"Name": "other-api", "ApiId": "other-id"},
+                {"Name": "test-twin-api-gateway", "ApiId": "test-api-id"}
+            ]
         }
+        
+        # Execute
+        destroy_l3_api_gateway(mock_provider)
+        
+        # Verify Permission removal
+        lambda_client.remove_permission.assert_called_once_with(
+            FunctionName="test-twin-hot-reader",
+            StatementId="apigw-invoke"
+        )
+        
+        # Verify API deletion
+        apigw_client.delete_api.assert_called_once_with(ApiId="test-api-id")
 
-        with patch.object(globals, 'config', mock_config), \
-             patch("globals.api_name", return_value="test-api"):
-            
-            # Test Create
-            core_aws.create_api_hot_reader_integration()
-            
-            globals_aws.aws_apigateway_client.create_integration.assert_called()
-            globals_aws.aws_apigateway_client.create_route.assert_called()
-            globals_aws.aws_lambda_client.add_permission.assert_called()
-
-            # Test Destroy
-            mock_get_route_id.return_value = "route-id"
-            mock_get_int_id.return_value = "int-id"
-            
-            core_aws.destroy_api_hot_reader_integration()
-            
-            globals_aws.aws_lambda_client.remove_permission.assert_called()
-            globals_aws.aws_apigateway_client.delete_route.assert_called()
-            globals_aws.aws_apigateway_client.delete_integration.assert_called()
+    def test_destroy_l3_api_gateway_not_found(self, mock_provider):
+        """Verify destruction does nothing if API not found."""
+        apigw_client = MagicMock()
+        mock_provider.clients["apigatewayv2"] = apigw_client
+        apigw_client.get_apis.return_value = {"Items": []}
+        
+        destroy_l3_api_gateway(mock_provider)
+        
+        apigw_client.delete_api.assert_not_called()

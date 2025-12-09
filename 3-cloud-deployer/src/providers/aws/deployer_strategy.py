@@ -240,3 +240,52 @@ class AWSDeployerStrategy:
         self.destroy_l3_hot(context)
         self.destroy_l2(context)
         self.destroy_l1(context)
+
+    # ==========================================
+    # Info / Status Checks
+    # ==========================================
+
+    def info_l1(self, context: 'DeploymentContext') -> None:
+        """Check status of Layer 1 (IoT)."""
+        from .layers.l1_adapter import info_l1 as _info_l1
+        _info_l1(context, self._provider)
+
+    def info_l2(self, context: 'DeploymentContext') -> None:
+        """Check status of Layer 2 (Compute)."""
+        from .layers.l2_adapter import info_l2 as _info_l2
+        _info_l2(context, self._provider)
+
+    def info_l3_hot(self, context: 'DeploymentContext') -> None:
+        """Check status of Layer 3 Hot Storage."""
+        from .layers.l3_adapter import info_l3_hot as _info_l3_hot
+        _info_l3_hot(context, self._provider)
+
+    def info_l3_cold(self, context: 'DeploymentContext') -> None:
+        """Check status of Layer 3 Cold Storage."""
+        from .layers.l3_adapter import info_l3_cold as _info_l3_cold
+        _info_l3_cold(context, self._provider)
+
+    def info_l3_archive(self, context: 'DeploymentContext') -> None:
+        """Check status of Layer 3 Archive Storage."""
+        from .layers.l3_adapter import info_l3_archive as _info_l3_archive
+        _info_l3_archive(context, self._provider)
+        
+    def info_l4(self, context: 'DeploymentContext') -> None:
+        """Check status of Layer 4 (TwinMaker)."""
+        from .layers.l4_adapter import info_l4 as _info_l4
+        _info_l4(context, self._provider)
+
+    def info_l5(self, context: 'DeploymentContext') -> None:
+        """Check status of Layer 5 (Grafana)."""
+        from .layers.l5_adapter import info_l5 as _info_l5
+        _info_l5(context, self._provider)
+
+    def info_all(self, context: 'DeploymentContext') -> None:
+        """Check status of all layers."""
+        self.info_l1(context)
+        self.info_l2(context)
+        self.info_l3_hot(context)
+        self.info_l3_cold(context)
+        self.info_l3_archive(context)
+        self.info_l4(context)
+        self.info_l5(context)
