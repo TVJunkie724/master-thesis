@@ -35,7 +35,8 @@ def fetch_regions_aws(force_fetch: bool = False):
         return initial_fetch_aws.fetch_region_map(force_update=True)
     except Exception as e:
         logger.error(f"Error fetching AWS regions: {e}")
-        return {"error": str(e)}
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @router.post("/api/fetch_regions/azure", summary="Fetch Azure Regions")
@@ -57,7 +58,8 @@ def fetch_regions_azure(force_fetch: bool = False):
         return initial_fetch_azure.fetch_region_map(force_update=True)
     except Exception as e:
         logger.error(f"Error fetching Azure regions: {e}")
-        return {"error": str(e)}
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @router.post("/api/fetch_regions/gcp", summary="Fetch GCP Regions")
@@ -83,4 +85,5 @@ def fetch_regions_gcp(force_fetch: bool = False):
         return initial_fetch_google.fetch_region_map(force_update=True)
     except Exception as e:
         logger.error(f"Error fetching GCP regions: {e}")
-        return {"error": str(e)}
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=500, content={"error": str(e)})

@@ -266,12 +266,12 @@ def calculate_aws_cost_data_acquisition(
     layer_pricing = pricing["aws"]["iotCore"]
     pricing_tiers = layer_pricing["pricing_tiers"]
     
-    tier1_limit = pricing_tiers["tier1"]["limit"]
-    tier2_limit = pricing_tiers["tier2"]["limit"]
-
-    price_tier1 = pricing_tiers["tier1"]["price"]
-    price_tier2 = pricing_tiers["tier2"]["price"]
-    price_tier3 = pricing_tiers["tier3"]["price"]
+    price_tier1 = pricing_tiers.get("tier1", {}).get("price", 0)
+    price_tier2 = pricing_tiers.get("tier2", {}).get("price", 0)
+    price_tier3 = pricing_tiers.get("tier3", {}).get("price", 0)
+    
+    tier1_limit = pricing_tiers.get("tier1", {}).get("limit", 0)
+    tier2_limit = pricing_tiers.get("tier2", {}).get("limit", 0)
 
     # Formula: Total Messages = Devices * (60 / Interval) * 730 hours
     # Using 730 hours/month (industry standard) for consistency with L2 calculations.

@@ -36,7 +36,8 @@ def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False)
         return calculate_up_to_date_pricing("aws", additional_debug)
     except Exception as e:
         logger.error(f"Error fetching AWS pricing: {e}")
-        return {"error": str(e)}
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @router.post("/api/fetch_pricing/azure", summary="Fetch Azure Pricing")
@@ -59,7 +60,8 @@ def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = Fals
         return calculate_up_to_date_pricing("azure", additional_debug)
     except Exception as e:
         logger.error(f"Error fetching Azure pricing: {e}")
-        return {"error": str(e)}
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @router.post("/api/fetch_pricing/gcp", summary="Fetch GCP Pricing")
@@ -82,7 +84,8 @@ def fetch_pricing_gcp(additional_debug: bool = False, force_fetch: bool = False)
         return calculate_up_to_date_pricing("gcp", additional_debug)
     except Exception as e:
         logger.error(f"Error fetching GCP pricing: {e}")
-        return {"error": str(e)}
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 # --------------------------------------------------

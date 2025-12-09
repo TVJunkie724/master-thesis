@@ -153,7 +153,7 @@ class CalcParams(BaseModel):
 )
 def calc(params: CalcParams = Body(
     ...,
-    example={
+    examples=[{
         "numberOfDevices": 100,
         "deviceSendingIntervalInMinutes": 2.0,
         "averageSizeOfMessageInKb": 0.25,
@@ -174,7 +174,7 @@ def calc(params: CalcParams = Body(
         "orchestrationActionsPerMessage": 3,
         "eventsPerMessage": 1,
         "apiCallsPerDashboardRefresh": 1
-    }
+    }]
 )):
     """
     Perform a cloud cost optimization calculation based on Digital Twin configuration parameters.
@@ -183,7 +183,7 @@ def calc(params: CalcParams = Body(
         from backend.calculation.engine import calculate_cheapest_costs
         
         # Convert Pydantic model to dict
-        params_dict = params.dict()
+        params_dict = params.model_dump()
         
         # Load combined pricing from separate files
         pricing_data = load_combined_pricing()
@@ -193,4 +193,5 @@ def calc(params: CalcParams = Body(
     except Exception as e:
         logger.error(f"Error during calculation: {e}")
         print_stack_trace()
-        return {"error": str(e)}
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=500, content={"error": str(e)})
