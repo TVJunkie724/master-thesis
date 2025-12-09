@@ -5,7 +5,6 @@ This module provides utility functions for file operations, Lambda compilation,
 and credential validation.
 
 All functions that need project context now REQUIRE the project_path parameter.
-Legacy globals fallback has been removed.
 """
 
 import os
@@ -59,7 +58,7 @@ def get_path_in_project(subpath: str = "", project_path: str = None) -> str:
     
     Args:
         subpath: Optional subdirectory or file path within the project
-        project_path: Project path (REQUIRED for new code, falls back to globals for legacy)
+        project_path: Project path (required)
         
     Returns:
         Absolute path to the requested location
@@ -157,7 +156,7 @@ def compile_merged_lambda_function(
     Args:
         base_path: Path to the system wrapper code (e.g. processor_wrapper)
         custom_file_path: Relative path (from project upload) to the user's custom code
-        project_path: Project path (REQUIRED for new code, falls back to globals for legacy)
+        project_path: Project path (required)
         
     Returns:
         bytes: The zipped deployment package.

@@ -2,7 +2,7 @@
 AWS resource naming conventions.
 
 This module provides functions to generate consistent, namespaced resource
-names for all AWS resources. It extracts the naming logic from globals_aws.py.
+names for all AWS resources.
 
 Naming Convention:
     All resources follow the pattern: {twin_name}-{resource_type}[-{suffix}]
@@ -13,8 +13,8 @@ Naming Convention:
         - my-twin-sensor-001-processor (device-specific Lambda)
 
 Design Decision:
-    Functions take twin_name as a parameter rather than reading from globals.
-    This enables the provider to manage the name and makes testing easier.
+    Functions take twin_name as a parameter managed by the provider.
+    This makes testing easier and dependencies explicit.
 
 Usage:
     from providers.aws.naming import AWSNaming

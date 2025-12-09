@@ -3,20 +3,49 @@ Validator - Configuration and Structure Validation.
 
 This module provides comprehensive validation for configuration files,
 state machines, zip archives, Python code, and project structure.
-
-Migration Status:
-    - Uses globals for project path resolution in some functions.
-    - Future migration: Add optional project_path parameters.
-    - Works correctly as-is - no immediate migration required.
 """
 
 import os
 import zipfile
 import json
+import hashlib
+import re
 import constants as CONSTANTS
 from logger import logger
 import io
 import ast
+
+
+# ==========================================
+# 0. Digital Twin Name Validation
+# ==========================================
+def validate_digital_twin_name(name: str) -> None:
+    """
+    Validates the digital twin name for AWS resource naming compatibility.
+    
+    Constraints:
+    - Maximum 20 characters (resource naming limits)
+    - Only alphanumeric, hyphen, underscore allowed
+    
+    Args:
+        name: The digital twin name to validate
+        
+    Raises:
+        ValueError: If name exceeds length or contains invalid characters
+    """
+    max_length = 30
+    if len(name) > max_length:
+        raise ValueError(
+            f"Digital twin name '{name}' exceeds {max_length} characters."
+        )
+    
+    valid_pattern = r'^[A-Za-z0-9_-]+$'
+    if not re.match(valid_pattern, name):
+        raise ValueError(
+            f"Digital twin name '{name}' contains invalid characters. "
+            "Only alphanumeric, hyphen, and underscore allowed."
+        )
+
 
 # ==========================================
 # 1. Configuration Content Validation
@@ -77,6 +106,12 @@ def validate_config_content(filename, content):
              for key in required_keys:
                  if key not in content:
                      raise ValueError(f"Missing key '{key}' in {filename}.")
+             
+             # Validate digital_twin_name format in config.json
+             if filename == CONSTANTS.CONFIG_FILE:
+                 twin_name = content.get("digital_twin_name")
+                 if twin_name:
+                     validate_digital_twin_name(twin_name)
              
              # Special Case: Inter-Cloud Configuration
              if filename == CONSTANTS.CONFIG_INTER_CLOUD_FILE:
@@ -322,7 +357,7 @@ def get_provider_for_function(project_name, function_name, project_path: str = N
         project_path: Root project path (REQUIRED)
     """
     if project_path is None:
-        raise ValueError("project_path is required - globals fallback has been removed")
+        raise ValueError("project_path is required")
     
     upload_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, project_name)
     providers_file = os.path.join(upload_dir, CONSTANTS.CONFIG_PROVIDERS_FILE)
@@ -364,7 +399,7 @@ def verify_project_structure(project_name, project_path: str = None):
         project_path: Root project path (REQUIRED)
     """
     if project_path is None:
-        raise ValueError("project_path is required - globals fallback has been removed")
+        raise ValueError("project_path is required")
     
     upload_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, project_name)
     
@@ -497,3 +532,105 @@ def validate_simulator_payloads(content_str, project_name=None):
     # For full validation with project context, use a higher-level function that has access to project_path
 
     return True, [], warnings
+
+
+# ==========================================
+# 8. Duplicate Project Detection
+# ==========================================
+def _get_project_base_path():
+    """Get the base path for projects. Uses PYTHONPATH or app detection."""
+    app_path = "/app"
+    if os.path.exists(app_path):
+        return app_path
+    # Fallback: go up from this file's directory
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _hash_credentials(creds: dict) -> str:
+    """
+    Creates a deterministic hash of credentials for comparison.
+    Only hashes the keys that identify the account (not secrets).
+    
+    Args:
+        creds: Credentials dictionary with provider keys.
+        
+    Returns:
+        SHA256 hash string of identity-relevant fields.
+    """
+    # Use account-identifying fields only (not secrets)
+    identity_fields = {
+        "aws": ["aws_access_key_id", "aws_region"],
+        "azure": ["azure_subscription_id", "azure_tenant_id", "azure_region"],
+        "gcp": ["gcp_project_id", "gcp_region"]
+    }
+    
+    hash_input = ""
+    for provider, fields in identity_fields.items():
+        if provider in creds:
+            for field in fields:
+                hash_input += str(creds[provider].get(field, ""))
+    
+    return hashlib.sha256(hash_input.encode()).hexdigest()
+
+
+def check_duplicate_project(
+    new_twin_name: str, 
+    new_creds: dict, 
+    exclude_project: str = None, 
+    project_path: str = None
+) -> str | None:
+    """
+    Checks if another project exists with the same digital_twin_name AND same credentials.
+    
+    This prevents deploying multiple projects that would create conflicting cloud resources
+    (e.g., same IoT Thing names, same Lambda function names, same DynamoDB table prefixes).
+    
+    Args:
+        new_twin_name: The digital_twin_name of the new/updated project.
+        new_creds: The credentials config of the new/updated project.
+        exclude_project: Project name to exclude from check (for updates).
+        project_path: Base project path.
+    
+    Returns:
+        Name of conflicting project if found, None otherwise.
+    """
+    if project_path is None:
+        project_path = _get_project_base_path()
+    
+    new_creds_hash = _hash_credentials(new_creds)
+    upload_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME)
+    
+    if not os.path.exists(upload_dir):
+        return None
+    
+    for project_name in os.listdir(upload_dir):
+        if project_name == exclude_project:
+            continue
+        
+        project_dir = os.path.join(upload_dir, project_name)
+        if not os.path.isdir(project_dir):
+            continue
+        
+        # Read config.json and credentials
+        config_path = os.path.join(project_dir, CONSTANTS.CONFIG_FILE)
+        creds_path = os.path.join(project_dir, CONSTANTS.CONFIG_CREDENTIALS_FILE)
+        
+        if not os.path.exists(config_path) or not os.path.exists(creds_path):
+            continue
+        
+        try:
+            with open(config_path, 'r') as f:
+                existing_config = json.load(f)
+            with open(creds_path, 'r') as f:
+                existing_creds = json.load(f)
+            
+            existing_twin_name = existing_config.get("digital_twin_name")
+            existing_creds_hash = _hash_credentials(existing_creds)
+            
+            if existing_twin_name == new_twin_name and existing_creds_hash == new_creds_hash:
+                return project_name
+        except Exception:
+            # Skip corrupted or unreadable projects
+            continue
+    
+    return None

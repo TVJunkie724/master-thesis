@@ -6,7 +6,7 @@ multiple cloud providers (AWS, Azure, GCP) in the Digital Twin deployment system
 
 Modules:
     protocols: Interface definitions (CloudProvider, DeployerStrategy)
-    context: DeploymentContext for dependency injection (replaces globals)
+    context: DeploymentContext for dependency injection
     registry: ProviderRegistry for dynamic provider lookup
     config_loader: Configuration loading utilities
     exceptions: Custom exception types for deployment operations

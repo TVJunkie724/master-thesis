@@ -7,7 +7,7 @@ This module handles deployment and destruction of Layer 3 components:
 - Archive Storage: S3 + Cold-to-Archive Mover
 - API Gateway (optional, for cross-cloud access)
 
-All functions accept provider and config parameters instead of using globals.
+All functions accept provider and config parameters explicitly.
 """
 
 import json

@@ -167,7 +167,7 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
 ├── test_multi_project.py                 # Multi-project management tests
 │
 ├── unit/
-│   ├── test_globals.py                   # Global configuration tests
+│   ├── test_state.py                     # State management tests
 │   ├── test_util.py                      # Credentials & File Utils
 │   ├── test_util_aws.py                  # AWS Helper Utils
 │   ├── test_validation.py                # Input validation tests
@@ -222,12 +222,13 @@ def test_create_bucket(mock_aws_context):
     assert len(response['Buckets']) == 1
 </code></pre>
 
-                    <h3 class="h5 mt-4">Mocking Globals</h3>
-                    <p>The deployer relies on `globals.py` for configuration. Always mock `globals.config` to prevent
-                        reading real local files.</p>
-                    <pre class="p-3 rounded"><code>with patch.object(globals, 'config', {"digital_twin_name": "test-twin"}):
-    # Call your function
-    core_aws.create_something()
+                    <h3 class="h5 mt-4">Mocking Provider and Context</h3>
+                    <p>The deployer uses explicit dependency injection via <code>AWSProvider</code> and <code>DeploymentContext</code>.
+                        Use fixtures from <code>conftest.py</code> to set up test providers.</p>
+                    <pre class="p-3 rounded"><code>def test_create_role(aws_provider):
+    # aws_provider fixture provides a configured mock provider
+    layer_1_iot.create_dispatcher_iam_role(aws_provider)
+    # Assert role was created
 </code></pre>
                 </div>
             </div>
@@ -295,11 +296,10 @@ jobs:
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-triangle-exclamation me-2"></i>Troubleshooting</h2>
 
-                    <h3 class="h5">"AttributeError: module 'globals' has no attribute '...'"</h3>
-                    <p><strong>Cause:</strong> The function under test uses `globals` directly for a client that isn't
-                        initialized in the test environment.</p>
-                    <p><strong>Solution:</strong> Ensure you are using `globals_aws` for AWS clients, or mock the
-                        `globals` attribute explicitly.</p>
+                    <h3 class="h5">"AttributeError: 'AWSProvider' has no attribute '...'"
+                    <p><strong>Cause:</strong> The provider fixture is missing a required client or property.</p>
+                    <p><strong>Solution:</strong> Ensure your test fixture properly initializes all required
+                        clients via <code>provider.clients["iam"]</code>, <code>provider.clients["lambda"]</code>, etc.</p>
 
                     <h3 class="h5 mt-4">Tests hanging or slow</h3>
                     <p><strong>Cause:</strong> Infinite loops in `while` loops waiting for resource deletion.</p>

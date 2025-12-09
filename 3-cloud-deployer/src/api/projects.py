@@ -18,25 +18,60 @@ router = APIRouter()
 @router.get("/projects", tags=["Projects"])
 def list_projects():
     """
-    List all available projects.
+    List all available projects with metadata.
+    Returns project names, descriptions, and version counts.
     """
     try:
-        projects = file_manager.list_projects()
+        project_names = file_manager.list_projects()
+        projects = []
+        
+        for name in project_names:
+            project_info = {"name": name, "description": None, "version_count": 0}
+            
+            # Read project_info.json if exists
+            project_dir = os.path.join(
+                state.get_project_base_path(), 
+                CONSTANTS.PROJECT_UPLOAD_DIR_NAME, 
+                name
+            )
+            info_path = os.path.join(project_dir, CONSTANTS.PROJECT_INFO_FILE)
+            if os.path.exists(info_path):
+                try:
+                    with open(info_path, 'r') as f:
+                        info = json.load(f)
+                        project_info["description"] = info.get("description")
+                except Exception:
+                    pass
+            
+            # Count versions
+            versions_dir = os.path.join(project_dir, CONSTANTS.PROJECT_VERSIONS_DIR_NAME)
+            if os.path.exists(versions_dir):
+                project_info["version_count"] = len([
+                    f for f in os.listdir(versions_dir) if f.endswith('.zip')
+                ])
+            
+            projects.append(project_info)
+        
         return {"projects": projects, "active_project": state.get_active_project()}
     except Exception as e:
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/projects", tags=["Projects"])
-async def create_project(request: Request, project_name: str = Query(..., description="Name of the new project")):
+async def create_project(
+    request: Request, 
+    project_name: str = Query(..., description="Name of the new project"),
+    description: str = Query(None, description="Optional project description")
+):
     """
-    Upload a new project zip file.
+    Upload a new project zip file with optional description.
+    If description is not provided, it will be auto-generated from digital_twin_name.
     Supports Multipart (binary) or JSON (Base64).
     """
     try:
         content = await extract_file_content(request)
-        file_manager.create_project_from_zip(project_name, content)
-        return {"message": f"Project '{project_name}' created successfully."}
+        result = file_manager.create_project_from_zip(project_name, content, description=description)
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
@@ -119,17 +154,67 @@ async def update_config(project_name: str, config_type: ConfigType, request: Req
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/projects/{project_name}/upload/zip", tags=["Projects"])
-async def update_project_zip(project_name: str, request: Request):
+async def update_project_zip(
+    project_name: str, 
+    request: Request,
+    description: str = Query(None, description="Optional project description update")
+):
     """
     Updates an existing project by overwriting it with a new validated zip file.
+    Archives the new version before extracting.
     Supports Multipart (binary) or JSON (Base64).
     """
     try:
         content = await extract_file_content(request)
-        file_manager.update_project_from_zip(project_name, content)
-        return {"message": f"Project '{project_name}' updated successfully from zip."}
+        result = file_manager.update_project_from_zip(project_name, content, description=description)
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/projects/{project_name}", tags=["Projects"])
+def delete_project_endpoint(project_name: str):
+    """
+    Deletes a project and all its versions.
+    If the deleted project was active, resets to default project.
+    """
+    try:
+        # Check if active project and reset to default if needed
+        if state.get_active_project() == project_name:
+            state.reset_state()
+        
+        file_manager.delete_project(project_name)
+        return {"message": f"Project '{project_name}' deleted successfully."}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/projects/{project_name}/info", tags=["Projects"])
+async def update_project_info_endpoint(project_name: str, request: Request):
+    """
+    Updates project metadata (description only, without re-uploading zip).
+    Body: {"description": "New description"}
+    """
+    try:
+        body = await request.json()
+        description = body.get("description")
+        if not description:
+            raise HTTPException(status_code=400, detail="Missing 'description' field in request body.")
+        
+        file_manager.update_project_info(project_name, description)
+        return {"message": f"Project info updated for '{project_name}'."}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON body.")
     except HTTPException:
         raise
     except Exception as e:
@@ -211,15 +296,12 @@ async def upload_state_machine(
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/projects/{project_name}/simulator/{provider}/payloads", tags=["Projects"])
-async def upload_simulator_payloads(project_name: str, provider: str, request: Request):
+@router.put("/projects/{project_name}/simulator/payloads", tags=["Projects"])
+async def upload_simulator_payloads(project_name: str, request: Request):
     """
-    Uploads payloads.json for the simulator.
-    Validates structure before saving.
+    Uploads payloads.json for the simulator (provider-agnostic).
+    Validates structure before saving to iot_device_simulator/payloads.json.
     """
-    if provider != "aws":
-        raise HTTPException(status_code=400, detail="Only 'aws' provider is currently supported.")
-
     try:
         content = await extract_file_content(request)
         content_str = content.decode('utf-8')
@@ -229,10 +311,15 @@ async def upload_simulator_payloads(project_name: str, provider: str, request: R
         if not is_valid:
             raise ValueError(f"Payload validation failed: {errors}")
             
-        # Save
-        path = os.path.join(state.get_project_base_path(), "upload", project_name, "iot_device_simulator", provider)
+        # Save to iot_device_simulator root (provider-agnostic)
+        path = os.path.join(
+            state.get_project_base_path(), 
+            CONSTANTS.PROJECT_UPLOAD_DIR_NAME, 
+            project_name, 
+            CONSTANTS.IOT_DEVICE_SIMULATOR_DIR_NAME
+        )
         os.makedirs(path, exist_ok=True)
-        with open(os.path.join(path, "payloads.json"), "w") as f:
+        with open(os.path.join(path, CONSTANTS.PAYLOADS_FILE), "w") as f:
             f.write(content_str)
             
         return {"message": "Payloads uploaded successfully.", "warnings": warnings}

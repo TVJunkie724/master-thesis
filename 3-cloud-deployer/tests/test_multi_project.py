@@ -63,7 +63,7 @@ def reset_state():
         if item.startswith("test_proj_"):
             shutil.rmtree(os.path.join(upload_path, item))
 
-# --- Unit Tests: file_manager & globals ---
+# --- Unit Tests: file_manager & state ---
 
 def test_validate_project_zip_valid():
     zip_bytes = create_valid_zip_bytes()
@@ -129,9 +129,18 @@ def test_api_list_projects():
     response = client.get("/projects")
     assert response.status_code == 200
     data = response.json()
-    assert project_name in data["projects"]
-    assert "template" in data["projects"]
+    
+    # Projects is now a list of objects with 'name', 'description', 'version_count'
+    project_names = [p["name"] for p in data["projects"]]
+    assert project_name in project_names
+    assert "template" in project_names
     assert data["active_project"] == "template"
+    
+    # Verify structure of project objects
+    test_project = next(p for p in data["projects"] if p["name"] == project_name)
+    assert "description" in test_project
+    assert "version_count" in test_project
+    assert test_project["version_count"] >= 1
 
 def test_api_create_project():
     project_name = "test_proj_api_create"

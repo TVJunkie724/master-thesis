@@ -70,9 +70,8 @@ class TestSimulatorPayloadValidation:
         assert any("not a JSON object" in e for e in errors)
 
     def test_device_id_warning_with_project(self):
-        """Test that project_name parameter doesn't cause errors (context check now skipped)."""
-        # Note: Project context checking was removed as part of globals removal
-        # The function now accepts project_name but skips the verification
+        """Test that project_name parameter doesn't cause errors (context check skipped)."""
+        # The function accepts project_name but skips the verification
         payload = json.dumps([{"iotDeviceId": "unknown-device"}])
         is_valid, errors, warnings = validator.validate_simulator_payloads(payload, project_name="test-project")
         
@@ -111,31 +110,31 @@ class TestSimulatorAPIEndpoints:
         assert "not supported" in response.json()["detail"]  
 
     @patch('src.validator.validate_simulator_payloads')
-    @patch('src.core.state.get_project_upload_path')
+    @patch('src.core.state.get_project_base_path')
     @patch('os.makedirs')
     @patch('builtins.open')
-    def test_upload_payloads_valid(self, mock_open, mock_makedirs, mock_path, mock_validate):
-        """Test PUT /projects/{project}/simulator/{provider}/payloads."""
+    def test_upload_payloads_valid(self, mock_open, mock_makedirs, mock_base_path, mock_validate):
+        """Test PUT /projects/{project}/simulator/payloads (provider-agnostic)."""
         mock_validate.return_value = (True, [], [])
-        mock_path.return_value = "/fake/path"
+        mock_base_path.return_value = "/fake/path"
         mock_open.return_value.__enter__ = lambda s: s
         mock_open.return_value.__exit__ = MagicMock(return_value=False)
         mock_open.return_value.write = MagicMock()
         
         payload_content = json.dumps([{"iotDeviceId": "device1"}])
         response = client.put(
-            "/projects/template/simulator/aws/payloads",
+            "/projects/template/simulator/payloads",  # Provider-agnostic URL
             content=payload_content.encode(),
             headers={"Content-Type": "application/octet-stream"}
         )
         # Check if it either succeeds or fails predictably
         assert response.status_code in [200, 400, 500]
 
-    def test_upload_payloads_invalid_provider(self):
-        """Test upload fails for unsupported provider."""
-        response = client.put("/projects/template/simulator/azure/payloads", content=b"[]")
-        assert response.status_code == 400
-        assert "aws" in response.json()["detail"].lower()  # Message mentions aws as supported
+    def test_upload_payloads_old_endpoint_returns_404(self):
+        """Test old provider-specific endpoint returns 404 (removed)."""
+        response = client.put("/projects/template/simulator/aws/payloads", content=b"[]")
+        # Old endpoint should now return 404/405 since it no longer exists
+        assert response.status_code in [404, 405]
 
 
 class TestSimulatorTemplateLoading:

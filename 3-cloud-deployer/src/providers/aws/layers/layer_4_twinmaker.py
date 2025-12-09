@@ -7,7 +7,7 @@ This module handles deployment and destruction of Layer 4 components:
 - TwinMaker Workspace
 - TwinMaker Hierarchy (Entities & Components)
 
-All functions accept provider parameters instead of using globals.
+All functions accept provider parameters explicitly.
 """
 
 import json

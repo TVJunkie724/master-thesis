@@ -8,7 +8,7 @@ This module provides utility functions for AWS operations including:
 - TwinMaker entity/component creation
 
 Functions now support optional provider parameter for new pattern,
-with backward-compatible fallback to globals_aws.
+All functions require explicit client parameters.
 """
 
 import warnings
@@ -41,7 +41,7 @@ def iot_rule_exists(rule_name, iot_client=None):
     
     Args:
         rule_name: Name of the IoT rule
-        iot_client: Optional boto3 IoT client. If None, uses globals_aws.aws_iot_client
+        iot_client: boto3 IoT client (required)
     """
     if iot_client is None:
         raise ValueError("iot_client is required")
@@ -59,7 +59,7 @@ def destroy_s3_bucket(bucket_name, s3_client=None):
   
     Args:
         bucket_name: Name of the S3 bucket to delete
-        s3_client: Optional boto3 S3 client. If None, uses globals_aws.aws_s3_client
+        s3_client: boto3 S3 client (required)
     """
     if s3_client is None:
         raise ValueError("s3_client is required")
@@ -100,7 +100,7 @@ def get_grafana_workspace_id_by_name(workspace_name, grafana_client=None):
     
     Args:
         workspace_name: Name of the Grafana workspace
-        grafana_client: Optional boto3 Grafana client. If None, uses globals_aws.aws_grafana_client
+        grafana_client: boto3 Grafana client (required)
     """
     if grafana_client is None:
         raise ValueError("grafana_client is required")
@@ -131,9 +131,9 @@ def create_twinmaker_entity(entity_info, parent_info=None, workspace_name: str =
     Args:
         entity_info: Entity information dict
         parent_info: Optional parent entity info
-        workspace_name: TwinMaker workspace name. If None, uses globals.
-        twinmaker_client: boto3 TwinMaker client. If None, uses globals_aws.
-        config: Configuration dict. If None, uses globals.
+        workspace_name: TwinMaker workspace name (required)
+        twinmaker_client: boto3 TwinMaker client (required)
+        config: Configuration dict (required)
     """
     if workspace_name is None:
         raise ValueError("workspace_name is required")
@@ -169,9 +169,9 @@ def create_twinmaker_component(component_info, parent_info, workspace_name: str 
     Args:
         component_info: Component information dict
         parent_info: Parent entity info
-        workspace_name: TwinMaker workspace name. If None, uses globals.
-        twinmaker_client: boto3 TwinMaker client. If None, uses globals_aws.
-        config: Configuration dict. If None, uses globals.
+        workspace_name: TwinMaker workspace name (required)
+        twinmaker_client: boto3 TwinMaker client (required)
+        config: Configuration dict (required)
     """
     if workspace_name is None:
         raise ValueError("workspace_name is required")
@@ -320,7 +320,7 @@ def get_api_route_id_by_key(route_key, api_name: str = None, apigateway_client=N
     
     Args:
         route_key: Route key to find
-        api_name: API name. If None, uses globals.api_name()
+        api_name: API name (required)
         apigateway_client: Optional API Gateway client
     """
     if apigateway_client is None:
@@ -344,7 +344,7 @@ def get_api_integration_id_by_uri(integration_uri, api_name: str = None, apigate
     
     Args:
         integration_uri: Integration URI to find
-        api_name: API name. If None, uses globals.api_name()
+        api_name: API name (required)
         apigateway_client: Optional API Gateway client
     """
     if apigateway_client is None:

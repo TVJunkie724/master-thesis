@@ -1,5 +1,40 @@
 # Refactor Upload Logic: Payloads, Descriptions, Validation & Versioning
 
+## Implementation Progress
+
+> **Status:** ✅ All phases complete, tests passing (331/331)
+
+### Quick Reference: What's Done vs. Remaining
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Phase 1 | Constants & Core Validation | ✅ Complete |
+| Phase 2 | File Manager Enhancements | ✅ Complete |
+| Phase 3 | API Layer | ✅ Complete |
+| Phase 4 | Duplicate Detection | ✅ Complete |
+
+---
+
+## Completed Tasks
+
+### API Endpoints (Phase 3)
+- [x] **3.1** Update `create_project` endpoint in `src/api/projects.py` - add `description` query param
+- [x] **3.2** Update `update_project_zip` endpoint - add `description` query param
+- [x] **3.3** Add `DELETE /projects/{project_name}` endpoint
+- [x] **3.4** Add `PATCH /projects/{project_name}/info` endpoint
+- [x] **3.5** Fix `upload_simulator_payloads` path (remove provider subfolder)
+- [x] **3.6** Update `list_projects` to include descriptions and version counts
+
+### Tests Created (Extended Coverage)
+- [x] **T1** `tests/unit/test_file_manager_versioning.py` - 10 tests
+- [x] **T2** `tests/unit/test_file_manager_crud.py` - 9 tests
+- [x] **T3** `tests/unit/test_validator_duplicate.py` - 15 tests
+- [x] **T4** `tests/integration/test_api_projects_crud.py` - 12 tests
+- [x] **T5** `tests/integration/test_api_projects_duplicate.py` - 7 tests
+
+
+---
+
 ## 1. Executive Summary
 
 ### The Problem
@@ -500,3 +535,185 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
 | **Mandatory `digital_twin_name`:** | Core identifier; cannot generate meaningful default description without it. |
 | **Payloads provider-agnostic:** | Payload structure is identical across providers; reduces duplication. |
 | **`project_info.json` in project root:** | Keeps metadata co-located with project files for portability. |
+| **Duplicate Detection:** Same `digital_twin_name` + same credentials = conflict | Prevents accidental resource collisions in cloud deployments. |
+
+---
+
+## 7. Additional Validation: Duplicate Project Detection
+
+### 7.1 Problem
+If two projects have the **same `digital_twin_name`** AND use **the same cloud credentials**, deploying both would create conflicting resources (e.g., same IoT Thing names, same Lambda function names, same DynamoDB table prefixes). This must be prevented.
+
+### 7.2 Solution
+Implement a **duplicate detection check** that:
+1. **On Upload:** Scans all existing projects, compares `digital_twin_name` and credentials hash.
+2. **Before Deployment:** Re-validates to catch projects created after the initial upload.
+
+### 7.3 Implementation
+
+#### [NEW] validator.py - `check_duplicate_project`
+```python
+import hashlib
+
+def _hash_credentials(creds: dict) -> str:
+    """
+    Creates a deterministic hash of credentials for comparison.
+    Only hashes the keys that identify the account (not secrets).
+    """
+    # Use account-identifying fields only
+    identity_fields = {
+        "aws": ["aws_access_key_id", "aws_region"],
+        "azure": ["azure_subscription_id", "azure_tenant_id", "azure_region"],
+        "gcp": ["gcp_project_id", "gcp_region"]
+    }
+    
+    hash_input = ""
+    for provider, fields in identity_fields.items():
+        if provider in creds:
+            for field in fields:
+                hash_input += str(creds[provider].get(field, ""))
+    
+    return hashlib.sha256(hash_input.encode()).hexdigest()
+
+
+def check_duplicate_project(new_twin_name: str, new_creds: dict, exclude_project: str = None, project_path: str = None) -> str | None:
+    """
+    Checks if another project exists with the same digital_twin_name AND same credentials.
+    
+    Args:
+        new_twin_name: The digital_twin_name of the new/updated project.
+        new_creds: The credentials config of the new/updated project.
+        exclude_project: Project name to exclude from check (for updates).
+        project_path: Base project path.
+    
+    Returns:
+        Name of conflicting project if found, None otherwise.
+    """
+    if project_path is None:
+        project_path = _get_project_base_path()
+    
+    new_creds_hash = _hash_credentials(new_creds)
+    upload_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME)
+    
+    if not os.path.exists(upload_dir):
+        return None
+    
+    for project_name in os.listdir(upload_dir):
+        if project_name == exclude_project:
+            continue
+        
+        project_dir = os.path.join(upload_dir, project_name)
+        if not os.path.isdir(project_dir):
+            continue
+        
+        # Read config.json
+        config_path = os.path.join(project_dir, CONSTANTS.CONFIG_FILE)
+        creds_path = os.path.join(project_dir, CONSTANTS.CONFIG_CREDENTIALS_FILE)
+        
+        if not os.path.exists(config_path) or not os.path.exists(creds_path):
+            continue
+        
+        try:
+            with open(config_path, 'r') as f:
+                existing_config = json.load(f)
+            with open(creds_path, 'r') as f:
+                existing_creds = json.load(f)
+            
+            existing_twin_name = existing_config.get("digital_twin_name")
+            existing_creds_hash = _hash_credentials(existing_creds)
+            
+            if existing_twin_name == new_twin_name and existing_creds_hash == new_creds_hash:
+                return project_name
+        except Exception:
+            continue
+    
+    return None
+```
+
+#### [MODIFY] file_manager.py - `create_project_from_zip`
+Add duplicate check after validation:
+```python
+def create_project_from_zip(project_name, zip_source, project_path: str = None, description: str = None):
+    # ... existing code ...
+    
+    # Validate before extraction
+    warnings = validator.validate_project_zip(zip_source)
+    
+    # NEW: Extract twin_name and creds from zip for duplicate check
+    zip_source.seek(0)
+    twin_name, creds = _extract_identity_from_zip(zip_source)
+    
+    conflicting_project = validator.check_duplicate_project(twin_name, creds, exclude_project=project_name, project_path=project_path)
+    if conflicting_project:
+        raise ValueError(f"Duplicate project detected: '{conflicting_project}' has the same digital_twin_name and credentials.")
+    
+    # ... rest of existing code ...
+```
+
+#### [MODIFY] deployment.py - Pre-deploy check
+Add duplicate validation before starting deployment:
+```python
+def deploy_layer(project_name, layer, ...):
+    # NEW: Pre-deployment duplicate check
+    project_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, project_name)
+    config = load_config(os.path.join(project_dir, CONSTANTS.CONFIG_FILE))
+    creds = load_config(os.path.join(project_dir, CONSTANTS.CONFIG_CREDENTIALS_FILE))
+    
+    conflicting_project = validator.check_duplicate_project(
+        config.get("digital_twin_name"), 
+        creds, 
+        exclude_project=project_name
+    )
+    if conflicting_project:
+        raise ValueError(f"Cannot deploy: Project '{conflicting_project}' has conflicting digital_twin_name and credentials.")
+    
+    # ... existing deployment logic ...
+```
+
+---
+
+## 8. Updated Implementation Phases (with Duplicate Detection)
+
+### Phase 4: Duplicate Detection
+| Step | File | Action |
+|------|------|--------|
+| 4.1  | `src/validator.py` | Implement `_hash_credentials` helper. |
+| 4.2  | `src/validator.py` | Implement `check_duplicate_project` function. |
+| 4.3  | `src/file_manager.py` | Implement `_extract_identity_from_zip` helper. |
+| 4.4  | `src/file_manager.py` | Add duplicate check to `create_project_from_zip`. |
+| 4.5  | `src/file_manager.py` | Add duplicate check to `update_project_from_zip`. |
+| 4.6  | `src/api/deployment.py` | Add pre-deployment duplicate check. |
+
+---
+
+## 9. Additional Tests for Duplicate Detection
+
+### 9.1 Unit Tests
+
+| Test File | Test Case | Description |
+|-----------|-----------|-------------|
+| `tests/unit/test_validator_duplicate.py` | `test_hash_credentials_same_input_same_output` | Verify deterministic hashing. |
+| `tests/unit/test_validator_duplicate.py` | `test_hash_credentials_different_region_different_hash` | Verify region affects hash. |
+| `tests/unit/test_validator_duplicate.py` | `test_hash_credentials_ignores_secrets` | Verify secrets don't affect hash. |
+| `tests/unit/test_validator_duplicate.py` | `test_check_duplicate_no_conflict` | No existing project → returns None. |
+| `tests/unit/test_validator_duplicate.py` | `test_check_duplicate_finds_conflict` | Same twin name + creds → returns project name. |
+| `tests/unit/test_validator_duplicate.py` | `test_check_duplicate_excludes_self` | Exclude own project during update. |
+| `tests/unit/test_validator_duplicate.py` | `test_check_duplicate_different_twin_name_ok` | Same creds but different twin name → no conflict. |
+| `tests/unit/test_validator_duplicate.py` | `test_check_duplicate_different_creds_ok` | Same twin name but different creds → no conflict. |
+
+### 9.2 Integration Tests
+
+| Test File | Test Case | Description |
+|-----------|-----------|-------------|
+| `tests/integration/test_api_projects_duplicate.py` | `test_create_project_duplicate_twin_and_creds_400` | Upload with matching twin+creds fails. |
+| `tests/integration/test_api_projects_duplicate.py` | `test_create_project_same_twin_different_creds_ok` | Same twin name, different credentials succeeds. |
+| `tests/integration/test_api_projects_duplicate.py` | `test_update_project_no_self_conflict` | Updating own project doesn't trigger duplicate error. |
+| `tests/integration/test_api_projects_duplicate.py` | `test_deploy_blocked_if_duplicate_exists` | Deployment fails if conflict detected. |
+
+### 9.3 Edge Cases
+
+| Test File | Test Case | Description |
+|-----------|-----------|-------------|
+| `tests/integration/test_api_projects_duplicate_edge.py` | `test_check_duplicate_corrupted_existing_project_skipped` | Corrupted project config doesn't crash check. |
+| `tests/integration/test_api_projects_duplicate_edge.py` | `test_check_duplicate_partial_credentials_handled` | Missing credential fields don't crash. |
+| `tests/integration/test_api_projects_duplicate_edge.py` | `test_deploy_race_condition_check` | Duplicate created after upload but before deploy is caught. |

@@ -2,7 +2,7 @@
 """
 Global State Management
 
-This module manages the runtime state of the application, replacing the legacy `globals.py`.
+This module manages the runtime state of the application.
 It handles:
 1. Active Project tracking
 2. Project Base Path resolution

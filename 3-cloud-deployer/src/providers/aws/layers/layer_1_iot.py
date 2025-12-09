@@ -6,7 +6,7 @@ This module handles deployment and destruction of Layer 1 components:
 - Dispatcher Lambda Function  
 - IoT Topic Rule
 
-All functions accept provider and config parameters instead of using globals.
+All functions accept provider and config parameters explicitly.
 """
 
 import json
@@ -15,7 +15,7 @@ import time
 from typing import TYPE_CHECKING
 from logger import logger
 from datetime import datetime, timezone
-import src.providers.aws.util_aws as util_aws  # TODO: Update import after moving util_aws
+import src.providers.aws.util_aws as util_aws
 from botocore.exceptions import ClientError
 import shutil
 import constants as CONSTANTS
@@ -147,7 +147,7 @@ def create_dispatcher_lambda_function(
     # Lambda source path
     core_lambda_dir = os.path.join(project_path, CONSTANTS.AWS_CORE_LAMBDA_DIR_NAME)
 
-    # Lazy import to avoid circular dependency with globals
+    # Lazy import to avoid circular dependency
     import util
     
     lambda_client.create_function(

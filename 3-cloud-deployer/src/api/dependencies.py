@@ -7,7 +7,6 @@ from typing import Optional
 from fastapi import HTTPException
 from pydantic import BaseModel
 
-# Lazy import for globals
 import src.core.state as state
 
 

@@ -3,9 +3,6 @@ AWS Lambda Manager - Lambda Function Operations.
 
 This module provides utilities for updating, invoking, and fetching logs
 from Lambda functions.
-
-Migration Status:
-    - Supports both legacy (globals-based) and new (provider-based) calling patterns.
 """
 
 import json
@@ -104,7 +101,7 @@ def fetch_logs(
         local_function_name: Name of the local function
         n: Number of log entries to fetch
         filter_system_logs: Whether to filter out AWS system log entries
-        provider: Optional AWSProvider. If None, uses globals.
+        provider: AWSProvider instance (required)
         
     Returns:
         List of log messages
@@ -153,7 +150,7 @@ def invoke_function(
         local_function_name: Name of the local function
         payload: Payload to send to the function
         sync: Whether to wait for response (RequestResponse) or fire-and-forget (Event)
-        provider: Optional AWSProvider. If None, uses globals.
+        provider: AWSProvider instance (required)
         
     Returns:
         Response payload if sync=True, None otherwise

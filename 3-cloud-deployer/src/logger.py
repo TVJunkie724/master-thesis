@@ -63,7 +63,6 @@ logger_proxy = LoggerProxy()
 
 
 
-# Removed circular dependency on globals/constants for config loading.
 # Logger defaults to INFO unless initialized/reconfigured later.
 DEBUG_MODE = False # Default
 logger = setup_logger(debug_mode=DEBUG_MODE)

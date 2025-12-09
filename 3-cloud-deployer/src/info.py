@@ -4,8 +4,7 @@ Info - Infrastructure Status Checks.
 This module provides status check functions to verify deployed resources
 across all layers and providers.
 
-All functions now REQUIRE the config parameter.
-Legacy globals fallback has been removed.
+All functions require the context parameter.
 """
 
 from logger import logger

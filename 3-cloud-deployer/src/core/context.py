@@ -1,9 +1,9 @@
 """
 Deployment context and configuration classes.
 
-This module replaces the global state in globals.py with explicit
-dependency injection. Instead of importing global variables, functions
-receive a DeploymentContext containing all needed configuration.
+This module provides explicit dependency injection for deployment operations.
+Instead of importing global variables, functions receive a DeploymentContext
+containing all needed configuration.
 
 Design Pattern: Dependency Injection
     - All configuration is loaded into ProjectConfig at startup
@@ -14,7 +14,7 @@ Benefits:
     - Testability: Easy to mock/stub configuration
     - Clarity: Dependencies are explicit, not hidden
     - Concurrency: Multiple deployments can run with different configs
-    - Debugging: State is traceable, not scattered across globals
+    - Debugging: State is traceable, not scattered
 """
 
 from dataclasses import dataclass, field
@@ -166,8 +166,8 @@ class DeploymentContext:
     """
     Encapsulates all state needed for a deployment operation.
     
-    This replaces global variables and is explicitly passed to all
-    deployer functions, making dependencies clear and testing easy.
+    This is explicitly passed to all deployer functions, making
+    dependencies clear and testing easy.
     
     Lifecycle:
         1. Created at the start of a deployment (CLI/API request)

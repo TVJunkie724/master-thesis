@@ -108,12 +108,7 @@ def deploy_all(
         core_deployer.deploy_all(context, provider)
         iot_deployer.deploy(context, provider)
         
-        # Additional layers (using inline dispatch)
-        # Note: These legacy files still rely on internals or lazy globals, 
-        # but we are in the process of migrating them. 
-        # For now, we continue to call them as is, or pass provider/context if they support it.
-        # Based on previous edits, some support it.
-        
+        # Additional layers
         _deploy_hierarchy(context, provider)
         _deploy_event_actions(context, provider)
         _deploy_init_values(context, provider)

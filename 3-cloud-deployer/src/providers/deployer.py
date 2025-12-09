@@ -171,7 +171,20 @@ def destroy_l5(context: 'DeploymentContext', provider: str) -> None:
 # ==========================================
 
 def deploy_all(context: 'DeploymentContext', provider: str) -> None:
-    """Deploy all layers for a provider."""
+    """Deploy all layers for a provider.
+    
+    Pre-deployment safety: Checks if cloud resources already exist.
+    """
+    # Pre-deployment safety check
+    if provider in context.providers:
+        provider_instance = context.providers[provider]
+        if hasattr(provider_instance, 'check_if_twin_exists'):
+            if provider_instance.check_if_twin_exists():
+                raise ValueError(
+                    f"Digital Twin '{context.config.digital_twin_name}' already exists "
+                    f"for provider '{provider}'. Destroy it first or use a different name."
+                )
+    
     deploy_l1(context, provider)
     deploy_l2(context, provider)
     deploy_l3(context, provider)

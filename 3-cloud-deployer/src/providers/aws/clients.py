@@ -2,7 +2,7 @@
 AWS SDK client initialization.
 
 This module provides client initialization for the AWSProvider class.
-It extracts the client creation logic from the legacy globals_aws.py.
+It provides centralized client initialization for the AWSProvider.
 
 Design Decision:
     We return a dictionary of clients rather than individual module-level

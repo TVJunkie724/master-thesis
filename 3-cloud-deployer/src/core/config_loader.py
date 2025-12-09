@@ -2,7 +2,7 @@
 Configuration loading utilities.
 
 This module provides functions to load and parse project configuration
-from JSON files. It replaces the configuration loading logic from globals.py.
+from JSON files.
 
 File Loading Order:
     1. config.json - Core settings (twin name, storage days, mode)

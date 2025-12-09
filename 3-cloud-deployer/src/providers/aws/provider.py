@@ -11,7 +11,7 @@ Design Pattern: Abstract Factory (Provider Pattern)
     - Deployer strategy (AWSDeployerStrategy)
 
 Integration with Existing Code:
-    This provider wraps the existing code in src/aws/globals_aws.py,
+    This provider centralizes AWS client and naming management,
     providing a unified interface that follows the new pattern while
     reusing proven deployment logic.
 """
@@ -169,6 +169,33 @@ class AWSProvider(BaseProvider):
             return f"{self.twin_name}-{suffix}".lower()
         return self.twin_name.lower()
     
+    def check_if_twin_exists(self) -> bool:
+        """
+        Check if a digital twin with the current name already exists in AWS.
+        
+        Uses the hot DynamoDB table as the indicator since it's created
+        in L3 and is a reliable marker of an existing deployment.
+        
+        Returns:
+            True if the twin's resources exist, False otherwise.
+            
+        Raises:
+            RuntimeError: If clients are not initialized.
+        """
+        if not self._clients:
+            raise RuntimeError("AWS clients not initialized. Call initialize_clients() first.")
+        
+        from botocore.exceptions import ClientError
+        
+        table_name = self.naming.hot_dynamodb_table()
+        try:
+            self._clients["dynamodb"].describe_table(TableName=table_name)
+            return True
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ResourceNotFoundException":
+                return False
+            raise
+    
     def get_deployer_strategy(self) -> 'DeployerStrategy':
         """
         Return the AWS deployment strategy.
@@ -185,4 +212,3 @@ class AWSProvider(BaseProvider):
         """
         from .deployer_strategy import AWSDeployerStrategy
         return AWSDeployerStrategy(self)
-

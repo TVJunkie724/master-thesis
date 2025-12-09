@@ -6,7 +6,7 @@ This module handles deployment and destruction of Layer 5 components:
 - Amazon Managed Grafana Workspace
 - CORS configuration for TwinMaker S3 bucket
 
-All functions accept provider parameters instead of using globals.
+All functions accept provider parameters explicitly.
 """
 
 import json

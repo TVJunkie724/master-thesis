@@ -4,14 +4,15 @@ File Manager - Project File Operations.
 This module provides functions for creating projects from zip files,
 managing configuration files, and updating function code.
 
-All functions now REQUIRE the project_path parameter.
-Legacy globals fallback has been removed.
+All functions require the project_path parameter.
 """
 
 import os
 import zipfile
 import json
 import shutil
+import hashlib
+from datetime import datetime
 import constants as CONSTANTS
 from logger import logger
 import io
@@ -31,7 +32,7 @@ def _get_project_base_path():
 # ==========================================
 # 1. Project Creation & Update (Zip Handling)
 # ==========================================
-def create_project_from_zip(project_name, zip_source, project_path: str = None):
+def create_project_from_zip(project_name, zip_source, project_path: str = None, description: str = None):
     """
     Creates a new project from a validated zip file.
     
@@ -39,9 +40,14 @@ def create_project_from_zip(project_name, zip_source, project_path: str = None):
         project_name (str): Name of the project to create.
         zip_source (str | BytesIO): Zip file source.
         project_path (str): Base project path. If None, auto-detected.
+        description (str): Optional project description. If None, generated from digital_twin_name.
+        
+    Returns:
+        dict: Result with message and any warnings.
         
     Raises:
-        ValueError: If project name is invalid, project already exists, or zip is invalid.
+        ValueError: If project name is invalid, project already exists, zip is invalid,
+                    or duplicate project detected.
     """
     if project_path is None:
         project_path = _get_project_base_path()
@@ -56,7 +62,23 @@ def create_project_from_zip(project_name, zip_source, project_path: str = None):
         zip_source = io.BytesIO(zip_source)
 
     # Validate before extraction (Universal Validation)
-    validator.validate_project_zip(zip_source)
+    warnings = validator.validate_project_zip(zip_source)
+    if warnings is None:
+        warnings = []
+    
+    # Extract twin_name and creds from zip for duplicate check
+    zip_source.seek(0)
+    twin_name, creds = _extract_identity_from_zip(zip_source)
+    
+    # Check for duplicate project (same twin_name + same credentials)
+    conflicting_project = validator.check_duplicate_project(
+        twin_name, creds, exclude_project=project_name, project_path=project_path
+    )
+    if conflicting_project:
+        raise ValueError(
+            f"Duplicate project detected: '{conflicting_project}' has the same "
+            f"digital_twin_name and credentials."
+        )
     
     target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
     if os.path.exists(target_dir):
@@ -64,24 +86,37 @@ def create_project_from_zip(project_name, zip_source, project_path: str = None):
         
     os.makedirs(target_dir)
     
+    # Archive version before extracting
+    _archive_zip_version(zip_source, target_dir)
+    
     # Extract only after validation passed
+    zip_source.seek(0)
     with zipfile.ZipFile(zip_source, 'r') as zf:
         zf.extractall(target_dir)
+    
+    # Write project_info.json
+    _write_project_info(target_dir, zip_source, description)
         
     logger.info(f"Created project '{project_name}' from zip.")
+    return {"message": f"Project '{project_name}' created.", "warnings": warnings}
 
 
-def update_project_from_zip(project_name, zip_source, project_path: str = None):
+def update_project_from_zip(project_name, zip_source, project_path: str = None, description: str = None):
     """
     Updates an existing project from a zip file (Overwrites existing files).
+    Archives the new version before extracting.
     
     Args:
         project_name (str): Name of the project to update.
         zip_source (str | BytesIO): Zip file source.
         project_path (str): Base project path. If None, auto-detected.
+        description (str): Optional project description. If None, keeps existing or generates.
+        
+    Returns:
+        dict: Result with message and any warnings.
         
     Raises:
-        ValueError: If project name is invalid or zip is invalid.
+        ValueError: If project name is invalid, zip is invalid, or duplicate detected.
     """
     if project_path is None:
         project_path = _get_project_base_path()
@@ -94,18 +129,43 @@ def update_project_from_zip(project_name, zip_source, project_path: str = None):
         zip_source = io.BytesIO(zip_source)
         
     # Validate entire zip content first (Universal Validation)
-    validator.validate_project_zip(zip_source)
+    warnings = validator.validate_project_zip(zip_source)
+    if warnings is None:
+        warnings = []
+    
+    # Extract twin_name and creds from zip for duplicate check
+    zip_source.seek(0)
+    twin_name, creds = _extract_identity_from_zip(zip_source)
+    
+    # Check for duplicate project (exclude self)
+    conflicting_project = validator.check_duplicate_project(
+        twin_name, creds, exclude_project=project_name, project_path=project_path
+    )
+    if conflicting_project:
+        raise ValueError(
+            f"Duplicate project detected: '{conflicting_project}' has the same "
+            f"digital_twin_name and credentials."
+        )
         
     target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
     
     if not os.path.exists(target_dir):
          os.makedirs(target_dir)
+    
+    # Archive version before extracting
+    _archive_zip_version(zip_source, target_dir)
 
     # Extract and Overwrite
+    zip_source.seek(0)
     with zipfile.ZipFile(zip_source, 'r') as zf:
         zf.extractall(target_dir)
+    
+    # Update project_info.json if description provided
+    if description:
+        _write_project_info(target_dir, zip_source, description)
         
     logger.info(f"Updated project '{project_name}' from zip.")
+    return {"message": f"Project '{project_name}' updated.", "warnings": warnings}
 
 
 # ==========================================
@@ -218,3 +278,149 @@ def update_function_code_file(project_name, function_name, file_name, code_conte
         f.write(code_content)
         
     logger.info(f"Updated function code '{file_name}' for function '{function_name}' in project '{project_name}'.")
+
+
+# ==========================================
+# 5. Versioning & Metadata Helpers
+# ==========================================
+def _archive_zip_version(zip_source, target_dir):
+    """
+    Archives the uploaded zip to {target_dir}/versions/{timestamp}.zip.
+    
+    Args:
+        zip_source: BytesIO containing the zip file.
+        target_dir: Project directory to archive into.
+    """
+    versions_dir = os.path.join(target_dir, CONSTANTS.PROJECT_VERSIONS_DIR_NAME)
+    os.makedirs(versions_dir, exist_ok=True)
+    
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    version_path = os.path.join(versions_dir, f"{timestamp}.zip")
+    
+    zip_source.seek(0)
+    with open(version_path, 'wb') as f:
+        f.write(zip_source.read())
+    
+    logger.info(f"Archived version to {version_path}")
+
+
+def _write_project_info(target_dir, zip_source, description: str = None):
+    """
+    Writes project_info.json with description and timestamps.
+    If description is None, generates from config.json's digital_twin_name.
+    
+    Args:
+        target_dir: Project directory.
+        zip_source: BytesIO containing the zip file.
+        description: Optional description string.
+    """
+    if not description:
+        # Read digital_twin_name from config.json in zip
+        zip_source.seek(0)
+        with zipfile.ZipFile(zip_source, 'r') as zf:
+            for name in zf.namelist():
+                if name.endswith(CONSTANTS.CONFIG_FILE):
+                    with zf.open(name) as f:
+                        config = json.load(f)
+                        twin_name = config.get("digital_twin_name")
+                        if not twin_name:
+                            raise ValueError("Missing mandatory 'digital_twin_name' in config.json")
+                        description = f"Project builds the digital twin with prefix name '{twin_name}'"
+                        break
+    
+    info_path = os.path.join(target_dir, CONSTANTS.PROJECT_INFO_FILE)
+    with open(info_path, 'w') as f:
+        json.dump({
+            "description": description, 
+            "created_at": datetime.now().isoformat()
+        }, f, indent=2)
+
+
+def _extract_identity_from_zip(zip_source):
+    """
+    Extracts digital_twin_name and credentials from a zip file.
+    
+    Args:
+        zip_source: BytesIO containing the zip file.
+        
+    Returns:
+        tuple: (digital_twin_name, credentials_dict)
+    """
+    twin_name = None
+    creds = {}
+    
+    zip_source.seek(0)
+    with zipfile.ZipFile(zip_source, 'r') as zf:
+        for name in zf.namelist():
+            if name.endswith(CONSTANTS.CONFIG_FILE):
+                with zf.open(name) as f:
+                    config = json.load(f)
+                    twin_name = config.get("digital_twin_name")
+            elif name.endswith(CONSTANTS.CONFIG_CREDENTIALS_FILE):
+                with zf.open(name) as f:
+                    creds = json.load(f)
+    
+    return twin_name, creds
+
+
+# ==========================================
+# 6. Project CRUD Operations
+# ==========================================
+def delete_project(project_name, project_path: str = None):
+    """
+    Deletes an entire project directory.
+    
+    Args:
+        project_name: Name of the project to delete.
+        project_path: Base project path. If None, auto-detected.
+        
+    Raises:
+        ValueError: If project does not exist.
+    """
+    if project_path is None:
+        project_path = _get_project_base_path()
+    
+    safe_name = os.path.basename(project_name)
+    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+    
+    if not os.path.exists(target_dir):
+        raise ValueError(f"Project '{project_name}' does not exist.")
+    
+    shutil.rmtree(target_dir)
+    logger.info(f"Deleted project '{project_name}'.")
+
+
+def update_project_info(project_name, description: str, project_path: str = None):
+    """
+    Updates the description in project_info.json.
+    
+    Args:
+        project_name: Name of the project.
+        description: New description.
+        project_path: Base project path. If None, auto-detected.
+        
+    Raises:
+        ValueError: If project does not exist.
+    """
+    if project_path is None:
+        project_path = _get_project_base_path()
+    
+    safe_name = os.path.basename(project_name)
+    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+    info_path = os.path.join(target_dir, CONSTANTS.PROJECT_INFO_FILE)
+    
+    if not os.path.exists(target_dir):
+        raise ValueError(f"Project '{project_name}' does not exist.")
+    
+    info = {}
+    if os.path.exists(info_path):
+        with open(info_path, 'r') as f:
+            info = json.load(f)
+    
+    info["description"] = description
+    info["updated_at"] = datetime.now().isoformat()
+    
+    with open(info_path, 'w') as f:
+        json.dump(info, f, indent=2)
+    
+    logger.info(f"Updated info for project '{project_name}'.")

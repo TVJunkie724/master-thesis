@@ -36,7 +36,7 @@ def deploy_l1(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     logger.info(f"[L1] Deploying Layer 1 (IoT) for {context.config.digital_twin_name}")
     context.set_active_layer(1)
     
-    # Pass provider to each function (no globals needed)
+    # Pass provider explicitly to each function
     create_dispatcher_iam_role(provider)
     create_dispatcher_lambda_function(provider, context.config, str(context.project_path))
     create_dispatcher_iot_rule(provider, context.config)
@@ -74,7 +74,7 @@ def destroy_l1(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     logger.info(f"[L1] Destroying Layer 1 (IoT) for {context.config.digital_twin_name}")
     context.set_active_layer(1)
     
-    # Pass provider to each function (no globals needed)
+    # Pass provider explicitly to each function
     destroy_dispatcher_iot_rule(provider)
     destroy_dispatcher_lambda_function(provider)
     destroy_dispatcher_iam_role(provider)
