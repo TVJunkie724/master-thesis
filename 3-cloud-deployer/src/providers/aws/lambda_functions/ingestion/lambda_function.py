@@ -24,16 +24,21 @@ def lambda_handler(event, context):
             "body": json.dumps("Unauthorized: Invalid Token")
         }
 
-    # 2. Unwrap Payload
+    # 2. Unwrap Payload and log source
     try:
         body = json.loads(event.get("body", "{}"))
+        
+        # Log source cloud for debugging/auditing
+        source_cloud = body.get("source_cloud", "unknown")
+        print(f"Received event from source cloud: {source_cloud}")
+        
         actual_event = body.get("payload")
         if not actual_event:
-             raise ValueError("Missing 'payload' in wrapper.")
+            raise ValueError("Missing 'payload' in wrapper.")
              
         device_id = actual_event.get("iotDeviceId")
         if not device_id:
-             raise ValueError("Missing 'iotDeviceId' in event.")
+            raise ValueError("Missing 'iotDeviceId' in event.")
              
     except Exception as e:
         return {

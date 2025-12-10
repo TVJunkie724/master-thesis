@@ -39,6 +39,7 @@ def test_redeploy_event_actions(mock_sleep):
         mock_config.cold_storage_size_in_days = 30
         mock_config.mode = "dev"
         mock_config.iot_devices = []
+        mock_config.providers = {"layer_2_provider": "aws", "layer_3_hot_provider": "aws"}
         mock_config.get_digital_twin_info.return_value = {}
 
         event_action_aws.deploy_lambda_actions(
@@ -61,7 +62,8 @@ def test_redeploy_event_actions(mock_sleep):
                 "mode": "dev",
             },
             "config_iot_devices": [],
-            "config_events": mock_event_config
+            "config_events": mock_event_config,
+            "config_providers": {"layer_2_provider": "aws", "layer_3_hot_provider": "aws"}
         }
 
         mock_lambda.create_function.assert_called_with(

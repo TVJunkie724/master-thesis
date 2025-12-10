@@ -149,9 +149,10 @@ class ProjectConfig:
             >>> config.should_deploy_api_gateway("aws")
             True  # AWS L3 Hot accessed by Azure L4
         """
-        l3_hot = self.providers.get("layer_3_hot_provider", "aws")
-        l4 = self.providers.get("layer_4_provider", "aws")
-        l5 = self.providers.get("layer_5_provider", "aws")
+        # NOTE: All layer providers are required - no fallbacks
+        l3_hot = self.providers["layer_3_hot_provider"]
+        l4 = self.providers["layer_4_provider"]
+        l5 = self.providers["layer_5_provider"]
         
         # Only deploy if current provider hosts L3 Hot
         if current_provider != l3_hot:

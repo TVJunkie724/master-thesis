@@ -40,7 +40,8 @@ def _get_digital_twin_info(config: 'ProjectConfig') -> dict:
             "mode": config.mode,
         },
         "config_iot_devices": config.iot_devices,
-        "config_events": config.events
+        "config_events": config.events,
+        "config_providers": config.providers  # Multi-cloud: provider mapping for dual validation
     }
 
 
@@ -74,6 +75,163 @@ def _destroy_lambda(provider: 'AWSProvider', function_name: str) -> None:
     """Generic Lambda function destruction."""
     try:
         provider.clients["lambda"].delete_function(FunctionName=function_name)
+        logger.info(f"Deleted Lambda function: {function_name}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ResourceNotFoundException":
+            raise
+
+
+# ==========================================
+# 1.5. Writer Lambda (Multi-Cloud Only)
+# ==========================================
+# Writer is deployed when L2 is on a DIFFERENT cloud.
+# It receives data FROM remote Persisters via HTTP POST.
+
+def create_writer_iam_role(provider: 'AWSProvider') -> None:
+    """Creates IAM Role for the Writer Lambda (multi-cloud only).
+    
+    Writer needs:
+    - DynamoDB write access
+    - Basic execution role
+    """
+    role_name = provider.naming.writer_iam_role()
+    iam_client = provider.clients["iam"]
+
+    iam_client.create_role(
+        RoleName=role_name,
+        AssumeRolePolicyDocument=json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": {"Service": "lambda.amazonaws.com"},
+                "Action": "sts:AssumeRole"
+            }]
+        })
+    )
+    logger.info(f"Created IAM role: {role_name}")
+
+    # Attach basic execution policy
+    iam_client.attach_role_policy(
+        RoleName=role_name,
+        PolicyArn=CONSTANTS.AWS_POLICY_LAMBDA_BASIC_EXECUTION
+    )
+    logger.info(f"Attached Lambda basic execution policy to {role_name}")
+
+    # Add inline policy for DynamoDB access
+    table_name = provider.naming.hot_dynamodb_table()
+    iam_client.put_role_policy(
+        RoleName=role_name,
+        PolicyName="DynamoDBWriteAccess",
+        PolicyDocument=json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Action": [
+                    "dynamodb:PutItem",
+                    "dynamodb:UpdateItem",
+                    "dynamodb:BatchWriteItem"
+                ],
+                "Resource": f"arn:aws:dynamodb:*:*:table/{table_name}"
+            }]
+        })
+    )
+    logger.info(f"Added DynamoDB write policy to {role_name}")
+
+
+def destroy_writer_iam_role(provider: 'AWSProvider') -> None:
+    """Destroys the Writer IAM Role."""
+    _destroy_iam_role(provider, provider.naming.writer_iam_role())
+
+
+def create_writer_lambda_function(
+    provider: 'AWSProvider',
+    config: 'ProjectConfig',
+    project_path: str
+) -> str:
+    """Creates the Writer Lambda Function with Function URL (multi-cloud only).
+    
+    Returns the Function URL endpoint for configuration.
+    """
+    function_name = provider.naming.writer_lambda_function()
+    role_name = provider.naming.writer_iam_role()
+    iam_client = provider.clients["iam"]
+    lambda_client = provider.clients["lambda"]
+
+    # Get role ARN
+    response = iam_client.get_role(RoleName=role_name)
+    role_arn = response['Role']['Arn']
+
+    # Get expected token from inter-cloud config
+    inter_cloud = getattr(config, 'inter_cloud', None) or {}
+    expected_token = inter_cloud.get("expected_token", "")
+    
+    if not expected_token:
+        raise ValueError(
+            "Multi-cloud config incomplete: expected_token not set in inter_cloud config. "
+            "Check config_inter_cloud.json."
+        )
+
+    # Prepare environment variables
+    env_vars = {
+        "DIGITAL_TWIN_INFO": json.dumps(_get_digital_twin_info(config)),
+        "DYNAMODB_TABLE_NAME": provider.naming.hot_dynamodb_table(),
+        "INTER_CLOUD_TOKEN": expected_token  # Token to validate incoming requests
+    }
+
+    core_lambda_dir = os.path.join(project_path, CONSTANTS.AWS_CORE_LAMBDA_DIR_NAME)
+
+    import src.util as util  # Lazy import to avoid circular dependency
+    lambda_client.create_function(
+        FunctionName=function_name,
+        Runtime="python3.13",
+        Role=role_arn,
+        Handler="lambda_function.lambda_handler",
+        Code={"ZipFile": util.compile_lambda_function(os.path.join(core_lambda_dir, "writer"))},
+        Description="Multi-cloud Writer: Receives data from remote Persisters",
+        Timeout=30,
+        MemorySize=128,
+        Publish=True,
+        Environment={"Variables": env_vars}
+    )
+    logger.info(f"Created Lambda function: {function_name}")
+
+    # Create Function URL for HTTP access
+    url_response = lambda_client.create_function_url_config(
+        FunctionName=function_name,
+        AuthType='NONE'  # Auth handled by token validation in Lambda code
+    )
+    function_url = url_response['FunctionUrl']
+    logger.info(f"Created Function URL for {function_name}: {function_url}")
+
+    # Add resource-based policy for public access
+    lambda_client.add_permission(
+        FunctionName=function_name,
+        StatementId='FunctionURLPublicAccess',
+        Action='lambda:InvokeFunctionUrl',
+        Principal='*',
+        FunctionUrlAuthType='NONE'
+    )
+    logger.info(f"Added public access permission to {function_name}")
+
+    return function_url
+
+
+def destroy_writer_lambda_function(provider: 'AWSProvider') -> None:
+    """Destroys the Writer Lambda Function and its Function URL."""
+    function_name = provider.naming.writer_lambda_function()
+    lambda_client = provider.clients["lambda"]
+    
+    try:
+        # Delete Function URL first
+        try:
+            lambda_client.delete_function_url_config(FunctionName=function_name)
+            logger.info(f"Deleted Function URL for: {function_name}")
+        except ClientError as e:
+            if e.response["Error"]["Code"] != "ResourceNotFoundException":
+                raise
+        
+        # Delete the function
+        lambda_client.delete_function(FunctionName=function_name)
         logger.info(f"Deleted Lambda function: {function_name}")
     except ClientError as e:
         if e.response["Error"]["Code"] != "ResourceNotFoundException":

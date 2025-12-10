@@ -4,6 +4,8 @@ import boto3
 import urllib.request
 import urllib.parse
 import time
+import uuid
+from datetime import datetime, timezone
 
 def lambda_handler(event, context):
     remote_url = os.environ.get("REMOTE_INGESTION_URL")
@@ -13,8 +15,12 @@ def lambda_handler(event, context):
         raise ValueError("Missing configuration: REMOTE_INGESTION_URL or INTER_CLOUD_TOKEN")
 
     payload = {
-        "source": "aws",
-        "payload": event
+        "source_cloud": "aws",                                
+        "target_layer": "L2",                                 # TODO: Make configurable
+        "message_type": "telemetry",                          # TODO: Support other types
+        "timestamp": datetime.now(timezone.utc).isoformat(),  # Current UTC
+        "payload": event,
+        "trace_id": str(uuid.uuid4())                         # Unique trace ID
     }
     
     data = json.dumps(payload).encode('utf-8')

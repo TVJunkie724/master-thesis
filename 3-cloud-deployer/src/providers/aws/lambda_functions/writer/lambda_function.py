@@ -25,16 +25,22 @@ def lambda_handler(event, context):
     # 2. Write to DynamoDB
     try:
         body = json.loads(event.get("body", "{}"))
-        actual_event = body.get("payload") # Expecting wrapper, or we can support raw if desired. Plan said wrapper.
+        
+        # Log source cloud for debugging/auditing
+        source_cloud = body.get("source_cloud", "unknown")
+        print(f"Received data from source cloud: {source_cloud}")
+        
+        actual_event = body.get("payload")  # Expecting wrapper
         
         # Fallback if raw data sent directly (for flexibility)
         data_to_write = actual_event if actual_event else body 
         
         # Basic validation: ensure it's a dict
         if not isinstance(data_to_write, dict):
-             raise ValueError("Data payload must be a JSON object.")
+            raise ValueError("Data payload must be a JSON object.")
 
         table.put_item(Item=data_to_write)
+        print("Data persisted to DynamoDB.")
         
     except ValueError as e:
         print(f"Validation Error: {e}")

@@ -29,8 +29,6 @@ def lambda_handler(event, context):
             print("Warning: PERSISTER_LAMBDA_NAME not set. Data not persisted.")
     except Exception as e:
         print(f"[SYSTEM_ERROR] Persister Invocation failed: {e}")
-        # Decoupled: Failure to persist might not invalidate the processing? 
-        # But usually we want reliable delivery, so we raise.
         raise e
         
     return processed_event

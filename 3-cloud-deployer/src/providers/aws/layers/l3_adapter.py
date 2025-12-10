@@ -22,6 +22,9 @@ def deploy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> None
         create_hot_reader_last_entry_iam_role,
         create_hot_reader_last_entry_lambda_function,
         create_l3_api_gateway,
+        # Multi-cloud: Writer
+        create_writer_iam_role,
+        create_writer_lambda_function,
     )
     
     logger.info(f"[L3-Hot] Deploying Layer 3 Hot Storage for {context.config.digital_twin_name}")
@@ -38,6 +41,20 @@ def deploy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> None
     if context.config.should_deploy_api_gateway("aws"):
         create_l3_api_gateway(provider, context.config)
     
+    # Multi-cloud: Writer (when L2 is on different cloud)
+    # NOTE: No fallbacks - missing provider config is a critical error
+    l2_provider = context.config.providers["layer_2_provider"]
+    l3_provider = context.config.providers["layer_3_hot_provider"]
+    
+    if l2_provider != l3_provider:
+        import time
+        logger.info(f"[L3-Hot] Multi-cloud: Deploying Writer (L2 on {l2_provider}, L3 on {l3_provider})")
+        create_writer_iam_role(provider)
+        time.sleep(10)  # Wait for IAM propagation
+        writer_url = create_writer_lambda_function(provider, context.config, project_path)
+        logger.info(f"[L3-Hot] Multi-cloud: Writer URL: {writer_url}")
+        # TODO: Store this URL in config_inter_cloud.json for remote Persister
+    
     logger.info(f"[L3-Hot] Layer 3 Hot Storage deployment complete")
 
 
@@ -50,10 +67,23 @@ def destroy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> Non
         destroy_hot_reader_last_entry_lambda_function,
         destroy_hot_reader_last_entry_iam_role,
         destroy_l3_api_gateway,
+        # Multi-cloud: Writer
+        destroy_writer_lambda_function,
+        destroy_writer_iam_role,
     )
     
     logger.info(f"[L3-Hot] Destroying Layer 3 Hot Storage for {context.config.digital_twin_name}")
     context.set_active_layer("3_hot")
+    
+    # Multi-cloud: Writer (when L2 is on different cloud)
+    # NOTE: No fallbacks - missing provider config is a critical error
+    l2_provider = context.config.providers["layer_2_provider"]
+    l3_provider = context.config.providers["layer_3_hot_provider"]
+    
+    if l2_provider != l3_provider:
+        logger.info(f"[L3-Hot] Multi-cloud: Destroying Writer")
+        destroy_writer_lambda_function(provider)
+        destroy_writer_iam_role(provider)
     
     destroy_l3_api_gateway(provider)
     destroy_hot_reader_last_entry_lambda_function(provider)

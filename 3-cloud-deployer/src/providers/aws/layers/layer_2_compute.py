@@ -39,7 +39,8 @@ def _get_digital_twin_info(config: 'ProjectConfig') -> dict:
             "mode": config.mode,
         },
         "config_iot_devices": config.iot_devices,
-        "config_events": config.events
+        "config_events": config.events,
+        "config_providers": config.providers  # Multi-cloud: provider mapping for dual validation
     }
 
 
@@ -132,6 +133,38 @@ def create_persister_lambda_function(
 
     core_lambda_dir = os.path.join(project_path, CONSTANTS.AWS_CORE_LAMBDA_DIR_NAME)
 
+    # Build environment variables
+    env_vars = {
+        "DIGITAL_TWIN_INFO": json.dumps(_get_digital_twin_info(config)),
+        "DYNAMODB_TABLE_NAME": provider.naming.hot_dynamodb_table(),
+        "EVENT_CHECKER_LAMBDA_NAME": provider.naming.event_checker_lambda_function(),
+        "USE_EVENT_CHECKING": str(config.is_optimization_enabled("useEventChecking")).lower()
+    }
+    
+    # Multi-cloud: Add remote writer URL if L3 is on different cloud
+    # NOTE: No fallbacks - missing provider config is a critical error
+    l2_provider = config.providers["layer_2_provider"]
+    l3_provider = config.providers["layer_3_hot_provider"]
+    
+    if l3_provider != l2_provider:
+        inter_cloud = getattr(config, 'inter_cloud', None) or {}
+        connections = inter_cloud.get("connections", {})
+        conn_id = f"{l2_provider}_l2_to_{l3_provider}_l3"
+        conn = connections.get(conn_id, {})
+        url = conn.get("url", "")
+        token = conn.get("token", "")
+        
+        # Validate configuration at deployment time
+        if not url or not token:
+            raise ValueError(
+                f"Multi-cloud config incomplete for {conn_id}: url={bool(url)}, token={bool(token)}. "
+                f"Check config_inter_cloud.json."
+            )
+        
+        env_vars["REMOTE_WRITER_URL"] = url
+        env_vars["INTER_CLOUD_TOKEN"] = token
+        logger.info(f"Multi-cloud mode: Persister will POST to {l3_provider} Writer")
+
     import src.util as util  # Lazy import to avoid circular dependency
     lambda_client.create_function(
         FunctionName=function_name,
@@ -140,17 +173,10 @@ def create_persister_lambda_function(
         Handler="lambda_function.lambda_handler",
         Code={"ZipFile": util.compile_lambda_function(os.path.join(core_lambda_dir, "persister"))},
         Description="L2 Persister: Writes data to storage",
-        Timeout=3,
+        Timeout=30,  # Increased for remote HTTP calls
         MemorySize=128,
         Publish=True,
-        Environment={
-            "Variables": {
-                "DIGITAL_TWIN_INFO": json.dumps(_get_digital_twin_info(config)),
-                "DYNAMODB_TABLE_NAME": provider.naming.hot_dynamodb_table(),
-                "EVENT_CHECKER_LAMBDA_NAME": provider.naming.event_checker_lambda_function(),
-                "USE_EVENT_CHECKING": str(config.is_optimization_enabled("useEventChecking")).lower()
-            }
-        }
+        Environment={"Variables": env_vars}
     )
     logger.info(f"Created Lambda function: {function_name}")
 
@@ -160,6 +186,142 @@ def destroy_persister_lambda_function(provider: 'AWSProvider') -> None:
     function_name = provider.naming.persister_lambda_function()
     try:
         provider.clients["lambda"].delete_function(FunctionName=function_name)
+        logger.info(f"Deleted Lambda function: {function_name}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ResourceNotFoundException":
+            raise
+
+# ==========================================
+# 3.5. Ingestion Lambda (Multi-Cloud Only)
+# ==========================================
+# Ingestion is deployed when L1 is on a DIFFERENT cloud.
+# It receives data FROM remote Connectors via HTTP POST.
+
+def create_ingestion_iam_role(provider: 'AWSProvider') -> None:
+    """Creates IAM Role for the Ingestion Lambda (multi-cloud only).
+    
+    Ingestion needs:
+    - Lambda invoke permission (to call local Persister)
+    - Basic execution role
+    """
+    role_name = provider.naming.ingestion_iam_role()
+    iam_client = provider.clients["iam"]
+
+    iam_client.create_role(
+        RoleName=role_name,
+        AssumeRolePolicyDocument=json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": {"Service": "lambda.amazonaws.com"},
+                "Action": "sts:AssumeRole"
+            }]
+        })
+    )
+    logger.info(f"Created IAM role: {role_name}")
+
+    # Attach basic execution policy
+    iam_client.attach_role_policy(
+        RoleName=role_name,
+        PolicyArn=CONSTANTS.AWS_POLICY_LAMBDA_BASIC_EXECUTION
+    )
+    logger.info(f"Attached Lambda basic execution policy to {role_name}")
+
+
+def destroy_ingestion_iam_role(provider: 'AWSProvider') -> None:
+    """Destroys the Ingestion IAM Role."""
+    _destroy_iam_role(provider, provider.naming.ingestion_iam_role())
+
+
+def create_ingestion_lambda_function(
+    provider: 'AWSProvider',
+    config: 'ProjectConfig',
+    project_path: str
+) -> str:
+    """Creates the Ingestion Lambda Function with Function URL (multi-cloud only).
+    
+    Returns the Function URL endpoint for configuration.
+    """
+    function_name = provider.naming.ingestion_lambda_function()
+    role_name = provider.naming.ingestion_iam_role()
+    iam_client = provider.clients["iam"]
+    lambda_client = provider.clients["lambda"]
+
+    # Get role ARN
+    response = iam_client.get_role(RoleName=role_name)
+    role_arn = response['Role']['Arn']
+
+    # Get expected token from inter-cloud config
+    inter_cloud = getattr(config, 'inter_cloud', None) or {}
+    expected_token = inter_cloud.get("expected_token", "")
+    
+    if not expected_token:
+        raise ValueError(
+            "Multi-cloud config incomplete: expected_token not set in inter_cloud config. "
+            "Check config_inter_cloud.json."
+        )
+
+    # Prepare environment variables
+    env_vars = {
+        "DIGITAL_TWIN_INFO": json.dumps(_get_digital_twin_info(config)),
+        "PERSISTER_LAMBDA_NAME": provider.naming.persister_lambda_function(),
+        "INTER_CLOUD_TOKEN": expected_token  # Token to validate incoming requests
+    }
+
+    core_lambda_dir = os.path.join(project_path, CONSTANTS.AWS_CORE_LAMBDA_DIR_NAME)
+
+    import src.util as util  # Lazy import to avoid circular dependency
+    lambda_client.create_function(
+        FunctionName=function_name,
+        Runtime="python3.13",
+        Role=role_arn,
+        Handler="lambda_function.lambda_handler",
+        Code={"ZipFile": util.compile_lambda_function(os.path.join(core_lambda_dir, "ingestion"))},
+        Description="Multi-cloud Ingestion: Receives data from remote Connectors",
+        Timeout=30,
+        MemorySize=128,
+        Publish=True,
+        Environment={"Variables": env_vars}
+    )
+    logger.info(f"Created Lambda function: {function_name}")
+
+    # Create Function URL for HTTP access
+    url_response = lambda_client.create_function_url_config(
+        FunctionName=function_name,
+        AuthType='NONE'  # Auth handled by token validation in Lambda code
+    )
+    function_url = url_response['FunctionUrl']
+    logger.info(f"Created Function URL for {function_name}: {function_url}")
+
+    # Add resource-based policy for public access
+    lambda_client.add_permission(
+        FunctionName=function_name,
+        StatementId='FunctionURLPublicAccess',
+        Action='lambda:InvokeFunctionUrl',
+        Principal='*',
+        FunctionUrlAuthType='NONE'
+    )
+    logger.info(f"Added public access permission to {function_name}")
+
+    return function_url
+
+
+def destroy_ingestion_lambda_function(provider: 'AWSProvider') -> None:
+    """Destroys the Ingestion Lambda Function and its Function URL."""
+    function_name = provider.naming.ingestion_lambda_function()
+    lambda_client = provider.clients["lambda"]
+    
+    try:
+        # Delete Function URL first
+        try:
+            lambda_client.delete_function_url_config(FunctionName=function_name)
+            logger.info(f"Deleted Function URL for: {function_name}")
+        except ClientError as e:
+            if e.response["Error"]["Code"] != "ResourceNotFoundException":
+                raise
+        
+        # Delete the function
+        lambda_client.delete_function(FunctionName=function_name)
         logger.info(f"Deleted Lambda function: {function_name}")
     except ClientError as e:
         if e.response["Error"]["Code"] != "ResourceNotFoundException":
@@ -559,8 +721,9 @@ def create_processor_lambda_function(iot_device, provider: 'AWSProvider', config
     if project_path is None:
         raise ValueError("project_path is required")
 
-    l1_provider = config.providers.get("layer_1_provider", "aws")
-    l2_provider = config.providers.get("layer_2_provider", "aws")
+    # NOTE: No fallbacks - missing provider config is a critical error
+    l1_provider = config.providers["layer_1_provider"]
+    l2_provider = config.providers["layer_2_provider"]
     # Inter-cloud connection logic
     # config does not expose "inter_cloud" directly usually?
     # ProjectConfig has `inter_cloud` attribute? Yes, usually loaded from config_inter_cloud.json.
@@ -598,7 +761,10 @@ def create_processor_lambda_function(iot_device, provider: 'AWSProvider', config
         token = conn.get("token", "")
         
         if not remote_url or not token:
-            pass  # Silently skip if cross-cloud connection not configured
+            raise ValueError(
+                f"Multi-cloud config incomplete for {conn_id}: url={bool(remote_url)}, token={bool(token)}. "
+                f"Check config_inter_cloud.json for connection '{conn_id}'."
+            )
         
         import src.util as util
         

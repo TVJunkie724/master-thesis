@@ -287,9 +287,14 @@ def validate_project_zip(zip_source):
                  raise ValueError("Missing event-feedback function in zip (required by returnFeedbackToDevice).")
                  
         if optimization.get("triggerNotificationWorkflow", False):
-             # Determine Expected Provider
-             # Default to AWS if not specified or config missing
-             provider = prov_config.get("layer_2_provider", "aws").lower()
+             # Determine Expected Provider - REQUIRED when triggerNotificationWorkflow is enabled
+             provider = prov_config.get("layer_2_provider")
+             if not provider:
+                 raise ValueError(
+                     "Missing 'layer_2_provider' in config_providers.json. "
+                     "Required when 'triggerNotificationWorkflow' is enabled."
+                 )
+             provider = provider.lower()
              
              target_file = CONSTANTS.AWS_STATE_MACHINE_FILE
              if provider == "azure":
@@ -457,14 +462,21 @@ def verify_project_structure(project_name, project_path: str = None):
 
         if optimization.get("triggerNotificationWorkflow", False):
              providers_file = os.path.join(upload_dir, CONSTANTS.CONFIG_PROVIDERS_FILE)
-             provider = "aws"
+             provider = None
              if os.path.exists(providers_file):
                  try:
                      with open(providers_file, 'r') as f:
                          prov_config = json.load(f)
-                         provider = prov_config.get("layer_2_provider", "aws").lower() 
+                         provider = prov_config.get("layer_2_provider")
                  except Exception:
                      pass
+             
+             if not provider:
+                 raise ValueError(
+                     "Missing 'layer_2_provider' in config_providers.json. "
+                     "Required when 'triggerNotificationWorkflow' is enabled."
+                 )
+             provider = provider.lower()
             
              target_file = CONSTANTS.AWS_STATE_MACHINE_FILE
              if provider == "azure":

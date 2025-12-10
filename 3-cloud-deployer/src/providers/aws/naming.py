@@ -80,6 +80,10 @@ class AWSNaming:
         """Lambda function name for the ingestion function (multi-cloud)."""
         return f"{self._twin_name}-ingestion"
     
+    def ingestion_iam_role(self) -> str:
+        """IAM role name for the ingestion Lambda (multi-cloud)."""
+        return f"{self._twin_name}-ingestion"
+    
     # ==========================================
     # Layer 2: Data Processing
     # ==========================================
@@ -182,6 +186,10 @@ class AWSNaming:
     
     def writer_lambda_function(self) -> str:
         """Lambda function name for the writer (multi-cloud)."""
+        return f"{self._twin_name}-writer"
+    
+    def writer_iam_role(self) -> str:
+        """IAM role name for the writer Lambda (multi-cloud)."""
         return f"{self._twin_name}-writer"
     
     def api_gateway(self) -> str:

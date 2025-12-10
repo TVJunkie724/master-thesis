@@ -74,7 +74,10 @@ REQUIRED_AWS_PERMISSIONS = {
             "iam:UpdateAssumeRolePolicy",
         ],
         "lambda": [
-            # Reuses layer_1 lambda permissions
+            # Multi-cloud: Function URL permissions for Ingestion
+            "lambda:CreateFunctionUrlConfig",
+            "lambda:DeleteFunctionUrlConfig",
+            "lambda:GetFunctionUrlConfig",
         ],
         "states": [
             "states:CreateStateMachine",
@@ -107,7 +110,10 @@ REQUIRED_AWS_PERMISSIONS = {
             "events:ListTargetsByRule",
         ],
         "lambda": [
-            # Lambda for mover functions - same permissions as layer_1
+            # Multi-cloud: Function URL permissions for Writer
+            "lambda:CreateFunctionUrlConfig",
+            "lambda:DeleteFunctionUrlConfig",
+            "lambda:GetFunctionUrlConfig",
         ],
     },
     "layer_4": {

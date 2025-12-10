@@ -41,11 +41,6 @@
                         lifecycle verification (Create → Update → Destroy) without incurring costs or requiring live
                         credentials.
                     </p>
-                    <div class="alert alert-success">
-                        <i class="fa-solid fa-check-circle me-2"></i>
-                        <strong>100% Coverage Achieved:</strong> The suite covers all layers of the architecture, from
-                        low-level utilities to complex L5 Grafana dashboard provisioning.
-                    </div>
                 </div>
             </div>
 
@@ -177,10 +172,14 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
 │
 ├── api/
 │   ├── test_rest_api.py                  # FastAPI endpoint verification
-│   └── test_uploads.py                   # File upload handling tests
+│   ├── test_uploads.py                   # File upload handling tests
+│   └── test_validator_multi_cloud.py     # Validator multi-cloud config tests
 │
 ├── deployers/
 │   └── test_aws_connector_logic.py       # AWS Connector Lambda logic
+│
+├── lambda_functions/
+│   └── test_lambda_multi_cloud.py        # Lambda multi-cloud token/envelope tests
 │
 └── integration/
     ├── test_api_validation.py            # API validation integration tests
@@ -195,7 +194,8 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
     │   ├── test_aws_l3_movers.py         # L3: Data Mover Lambdas
     │   ├── test_aws_l3_readers.py        # L3: Storage reader functions
     │   ├── test_aws_l3_storage.py        # L3: S3 & DynamoDB
-    │   └── test_aws_l4_l5_mocked.py      # L4/L5: TwinMaker & Grafana
+    │   ├── test_aws_l4_l5_mocked.py      # L4/L5: TwinMaker & Grafana
+    │   └── test_aws_multi_cloud_config.py # Multi-cloud provider config validation
     └── azure/                            # (Planned) Azure integration tests
 </code></pre>
                     </div>
@@ -223,8 +223,10 @@ def test_create_bucket(mock_aws_context):
 </code></pre>
 
                     <h3 class="h5 mt-4">Mocking Provider and Context</h3>
-                    <p>The deployer uses explicit dependency injection via <code>AWSProvider</code> and <code>DeploymentContext</code>.
-                        Use fixtures from <code>conftest.py</code> to set up test providers.</p>
+                    <p>The deployer uses explicit dependency injection via <code>AWSProvider</code> and
+                        <code>DeploymentContext</code>.
+                        Use fixtures from <code>conftest.py</code> to set up test providers.
+                    </p>
                     <pre class="p-3 rounded"><code>def test_create_role(aws_provider):
     # aws_provider fixture provides a configured mock provider
     layer_1_iot.create_dispatcher_iam_role(aws_provider)
@@ -297,14 +299,15 @@ jobs:
                     <h2 class="mb-3"><i class="fa-solid fa-triangle-exclamation me-2"></i>Troubleshooting</h2>
 
                     <h3 class="h5">"AttributeError: 'AWSProvider' has no attribute '...'"
-                    <p><strong>Cause:</strong> The provider fixture is missing a required client or property.</p>
-                    <p><strong>Solution:</strong> Ensure your test fixture properly initializes all required
-                        clients via <code>provider.clients["iam"]</code>, <code>provider.clients["lambda"]</code>, etc.</p>
+                        <p><strong>Cause:</strong> The provider fixture is missing a required client or property.</p>
+                        <p><strong>Solution:</strong> Ensure your test fixture properly initializes all required
+                            clients via <code>provider.clients["iam"]</code>, <code>provider.clients["lambda"]</code>,
+                            etc.</p>
 
-                    <h3 class="h5 mt-4">Tests hanging or slow</h3>
-                    <p><strong>Cause:</strong> Infinite loops in `while` loops waiting for resource deletion.</p>
-                    <p><strong>Solution:</strong> Mock `time.sleep` and ensure your mocks simulate state transitions
-                        (e.g. `side_effect=[{"status": "DELETING"}, ClientError(ResourceNotFound)]`).</p>
+                        <h3 class="h5 mt-4">Tests hanging or slow</h3>
+                        <p><strong>Cause:</strong> Infinite loops in `while` loops waiting for resource deletion.</p>
+                        <p><strong>Solution:</strong> Mock `time.sleep` and ensure your mocks simulate state transitions
+                            (e.g. `side_effect=[{"status": "DELETING"}, ClientError(ResourceNotFound)]`).</p>
                 </div>
             </div>
 

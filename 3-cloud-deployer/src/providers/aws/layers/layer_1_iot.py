@@ -129,7 +129,8 @@ def create_dispatcher_lambda_function(
     role_arn = response['Role']['Arn']
 
     # Determine target function suffix based on L2 provider
-    l2_provider = config.providers.get("layer_2_provider", "aws")
+    # NOTE: No fallbacks - missing provider config is a critical error
+    l2_provider = config.providers["layer_2_provider"]
     target_suffix = "-connector" if l2_provider != "aws" else "-processor"
 
     # Build digital twin info for Lambda environment
@@ -141,7 +142,8 @@ def create_dispatcher_lambda_function(
             "mode": config.mode,
         },
         "config_iot_devices": config.iot_devices,
-        "config_events": config.events
+        "config_events": config.events,
+        "config_providers": config.providers  # Multi-cloud: provider mapping for dual validation
     }
 
     # Lambda source path

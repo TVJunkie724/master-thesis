@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Multi-Cloud Deployment — Deployer Documentation</title>
+    <link rel="icon" type="image/x-icon" href="references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="css/docs_styles.css" />
+</head>
+
+<body>
+
+    <div class="layout">
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+            <h1 class="mb-3">
+                <i class="fa-solid fa-cloud-arrow-up me-2"></i> Multi-Cloud Deployment Guide
+            </h1>
+
+            <p class="text-muted mb-4">
+                Deploy Digital Twin layers across multiple cloud providers (AWS, Azure, GCP) with automatic cross-cloud
+                communication.
+            </p>
+
+            <div class="callout info mb-4">
+                <strong><i class="fa-solid fa-lightbulb me-2"></i>Overview</strong>
+                Multi-cloud deployment enables distributing layers across different cloud providers while maintaining
+                seamless data flow. For example: AWS IoT Core (L1) → Azure Functions (L2) → GCP Firestore (L3).
+            </div>
+
+            <!-- Provider Configuration Section -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-gear me-2"></i>Provider Configuration</h2>
+
+                <p>All layer providers <strong>must</strong> be explicitly specified in
+                    <code>config_providers.json</code>:
+                </p>
+
+                <pre class="bg-dark text-light p-3 rounded"><code>{
+  "layer_1_provider": "aws",
+  "layer_2_provider": "azure",
+  "layer_3_hot_provider": "gcp",
+  "layer_4_provider": "gcp",
+  "layer_5_provider": "gcp"
+}</code></pre>
+
+                <div class="callout warning mt-3">
+                    <strong><i class="fa-solid fa-triangle-exclamation me-2"></i>Required Configuration</strong>
+                    All 5 layer providers are <strong>required</strong>. Missing provider configuration will cause a
+                    <code>KeyError</code> at deployment time (fail-fast behavior).
+                </div>
+            </div>
+
+            <!-- Cross-Cloud Data Flow Section -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-arrows-rotate me-2"></i>Cross-Cloud Data Flow</h2>
+
+                <p>When layers are on different clouds, special "gluecode" functions handle the cross-cloud
+                    communication:</p>
+
+                <!-- ASCII Flowchart -->
+                <pre class="bg-dark text-light p-3 rounded mb-4"
+                    style="font-family: 'Courier New', monospace; font-size: 0.85rem; overflow-x: auto;"><code>
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           MULTI-CLOUD DATA FLOW DECISION TREE                   │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ╔═══════════════════╗                                                          │
+│  ║   IoT Device      ║                                                          │
+│  ║   Publishes Data  ║                                                          │
+│  ╚═════════╦═════════╝                                                          │
+│            │                                                                    │
+│            ▼                                                                    │
+│  ┌─────────────────────┐                                                        │
+│  │  L1: DISPATCHER     │                                                        │
+│  │  (IoT Core Topic)   │                                                        │
+│  └──────────┬──────────┘                                                        │
+│             │                                                                   │
+│             ▼                                                                   │
+│  ╔══════════════════════════════════════════════════════════════════════╗       │
+│  ║  IS L2 ON SAME CLOUD AS L1?                                          ║       │
+│  ╚══════════════════════════════════════════════════════════════════════╝       │
+│             │                                                                   │
+│     ┌───────┴───────┐                                                           │
+│     │               │                                                           │
+│     ▼ YES           ▼ NO                                                        │
+│  ┌──────────┐    ┌──────────────────────────────────────────────────────────┐   │
+│  │ L1:      |    |  L1:                                                     |   |
+|  | INVOKE   │    │  INVOKE CONNECTOR                                        │   │
+│  │ LOCAL    │    │  (wraps event, POSTs to REMOTE_INGESTION_URL)            │   │
+│  │ PROCESSOR│    │                                                          │   │
+│  └────┬─────┘    │       ┌────────────────────────────────────┐             │   │
+│       │          │       │  HTTP POST with X-Inter-Cloud-Token│             │   │
+│       │          │       └──────────────┬─────────────────────┘             │   │
+│       │          │                      │                                   │   │
+│       │          │                      ▼                                   │   │
+│       │          │           ┌─────────────────────┐                        │   │
+│       │          │           │  L2 INGESTION       │ (on remote cloud)      │   │
+│       │          │           │  - Validates token  │                        │   │
+│       │          │           │  - Invokes processor│                        │   │
+│       │          │           └──────────┬──────────┘                        │   │
+│       │          └──────────────────────┼───────────────────────────────────┘   │
+│       │                                 │                                       │
+│       └─────────────┬───────────────────┘                                       │
+│                     │                                                           │
+│                     ▼                                                           │
+│          ┌─────────────────────┐                                                │
+│          │  L2: PROCESSOR      │                                                │
+│          │  (validates, cleans)│                                                │
+│          └──────────┬──────────┘                                                │
+│                     │                                                           │
+│                     ▼                                                           │
+│          ┌─────────────────────┐                                                │
+│          │  L2: PERSISTER      │                                                │
+│          └──────────┬──────────┘                                                │
+│                     │                                                           │
+│  ╔══════════════════════════════════════════════════════════════════════╗       │
+│  ║  IS L3 ON SAME CLOUD AS L2?                                          ║       │
+│  ╚══════════════════════════════════════════════════════════════════════╝       │
+│                     │                                                           │
+│     ┌───────────────┴───────────────┐                                           │
+│     │                               │                                           │
+│     ▼ YES                           ▼ NO                                        │
+│  ┌──────────────┐         ┌──────────────────────────────────────────────────┐  │
+|  | L2:          |         |  L2:                                             |  │
+│  │ WRITE TO     │         │  POST TO REMOTE_WRITER_URL                       │  │
+│  │ LOCAL DB     │         │  (with X-Inter-Cloud-Token)                      │  │
+│  │ (DynamoDB,   │         │                                                  │  │
+│  │  Cosmos,     │         │       ┌────────────────────────────────────┐     │  │
+│  │  Firestore)  │         │       │  HTTP POST with X-Inter-Cloud-Token│     │  │
+│  └──────┬───────┘         │       └──────────────┬─────────────────────┘     │  │
+│         │                 │                      │                           │  │
+│         │                 │                      ▼                           │  │
+│         │                 │           ┌─────────────────────┐                │  │
+│         │                 │           │  L3 WRITER          │ (on L3 cloud)  │  │
+│         │                 │           │  - Validates token  │                │  │
+│         │                 │           │  - Writes to DB     │                │  │
+│         │                 │           └──────────┬──────────┘                │  │
+│         │                 └──────────────────────┼───────────────────────────┘  │
+│         │                                        │                              │
+│         └────────────────┬───────────────────────┘                              │
+│                          │                                                      │
+│                          ▼                                                      │
+│               ╔════════════════════╗                                            │
+│               ║   DATA PERSISTED   ║                                            │
+│               ║   IN HOT STORAGE   ║                                            │
+│               ╚════════════════════╝                                            │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+Legend:  ─────►  = Function invoke or HTTP POST with X-Inter-Cloud-Token</code></pre>
+
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Scenario</th>
+                            <th>Component</th>
+                            <th>Purpose</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>L1 ≠ L2</td>
+                            <td><strong>Connector</strong> (L1) → <strong>Ingestion</strong> (L2)</td>
+                            <td>Connector POSTs to Ingestion's Function URL</td>
+                        </tr>
+                        <tr>
+                            <td>L2 ≠ L3</td>
+                            <td><strong>Persister</strong> (L2) → <strong>Writer</strong> (L3)</td>
+                            <td>Persister POSTs to Writer's Function URL</td>
+                        </tr>
+                        <tr>
+                            <td>L3 ≠ L4/L5</td>
+                            <td><strong>API Gateway</strong> (L3)</td>
+                            <td>HTTP endpoints for remote L4/L5 access</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Inter-Cloud Configuration Section -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-link me-2"></i>Inter-Cloud Configuration</h2>
+
+                <p>Cross-cloud connections are configured in <code>config_inter_cloud.json</code>:</p>
+
+                <pre class="bg-dark text-light p-3 rounded"><code>{
+  "expected_token": "your-secure-token-here",
+  "connections": {
+    "aws_l2_to_azure_l3": {
+      "url": "https://azure-writer-func.azurewebsites.net/api/writer",
+      "token": "your-secure-token-here"
+    },
+    "gcp_l1_to_aws_l2": {
+      "url": "https://abc123.lambda-url.us-east-1.on.aws/",
+      "token": "your-secure-token-here"
+    }
+  }
+}</code></pre>
+
+                <h4 class="mt-3">Configuration Fields</h4>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>expected_token</code></td>
+                            <td>Token this deployment expects to receive (for Ingestion/Writer validation)</td>
+                        </tr>
+                        <tr>
+                            <td><code>connections.{id}.url</code></td>
+                            <td>Target endpoint URL for cross-cloud POSTs</td>
+                        </tr>
+                        <tr>
+                            <td><code>connections.{id}.token</code></td>
+                            <td>Token to send when POSTing to the target</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Payload Envelope Section -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-envelope me-2"></i>Inter-Cloud Payload Envelope</h2>
+
+                <p>All cross-cloud messages use a standardized envelope format:</p>
+
+                <pre class="bg-dark text-light p-3 rounded"><code>{
+  "source_cloud": "aws",
+  "target_layer": "L2",
+  "message_type": "telemetry",
+  "timestamp": "2024-12-10T11:30:00.000Z",
+  "trace_id": "550e8400-e29b-41d4-a716-446655440000",
+  "payload": { /* original device data */ }
+}</code></pre>
+
+                <h4 class="mt-3">Envelope Fields</h4>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>source_cloud</code></td>
+                            <td>string</td>
+                            <td>Originating cloud provider (aws, azure, gcp)</td>
+                        </tr>
+                        <tr>
+                            <td><code>target_layer</code></td>
+                            <td>string</td>
+                            <td>Destination layer (L2, L3)</td>
+                        </tr>
+                        <tr>
+                            <td><code>message_type</code></td>
+                            <td>string</td>
+                            <td>Type of message (telemetry, command, etc.)</td>
+                        </tr>
+                        <tr>
+                            <td><code>timestamp</code></td>
+                            <td>string</td>
+                            <td>ISO 8601 UTC timestamp</td>
+                        </tr>
+                        <tr>
+                            <td><code>trace_id</code></td>
+                            <td>string</td>
+                            <td>UUID for request tracing across clouds</td>
+                        </tr>
+                        <tr>
+                            <td><code>payload</code></td>
+                            <td>object</td>
+                            <td>Original device/event data</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Authentication Section -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-shield-halved me-2"></i>Authentication</h2>
+
+                <p>Cross-cloud requests use a standardized token-based authentication:</p>
+
+                <pre class="bg-dark text-light p-3 rounded"><code>POST /ingestion HTTP/1.1
+Host: target-function.cloud.provider
+Content-Type: application/json
+X-Inter-Cloud-Token: your-secure-token-here
+
+{ /* envelope payload */ }</code></pre>
+
+                <div class="callout info mt-3">
+                    <strong><i class="fa-solid fa-key me-2"></i>Token Validation</strong>
+                    The receiving function (Ingestion/Writer) validates the <code>X-Inter-Cloud-Token</code> header
+                    against its <code>INTER_CLOUD_TOKEN</code> environment variable. Invalid tokens result in HTTP 401.
+                </div>
+            </div>
+
+            <!-- AWS-Specific Components Section -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-brands fa-aws me-2"></i>AWS Multi-Cloud Components</h2>
+
+                <h4>Ingestion (L2 - when L1 is remote)</h4>
+                <p>Deployed automatically when <code>layer_1_provider ≠ layer_2_provider</code>:</p>
+                <ul>
+                    <li>Lambda function with Function URL</li>
+                    <li>Validates <code>X-Inter-Cloud-Token</code></li>
+                    <li>Invokes local Persister Lambda</li>
+                </ul>
+
+                <h4 class="mt-3">Writer (L3 - when L2 is remote)</h4>
+                <p>Deployed automatically when <code>layer_2_provider ≠ layer_3_hot_provider</code>:</p>
+                <ul>
+                    <li>Lambda function with Function URL</li>
+                    <li>Validates <code>X-Inter-Cloud-Token</code></li>
+                    <li>Writes directly to DynamoDB</li>
+                </ul>
+
+                <h4 class="mt-3">Connector (L1 - when L2 is remote)</h4>
+                <p>Replaces Processor when <code>layer_1_provider ≠ layer_2_provider</code>:</p>
+                <ul>
+                    <li>POSTs envelope to remote Ingestion URL</li>
+                    <li>Includes <code>X-Inter-Cloud-Token</code> header</li>
+                    <li>Retry logic with exponential backoff</li>
+                </ul>
+
+                <h4 class="mt-3">Persister (L2 - when L3 is remote)</h4>
+                <p>Enhanced when <code>layer_2_provider ≠ layer_3_hot_provider</code>:</p>
+                <ul>
+                    <li>POSTs envelope to remote Writer URL</li>
+                    <li>Dual validation (env var + config_providers check)</li>
+                    <li>Retry logic with exponential backoff</li>
+                </ul>
+            </div>
+
+            <!-- Deployment Order Section -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-list-ol me-2"></i>Multi-Cloud Deployment Order</h2>
+
+                <p>For multi-cloud deployments, deploy layers in order by dependency:</p>
+
+                <ol>
+                    <li><strong>Deploy L3 first</strong> (on target cloud) - to get Writer Function URL</li>
+                    <li>Update <code>config_inter_cloud.json</code> with Writer URL</li>
+                    <li><strong>Deploy L2</strong> (on target cloud) - to get Ingestion Function URL</li>
+                    <li>Update <code>config_inter_cloud.json</code> with Ingestion URL</li>
+                    <li><strong>Deploy L1</strong> (on source cloud) - Connectors will use the URLs</li>
+                    <li><strong>Deploy L4/L5</strong> (on target cloud)</li>
+                </ol>
+
+                <div class="callout warning mt-3">
+                    <strong><i class="fa-solid fa-triangle-exclamation me-2"></i>Important</strong>
+                    URLs are generated at deployment time. You must deploy the receiving layer first, then update
+                    <code>config_inter_cloud.json</code> before deploying the sending layer.
+                </div>
+            </div>
+
+            <!-- Error Handling Section -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-bug me-2"></i>Error Handling</h2>
+
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Error</th>
+                            <th>Cause</th>
+                            <th>Resolution</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>KeyError: layer_X_provider</code></td>
+                            <td>Missing provider in config_providers.json</td>
+                            <td>Add missing layer provider to config</td>
+                        </tr>
+                        <tr>
+                            <td><code>ValueError: Multi-cloud config incomplete</code></td>
+                            <td>Missing URL or token in config_inter_cloud.json</td>
+                            <td>Add connection details for the layer pair</td>
+                        </tr>
+                        <tr>
+                            <td>HTTP 401 from Ingestion/Writer</td>
+                            <td>Token mismatch</td>
+                            <td>Ensure tokens match in source and target configs</td>
+                        </tr>
+                        <tr>
+                            <td><code>ConfigurationError: config_providers missing</code></td>
+                            <td>DIGITAL_TWIN_INFO doesn't include config_providers</td>
+                            <td>Redeploy Lambda with updated deployer</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/docs-nav.js" defer></script>
+</body>
+
+</html>
