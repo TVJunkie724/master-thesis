@@ -7,15 +7,12 @@ import uuid
 from datetime import datetime, timezone
 
 
-# Configuration from environment
-DIGITAL_TWIN_INFO = json.loads(os.environ.get("DIGITAL_TWIN_INFO", "{}"))
-DYNAMODB_TABLE_NAME = os.environ.get("DYNAMODB_TABLE_NAME", None)
-EVENT_CHECKER_LAMBDA_NAME = os.environ.get("EVENT_CHECKER_LAMBDA_NAME", None)
-
-# AWS clients (initialized lazily for single-cloud mode)
-dynamodb_client = None
-dynamodb_table = None
-lambda_client = boto3.client("lambda")
+def _require_env(name: str) -> str:
+    """Get required environment variable or raise error at module load time."""
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise EnvironmentError(f"CRITICAL: Required environment variable '{name}' is missing or empty")
+    return value
 
 
 class ConfigurationError(Exception):
@@ -23,10 +20,25 @@ class ConfigurationError(Exception):
     pass
 
 
+# Required environment variables - fail fast if missing
+DIGITAL_TWIN_INFO = json.loads(_require_env("DIGITAL_TWIN_INFO"))
+
+# Optional environment variables (only used in certain modes)
+DYNAMODB_TABLE_NAME = os.environ.get("DYNAMODB_TABLE_NAME", "")
+EVENT_CHECKER_LAMBDA_NAME = os.environ.get("EVENT_CHECKER_LAMBDA_NAME", "")
+
+# AWS clients (initialized lazily for single-cloud mode)
+dynamodb_client = None
+dynamodb_table = None
+lambda_client = boto3.client("lambda")
+
+
 def _get_dynamodb_table():
     """Lazy initialization of DynamoDB table for single-cloud mode."""
     global dynamodb_client, dynamodb_table
     if dynamodb_table is None:
+        if not DYNAMODB_TABLE_NAME:
+            raise ConfigurationError("DYNAMODB_TABLE_NAME is required for single-cloud storage mode")
         dynamodb_client = boto3.resource("dynamodb")
         dynamodb_table = dynamodb_client.Table(DYNAMODB_TABLE_NAME)
     return dynamodb_table
@@ -163,15 +175,18 @@ def lambda_handler(event, context):
 
         # Event checking (only in single-cloud mode or if explicitly enabled)
         if os.environ.get("USE_EVENT_CHECKING", "false").lower() == "true":
-            try:
-                lambda_client.invoke(
-                    FunctionName=EVENT_CHECKER_LAMBDA_NAME,
-                    InvocationType="Event",
-                    Payload=json.dumps(event).encode("utf-8")
-                )
-            except Exception as e:
-                print(f"Warning: Failed to invoke Event Checker: {e}")
-                pass
+            if not EVENT_CHECKER_LAMBDA_NAME:
+                print("Warning: USE_EVENT_CHECKING is true but EVENT_CHECKER_LAMBDA_NAME is not set")
+            else:
+                try:
+                    lambda_client.invoke(
+                        FunctionName=EVENT_CHECKER_LAMBDA_NAME,
+                        InvocationType="Event",
+                        Payload=json.dumps(event).encode("utf-8")
+                    )
+                except Exception as e:
+                    print(f"Warning: Failed to invoke Event Checker: {e}")
+                    pass
 
     except Exception as e:
         print(f"Persister Error: {e}")

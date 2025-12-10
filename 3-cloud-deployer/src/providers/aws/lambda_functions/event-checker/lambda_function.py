@@ -3,11 +3,21 @@ import json
 import boto3
 
 
-DIGITAL_TWIN_INFO = json.loads(os.environ.get("DIGITAL_TWIN_INFO", None))
-TWINMAKER_WORKSPACE_NAME = os.environ.get("TWINMAKER_WORKSPACE_NAME", None)
+def _require_env(name: str) -> str:
+    """Get required environment variable or raise error at module load time."""
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise EnvironmentError(f"CRITICAL: Required environment variable '{name}' is missing or empty")
+    return value
 
-LAMBDA_CHAIN_STEP_FUNCTION_ARN = os.environ.get("LAMBDA_CHAIN_STEP_FUNCTION_ARN", None)
-EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN = os.environ.get("EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN", None)
+
+# Required environment variables - fail fast if missing
+DIGITAL_TWIN_INFO = json.loads(_require_env("DIGITAL_TWIN_INFO"))
+
+# Optional environment variables (only used if features enabled)
+TWINMAKER_WORKSPACE_NAME = os.environ.get("TWINMAKER_WORKSPACE_NAME", "")
+LAMBDA_CHAIN_STEP_FUNCTION_ARN = os.environ.get("LAMBDA_CHAIN_STEP_FUNCTION_ARN", "")
+EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN = os.environ.get("EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN", "")
 
 USE_STEP_FUNCTIONS = os.environ.get("USE_STEP_FUNCTIONS", "false").lower() == "true"
 USE_FEEDBACK = os.environ.get("USE_FEEDBACK", "false").lower() == "true"
@@ -18,6 +28,9 @@ stepfunctions_client = boto3.client("stepfunctions")
 
 
 def fetch_value(entity_id, component_name, property_name):
+    if not TWINMAKER_WORKSPACE_NAME:
+        raise ValueError("TWINMAKER_WORKSPACE_NAME is required for fetching TwinMaker property values")
+    
     response = twinmaker_client.get_property_value(
         workspaceId=TWINMAKER_WORKSPACE_NAME,
         entityId=entity_id,
@@ -86,6 +99,8 @@ def lambda_handler(event, context):
                 
                 elif action_type == "step_function":
                     if USE_STEP_FUNCTIONS:
+                        if not LAMBDA_CHAIN_STEP_FUNCTION_ARN:
+                            raise ValueError("LAMBDA_CHAIN_STEP_FUNCTION_ARN is required when USE_STEP_FUNCTIONS is enabled")
                         stepfunctions_client.start_execution(
                             stateMachineArn=LAMBDA_CHAIN_STEP_FUNCTION_ARN,
                             input=json.dumps(e)
@@ -98,23 +113,17 @@ def lambda_handler(event, context):
                      
                 # Handle Feedback
                 if "feedback" in e["action"] and USE_FEEDBACK:
+                    if not EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN:
+                        raise ValueError("EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN is required when USE_FEEDBACK is enabled")
+                    
                     feedback_payload = {
                         "detail": {
                             "digitalTwinName": DIGITAL_TWIN_INFO["config"]["digital_twin_name"],
-                            "iotDeviceId": e["action"]["feedback"]["iotDeviceId"], # Assuming logic matches intent
+                            "iotDeviceId": e["action"]["feedback"]["iotDeviceId"],
                              "payload": e["action"]["feedback"]["payload"]
 
                         }
                     }
-                    # Adjust payload structure to match what event-feedback expects?
-                    # event-feedback expects: detail > payload, iotDeviceId, digitalTwinName
-                    # My payload construction above matches that structure in "detail" key?
-                    # Wait, event-feedback handler: `detail = event["detail"]`.
-                    # So I should send `{"detail": ...}`. Yes.
-                    
-                    # Need to verify where iotDeviceId comes from if not in feedback object.
-                    # Looking at config_events.json earlier: "feedback": {"type":"mqtt", "iotDeviceId":"...", "payload":"..."}
-                    # So it is there.
                     
                     lambda_client.invoke(FunctionName=EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN, InvocationType="Event", Payload=json.dumps(feedback_payload).encode("utf-8"))
                     print("Feedback sent.")

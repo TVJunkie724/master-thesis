@@ -196,16 +196,15 @@ class TestConnectorPayloadEnvelope:
     """Tests for Connector Lambda payload envelope creation."""
 
     def test_connector_raises_on_missing_config(self):
-        """Connector should raise when REMOTE_INGESTION_URL or token is missing."""
+        """Connector should raise EnvironmentError at module load when config is missing (fail-fast)."""
         import sys
         if "src.providers.aws.lambda_functions.connector.lambda_function" in sys.modules:
             del sys.modules["src.providers.aws.lambda_functions.connector.lambda_function"]
         
         with patch.dict(os.environ, {"REMOTE_INGESTION_URL": "", "INTER_CLOUD_TOKEN": ""}, clear=True):
-            from src.providers.aws.lambda_functions.connector import lambda_function as connector
-            
-            with pytest.raises(ValueError, match="Missing configuration"):
-                connector.lambda_handler({"data": "test"}, None)
+            # _require_env raises EnvironmentError at module load time
+            with pytest.raises(EnvironmentError, match="CRITICAL: Required environment variable"):
+                from src.providers.aws.lambda_functions.connector import lambda_function as connector
 
     @patch("urllib.request.urlopen")
     def test_connector_creates_correct_envelope(self, mock_urlopen):
@@ -249,8 +248,11 @@ class TestConnectorPayloadEnvelope:
     def test_connector_sends_auth_header(self, mock_urlopen):
         """Connector should send X-Inter-Cloud-Token header."""
         import sys
+        # Clear both the module and its parent to ensure fresh import
         if "src.providers.aws.lambda_functions.connector.lambda_function" in sys.modules:
             del sys.modules["src.providers.aws.lambda_functions.connector.lambda_function"]
+        if "src.providers.aws.lambda_functions.connector" in sys.modules:
+            del sys.modules["src.providers.aws.lambda_functions.connector"]
         
         mock_response = MagicMock()
         mock_response.getcode.return_value = 200
@@ -262,7 +264,7 @@ class TestConnectorPayloadEnvelope:
         with patch.dict(os.environ, {
             "REMOTE_INGESTION_URL": "https://example.com/ingestion",
             "INTER_CLOUD_TOKEN": "secret-token-xyz"
-        }):
+        }, clear=True):
             from src.providers.aws.lambda_functions.connector import lambda_function as connector
             
             connector.lambda_handler({"data": "test"}, None)

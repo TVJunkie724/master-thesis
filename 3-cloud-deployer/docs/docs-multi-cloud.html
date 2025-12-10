@@ -178,6 +178,90 @@ Legend:  ─────►  = Function invoke or HTTP POST with X-Inter-Cloud-T
                             <td><strong>API Gateway</strong> (L3)</td>
                             <td>HTTP endpoints for remote L4/L5 access</td>
                         </tr>
+                        <tr>
+                            <td>L3 Hot ≠ L3 Cold</td>
+                            <td><strong>Hot-to-Cold Mover</strong> → <strong>Cold Writer</strong></td>
+                            <td>Mover POSTs chunked data (≤5MB) to Cold Writer</td>
+                        </tr>
+                        <tr>
+                            <td>L3 Cold ≠ L3 Archive</td>
+                            <td><strong>Cold-to-Archive Mover</strong> → <strong>Archive Writer</strong></td>
+                            <td>Mover POSTs data to Archive Writer</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- L3 Mover Multi-Cloud Section -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-arrows-alt-h me-2"></i>L3 Storage Tier Transfers</h2>
+
+                <p>When L3 storage tiers (Hot, Cold, Archive) span different clouds, dedicated
+                    <strong>Writer</strong> Lambdas enable cross-cloud data movement:
+                </p>
+
+                <pre class="bg-dark text-light p-3 rounded" style="overflow-x: auto; font-size: 0.75rem;"><code>
+┌──────────────────────────────────────────────────────────────────────────────────────┐
+│                           MULTI-CLOUD L3 MOVER FLOW                                  │
+├──────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│  AWS L3 Hot (DynamoDB)             Azure L3 Cold              GCP L3 Archive         │
+│  ┌──────────────┐                  ┌──────────────┐          ┌──────────────┐        │
+│  │   DynamoDB   │                  │ Blob Storage │          │Cloud Storage │        │
+│  │  (Hot Data)  │                  │   (Cool)     │          │ (Coldline)   │        │
+│  └──────┬───────┘                  └──────┬───────┘          └──────────────┘        │
+│         │                                 ▲                         ▲                │
+│         │ EventBridge                     │                         │                │
+│         │ (Scheduled)           HTTP POST (chunked)       HTTP POST (chunked)        │
+│         ▼                                 │                         │                │
+│  ┌───────────────────┐             ┌──────────────┐          ┌──────────────┐        │
+│  │ Hot-to-Cold Mover │──HTTP─────▶ │ Cold Writer  │          │Archive Writer│        │
+│  │ (AWS Lambda)      │  POST       │ (Azure Func) │          │(GCP CloudFn) │        │
+│  │                   │ ≤5MB        │ - Auth token │          │ - Auth token │        │
+│  │ - Query DynamoDB  │ chunks      │ - Write Blob │          │ - Write GCS  │        │
+│  │ - Chunk ≤5MB      │             └──────────────┘          └──────────────┘        │
+│  │ - POST to Writer  │                    │                         ▲                │
+│  │ - Delete from DDB │                    │                         │                │
+│  └───────────────────┘                    ▼                         │                │
+│                                    ┌───────────────────┐            │                │
+│                                    │ Cold-to-Arch Mover│──HTTP POST─┘                │
+│                                    │ (Azure Function)  │   ≤5MB chunks               │
+│                                    │ - List blobs      │                             │
+│                                    │ - Read/chunk data │                             │
+│                                    │ - POST to Archive │                             │
+│                                    │ - Delete blob     │                             │
+│                                    └───────────────────┘                             │
+│                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+
+                <div class="callout tip mt-3 mb-3">
+                    <strong><i class="fa-solid fa-bolt me-2"></i>5MB Chunk Optimization</strong>
+                    <p class="mb-0">All cross-cloud transfers use ≤5MB chunks to stay within AWS Lambda's 6MB payload
+                        limit
+                        while reducing S3 PUT costs by ~80% compared to per-item transfers.</p>
+                </div>
+
+                <h4>L3 Writer Components</h4>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Triggered By</th>
+                            <th>Purpose</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>Cold Writer</code></td>
+                            <td>Remote Hot-to-Cold Mover</td>
+                            <td>Receives chunked data, writes to Cold storage (S3 STANDARD_IA)</td>
+                        </tr>
+                        <tr>
+                            <td><code>Archive Writer</code></td>
+                            <td>Remote Cold-to-Archive Mover</td>
+                            <td>Receives data, writes to Archive storage (S3 DEEP_ARCHIVE)</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>

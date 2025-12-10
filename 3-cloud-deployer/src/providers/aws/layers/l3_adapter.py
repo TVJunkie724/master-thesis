@@ -48,12 +48,27 @@ def deploy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> None
     
     if l2_provider != l3_provider:
         import time
+        import secrets
+        from src.core.config_loader import save_inter_cloud_connection
+        
         logger.info(f"[L3-Hot] Multi-cloud: Deploying Writer (L2 on {l2_provider}, L3 on {l3_provider})")
         create_writer_iam_role(provider)
         time.sleep(10)  # Wait for IAM propagation
+        
+        # Generate token for inter-cloud auth
+        token = secrets.token_urlsafe(32)
         writer_url = create_writer_lambda_function(provider, context.config, project_path)
         logger.info(f"[L3-Hot] Multi-cloud: Writer URL: {writer_url}")
-        # TODO: Store this URL in config_inter_cloud.json for remote Persister
+        
+        # Persist connection info for remote Persister
+        conn_id = f"{l2_provider}_l2_to_aws_l3"
+        save_inter_cloud_connection(
+            project_path=context.project_path.parent.parent,
+            conn_id=conn_id,
+            url=writer_url,
+            token=token
+        )
+        logger.info(f"[L3-Hot] Saved inter-cloud connection: {conn_id}")
     
     logger.info(f"[L3-Hot] Layer 3 Hot Storage deployment complete")
 
@@ -96,13 +111,21 @@ def destroy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> Non
 
 
 def deploy_l3_cold(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
-    """Deploy Layer 3 Cold Storage components."""
+    """Deploy Layer 3 Cold Storage components.
+    
+    If this AWS L3 Cold is receiving data from a different cloud's L3 Hot,
+    also deploys the Cold Writer Lambda with Function URL.
+    """
     from .layer_3_storage import (
         create_cold_s3_bucket,
         create_hot_cold_mover_iam_role,
         create_hot_cold_mover_lambda_function,
         create_hot_cold_mover_event_rule,
+        create_cold_writer_iam_role,
+        create_cold_writer_lambda_function,
     )
+    from src.core.config_loader import save_inter_cloud_connection
+    import secrets
     
     logger.info(f"[L3-Cold] Deploying Layer 3 Cold Storage for {context.config.digital_twin_name}")
     context.set_active_layer("3_cold")
@@ -114,6 +137,31 @@ def deploy_l3_cold(context: 'DeploymentContext', provider: 'AWSProvider') -> Non
     create_hot_cold_mover_lambda_function(provider, context.config, project_path)
     create_hot_cold_mover_event_rule(provider)
     
+    # Multi-cloud: Deploy Cold Writer if L3 Hot is on different cloud
+    l3_hot_provider = context.config.providers["layer_3_hot_provider"]
+    l3_cold_provider = context.config.providers["layer_3_cold_provider"]
+    
+    if l3_hot_provider != l3_cold_provider and l3_cold_provider == "aws":
+        logger.info(f"[L3-Cold] Multi-cloud detected: L3 Hot ({l3_hot_provider}) -> L3 Cold (aws)")
+        
+        # Generate secure token for inter-cloud auth
+        token = secrets.token_urlsafe(32)
+        
+        create_cold_writer_iam_role(provider)
+        function_url = create_cold_writer_lambda_function(
+            provider, context.config, project_path, token
+        )
+        
+        # Save connection info for the remote mover to use
+        conn_id = f"{l3_hot_provider}_l3hot_to_aws_l3cold"
+        save_inter_cloud_connection(
+            project_path=context.project_path.parent.parent,
+            conn_id=conn_id,
+            url=function_url,
+            token=token
+        )
+        logger.info(f"[L3-Cold] Cold Writer deployed for multi-cloud ingestion")
+    
     logger.info(f"[L3-Cold] Layer 3 Cold Storage deployment complete")
 
 
@@ -124,10 +172,16 @@ def destroy_l3_cold(context: 'DeploymentContext', provider: 'AWSProvider') -> No
         destroy_hot_cold_mover_lambda_function,
         destroy_hot_cold_mover_iam_role,
         destroy_cold_s3_bucket,
+        destroy_cold_writer_lambda_function,
+        destroy_cold_writer_iam_role,
     )
     
     logger.info(f"[L3-Cold] Destroying Layer 3 Cold Storage for {context.config.digital_twin_name}")
     context.set_active_layer("3_cold")
+    
+    # Destroy Cold Writer if it exists (multi-cloud)
+    destroy_cold_writer_lambda_function(provider)
+    destroy_cold_writer_iam_role(provider)
     
     destroy_hot_cold_mover_event_rule(provider)
     destroy_hot_cold_mover_lambda_function(provider)
@@ -138,13 +192,21 @@ def destroy_l3_cold(context: 'DeploymentContext', provider: 'AWSProvider') -> No
 
 
 def deploy_l3_archive(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
-    """Deploy Layer 3 Archive Storage components."""
+    """Deploy Layer 3 Archive Storage components.
+    
+    If this AWS L3 Archive is receiving data from a different cloud's L3 Cold,
+    also deploys the Archive Writer Lambda with Function URL.
+    """
     from .layer_3_storage import (
         create_archive_s3_bucket,
         create_cold_archive_mover_iam_role,
         create_cold_archive_mover_lambda_function,
         create_cold_archive_mover_event_rule,
+        create_archive_writer_iam_role,
+        create_archive_writer_lambda_function,
     )
+    from src.core.config_loader import save_inter_cloud_connection
+    import secrets
     
     logger.info(f"[L3-Archive] Deploying Layer 3 Archive Storage for {context.config.digital_twin_name}")
     context.set_active_layer("3_archive")
@@ -156,6 +218,29 @@ def deploy_l3_archive(context: 'DeploymentContext', provider: 'AWSProvider') -> 
     create_cold_archive_mover_lambda_function(provider, context.config, project_path)
     create_cold_archive_mover_event_rule(provider)
     
+    # Multi-cloud: Deploy Archive Writer if L3 Cold is on different cloud
+    l3_cold_provider = context.config.providers["layer_3_cold_provider"]
+    l3_archive_provider = context.config.providers["layer_3_archive_provider"]
+    
+    if l3_cold_provider != l3_archive_provider and l3_archive_provider == "aws":
+        logger.info(f"[L3-Archive] Multi-cloud detected: L3 Cold ({l3_cold_provider}) -> L3 Archive (aws)")
+        
+        token = secrets.token_urlsafe(32)
+        
+        create_archive_writer_iam_role(provider)
+        function_url = create_archive_writer_lambda_function(
+            provider, context.config, project_path, token
+        )
+        
+        conn_id = f"{l3_cold_provider}_l3cold_to_aws_l3archive"
+        save_inter_cloud_connection(
+            project_path=context.project_path.parent.parent,
+            conn_id=conn_id,
+            url=function_url,
+            token=token
+        )
+        logger.info(f"[L3-Archive] Archive Writer deployed for multi-cloud ingestion")
+    
     logger.info(f"[L3-Archive] Layer 3 Archive Storage deployment complete")
 
 
@@ -166,10 +251,16 @@ def destroy_l3_archive(context: 'DeploymentContext', provider: 'AWSProvider') ->
         destroy_cold_archive_mover_lambda_function,
         destroy_cold_archive_mover_iam_role,
         destroy_archive_s3_bucket,
+        destroy_archive_writer_lambda_function,
+        destroy_archive_writer_iam_role,
     )
     
     logger.info(f"[L3-Archive] Destroying Layer 3 Archive Storage for {context.config.digital_twin_name}")
     context.set_active_layer("3_archive")
+    
+    # Destroy Archive Writer if it exists (multi-cloud)
+    destroy_archive_writer_lambda_function(provider)
+    destroy_archive_writer_iam_role(provider)
     
     destroy_cold_archive_mover_event_rule(provider)
     destroy_cold_archive_mover_lambda_function(provider)

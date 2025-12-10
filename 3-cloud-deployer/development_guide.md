@@ -52,6 +52,8 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
 docker exec master-thesis-3cloud-deployer-1 bash -c "ls -la /app"
 ```
 
+> **Note:** The `head` and `tail` commands are not available in the minimal Docker container. Use Python or `cat` with `grep` for file inspection instead.
+
 ---
 
 ## 2. Implementation Plans

@@ -2,18 +2,25 @@ import json
 import os
 import boto3
 import urllib.request
-import urllib.parse
 import time
 import uuid
 from datetime import datetime, timezone
 
-def lambda_handler(event, context):
-    remote_url = os.environ.get("REMOTE_INGESTION_URL")
-    token = os.environ.get("INTER_CLOUD_TOKEN")
-    
-    if not remote_url or not token:
-        raise ValueError("Missing configuration: REMOTE_INGESTION_URL or INTER_CLOUD_TOKEN")
 
+def _require_env(name: str) -> str:
+    """Get required environment variable or raise error at module load time."""
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise EnvironmentError(f"CRITICAL: Required environment variable '{name}' is missing or empty")
+    return value
+
+
+# Required environment variables - fail fast if missing
+REMOTE_INGESTION_URL = _require_env("REMOTE_INGESTION_URL")
+INTER_CLOUD_TOKEN = _require_env("INTER_CLOUD_TOKEN")
+
+
+def lambda_handler(event, context):
     payload = {
         "source_cloud": "aws",                                
         "target_layer": "L2",                                 # TODO: Make configurable
@@ -26,10 +33,10 @@ def lambda_handler(event, context):
     data = json.dumps(payload).encode('utf-8')
     headers = {
         'Content-Type': 'application/json',
-        'X-Inter-Cloud-Token': token
+        'X-Inter-Cloud-Token': INTER_CLOUD_TOKEN
     }
     
-    req = urllib.request.Request(remote_url, data=data, headers=headers)
+    req = urllib.request.Request(REMOTE_INGESTION_URL, data=data, headers=headers)
     
     # Retry Logic (Exponential Backoff)
     max_retries = 3

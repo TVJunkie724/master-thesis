@@ -127,12 +127,14 @@
                             <td><code>CreateRole</code>, <code>DeleteRole</code>, <code>GetRole</code>,
                                 <code>AttachRolePolicy</code>, <code>DetachRolePolicy</code>,
                                 <code>ListAttachedRolePolicies</code>, <code>ListRolePolicies</code>,
-                                <code>DeleteRolePolicy</code></td>
+                                <code>DeleteRolePolicy</code>
+                            </td>
                         </tr>
                         <tr>
                             <td>Lambda</td>
                             <td><code>CreateFunction</code>, <code>DeleteFunction</code>, <code>GetFunction</code>,
-                                <code>AddPermission</code>, <code>RemovePermission</code></td>
+                                <code>AddPermission</code>, <code>RemovePermission</code>
+                            </td>
                         </tr>
                         <tr>
                             <td>IoT Core</td>
@@ -141,7 +143,8 @@
                                 <code>DeletePolicy</code>, <code>AttachThingPrincipal</code>,
                                 <code>DetachThingPrincipal</code>, <code>AttachPolicy</code>, <code>DetachPolicy</code>,
                                 <code>CreateTopicRule</code>, <code>DeleteTopicRule</code>,
-                                <code>DescribeEndpoint</code></td>
+                                <code>DescribeEndpoint</code>
+                            </td>
                         </tr>
                         <tr>
                             <td>STS</td>
@@ -166,7 +169,8 @@
                         <tr>
                             <td>Step Functions</td>
                             <td><code>CreateStateMachine</code>, <code>DeleteStateMachine</code>,
-                                <code>DescribeStateMachine</code></td>
+                                <code>DescribeStateMachine</code>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -181,20 +185,33 @@
                     </thead>
                     <tbody>
                         <tr>
+                            <td>IAM</td>
+                            <td><code>PutRolePolicy</code> (for Cold/Archive Writer inline policies)</td>
+                        </tr>
+                        <tr>
                             <td>DynamoDB</td>
                             <td><code>CreateTable</code>, <code>DeleteTable</code>, <code>CreateBackup</code>,
-                                <code>DescribeBackup</code></td>
+                                <code>DescribeBackup</code>
+                            </td>
                         </tr>
                         <tr>
                             <td>S3</td>
                             <td><code>CreateBucket</code>, <code>DeleteBucket</code>, <code>PutBucketCors</code>,
                                 <code>GetBucketCors</code>, <code>DeleteBucketCors</code>, <code>ListBucket</code>,
-                                <code>DeleteObject</code></td>
+                                <code>DeleteObject</code>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Lambda</td>
+                            <td><code>CreateFunctionUrlConfig</code>, <code>DeleteFunctionUrlConfig</code>,
+                                <code>GetFunctionUrlConfig</code> (for Writer Function URLs)
+                            </td>
                         </tr>
                         <tr>
                             <td>EventBridge</td>
                             <td><code>PutRule</code>, <code>DeleteRule</code>, <code>DescribeRule</code>,
-                                <code>PutTargets</code>, <code>RemoveTargets</code>, <code>ListTargetsByRule</code></td>
+                                <code>PutTargets</code>, <code>RemoveTargets</code>, <code>ListTargetsByRule</code>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -214,7 +231,8 @@
                                 <code>ListEntities</code>, <code>DeleteEntity</code>, <code>ListScenes</code>,
                                 <code>DeleteScene</code>, <code>ListComponentTypes</code>,
                                 <code>DeleteComponentType</code>, <code>CreateComponentType</code>,
-                                <code>GetComponentType</code></td>
+                                <code>GetComponentType</code>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -231,7 +249,8 @@
                         <tr>
                             <td>Grafana</td>
                             <td><code>CreateWorkspace</code>, <code>DeleteWorkspace</code>,
-                                <code>DescribeWorkspace</code>, <code>ListWorkspaces</code></td>
+                                <code>DescribeWorkspace</code>, <code>ListWorkspaces</code>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -373,12 +392,36 @@
                             <ul>
                                 <li><strong>Type:</strong> Scheduled Lambda (EventBridge Rule).</li>
                                 <li><strong>Logic:</strong> Moves data from DynamoDB to S3 Cool.</li>
+                                <li><strong>Multi Cloud:</strong> POSTs chunked data (≤5MB) to remote
+                                    <strong>Cold Writer</strong> if L3 Cold is on a different cloud.
+                                </li>
+                            </ul>
+                        </li>
+                        <li><strong>Cold Writer Function [Multi-Cloud
+                                Only]:</strong>
+                            <ul>
+                                <li><strong>Created:</strong> Only if L3 Hot (AWS) differs from L3 Cold (remote).</li>
+                                <li><strong>Trigger:</strong> Function URL (HTTP POST).</li>
+                                <li><strong>Logic:</strong> Receives chunked data from remote Hot-to-Cold Mover,
+                                    validates token, writes to S3 (STANDARD_IA).</li>
                             </ul>
                         </li>
                         <li><strong>Cold-to-Archive Mover:</strong>
                             <ul>
                                 <li><strong>Type:</strong> Scheduled Lambda (EventBridge Rule).</li>
                                 <li><strong>Logic:</strong> Moves data from S3 Cool to Glacier Deep Archive.</li>
+                                <li><strong>Multi Cloud:</strong> POSTs data to remote
+                                    <strong>Archive Writer</strong> if L3 Archive is on a different cloud.
+                                </li>
+                            </ul>
+                        </li>
+                        <li><strong>Archive Writer Function [Multi-Cloud
+                                Only]:</strong>
+                            <ul>
+                                <li><strong>Created:</strong> Only if L3 Cold differs from L3 Archive.</li>
+                                <li><strong>Trigger:</strong> Function URL (HTTP POST).</li>
+                                <li><strong>Logic:</strong> Receives data from remote Cold-to-Archive Mover,
+                                    validates token, writes to S3 (DEEP_ARCHIVE).</li>
                             </ul>
                         </li>
                         <li><strong>Data Access (API Gateway) [Multi-Cloud Only]:</strong>

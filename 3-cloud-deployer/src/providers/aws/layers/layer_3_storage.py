@@ -239,6 +239,289 @@ def destroy_writer_lambda_function(provider: 'AWSProvider') -> None:
 
 
 # ==========================================
+# 1.6. Cold Writer Lambda (Multi-Cloud Only)
+# ==========================================
+# Cold Writer is deployed when L3 Hot is on a DIFFERENT cloud than L3 Cold.
+# It receives chunked data FROM remote Hot-to-Cold Movers via HTTP POST.
+
+def create_cold_writer_iam_role(provider: 'AWSProvider') -> None:
+    """Creates IAM Role for the Cold Writer Lambda (multi-cloud only).
+    
+    Cold Writer needs:
+    - S3 write access to Cold bucket
+    - Basic execution role
+    """
+    role_name = provider.naming.cold_writer_iam_role()
+    iam_client = provider.clients["iam"]
+
+    iam_client.create_role(
+        RoleName=role_name,
+        AssumeRolePolicyDocument=json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": {"Service": "lambda.amazonaws.com"},
+                "Action": "sts:AssumeRole"
+            }]
+        })
+    )
+    logger.info(f"Created IAM role: {role_name}")
+
+    # Attach basic execution policy
+    iam_client.attach_role_policy(
+        RoleName=role_name,
+        PolicyArn=CONSTANTS.AWS_POLICY_LAMBDA_BASIC_EXECUTION
+    )
+    logger.info(f"Attached Lambda basic execution policy to {role_name}")
+
+    # Add inline policy for S3 Cold bucket write access
+    bucket_name = provider.naming.cold_s3_bucket()
+    iam_client.put_role_policy(
+        RoleName=role_name,
+        PolicyName="S3ColdWriteAccess",
+        PolicyDocument=json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Action": [
+                    "s3:PutObject"
+                ],
+                "Resource": f"arn:aws:s3:::{bucket_name}/*"
+            }]
+        })
+    )
+    logger.info(f"Added S3 Cold write policy to {role_name}")
+
+
+def destroy_cold_writer_iam_role(provider: 'AWSProvider') -> None:
+    """Destroys the Cold Writer IAM Role."""
+    role_name = provider.naming.cold_writer_iam_role()
+    _destroy_iam_role(provider, role_name)
+
+
+def create_cold_writer_lambda_function(
+    provider: 'AWSProvider',
+    config: 'ProjectConfig',
+    project_path: str,
+    expected_token: str
+) -> str:
+    """Creates the Cold Writer Lambda Function with Function URL.
+    
+    Returns:
+        The Function URL for the Cold Writer.
+    """
+    function_name = provider.naming.cold_writer_lambda_function()
+    role_name = provider.naming.cold_writer_iam_role()
+    bucket_name = provider.naming.cold_s3_bucket()
+    lambda_client = provider.clients["lambda"]
+    iam_client = provider.clients["iam"]
+
+    # Get role ARN
+    role_arn = iam_client.get_role(RoleName=role_name)["Role"]["Arn"]
+
+    # Create Lambda function
+    lambda_dir = os.path.join(project_path, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, "cold-writer")
+    zip_buffer = util_aws.create_lambda_zip(lambda_dir)
+
+    lambda_client.create_function(
+        FunctionName=function_name,
+        Runtime="python3.12",
+        Role=role_arn,
+        Handler="lambda_function.lambda_handler",
+        Code={"ZipFile": zip_buffer.read()},
+        Timeout=60,
+        MemorySize=256,
+        Environment={
+            "Variables": {
+                "COLD_S3_BUCKET_NAME": bucket_name,
+                "INTER_CLOUD_TOKEN": expected_token,
+            }
+        }
+    )
+    logger.info(f"Created Cold Writer Lambda: {function_name}")
+    time.sleep(5)  # Wait for Lambda to be ready
+
+    # Create Function URL (AuthType: NONE, validation in Lambda code)
+    url_response = lambda_client.create_function_url_config(
+        FunctionName=function_name,
+        AuthType='NONE'
+    )
+    function_url = url_response['FunctionUrl']
+    logger.info(f"Created Function URL for {function_name}: {function_url}")
+
+    # Add resource-based policy for public access
+    lambda_client.add_permission(
+        FunctionName=function_name,
+        StatementId='FunctionURLPublicAccess',
+        Action='lambda:InvokeFunctionUrl',
+        Principal='*',
+        FunctionUrlAuthType='NONE'
+    )
+    logger.info(f"Added public access permission to {function_name}")
+
+    return function_url
+
+
+def destroy_cold_writer_lambda_function(provider: 'AWSProvider') -> None:
+    """Destroys the Cold Writer Lambda Function and its Function URL."""
+    function_name = provider.naming.cold_writer_lambda_function()
+    lambda_client = provider.clients["lambda"]
+    
+    try:
+        try:
+            lambda_client.delete_function_url_config(FunctionName=function_name)
+            logger.info(f"Deleted Function URL for: {function_name}")
+        except ClientError as e:
+            if e.response["Error"]["Code"] != "ResourceNotFoundException":
+                raise
+        
+        lambda_client.delete_function(FunctionName=function_name)
+        logger.info(f"Deleted Lambda function: {function_name}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ResourceNotFoundException":
+            raise
+
+
+# ==========================================
+# 1.7. Archive Writer Lambda (Multi-Cloud Only)
+# ==========================================
+# Archive Writer is deployed when L3 Cold is on a DIFFERENT cloud than L3 Archive.
+# It receives data FROM remote Cold-to-Archive Movers via HTTP POST.
+
+def create_archive_writer_iam_role(provider: 'AWSProvider') -> None:
+    """Creates IAM Role for the Archive Writer Lambda (multi-cloud only).
+    
+    Archive Writer needs:
+    - S3 write access to Archive bucket
+    - Basic execution role
+    """
+    role_name = provider.naming.archive_writer_iam_role()
+    iam_client = provider.clients["iam"]
+
+    iam_client.create_role(
+        RoleName=role_name,
+        AssumeRolePolicyDocument=json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": {"Service": "lambda.amazonaws.com"},
+                "Action": "sts:AssumeRole"
+            }]
+        })
+    )
+    logger.info(f"Created IAM role: {role_name}")
+
+    iam_client.attach_role_policy(
+        RoleName=role_name,
+        PolicyArn=CONSTANTS.AWS_POLICY_LAMBDA_BASIC_EXECUTION
+    )
+    logger.info(f"Attached Lambda basic execution policy to {role_name}")
+
+    # Add inline policy for S3 Archive bucket write access
+    bucket_name = provider.naming.archive_s3_bucket()
+    iam_client.put_role_policy(
+        RoleName=role_name,
+        PolicyName="S3ArchiveWriteAccess",
+        PolicyDocument=json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Action": [
+                    "s3:PutObject"
+                ],
+                "Resource": f"arn:aws:s3:::{bucket_name}/*"
+            }]
+        })
+    )
+    logger.info(f"Added S3 Archive write policy to {role_name}")
+
+
+def destroy_archive_writer_iam_role(provider: 'AWSProvider') -> None:
+    """Destroys the Archive Writer IAM Role."""
+    role_name = provider.naming.archive_writer_iam_role()
+    _destroy_iam_role(provider, role_name)
+
+
+def create_archive_writer_lambda_function(
+    provider: 'AWSProvider',
+    config: 'ProjectConfig',
+    project_path: str,
+    expected_token: str
+) -> str:
+    """Creates the Archive Writer Lambda Function with Function URL.
+    
+    Returns:
+        The Function URL for the Archive Writer.
+    """
+    function_name = provider.naming.archive_writer_lambda_function()
+    role_name = provider.naming.archive_writer_iam_role()
+    bucket_name = provider.naming.archive_s3_bucket()
+    lambda_client = provider.clients["lambda"]
+    iam_client = provider.clients["iam"]
+
+    role_arn = iam_client.get_role(RoleName=role_name)["Role"]["Arn"]
+
+    lambda_dir = os.path.join(project_path, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, "archive-writer")
+    zip_buffer = util_aws.create_lambda_zip(lambda_dir)
+
+    lambda_client.create_function(
+        FunctionName=function_name,
+        Runtime="python3.12",
+        Role=role_arn,
+        Handler="lambda_function.lambda_handler",
+        Code={"ZipFile": zip_buffer.read()},
+        Timeout=60,
+        MemorySize=256,
+        Environment={
+            "Variables": {
+                "ARCHIVE_S3_BUCKET_NAME": bucket_name,
+                "INTER_CLOUD_TOKEN": expected_token,
+            }
+        }
+    )
+    logger.info(f"Created Archive Writer Lambda: {function_name}")
+    time.sleep(5)
+
+    url_response = lambda_client.create_function_url_config(
+        FunctionName=function_name,
+        AuthType='NONE'
+    )
+    function_url = url_response['FunctionUrl']
+    logger.info(f"Created Function URL for {function_name}: {function_url}")
+
+    lambda_client.add_permission(
+        FunctionName=function_name,
+        StatementId='FunctionURLPublicAccess',
+        Action='lambda:InvokeFunctionUrl',
+        Principal='*',
+        FunctionUrlAuthType='NONE'
+    )
+    logger.info(f"Added public access permission to {function_name}")
+
+    return function_url
+
+
+def destroy_archive_writer_lambda_function(provider: 'AWSProvider') -> None:
+    """Destroys the Archive Writer Lambda Function and its Function URL."""
+    function_name = provider.naming.archive_writer_lambda_function()
+    lambda_client = provider.clients["lambda"]
+    
+    try:
+        try:
+            lambda_client.delete_function_url_config(FunctionName=function_name)
+            logger.info(f"Deleted Function URL for: {function_name}")
+        except ClientError as e:
+            if e.response["Error"]["Code"] != "ResourceNotFoundException":
+                raise
+        
+        lambda_client.delete_function(FunctionName=function_name)
+        logger.info(f"Deleted Lambda function: {function_name}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ResourceNotFoundException":
+            raise
+
+
+# ==========================================
 # 2. Hot Storage (DynamoDB)
 # ==========================================
 
@@ -326,7 +609,12 @@ def destroy_hot_cold_mover_iam_role(provider: 'AWSProvider') -> None:
 
 
 def create_hot_cold_mover_lambda_function(provider: 'AWSProvider', config: 'ProjectConfig', project_path: str) -> None:
-    """Creates the Hot-to-Cold Data Mover Lambda."""
+    """Creates the Hot-to-Cold Data Mover Lambda.
+    
+    If L3 Cold is on a different cloud than L3 Hot, injects multi-cloud
+    environment variables (REMOTE_COLD_WRITER_URL, INTER_CLOUD_TOKEN)
+    for cross-cloud data transfer.
+    """
     function_name = provider.naming.hot_cold_mover_lambda_function()
     role_name = provider.naming.hot_cold_mover_iam_role()
     iam_client = provider.clients["iam"]
@@ -336,6 +624,36 @@ def create_hot_cold_mover_lambda_function(provider: 'AWSProvider', config: 'Proj
     role_arn = response['Role']['Arn']
 
     core_lambda_dir = os.path.join(project_path, CONSTANTS.AWS_CORE_LAMBDA_DIR_NAME)
+
+    # Build environment variables
+    env_vars = {
+        "DIGITAL_TWIN_INFO": json.dumps(_get_digital_twin_info(config)),
+        "DYNAMODB_TABLE_NAME": provider.naming.hot_dynamodb_table(),
+        "COLD_S3_BUCKET_NAME": provider.naming.cold_s3_bucket()
+    }
+    
+    # Multi-cloud: Inject remote Cold Writer URL if L3 Cold is on different cloud
+    # NOTE: Using direct access [] - missing keys should raise KeyError (fail-fast)
+    l3_hot = config.providers["layer_3_hot_provider"]
+    l3_cold = config.providers["layer_3_cold_provider"]
+    
+    if l3_hot != l3_cold:
+        conn_id = f"{l3_hot}_l3hot_to_{l3_cold}_l3cold"
+        connections = getattr(config, 'inter_cloud', {}).get("connections", {}) if hasattr(config, 'inter_cloud') else {}
+        conn = connections.get(conn_id, {})
+        
+        url = conn.get("url", "")
+        token = conn.get("token", "")
+        
+        if not url or not token:
+            raise ValueError(
+                f"Multi-cloud config incomplete for {conn_id}: url={bool(url)}, token={bool(token)}. "
+                f"Ensure config_inter_cloud.json contains connection '{conn_id}' with 'url' and 'token'."
+            )
+        
+        env_vars["REMOTE_COLD_WRITER_URL"] = url
+        env_vars["INTER_CLOUD_TOKEN"] = token
+        logger.info(f"[Hot-Cold Mover] Multi-cloud mode: Will POST to {l3_cold} Cold Writer")
 
     import util  # Lazy import to avoid circular dependency
     lambda_client.create_function(
@@ -348,13 +666,7 @@ def create_hot_cold_mover_lambda_function(provider: 'AWSProvider', config: 'Proj
         Timeout=60,
         MemorySize=256,
         Publish=True,
-        Environment={
-            "Variables": {
-                "DIGITAL_TWIN_INFO": json.dumps(_get_digital_twin_info(config)),
-                "DYNAMODB_TABLE_NAME": provider.naming.hot_dynamodb_table(),
-                "S3_BUCKET_NAME": provider.naming.cold_s3_bucket()
-            }
-        }
+        Environment={"Variables": env_vars}
     )
     logger.info(f"Created Lambda function: {function_name}")
 
@@ -482,7 +794,12 @@ def destroy_cold_archive_mover_iam_role(provider: 'AWSProvider') -> None:
 
 
 def create_cold_archive_mover_lambda_function(provider: 'AWSProvider', config: 'ProjectConfig', project_path: str) -> None:
-    """Creates the Cold-to-Archive Data Mover Lambda."""
+    """Creates the Cold-to-Archive Data Mover Lambda.
+    
+    If L3 Archive is on a different cloud than L3 Cold, injects multi-cloud
+    environment variables (REMOTE_ARCHIVE_WRITER_URL, INTER_CLOUD_TOKEN)
+    for cross-cloud data transfer.
+    """
     function_name = provider.naming.cold_archive_mover_lambda_function()
     role_name = provider.naming.cold_archive_mover_iam_role()
     iam_client = provider.clients["iam"]
@@ -492,6 +809,36 @@ def create_cold_archive_mover_lambda_function(provider: 'AWSProvider', config: '
     role_arn = response['Role']['Arn']
 
     core_lambda_dir = os.path.join(project_path, CONSTANTS.AWS_CORE_LAMBDA_DIR_NAME)
+
+    # Build environment variables
+    env_vars = {
+        "DIGITAL_TWIN_INFO": json.dumps(_get_digital_twin_info(config)),
+        "COLD_S3_BUCKET_NAME": provider.naming.cold_s3_bucket(),
+        "ARCHIVE_S3_BUCKET_NAME": provider.naming.archive_s3_bucket()
+    }
+    
+    # Multi-cloud: Inject remote Archive Writer URL if L3 Archive is on different cloud
+    # NOTE: Using direct access [] - missing keys should raise KeyError (fail-fast)
+    l3_cold = config.providers["layer_3_cold_provider"]
+    l3_archive = config.providers["layer_3_archive_provider"]
+    
+    if l3_cold != l3_archive:
+        conn_id = f"{l3_cold}_l3cold_to_{l3_archive}_l3archive"
+        connections = getattr(config, 'inter_cloud', {}).get("connections", {}) if hasattr(config, 'inter_cloud') else {}
+        conn = connections.get(conn_id, {})
+        
+        url = conn.get("url", "")
+        token = conn.get("token", "")
+        
+        if not url or not token:
+            raise ValueError(
+                f"Multi-cloud config incomplete for {conn_id}: url={bool(url)}, token={bool(token)}. "
+                f"Ensure config_inter_cloud.json contains connection '{conn_id}' with 'url' and 'token'."
+            )
+        
+        env_vars["REMOTE_ARCHIVE_WRITER_URL"] = url
+        env_vars["INTER_CLOUD_TOKEN"] = token
+        logger.info(f"[Cold-Archive Mover] Multi-cloud mode: Will POST to {l3_archive} Archive Writer")
 
     import util  # Lazy import to avoid circular dependency
     lambda_client.create_function(
@@ -504,13 +851,7 @@ def create_cold_archive_mover_lambda_function(provider: 'AWSProvider', config: '
         Timeout=60,
         MemorySize=256,
         Publish=True,
-        Environment={
-            "Variables": {
-                "DIGITAL_TWIN_INFO": json.dumps(_get_digital_twin_info(config)),
-                "COLD_S3_BUCKET_NAME": provider.naming.cold_s3_bucket(),
-                "ARCHIVE_S3_BUCKET_NAME": provider.naming.archive_s3_bucket()
-            }
-        }
+        Environment={"Variables": env_vars}
     )
     logger.info(f"Created Lambda function: {function_name}")
 

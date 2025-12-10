@@ -11,6 +11,18 @@
             "function": "writer",
             "token": "generated-secure-token",
             "url": "https://lambda-url-id.lambda-url.region.on.aws/"
+        },
+        "aws_l3hot_to_azure_l3cold": {
+            "provider": "azure",
+            "function": "cold_writer",
+            "token": "generated-secure-token",
+            "url": "https://func-cold-writer.azurewebsites.net/api/cold-writer"
+        },
+        "azure_l3cold_to_gcp_l3archive": {
+            "provider": "gcp",
+            "function": "archive_writer",
+            "token": "generated-secure-token",
+            "url": "https://region-project.cloudfunctions.net/archive-writer"
         }
     }
 }

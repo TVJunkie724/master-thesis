@@ -2,13 +2,25 @@ import json
 import os
 import boto3
 
+
+def _require_env(name: str) -> str:
+    """Get required environment variable or raise error at module load time."""
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise EnvironmentError(f"CRITICAL: Required environment variable '{name}' is missing or empty")
+    return value
+
+
+# Required environment variables - fail fast if missing
+DYNAMODB_TABLE_NAME = _require_env("DYNAMODB_TABLE_NAME")
+INTER_CLOUD_TOKEN = _require_env("INTER_CLOUD_TOKEN")
+
 dynamodb = boto3.resource('dynamodb')
-DYNAMODB_TABLE_NAME = os.environ.get("DYNAMODB_TABLE_NAME")
 table = dynamodb.Table(DYNAMODB_TABLE_NAME)
+
 
 def lambda_handler(event, context):
     # 1. Validate Token
-    expected_token = os.environ.get("INTER_CLOUD_TOKEN")
     headers = event.get("headers", {})
     incoming_token = None
     for k, v in headers.items():
@@ -16,7 +28,7 @@ def lambda_handler(event, context):
             incoming_token = v
             break
             
-    if incoming_token != expected_token:
+    if incoming_token != INTER_CLOUD_TOKEN:
         return {
             "statusCode": 403,
             "body": json.dumps("Unauthorized: Invalid Token")

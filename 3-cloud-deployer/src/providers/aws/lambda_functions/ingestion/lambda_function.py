@@ -2,13 +2,24 @@ import json
 import os
 import boto3
 
+
+def _require_env(name: str) -> str:
+    """Get required environment variable or raise error at module load time."""
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise EnvironmentError(f"CRITICAL: Required environment variable '{name}' is missing or empty")
+    return value
+
+
 lambda_client = boto3.client("lambda")
 
-DIGITAL_TWIN_INFO = json.loads(os.environ.get("DIGITAL_TWIN_INFO", "{}"))
+# Required environment variables - fail fast if missing
+DIGITAL_TWIN_INFO = json.loads(_require_env("DIGITAL_TWIN_INFO"))
+INTER_CLOUD_TOKEN = _require_env("INTER_CLOUD_TOKEN")
+
 
 def lambda_handler(event, context):
     # 1. Validate Token
-    expected_token = os.environ.get("INTER_CLOUD_TOKEN")
     # API Gateway/Lambda Function URL headers are case-insensitive, usually lower-cased
     headers = event.get("headers", {})
     # Look for token (case-insensitive)
@@ -18,7 +29,7 @@ def lambda_handler(event, context):
             incoming_token = v
             break
             
-    if incoming_token != expected_token:
+    if incoming_token != INTER_CLOUD_TOKEN:
         return {
             "statusCode": 403,
             "body": json.dumps("Unauthorized: Invalid Token")

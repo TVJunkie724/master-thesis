@@ -32,6 +32,7 @@ class TestPersisterLambda(unittest.TestCase):
         # Patch environment BEFORE loading module
         self.env_patch = patch.dict(os.environ, {
             "DIGITAL_TWIN_INFO": '{"name": "test-twin"}',
+            "DYNAMODB_TABLE_NAME": "test-dynamodb-table",
             "EVENT_CHECKER_LAMBDA_NAME": "test-event-checker",
             "USE_EVENT_CHECKING": "false" 
         })

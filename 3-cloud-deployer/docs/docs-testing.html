@@ -179,7 +179,8 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
 │   └── test_aws_connector_logic.py       # AWS Connector Lambda logic
 │
 ├── lambda_functions/
-│   └── test_lambda_multi_cloud.py        # Lambda multi-cloud token/envelope tests
+│   ├── test_lambda_multi_cloud.py        # Lambda multi-cloud token/envelope tests
+│   └── test_mover_multi_cloud.py         # Mover multi-cloud (chunking, env vars, Writers)
 │
 └── integration/
     ├── test_api_validation.py            # API validation integration tests

@@ -126,6 +126,61 @@ def load_project_config(project_path: Path) -> ProjectConfig:
     )
 
 
+def save_inter_cloud_connection(
+    project_path: Path,
+    conn_id: str,
+    url: str,
+    token: str
+) -> None:
+    """
+    Save an inter-cloud connection to config_inter_cloud.json.
+    
+    Creates the file if it doesn't exist, or updates an existing connection.
+    This is called during deployment when Function URLs are generated.
+    
+    Args:
+        project_path: Path to the project directory
+        conn_id: Connection identifier (e.g., "aws_l2_to_azure_l3hot")
+        url: The Function URL for the remote writer/ingestion
+        token: The inter-cloud authentication token
+    
+    Example:
+        save_inter_cloud_connection(
+            project_path=Path("/app/upload/my-project"),
+            conn_id="aws_l3hot_to_azure_l3cold",
+            url="https://func-cold-writer.azurewebsites.net/api/cold-writer",
+            token="generated-secure-token"
+        )
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    inter_cloud_path = project_path / CONFIG_INTER_CLOUD_FILE
+    
+    # Load existing or create new
+    if inter_cloud_path.exists():
+        with open(inter_cloud_path, 'r') as f:
+            inter_cloud = json.load(f)
+    else:
+        inter_cloud = {"connections": {}}
+    
+    # Ensure connections key exists
+    if "connections" not in inter_cloud:
+        inter_cloud["connections"] = {}
+    
+    # Add/update connection
+    inter_cloud["connections"][conn_id] = {
+        "url": url,
+        "token": token
+    }
+    
+    # Save back
+    with open(inter_cloud_path, 'w') as f:
+        json.dump(inter_cloud, f, indent=4)
+    
+    logger.info(f"Saved inter-cloud connection '{conn_id}' to {CONFIG_INTER_CLOUD_FILE}")
+
+
 def load_credentials(project_path: Path) -> Dict[str, dict]:
     """
     Load credentials for all configured providers.

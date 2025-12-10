@@ -192,6 +192,22 @@ class AWSNaming:
         """IAM role name for the writer Lambda (multi-cloud)."""
         return f"{self._twin_name}-writer"
     
+    def cold_writer_lambda_function(self) -> str:
+        """Lambda function name for the cold writer (multi-cloud L3 Hot→Cold)."""
+        return f"{self._twin_name}-cold-writer"
+    
+    def cold_writer_iam_role(self) -> str:
+        """IAM role name for the cold writer Lambda (multi-cloud L3 Hot→Cold)."""
+        return f"{self._twin_name}-cold-writer"
+    
+    def archive_writer_lambda_function(self) -> str:
+        """Lambda function name for the archive writer (multi-cloud L3 Cold→Archive)."""
+        return f"{self._twin_name}-archive-writer"
+    
+    def archive_writer_iam_role(self) -> str:
+        """IAM role name for the archive writer Lambda (multi-cloud L3 Cold→Archive)."""
+        return f"{self._twin_name}-archive-writer"
+    
     def api_gateway(self) -> str:
         """API Gateway name for cross-cloud access."""
         return f"{self._twin_name}-api-gateway"

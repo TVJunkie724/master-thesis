@@ -4,8 +4,17 @@ import boto3
 from boto3.dynamodb.conditions import Key
 
 
-DIGITAL_TWIN_INFO = json.loads(os.environ.get("DIGITAL_TWIN_INFO", None))
-DYNAMODB_TABLE_NAME = os.environ.get("DYNAMODB_TABLE_NAME", None)
+def _require_env(name: str) -> str:
+    """Get required environment variable or raise error at module load time."""
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise EnvironmentError(f"CRITICAL: Required environment variable '{name}' is missing or empty")
+    return value
+
+
+# Required environment variables - fail fast if missing
+DIGITAL_TWIN_INFO = json.loads(_require_env("DIGITAL_TWIN_INFO"))
+DYNAMODB_TABLE_NAME = _require_env("DYNAMODB_TABLE_NAME")
 
 twinmaker_client = boto3.client("iottwinmaker")
 dynamodb_resource = boto3.resource("dynamodb")
