@@ -21,3 +21,7 @@ config_credentials.json
 google_master-thesis-475915-7f20314ddb42.json
 
 2-twin2clouds/pricing/fetched_data/
+
+deprecated/
+
+.vscode/
