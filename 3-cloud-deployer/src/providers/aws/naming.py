@@ -208,9 +208,24 @@ class AWSNaming:
         """IAM role name for the archive writer Lambda (multi-cloud L3 Cold→Archive)."""
         return f"{self._twin_name}-archive-writer"
     
-    def api_gateway(self) -> str:
-        """API Gateway name for cross-cloud access."""
-        return f"{self._twin_name}-api-gateway"
+    def digital_twin_data_connector_lambda_function(self) -> str:
+        """Lambda function name for the Digital Twin Data Connector (L3→L4 multi-cloud)."""
+        return f"{self._twin_name}-dt-data-connector"
+    
+    def digital_twin_data_connector_iam_role(self) -> str:
+        """IAM role name for the Digital Twin Data Connector Lambda."""
+        return f"{self._twin_name}-dt-data-connector"
+    
+    def digital_twin_data_connector_last_entry_lambda_function(self) -> str:
+        """Lambda function name for the Digital Twin Data Connector Last Entry."""
+        return f"{self._twin_name}-dt-data-connector-last-entry"
+    
+    def digital_twin_data_connector_last_entry_iam_role(self) -> str:
+        """IAM role name for the Digital Twin Data Connector Last Entry Lambda."""
+        return f"{self._twin_name}-dt-data-connector-last-entry"
+    
+    # NOTE: api_gateway() removed - using Lambda Function URLs instead
+    # See implementation plan: 2025-12-10_22-45_hot_reader_multi_cloud.md
     
     # ==========================================
     # Layer 4: Twin Management

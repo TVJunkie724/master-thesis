@@ -1089,96 +1089,302 @@ def destroy_hot_reader_last_entry_lambda_function(provider: 'AWSProvider') -> No
 
 
 # ==========================================
-# 9. API Gateway (for cross-cloud)
+# 9. Function URLs for Hot Readers (Multi-Cloud)
 # ==========================================
+# Function URLs are created when L4 (TwinMaker) is on a different cloud
+# than L3 (Hot Storage). The remote Digital Twin Data Connector calls
+# these URLs with X-Inter-Cloud-Token for authentication.
 
-def create_l3_api_gateway(provider: 'AWSProvider', config: 'ProjectConfig') -> None:
-    """Creates the API Gateway for cross-cloud L3 access."""
-    api_name = provider.naming.api_gateway()
-    apigw_client = provider.clients["apigatewayv2"]
-    lambda_client = provider.clients["lambda"]
-    sts_client = provider.clients["sts"]
-
-    # Create HTTP API
-    response = apigw_client.create_api(
-        Name=api_name,
-        ProtocolType="HTTP",
-        Description="API Gateway for cross-cloud L3 access"
-    )
-    api_id = response["ApiId"]
-    logger.info(f"Created API Gateway: {api_name}")
-
-    # Get Hot Reader function ARN
+def create_hot_reader_function_url(provider: 'AWSProvider', token: str) -> str:
+    """Creates Function URL for Hot Reader Lambda (multi-cloud L3→L4).
+    
+    Args:
+        provider: AWS Provider instance
+        token: X-Inter-Cloud-Token for authentication
+    
+    Returns:
+        Function URL for the Hot Reader
+    """
     function_name = provider.naming.hot_reader_lambda_function()
-    response = lambda_client.get_function(FunctionName=function_name)
-    function_arn = response['Configuration']['FunctionArn']
-
-    region = lambda_client.meta.region_name
-    account_id = sts_client.get_caller_identity()['Account']
-
-    # Create integration
-    response = apigw_client.create_integration(
-        ApiId=api_id,
-        IntegrationType="AWS_PROXY",
-        IntegrationUri=function_arn,
-        PayloadFormatVersion="2.0"
+    lambda_client = provider.clients["lambda"]
+    
+    # Update Lambda to include the token
+    lambda_client.update_function_configuration(
+        FunctionName=function_name,
+        Environment={
+            "Variables": {
+                **lambda_client.get_function_configuration(FunctionName=function_name)["Environment"]["Variables"],
+                "INTER_CLOUD_TOKEN": token
+            }
+        }
     )
-    integration_id = response["IntegrationId"]
-
-    # Create route
-    apigw_client.create_route(
-        ApiId=api_id,
-        RouteKey="GET /data",
-        Target=f"integrations/{integration_id}"
+    logger.info(f"Updated {function_name} with INTER_CLOUD_TOKEN")
+    
+    # Create Function URL
+    url_response = lambda_client.create_function_url_config(
+        FunctionName=function_name,
+        AuthType='NONE'  # Auth handled by token validation in Lambda code
     )
-
-    # Create stage
-    apigw_client.create_stage(ApiId=api_id, StageName="prod", AutoDeploy=True)
-
-    # Add Lambda permission
+    function_url = url_response['FunctionUrl']
+    logger.info(f"Created Function URL for {function_name}: {function_url}")
+    
+    # Add resource-based policy for public access
     lambda_client.add_permission(
         FunctionName=function_name,
-        StatementId="apigw-invoke",
-        Action="lambda:InvokeFunction",
-        Principal="apigateway.amazonaws.com",
-        SourceArn=f"arn:aws:execute-api:{region}:{account_id}:{api_id}/*"
+        StatementId='FunctionURLPublicAccess',
+        Action='lambda:InvokeFunctionUrl',
+        Principal='*',
+        FunctionUrlAuthType='NONE'
     )
+    logger.info(f"Added public access permission to {function_name}")
+    
+    return function_url
 
-    logger.info(f"API Gateway endpoint: https://{api_id}.execute-api.{region}.amazonaws.com/prod/data")
 
-
-def destroy_l3_api_gateway(provider: 'AWSProvider') -> None:
-    """Destroys the L3 API Gateway."""
-    api_name = provider.naming.api_gateway()
-    apigw_client = provider.clients["apigatewayv2"]
+def create_hot_reader_last_entry_function_url(provider: 'AWSProvider', token: str) -> str:
+    """Creates Function URL for Hot Reader Last Entry Lambda (multi-cloud L3→L4)."""
+    function_name = provider.naming.hot_reader_last_entry_lambda_function()
     lambda_client = provider.clients["lambda"]
+    
+    # Update Lambda to include the token
+    lambda_client.update_function_configuration(
+        FunctionName=function_name,
+        Environment={
+            "Variables": {
+                **lambda_client.get_function_configuration(FunctionName=function_name)["Environment"]["Variables"],
+                "INTER_CLOUD_TOKEN": token
+            }
+        }
+    )
+    logger.info(f"Updated {function_name} with INTER_CLOUD_TOKEN")
+    
+    # Create Function URL
+    url_response = lambda_client.create_function_url_config(
+        FunctionName=function_name,
+        AuthType='NONE'
+    )
+    function_url = url_response['FunctionUrl']
+    logger.info(f"Created Function URL for {function_name}: {function_url}")
+    
+    lambda_client.add_permission(
+        FunctionName=function_name,
+        StatementId='FunctionURLPublicAccess',
+        Action='lambda:InvokeFunctionUrl',
+        Principal='*',
+        FunctionUrlAuthType='NONE'
+    )
+    
+    return function_url
 
-    # Find API by name
-    response = apigw_client.get_apis()
-    api_id = None
-    for api in response.get("Items", []):
-        if api["Name"] == api_name:
-            api_id = api["ApiId"]
-            break
 
-    if not api_id:
-        return
-
-    # Remove Lambda permission
+def destroy_hot_reader_function_url(provider: 'AWSProvider') -> None:
+    """Destroys Function URL from Hot Reader Lambda."""
+    function_name = provider.naming.hot_reader_lambda_function()
+    lambda_client = provider.clients["lambda"]
+    
     try:
-        lambda_client.remove_permission(
-            FunctionName=provider.naming.hot_reader_lambda_function(),
-            StatementId="apigw-invoke"
-        )
-    except ClientError:
-        pass
+        lambda_client.delete_function_url_config(FunctionName=function_name)
+        logger.info(f"Deleted Function URL for: {function_name}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ResourceNotFoundException":
+            raise
 
-    apigw_client.delete_api(ApiId=api_id)
-    logger.info(f"Deleted API Gateway: {api_name}")
+
+def destroy_hot_reader_last_entry_function_url(provider: 'AWSProvider') -> None:
+    """Destroys Function URL from Hot Reader Last Entry Lambda."""
+    function_name = provider.naming.hot_reader_last_entry_lambda_function()
+    lambda_client = provider.clients["lambda"]
+    
+    try:
+        lambda_client.delete_function_url_config(FunctionName=function_name)
+        logger.info(f"Deleted Function URL for: {function_name}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ResourceNotFoundException":
+            raise
 
 
 # ==========================================
-# 10. Info / Status Checks
+# 10. Digital Twin Data Connector (Multi-Cloud L3→L4)
+# ==========================================
+# Deployed on L4's cloud when L3 ≠ L4. Acts as adapter for TwinMaker
+# which can only invoke local Lambdas, not make HTTP calls.
+
+def create_digital_twin_data_connector_iam_role(provider: 'AWSProvider') -> None:
+    """Creates IAM Role for the Digital Twin Data Connector Lambda."""
+    role_name = provider.naming.digital_twin_data_connector_iam_role()
+    iam_client = provider.clients["iam"]
+
+    iam_client.create_role(
+        RoleName=role_name,
+        AssumeRolePolicyDocument=json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": {"Service": "lambda.amazonaws.com"},
+                "Action": "sts:AssumeRole"
+            }]
+        })
+    )
+    logger.info(f"Created IAM role: {role_name}")
+
+    iam_client.attach_role_policy(
+        RoleName=role_name,
+        PolicyArn=CONSTANTS.AWS_POLICY_LAMBDA_BASIC_EXECUTION
+    )
+    # If single-cloud, needs Lambda invoke permission for local Hot Reader
+    iam_client.attach_role_policy(
+        RoleName=role_name,
+        PolicyArn=CONSTANTS.AWS_POLICY_LAMBDA_ROLE
+    )
+    logger.info(f"Attached policies to {role_name}")
+    time.sleep(20)  # Wait for IAM propagation
+
+
+def destroy_digital_twin_data_connector_iam_role(provider: 'AWSProvider') -> None:
+    _destroy_iam_role(provider, provider.naming.digital_twin_data_connector_iam_role())
+
+
+def create_digital_twin_data_connector_lambda_function(
+    provider: 'AWSProvider', 
+    config: 'ProjectConfig', 
+    project_path: str,
+    remote_reader_url: str = "",
+    inter_cloud_token: str = ""
+) -> None:
+    """Creates the Digital Twin Data Connector Lambda.
+    
+    Args:
+        provider: AWS Provider
+        config: Project config
+        project_path: Path to project
+        remote_reader_url: URL of remote Hot Reader (if multi-cloud)
+        inter_cloud_token: Token for X-Inter-Cloud-Token header (if multi-cloud)
+    """
+    function_name = provider.naming.digital_twin_data_connector_lambda_function()
+    role_name = provider.naming.digital_twin_data_connector_iam_role()
+    iam_client = provider.clients["iam"]
+    lambda_client = provider.clients["lambda"]
+
+    response = iam_client.get_role(RoleName=role_name)
+    role_arn = response['Role']['Arn']
+
+    core_lambda_dir = os.path.join(project_path, CONSTANTS.AWS_CORE_LAMBDA_DIR_NAME)
+    
+    env_vars = {
+        "DIGITAL_TWIN_INFO": json.dumps(_get_digital_twin_info(config)),
+    }
+    
+    # Multi-cloud: route to remote Hot Reader via HTTP
+    if remote_reader_url:
+        env_vars["REMOTE_READER_URL"] = remote_reader_url
+        env_vars["INTER_CLOUD_TOKEN"] = inter_cloud_token
+    else:
+        # Single-cloud: direct invoke of local Hot Reader
+        env_vars["LOCAL_HOT_READER_NAME"] = provider.naming.hot_reader_lambda_function()
+
+    import src.util as util
+    lambda_client.create_function(
+        FunctionName=function_name,
+        Runtime="python3.13",
+        Role=role_arn,
+        Handler="lambda_function.lambda_handler",
+        Code={"ZipFile": util.compile_lambda_function(os.path.join(core_lambda_dir, "digital-twin-data-connector"))},
+        Description="Digital Twin Data Connector: Routes TwinMaker to Hot Reader",
+        Timeout=30,
+        MemorySize=128,
+        Publish=True,
+        Environment={"Variables": env_vars}
+    )
+    logger.info(f"Created Lambda function: {function_name}")
+
+
+def destroy_digital_twin_data_connector_lambda_function(provider: 'AWSProvider') -> None:
+    _destroy_lambda(provider, provider.naming.digital_twin_data_connector_lambda_function())
+
+
+def create_digital_twin_data_connector_last_entry_iam_role(provider: 'AWSProvider') -> None:
+    """Creates IAM Role for the Digital Twin Data Connector Last Entry Lambda."""
+    role_name = provider.naming.digital_twin_data_connector_last_entry_iam_role()
+    iam_client = provider.clients["iam"]
+
+    iam_client.create_role(
+        RoleName=role_name,
+        AssumeRolePolicyDocument=json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": {"Service": "lambda.amazonaws.com"},
+                "Action": "sts:AssumeRole"
+            }]
+        })
+    )
+    logger.info(f"Created IAM role: {role_name}")
+
+    iam_client.attach_role_policy(
+        RoleName=role_name,
+        PolicyArn=CONSTANTS.AWS_POLICY_LAMBDA_BASIC_EXECUTION
+    )
+    iam_client.attach_role_policy(
+        RoleName=role_name,
+        PolicyArn=CONSTANTS.AWS_POLICY_LAMBDA_ROLE
+    )
+    time.sleep(20)
+
+
+def destroy_digital_twin_data_connector_last_entry_iam_role(provider: 'AWSProvider') -> None:
+    _destroy_iam_role(provider, provider.naming.digital_twin_data_connector_last_entry_iam_role())
+
+
+def create_digital_twin_data_connector_last_entry_lambda_function(
+    provider: 'AWSProvider', 
+    config: 'ProjectConfig', 
+    project_path: str,
+    remote_reader_url: str = "",
+    inter_cloud_token: str = ""
+) -> None:
+    """Creates the Digital Twin Data Connector Last Entry Lambda."""
+    function_name = provider.naming.digital_twin_data_connector_last_entry_lambda_function()
+    role_name = provider.naming.digital_twin_data_connector_last_entry_iam_role()
+    iam_client = provider.clients["iam"]
+    lambda_client = provider.clients["lambda"]
+
+    response = iam_client.get_role(RoleName=role_name)
+    role_arn = response['Role']['Arn']
+
+    core_lambda_dir = os.path.join(project_path, CONSTANTS.AWS_CORE_LAMBDA_DIR_NAME)
+    
+    env_vars = {
+        "DIGITAL_TWIN_INFO": json.dumps(_get_digital_twin_info(config)),
+    }
+    
+    if remote_reader_url:
+        env_vars["REMOTE_READER_URL"] = remote_reader_url
+        env_vars["INTER_CLOUD_TOKEN"] = inter_cloud_token
+    else:
+        env_vars["LOCAL_HOT_READER_LAST_ENTRY_NAME"] = provider.naming.hot_reader_last_entry_lambda_function()
+
+    import src.util as util
+    lambda_client.create_function(
+        FunctionName=function_name,
+        Runtime="python3.13",
+        Role=role_arn,
+        Handler="lambda_function.lambda_handler",
+        Code={"ZipFile": util.compile_lambda_function(os.path.join(core_lambda_dir, "digital-twin-data-connector-last-entry"))},
+        Description="Digital Twin Data Connector Last Entry: Routes TwinMaker to Hot Reader",
+        Timeout=30,
+        MemorySize=128,
+        Publish=True,
+        Environment={"Variables": env_vars}
+    )
+    logger.info(f"Created Lambda function: {function_name}")
+
+
+def destroy_digital_twin_data_connector_last_entry_lambda_function(provider: 'AWSProvider') -> None:
+    _destroy_lambda(provider, provider.naming.digital_twin_data_connector_last_entry_lambda_function())
+
+
+# ==========================================
+# 11. Info / Status Checks
 # ==========================================
 
 def _links():

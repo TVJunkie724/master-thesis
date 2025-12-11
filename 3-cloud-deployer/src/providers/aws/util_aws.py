@@ -295,87 +295,10 @@ def get_lambda_arn_by_name(function_name: str, lambda_client=None):
     return response["Configuration"]["FunctionArn"]
 
 
-def get_api_id_by_name(api_name, apigateway_client=None):
-    """Get API Gateway ID by name.
-    
-    Args:
-        api_name: Name of the API
-        apigateway_client: Optional boto3 API Gateway client
-    """
-    if apigateway_client is None:
-        raise ValueError("apigateway_client is required")
-        
-    paginator = apigateway_client.get_paginator('get_apis')
+# ======================
+# API Gateway Functions (REMOVED)
+# ======================
+# NOTE: API Gateway was removed in favor of Lambda Function URLs
+# which provide simpler cross-cloud access with X-Inter-Cloud-Token.
+# See implementation plan: 2025-12-10_22-45_hot_reader_multi_cloud.md
 
-    for page in paginator.paginate():
-        for api in page["Items"]:
-            if api["Name"] == api_name:
-                return api["ApiId"]
-
-    return None
-
-
-def get_api_route_id_by_key(route_key, api_name: str = None, apigateway_client=None):
-    """Get API route ID by route key.
-    
-    Args:
-        route_key: Route key to find
-        api_name: API name (required)
-        apigateway_client: Optional API Gateway client
-    """
-    if apigateway_client is None:
-        raise ValueError("apigateway_client is required")
-    if api_name is None:
-        raise ValueError("api_name is required")
-        
-    api_id = get_api_id_by_name(api_name, apigateway_client)
-    paginator = apigateway_client.get_paginator("get_routes")
-
-    for page in paginator.paginate(ApiId=api_id):
-        for route in page["Items"]:
-            if route["RouteKey"] == route_key:
-                return route["RouteId"]
-
-    return None
-
-
-def get_api_integration_id_by_uri(integration_uri, api_name: str = None, apigateway_client=None):
-    """Get API integration ID by URI.
-    
-    Args:
-        integration_uri: Integration URI to find
-        api_name: API name (required)
-        apigateway_client: Optional API Gateway client
-    """
-    if apigateway_client is None:
-        raise ValueError("apigateway_client is required")
-    if api_name is None:
-        raise ValueError("api_name is required")
-        
-    api_id = get_api_id_by_name(api_name, apigateway_client)
-    paginator = apigateway_client.get_paginator("get_integrations")
-
-    for page in paginator.paginate(ApiId=api_id):
-        for integration in page["Items"]:
-            if integration.get("IntegrationUri") == integration_uri:
-                return integration["IntegrationId"]
-
-    return None
-
-
-def link_to_api(api_id, region: str = None):
-    if region is None:
-        raise ValueError("region is required")
-    return f"https://console.aws.amazon.com/apigateway/home?region={region}#/apis/{api_id}"
-
-
-def link_to_api_integration(api_id, integration_id, region: str = None):
-    if region is None:
-        raise ValueError("region is required")
-    return f"https://console.aws.amazon.com/apigateway/home?region={region}#/apis/{api_id}/integrations/{integration_id}"
-
-
-def link_to_api_route(api_id, route_id, region: str = None):
-    if region is None:
-        raise ValueError("region is required")
-    return f"https://console.aws.amazon.com/apigateway/home?region={region}#/apis/{api_id}/routes/{route_id}"

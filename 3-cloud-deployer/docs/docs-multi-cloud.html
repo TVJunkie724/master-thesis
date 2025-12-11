@@ -33,6 +33,126 @@
                 seamless data flow. For example: AWS IoT Core (L1) → Azure Functions (L2) → GCP Firestore (L3).
             </div>
 
+            <!-- Table of Contents -->
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Table of Contents</h2>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Configuration</h5>
+                        <ul>
+                            <li><a href="#provider-config">Provider Configuration</a></li>
+                            <li><a href="#inter-cloud-config">Inter-Cloud Configuration</a></li>
+                            <li><a href="#payload-envelope">Payload Envelope Format</a></li>
+                            <li><a href="#authentication">Authentication (X-Inter-Cloud-Token)</a></li>
+                        </ul>
+                        <h5>Data Flow Patterns</h5>
+                        <ul>
+                            <li><a href="#universal-pattern">Universal Gluecode Pattern</a> ← Start here!</li>
+                            <li><a href="#cross-cloud-flow">Cross-Cloud Data Flow (L1→L2→L3)</a></li>
+                            <li><a href="#l3-storage-tiers">L3 Storage Tier Transfers</a></li>
+                            <li><a href="#l3-l4-l5-access">L3→L4/L5 Data Access</a></li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>AWS Components</h5>
+                        <ul>
+                            <li><a href="#aws-components">AWS Multi-Cloud Components</a></li>
+                            <li><a href="#deployment-order">Deployment Order</a></li>
+                        </ul>
+                        <h5>Reference</h5>
+                        <ul>
+                            <li><a href="#error-handling">Error Handling</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Universal Pattern Section -->
+            <div class="card mb-4" id="universal-pattern">
+                <h2 class="mb-3"><i class="fa-solid fa-arrows-turn-right me-2"></i>Universal Gluecode Pattern</h2>
+
+                <div class="callout tip mb-3">
+                    <strong><i class="fa-solid fa-key me-2"></i>Key Insight</strong>
+                    All multi-cloud gluecode follows the <strong>same universal pattern</strong>: a Connector/Requester
+                    function sends data via HTTP POST with <code>X-Inter-Cloud-Token</code> to an
+                    Ingestion/Writer/Reader
+                    function on the target cloud.
+                </div>
+
+                <pre class="bg-dark text-light p-3 rounded mb-4"
+                    style="font-family: 'Courier New', monospace; font-size: 0.85rem; overflow-x: auto;"><code>
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                           UNIVERSAL GLUECODE PATTERN                           │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
+│   SOURCE CLOUD                                    TARGET CLOUD                 │
+│   ┌─────────────────────────┐                    ┌─────────────────────────┐   │
+│   │  Connector / Requester  │     HTTP POST      │  Ingestion / Writer /   │   │
+│   │  ┌───────────────────┐  │                    │  Reader                 │   │
+│   │  │ 1. Wrap payload   │  │    ┌──────────┐    │  ┌───────────────────┐  │   │
+│   │  │ 2. Add X-Token    │──┼───►│  HTTPS   │────┼─►│ 1. Validate token │  │   │
+│   │  │ 3. POST to URL    │  │    └──────────┘    │  │ 2. Process data   │  │   │
+│   │  └───────────────────┘  │                    │  │ 3. Store/Forward  │  │   │
+│   └─────────────────────────┘                    │  └───────────────────┘  │   │
+│                                                  └─────────────────────────┘   │
+│                                                                                │
+│   Header: X-Inter-Cloud-Token: {shared_secret}                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+
+                <h4>Pattern Usage by Layer</h4>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Scenario</th>
+                            <th>Source Function</th>
+                            <th>Target Function</th>
+                            <th>Data Direction</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>L1 ≠ L2</td>
+                            <td><strong>Connector</strong> (L1)</td>
+                            <td><strong>Ingestion</strong> (L2)</td>
+                            <td>IoT data → Processing</td>
+                        </tr>
+                        <tr>
+                            <td>L2 ≠ L3</td>
+                            <td><strong>Persister</strong> (L2)</td>
+                            <td><strong>Writer</strong> (L3)</td>
+                            <td>Processed data → Hot Storage</td>
+                        </tr>
+                        <tr>
+                            <td>L3 Hot ≠ L3 Cold</td>
+                            <td><strong>Hot-to-Cold Mover</strong></td>
+                            <td><strong>Cold Writer</strong></td>
+                            <td>Hot → Cold archival</td>
+                        </tr>
+                        <tr>
+                            <td>L3 Cold ≠ L3 Archive</td>
+                            <td><strong>Cold-to-Archive Mover</strong></td>
+                            <td><strong>Archive Writer</strong></td>
+                            <td>Cold → Archive archival</td>
+                        </tr>
+                        <tr>
+                            <td>L3 ≠ L4</td>
+                            <td><strong>DT Data Connector</strong> (L4)</td>
+                            <td><strong>Hot Reader</strong> (L3)</td>
+                            <td>Visualization ← Data query</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="callout info">
+                    <strong><i class="fa-solid fa-circle-info me-2"></i>Single-Cloud vs Multi-Cloud</strong>
+                    <p class="mb-0">In <strong>single-cloud</strong> scenarios (same cloud for adjacent layers), the
+                        Connector/Requester function is <strong>not needed</strong>. The source function invokes the
+                        target
+                        directly. The pattern only applies when layers span different clouds.</p>
+                </div>
+            </div>
+
             <!-- Provider Configuration Section -->
             <div class="card mb-4">
                 <h2 class="mb-3"><i class="fa-solid fa-gear me-2"></i>Provider Configuration</h2>

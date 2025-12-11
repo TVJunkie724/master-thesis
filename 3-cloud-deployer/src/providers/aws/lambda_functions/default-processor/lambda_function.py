@@ -3,8 +3,17 @@ import json
 import boto3
 
 
-DIGITAL_TWIN_INFO = json.loads(os.environ.get("DIGITAL_TWIN_INFO", None))
-PERSISTER_LAMBDA_NAME = os.environ.get("PERSISTER_LAMBDA_NAME", None)
+def _require_env(name: str) -> str:
+    """Get required environment variable or raise error at module load time."""
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise EnvironmentError(f"CRITICAL: Required environment variable '{name}' is missing or empty")
+    return value
+
+
+# Required environment variables - fail fast if missing
+DIGITAL_TWIN_INFO = json.loads(_require_env("DIGITAL_TWIN_INFO"))
+PERSISTER_LAMBDA_NAME = _require_env("PERSISTER_LAMBDA_NAME")
 
 lambda_client = boto3.client("lambda")
 

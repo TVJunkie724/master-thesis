@@ -21,7 +21,6 @@ def deploy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> None
         create_hot_reader_lambda_function,
         create_hot_reader_last_entry_iam_role,
         create_hot_reader_last_entry_lambda_function,
-        create_l3_api_gateway,
         # Multi-cloud: Writer
         create_writer_iam_role,
         create_writer_lambda_function,
@@ -37,10 +36,7 @@ def deploy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> None
     create_hot_reader_lambda_function(provider, context.config, project_path)
     create_hot_reader_last_entry_iam_role(provider)
     create_hot_reader_last_entry_lambda_function(provider, context.config, project_path)
-    
-    if context.config.should_deploy_api_gateway("aws"):
-        create_l3_api_gateway(provider, context.config)
-    
+        
     # Multi-cloud: Writer (when L2 is on different cloud)
     # NOTE: No fallbacks - missing provider config is a critical error
     l2_provider = context.config.providers["layer_2_provider"]
@@ -81,7 +77,6 @@ def destroy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> Non
         destroy_hot_reader_iam_role,
         destroy_hot_reader_last_entry_lambda_function,
         destroy_hot_reader_last_entry_iam_role,
-        destroy_l3_api_gateway,
         # Multi-cloud: Writer
         destroy_writer_lambda_function,
         destroy_writer_iam_role,
@@ -100,7 +95,7 @@ def destroy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> Non
         destroy_writer_lambda_function(provider)
         destroy_writer_iam_role(provider)
     
-    destroy_l3_api_gateway(provider)
+    # NOTE: API Gateway removed - using Lambda Function URLs instead
     destroy_hot_reader_last_entry_lambda_function(provider)
     destroy_hot_reader_last_entry_iam_role(provider)
     destroy_hot_reader_lambda_function(provider)

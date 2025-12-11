@@ -212,92 +212,9 @@ class TestProviderConfigValidation:
         with pytest.raises(KeyError, match="layer_3_hot_provider"):
             create_persister_lambda_function(mock_provider, mock_config, "/mock/path")
 
-    # ==========================================
-    # Context.py - should_deploy_api_gateway Tests
-    # ==========================================
-
-    def test_should_deploy_api_gateway_missing_l3_hot_fails(self):
-        """should_deploy_api_gateway() should fail when layer_3_hot_provider is missing."""
-        from src.core.context import ProjectConfig
-        
-        config = ProjectConfig(
-            digital_twin_name="test",
-            hot_storage_size_in_days=7,
-            cold_storage_size_in_days=30,
-            mode="dev",
-            providers={
-                "layer_1_provider": "aws",
-                "layer_2_provider": "aws",
-                # Missing: "layer_3_hot_provider"
-            }
-        )
-        
-        with pytest.raises(KeyError, match="layer_3_hot_provider"):
-            config.should_deploy_api_gateway("aws")
-
-    def test_should_deploy_api_gateway_with_complete_config_succeeds(self):
-        """should_deploy_api_gateway() should work when all providers are present."""
-        from src.core.context import ProjectConfig
-        
-        config = ProjectConfig(
-            digital_twin_name="test",
-            hot_storage_size_in_days=7,
-            cold_storage_size_in_days=30,
-            mode="dev",
-            providers={
-                "layer_1_provider": "aws",
-                "layer_2_provider": "aws",
-                "layer_3_hot_provider": "aws",
-                "layer_4_provider": "aws",
-                "layer_5_provider": "aws",
-            }
-        )
-        
-        # Should not raise, and should return False (all same cloud)
-        result = config.should_deploy_api_gateway("aws")
-        assert result is False
-
-    def test_should_deploy_api_gateway_missing_l4_fails(self):
-        """should_deploy_api_gateway() should fail when layer_4_provider is missing."""
-        from src.core.context import ProjectConfig
-        
-        config = ProjectConfig(
-            digital_twin_name="test",
-            hot_storage_size_in_days=7,
-            cold_storage_size_in_days=30,
-            mode="dev",
-            providers={
-                "layer_1_provider": "aws",
-                "layer_2_provider": "aws",
-                "layer_3_hot_provider": "aws",
-                # Missing: "layer_4_provider"
-                "layer_5_provider": "aws",
-            }
-        )
-        
-        with pytest.raises(KeyError, match="layer_4_provider"):
-            config.should_deploy_api_gateway("aws")
-
-    def test_should_deploy_api_gateway_missing_l5_fails(self):
-        """should_deploy_api_gateway() should fail when layer_5_provider is missing."""
-        from src.core.context import ProjectConfig
-        
-        config = ProjectConfig(
-            digital_twin_name="test",
-            hot_storage_size_in_days=7,
-            cold_storage_size_in_days=30,
-            mode="dev",
-            providers={
-                "layer_1_provider": "aws",
-                "layer_2_provider": "aws",
-                "layer_3_hot_provider": "aws",
-                "layer_4_provider": "aws",
-                # Missing: "layer_5_provider"
-            }
-        )
-        
-        with pytest.raises(KeyError, match="layer_5_provider"):
-            config.should_deploy_api_gateway("aws")
+    # NOTE: should_deploy_api_gateway tests removed - function was removed
+    # in favor of Lambda Function URLs. See implementation plan:
+    # 2025-12-10_22-45_hot_reader_multi_cloud.md
 
     # ==========================================
     # create_processor_lambda_function Tests (layer_2_compute.py)

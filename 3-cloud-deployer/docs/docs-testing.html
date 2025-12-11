@@ -44,6 +44,132 @@
                 </div>
             </div>
 
+            <!-- Test Statistics -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-chart-bar me-2"></i>Test Statistics</h2>
+
+                    <div class="row">
+                        <div class="col-md-4 text-center mb-3">
+                            <div class="display-4 text-primary fw-bold">441</div>
+                            <div class="text-muted">Total Tests</div>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <div class="display-4 text-success fw-bold">41</div>
+                            <div class="text-muted">Test Files</div>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <div class="display-4 text-info fw-bold">100%</div>
+                            <div class="text-muted">Pass Rate</div>
+                        </div>
+                    </div>
+
+                    <h4 class="mt-4">By Category</h4>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Files</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Unit Tests</strong></td>
+                                <td>16</td>
+                                <td>Validation, utilities, Lambda function logic</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Integration Tests</strong></td>
+                                <td>15</td>
+                                <td>AWS deployers with moto mocking</td>
+                            </tr>
+                            <tr>
+                                <td><strong>API Tests</strong></td>
+                                <td>4</td>
+                                <td>REST endpoints, uploads, simulator</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Deployer Tests</strong></td>
+                                <td>1</td>
+                                <td>Connector logic, multi-cloud routing</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Root Tests</strong></td>
+                                <td>5</td>
+                                <td>CLI, credentials, multi-project</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h4 class="mt-4">By Layer</h4>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Layer</th>
+                                <th>Tests</th>
+                                <th>Coverage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>L1</strong> (IoT)</td>
+                                <td>~30</td>
+                                <td>Dispatcher, IoT rules, certificates</td>
+                            </tr>
+                            <tr>
+                                <td><strong>L2</strong> (Compute)</td>
+                                <td>~60</td>
+                                <td>Persister, processors, ingestion</td>
+                            </tr>
+                            <tr>
+                                <td><strong>L3</strong> (Storage)</td>
+                                <td>~80</td>
+                                <td>DynamoDB, S3, movers, readers, writers</td>
+                            </tr>
+                            <tr>
+                                <td><strong>L4/L5</strong></td>
+                                <td>~20</td>
+                                <td>TwinMaker, Grafana (mocked)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h4 class="mt-4">Multi-Cloud Specific</h4>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Tests</th>
+                                <th>Coverage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Cross-cloud connectors</td>
+                                <td>~25</td>
+                                <td>L1→L2, L2→L3 routing</td>
+                            </tr>
+                            <tr>
+                                <td>Writers (Cold/Archive)</td>
+                                <td>~22</td>
+                                <td>Token validation, chunking</td>
+                            </tr>
+                            <tr>
+                                <td>Config validation</td>
+                                <td>~10</td>
+                                <td>Provider configs, fail-fast</td>
+                            </tr>
+                            <tr>
+                                <td>Digital Twin Data Connector</td>
+                                <td>9</td>
+                                <td>L3→L4 routing, Function URLs</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Test Categories -->
             <div class="card mb-4">
                 <div class="card-body">
@@ -106,8 +232,8 @@
                                     <li><strong>L4:</strong> IoT TwinMaker Workspace & Entities
                                         (`test_aws_l4_l5_mocked.py`)</li>
                                     <li><strong>L5:</strong> Grafana Workspace & Roles (`test_aws_l4_l5_mocked.py`)</li>
-                                    <li><strong>API Gateway:</strong> Routes, Stages, & Integrations
-                                        (`test_aws_api_gateway.py`)</li>
+                                    <li><strong>Multi-Cloud L3L4:</strong> Digital Twin Data Connector
+                                        (`test_aws_digital_twin_data_connector.py`)</li>
                                 </ul>
                             </div>
                         </div>
@@ -186,7 +312,7 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
     ├── test_api_validation.py            # API validation integration tests
     ├── aws/
     │   ├── conftest.py                   # AWS-specific fixtures (moto clients)
-    │   ├── test_aws_api_gateway.py       # API Gateway routes & stages
+    │   ├── test_aws_digital_twin_data_connector.py  # Multi-Cloud L3→L4 Data Connector
     │   ├── test_aws_dynamic_deployment.py # Dynamic deployment scenarios
     │   ├── test_aws_event_actions.py     # Event action handling
     │   ├── test_aws_l1_dispatcher.py     # L1: Dispatcher & IAM

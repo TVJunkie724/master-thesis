@@ -110,10 +110,13 @@ REQUIRED_AWS_PERMISSIONS = {
             "events:ListTargetsByRule",
         ],
         "lambda": [
-            # Multi-cloud: Function URL permissions for Writer
+            # Multi-cloud: Function URL permissions for Writer and Hot Readers
             "lambda:CreateFunctionUrlConfig",
             "lambda:DeleteFunctionUrlConfig",
             "lambda:GetFunctionUrlConfig",
+            # Multi-cloud: Update Lambda config to inject INTER_CLOUD_TOKEN
+            "lambda:GetFunctionConfiguration",
+            "lambda:UpdateFunctionConfiguration",
         ],
     },
     "layer_4": {
@@ -134,6 +137,10 @@ REQUIRED_AWS_PERMISSIONS = {
         ],
         "s3": [
             # TwinMaker S3 bucket - same permissions as layer_3
+        ],
+        "lambda": [
+            # Multi-cloud: Digital Twin Data Connector Lambda (L3 ≠ L4)
+            # Needs same permissions as layer_1 for Lambda functions
         ],
     },
     "layer_5": {
