@@ -85,19 +85,7 @@ def deploy_l2(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
         logger.info("[L2] Deploying Event Action Lambdas...")
         deploy_lambda_actions(provider, context.config, user_project_root)
 
-    # 5. Multi-cloud: Ingestion (when L1 is on different cloud)
-    # NOTE: No fallbacks - missing provider config is a critical error
-    l1_provider = context.config.providers["layer_1_provider"]
-    l2_provider = context.config.providers["layer_2_provider"]
-    
-    if l1_provider != l2_provider:
-        import time
-        logger.info(f"[L2] Multi-cloud: Deploying Ingestion (L1 on {l1_provider}, L2 on {l2_provider})")
-        create_ingestion_iam_role(provider)
-        time.sleep(10)  # Wait for IAM propagation
-        ingestion_url = create_ingestion_lambda_function(provider, context.config, tool_root)
-        logger.info(f"[L2] Multi-cloud: Ingestion URL: {ingestion_url}")
-        # TODO: Store this URL in a way that can be used to configure remote Connector
+    # NOTE: Ingestion (multi-cloud L1→L2 receiver) is now deployed by L0 adapter
 
     logger.info(f"[L2] Layer 2 deployment complete")
 
@@ -131,16 +119,7 @@ def destroy_l2(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     context.set_active_layer(2)
     
     # Destroy in reverse order
-    
-    # 5. Multi-cloud: Ingestion (when L1 is on different cloud)
-    # NOTE: No fallbacks - missing provider config is a critical error
-    l1_provider = context.config.providers["layer_1_provider"]
-    l2_provider = context.config.providers["layer_2_provider"]
-    
-    if l1_provider != l2_provider:
-        logger.info(f"[L2] Multi-cloud: Destroying Ingestion")
-        destroy_ingestion_lambda_function(provider)
-        destroy_ingestion_iam_role(provider)
+    # NOTE: Ingestion (multi-cloud L1→L2 receiver) is now destroyed by L0 adapter
     
     # 4. Event Actions
     if context.config.events:

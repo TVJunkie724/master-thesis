@@ -41,7 +41,7 @@ class TestValidatorProviderRequirements:
             
             # Providers WITHOUT layer_2_provider
             with open(os.path.join(project_dir, "config_providers.json"), 'w') as f:
-                json.dump({"layer_1_provider": "aws", "layer_3_hot_provider": "aws"}, f)
+                json.dump({"layer_1_provider": "aws", "layer_3_hot_provider": "aws", "layer_4_provider": "aws"}, f)
             
             with pytest.raises(ValueError, match="layer_2_provider"):
                 verify_project_structure(project_name, project_path=tmpdir)
@@ -74,7 +74,7 @@ class TestValidatorProviderRequirements:
             
             # Providers WITH layer_2_provider
             with open(os.path.join(project_dir, "config_providers.json"), 'w') as f:
-                json.dump({"layer_1_provider": "aws", "layer_2_provider": "aws", "layer_3_hot_provider": "aws"}, f)
+                json.dump({"layer_1_provider": "aws", "layer_2_provider": "aws", "layer_3_hot_provider": "aws", "layer_4_provider": "aws"}, f)
             
             # AWS State Machine
             with open(os.path.join(sm_dir, "aws_step_function.json"), 'w') as f:

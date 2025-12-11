@@ -21,9 +21,12 @@ def deploy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> None
         create_hot_reader_lambda_function,
         create_hot_reader_last_entry_iam_role,
         create_hot_reader_last_entry_lambda_function,
-        # Multi-cloud: Writer
-        create_writer_iam_role,
-        create_writer_lambda_function,
+        # Multi-cloud: Writer (L2→L3)
+        create_hot_writer_iam_role,
+        create_hot_writer_lambda_function,
+        # Multi-cloud: Hot Reader Function URL (L3→L4)
+        create_hot_reader_function_url,
+        create_hot_reader_last_entry_function_url,
     )
     
     logger.info(f"[L3-Hot] Deploying Layer 3 Hot Storage for {context.config.digital_twin_name}")
@@ -36,35 +39,9 @@ def deploy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> None
     create_hot_reader_lambda_function(provider, context.config, project_path)
     create_hot_reader_last_entry_iam_role(provider)
     create_hot_reader_last_entry_lambda_function(provider, context.config, project_path)
-        
-    # Multi-cloud: Writer (when L2 is on different cloud)
-    # NOTE: No fallbacks - missing provider config is a critical error
-    l2_provider = context.config.providers["layer_2_provider"]
-    l3_provider = context.config.providers["layer_3_hot_provider"]
     
-    if l2_provider != l3_provider:
-        import time
-        import secrets
-        from src.core.config_loader import save_inter_cloud_connection
-        
-        logger.info(f"[L3-Hot] Multi-cloud: Deploying Writer (L2 on {l2_provider}, L3 on {l3_provider})")
-        create_writer_iam_role(provider)
-        time.sleep(10)  # Wait for IAM propagation
-        
-        # Generate token for inter-cloud auth
-        token = secrets.token_urlsafe(32)
-        writer_url = create_writer_lambda_function(provider, context.config, project_path)
-        logger.info(f"[L3-Hot] Multi-cloud: Writer URL: {writer_url}")
-        
-        # Persist connection info for remote Persister
-        conn_id = f"{l2_provider}_l2_to_aws_l3"
-        save_inter_cloud_connection(
-            project_path=context.project_path.parent.parent,
-            conn_id=conn_id,
-            url=writer_url,
-            token=token
-        )
-        logger.info(f"[L3-Hot] Saved inter-cloud connection: {conn_id}")
+    # NOTE: Hot Writer, Cold Writer, Archive Writer, and Hot Reader Function URLs 
+    # (multi-cloud receivers) are now deployed by L0 adapter
     
     logger.info(f"[L3-Hot] Layer 3 Hot Storage deployment complete")
 
@@ -77,9 +54,12 @@ def destroy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> Non
         destroy_hot_reader_iam_role,
         destroy_hot_reader_last_entry_lambda_function,
         destroy_hot_reader_last_entry_iam_role,
-        # Multi-cloud: Writer
-        destroy_writer_lambda_function,
-        destroy_writer_iam_role,
+        # Multi-cloud: Writer (L2→L3)
+        destroy_hot_writer_lambda_function,
+        destroy_hot_writer_iam_role,
+        # Multi-cloud: Hot Reader Function URL (L3→L4)
+        destroy_hot_reader_function_url,
+        destroy_hot_reader_last_entry_function_url,
     )
     
     logger.info(f"[L3-Hot] Destroying Layer 3 Hot Storage for {context.config.digital_twin_name}")
@@ -92,8 +72,16 @@ def destroy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> Non
     
     if l2_provider != l3_provider:
         logger.info(f"[L3-Hot] Multi-cloud: Destroying Writer")
-        destroy_writer_lambda_function(provider)
-        destroy_writer_iam_role(provider)
+        destroy_hot_writer_lambda_function(provider)
+        destroy_hot_writer_iam_role(provider)
+    
+    # Multi-cloud: Hot Reader Function URL (when L4 is on different cloud)
+    l4_provider = context.config.providers["layer_4_provider"]
+    
+    if l3_provider != l4_provider:
+        logger.info(f"[L3-Hot] Multi-cloud: Destroying Hot Reader Function URLs")
+        destroy_hot_reader_function_url(provider)
+        destroy_hot_reader_last_entry_function_url(provider)
     
     # NOTE: API Gateway removed - using Lambda Function URLs instead
     destroy_hot_reader_last_entry_lambda_function(provider)

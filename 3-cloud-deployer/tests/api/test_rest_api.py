@@ -66,11 +66,10 @@ def test_recreate_updated_events(mock_redeploy_checker, mock_destroy, mock_deplo
 @patch("src.validator.verify_project_structure")
 @patch("src.api.deployment.create_context")
 @patch("src.api.deployment.core_deployer.deploy_all")
-@patch("src.api.deployment.iot_deployer.deploy")
 @patch("src.api.deployment.hierarchy_deployer_aws.create_twinmaker_hierarchy")
 @patch("src.api.deployment.event_action_deployer_aws.deploy_lambda_actions")
 @patch("src.api.deployment.init_values_deployer_aws.post_init_values_to_iot_core")
-def test_deploy_all_verification(mock_init, mock_event, mock_hier, mock_iot, mock_core, mock_create_context, mock_verify):
+def test_deploy_all_verification(mock_init, mock_event, mock_hier, mock_core, mock_create_context, mock_verify):
     """Verify deploy_all calls verify_project_structure."""
     mock_context = mock_create_context.return_value
     response = client.post("/deploy?provider=aws&project_name=template")

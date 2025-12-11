@@ -32,8 +32,31 @@
                 <code><a href="/redoc">/redoc</a></code>
             </div>
 
-            <!-- Deployment Endpoints -->
+            <!-- Table of Contents -->
             <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Table of Contents</h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#deployment">Deployment Endpoints</a></li>
+                                <li><a href="#status">Status/Info Endpoints</a></li>
+                                <li><a href="#lambda">AWS Lambda Management</a></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#projects">Projects Endpoints</a></li>
+                                <li><a href="#credentials">Credential Validation</a></li>
+                                <li><a href="#errors">Error Responses</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Deployment Endpoints -->
+            <div class="card mb-4" id="deployment">
                 <h2 class="mb-3"><i class="fa-solid fa-rocket me-2"></i>Deployment Endpoints</h2>
 
                 <h3 class="mt-4">POST /deploy</h3>
@@ -121,7 +144,7 @@
             </div>
 
             <!-- Status Endpoints -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="status">
                 <h2 class="mb-3"><i class="fa-solid fa-info-circle me-2"></i>Status/Info Endpoints</h2>
 
                 <h3 class="mt-4">GET /check</h3>
@@ -186,7 +209,7 @@
             </div>
 
             <!-- AWS Lambda Management -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="lambda">
                 <h2 class="mb-3"><i class="fa-brands fa-aws me-2"></i>AWS Lambda Management</h2>
 
                 <h3 class="mt-4">POST /lambda_update</h3>
@@ -238,7 +261,7 @@
             </div>
 
             <!-- Projects Endpoints -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="projects">
                 <h2 class="mb-3"><i class="fa-solid fa-folder me-2"></i>Projects Endpoints</h2>
 
                 <h3 class="mt-4">GET /projects</h3>
@@ -264,7 +287,7 @@
             </div>
 
             <!-- Credential Validation Endpoints -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="credentials">
                 <h2 class="mb-3"><i class="fa-solid fa-key me-2"></i>Credential Validation Endpoints</h2>
 
                 <div class="callout info mb-3">
@@ -370,7 +393,7 @@
             </div>
 
             <!-- Error Responses -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="errors">
                 <h2 class="mb-3"><i class="fa-solid fa-exclamation-triangle me-2"></i>Error Responses</h2>
                 <p>All endpoints return standard HTTP error codes:</p>
                 <table class="table table-striped">

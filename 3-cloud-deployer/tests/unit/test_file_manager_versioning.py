@@ -55,7 +55,8 @@ def valid_zip_bytes():
         zf.writestr(CONSTANTS.CONFIG_PROVIDERS_FILE, json.dumps({
             "layer_1_provider": "aws",
             "layer_2_provider": "aws",
-            "layer_3_hot_provider": "aws"
+            "layer_3_hot_provider": "aws",
+            "layer_4_provider": "aws"
         }))
         zf.writestr(CONSTANTS.CONFIG_OPTIMIZATION_FILE, json.dumps({"result": {}}))
     

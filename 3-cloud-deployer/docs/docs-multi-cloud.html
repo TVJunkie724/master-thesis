@@ -62,6 +62,7 @@
                         <h5>Reference</h5>
                         <ul>
                             <li><a href="#error-handling">Error Handling</a></li>
+                            <li><a href="#security-future-work">Security Future Work</a> ← NEW</li>
                         </ul>
                     </div>
                 </div>
@@ -150,6 +151,17 @@
                         Connector/Requester function is <strong>not needed</strong>. The source function invokes the
                         target
                         directly. The pattern only applies when layers span different clouds.</p>
+                </div>
+
+                <div class="callout tip mt-3">
+                    <strong><i class="fa-solid fa-code me-2"></i>Shared Module:
+                        <code>_shared/inter_cloud.py</code></strong>
+                    <p class="mb-0">All cross-cloud HTTP communication is centralized in the
+                        <code>_shared/inter_cloud.py</code> module.
+                        This provides consistent payload envelope building, exponential backoff retry logic, and token
+                        validation
+                        across all sender functions (Connector, Persister, Movers, DT Data Connector).
+                    </p>
                 </div>
             </div>
 
@@ -386,6 +398,79 @@ Legend:  ─────►  = Function invoke or HTTP POST with X-Inter-Cloud-T
                 </table>
             </div>
 
+            <!-- L3→L4 Data Access Section -->
+            <div class="card mb-4" id="l3-l4-l5-access">
+                <h2 class="mb-3"><i class="fa-solid fa-database me-2"></i>L3→L4/L5 Data Access</h2>
+
+                <p>When L4 (Twin Management) or L5 (Visualization) are on a different cloud than L3 (Storage),
+                    the <strong>Digital Twin Data Connector</strong> queries storage via HTTP:
+                </p>
+
+                <pre class="bg-dark text-light p-3 rounded" style="overflow-x: auto; font-size: 0.75rem;"><code>
+┌──────────────────────────────────────────────────────────────────────────────────────┐
+│                         MULTI-CLOUD L3→L4 DATA ACCESS FLOW                           │
+├──────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│  Azure L4 (TwinMaker)                             AWS L3 (Storage)                   │
+│  ┌──────────────────────────┐                     ┌──────────────────────────┐       │
+│  │     IoT TwinMaker        │                     │        DynamoDB          │       │
+│  │   ┌─────────────────┐    │                     │      (Hot Storage)       │       │
+│  │   │ Digital Twin    │    │                     └───────────┬──────────────┘       │
+│  │   │ Entity/Component│    │                                 │                      │
+│  │   └────────┬────────┘    │                                 │                      │
+│  │            │             │                                 │                      │
+│  │      Query │ Data        │                                 │                      │
+│  │            ▼             │                                 │                      │
+│  │   ┌─────────────────┐    │                     ┌───────────┴──────────────┐       │
+│  │   │ DT Data         │────┼──HTTP POST─────────►│     Hot Reader Lambda    │       │
+│  │   │ Connector       │    │  X-Inter-Cloud-Token│    ┌─────────────────┐   │       │
+│  │   │ (Azure Function)│◄───┼──────────────────────│    │ Query DynamoDB  │   │       │
+│  │   │                 │    │   JSON Response      │    │ Return Results  │   │       │
+│  │   └─────────────────┘    │                     │    └─────────────────┘   │       │
+│  │                          │                     │                          │       │
+│  └──────────────────────────┘                     │    Lambda Function URL   │       │
+│                                                   │  (Public w/ Token Auth)  │       │
+│                                                   └──────────────────────────┘       │
+│                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+
+                <h4>L3→L4 Components</h4>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Location</th>
+                            <th>Purpose</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>DT Data Connector</code></td>
+                            <td>L4 (TwinMaker)</td>
+                            <td>Routes queries: local Hot Reader or remote Function URL</td>
+                        </tr>
+                        <tr>
+                            <td><code>Hot Reader</code></td>
+                            <td>L3 (Storage)</td>
+                            <td>Queries DynamoDB, returns telemetry data for TwinMaker</td>
+                        </tr>
+                        <tr>
+                            <td><code>Hot Reader Last Entry</code></td>
+                            <td>L3 (Storage)</td>
+                            <td>Returns only the most recent entry per device</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="callout info mt-3">
+                    <strong><i class="fa-solid fa-circle-info me-2"></i>Function URLs Replace API Gateway</strong>
+                    <p class="mb-0">Lambda Function URLs provide public HTTP endpoints without API Gateway overhead.
+                        Security is handled by token validation in the Lambda code (<code>X-Inter-Cloud-Token</code>).
+                    </p>
+                </div>
+            </div>
+
             <!-- Inter-Cloud Configuration Section -->
             <div class="card mb-4">
                 <h2 class="mb-3"><i class="fa-solid fa-link me-2"></i>Inter-Cloud Configuration</h2>
@@ -604,6 +689,370 @@ X-Inter-Cloud-Token: your-secure-token-here
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Security Future Work Section -->
+            <div class="card mb-4" id="security-future-work">
+                <h2 class="mb-3"><i class="fa-solid fa-shield-halved me-2"></i>Security Future Work</h2>
+
+                <div class="callout warning mb-4">
+                    <strong><i class="fa-solid fa-triangle-exclamation me-2"></i>Current Security Limitation</strong>
+                    <p class="mb-0">The current multi-cloud implementation uses a simple shared secret token
+                        (<code>X-Inter-Cloud-Token</code>) for authentication. While functional, this approach has
+                        security limitations compared to enterprise-grade API management solutions.</p>
+                </div>
+
+                <h3>Current Approach vs. API Gateway</h3>
+                <table class="table table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Feature</th>
+                            <th>Current (X-Token)</th>
+                            <th>API Gateway</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Authentication</strong></td>
+                            <td>Simple shared secret in header</td>
+                            <td>OAuth 2.0, JWT, API Keys, Lambda authorizers, mTLS</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Token Validation</strong></td>
+                            <td>String comparison in Lambda code</td>
+                            <td>Cryptographic JWT signature validation</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Token Expiration</strong></td>
+                            <td>None (static token)</td>
+                            <td>Built-in expiration claims (<code>exp</code>, <code>nbf</code>)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Rate Limiting</strong></td>
+                            <td>None</td>
+                            <td>Built-in throttling per IP/API key</td>
+                        </tr>
+                        <tr>
+                            <td><strong>DDoS Protection</strong></td>
+                            <td>None</td>
+                            <td>Built-in, AWS Shield integration</td>
+                        </tr>
+                        <tr>
+                            <td><strong>WAF Integration</strong></td>
+                            <td>None</td>
+                            <td>AWS WAF, Azure WAF, Cloud Armor</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Request Validation</strong></td>
+                            <td>Custom code in Lambda</td>
+                            <td>Schema validation at gateway level</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Audit Logging</strong></td>
+                            <td>CloudWatch (if configured)</td>
+                            <td>Comprehensive access logs, CloudTrail</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3 class="mt-4">Recommended Security Enhancements</h3>
+
+                <!-- Enhancement 1: API Gateway -->
+                <div class="card bg-dark mb-3">
+                    <div class="card-header"><strong>1. API Gateway with OAuth 2.0 / JWT</strong></div>
+                    <div class="card-body">
+                        <p><strong>Why it's more secure:</strong></p>
+                        <ul>
+                            <li>Cryptographic token validation instead of string comparison</li>
+                            <li>Tokens have built-in expiration (short-lived access tokens)</li>
+                            <li>Tokens are signed by an identity provider (cannot be forged)</li>
+                            <li>Gateway validates tokens <em>before</em> invoking the Lambda (early rejection)</li>
+                            <li>Built-in rate limiting and DDoS protection</li>
+                        </ul>
+
+                        <p><strong>Architecture change:</strong></p>
+                        <pre class="bg-dark text-light p-3 rounded" style="font-size: 0.8rem;"><code>CURRENT:
+  Connector → HTTPS + X-Token → Function URL → Ingestion
+
+PROPOSED:
+  Connector → HTTPS + JWT → API Gateway → (validate JWT) → Ingestion</code></pre>
+                    </div>
+                </div>
+
+                <!-- Enhancement 2: mTLS -->
+                <div class="card bg-dark mb-3">
+                    <div class="card-header"><strong>2. Mutual TLS (mTLS)</strong></div>
+                    <div class="card-body">
+                        <p><strong>Why it's more secure:</strong></p>
+                        <ul>
+                            <li>Two-way certificate authentication (both client and server verify each other)</li>
+                            <li>Prevents man-in-the-middle attacks even if HTTPS is bypassed</li>
+                            <li>Certificate-based identity is harder to spoof than tokens</li>
+                        </ul>
+                        <p><strong>Trade-off:</strong> Higher certificate management overhead</p>
+                    </div>
+                </div>
+
+                <!-- Enhancement 3: Token Rotation -->
+                <div class="card bg-dark mb-3">
+                    <div class="card-header"><strong>3. Automated Token Rotation</strong></div>
+                    <div class="card-body">
+                        <p><strong>Why it's more secure:</strong></p>
+                        <ul>
+                            <li>Limits damage window if a token is compromised</li>
+                            <li>Short-lived tokens (15-60 minutes) with refresh mechanism</li>
+                            <li>Tokens stored in secret managers (AWS Secrets Manager, Azure Key Vault)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3 class="mt-4">Implementation Guide: API Gateway Migration</h3>
+
+                <!-- AWS Implementation -->
+                <h4><i class="fa-brands fa-aws me-2"></i>AWS Implementation Steps</h4>
+                <ol>
+                    <li>
+                        <strong>Create API Gateway (HTTP API type)</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code># Using AWS CLI
+aws apigatewayv2 create-api \
+  --name "digital-twin-api" \
+  --protocol-type HTTP \
+  --target arn:aws:lambda:REGION:ACCOUNT:function:ingestion</code></pre>
+                    </li>
+                    <li>
+                        <strong>Configure JWT Authorizer</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code># Create authorizer with Cognito or any OIDC provider
+aws apigatewayv2 create-authorizer \
+  --api-id API_ID \
+  --authorizer-type JWT \
+  --name "jwt-authorizer" \
+  --identity-source "$request.header.Authorization" \
+  --jwt-configuration '{
+    "Issuer": "https://cognito-idp.REGION.amazonaws.com/USER_POOL_ID",
+    "Audience": ["your-client-id"]
+  }'</code></pre>
+                    </li>
+                    <li>
+                        <strong>Attach Authorizer to Route</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code>aws apigatewayv2 update-route \
+  --api-id API_ID \
+  --route-id ROUTE_ID \
+  --authorization-type JWT \
+  --authorizer-id AUTHORIZER_ID</code></pre>
+                    </li>
+                    <li>
+                        <strong>Update Connector to Obtain JWT</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code># In connector Lambda, obtain token from Cognito
+import boto3
+
+cognito = boto3.client('cognito-idp')
+response = cognito.initiate_auth(
+    ClientId='your-client-id',
+    AuthFlow='CLIENT_CREDENTIALS',
+    AuthParameters={
+        'client_id': 'your-client-id',
+        'client_secret': 'your-client-secret'
+    }
+)
+jwt_token = response['AuthenticationResult']['AccessToken']
+
+# Send request with JWT
+headers = {'Authorization': f'Bearer {jwt_token}'}</code></pre>
+                    </li>
+                    <li>
+                        <strong>Enable WAF and Rate Limiting</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code># Attach WAF to API Gateway
+aws wafv2 associate-web-acl \
+  --web-acl-arn arn:aws:wafv2:REGION:ACCOUNT:regional/webacl/NAME/ID \
+  --resource-arn arn:aws:apigateway:REGION::/restapis/API_ID/stages/STAGE</code></pre>
+                    </li>
+                </ol>
+
+                <!-- Azure Implementation -->
+                <h4 class="mt-4"><i class="fa-brands fa-microsoft me-2"></i>Azure Implementation Steps</h4>
+                <ol>
+                    <li>
+                        <strong>Register API Application in Microsoft Entra ID</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code># Create App Registration for the API (target)
+az ad app create \
+  --display-name "digital-twin-api" \
+  --identifier-uris "api://digital-twin-api" \
+  --sign-in-audience "AzureADMyOrg"
+
+# Note the Application (client) ID from output
+# Example: "appId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"</code></pre>
+                    </li>
+                    <li>
+                        <strong>Register Client Application (Connector)</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code># Create App Registration for the client (source/connector)
+az ad app create \
+  --display-name "digital-twin-connector" \
+  --sign-in-audience "AzureADMyOrg"
+
+# Create client secret
+az ad app credential reset \
+  --id CLIENT_APP_ID \
+  --append \
+  --years 2
+
+# Note the password (client_secret) from output</code></pre>
+                    </li>
+                    <li>
+                        <strong>Grant API Permissions to Client</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code># Grant the connector app permission to call the API
+az ad app permission add \
+  --id CLIENT_APP_ID \
+  --api API_APP_ID \
+  --api-permissions "access_as_application=Role"
+
+# Admin consent for the permission
+az ad app permission admin-consent --id CLIENT_APP_ID</code></pre>
+                    </li>
+                    <li>
+                        <strong>Create API Management Instance</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code># Using Azure CLI
+az apim create \
+  --name "digital-twin-apim" \
+  --resource-group "rg-digital-twin" \
+  --publisher-email "admin@example.com" \
+  --publisher-name "DigitalTwin" \
+  --sku-name "Consumption"</code></pre>
+                    </li>
+                    <li>
+                        <strong>Import Function App as API</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code>az apim api import \
+  --path "ingestion" \
+  --resource-group "rg-digital-twin" \
+  --service-name "digital-twin-apim" \
+  --specification-format OpenApiJson \
+  --specification-url "https://your-function.azurewebsites.net/api/openapi.json"</code></pre>
+                    </li>
+                    <li>
+                        <strong>Add JWT Validation Policy (validate-azure-ad-token)</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code>&lt;!-- Add to inbound policy section in APIM --&gt;
+&lt;validate-azure-ad-token tenant-id="YOUR_TENANT_ID"&gt;
+  &lt;client-application-ids&gt;
+    &lt;application-id&gt;CLIENT_APP_ID&lt;/application-id&gt;
+  &lt;/client-application-ids&gt;
+  &lt;audiences&gt;
+    &lt;audience&gt;api://digital-twin-api&lt;/audience&gt;
+  &lt;/audiences&gt;
+&lt;/validate-azure-ad-token&gt;</code></pre>
+                    </li>
+                    <li>
+                        <strong>Update Connector to Obtain Entra ID Token</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code># In connector Azure Function, obtain token using Client Credentials flow
+import requests
+
+def get_entra_token():
+    token_url = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token"
+    response = requests.post(token_url, data={
+        "client_id": CLIENT_APP_ID,
+        "client_secret": CLIENT_SECRET,
+        "scope": "api://digital-twin-api/.default",
+        "grant_type": "client_credentials"
+    })
+    return response.json()["access_token"]
+
+# Send request with JWT
+headers = {"Authorization": f"Bearer {get_entra_token()}"}</code></pre>
+                    </li>
+                    <li>
+                        <strong>Enable Rate Limiting and Quotas</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code>&lt;rate-limit calls="100" renewal-period="60"/&gt;
+&lt;quota calls="10000" renewal-period="86400"/&gt;</code></pre>
+                    </li>
+                </ol>
+
+                <!-- GCP Implementation -->
+                <h4 class="mt-4"><i class="fa-brands fa-google me-2"></i>GCP Implementation Steps</h4>
+                <ol>
+                    <li>
+                        <strong>Create API Gateway Config</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code># openapi-spec.yaml
+swagger: '2.0'
+info:
+  title: Digital Twin API
+  version: 1.0.0
+schemes: [https]
+x-google-backend:
+  address: https://REGION-PROJECT.cloudfunctions.net/ingestion
+securityDefinitions:
+  jwt_auth:
+    authorizationUrl: ""
+    flow: "implicit"
+    type: "oauth2"
+    x-google-issuer: "https://accounts.google.com"
+    x-google-audiences: "your-client-id"
+security:
+  - jwt_auth: []</code></pre>
+                    </li>
+                    <li>
+                        <strong>Deploy API Gateway</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code># Create API config
+gcloud api-gateway api-configs create digital-twin-config \
+  --api=digital-twin-api \
+  --openapi-spec=openapi-spec.yaml
+
+# Create gateway
+gcloud api-gateway gateways create digital-twin-gateway \
+  --api=digital-twin-api \
+  --api-config=digital-twin-config \
+  --location=us-central1</code></pre>
+                    </li>
+                    <li>
+                        <strong>Enable Cloud Armor for DDoS Protection</strong>
+                        <pre class="bg-secondary text-light p-2 rounded mt-2"><code>gcloud compute security-policies create api-security-policy \
+  --description "API Gateway protection"
+
+gcloud compute security-policies rules create 1000 \
+  --security-policy api-security-policy \
+  --expression "evaluatePreconfiguredExpr('xss-stable')" \
+  --action deny-403</code></pre>
+                    </li>
+                </ol>
+
+                <!-- Code Changes Required -->
+                <h3 class="mt-4">Code Changes Required</h3>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>File</th>
+                            <th>Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>connector/lambda_function.py</code></td>
+                            <td>Obtain JWT from identity provider instead of using static token</td>
+                        </tr>
+                        <tr>
+                            <td><code>ingestion/lambda_function.py</code></td>
+                            <td>Remove <code>_validate_token()</code> - API Gateway handles this</td>
+                        </tr>
+                        <tr>
+                            <td><code>config_inter_cloud.json</code></td>
+                            <td>Replace <code>token</code> with <code>client_id</code>, <code>client_secret</code>,
+                                <code>token_url</code>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><code>layer_2_compute.py</code></td>
+                            <td>Deploy API Gateway and configure authorizer</td>
+                        </tr>
+                        <tr>
+                            <td>All <code>*-writer</code> Lambdas</td>
+                            <td>Same pattern - remove token validation, rely on API Gateway</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="callout tip mt-4">
+                    <strong><i class="fa-solid fa-lightbulb me-2"></i>Recommendation</strong>
+                    <p class="mb-0">Start with AWS API Gateway HTTP API type for the L1→L2 connection as a pilot.
+                        It's the simplest to implement and provides immediate security benefits. Once validated,
+                        extend to other cross-cloud connections.</p>
+                </div>
             </div>
 
         </main>

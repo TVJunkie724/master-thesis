@@ -17,7 +17,6 @@ from logger import logger, print_stack_trace
 from core.config_loader import load_project_config, load_credentials, get_required_providers
 from core.context import DeploymentContext
 import providers.deployer as deployer
-import providers.iot_deployer as iot_deployer
 
 
 # ==========================================
@@ -180,7 +179,8 @@ VALID_PROVIDERS = {"aws", "azure", "google"}
 def handle_deploy(provider: str, context: DeploymentContext) -> None:
     """Handle full deployment."""
     deployer.deploy_all(context, provider)
-    iot_deployer.deploy(context, provider)
+    # Per-device resources (IoT Things, Processors, Component Types) are now
+    # handled by layer adapters (l1, l2, l4) within deploy_all()
     # Additional deployers
     import src.providers.aws.layers.layer_4_twinmaker as hierarchy_layer
     import src.providers.aws.layers.layer_2_compute as compute_layer
@@ -216,7 +216,7 @@ def handle_destroy(provider: str, context: DeploymentContext) -> None:
             compute_layer.destroy_lambda_actions(provider=aws_provider, config=context.config)
             hierarchy_layer.destroy_twinmaker_hierarchy(provider=aws_provider, hierarchy=context.config.hierarchy)
     
-    iot_deployer.destroy(context, provider)
+    # Per-device resources destroyed by layer adapters within destroy_all()
     deployer.destroy_all(context, provider)
 
 

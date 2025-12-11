@@ -480,17 +480,183 @@ def destroy_iot_thing(iot_device, provider, project_path):
             raise
 
     try:
-        # Import lazily or use available util_aws. However, logic uses util.get_path_in_project.
-        # We can implement basic path join here or use project_path directly as it's passed as str of project root.
-        # project_path is passed as 'upload/PROJECT_NAME' usually.
-        # iot_deployer_aws used util.get_path_in_project(CONSTANTS.IOT_DATA_DIR_NAME, project_path=project_path)
-        # which basically joins project_path + IOT_DATA_DIR_NAME.
         target_dir = os.path.join(project_path, CONSTANTS.IOT_DATA_DIR_NAME, iot_device['id'])
         if os.path.exists(target_dir):
             shutil.rmtree(target_dir)
             logger.info(f"Removed local certificates directory: {target_dir}")
     except (OSError, ValueError) as e:
         logger.warning(f"Failed to remove local dir {target_dir}: {e}")
+
+
+# ==========================================
+# 6.5. Connector Lambda (Multi-Cloud Only)
+# ==========================================
+# Connector is deployed when L2 is on a DIFFERENT cloud.
+# It sends data TO the remote Ingestion Lambda via HTTP POST.
+
+def create_connector_iam_role(iot_device, provider: 'AWSProvider') -> None:
+    """
+    Creates IAM Role for the Connector Lambda (multi-cloud L1→L2).
+    
+    The Connector needs only basic execution role since it makes
+    outbound HTTP calls to the remote Ingestion endpoint.
+    
+    Args:
+        iot_device: Device configuration with 'id' field
+        provider: Initialized AWSProvider with clients and naming
+    """
+    if provider is None:
+        raise ValueError("provider is required")
+
+    iam_client = provider.clients["iam"]
+    role_name = provider.naming.connector_iam_role(iot_device["id"])
+
+    iam_client.create_role(
+        RoleName=role_name,
+        AssumeRolePolicyDocument=json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": {"Service": "lambda.amazonaws.com"},
+                "Action": "sts:AssumeRole"
+            }]
+        })
+    )
+    logger.info(f"Created Connector IAM role: {role_name}")
+
+    # Only basic execution needed - Connector makes outbound HTTP calls
+    policy_arns = [CONSTANTS.AWS_POLICY_LAMBDA_BASIC_EXECUTION]
+
+    for policy_arn in policy_arns:
+        iam_client.attach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
+        logger.info(f"Attached IAM policy ARN: {policy_arn}")
+
+
+def destroy_connector_iam_role(iot_device, provider: 'AWSProvider') -> None:
+    """Destroys the Connector IAM Role."""
+    if provider is None:
+        raise ValueError("provider is required")
+
+    role_name = provider.naming.connector_iam_role(iot_device["id"])
+    iam_client = provider.clients["iam"]
+
+    try:
+        # Detach managed policies
+        response = iam_client.list_attached_role_policies(RoleName=role_name)
+        for policy in response["AttachedPolicies"]:
+            iam_client.detach_role_policy(RoleName=role_name, PolicyArn=policy["PolicyArn"])
+
+        # Delete inline policies
+        response = iam_client.list_role_policies(RoleName=role_name)
+        for policy_name in response["PolicyNames"]:
+            iam_client.delete_role_policy(RoleName=role_name, PolicyName=policy_name)
+
+        # Delete the role
+        iam_client.delete_role(RoleName=role_name)
+        logger.info(f"Deleted Connector IAM role: {role_name}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "NoSuchEntity":
+            raise
+
+
+def create_connector_lambda_function(
+    iot_device,
+    provider: 'AWSProvider',
+    config: 'ProjectConfig',
+    project_path: str,
+    remote_ingestion_url: str,
+    inter_cloud_token: str
+) -> None:
+    """
+    Creates the Connector Lambda Function (multi-cloud L1→L2).
+    
+    The Connector receives data from the Dispatcher and forwards it
+    to the remote Ingestion endpoint on the L2 cloud via HTTP POST.
+    
+    Args:
+        iot_device: Device configuration with 'id' field
+        provider: Initialized AWSProvider with clients and naming
+        config: ProjectConfig for digital twin info
+        project_path: Path to project directory for Lambda source code
+        remote_ingestion_url: URL of the Ingestion Lambda on L2 cloud
+        inter_cloud_token: Bearer token for authentication
+    """
+    if provider is None:
+        raise ValueError("provider is required")
+    if not remote_ingestion_url:
+        raise ValueError(
+            f"remote_ingestion_url is required for Connector Lambda. "
+            f"Ensure L2 deployment completed and config_inter_cloud.json is populated."
+        )
+    if not inter_cloud_token:
+        raise ValueError(
+            f"inter_cloud_token is required for Connector Lambda. "
+            f"Ensure L2 deployment completed and config_inter_cloud.json is populated."
+        )
+
+    iam_client = provider.clients["iam"]
+    lambda_client = provider.clients["lambda"]
+    
+    function_name = provider.naming.connector_lambda_function(iot_device["id"])
+    role_name = provider.naming.connector_iam_role(iot_device["id"])
+
+    response = iam_client.get_role(RoleName=role_name)
+    role_arn = response['Role']['Arn']
+
+    # Compile the connector Lambda code
+    import util
+    connector_path = os.path.join(project_path, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, "connector")
+    code_bytes = util.compile_lambda_function(connector_path, project_path=project_path)
+
+    lambda_client.create_function(
+        FunctionName=function_name,
+        Runtime="python3.13",
+        Role=role_arn,
+        Handler="lambda_function.lambda_handler",
+        Code={"ZipFile": code_bytes},
+        Description=f"Connector to Remote L2 for device {iot_device['id']}",
+        Timeout=10,
+        MemorySize=128,
+        Publish=True,
+        Environment={
+            "Variables": {
+                "REMOTE_INGESTION_URL": remote_ingestion_url,
+                "INTER_CLOUD_TOKEN": inter_cloud_token
+            }
+        }
+    )
+    logger.info(f"Created Connector Lambda function: {function_name}")
+
+
+def destroy_connector_lambda_function(iot_device, provider: 'AWSProvider') -> None:
+    """Destroys the Connector Lambda Function."""
+    if provider is None:
+        raise ValueError("provider is required")
+
+    lambda_client = provider.clients["lambda"]
+    function_name = provider.naming.connector_lambda_function(iot_device["id"])
+
+    try:
+        lambda_client.delete_function(FunctionName=function_name)
+        logger.info(f"Deleted Connector Lambda function: {function_name}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ResourceNotFoundException":
+            raise
+
+
+def check_connector_lambda_function(iot_device, provider: 'AWSProvider'):
+    """Check status of Connector Lambda for a device."""
+    function_name = provider.naming.connector_lambda_function(iot_device["id"])
+    client = provider.clients["lambda"]
+
+    try:
+        client.get_function(FunctionName=function_name)
+        logger.info(f"✅ Connector {function_name} Lambda exists: {_links().link_to_lambda_function(function_name, region=provider.region)}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceNotFoundException":
+            logger.info(f"❔ Connector {function_name} not deployed (expected if L2 is same cloud)")
+        else:
+            raise
 
 
 # ==========================================

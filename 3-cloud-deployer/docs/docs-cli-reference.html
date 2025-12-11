@@ -26,7 +26,32 @@
                 Complete reference for the interactive command-line interface.
             </p>
 
+            <!-- Table of Contents -->
             <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Table of Contents</h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#starting">Starting the CLI</a></li>
+                                <li><a href="#deployment">Deployment & Destruction</a></li>
+                                <li><a href="#verification">Verification & Status</a></li>
+                                <li><a href="#configuration">Configuration Inspection</a></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#lambda">Lambda Management</a></li>
+                                <li><a href="#credentials">Credential Validation</a></li>
+                                <li><a href="#tips">Tips & Best Practices</a></li>
+                                <li><a href="#comparison">CLI vs REST API</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4" id="starting">
                 <h2 class="mb-3"><i class="fa-solid fa-rocket me-2"></i>Starting the CLI</h2>
                 <pre class="p-3 rounded"><code>cd src
 python main.py
@@ -39,7 +64,7 @@ python main.py
             </div>
 
             <!-- Deployment Commands -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="deployment">
                 <h2 class="mb-3"><i class="fa-solid fa-cloud-upload me-2"></i>Deployment & Destruction</h2>
 
                 <h5 class="text-primary mt-2">Core Commands</h5>
@@ -110,7 +135,7 @@ python main.py
             </div>
 
             <!-- Verification Commands -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="verification">
                 <h2 class="mb-3"><i class="fa-solid fa-check-circle me-2"></i>Verification & Status</h2>
                 <table class="table table-bordered table-striped">
                     <thead class="table-light">
@@ -137,7 +162,7 @@ python main.py
             </div>
 
             <!-- Configuration Commands -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="configuration">
                 <h2 class="mb-3"><i class="fa-solid fa-gear me-2"></i>Configuration Inspection</h2>
                 <p>Inspect currently loaded configuration files.</p>
                 <div class="row">
@@ -159,7 +184,7 @@ python main.py
             </div>
 
             <!-- Lambda Commands -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="lambda">
                 <h2 class="mb-3"><i class="fa-brands fa-aws me-2"></i>Lambda Management</h2>
                 <table class="table table-bordered">
                     <thead class="table-light">
@@ -191,7 +216,7 @@ python main.py
             </div>
 
             <!-- Credential Validation Commands -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="credentials">
                 <h2 class="mb-3"><i class="fa-solid fa-key me-2"></i>Credential Validation</h2>
 
                 <div class="callout info mb-3">
@@ -236,7 +261,7 @@ python main.py
             </div>
 
             <!-- Other Commands -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="other">
                 <h2 class="mb-3"><i class="fa-solid fa-bars me-2"></i>Other</h2>
                 <ul>
                     <li><code>help</code> - Show the help menu.</li>
@@ -244,7 +269,7 @@ python main.py
                 </ul>
             </div>
 
-            <div class="card mb-4">
+            <div class="card mb-4" id="tips">
                 <h2 class="mb-3"><i class="fa-solid fa-lightbulb me-2"></i>Tips & Best Practices</h2>
                 <ul>
                     <li><strong>Use the REST API for automation:</strong> The CLI is great for interactive use, but use
@@ -256,7 +281,7 @@ python main.py
                 </ul>
             </div>
 
-            <div class="card mb-4">
+            <div class="card mb-4" id="comparison">
                 <h2 class="mb-3"><i class="fa-solid fa-code-compare me-2"></i>CLI vs REST API</h2>
                 <table class="table table-striped">
                     <thead>

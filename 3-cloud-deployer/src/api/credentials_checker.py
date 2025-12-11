@@ -19,30 +19,88 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 # ==========================================
+# Shared Permission Sets (avoid duplication)
+# ==========================================
+# Define permission sets once, reference in layers that need them
+
+_IAM_ROLE_MANAGEMENT = [
+    "iam:CreateRole",
+    "iam:DeleteRole",
+    "iam:GetRole",
+    "iam:AttachRolePolicy",
+    "iam:DetachRolePolicy",
+    "iam:ListAttachedRolePolicies",
+    "iam:ListRolePolicies",
+    "iam:DeleteRolePolicy",
+    "iam:ListInstanceProfilesForRole",
+    "iam:RemoveRoleFromInstanceProfile",
+]
+
+_IAM_INLINE_POLICY = [
+    "iam:PutRolePolicy",
+    "iam:UpdateAssumeRolePolicy",
+]
+
+_LAMBDA_BASIC = [
+    "lambda:CreateFunction",
+    "lambda:DeleteFunction",
+    "lambda:GetFunction",
+    "lambda:AddPermission",
+    "lambda:RemovePermission",
+]
+
+_LAMBDA_FUNCTION_URL = [
+    "lambda:CreateFunctionUrlConfig",
+    "lambda:DeleteFunctionUrlConfig",
+    "lambda:GetFunctionUrlConfig",
+]
+
+_LAMBDA_CONFIG_UPDATE = [
+    "lambda:GetFunctionConfiguration",
+    "lambda:UpdateFunctionConfiguration",
+]
+
+# Permissions required by the credential checker to inspect its own policies
+# These are NOT deployment permissions - they're meta-permissions for self-inspection
+SELF_CHECK_PERMISSIONS = {
+    "user": [
+        "iam:ListUserPolicies",
+        "iam:GetUserPolicy",
+        "iam:ListAttachedUserPolicies",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListGroupsForUser",
+        "iam:ListGroupPolicies",
+        "iam:GetGroupPolicy",
+        "iam:ListAttachedGroupPolicies",
+    ],
+    "role": [
+        "iam:ListRolePolicies",
+        "iam:GetRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+    ],
+}
+
+# ==========================================
 # Required AWS Permissions by Layer/Service
 # ==========================================
+# Each layer lists ONLY unique permissions or references shared sets
+
 
 REQUIRED_AWS_PERMISSIONS = {
+    # Layer 0 is the comprehensive "glue" layer - needs most Lambda/IAM permissions
+    # Other layers reference shared sets to avoid duplication
+    "layer_0": {
+        # Layer 0 (Glue Layer): Multi-cloud HTTP receivers deployed BEFORE Layers 1-5
+        # This is the PRIMARY layer for IAM/Lambda permissions
+        "iam": _IAM_ROLE_MANAGEMENT + _IAM_INLINE_POLICY,
+        "lambda": _LAMBDA_BASIC + _LAMBDA_FUNCTION_URL + _LAMBDA_CONFIG_UPDATE,
+    },
     "layer_1": {
-        "iam": [
-            "iam:CreateRole",
-            "iam:DeleteRole",
-            "iam:GetRole",
-            "iam:AttachRolePolicy",
-            "iam:DetachRolePolicy",
-            "iam:ListAttachedRolePolicies",
-            "iam:ListRolePolicies",
-            "iam:DeleteRolePolicy",
-            "iam:ListInstanceProfilesForRole",
-            "iam:RemoveRoleFromInstanceProfile",
-        ],
-        "lambda": [
-            "lambda:CreateFunction",
-            "lambda:DeleteFunction",
-            "lambda:GetFunction",
-            "lambda:AddPermission",
-            "lambda:RemovePermission",
-        ],
+        # Layer 1 uses same IAM/Lambda as L0 (no duplication needed in final set)
+        # Unique services: IoT Core, STS
         "iot": [
             "iot:CreateThing",
             "iot:DeleteThing",
@@ -69,16 +127,7 @@ REQUIRED_AWS_PERMISSIONS = {
         ],
     },
     "layer_2": {
-        "iam": [
-            "iam:PutRolePolicy",
-            "iam:UpdateAssumeRolePolicy",
-        ],
-        "lambda": [
-            # Multi-cloud: Function URL permissions for Ingestion
-            "lambda:CreateFunctionUrlConfig",
-            "lambda:DeleteFunctionUrlConfig",
-            "lambda:GetFunctionUrlConfig",
-        ],
+        # Unique service: Step Functions
         "states": [
             "states:CreateStateMachine",
             "states:DeleteStateMachine",
@@ -86,6 +135,7 @@ REQUIRED_AWS_PERMISSIONS = {
         ],
     },
     "layer_3": {
+        # Unique services: DynamoDB, S3, EventBridge
         "dynamodb": [
             "dynamodb:CreateTable",
             "dynamodb:DeleteTable",
@@ -109,17 +159,9 @@ REQUIRED_AWS_PERMISSIONS = {
             "events:RemoveTargets",
             "events:ListTargetsByRule",
         ],
-        "lambda": [
-            # Multi-cloud: Function URL permissions for Writer and Hot Readers
-            "lambda:CreateFunctionUrlConfig",
-            "lambda:DeleteFunctionUrlConfig",
-            "lambda:GetFunctionUrlConfig",
-            # Multi-cloud: Update Lambda config to inject INTER_CLOUD_TOKEN
-            "lambda:GetFunctionConfiguration",
-            "lambda:UpdateFunctionConfiguration",
-        ],
     },
     "layer_4": {
+        # Unique service: IoT TwinMaker
         "iottwinmaker": [
             "iottwinmaker:CreateWorkspace",
             "iottwinmaker:DeleteWorkspace",
@@ -135,26 +177,19 @@ REQUIRED_AWS_PERMISSIONS = {
             "iottwinmaker:UpdateEntity",
             "iottwinmaker:GetEntity",
         ],
-        "s3": [
-            # TwinMaker S3 bucket - same permissions as layer_3
-        ],
-        "lambda": [
-            # Multi-cloud: Digital Twin Data Connector Lambda (L3 ≠ L4)
-            # Needs same permissions as layer_1 for Lambda functions
-        ],
     },
     "layer_5": {
+        # Unique service: Grafana
         "grafana": [
             "grafana:CreateWorkspace",
             "grafana:DeleteWorkspace",
             "grafana:DescribeWorkspace",
             "grafana:ListWorkspaces",
         ],
-        "iam": [
-            # Grafana IAM role - same permissions as layer_1
-        ],
     },
 }
+
+
 
 
 def _get_all_required_permissions() -> dict:
@@ -523,11 +558,29 @@ def check_aws_credentials(credentials: dict) -> dict:
         available_permissions, check_error = _get_attached_permissions(iam_client, caller_identity)
         
         if check_error:
+            principal_type = caller_identity["principal_type"]
+            # Determine which permissions are needed based on principal type
+            if principal_type in ("role", "assumed-role"):
+                needed_permissions = SELF_CHECK_PERMISSIONS["role"]
+            else:
+                needed_permissions = SELF_CHECK_PERMISSIONS["user"]
+            
             result["status"] = "check_failed"
-            result["message"] = "Cannot determine permissions - credentials lack access to list their own policies."
+            result["message"] = (
+                f"Cannot determine permissions - credentials lack '{check_error}' to inspect their own policies. "
+                f"Add the self-check permissions to your IAM policy, or use our ready-to-use policy from the docs."
+            )
             result["missing_check_permission"] = check_error
             result["can_list_policies"] = False
+            result["self_check_help"] = {
+                "principal_type": principal_type,
+                "required_permissions": needed_permissions,
+                "policy_json_url": "/docs/references/aws_deployer_policy.json",
+                "docs_url": "/docs/docs-credentials-setup.html#aws-setup",
+                "hint": f"Your IAM {principal_type} needs permissions to read its own attached policies."
+            }
             return result
+
         
         result["can_list_policies"] = True
         

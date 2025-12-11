@@ -22,20 +22,33 @@ class TestRequiredPermissions:
     """Tests for the hardcoded permissions structure."""
     
     def test_required_permissions_has_all_layers(self):
-        """Verify all 5 layers are defined."""
+        """Verify all layers (L0-L5) are defined."""
+        assert "layer_0" in REQUIRED_AWS_PERMISSIONS  # Multi-cloud Glue Layer
         assert "layer_1" in REQUIRED_AWS_PERMISSIONS
         assert "layer_2" in REQUIRED_AWS_PERMISSIONS
         assert "layer_3" in REQUIRED_AWS_PERMISSIONS
         assert "layer_4" in REQUIRED_AWS_PERMISSIONS
         assert "layer_5" in REQUIRED_AWS_PERMISSIONS
+
     
     def test_layer_1_has_core_services(self):
-        """Layer 1 should have IAM, Lambda, IoT, STS."""
+        """Layer 1 should have IoT and STS (IAM/Lambda are in L0 to avoid duplication)."""
         layer_1 = REQUIRED_AWS_PERMISSIONS["layer_1"]
-        assert "iam" in layer_1
-        assert "lambda" in layer_1
+        # IAM and Lambda are now defined only in L0 to avoid duplication
+        # Layer 1 only defines its unique services
         assert "iot" in layer_1
         assert "sts" in layer_1
+
+    
+    def test_layer_0_has_glue_services(self):
+        """Layer 0 (Glue) should have IAM and Lambda for multi-cloud receivers."""
+        layer_0 = REQUIRED_AWS_PERMISSIONS["layer_0"]
+        assert "iam" in layer_0
+        assert "lambda" in layer_0
+        # Should have Function URL permissions
+        assert "lambda:CreateFunctionUrlConfig" in layer_0["lambda"]
+        assert "lambda:UpdateFunctionConfiguration" in layer_0["lambda"]
+
     
     def test_layer_3_has_storage_services(self):
         """Layer 3 should have DynamoDB, S3, Events."""
@@ -261,7 +274,144 @@ class TestCheckAWSCredentials:
         assert result["status"] == "check_failed"
         assert result["can_list_policies"] is False
         assert result["missing_check_permission"] == "iam:ListUserPolicies"
+        # Verify helpful self-check guidance is provided
+        assert "self_check_help" in result
+        assert result["self_check_help"]["principal_type"] == "user"
+        assert "iam:ListUserPolicies" in result["self_check_help"]["required_permissions"]
+        assert "docs_url" in result["self_check_help"]
 
+    @patch("src.api.credentials_checker.boto3.Session")
+    def test_assumed_role_self_check_failure(self, mock_session):
+        """Test self-check failure for assumed role provides role-specific permissions."""
+        from botocore.exceptions import ClientError
+        
+        mock_sts = Mock()
+        mock_sts.get_caller_identity.return_value = {
+            "Account": "123456789012",
+            "Arn": "arn:aws:sts::123456789012:assumed-role/MyRole/session-name",
+            "UserId": "AROAEXAMPLE:session-name"
+        }
+        
+        mock_iam = Mock()
+        mock_iam.list_role_policies.side_effect = ClientError(
+            {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}},
+            "ListRolePolicies"
+        )
+        
+        def client_factory(service_name):
+            if service_name == "sts":
+                return mock_sts
+            return mock_iam
+        
+        mock_session.return_value.client.side_effect = client_factory
+        
+        result = check_aws_credentials({
+            "aws_access_key_id": "key",
+            "aws_secret_access_key": "secret",
+            "aws_region": "us-east-1"
+        })
+        
+        assert result["status"] == "check_failed"
+        assert result["self_check_help"]["principal_type"] == "assumed-role"
+        # Role permissions should be provided, not user permissions
+        assert "iam:ListRolePolicies" in result["self_check_help"]["required_permissions"]
+        assert "iam:ListUserPolicies" not in result["self_check_help"]["required_permissions"]
+
+    @patch("src.api.credentials_checker.boto3.Session")
+    def test_partial_permissions(self, mock_session):
+        """Test credentials with some but not all required permissions."""
+        mock_sts = Mock()
+        mock_sts.get_caller_identity.return_value = {
+            "Account": "123456789012",
+            "Arn": "arn:aws:iam::123456789012:user/partial-user",
+            "UserId": "AIDAEXAMPLE"
+        }
+        
+        mock_iam = Mock()
+        mock_iam.list_user_policies.return_value = {"PolicyNames": []}
+        mock_iam.list_attached_user_policies.return_value = {
+            "AttachedPolicies": [{"PolicyName": "Partial", "PolicyArn": "arn:aws:iam::aws:policy/Partial"}]
+        }
+        mock_iam.list_groups_for_user.return_value = {"Groups": []}
+        mock_iam.get_policy.return_value = {"Policy": {"DefaultVersionId": "v1"}}
+        # Only grant IAM permissions, not Lambda or IoT
+        mock_iam.get_policy_version.return_value = {
+            "PolicyVersion": {
+                "Document": {
+                    "Statement": [{
+                        "Effect": "Allow",
+                        "Action": ["iam:CreateRole", "iam:DeleteRole", "iam:GetRole"],
+                        "Resource": "*"
+                    }]
+                }
+            }
+        }
+        
+        def client_factory(service_name):
+            if service_name == "sts":
+                return mock_sts
+            return mock_iam
+        
+        mock_session.return_value.client.side_effect = client_factory
+        
+        result = check_aws_credentials({
+            "aws_access_key_id": "key",
+            "aws_secret_access_key": "secret", 
+            "aws_region": "us-east-1"
+        })
+        
+        assert result["status"] == "partial"
+        assert result["summary"]["valid"] > 0
+        assert result["summary"]["missing"] > 0
+
+    @patch("src.api.credentials_checker.boto3.Session")
+    def test_expired_session_token(self, mock_session):
+        """Test handling of expired session tokens."""
+        from botocore.exceptions import ClientError
+        
+        mock_session.return_value.client.return_value.get_caller_identity.side_effect = ClientError(
+            {"Error": {"Code": "ExpiredToken", "Message": "Token has expired"}},
+            "GetCallerIdentity"
+        )
+        
+        result = check_aws_credentials({
+            "aws_access_key_id": "key",
+            "aws_secret_access_key": "secret",
+            "aws_region": "us-east-1",
+            "aws_session_token": "expired-token"
+        })
+        
+        assert result["status"] == "invalid"
+        assert "expired" in result["message"].lower()
+
+
+class TestSelfCheckPermissions:
+    """Tests for the SELF_CHECK_PERMISSIONS constant."""
+    
+    def test_user_permissions_defined(self):
+        """User self-check permissions should be defined."""
+        from src.api.credentials_checker import SELF_CHECK_PERMISSIONS
+        
+        assert "user" in SELF_CHECK_PERMISSIONS
+        assert "iam:ListUserPolicies" in SELF_CHECK_PERMISSIONS["user"]
+        assert "iam:ListAttachedUserPolicies" in SELF_CHECK_PERMISSIONS["user"]
+    
+    def test_role_permissions_defined(self):
+        """Role self-check permissions should be defined."""
+        from src.api.credentials_checker import SELF_CHECK_PERMISSIONS
+        
+        assert "role" in SELF_CHECK_PERMISSIONS
+        assert "iam:ListRolePolicies" in SELF_CHECK_PERMISSIONS["role"]
+        assert "iam:ListAttachedRolePolicies" in SELF_CHECK_PERMISSIONS["role"]
+    
+    def test_role_and_user_have_common_permissions(self):
+        """Both should have GetPolicy and GetPolicyVersion."""
+        from src.api.credentials_checker import SELF_CHECK_PERMISSIONS
+        
+        assert "iam:GetPolicy" in SELF_CHECK_PERMISSIONS["user"]
+        assert "iam:GetPolicy" in SELF_CHECK_PERMISSIONS["role"]
+        assert "iam:GetPolicyVersion" in SELF_CHECK_PERMISSIONS["user"]
+        assert "iam:GetPolicyVersion" in SELF_CHECK_PERMISSIONS["role"]
 
 
 class TestCheckAWSCredentialsFromConfig:

@@ -20,22 +20,20 @@ class TestProviderConfigValidation:
 
     @patch("time.sleep")
     @patch("src.util.compile_lambda_function", return_value=b"mock-zip")
-    def test_deploy_l2_missing_layer_1_provider_fails(self, mock_compile, mock_sleep):
-        """deploy_l2() should fail fast when layer_1_provider is missing."""
-        from src.providers.aws.layers.l2_adapter import deploy_l2
+    def test_deploy_l0_missing_layer_1_provider_fails(self, mock_compile, mock_sleep):
+        """deploy_l0() should fail fast when layer_1_provider is missing.
+        
+        NOTE: Provider config validation moved from L2 adapter to L0 adapter.
+        """
+        from src.providers.aws.layers.l0_adapter import deploy_l0
         
         mock_context = MagicMock()
         mock_context.config.digital_twin_name = "test-twin"
-        mock_context.config.hot_storage_size_in_days = 7
-        mock_context.config.cold_storage_size_in_days = 30
-        mock_context.config.mode = "dev"
-        mock_context.config.iot_devices = []
-        mock_context.config.events = []
-        mock_context.config.is_optimization_enabled.return_value = False
         mock_context.config.providers = {
             # Missing: "layer_1_provider"
             "layer_2_provider": "aws",
-            "layer_3_hot_provider": "aws"
+            "layer_3_hot_provider": "aws",
+            "layer_4_provider": "aws"
         }
         mock_context.project_path.parent.parent = "/mock/path"
         
@@ -44,7 +42,7 @@ class TestProviderConfigValidation:
         mock_provider.clients["iam"].get_role.return_value = {"Role": {"Arn": "arn:aws:iam::123:role/test"}}
         
         with pytest.raises(KeyError, match="layer_1_provider"):
-            deploy_l2(mock_context, mock_provider)
+            deploy_l0(mock_context, mock_provider)
 
     @patch("time.sleep")
     @patch("src.util.compile_lambda_function", return_value=b"mock-zip")
@@ -76,21 +74,21 @@ class TestProviderConfigValidation:
 
     @patch("time.sleep")
     @patch("src.util.compile_lambda_function", return_value=b"mock-zip")
-    def test_destroy_l2_missing_provider_config_fails(self, mock_compile, mock_sleep):
-        """destroy_l2() should fail fast when provider config is missing."""
-        from src.providers.aws.layers.l2_adapter import destroy_l2
+    def test_destroy_l0_missing_provider_config_fails(self, mock_compile, mock_sleep):
+        """destroy_l0() should fail fast when provider config is missing.
+        
+        NOTE: Provider config validation moved from L2 adapter to L0 adapter.
+        """
+        from src.providers.aws.layers.l0_adapter import destroy_l0
         
         mock_context = MagicMock()
         mock_context.config.digital_twin_name = "test-twin"
-        mock_context.config.iot_devices = []
-        mock_context.config.events = []
-        mock_context.config.is_optimization_enabled.return_value = False
         mock_context.config.providers = {}  # Empty providers
         
         mock_provider = MagicMock()
         
         with pytest.raises(KeyError):
-            destroy_l2(mock_context, mock_provider)
+            destroy_l0(mock_context, mock_provider)
 
     # ==========================================
     # L3 Adapter Tests - Direct Config Access
@@ -222,26 +220,28 @@ class TestProviderConfigValidation:
 
     @patch("time.sleep")
     @patch("src.util.compile_lambda_function", return_value=b"mock-zip")
-    def test_create_processor_missing_layer_1_provider_fails(self, mock_compile, mock_sleep):
-        """create_processor_lambda_function() should fail when layer_1_provider is missing."""
+    def test_create_processor_l2_returns_early_when_not_aws(self, mock_compile, mock_sleep):
+        """create_processor_lambda_function() should return early when L2 is not AWS.
+        
+        NOTE: Connector deployment has been moved to L1 adapter.
+        L2 compute no longer needs layer_1_provider for its logic.
+        """
         from src.providers.aws.layers.layer_2_compute import create_processor_lambda_function
         
-        mock_device = {"id": "sensor-1", "type": "temperature"}
+        mock_device = {"id": "sensor-1", "iotDeviceId": "sensor-1"}
         
         mock_config = MagicMock()
         mock_config.providers = {
-            # Missing: "layer_1_provider"
-            "layer_2_provider": "aws",
-            "layer_3_hot_provider": "aws"
+            "layer_2_provider": "azure",  # Not AWS - should return early
         }
         mock_config.inter_cloud = {}
         
         mock_provider = MagicMock()
         mock_provider.clients = {"iam": MagicMock(), "lambda": MagicMock()}
-        mock_provider.clients["iam"].get_role.return_value = {"Role": {"Arn": "arn:aws:iam::123:role/test"}}
         
-        with pytest.raises(KeyError, match="layer_1_provider"):
-            create_processor_lambda_function(mock_device, mock_provider, mock_config, "/mock/path")
+        # Should return early without raising, no Lambda created
+        create_processor_lambda_function(mock_device, mock_provider, mock_config, "/mock/path")
+        mock_provider.clients["lambda"].create_function.assert_not_called()
 
     @patch("time.sleep")
     @patch("src.util.compile_lambda_function", return_value=b"mock-zip")
@@ -267,70 +267,58 @@ class TestProviderConfigValidation:
             create_processor_lambda_function(mock_device, mock_provider, mock_config, "/mock/path")
 
     @patch("time.sleep")
-    @patch("src.util.compile_lambda_function", return_value=b"mock-zip")
+    @patch("util.compile_lambda_function", return_value=b"mock-zip")
     def test_create_connector_missing_inter_cloud_url_fails(self, mock_compile, mock_sleep):
-        """create_processor_lambda_function() should fail when inter-cloud URL is missing for Connector."""
-        from src.providers.aws.layers.layer_2_compute import create_processor_lambda_function
+        """L1 adapter create_connector_lambda_function() should fail when URL is missing.
         
-        mock_device = {"id": "sensor-1", "iotDeviceId": "sensor-1", "type": "temperature"}
+        NOTE: Connector deployment has been moved to L1 adapter.
+        """
+        from src.providers.aws.layers.layer_1_iot import create_connector_lambda_function
+        
+        mock_device = {"id": "sensor-1", "iotDeviceId": "sensor-1"}
         
         mock_config = MagicMock()
-        mock_config.providers = {
-            "layer_1_provider": "aws",
-            "layer_2_provider": "azure",  # Different cloud - triggers Connector creation
-            "layer_3_hot_provider": "azure"
-        }
-        # inter_cloud with empty URL
-        mock_config.inter_cloud = {
-            "connections": {
-                "aws_l1_to_azure_l2": {
-                    "url": "",  # Empty URL - should fail
-                    "token": "some-token"
-                }
-            }
-        }
+        mock_config.digital_twin_name = "test-twin"
         
         mock_provider = MagicMock()
         mock_provider.clients = {"iam": MagicMock(), "lambda": MagicMock()}
         mock_provider.clients["iam"].get_role.return_value = {"Role": {"Arn": "arn:aws:iam::123:role/test"}}
-        mock_provider.naming.processor_iam_role.return_value = "test-role"
+        mock_provider.naming.connector_iam_role.return_value = "test-role"
         mock_provider.naming.connector_lambda_function.return_value = "test-connector"
         
-        with pytest.raises(ValueError, match="Multi-cloud config incomplete"):
-            create_processor_lambda_function(mock_device, mock_provider, mock_config, "/mock/path")
+        with pytest.raises(ValueError, match="remote_ingestion_url is required"):
+            create_connector_lambda_function(
+                mock_device, mock_provider, mock_config, "/mock/path",
+                remote_ingestion_url="",  # Empty URL - should fail
+                inter_cloud_token="some-token"
+            )
 
     @patch("time.sleep")
-    @patch("src.util.compile_lambda_function", return_value=b"mock-zip")
+    @patch("util.compile_lambda_function", return_value=b"mock-zip")
     def test_create_connector_missing_inter_cloud_token_fails(self, mock_compile, mock_sleep):
-        """create_processor_lambda_function() should fail when inter-cloud token is missing for Connector."""
-        from src.providers.aws.layers.layer_2_compute import create_processor_lambda_function
+        """L1 adapter create_connector_lambda_function() should fail when token is missing.
         
-        mock_device = {"id": "sensor-1", "iotDeviceId": "sensor-1", "type": "temperature"}
+        NOTE: Connector deployment has been moved to L1 adapter.
+        """
+        from src.providers.aws.layers.layer_1_iot import create_connector_lambda_function
+        
+        mock_device = {"id": "sensor-1", "iotDeviceId": "sensor-1"}
         
         mock_config = MagicMock()
-        mock_config.providers = {
-            "layer_1_provider": "aws",
-            "layer_2_provider": "gcp",  # Different cloud - triggers Connector creation
-            "layer_3_hot_provider": "gcp"
-        }
-        # inter_cloud with empty token
-        mock_config.inter_cloud = {
-            "connections": {
-                "aws_l1_to_gcp_l2": {
-                    "url": "https://some-gcp-function.cloudfunctions.net/ingestion",
-                    "token": ""  # Empty token - should fail
-                }
-            }
-        }
+        mock_config.digital_twin_name = "test-twin"
         
         mock_provider = MagicMock()
         mock_provider.clients = {"iam": MagicMock(), "lambda": MagicMock()}
         mock_provider.clients["iam"].get_role.return_value = {"Role": {"Arn": "arn:aws:iam::123:role/test"}}
-        mock_provider.naming.processor_iam_role.return_value = "test-role"
+        mock_provider.naming.connector_iam_role.return_value = "test-role"
         mock_provider.naming.connector_lambda_function.return_value = "test-connector"
         
-        with pytest.raises(ValueError, match="Multi-cloud config incomplete"):
-            create_processor_lambda_function(mock_device, mock_provider, mock_config, "/mock/path")
+        with pytest.raises(ValueError, match="inter_cloud_token is required"):
+            create_connector_lambda_function(
+                mock_device, mock_provider, mock_config, "/mock/path",
+                remote_ingestion_url="https://example.com/ingestion",
+                inter_cloud_token=""  # Empty token - should fail
+            )
 
     # ==========================================
     # create_dispatcher_lambda_function Tests (layer_1_iot.py)

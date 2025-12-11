@@ -131,6 +131,10 @@ def zip_directory(folder_path: str, zip_name: str = 'zipped.zip', project_path: 
 def compile_lambda_function(folder_path: str, project_path: str = None) -> bytes:
     """Compile a Lambda function directory into a deployable zip.
     
+    Also includes the _shared directory (if present) from the parent
+    lambda_functions folder. This enables Lambda functions to import
+    from _shared.inter_cloud for centralized cross-cloud HTTP logic.
+    
     Args:
         folder_path: Path to the Lambda function directory
         project_path: Optional project path for resolution
@@ -138,12 +142,51 @@ def compile_lambda_function(folder_path: str, project_path: str = None) -> bytes
     Returns:
         Bytes of the zipped Lambda package
     """
-    zip_path = zip_directory(folder_path, project_path=project_path)
+    import io
+    import tempfile
+    import shutil
+    
+    resolved_path = resolve_folder_path(folder_path, project_path)
+    
+    # Check if _shared folder exists in parent (lambda_functions directory)
+    parent_dir = os.path.dirname(resolved_path)
+    shared_dir = os.path.join(parent_dir, "_shared")
+    include_shared = os.path.isdir(shared_dir)
+    
+    if include_shared:
+        # Create temp dir, copy function code + _shared folder
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Copy Lambda function files
+            for item in os.listdir(resolved_path):
+                src = os.path.join(resolved_path, item)
+                dst = os.path.join(temp_dir, item)
+                if os.path.isfile(src):
+                    shutil.copy2(src, dst)
+                elif os.path.isdir(src):
+                    shutil.copytree(src, dst)
+            
+            # Copy _shared folder
+            shared_dst = os.path.join(temp_dir, "_shared")
+            shutil.copytree(shared_dir, shared_dst)
+            
+            # Zip the combined package
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for root, dirs, files in os.walk(temp_dir):
+                    for file in files:
+                        full_path = os.path.join(root, file)
+                        arcname = os.path.relpath(full_path, start=temp_dir)
+                        zf.write(full_path, arcname)
+            
+            return zip_buffer.getvalue()
+    else:
+        # Original behavior: just zip the folder
+        zip_path = zip_directory(folder_path, project_path=project_path)
 
-    with open(zip_path, "rb") as f:
-        zip_code = f.read()
+        with open(zip_path, "rb") as f:
+            zip_code = f.read()
 
-    return zip_code
+        return zip_code
 
 
 def compile_merged_lambda_function(

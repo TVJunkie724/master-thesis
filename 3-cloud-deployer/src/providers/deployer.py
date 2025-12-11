@@ -35,6 +35,27 @@ def _get_strategy(context: 'DeploymentContext', provider_name: str):
 
 
 # ==========================================
+# Layer 0 - Glue (Cross-Cloud HTTP Receivers)
+# ==========================================
+
+def deploy_l0(context: 'DeploymentContext', provider: str) -> None:
+    """Deploy Layer 0 (Glue) - cross-cloud HTTP receivers.
+    
+    Must run BEFORE other layers to ensure URLs are available.
+    """
+    logger.info(f"[L0] Deploying for {provider}...")
+    strategy = _get_strategy(context, provider)
+    strategy.deploy_l0(context)
+
+
+def destroy_l0(context: 'DeploymentContext', provider: str) -> None:
+    """Destroy Layer 0 (Glue) components."""
+    logger.info(f"[L0] Destroying for {provider}...")
+    strategy = _get_strategy(context, provider)
+    strategy.destroy_l0(context)
+
+
+# ==========================================
 # Layer 1 - Data Acquisition
 # ==========================================
 
@@ -185,6 +206,7 @@ def deploy_all(context: 'DeploymentContext', provider: str) -> None:
                     f"for provider '{provider}'. Destroy it first or use a different name."
                 )
     
+    deploy_l0(context, provider)
     deploy_l1(context, provider)
     deploy_l2(context, provider)
     deploy_l3(context, provider)
@@ -199,12 +221,7 @@ def destroy_all(context: 'DeploymentContext', provider: str) -> None:
     destroy_l3(context, provider)
     destroy_l2(context, provider)
     destroy_l1(context, provider)
-
-
-
-# ==========================================
-# Specialized Operations
-# ==========================================
+    destroy_l0(context, provider)
 
 
 # ==========================================
@@ -236,6 +253,12 @@ def redeploy_event_checker(context: 'DeploymentContext', provider: str) -> None:
 # ==========================================
 # Info / Status Checks
 # ==========================================
+
+def info_l0(context: 'DeploymentContext', provider: str) -> None:
+    """Check status of Layer 0 (Glue) components."""
+    strategy = _get_strategy(context, provider)
+    strategy.info_l0(context)
+
 
 def info_l1(context: 'DeploymentContext', provider: str) -> None:
     """Check status of Layer 1 (Data Acquisition) components."""
@@ -288,6 +311,7 @@ def info_l5(context: 'DeploymentContext', provider: str) -> None:
 
 def info_all(context: 'DeploymentContext', provider: str) -> None:
     """Check status of all layers."""
+    info_l0(context, provider)
     info_l1(context, provider)
     info_l2(context, provider)
     info_l3(context, provider)

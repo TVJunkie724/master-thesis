@@ -100,9 +100,9 @@ class TestAWSNaming:
         assert self.naming.hot_reader_last_entry_iam_role() == "my-twin-hot-reader-last-entry"
         assert self.naming.hot_reader_last_entry_lambda_function() == "my-twin-hot-reader-last-entry"
 
-    def test_writer_lambda_function(self):
-        """Test writer Lambda name for multi-cloud."""
-        assert self.naming.writer_lambda_function() == "my-twin-writer"
+    def test_hot_writer_lambda_function(self):
+        """Test hot writer Lambda name for multi-cloud."""
+        assert self.naming.hot_writer_lambda_function() == "my-twin-hot-writer"
 
     # ==========================================
     # Layer 4 & 5

@@ -47,6 +47,28 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
 docker exec master-thesis-3cloud-deployer-1 bash -c "ls -la /app"
 ```
 
+> **⚠️ IMPORTANT: Avoid Windows-Specific Commands**
+> 
+> Always run commands **inside the Docker container** using `docker exec`. Do NOT use:
+> - PowerShell-specific commands (e.g., `Get-Content`, `Select-String`, `Remove-Item`)
+> - Windows path separators (use `/` not `\` inside container)
+> - Piping to Windows commands (pipe to `grep` inside Docker instead)
+>
+> **WRONG:** `docker exec ... | Select-String "pattern"`  
+> **RIGHT:** `docker exec ... bash -c "grep 'pattern' file.txt"`
+>
+> **For file operations:** Use the agent's built-in file tools (write_to_file, etc.) or Docker commands:
+> - **Delete file:** Use `docker exec ... bash -c "rm /app/path/to/file"` (NOT `Remove-Item`)
+> - **Move file:** Use `docker exec ... bash -c "mv /app/src /app/dest"` (NOT `Move-Item`)
+
+> **⚠️ COMMAND FORMAT BEST PRACTICES (AI Agent Specific)**
+>
+> When running commands, prefer simple, standard formats:
+> - **Use pytest directly:** `docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/ -v --tb=short`
+> - **Avoid inline Python with complex quotes:** Do NOT use `-c "print(...)"` with nested quotes or special characters
+> - **For Python inspection:** Use file tools (`view_file_outline`, `view_code_item`) instead of inline Python commands
+> - **Keep commands simple:** If a command needs complex escaping, find an alternative approach
+
 > **Note:** The `head` and `tail` commands are not available in the minimal Docker container. Use Python or `cat` with `grep` for file inspection instead.
 
 ---
@@ -258,3 +280,7 @@ Every implementation plan must include the following sections:
 | Create implementation plans | ✅ Allowed |
 | Delete files | ⚠️ Mention to user first |
 | Modify configuration files | ⚠️ Mention to user first |
+
+### Browser Verification
+
+> **📋 USER RESPONSIBILITY:** Do NOT use the browser tool to verify HTML/CSS changes or check documentation pages. The **user will verify browser output themselves**. When updating documentation (HTML, CSS), simply notify the user of changes made and let them refresh/check the page.

@@ -34,8 +34,31 @@
                 code.
             </div>
 
-            <!-- Pattern 1: Strategy -->
+            <!-- Table of Contents -->
             <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Table of Contents</h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#strategy">1. Strategy Pattern</a></li>
+                                <li><a href="#provider">2. Provider Pattern (Abstract Factory)</a></li>
+                                <li><a href="#di">3. Dependency Injection (Context)</a></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#registry">4. Registry Pattern</a></li>
+                                <li><a href="#together">How Patterns Work Together</a></li>
+                                <li><a href="#structure">Code Location</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pattern 1: Strategy -->
+            <div class="card mb-4" id="strategy">
                 <h2 class="mb-3"><i class="fa-solid fa-shuffle me-2"></i>1. Strategy Pattern</h2>
 
                 <h5 class="text-primary">Definition</h5>
@@ -121,7 +144,7 @@ def deploy_l1(context: DeploymentContext) -> None:
             </div>
 
             <!-- Pattern 2: Provider (Abstract Factory) -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="provider">
                 <h2 class="mb-3"><i class="fa-solid fa-industry me-2"></i>2. Provider Pattern (Abstract Factory)</h2>
 
                 <h5 class="text-primary">Definition</h5>
@@ -224,7 +247,7 @@ class AWSProvider:
             </div>
 
             <!-- Pattern 3: Dependency Injection -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="di">
                 <h2 class="mb-3"><i class="fa-solid fa-syringe me-2"></i>3. Dependency Injection (Context)</h2>
 
                 <h5 class="text-primary">Definition</h5>
@@ -324,7 +347,7 @@ class DeploymentContext:
             </div>
 
             <!-- Pattern 4: Registry -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="registry">
                 <h2 class="mb-3"><i class="fa-solid fa-book me-2"></i>4. Registry Pattern</h2>
 
                 <h5 class="text-primary">Definition</h5>
@@ -413,7 +436,7 @@ provider.initialize_clients(credentials, "my-twin")
             </div>
 
             <!-- How Patterns Work Together -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="together">
                 <h2 class="mb-3"><i class="fa-solid fa-puzzle-piece me-2"></i>How Patterns Work Together</h2>
 
                 <p>Here's how the four patterns collaborate during a deployment:</p>
@@ -456,7 +479,7 @@ for layer in [1, 2, "3_hot", "3_cold", "3_archive", 4, 5]:
             </div>
 
             <!-- Directory Structure -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="structure">
                 <h2 class="mb-3"><i class="fa-solid fa-folder-tree me-2"></i>Code Location</h2>
 
                 <pre class="p-3 rounded"><code>src/

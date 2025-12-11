@@ -12,12 +12,19 @@ TwinMaker → Digital Twin Data Connector → Hot Reader (local or remote)
 
 This function only exists in multi-cloud scenarios where L3 ≠ L4.
 """
-
 import json
 import os
+import sys
 import boto3
-import urllib.request
-import urllib.error
+
+# Handle import path for both Lambda (deployed with _shared) and test (local development) contexts
+try:
+    from _shared.inter_cloud import post_raw
+except ModuleNotFoundError:
+    _lambda_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _lambda_funcs_dir not in sys.path:
+        sys.path.insert(0, _lambda_funcs_dir)
+    from _shared.inter_cloud import post_raw
 
 
 def _require_env(name: str) -> str:
@@ -62,33 +69,21 @@ def _invoke_local_hot_reader(event: dict) -> dict:
 
 
 def _query_remote_hot_reader(event: dict) -> dict:
-    """Query remote Hot Reader via HTTP POST with X-Inter-Cloud-Token."""
+    """Query remote Hot Reader via HTTP POST using shared inter_cloud module."""
     if not REMOTE_READER_URL:
         raise EnvironmentError("REMOTE_READER_URL not configured for multi-cloud mode")
     if not INTER_CLOUD_TOKEN:
         raise EnvironmentError("INTER_CLOUD_TOKEN not configured for multi-cloud mode")
     
-    data = json.dumps(event).encode("utf-8")
-    
-    req = urllib.request.Request(
-        REMOTE_READER_URL,
-        data=data,
-        headers={
-            "Content-Type": "application/json",
-            "X-Inter-Cloud-Token": INTER_CLOUD_TOKEN
-        },
-        method="POST"
+    # Use shared module for HTTP POST with retry logic
+    result = post_raw(
+        url=REMOTE_READER_URL,
+        token=INTER_CLOUD_TOKEN,
+        payload=event
     )
     
-    try:
-        with urllib.request.urlopen(req, timeout=30) as response:
-            body = response.read().decode("utf-8")
-            return json.loads(body)
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode("utf-8") if e.fp else str(e)
-        raise RuntimeError(f"Remote Hot Reader returned {e.code}: {error_body}")
-    except urllib.error.URLError as e:
-        raise RuntimeError(f"Failed to reach Remote Hot Reader: {e.reason}")
+    # Parse response body as JSON
+    return json.loads(result.get("body", "{}"))
 
 
 def lambda_handler(event, context):

@@ -69,6 +69,28 @@ class AWSDeployerStrategy:
         return self._provider
     
     # ==========================================
+    # Layer 0: Glue (Cross-Cloud HTTP Receivers)
+    # ==========================================
+    
+    def deploy_l0(self, context: 'DeploymentContext') -> None:
+        """
+        Deploy Layer 0 (Glue) - cross-cloud HTTP receivers.
+        
+        Creates (conditionally):
+            1. Ingestion Lambda + Function URL (if L1 ≠ L2)
+            2. Hot Writer Lambda + Function URL (if L2 ≠ L3)
+            3. Cold/Archive Writers (if storage tiers span clouds)
+            4. Hot Reader Function URLs (if L3 ≠ L4)
+        """
+        from .layers.l0_adapter import deploy_l0 as _deploy_l0
+        _deploy_l0(context, self._provider)
+    
+    def destroy_l0(self, context: 'DeploymentContext') -> None:
+        """Destroy Layer 0 resources."""
+        from .layers.l0_adapter import destroy_l0 as _destroy_l0
+        _destroy_l0(context, self._provider)
+    
+    # ==========================================
     # Layer 1: Data Acquisition (IoT)
     # ==========================================
     
@@ -222,7 +244,8 @@ class AWSDeployerStrategy:
     # ==========================================
     
     def deploy_all(self, context: 'DeploymentContext') -> None:
-        """Deploy all layers in order (L1 → L5)."""
+        """Deploy all layers in order (L0 → L5)."""
+        self.deploy_l0(context)
         self.deploy_l1(context)
         self.deploy_l2(context)
         self.deploy_l3_hot(context)
@@ -232,7 +255,7 @@ class AWSDeployerStrategy:
         self.deploy_l5(context)
     
     def destroy_all(self, context: 'DeploymentContext') -> None:
-        """Destroy all layers in reverse order (L5 → L1)."""
+        """Destroy all layers in reverse order (L5 → L0)."""
         self.destroy_l5(context)
         self.destroy_l4(context)
         self.destroy_l3_archive(context)
@@ -240,10 +263,16 @@ class AWSDeployerStrategy:
         self.destroy_l3_hot(context)
         self.destroy_l2(context)
         self.destroy_l1(context)
+        self.destroy_l0(context)
 
     # ==========================================
     # Info / Status Checks
     # ==========================================
+
+    def info_l0(self, context: 'DeploymentContext') -> None:
+        """Check status of Layer 0 (Glue)."""
+        from .layers.l0_adapter import info_l0 as _info_l0
+        _info_l0(context, self._provider)
 
     def info_l1(self, context: 'DeploymentContext') -> None:
         """Check status of Layer 1 (IoT)."""
@@ -282,6 +311,7 @@ class AWSDeployerStrategy:
 
     def info_all(self, context: 'DeploymentContext') -> None:
         """Check status of all layers."""
+        self.info_l0(context)
         self.info_l1(context)
         self.info_l2(context)
         self.info_l3_hot(context)

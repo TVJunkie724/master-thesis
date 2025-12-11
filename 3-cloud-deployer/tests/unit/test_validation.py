@@ -172,7 +172,8 @@ class TestValidation(unittest.TestCase):
                     content = json.dumps({
                         "layer_1_provider": "aws",
                         "layer_2_provider": "aws",
-                        "layer_3_hot_provider": "aws"
+                        "layer_3_hot_provider": "aws",
+                        "layer_4_provider": "aws"
                     })
                 
                 if configs and req in configs:

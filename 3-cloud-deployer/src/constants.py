@@ -29,7 +29,7 @@ CONFIG_SCHEMAS = {
     CONFIG_HIERARCHY_FILE: ["name", "type"],
     CONFIG_OPTIMIZATION_FILE: ["result"],
     CONFIG_CREDENTIALS_FILE: [], # Dynamic check based on provider
-    CONFIG_PROVIDERS_FILE: ["layer_1_provider", "layer_2_provider", "layer_3_hot_provider"],
+    CONFIG_PROVIDERS_FILE: ["layer_1_provider", "layer_2_provider", "layer_3_hot_provider", "layer_4_provider"],
     CONFIG_INTER_CLOUD_FILE: ["connections"]
 }
 

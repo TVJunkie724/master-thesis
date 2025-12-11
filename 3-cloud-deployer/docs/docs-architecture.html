@@ -26,8 +26,30 @@
                 Understanding the 5-layer Digital Twin architecture and the modular deployer pattern.
             </p>
 
-            <!-- System Overview -->
+            <!-- Table of Contents -->
             <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Table of Contents</h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#system-overview">System Overview</a></li>
+                                <li><a href="#architecture-layers">Architecture Layers</a></li>
+                                <li><a href="#deployer-pattern">Deployer Pattern</a></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#naming-convention">Naming Convention</a></li>
+                                <li><a href="#multi-cloud">Multi-Cloud Architecture</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Overview -->
+            <div class="card mb-4" id="system-overview">
                 <h2 class="mb-3"><i class="fa-solid fa-diagram-project me-2"></i>System Overview</h2>
                 <p>
                     The Multi-Cloud Digital Twin Deployer implements a <strong>5-layer architecture</strong> where each
@@ -49,7 +71,7 @@
             </div>
 
             <!--Architecture Layers -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="architecture-layers">
                 <h2 class="mb-3"><i class="fa-solid fa-layer-group me-2"></i>Architecture Layers</h2>
 
                 <h3 class="mt-4 mb-2"><i class="fa-solid fa-1 me-2 text-primary"></i>Layer 1: Data Acquisition</h3>
@@ -199,7 +221,7 @@
             </div>
 
             <!-- Deployer Pattern -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="deployer-pattern">
                 <h2 class="mb-3"><i class="fa-solid fa-code-branch me-2"></i>Deployer Pattern</h2>
                 <p>The project follows a <strong>modular deployer pattern</strong> that promotes separation of concerns
                     and maintainability.</p>
@@ -270,7 +292,7 @@ def info(provider="aws"):
             </div>
 
             <!-- Naming Convention -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="naming-convention">
                 <h2 class="mb-3"><i class="fa-solid fa-tag me-2"></i>Resource Naming Convention</h2>
                 <p>All cloud resources are prefixed with <code>digital_twin_name</code> to create a dedicated namespace.
                 </p>
@@ -321,7 +343,7 @@ def info(provider="aws"):
             </div>
 
             <!-- Multi-Cloud Considerations -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="multi-cloud">
                 <h2 class="mb-3"><i class="fa-solid fa-globe me-2"></i>Multi-Cloud Architecture</h2>
                 <p>The deployer is designed to support mixed cloud providers per layer:</p>
 

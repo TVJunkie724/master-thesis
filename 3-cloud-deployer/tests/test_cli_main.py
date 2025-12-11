@@ -96,7 +96,6 @@ class TestCLIDeploymentCommands:
         import main
         
         with patch("providers.deployer.deploy_all") as mock_deploy, \
-             patch("providers.iot_deployer.deploy") as mock_iot, \
              patch("src.providers.aws.layers.layer_4_twinmaker.create_twinmaker_hierarchy"), \
              patch("src.providers.aws.layers.layer_2_compute.deploy_lambda_actions"), \
              patch("src.providers.aws.layers.layer_1_iot.post_init_values_to_iot_core"):
@@ -104,21 +103,18 @@ class TestCLIDeploymentCommands:
             main.handle_deploy("aws", mock_context)
             
             mock_deploy.assert_called_once_with(mock_context, "aws")
-            mock_iot.assert_called_once_with(mock_context, "aws")
 
     def test_handle_destroy_calls_deployer(self, mock_context):
         """Test that destroy command calls deployer.destroy_all."""
         import main
         
         with patch("providers.deployer.destroy_all") as mock_destroy, \
-             patch("providers.iot_deployer.destroy") as mock_iot, \
              patch("src.providers.aws.layers.layer_4_twinmaker.destroy_twinmaker_hierarchy"), \
              patch("src.providers.aws.layers.layer_2_compute.destroy_lambda_actions"):
             
             main.handle_destroy("aws", mock_context)
             
             mock_destroy.assert_called_once_with(mock_context, "aws")
-            mock_iot.assert_called_once_with(mock_context, "aws")
 
 
 class TestCLIInfoCommands:
@@ -417,8 +413,7 @@ class TestCLIEdgeCases:
         mock_ctx.config.hierarchy = []
         mock_ctx.config.events = []
         
-        with patch("providers.deployer.deploy_all"), \
-             patch("providers.iot_deployer.deploy"):
+        with patch("providers.deployer.deploy_all"):
             # Should not crash even without AWS provider
             main.handle_deploy("aws", mock_ctx)
 
@@ -429,8 +424,7 @@ class TestCLIEdgeCases:
         mock_ctx = MagicMock()
         mock_ctx.providers = {}  # No providers
         
-        with patch("providers.deployer.destroy_all"), \
-             patch("providers.iot_deployer.destroy"):
+        with patch("providers.deployer.destroy_all"):
             # Should not crash even without AWS provider
             main.handle_destroy("aws", mock_ctx)
 

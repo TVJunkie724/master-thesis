@@ -9,11 +9,18 @@ Editable: Yes - This is the runtime Lambda code
 """
 import boto3
 import os
+import sys
 import json
 import datetime
-import time
-import urllib.request
-import urllib.error
+
+# Handle import path for both Lambda (deployed with _shared) and test (local development) contexts
+try:
+    from _shared.inter_cloud import post_raw
+except ModuleNotFoundError:
+    _lambda_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _lambda_funcs_dir not in sys.path:
+        sys.path.insert(0, _lambda_funcs_dir)
+    from _shared.inter_cloud import post_raw
 
 
 # ==========================================
@@ -29,10 +36,7 @@ def _require_env(name: str) -> str:
 
 
 # Validate env vars at startup (fail-fast)
-_raw_twin_info = os.environ.get("DIGITAL_TWIN_INFO")
-if not _raw_twin_info:
-    raise RuntimeError("Required environment variable 'DIGITAL_TWIN_INFO' is not set")
-DIGITAL_TWIN_INFO = json.loads(_raw_twin_info)
+DIGITAL_TWIN_INFO = json.loads(_require_env("DIGITAL_TWIN_INFO"))
 
 COLD_S3_BUCKET_NAME = _require_env("COLD_S3_BUCKET_NAME")
 ARCHIVE_S3_BUCKET_NAME = _require_env("ARCHIVE_S3_BUCKET_NAME")
@@ -45,8 +49,6 @@ s3_client = boto3.client("s3")
 
 # Constants
 MAX_OBJECT_SIZE_BYTES = 200 * 1024 * 1024  # 200 MB memory guard
-MAX_RETRIES = 3
-RETRY_BASE_DELAY = 1  # seconds
 
 
 # ==========================================
@@ -93,12 +95,12 @@ def _is_multi_cloud_archive() -> bool:
 
 
 # ==========================================
-# Remote POST with Retry
+# Remote POST with Retry (using shared module)
 # ==========================================
 
 def _post_to_remote_archive_writer(object_key: str, data: str) -> None:
     """
-    POST object content to remote Archive Writer with exponential backoff retry.
+    POST object content to remote Archive Writer using shared inter_cloud module.
     """
     if not INTER_CLOUD_TOKEN:
         raise ValueError("INTER_CLOUD_TOKEN is required for multi-cloud transfers")
@@ -109,51 +111,14 @@ def _post_to_remote_archive_writer(object_key: str, data: str) -> None:
         "source_cloud": "aws"
     }
     
-    post_data = json.dumps(payload, default=str).encode('utf-8')
+    result = post_raw(
+        url=REMOTE_ARCHIVE_WRITER_URL,
+        token=INTER_CLOUD_TOKEN,
+        payload=payload,
+        timeout=60  # Longer timeout for potentially large archive data
+    )
     
-    for attempt in range(MAX_RETRIES):
-        try:
-            req = urllib.request.Request(
-                REMOTE_ARCHIVE_WRITER_URL,
-                data=post_data,
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Inter-Cloud-Token": INTER_CLOUD_TOKEN
-                },
-                method="POST"
-            )
-            
-            with urllib.request.urlopen(req, timeout=60) as response:
-                status = response.getcode()
-                if status == 200:
-                    print(f"Successfully posted {object_key} to remote Archive Writer")
-                    return
-                else:
-                    raise urllib.error.HTTPError(
-                        REMOTE_ARCHIVE_WRITER_URL, status, f"Unexpected status: {status}", {}, None
-                    )
-                    
-        except urllib.error.HTTPError as e:
-            if 400 <= e.code < 500:
-                print(f"Client error {e.code} posting to Archive Writer: {e.reason}")
-                raise
-            else:
-                if attempt < MAX_RETRIES - 1:
-                    delay = RETRY_BASE_DELAY * (2 ** attempt)
-                    print(f"Server error {e.code}, retrying in {delay}s (attempt {attempt + 1}/{MAX_RETRIES})")
-                    time.sleep(delay)
-                else:
-                    print(f"Max retries exceeded for Archive Writer POST")
-                    raise
-                    
-        except urllib.error.URLError as e:
-            if attempt < MAX_RETRIES - 1:
-                delay = RETRY_BASE_DELAY * (2 ** attempt)
-                print(f"Network error: {e.reason}, retrying in {delay}s (attempt {attempt + 1}/{MAX_RETRIES})")
-                time.sleep(delay)
-            else:
-                print(f"Max retries exceeded for Archive Writer POST")
-                raise
+    print(f"Successfully posted {object_key} to remote Archive Writer")
 
 
 # ==========================================
@@ -219,4 +184,3 @@ def lambda_handler(event, context):
         raise e
     
     print("Cold-to-Archive Mover: Complete")
-

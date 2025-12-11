@@ -30,8 +30,33 @@
                 including resource creation, integration, and destruction.
             </p>
 
-            <!-- Testing Overview -->
+            <!-- Table of Contents -->
             <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Table of Contents</h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#testing-overview">Testing Overview</a></li>
+                                <li><a href="#test-statistics">Test Statistics</a></li>
+                                <li><a href="#test-categories">Test Categories</a></li>
+                                <li><a href="#running-tests">Running Tests</a></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#test-organization">Test Organization</a></li>
+                                <li><a href="#writing-tests">Writing New Tests</a></li>
+                                <li><a href="#ci-cd">Continuous Integration</a></li>
+                                <li><a href="#troubleshooting">Troubleshooting</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Testing Overview -->
+            <div class="card mb-4" id="testing-overview">
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-chart-pie me-2"></i>Testing Overview</h2>
                     <p>
@@ -45,7 +70,7 @@
             </div>
 
             <!-- Test Statistics -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="test-statistics">
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-chart-bar me-2"></i>Test Statistics</h2>
 
@@ -171,7 +196,7 @@
             </div>
 
             <!-- Test Categories -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="test-categories">
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-list-check me-2"></i>Test Categories</h2>
 
@@ -242,7 +267,7 @@
             </div>
 
             <!-- Running Tests -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="running-tests">
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-play me-2"></i>Running Tests</h2>
 
@@ -278,7 +303,7 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
             </div>
 
             <!-- Test Organization -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="test-organization">
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-folder-tree me-2"></i>Test Organization</h2>
                     <div class="table-responsive">
@@ -330,7 +355,7 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
             </div>
 
             <!-- Writing New Tests -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="writing-tests">
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-code me-2"></i>Writing New Tests</h2>
 
@@ -363,7 +388,7 @@ def test_create_bucket(mock_aws_context):
             </div>
 
             <!-- CI/CD Integration -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="ci-cd">
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-gears me-2"></i>Continuous Integration</h2>
                     <p>The test suite is designed for easy integration into CI/CD pipelines:</p>
@@ -421,7 +446,7 @@ jobs:
             </div>
 
             <!-- Troubleshooting -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="troubleshooting">
                 <div class="card-body">
                     <h2 class="mb-3"><i class="fa-solid fa-triangle-exclamation me-2"></i>Troubleshooting</h2>
 

@@ -92,16 +92,34 @@ class TestIngestionTokenValidation:
 # Writer Lambda Tests
 # ==========================================
 
-class TestWriterTokenValidation:
-    """Tests for Writer Lambda token validation."""
+def _load_hot_writer():
+    """Helper to load hot-writer Lambda using importlib (hyphenated directory)."""
+    import importlib.util
+    import pathlib
+    
+    # Clear any cached modules
+    import sys
+    for key in list(sys.modules.keys()):
+        if 'hot_writer' in key:
+            del sys.modules[key]
+    
+    # Build path to hot-writer Lambda
+    tests_dir = pathlib.Path(__file__).parent  # lambda_functions
+    src_dir = tests_dir.parent.parent.parent / 'src'
+    hot_writer_path = src_dir / 'providers' / 'aws' / 'lambda_functions' / 'hot-writer' / 'lambda_function.py'
+    
+    spec = importlib.util.spec_from_file_location('hot_writer_lambda', hot_writer_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class TestHotWriterTokenValidation:
+    """Tests for Hot Writer Lambda token validation."""
 
     @patch("boto3.resource")
-    def test_writer_rejects_invalid_token(self, mock_boto):
-        """Writer should return 403 when token is invalid."""
-        import sys
-        if "src.providers.aws.lambda_functions.writer.lambda_function" in sys.modules:
-            del sys.modules["src.providers.aws.lambda_functions.writer.lambda_function"]
-        
+    def test_hot_writer_rejects_invalid_token(self, mock_boto):
+        """Hot Writer should return 403 when token is invalid."""
         mock_table = MagicMock()
         mock_dynamodb = MagicMock()
         mock_dynamodb.Table.return_value = mock_table
@@ -111,25 +129,21 @@ class TestWriterTokenValidation:
             "INTER_CLOUD_TOKEN": "correct-token",
             "DYNAMODB_TABLE_NAME": "test-table"
         }):
-            from src.providers.aws.lambda_functions.writer import lambda_function as writer
+            hot_writer = _load_hot_writer()
             
             event = {
                 "headers": {"x-inter-cloud-token": "wrong-token"},
                 "body": json.dumps({"payload": {"id": "123"}})
             }
             
-            result = writer.lambda_handler(event, None)
+            result = hot_writer.lambda_handler(event, None)
             
             assert result["statusCode"] == 403
             assert "Unauthorized" in result["body"]
 
     @patch("boto3.resource")
-    def test_writer_accepts_valid_token_and_writes(self, mock_boto):
-        """Writer should accept valid token and write to DynamoDB."""
-        import sys
-        if "src.providers.aws.lambda_functions.writer.lambda_function" in sys.modules:
-            del sys.modules["src.providers.aws.lambda_functions.writer.lambda_function"]
-        
+    def test_hot_writer_accepts_valid_token_and_writes(self, mock_boto):
+        """Hot Writer should accept valid token and write to DynamoDB."""
         mock_table = MagicMock()
         mock_dynamodb = MagicMock()
         mock_dynamodb.Table.return_value = mock_table
@@ -139,10 +153,8 @@ class TestWriterTokenValidation:
             "INTER_CLOUD_TOKEN": "correct-token",
             "DYNAMODB_TABLE_NAME": "test-table"
         }):
-            from src.providers.aws.lambda_functions.writer import lambda_function as writer
-            
-            # Patch the table directly in the module
-            writer.table = mock_table
+            hot_writer = _load_hot_writer()
+            hot_writer.table = mock_table  # Patch table directly
             
             event = {
                 "headers": {"x-inter-cloud-token": "correct-token"},
@@ -152,18 +164,14 @@ class TestWriterTokenValidation:
                 })
             }
             
-            result = writer.lambda_handler(event, None)
+            result = hot_writer.lambda_handler(event, None)
             
             assert result["statusCode"] == 200
             mock_table.put_item.assert_called_once()
 
     @patch("boto3.resource")
-    def test_writer_validates_payload_is_dict(self, mock_boto):
-        """Writer should return 400 when payload is not a dict."""
-        import sys
-        if "src.providers.aws.lambda_functions.writer.lambda_function" in sys.modules:
-            del sys.modules["src.providers.aws.lambda_functions.writer.lambda_function"]
-        
+    def test_hot_writer_validates_payload_is_dict(self, mock_boto):
+        """Hot Writer should return 400 when payload is not a dict."""
         mock_table = MagicMock()
         mock_dynamodb = MagicMock()
         mock_dynamodb.Table.return_value = mock_table
@@ -173,7 +181,7 @@ class TestWriterTokenValidation:
             "INTER_CLOUD_TOKEN": "correct-token",
             "DYNAMODB_TABLE_NAME": "test-table"
         }):
-            from src.providers.aws.lambda_functions.writer import lambda_function as writer
+            hot_writer = _load_hot_writer()
             
             event = {
                 "headers": {"x-inter-cloud-token": "correct-token"},
@@ -182,7 +190,7 @@ class TestWriterTokenValidation:
                 })
             }
             
-            result = writer.lambda_handler(event, None)
+            result = hot_writer.lambda_handler(event, None)
             
             assert result["statusCode"] == 400
             assert "must be a JSON object" in result["body"]

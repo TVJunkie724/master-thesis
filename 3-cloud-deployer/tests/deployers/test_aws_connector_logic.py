@@ -99,7 +99,7 @@ class TestAWSConnectorLogic(unittest.TestCase):
         
         self.assertEqual(naming.connector_lambda_function("sensor-1"), "MyTwin-sensor-1-connector")
         self.assertEqual(naming.ingestion_lambda_function(), "MyTwin-ingestion")
-        self.assertEqual(naming.writer_lambda_function(), "MyTwin-writer")
+        self.assertEqual(naming.hot_writer_lambda_function(), "MyTwin-hot-writer")
 
     def test_deploy_connector_branch(self):
         # Setup Multi-Cloud Scenario
@@ -145,10 +145,15 @@ class TestAWSConnectorLogic(unittest.TestCase):
             
     @patch('src.util.compile_lambda_function', return_value=b'zip')    
     def test_deploy_connector_branch_logic(self, mock_zip):
+        """Test that create_processor_lambda_function returns early when L2 is not AWS.
+        
+        NOTE: Connector deployment has been moved to L1 adapter.
+        L2 compute no longer creates Connector - it returns early.
+        """
         mock_config = MagicMock()
         mock_config.providers = {
             "layer_1_provider": "aws",
-            "layer_2_provider": "azure" 
+            "layer_2_provider": "azure"  # Different cloud - should return early
         }
         mock_config.inter_cloud = {
              "connections": {
@@ -163,7 +168,7 @@ class TestAWSConnectorLogic(unittest.TestCase):
         mock_lambda = MagicMock()
         mock_provider.clients = {"iam": mock_iam, "lambda": mock_lambda}
         
-        # Mock naming (using real logic for verification would be better but mock is simpler for isolation)
+        # Mock naming
         mock_naming = MagicMock()
         mock_naming.processor_iam_role.return_value = "Twin-dev1-processor"
         mock_naming.connector_lambda_function.return_value = "Twin-dev1-connector"
@@ -179,10 +184,8 @@ class TestAWSConnectorLogic(unittest.TestCase):
             project_path=self.upload_dir
         )
         
-        # Verify call arguments
-        args, kwargs = mock_lambda.create_function.call_args
-        self.assertEqual(kwargs['FunctionName'], 'Twin-dev1-connector')
-        self.assertEqual(kwargs['Environment']['Variables']['REMOTE_INGESTION_URL'], 'http://azure')
+        # Verify that no Lambda was created - function should return early
+        mock_lambda.create_function.assert_not_called()
 
 if __name__ == '__main__':
     unittest.main()

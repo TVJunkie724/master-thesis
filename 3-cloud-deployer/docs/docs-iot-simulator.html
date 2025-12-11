@@ -32,7 +32,32 @@
                 their respective deployers are completed.
             </div>
 
+            <!-- Table of Contents -->
             <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Table of Contents</h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#overview">Overview</a></li>
+                                <li><a href="#architecture">Architecture</a></li>
+                                <li><a href="#payloads">Payloads File</a></li>
+                                <li><a href="#api">API Endpoints</a></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#cli">CLI Usage</a></li>
+                                <li><a href="#package">Standalone Package</a></li>
+                                <li><a href="#providers">Provider-Specific Notes</a></li>
+                                <li><a href="#security">Security Considerations</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4" id="overview">
                 <h2 class="mb-3"><i class="fa-solid fa-lightbulb me-2"></i>Overview</h2>
                 <p>The IoT Device Simulator allows you to:</p>
                 <ul>
@@ -44,7 +69,7 @@
                 </ul>
             </div>
 
-            <div class="card mb-4">
+            <div class="card mb-4" id="architecture">
                 <h2 class="mb-3"><i class="fa-solid fa-folder-tree me-2"></i>Architecture</h2>
 
                 <h3 class="mt-4 text-primary">File Structure</h3>
@@ -66,18 +91,19 @@
                                 <td>No (System Code)</td>
                             </tr>
                             <tr>
-                                <td><code>upload/{project}/iot_device_simulator/{provider}/payloads.json</code></td>
+                                <td><code>upload/{project}/<wbr>iot_device_simulator/<wbr>{provider}/payloads.json</code>
+                                </td>
                                 <td>User-defined payload data to send</td>
                                 <td><strong>Yes</strong></td>
                             </tr>
                             <tr>
-                                <td><code>upload/{project}/iot_device_simulator/{provider}/config_generated.json</code>
+                                <td><code>upload/{project}/<wbr>iot_device_simulator/<wbr>{provider}/config_generated.json</code>
                                 </td>
                                 <td>Auto-generated configuration (endpoint, topic, cert paths)</td>
                                 <td>No (Generated at L1 deploy)</td>
                             </tr>
                             <tr>
-                                <td><code>upload/{project}/iot_devices_auth/{device_id}/</code></td>
+                                <td><code>upload/{project}/<wbr>iot_devices_auth/<wbr>{device_id}/</code></td>
                                 <td>Device certificates (generated during L1 deployment)</td>
                                 <td>No (Generated at L1 deploy)</td>
                             </tr>
@@ -90,7 +116,7 @@
                     class="p-3 rounded"><code>payloads.json → Simulator → MQTT/Pub/Sub → L1 Dispatcher → L2 Persister → L3 DynamoDB/Cosmos/Firestore</code></pre>
             </div>
 
-            <div class="card mb-4">
+            <div class="card mb-4" id="payloads">
                 <h2 class="mb-3"><i class="fa-solid fa-file-code me-2"></i>Payloads File</h2>
                 <p>The <code>payloads.json</code> file is the <strong>only user-editable file</strong> for the
                     simulator. It defines what data the simulated device will send.</p>
@@ -123,7 +149,7 @@
                 </ul>
             </div>
 
-            <div class="card mb-4">
+            <div class="card mb-4" id="api">
                 <h2 class="mb-3"><i class="fa-solid fa-code me-2"></i>API Endpoints</h2>
 
                 <div class="table-responsive">
@@ -161,7 +187,7 @@
                 </div>
             </div>
 
-            <div class="card mb-4">
+            <div class="card mb-4" id="cli">
                 <h2 class="mb-3"><i class="fa-solid fa-terminal me-2"></i>CLI Usage</h2>
                 <p>Run the simulator interactively from the CLI:</p>
                 <pre class="p-3 rounded"><code># Start the CLI
@@ -176,7 +202,7 @@ docker exec -it -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python src/ma
 > exit     # Return to main CLI</code></pre>
             </div>
 
-            <div class="card mb-4">
+            <div class="card mb-4" id="package">
                 <h2 class="mb-3"><i class="fa-solid fa-download me-2"></i>Standalone Package</h2>
                 <p>Download a complete, self-contained simulator package for external use:</p>
 
@@ -209,7 +235,7 @@ python src/main.py
 docker-compose up --build</code></pre>
             </div>
 
-            <div class="card mb-4">
+            <div class="card mb-4" id="providers">
                 <h2 class="mb-3"><i class="fa-solid fa-cloud me-2"></i>Provider-Specific Notes</h2>
 
                 <h3 class="mt-4 text-primary"><i class="fa-brands fa-aws me-2"></i>AWS</h3>
@@ -236,7 +262,7 @@ docker-compose up --build</code></pre>
                 </ul>
             </div>
 
-            <div class="card mb-4">
+            <div class="card mb-4" id="security">
                 <h2 class="mb-3"><i class="fa-solid fa-shield-halved me-2"></i>Security Considerations</h2>
                 <div class="callout warn">
                     <strong><i class="fa-solid fa-exclamation-triangle me-2"></i>Important</strong>

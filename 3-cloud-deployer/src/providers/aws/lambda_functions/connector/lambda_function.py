@@ -1,11 +1,29 @@
-import json
-import os
-import boto3
-import urllib.request
-import time
-import uuid
-from datetime import datetime, timezone
+"""
+Connector Lambda Function.
 
+Bridges L1 (IoT Core) to L2 (Processing) when they are on different clouds.
+Receives events from the Dispatcher and POSTs them to the remote Ingestion endpoint.
+
+Source: src/providers/aws/lambda_functions/connector/lambda_function.py
+Editable: Yes - This is the runtime Lambda code
+"""
+import os
+import sys
+
+# Handle import path for both Lambda (deployed with _shared) and test (local development) contexts
+try:
+    from _shared.inter_cloud import post_to_remote
+except ModuleNotFoundError:
+    # When running tests locally, add the lambda_functions directory to path
+    _lambda_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _lambda_funcs_dir not in sys.path:
+        sys.path.insert(0, _lambda_funcs_dir)
+    from _shared.inter_cloud import post_to_remote
+
+
+# ==========================================
+# Environment Variable Validation (Fail-Fast)
+# ==========================================
 
 def _require_env(name: str) -> str:
     """Get required environment variable or raise error at module load time."""
@@ -20,55 +38,28 @@ REMOTE_INGESTION_URL = _require_env("REMOTE_INGESTION_URL")
 INTER_CLOUD_TOKEN = _require_env("INTER_CLOUD_TOKEN")
 
 
-def lambda_handler(event, context):
-    payload = {
-        "source_cloud": "aws",                                
-        "target_layer": "L2",                                 # TODO: Make configurable
-        "message_type": "telemetry",                          # TODO: Support other types
-        "timestamp": datetime.now(timezone.utc).isoformat(),  # Current UTC
-        "payload": event,
-        "trace_id": str(uuid.uuid4())                         # Unique trace ID
-    }
-    
-    data = json.dumps(payload).encode('utf-8')
-    headers = {
-        'Content-Type': 'application/json',
-        'X-Inter-Cloud-Token': INTER_CLOUD_TOKEN
-    }
-    
-    req = urllib.request.Request(REMOTE_INGESTION_URL, data=data, headers=headers)
-    
-    # Retry Logic (Exponential Backoff)
-    max_retries = 3
-    retry_delay = 1
-    
-    for attempt in range(max_retries + 1):
-        try:
-            with urllib.request.urlopen(req) as response:
-                return {
-                    "statusCode": response.getcode(),
-                    "body": response.read().decode('utf-8')
-                }
-        except urllib.error.HTTPError as e:
-            # client error: Do not retry
-            if 400 <= e.code < 500:
-                print(f"Client Error ({e.code}): {e.reason}. Not Retrying.")
-                raise e # Fail fast
-            
-            # server error: Retry
-            if attempt < max_retries:
-                 print(f"Server Error ({e.code}): {e.reason}. Retrying in {retry_delay}s...")
-                 time.sleep(retry_delay)
-                 retry_delay *= 2
-            else:
-                 raise e
+# ==========================================
+# Handler
+# ==========================================
 
-        except Exception as e:
-            # Network/Connection error
-            if attempt < max_retries:
-                print(f"Connection Attempt {attempt+1} failed: {e}. Retrying in {retry_delay}s...")
-                time.sleep(retry_delay)
-                retry_delay *= 2
-            else:
-                print(f"All attempts failed. Error: {e}")
-                raise e
+def lambda_handler(event, context):
+    """
+    Forward IoT event to remote L2 Ingestion endpoint.
+    
+    This Lambda is deployed when L1 and L2 are on different clouds.
+    It wraps the event in a standardized envelope and POSTs it
+    to the remote Ingestion Function URL.
+    
+    Args:
+        event: IoT event from Dispatcher
+        context: Lambda context
+    
+    Returns:
+        dict: Response from remote Ingestion endpoint
+    """
+    return post_to_remote(
+        url=REMOTE_INGESTION_URL,
+        token=INTER_CLOUD_TOKEN,
+        payload=event,
+        target_layer="L2"
+    )

@@ -27,8 +27,32 @@
         Complete reference for all configuration files used by the Digital Twin Deployer.
       </p>
 
-      <!-- Main Config -->
+      <!-- Table of Contents -->
       <div class="card mb-4">
+        <div class="card-body">
+          <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Table of Contents</h2>
+          <div class="row">
+            <div class="col-md-6">
+              <ul>
+                <li><a href="#config-main">config.json</a></li>
+                <li><a href="#config-credentials">config_credentials.json</a></li>
+                <li><a href="#config-inter-cloud">config_inter_cloud.json</a></li>
+              </ul>
+            </div>
+            <div class="col-md-6">
+              <ul>
+                <li><a href="#config-iot-devices">config_iot_devices.json</a></li>
+                <li><a href="#config-providers">config_providers.json</a></li>
+                <li><a href="#config-hierarchy">config_hierarchy.json</a></li>
+                <li><a href="#config-events">config_events.json</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Config -->
+      <div class="card mb-4" id="config-main">
         <h2 class="mb-3"><i class="fa-solid fa-file-code me-2"></i>config.json</h2>
         <p><strong>Purpose:</strong> Main digital twin configuration parameters.</p>
         <p><strong>Location:</strong> <code>./config.json</code></p>
@@ -84,7 +108,7 @@
       </div>
 
       <!-- Credentials Config -->
-      <div class="card mb-4">
+      <div class="card mb-4" id="config-credentials">
         <h2 class="mb-3"><i class="fa-solid fa-key me-2"></i>config_credentials.json</h2>
         <p><strong>Purpose:</strong> Cloud provider authentication credentials.</p>
         <p><strong>Location:</strong> <code>./config_credentials.json</code></p>
@@ -126,7 +150,7 @@
       </div>
 
       <!-- Inter-Cloud Config -->
-      <div class="card mb-4">
+      <div class="card mb-4" id="config-inter-cloud">
         <h2 class="mb-3"><i class="fa-solid fa-network-wired me-2"></i>config_inter_cloud.json</h2>
         <p><strong>Purpose:</strong> Cross-cloud connection configuration for multi-cloud deployments.</p>
         <p><strong>Location:</strong> <code>./config_inter_cloud.json</code></p>
@@ -186,7 +210,7 @@
       </div>
 
       <!-- IoT Devices Config -->
-      <div class="card mb-4">
+      <div class="card mb-4" id="config-iot-devices">
         <h2 class="mb-3"><i class="fa-solid fa-microchip me-2"></i>config_iot_devices.json</h2>
         <p><strong>Purpose:</strong> Define IoT devices and their properties.</p>
         <p><strong>Location:</strong> <code>./config_iot_devices.json</code></p>
@@ -239,7 +263,7 @@
       </div>
 
       <!-- Providers Config -->
-      <div class="card mb-4">
+      <div class="card mb-4" id="config-providers">
         <h2 class="mb-3"><i class="fa-solid fa-cloud me-2"></i>config_providers.json</h2>
         <p><strong>Purpose:</strong> Map each layer to a cloud provider.</p>
         <p><strong>Location:</strong> <code>./config_providers.json</code></p>
@@ -284,7 +308,7 @@
       </div>
 
       <!-- Hierarchy Config -->
-      <div class="card mb-4">
+      <div class="card mb-4" id="config-hierarchy">
         <h2 class="mb-3"><i class="fa-solid fa-sitemap me-2"></i>config_hierarchy.json</h2>
         <p><strong>Purpose:</strong> Define the TwinMaker entity hierarchy (rooms, machines, components).</p>
         <p><strong>Location:</strong> <code>./config_hierarchy.json</code></p>
@@ -352,7 +376,7 @@
       </div>
 
       <!-- Events Config -->
-      <div class="card mb-4">
+      <div class="card mb-4" id="config-events">
         <h2 class="mb-3"><i class="fa-solid fa-bolt me-2"></i>config_events.json</h2>
         <p><strong>Purpose:</strong> Define event conditions and automated actions.</p>
         <p><strong>Location:</strong> <code>./config_events.json</code></p>

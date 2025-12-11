@@ -1,11 +1,30 @@
+"""
+Persister Lambda Function.
+
+Persists processed telemetry data to storage (DynamoDB or remote Writer).
+Handles both single-cloud (direct DynamoDB write) and multi-cloud (HTTP POST to remote Writer) modes.
+
+Source: src/providers/aws/lambda_functions/persister/lambda_function.py
+Editable: Yes - This is the runtime Lambda code
+"""
 import os
+import sys
 import json
 import boto3
-import urllib.request
-import time
-import uuid
-from datetime import datetime, timezone
 
+# Handle import path for both Lambda (deployed with _shared) and test (local development) contexts
+try:
+    from _shared.inter_cloud import post_to_remote
+except ModuleNotFoundError:
+    _lambda_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _lambda_funcs_dir not in sys.path:
+        sys.path.insert(0, _lambda_funcs_dir)
+    from _shared.inter_cloud import post_to_remote
+
+
+# ==========================================
+# Environment Variable Validation (Fail-Fast)
+# ==========================================
 
 def _require_env(name: str) -> str:
     """Get required environment variable or raise error at module load time."""
@@ -33,6 +52,10 @@ dynamodb_table = None
 lambda_client = boto3.client("lambda")
 
 
+# ==========================================
+# DynamoDB Helpers
+# ==========================================
+
 def _get_dynamodb_table():
     """Lazy initialization of DynamoDB table for single-cloud mode."""
     global dynamodb_client, dynamodb_table
@@ -43,6 +66,10 @@ def _get_dynamodb_table():
         dynamodb_table = dynamodb_client.Table(DYNAMODB_TABLE_NAME)
     return dynamodb_table
 
+
+# ==========================================
+# Multi-Cloud Detection
+# ==========================================
 
 def _is_multi_cloud_storage() -> bool:
     """
@@ -83,74 +110,25 @@ def _is_multi_cloud_storage() -> bool:
     return True
 
 
-def _post_to_remote_writer(remote_url: str, item: dict) -> None:
-    """
-    POST data to remote Writer API with retry logic.
-    
-    Args:
-        remote_url: The Writer function URL
-        item: The data item to persist
-    
-    Raises:
-        ValueError: If INTER_CLOUD_TOKEN is missing
-        Exception: If all retry attempts fail
-    """
-    token = os.environ.get("INTER_CLOUD_TOKEN", "").strip()
-    if not token:
-        raise ValueError("Multi-cloud mode enabled but INTER_CLOUD_TOKEN is missing or empty")
-    
-    # Build payload envelope per technical_specs.md
-    payload = {
-        "source_cloud": "aws",
-        "target_layer": "L3",
-        "message_type": "telemetry",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "payload": item,
-        "trace_id": str(uuid.uuid4())
-    }
-    
-    data = json.dumps(payload).encode('utf-8')
-    headers = {
-        'Content-Type': 'application/json',
-        'X-Inter-Cloud-Token': token
-    }
-    
-    req = urllib.request.Request(remote_url, data=data, headers=headers)
-    
-    # Retry Logic (Exponential Backoff)
-    max_retries = 3
-    retry_delay = 1
-    
-    for attempt in range(max_retries + 1):
-        try:
-            with urllib.request.urlopen(req, timeout=30) as response:
-                print(f"Remote Writer response: {response.getcode()}")
-                return
-        except urllib.request.HTTPError as e:
-            # Client error: Do not retry
-            if 400 <= e.code < 500:
-                print(f"Client Error ({e.code}): {e.reason}. Not Retrying.")
-                raise e
-            
-            # Server error: Retry
-            if attempt < max_retries:
-                print(f"Server Error ({e.code}): {e.reason}. Retrying in {retry_delay}s...")
-                time.sleep(retry_delay)
-                retry_delay *= 2
-            else:
-                raise e
-        except Exception as e:
-            # Network/Connection error
-            if attempt < max_retries:
-                print(f"Connection Attempt {attempt+1} failed: {e}. Retrying in {retry_delay}s...")
-                time.sleep(retry_delay)
-                retry_delay *= 2
-            else:
-                print(f"All attempts failed. Error: {e}")
-                raise e
-
+# ==========================================
+# Handler
+# ==========================================
 
 def lambda_handler(event, context):
+    """
+    Persist telemetry data to storage.
+    
+    In single-cloud mode, writes directly to DynamoDB.
+    In multi-cloud mode, POSTs to remote Hot Writer via shared module.
+    
+    Args:
+        event: Telemetry event with 'time' field
+        context: Lambda context
+    
+    Raises:
+        ValueError: If 'time' field is missing
+        ConfigurationError: If multi-cloud config is invalid
+    """
     print("Hello from Persister!")
     print("Event: " + json.dumps(event))
 
@@ -164,8 +142,15 @@ def lambda_handler(event, context):
         # Multi-cloud: Check if we should write to remote Writer
         if _is_multi_cloud_storage():
             remote_url = os.environ.get("REMOTE_WRITER_URL")
-            print(f"Multi-cloud mode: POSTing to remote Writer at {remote_url}")
-            _post_to_remote_writer(remote_url, item)
+            token = os.environ.get("INTER_CLOUD_TOKEN", "").strip()
+            
+            print(f"Multi-cloud mode: POSTing to remote Hot Writer at {remote_url}")
+            post_to_remote(
+                url=remote_url,
+                token=token,
+                payload=item,
+                target_layer="L3"
+            )
             print("Item persisted to remote cloud.")
         else:
             # Single-cloud: Write to local DynamoDB

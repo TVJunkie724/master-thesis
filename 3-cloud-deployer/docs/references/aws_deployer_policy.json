@@ -1,0 +1,173 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Layer0GlueIAM",
+            "Effect": "Allow",
+            "Action": [
+                "iam:CreateRole",
+                "iam:DeleteRole",
+                "iam:GetRole",
+                "iam:AttachRolePolicy",
+                "iam:DetachRolePolicy",
+                "iam:ListAttachedRolePolicies",
+                "iam:ListRolePolicies",
+                "iam:DeleteRolePolicy",
+                "iam:PutRolePolicy",
+                "iam:ListInstanceProfilesForRole",
+                "iam:RemoveRoleFromInstanceProfile",
+                "iam:UpdateAssumeRolePolicy"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "Layer0GlueLambda",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:CreateFunction",
+                "lambda:DeleteFunction",
+                "lambda:GetFunction",
+                "lambda:AddPermission",
+                "lambda:RemovePermission",
+                "lambda:CreateFunctionUrlConfig",
+                "lambda:DeleteFunctionUrlConfig",
+                "lambda:GetFunctionUrlConfig",
+                "lambda:GetFunctionConfiguration",
+                "lambda:UpdateFunctionConfiguration"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "Layer1IoTCore",
+            "Effect": "Allow",
+            "Action": [
+                "iot:CreateThing",
+                "iot:DeleteThing",
+                "iot:DescribeThing",
+                "iot:CreateKeysAndCertificate",
+                "iot:CreatePolicy",
+                "iot:DeletePolicy",
+                "iot:AttachThingPrincipal",
+                "iot:DetachThingPrincipal",
+                "iot:AttachPolicy",
+                "iot:DetachPolicy",
+                "iot:UpdateCertificate",
+                "iot:DeleteCertificate",
+                "iot:ListThingPrincipals",
+                "iot:ListAttachedPolicies",
+                "iot:ListPolicyVersions",
+                "iot:DeletePolicyVersion",
+                "iot:CreateTopicRule",
+                "iot:DeleteTopicRule",
+                "iot:DescribeEndpoint"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "Layer1STS",
+            "Effect": "Allow",
+            "Action": [
+                "sts:GetCallerIdentity"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "Layer2StepFunctions",
+            "Effect": "Allow",
+            "Action": [
+                "states:CreateStateMachine",
+                "states:DeleteStateMachine",
+                "states:DescribeStateMachine"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "Layer3DynamoDB",
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:CreateTable",
+                "dynamodb:DeleteTable",
+                "dynamodb:CreateBackup",
+                "dynamodb:DescribeBackup"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "Layer3S3",
+            "Effect": "Allow",
+            "Action": [
+                "s3:CreateBucket",
+                "s3:DeleteBucket",
+                "s3:PutBucketCors",
+                "s3:GetBucketCors",
+                "s3:DeleteBucketCors",
+                "s3:ListBucket",
+                "s3:DeleteObject"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "Layer3EventBridge",
+            "Effect": "Allow",
+            "Action": [
+                "events:PutRule",
+                "events:DeleteRule",
+                "events:DescribeRule",
+                "events:PutTargets",
+                "events:RemoveTargets",
+                "events:ListTargetsByRule"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "Layer4IoTTwinMaker",
+            "Effect": "Allow",
+            "Action": [
+                "iottwinmaker:CreateWorkspace",
+                "iottwinmaker:DeleteWorkspace",
+                "iottwinmaker:GetWorkspace",
+                "iottwinmaker:ListEntities",
+                "iottwinmaker:DeleteEntity",
+                "iottwinmaker:ListScenes",
+                "iottwinmaker:DeleteScene",
+                "iottwinmaker:ListComponentTypes",
+                "iottwinmaker:DeleteComponentType",
+                "iottwinmaker:CreateComponentType",
+                "iottwinmaker:GetComponentType",
+                "iottwinmaker:UpdateEntity",
+                "iottwinmaker:GetEntity"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "Layer5Grafana",
+            "Effect": "Allow",
+            "Action": [
+                "grafana:CreateWorkspace",
+                "grafana:DeleteWorkspace",
+                "grafana:DescribeWorkspace",
+                "grafana:ListWorkspaces"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CredentialChecker",
+            "Effect": "Allow",
+            "Action": [
+                "iam:ListUserPolicies",
+                "iam:GetUserPolicy",
+                "iam:ListAttachedUserPolicies",
+                "iam:GetPolicy",
+                "iam:GetPolicyVersion",
+                "iam:ListGroupsForUser",
+                "iam:ListGroupPolicies",
+                "iam:GetGroupPolicy",
+                "iam:ListAttachedGroupPolicies",
+                "iam:ListRolePolicies",
+                "iam:GetRolePolicy",
+                "iam:ListAttachedRolePolicies"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

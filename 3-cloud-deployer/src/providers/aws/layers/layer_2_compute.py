@@ -713,7 +713,13 @@ def destroy_processor_iam_role(iot_device, provider: 'AWSProvider') -> None:
 
 
 def create_processor_lambda_function(iot_device, provider: 'AWSProvider', config: 'ProjectConfig', project_path: str) -> None:
-    """Create Processor (or Connector) Lambda Function."""
+    """
+    Create Processor Lambda Function.
+    
+    NOTE: Connector deployment has been moved to L1 adapter.
+    This function now only creates the Processor Lambda when L2 is AWS.
+    If L2 is a different cloud, this function returns early (nothing to deploy locally).
+    """
     if provider is None:
         raise ValueError("provider is required")
     if config is None:
@@ -722,135 +728,73 @@ def create_processor_lambda_function(iot_device, provider: 'AWSProvider', config
         raise ValueError("project_path is required")
 
     # NOTE: No fallbacks - missing provider config is a critical error
-    l1_provider = config.providers["layer_1_provider"]
     l2_provider = config.providers["layer_2_provider"]
-    # Inter-cloud connection logic
-    # config does not expose "inter_cloud" directly usually?
-    # ProjectConfig has `inter_cloud` attribute? Yes, usually loaded from config_inter_cloud.json.
-    # Assuming config.inter_cloud is accessible or we load it.
-    connections = getattr(config, "config_inter_cloud", {}).get("connections", {}) # Using safety getattr + default
-    # But ProjectConfig usually merges them. Let's assume passed config object has it.
-    # Actually context.config is ProjectConfig wrapper.
-    # If not present, default to empty.
     
-    connections = config.inter_cloud.get("connections", {}) if hasattr(config, "inter_cloud") and config.inter_cloud else {}
+    # If L2 is not AWS, there's nothing to deploy locally - Connector is handled by L1
+    if l2_provider != "aws":
+        logger.info(f"L2 is {l2_provider}, not AWS. Skipping local Processor creation (Connector handled by L1).")
+        return
 
     twin_info = _get_digital_twin_info(config)
 
     iam_client = provider.clients["iam"]
     lambda_client = provider.clients["lambda"]
     processor_role_name = provider.naming.processor_iam_role(iot_device["id"])
-    connector_func_name = provider.naming.connector_lambda_function(iot_device["id"])
     processor_func_name = provider.naming.processor_lambda_function(iot_device["id"])
     persister_func_name = provider.naming.persister_lambda_function()
 
     base_path = project_path
+    
+    response = iam_client.get_role(RoleName=processor_role_name)
+    role_arn = response['Role']['Arn']
+    
+    import src.util as util
+    
+    # Check specific device folder first
+    custom_rel_path = f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/processors/{iot_device['iotDeviceId']}/process.py"
+    if not os.path.exists(os.path.join(base_path, custom_rel_path)):
+        # Check default folder
+        custom_rel_path = f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/processors/default_processor/process.py"
+    
+    wrapper_path = os.path.join(base_path, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, "processor_wrapper")
+    
+    zip_bytes = util.compile_merged_lambda_function(wrapper_path, custom_rel_path, project_path=project_path)
 
-    # Scenario 1: L2 is Remote (e.g. AWS -> Azure)
-    if l2_provider != "aws":
-        function_name = connector_func_name
-        role_name = processor_role_name
-        
-        response = iam_client.get_role(RoleName=role_name)
-        role_arn = response['Role']['Arn']
-        
-        # Connection Info
-        conn_id = f"{l1_provider}_l1_to_{l2_provider}_l2"
-        conn = connections.get(conn_id, {})
-        remote_url = conn.get("url", "")
-        token = conn.get("token", "")
-        
-        if not remote_url or not token:
-            raise ValueError(
-                f"Multi-cloud config incomplete for {conn_id}: url={bool(remote_url)}, token={bool(token)}. "
-                f"Check config_inter_cloud.json for connection '{conn_id}'."
-            )
-        
-        import src.util as util
-        
-        # NOTE: Lambda dir names from constants
-        code_bytes = util.compile_lambda_function(os.path.join(base_path, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, "connector"), project_path=project_path)
-            
-        lambda_client.create_function(
-            FunctionName=function_name,
-            Runtime="python3.13",
-            Role=role_arn,
-            Handler="lambda_function.lambda_handler", 
-            Code={"ZipFile": code_bytes},
-            Description="Connector to Remote L2",
-            Timeout=10, 
-            MemorySize=128, 
-            Publish=True,
-            Environment={
-                "Variables": {
-                    "REMOTE_INGESTION_URL": remote_url,
-                    "INTER_CLOUD_TOKEN": token
-                }
+    lambda_client.create_function(
+        FunctionName=processor_func_name,
+        Runtime="python3.13",
+        Role=role_arn,
+        Handler="lambda_function.lambda_handler", 
+        Code={"ZipFile": zip_bytes},
+        Description="Merged Processor (Wrapper + User Logic)",
+        Timeout=3,
+        MemorySize=128, 
+        Publish=True,
+        Environment={
+            "Variables": {
+                "DIGITAL_TWIN_INFO": json.dumps(twin_info), 
+                "PERSISTER_LAMBDA_NAME": persister_func_name
             }
-        )
-        logger.info(f"Created Connector Lambda function: {function_name}")
-        
-    # Scenario 2: L2 is Local (AWS)
-    else:
-        function_name = processor_func_name
-        role_name = processor_role_name
-        
-        response = iam_client.get_role(RoleName=role_name)
-        role_arn = response['Role']['Arn']
-        
-        import src.util as util
-        
-        # Check specific device folder first
-        custom_rel_path = f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/processors/{iot_device['iotDeviceId']}/process.py"
-        if not os.path.exists(os.path.join(base_path, custom_rel_path)):
-            # Check default folder
-            custom_rel_path = f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/processors/default_processor/process.py"
-        
-        wrapper_path = os.path.join(base_path, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, "processor_wrapper")
-        
-        zip_bytes = util.compile_merged_lambda_function(wrapper_path, custom_rel_path, project_path=project_path)
-
-        lambda_client.create_function(
-            FunctionName=function_name,
-            Runtime="python3.13",
-            Role=role_arn,
-            Handler="lambda_function.lambda_handler", 
-            Code={"ZipFile": zip_bytes},
-            Description="Merged Processor (Wrapper + User Logic)",
-            Timeout=3,
-            MemorySize=128, 
-            Publish=True,
-            Environment={
-                "Variables": {
-                    "DIGITAL_TWIN_INFO": json.dumps(twin_info), 
-                    "PERSISTER_LAMBDA_NAME": persister_func_name
-                }
-            }
-        )
-        logger.info(f"Created Merged Processor Lambda function: {function_name}")
+        }
+    )
+    logger.info(f"Created Merged Processor Lambda function: {processor_func_name}")
 
 
 def destroy_processor_lambda_function(iot_device, provider: 'AWSProvider') -> None:
-    """Destroy Processor (or Connector) Lambda."""
+    """
+    Destroy Processor Lambda.
+    
+    NOTE: Connector destruction has been moved to L1 adapter.
+    """
     if provider is None:
         raise ValueError("provider is required")
 
     lambda_client = provider.clients["lambda"]
     processor_func_name = provider.naming.processor_lambda_function(iot_device["id"])
-    connector_func_name = provider.naming.connector_lambda_function(iot_device["id"])
 
-    # Try to delete processor lambda
     try:
         lambda_client.delete_function(FunctionName=processor_func_name)
         logger.info(f"Deleted Lambda function: {processor_func_name}")
-    except ClientError as e:
-        if e.response["Error"]["Code"] != "ResourceNotFoundException":
-            raise
-
-    # Also try to delete connector lambda
-    try:
-        lambda_client.delete_function(FunctionName=connector_func_name)
-        logger.info(f"Deleted Lambda function: {connector_func_name}")
     except ClientError as e:
         if e.response["Error"]["Code"] != "ResourceNotFoundException":
             raise

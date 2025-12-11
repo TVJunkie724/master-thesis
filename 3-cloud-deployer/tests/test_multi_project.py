@@ -36,7 +36,8 @@ def create_valid_zip_bytes():
                 content = json.dumps({
                     "layer_1_provider": "aws",
                     "layer_2_provider": "aws",
-                    "layer_3_hot_provider": "aws"
+                    "layer_3_hot_provider": "aws",
+                    "layer_4_provider": "aws"
                 })
             
             zf.writestr(fname, content)

@@ -87,14 +87,14 @@ def _destroy_lambda(provider: 'AWSProvider', function_name: str) -> None:
 # Writer is deployed when L2 is on a DIFFERENT cloud.
 # It receives data FROM remote Persisters via HTTP POST.
 
-def create_writer_iam_role(provider: 'AWSProvider') -> None:
+def create_hot_writer_iam_role(provider: 'AWSProvider') -> None:
     """Creates IAM Role for the Writer Lambda (multi-cloud only).
     
     Writer needs:
     - DynamoDB write access
     - Basic execution role
     """
-    role_name = provider.naming.writer_iam_role()
+    role_name = provider.naming.hot_writer_iam_role()
     iam_client = provider.clients["iam"]
 
     iam_client.create_role(
@@ -138,12 +138,12 @@ def create_writer_iam_role(provider: 'AWSProvider') -> None:
     logger.info(f"Added DynamoDB write policy to {role_name}")
 
 
-def destroy_writer_iam_role(provider: 'AWSProvider') -> None:
+def destroy_hot_writer_iam_role(provider: 'AWSProvider') -> None:
     """Destroys the Writer IAM Role."""
-    _destroy_iam_role(provider, provider.naming.writer_iam_role())
+    _destroy_iam_role(provider, provider.naming.hot_writer_iam_role())
 
 
-def create_writer_lambda_function(
+def create_hot_writer_lambda_function(
     provider: 'AWSProvider',
     config: 'ProjectConfig',
     project_path: str
@@ -152,8 +152,8 @@ def create_writer_lambda_function(
     
     Returns the Function URL endpoint for configuration.
     """
-    function_name = provider.naming.writer_lambda_function()
-    role_name = provider.naming.writer_iam_role()
+    function_name = provider.naming.hot_writer_lambda_function()
+    role_name = provider.naming.hot_writer_iam_role()
     iam_client = provider.clients["iam"]
     lambda_client = provider.clients["lambda"]
 
@@ -186,7 +186,7 @@ def create_writer_lambda_function(
         Runtime="python3.13",
         Role=role_arn,
         Handler="lambda_function.lambda_handler",
-        Code={"ZipFile": util.compile_lambda_function(os.path.join(core_lambda_dir, "writer"))},
+        Code={"ZipFile": util.compile_lambda_function(os.path.join(core_lambda_dir, "hot-writer"))},
         Description="Multi-cloud Writer: Receives data from remote Persisters",
         Timeout=30,
         MemorySize=128,
@@ -216,9 +216,9 @@ def create_writer_lambda_function(
     return function_url
 
 
-def destroy_writer_lambda_function(provider: 'AWSProvider') -> None:
+def destroy_hot_writer_lambda_function(provider: 'AWSProvider') -> None:
     """Destroys the Writer Lambda Function and its Function URL."""
-    function_name = provider.naming.writer_lambda_function()
+    function_name = provider.naming.hot_writer_lambda_function()
     lambda_client = provider.clients["lambda"]
     
     try:

@@ -5,7 +5,6 @@ from logger import print_stack_trace, logger
 
 # New Provider Deployers
 import providers.deployer as core_deployer
-import providers.iot_deployer as iot_deployer
 
 # AWS Specific Deployers (Direct import until Provider Pattern is fully implemented for these)
 import src.providers.aws.layers.layer_4_twinmaker as hierarchy_deployer_aws
@@ -104,9 +103,8 @@ def deploy_all(
         
         context = create_context(project_name, provider)
         
-        # Core & IoT
+        # Core layers deploy all resources including per-device components
         core_deployer.deploy_all(context, provider)
-        iot_deployer.deploy(context, provider)
         
         # Additional layers
         _deploy_hierarchy(context, provider)
@@ -164,7 +162,7 @@ def destroy_all(
         # Destroy in reverse order
         _destroy_event_actions(context, provider)
         _destroy_hierarchy(context, provider)
-        iot_deployer.destroy(context, provider)
+        # Per-device resources destroyed by layer adapters within destroy_all()
         core_deployer.destroy_all(context, provider)
         
         return {"message": "Core and IoT services destroyed successfully"}

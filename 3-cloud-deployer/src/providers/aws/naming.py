@@ -76,6 +76,10 @@ class AWSNaming:
         """Lambda function name for a device's connector (multi-cloud)."""
         return f"{self._twin_name}-{device_id}-connector"
     
+    def connector_iam_role(self, device_id: str) -> str:
+        """IAM role name for a device's connector Lambda (multi-cloud)."""
+        return f"{self._twin_name}-{device_id}-connector"
+    
     def ingestion_lambda_function(self) -> str:
         """Lambda function name for the ingestion function (multi-cloud)."""
         return f"{self._twin_name}-ingestion"
@@ -184,13 +188,13 @@ class AWSNaming:
         """Lambda function name for reading last entry."""
         return f"{self._twin_name}-hot-reader-last-entry"
     
-    def writer_lambda_function(self) -> str:
-        """Lambda function name for the writer (multi-cloud)."""
-        return f"{self._twin_name}-writer"
+    def hot_writer_lambda_function(self) -> str:
+        """Lambda function name for the hot writer (multi-cloud L2→L3)."""
+        return f"{self._twin_name}-hot-writer"
     
-    def writer_iam_role(self) -> str:
-        """IAM role name for the writer Lambda (multi-cloud)."""
-        return f"{self._twin_name}-writer"
+    def hot_writer_iam_role(self) -> str:
+        """IAM role name for the hot writer Lambda (multi-cloud L2→L3)."""
+        return f"{self._twin_name}-hot-writer"
     
     def cold_writer_lambda_function(self) -> str:
         """Lambda function name for the cold writer (multi-cloud L3 Hot→Cold)."""
