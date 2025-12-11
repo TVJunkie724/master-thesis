@@ -218,8 +218,21 @@ class TestConnectorPayloadEnvelope:
     def test_connector_creates_correct_envelope(self, mock_urlopen):
         """Connector should create payload envelope with all required fields."""
         import sys
+        import pathlib
+        # Clear cached modules to ensure fresh AWS import
         if "src.providers.aws.lambda_functions.connector.lambda_function" in sys.modules:
             del sys.modules["src.providers.aws.lambda_functions.connector.lambda_function"]
+        # Also clear _shared modules that may be cached from Azure tests
+        for key in list(sys.modules.keys()):
+            if key.startswith("_shared"):
+                del sys.modules[key]
+        
+        # IMPORTANT: Add AWS lambda_functions path to front of sys.path to ensure
+        # AWS _shared/inter_cloud.py is imported, not Azure version
+        aws_lambda_funcs_dir = str(pathlib.Path(__file__).parent.parent.parent.parent / 'src' / 'providers' / 'aws' / 'lambda_functions')
+        if aws_lambda_funcs_dir in sys.path:
+            sys.path.remove(aws_lambda_funcs_dir)
+        sys.path.insert(0, aws_lambda_funcs_dir)
         
         mock_response = MagicMock()
         mock_response.getcode.return_value = 200

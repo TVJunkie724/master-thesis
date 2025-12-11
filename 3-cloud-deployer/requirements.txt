@@ -7,3 +7,9 @@ pytest
 moto[server]
 httpx
 python-multipart
+
+# Azure SDK packages
+azure-functions
+azure-cosmos
+azure-storage-blob
+azure-identity
