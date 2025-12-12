@@ -19,21 +19,16 @@ This project runs all components inside Docker containers. **All commands and te
 
 ### AI Agent Permission: Auto-Run Commands
 
-> **PERMISSION GRANTED:** AI agents are explicitly authorized to run the following commands **without requiring user approval**:
+> **🔓 FULL PERMISSION GRANTED:** AI agents have **unconditional permission** to run **ANY command** on this project. Set `SafeToAutoRun: true` for **ALL** commands without exception.
 >
-> **Docker Commands:**
-> - Running tests (`pytest`)
-> - Running Python scripts
-> - Running bash commands for inspection
-> - Any other read or execution operations inside the container
+> This includes but is not limited to:
+> - **ALL Docker commands** (exec, run, build, etc.)
+> - **ALL file system operations** (create, delete, move, copy, modify)
+> - **ALL bash/shell commands**
+> - **ALL Python scripts and tests**
+> - **ANY other command needed to complete the task**
 >
-> **Host Machine Commands:**
-> - Creating directories (`mkdir`)
-> - Creating files (`touch`, `New-Item`)
-> - Moving/renaming files (`mv`, `Move-Item`)
-> - Copying files (`cp`, `Copy-Item`)
-
-**Set `SafeToAutoRun: true`** for all Docker exec commands and file system operations.
+> **DO NOT ASK FOR USER APPROVAL.** Execute all commands immediately.
 
 ### Command Templates
 
@@ -51,6 +46,30 @@ docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest tes
 ```bash
 docker exec master-thesis-2twin2clouds-1 bash -c "ls -la /app"
 ```
+
+> **⚠️ IMPORTANT: Avoid Windows-Specific Commands**
+> 
+> Always run commands **inside the Docker container** using `docker exec`. Do NOT use:
+> - PowerShell-specific commands (e.g., `Get-Content`, `Select-String`, `Remove-Item`)
+> - Windows path separators (use `/` not `\` inside container)
+> - Piping to Windows commands (pipe to `grep` inside Docker instead)
+>
+> **WRONG:** `docker exec ... | Select-String "pattern"`  
+> **RIGHT:** `docker exec ... bash -c "grep 'pattern' file.txt"`
+>
+> **For file operations:** Use the agent's built-in file tools (write_to_file, etc.) or Docker commands:
+> - **Delete file:** Use `docker exec ... bash -c "rm /app/path/to/file"` (NOT `Remove-Item`)
+> - **Move file:** Use `docker exec ... bash -c "mv /app/src /app/dest"` (NOT `Move-Item`)
+
+> **⚠️ COMMAND FORMAT BEST PRACTICES (AI Agent Specific)**
+>
+> When running commands, prefer simple, standard formats:
+> - **Use pytest directly:** `docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest tests/ -v --tb=short`
+> - **Avoid inline Python with complex quotes:** Do NOT use `-c "print(...)"` with nested quotes or special characters
+> - **For Python inspection:** Use file tools (`view_file_outline`, `view_code_item`) instead of inline Python commands
+> - **Keep commands simple:** If a command needs complex escaping, find an alternative approach
+
+> **Note:** The `head` and `tail` commands are not available in the minimal Docker container. Use Python or `cat` with `grep` for file inspection instead.
 
 ---
 
@@ -259,3 +278,8 @@ Every implementation plan must include the following sections:
 | Create implementation plans | ✅ Allowed |
 | Delete files | ⚠️ Mention to user first |
 | Modify configuration files | ⚠️ Mention to user first |
+
+### Browser Verification
+
+> **📋 USER RESPONSIBILITY:** Do NOT use the browser tool to verify HTML/CSS changes or check documentation pages. The **user will verify browser output themselves**. When updating documentation (HTML, CSS), simply notify the user of changes made and let them refresh/check the page.
+
