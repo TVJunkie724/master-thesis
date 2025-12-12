@@ -21,25 +21,19 @@ from azure.storage.blob import BlobServiceClient
 # Handle import path for shared module
 try:
     from _shared.inter_cloud import validate_token
+    from _shared.env_utils import require_env
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
     from _shared.inter_cloud import validate_token
-
-
-def _require_env(name: str) -> str:
-    """Get required environment variable or raise error at module load time."""
-    value = os.environ.get(name, "").strip()
-    if not value:
-        raise EnvironmentError(f"CRITICAL: Required environment variable '{name}' is missing or empty")
-    return value
+    from _shared.env_utils import require_env
 
 
 # Required environment variables - fail fast if missing
-INTER_CLOUD_TOKEN = _require_env("INTER_CLOUD_TOKEN")
-BLOB_CONNECTION_STRING = _require_env("BLOB_CONNECTION_STRING")
-COLD_STORAGE_CONTAINER = _require_env("COLD_STORAGE_CONTAINER")
+INTER_CLOUD_TOKEN = require_env("INTER_CLOUD_TOKEN")
+BLOB_CONNECTION_STRING = require_env("BLOB_CONNECTION_STRING")
+COLD_STORAGE_CONTAINER = require_env("COLD_STORAGE_CONTAINER")
 
 # Blob container (lazy initialized)
 _blob_container_client = None

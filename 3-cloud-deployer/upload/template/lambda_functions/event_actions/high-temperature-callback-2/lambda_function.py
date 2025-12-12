@@ -1,9 +1,23 @@
+"""
+High Temperature Callback 2 AWS Lambda Function.
+
+Event action with MQTT feedback capability.
+"""
 import json
 import logging
+import os
 import boto3
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+
+def _require_env(name: str) -> str:
+    """Get required environment variable or raise error at module load time."""
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise EnvironmentError(f"CRITICAL: Required environment variable '{name}' is missing or empty")
+    return value
 
 client = boto3.client('iot-data')
 

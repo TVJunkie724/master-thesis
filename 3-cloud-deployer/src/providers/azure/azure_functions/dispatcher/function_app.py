@@ -12,28 +12,25 @@ Editable: Yes - This is the runtime Azure Function code
 """
 import json
 import os
+import sys
 import logging
 import urllib.request
 import urllib.error
 
 import azure.functions as func
 
-
-def _require_env(name: str) -> str:
-    """
-    Get required environment variable or raise error at module load time.
-    
-    Implements fail-fast pattern: if critical config is missing,
-    the function will fail immediately rather than silently.
-    """
-    value = os.environ.get(name, "").strip()
-    if not value:
-        raise EnvironmentError(f"CRITICAL: Required environment variable '{name}' is missing or empty")
-    return value
+# Handle import path for shared module
+try:
+    from _shared.env_utils import require_env
+except ModuleNotFoundError:
+    _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _func_dir not in sys.path:
+        sys.path.insert(0, _func_dir)
+    from _shared.env_utils import require_env
 
 
 # Required environment variables - fail fast if missing
-DIGITAL_TWIN_INFO = json.loads(_require_env("DIGITAL_TWIN_INFO"))
+DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
 
 # Target function suffix: "-processor" for single-cloud, "-connector" for multi-cloud
 TARGET_FUNCTION_SUFFIX = os.environ.get("TARGET_FUNCTION_SUFFIX", "-processor")

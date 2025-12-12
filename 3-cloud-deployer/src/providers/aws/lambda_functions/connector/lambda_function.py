@@ -13,29 +13,23 @@ import sys
 # Handle import path for both Lambda (deployed with _shared) and test (local development) contexts
 try:
     from _shared.inter_cloud import post_to_remote
+    from _shared.env_utils import require_env
 except ModuleNotFoundError:
     # When running tests locally, add the lambda_functions directory to path
     _lambda_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _lambda_funcs_dir not in sys.path:
         sys.path.insert(0, _lambda_funcs_dir)
     from _shared.inter_cloud import post_to_remote
+    from _shared.env_utils import require_env
 
 
 # ==========================================
 # Environment Variable Validation (Fail-Fast)
 # ==========================================
 
-def _require_env(name: str) -> str:
-    """Get required environment variable or raise error at module load time."""
-    value = os.environ.get(name, "").strip()
-    if not value:
-        raise EnvironmentError(f"CRITICAL: Required environment variable '{name}' is missing or empty")
-    return value
-
-
 # Required environment variables - fail fast if missing
-REMOTE_INGESTION_URL = _require_env("REMOTE_INGESTION_URL")
-INTER_CLOUD_TOKEN = _require_env("INTER_CLOUD_TOKEN")
+REMOTE_INGESTION_URL = require_env("REMOTE_INGESTION_URL")
+INTER_CLOUD_TOKEN = require_env("INTER_CLOUD_TOKEN")
 
 
 # ==========================================

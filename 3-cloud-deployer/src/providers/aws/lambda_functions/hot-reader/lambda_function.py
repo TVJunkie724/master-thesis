@@ -1,20 +1,22 @@
 import json
 import os
+import sys
 import boto3
 from boto3.dynamodb.conditions import Key
 
-
-def _require_env(name: str) -> str:
-    """Get required environment variable or raise error at module load time."""
-    value = os.environ.get(name, "").strip()
-    if not value:
-        raise EnvironmentError(f"CRITICAL: Required environment variable '{name}' is missing or empty")
-    return value
+# Handle import path for shared module
+try:
+    from _shared.env_utils import require_env
+except ModuleNotFoundError:
+    _lambda_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _lambda_funcs_dir not in sys.path:
+        sys.path.insert(0, _lambda_funcs_dir)
+    from _shared.env_utils import require_env
 
 
 # Required environment variables - fail fast if missing
-DIGITAL_TWIN_INFO = json.loads(_require_env("DIGITAL_TWIN_INFO"))
-DYNAMODB_TABLE_NAME = _require_env("DYNAMODB_TABLE_NAME")
+DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
+DYNAMODB_TABLE_NAME = require_env("DYNAMODB_TABLE_NAME")
 
 # Optional: For cross-cloud HTTP access via Function URL
 INTER_CLOUD_TOKEN = os.environ.get("INTER_CLOUD_TOKEN", "").strip()

@@ -21,27 +21,21 @@ from azure.cosmos import CosmosClient
 # Handle import path for shared module
 try:
     from _shared.inter_cloud import validate_token
+    from _shared.env_utils import require_env
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
     from _shared.inter_cloud import validate_token
-
-
-def _require_env(name: str) -> str:
-    """Get required environment variable or raise error at module load time."""
-    value = os.environ.get(name, "").strip()
-    if not value:
-        raise EnvironmentError(f"CRITICAL: Required environment variable '{name}' is missing or empty")
-    return value
+    from _shared.env_utils import require_env
 
 
 # Required environment variables - fail fast if missing
-INTER_CLOUD_TOKEN = _require_env("INTER_CLOUD_TOKEN")
-COSMOS_DB_ENDPOINT = _require_env("COSMOS_DB_ENDPOINT")
-COSMOS_DB_KEY = _require_env("COSMOS_DB_KEY")
-COSMOS_DB_DATABASE = _require_env("COSMOS_DB_DATABASE")
-COSMOS_DB_CONTAINER = _require_env("COSMOS_DB_CONTAINER")
+INTER_CLOUD_TOKEN = require_env("INTER_CLOUD_TOKEN")
+COSMOS_DB_ENDPOINT = require_env("COSMOS_DB_ENDPOINT")
+COSMOS_DB_KEY = require_env("COSMOS_DB_KEY")
+COSMOS_DB_DATABASE = require_env("COSMOS_DB_DATABASE")
+COSMOS_DB_CONTAINER = require_env("COSMOS_DB_CONTAINER")
 
 # Cosmos DB container (lazy initialized)
 _cosmos_container = None

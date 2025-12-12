@@ -13,3 +13,9 @@ azure-functions
 azure-cosmos
 azure-storage-blob
 azure-identity
+
+# GCP SDK packages
+functions-framework
+google-cloud-firestore
+google-cloud-storage
+google-cloud-pubsub

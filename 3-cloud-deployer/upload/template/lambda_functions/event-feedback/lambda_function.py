@@ -1,3 +1,8 @@
+"""
+Event Feedback AWS Lambda Function.
+
+Sends messages to IoT devices via AWS IoT Core.
+"""
 import json
 import logging
 import boto3
@@ -6,6 +11,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 client = boto3.client('iot-data')
+
 
 def lambda_handler(event, context):
     logger.info("Received event: " + json.dumps(event))

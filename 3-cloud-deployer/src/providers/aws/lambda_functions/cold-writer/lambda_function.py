@@ -9,20 +9,22 @@ Editable: Yes - This is the runtime Lambda code
 """
 import json
 import os
+import sys
 import boto3
 
-
-def _require_env(name: str) -> str:
-    """Get required environment variable or raise RuntimeError."""
-    value = os.environ.get(name)
-    if not value:
-        raise RuntimeError(f"Required environment variable '{name}' is not set")
-    return value
+# Handle import path for shared module
+try:
+    from _shared.env_utils import require_env
+except ModuleNotFoundError:
+    _lambda_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _lambda_funcs_dir not in sys.path:
+        sys.path.insert(0, _lambda_funcs_dir)
+    from _shared.env_utils import require_env
 
 
 # Validate env vars at startup (fail-fast)
-COLD_S3_BUCKET_NAME = _require_env("COLD_S3_BUCKET_NAME")
-EXPECTED_TOKEN = _require_env("INTER_CLOUD_TOKEN")
+COLD_S3_BUCKET_NAME = require_env("COLD_S3_BUCKET_NAME")
+EXPECTED_TOKEN = require_env("INTER_CLOUD_TOKEN")
 
 s3_client = boto3.client("s3")
 

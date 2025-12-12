@@ -1,8 +1,9 @@
-import os
+"""
+High Temperature Callback AWS Lambda Function.
+
+Event action triggered by event-checker when temperature threshold is met.
+"""
 import json
-
-
-DIGITAL_TWIN_INFO = json.loads(os.environ.get("DIGITAL_TWIN_INFO", None))
 
 
 def lambda_handler(event, context):

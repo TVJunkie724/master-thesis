@@ -45,6 +45,7 @@
                         <div class="col-md-6">
                             <ul>
                                 <li><a href="#technical-specs">Technical Specifications</a></li>
+                                <li><a href="#future-work">Future Work</a></li>
                             </ul>
                         </div>
                     </div>
@@ -402,6 +403,34 @@
     "payload": {...},
     "timestamp": "2023-10-27T10:00:00Z"
 }</code></pre>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-4" id="future-work">
+                <h2 class="mb-3"><i class="fa-solid fa-compass me-2"></i>Future Work</h2>
+                <div class="roadmap-content">
+                    <h3 class="mt-4 text-primary">Planned Enhancements</h3>
+                    <ul>
+                        <li><strong>Digital Twin Query Format Support (hot-reader-last-entry):</strong>
+                            <ul>
+                                <li><strong>Current State:</strong> GCP <code>hot-reader-last-entry</code> uses a simple
+                                    <code>iotDeviceId</code> query parameter and returns raw item data.
+                                </li>
+                                <li><strong>Enhancement:</strong> Add optional Digital Twin query format support for
+                                    parity with AWS IoT TwinMaker and Azure Digital Twins.</li>
+                                <li><strong>AWS/Azure Format:</strong> Accept <code>entityId</code>,
+                                    <code>componentName</code>,
+                                    <code>selectedProperties</code> and return <code>propertyValues</code> structure.
+                                </li>
+                                <li><strong>Approach:</strong> Consider adding optional <code>twin_query_mode</code>
+                                    parameter
+                                    to support both formats in a single function.</li>
+                                <li><strong>Priority:</strong> Low - Current implementation works via
+                                    <code>digital-twin-data-connector</code> translation layer.
+                                </li>
                             </ul>
                         </li>
                     </ul>

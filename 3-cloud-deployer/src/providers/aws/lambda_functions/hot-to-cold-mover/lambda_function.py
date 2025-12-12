@@ -17,30 +17,24 @@ from boto3.dynamodb.conditions import Key
 # Handle import path for both Lambda (deployed with _shared) and test (local development) contexts
 try:
     from _shared.inter_cloud import post_raw
+    from _shared.env_utils import require_env
 except ModuleNotFoundError:
     _lambda_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _lambda_funcs_dir not in sys.path:
         sys.path.insert(0, _lambda_funcs_dir)
     from _shared.inter_cloud import post_raw
+    from _shared.env_utils import require_env
 
 
 # ==========================================
 # Environment Variable Validation (Fail-Fast)
 # ==========================================
 
-def _require_env(name: str) -> str:
-    """Get required environment variable or raise RuntimeError."""
-    value = os.environ.get(name)
-    if not value:
-        raise RuntimeError(f"Required environment variable '{name}' is not set")
-    return value
-
-
 # Validate at startup
-DIGITAL_TWIN_INFO = json.loads(_require_env("DIGITAL_TWIN_INFO"))
+DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
 
-DYNAMODB_TABLE_NAME = _require_env("DYNAMODB_TABLE_NAME")
-COLD_S3_BUCKET_NAME = _require_env("COLD_S3_BUCKET_NAME")
+DYNAMODB_TABLE_NAME = require_env("DYNAMODB_TABLE_NAME")
+COLD_S3_BUCKET_NAME = require_env("COLD_S3_BUCKET_NAME")
 
 # Multi-cloud config (optional)
 REMOTE_COLD_WRITER_URL = os.environ.get("REMOTE_COLD_WRITER_URL", "").strip()
