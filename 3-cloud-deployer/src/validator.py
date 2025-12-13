@@ -94,12 +94,6 @@ def validate_config_content(filename, content):
                              feedback = action["feedback"]
                              if "iotDeviceId" not in feedback or "payload" not in feedback:
                                  raise ValueError(f"Event feedback at index {index} missing 'iotDeviceId' or 'payload'.")
-
-                 elif filename == CONSTANTS.CONFIG_HIERARCHY_FILE:
-                     # Check component requirements
-                     if item.get("type") == "component":
-                         if "componentTypeId" not in item and "iotDeviceId" not in item:
-                             raise ValueError(f"Component at index {index} ('{item.get('name')}') must have either 'componentTypeId' or 'iotDeviceId'.")
         
         # General Case: Single Object (CONFIG, OPTIMIZATION)
         elif isinstance(content, dict):
@@ -122,6 +116,163 @@ def validate_config_content(filename, content):
                  for conn_id, details in connections.items():
                      if not all(k in details for k in ["provider", "token", "url"]):
                          raise ValueError(f"Connection '{conn_id}' missing required fields: provider, token, url")
+
+
+# ==========================================
+# 1.a. AWS Hierarchy Validation
+# ==========================================
+def validate_aws_hierarchy_content(content):
+    """
+    Validates AWS TwinMaker hierarchy format (entity/component structure).
+    
+    The AWS hierarchy is an array of entity objects, each with:
+    - type: "entity" or "component"
+    - id: Entity identifier (required for entities)
+    - name: Display name (required for components)
+    - children: Nested array of child entities/components (optional)
+    - componentTypeId or iotDeviceId: Required for components
+    
+    Args:
+        content: JSON string or parsed list/dict
+        
+    Raises:
+        ValueError: If format is invalid (fail-fast)
+    """
+    if content is None:
+        raise ValueError("AWS hierarchy content cannot be None")
+    
+    if isinstance(content, str):
+        try:
+            content = json.loads(content)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in AWS hierarchy: {e}")
+    
+    if not isinstance(content, list):
+        raise ValueError("AWS hierarchy must be a JSON array")
+    
+    def _validate_item(item, path="root"):
+        """Recursively validate hierarchy items."""
+        if not isinstance(item, dict):
+            raise ValueError(f"Hierarchy item at {path} must be a dictionary")
+        
+        if "type" not in item:
+            raise ValueError(f"Hierarchy item at {path} missing required 'type' field")
+        
+        item_type = item["type"]
+        if item_type not in ("entity", "component"):
+            raise ValueError(f"Hierarchy item at {path} has invalid type '{item_type}'. Must be 'entity' or 'component'")
+        
+        if item_type == "entity":
+            if "id" not in item:
+                raise ValueError(f"Entity at {path} missing required 'id' field")
+        elif item_type == "component":
+            if "name" not in item:
+                raise ValueError(f"Component at {path} missing required 'name' field")
+            if "componentTypeId" not in item and "iotDeviceId" not in item:
+                raise ValueError(f"Component '{item.get('name')}' at {path} must have 'componentTypeId' or 'iotDeviceId'")
+        
+        # Validate children recursively
+        children = item.get("children", [])
+        for i, child in enumerate(children):
+            _validate_item(child, f"{path}.children[{i}]")
+    
+    for i, item in enumerate(content):
+        _validate_item(item, f"[{i}]")
+    
+    logger.info(f"✓ AWS hierarchy validated: {len(content)} top-level items")
+
+
+# ==========================================
+# 1.b. Azure Hierarchy Validation
+# ==========================================
+def validate_azure_hierarchy_content(content):
+    """
+    Validates Azure Digital Twins DTDL hierarchy format.
+    
+    At deployment time (L4), this JSON is converted to NDJSON for the
+    Azure Digital Twins Import Jobs API:
+        {"Section": "Header"} + header object
+        {"Section": "Models"} + one line per model
+        {"Section": "Twins"} + one line per twin
+        {"Section": "Relationships"} + one line per relationship
+    
+    See: https://learn.microsoft.com/en-us/azure/digital-twins/concepts-apis-sdks#format-data
+    
+    Args:
+        content: JSON string or parsed dict
+        
+    Raises:
+        ValueError: If format is invalid (fail-fast)
+    """
+    if content is None:
+        raise ValueError("Azure hierarchy content cannot be None")
+    
+    if isinstance(content, str):
+        try:
+            content = json.loads(content)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in Azure hierarchy: {e}")
+    
+    if not isinstance(content, dict):
+        raise ValueError("Azure hierarchy must be a JSON object")
+    
+    # Validate header (optional)
+    header = content.get("header")
+    if header is not None:
+        if not isinstance(header, dict):
+            raise ValueError("Azure hierarchy 'header' must be an object")
+        if "fileVersion" not in header:
+            raise ValueError("Azure hierarchy header missing 'fileVersion'")
+    
+    # Validate models
+    models = content.get("models", [])
+    if not isinstance(models, list):
+        raise ValueError("Azure hierarchy 'models' must be an array")
+    
+    for i, model in enumerate(models):
+        if not isinstance(model, dict):
+            raise ValueError(f"Model at index {i} must be an object")
+        if "@id" not in model:
+            raise ValueError(f"Model at index {i} missing '@id'")
+        if "@type" not in model:
+            raise ValueError(f"Model at index {i} missing '@type'")
+        if "@context" not in model:
+            raise ValueError(f"Model at index {i} missing '@context'")
+        if not model["@id"].startswith("dtmi:"):
+            raise ValueError(f"Model @id '{model['@id']}' must start with 'dtmi:'")
+    
+    # Validate twins
+    twins = content.get("twins", [])
+    if not isinstance(twins, list):
+        raise ValueError("Azure hierarchy 'twins' must be an array")
+    
+    for i, twin in enumerate(twins):
+        if not isinstance(twin, dict):
+            raise ValueError(f"Twin at index {i} must be an object")
+        if "$dtId" not in twin:
+            raise ValueError(f"Twin at index {i} missing '$dtId'")
+        if "$metadata" not in twin:
+            raise ValueError(f"Twin '{twin.get('$dtId')}' missing '$metadata'")
+        if "$model" not in twin.get("$metadata", {}):
+            raise ValueError(f"Twin '{twin.get('$dtId')}' metadata missing '$model'")
+    
+    # Validate relationships
+    relationships = content.get("relationships", [])
+    if not isinstance(relationships, list):
+        raise ValueError("Azure hierarchy 'relationships' must be an array")
+    
+    for i, rel in enumerate(relationships):
+        if not isinstance(rel, dict):
+            raise ValueError(f"Relationship at index {i} must be an object")
+        if "$dtId" not in rel:
+            raise ValueError(f"Relationship at index {i} missing '$dtId'")
+        if "$targetId" not in rel:
+            raise ValueError(f"Relationship at index {i} missing '$targetId'")
+        if "$relationshipName" not in rel:
+            raise ValueError(f"Relationship at index {i} missing '$relationshipName'")
+    
+    logger.info(f"✓ Azure hierarchy validated: {len(models)} models, {len(twins)} twins, {len(relationships)} relationships")
+
 
 # ==========================================
 # 2. State Machine Validation
@@ -296,11 +447,15 @@ def validate_project_zip(zip_source):
                  )
              provider = provider.lower()
              
-             target_file = CONSTANTS.AWS_STATE_MACHINE_FILE
-             if provider == "azure":
+             # Explicit provider handling - no fallbacks
+             if provider == "aws":
+                 target_file = CONSTANTS.AWS_STATE_MACHINE_FILE
+             elif provider == "azure":
                  target_file = CONSTANTS.AZURE_STATE_MACHINE_FILE
              elif provider == "google":
                  target_file = CONSTANTS.GOOGLE_STATE_MACHINE_FILE
+             else:
+                 raise ValueError(f"Invalid provider '{provider}' for state machine. Must be 'aws', 'azure', or 'google'.")
                  
              if target_file not in seen_state_machines:
                   raise ValueError(f"Missing state machine definition '{target_file}' in zip for provider '{provider}' (required by triggerNotificationWorkflow).")
@@ -385,8 +540,10 @@ def get_provider_for_function(project_name, function_name, project_path: str = N
         layer_key = "layer_2_provider"
         
     if not layer_key:
-         logger.warning(f"Unknown function '{function_name}', defaulting to Layer 2 provider.")
-         layer_key = "layer_2_provider"
+         raise ValueError(
+             f"Unknown function '{function_name}'. Cannot determine provider layer. "
+             "Function must be in FUNCTION_LAYER_MAPPING or end with '-processor'."
+         )
 
     provider = config_providers.get(layer_key)
     if not provider:
@@ -478,11 +635,15 @@ def verify_project_structure(project_name, project_path: str = None):
                  )
              provider = provider.lower()
             
-             target_file = CONSTANTS.AWS_STATE_MACHINE_FILE
-             if provider == "azure":
+             # Explicit provider handling - no fallbacks
+             if provider == "aws":
+                 target_file = CONSTANTS.AWS_STATE_MACHINE_FILE
+             elif provider == "azure":
                  target_file = CONSTANTS.AZURE_STATE_MACHINE_FILE
              elif provider == "google":
                  target_file = CONSTANTS.GOOGLE_STATE_MACHINE_FILE
+             else:
+                 raise ValueError(f"Invalid provider '{provider}' for state machine. Must be 'aws', 'azure', or 'google'.")
                  
              state_machine_path = os.path.join(upload_dir, CONSTANTS.STATE_MACHINES_DIR_NAME, target_file)
              

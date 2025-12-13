@@ -25,9 +25,10 @@ from azure.core.exceptions import ResourceNotFoundError
 class TestFunctionAppEdgeCases:
     """Edge case tests for L0 Glue Function App."""
     
+    @patch("src.providers.azure.layers.layer_0_glue._deploy_glue_functions")
     @patch("src.providers.azure.layers.layer_setup_azure.get_managed_identity_id")
     @patch("src.providers.azure.layers.layer_0_glue._configure_function_app_settings")
-    def test_create_glue_function_app_success(self, mock_settings, mock_identity):
+    def test_create_glue_function_app_success(self, mock_settings, mock_identity, mock_deploy):
         """create_glue_function_app() should create with correct config."""
         from src.providers.azure.layers.layer_0_glue import create_glue_function_app
         
@@ -48,9 +49,10 @@ class TestFunctionAppEdgeCases:
         assert result == "test-twin-l0-functions"
         mock_provider.clients["web"].web_apps.begin_create_or_update.assert_called_once()
     
+    @patch("src.providers.azure.layers.layer_0_glue._deploy_glue_functions")
     @patch("src.providers.azure.layers.layer_setup_azure.get_managed_identity_id")
     @patch("src.providers.azure.layers.layer_0_glue._configure_function_app_settings")
-    def test_create_glue_function_app_assigns_managed_identity(self, mock_settings, mock_identity):
+    def test_create_glue_function_app_assigns_managed_identity(self, mock_settings, mock_identity, mock_deploy):
         """create_glue_function_app() should assign managed identity."""
         from src.providers.azure.layers.layer_0_glue import create_glue_function_app
         

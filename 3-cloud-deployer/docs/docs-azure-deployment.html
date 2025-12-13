@@ -26,9 +26,13 @@
                 Guide to deploying Digital Twin layers on Microsoft Azure (in development).
             </p>
 
-            <div class="callout warn mb-4">
-                <strong><i class="fa-solid fa-construction me-2"></i>Status: In Development</strong>
-                Azure deployment is currently being implemented. Check back soon for updates.
+            <div class="callout info mb-4">
+                <strong><i class="fa-solid fa-circle-half-stroke me-2"></i>Status: Partially Complete</strong>
+                <br>
+                <strong>Complete:</strong> Setup Layer (Resource Group, Managed Identity, Storage), L0 (Multi-cloud
+                Glue), L1 (IoT Hub, Event Grid, Functions).
+                <br>
+                <strong>In Progress:</strong> L2-L5 deployment layers.
             </div>
 
             <!-- Table of Contents -->
@@ -131,27 +135,27 @@
                     <!-- Layer 1 -->
                     <h3 class="mt-4 text-primary">Layer 1: Data Acquisition (IoT Hub)</h3>
                     <ul>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Resource Group:</strong>
+                        <li><span class="badge text-bg-success">Complete</span> <strong>Resource Group:</strong>
                             <ul>
                                 <li><strong>Create:</strong> Dedicated Resource Group (e.g., <code>rg-twin-dev</code>).
                                 </li>
                                 <li><strong>Purpose:</strong> Logical container for all twin resources.</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>IoT Hub:</strong>
+                        <li><span class="badge text-bg-success">Complete</span> <strong>IoT Hub:</strong>
                             <ul>
                                 <li><strong>Create:</strong> IoT Hub (Standard Tier S1).</li>
                                 <li><strong>Interaction:</strong> Provides connection strings for devices.</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Event Grid Routing:</strong>
+                        <li><span class="badge text-bg-success">Complete</span> <strong>Event Grid Routing:</strong>
                             <ul>
                                 <li><strong>Create:</strong> Event Grid System Topic for IoT Hub.</li>
                                 <li><strong>Action:</strong> Configure Message Routing to send telemetry to Event Grid.
                                 </li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Dispatcher Function:</strong>
+                        <li><span class="badge text-bg-success">Complete</span> <strong>Dispatcher Function:</strong>
                             <ul>
                                 <li><strong>Trigger:</strong> Event Grid Trigger (subscribes to IoT Hub events).</li>
                                 <li><strong>Single Cloud:</strong> Routes incoming telemetry to local processor
@@ -160,7 +164,7 @@
                                         Function</strong> if the processor is on another cloud.</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Connector Function [Multi-Cloud
+                        <li><span class="badge text-bg-success">Complete</span> <strong>Connector Function [Multi-Cloud
                                 Only]:</strong>
                             <ul>
                                 <li><strong>Created:</strong> Only if Layer 2 is on a different cloud provider.</li>
@@ -168,7 +172,7 @@
                                     sends it via HTTP POST to the remote cloud's Ingestion API.</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Ingestion Function [Multi-Cloud
+                        <li><span class="badge text-bg-success">Complete</span> <strong>Ingestion Function [Multi-Cloud
                                 Only]:</strong>
                             <ul>
                                 <li><strong>Created:</strong> Only if Layer 1 is on a different cloud provider.</li>
@@ -363,14 +367,20 @@
                                 </li>
                             </ul>
                         </li>
-                        <li><strong>Authentication (Public Endpoints):</strong>
+                        <li><strong>Authentication (Cross-Cloud Endpoints):</strong>
                             <ul>
-                                <li><strong>Mechanism:</strong> Function Keys (x-functions-key header).</li>
-                                <li><strong>Ingestion/Writer API:</strong> Protected via Function Level Authorization.
+                                <li><strong>Header:</strong> <code>X-Inter-Cloud-Token</code> for all cross-cloud HTTP
+                                    calls.</li>
+                                <li><strong>Environment Variable:</strong> Token stored as
+                                    <code>INTER_CLOUD_TOKEN</code> in each Function App.
                                 </li>
+                                <li><strong>Generation:</strong> Secure random token generated during deployment,
+                                    persisted to <code>inter_cloud_connections.json</code>.</li>
+                                <li><strong>Validation:</strong> All L0 functions validate token before processing
+                                    requests.</li>
                             </ul>
                         </li>
-                        <li><strong>Error Handling Strategy:</strong>
+                        <li><strong>Error Handling Strategy: [Under review]</strong>
                             <ul>
                                 <li><strong>Pipeline:</strong> Components publish to <strong>Event Grid</strong>.</li>
                                 <li><strong>Persistence:</strong> Reporter writes to <strong>Cosmos DB</strong>
@@ -381,16 +391,154 @@
                         </li>
                         <li><strong>Data Contracts:</strong>
                             <ul>
-                                <li><strong>Format:</strong> Standard JSON Envelope
+                                <li><strong>Format:</strong> Standard JSON Envelope (built by
+                                    <code>build_envelope()</code> in <code>_shared/inter_cloud.py</code>)
                                     <pre class="p-3 rounded"><code>{ 
-    "source": "azure", 
-    "layer": "L2", 
+    "source_cloud": "azure",
+    "target_layer": "L2",
+    "message_type": "telemetry",
+    "timestamp": "2023-10-27T10:00:00Z",
     "payload": {...},
-    "timestamp": "2023-10-27T10:00:00Z"
+    "trace_id": "uuid-v4"
 }</code></pre>
+                                </li>
+                                <li><strong>Fields:</strong>
+                                    <ul>
+                                        <li><code>source_cloud</code>: Originating cloud ("aws", "azure", "gcp")</li>
+                                        <li><code>target_layer</code>: Destination layer ("L2", "L3", "L3_cold",
+                                            "L3_archive")</li>
+                                        <li><code>message_type</code>: Type of message ("telemetry", "chunk", etc.)</li>
+                                        <li><code>trace_id</code>: UUID for distributed tracing</li>
+                                    </ul>
+                                </li>
                             </ul>
                         </li>
                     </ul>
+
+                    <h3 class="mt-4 text-primary">Kudu ZIP Deployment</h3>
+                    <p>Azure Functions are deployed using <strong>Kudu ZIP deployment</strong>, the standard
+                        programmatic
+                        approach for deploying code to Azure App Service and Azure Functions.</p>
+
+                    <h4 class="mt-3">What is Kudu?</h4>
+                    <ul>
+                        <li><strong>Kudu</strong> is the deployment engine that powers Azure App Service and Azure
+                            Functions.</li>
+                        <li>It provides a REST API for deployments, file management, and diagnostics.</li>
+                        <li>Every Function App has a <code>.scm.azurewebsites.net</code> subdomain for Kudu access.</li>
+                    </ul>
+
+                    <h4 class="mt-3">Why Kudu ZIP Deployment?</h4>
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Feature</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Programmatic</strong></td>
+                                <td>No CLI required - pure REST API via <code>requests.post()</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Atomic</strong></td>
+                                <td>Entire deployment is atomic - no partial states</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Fast</strong></td>
+                                <td>Direct upload without intermediary storage</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Language-agnostic</strong></td>
+                                <td>Works from Python, Node.js, or any HTTP client</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h4 class="mt-3">Deployment Flow</h4>
+                    <pre class="p-3 rounded"><code>1. Get Publish Credentials (Azure SDK)
+   → WebSiteManagementClient.web_apps.list_publishing_credentials()
+
+2. Compile Function Code (ZIP)
+   → util.compile_azure_function(function_dir)
+
+3. POST to Kudu Endpoint
+   → https://{app-name}.scm.azurewebsites.net/api/zipdeploy
+   → Headers: Content-Type: application/zip
+   → Auth: Basic (publishing_user_name, publishing_password)
+
+4. Kudu Extracts & Deploys
+   → Function App automatically restarts with new code</code></pre>
+
+                    <div class="callout info">
+                        <strong><i class="fa-solid fa-info-circle me-2"></i>Note</strong>
+                        <p class="mb-0">The Azure SDK does not directly support ZIP deployment.
+                            We use the SDK to retrieve credentials, then the <code>requests</code> library
+                            for the actual Kudu API call.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4" id="hierarchy-format">
+                <h2 class="mb-3"><i class="fa-solid fa-sitemap me-2"></i>Azure Digital Twins Hierarchy Format</h2>
+                <div class="roadmap-content">
+                    <h3 class="mt-4 text-primary">JSON to NDJSON Conversion</h3>
+                    <p>The <code>azure_hierarchy.json</code> file uses a human-readable JSON format for editing.
+                        At deployment time (L4), it is converted to <strong>NDJSON</strong> (Newline Delimited JSON)
+                        for the Azure Digital Twins Import Jobs API.</p>
+
+                    <h4 class="mt-3">Why Two Formats?</h4>
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Format</th>
+                                <th>Used For</th>
+                                <th>Benefits</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>JSON</strong> (azure_hierarchy.json)</td>
+                                <td>User editing, validation</td>
+                                <td>Human-readable, easy to edit</td>
+                            </tr>
+                            <tr>
+                                <td><strong>NDJSON</strong> (generated at deployment)</td>
+                                <td>Import Jobs API upload</td>
+                                <td>Streaming, handles large graphs</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h4 class="mt-3">Conversion Flow (Future - Import Jobs API)</h4>
+                    <p class="text-muted"><em>Note: Current L4 uses Python SDK direct calls. This flow is for future
+                            Import Jobs API optimization.</em></p>
+                    <pre class="p-3 rounded"><code>azure_hierarchy.json (user edits)
+        ↓
+L4 Deployer: convert_to_ndjson()
+        ↓
+NDJSON file uploaded to Blob Storage
+        ↓
+Import Jobs API processes graph</code></pre>
+
+                    <h4 class="mt-3">NDJSON Structure</h4>
+                    <p>Each section marker is followed by individual objects, one per line:</p>
+                    <pre class="p-3 rounded"><code>{"Section": "Header"}
+{"fileVersion": "1.0.0", "author": "twin2clouds"}
+{"Section": "Models"}
+{"@id":"dtmi:...", "@type":"Interface", "@context":"dtmi:dtdl:context;3", ...}
+{"Section": "Twins"}
+{"$dtId":"room-1", "$metadata":{"$model":"dtmi:..."}}
+{"Section": "Relationships"}
+{"$dtId":"room-1", "$targetId":"machine-1", "$relationshipName":"contains"}</code></pre>
+
+                    <div class="callout info">
+                        <strong><i class="fa-solid fa-info-circle me-2"></i>Reference Files</strong>
+                        <p class="mb-0">See
+                            <code>upload/template/twin_hierarchy/azure_hierarchy_final.ndjson.example</code>
+                            for a complete example of the NDJSON format.</p>
+                    </div>
                 </div>
             </div>
 
@@ -457,6 +605,47 @@
                         <strong><i class="fa-solid fa-info-circle me-2"></i>Current Implementation</strong>
                         <p class="mb-0">Azure-only calls use Function Keys. Cross-cloud calls use custom tokens.
                             Azure AD enhancement can be added when enterprise-grade security is required.</p>
+                    </div>
+
+                    <h3 class="mt-4 text-primary">Import Jobs API for Bulk Twin Imports</h3>
+                    <p>The current L4 implementation uses the <strong>Python SDK direct calls</strong> to create DTDL
+                        models,
+                        twins, and relationships one-by-one. This matches the AWS TwinMaker pattern and provides
+                        explicit control over each operation.</p>
+
+                    <h4 class="mt-3">Why Python SDK Direct Calls (Current)?</h4>
+                    <ul>
+                        <li><strong>Explicit control:</strong> Each model/twin/relationship is created individually with
+                            full error handling</li>
+                        <li><strong>Simpler debugging:</strong> Failures are immediately visible at the specific
+                            operation</li>
+                        <li><strong>Pattern consistency:</strong> Matches the AWS TwinMaker L4 implementation pattern
+                        </li>
+                        <li><strong>Sufficient for typical hierarchies:</strong> Most Digital Twin deployments have
+                            tens to hundreds of twins, not millions</li>
+                    </ul>
+
+                    <h4 class="mt-3">When to Consider Import Jobs API</h4>
+                    <p>Azure Digital Twins provides a <strong>bulk Import Jobs API</strong> that processes NDJSON files
+                        from Blob Storage. This should be considered when:</p>
+                    <ul>
+                        <li><strong>Large hierarchies:</strong> Thousands of twins with complex relationships</li>
+                        <li><strong>Performance critical:</strong> Deployment time is a key constraint</li>
+                        <li><strong>Batch updates:</strong> Need to update many twins atomically</li>
+                    </ul>
+
+                    <h4 class="mt-3">Import Jobs API Flow (Future)</h4>
+                    <pre class="p-3 rounded"><code>1. Convert azure_hierarchy.json to NDJSON
+2. Upload NDJSON to Blob Storage container
+3. Call ADT Import Jobs API with blob URL
+4. Poll for job completion
+5. Handle partial failures via job status</code></pre>
+
+                    <div class="callout info">
+                        <strong><i class="fa-solid fa-info-circle me-2"></i>Current Implementation</strong>
+                        <p class="mb-0">L4 uses Python SDK direct calls for model/twin/relationship creation.
+                            The NDJSON conversion utility exists for future Import Jobs API integration.
+                            See <code>upload/template/twin_hierarchy/azure_hierarchy_final.ndjson.example</code>.</p>
                     </div>
                 </div>
             </div>

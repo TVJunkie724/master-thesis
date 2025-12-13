@@ -1,12 +1,16 @@
 fastapi
 uvicorn
 requests
-boto3
 colorlog
+
+# Testing packages
 pytest
 moto[server]
 httpx
 python-multipart
+
+# AWS SDK packages
+boto3
 
 # Azure SDK packages
 azure-functions
@@ -16,6 +20,20 @@ azure-identity
 azure-mgmt-resource
 azure-mgmt-web
 azure-mgmt-storage
+azure-mgmt-msi
+
+# Azure SDK packages for L1 (IoT/Data Acquisition)
+azure-mgmt-iothub
+azure-mgmt-eventgrid
+azure-mgmt-authorization
+azure-iot-hub
+azure-iot-device
+
+# Azure SDK packages for L2 (Data Processing)
+azure-mgmt-logic
+
+# Azure SDK packages for L3 (Storage)
+azure-mgmt-cosmosdb
 
 # GCP SDK packages
 functions-framework

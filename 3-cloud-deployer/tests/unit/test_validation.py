@@ -90,16 +90,28 @@ class TestValidation(unittest.TestCase):
         validator.validate_config_content(CONSTANTS.CONFIG_EVENTS_FILE, content)
 
     def test_validate_config_hierarchy(self):
-        """Test hierarchy config"""
-        # Component invalid
-        content = [{"id": "1", "type": "component", "name": "c1"}] # Missing componentTypeId
+        """Test AWS hierarchy validation using the new dedicated function"""
+        # Component invalid - missing componentTypeId/iotDeviceId
+        content = [{"id": "1", "type": "component", "name": "c1"}]
         with self.assertRaises(ValueError) as cm:
-            validator.validate_config_content(CONSTANTS.CONFIG_HIERARCHY_FILE, content)
-        self.assertIn("must have either 'componentTypeId' or 'iotDeviceId'", str(cm.exception))
+            validator.validate_aws_hierarchy_content(content)
+        self.assertIn("must have 'componentTypeId' or 'iotDeviceId'", str(cm.exception))
 
         # Component Valid
         content = [{"id": "1", "type": "component", "name": "c1", "iotDeviceId": "d1"}]
-        validator.validate_config_content(CONSTANTS.CONFIG_HIERARCHY_FILE, content)
+        validator.validate_aws_hierarchy_content(content)
+        
+        # Missing type field
+        content = [{"id": "1", "name": "c1"}]
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_aws_hierarchy_content(content)
+        self.assertIn("missing required 'type' field", str(cm.exception))
+        
+        # Not an array
+        content = {"id": "1", "type": "entity"}
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_aws_hierarchy_content(content)
+        self.assertIn("must be a JSON array", str(cm.exception))
 
     # ==========================================
     # 2. State Machine Content Tests
@@ -311,13 +323,16 @@ class TestValidation(unittest.TestCase):
     @patch('os.path.exists')
     @patch('builtins.open')
     @patch('json.load')
-    def test_get_provider_unknown_func_fallback(self, mock_json, mock_open, mock_exists):
+    def test_get_provider_unknown_func_raises(self, mock_json, mock_open, mock_exists):
+        """Unknown function now raises ValueError instead of silent fallback."""
         mock_exists.return_value = True
         mock_json.return_value = {"layer_2_provider": "google"}
         
-        # Unknown func -> Defaults to L2 (google)
-        prov = validator.get_provider_for_function("p", "unknown-func", project_path="/app")
-        self.assertEqual(prov, "google")
+        # Unknown func -> Raises ValueError (fail-fast, no silent fallback)
+        with self.assertRaises(ValueError) as cm:
+            validator.get_provider_for_function("p", "unknown-func", project_path="/app")
+        self.assertIn("Unknown function", str(cm.exception))
+        self.assertIn("Cannot determine provider layer", str(cm.exception))
 
 if __name__ == '__main__':
     unittest.main()

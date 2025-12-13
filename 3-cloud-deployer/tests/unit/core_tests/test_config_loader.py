@@ -29,7 +29,8 @@ def sample_project_dir(tmp_path):
     # config_providers.json
     providers_data = {
         "layer_1_provider": "aws",
-        "layer_2_provider": "azure"
+        "layer_2_provider": "azure",
+        "layer_4_provider": "aws"
     }
     (project_dir / "config_providers.json").write_text(json.dumps(providers_data))
     

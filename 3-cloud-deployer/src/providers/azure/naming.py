@@ -147,8 +147,16 @@ class AzureNaming:
         """IoT Hub name for device connectivity."""
         return f"{self._twin_name}-iothub"
     
-    def dispatcher_function_app(self) -> str:
-        """Function App name for L1 dispatcher functions."""
+    def l1_app_service_plan(self) -> str:
+        """
+        App Service Plan name for L1 Function App.
+        
+        Uses Y1 (Consumption/Dynamic) SKU for serverless execution.
+        """
+        return f"{self._twin_name}-l1-plan"
+    
+    def l1_function_app(self) -> str:
+        """Function App name for L1 (IoT/Data Acquisition) functions."""
         return f"{self._twin_name}-l1-functions"
     
     def dispatcher_function(self) -> str:
@@ -159,12 +167,24 @@ class AzureNaming:
         """Function name for a device's connector (multi-cloud)."""
         return f"{device_id}-connector"
     
+    def event_grid_subscription(self) -> str:
+        """Event Grid subscription name for IoT Hub to Dispatcher routing."""
+        return f"{self._twin_name}-dispatcher-sub"
+    
     # ==========================================
     # Layer 2: Data Processing (Azure Functions)
     # ==========================================
     
-    def compute_function_app(self) -> str:
-        """Function App name for L2 compute functions."""
+    def l2_app_service_plan(self) -> str:
+        """
+        App Service Plan name for L2 Function App.
+        
+        Uses Y1 (Consumption/Dynamic) SKU for serverless execution.
+        """
+        return f"{self._twin_name}-l2-plan"
+    
+    def l2_function_app(self) -> str:
+        """Function App name for L2 (Data Processing) functions."""
         return f"{self._twin_name}-l2-functions"
     
     def persister_function(self) -> str:
@@ -178,6 +198,15 @@ class AzureNaming:
     def event_feedback_function(self) -> str:
         """Function name for event feedback."""
         return "event-feedback"
+    
+    def logic_app_workflow(self) -> str:
+        """
+        Logic App Workflow name for notification workflow.
+        
+        Used when `triggerNotificationWorkflow` is enabled.
+        Receives HTTP triggers from Event Checker.
+        """
+        return f"{self._twin_name}-notification-workflow"
     
     def processor_function(self, device_id: str) -> str:
         """Function name for a device's processor."""
@@ -198,27 +227,31 @@ class AzureNaming:
         return f"{self._twin_name}-cosmos"
     
     def cosmos_database(self) -> str:
-        """Cosmos DB database name."""
+        """Cosmos DB database name for IoT data."""
         return "iot-data"
     
-    def cosmos_container(self) -> str:
-        """Cosmos DB container name for hot data."""
+    def hot_cosmos_container(self) -> str:
+        """Cosmos DB container name for hot data (L3 hot tier)."""
         return "hot-data"
     
-    def hot_container(self) -> str:
-        """Alias for cosmos_container for consistency with AWS naming."""
-        return self.cosmos_container()
-    
     def cold_blob_container(self) -> str:
-        """Blob container name for cold storage."""
+        """Blob container name for cold storage (L3 cold tier)."""
         return "cold-data"
     
     def archive_blob_container(self) -> str:
-        """Blob container name for archive storage."""
+        """Blob container name for archive storage (L3 archive tier)."""
         return "archive-data"
     
-    def storage_function_app(self) -> str:
-        """Function App name for L3 storage functions (movers, readers)."""
+    def l3_app_service_plan(self) -> str:
+        """
+        App Service Plan name for L3 Function App.
+        
+        Uses Y1 (Consumption/Dynamic) SKU for serverless execution.
+        """
+        return f"{self._twin_name}-l3-plan"
+    
+    def l3_function_app(self) -> str:
+        """Function App name for L3 (Storage) functions."""
         return f"{self._twin_name}-l3-functions"
     
     def hot_cold_mover_function(self) -> str:

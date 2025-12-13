@@ -2,7 +2,7 @@
 API Info Endpoints - Configuration viewing endpoints.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 import json
 import os
 from util import pretty_json
@@ -85,12 +85,30 @@ def get_providers_config():
 #         raise HTTPException(status_code=500, detail=str(e))
     
 @router.get("/info/config_hierarchy", tags=["Info"])
-def get_config_hierarchy():
+def get_config_hierarchy(provider: str = Query("aws", description="Provider: aws or azure")):
     """
-    Retrieve the hierarchical entity configuration of the digital twin environment.
+    Retrieve the hierarchical entity configuration for the specified provider.
+    
+    Args:
+        provider: The cloud provider (aws or azure). Defaults to aws.
+        
+    Raises:
+        HTTPException 400: If provider is not 'aws' or 'azure'
     """
+    provider_lower = provider.lower()
+    
+    # Only aws and azure have hierarchy files
+    if provider_lower not in ("aws", "azure"):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid provider '{provider}'. Hierarchy is only available for 'aws' or 'azure'."
+        )
+    
     try:
-        return pretty_json(_read_json_file("config_hierarchy.json"))
+        if provider_lower == "azure":
+            return pretty_json(_read_json_file("twin_hierarchy/azure_hierarchy.json"))
+        else:
+            return pretty_json(_read_json_file("twin_hierarchy/aws_hierarchy.json"))
     except Exception as e:
         print_stack_trace()
         logger.error(str(e))

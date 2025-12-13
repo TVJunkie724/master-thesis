@@ -47,19 +47,27 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
 docker exec master-thesis-3cloud-deployer-1 bash -c "ls -la /app"
 ```
 
-> **⚠️ IMPORTANT: Avoid Windows-Specific Commands**
+> **⚠️ CRITICAL: ALL Commands Must Use Docker**
 > 
-> Always run commands **inside the Docker container** using `docker exec`. Do NOT use:
+> **EVERY command** must be run **inside the Docker container** using `docker exec`. This includes:
+> - Running tests
+> - Listing files
+> - Any bash/shell operations
+> - ANY other command
+>
+> **NEVER use Windows/PowerShell commands directly.** Do NOT use:
 > - PowerShell-specific commands (e.g., `Get-Content`, `Select-String`, `Remove-Item`)
 > - Windows path separators (use `/` not `\` inside container)
 > - Piping to Windows commands (pipe to `grep` inside Docker instead)
+> - Windows piping syntax (use Docker's bash instead)
+> - Logical operators like `||` or `&&` outside of Docker's bash
 >
 > **WRONG:** `docker exec ... | Select-String "pattern"`  
+> **WRONG:** `docker exec ... 2>/dev/null || echo "error"` (PowerShell doesn't support this)
 > **RIGHT:** `docker exec ... bash -c "grep 'pattern' file.txt"`
+> **RIGHT:** `docker exec ... bash -c "ls -la || echo 'error'"`
 >
-> **For file operations:** Use the agent's built-in file tools (write_to_file, etc.) or Docker commands:
-> - **Delete file:** Use `docker exec ... bash -c "rm /app/path/to/file"` (NOT `Remove-Item`)
-> - **Move file:** Use `docker exec ... bash -c "mv /app/src /app/dest"` (NOT `Move-Item`)
+> **For file operations:** Use the agent's built-in file tools (write_to_file, view_file, etc.) instead of commands. Only use Docker exec for running scripts and tests.
 
 > **⚠️ COMMAND FORMAT BEST PRACTICES (AI Agent Specific)**
 >

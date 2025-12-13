@@ -22,7 +22,12 @@ Note:
 from typing import TYPE_CHECKING, Optional
 import logging
 
-from azure.core.exceptions import ResourceNotFoundError
+from azure.core.exceptions import (
+    ResourceNotFoundError,
+    HttpResponseError,
+    ClientAuthenticationError,
+    AzureError
+)
 
 if TYPE_CHECKING:
     from src.providers.azure.provider import AzureProvider
@@ -55,14 +60,24 @@ def create_resource_group(provider: 'AzureProvider', location: str = "westeurope
     
     logger.info(f"Creating Resource Group: {rg_name} in {location}")
     
-    # Resource Groups are idempotent - create_or_update handles existing RGs
-    provider.clients["resource"].resource_groups.create_or_update(
-        resource_group_name=rg_name,
-        parameters={"location": location}
-    )
-    
-    logger.info(f"✓ Resource Group created: {rg_name}")
-    return rg_name
+    try:
+        # Resource Groups are idempotent - create_or_update handles existing RGs
+        provider.clients["resource"].resource_groups.create_or_update(
+            resource_group_name=rg_name,
+            parameters={"location": location}
+        )
+        
+        logger.info(f"✓ Resource Group created: {rg_name}")
+        return rg_name
+    except ClientAuthenticationError as e:
+        logger.error(f"PERMISSION DENIED creating Resource Group: {e.message}")
+        raise
+    except HttpResponseError as e:
+        logger.error(f"Failed to create Resource Group: {e.status_code} - {e.message}")
+        raise
+    except AzureError as e:
+        logger.error(f"Azure error creating Resource Group: {type(e).__name__}: {e}")
+        raise
 
 
 def destroy_resource_group(provider: 'AzureProvider') -> None:
@@ -139,23 +154,33 @@ def create_managed_identity(provider: 'AzureProvider') -> dict:
     
     logger.info(f"Creating Managed Identity: {identity_name}")
     
-    # Create or update the identity
-    identity = provider.clients["msi"].user_assigned_identities.create_or_update(
-        resource_group_name=rg_name,
-        resource_name=identity_name,
-        parameters={"location": location}
-    )
-    
-    result = {
-        "id": identity.id,
-        "client_id": identity.client_id,
-        "principal_id": identity.principal_id
-    }
-    
-    logger.info(f"✓ Managed Identity created: {identity_name}")
-    logger.info(f"  Client ID: {identity.client_id}")
-    
-    return result
+    try:
+        # Create or update the identity
+        identity = provider.clients["msi"].user_assigned_identities.create_or_update(
+            resource_group_name=rg_name,
+            resource_name=identity_name,
+            parameters={"location": location}
+        )
+        
+        result = {
+            "id": identity.id,
+            "client_id": identity.client_id,
+            "principal_id": identity.principal_id
+        }
+        
+        logger.info(f"✓ Managed Identity created: {identity_name}")
+        logger.info(f"  Client ID: {identity.client_id}")
+        
+        return result
+    except ClientAuthenticationError as e:
+        logger.error(f"PERMISSION DENIED creating Managed Identity: {e.message}")
+        raise
+    except HttpResponseError as e:
+        logger.error(f"Failed to create Managed Identity: {e.status_code} - {e.message}")
+        raise
+    except AzureError as e:
+        logger.error(f"Azure error creating Managed Identity: {type(e).__name__}: {e}")
+        raise
 
 
 def destroy_managed_identity(provider: 'AzureProvider') -> None:
@@ -257,26 +282,36 @@ def create_storage_account(provider: 'AzureProvider') -> str:
     
     logger.info(f"Creating Storage Account: {storage_name}")
     
-    # Create storage account with Standard_LRS for cost efficiency
-    poller = provider.clients["storage"].storage_accounts.begin_create(
-        resource_group_name=rg_name,
-        account_name=storage_name,
-        parameters={
-            "location": location,
-            "sku": {"name": "Standard_LRS"},
-            "kind": "StorageV2",
-            "properties": {
-                "supportsHttpsTrafficOnly": True,
-                "minimumTlsVersion": "TLS1_2"
+    try:
+        # Create storage account with Standard_LRS for cost efficiency
+        poller = provider.clients["storage"].storage_accounts.begin_create(
+            resource_group_name=rg_name,
+            account_name=storage_name,
+            parameters={
+                "location": location,
+                "sku": {"name": "Standard_LRS"},
+                "kind": "StorageV2",
+                "properties": {
+                    "supportsHttpsTrafficOnly": True,
+                    "minimumTlsVersion": "TLS1_2"
+                }
             }
-        }
-    )
-    
-    # Wait for completion
-    poller.result()
-    
-    logger.info(f"✓ Storage Account created: {storage_name}")
-    return storage_name
+        )
+        
+        # Wait for completion
+        poller.result()
+        
+        logger.info(f"✓ Storage Account created: {storage_name}")
+        return storage_name
+    except ClientAuthenticationError as e:
+        logger.error(f"PERMISSION DENIED creating Storage Account: {e.message}")
+        raise
+    except HttpResponseError as e:
+        logger.error(f"Failed to create Storage Account: {e.status_code} - {e.message}")
+        raise
+    except AzureError as e:
+        logger.error(f"Azure error creating Storage Account: {type(e).__name__}: {e}")
+        raise
 
 
 def destroy_storage_account(provider: 'AzureProvider') -> None:

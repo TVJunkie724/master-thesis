@@ -12,13 +12,23 @@ CONFIG_PROVIDERS_FILE = "config_providers.json"
 CONFIG_OPTIMIZATION_FILE = "config_optimization.json"
 CONFIG_INTER_CLOUD_FILE = "config_inter_cloud.json"
 
+# Twin Hierarchy Files (provider-specific, optional)
+TWIN_HIERARCHY_DIR_NAME = "twin_hierarchy"
+AWS_HIERARCHY_FILE = "aws_hierarchy.json"
+AZURE_HIERARCHY_FILE = "azure_hierarchy.json"
+
 REQUIRED_CONFIG_FILES = [
     CONFIG_FILE,
     CONFIG_IOT_DEVICES_FILE,
     CONFIG_EVENTS_FILE,
-    CONFIG_HIERARCHY_FILE,
     CONFIG_CREDENTIALS_FILE,
     CONFIG_PROVIDERS_FILE
+]
+
+# Optional config files (not required in zip validation)
+OPTIONAL_CONFIG_FILES = [
+    CONFIG_OPTIMIZATION_FILE,
+    CONFIG_INTER_CLOUD_FILE
 ]
 
 # Keys required in specific config files
@@ -26,11 +36,19 @@ CONFIG_SCHEMAS = {
     CONFIG_FILE: ["digital_twin_name", "hot_storage_size_in_days", "cold_storage_size_in_days", "mode"],
     CONFIG_IOT_DEVICES_FILE: ["id", "properties"],  # Matches template: id, properties
     CONFIG_EVENTS_FILE: ["condition", "action"],  # Matches template: condition, action
-    CONFIG_HIERARCHY_FILE: ["name", "type"],
     CONFIG_OPTIMIZATION_FILE: ["result"],
     CONFIG_CREDENTIALS_FILE: [], # Dynamic check based on provider
     CONFIG_PROVIDERS_FILE: ["layer_1_provider", "layer_2_provider", "layer_3_hot_provider", "layer_4_provider"],
     CONFIG_INTER_CLOUD_FILE: ["connections"]
+}
+
+# Twin Hierarchy Validation Schemas (provider-specific)
+AWS_HIERARCHY_SCHEMA = ["type"]  # Each item must have 'type' (entity or component)
+AZURE_HIERARCHY_SCHEMA = {
+    "header": ["fileVersion"],
+    "models": ["@id", "@type", "@context"],
+    "twins": ["$dtId", "$metadata"],
+    "relationships": ["$dtId", "$targetId", "$relationshipName"]
 }
 
 REQUIRED_CREDENTIALS_FIELDS = {

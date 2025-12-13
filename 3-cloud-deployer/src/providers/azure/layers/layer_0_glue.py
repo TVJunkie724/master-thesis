@@ -24,8 +24,9 @@ Authentication:
 from typing import TYPE_CHECKING, Optional
 import logging
 import secrets
+import os
 
-from azure.core.exceptions import ResourceNotFoundError
+from azure.core.exceptions import ResourceNotFoundError, HttpResponseError, ClientAuthenticationError, AzureError
 
 if TYPE_CHECKING:
     from src.providers.azure.provider import AzureProvider
@@ -77,21 +78,31 @@ def create_consumption_app_service_plan(provider: 'AzureProvider') -> str:
     
     logger.info(f"Creating Consumption App Service Plan: {plan_name}")
     
-    poller = provider.clients["web"].app_service_plans.begin_create_or_update(
-        resource_group_name=rg_name,
-        name=plan_name,
-        app_service_plan={
-            "location": location,
-            "kind": "functionapp",
-            "sku": {"name": "Y1", "tier": "Dynamic"},
-            "properties": {"reserved": True}  # Linux
-        }
-    )
-    poller.result()
-    
-    plan_id = f"/subscriptions/{provider.subscription_id}/resourceGroups/{rg_name}/providers/Microsoft.Web/serverfarms/{plan_name}"
-    logger.info(f"✓ App Service Plan created: {plan_name}")
-    return plan_id
+    try:
+        poller = provider.clients["web"].app_service_plans.begin_create_or_update(
+            resource_group_name=rg_name,
+            name=plan_name,
+            app_service_plan={
+                "location": location,
+                "kind": "functionapp",
+                "sku": {"name": "Y1", "tier": "Dynamic"},
+                "properties": {"reserved": True}  # Linux
+            }
+        )
+        poller.result()
+        
+        plan_id = f"/subscriptions/{provider.subscription_id}/resourceGroups/{rg_name}/providers/Microsoft.Web/serverfarms/{plan_name}"
+        logger.info(f"✓ App Service Plan created: {plan_name}")
+        return plan_id
+    except ClientAuthenticationError as e:
+        logger.error(f"PERMISSION DENIED creating App Service Plan: {e.message}")
+        raise
+    except HttpResponseError as e:
+        logger.error(f"Failed to create App Service Plan: {e.status_code} - {e.message}")
+        raise
+    except AzureError as e:
+        logger.error(f"Azure error creating App Service Plan: {type(e).__name__}: {e}")
+        raise
 
 
 def destroy_consumption_app_service_plan(provider: 'AzureProvider') -> None:
@@ -211,21 +222,138 @@ def create_glue_function_app(
         }
     }
     
-    # Create or update the Function App
-    poller = provider.clients["web"].web_apps.begin_create_or_update(
-        resource_group_name=rg_name,
-        name=app_name,
-        site_envelope=params
+    try:
+        # Create or update the Function App
+        poller = provider.clients["web"].web_apps.begin_create_or_update(
+            resource_group_name=rg_name,
+            name=app_name,
+            site_envelope=params
+        )
+        
+        # Wait for completion
+        app = poller.result()
+        
+        # Configure app settings (connection strings, environment variables)
+        _configure_function_app_settings(provider, config, storage_name)
+        
+        # Deploy all L0 function code via zip deploy
+        _deploy_glue_functions(provider)
+        
+        logger.info(f"✓ L0 Glue Function App created: {app_name}")
+        return app_name
+    except ClientAuthenticationError as e:
+        logger.error(f"PERMISSION DENIED creating L0 Function App: {e.message}")
+        raise
+    except HttpResponseError as e:
+        logger.error(f"Failed to create L0 Function App: {e.status_code} - {e.message}")
+        raise
+    except AzureError as e:
+        logger.error(f"Azure error creating L0 Function App: {type(e).__name__}: {e}")
+        raise
+
+
+def _deploy_glue_functions(provider: 'AzureProvider') -> None:
+    """
+    Deploy all L0 Glue function code via Kudu zip deploy.
+    
+    Bundles all L0 functions (ingestion, hot-writer, cold-writer,
+    archive-writer, hot-reader, hot-reader-last-entry) into a single
+    zip and deploys to the Glue Function App.
+    """
+    import requests
+    import util
+    import zipfile
+    import io
+    
+    rg_name = provider.naming.resource_group()
+    app_name = provider.naming.glue_function_app()
+    
+    logger.info("  Deploying L0 Glue function code...")
+    
+    # 1. Get publish credentials
+    try:
+        creds = provider.clients["web"].web_apps.list_publishing_credentials(
+            resource_group_name=rg_name,
+            name=app_name
+        ).result()
+        
+        publish_username = creds.publishing_user_name
+        publish_password = creds.publishing_password
+    except Exception as e:
+        logger.error(f"Failed to get publish credentials: {e}")
+        raise
+    
+    # 2. Build combined zip with all L0 functions
+    azure_functions_dir = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        "azure_functions"
     )
     
-    # Wait for completion
-    app = poller.result()
+    # L0 functions to include
+    l0_functions = [
+        "ingestion",
+        "hot-writer",
+        "cold-writer",
+        "archive-writer",
+        "hot-reader",
+        "hot-reader-last-entry"
+    ]
     
-    # Configure app settings (connection strings, environment variables)
-    _configure_function_app_settings(provider, config, storage_name)
+    # Create zip buffer
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Add _shared directory
+        shared_dir = os.path.join(azure_functions_dir, "_shared")
+        if os.path.exists(shared_dir):
+            for root, dirs, files in os.walk(shared_dir):
+                for file in files:
+                    if file.endswith('.py'):
+                        file_path = os.path.join(root, file)
+                        rel_path = os.path.relpath(file_path, azure_functions_dir)
+                        zf.write(file_path, rel_path)
+        
+        # Add each function directory
+        for func_name in l0_functions:
+            func_dir = os.path.join(azure_functions_dir, func_name)
+            if os.path.exists(func_dir):
+                for root, dirs, files in os.walk(func_dir):
+                    for file in files:
+                        if file.endswith('.py') or file == 'function.json':
+                            file_path = os.path.join(root, file)
+                            rel_path = os.path.relpath(file_path, azure_functions_dir)
+                            zf.write(file_path, rel_path)
+        
+        # Add host.json and requirements.txt if present
+        for extra_file in ['host.json', 'requirements.txt']:
+            extra_path = os.path.join(azure_functions_dir, extra_file)
+            if os.path.exists(extra_path):
+                zf.write(extra_path, extra_file)
     
-    logger.info(f"✓ L0 Glue Function App created: {app_name}")
-    return app_name
+    zip_content = zip_buffer.getvalue()
+    
+    # 3. Deploy to Kudu
+    kudu_url = f"https://{app_name}.scm.azurewebsites.net/api/zipdeploy"
+    
+    try:
+        response = requests.post(
+            kudu_url,
+            data=zip_content,
+            auth=(publish_username, publish_password),
+            headers={"Content-Type": "application/zip"},
+            timeout=300
+        )
+        
+        if response.status_code in (200, 202):
+            logger.info(f"  ✓ L0 function code deployed ({len(l0_functions)} functions)")
+        else:
+            logger.error(f"Kudu deploy failed: {response.status_code} - {response.text}")
+            raise HttpResponseError(
+                message=f"Kudu zip deploy failed: {response.status_code}",
+                response=response
+            )
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Network error during Kudu deploy: {e}")
+        raise
 
 
 def _configure_function_app_settings(

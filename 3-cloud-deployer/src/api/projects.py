@@ -132,7 +132,8 @@ async def update_config(project_name: str, config_type: ConfigType, request: Req
         ConfigType.config: "config.json",
         ConfigType.iot: "config_iot_devices.json",
         ConfigType.events: "config_events.json",
-        ConfigType.hierarchy: "config_hierarchy.json",
+        ConfigType.aws_hierarchy: "twin_hierarchy/aws_hierarchy.json",
+        ConfigType.azure_hierarchy: "twin_hierarchy/azure_hierarchy.json",
         ConfigType.credentials: "config_credentials.json",
         ConfigType.providers: "config_providers.json",
         ConfigType.optimization: "config_optimization.json"

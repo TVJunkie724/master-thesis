@@ -143,11 +143,23 @@ class AzureProvider(BaseProvider):
         
         Args:
             credential: Azure credential object
+            
+        Clients Initialized:
+            - resource: ResourceManagementClient (Resource Groups)
+            - storage: StorageManagementClient (Storage Accounts)
+            - web: WebSiteManagementClient (Function Apps)
+            - msi: ManagedServiceIdentityClient (Managed Identity)
+            - iothub: IotHubClient (IoT Hub management) - L1
+            - eventgrid: EventGridManagementClient (Event Grid subscriptions) - L1
+            - authorization: AuthorizationManagementClient (RBAC role assignments) - L1
         """
         from azure.mgmt.resource import ResourceManagementClient
         from azure.mgmt.storage import StorageManagementClient
         from azure.mgmt.web import WebSiteManagementClient
         from azure.mgmt.msi import ManagedServiceIdentityClient
+        from azure.mgmt.iothub import IotHubClient
+        from azure.mgmt.eventgrid import EventGridManagementClient
+        from azure.mgmt.authorization import AuthorizationManagementClient
         
         subscription_id = self._subscription_id
         
@@ -171,6 +183,24 @@ class AzureProvider(BaseProvider):
         
         # Managed Service Identity - for User-Assigned Managed Identity
         self._clients["msi"] = ManagedServiceIdentityClient(
+            credential=credential,
+            subscription_id=subscription_id
+        )
+        
+        # IoT Hub Management - for IoT Hub (L1)
+        self._clients["iothub"] = IotHubClient(
+            credential=credential,
+            subscription_id=subscription_id
+        )
+        
+        # Event Grid Management - for Event Grid subscriptions (L1)
+        self._clients["eventgrid"] = EventGridManagementClient(
+            credential=credential,
+            subscription_id=subscription_id
+        )
+        
+        # Authorization Management - for RBAC role assignments (L1)
+        self._clients["authorization"] = AuthorizationManagementClient(
             credential=credential,
             subscription_id=subscription_id
         )

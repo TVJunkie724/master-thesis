@@ -7,9 +7,10 @@ Orchestrates layer-specific deployment through layer adapters.
 Implemented Layers:
     - Setup Layer: Resource Group, Managed Identity, Storage Account
     - L0 (Glue): Multi-cloud receiver components
+    - L1 (IoT): IoT Hub, Dispatcher, Event Grid, IoT Devices
     
 Stub Layers (TODO):
-    - L1-L5: Full Azure resource deployment
+    - L2-L5: Full Azure resource deployment
 """
 
 from typing import TYPE_CHECKING
@@ -89,42 +90,87 @@ class AzureDeployerStrategy:
     # ==========================================
     
     def deploy_l1(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("Azure L1 deployment not yet implemented")
+        """
+        Deploy L1 Data Acquisition components.
+        
+        Creates: IoT Hub, L1 Function App, Dispatcher, Event Grid,
+        IoT Devices, and Connector (if multi-cloud).
+        """
+        from src.providers.azure.layers.l1_adapter import deploy_l1
+        deploy_l1(context, self._provider)
     
     def destroy_l1(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("Azure L1 destruction not yet implemented")
+        """Destroy all L1 Data Acquisition components."""
+        from src.providers.azure.layers.l1_adapter import destroy_l1
+        destroy_l1(context, self._provider)
+    
+    def info_l1(self, context: 'DeploymentContext') -> dict:
+        """Get status of L1 Data Acquisition components."""
+        from src.providers.azure.layers.l1_adapter import info_l1
+        return info_l1(context, self._provider)
     
     # ==========================================
     # Layer 2: Data Processing (Azure Functions)
     # ==========================================
     
     def deploy_l2(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("Azure L2 deployment not yet implemented")
+        """
+        Deploy L2 Data Processing components.
+        
+        Creates: L2 App Service Plan, L2 Function App, Persister,
+        Processors, Event Checker (optional), Logic App (optional).
+        """
+        from src.providers.azure.layers.l2_adapter import deploy_l2
+        deploy_l2(context, self._provider)
     
     def destroy_l2(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("Azure L2 destruction not yet implemented")
+        """Destroy all L2 Data Processing components."""
+        from src.providers.azure.layers.l2_adapter import destroy_l2
+        destroy_l2(context, self._provider)
+    
+    def info_l2(self, context: 'DeploymentContext') -> dict:
+        """Get status of L2 Data Processing components."""
+        from src.providers.azure.layers.l2_adapter import info_l2
+        return info_l2(context, self._provider)
     
     # ==========================================
     # Layer 3: Storage (Cosmos DB + Blob)
     # ==========================================
     
     def deploy_l3_hot(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("Azure L3 hot deployment not yet implemented")
+        """Deploy L3 Hot Storage (Cosmos DB) components."""
+        from src.providers.azure.layers.l3_adapter import deploy_l3_hot
+        deploy_l3_hot(context, self._provider)
     
     def destroy_l3_hot(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("Azure L3 hot destruction not yet implemented")
+        """Destroy L3 Hot Storage components."""
+        from src.providers.azure.layers.l3_adapter import destroy_l3_hot
+        destroy_l3_hot(context, self._provider)
     
     def deploy_l3_cold(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("Azure L3 cold deployment not yet implemented")
+        """Deploy L3 Cold Storage (Blob Cool tier) components."""
+        from src.providers.azure.layers.l3_adapter import deploy_l3_cold
+        deploy_l3_cold(context, self._provider)
     
     def destroy_l3_cold(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("Azure L3 cold destruction not yet implemented")
+        """Destroy L3 Cold Storage components."""
+        from src.providers.azure.layers.l3_adapter import destroy_l3_cold
+        destroy_l3_cold(context, self._provider)
     
     def deploy_l3_archive(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("Azure L3 archive deployment not yet implemented")
+        """Deploy L3 Archive Storage (Blob Archive tier) components."""
+        from src.providers.azure.layers.l3_adapter import deploy_l3_archive
+        deploy_l3_archive(context, self._provider)
     
     def destroy_l3_archive(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("Azure L3 archive destruction not yet implemented")
+        """Destroy L3 Archive Storage components."""
+        from src.providers.azure.layers.l3_adapter import destroy_l3_archive
+        destroy_l3_archive(context, self._provider)
+    
+    def info_l3(self, context: 'DeploymentContext') -> dict:
+        """Get status of L3 Storage components."""
+        from src.providers.azure.layers.l3_adapter import info_l3
+        return info_l3(context, self._provider)
     
     # ==========================================
     # Layer 4: Twin Management (Azure Digital Twins)

@@ -99,30 +99,45 @@ class TestAzureNamingFunctions:
 class TestAzureNamingLayers:
     """Tests for layer-specific naming."""
     
-    def test_dispatcher_function_app_name(self):
-        """dispatcher_function_app() should return {twin_name}-l1-functions."""
+    def test_l1_function_app_name(self):
+        """l1_function_app() should return {twin_name}-l1-functions."""
         naming = AzureNaming("test-twin")
-        assert naming.dispatcher_function_app() == "test-twin-l1-functions"
+        assert naming.l1_function_app() == "test-twin-l1-functions"
     
-    def test_compute_function_app_name(self):
-        """compute_function_app() should return {twin_name}-l2-functions."""
+    def test_l1_app_service_plan_name(self):
+        """l1_app_service_plan() should return {twin_name}-l1-plan."""
         naming = AzureNaming("test-twin")
-        assert naming.compute_function_app() == "test-twin-l2-functions"
+        assert naming.l1_app_service_plan() == "test-twin-l1-plan"
     
-    def test_storage_function_app_name(self):
-        """storage_function_app() should return {twin_name}-l3-functions."""
+    def test_event_grid_subscription_name(self):
+        """event_grid_subscription() should return {twin_name}-dispatcher-sub."""
         naming = AzureNaming("test-twin")
-        assert naming.storage_function_app() == "test-twin-l3-functions"
+        assert naming.event_grid_subscription() == "test-twin-dispatcher-sub"
+    
+    def test_dispatcher_function_name(self):
+        """dispatcher_function() should return 'dispatcher'."""
+        naming = AzureNaming("test-twin")
+        assert naming.dispatcher_function() == "dispatcher"
+    
+    def test_l2_function_app_name(self):
+        """l2_function_app() should return {twin_name}-l2-functions."""
+        naming = AzureNaming("test-twin")
+        assert naming.l2_function_app() == "test-twin-l2-functions"
+    
+    def test_l3_function_app_name(self):
+        """l3_function_app() should return {twin_name}-l3-functions."""
+        naming = AzureNaming("test-twin")
+        assert naming.l3_function_app() == "test-twin-l3-functions"
     
     def test_cosmos_database_name(self):
         """cosmos_database() should return 'iot-data'."""
         naming = AzureNaming("test-twin")
         assert naming.cosmos_database() == "iot-data"
     
-    def test_cosmos_container_name(self):
-        """cosmos_container() should return 'hot-data'."""
+    def test_hot_cosmos_container_name(self):
+        """hot_cosmos_container() should return 'hot-data'."""
         naming = AzureNaming("test-twin")
-        assert naming.cosmos_container() == "hot-data"
+        assert naming.hot_cosmos_container() == "hot-data"
     
     def test_cold_blob_container_name(self):
         """cold_blob_container() should return 'cold-data'."""

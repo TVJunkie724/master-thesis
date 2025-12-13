@@ -32,10 +32,14 @@ from .exceptions import ConfigurationError
 CONFIG_FILE = "config.json"
 CONFIG_IOT_DEVICES_FILE = "config_iot_devices.json"
 CONFIG_EVENTS_FILE = "config_events.json"
-CONFIG_HIERARCHY_FILE = "config_hierarchy.json"
 CONFIG_PROVIDERS_FILE = "config_providers.json"
 CONFIG_OPTIMIZATION_FILE = "config_optimization.json"
 CONFIG_INTER_CLOUD_FILE = "config_inter_cloud.json"
+
+# Twin Hierarchy (provider-specific)
+TWIN_HIERARCHY_DIR_NAME = "twin_hierarchy"
+AWS_HIERARCHY_FILE = "aws_hierarchy.json"
+AZURE_HIERARCHY_FILE = "azure_hierarchy.json"
 
 
 def _load_json_file(file_path: Path, required: bool = True) -> Dict[str, Any]:
@@ -67,6 +71,80 @@ def _load_json_file(file_path: Path, required: bool = True) -> Dict[str, Any]:
         raise ConfigurationError(
             f"Invalid JSON in configuration file: {e}",
             config_file=str(file_path)
+        )
+
+
+def _load_hierarchy_for_provider(project_path: Path, provider: str) -> Dict[str, Any]:
+    """
+    Load hierarchy file for a specific provider from twin_hierarchy/ folder.
+    
+    The hierarchy file format differs by provider:
+    - AWS: TwinMaker entity/component format (array of entities with children)
+    - Azure: DTDL JSON format (object with models/twins/relationships sections)
+    
+    IMPORTANT - Azure NDJSON Conversion:
+        Azure Digital Twins Import Jobs API requires NDJSON (Newline Delimited JSON) format.
+        The L4 Azure deployer must convert this JSON to NDJSON before upload:
+        
+        JSON Structure:
+            {"header": {...}, "models": [...], "twins": [...], "relationships": [...]}
+        
+        NDJSON Structure (each line is a separate JSON object):
+            {"Section": "Header"}
+            {"fileVersion": "1.0.0", ...}
+            {"Section": "Models"}
+            {"@id": "dtmi:...", "@type": "Interface", ...}
+            {"Section": "Twins"}
+            {"$dtId": "room-1", "$metadata": {"$model": "dtmi:..."}}
+            {"Section": "Relationships"}
+            {"$dtId": "room-1", "$targetId": "machine-1", ...}
+        
+        See: https://learn.microsoft.com/en-us/azure/digital-twins/concepts-apis-sdks#format-data
+        See: upload/template/twin_hierarchy/azure_hierarchy_final.ndjson.example
+    
+    Args:
+        project_path: Path to the project directory
+        provider: Provider name ("aws" or "azure")
+        
+    Returns:
+        Parsed hierarchy content, or empty dict/list if not found
+        
+    Raises:
+        ConfigurationError: If file exists but has invalid JSON
+        ValueError: If provider is not 'aws' or 'azure'
+    """
+    provider_lower = provider.lower()
+    
+    # Strict validation: only aws and azure are valid
+    if provider_lower not in ("aws", "azure"):
+        raise ValueError(
+            f"Invalid provider '{provider}'. Hierarchy is only available for 'aws' or 'azure'."
+        )
+    
+    hierarchy_dir = project_path / TWIN_HIERARCHY_DIR_NAME
+    
+    # Explicit provider handling - no fallbacks
+    if provider_lower == "azure":
+        hierarchy_file = hierarchy_dir / AZURE_HIERARCHY_FILE
+        empty_structure = {}
+    elif provider_lower == "aws":
+        hierarchy_file = hierarchy_dir / AWS_HIERARCHY_FILE
+        empty_structure = []
+    else:
+        # Should never reach here due to validation above, but defensive
+        raise ValueError(f"Unhandled provider: {provider_lower}")
+    
+    if not hierarchy_file.exists():
+        # Hierarchy is optional - return empty structure based on provider
+        return empty_structure
+    
+    try:
+        with open(hierarchy_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        raise ConfigurationError(
+            f"Invalid JSON in hierarchy file: {e}",
+            config_file=str(hierarchy_file)
         )
 
 
@@ -106,10 +184,19 @@ def load_project_config(project_path: Path) -> ProjectConfig:
     # Load remaining config files
     iot_devices = _load_json_file(project_path / CONFIG_IOT_DEVICES_FILE, required=True)
     events = _load_json_file(project_path / CONFIG_EVENTS_FILE, required=False)
-    hierarchy = _load_json_file(project_path / CONFIG_HIERARCHY_FILE, required=False)
     providers = _load_json_file(project_path / CONFIG_PROVIDERS_FILE, required=True)
     optimization = _load_json_file(project_path / CONFIG_OPTIMIZATION_FILE, required=False)
     inter_cloud = _load_json_file(project_path / CONFIG_INTER_CLOUD_FILE, required=False)
+    
+    # Load hierarchy based on L4 provider
+    # layer_4_provider is REQUIRED for hierarchy loading (fail-fast)
+    l4_provider = providers.get("layer_4_provider")
+    if not l4_provider:
+        raise ConfigurationError(
+            "layer_4_provider not set in config_providers.json. This is required for hierarchy loading.",
+            config_file=str(project_path / CONFIG_PROVIDERS_FILE)
+        )
+    hierarchy = _load_hierarchy_for_provider(project_path, l4_provider)
     
     # Construct ProjectConfig
     return ProjectConfig(

@@ -70,7 +70,8 @@ async def validate_config(config_type: ConfigType, request: Request):
         ConfigType.config: "config.json",
         ConfigType.iot: "config_iot_devices.json",
         ConfigType.events: "config_events.json",
-        ConfigType.hierarchy: "config_hierarchy.json",
+        ConfigType.aws_hierarchy: "twin_hierarchy/aws_hierarchy.json",
+        ConfigType.azure_hierarchy: "twin_hierarchy/azure_hierarchy.json",
         ConfigType.credentials: "config_credentials.json",
         ConfigType.providers: "config_providers.json",
         ConfigType.optimization: "config_optimization.json"
@@ -81,7 +82,15 @@ async def validate_config(config_type: ConfigType, request: Request):
     try:
         content = await extract_file_content(request)
         content_str = content.decode('utf-8')
-        validator.validate_config_content(filename, content_str)
+        
+        # Use provider-specific hierarchy validators
+        if config_type == ConfigType.aws_hierarchy:
+            validator.validate_aws_hierarchy_content(content_str)
+        elif config_type == ConfigType.azure_hierarchy:
+            validator.validate_azure_hierarchy_content(content_str)
+        else:
+            validator.validate_config_content(filename, content_str)
+        
         return {"message": f"Configuration '{filename}' is valid."}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
