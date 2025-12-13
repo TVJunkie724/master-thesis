@@ -1,0 +1,1 @@
+"""Azure integration tests package."""

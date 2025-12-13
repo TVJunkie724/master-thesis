@@ -241,3 +241,25 @@ def compile_merged_lambda_function(
             zip_code = f.read()
             
     return zip_code
+
+
+def compile_azure_function(folder_path: str, project_path: str = None) -> bytes:
+    """Compile an Azure Function directory into a deployable zip.
+    
+    Azure Functions require the same structure as AWS Lambda:
+    - Function code files
+    - _shared directory (if present) from parent azure_functions folder
+    
+    TODO: Consider refactoring to share implementation with compile_lambda_function
+    when both AWS and Azure deployment patterns stabilize. Currently keeping
+    separate for provider-specific customization flexibility.
+    
+    Args:
+        folder_path: Path to the Azure Function directory
+        project_path: Optional project path for resolution
+        
+    Returns:
+        Bytes of the zipped Azure Function package
+    """
+    # Reuse lambda compilation logic - Azure Functions have same structure
+    return compile_lambda_function(folder_path, project_path)

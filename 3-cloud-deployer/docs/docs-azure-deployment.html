@@ -45,6 +45,7 @@
                         <div class="col-md-6">
                             <ul>
                                 <li><a href="#technical-specs">Technical Specifications</a></li>
+                                <li><a href="#future-work">Future Work</a></li>
                             </ul>
                         </div>
                     </div>
@@ -390,6 +391,73 @@
                             </ul>
                         </li>
                     </ul>
+                </div>
+            </div>
+
+            <div class="card mb-4" id="future-work">
+                <h2 class="mb-3"><i class="fa-solid fa-rocket me-2"></i>Future Work</h2>
+                <div class="roadmap-content">
+                    <h3 class="mt-4 text-primary">Azure AD Authentication for Function-to-Function Calls</h3>
+                    <p>Currently, Azure-only function-to-function calls use <strong>Function Keys</strong> for
+                        authentication.
+                        A future enhancement could upgrade to <strong>Azure AD + Managed Identity</strong> for stronger
+                        security.</p>
+
+                    <h4 class="mt-3">Authentication Options Comparison</h4>
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Option</th>
+                                <th>Security</th>
+                                <th>Complexity</th>
+                                <th>Use Case</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Custom Token (<code>X-Inter-Cloud-Token</code>)</td>
+                                <td>⭐⭐ Basic</td>
+                                <td>Simple</td>
+                                <td>Cross-cloud calls (required)</td>
+                            </tr>
+                            <tr class="table-info">
+                                <td><strong>Function Keys</strong> (<code>x-functions-key</code>)</td>
+                                <td>⭐⭐⭐ Basic+</td>
+                                <td>Simpler</td>
+                                <td><strong>Azure-only calls (current)</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Azure AD + Managed Identity</td>
+                                <td>⭐⭐⭐⭐⭐ Enterprise</td>
+                                <td>More complex</td>
+                                <td>Azure-only calls (future)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h4 class="mt-3">Why Upgrade to Azure AD?</h4>
+                    <ul>
+                        <li><strong>Auto-rotating tokens:</strong> OAuth tokens managed by Azure AD, no manual rotation
+                        </li>
+                        <li><strong>Full audit trail:</strong> Azure AD logs show who called what, when</li>
+                        <li><strong>Granular access control:</strong> Can enforce MFA, conditional access policies</li>
+                        <li><strong>No additional cost:</strong> Azure AD auth is included in Azure Functions pricing
+                        </li>
+                    </ul>
+
+                    <h4 class="mt-3">Implementation Notes</h4>
+                    <ul>
+                        <li>Target Function Apps would need Azure AD authentication configured (Easy Auth)</li>
+                        <li>Calling functions would acquire tokens via Managed Identity</li>
+                        <li>Minimal latency overhead for token acquisition</li>
+                        <li>Would require code changes in <code>_shared/inter_cloud.py</code></li>
+                    </ul>
+
+                    <div class="callout info">
+                        <strong><i class="fa-solid fa-info-circle me-2"></i>Current Implementation</strong>
+                        <p class="mb-0">Azure-only calls use Function Keys. Cross-cloud calls use custom tokens.
+                            Azure AD enhancement can be added when enterprise-grade security is required.</p>
+                    </div>
                 </div>
             </div>
 

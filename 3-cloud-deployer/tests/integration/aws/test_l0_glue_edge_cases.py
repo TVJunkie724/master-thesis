@@ -918,3 +918,168 @@ class TestInfoL0AdapterFunction:
         # Should have checked multiple IAM roles and Lambda functions
         assert mock_provider.clients["iam"].get_role.call_count >= 4
         assert mock_provider.clients["lambda"].get_function.call_count >= 4
+
+
+# ==========================================
+# AWS SDK Error Handling Tests (Phase 5)
+# ==========================================
+
+class TestAWSSDKErrorHandling:
+    """Tests for AWS SDK error handling (throttling, service errors)."""
+    
+    def test_throttling_exception_on_role_creation_handled(self):
+        """create_ingestion_iam_role() should raise ThrottlingException for caller."""
+        from src.providers.aws.layers.layer_0_glue import create_ingestion_iam_role
+        
+        mock_provider = MagicMock()
+        mock_provider.naming.ingestion_iam_role.return_value = "test-role"
+        mock_provider.clients = {"iam": MagicMock()}
+        
+        mock_provider.clients["iam"].create_role.side_effect = ClientError(
+            {"Error": {"Code": "Throttling", "Message": "Rate exceeded"}},
+            "CreateRole"
+        )
+        
+        # Should raise for caller to handle
+        with pytest.raises(ClientError) as exc_info:
+            create_ingestion_iam_role(mock_provider)
+        
+        assert exc_info.value.response["Error"]["Code"] == "Throttling"
+    
+    def test_access_denied_on_iam_role_creation_raises(self):
+        """create_ingestion_iam_role() should raise on AccessDenied."""
+        from src.providers.aws.layers.layer_0_glue import create_ingestion_iam_role
+        
+        mock_provider = MagicMock()
+        mock_provider.naming.ingestion_iam_role.return_value = "test-role"
+        mock_provider.clients = {"iam": MagicMock()}
+        
+        mock_provider.clients["iam"].create_role.side_effect = ClientError(
+            {"Error": {"Code": "AccessDenied", "Message": "Not authorized"}},
+            "CreateRole"
+        )
+        
+        with pytest.raises(ClientError) as exc_info:
+            create_ingestion_iam_role(mock_provider)
+        
+        assert exc_info.value.response["Error"]["Code"] == "AccessDenied"
+    
+    def test_invalid_parameter_on_role_creation_raises(self):
+        """create_ingestion_iam_role() should raise on InvalidParameterValue."""
+        from src.providers.aws.layers.layer_0_glue import create_ingestion_iam_role
+        
+        mock_provider = MagicMock()
+        mock_provider.naming.ingestion_iam_role.return_value = "test-role"
+        mock_provider.clients = {"iam": MagicMock()}
+        
+        mock_provider.clients["iam"].create_role.side_effect = ClientError(
+            {"Error": {"Code": "InvalidParameterValue", "Message": "Invalid"}},
+            "CreateRole"
+        )
+        
+        with pytest.raises(ClientError) as exc_info:
+            create_ingestion_iam_role(mock_provider)
+        
+        assert exc_info.value.response["Error"]["Code"] == "InvalidParameterValue"
+    
+    def test_service_exception_on_destroy_raises(self):
+        """destroy_ingestion_lambda_function() should raise on ServiceException."""
+        from src.providers.aws.layers.layer_0_glue import destroy_ingestion_lambda_function
+        
+        mock_provider = MagicMock()
+        mock_provider.naming.ingestion_lambda_function.return_value = "test-ingestion"
+        mock_provider.clients = {"lambda": MagicMock()}
+        
+        mock_provider.clients["lambda"].delete_function.side_effect = ClientError(
+            {"Error": {"Code": "ServiceException", "Message": "Internal failure"}},
+            "DeleteFunction"
+        )
+        
+        with pytest.raises(ClientError) as exc_info:
+            destroy_ingestion_lambda_function(mock_provider)
+        
+        assert exc_info.value.response["Error"]["Code"] == "ServiceException"
+
+
+# ==========================================
+# Cold Writer Lambda Tests (Phase 5)
+# ==========================================
+
+class TestColdWriterLambdaCreation:
+    """Tests for Cold Writer Lambda function destruction."""
+    
+    def test_destroy_cold_writer_handles_not_found(self):
+        """destroy_cold_writer_lambda_function() should handle ResourceNotFoundException."""
+        from src.providers.aws.layers.layer_0_glue import destroy_cold_writer_lambda_function
+        
+        mock_provider = MagicMock()
+        mock_provider.naming.cold_writer_lambda_function.return_value = "test-cold-writer"
+        mock_provider.clients = {"lambda": MagicMock()}
+        
+        mock_provider.clients["lambda"].delete_function_url_config.side_effect = ClientError(
+            {"Error": {"Code": "ResourceNotFoundException", "Message": "Not found"}},
+            "DeleteFunctionUrlConfig"
+        )
+        
+        # Should not raise
+        destroy_cold_writer_lambda_function(mock_provider)
+    
+    def test_destroy_cold_writer_handles_service_exception(self):
+        """destroy_cold_writer_lambda_function() should raise on ServiceException."""
+        from src.providers.aws.layers.layer_0_glue import destroy_cold_writer_lambda_function
+        
+        mock_provider = MagicMock()
+        mock_provider.naming.cold_writer_lambda_function.return_value = "test-cold-writer"
+        mock_provider.clients = {"lambda": MagicMock()}
+        
+        mock_provider.clients["lambda"].delete_function_url_config.side_effect = ClientError(
+            {"Error": {"Code": "ServiceException", "Message": "Internal error"}},
+            "DeleteFunctionUrlConfig"
+        )
+        
+        with pytest.raises(ClientError) as exc_info:
+            destroy_cold_writer_lambda_function(mock_provider)
+        
+        assert exc_info.value.response["Error"]["Code"] == "ServiceException"
+
+
+# ==========================================
+# Archive Writer Lambda Tests (Phase 5)
+# ==========================================
+
+class TestArchiveWriterLambdaCreation:
+    """Tests for Archive Writer Lambda function destruction."""
+    
+    def test_destroy_archive_writer_handles_not_found(self):
+        """destroy_archive_writer_lambda_function() should handle ResourceNotFoundException."""
+        from src.providers.aws.layers.layer_0_glue import destroy_archive_writer_lambda_function
+        
+        mock_provider = MagicMock()
+        mock_provider.naming.archive_writer_lambda_function.return_value = "test-archive-writer"
+        mock_provider.clients = {"lambda": MagicMock()}
+        
+        mock_provider.clients["lambda"].delete_function_url_config.side_effect = ClientError(
+            {"Error": {"Code": "ResourceNotFoundException", "Message": "Not found"}},
+            "DeleteFunctionUrlConfig"
+        )
+        
+        # Should not raise
+        destroy_archive_writer_lambda_function(mock_provider)
+    
+    def test_destroy_archive_writer_handles_service_exception(self):
+        """destroy_archive_writer_lambda_function() should raise on ServiceException."""
+        from src.providers.aws.layers.layer_0_glue import destroy_archive_writer_lambda_function
+        
+        mock_provider = MagicMock()
+        mock_provider.naming.archive_writer_lambda_function.return_value = "test-archive-writer"
+        mock_provider.clients = {"lambda": MagicMock()}
+        
+        mock_provider.clients["lambda"].delete_function_url_config.side_effect = ClientError(
+            {"Error": {"Code": "ServiceException", "Message": "Internal error"}},
+            "DeleteFunctionUrlConfig"
+        )
+        
+        with pytest.raises(ClientError) as exc_info:
+            destroy_archive_writer_lambda_function(mock_provider)
+        
+        assert exc_info.value.response["Error"]["Code"] == "ServiceException"
