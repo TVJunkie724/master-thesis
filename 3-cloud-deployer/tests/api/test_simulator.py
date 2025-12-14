@@ -241,7 +241,7 @@ class TestDownloadPackageEdgeCases:
 
     def test_download_invalid_provider_returns_400(self):
         """Test download returns 400 for invalid provider."""
-        response = client.get("/projects/any-project/simulator/azure/download")
+        response = client.get("/projects/any-project/simulator/invalid/download")
         assert response.status_code == 400
         
     def test_download_invalid_provider_google(self):

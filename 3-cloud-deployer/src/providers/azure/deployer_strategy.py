@@ -201,7 +201,23 @@ class AzureDeployerStrategy:
     # ==========================================
     
     def deploy_l5(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("Azure L5 deployment not yet implemented")
+        """
+        Deploy L5 Visualization components.
+        
+        Creates: Azure Managed Grafana workspace, configures JSON API
+        datasource pointing to L3 Hot Reader.
+        
+        Pre-flight: Verifies L3 Hot Storage is deployed.
+        """
+        from src.providers.azure.layers.l5_adapter import deploy_l5
+        deploy_l5(context, self._provider)
     
     def destroy_l5(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("Azure L5 destruction not yet implemented")
+        """Destroy all L5 Visualization components."""
+        from src.providers.azure.layers.l5_adapter import destroy_l5
+        destroy_l5(context, self._provider)
+    
+    def info_l5(self, context: 'DeploymentContext') -> dict:
+        """Get status of L5 Visualization components."""
+        from src.providers.azure.layers.l5_adapter import info_l5
+        return info_l5(context, self._provider)

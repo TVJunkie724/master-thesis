@@ -12,8 +12,8 @@ def sample_project_dir(tmp_path):
     # config.json
     config_data = {
         "digital_twin_name": "test-twin",
-        "layer_3_hot_to_cold_interval_days": 7,
-        "layer_3_cold_to_archive_interval_days": 30,
+        "hot_storage_size_in_days": 7,
+        "cold_storage_size_in_days": 30,
         "mode": "DEBUG"
     }
     (project_dir / "config.json").write_text(json.dumps(config_data))

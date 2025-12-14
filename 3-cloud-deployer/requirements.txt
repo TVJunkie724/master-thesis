@@ -39,6 +39,9 @@ azure-mgmt-cosmosdb
 azure-mgmt-digitaltwins
 azure-digitaltwins-core
 
+# Azure SDK packages for L5 (Visualization)
+azure-mgmt-dashboard
+
 # GCP SDK packages
 functions-framework
 google-cloud-firestore

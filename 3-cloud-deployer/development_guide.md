@@ -304,6 +304,25 @@ Every implementation plan must include the following sections:
 - Tests go in `tests/` mirroring `src/` structure
 - Use pytest fixtures from `conftest.py`
 
+#### Running Tests
+**Always exclude e2e tests** from normal test runs. E2E tests require real cloud credentials and should only be run during dedicated integration testing phases.
+
+```bash
+# Standard test run (excludes e2e tests) - USE THIS BY DEFAULT
+docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/ --ignore=tests/e2e -v
+
+# Quick test run (excludes e2e, minimal output)
+docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/ --ignore=tests/e2e -q
+
+# Run only e2e tests (requires cloud credentials) - SPECIAL CASES ONLY
+docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/e2e/ -v
+```
+
+> **⚠️ IMPORTANT:** E2E tests in `tests/e2e/` make real API calls to AWS/Azure/GCP. Only run them when:
+> - You have valid cloud credentials configured
+> - You intend to test actual cloud deployments
+> - You understand resources will be created/destroyed
+
 ---
 
 ## 4. AI Agent Guidelines

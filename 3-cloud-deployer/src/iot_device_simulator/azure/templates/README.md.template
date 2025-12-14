@@ -1,0 +1,52 @@
+# IoT Device Simulator Package (Azure)
+
+**Project**: {{project_name}}
+**Provider**: {{provider}}
+**Device ID**: {{device_id}}
+**Generated**: {{timestamp}}
+
+## Prerequisites
+- Python 3.9+
+- pip
+- Docker (optional)
+
+## Setup
+1. Extract this zip file.
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## Usage
+
+### Option 1: Python
+Run the simulator:
+```bash
+python src/main.py
+```
+
+### Option 2: Docker
+Build and run:
+```bash
+docker-compose up --build
+```
+Or manually:
+```bash
+docker build -t iot-simulator-azure .
+docker run -it iot-simulator-azure
+```
+
+### Available Commands
+- `send` - Send the next payload from payloads.json to Azure IoT Hub.
+- `help` - Show available commands.
+- `exit` - Exit the simulator.
+
+## File Structure
+- `config.json` - Simulator configuration (connection string).
+- `payloads.json` - Payload data.
+- `src/` - Simulator Python code.
+
+## Authentication
+Azure uses connection strings for authentication. The connection string is stored
+in `config.json` and includes the device's shared access key. No separate
+certificate files are required (unlike AWS).

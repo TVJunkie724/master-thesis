@@ -106,6 +106,7 @@ To guarantee nothing is overlooked, AI agents MUST create a task list (`task.md`
 - [ ] 3.3 Error Handling - comprehensive exception handling
 - [ ] 3.4 Create/Destroy/Check Triplet - all resources have triplets
 - [ ] 3.5 Module Header Pattern - comprehensive headers added
+- [ ] 3.6 Pre-Flight Checks - each layer verifies previous layer deployed
 
 ### Section 4: Code Quality Standards
 - [ ] 4.1 Docstrings - all functions documented
@@ -435,7 +436,57 @@ def check_resource(provider) -> bool:
     ...
 ```
 
-### 3.5 Module Header Pattern
+### 3.6 Layer Pre-Flight Checks
+
+Every layer adapter MUST verify that its **service dependencies** are deployed and functional before proceeding. This is NOT about the previous layer number, but about which layers provide services that the current layer consumes.
+
+**Required Pattern:**
+
+```python
+def deploy_lX(context: 'DeploymentContext', provider: 'Provider') -> None:
+    """Deploy Layer X components."""
+    # Pre-flight check: verify required services are deployed
+    _check_dependencies_deployed(context, provider)
+    
+    # ... proceed with deployment
+
+def _check_dependencies_deployed(context: 'DeploymentContext', provider: 'Provider') -> None:
+    """
+    Verify required layer dependencies are deployed before deploying Layer X.
+    
+    Raises:
+        RuntimeError: If dependencies are not deployed
+    """
+    # Example: L5 requires L3 Hot Storage (NOT L4!)
+    # L5 uses Hot Reader from L3 for visualization data
+    if not check_hot_reader_function(provider):
+        raise RuntimeError(
+            "L3 (Hot Storage + Hot Reader) must be deployed before L5. "
+            "Run 'deploy_l3_hot' first."
+        )
+    logger.info("✓ Pre-flight check passed: L3 Hot Storage is deployed")
+```
+
+**Layer Service Dependencies:**
+
+| Layer | Depends On | Why |
+|-------|------------|-----|
+| L1 | Setup | Needs Resource Group, Identity |
+| L2 | L1 | Needs IoT Hub for events |
+| L3 | L2 | Needs Persister to write data |
+| L4 | L3 | Needs Hot Storage for twin data |
+| L5 | **L3** (not L4!) | Needs Hot Reader for visualization |
+
+> [!IMPORTANT]
+> Pre-flight checks verify **service dependencies**, not sequential layer numbers.
+> Example: L5 (Visualization) depends on L3 (Hot Reader) because it queries data directly
+> from storage. It does NOT depend on L4 (Digital Twins) for Azure.
+
+> [!IMPORTANT]
+> Pre-flight checks MUST:
+> - Raise `RuntimeError` with a clear message if the dependency is not met
+> - Log success with a checkmark: `logger.info("✓ Pre-flight check passed: ...")`
+> - Be called at the START of `deploy_lX()` before any resource creation
 
 Every layer module MUST have a comprehensive header comment:
 

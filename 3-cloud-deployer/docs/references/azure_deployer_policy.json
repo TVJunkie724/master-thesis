@@ -1,0 +1,104 @@
+{
+    "description": "Required Azure RBAC roles for the Digital Twin Deployer",
+    "version": "1.0",
+    "required_roles": [
+        {
+            "role_name": "Contributor",
+            "role_id": "b24988ac-6180-42a0-ab88-20f7382dd24c",
+            "scope": "subscription",
+            "description": "Creates and manages all Azure resources"
+        },
+        {
+            "role_name": "User Access Administrator",
+            "role_id": "18d7d88d-d35e-4fb5-a5c3-7773c20a72d9",
+            "scope": "subscription",
+            "description": "Assigns roles to Managed Identity for IoT Hub access"
+        }
+    ],
+    "layer_specific_roles": [
+        {
+            "layer": "L4",
+            "role_name": "Azure Digital Twins Data Owner",
+            "role_id": "bcd981a7-7f74-457b-83e1-cceb9e632gy0",
+            "scope": "resource (ADT instance)",
+            "description": "Required for data plane operations (twins, models, relationships)"
+        }
+    ],
+    "alternative_roles": [
+        {
+            "role_name": "Owner",
+            "role_id": "8e3af657-a8ff-443c-a75c-2fe8c4bcb635",
+            "scope": "subscription",
+            "description": "Combines Contributor + User Access Administrator. Use for development only."
+        }
+    ],
+    "services_by_layer": {
+        "setup": {
+            "services": [
+                "Resource Groups",
+                "Managed Identity",
+                "Storage Account"
+            ],
+            "resource_providers": [
+                "Microsoft.Resources",
+                "Microsoft.ManagedIdentity",
+                "Microsoft.Storage"
+            ]
+        },
+        "layer_0": {
+            "services": [
+                "App Service Plan",
+                "Function Apps"
+            ],
+            "resource_providers": [
+                "Microsoft.Web"
+            ]
+        },
+        "layer_1": {
+            "services": [
+                "IoT Hub",
+                "Event Grid",
+                "Role Assignments"
+            ],
+            "resource_providers": [
+                "Microsoft.Devices",
+                "Microsoft.EventGrid",
+                "Microsoft.Authorization"
+            ]
+        },
+        "layer_2": {
+            "services": [
+                "Function Apps"
+            ],
+            "resource_providers": [
+                "Microsoft.Web"
+            ]
+        },
+        "layer_3": {
+            "services": [
+                "Cosmos DB",
+                "Blob Storage"
+            ],
+            "resource_providers": [
+                "Microsoft.DocumentDB",
+                "Microsoft.Storage"
+            ]
+        },
+        "layer_4": {
+            "services": [
+                "Azure Digital Twins"
+            ],
+            "resource_providers": [
+                "Microsoft.DigitalTwins"
+            ]
+        },
+        "layer_5": {
+            "services": [
+                "Azure Managed Grafana"
+            ],
+            "resource_providers": [
+                "Microsoft.Dashboard"
+            ]
+        }
+    }
+}

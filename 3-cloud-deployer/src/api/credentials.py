@@ -2,7 +2,7 @@
 Credentials API Router
 
 Provides endpoints for validating cloud credentials against required permissions.
-Currently supports AWS, with Azure and GCP planned for future.
+Supports AWS and Azure credential validation.
 """
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
@@ -10,6 +10,7 @@ from typing import Optional
 import json
 
 from api.credentials_checker import check_aws_credentials, check_aws_credentials_from_config
+from api.azure_credentials_checker import check_azure_credentials, check_azure_credentials_from_config
 
 router = APIRouter(prefix="/credentials", tags=["Credentials"])
 
@@ -25,6 +26,15 @@ class AWSCredentialsRequest(BaseModel):
     )
 
 
+class AzureCredentialsRequest(BaseModel):
+    """Request body for Azure credential validation."""
+    azure_subscription_id: str = Field(..., description="Azure Subscription ID")
+    azure_tenant_id: str = Field(..., description="Azure AD Tenant ID")
+    azure_client_id: str = Field(..., description="Service Principal Client/Application ID")
+    azure_client_secret: str = Field(..., description="Service Principal Client Secret")
+    azure_region: Optional[str] = Field("westeurope", description="Azure Region (e.g., 'westeurope')")
+
+
 class CredentialsCheckResponse(BaseModel):
     """Response schema for credential validation."""
     status: str = Field(..., description="Result status: 'valid', 'partial', 'invalid', 'check_failed', or 'error'")
@@ -35,6 +45,17 @@ class CredentialsCheckResponse(BaseModel):
     by_layer: dict = Field(..., description="Permission results organized by deployment layer (layer_1 through layer_5)")
     by_service: dict = Field(..., description="Permission results organized by AWS service with layer references")
     summary: dict = Field(..., description="Summary with total_required, valid, and missing counts")
+
+
+class AzureCredentialsCheckResponse(BaseModel):
+    """Response schema for Azure credential validation."""
+    status: str = Field(..., description="Result status: 'valid', 'partial', 'invalid', 'check_failed', or 'error'")
+    message: str = Field(..., description="Human-readable result message")
+    caller_identity: Optional[dict] = Field(None, description="Azure subscription/principal info")
+    can_list_roles: bool = Field(..., description="Whether the credentials can list role assignments")
+    by_layer: dict = Field(..., description="Permission results organized by deployment layer")
+    summary: dict = Field(..., description="Summary with total_layers, valid_layers, partial_layers, invalid_layers counts")
+    recommended_roles: Optional[dict] = Field(None, description="Recommended roles: custom (preferred) and builtin alternatives")
 
 
 @router.post(
@@ -88,3 +109,63 @@ async def check_aws_from_config(
     If no project is specified, uses the currently active project.
     """
     return check_aws_credentials_from_config(project)
+
+
+# ==========================================
+# Azure Credentials Endpoints
+# ==========================================
+
+@router.post(
+    "/check/azure",
+    response_model=AzureCredentialsCheckResponse,
+    summary="Validate Azure credentials from request body",
+    description=(
+        "Validates Azure Service Principal credentials against required RBAC roles. "
+        "Checks if Contributor and User Access Administrator roles are assigned. "
+        "Returns categorized results by deployment layer."
+    )
+)
+async def check_azure_from_body(request: AzureCredentialsRequest):
+    """
+    Validate Azure Service Principal credentials from request body.
+    
+    Checks RBAC role assignments for all deployment layers:
+    - **Setup**: Resource Groups, Managed Identity, Storage
+    - **Layer 0**: App Service Plan, Function Apps
+    - **Layer 1**: IoT Hub, Event Grid, Role Assignments
+    - **Layer 2**: Function Apps (Compute)
+    - **Layer 3**: Cosmos DB, Blob Storage
+    - **Layer 4**: Azure Digital Twins
+    - **Layer 5**: Azure Managed Grafana
+    
+    Returns status and missing roles by layer.
+    """
+    return check_azure_credentials(request.model_dump())
+
+
+@router.get(
+    "/check/azure",
+    response_model=AzureCredentialsCheckResponse,
+    summary="Validate Azure credentials from project config",
+    description=(
+        "Validates Azure credentials from the project's config_credentials.json file. "
+        "Uses the active project if no project name is specified. "
+        "Returns categorized results by layer."
+    )
+)
+async def check_azure_from_config(
+    project: Optional[str] = Query(
+        None, 
+        description="Project name to load credentials from. Uses active project if not specified."
+    )
+):
+    """
+    Validate Azure credentials from project's config_credentials.json.
+    
+    Reads the Azure credentials from the specified project's configuration file
+    and validates them against required RBAC role assignments.
+    
+    If no project is specified, uses the currently active project.
+    """
+    return check_azure_credentials_from_config(project)
+

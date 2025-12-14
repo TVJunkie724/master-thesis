@@ -85,12 +85,15 @@ class AzureProvider(BaseProvider):
         
         Args:
             credentials: Azure credentials dictionary with:
-                - azure_subscription_id: Azure subscription ID
-                - azure_tenant_id: Azure AD tenant ID (optional)
+                - azure_subscription_id: Azure subscription ID (REQUIRED)
+                - azure_region: Azure region (REQUIRED)
+                - azure_tenant_id: Azure AD tenant ID (optional for DefaultCredential)
                 - azure_client_id: Service principal client ID (optional)
                 - azure_client_secret: Service principal secret (optional)
-                - azure_region: Azure region (optional, default: westeurope)
             twin_name: Digital twin name for resource naming
+        
+        Raises:
+            ValueError: If required credentials (azure_subscription_id, azure_region) are missing
         
         Note:
             If azure_client_id/azure_client_secret are not provided, uses DefaultAzureCredential
@@ -99,8 +102,21 @@ class AzureProvider(BaseProvider):
         from src.providers.azure.naming import AzureNaming
         
         self._twin_name = twin_name
-        self._subscription_id = credentials.get("azure_subscription_id", "")
-        self._location = credentials.get("azure_region", "westeurope")
+        
+        # Fail-fast: Required credentials MUST be provided
+        if "azure_subscription_id" not in credentials or not credentials["azure_subscription_id"]:
+            raise ValueError(
+                "Missing required credential 'azure_subscription_id'. "
+                "Azure subscription ID must be provided in config_credentials.json."
+            )
+        self._subscription_id = credentials["azure_subscription_id"]
+        
+        if "azure_region" not in credentials or not credentials["azure_region"]:
+            raise ValueError(
+                "Missing required credential 'azure_region'. "
+                "Azure region (e.g., 'germanywestcentral') must be provided in config_credentials.json."
+            )
+        self._location = credentials["azure_region"]
         
         # Initialize naming
         self._naming = AzureNaming(twin_name)
@@ -152,6 +168,7 @@ class AzureProvider(BaseProvider):
             - iothub: IotHubClient (IoT Hub management) - L1
             - eventgrid: EventGridManagementClient (Event Grid subscriptions) - L1
             - authorization: AuthorizationManagementClient (RBAC role assignments) - L1
+            - dashboard: DashboardManagementClient (Azure Managed Grafana) - L5
         """
         from azure.mgmt.resource import ResourceManagementClient
         from azure.mgmt.storage import StorageManagementClient
@@ -201,6 +218,13 @@ class AzureProvider(BaseProvider):
         
         # Authorization Management - for RBAC role assignments (L1)
         self._clients["authorization"] = AuthorizationManagementClient(
+            credential=credential,
+            subscription_id=subscription_id
+        )
+        
+        # Dashboard Management - for Azure Managed Grafana (L5)
+        from azure.mgmt.dashboard import DashboardManagementClient
+        self._clients["dashboard"] = DashboardManagementClient(
             credential=credential,
             subscription_id=subscription_id
         )

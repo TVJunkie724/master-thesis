@@ -172,8 +172,8 @@ def load_project_config(project_path: Path) -> ProjectConfig:
     core_config = _load_json_file(project_path / CONFIG_FILE, required=True)
     
     # Validate required fields in core config
-    required_fields = ["digital_twin_name", "layer_3_hot_to_cold_interval_days", 
-                       "layer_3_cold_to_archive_interval_days", "mode"]
+    required_fields = ["digital_twin_name", "hot_storage_size_in_days", 
+                       "cold_storage_size_in_days", "mode"]
     for field in required_fields:
         if field not in core_config:
             raise ConfigurationError(
@@ -201,8 +201,8 @@ def load_project_config(project_path: Path) -> ProjectConfig:
     # Construct ProjectConfig
     return ProjectConfig(
         digital_twin_name=core_config["digital_twin_name"],
-        hot_storage_size_in_days=core_config["layer_3_hot_to_cold_interval_days"],
-        cold_storage_size_in_days=core_config["layer_3_cold_to_archive_interval_days"],
+        hot_storage_size_in_days=core_config["hot_storage_size_in_days"],
+        cold_storage_size_in_days=core_config["cold_storage_size_in_days"],
         mode=core_config["mode"],
         iot_devices=iot_devices if isinstance(iot_devices, list) else iot_devices.get("devices", []),
         events=events if isinstance(events, list) else events.get("events", []),
@@ -272,10 +272,16 @@ def load_credentials(project_path: Path) -> Dict[str, dict]:
     """
     Load credentials for all configured providers.
     
-    Credentials are stored in separate files per provider:
-    - config_credentials_aws.json
-    - config_credentials_azure.json
-    - config_credentials_google.json
+    Credentials can be stored in either:
+    - A single combined file: config_credentials.json
+    - Separate files per provider: config_credentials_aws.json, etc.
+    
+    The combined file format:
+        {
+            "aws": {"aws_access_key_id": "...", ...},
+            "azure": {"azure_subscription_id": "...", ...},
+            "gcp": {"gcp_project_id": "...", ...}
+        }
     
     Args:
         project_path: Path to the project directory
@@ -290,6 +296,20 @@ def load_credentials(project_path: Path) -> Dict[str, dict]:
     """
     credentials = {}
     
+    # First check for combined config_credentials.json
+    combined_path = project_path / "config_credentials.json"
+    if combined_path.exists():
+        combined_creds = _load_json_file(combined_path, required=False)
+        if combined_creds:
+            # Extract each provider's credentials
+            if "aws" in combined_creds:
+                credentials["aws"] = combined_creds["aws"]
+            if "azure" in combined_creds:
+                credentials["azure"] = combined_creds["azure"]
+            if "gcp" in combined_creds:
+                credentials["gcp"] = combined_creds["gcp"]
+    
+    # Also check for separate files (can override combined)
     # AWS credentials
     aws_creds = _load_json_file(
         project_path / "config_credentials_aws.json", 

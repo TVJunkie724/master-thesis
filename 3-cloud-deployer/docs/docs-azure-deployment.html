@@ -23,16 +23,14 @@
             </h1>
 
             <p class="text-muted mb-4">
-                Guide to deploying Digital Twin layers on Microsoft Azure (in development).
+                Complete guide to deploying Digital Twin layers on Microsoft Azure.
             </p>
 
             <div class="callout info mb-4">
-                <strong><i class="fa-solid fa-circle-half-stroke me-2"></i>Status: Partially Complete</strong>
-                <br>
-                <strong>Complete:</strong> Setup Layer (Resource Group, Managed Identity, Storage), L0 (Multi-cloud
-                Glue), L1 (IoT Hub, Event Grid, Functions).
-                <br>
-                <strong>In Progress:</strong> L2-L5 deployment layers.
+                <strong><i class="fa-solid fa-check-circle me-2"></i>Status: Full Multi-Cloud Architecture
+                    Implemented</strong>
+                Core single-cloud deployment, L2 Event Processing, and multi-cloud Layer 0 (Glue) are fully operational.
+                Azure Function HTTP endpoints provide cross-cloud connectivity. Error Handling system is under review.
             </div>
 
             <!-- Table of Contents -->
@@ -42,14 +40,16 @@
                     <div class="row">
                         <div class="col-md-6">
                             <ul>
-                                <li><a href="#azure-services">Planned Azure Services</a></li>
-                                <li><a href="#roadmap">Implementation Roadmap</a></li>
+                                <li><a href="#azure-services">Azure Services Used</a></li>
+                                <li><a href="#rbac-permissions">Required RBAC Permissions</a></li>
+                                <li><a href="#implementation-roadmap">Implementation Roadmap</a></li>
                             </ul>
                         </div>
                         <div class="col-md-6">
                             <ul>
                                 <li><a href="#technical-specs">Technical Specifications</a></li>
-                                <li><a href="#future-work">Future Work</a></li>
+                                <li><a href="#quick-deployment">Quick Deployment</a></li>
+                                <li><a href="#troubleshooting">Troubleshooting</a></li>
                             </ul>
                         </div>
                     </div>
@@ -57,7 +57,7 @@
             </div>
 
             <div class="card mb-4" id="azure-services">
-                <h2 class="mb-3"><i class="fa-solid fa-cloud me-2"></i>Planned Azure Services</h2>
+                <h2 class="mb-3"><i class="fa-solid fa-cloud me-2"></i>Azure Services Used</h2>
                 <table class="table table-striped">
                     <thead>
                         <tr>
@@ -94,8 +94,8 @@
                         </tr>
                         <tr>
                             <td>L3 - Data Access</td>
-                            <td>Azure API Management</td>
-                            <td>External access to hot data (for TwinMaker)</td>
+                            <td>Function HTTP Endpoints</td>
+                            <td>Cross-cloud HTTP endpoints (Hot Reader, Writers)</td>
                         </tr>
                         <tr>
                             <td>L4 - Twin Management</td>
@@ -109,245 +109,660 @@
                         </tr>
                         <tr>
                             <td>Supporting</td>
-                            <td>Azure Active Directory</td>
-                            <td>Access control and identity management</td>
+                            <td>Managed Identity</td>
+                            <td>Access control, authentication</td>
                         </tr>
                         <tr>
                             <td>Supporting</td>
                             <td>Event Grid</td>
-                            <td>Event routing and reactive messaging</td>
+                            <td>Event routing (IoT Hub → Functions)</td>
                         </tr>
                         <tr>
                             <td>Supporting</td>
                             <td>Logic Apps</td>
-                            <td>Workflow orchestration and scheduling</td>
+                            <td>Event workflow orchestration</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
 
-            <div class="card mb-4" id="roadmap">
+            <div class="card mb-4" id="rbac-permissions">
+                <h2 class="mb-3"><i class="fa-solid fa-key me-2"></i>Required RBAC Permissions</h2>
+
+                <div class="callout info mb-3">
+                    <strong><i class="fa-solid fa-lightbulb me-2"></i>Pre-Deployment Verification</strong>
+                    Use <code>check_credentials azure</code> (CLI) or <code>POST /credentials/check/azure</code> (API)
+                    to verify your credentials have all required permissions before deploying.
+                </div>
+
+                <p>Your Azure Service Principal needs the following RBAC permissions to deploy all layers (Setup,
+                    L0-L5):</p>
+
+                <h5 class="text-warning mt-4"><i class="fa-solid fa-cog me-2"></i>Setup Layer - Foundation</h5>
+                <p class="text-muted small">Deployed <em>first</em> to create foundational resources.</p>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Required Operations</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Resource Groups</td>
+                            <td><code>Microsoft.Resources/subscriptions/resourceGroups/write</code>,
+                                <code>*/read</code>, <code>*/delete</code>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Managed Identity</td>
+                            <td><code>Microsoft.ManagedIdentity/userAssignedIdentities/write</code>,
+                                <code>*/read</code>, <code>*/delete</code>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Storage</td>
+                            <td><code>Microsoft.Storage/storageAccounts/write</code>,
+                                <code>*/read</code>, <code>*/delete</code>, <code>*/listKeys/action</code>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="text-warning mt-4"><i class="fa-solid fa-plug me-2"></i>Layer 0 - Multi-Cloud Glue</h5>
+                <p class="text-muted small">Deployed <em>before</em> L1-L5 when cross-cloud boundaries exist.</p>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Required Operations</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>App Service Plans</td>
+                            <td><code>Microsoft.Web/serverfarms/write</code>,
+                                <code>*/read</code>, <code>*/delete</code>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Function Apps</td>
+                            <td><code>Microsoft.Web/sites/write</code>, <code>*/read</code>,
+                                <code>*/delete</code>, <code>*/config/write</code>,
+                                <code>*/publishingcredentials/action</code>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="text-primary mt-4">Layer 1 - Data Acquisition</h5>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Required Operations</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>IoT Hub</td>
+                            <td><code>Microsoft.Devices/IotHubs/write</code>, <code>*/read</code>,
+                                <code>*/delete</code>, <code>*/listkeys/action</code>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Event Grid</td>
+                            <td><code>Microsoft.EventGrid/systemTopics/write</code>,
+                                <code>*/eventSubscriptions/write</code>, <code>*/read</code>, <code>*/delete</code>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Authorization</td>
+                            <td><code>Microsoft.Authorization/roleAssignments/write</code>,
+                                <code>*/read</code>, <code>*/delete</code>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="text-primary mt-4">Layer 2 - Data Processing</h5>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Required Operations</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Function Apps</td>
+                            <td><code>Microsoft.Web/sites/write</code>, <code>*/read</code>,
+                                <code>*/delete</code>, <code>*/config/write</code>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Logic Apps</td>
+                            <td><code>Microsoft.Logic/workflows/write</code>,
+                                <code>*/read</code>, <code>*/delete</code>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="text-primary mt-4">Layer 3 - Storage</h5>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Required Operations</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Cosmos DB</td>
+                            <td><code>Microsoft.DocumentDB/databaseAccounts/write</code>,
+                                <code>*/read</code>, <code>*/delete</code>,
+                                <code>*/sqlDatabases/write</code>, <code>*/sqlDatabases/containers/write</code>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Blob Storage</td>
+                            <td><code>Microsoft.Storage/storageAccounts/blobServices/containers/write</code>,
+                                <code>*/read</code>, <code>*/delete</code>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="text-primary mt-4">Layer 4 - Twin Management</h5>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Required Operations</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Digital Twins</td>
+                            <td><code>Microsoft.DigitalTwins/digitalTwinsInstances/write</code>,
+                                <code>*/read</code>, <code>*/delete</code>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="text-primary mt-4">Layer 5 - Visualization</h5>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Required Operations</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Managed Grafana</td>
+                            <td><code>Microsoft.Dashboard/grafana/write</code>,
+                                <code>*/read</code>, <code>*/delete</code>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="text-info mt-4"><i class="fa-solid fa-magnifying-glass me-2"></i>Credential Checker
+                    (Self-Inspection)</h5>
+                <p class="text-muted small">Required for the <code>check_credentials</code> command to verify your
+                    permissions.</p>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Required Operations</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Authorization</td>
+                            <td><code>Microsoft.Authorization/roleAssignments/read</code>,
+                                <code>*/roleDefinitions/read</code>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Subscriptions</td>
+                            <td><code>Microsoft.Resources/subscriptions/read</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="callout warn mt-4">
+                    <strong><i class="fa-solid fa-exclamation-triangle me-2"></i>Recommended Roles</strong>
+                    For simplicity, assign these two subscription-level built-in roles:
+                    <ul class="mb-0 mt-2">
+                        <li><code>Contributor</code> - For resource management (create/update/delete)</li>
+                        <li><code>User Access Administrator</code> - For RBAC role assignments</li>
+                    </ul>
+                    See the <a href="docs-credentials-setup.html#azure-setup">Cloud Credentials Setup Guide</a> for
+                    step-by-step instructions.
+                </div>
+            </div>
+
+
+            <div class="card mb-4" id="implementation-roadmap">
                 <h2 class="mb-3"><i class="fa-solid fa-road me-2"></i>Implementation Roadmap</h2>
-                <p>The Azure deployer implementation follows a modular, layer-by-layer approach, strictly aligned with
-                    the AWS architecture:</p>
+                <p>The Azure deployer follows a modular, layer-by-layer architecture with a dedicated <strong>Layer 0
+                        (Glue Layer)</strong> for cross-cloud connectivity:</p>
+
+                <div class="callout info mb-4">
+                    <strong><i class="fa-solid fa-layer-group me-2"></i>Architecture Overview</strong>
+                    <ul class="mb-0 mt-2">
+                        <li><strong>Setup Layer:</strong> Resource Group, Managed Identity, Storage - deployed
+                            <em>first</em></li>
+                        <li><strong>Layer 0 (Glue):</strong> Cross-cloud HTTP receivers deployed <em>before</em> all
+                            other layers</li>
+                        <li><strong>Layers 1-5:</strong> Core digital twin components</li>
+                        <li><strong>Shared Module:</strong> <code>inter_cloud.py</code> provides token validation and
+                            HTTP POST logic</li>
+                        <li><strong>Function HTTP Endpoints:</strong> All cross-cloud endpoints use Azure Function HTTP
+                            triggers</li>
+                    </ul>
+                </div>
 
                 <div class="roadmap-content">
-                    <!-- Layer 1 -->
-                    <h3 class="mt-4 text-primary">Layer 1: Data Acquisition (IoT Hub)</h3>
+                    <!-- Setup Layer -->
+                    <h3 class="mt-4 text-warning"><i class="fa-solid fa-cog me-2"></i>Setup Layer: Foundation</h3>
+                    <div class="callout warn mb-3">
+                        <strong>Deployment Order:</strong> Setup Layer deploys <em>first</em> to create foundational
+                        resources required by all other layers.
+                    </div>
                     <ul>
-                        <li><span class="badge text-bg-success">Complete</span> <strong>Resource Group:</strong>
+                        <li><strong>Source Module:</strong> <code>src/providers/azure/layers/layer_setup_azure.py</code>
                             <ul>
-                                <li><strong>Create:</strong> Dedicated Resource Group (e.g., <code>rg-twin-dev</code>).
+                                <li><strong>Contains:</strong> 9 functions (3 triplets for RG, Identity, Storage)</li>
+                                <li><strong>Pattern:</strong> All foundational resources in one module</li>
+                            </ul>
+                        </li>
+                        <li><strong>Resource Group</strong>
+                            <ul>
+                                <li><strong>Created:</strong> <code>rg-{digital_twin_name}</code></li>
+                                <li><strong>Purpose:</strong> Logical container for ALL Azure resources</li>
+                            </ul>
+                        </li>
+                        <li><strong>User-Assigned Managed Identity</strong>
+                            <ul>
+                                <li><strong>Created:</strong> <code>{digital_twin_name}-identity</code></li>
+                                <li><strong>Purpose:</strong> Secure authentication between services</li>
+                            </ul>
+                        </li>
+                        <li><strong>Storage Account</strong>
+                            <ul>
+                                <li><strong>Created:</strong> <code>{digital_twin_name}store</code></li>
+                                <li><strong>Purpose:</strong> Required for Function App deployments</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <!-- Layer 0 (Glue) -->
+                    <h3 class="mt-4 text-warning"><i class="fa-solid fa-plug me-2"></i>Layer 0: Glue Layer (Cross-Cloud
+                        Receivers)</h3>
+                    <div class="callout warn mb-3">
+                        <strong>Deployment Order:</strong> Layer 0 deploys <em>before</em> Layers 1-5 to ensure all
+                        Function URLs are saved to <code>config_inter_cloud.json</code> before senders deploy.
+                    </div>
+                    <ul>
+                        <li><strong>Source Module:</strong> <code>src/providers/azure/layers/layer_0_glue.py</code>
+                            <ul>
+                                <li><strong>Contains:</strong> 43 functions (create/destroy/check + helpers)</li>
+                                <li><strong>Pattern:</strong> All multi-cloud receivers consolidated in one module</li>
+                            </ul>
+                        </li>
+                        <li><strong>App Service Plan (Consumption Y1)</strong>
+                            <ul>
+                                <li><strong>Created:</strong> <code>{digital_twin_name}-l0-plan</code></li>
+                                <li><strong>Purpose:</strong> Serverless hosting for Glue Function App</li>
+                            </ul>
+                        </li>
+                        <li><strong>Glue Function App</strong>
+                            <ul>
+                                <li><strong>Created:</strong> <code>{digital_twin_name}-glue</code></li>
+                                <li><strong>Purpose:</strong> Hosts all multi-cloud receiver functions</li>
+                            </ul>
+                        </li>
+                        <li><strong>Ingestion Function</strong> <span class="badge text-bg-info">L1→L2</span>
+                            <ul>
+                                <li><strong>Created:</strong> Only if <code>layer_1_provider ≠ layer_2_provider</code>
                                 </li>
-                                <li><strong>Purpose:</strong> Logical container for all twin resources.</li>
+                                <li><strong>Trigger:</strong> HTTP Trigger (POST)</li>
+                                <li><strong>Logic:</strong> Receives events from remote Connector, validates token via
+                                    <code>inter_cloud.py</code>, invokes local Processor
+                                </li>
+                                <li><strong>Naming:</strong> <code>ingestion</code> function in Glue app</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-success">Complete</span> <strong>IoT Hub:</strong>
+                        <li><strong>Hot Writer Function</strong> <span class="badge text-bg-info">L2→L3 Hot</span>
                             <ul>
-                                <li><strong>Create:</strong> IoT Hub (Standard Tier S1).</li>
-                                <li><strong>Interaction:</strong> Provides connection strings for devices.</li>
+                                <li><strong>Created:</strong> Only if
+                                    <code>layer_2_provider ≠ layer_3_hot_provider</code></li>
+                                <li><strong>Trigger:</strong> HTTP Trigger (POST)</li>
+                                <li><strong>Logic:</strong> Receives data from remote Persister, validates token, writes
+                                    to Cosmos DB</li>
+                                <li><strong>Naming:</strong> <code>hot_writer</code> function in Glue app</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-success">Complete</span> <strong>Event Grid Routing:</strong>
+                        <li><strong>Cold Writer Function</strong> <span class="badge text-bg-info">L3 Hot→L3 Cold</span>
                             <ul>
-                                <li><strong>Create:</strong> Event Grid System Topic for IoT Hub.</li>
-                                <li><strong>Action:</strong> Configure Message Routing to send telemetry to Event Grid.
+                                <li><strong>Created:</strong> Only if
+                                    <code>layer_3_hot_provider ≠ layer_3_cold_provider</code></li>
+                                <li><strong>Trigger:</strong> HTTP Trigger (POST)</li>
+                                <li><strong>Logic:</strong> Receives chunked data (≤5MB) from remote Hot-to-Cold Mover,
+                                    writes to Blob Storage (Cool tier)</li>
+                                <li><strong>Naming:</strong> <code>cold_writer</code> function in Glue app</li>
+                            </ul>
+                        </li>
+                        <li><strong>Archive Writer Function</strong> <span class="badge text-bg-info">L3 Cold→L3
+                                Archive</span>
+                            <ul>
+                                <li><strong>Created:</strong> Only if
+                                    <code>layer_3_cold_provider ≠ layer_3_archive_provider</code></li>
+                                <li><strong>Trigger:</strong> HTTP Trigger (POST)</li>
+                                <li><strong>Logic:</strong> Receives data from remote Cold-to-Archive Mover, writes to
+                                    Blob Storage (Archive tier)</li>
+                                <li><strong>Naming:</strong> <code>archive_writer</code> function in Glue app</li>
+                            </ul>
+                        </li>
+                        <li><strong>Hot Reader Function URLs</strong> <span class="badge text-bg-info">L3→L4</span>
+                            <ul>
+                                <li><strong>Created:</strong> Only if
+                                    <code>layer_3_hot_provider ≠ layer_4_provider</code></li>
+                                <li><strong>Endpoints:</strong>
+                                    <ul>
+                                        <li><code>hot_reader</code> - Queries Cosmos DB for time-range data</li>
+                                        <li><code>hot_reader_last_entry</code> - Returns most recent entry per device
+                                        </li>
+                                    </ul>
+                                </li>
+                                <li><strong>Logic:</strong> Adds HTTP endpoint + <code>INTER_CLOUD_TOKEN</code> env var
                                 </li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-success">Complete</span> <strong>Dispatcher Function:</strong>
+                        <li><strong>ADT Pusher Function</strong> <span class="badge text-bg-info">L3→L4</span>
                             <ul>
-                                <li><strong>Trigger:</strong> Event Grid Trigger (subscribes to IoT Hub events).</li>
-                                <li><strong>Single Cloud:</strong> Routes incoming telemetry to local processor
-                                    functions.</li>
-                                <li><strong>Multi Cloud:</strong> Routes messages to a local <strong>Connector
-                                        Function</strong> if the processor is on another cloud.</li>
+                                <li><strong>Created:</strong> Only if
+                                    <code>layer_3_hot_provider ≠ layer_4_provider</code></li>
+                                <li><strong>Trigger:</strong> HTTP Trigger (POST)</li>
+                                <li><strong>Logic:</strong> Receives data and updates Azure Digital Twins</li>
+                                <li><strong>Naming:</strong> <code>adt_pusher</code> function in Glue app</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-success">Complete</span> <strong>Connector Function [Multi-Cloud
-                                Only]:</strong>
+                    </ul>
+
+                    <!-- Layer 1 -->
+                    <h3 class="mt-4 text-primary"><i class="fa-solid fa-satellite-dish me-2"></i>Layer 1: Data
+                        Acquisition (IoT Hub)</h3>
+                    <ul>
+                        <li><strong>Source Module:</strong> <code>src/providers/azure/layers/layer_1_iot.py</code>
                             <ul>
-                                <li><strong>Created:</strong> Only if Layer 2 is on a different cloud provider.</li>
-                                <li><strong>Logic:</strong> Masquerades as a processor function. Wraps the event and
-                                    sends it via HTTP POST to the remote cloud's Ingestion API.</li>
+                                <li><strong>Contains:</strong> 38 functions (create/destroy/check triplets)</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-success">Complete</span> <strong>Ingestion Function [Multi-Cloud
-                                Only]:</strong>
+                        <li><strong>IoT Hub</strong>
                             <ul>
-                                <li><strong>Created:</strong> Only if Layer 1 is on a different cloud provider.</li>
-                                <li><strong>Trigger:</strong> HTTP Trigger.</li>
-                                <li><strong>Logic:</strong> Receives events from a remote Connector and invokes the
-                                    local Processor function.</li>
+                                <li><strong>Created:</strong> <code>{digital_twin_name}-hub</code> (S1 Standard tier)
+                                </li>
+                                <li><strong>Purpose:</strong> Device connectivity, telemetry ingestion</li>
+                            </ul>
+                        </li>
+                        <li><strong>RBAC Role Assignments</strong>
+                            <ul>
+                                <li><strong>Granted:</strong> IoT Hub Data Contributor to Managed Identity</li>
+                                <li><strong>Purpose:</strong> Allow Functions to send/receive device messages</li>
+                            </ul>
+                        </li>
+                        <li><strong>L1 Function App</strong>
+                            <ul>
+                                <li><strong>Created:</strong> <code>{digital_twin_name}-l1</code></li>
+                                <li><strong>Purpose:</strong> Hosts Dispatcher and Connector functions</li>
+                            </ul>
+                        </li>
+                        <li><strong>Dispatcher Function</strong>
+                            <ul>
+                                <li><strong>Logic:</strong> Central router for all incoming IoT telemetry</li>
+                                <li><strong>Single Cloud:</strong> Invokes local Processor directly</li>
+                                <li><strong>Multi Cloud:</strong> Invokes local Connector (which POSTs to remote
+                                    Ingestion)</li>
+                            </ul>
+                        </li>
+                        <li><strong>Connector Function</strong> <span class="badge text-bg-warning">Multi-Cloud
+                                Only</span>
+                            <ul>
+                                <li><strong>Created:</strong> Only if <code>layer_1_provider ≠ layer_2_provider</code>
+                                </li>
+                                <li><strong>Logic:</strong> Masquerades as Processor, POSTs event to remote Ingestion
+                                    URL</li>
+                                <li><strong>Env Vars:</strong> <code>REMOTE_INGESTION_URL</code>,
+                                    <code>INTER_CLOUD_TOKEN</code></li>
+                                <li><strong>Uses:</strong> Shared <code>inter_cloud.py</code> module for HTTP POST</li>
+                            </ul>
+                        </li>
+                        <li><strong>Event Grid System Topic</strong>
+                            <ul>
+                                <li><strong>Created:</strong> For IoT Hub telemetry events</li>
+                                <li><strong>Action:</strong> Routes IoT Hub messages to Dispatcher Function</li>
+                            </ul>
+                        </li>
+                        <li><strong>IoT Devices</strong>
+                            <ul>
+                                <li><strong>Per Device:</strong> Device identity in IoT Hub registry</li>
+                                <li><strong>Output:</strong> <code>iot_devices_auth/{device_id}/</code> with connection
+                                    strings</li>
                             </ul>
                         </li>
                     </ul>
 
                     <!-- Layer 2 -->
-                    <h3 class="mt-4 text-primary">Layer 2: Data Processing (Functions)</h3>
+                    <h3 class="mt-4 text-primary"><i class="fa-solid fa-microchip me-2"></i>Layer 2: Data Processing
+                        (Functions)</h3>
                     <ul>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Function App:</strong>
+                        <li><strong>Source Module:</strong> <code>src/providers/azure/layers/layer_2_compute.py</code>
                             <ul>
-                                <li><strong>Create:</strong> Function App (Consumption Plan, Python v2).</li>
-                                <li><strong>Identity:</strong> Enable <strong>System-Assigned Managed Identity</strong>.
-                                </li>
+                                <li><strong>Contains:</strong> 42 functions (create/destroy/check + helpers)</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Persister Function:</strong>
+                        <li><strong>L2 Function App</strong>
                             <ul>
-                                <li><strong>Single Cloud:</strong> Writes cleaned data to Cosmos DB using SDK.</li>
-                                <li><strong>Multi Cloud:</strong> Sends data via HTTP POST to the remote cloud's
-                                    <strong>Writer API</strong> (if L3 is remote).
-                                </li>
-                                <li><strong>Interaction:</strong> Invokes <strong>Event Checker</strong> function (if
-                                    enabled).</li>
+                                <li><strong>Created:</strong> <code>{digital_twin_name}-l2</code></li>
+                                <li><strong>Identity:</strong> User-Assigned Managed Identity</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Event Checker Function
-                                [Optional]:</strong>
+                        <li><strong>Processor Functions</strong>
                             <ul>
-                                <li><strong>Trigger:</strong> HTTP/Direct Invocation from Persister.</li>
-                                <li><strong>Logic:</strong> Detects anomalies (e.g., temp > threshold).</li>
-                                <li><strong>Interaction:</strong> Triggers <strong>Logic App</strong> workflow.</li>
+                                <li><strong>Created:</strong> One per device type</li>
+                                <li><strong>Logic:</strong> Merges wrapper + user logic, invokes Persister</li>
+                            </ul>
+                        </li>
+                        <li><strong>Persister Function</strong>
+                            <ul>
+                                <li><strong>Single Cloud:</strong> Writes directly to Cosmos DB</li>
+                                <li><strong>Multi Cloud:</strong> POSTs to remote Hot Writer URL via
+                                    <code>inter_cloud.py</code></li>
+                                <li><strong>Interaction:</strong> Asynchronously invokes Event Checker (if enabled)</li>
+                            </ul>
+                        </li>
+                        <li><strong>Event Checker Function</strong> <span
+                                class="badge text-bg-secondary">Optional</span>
+                            <ul>
+                                <li><strong>Logic:</strong> Detects anomalies (e.g., temp > threshold)</li>
+                                <li><strong>Interaction:</strong> Triggers Logic Apps workflow</li>
+                            </ul>
+                        </li>
+                        <li><strong>Event Workflow (Logic Apps)</strong> <span
+                                class="badge text-bg-secondary">Optional</span>
+                            <ul>
+                                <li><strong>Type:</strong> Logic App (Consumption)</li>
+                                <li><strong>Definition:</strong> User-defined multi-step remediation</li>
+                            </ul>
+                        </li>
+                        <li><strong>Event Feedback Function</strong> <span
+                                class="badge text-bg-secondary">Optional</span>
+                            <ul>
+                                <li><strong>Logic:</strong> Publishes commands back to device via IoT Hub</li>
                             </ul>
                         </li>
                     </ul>
 
                     <!-- Layer 3 -->
-                    <h3 class="mt-4 text-primary">Layer 3: Storage & Access (Cosmos, Blob, APIM)</h3>
+                    <h3 class="mt-4 text-primary"><i class="fa-solid fa-database me-2"></i>Layer 3: Storage & Access
+                        (Cosmos DB, Blob)</h3>
                     <ul>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Cosmos DB (Hot):</strong>
+                        <li><strong>Source Module:</strong> <code>src/providers/azure/layers/layer_3_storage.py</code>
                             <ul>
-                                <li><strong>Create:</strong> Azure Cosmos DB for NoSQL account.</li>
-                                <li><strong>Container:</strong> Create <code>HotData</code> container.</li>
+                                <li><strong>Contains:</strong> 54 functions (create/destroy/check + helpers)</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Writer Function [Multi-Cloud
-                                Only]:</strong>
+                        <li><strong>Cosmos DB Account (Serverless)</strong>
                             <ul>
-                                <li><strong>Created:</strong> Only if Layer 2 is on a different cloud provider.</li>
-                                <li><strong>Trigger:</strong> HTTP Trigger.</li>
-                                <li><strong>Logic:</strong> Receives JSON data from a remote Persister and writes it to
-                                    Cosmos DB.</li>
+                                <li><strong>Created:</strong> <code>{digital_twin_name}-cosmos</code></li>
+                                <li><strong>Mode:</strong> Serverless (pay-per-request)</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Blob Storage
-                                (Cool/Archive):</strong>
+                        <li><strong>Hot Cosmos Container</strong>
                             <ul>
-                                <li><strong>Create:</strong> Storage Account (Standard_LRS).</li>
-                                <li><strong>Containers:</strong> Create <code>cool-storage</code> and
-                                    <code>archive-storage</code>.
+                                <li><strong>Created:</strong> <code>hot-iot-data</code></li>
+                                <li><strong>Purpose:</strong> High-frequency, low-latency data</li>
+                            </ul>
+                        </li>
+                        <li><strong>L3 Function App</strong>
+                            <ul>
+                                <li><strong>Created:</strong> <code>{digital_twin_name}-l3</code></li>
+                                <li><strong>Purpose:</strong> Hosts Hot Reader and Mover functions</li>
+                            </ul>
+                        </li>
+                        <li><strong>Hot Reader & Hot Reader Last Entry</strong>
+                            <ul>
+                                <li><strong>Purpose:</strong> Query Cosmos DB for L4/L5 visualization</li>
+                                <li><strong>Multi Cloud:</strong> HTTP endpoints added by Layer 0 (if L3 ≠ L4)</li>
+                            </ul>
+                        </li>
+                        <li><strong>Cold Storage (Blob)</strong>
+                            <ul>
+                                <li><strong>Container:</strong> <code>cold-storage</code> (Cool tier)</li>
+                            </ul>
+                        </li>
+                        <li><strong>Archive Storage (Blob)</strong>
+                            <ul>
+                                <li><strong>Container:</strong> <code>archive-storage</code> (Archive tier)</li>
+                            </ul>
+                        </li>
+                        <li><strong>Hot-to-Cold Mover</strong>
+                            <ul>
+                                <li><strong>Type:</strong> Timer Trigger Function (runs daily)</li>
+                                <li><strong>Logic:</strong> Moves aged data from Cosmos DB to Blob Cool</li>
+                                <li><strong>Multi Cloud:</strong> Chunks data (≤5MB) and POSTs to remote Cold Writer
                                 </li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Hot-to-Cold Mover:</strong>
+                        <li><strong>Cold-to-Archive Mover</strong>
                             <ul>
-                                <li><strong>Type:</strong> Timer Trigger Function (runs daily).</li>
-                                <li><strong>Action:</strong> Query old data from Cosmos DB -> Write to
-                                    <code>cool-storage</code> -> Delete from Cosmos.
-                                </li>
-                            </ul>
-                        </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Cold-to-Archive Mover:</strong>
-                            <ul>
-                                <li><strong>Type:</strong> Timer Trigger Function (runs daily).</li>
-                                <li><strong>Action:</strong> Move objects from <code>cool-storage</code> to
-                                    <code>archive-storage</code>.
-                                </li>
-                            </ul>
-                        </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Data Access (APIM) [Multi-Cloud
-                                Only]:</strong>
-                            <ul>
-                                <li><strong>Create:</strong> API Management (Consumption Tier).</li>
-                                <li><strong>Action:</strong> Expose <code>Hot Reader</code> Function as an API.</li>
-                                <li><strong>Purpose:</strong> Required only if L4/L5 are on a different cloud or using
-                                    self-hosted tools that cannot access Cosmos DB natively.</li>
+                                <li><strong>Type:</strong> Timer Trigger Function (runs daily)</li>
+                                <li><strong>Logic:</strong> Moves aged data from Blob Cool to Archive tier</li>
+                                <li><strong>Multi Cloud:</strong> POSTs to remote Archive Writer</li>
                             </ul>
                         </li>
                     </ul>
 
                     <!-- Layer 4 -->
-                    <h3 class="mt-4 text-primary">Layer 4: Twin Management (ADT)</h3>
+                    <h3 class="mt-4 text-primary"><i class="fa-solid fa-cubes me-2"></i>Layer 4: Twin Management (Azure
+                        Digital Twins)</h3>
                     <ul>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Instance:</strong>
+                        <li><strong>Source Module:</strong> <code>src/providers/azure/layers/layer_4_adt.py</code>
                             <ul>
-                                <li><strong>Create:</strong> Azure Digital Twins instance.</li>
+                                <li><strong>Contains:</strong> 33 functions (create/destroy/check + helpers)</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Models & Graph:</strong>
+                        <li><strong>ADT Instance</strong>
                             <ul>
-                                <li><strong>Action:</strong> Upload DTDL models and instantiate twin graph.</li>
+                                <li><strong>Created:</strong> <code>{digital_twin_name}-adt</code></li>
+                                <li><strong>Purpose:</strong> Azure Digital Twins service instance</li>
+                            </ul>
+                        </li>
+                        <li><strong>RBAC Role Assignment</strong>
+                            <ul>
+                                <li><strong>Granted:</strong> Azure Digital Twins Data Owner to Managed Identity</li>
+                                <li><strong>Purpose:</strong> Data plane access for creating twins/relationships</li>
+                            </ul>
+                        </li>
+                        <li><strong>DTDL Models</strong>
+                            <ul>
+                                <li><strong>Source:</strong> <code>azure_hierarchy.json</code></li>
+                                <li><strong>Purpose:</strong> Schema definitions for twin types</li>
+                            </ul>
+                        </li>
+                        <li><strong>Digital Twins & Relationships</strong>
+                            <ul>
+                                <li><strong>Created:</strong> Based on hierarchy configuration</li>
+                                <li><strong>Method:</strong> Python SDK direct calls</li>
+                            </ul>
+                        </li>
+                        <li><strong>L4 Function App</strong>
+                            <ul>
+                                <li><strong>Created:</strong> <code>{digital_twin_name}-l4</code></li>
+                                <li><strong>Purpose:</strong> Hosts ADT Updater function</li>
+                            </ul>
+                        </li>
+                        <li><strong>ADT Updater Function</strong>
+                            <ul>
+                                <li><strong>Single Cloud:</strong> Event Grid trigger from IoT Hub, updates ADT directly
+                                </li>
+                                <li><strong>Multi Cloud:</strong> Uses ADT Pusher in L0 Glue for cross-cloud updates
+                                </li>
                             </ul>
                         </li>
                     </ul>
 
                     <!-- Layer 5 -->
-                    <h3 class="mt-4 text-primary">Layer 5: Visualization (Managed Grafana)</h3>
+                    <h3 class="mt-4 text-primary"><i class="fa-solid fa-chart-line me-2"></i>Layer 5: Visualization
+                        (Managed Grafana)</h3>
                     <ul>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Workspace:</strong>
+                        <li><strong>Source Module:</strong> <code>src/providers/azure/layers/layer_5_grafana.py</code>
                             <ul>
-                                <li><strong>Create:</strong> Azure Managed Grafana workspace (Standard).</li>
+                                <li><strong>Contains:</strong> 14 functions (create/destroy/check + helpers)</li>
                             </ul>
                         </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Data Sources:</strong>
+                        <li><strong>Grafana Workspace</strong>
                             <ul>
-                                <li><strong>Single Cloud:</strong> Native plugins for Azure Monitor, Azure Digital
-                                    Twins, and Cosmos DB.</li>
-                                <li><strong>Multi Cloud:</strong> Generic JSON plugin to read from remote API Gateway
-                                    (if L3 is remote and not Cosmos DB).</li>
+                                <li><strong>Created:</strong> <code>{digital_twin_name}-grafana</code></li>
+                                <li><strong>Identity:</strong> System-Assigned Managed Identity</li>
+                            </ul>
+                        </li>
+                        <li><strong>Hot Reader Endpoint</strong>
+                            <ul>
+                                <li><strong>Purpose:</strong> HTTP endpoint for Grafana to query live data</li>
+                            </ul>
+                        </li>
+                        <li><strong>JSON API Datasource</strong>
+                            <ul>
+                                <li><strong>Source:</strong> Hot Reader endpoint (local or remote)</li>
+                                <li><strong>Auth:</strong> <code>X-Inter-Cloud-Token</code> header</li>
+                            </ul>
+                        </li>
+                        <li><strong>Dashboards</strong>
+                            <ul>
+                                <li><strong>Data Flow:</strong> Grafana → Hot Reader (local or remote) → Cosmos DB</li>
                             </ul>
                         </li>
                     </ul>
 
                     <!-- Supporting -->
-                    <h3 class="mt-4 text-primary">Supporting Services</h3>
+                    <h3 class="mt-4 text-primary"><i class="fa-solid fa-gears me-2"></i>Supporting Services</h3>
                     <ul>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Logic Apps (Event
-                                Workflow) [Optional]:</strong>
+                        <li><strong>Managed Identity:</strong> Shared identity for all Function Apps</li>
+                        <li><strong>Event Grid:</strong> IoT Hub event routing to Functions</li>
+                        <li><strong>Logic Apps:</strong> Event workflow orchestration (optional)</li>
+                        <li><strong>Shared Module (<code>_shared/inter_cloud.py</code>):</strong>
                             <ul>
-                                <li><strong>Used in:</strong> Layer 2 (Triggered by Event Checker).</li>
-                                <li><strong>Create:</strong> Logic App (Consumption).</li>
-                            </ul>
-                        </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Event Feedback Function
-                                [Optional]:</strong>
-                            <ul>
-                                <li><strong>Used in:</strong> Layer 2 (Feedback Loop).</li>
-                                <li><strong>Create:</strong> Function to send feedback commands to devices (via IoT
-                                    Hub).</li>
-                            </ul>
-                        </li>
-                        <li><span class="badge text-bg-warning">Todo</span> <strong>Hot Reader Function [Multi-Cloud
-                                Only]:</strong>
-                            <ul>
-                                <li><strong>Used in:</strong> Layer 3 (Data Access).</li>
-                                <li><strong>Create:</strong> Function to read data from Cosmos DB for APIM.</li>
-                            </ul>
-                        </li>
-                        <li><span class="badge text-bg-secondary">Optional</span> <strong>Error Handling System
-                                [Under Review]:</strong>
-                            <ul>
-                                <li><strong>Event Grid (System Topic):</strong>
-                                    <ul>
-                                        <li><strong>Topic:</strong> <code>{digital_twin_name}-errors</code>.</li>
-                                        <li><strong>Purpose:</strong> Centralized error routing.</li>
-                                    </ul>
-                                </li>
-                                <li><strong>Error Reporter Function:</strong>
-                                    <ul>
-                                        <li><strong>Trigger:</strong> Event Grid Trigger.</li>
-                                        <li><strong>Logic:</strong> Formats error and writes to <strong>Cosmos DB Error
-                                                Container</strong>.</li>
-                                    </ul>
-                                </li>
-                                <li><strong>Error Container (Cosmos DB):</strong>
-                                    <ul>
-                                        <li><strong>Container:</strong> <code>SystemErrors</code>.</li>
-                                        <li><strong>Purpose:</strong> Persistent storage for system errors (Cloud-Side
-                                            Persistence).</li>
-                                    </ul>
-                                </li>
+                                <li><strong>Purpose:</strong> Reusable cross-cloud HTTP POST logic</li>
+                                <li><strong>Features:</strong> Token validation, chunked transfers, error handling</li>
+                                <li><strong>Used By:</strong> Connector, Persister, Movers, ADT Updater, Writers</li>
                             </ul>
                         </li>
                     </ul>
@@ -372,27 +787,15 @@
                                 <li><strong>Header:</strong> <code>X-Inter-Cloud-Token</code> for all cross-cloud HTTP
                                     calls.</li>
                                 <li><strong>Environment Variable:</strong> Token stored as
-                                    <code>INTER_CLOUD_TOKEN</code> in each Function App.
-                                </li>
-                                <li><strong>Generation:</strong> Secure random token generated during deployment,
-                                    persisted to <code>inter_cloud_connections.json</code>.</li>
-                                <li><strong>Validation:</strong> All L0 functions validate token before processing
-                                    requests.</li>
-                            </ul>
-                        </li>
-                        <li><strong>Error Handling Strategy: [Under review]</strong>
-                            <ul>
-                                <li><strong>Pipeline:</strong> Components publish to <strong>Event Grid</strong>.</li>
-                                <li><strong>Persistence:</strong> Reporter writes to <strong>Cosmos DB</strong>
-                                    (Cloud-First).</li>
-                                <li><strong>Reliability:</strong> Connectors implement exponential backoff retries. Dead
-                                    Letter Queues (DLQ) configured.</li>
+                                    <code>INTER_CLOUD_TOKEN</code>.</li>
+                                <li><strong>Generation:</strong> Secure random token persisted to
+                                    <code>config_inter_cloud.json</code>.</li>
+                                <li><strong>Validation:</strong> All L0 functions validate token before processing.</li>
                             </ul>
                         </li>
                         <li><strong>Data Contracts:</strong>
                             <ul>
-                                <li><strong>Format:</strong> Standard JSON Envelope (built by
-                                    <code>build_envelope()</code> in <code>_shared/inter_cloud.py</code>)
+                                <li><strong>Format:</strong> Standard JSON Envelope
                                     <pre class="p-3 rounded"><code>{ 
     "source_cloud": "azure",
     "target_layer": "L2",
@@ -402,33 +805,12 @@
     "trace_id": "uuid-v4"
 }</code></pre>
                                 </li>
-                                <li><strong>Fields:</strong>
-                                    <ul>
-                                        <li><code>source_cloud</code>: Originating cloud ("aws", "azure", "gcp")</li>
-                                        <li><code>target_layer</code>: Destination layer ("L2", "L3", "L3_cold",
-                                            "L3_archive")</li>
-                                        <li><code>message_type</code>: Type of message ("telemetry", "chunk", etc.)</li>
-                                        <li><code>trace_id</code>: UUID for distributed tracing</li>
-                                    </ul>
-                                </li>
                             </ul>
                         </li>
                     </ul>
 
                     <h3 class="mt-4 text-primary">Kudu ZIP Deployment</h3>
-                    <p>Azure Functions are deployed using <strong>Kudu ZIP deployment</strong>, the standard
-                        programmatic
-                        approach for deploying code to Azure App Service and Azure Functions.</p>
-
-                    <h4 class="mt-3">What is Kudu?</h4>
-                    <ul>
-                        <li><strong>Kudu</strong> is the deployment engine that powers Azure App Service and Azure
-                            Functions.</li>
-                        <li>It provides a REST API for deployments, file management, and diagnostics.</li>
-                        <li>Every Function App has a <code>.scm.azurewebsites.net</code> subdomain for Kudu access.</li>
-                    </ul>
-
-                    <h4 class="mt-3">Why Kudu ZIP Deployment?</h4>
+                    <p>Azure Functions are deployed using <strong>Kudu ZIP deployment</strong>:</p>
                     <table class="table table-striped">
                         <thead>
                             <tr>
@@ -439,19 +821,15 @@
                         <tbody>
                             <tr>
                                 <td><strong>Programmatic</strong></td>
-                                <td>No CLI required - pure REST API via <code>requests.post()</code></td>
+                                <td>No CLI required - REST API via <code>requests.post()</code></td>
                             </tr>
                             <tr>
                                 <td><strong>Atomic</strong></td>
-                                <td>Entire deployment is atomic - no partial states</td>
+                                <td>Entire deployment is atomic</td>
                             </tr>
                             <tr>
                                 <td><strong>Fast</strong></td>
                                 <td>Direct upload without intermediary storage</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Language-agnostic</strong></td>
-                                <td>Works from Python, Node.js, or any HTTP client</td>
                             </tr>
                         </tbody>
                     </table>
@@ -465,189 +843,72 @@
 
 3. POST to Kudu Endpoint
    → https://{app-name}.scm.azurewebsites.net/api/zipdeploy
-   → Headers: Content-Type: application/zip
-   → Auth: Basic (publishing_user_name, publishing_password)
 
 4. Kudu Extracts & Deploys
-   → Function App automatically restarts with new code</code></pre>
-
-                    <div class="callout info">
-                        <strong><i class="fa-solid fa-info-circle me-2"></i>Note</strong>
-                        <p class="mb-0">The Azure SDK does not directly support ZIP deployment.
-                            We use the SDK to retrieve credentials, then the <code>requests</code> library
-                            for the actual Kudu API call.</p>
-                    </div>
+   → Function App automatically restarts</code></pre>
                 </div>
             </div>
 
-            <div class="card mb-4" id="hierarchy-format">
-                <h2 class="mb-3"><i class="fa-solid fa-sitemap me-2"></i>Azure Digital Twins Hierarchy Format</h2>
-                <div class="roadmap-content">
-                    <h3 class="mt-4 text-primary">JSON to NDJSON Conversion</h3>
-                    <p>The <code>azure_hierarchy.json</code> file uses a human-readable JSON format for editing.
-                        At deployment time (L4), it is converted to <strong>NDJSON</strong> (Newline Delimited JSON)
-                        for the Azure Digital Twins Import Jobs API.</p>
-
-                    <h4 class="mt-3">Why Two Formats?</h4>
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Format</th>
-                                <th>Used For</th>
-                                <th>Benefits</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><strong>JSON</strong> (azure_hierarchy.json)</td>
-                                <td>User editing, validation</td>
-                                <td>Human-readable, easy to edit</td>
-                            </tr>
-                            <tr>
-                                <td><strong>NDJSON</strong> (generated at deployment)</td>
-                                <td>Import Jobs API upload</td>
-                                <td>Streaming, handles large graphs</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <h4 class="mt-3">Conversion Flow (Future - Import Jobs API)</h4>
-                    <p class="text-muted"><em>Note: Current L4 uses Python SDK direct calls. This flow is for future
-                            Import Jobs API optimization.</em></p>
-                    <pre class="p-3 rounded"><code>azure_hierarchy.json (user edits)
-        ↓
-L4 Deployer: convert_to_ndjson()
-        ↓
-NDJSON file uploaded to Blob Storage
-        ↓
-Import Jobs API processes graph</code></pre>
-
-                    <h4 class="mt-3">NDJSON Structure</h4>
-                    <p>Each section marker is followed by individual objects, one per line:</p>
-                    <pre class="p-3 rounded"><code>{"Section": "Header"}
-{"fileVersion": "1.0.0", "author": "twin2clouds"}
-{"Section": "Models"}
-{"@id":"dtmi:...", "@type":"Interface", "@context":"dtmi:dtdl:context;3", ...}
-{"Section": "Twins"}
-{"$dtId":"room-1", "$metadata":{"$model":"dtmi:..."}}
-{"Section": "Relationships"}
-{"$dtId":"room-1", "$targetId":"machine-1", "$relationshipName":"contains"}</code></pre>
-
-                    <div class="callout info">
-                        <strong><i class="fa-solid fa-info-circle me-2"></i>Reference Files</strong>
-                        <p class="mb-0">See
-                            <code>upload/template/twin_hierarchy/azure_hierarchy_final.ndjson.example</code>
-                            for a complete example of the NDJSON format.</p>
-                    </div>
-                </div>
+            <div class="card mb-4" id="quick-deployment">
+                <h2 class="mb-3"><i class="fa-solid fa-rocket me-2"></i>Quick Deployment</h2>
+                <pre class="p-3 rounded"><code># Deploy all layers to Azure
+curl -X POST "{API_HOST}/deploy?provider=azure&project_name=template"</code></pre>
+                <p class="mt-2">Full deployment typically takes 10-20 minutes.</p>
             </div>
 
-            <div class="card mb-4" id="future-work">
-                <h2 class="mb-3"><i class="fa-solid fa-rocket me-2"></i>Future Work</h2>
-                <div class="roadmap-content">
-                    <h3 class="mt-4 text-primary">Azure AD Authentication for Function-to-Function Calls</h3>
-                    <p>Currently, Azure-only function-to-function calls use <strong>Function Keys</strong> for
-                        authentication.
-                        A future enhancement could upgrade to <strong>Azure AD + Managed Identity</strong> for stronger
-                        security.</p>
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-layer-group me-2"></i>Layer-by-Layer Deployment</h2>
+                <p>For better control and debugging, deploy each layer individually:</p>
+                <pre class="p-3 rounded"><code># Setup Layer
+curl -X POST "{API_HOST}/deploy_setup?provider=azure&project_name=template"
 
-                    <h4 class="mt-3">Authentication Options Comparison</h4>
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Option</th>
-                                <th>Security</th>
-                                <th>Complexity</th>
-                                <th>Use Case</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>Custom Token (<code>X-Inter-Cloud-Token</code>)</td>
-                                <td>⭐⭐ Basic</td>
-                                <td>Simple</td>
-                                <td>Cross-cloud calls (required)</td>
-                            </tr>
-                            <tr class="table-info">
-                                <td><strong>Function Keys</strong> (<code>x-functions-key</code>)</td>
-                                <td>⭐⭐⭐ Basic+</td>
-                                <td>Simpler</td>
-                                <td><strong>Azure-only calls (current)</strong></td>
-                            </tr>
-                            <tr>
-                                <td>Azure AD + Managed Identity</td>
-                                <td>⭐⭐⭐⭐⭐ Enterprise</td>
-                                <td>More complex</td>
-                                <td>Azure-only calls (future)</td>
-                            </tr>
-                        </tbody>
-                    </table>
+# Layer 0: Glue (if multi-cloud)
+curl -X POST "{API_HOST}/deploy_l0?provider=azure&project_name=template"
 
-                    <h4 class="mt-3">Why Upgrade to Azure AD?</h4>
-                    <ul>
-                        <li><strong>Auto-rotating tokens:</strong> OAuth tokens managed by Azure AD, no manual rotation
-                        </li>
-                        <li><strong>Full audit trail:</strong> Azure AD logs show who called what, when</li>
-                        <li><strong>Granular access control:</strong> Can enforce MFA, conditional access policies</li>
-                        <li><strong>No additional cost:</strong> Azure AD auth is included in Azure Functions pricing
-                        </li>
-                    </ul>
+# Layer 1: IoT Hub
+curl -X POST "{API_HOST}/deploy_l1?provider=azure&project_name=template"
 
-                    <h4 class="mt-3">Implementation Notes</h4>
-                    <ul>
-                        <li>Target Function Apps would need Azure AD authentication configured (Easy Auth)</li>
-                        <li>Calling functions would acquire tokens via Managed Identity</li>
-                        <li>Minimal latency overhead for token acquisition</li>
-                        <li>Would require code changes in <code>_shared/inter_cloud.py</code></li>
-                    </ul>
+# Layer 2: Compute
+curl -X POST "{API_HOST}/deploy_l2?provider=azure&project_name=template"
 
-                    <div class="callout info">
-                        <strong><i class="fa-solid fa-info-circle me-2"></i>Current Implementation</strong>
-                        <p class="mb-0">Azure-only calls use Function Keys. Cross-cloud calls use custom tokens.
-                            Azure AD enhancement can be added when enterprise-grade security is required.</p>
-                    </div>
+# Layer 3: Storage
+curl -X POST "{API_HOST}/deploy_l3?provider=azure&project_name=template"
 
-                    <h3 class="mt-4 text-primary">Import Jobs API for Bulk Twin Imports</h3>
-                    <p>The current L4 implementation uses the <strong>Python SDK direct calls</strong> to create DTDL
-                        models,
-                        twins, and relationships one-by-one. This matches the AWS TwinMaker pattern and provides
-                        explicit control over each operation.</p>
+# Layer 4: Digital Twins
+curl -X POST "{API_HOST}/deploy_l4?provider=azure&project_name=template"
 
-                    <h4 class="mt-3">Why Python SDK Direct Calls (Current)?</h4>
-                    <ul>
-                        <li><strong>Explicit control:</strong> Each model/twin/relationship is created individually with
-                            full error handling</li>
-                        <li><strong>Simpler debugging:</strong> Failures are immediately visible at the specific
-                            operation</li>
-                        <li><strong>Pattern consistency:</strong> Matches the AWS TwinMaker L4 implementation pattern
-                        </li>
-                        <li><strong>Sufficient for typical hierarchies:</strong> Most Digital Twin deployments have
-                            tens to hundreds of twins, not millions</li>
-                    </ul>
+# Layer 5: Grafana
+curl -X POST "{API_HOST}/deploy_l5?provider=azure&project_name=template"</code></pre>
+            </div>
 
-                    <h4 class="mt-3">When to Consider Import Jobs API</h4>
-                    <p>Azure Digital Twins provides a <strong>bulk Import Jobs API</strong> that processes NDJSON files
-                        from Blob Storage. This should be considered when:</p>
-                    <ul>
-                        <li><strong>Large hierarchies:</strong> Thousands of twins with complex relationships</li>
-                        <li><strong>Performance critical:</strong> Deployment time is a key constraint</li>
-                        <li><strong>Batch updates:</strong> Need to update many twins atomically</li>
-                    </ul>
+            <div class="card mb-4">
+                <h2 class="mb-3"><i class="fa-solid fa-list-check me-2"></i>Deployment Verification</h2>
+                <p>After deployment, verify resources in Azure Portal:</p>
+                <ol>
+                    <li><strong>Resource Group:</strong> Check <code>rg-{digital_twin_name}</code></li>
+                    <li><strong>IoT Hub:</strong> Verify devices in Device Explorer</li>
+                    <li><strong>Function Apps:</strong> Check functions in L0, L1, L2, L3, L4 apps</li>
+                    <li><strong>Cosmos DB:</strong> Check database and <code>hot-iot-data</code> container</li>
+                    <li><strong>Azure Digital Twins:</strong> Browse twin graph</li>
+                    <li><strong>Grafana:</strong> Access workspace URL</li>
+                </ol>
+                <p class="mt-3">Or use the API:</p>
+                <pre class="p-3 rounded"><code>curl "{API_HOST}/check?provider=azure&project_name=template"</code></pre>
+            </div>
 
-                    <h4 class="mt-3">Import Jobs API Flow (Future)</h4>
-                    <pre class="p-3 rounded"><code>1. Convert azure_hierarchy.json to NDJSON
-2. Upload NDJSON to Blob Storage container
-3. Call ADT Import Jobs API with blob URL
-4. Poll for job completion
-5. Handle partial failures via job status</code></pre>
-
-                    <div class="callout info">
-                        <strong><i class="fa-solid fa-info-circle me-2"></i>Current Implementation</strong>
-                        <p class="mb-0">L4 uses Python SDK direct calls for model/twin/relationship creation.
-                            The NDJSON conversion utility exists for future Import Jobs API integration.
-                            See <code>upload/template/twin_hierarchy/azure_hierarchy_final.ndjson.example</code>.</p>
-                    </div>
-                </div>
+            <div class="card mb-4" id="troubleshooting">
+                <h2 class="mb-3"><i class="fa-solid fa-wrench me-2"></i>Azure-Specific Troubleshooting</h2>
+                <ul>
+                    <li><strong>RBAC propagation delays:</strong> Wait 30-60 seconds after role assignments</li>
+                    <li><strong>Cosmos DB creation slow:</strong> Serverless accounts can take 3-5 minutes</li>
+                    <li><strong>Function App cold start:</strong> Consumption plan functions may take 10-30s for first
+                        invocation</li>
+                    <li><strong>Managed Identity not found:</strong> Ensure Setup Layer completed before L1+</li>
+                    <li><strong>Kudu deployment fails:</strong> Check Function App is fully provisioned</li>
+                    <li><strong>ADT instance creation fails:</strong> Ensure Microsoft.DigitalTwins is registered</li>
+                    <li><strong>Storage account name invalid:</strong> Names must be 3-24 chars, lowercase alphanumeric
+                    </li>
+                </ul>
             </div>
 
         </main>

@@ -645,11 +645,12 @@ class TestCLICheckCredentialsCommand:
             assert any("usage" in c.lower() for c in calls)
 
     def test_check_credentials_rejects_non_aws(self):
-        """Test check_credentials rejects non-AWS providers."""
+        """Test check_credentials rejects unsupported providers."""
         import main
         
+        # Test with an unsupported provider (gcp is not yet supported for check_credentials)
         with patch("builtins.print") as mock_print, \
-             patch("builtins.input", side_effect=["check_credentials azure", "exit"]):
+             patch("builtins.input", side_effect=["check_credentials gcp", "exit"]):
             try:
                 main.main()
             except (SystemExit, StopIteration):

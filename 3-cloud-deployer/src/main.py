@@ -158,7 +158,8 @@ Lambda management:
                               - Invokes the specified lambda function.
 
 Credential validation:
-  check_credentials <provider> - Validates credentials against required permissions for deployment.
+  check_credentials <provider> - Validates credentials against required permissions.
+                              - Supported: aws, azure
 
 Other commands:
   simulate <provider> [project] - Runs the IoT Device Simulator interactively.
@@ -460,8 +461,8 @@ def main():
             provider = args[0].lower()
             project_name = args[1] if len(args) > 1 else _current_project
             
-            if provider != "aws":
-                print(f"Error: Provider '{provider}' not supported yet. Only 'aws'.")
+            if provider not in ("aws", "azure"):
+                print(f"Error: Provider '{provider}' not supported yet. Supported: aws, azure.")
                 continue
             
             config_path = f"upload/{project_name}/iot_device_simulator/{provider}/config_generated.json"
@@ -488,36 +489,95 @@ def main():
         elif command == "check_credentials":
             if not args:
                 print("Usage: check_credentials <provider>")
+                print("  Supported providers: aws, azure")
                 continue
             
             provider = args[0].lower()
-            if provider != "aws":
-                print(f"Error: Provider '{provider}' not supported yet. Only 'aws'.")
-                continue
             
-            sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "api"))
-            from credentials_checker import check_aws_credentials_from_config
-            
-            logger.info(f"Checking AWS credentials for project '{_current_project}'...")
-            result = check_aws_credentials_from_config(_current_project)
-            
-            print(f"\n{'='*60}")
-            print(f"Status: {result['status'].upper()}")
-            print(f"Message: {result['message']}")
-            print(f"{'='*60}")
-            
-            if result.get('caller_identity'):
-                print(f"\nCaller Identity:")
-                print(f"  Account: {result['caller_identity']['account']}")
-                print(f"  ARN: {result['caller_identity']['arn']}")
-            
-            if result.get('summary', {}).get('total_required', 0) > 0:
-                summary = result['summary']
-                print(f"\nSummary:")
-                print(f"  Total Required: {summary['total_required']}")
-                print(f"  ✅ Valid: {summary['valid']}")
-                print(f"  ❌ Missing: {summary['missing']}")
-            print()
+            if provider == "aws":
+                sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "api"))
+                from credentials_checker import check_aws_credentials_from_config
+                
+                logger.info(f"Checking AWS credentials for project '{_current_project}'...")
+                result = check_aws_credentials_from_config(_current_project)
+                
+                print(f"\n{'='*60}")
+                print(f"Status: {result['status'].upper()}")
+                print(f"Message: {result['message']}")
+                print(f"{'='*60}")
+                
+                if result.get('caller_identity'):
+                    print(f"\nCaller Identity:")
+                    print(f"  Account: {result['caller_identity']['account']}")
+                    print(f"  ARN: {result['caller_identity']['arn']}")
+                
+                if result.get('summary', {}).get('total_required', 0) > 0:
+                    summary = result['summary']
+                    print(f"\nSummary:")
+                    print(f"  Total Required: {summary['total_required']}")
+                    print(f"  ✅ Valid: {summary['valid']}")
+                    print(f"  ❌ Missing: {summary['missing']}")
+                print()
+                
+            elif provider == "azure":
+                from api.azure_credentials_checker import check_azure_credentials_from_config
+                
+                logger.info(f"Checking Azure credentials for project '{_current_project}'...")
+                result = check_azure_credentials_from_config(_current_project)
+                
+                print(f"\n{'='*60}")
+                print(f"Status: {result['status'].upper()}")
+                print(f"Message: {result['message']}")
+                print(f"{'='*60}")
+                
+                if result.get('caller_identity'):
+                    identity = result['caller_identity']
+                    print(f"\nSubscription Info:")
+                    print(f"  Subscription: {identity.get('subscription_name', 'N/A')}")
+                    print(f"  Subscription ID: {identity.get('subscription_id', 'N/A')}")
+                    print(f"  Tenant ID: {identity.get('tenant_id', 'N/A')}")
+                
+                summary = result.get('summary', {})
+                if summary.get('total_layers', 0) > 0:
+                    print(f"\nLayer Summary:")
+                    print(f"  Total Layers: {summary['total_layers']}")
+                    print(f"  ✅ Valid: {summary['valid_layers']}")
+                    print(f"  ⚠️  Partial: {summary['partial_layers']}")
+                    print(f"  ❌ Invalid: {summary['invalid_layers']}")
+                
+                # Show assigned roles
+                if result.get('assigned_roles'):
+                    print(f"\nAssigned Roles: {', '.join(set(result['assigned_roles']))}")
+                    print(f"Total Actions: {result.get('total_actions_count', 0)}")
+                
+                # Show layer details if partial or invalid
+                by_layer = result.get('by_layer', {})
+                missing_any = any(layer.get('missing_actions') for layer in by_layer.values())
+                if missing_any:
+                    print(f"\nMissing Permissions by Layer:")
+                    for layer_name, layer_info in by_layer.items():
+                        if layer_info.get('missing_actions'):
+                            print(f"  {layer_name}:")
+                            for action in layer_info['missing_actions'][:5]:  # Show max 5
+                                print(f"    - {action}")
+                            if len(layer_info['missing_actions']) > 5:
+                                print(f"    ... and {len(layer_info['missing_actions']) - 5} more")
+                
+                if result.get('recommended_roles'):
+                    rec = result['recommended_roles']
+                    print(f"\nRecommended:")
+                    if isinstance(rec, dict):
+                        if rec.get('custom'):
+                            print(f"  ★ {rec['custom']}")
+                        if rec.get('builtin'):
+                            print(f"  Alternative: {' + '.join(rec['builtin'])}")
+                    else:
+                        for role in rec:
+                            print(f"  • {role}")
+                print()
+                
+            else:
+                print(f"Error: Provider '{provider}' not supported. Supported: aws, azure.")
             continue
         
         else:

@@ -41,8 +41,8 @@ class TestConfigLoaderFailFast(unittest.TestCase):
             # Create minimal valid config files WITHOUT layer_4_provider
             (project_dir / "config.json").write_text(json.dumps({
                 "digital_twin_name": "test",
-                "layer_3_hot_to_cold_interval_days": 7,
-                "layer_3_cold_to_archive_interval_days": 30,
+                "hot_storage_size_in_days": 7,
+                "cold_storage_size_in_days": 30,
                 "mode": "DEBUG"
             }))
             (project_dir / "config_iot_devices.json").write_text("[]")
@@ -65,8 +65,8 @@ class TestConfigLoaderFailFast(unittest.TestCase):
             
             (project_dir / "config.json").write_text(json.dumps({
                 "digital_twin_name": "test",
-                "layer_3_hot_to_cold_interval_days": 7,
-                "layer_3_cold_to_archive_interval_days": 30,
+                "hot_storage_size_in_days": 7,
+                "cold_storage_size_in_days": 30,
                 "mode": "DEBUG"
             }))
             (project_dir / "config_iot_devices.json").write_text("[]")

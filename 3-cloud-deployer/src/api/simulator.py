@@ -22,8 +22,8 @@ async def simulator_stream(websocket: WebSocket, project_name: str, provider: st
     await websocket.accept()
     
     # 1. Validation
-    if provider != "aws":
-        await websocket.send_json({"type": "error", "data": f"Provider '{provider}' not supported."})
+    if provider not in ("aws", "azure"):
+        await websocket.send_json({"type": "error", "data": f"Provider '{provider}' not supported. Supported: aws, azure."})
         await websocket.close()
         return
 
@@ -148,13 +148,11 @@ def _load_template(provider: str, template_name: str, variables: dict = None) ->
 # ==========================================
 @router.get("/projects/{project_name}/simulator/{provider}/download")
 async def download_simulator_package(project_name: str, provider: str):
-    if provider != "aws":
-        raise HTTPException(status_code=400, detail=f"Provider '{provider}' not supported.")
+    if provider not in ("aws", "azure"):
+        raise HTTPException(status_code=400, detail=f"Provider '{provider}' not supported. Supported: aws, azure.")
 
     base_dir = os.path.join(state.get_project_upload_path(), project_name, "iot_device_simulator", provider)
-    auth_dir = os.path.join(state.get_project_upload_path(), project_name, "iot_devices_auth")
     src_dir = os.path.join(state.get_project_base_path(), "src", "iot_device_simulator", provider)
-    root_ca_path = os.path.join(src_dir, "AmazonRootCA1.pem")
     config_path = os.path.join(base_dir, "config_generated.json")
     payload_path = os.path.join(base_dir, "payloads.json")
 
@@ -166,21 +164,26 @@ async def download_simulator_package(project_name: str, provider: str):
     with open(config_path, 'r') as f:
         config_data = json.load(f)
     device_id = config_data.get("device_id")
-    endpoint = config_data.get("endpoint")
-
-    device_cert_dir = os.path.join(auth_dir, device_id)
-    if not os.path.exists(device_cert_dir):
-        raise HTTPException(status_code=404, detail=f"Certificates for device '{device_id}' not found.")
+    
+    # AWS-specific: validate certificates exist
+    if provider == "aws":
+        auth_dir = os.path.join(state.get_project_upload_path(), project_name, "iot_devices_auth")
+        device_cert_dir = os.path.join(auth_dir, device_id)
+        if not os.path.exists(device_cert_dir):
+            raise HTTPException(status_code=404, detail=f"Certificates for device '{device_id}' not found.")
 
     # Create Zip
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
         
-        # 1. Config (Transformed)
+        # 1. Config (transformed based on provider)
         sim_config = config_data.copy()
-        sim_config["cert_path"] = f"certificates/{device_id}/certificate.pem.crt"
-        sim_config["key_path"] = f"certificates/{device_id}/private.pem.key"
-        sim_config["root_ca_path"] = "AmazonRootCA1.pem"
+        if provider == "aws":
+            # AWS: update paths for standalone package
+            sim_config["cert_path"] = f"certificates/{device_id}/certificate.pem.crt"
+            sim_config["key_path"] = f"certificates/{device_id}/private.pem.key"
+            sim_config["root_ca_path"] = "AmazonRootCA1.pem"
+        # Azure: connection_string is already in config, just update payload path
         sim_config["payload_path"] = "payloads.json"
         zip_file.writestr("config.json", json.dumps(sim_config, indent=2))
 
@@ -188,30 +191,31 @@ async def download_simulator_package(project_name: str, provider: str):
         if os.path.exists(payload_path):
             zip_file.write(payload_path, "payloads.json")
         else:
-            zip_file.writestr("payloads.json", "[]") # Empty array if missing (?) Plan said invalid if missing.
+            zip_file.writestr("payloads.json", "[]")
 
-        # 3. Root CA
-        if os.path.exists(root_ca_path):
-            zip_file.write(root_ca_path, "AmazonRootCA1.pem")
+        # 3. AWS-specific: Root CA and Certificates
+        if provider == "aws":
+            root_ca_path = os.path.join(src_dir, "AmazonRootCA1.pem")
+            if os.path.exists(root_ca_path):
+                zip_file.write(root_ca_path, "AmazonRootCA1.pem")
+            
+            for f in ["certificate.pem.crt", "private.pem.key"]:
+                fp = os.path.join(device_cert_dir, f)
+                if os.path.exists(fp):
+                    zip_file.write(fp, f"certificates/{device_id}/{f}")
 
-        # 4. Certificates
-        for f in ["certificate.pem.crt", "private.pem.key"]:
-             fp = os.path.join(device_cert_dir, f)
-             if os.path.exists(fp):
-                 zip_file.write(fp, f"certificates/{device_id}/{f}")
-
-        # 5. Source Code
+        # 4. Source Code
         for f in ["main.py", "transmission.py", "globals.py"]:
             fp = os.path.join(src_dir, f)
             if os.path.exists(fp):
                 zip_file.write(fp, f"src/{f}")
         
-        # 6. Generated Files from Templates
+        # 5. Generated Files from Templates
         template_vars = {
             "project_name": project_name,
             "provider": provider,
             "device_id": device_id,
-            "endpoint": endpoint,
+            "endpoint": config_data.get("endpoint", ""),  # AWS only
             "timestamp": datetime.datetime.now().isoformat()
         }
         
