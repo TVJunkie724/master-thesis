@@ -13,6 +13,40 @@ if TYPE_CHECKING:
     from ..provider import AWSProvider
 
 
+def _check_l1_deployed(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
+    """
+    Verify that L1 (IoT) is deployed before deploying L2.
+    
+    L2 depends on L1 for:
+    - Dispatcher Lambda (invokes Processors)
+    - IoT Topic Rule (routes messages)
+    
+    Raises:
+        ValueError: If L1 components are not deployed
+    """
+    from .layer_1_iot import (
+        check_dispatcher_lambda_function,
+        check_dispatcher_iot_rule,
+    )
+    
+    dispatcher_exists = check_dispatcher_lambda_function(provider)
+    rule_exists = check_dispatcher_iot_rule(provider)
+    
+    if dispatcher_exists and rule_exists:
+        logger.info("[L2] ✓ Pre-flight check: L1 is deployed")
+        return
+    else:
+        missing = []
+        if not dispatcher_exists:
+            missing.append("Dispatcher Lambda")
+        if not rule_exists:
+            missing.append("IoT Topic Rule")
+        raise ValueError(
+            f"[L2] Pre-flight check FAILED: L1 is NOT fully deployed. "
+            f"Missing: {', '.join(missing)}. Deploy L1 first."
+        )
+
+
 def deploy_l2(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     """
     Deploy Layer 2 (Data Processing) components for AWS.
@@ -46,6 +80,9 @@ def deploy_l2(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     
     logger.info(f"[L2] Deploying Layer 2 (Compute) for {context.config.digital_twin_name}")
     context.set_active_layer(2)
+    
+    # Pre-flight check: Verify L1 is deployed (raises ValueError if missing)
+    _check_l1_deployed(context, provider)
     
     # Path to tool source code (where core lambdas live)
     # Assuming standard structure: tool_root/src/providers/aws/lambda_functions

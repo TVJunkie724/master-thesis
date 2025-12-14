@@ -13,6 +13,30 @@ if TYPE_CHECKING:
     from ..provider import AWSProvider
 
 
+def _check_l2_deployed(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
+    """
+    Verify that L2 (Compute) is deployed before deploying L3.
+    
+    L3 depends on L2 for:
+    - Persister Lambda (writes data to storage)
+    
+    Raises:
+        ValueError: If L2 Persister is not deployed
+    """
+    from .layer_2_compute import check_persister_lambda_function
+    
+    persister_exists = check_persister_lambda_function(provider)
+    
+    if persister_exists:
+        logger.info("[L3] ✓ Pre-flight check: L2 Persister is deployed")
+        return
+    else:
+        raise ValueError(
+            "[L3] Pre-flight check FAILED: L2 Persister is NOT deployed. "
+            "Deploy L2 first."
+        )
+
+
 def deploy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     """Deploy Layer 3 Hot Storage components."""
     from .layer_3_storage import (
@@ -31,6 +55,9 @@ def deploy_l3_hot(context: 'DeploymentContext', provider: 'AWSProvider') -> None
     
     logger.info(f"[L3-Hot] Deploying Layer 3 Hot Storage for {context.config.digital_twin_name}")
     context.set_active_layer("3_hot")
+    
+    # Pre-flight check: Verify L2 is deployed (raises ValueError if missing)
+    _check_l2_deployed(context, provider)
     
     project_path = str(context.project_path.parent.parent)
     

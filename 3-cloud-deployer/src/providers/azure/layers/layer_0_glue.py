@@ -296,7 +296,8 @@ def _deploy_glue_functions(provider: 'AzureProvider') -> None:
         "cold-writer",
         "archive-writer",
         "hot-reader",
-        "hot-reader-last-entry"
+        "hot-reader-last-entry",
+        "adt-pusher"
     ]
     
     # Create zip buffer
@@ -782,6 +783,99 @@ def check_hot_reader_last_entry_endpoint(provider: 'AzureProvider') -> bool:
     function_name = provider.naming.hot_reader_last_entry_function()
     logger.info(f"✓ Hot Reader Last Entry endpoint available: {function_name}")
     return True
+
+
+# ==========================================
+# ADT Pusher Function (Remote L2 → Azure L4)
+# ==========================================
+
+def deploy_adt_pusher_function(
+    provider: 'AzureProvider',
+    config: 'ProjectConfig',
+    expected_token: str,
+    adt_instance_url: Optional[str] = None
+) -> str:
+    """
+    Deploy the ADT Pusher function.
+    
+    This function receives telemetry from remote Persisters (on AWS/GCP)
+    and updates Azure Digital Twins. It's used in multi-cloud scenarios
+    where L2 is on a different cloud than L4 (Azure ADT).
+    
+    Args:
+        provider: Azure Provider instance
+        config: Project configuration
+        expected_token: X-Inter-Cloud-Token for authentication
+        adt_instance_url: Optional ADT instance URL (may be empty if L4 not deployed yet)
+    
+    Returns:
+        Function endpoint URL
+    
+    Raises:
+        ValueError: If expected_token is not set
+    """
+    if not expected_token:
+        raise ValueError("expected_token not set for ADT Pusher function")
+    
+    app_name = provider.naming.glue_function_app()
+    function_name = provider.naming.adt_pusher_function()
+    
+    logger.info(f"Deploying ADT Pusher function: {function_name}")
+    
+    # Update app settings with token and ADT URL
+    _add_function_app_setting(provider, "ADT_PUSHER_TOKEN", expected_token)
+    
+    # ADT_INSTANCE_URL may be empty initially - L4 will update it later
+    if adt_instance_url:
+        _add_function_app_setting(provider, "ADT_INSTANCE_URL", adt_instance_url)
+    
+    # Build digital twin info for the function
+    import json
+    twin_info = _get_digital_twin_info(config)
+    _add_function_app_setting(provider, "DIGITAL_TWIN_INFO", json.dumps(twin_info))
+    
+    # Get the function endpoint URL
+    endpoint_url = f"https://{app_name}.azurewebsites.net/api/{function_name}"
+    
+    logger.info(f"✓ ADT Pusher function deployed: {endpoint_url}")
+    return endpoint_url
+
+
+def destroy_adt_pusher_function(provider: 'AzureProvider') -> None:
+    """Remove ADT Pusher function configuration by removing its settings."""
+    logger.info("Removing ADT Pusher function configuration")
+    _remove_function_app_setting(provider, "ADT_PUSHER_TOKEN")
+    # Note: ADT_INSTANCE_URL and DIGITAL_TWIN_INFO may be shared with other L4 functions
+    logger.info("✓ ADT Pusher function configuration removed")
+
+
+def check_adt_pusher_function(provider: 'AzureProvider') -> bool:
+    """Check if ADT Pusher function is deployed."""
+    if not check_glue_function_app(provider):
+        return False
+    
+    function_name = provider.naming.adt_pusher_function()
+    logger.info(f"✓ ADT Pusher function available: {function_name}")
+    return True
+
+
+def update_adt_pusher_url(provider: 'AzureProvider', adt_instance_url: str) -> None:
+    """
+    Update the ADT_INSTANCE_URL setting for ADT Pusher.
+    
+    Called by L4 deployment after creating the ADT instance to update
+    the ADT Pusher function with the actual ADT URL.
+    
+    Args:
+        provider: Azure Provider instance
+        adt_instance_url: The ADT instance URL (e.g., https://{name}.{region}.digitaltwins.azure.net)
+    """
+    if not adt_instance_url:
+        raise ValueError("adt_instance_url is required")
+    
+    logger.info(f"Updating ADT Pusher with ADT URL: {adt_instance_url}")
+    _add_function_app_setting(provider, "ADT_INSTANCE_URL", adt_instance_url)
+    logger.info("✓ ADT Pusher URL updated")
 
 
 # ==========================================

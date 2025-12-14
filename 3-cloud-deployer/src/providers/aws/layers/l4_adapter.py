@@ -13,6 +13,40 @@ if TYPE_CHECKING:
     from ..provider import AWSProvider
 
 
+def _check_l3_deployed(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
+    """
+    Verify that L3 (Storage) is deployed before deploying L4.
+    
+    L4 depends on L3 for:
+    - DynamoDB Hot Storage (stores twin property data)
+    - Hot Reader (for Digital Twin Data Connector)
+    
+    Raises:
+        ValueError: If L3 Hot components are not deployed
+    """
+    from .layer_3_storage import (
+        check_hot_dynamodb_table,
+        check_hot_reader_lambda_function,
+    )
+    
+    table_exists = check_hot_dynamodb_table(provider)
+    reader_exists = check_hot_reader_lambda_function(provider)
+    
+    if table_exists and reader_exists:
+        logger.info("[L4] ✓ Pre-flight check: L3 Hot is deployed")
+        return
+    else:
+        missing = []
+        if not table_exists:
+            missing.append("DynamoDB Hot Table")
+        if not reader_exists:
+            missing.append("Hot Reader Lambda")
+        raise ValueError(
+            f"[L4] Pre-flight check FAILED: L3 Hot is NOT fully deployed. "
+            f"Missing: {', '.join(missing)}. Deploy L3 first."
+        )
+
+
 def deploy_l4(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     """
     Deploy Layer 4 (Digital Twin) components for AWS.
@@ -36,6 +70,9 @@ def deploy_l4(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     
     logger.info(f"[L4] Deploying Layer 4 (TwinMaker) for {context.config.digital_twin_name}")
     context.set_active_layer(4)
+    
+    # Pre-flight check: Verify L3 is deployed (raises ValueError if missing)
+    _check_l3_deployed(context, provider)
     
     create_twinmaker_s3_bucket(provider)
     create_twinmaker_iam_role(provider)

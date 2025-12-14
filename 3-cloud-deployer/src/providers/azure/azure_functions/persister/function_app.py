@@ -51,6 +51,10 @@ COSMOS_DB_CONTAINER = os.environ.get("COSMOS_DB_CONTAINER", "").strip()
 REMOTE_WRITER_URL = os.environ.get("REMOTE_WRITER_URL", "").strip()
 INTER_CLOUD_TOKEN = os.environ.get("INTER_CLOUD_TOKEN", "").strip()
 
+# ADT Pusher config (for multi-cloud L4 - L2 != L4 and L4 = Azure)
+REMOTE_ADT_PUSHER_URL = os.environ.get("REMOTE_ADT_PUSHER_URL", "").strip()
+ADT_PUSHER_TOKEN = os.environ.get("ADT_PUSHER_TOKEN", "").strip()
+
 # Event checking config (optional)
 EVENT_CHECKER_FUNCTION_URL = os.environ.get("EVENT_CHECKER_FUNCTION_URL", "").strip()
 USE_EVENT_CHECKING = os.environ.get("USE_EVENT_CHECKING", "false").lower() == "true"
@@ -130,6 +134,55 @@ def _invoke_event_checker(event: dict) -> None:
         # Don't fail persister if event checker fails
 
 
+def _should_push_to_adt() -> bool:
+    """
+    Check if we should push data to remote ADT Pusher.
+    
+    Returns True only if:
+    1. REMOTE_ADT_PUSHER_URL is set AND non-empty
+    2. ADT_PUSHER_TOKEN is set AND non-empty
+    
+    ADT push is for multi-cloud L4 scenarios where L2 != L4 and L4 = Azure.
+    """
+    return bool(REMOTE_ADT_PUSHER_URL and ADT_PUSHER_TOKEN)
+
+
+def _push_to_adt(event: dict) -> None:
+    """
+    Push telemetry to remote ADT Pusher (L4 Multi-Cloud).
+    
+    This is called IN ADDITION TO storage persist, not instead of it.
+    Failures are logged but don't fail the overall persist operation.
+    
+    Args:
+        event: Original telemetry event (with 'time' field)
+    """
+    if not _should_push_to_adt():
+        return
+    
+    logging.info(f"Pushing to ADT Pusher at {REMOTE_ADT_PUSHER_URL}")
+    
+    try:
+        # Build ADT push payload
+        adt_payload = {
+            "device_id": event.get("device_id"),
+            "device_type": event.get("device_type"),
+            "telemetry": event.get("telemetry", {}),
+            "timestamp": event.get("time")
+        }
+        
+        result = post_to_remote(
+            url=REMOTE_ADT_PUSHER_URL,
+            token=ADT_PUSHER_TOKEN,
+            payload=adt_payload,
+            target_layer="L4"
+        )
+        logging.info(f"ADT push successful: {result}")
+    except Exception as e:
+        # Log but don't fail - ADT is secondary to storage
+        logging.warning(f"ADT push failed (non-fatal): {e}")
+
+
 @app.function_name(name="persister")
 @app.route(route="persister", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def persister(req: func.HttpRequest) -> func.HttpResponse:
@@ -178,6 +231,10 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
             container = _get_cosmos_container()
             container.upsert_item(item)
             logging.info("Item persisted to local Cosmos DB.")
+        
+        # Multi-cloud L4: Push to ADT Pusher (IN ADDITION to storage)
+        # This is for scenarios where L2 != L4 and L4 = Azure
+        _push_to_adt(event)
         
         # Optionally invoke Event Checker
         if USE_EVENT_CHECKING:

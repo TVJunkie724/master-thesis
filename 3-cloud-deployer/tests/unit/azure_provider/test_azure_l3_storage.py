@@ -452,7 +452,7 @@ class TestL3Adapter:
         mock_plan.assert_called_once()
         mock_func_app.assert_called_once()
     
-    @patch('src.providers.azure.layers.l3_adapter._check_l2_deployed', return_value=False)
+    @patch('src.providers.azure.layers.l3_adapter._check_l2_deployed', side_effect=RuntimeError("L3 requires L2 to be deployed first"))
     def test_deploy_l3_hot_without_l2_raises(self, mock_l2_check, mock_azure_provider):
         """Pre-flight: L3 without L2 raises RuntimeError."""
         from src.providers.azure.layers.l3_adapter import deploy_l3_hot

@@ -164,6 +164,27 @@ def create_persister_lambda_function(
         env_vars["REMOTE_WRITER_URL"] = url
         env_vars["INTER_CLOUD_TOKEN"] = token
         logger.info(f"Multi-cloud mode: Persister will POST to {l3_provider} Writer")
+    
+    # Multi-cloud L4: Add ADT Pusher env vars if L2 != L4 and L4 = Azure
+    l4_provider = config.providers.get("layer_4_provider")
+    
+    if l4_provider and l4_provider != l2_provider and l4_provider == "azure":
+        inter_cloud = getattr(config, 'inter_cloud', None) or {}
+        connections = inter_cloud.get("connections", {})
+        # Look for ADT Pusher connection info (L0 deposits this)
+        conn_id = f"{l2_provider}_l2_to_azure_l4_adt"
+        conn = connections.get(conn_id, {})
+        url = conn.get("url", "")
+        token = conn.get("token", "")
+        
+        if url and token:
+            env_vars["REMOTE_ADT_PUSHER_URL"] = url
+            env_vars["ADT_PUSHER_TOKEN"] = token
+            logger.info(f"Multi-cloud L4 mode: Persister will POST to Azure ADT Pusher")
+        else:
+            # ADT Pusher URL may not be available yet (L4 deployed after L2)
+            # This will be updated when L4 deployment calls update_persister_adt_config()
+            logger.info(f"ADT Pusher config not yet available (will be set after L4 deployment)")
 
     import src.util as util  # Lazy import to avoid circular dependency
     lambda_client.create_function(

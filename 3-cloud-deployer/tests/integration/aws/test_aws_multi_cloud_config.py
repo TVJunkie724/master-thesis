@@ -44,9 +44,10 @@ class TestProviderConfigValidation:
         with pytest.raises(KeyError, match="layer_1_provider"):
             deploy_l0(mock_context, mock_provider)
 
+    @patch("src.providers.aws.layers.l2_adapter._check_l1_deployed")
     @patch("time.sleep")
     @patch("src.util.compile_lambda_function", return_value=b"mock-zip")
-    def test_deploy_l2_missing_layer_2_provider_fails(self, mock_compile, mock_sleep):
+    def test_deploy_l2_missing_layer_2_provider_fails(self, mock_compile, mock_sleep, mock_check_l1):
         """deploy_l2() should fail fast when layer_2_provider is missing."""
         from src.providers.aws.layers.l2_adapter import deploy_l2
         
@@ -354,9 +355,10 @@ class TestProviderConfigValidation:
 class TestProviderConfigSuccessPath:
     """Tests for successful provider configuration scenarios."""
 
+    @patch("src.providers.aws.layers.l2_adapter._check_l1_deployed")
     @patch("time.sleep")
     @patch("src.util.compile_lambda_function", return_value=b"mock-zip")
-    def test_deploy_l2_same_cloud_skips_ingestion(self, mock_compile, mock_sleep):
+    def test_deploy_l2_same_cloud_skips_ingestion(self, mock_compile, mock_sleep, mock_check_l1):
         """deploy_l2() should NOT deploy Ingestion when L1 and L2 are same cloud."""
         from src.providers.aws.layers.l2_adapter import deploy_l2
         
@@ -385,9 +387,10 @@ class TestProviderConfigSuccessPath:
         # Verify Ingestion was NOT deployed (no call to ingestion_iam_role)
         mock_provider.naming.ingestion_iam_role.assert_not_called()
 
+    @patch("src.providers.aws.layers.l2_adapter._check_l1_deployed")
     @patch("time.sleep")
     @patch("src.util.compile_lambda_function", return_value=b"mock-zip")
-    def test_deploy_l2_complete_provider_config_succeeds(self, mock_compile, mock_sleep):
+    def test_deploy_l2_complete_provider_config_succeeds(self, mock_compile, mock_sleep, mock_check_l1):
         """deploy_l2() should succeed with complete provider configuration."""
         from src.providers.aws.layers.l2_adapter import deploy_l2
         

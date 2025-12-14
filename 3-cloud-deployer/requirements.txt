@@ -35,6 +35,10 @@ azure-mgmt-logic
 # Azure SDK packages for L3 (Storage)
 azure-mgmt-cosmosdb
 
+# Azure SDK packages for L4 (Digital Twins)
+azure-mgmt-digitaltwins
+azure-digitaltwins-core
+
 # GCP SDK packages
 functions-framework
 google-cloud-firestore

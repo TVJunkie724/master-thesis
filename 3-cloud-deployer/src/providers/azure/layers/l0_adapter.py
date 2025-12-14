@@ -44,6 +44,9 @@ from src.providers.azure.layers.layer_0_glue import (
     destroy_hot_reader_last_entry_endpoint,
     check_hot_reader_endpoint,
     check_hot_reader_last_entry_endpoint,
+    deploy_adt_pusher_function,
+    destroy_adt_pusher_function,
+    check_adt_pusher_function,
 )
 from src.core.config_loader import save_inter_cloud_connection
 
@@ -61,7 +64,46 @@ def _generate_secure_token() -> str:
 
 def _get_provider_for_layer(config, layer_key: str) -> str:
     """Get the provider name for a specific layer from config."""
-    return config.providers.get(layer_key, "").lower()
+    return config.providers[layer_key].lower()
+
+
+def _check_setup_deployed(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
+    """
+    Verify that Setup Layer is fully deployed before deploying L0.
+    
+    L0 depends on Setup Layer for:
+    - Resource Group (container for all resources)
+    - Managed Identity (for RBAC roles)
+    - Storage Account (for Function Apps)
+    
+    Raises:
+        RuntimeError: If Setup Layer is not fully deployed
+    """
+    from src.providers.azure.layers.l_setup_adapter import info_setup
+    
+    setup_status = info_setup(context, provider)
+    
+    setup_ok = all([
+        setup_status.get("resource_group"),
+        setup_status.get("managed_identity"),
+        setup_status.get("storage_account")
+    ])
+    
+    if setup_ok:
+        logger.info("✓ Pre-flight check: Setup Layer OK")
+        return
+    else:
+        missing = []
+        if not setup_status.get("resource_group"):
+            missing.append("Resource Group")
+        if not setup_status.get("managed_identity"):
+            missing.append("Managed Identity")
+        if not setup_status.get("storage_account"):
+            missing.append("Storage Account")
+        raise RuntimeError(
+            f"[L0] Pre-flight check FAILED: Setup Layer not fully deployed. "
+            f"Missing: {', '.join(missing)}. Run deploy_setup first."
+        )
 
 
 def deploy_l0(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
@@ -87,6 +129,9 @@ def deploy_l0(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
     
     logger.info(f"========== Azure L0 Glue Layer: {twin_name} ==========")
     
+    # Pre-flight check: Verify Setup Layer is deployed (raises on failure)
+    _check_setup_deployed(context, provider)
+    
     # Get provider assignments
     l1_provider = _get_provider_for_layer(config, "layer_1_provider")
     l2_provider = _get_provider_for_layer(config, "layer_2_provider")
@@ -102,13 +147,18 @@ def deploy_l0(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
     deploy_archive_writer = l3_cold_provider != l3_archive_provider and l3_archive_provider == "azure"
     deploy_hot_reader = l3_hot_provider != l4_provider and l3_hot_provider == "azure"
     
+    # ADT Pusher: Deployed when L2 is on different cloud and L4 is Azure
+    # This enables remote Persisters (AWS/GCP) to push data to Azure ADT
+    deploy_adt_pusher = l2_provider != l4_provider and l4_provider == "azure"
+    
     # Check if any L0 components are needed
     needs_l0 = any([
         deploy_ingestion,
         deploy_hot_writer,
         deploy_cold_writer,
         deploy_archive_writer,
-        deploy_hot_reader
+        deploy_hot_reader,
+        deploy_adt_pusher
     ])
     
     if not needs_l0:
@@ -159,6 +209,14 @@ def deploy_l0(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
         connection_details["l3_hot_reader_last_entry_url"] = last_entry_url
         connection_details["l3_hot_reader_token"] = token
     
+    if deploy_adt_pusher:
+        logger.info("Deploying ADT Pusher (L2→L4 multi-cloud boundary)...")
+        token = _generate_secure_token()
+        # ADT URL may be empty initially - will be updated when L4 is deployed
+        url = deploy_adt_pusher_function(provider, config, token, adt_instance_url=None)
+        connection_details["l4_adt_pusher_url"] = url
+        connection_details["l4_adt_pusher_token"] = token
+    
     # Save connection details for cross-cloud communication
     if connection_details:
         save_inter_cloud_connection(project_path, "azure", connection_details)
@@ -180,6 +238,7 @@ def destroy_l0(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
     logger.info(f"========== Destroying Azure L0 Glue Layer: {twin_name} ==========")
     
     # Destroy individual function configurations
+    destroy_adt_pusher_function(provider)
     destroy_hot_reader_last_entry_endpoint(provider)
     destroy_hot_reader_endpoint(provider)
     destroy_archive_writer_function(provider)
@@ -242,6 +301,10 @@ def info_l0(context: 'DeploymentContext', provider: 'AzureProvider') -> dict:
     if l3_hot_provider != l4_provider and l3_hot_provider == "azure":
         status["hot_reader"] = check_hot_reader_endpoint(provider)
         status["hot_reader_last_entry"] = check_hot_reader_last_entry_endpoint(provider)
+    
+    # ADT Pusher: L2 != L4 and L4 = Azure
+    if l2_provider != l4_provider and l4_provider == "azure":
+        status["adt_pusher"] = check_adt_pusher_function(provider)
     
     # Summary
     if not status.get("function_app"):

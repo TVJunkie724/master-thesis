@@ -25,6 +25,39 @@ if TYPE_CHECKING:
     from ..provider import AzureProvider
 
 
+def _check_l1_deployed(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
+    """
+    Verify that L1 (IoT) is deployed before deploying L2.
+    
+    L2 depends on L1 for:
+    - IoT Hub (source of telemetry messages)
+    - Function App (Dispatcher invokes Processors)
+    
+    Raises:
+        RuntimeError: If L1 is not fully deployed
+    """
+    from src.providers.azure.layers.l1_adapter import info_l1
+    
+    l1_status = info_l1(context, provider)
+    
+    iot_hub_ok = l1_status.get("iot_hub")
+    function_app_ok = l1_status.get("function_app")
+    
+    if iot_hub_ok and function_app_ok:
+        logger.info("✓ Pre-flight check: L1 Layer deployed")
+        return
+    else:
+        missing = []
+        if not iot_hub_ok:
+            missing.append("IoT Hub")
+        if not function_app_ok:
+            missing.append("Function App")
+        raise RuntimeError(
+            f"[L2] Pre-flight check FAILED: L1 Layer not fully deployed. "
+            f"Missing: {', '.join(missing)}. Run deploy_l1 first."
+        )
+
+
 def deploy_l2(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
     """
     Deploy Layer 2 (Data Processing) components for Azure.
@@ -63,27 +96,9 @@ def deploy_l2(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
     logger.info(f"========== Azure L2 Layer Deploy: {config.digital_twin_name} ==========")
     
     # ==========================================
-    # Pre-flight checks
+    # Pre-flight check (raises on failure)
     # ==========================================
-    
-    # 1. VERIFY L1 LAYER
-    from src.providers.azure.layers.l1_adapter import info_l1
-    l1_status = info_l1(context, provider)
-    
-    l1_ok = all([
-        l1_status.get("iot_hub"),
-        l1_status.get("function_app"),
-    ])
-    
-    if not l1_ok:
-        raise RuntimeError(
-            "L1 Layer not fully deployed. "
-            f"Status: IoT Hub={l1_status.get('iot_hub')}, "
-            f"Function App={l1_status.get('function_app')}. "
-            "Run deploy_l1 first."
-        )
-    
-    logger.info("✓ Pre-flight check passed: L1 Layer deployed")
+    _check_l1_deployed(context, provider)
     
     # ==========================================
     # Deploy L2 Components

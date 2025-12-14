@@ -177,10 +177,24 @@ class AzureDeployerStrategy:
     # ==========================================
     
     def deploy_l4(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("Azure L4 deployment not yet implemented")
+        """
+        Deploy L4 Twin Management components.
+        
+        Creates: ADT Instance, DTDL Models, Twins, Relationships,
+        L4 Function App with ADT Updater, Event Grid subscription.
+        """
+        from src.providers.azure.layers.l4_adapter import deploy_l4
+        deploy_l4(context, self._provider)
     
     def destroy_l4(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("Azure L4 destruction not yet implemented")
+        """Destroy all L4 Twin Management components."""
+        from src.providers.azure.layers.l4_adapter import destroy_l4
+        destroy_l4(context, self._provider)
+    
+    def info_l4(self, context: 'DeploymentContext') -> dict:
+        """Get status of L4 Twin Management components."""
+        from src.providers.azure.layers.l4_adapter import info_l4
+        return info_l4(context, self._provider)
     
     # ==========================================
     # Layer 5: Visualization (Azure Managed Grafana)

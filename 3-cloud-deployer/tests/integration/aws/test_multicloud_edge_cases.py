@@ -76,8 +76,9 @@ class TestL3ToL4MultiCloudIntegration:
         # Verify inter-cloud connection saved
         mock_save.assert_called()
     
+    @patch("src.providers.aws.layers.l4_adapter._check_l3_deployed")
     @patch("time.sleep")
-    def test_deploy_l4_creates_dt_data_connector_when_l3_different(self, mock_sleep):
+    def test_deploy_l4_creates_dt_data_connector_when_l3_different(self, mock_sleep, mock_check_l3):
         """l4_adapter.deploy_l4() creates Digital Twin Data Connector when L3≠L4."""
         from src.providers.aws.layers.l4_adapter import deploy_l4
         
@@ -126,8 +127,9 @@ class TestL3ToL4MultiCloudIntegration:
         mock_role.assert_called_once()
         mock_func.assert_called_once()
     
+    @patch("src.providers.aws.layers.l4_adapter._check_l3_deployed")
     @patch("time.sleep")
-    def test_deploy_l4_skips_dt_connector_when_same_cloud(self, mock_sleep):
+    def test_deploy_l4_skips_dt_connector_when_same_cloud(self, mock_sleep, mock_check_l3):
         """l4_adapter.deploy_l4() skips DT Data Connector when L3==L4."""
         from src.providers.aws.layers.l4_adapter import deploy_l4
         
@@ -152,7 +154,8 @@ class TestL3ToL4MultiCloudIntegration:
         # Verify DT Data Connector was NOT created
         mock_role.assert_not_called()
     
-    def test_deploy_l4_fails_when_l3_url_missing(self):
+    @patch("src.providers.aws.layers.l4_adapter._check_l3_deployed")
+    def test_deploy_l4_fails_when_l3_url_missing(self, mock_check_l3):
         """deploy_l4 raises ValueError when L3≠L4 but Hot Reader URL not configured."""
         from src.providers.aws.layers.l4_adapter import deploy_l4
         
@@ -276,8 +279,9 @@ class TestDeployerIntegration:
         # Verify DT Data Connector was destroyed
         mock_destroy.assert_called_once()
     
+    @patch("src.providers.aws.layers.l1_adapter._check_l0_deployed")
     @patch("time.sleep")
-    def test_l1_adapter_deploys_connector_when_l2_different(self, mock_sleep):
+    def test_l1_adapter_deploys_connector_when_l2_different(self, mock_sleep, mock_check_l0):
         """l1_adapter.deploy_l1() deploys Connector when L1≠L2."""
         from src.providers.aws.layers.l1_adapter import deploy_l1
         
@@ -368,8 +372,9 @@ class TestSecurityEdgeCases:
 class TestProviderCombinations:
     """Tests for various provider combination scenarios."""
     
+    @patch("src.providers.aws.layers.l3_adapter._check_l2_deployed")
     @patch("time.sleep")
-    def test_all_layers_same_provider_skips_multicloud(self, mock_sleep):
+    def test_all_layers_same_provider_skips_multicloud(self, mock_sleep, mock_check_l2):
         """Single-cloud deployment skips all multi-cloud components."""
         from src.providers.aws.layers.l3_adapter import deploy_l3_hot
         

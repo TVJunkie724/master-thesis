@@ -775,9 +775,10 @@ class TestL0ProviderBoundaryDetection:
     
     @patch("src.providers.azure.layers.l0_adapter.create_glue_function_app")
     @patch("src.providers.azure.layers.l0_adapter.deploy_hot_writer_function")
+    @patch("src.providers.azure.layers.l0_adapter.deploy_adt_pusher_function")
     @patch("src.providers.azure.layers.l0_adapter.save_inter_cloud_connection")
     def test_deploy_l0_different_l2_l3_deploys_hot_writer(
-        self, mock_save, mock_deploy_hw, mock_create_app
+        self, mock_save, mock_deploy_adt, mock_deploy_hw, mock_create_app
     ):
         """deploy_l0() should deploy Hot Writer when L2 ≠ L3."""
         from src.providers.azure.layers.l0_adapter import deploy_l0
@@ -795,11 +796,14 @@ class TestL0ProviderBoundaryDetection:
         mock_context.project_path = "/app/projects/test"
         mock_provider = MagicMock()
         mock_deploy_hw.return_value = "https://hw-url"
+        mock_deploy_adt.return_value = "https://adt-pusher-url"
         
         deploy_l0(mock_context, mock_provider)
         
         mock_create_app.assert_called_once()
         mock_deploy_hw.assert_called_once()
+        # ADT Pusher also deployed because L2≠L4 and L4=Azure
+        mock_deploy_adt.assert_called_once()
     
     @patch("src.providers.azure.layers.l0_adapter.create_glue_function_app")
     @patch("src.providers.azure.layers.l0_adapter.create_hot_reader_endpoint")

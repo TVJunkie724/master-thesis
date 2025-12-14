@@ -38,44 +38,32 @@ if TYPE_CHECKING:
     from ..provider import AzureProvider
 
 
-def _check_l2_deployed(provider: 'AzureProvider') -> bool:
+def _check_l2_deployed(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
     """
     Verify that L2 is deployed before deploying L3.
     
-    L3 depends on L2 being fully deployed for:
-    - Storage account (L0/Setup)
-    - L2 Function App processing data
+    L3 depends on L2 for:
+    - L2 Function App (Persister writes to storage)
     
-    Args:
-        provider: Initialized AzureProvider
-        
-    Returns:
-        True if L2 is deployed, False otherwise
+    Raises:
+        RuntimeError: If L2 Function App is not deployed
     """
-    from src.providers.azure.layers.l2_adapter import info_l2
-    from src.core.context import DeploymentContext
-    
-    # Minimal context just for checking
-    class MinimalContext:
-        def __init__(self, provider):
-            self.config = type('obj', (object,), {
-                'digital_twin_name': provider.naming.twin_name()
-            })()
+    # Check if L2 Function App exists
+    rg_name = provider.naming.resource_group()
+    app_name = provider.naming.l2_function_app()
     
     try:
-        # Check if L2 Function App exists
-        rg_name = provider.naming.resource_group()
-        app_name = provider.naming.l2_function_app()
-        
         provider.clients["web"].web_apps.get(
             resource_group_name=rg_name,
             name=app_name
         )
         logger.info("[L3] ✓ Pre-flight check: L2 is deployed")
-        return True
+        return
     except Exception:
-        logger.warning("[L3] ✗ Pre-flight check: L2 is NOT deployed")
-        return False
+        raise RuntimeError(
+            "[L3] Pre-flight check FAILED: L2 Function App not deployed. "
+            "Run deploy_l2 first."
+        )
 
 
 def deploy_l3_hot(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
@@ -112,12 +100,8 @@ def deploy_l3_hot(context: 'DeploymentContext', provider: 'AzureProvider') -> No
     logger.info(f"[L3-Hot] Deploying Layer 3 Hot Storage for {context.config.digital_twin_name}")
     context.set_active_layer("3_hot")
     
-    # Pre-flight check
-    if not _check_l2_deployed(provider):
-        raise RuntimeError(
-            "L3 requires L2 to be deployed first. "
-            "Please deploy L2 before deploying L3."
-        )
+    # Pre-flight check (raises on failure)
+    _check_l2_deployed(context, provider)
     
     project_path = str(context.project_path.parent.parent)
     

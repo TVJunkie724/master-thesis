@@ -13,6 +13,39 @@ if TYPE_CHECKING:
     from ..provider import AWSProvider
 
 
+def _check_l0_deployed(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
+    """
+    Verify that L0 (Glue Layer) is deployed before deploying L1.
+    
+    L1 depends on L0 for:
+    - Ingestion Function URL (if L1 != L2)
+    - Inter-cloud token configuration
+    
+    Raises:
+        ValueError: If multi-cloud mode and L0 Ingestion is not deployed
+    """
+    from .layer_0_glue import check_ingestion_lambda_function
+    
+    providers = context.config.providers
+    l1_provider = providers["layer_1_provider"]
+    l2_provider = providers["layer_2_provider"]
+    
+    # If single-cloud (L1 == L2), no L0 dependency
+    if l1_provider == l2_provider:
+        logger.info("[L1] ✓ Pre-flight check: Single-cloud mode, L0 not required")
+        return
+    
+    # Multi-cloud: Check if Ingestion is deployed
+    if check_ingestion_lambda_function(provider):
+        logger.info("[L1] ✓ Pre-flight check: L0 Ingestion is deployed")
+        return
+    else:
+        raise ValueError(
+            f"[L1] Pre-flight check FAILED: L0 Ingestion is NOT deployed. "
+            f"Deploy L0 first (L1={l1_provider} requires Ingestion on L2={l2_provider})."
+        )
+
+
 def deploy_l1(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     """
     Deploy Layer 1 (Data Acquisition) components for AWS.
@@ -37,6 +70,9 @@ def deploy_l1(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     
     logger.info(f"[L1] Deploying Layer 1 (IoT) for {context.config.digital_twin_name}")
     context.set_active_layer(1)
+    
+    # Pre-flight check: Verify L0 is deployed (raises ValueError if multi-cloud dependency missing)
+    _check_l0_deployed(context, provider)
     
     # Pass provider explicitly to each function
     create_dispatcher_iam_role(provider)

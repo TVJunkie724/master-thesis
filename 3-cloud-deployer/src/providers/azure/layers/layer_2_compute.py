@@ -453,6 +453,27 @@ def _configure_l2_function_app_settings(
         else:
             logger.warning(f"  Multi-cloud config incomplete for {conn_id}")
     
+    # Multi-cloud L4: Add ADT Pusher env vars if L2 != L4 and L4 = Azure
+    l4_provider = config.providers.get("layer_4_provider")
+    
+    if l2_provider and l4_provider and l4_provider != l2_provider and l4_provider == "azure":
+        inter_cloud = getattr(config, 'inter_cloud', None) or {}
+        connections = inter_cloud.get("connections", {})
+        # Look for ADT Pusher connection info (L0 deposits this)
+        conn_id = f"{l2_provider}_l2_to_azure_l4_adt"
+        conn = connections.get(conn_id, {})
+        url = conn.get("url", "")
+        token = conn.get("token", "")
+        
+        if url and token:
+            settings["REMOTE_ADT_PUSHER_URL"] = url
+            settings["ADT_PUSHER_TOKEN"] = token
+            logger.info(f"  Multi-cloud L4 mode: Persister will POST to Azure ADT Pusher")
+        else:
+            # ADT Pusher URL may not be available yet (L4 deployed after L2)
+            # This will be updated when L4 deployment calls _update_adt_pusher_url()
+            logger.info(f"  ADT Pusher config not yet available (will be set after L4 deployment)")
+    
     provider.clients["web"].web_apps.update_application_settings(
         resource_group_name=rg_name,
         name=app_name,

@@ -278,6 +278,44 @@ class AzureNaming:
         """Azure Digital Twins instance name."""
         return f"{self._twin_name}-adt"
     
+    def l4_app_service_plan(self) -> str:
+        """
+        App Service Plan name for L4 Function App.
+        
+        Uses Y1 (Consumption/Dynamic) SKU for serverless execution.
+        """
+        return f"{self._twin_name}-l4-plan"
+    
+    def l4_function_app(self) -> str:
+        """
+        Function App name for L4 (Twin Management) functions.
+        
+        Contains: adt-updater (Event Grid triggered for single-cloud).
+        """
+        return f"{self._twin_name}-l4-functions"
+    
+    def adt_updater_function(self) -> str:
+        """
+        Function name for the ADT Updater (single-cloud L4).
+        
+        This function receives events from IoT Hub via Event Grid
+        and updates Azure Digital Twins properties.
+        """
+        return "adt-updater"
+    
+    def adt_pusher_function(self) -> str:
+        """
+        Function name for the ADT Pusher (multi-cloud L0).
+        
+        This function receives HTTP POST requests from remote Persisters
+        and updates Azure Digital Twins. Part of L0 Glue layer.
+        """
+        return "adt-pusher"
+    
+    def adt_event_grid_subscription(self) -> str:
+        """Event Grid subscription name for IoT Hub to ADT Updater routing."""
+        return f"{self._twin_name}-adt-updater-sub"
+    
     # ==========================================
     # Layer 5: Visualization (Grafana)
     # ==========================================

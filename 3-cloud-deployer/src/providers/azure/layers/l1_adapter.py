@@ -38,6 +38,82 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _check_setup_deployed(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
+    """
+    Verify that Setup Layer is fully deployed before deploying L1.
+    
+    L1 depends on Setup Layer for:
+    - Resource Group (container for all resources)
+    - Managed Identity (for RBAC roles)
+    - Storage Account (for Function Apps)
+    
+    Raises:
+        RuntimeError: If Setup Layer is not fully deployed
+    """
+    from src.providers.azure.layers.l_setup_adapter import info_setup
+    
+    setup_status = info_setup(context, provider)
+    
+    setup_ok = all([
+        setup_status.get("resource_group"),
+        setup_status.get("managed_identity"),
+        setup_status.get("storage_account")
+    ])
+    
+    if setup_ok:
+        logger.info("✓ Pre-flight check: Setup Layer OK")
+        return
+    else:
+        missing = []
+        if not setup_status.get("resource_group"):
+            missing.append("Resource Group")
+        if not setup_status.get("managed_identity"):
+            missing.append("Managed Identity")
+        if not setup_status.get("storage_account"):
+            missing.append("Storage Account")
+        raise RuntimeError(
+            f"[L1] Pre-flight check FAILED: Setup Layer not fully deployed. "
+            f"Missing: {', '.join(missing)}. Run deploy_setup first."
+        )
+
+
+def _check_l0_deployed(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
+    """
+    Verify that L0 (Glue Layer) is deployed before deploying L1.
+    
+    Only required when:
+    - L1 != L2 (multi-cloud)
+    - L2 is Azure (Azure receives data from remote L1)
+    
+    Raises:
+        RuntimeError: If L0 is required but not deployed
+    """
+    config = context.config
+    l1_provider = config.providers["layer_1_provider"]
+    l2_provider = config.providers["layer_2_provider"]
+    
+    # Single-cloud mode or Azure is L1 (not L2 receiver) - no L0 dependency
+    if l1_provider == l2_provider or l2_provider != "azure":
+        logger.info("✓ Pre-flight check: L0 not required (single-cloud or Azure is L1)")
+        return
+    
+    # Multi-cloud: Azure is L2, check if L0 is deployed
+    from src.providers.azure.layers.l0_adapter import info_l0
+    l0_status = info_l0(context, provider)
+    
+    l0_ok = l0_status.get("function_app", False)
+    
+    if l0_ok:
+        logger.info("✓ Pre-flight check: L0 Glue Layer OK")
+        return
+    else:
+        raise RuntimeError(
+            f"[L1] Pre-flight check FAILED: L0 Glue Layer not deployed. "
+            f"Azure is L2 provider in multi-cloud (L1={l1_provider}, L2={l2_provider}). "
+            f"Run deploy_l0 first."
+        )
+
+
 def deploy_l1(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
     """
     Deploy Layer 1 (Data Acquisition) components for Azure.
@@ -70,42 +146,10 @@ def deploy_l1(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
     logger.info(f"========== Azure L1 Layer Deploy: {config.digital_twin_name} ==========")
     
     # ==========================================
-    # Pre-flight checks
+    # Pre-flight checks (raises on failure)
     # ==========================================
-    
-    # 1. VERIFY SETUP LAYER (simple pass/fail)
-    from src.providers.azure.layers.l_setup_adapter import info_setup
-    setup_status = info_setup(context, provider)
-    
-    setup_ok = all([
-        setup_status.get("resource_group"),
-        setup_status.get("managed_identity"),
-        setup_status.get("storage_account")
-    ])
-    
-    if not setup_ok:
-        raise RuntimeError(
-            "Setup Layer not fully deployed. Run deploy_setup first before deploying L1."
-        )
-    
-    logger.info("✓ Pre-flight check: Setup Layer OK")
-    
-    # 2. VERIFY L0 GLUE (if multi-cloud and Azure is L2+)
-    l1_provider = config.providers.get("layer_1_provider", "azure")
-    l2_provider = config.providers.get("layer_2_provider", "azure")
-    
-    if l1_provider != l2_provider and l2_provider == "azure":
-        from src.providers.azure.layers.l0_adapter import info_l0
-        l0_status = info_l0(context, provider)
-        
-        l0_ok = l0_status.get("function_app", False)
-        
-        if not l0_ok:
-            raise RuntimeError(
-                "L0 Glue Layer not deployed. Run deploy_l0 first (Azure is L2 provider in multi-cloud)."
-            )
-        
-        logger.info("✓ Pre-flight check: L0 Glue Layer OK")
+    _check_setup_deployed(context, provider)
+    _check_l0_deployed(context, provider)
     
     # ==========================================
     # Deploy L1 components
@@ -136,6 +180,8 @@ def deploy_l1(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
             create_iot_device(device, provider, config, project_path)
     
     # 8. Deploy Connector Function (if multi-cloud, L1 != L2)
+    l1_provider = config.providers["layer_1_provider"]
+    l2_provider = config.providers["layer_2_provider"]
     if l1_provider != l2_provider and l1_provider == "azure":
         logger.info("Multi-cloud detected: Azure L1 → different L2 provider")
         
@@ -192,8 +238,8 @@ def destroy_l1(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
     logger.info(f"========== Azure L1 Layer Destroy: {config.digital_twin_name} ==========")
     
     # Check if multi-cloud (Azure is L1)
-    l1_provider = config.providers.get("layer_1_provider", "azure")
-    l2_provider = config.providers.get("layer_2_provider", "azure")
+    l1_provider = config.providers["layer_1_provider"]
+    l2_provider = config.providers["layer_2_provider"]
     
     # Destroy in reverse order
     

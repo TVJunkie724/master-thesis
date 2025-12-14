@@ -104,6 +104,60 @@ def _is_multi_cloud_storage() -> bool:
     return True
 
 
+def _should_push_to_adt() -> bool:
+    """
+    Check if we should push data to remote ADT Pusher.
+    
+    Returns True only if:
+    1. REMOTE_ADT_PUSHER_URL is set AND non-empty
+    2. ADT_PUSHER_TOKEN is set AND non-empty
+    
+    ADT push is for multi-cloud L4 scenarios where L2 != L4 and L4 = Azure.
+    """
+    remote_url = os.environ.get("REMOTE_ADT_PUSHER_URL", "").strip()
+    token = os.environ.get("ADT_PUSHER_TOKEN", "").strip()
+    return bool(remote_url and token)
+
+
+def _push_to_adt(event: dict) -> None:
+    """
+    Push telemetry to remote ADT Pusher (L4 Multi-Cloud).
+    
+    This is called IN ADDITION TO storage persist, not instead of it.
+    Failures are logged but don't fail the overall persist operation.
+    
+    Args:
+        event: Original telemetry event (with 'time' field)
+    """
+    if not _should_push_to_adt():
+        return
+    
+    remote_url = os.environ.get("REMOTE_ADT_PUSHER_URL")
+    token = os.environ.get("ADT_PUSHER_TOKEN")
+    
+    print(f"Pushing to ADT Pusher at {remote_url}")
+    
+    try:
+        # Build ADT push payload
+        adt_payload = {
+            "device_id": event.get("device_id"),
+            "device_type": event.get("device_type"),
+            "telemetry": event.get("telemetry", {}),
+            "timestamp": event.get("time")
+        }
+        
+        result = post_to_remote(
+            url=remote_url,
+            token=token,
+            payload=adt_payload,
+            target_layer="L4"
+        )
+        print(f"ADT push successful: {result}")
+    except Exception as e:
+        # Log but don't fail - ADT is secondary to storage
+        print(f"ADT push failed (non-fatal): {e}")
+
+
 # ==========================================
 # Handler
 # ==========================================
@@ -151,6 +205,10 @@ def lambda_handler(event, context):
             table = _get_dynamodb_table()
             table.put_item(Item=item)
             print("Item persisted to local DynamoDB.")
+
+        # Multi-cloud L4: Push to ADT Pusher (IN ADDITION to storage)
+        # This is for scenarios where L2 != L4 and L4 = Azure
+        _push_to_adt(event)
 
         # Event checking (only in single-cloud mode or if explicitly enabled)
         if os.environ.get("USE_EVENT_CHECKING", "false").lower() == "true":
