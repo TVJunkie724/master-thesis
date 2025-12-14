@@ -44,19 +44,84 @@ class TestAzureSingleCloudE2E:
         from src.core.context import DeploymentContext
         from src.core.registry import ProviderRegistry
         from pathlib import Path
+        import validator
         
         # Import providers to trigger registration in the registry
         import src.providers  # noqa: F401
+        import constants as CONSTANTS
         
         print("\n" + "="*60)
-        print("  AZURE E2E TEST - DEPLOYMENT STARTING")
+        print("  AZURE E2E TEST - PRE-DEPLOYMENT VALIDATION")
         print("="*60)
         
         project_path = Path(e2e_project_path)
         
-        # Load project config
-        config = load_project_config(project_path)
-        credentials = load_credentials(project_path)
+        # ==========================================
+        # PHASE 1: Validate All Configuration Files
+        # ==========================================
+        print("\n[VALIDATION] Phase 1: Configuration Files")
+        
+        # Validate each required config file using existing validator
+        config_files_to_validate = [
+            CONSTANTS.CONFIG_FILE,
+            CONSTANTS.CONFIG_IOT_DEVICES_FILE,
+            CONSTANTS.CONFIG_EVENTS_FILE,
+            CONSTANTS.CONFIG_CREDENTIALS_FILE,
+            CONSTANTS.CONFIG_PROVIDERS_FILE,
+        ]
+        
+        for config_filename in config_files_to_validate:
+            config_file_path = project_path / config_filename
+            if config_file_path.exists():
+                try:
+                    with open(config_file_path, 'r') as f:
+                        content = json.load(f)
+                    validator.validate_config_content(config_filename, content)
+                    print(f"  ✓ {config_filename} validated")
+                except Exception as e:
+                    pytest.fail(f"Validation failed for {config_filename}: {e}")
+            else:
+                pytest.fail(f"Required config file missing: {config_filename}")
+        
+        # Load project config for later use
+        try:
+            config = load_project_config(project_path)
+            print(f"  ✓ Project config loaded (twin_name: {config.digital_twin_name})")
+        except Exception as e:
+            pytest.fail(f"Config loading failed: {e}")
+        
+        # Load credentials for later use  
+        try:
+            credentials = load_credentials(project_path)
+        except Exception as e:
+            pytest.fail(f"Credentials loading failed: {e}")
+        
+        # ==========================================
+        # PHASE 2: Validate Azure Credentials
+        # ==========================================
+        print("\n[VALIDATION] Phase 2: Azure Credentials")
+        
+        azure_creds = credentials.get("azure", {})
+        if not azure_creds:
+            pytest.fail("No Azure credentials found in config_credentials.json")
+        
+        # Use constants for required fields check
+        required_fields = CONSTANTS.REQUIRED_CREDENTIALS_FIELDS.get("azure", [])
+        missing_fields = [f for f in required_fields if not azure_creds.get(f)]
+        if missing_fields:
+            pytest.fail(f"Missing required Azure credential fields: {missing_fields}")
+        print(f"  ✓ All required fields present: {len(required_fields)} fields")
+        
+        # Log regions for visibility
+        azure_region = azure_creds.get("azure_region")
+        azure_region_iothub = azure_creds.get("azure_region_iothub")
+        print(f"  ✓ General region: {azure_region}")
+        print(f"  ✓ IoT Hub region: {azure_region_iothub}")
+        
+        # ==========================================
+        # PHASE 3: Initialize Azure Provider
+        # ==========================================
+        print("\n[VALIDATION] Phase 3: Azure Provider Initialization")
         
         # Create context directly (not using factory since project is in temp dir)
         context = DeploymentContext(
@@ -76,13 +141,43 @@ class TestAzureSingleCloudE2E:
                 if creds or prov_name in ("aws", "azure"):
                     provider_instance.initialize_clients(creds, config.digital_twin_name)
                     context.providers[prov_name] = provider_instance
+                    print(f"  ✓ Provider '{prov_name}' initialized")
+            except ValueError as e:
+                # Fail-fast on missing credentials
+                pytest.fail(f"Provider '{prov_name}' initialization failed: {e}")
             except Exception as e:
-                print(f"[WARN] Could not initialize {prov_name}: {e}")
+                print(f"  ✗ Provider '{prov_name}' failed: {e}")
         
         # Get Azure provider and its deployer strategy
         provider = context.providers.get("azure")
         if not provider:
-            raise RuntimeError("Azure provider not initialized - check credentials")
+            pytest.fail("Azure provider not initialized - check credentials")
+        
+        # ==========================================
+        # PHASE 4: Validate Azure Connectivity
+        # ==========================================
+        print("\n[VALIDATION] Phase 4: Azure API Connectivity")
+        
+        try:
+            # Try to list resource groups as connectivity check
+            rg_client = provider.clients.get("resource")
+            if rg_client:
+                # Just verify we can make API calls (list returns iterator, doesn't fail until accessed)
+                list(rg_client.resource_groups.list())
+                print(f"  ✓ Azure Resource Management API accessible")
+                print(f"  ✓ Subscription ID: {provider.subscription_id[:8]}...")
+        except Exception as e:
+            error_msg = str(e)
+            if "AuthorizationFailed" in error_msg:
+                pytest.fail(f"Azure authorization failed - check role assignments: {e}")
+            elif "InvalidSubscriptionId" in error_msg:
+                pytest.fail(f"Invalid subscription ID: {e}")
+            else:
+                pytest.fail(f"Azure connectivity check failed: {e}")
+        
+        print("\n" + "="*60)
+        print("  ✓ ALL VALIDATIONS PASSED - STARTING DEPLOYMENT")
+        print("="*60)
         
         deployer = provider.get_deployer_strategy()
         

@@ -80,7 +80,7 @@ def create_iot_hub(provider: 'AzureProvider') -> str:
     
     rg_name = provider.naming.resource_group()
     hub_name = provider.naming.iot_hub()
-    location = provider.location
+    location = provider.location_iothub  # IoT Hub uses dedicated region
     
     logger.info(f"Creating IoT Hub: {hub_name}")
     

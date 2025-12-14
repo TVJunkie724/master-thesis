@@ -46,7 +46,8 @@ class AzureProvider(BaseProvider):
         super().__init__()
         self._subscription_id: str = ""
         self._resource_group: str = ""
-        self._location: str = "westeurope"
+        self._location: str = ""
+        self._location_iothub: str = ""
         self._naming: Optional['AzureNaming'] = None
         self._clients: Dict[str, Any] = {}
     
@@ -64,8 +65,13 @@ class AzureProvider(BaseProvider):
     
     @property
     def location(self) -> str:
-        """Get the Azure region for deployments."""
+        """Get the Azure region for general deployments."""
         return self._location
+    
+    @property
+    def location_iothub(self) -> str:
+        """Get the Azure region for IoT Hub (may differ from general location)."""
+        return self._location_iothub
     
     @property
     def naming(self) -> 'AzureNaming':
@@ -86,14 +92,15 @@ class AzureProvider(BaseProvider):
         Args:
             credentials: Azure credentials dictionary with:
                 - azure_subscription_id: Azure subscription ID (REQUIRED)
-                - azure_region: Azure region (REQUIRED)
+                - azure_region: Azure region for general resources (REQUIRED)
+                - azure_region_iothub: Azure region for IoT Hub (REQUIRED, may differ)
                 - azure_tenant_id: Azure AD tenant ID (optional for DefaultCredential)
                 - azure_client_id: Service principal client ID (optional)
                 - azure_client_secret: Service principal secret (optional)
             twin_name: Digital twin name for resource naming
         
         Raises:
-            ValueError: If required credentials (azure_subscription_id, azure_region) are missing
+            ValueError: If required credentials are missing
         
         Note:
             If azure_client_id/azure_client_secret are not provided, uses DefaultAzureCredential
@@ -114,9 +121,17 @@ class AzureProvider(BaseProvider):
         if "azure_region" not in credentials or not credentials["azure_region"]:
             raise ValueError(
                 "Missing required credential 'azure_region'. "
-                "Azure region (e.g., 'germanywestcentral') must be provided in config_credentials.json."
+                "Azure region (e.g., 'italynorth') must be provided in config_credentials.json."
             )
         self._location = credentials["azure_region"]
+        
+        if "azure_region_iothub" not in credentials or not credentials["azure_region_iothub"]:
+            raise ValueError(
+                "Missing required credential 'azure_region_iothub'. "
+                "IoT Hub region (e.g., 'westeurope') must be provided in config_credentials.json. "
+                "IoT Hub is not available in all regions."
+            )
+        self._location_iothub = credentials["azure_region_iothub"]
         
         # Initialize naming
         self._naming = AzureNaming(twin_name)

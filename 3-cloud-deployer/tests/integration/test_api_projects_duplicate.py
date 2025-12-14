@@ -255,7 +255,8 @@ class TestDuplicateEdgeCases:
                 "azure_tenant_id": f"tenant{unique_id}",
                 "azure_client_id": f"client{unique_id}",
                 "azure_client_secret": f"secret{unique_id}",
-                "azure_region": "eastus"
+                "azure_region": "eastus",
+                "azure_region_iothub": "eastus"
             }
         }
         

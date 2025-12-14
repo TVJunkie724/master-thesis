@@ -107,7 +107,7 @@ class TestHashCredentials:
     def test_different_providers_different_hash(self):
         """Verify different providers produce different hashes."""
         creds_aws = {"aws": {"aws_access_key_id": "key", "aws_region": "us-east-1"}}
-        creds_azure = {"azure": {"azure_subscription_id": "sub", "azure_region": "eastus"}}
+        creds_azure = {"azure": {"azure_subscription_id": "sub", "azure_region": "eastus", "azure_region_iothub": "eastus"}}
         
         hash1 = validator._hash_credentials(creds_aws)
         hash2 = validator._hash_credentials(creds_azure)
@@ -125,7 +125,7 @@ class TestHashCredentials:
         """Verify multi-provider credentials are handled."""
         creds = {
             "aws": {"aws_access_key_id": "key", "aws_region": "us-east-1"},
-            "azure": {"azure_subscription_id": "sub", "azure_region": "eastus"}
+            "azure": {"azure_subscription_id": "sub", "azure_region": "eastus", "azure_region_iothub": "eastus"}
         }
         
         # Should not raise

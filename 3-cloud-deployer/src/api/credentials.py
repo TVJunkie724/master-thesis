@@ -32,7 +32,8 @@ class AzureCredentialsRequest(BaseModel):
     azure_tenant_id: str = Field(..., description="Azure AD Tenant ID")
     azure_client_id: str = Field(..., description="Service Principal Client/Application ID")
     azure_client_secret: str = Field(..., description="Service Principal Client Secret")
-    azure_region: Optional[str] = Field("westeurope", description="Azure Region (e.g., 'westeurope')")
+    azure_region: str = Field(..., description="Azure Region for general resources (e.g., 'italynorth')")
+    azure_region_iothub: str = Field(..., description="Azure Region for IoT Hub (e.g., 'westeurope'), may differ from azure_region")
 
 
 class CredentialsCheckResponse(BaseModel):
