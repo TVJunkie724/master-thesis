@@ -129,7 +129,7 @@ def _deploy_function_code_via_kudu(
     
     # Get publish credentials
     logger.info("  Getting publish credentials...")
-    creds = provider.clients["web"].web_apps.list_publishing_credentials(
+    creds = provider.clients["web"].web_apps.begin_list_publishing_credentials(
         resource_group_name=rg_name,
         name=app_name
     ).result()

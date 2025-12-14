@@ -119,6 +119,37 @@ class TestAzureSingleCloudE2E:
         print(f"  ✓ IoT Hub region: {azure_region_iothub}")
         
         # ==========================================
+        # PHASE 2.5: Validate Azure API Permissions
+        # ==========================================
+        print("\n[VALIDATION] Phase 2.5: Azure API Permissions Check")
+        
+        from api.azure_credentials_checker import check_azure_credentials
+        
+        permissions_result = check_azure_credentials(azure_creds)
+        
+        if permissions_result["status"] == "valid":
+            print(f"  ✓ All required permissions present")
+            assigned_roles = permissions_result.get('assigned_roles', [])
+            if assigned_roles:
+                print(f"  ✓ Assigned roles: {', '.join(assigned_roles)}")
+        elif permissions_result["status"] == "check_failed":
+            pytest.fail(
+                f"Cannot verify permissions: {permissions_result['message']}\n"
+                "Grant 'Reader' role at subscription level to enable permission checking."
+            )
+        else:
+            # Build detailed error message with missing permissions by layer
+            error_lines = [f"Azure credentials missing required permissions: {permissions_result['message']}"]
+            for layer_name, layer_info in permissions_result.get("by_layer", {}).items():
+                if layer_info.get("status") != "valid":
+                    missing = layer_info.get("missing_actions", [])
+                    if missing:
+                        error_lines.append(f"  {layer_name}: missing {missing}")
+            error_lines.append("\nRecommended fix: Assign the 'Digital Twin Deployer' custom role.")
+            error_lines.append("See: docs/references/azure_custom_role.json")
+            pytest.fail("\n".join(error_lines))
+        
+        # ==========================================
         # PHASE 3: Initialize Azure Provider
         # ==========================================
         print("\n[VALIDATION] Phase 3: Azure Provider Initialization")

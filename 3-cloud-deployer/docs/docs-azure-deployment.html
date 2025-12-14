@@ -189,7 +189,7 @@
                             <td>Function Apps</td>
                             <td><code>Microsoft.Web/sites/write</code>, <code>*/read</code>,
                                 <code>*/delete</code>, <code>*/config/write</code>,
-                                <code>*/publishingcredentials/action</code>
+                                <code>*/config/list/action</code>, <code>*/publishingcredentials/action</code>
                             </td>
                         </tr>
                     </tbody>
@@ -237,7 +237,8 @@
                         <tr>
                             <td>Function Apps</td>
                             <td><code>Microsoft.Web/sites/write</code>, <code>*/read</code>,
-                                <code>*/delete</code>, <code>*/config/write</code>
+                                <code>*/delete</code>, <code>*/config/write</code>,
+                                <code>*/config/list/action</code>
                             </td>
                         </tr>
                         <tr>
@@ -357,7 +358,8 @@
                     <strong><i class="fa-solid fa-layer-group me-2"></i>Architecture Overview</strong>
                     <ul class="mb-0 mt-2">
                         <li><strong>Setup Layer:</strong> Resource Group, Managed Identity, Storage - deployed
-                            <em>first</em></li>
+                            <em>first</em>
+                        </li>
                         <li><strong>Layer 0 (Glue):</strong> Cross-cloud HTTP receivers deployed <em>before</em> all
                             other layers</li>
                         <li><strong>Layers 1-5:</strong> Core digital twin components</li>
@@ -442,7 +444,8 @@
                         <li><strong>Hot Writer Function</strong> <span class="badge text-bg-info">L2→L3 Hot</span>
                             <ul>
                                 <li><strong>Created:</strong> Only if
-                                    <code>layer_2_provider ≠ layer_3_hot_provider</code></li>
+                                    <code>layer_2_provider ≠ layer_3_hot_provider</code>
+                                </li>
                                 <li><strong>Trigger:</strong> HTTP Trigger (POST)</li>
                                 <li><strong>Logic:</strong> Receives data from remote Persister, validates token, writes
                                     to Cosmos DB</li>
@@ -452,7 +455,8 @@
                         <li><strong>Cold Writer Function</strong> <span class="badge text-bg-info">L3 Hot→L3 Cold</span>
                             <ul>
                                 <li><strong>Created:</strong> Only if
-                                    <code>layer_3_hot_provider ≠ layer_3_cold_provider</code></li>
+                                    <code>layer_3_hot_provider ≠ layer_3_cold_provider</code>
+                                </li>
                                 <li><strong>Trigger:</strong> HTTP Trigger (POST)</li>
                                 <li><strong>Logic:</strong> Receives chunked data (≤5MB) from remote Hot-to-Cold Mover,
                                     writes to Blob Storage (Cool tier)</li>
@@ -463,7 +467,8 @@
                                 Archive</span>
                             <ul>
                                 <li><strong>Created:</strong> Only if
-                                    <code>layer_3_cold_provider ≠ layer_3_archive_provider</code></li>
+                                    <code>layer_3_cold_provider ≠ layer_3_archive_provider</code>
+                                </li>
                                 <li><strong>Trigger:</strong> HTTP Trigger (POST)</li>
                                 <li><strong>Logic:</strong> Receives data from remote Cold-to-Archive Mover, writes to
                                     Blob Storage (Archive tier)</li>
@@ -473,7 +478,8 @@
                         <li><strong>Hot Reader Function URLs</strong> <span class="badge text-bg-info">L3→L4</span>
                             <ul>
                                 <li><strong>Created:</strong> Only if
-                                    <code>layer_3_hot_provider ≠ layer_4_provider</code></li>
+                                    <code>layer_3_hot_provider ≠ layer_4_provider</code>
+                                </li>
                                 <li><strong>Endpoints:</strong>
                                     <ul>
                                         <li><code>hot_reader</code> - Queries Cosmos DB for time-range data</li>
@@ -488,7 +494,8 @@
                         <li><strong>ADT Pusher Function</strong> <span class="badge text-bg-info">L3→L4</span>
                             <ul>
                                 <li><strong>Created:</strong> Only if
-                                    <code>layer_3_hot_provider ≠ layer_4_provider</code></li>
+                                    <code>layer_3_hot_provider ≠ layer_4_provider</code>
+                                </li>
                                 <li><strong>Trigger:</strong> HTTP Trigger (POST)</li>
                                 <li><strong>Logic:</strong> Receives data and updates Azure Digital Twins</li>
                                 <li><strong>Naming:</strong> <code>adt_pusher</code> function in Glue app</li>
@@ -540,7 +547,8 @@
                                 <li><strong>Logic:</strong> Masquerades as Processor, POSTs event to remote Ingestion
                                     URL</li>
                                 <li><strong>Env Vars:</strong> <code>REMOTE_INGESTION_URL</code>,
-                                    <code>INTER_CLOUD_TOKEN</code></li>
+                                    <code>INTER_CLOUD_TOKEN</code>
+                                </li>
                                 <li><strong>Uses:</strong> Shared <code>inter_cloud.py</code> module for HTTP POST</li>
                             </ul>
                         </li>
@@ -584,7 +592,8 @@
                             <ul>
                                 <li><strong>Single Cloud:</strong> Writes directly to Cosmos DB</li>
                                 <li><strong>Multi Cloud:</strong> POSTs to remote Hot Writer URL via
-                                    <code>inter_cloud.py</code></li>
+                                    <code>inter_cloud.py</code>
+                                </li>
                                 <li><strong>Interaction:</strong> Asynchronously invokes Event Checker (if enabled)</li>
                             </ul>
                         </li>
@@ -787,9 +796,11 @@
                                 <li><strong>Header:</strong> <code>X-Inter-Cloud-Token</code> for all cross-cloud HTTP
                                     calls.</li>
                                 <li><strong>Environment Variable:</strong> Token stored as
-                                    <code>INTER_CLOUD_TOKEN</code>.</li>
+                                    <code>INTER_CLOUD_TOKEN</code>.
+                                </li>
                                 <li><strong>Generation:</strong> Secure random token persisted to
-                                    <code>config_inter_cloud.json</code>.</li>
+                                    <code>config_inter_cloud.json</code>.
+                                </li>
                                 <li><strong>Validation:</strong> All L0 functions validate token before processing.</li>
                             </ul>
                         </li>

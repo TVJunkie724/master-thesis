@@ -641,6 +641,19 @@ def create_l1_function_app(
         )
         app = poller.result()
         
+        # Enable SCM Basic Auth Publishing (required for Kudu zip deploy)
+        # Azure disables basic auth by default since 2023
+        logger.info("  Enabling SCM Basic Auth Publishing...")
+        try:
+            provider.clients["web"].web_apps.update_scm_allowed(
+                resource_group_name=rg_name,
+                name=app_name,
+                csm_publishing_access_policies_entity={"allow": True}
+            )
+            logger.info("  ✓ SCM Basic Auth enabled")
+        except Exception as e:
+            logger.warning(f"  Could not enable SCM Basic Auth (may already be enabled): {e}")
+        
         # Configure app settings
         _configure_l1_function_app_settings(provider, config, storage_name)
         
@@ -833,7 +846,7 @@ def deploy_dispatcher_function(
     # 1. Get publish credentials from SDK
     logger.info("  Getting publish credentials...")
     try:
-        creds = provider.clients["web"].web_apps.list_publishing_credentials(
+        creds = provider.clients["web"].web_apps.begin_list_publishing_credentials(
             resource_group_name=rg_name,
             name=app_name
         ).result()
@@ -862,30 +875,46 @@ def deploy_dispatcher_function(
     
     zip_content = util.compile_azure_function(dispatcher_dir, project_path)
     
-    # 3. Deploy to Kudu zipdeploy endpoint
+    # 3. Deploy to Kudu zipdeploy endpoint (with retry for SCM startup)
     logger.info("  Deploying via Kudu zip deploy...")
     kudu_url = f"https://{app_name}.scm.azurewebsites.net/api/zipdeploy"
     
-    try:
-        response = requests.post(
-            kudu_url,
-            data=zip_content,
-            auth=(publish_username, publish_password),
-            headers={"Content-Type": "application/zip"},
-            timeout=300  # 5 minute timeout for deployment
-        )
-        
-        if response.status_code in (200, 202):
-            logger.info(f"✓ Dispatcher function deployed successfully")
-        else:
-            logger.error(f"Kudu deploy failed: {response.status_code} - {response.text}")
-            raise HttpResponseError(
-                message=f"Kudu zip deploy failed: {response.status_code}",
-                response=response
+    # Retry logic: Kudu SCM may need 30-60s to become ready after Function App creation
+    max_retries = 5
+    retry_delay = 15  # seconds
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = requests.post(
+                kudu_url,
+                data=zip_content,
+                auth=(publish_username, publish_password),
+                headers={"Content-Type": "application/zip"},
+                timeout=300  # 5 minute timeout for deployment
             )
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Network error during Kudu deploy: {e}")
-        raise
+            
+            if response.status_code in (200, 202):
+                logger.info(f"✓ Dispatcher function deployed successfully")
+                return
+            elif response.status_code in (401, 503) and attempt < max_retries:
+                # 401: Kudu SCM not ready yet (auth not yet active)
+                # 503: Kudu service unavailable (still starting up)
+                logger.warning(f"  Kudu returned {response.status_code} (attempt {attempt}/{max_retries}), waiting {retry_delay}s for SCM to become ready...")
+                time.sleep(retry_delay)
+                continue
+            else:
+                logger.error(f"Kudu deploy failed: {response.status_code} - {response.text}")
+                raise HttpResponseError(
+                    message=f"Kudu zip deploy failed: {response.status_code}",
+                    response=response
+                )
+        except requests.exceptions.RequestException as e:
+            if attempt < max_retries:
+                logger.warning(f"  Network error (attempt {attempt}/{max_retries}): {e}, retrying in {retry_delay}s...")
+                time.sleep(retry_delay)
+                continue
+            logger.error(f"Network error during Kudu deploy: {e}")
+            raise
 
 
 def destroy_dispatcher_function(provider: 'AzureProvider') -> None:
@@ -1342,7 +1371,7 @@ def deploy_connector_function(
     # 1. Get publish credentials from SDK
     logger.info("  Getting publish credentials...")
     try:
-        creds = provider.clients["web"].web_apps.list_publishing_credentials(
+        creds = provider.clients["web"].web_apps.begin_list_publishing_credentials(
             resource_group_name=rg_name,
             name=app_name
         ).result()

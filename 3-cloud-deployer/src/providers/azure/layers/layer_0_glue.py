@@ -272,7 +272,7 @@ def _deploy_glue_functions(provider: 'AzureProvider') -> None:
     
     # 1. Get publish credentials
     try:
-        creds = provider.clients["web"].web_apps.list_publishing_credentials(
+        creds = provider.clients["web"].web_apps.begin_list_publishing_credentials(
             resource_group_name=rg_name,
             name=app_name
         ).result()

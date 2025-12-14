@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Registry Pattern — Deployer Documentation</title>
+    <link rel="icon" type="image/x-icon" href="references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="css/docs_styles.css" />
+</head>
+
+<body>
+    <div class="layout">
+        <aside id="nav-placeholder"></aside>
+        <main class="p-4">
+            <h1 class="mb-3"><i class="fa-solid fa-book me-2"></i>Registry Pattern</h1>
+            <p class="text-muted mb-4">Central registry for provider lookup with auto-registration.</p>
+
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="docs-design-patterns.html">Design Patterns</a></li>
+                    <li class="breadcrumb-item active">Registry</li>
+                </ol>
+            </nav>
+
+            <div class="card mb-4">
+                <h2 class="mb-3">Definition</h2>
+                <p>The Registry Pattern provides a central place for objects to register themselves
+                    and for clients to look them up by name.</p>
+
+                <h4 class="mt-4">Why We Use It</h4>
+                <p>We need to look up providers by name (e.g., "aws" from config file). The Registry
+                    allows providers to self-register when their modules are imported.</p>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3">Pattern Diagram</h2>
+                <pre class="p-3 rounded bg-dark text-light"><code>                    ┌─────────────────────────────────────────┐
+                    │          ProviderRegistry               │
+                    │  ┌───────────────────────────────────┐  │
+                    │  │  _providers: Dict[str, Type]      │  │
+                    │  │  ┌─────────────────────────────┐  │  │
+                    │  │  │ "aws"   → AWSProvider       │  │  │
+                    │  │  │ "azure" → AzureProvider     │  │  │
+                    │  │  │ "gcp"   → GCPProvider       │  │  │
+                    │  │  └─────────────────────────────┘  │  │
+                    │  └───────────────────────────────────┘  │
+                    │                                         │
+                    │  + register(name, class) ← At import    │
+                    │  + get(name) → Instance  ← At runtime   │
+                    │  + list_providers() → [names]           │
+                    └─────────────────────────────────────────┘
+                                        ▲
+       ┌────────────────────────────────┼───────────────────────────────────┐
+       │                                │                                   │
+  Auto-register                    Auto-register                      Auto-register
+       │                                │                                   │
+┌──────┴──────────────┐   ┌─────────────┴───────────┐   ┌───────────────────┴─────┐
+│ providers/aws/      │   │ providers/azure/        │   │ providers/gcp/          │
+│  __init__.py        │   │  __init__.py            │   │  __init__.py            │
+│                     │   │                         │   │                         │
+│ ProviderRegistry.   │   │ ProviderRegistry.       │   │ ProviderRegistry.       │
+│   register("aws",   │   │   register("azure",     │   │   register("gcp",       │
+│     AWSProvider)    │   │     AzureProvider)      │   │     GCPProvider)        │
+└─────────────────────┘   └─────────────────────────┘   └─────────────────────────┘</code></pre>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3">Implementation</h2>
+                <pre class="p-3 rounded"><code># File: src/core/registry.py
+
+class ProviderRegistry:
+    """Central registry for cloud providers."""
+    
+    _providers: Dict[str, Type[CloudProvider]] = {}
+    
+    @classmethod
+    def register(cls, name: str, provider_class: Type[CloudProvider]) -> None:
+        """Register a provider class under a name."""
+        cls._providers[name] = provider_class
+    
+    @classmethod
+    def get(cls, name: str) -> CloudProvider:
+        """Get a new instance of the named provider."""
+        if name not in cls._providers:
+            raise ProviderNotFoundError(name, list(cls._providers.keys()))
+        return cls._providers[name]()
+    
+    @classmethod
+    def list_providers(cls) -> list[str]:
+        """List all registered provider names."""
+        return sorted(cls._providers.keys())</code></pre>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3">Auto-Registration</h2>
+                <pre class="p-3 rounded"><code># File: src/providers/aws/__init__.py
+
+from core.registry import ProviderRegistry
+from .provider import AWSProvider
+
+# Auto-register when this module is imported
+ProviderRegistry.register("aws", AWSProvider)</code></pre>
+            </div>
+
+            <div class="card mb-4">
+                <h2 class="mb-3">Usage</h2>
+                <pre class="p-3 rounded"><code># Import providers package to trigger registration
+import providers
+
+# Now look up any provider by name
+provider = ProviderRegistry.get("aws")
+provider.initialize_clients(credentials, "my-twin")</code></pre>
+            </div>
+        </main>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;"><i class="fa-solid fa-arrow-up"></i></button>
+    <script src="js/docs-nav.js" defer></script>
+</body>
+
+</html>

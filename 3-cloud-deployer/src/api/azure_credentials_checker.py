@@ -73,11 +73,13 @@ REQUIRED_AZURE_PERMISSIONS = {
             "Microsoft.Web/sites/write",
             "Microsoft.Web/sites/delete",
             "Microsoft.Web/sites/publish/action",
+            "Microsoft.Web/sites/config/list/action",  # Get publish credentials
+            "Microsoft.Web/sites/basicPublishingCredentialsPolicies/write",  # Enable SCM Basic Auth
         ],
     },
     "layer_1": {
-        "description": "IoT Hub, Event Grid, Role Assignments",
-        "resource_providers": ["Microsoft.Devices", "Microsoft.EventGrid", "Microsoft.Authorization"],
+        "description": "IoT Hub, Event Grid, Role Assignments, L1 Function Deployment",
+        "resource_providers": ["Microsoft.Devices", "Microsoft.EventGrid", "Microsoft.Authorization", "Microsoft.Web"],
         "required_actions": [
             "Microsoft.Devices/IotHubs/write",
             "Microsoft.Devices/IotHubs/delete",
@@ -86,6 +88,8 @@ REQUIRED_AZURE_PERMISSIONS = {
             "Microsoft.EventGrid/systemTopics/eventSubscriptions/write",
             "Microsoft.Authorization/roleAssignments/write",
             "Microsoft.Authorization/roleAssignments/delete",
+            "Microsoft.Web/sites/config/list/action",  # Get publish credentials for L1 functions
+            "Microsoft.Web/sites/basicPublishingCredentialsPolicies/write",  # Enable SCM Basic Auth
         ],
     },
     "layer_2": {
@@ -95,6 +99,8 @@ REQUIRED_AZURE_PERMISSIONS = {
             "Microsoft.Web/sites/write",
             "Microsoft.Web/sites/delete",
             "Microsoft.Web/sites/publish/action",
+            "Microsoft.Web/sites/config/list/action",  # Get publish credentials
+            "Microsoft.Web/sites/basicPublishingCredentialsPolicies/write",  # Enable SCM Basic Auth
         ],
     },
     "layer_3": {

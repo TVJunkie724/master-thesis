@@ -23,488 +23,81 @@
             </h1>
 
             <p class="text-muted mb-4">
-                This page documents the design patterns used in the Cloud Deployer codebase
-                to enable multi-cloud deployments and maintainable architecture.
+                The Cloud Deployer uses four key design patterns that work together to enable
+                multi-cloud deployments and maintainable architecture.
             </p>
 
             <div class="callout info mb-4">
-                <strong><i class="fa-solid fa-lightbulb me-2"></i>Pattern-Driven Architecture</strong>
-                The deployer uses four key patterns that work together: Strategy, Provider (Abstract Factory),
-                Dependency Injection, and Registry. These enable adding new cloud providers without modifying existing
-                code.
+                <strong><i class="fa-solid fa-lightbulb me-2"></i>Why Patterns Matter</strong>
+                These patterns enable adding new cloud providers without modifying existing code,
+                improve testability, and make all dependencies explicit.
             </div>
 
-            <!-- Table of Contents -->
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Table of Contents</h2>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <ul>
-                                <li><a href="#strategy">1. Strategy Pattern</a></li>
-                                <li><a href="#provider">2. Provider Pattern (Abstract Factory)</a></li>
-                                <li><a href="#di">3. Dependency Injection (Context)</a></li>
-                            </ul>
-                        </div>
-                        <div class="col-md-6">
-                            <ul>
-                                <li><a href="#registry">4. Registry Pattern</a></li>
-                                <li><a href="#together">How Patterns Work Together</a></li>
-                                <li><a href="#structure">Code Location</a></li>
-                            </ul>
+            <!-- Pattern Cards -->
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h3 class="card-title">
+                                <i class="fa-solid fa-shuffle me-2"></i>Strategy Pattern
+                            </h3>
+                            <p class="card-text">
+                                Interchangeable deployment algorithms for each cloud provider.
+                            </p>
+                            <a href="docs-pattern-strategy.html" class="btn btn-primary">
+                                <i class="fa-solid fa-arrow-right me-1"></i>Learn More
+                            </a>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Pattern 1: Strategy -->
-            <div class="card mb-4" id="strategy">
-                <h2 class="mb-3"><i class="fa-solid fa-shuffle me-2"></i>1. Strategy Pattern</h2>
-
-                <h5 class="text-primary">Definition</h5>
-                <p>The Strategy Pattern defines a family of algorithms, encapsulates each one, and makes them
-                    interchangeable. It lets the algorithm vary independently from clients that use it.</p>
-
-                <h5 class="text-primary mt-4">Why We Use It</h5>
-                <p>Each cloud provider (AWS, Azure, GCP) has different ways to deploy the same logical layer.
-                    The Strategy pattern allows us to swap implementations without changing the code that uses them.</p>
-
-                <h5 class="text-primary mt-4">Pattern Diagram</h5>
-                <pre class="p-3 rounded bg-dark text-light"><code>                          ┌─────────────────────────┐
-                          │   DeployerStrategy      │  ← Interface/Protocol
-                          │   (Abstract)            │
-                          ├─────────────────────────┤
-                          │ + deploy_l1(context)    │
-                          │ + destroy_l1(context)   │
-                          │ + deploy_l2(context)    │
-                          │ + deploy_l3_hot(context)│
-                          │ + ...                   │
-                          └───────────┬─────────────┘
-                                      │
-              ┌───────────────────────┼───────────────────────┐
-              │ implements            │ implements            │ implements
-              ▼                       ▼                       ▼
-    ┌─────────────────────┐ ┌─────────────────────┐ ┌─────────────────────┐
-    │ AWSDeployerStrategy │ │AzureDeployerStrategy│ │ GCPDeployerStrategy │
-    ├─────────────────────┤ ├─────────────────────┤ ├─────────────────────┤
-    │ Uses boto3, Lambda, │ │ Uses azure-sdk,     │ │ Uses google-cloud,  │
-    │ DynamoDB, TwinMaker │ │ Functions, CosmosDB │ │ Pub/Sub, Firestore  │
-    └─────────────────────┘ └─────────────────────┘ └─────────────────────┘
-</code></pre>
-
-                <h5 class="text-primary mt-4">Implementation</h5>
-                <pre class="p-3 rounded"><code># File: src/core/protocols.py
-
-@runtime_checkable
-class DeployerStrategy(Protocol):
-    """Strategy interface for deployment operations."""
-    
-    def deploy_l1(self, context: DeploymentContext) -> None: ...
-    def destroy_l1(self, context: DeploymentContext) -> None: ...
-    def deploy_l2(self, context: DeploymentContext) -> None: ...
-    # ... more layer methods
-</code></pre>
-
-                <h5 class="text-primary mt-4">Concrete Implementations</h5>
-                <pre class="p-3 rounded"><code># File: src/providers/aws/deployer_strategy.py
-
-class AWSDeployerStrategy:
-    """AWS implementation of DeployerStrategy."""
-    
-    def __init__(self, provider: AWSProvider):
-        self._provider = provider
-    
-    def deploy_l1(self, context: DeploymentContext) -> None:
-        """Deploy L1 using AWS IoT Core and Lambda."""
-        # Create IAM role
-        # Create Lambda function  
-        # Create IoT rule
-        ...
-
-# File: src/providers/azure/deployer_strategy.py
-
-class AzureDeployerStrategy:
-    """Azure implementation of DeployerStrategy."""
-    
-    def deploy_l1(self, context: DeploymentContext) -> None:
-        """Deploy L1 using Azure IoT Hub and Functions."""
-        # Create IoT Hub
-        # Create Azure Function
-        # Configure message routing
-        ...
-</code></pre>
-
-                <h5 class="text-primary mt-4">Usage Example</h5>
-                <pre class="p-3 rounded"><code># The core deployer doesn't know which cloud is being used
-def deploy_l1(context: DeploymentContext) -> None:
-    provider = context.get_provider_for_layer(1)
-    strategy = provider.get_deployer_strategy()
-    strategy.deploy_l1(context)  # Calls AWS, Azure, or GCP automatically
-</code></pre>
-            </div>
-
-            <!-- Pattern 2: Provider (Abstract Factory) -->
-            <div class="card mb-4" id="provider">
-                <h2 class="mb-3"><i class="fa-solid fa-industry me-2"></i>2. Provider Pattern (Abstract Factory)</h2>
-
-                <h5 class="text-primary">Definition</h5>
-                <p>The Abstract Factory Pattern provides an interface for creating families of related objects
-                    without specifying their concrete classes.</p>
-
-                <h5 class="text-primary mt-4">Why We Use It</h5>
-                <p>Each cloud provider needs multiple related objects: SDK clients, resource name generators,
-                    and deployer strategies. The Provider pattern groups these together.</p>
-
-                <h5 class="text-primary mt-4">Pattern Diagram</h5>
-                <pre class="p-3 rounded bg-dark text-light"><code>┌─────────────────────────────────────────────────────────────────────────────┐
-│                           CloudProvider (Protocol)                          │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  Properties:                                                                │
-│   - name: str                       ← "aws", "azure", or "gcp"              │
-│   - clients: Dict[str, Any]         ← Initialized SDK clients               │
-│                                                                             │
-│  Methods:                                                                   │
-│   - initialize_clients(credentials) ← Create SDK clients (boto3, etc.)      │
-│   - get_resource_name(type, suffix) ← Generate "{twin}-{type}-{suffix}"     │
-│   - get_deployer_strategy()         ← Return the Strategy for this provider │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      │ implements
-        ┌─────────────────────────────┼─────────────────────────────┐
-        │                             │                             │
-        ▼                             ▼                             ▼
-┌───────────────────┐       ┌───────────────────┐       ┌───────────────────┐
-│   AWSProvider     │       │   AzureProvider   │       │   GCPProvider     │
-├───────────────────┤       ├───────────────────┤       ├───────────────────┤
-│ - name = "aws"    │       │ - name = "azure"  │       │ - name = "gcp"    │
-│ - clients: {      │       │ - clients: {      │       │ - clients: {      │
-│     iam, lambda,  │       │     mgmt, funcs,  │       │     pubsub, funcs │
-│     dynamodb, ... │       │     cosmosdb, ... │       │     firestore,... │
-│   }               │       │   }               │       │   }               │
-└───────────────────┘       └───────────────────┘       └───────────────────┘
-</code></pre>
-
-                <h5 class="text-primary mt-4">Implementation</h5>
-                <pre class="p-3 rounded"><code># File: src/core/protocols.py
-
-@runtime_checkable
-class CloudProvider(Protocol):
-    """Factory interface for cloud providers."""
-    
-    @property
-    def name(self) -> str:
-        """Return provider ID: 'aws', 'azure', or 'gcp'."""
-        ...
-    
-    @property
-    def clients(self) -> Dict[str, Any]:
-        """Return initialized SDK clients."""
-        ...
-    
-    def initialize_clients(self, credentials: dict, twin_name: str) -> None:
-        """Initialize SDK clients with credentials."""
-        ...
-    
-    def get_resource_name(self, resource_type: str, suffix: str = "") -> str:
-        """Generate namespaced resource name."""
-        ...
-    
-    def get_deployer_strategy(self) -> DeployerStrategy:
-        """Return the deployment strategy for this provider."""
-        ...
-</code></pre>
-
-                <h5 class="text-primary mt-4">Concrete Implementation</h5>
-                <pre class="p-3 rounded"><code># File: src/providers/aws/provider.py
-
-class AWSProvider:
-    """AWS implementation of CloudProvider."""
-    
-    name = "aws"
-    
-    def initialize_clients(self, credentials: dict, twin_name: str) -> None:
-        import boto3
-        self._twin_name = twin_name
-        self._clients = {
-            "iam": boto3.client("iam", **credentials),
-            "lambda": boto3.client("lambda", **credentials),
-            "dynamodb": boto3.client("dynamodb", **credentials),
-            # ... more clients
-        }
-    
-    @property
-    def clients(self) -> dict:
-        return self._clients
-    
-    def get_resource_name(self, resource_type: str, suffix: str = "") -> str:
-        if suffix:
-            return f"{self._twin_name}-{resource_type}-{suffix}"
-        return f"{self._twin_name}-{resource_type}"
-    
-    def get_deployer_strategy(self) -> AWSDeployerStrategy:
-        return AWSDeployerStrategy(self)
-</code></pre>
-            </div>
-
-            <!-- Pattern 3: Dependency Injection -->
-            <div class="card mb-4" id="di">
-                <h2 class="mb-3"><i class="fa-solid fa-syringe me-2"></i>3. Dependency Injection (Context)</h2>
-
-                <h5 class="text-primary">Definition</h5>
-                <p>Dependency Injection is a technique where objects receive their dependencies from external
-                    sources rather than creating them internally.</p>
-
-                <h5 class="text-primary mt-4">Why We Use It</h5>
-                <p>The old code used global variables (<code>globals.py</code>) which made testing difficult
-                    and hid dependencies. The DeploymentContext makes all dependencies explicit.</p>
-
-                <h5 class="text-primary mt-4">Pattern Diagram</h5>
-                <pre class="p-3 rounded bg-dark text-light"><code>BEFORE: Global State (Hidden Dependencies)
-──────────────────────────────────────────────────────────────────────────────
-┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
-│    deploy_l1()      │     │    deploy_l2()      │     │    deploy_l3()      │
-│                     │     │                     │     │                     │
-│ import globals ─────┼─────┼─────────────────────┼─────┤► globals.py (HIDDEN)│
-│ import globals_aws ─┼─────┼─────────────────────┼─────┤► globals_aws.py     │
-└─────────────────────┘     └─────────────────────┘     └─────────────────────┘
-
-      ❌ Dependencies hidden via imports
-      ❌ Hard to test (must mock modules)
-      ❌ No isolation between requests
-
-
-AFTER: Dependency Injection (Explicit Dependencies)
-──────────────────────────────────────────────────────────────────────────────
-                       ┌─────────────────────────────────┐
-                       │      DeploymentContext          │
-                       │  ┌───────────────────────────┐  │
-                       │  │ - config: ProjectConfig   │  │
-                       │  │ - providers: Dict[str, P] │  │
-                       │  │ - credentials: Dict       │  │
-                       │  │ - project_path: Path      │  │
-                       │  └───────────────────────────┘  │
-                       └───────────────┬─────────────────┘
-                                       │ passed to
-              ┌────────────────────────┼────────────────────────┐
-              ▼                        ▼                        ▼
-┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
-│ deploy_l1(context)  │  │ deploy_l2(context)  │  │ deploy_l3(context)  │
-│                     │  │                     │  │                     │
-│ context.config      │  │ context.config      │  │ context.config      │
-│ context.providers[] │  │ context.providers[] │  │ context.providers[] │
-└─────────────────────┘  └─────────────────────┘  └─────────────────────┘
-
-      ✅ Dependencies explicit in signature
-      ✅ Easy to test (just pass mock context)
-      ✅ Each request gets isolated context
-</code></pre>
-
-                <h5 class="text-primary mt-4">Before (Global State)</h5>
-                <pre class="p-3 rounded"><code># Old approach - hidden dependencies
-import globals
-
-def deploy_l1():
-    twin_name = globals.config["digital_twin_name"]  # Hidden!
-    client = globals_aws.get_iam_client()  # Hidden!
-    ...
-</code></pre>
-
-                <h5 class="text-primary mt-4">After (Dependency Injection)</h5>
-                <pre class="p-3 rounded"><code># New approach - explicit dependencies
-def deploy_l1(context: DeploymentContext) -> None:
-    twin_name = context.config.digital_twin_name  # Explicit!
-    provider = context.get_provider_for_layer(1)  # Explicit!
-    client = provider.clients["iam"]  # Explicit!
-    ...
-</code></pre>
-
-                <h5 class="text-primary mt-4">Implementation</h5>
-                <pre class="p-3 rounded"><code># File: src/core/context.py
-
-@dataclass
-class DeploymentContext:
-    """Encapsulates all state needed for deployment."""
-    
-    project_name: str
-    project_path: Path
-    config: ProjectConfig
-    providers: Dict[str, CloudProvider] = field(default_factory=dict)
-    credentials: Dict[str, dict] = field(default_factory=dict)
-    
-    def get_provider_for_layer(self, layer: int) -> CloudProvider:
-        """Get the provider configured for a specific layer."""
-        provider_name = self.config.get_provider_for_layer(layer)
-        return self.providers[provider_name]
-</code></pre>
-
-                <h5 class="text-primary mt-4">Benefits</h5>
-                <ul>
-                    <li><strong>Testability:</strong> Easy to mock configuration and providers</li>
-                    <li><strong>Clarity:</strong> All dependencies are visible in function signatures</li>
-                    <li><strong>Concurrency:</strong> Multiple deployments can run with different configs</li>
-                    <li><strong>Debugging:</strong> State is traceable, not scattered across globals</li>
-                </ul>
-            </div>
-
-            <!-- Pattern 4: Registry -->
-            <div class="card mb-4" id="registry">
-                <h2 class="mb-3"><i class="fa-solid fa-book me-2"></i>4. Registry Pattern</h2>
-
-                <h5 class="text-primary">Definition</h5>
-                <p>The Registry Pattern provides a central place for objects to register themselves
-                    and for clients to look them up by name.</p>
-
-                <h5 class="text-primary mt-4">Why We Use It</h5>
-                <p>We need to look up providers by name (e.g., "aws" from config file). The Registry
-                    allows providers to self-register when their modules are imported.</p>
-
-                <h5 class="text-primary mt-4">Pattern Diagram</h5>
-                <pre class="p-3 rounded bg-dark text-light"><code>                    ┌─────────────────────────────────────────┐
-                    │          ProviderRegistry               │
-                    │  ┌───────────────────────────────────┐  │
-                    │  │  _providers: Dict[str, Type]      │  │
-                    │  │  ┌─────────────────────────────┐  │  │
-                    │  │  │ "aws"   → AWSProvider       │  │  │
-                    │  │  │ "azure" → AzureProvider     │  │  │
-                    │  │  │ "gcp"   → GCPProvider       │  │  │
-                    │  │  └─────────────────────────────┘  │  │
-                    │  └───────────────────────────────────┘  │
-                    │                                         │
-                    │  + register(name, class) ← At import    │
-                    │  + get(name) → Instance  ← At runtime   │
-                    │  + list_providers() → [names]           │
-                    └─────────────────────────────────────────┘
-                                        ▲
-       ┌────────────────────────────────┼────────────────────────────────┐
-       │                                │                                │
-  Auto-register at import          Auto-register at import         Auto-register at import
-       │                                │                                │
-┌──────┴──────────────┐   ┌─────────────┴───────────┐   ┌────────────────┴────────┐
-│ providers/aws/      │   │ providers/azure/        │   │ providers/gcp/          │
-│  __init__.py        │   │  __init__.py            │   │  __init__.py            │
-│                     │   │                         │   │                         │
-│ ProviderRegistry.   │   │ ProviderRegistry.       │   │ ProviderRegistry.       │
-│   register("aws",   │   │   register("azure",     │   │   register("gcp",       │
-│     AWSProvider)    │   │     AzureProvider)      │   │     GCPProvider)        │
-└─────────────────────┘   └─────────────────────────┘   └─────────────────────────┘
-</code></pre>
-
-                <h5 class="text-primary mt-4">Implementation</h5>
-                <pre class="p-3 rounded"><code># File: src/core/registry.py
-
-class ProviderRegistry:
-    """Central registry for cloud providers."""
-    
-    _providers: Dict[str, Type[CloudProvider]] = {}
-    
-    @classmethod
-    def register(cls, name: str, provider_class: Type[CloudProvider]) -> None:
-        """Register a provider class under a name."""
-        cls._providers[name] = provider_class
-    
-    @classmethod
-    def get(cls, name: str) -> CloudProvider:
-        """Get a new instance of the named provider."""
-        if name not in cls._providers:
-            raise ProviderNotFoundError(name, list(cls._providers.keys()))
-        return cls._providers[name]()
-    
-    @classmethod
-    def list_providers(cls) -> list[str]:
-        """List all registered provider names."""
-        return sorted(cls._providers.keys())
-</code></pre>
-
-                <h5 class="text-primary mt-4">Auto-Registration</h5>
-                <pre class="p-3 rounded"><code># File: src/providers/aws/__init__.py
-
-from core.registry import ProviderRegistry
-from .provider import AWSProvider
-
-# Auto-register when this module is imported
-ProviderRegistry.register("aws", AWSProvider)
-</code></pre>
-
-                <h5 class="text-primary mt-4">Usage</h5>
-                <pre class="p-3 rounded"><code># Import providers package to trigger registration
-import providers
-
-# Now look up any provider by name
-provider = ProviderRegistry.get("aws")
-provider.initialize_clients(credentials, "my-twin")
-</code></pre>
-            </div>
-
-            <!-- How Patterns Work Together -->
-            <div class="card mb-4" id="together">
-                <h2 class="mb-3"><i class="fa-solid fa-puzzle-piece me-2"></i>How Patterns Work Together</h2>
-
-                <p>Here's how the four patterns collaborate during a deployment:</p>
-
-                <pre class="p-3 rounded"><code># 1. Load configuration and create context (Dependency Injection)
-config = load_project_config(project_path)
-context = DeploymentContext(
-    project_name="factory-twin",
-    project_path=project_path,
-    config=config,
-)
-
-# 2. Initialize required providers (Registry + Provider)
-for provider_name in get_required_providers(config):
-    # Registry pattern: look up provider by name
-    provider = ProviderRegistry.get(provider_name)
-    
-    # Provider pattern: initialize clients
-    provider.initialize_clients(credentials[provider_name], config.digital_twin_name)
-    context.providers[provider_name] = provider
-
-# 3. Deploy using the right strategy (Strategy)
-for layer in [1, 2, "3_hot", "3_cold", "3_archive", 4, 5]:
-    # Context provides the right provider
-    provider = context.get_provider_for_layer(layer)
-    
-    # Provider provides the right strategy
-    strategy = provider.get_deployer_strategy()
-    
-    # Strategy knows how to deploy for this cloud
-    getattr(strategy, f"deploy_l{layer}")(context)
-</code></pre>
-
-                <div class="callout info mt-4">
-                    <strong><i class="fa-solid fa-check-circle me-2"></i>Result</strong>
-                    Adding a new cloud provider (e.g., Oracle Cloud) requires only creating a new package
-                    in <code>src/providers/oracle/</code> that implements <code>CloudProvider</code> and
-                    <code>DeployerStrategy</code>. No existing code needs modification.
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h3 class="card-title">
+                                <i class="fa-solid fa-industry me-2"></i>Provider Pattern
+                            </h3>
+                            <p class="card-text">
+                                Abstract Factory grouping SDK clients, resource names, and strategies.
+                            </p>
+                            <a href="docs-pattern-provider.html" class="btn btn-primary">
+                                <i class="fa-solid fa-arrow-right me-1"></i>Learn More
+                            </a>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Directory Structure -->
-            <div class="card mb-4" id="structure">
-                <h2 class="mb-3"><i class="fa-solid fa-folder-tree me-2"></i>Code Location</h2>
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h3 class="card-title">
+                                <i class="fa-solid fa-syringe me-2"></i>Dependency Injection
+                            </h3>
+                            <p class="card-text">
+                                DeploymentContext replaces globals with explicit dependency passing.
+                            </p>
+                            <a href="docs-pattern-di.html" class="btn btn-primary">
+                                <i class="fa-solid fa-arrow-right me-1"></i>Learn More
+                            </a>
+                        </div>
+                    </div>
+                </div>
 
-                <pre class="p-3 rounded"><code>src/
-├── core/                        # Pattern infrastructure
-│   ├── __init__.py
-│   ├── protocols.py             # CloudProvider, DeployerStrategy interfaces
-│   ├── context.py               # DeploymentContext, ProjectConfig
-│   ├── registry.py              # ProviderRegistry
-│   ├── config_loader.py         # Configuration loading
-│   └── exceptions.py            # Custom exceptions
-│
-├── providers/                   # Provider implementations
-│   ├── __init__.py              # Imports all providers for registration
-│   ├── base.py                  # Shared base utilities
-│   ├── aws/                     # AWS provider
-│   │   ├── __init__.py          # Registers AWSProvider
-│   │   ├── provider.py          # AWSProvider class
-│   │   └── deployer_strategy.py # AWSDeployerStrategy
-│   ├── azure/                   # Azure provider (future)
-│   └── gcp/                     # GCP provider (future)
-│
-└── deployers/                   # Orchestrators (use patterns above)
-    ├── core_deployer.py         # Main deployment orchestration
-    └── iot_deployer.py          # IoT device deployment
-</code></pre>
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h3 class="card-title">
+                                <i class="fa-solid fa-book me-2"></i>Registry Pattern
+                            </h3>
+                            <p class="card-text">
+                                Central registry for provider lookup with auto-registration.
+                            </p>
+                            <a href="docs-pattern-registry.html" class="btn btn-primary">
+                                <i class="fa-solid fa-arrow-right me-1"></i>Learn More
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
 
         </main>

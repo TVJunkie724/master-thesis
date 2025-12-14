@@ -81,6 +81,74 @@ def e2e_project_path(template_project_path, e2e_test_id, tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
+def e2e_failure_project_path(template_project_path, e2e_test_id, tmp_path_factory):
+    """
+    Create a temporary E2E test project with INVALID IoT Hub region.
+    
+    This project is designed to trigger a deployment failure during L1
+    to test the cleanup/destroy functionality.
+    
+    The invalid region 'invalid-region-xyz' will cause IoT Hub creation to fail
+    with a clear error message, allowing us to verify:
+    - Setup layer deploys successfully
+    - L1 fails during IoT Hub creation
+    - Cleanup runs and destroys all resources
+    """
+    # Create temp directory for failure test project
+    temp_dir = tmp_path_factory.mktemp("e2e_failure_project")
+    failure_test_id = f"fail-{e2e_test_id}"
+    project_path = temp_dir / failure_test_id
+    
+    # Copy template project
+    shutil.copytree(template_project_path, project_path)
+    
+    # Modify config.json with unique twin name
+    config_path = project_path / "config.json"
+    with open(config_path, "r") as f:
+        config = json.load(f)
+    config["digital_twin_name"] = failure_test_id
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=2)
+    
+    # Modify config_providers.json to all-Azure
+    providers_path = project_path / "config_providers.json"
+    providers = {
+        "layer_1_provider": "azure",
+        "layer_2_provider": "azure",
+        "layer_3_hot_provider": "azure",
+        "layer_3_cold_provider": "azure",
+        "layer_3_archive_provider": "azure",
+        "layer_4_provider": "azure",
+        "layer_5_provider": "azure"
+    }
+    with open(providers_path, "w") as f:
+        json.dump(providers, f, indent=2)
+    
+    # Modify config_credentials.json with INVALID IoT Hub region
+    creds_path = project_path / "config_credentials.json"
+    if creds_path.exists():
+        with open(creds_path, "r") as f:
+            credentials = json.load(f)
+        
+        if "azure" in credentials:
+            # Keep valid credentials for authentication, but use invalid IoT Hub region
+            credentials["azure"]["azure_region_iothub"] = "invalid-region-xyz"
+            
+            with open(creds_path, "w") as f:
+                json.dump(credentials, f, indent=2)
+            
+            print(f"\n[E2E FAILURE] Created failure test project: {project_path}")
+            print(f"[E2E FAILURE] Digital twin name: {failure_test_id}")
+            print(f"[E2E FAILURE] Invalid IoT Hub region: invalid-region-xyz")
+    
+    yield str(project_path)
+    
+    # Cleanup temp directory
+    print(f"\n[E2E FAILURE] Cleaning up temp project: {project_path}")
+
+
+
+@pytest.fixture(scope="session")
 def azure_credentials(template_project_path):
     """
     Load Azure credentials from config_credentials.json.
