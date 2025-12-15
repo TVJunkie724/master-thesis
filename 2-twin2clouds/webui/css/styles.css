@@ -134,3 +134,45 @@
 .hover-underline:hover {
   text-decoration: underline !important;
 }
+
+/* Architecture Flowchart Styles */
+.architecture-flowchart {
+  font-family: 'Consolas', 'Monaco', 'Lucida Console', monospace;
+  font-size: 11px;
+  line-height: 1.3;
+  background-color: #1e1e2e;
+  color: #cdd6f4;
+  padding: 20px;
+  border-radius: 8px;
+  overflow-x: auto;
+  white-space: pre;
+  margin: 0;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+}
+
+.architecture-flowchart::-webkit-scrollbar {
+  height: 8px;
+}
+
+.architecture-flowchart::-webkit-scrollbar-track {
+  background: #313244;
+  border-radius: 4px;
+}
+
+.architecture-flowchart::-webkit-scrollbar-thumb {
+  background: #585b70;
+  border-radius: 4px;
+}
+
+.architecture-flowchart::-webkit-scrollbar-thumb:hover {
+  background: #6c7086;
+}
+
+/* Architecture Description Styles */
+.architecture-description dt {
+  font-weight: 600;
+}
+
+.architecture-description dd {
+  margin-bottom: 0.75rem;
+}

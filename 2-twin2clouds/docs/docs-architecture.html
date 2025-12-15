@@ -94,7 +94,26 @@
                         <li>Rules engine operations</li>
                     </ul>
 
-                    <h3 class="mt-4 mb-2"><i class="fa-solid fa-2 me-2 text-primary"></i>Layer 2: Storage</h3>
+                    <h3 class="mt-4 mb-2"><i class="fa-solid fa-2 me-2 text-primary"></i>Layer 2: Data Processing &
+                        Integration</h3>
+                    <p><strong>Purpose:</strong> Process, transform, and route data between storage tiers.</p>
+                    <p><strong>Services:</strong></p>
+                    <ul>
+                        <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> Lambda</li>
+                        <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Azure Functions
+                        </li>
+                        <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Cloud Functions</li>
+                    </ul>
+                    <p><strong>Cost Factors:</strong></p>
+                    <ul>
+                        <li>Number of function invocations</li>
+                        <li>Compute time (GB-seconds)</li>
+                        <li>Memory allocation</li>
+                    </ul>
+                    <p><strong>Note:</strong> Layer 2 is coupled with the provider selected for Layer 3 Hot Storage to
+                        minimize data transfer costs.</p>
+
+                    <h3 class="mt-4 mb-2"><i class="fa-solid fa-3 me-2 text-primary"></i>Layer 3: Storage</h3>
                     <p><strong>Purpose:</strong> Store telemetry data with different access patterns and retention
                         policies.
                     </p>
@@ -135,25 +154,6 @@
                         </li>
                     </ul>
                     <p><strong>Use Case:</strong> Long-term archival data (e.g., 12+ months)</p>
-
-                    <h3 class="mt-4 mb-2"><i class="fa-solid fa-3 me-2 text-primary"></i>Layer 3: Data Processing &
-                        Integration</h3>
-                    <p><strong>Purpose:</strong> Process, transform, and route data between storage tiers.</p>
-                    <p><strong>Services:</strong></p>
-                    <ul>
-                        <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> Lambda</li>
-                        <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Azure Functions
-                        </li>
-                        <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Cloud Functions</li>
-                    </ul>
-                    <p><strong>Cost Factors:</strong></p>
-                    <ul>
-                        <li>Number of function invocations</li>
-                        <li>Compute time (GB-seconds)</li>
-                        <li>Memory allocation</li>
-                    </ul>
-                    <p><strong>Note:</strong> Layer 3 is coupled with the provider selected for Layer 2 Hot Storage to
-                        minimize data transfer costs.</p>
 
                     <h3 class="mt-4 mb-2"><i class="fa-solid fa-4 me-2 text-primary"></i>Layer 4: Twin Management</h3>
                     <p><strong>Purpose:</strong> Manage 3D models and digital twin representations.</p>

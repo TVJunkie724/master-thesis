@@ -55,11 +55,17 @@ class CalcParams(BaseModel):
     apiCallsPerDashboardRefresh: int = Field(default=1, ge=1)
     average3DModelSizeInMB: float = Field(default=100.0, gt=0)
     
+    # New parameters for enhanced cost calculation
+    numberOfDeviceTypes: int = Field(default=1, ge=1, description="Number of distinct device types (each requires a processor)")
+    numberOfEventActions: int = Field(default=0, ge=0, description="Number of event action handlers from config_events.json")
+    eventTriggerRate: float = Field(default=0.1, ge=0.0, le=1.0, description="Fraction of messages that trigger events (0.0-1.0)")
+    
     # GCP Self-Hosted Options (L4/L5)
     # GCP lacks managed equivalents to AWS TwinMaker/Managed Grafana and Azure Digital Twins/Managed Grafana.
     # These toggles allow users to include or exclude GCP's self-hosted Compute Engine alternatives.
-    allowGcpSelfHostedL4: bool = Field(default=True, description="Include GCP self-hosted L4 (Twin Management on Compute Engine) in optimization")
-    allowGcpSelfHostedL5: bool = Field(default=True, description="Include GCP self-hosted L5 (Grafana on Compute Engine) in optimization")
+    # Default: False (GCP L4/L5 not implemented - future work)
+    allowGcpSelfHostedL4: bool = Field(default=False, description="Include GCP self-hosted L4 (Twin Management on Compute Engine) in optimization - NOT IMPLEMENTED")
+    allowGcpSelfHostedL5: bool = Field(default=False, description="Include GCP self-hosted L5 (Grafana on Compute Engine) in optimization - NOT IMPLEMENTED")
 
     @model_validator(mode='after')
     def validate_storage_duration_ordering(self) -> 'CalcParams':
@@ -98,8 +104,8 @@ class CalcParams(BaseModel):
             "orchestrationActionsPerMessage": 3,
             "eventsPerMessage": 1,
             "apiCallsPerDashboardRefresh": 1,
-            "allowGcpSelfHostedL4": True,
-            "allowGcpSelfHostedL5": True
+            "allowGcpSelfHostedL4": False,
+            "allowGcpSelfHostedL5": False
         }
     })
 
@@ -180,7 +186,8 @@ def calc(params: CalcParams = Body(
     Perform a cloud cost optimization calculation based on Digital Twin configuration parameters.
     """
     try:
-        from backend.calculation.engine import calculate_cheapest_costs
+        # Use new component-level calculation engine (v2)
+        from backend.calculation_v2.engine import calculate_cheapest_costs
         
         # Convert Pydantic model to dict
         params_dict = params.model_dump()

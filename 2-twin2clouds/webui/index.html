@@ -13,6 +13,23 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
 
   <link rel="stylesheet" href="./css/styles.css" />
+
+  <!-- Config modules -->
+  <script src="./js/config/layers.js" defer></script>
+  <script src="./js/config/providers.js" defer></script>
+  <script src="./js/config/services.js" defer></script>
+
+  <!-- Utility modules -->
+  <script src="./js/utils/formatters.js" defer></script>
+  <script src="./js/utils/path-parser.js" defer></script>
+
+  <!-- Component modules -->
+  <script src="./js/components/layer-card.js" defer></script>
+  <script src="./js/components/comparison-table.js" defer></script>
+  <script src="./js/components/warning-box.js" defer></script>
+  <script src="./js/components/architecture-flowchart.js" defer></script>
+
+  <!-- UI interaction and orchestration -->
   <script src="./js/calculation/ui.js" defer></script>
   <script src="./js/ui-components.js" defer></script>
   <script src="./js/api-client.js" defer></script>
@@ -143,32 +160,114 @@
     <div class="card shadow-sm p-4 mb-5">
       <div class="card-body">
 
-        <h4 class="mb-3 text-primary">Layer 1 & 3 - Workload Parameters</h4>
+        <h4 class="mb-3 text-primary">Layer 1 & 2 - Workload Parameters</h4>
         <p class="text-muted small mb-4">
-          Layer 1 (Ingestion) and Layer 3 (Processing) are grouped here because their costs are both driven by the same
+          Layer 1 (Ingestion) and Layer 2 (Processing) are grouped here because their costs are both driven by the same
           workload parameters: device count, message frequency, and message size.
         </p>
 
         <div class="row g-3 mb-4">
-          <div class="col-md-4">
+          <div class="col-md-3">
             <label for="devices" class="form-label">Number of Devices <i class="bi bi-info-circle text-primary ms-1"
                 data-bs-toggle="tooltip"
                 title="The total number of IoT devices connecting to the system. Directly impacts ingestion and connection costs."></i></label>
             <input type="number" id="devices" class="form-control" min="1" required />
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3">
             <label for="interval" class="form-label">Sending Interval (Min) <i
                 class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
                 title="How often each device sends a message (in minutes). Lower intervals mean more messages and higher processing costs."></i></label>
             <input type="number" id="interval" class="form-control" min="0.1" step="0.1" required />
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3">
             <label for="messageSize" class="form-label">Message Size (KB) <i class="bi bi-info-circle text-primary ms-1"
                 data-bs-toggle="tooltip"
                 title="The average size of each telemetry message in Kilobytes. Larger messages increase storage and transfer costs."></i></label>
             <input type="number" id="messageSize" class="form-control" min="0.01" step="0.01" required />
           </div>
+          <div class="col-md-3">
+            <label for="numberOfDeviceTypes" class="form-label">Device Types <i
+                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                title="Number of distinct device types. Each type requires a separate processor function for data transformation."></i></label>
+            <input type="number" id="numberOfDeviceTypes" class="form-control" value="1" min="1" />
+          </div>
         </div>
+
+      </div>
+    </div>
+
+
+    <div class="card shadow-sm p-4 mb-5">
+      <div class="card-body">
+        <h4 class="mb-3 text-primary">Layer 2 - Data Processing & Orchestration</h4>
+        <p class="text-muted small mb-4">This layer manages event checking, notification workflows, and error handling
+          processes.</p>
+
+        <div class="row g-3 align-items-center mb-3">
+          <div class="col-md-6">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="triggerNotificationWorkflow">
+              <label class="form-check-label fw-bold" for="triggerNotificationWorkflow">Trigger Notification Workflow?
+                <i class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                  title="If enabled, specific events trigger a multi-step workflow (e.g., sending an email, updating a ticket)."></i></label>
+            </div>
+          </div>
+          <div class="col-md-6" id="orchestrationActionsPerMessageContainer">
+            <label for="orchestrationActionsPerMessage" class="form-label">Actions per Message <i
+                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                title="The number of steps in the orchestration workflow. More steps increase orchestration costs."></i></label>
+            <input type="number" id="orchestrationActionsPerMessage" class="form-control" value="3" min="1" />
+          </div>
+        </div>
+
+        <hr class="my-4 border-secondary border-opacity-25 border-dashed">
+
+        <div class="row g-3 align-items-center mb-3">
+          <div class="col-md-6">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="useEventChecking">
+              <label class="form-check-label fw-bold" for="useEventChecking">Enable Event Checking? <i
+                  class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                  title="If enabled, incoming messages are checked against defined rules to trigger alerts. Adds processing cost."></i></label>
+            </div>
+          </div>
+          <div class="col-md-6" id="eventsPerMessageContainer">
+            <label for="eventsPerMessage" class="form-label">Events per Message <i
+                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                title="The average number of event rules evaluated per message. More rules = higher compute cost."></i></label>
+            <input type="number" id="eventsPerMessage" class="form-control" value="1" min="1" />
+          </div>
+        </div>
+
+        <hr class="my-4 border-secondary border-opacity-25 border-dashed">
+
+        <div class="row g-3 align-items-center mb-3">
+          <div class="col-md-6">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="returnFeedbackToDevice">
+              <label class="form-check-label fw-bold" for="returnFeedbackToDevice">Return Feedback to Device? <i
+                  class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                  title="If enabled, the system sends a confirmation or command back to the device after processing. Increases egress traffic."></i></label>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label for="numberOfEventActions" class="form-label">Event Actions <i
+                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                title="Number of custom event action handlers from config_events.json. Each action is a separate serverless function."></i></label>
+            <input type="number" id="numberOfEventActions" class="form-control" value="0" min="0" />
+          </div>
+        </div>
+
+        <!-- TODO Error Handling is not yet planned for the whole project (deployer/architecture) -->
+        <!-- 
+        <hr class="my-4 border-secondary border-opacity-25 border-dashed">
+
+        <div class="form-check form-switch mb-4">
+          <input class="form-check-input" type="checkbox" id="integrateErrorHandling">
+          <label class="form-check-label fw-bold" for="integrateErrorHandling">Integrate Error Handling? <i
+              class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+              title="If enabled, adds robust error handling logic to workflows. Increases reliability but adds slight overhead."></i></label>
+        </div> -->
 
       </div>
     </div>
@@ -176,8 +275,8 @@
     <div class="card shadow-sm p-4 mb-5">
       <div class="card-body">
 
-        <h4 class="mb-3 text-primary">Layer 2 - Storage & Event Checking</h4>
-        <p class="text-muted small mb-4">This layer handles data storage retention and initial event filtering logic.
+        <h4 class="mb-3 text-primary">Layer 3 - Storage Tiers</h4>
+        <p class="text-muted small mb-4">This layer handles data storage retention across Hot, Cool, and Archive tiers.
         </p>
 
         <div class="mb-3">
@@ -212,72 +311,6 @@
             <span class="badge bg-secondary slider-value">12</span>
           </div>
         </div>
-
-        <hr class="my-4 border-secondary border-opacity-25 border-dashed">
-
-        <div class="row g-3 align-items-center mb-3">
-          <div class="col-md-6">
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="useEventChecking">
-              <label class="form-check-label fw-bold" for="useEventChecking">Enable Event Checking? <i
-                  class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
-                  title="If enabled, incoming messages are checked against defined rules to trigger alerts. Adds processing cost."></i></label>
-            </div>
-          </div>
-          <div class="col-md-6" id="eventsPerMessageContainer">
-            <label for="eventsPerMessage" class="form-label">Events per Message <i
-                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
-                title="The average number of event rules evaluated per message. More rules = higher compute cost."></i></label>
-            <input type="number" id="eventsPerMessage" class="form-control" value="1" min="1" />
-          </div>
-        </div>
-
-        <hr class="my-4 border-secondary border-opacity-25 border-dashed">
-
-        <div class="form-check form-switch mb-4">
-          <input class="form-check-input" type="checkbox" id="returnFeedbackToDevice">
-          <label class="form-check-label fw-bold" for="returnFeedbackToDevice">Return Feedback to Device? <i
-              class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
-              title="If enabled, the system sends a confirmation or command back to the device after processing. Increases egress traffic."></i></label>
-        </div>
-      </div>
-    </div>
-
-
-    <div class="card shadow-sm p-4 mb-5">
-      <div class="card-body">
-        <h4 class="mb-3 text-primary">Layer 3 - Orchestration</h4>
-        <p class="text-muted small mb-4">This layer manages complex workflows, state transitions, and error handling
-          processes.</p>
-
-        <div class="row g-3 align-items-center mb-3">
-          <div class="col-md-6">
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="triggerNotificationWorkflow">
-              <label class="form-check-label fw-bold" for="triggerNotificationWorkflow">Trigger Notification Workflow?
-                <i class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
-                  title="If enabled, specific events trigger a multi-step workflow (e.g., sending an email, updating a ticket)."></i></label>
-            </div>
-          </div>
-          <div class="col-md-6" id="orchestrationActionsPerMessageContainer">
-            <label for="orchestrationActionsPerMessage" class="form-label">Actions per Message <i
-                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
-                title="The number of steps in the orchestration workflow. More steps increase orchestration costs."></i></label>
-            <input type="number" id="orchestrationActionsPerMessage" class="form-control" value="3" min="1" />
-          </div>
-        </div>
-
-        <!-- TODO Error Handling is not yet planned for the whole project (deployer/architecture) -->
-        <!-- 
-        <hr class="my-4 border-secondary border-opacity-25 border-dashed">
-
-        <div class="form-check form-switch mb-4">
-          <input class="form-check-input" type="checkbox" id="integrateErrorHandling">
-          <label class="form-check-label fw-bold" for="integrateErrorHandling">Integrate Error Handling? <i
-              class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
-              title="If enabled, adds robust error handling logic to workflows. Increases reliability but adds slight overhead."></i></label>
-        </div> -->
-
       </div>
     </div>
 
@@ -321,11 +354,11 @@
         </div>
 
         <div class="form-check form-switch mb-3">
-          <input class="form-check-input" type="checkbox" id="allowGcpSelfHostedL4" checked>
-          <label class="form-check-label fw-bold" for="allowGcpSelfHostedL4">
-            Include GCP (Self-Hosted on Compute Engine)
-            <i class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
-              title="GCP lacks a managed Twin service like AWS TwinMaker or Azure Digital Twins. Enabling this includes a self-hosted solution running on Compute Engine (e2-medium VM) in the cost comparison."></i>
+          <input class="form-check-input" type="checkbox" id="allowGcpSelfHostedL4" disabled>
+          <label class="form-check-label fw-bold text-muted" for="allowGcpSelfHostedL4">
+            Include GCP (Self-Hosted on Compute Engine) <span class="badge bg-secondary">Not Implemented</span>
+            <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
+              title="GCP lacks a managed Twin service like AWS TwinMaker or Azure Digital Twins. Self-hosted Compute Engine option is not yet implemented."></i>
           </label>
         </div>
 
@@ -382,11 +415,11 @@
         </div>
 
         <div class="form-check form-switch mb-3">
-          <input class="form-check-input" type="checkbox" id="allowGcpSelfHostedL5" checked>
-          <label class="form-check-label fw-bold" for="allowGcpSelfHostedL5">
-            Include GCP (Self-Hosted Grafana on Compute Engine)
-            <i class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
-              title="GCP lacks a managed Grafana service like AWS Managed Grafana or Azure Managed Grafana. Enabling this includes a self-hosted Grafana instance running on Compute Engine in the cost comparison."></i>
+          <input class="form-check-input" type="checkbox" id="allowGcpSelfHostedL5" disabled>
+          <label class="form-check-label fw-bold text-muted" for="allowGcpSelfHostedL5">
+            Include GCP (Self-Hosted Grafana on Compute Engine) <span class="badge bg-secondary">Not Implemented</span>
+            <i class="bi bi-info-circle text-muted ms-1" data-bs-toggle="tooltip"
+              title="GCP lacks a managed Grafana service. Self-hosted Grafana on Compute Engine option is not yet implemented."></i>
           </label>
         </div>
 

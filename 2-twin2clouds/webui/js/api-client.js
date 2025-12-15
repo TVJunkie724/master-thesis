@@ -76,9 +76,15 @@ async function readParamsFromUi() {
     const integrateErrorHandling = (document.getElementById("integrateErrorHandling") || {}).checked;
     const apiCallsPerDashboardRefresh = parseInt(document.getElementById("apiCallsPerDashboardRefresh").value);
 
-    // GCP Self-Hosted Options (L4/L5)
-    const allowGcpSelfHostedL4 = document.getElementById("allowGcpSelfHostedL4").checked;
-    const allowGcpSelfHostedL5 = document.getElementById("allowGcpSelfHostedL5").checked;
+    // New enhanced calculation inputs
+    const numberOfDeviceTypes = parseInt(document.getElementById("numberOfDeviceTypes").value) || 1;
+    const numberOfEventActions = parseInt(document.getElementById("numberOfEventActions").value) || 0;
+    const eventTriggerRate = 0.1; // Default, could add UI field if needed
+
+    // GCP Self-Hosted Options (L4/L5) - ALWAYS FALSE (not implemented)
+    // These features are disabled until GCP self-hosted L4/L5 is implemented
+    const allowGcpSelfHostedL4 = false;
+    const allowGcpSelfHostedL5 = false;
 
     const currency = document.getElementById("currency").value;
 
@@ -103,6 +109,9 @@ async function readParamsFromUi() {
         orchestrationActionsPerMessage,
         integrateErrorHandling,
         apiCallsPerDashboardRefresh,
+        numberOfDeviceTypes,
+        numberOfEventActions,
+        eventTriggerRate,
         allowGcpSelfHostedL4,
         allowGcpSelfHostedL5,
         currency,
