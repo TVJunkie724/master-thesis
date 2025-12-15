@@ -25,3 +25,5 @@ google_master-thesis-475915-7f20314ddb42.json
 deprecated/
 
 .vscode/
+
+**/generated.tfvars.json

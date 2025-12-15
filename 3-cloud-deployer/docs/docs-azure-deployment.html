@@ -262,8 +262,11 @@
                         <tr>
                             <td>Cosmos DB</td>
                             <td><code>Microsoft.DocumentDB/databaseAccounts/write</code>,
-                                <code>*/read</code>, <code>*/delete</code>,
-                                <code>*/sqlDatabases/write</code>, <code>*/sqlDatabases/containers/write</code>
+                                <code>*/read</code>, <code>*/delete</code>, <code>*/listKeys/action</code>,<br>
+                                <code>*/sqlDatabases/write</code>,
+                                <strong><code>*/sqlDatabases/read</code></strong>,<br>
+                                <code>*/sqlDatabases/containers/write</code>,
+                                <strong><code>*/sqlDatabases/containers/read</code></strong>
                             </td>
                         </tr>
                         <tr>
@@ -865,6 +868,53 @@
                 <pre class="p-3 rounded"><code># Deploy all layers to Azure
 curl -X POST "{API_HOST}/deploy?provider=azure&project_name=template"</code></pre>
                 <p class="mt-2">Full deployment typically takes 10-20 minutes.</p>
+            </div>
+
+            <div class="card mb-4" id="terraform-deployment">
+                <h2 class="mb-3"><i class="fa-brands fa-hashicorp me-2"></i>Terraform Deployment (Alternative)</h2>
+
+                <div class="callout info mb-3">
+                    <strong><i class="fa-solid fa-info-circle me-2"></i>Hybrid Approach</strong>
+                    Terraform handles infrastructure provisioning, while Python SDK handles dynamic operations (function
+                    code, DTDL models, IoT device registration).
+                </div>
+
+                <h4 class="mt-3">Prerequisites</h4>
+                <ul>
+                    <li>Terraform CLI installed (v1.6+)</li>
+                    <li>Azure Service Principal credentials configured</li>
+                    <li>All config files present (<code>config.json</code>, <code>config_credentials.json</code>, etc.)
+                    </li>
+                </ul>
+
+                <h4 class="mt-3">Deployment Steps</h4>
+                <pre class="p-3 rounded"><code># Step 1: Generate tfvars from project configs
+python src/tfvars_generator.py /app/upload/template /app/upload/template/terraform/generated.tfvars.json
+
+# Step 2: Initialize Terraform
+cd src/terraform && terraform init
+
+# Step 3: Preview changes
+terraform plan -var-file=/app/upload/template/terraform/generated.tfvars.json
+
+# Step 4: Apply infrastructure
+terraform apply -auto-approve -var-file=/app/upload/template/terraform/generated.tfvars.json
+
+# Step 5: Post-deployment (handled by TerraformDeployerStrategy)
+# - Function code deployment via Kudu
+# - DTDL model upload (L4)
+# - IoT device registration (L1)
+# - Grafana datasource configuration (L5)</code></pre>
+
+                <h4 class="mt-3">Destroy Resources</h4>
+                <pre
+                    class="p-3 rounded"><code>terraform destroy -auto-approve -var-file=/app/upload/template/terraform/generated.tfvars.json</code></pre>
+
+                <div class="callout warn mt-3">
+                    <strong><i class="fa-solid fa-triangle-exclamation me-2"></i>Note</strong>
+                    Add <code>skip_provider_registration = true</code> to the Azure provider if your service principal
+                    doesn't have permission to register resource providers.
+                </div>
             </div>
 
             <div class="card mb-4">

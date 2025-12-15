@@ -60,7 +60,31 @@ docker exec master-thesis-3cloud-deployer-1 bash -c "python script.py 2>&1"
 docker exec master-thesis-3cloud-deployer-1 bash -c "cd /app && python -m pytest tests/ -v"
 ```
 
-#### 3. Using Agent's Built-in File Tools (Preferred)
+#### 3. Terraform Commands
+Terraform is installed in the Docker container.
+
+> **IMPORTANT:** NEVER chain terraform commands with `&&`. Run each command **separately** and wait for completion before running the next.
+
+```bash
+# Step 1: Init (run separately, wait for completion)
+docker exec master-thesis-3cloud-deployer-1 terraform -chdir=/app/src/terraform init
+
+# Step 2: Validate (run separately)
+docker exec master-thesis-3cloud-deployer-1 terraform -chdir=/app/src/terraform validate
+
+# Step 3: Plan (use bash wrapper for -var-file)
+docker exec master-thesis-3cloud-deployer-1 bash -c "cd /app/src/terraform && terraform plan -var-file=/app/upload/<project>/terraform/generated.tfvars.json"
+
+# Step 4: Apply (after plan succeeds)
+docker exec master-thesis-3cloud-deployer-1 bash -c "cd /app/src/terraform && terraform apply -auto-approve -var-file=/app/upload/<project>/terraform/generated.tfvars.json"
+
+# Destroy (when needed)
+docker exec master-thesis-3cloud-deployer-1 bash -c "cd /app/src/terraform && terraform destroy -auto-approve -var-file=/app/upload/<project>/terraform/generated.tfvars.json"
+```
+
+> **Note:** Use bash wrapper (`bash -c "cd ... && terraform ..."`) for commands with `-var-file` argument. The `&&` inside bash is for `cd` only, NOT for chaining multiple terraform commands.
+
+#### 4. Using Agent's Built-in File Tools (Preferred)
 For file operations, **always prefer the agent's built-in tools** over commands:
 
 | Task | Use This Tool | NOT This Command |

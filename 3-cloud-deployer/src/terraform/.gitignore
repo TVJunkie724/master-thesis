@@ -1,0 +1,14 @@
+# Terraform local files
+*.tfstate
+*.tfstate.backup
+*.tfplan
+.terraform/
+.terraform.lock.hcl
+
+# Generated variable files
+*.auto.tfvars.json
+generated.tfvars.json
+
+# Deployment artifacts
+dist/
+*.zip

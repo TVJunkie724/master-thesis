@@ -225,6 +225,69 @@ def destroy_all(context: 'DeploymentContext', provider: str) -> None:
 
 
 # ==========================================
+# Terraform Deployment (Alternative)
+# ==========================================
+
+def deploy_all_terraform(context: 'DeploymentContext', terraform_dir: str = None) -> dict:
+    """
+    Deploy all infrastructure using Terraform (hybrid approach).
+    
+    Terraform handles infrastructure provisioning, Python handles:
+    - Function code deployment (Kudu ZIP)
+    - DTDL model upload (Azure SDK)
+    - IoT device registration (Azure SDK)
+    - Grafana datasource configuration (API)
+    
+    Args:
+        context: Deployment context with project config
+        terraform_dir: Path to Terraform directory (defaults to src/terraform/)
+    
+    Returns:
+        Dictionary of Terraform outputs
+    
+    Raises:
+        TerraformError: If Terraform apply fails
+    """
+    from pathlib import Path
+    from src.providers.terraform.deployer_strategy import TerraformDeployerStrategy
+    
+    if terraform_dir is None:
+        terraform_dir = str(Path(__file__).parent.parent / "terraform")
+    
+    logger.info(f"Starting Terraform deployment for {context.project_name}")
+    
+    strategy = TerraformDeployerStrategy(
+        terraform_dir=terraform_dir,
+        project_path=str(context.project_path)
+    )
+    
+    return strategy.deploy_all(context)
+
+
+def destroy_all_terraform(context: 'DeploymentContext', terraform_dir: str = None) -> None:
+    """
+    Destroy all Terraform-managed infrastructure.
+    
+    Args:
+        context: Deployment context with project config
+        terraform_dir: Path to Terraform directory
+    """
+    from pathlib import Path
+    from src.providers.terraform.deployer_strategy import TerraformDeployerStrategy
+    
+    if terraform_dir is None:
+        terraform_dir = str(Path(__file__).parent.parent / "terraform")
+    
+    logger.info(f"Starting Terraform destroy for {context.project_name}")
+    
+    strategy = TerraformDeployerStrategy(
+        terraform_dir=terraform_dir,
+        project_path=str(context.project_path)
+    )
+    
+    strategy.destroy_all()
+
+# ==========================================
 # Specialized Operations
 # ==========================================
 

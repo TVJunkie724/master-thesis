@@ -110,7 +110,12 @@ REQUIRED_AZURE_PERMISSIONS = {
         "required_actions": [
             "Microsoft.DocumentDB/databaseAccounts/write",
             "Microsoft.DocumentDB/databaseAccounts/delete",
+            "Microsoft.DocumentDB/databaseAccounts/read",  # Explicit - */read wildcard not always honored
             "Microsoft.DocumentDB/databaseAccounts/listKeys/action",
+            "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/write",
+            "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/read",
+            "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/write",
+            "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/read",
             "Microsoft.Storage/storageAccounts/blobServices/containers/write",
         ],
     },

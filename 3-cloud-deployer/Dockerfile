@@ -4,7 +4,15 @@ RUN apt-get update \
     && apt-get install -y \
         ca-certificates \
         coreutils \
+        wget \
+        unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Terraform CLI
+RUN wget -q https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip \
+    && unzip terraform_1.6.6_linux_amd64.zip -d /usr/local/bin/ \
+    && rm terraform_1.6.6_linux_amd64.zip \
+    && chmod +x /usr/local/bin/terraform
 
 WORKDIR /app
 

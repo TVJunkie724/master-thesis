@@ -32,8 +32,7 @@ echo "Press Ctrl+C to cancel, or wait 5 seconds to continue..."
 sleep 5
 echo ""
 
-docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
-    python -m pytest tests/e2e/azure/test_azure_single_cloud_e2e.py \
+python -m pytest tests/e2e/azure/test_azure_single_cloud_e2e.py \
     -v -m live -s --tb=long
 
 echo ""
