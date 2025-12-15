@@ -82,6 +82,11 @@ def create_iot_hub(provider: 'AzureProvider') -> str:
     hub_name = provider.naming.iot_hub()
     location = provider.location_iothub  # IoT Hub uses dedicated region
     
+    # Skip if already exists
+    if check_iot_hub(provider):
+        logger.info(f"✓ IoT Hub already exists (skipping): {hub_name}")
+        return hub_name
+    
     logger.info(f"Creating IoT Hub: {hub_name}")
     
     try:
@@ -500,6 +505,12 @@ def create_l1_app_service_plan(provider: 'AzureProvider') -> str:
     plan_name = provider.naming.l1_app_service_plan()
     location = provider.location
     
+    # Skip if already exists
+    if check_l1_app_service_plan(provider):
+        logger.info(f"✓ L1 App Service Plan already exists (skipping): {plan_name}")
+        plan_id = f"/subscriptions/{provider.subscription_id}/resourceGroups/{rg_name}/providers/Microsoft.Web/serverfarms/{plan_name}"
+        return plan_id
+    
     logger.info(f"Creating L1 App Service Plan: {plan_name}")
     
     try:
@@ -624,6 +635,11 @@ def create_l1_function_app(
     app_name = provider.naming.l1_function_app()
     storage_name = provider.naming.storage_account()
     location = provider.location
+    
+    # Skip if already exists
+    if check_l1_function_app(provider):
+        logger.info(f"✓ L1 Function App already exists (skipping): {app_name}")
+        return app_name
     
     logger.info(f"Creating L1 Function App: {app_name}")
     
@@ -1191,6 +1207,24 @@ def create_iot_device(
         from azure.iot.hub import IoTHubRegistryManager
         
         registry_manager = IoTHubRegistryManager(hub_conn_str)
+        
+        # Skip if device already exists
+        try:
+            existing_device = registry_manager.get_device(device_id)
+            if existing_device:
+                logger.info(f"✓ IoT device already exists (skipping): {device_id}")
+                # Return existing device connection string
+                primary_key = existing_device.authentication.symmetric_key.primary_key
+                device_conn_str = (
+                    f"HostName={hub_name}.azure-devices.net;"
+                    f"DeviceId={device_id};"
+                    f"SharedAccessKey={primary_key}"
+                )
+                # Still generate simulator config for existing device
+                _generate_simulator_config(iot_device, device_conn_str, config, project_path)
+                return device_conn_str
+        except Exception:
+            pass  # Device doesn't exist, proceed to create
         
         # Create device with SAS authentication (with retry for Hub not Active)
         device = None

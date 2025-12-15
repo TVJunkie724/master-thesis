@@ -175,6 +175,11 @@ def create_cosmos_account(provider: 'AzureProvider') -> str:
     account_name = provider.naming.cosmos_account()
     location = provider.location
     
+    # Skip if already exists
+    if check_cosmos_account(provider):
+        logger.info(f"✓ Cosmos DB Account already exists (skipping): {account_name}")
+        return account_name
+    
     logger.info(f"Creating Cosmos DB Account: {account_name}")
     
     # Cosmos DB Serverless configuration
@@ -307,6 +312,11 @@ def create_cosmos_database(provider: 'AzureProvider') -> str:
     account_name = provider.naming.cosmos_account()
     database_name = provider.naming.cosmos_database()
     
+    # Skip if already exists
+    if check_cosmos_database(provider):
+        logger.info(f"✓ Cosmos DB Database already exists (skipping): {database_name}")
+        return database_name
+    
     logger.info(f"Creating Cosmos DB Database: {database_name}")
     
     params = {
@@ -413,6 +423,11 @@ def create_hot_cosmos_container(provider: 'AzureProvider') -> str:
     account_name = provider.naming.cosmos_account()
     database_name = provider.naming.cosmos_database()
     container_name = provider.naming.hot_cosmos_container()
+    
+    # Skip if already exists
+    if check_hot_cosmos_container(provider):
+        logger.info(f"✓ Hot Cosmos Container already exists (skipping): {container_name}")
+        return container_name
     
     logger.info(f"Creating Hot Cosmos Container: {container_name}")
     
@@ -531,6 +546,11 @@ def create_cold_blob_container(provider: 'AzureProvider') -> str:
     storage_name = provider.naming.storage_account()
     container_name = provider.naming.cold_blob_container()
     
+    # Skip if already exists
+    if check_cold_blob_container(provider):
+        logger.info(f"✓ Cold Blob Container already exists (skipping): {container_name}")
+        return container_name
+    
     logger.info(f"Creating Cold Blob Container: {container_name}")
     
     try:
@@ -637,6 +657,11 @@ def create_archive_blob_container(provider: 'AzureProvider') -> str:
     rg_name = provider.naming.resource_group()
     storage_name = provider.naming.storage_account()
     container_name = provider.naming.archive_blob_container()
+    
+    # Skip if already exists
+    if check_archive_blob_container(provider):
+        logger.info(f"✓ Archive Blob Container already exists (skipping): {container_name}")
+        return container_name
     
     logger.info(f"Creating Archive Blob Container: {container_name}")
     
@@ -746,6 +771,12 @@ def create_l3_app_service_plan(provider: 'AzureProvider') -> str:
     rg_name = provider.naming.resource_group()
     plan_name = provider.naming.l3_app_service_plan()
     location = provider.location
+    
+    # Skip if already exists
+    if check_l3_app_service_plan(provider):
+        logger.info(f"✓ L3 App Service Plan already exists (skipping): {plan_name}")
+        plan_id = f"/subscriptions/{provider.subscription_id}/resourceGroups/{rg_name}/providers/Microsoft.Web/serverfarms/{plan_name}"
+        return plan_id
     
     logger.info(f"Creating L3 App Service Plan: {plan_name}")
     
@@ -881,6 +912,11 @@ def create_l3_function_app(
     plan_name = provider.naming.l3_app_service_plan()
     storage_name = provider.naming.storage_account()
     location = provider.location
+    
+    # Skip if already exists
+    if check_l3_function_app(provider):
+        logger.info(f"✓ L3 Function App already exists (skipping): {app_name}")
+        return app_name
     
     logger.info(f"Creating L3 Function App: {app_name}")
     

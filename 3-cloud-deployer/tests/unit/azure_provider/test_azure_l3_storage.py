@@ -66,8 +66,10 @@ def mock_config():
 class TestCosmosAccount:
     """Tests for Cosmos DB Account create/destroy/check."""
     
-    def test_create_cosmos_account_success(self, mock_azure_provider):
+    @patch("src.providers.azure.layers.layer_3_storage.check_cosmos_account")
+    def test_create_cosmos_account_success(self, mock_check, mock_azure_provider):
         """Happy path: Cosmos DB Account created successfully."""
+        mock_check.return_value = False  # Account doesn't exist, create should proceed
         from src.providers.azure.layers.layer_3_storage import create_cosmos_account
         
         mock_poller = MagicMock()
@@ -211,8 +213,10 @@ class TestHotCosmosContainer:
 class TestColdBlobContainer:
     """Tests for Cold Blob Container create/destroy/check."""
     
-    def test_create_cold_blob_container_success(self, mock_azure_provider):
+    @patch("src.providers.azure.layers.layer_3_storage.check_cold_blob_container")
+    def test_create_cold_blob_container_success(self, mock_check, mock_azure_provider):
         """Happy path: Container created."""
+        mock_check.return_value = False  # Container doesn't exist
         from src.providers.azure.layers.layer_3_storage import create_cold_blob_container
         
         result = create_cold_blob_container(mock_azure_provider)

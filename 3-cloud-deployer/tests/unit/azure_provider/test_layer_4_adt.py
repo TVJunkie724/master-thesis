@@ -67,8 +67,10 @@ def mock_config():
 class TestADTInstance:
     """Tests for ADT Instance create/destroy/check."""
     
-    def test_create_adt_instance_success(self, mock_azure_provider):
+    @patch("src.providers.azure.layers.layer_4_adt.check_adt_instance")
+    def test_create_adt_instance_success(self, mock_check, mock_azure_provider):
         """Happy path: ADT instance created successfully."""
+        mock_check.return_value = False  # Instance doesn't exist, create should proceed
         from src.providers.azure.layers.layer_4_adt import create_adt_instance
         
         mock_poller = MagicMock()

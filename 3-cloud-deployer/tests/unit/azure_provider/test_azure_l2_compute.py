@@ -100,8 +100,10 @@ def mock_context(mock_config):
 class TestL2AppServicePlan:
     """Tests for L2 App Service Plan create/destroy/check functions."""
     
-    def test_create_app_service_plan_success(self, mock_provider):
+    @patch("src.providers.azure.layers.layer_2_compute.check_l2_app_service_plan")
+    def test_create_app_service_plan_success(self, mock_check, mock_provider):
         """Should create L2 App Service Plan and return ID."""
+        mock_check.return_value = False  # Plan doesn't exist, create should proceed
         from src.providers.azure.layers.layer_2_compute import create_l2_app_service_plan
         
         # Setup mock
@@ -578,8 +580,10 @@ class TestPreDeploymentChecks:
 class TestExceptionHandling:
     """Tests for comprehensive exception handling."""
     
-    def test_create_plan_handles_auth_error(self, mock_provider):
+    @patch("src.providers.azure.layers.layer_2_compute.check_l2_app_service_plan")
+    def test_create_plan_handles_auth_error(self, mock_check, mock_provider):
         """Should propagate ClientAuthenticationError."""
+        mock_check.return_value = False  # Plan doesn't exist
         from src.providers.azure.layers.layer_2_compute import create_l2_app_service_plan
         from azure.core.exceptions import ClientAuthenticationError
         
@@ -589,8 +593,10 @@ class TestExceptionHandling:
         with pytest.raises(ClientAuthenticationError):
             create_l2_app_service_plan(mock_provider)
     
-    def test_create_plan_handles_http_error(self, mock_provider):
+    @patch("src.providers.azure.layers.layer_2_compute.check_l2_app_service_plan")
+    def test_create_plan_handles_http_error(self, mock_check, mock_provider):
         """Should propagate HttpResponseError."""
+        mock_check.return_value = False  # Plan doesn't exist
         from src.providers.azure.layers.layer_2_compute import create_l2_app_service_plan
         from azure.core.exceptions import HttpResponseError
         

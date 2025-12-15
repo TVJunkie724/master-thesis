@@ -214,16 +214,26 @@ class TestAzureSingleCloudE2E:
         
         # Track deployed layers for cleanup
         deployed_layers: List[str] = []
+        failed_layer: Optional[str] = None  # Track which layer failed
+        deployment_success = False  # Track if all deployments succeeded
         
-        def cleanup():
-            """Cleanup function - ALWAYS runs, even on failure."""
+        def partial_cleanup():
+            """
+            Partial cleanup function - behavior depends on failure mode.
+            
+            ON SUCCESS: Destroy all layers (cleanup after tests complete)
+            ON FAILURE: Only destroy the failed layer, preserve previous layers
+            """
             print("\n" + "="*60)
-            print("  CLEANUP: DESTROYING ALL RESOURCES")
+            if deployment_success:
+                print("  CLEANUP: DESTROYING ALL RESOURCES (TEST COMPLETE)")
+            else:
+                print("  PARTIAL CLEANUP: DESTROYING ONLY FAILED LAYER")
             print("="*60)
             
             destroy_results: Dict[str, str] = {}
             
-            # Destroy in reverse order of deployment
+            # Layer destroy order (reverse of deployment)
             destroy_order = [
                 ("l5", "destroy_l5"),
                 ("l4", "destroy_l4"),
@@ -233,8 +243,17 @@ class TestAzureSingleCloudE2E:
                 ("setup", "destroy_setup")
             ]
             
+            if deployment_success:
+                # SUCCESS: Destroy all layers
+                layers_to_destroy = [l for l, _ in destroy_order if l in deployed_layers]
+            else:
+                # FAILURE: Only destroy the failed layer
+                layers_to_destroy = [failed_layer] if failed_layer else []
+            
+            preserved_layers = [l for l in deployed_layers if l not in layers_to_destroy]
+            
             for layer_name, destroy_method in destroy_order:
-                if layer_name in deployed_layers:
+                if layer_name in layers_to_destroy:
                     try:
                         print(f"\n[CLEANUP] Destroying {layer_name}...")
                         getattr(deployer, destroy_method)(context)
@@ -243,6 +262,8 @@ class TestAzureSingleCloudE2E:
                     except Exception as e:
                         destroy_results[layer_name] = f"✗ Failed: {type(e).__name__}: {e}"
                         print(f"[CLEANUP] ✗ {layer_name} FAILED: {e}")
+                elif layer_name in deployed_layers:
+                    destroy_results[layer_name] = "⏸ Preserved (for resumption)"
                 else:
                     destroy_results[layer_name] = "- Not deployed"
             
@@ -256,19 +277,44 @@ class TestAzureSingleCloudE2E:
             
             # Check for failures and warn user
             failures = [l for l, s in destroy_results.items() if "Failed" in s]
+            
+            if not deployment_success and preserved_layers:
+                # Partial failure case - notify user about preserved resources
+                print("\n" + "="*60)
+                print("  ℹ️  PARTIAL DEPLOYMENT - RESOURCES PRESERVED")
+                print("="*60)
+                print("")
+                print("  Successfully deployed layers (still in cloud):")
+                for layer in preserved_layers:
+                    print(f"    ✓ {layer}")
+                print("")
+                print("  Failed layer (destroyed):")
+                print(f"    ✗ {failed_layer}")
+                print("")
+                print("  TO RESUME DEPLOYMENT:")
+                print("    Run the E2E test again - skip-if-exists will")
+                print("    skip already-deployed resources and continue")
+                print("    from where deployment failed.")
+                print("")
+                print("  TO MANUALLY DESTROY ALL RESOURCES:")
+                print(f"    Delete Resource Group: rg-{config.digital_twin_name}")
+                print("    Portal: https://portal.azure.com")
+                print("")
+                print("="*60)
+            
             if failures:
                 print("\n" + "!"*60)
                 print("  ⚠️  CLEANUP FAILURES DETECTED!")
                 print("")
                 print("  Some resources may still exist in Azure.")
                 print("  Please check the Azure Portal and manually delete:")
-                print(f"    Resource Group: {config.digital_twin_name}*")
+                print(f"    Resource Group: rg-{config.digital_twin_name}")
                 print("")
                 print("  Portal: https://portal.azure.com")
                 print("!"*60)
         
         # Register cleanup to run ALWAYS (even on failure/skip)
-        request.addfinalizer(cleanup)
+        request.addfinalizer(partial_cleanup)
         
         # ===== DEPLOYMENT PHASE =====
         try:
@@ -308,9 +354,20 @@ class TestAzureSingleCloudE2E:
             deployed_layers.append("l5")
             print("[DEPLOY] ✓ L5 deployed")
             
+            # Mark deployment complete
+            deployment_success = True
+            
         except Exception as e:
-            print(f"\n[DEPLOY] ✗ DEPLOYMENT FAILED: {type(e).__name__}: {e}")
-            print("[DEPLOY] Cleanup will still run for deployed layers.")
+            # Track which layer failed (the one we were about to deploy)
+            layer_order = ["setup", "l1", "l2", "l3_hot", "l4", "l5"]
+            for layer in layer_order:
+                if layer not in deployed_layers:
+                    failed_layer = layer
+                    break
+            
+            print(f"\n[DEPLOY] ✗ DEPLOYMENT FAILED at {failed_layer}: {type(e).__name__}: {e}")
+            print("[DEPLOY] Partial cleanup will run for the failed layer only.")
+            print("[DEPLOY] Previous layers are preserved for resumption.")
             raise
         
         print("\n" + "="*60)

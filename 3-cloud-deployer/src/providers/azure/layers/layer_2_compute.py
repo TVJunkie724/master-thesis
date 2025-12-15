@@ -178,6 +178,12 @@ def create_l2_app_service_plan(provider: 'AzureProvider') -> str:
     plan_name = provider.naming.l2_app_service_plan()
     location = provider.location
     
+    # Skip if already exists
+    if check_l2_app_service_plan(provider):
+        logger.info(f"✓ L2 App Service Plan already exists (skipping): {plan_name}")
+        plan_id = f"/subscriptions/{provider.subscription_id}/resourceGroups/{rg_name}/providers/Microsoft.Web/serverfarms/{plan_name}"
+        return plan_id
+    
     logger.info(f"Creating L2 App Service Plan: {plan_name}")
     
     try:
@@ -315,6 +321,11 @@ def create_l2_function_app(
     app_name = provider.naming.l2_function_app()
     storage_name = provider.naming.storage_account()
     location = provider.location
+    
+    # Skip if already exists
+    if check_l2_function_app(provider):
+        logger.info(f"✓ L2 Function App already exists (skipping): {app_name}")
+        return app_name
     
     logger.info(f"Creating L2 Function App: {app_name}")
     

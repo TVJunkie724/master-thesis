@@ -76,6 +76,11 @@ def create_consumption_app_service_plan(provider: 'AzureProvider') -> str:
     plan_name = provider.naming.glue_app_service_plan()
     location = provider.location
     
+    # Skip if already exists
+    if check_consumption_app_service_plan(provider):
+        logger.info(f"✓ App Service Plan already exists (skipping): {plan_name}")
+        return f"/subscriptions/{provider.subscription_id}/resourceGroups/{rg_name}/providers/Microsoft.Web/serverfarms/{plan_name}"
+    
     logger.info(f"Creating Consumption App Service Plan: {plan_name}")
     
     try:
@@ -180,6 +185,11 @@ def create_glue_function_app(
     app_name = provider.naming.glue_function_app()
     storage_name = provider.naming.storage_account()
     location = provider.location
+    
+    # Skip if already exists
+    if check_glue_function_app(provider):
+        logger.info(f"✓ L0 Glue Function App already exists (skipping): {app_name}")
+        return app_name
     
     logger.info(f"Creating L0 Glue Function App: {app_name}")
     

@@ -100,16 +100,20 @@ def mock_context(mock_config):
 class TestIoTHub:
     """Tests for IoT Hub create/destroy/check functions."""
     
-    def test_create_iot_hub_success(self, mock_provider):
+    @patch("src.providers.azure.layers.layer_1_iot.check_iot_hub")
+    def test_create_iot_hub_success(self, mock_check, mock_provider):
         """Should create IoT Hub and return hub name."""
+        mock_check.return_value = False  # Hub doesn't exist, create should proceed
         from src.providers.azure.layers.layer_1_iot import create_iot_hub
         
         # Setup mock
         mock_poller = MagicMock()
         mock_hub = MagicMock()
         mock_hub.name = "test-twin-iothub"
+        mock_hub.properties.state = "Active"  # IoT Hub is in Active state
         mock_poller.result.return_value = mock_hub
         mock_provider.clients["iothub"].iot_hub_resource.begin_create_or_update.return_value = mock_poller
+        mock_provider.clients["iothub"].iot_hub_resource.get.return_value = mock_hub
         
         # Execute
         result = create_iot_hub(mock_provider)
@@ -291,8 +295,10 @@ class TestL1AppServicePlan:
         
         assert result is True
     
-    def test_create_plan_idempotent(self, mock_provider):
+    @patch("src.providers.azure.layers.layer_1_iot.check_l1_app_service_plan")
+    def test_create_plan_idempotent(self, mock_check, mock_provider):
         """Should use begin_create_or_update for idempotency."""
+        mock_check.return_value = False  # Plan doesn't exist
         from src.providers.azure.layers.layer_1_iot import create_l1_app_service_plan
         
         mock_poller = MagicMock()
@@ -360,8 +366,10 @@ class TestL1FunctionApp:
         
         mock_provider.clients["web"].web_apps.delete.assert_called_once()
     
-    def test_verify_settings_configured(self, mock_provider, mock_config):
+    @patch("src.providers.azure.layers.layer_1_iot.check_l1_function_app")
+    def test_verify_settings_configured(self, mock_check, mock_provider, mock_config):
         """Should configure app settings including DIGITAL_TWIN_INFO."""
+        mock_check.return_value = False  # App doesn't exist
         from src.providers.azure.layers.layer_1_iot import create_l1_function_app
         
         mock_plan = MagicMock(id="/test/plan")
@@ -552,21 +560,24 @@ class TestIoTDevice:
             assert config_data["connection_string"] == device_conn_str
             assert config_data["device_id"] == "sensor-001"
     
-    def test_duplicate_device_handled(self, mock_provider, mock_config):
+    @patch("src.providers.azure.layers.layer_1_iot._get_iot_hub_connection_string")
+    def test_duplicate_device_handled(self, mock_conn_str, mock_provider, mock_config):
         """Should handle duplicate device error appropriately."""
         from src.providers.azure.layers.layer_1_iot import create_iot_device
         
         device = {"id": "sensor-001"}
+        mock_conn_str.return_value = "conn-str"
         
-        # Mock get_iot_hub_connection_string and the IoTHubRegistryManager import
-        with patch("src.providers.azure.layers.layer_1_iot._get_iot_hub_connection_string", return_value="conn-str"):
-            with patch("azure.iot.hub.IoTHubRegistryManager") as mock_registry:
-                mock_manager = MagicMock()
-                mock_manager.create_device_with_sas.side_effect = Exception("DeviceAlreadyExists")
-                mock_registry.return_value = mock_manager
-                
-                with pytest.raises(Exception, match="DeviceAlreadyExists"):
-                    create_iot_device(device, mock_provider, mock_config, "/test")
+        # Mock the IoTHubRegistryManager import
+        with patch("azure.iot.hub.IoTHubRegistryManager") as mock_registry:
+            mock_manager = MagicMock()
+            # get_device raises exception to trigger create
+            mock_manager.get_device.side_effect = Exception("Not found")
+            mock_manager.create_device_with_sas.side_effect = Exception("DeviceAlreadyExists")
+            mock_registry.return_value = mock_manager
+            
+            with pytest.raises(Exception, match="DeviceAlreadyExists"):
+                create_iot_device(device, mock_provider, mock_config, "/test")
 
 
 # ==========================================
@@ -852,8 +863,10 @@ class TestExceptionHandling:
         with pytest.raises(ClientAuthenticationError):
             check_iot_hub(mock_provider)
     
-    def test_http_error_propagates(self, mock_provider):
+    @patch("src.providers.azure.layers.layer_1_iot.check_iot_hub")
+    def test_http_error_propagates(self, mock_check, mock_provider):
         """Should re-raise HttpResponseError (except 404)."""
+        mock_check.return_value = False  # Hub doesn't exist
         from src.providers.azure.layers.layer_1_iot import create_iot_hub
         from azure.core.exceptions import HttpResponseError
         

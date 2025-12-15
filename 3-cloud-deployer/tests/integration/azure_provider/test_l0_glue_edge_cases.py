@@ -25,11 +25,13 @@ from azure.core.exceptions import ResourceNotFoundError
 class TestFunctionAppEdgeCases:
     """Edge case tests for L0 Glue Function App."""
     
+    @patch("src.providers.azure.layers.layer_0_glue.check_glue_function_app")
     @patch("src.providers.azure.layers.layer_0_glue._deploy_glue_functions")
     @patch("src.providers.azure.layers.layer_setup_azure.get_managed_identity_id")
     @patch("src.providers.azure.layers.layer_0_glue._configure_function_app_settings")
-    def test_create_glue_function_app_success(self, mock_settings, mock_identity, mock_deploy):
+    def test_create_glue_function_app_success(self, mock_settings, mock_identity, mock_deploy, mock_check):
         """create_glue_function_app() should create with correct config."""
+        mock_check.return_value = False  # App doesn't exist, so create should proceed
         from src.providers.azure.layers.layer_0_glue import create_glue_function_app
         
         mock_provider = MagicMock()
@@ -49,11 +51,13 @@ class TestFunctionAppEdgeCases:
         assert result == "test-twin-l0-functions"
         mock_provider.clients["web"].web_apps.begin_create_or_update.assert_called_once()
     
+    @patch("src.providers.azure.layers.layer_0_glue.check_glue_function_app")
     @patch("src.providers.azure.layers.layer_0_glue._deploy_glue_functions")
     @patch("src.providers.azure.layers.layer_setup_azure.get_managed_identity_id")
     @patch("src.providers.azure.layers.layer_0_glue._configure_function_app_settings")
-    def test_create_glue_function_app_assigns_managed_identity(self, mock_settings, mock_identity, mock_deploy):
+    def test_create_glue_function_app_assigns_managed_identity(self, mock_settings, mock_identity, mock_deploy, mock_check):
         """create_glue_function_app() should assign managed identity."""
+        mock_check.return_value = False  # App doesn't exist, so create should proceed
         from src.providers.azure.layers.layer_0_glue import create_glue_function_app
         
         mock_provider = MagicMock()
@@ -135,8 +139,10 @@ class TestFunctionAppEdgeCases:
 class TestAppServicePlanEdgeCases:
     """Edge case tests for App Service Plan (Consumption/Y1)."""
     
-    def test_create_consumption_app_service_plan_success(self):
+    @patch("src.providers.azure.layers.layer_0_glue.check_consumption_app_service_plan")
+    def test_create_consumption_app_service_plan_success(self, mock_check):
         """create_consumption_app_service_plan() should create Y1 plan."""
+        mock_check.return_value = False  # Plan doesn't exist, so create should proceed
         from src.providers.azure.layers.layer_0_glue import create_consumption_app_service_plan
         
         mock_provider = MagicMock()
@@ -338,9 +344,11 @@ class TestTokenValidationEdgeCases:
 class TestFunctionAppIdentityEdgeCases:
     """Edge case tests for Function App managed identity handling."""
     
+    @patch("src.providers.azure.layers.layer_0_glue.check_glue_function_app")
     @patch("src.providers.azure.layers.layer_setup_azure.get_managed_identity_id")
-    def test_create_glue_function_app_missing_identity_raises(self, mock_get_identity):
+    def test_create_glue_function_app_missing_identity_raises(self, mock_get_identity, mock_check):
         """create_glue_function_app() should raise ValueError if identity not found."""
+        mock_check.return_value = False  # App doesn't exist, so create should proceed
         from src.providers.azure.layers.layer_0_glue import create_glue_function_app
         
         mock_get_identity.return_value = None  # Identity not found
