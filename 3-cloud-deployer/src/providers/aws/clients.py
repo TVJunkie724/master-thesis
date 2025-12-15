@@ -89,6 +89,10 @@ def create_aws_clients(
         # Layer 5: Visualization
         "grafana": boto3.client("grafana", **config),
         
+        # Setup Layer / Resource Grouping
+        "resource-groups": boto3.client("resource-groups", **config),
+        "tagging": boto3.client("resourcegroupstaggingapi", **config),
+        
         # Supporting
         "sts": boto3.client("sts", **config),
         "logs": boto3.client("logs", **config),

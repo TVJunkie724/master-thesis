@@ -84,6 +84,7 @@ REQUIRED_AZURE_PERMISSIONS = {
             "Microsoft.Devices/IotHubs/write",
             "Microsoft.Devices/IotHubs/delete",
             "Microsoft.Devices/IotHubs/listkeys/action",
+            "Microsoft.Devices/IotHubs/IotHubKeys/listkeys/action",  # Get individual key access policies
             "Microsoft.EventGrid/systemTopics/write",
             "Microsoft.EventGrid/systemTopics/eventSubscriptions/write",
             "Microsoft.Authorization/roleAssignments/write",
@@ -272,35 +273,41 @@ def _get_service_principal_id(credential, subscription_id: str) -> str:
 CUSTOM_ROLE_NAME = "Digital Twin Deployer"
 
 
-def _action_matches(user_actions: set, required_action: str) -> bool:
+def _action_matches(user_actions: set, required_action: str) -> str:
     """
     Check if user's actions cover the required action.
     
     Handles wildcards like:
+    - "*" matches everything (Owner role)
     - "*/read" matches any read action
     - "Microsoft.Web/*" matches all Web actions
+    
+    Returns:
+        "exact" - if the exact permission is present
+        "wildcard" - if matched via a wildcard pattern (less reliable)
+        "none" - if not matched
     """
     if required_action in user_actions:
-        return True
+        return "exact"
     
     # Check wildcard patterns
     for action in user_actions:
         if action == "*":
-            return True
+            return "wildcard"  # Owner role - matches but may not be reliable
         if action.endswith("/*"):
             prefix = action[:-1]  # Remove "*"
             if required_action.startswith(prefix):
-                return True
+                return "wildcard"
         if action == "*/read" and required_action.endswith("/read"):
-            return True
+            return "wildcard"
         if action == "*/write" and required_action.endswith("/write"):
-            return True
+            return "wildcard"
         if action == "*/delete" and required_action.endswith("/delete"):
-            return True
+            return "wildcard"
         if action == "*/action" and required_action.endswith("/action"):
-            return True
+            return "wildcard"
     
-    return False
+    return "none"
 
 
 def _compare_permissions(role_info: dict) -> dict:
@@ -331,18 +338,27 @@ def _compare_permissions(role_info: dict) -> dict:
         layer_status = "valid"
         missing_actions = []
         present_actions = []
+        wildcard_actions = []  # Track permissions only matched via wildcards
         
         # Check required actions (management plane)
         for action in requirements.get("required_actions", []):
-            if _action_matches(user_actions, action):
+            match_type = _action_matches(user_actions, action)
+            if match_type == "exact":
                 present_actions.append(action)
+            elif match_type == "wildcard":
+                present_actions.append(action)
+                wildcard_actions.append(action)  # Also track as wildcard
             else:
                 missing_actions.append(action)
         
         # Check required data actions (data plane)
         for action in requirements.get("required_data_actions", []):
-            if _action_matches(user_data_actions, action):
+            match_type = _action_matches(user_data_actions, action)
+            if match_type == "exact":
                 present_actions.append(f"[data] {action}")
+            elif match_type == "wildcard":
+                present_actions.append(f"[data] {action}")
+                wildcard_actions.append(f"[data] {action}")
             else:
                 missing_actions.append(f"[data] {action}")
         
@@ -363,6 +379,7 @@ def _compare_permissions(role_info: dict) -> dict:
             "required_actions": requirements.get("required_actions", []),
             "required_data_actions": requirements.get("required_data_actions", []),
             "present_actions": present_actions,
+            "wildcard_actions": wildcard_actions,  # Permissions matched via wildcards (may not work at runtime)
             "missing_actions": missing_actions,
         }
     

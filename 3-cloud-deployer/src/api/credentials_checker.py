@@ -90,6 +90,18 @@ SELF_CHECK_PERMISSIONS = {
 
 
 REQUIRED_AWS_PERMISSIONS = {
+    # Setup Layer: Resource Grouping (tag-based resource organization)
+    # Must be deployed BEFORE any other layers
+    "setup": {
+        "resource-groups": [
+            "resource-groups:CreateGroup",
+            "resource-groups:DeleteGroup",
+            "resource-groups:GetGroup",
+        ],
+        "iam": [
+            "iam:TagRole",  # Required for tagging IAM roles
+        ],
+    },
     # Layer 0 is the comprehensive "glue" layer - needs most Lambda/IAM permissions
     # Other layers reference shared sets to avoid duplication
     "layer_0": {

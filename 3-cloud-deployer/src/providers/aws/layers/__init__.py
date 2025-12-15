@@ -12,6 +12,8 @@ Migration Strategy:
 Package Structure:
     layers/
     ├── __init__.py         # This file - exports all layer functions
+    ├── l_setup_adapter.py  # Adapter for Setup Layer (Resource Grouping)
+    ├── l0_adapter.py       # Adapter for Layer 0 (Glue/Multi-Cloud)
     ├── l1_adapter.py       # Adapter for Layer 1 (IoT)
     ├── l2_adapter.py       # Adapter for Layer 2 (Compute)
     ├── l3_adapter.py       # Adapter for Layer 3 (Storage)
@@ -19,10 +21,15 @@ Package Structure:
     └── l5_adapter.py       # Adapter for Layer 5 (Grafana)
 
 Usage:
+    from providers.aws.layers import deploy_setup, destroy_setup
     from providers.aws.layers import deploy_l1, destroy_l1
     
-    deploy_l1(context)  # Uses context but calls existing code
+    deploy_setup(context, provider)  # Setup before any layers
+    deploy_l1(context, provider)     # Then deploy layers
 """
+
+# Setup Layer (Resource Grouping)
+from .l_setup_adapter import deploy_setup, destroy_setup, info_setup
 
 # Layer adapters will be imported as they are created
 # from .l1_adapter import deploy_l1, destroy_l1

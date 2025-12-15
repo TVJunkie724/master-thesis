@@ -20,6 +20,7 @@ from logger import logger
 import src.providers.aws.util_aws as util_aws
 from botocore.exceptions import ClientError
 import constants as CONSTANTS
+from src.providers.aws.layers.tagging_helpers import tag_iam_role, get_tags_list, tag_s3_bucket
 
 if TYPE_CHECKING:
     from providers.aws.provider import AWSProvider
@@ -136,6 +137,9 @@ def create_hot_writer_iam_role(provider: 'AWSProvider') -> None:
         })
     )
     logger.info(f"Added DynamoDB write policy to {role_name}")
+    
+    # Tag the IAM role for resource grouping
+    tag_iam_role(provider, role_name, "L3")
 
 
 def destroy_hot_writer_iam_role(provider: 'AWSProvider') -> None:
@@ -540,7 +544,8 @@ def create_hot_dynamodb_table(provider: 'AWSProvider') -> None:
             {"AttributeName": "device_id", "AttributeType": "S"},
             {"AttributeName": "timestamp", "AttributeType": "S"}
         ],
-        BillingMode="PAY_PER_REQUEST"
+        BillingMode="PAY_PER_REQUEST",
+        Tags=[{"Key": k, "Value": v} for k, v in provider.naming.get_common_tags("L3").items()]
     )
     logger.info(f"Created DynamoDB table: {table_name}")
 
@@ -599,6 +604,9 @@ def create_hot_cold_mover_iam_role(provider: 'AWSProvider') -> None:
     for policy_arn in policy_arns:
         iam_client.attach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
         logger.info(f"Attached IAM policy ARN: {policy_arn}")
+    
+    # Tag the IAM role for resource grouping
+    tag_iam_role(provider, role_name, "L3")
 
     logger.info("Waiting for propagation...")
     time.sleep(20)

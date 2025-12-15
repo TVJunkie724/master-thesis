@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from logger import logger
 import src.providers.aws.util_aws as util_aws
 from botocore.exceptions import ClientError
+from src.providers.aws.layers.tagging_helpers import tag_iam_role
 
 if TYPE_CHECKING:
     from providers.aws.provider import AWSProvider
@@ -104,6 +105,10 @@ def create_grafana_iam_role(provider: 'AWSProvider') -> None:
         })
     )
     logger.info("Attached inline IAM policy: GrafanaExecutionPolicy")
+    
+    # Tag the IAM role for resource grouping
+    tag_iam_role(provider, role_name, "L5")
+    
     time.sleep(20)
 
 

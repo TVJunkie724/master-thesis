@@ -377,9 +377,10 @@ class TestL0ProviderBoundaryDetection:
             "FunctionUrl": "https://test.lambda-url.us-east-1.on.aws/"
         }
         
-        with patch("src.core.config_loader.save_inter_cloud_connection"):
-            with patch("src.util.compile_lambda_function", return_value=b"mock-zip"):
-                deploy_l0(mock_context, mock_provider)
+        with patch("src.providers.aws.layers.l0_adapter._check_setup_deployed"):
+            with patch("src.core.config_loader.save_inter_cloud_connection"):
+                with patch("src.util.compile_lambda_function", return_value=b"mock-zip"):
+                    deploy_l0(mock_context, mock_provider)
         
         # Ingestion should have been deployed
         mock_provider.clients["iam"].create_role.assert_called()

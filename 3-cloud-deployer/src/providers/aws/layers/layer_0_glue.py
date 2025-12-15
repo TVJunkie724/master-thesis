@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 from logger import logger
 from botocore.exceptions import ClientError
 import constants as CONSTANTS
+from src.providers.aws.layers.tagging_helpers import tag_iam_role
 
 if TYPE_CHECKING:
     from providers.aws.provider import AWSProvider
@@ -112,6 +113,9 @@ def create_ingestion_iam_role(provider: 'AWSProvider') -> None:
         PolicyArn=CONSTANTS.AWS_POLICY_LAMBDA_BASIC_EXECUTION
     )
     logger.info(f"Attached Lambda basic execution policy to {role_name}")
+    
+    # Tag the IAM role for resource grouping
+    tag_iam_role(provider, role_name, "L0")
 
 
 def destroy_ingestion_iam_role(provider: 'AWSProvider') -> None:
@@ -167,7 +171,8 @@ def create_ingestion_lambda_function(
         Timeout=30,
         MemorySize=128,
         Publish=True,
-        Environment={"Variables": env_vars}
+        Environment={"Variables": env_vars},
+        Tags=provider.naming.get_common_tags("L0")
     )
     logger.info(f"Created Lambda function: {function_name}")
 

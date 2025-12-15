@@ -53,6 +53,40 @@ class AWSNaming:
         return self._twin_name
     
     # ==========================================
+    # Setup Layer: Resource Grouping
+    # ==========================================
+    
+    def resource_group(self) -> str:
+        """
+        AWS Resource Group name for this digital twin.
+        
+        The Resource Group uses tag-based queries to group all resources
+        that have the DigitalTwin={twin_name} tag.
+        """
+        return f"{self._twin_name}-resources"
+    
+    def get_common_tags(self, layer: str = "Setup") -> dict:
+        """
+        Get common tags for all resources in this digital twin.
+        
+        These tags are applied to every AWS resource to enable:
+        - Resource grouping via AWS Resource Groups
+        - Cost tracking and allocation
+        - Easy identification and cleanup
+        
+        Args:
+            layer: Layer identifier (Setup, L0, L1, L2, L3, L4, L5)
+        
+        Returns:
+            Dictionary of tag key-value pairs
+        """
+        return {
+            "DigitalTwin": self._twin_name,
+            "Project": "twin2multicloud",
+            "Layer": layer,
+        }
+    
+    # ==========================================
     # Layer 1: Data Acquisition (IoT)
     # ==========================================
     

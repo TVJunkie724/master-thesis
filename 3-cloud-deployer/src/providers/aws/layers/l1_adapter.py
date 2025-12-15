@@ -13,6 +13,29 @@ if TYPE_CHECKING:
     from ..provider import AWSProvider
 
 
+def _check_setup_deployed(provider: 'AWSProvider') -> None:
+    """
+    Verify that Setup Layer (Resource Group) is deployed before deploying L1.
+    
+    L1 depends on Setup Layer for:
+    - Resource Group to exist for resource grouping
+    - Tags to be properly configured
+    
+    Raises:
+        ValueError: If Setup Layer Resource Group is not deployed
+    """
+    from .layer_setup_aws import check_resource_group
+    
+    if check_resource_group(provider):
+        logger.info("[L1] ✓ Pre-flight check: Setup Layer Resource Group exists")
+        return
+    else:
+        raise ValueError(
+            "[L1] Pre-flight check FAILED: Setup Layer Resource Group is NOT deployed. "
+            "Deploy Setup Layer first using deploy_setup()."
+        )
+
+
 def _check_l0_deployed(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     """
     Verify that L0 (Glue Layer) is deployed before deploying L1.
@@ -70,6 +93,9 @@ def deploy_l1(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     
     logger.info(f"[L1] Deploying Layer 1 (IoT) for {context.config.digital_twin_name}")
     context.set_active_layer(1)
+    
+    # Pre-flight check: Verify Setup Layer is deployed
+    _check_setup_deployed(provider)
     
     # Pre-flight check: Verify L0 is deployed (raises ValueError if multi-cloud dependency missing)
     _check_l0_deployed(context, provider)

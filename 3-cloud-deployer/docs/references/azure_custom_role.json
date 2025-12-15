@@ -40,6 +40,7 @@
                     "Microsoft.Devices/IotHubs/write",
                     "Microsoft.Devices/IotHubs/delete",
                     "Microsoft.Devices/IotHubs/listkeys/action",
+                    "Microsoft.Devices/IotHubs/IotHubKeys/listkeys/action",
                     "Microsoft.Devices/IotHubs/exportDevices/action",
                     "Microsoft.Devices/IotHubs/importDevices/action",
                     "Microsoft.Devices/IotHubs/certificates/write",

@@ -2,6 +2,24 @@
     "Version": "2012-10-17",
     "Statement": [
         {
+            "Sid": "SetupLayerResourceGroups",
+            "Effect": "Allow",
+            "Action": [
+                "resource-groups:CreateGroup",
+                "resource-groups:DeleteGroup",
+                "resource-groups:GetGroup"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "SetupLayerIAMTagging",
+            "Effect": "Allow",
+            "Action": [
+                "iam:TagRole"
+            ],
+            "Resource": "*"
+        },
+        {
             "Sid": "Layer0GlueIAM",
             "Effect": "Allow",
             "Action": [

@@ -26,6 +26,29 @@ if TYPE_CHECKING:
     from ..provider import AWSProvider
 
 
+def _check_setup_deployed(provider: 'AWSProvider') -> None:
+    """
+    Verify that Setup Layer (Resource Group) is deployed before deploying L0.
+    
+    L0 depends on Setup Layer for:
+    - Resource Group to exist for resource grouping
+    - Tags to be properly configured
+    
+    Raises:
+        ValueError: If Setup Layer Resource Group is not deployed
+    """
+    from .layer_setup_aws import check_resource_group
+    
+    if check_resource_group(provider):
+        logger.info("[L0] ✓ Pre-flight check: Setup Layer Resource Group exists")
+        return
+    else:
+        raise ValueError(
+            "[L0] Pre-flight check FAILED: Setup Layer Resource Group is NOT deployed. "
+            "Deploy Setup Layer first using deploy_setup()."
+        )
+
+
 def deploy_l0(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     """
     Deploy Layer 0 (cross-cloud HTTP receivers) for AWS.
@@ -47,6 +70,9 @@ def deploy_l0(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
     from src.core.config_loader import save_inter_cloud_connection
     
     logger.info(f"[L0] Deploying Layer 0 (Glue) for {context.config.digital_twin_name}")
+    
+    # Pre-flight check: Verify Setup Layer is deployed
+    _check_setup_deployed(provider)
     
     # Path to tool source code
     project_path = str(context.project_path.parent.parent)

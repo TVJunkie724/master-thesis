@@ -69,6 +69,40 @@ class AWSDeployerStrategy:
         return self._provider
     
     # ==========================================
+    # Setup Layer: Resource Grouping
+    # ==========================================
+    
+    def deploy_setup(self, context: 'DeploymentContext') -> None:
+        """
+        Deploy Setup Layer (Resource Grouping) for AWS.
+        
+        Creates:
+            1. AWS Resource Group (tag-based query for all twin resources)
+        
+        Note:
+            This should be called BEFORE any other layer deployment.
+            All subsequent layers will tag their resources for inclusion.
+        """
+        from .layers.l_setup_adapter import deploy_setup as _deploy_setup
+        _deploy_setup(context, self._provider)
+    
+    def destroy_setup(self, context: 'DeploymentContext') -> None:
+        """
+        Destroy Setup Layer resources.
+        
+        Note:
+            This should be called AFTER all other layers are destroyed.
+            Deleting the Resource Group does NOT delete the resources.
+        """
+        from .layers.l_setup_adapter import destroy_setup as _destroy_setup
+        _destroy_setup(context, self._provider)
+    
+    def info_setup(self, context: 'DeploymentContext') -> dict:
+        """Check status of Setup Layer (Resource Grouping)."""
+        from .layers.l_setup_adapter import info_setup as _info_setup
+        return _info_setup(context, self._provider)
+    
+    # ==========================================
     # Layer 0: Glue (Cross-Cloud HTTP Receivers)
     # ==========================================
     
@@ -244,7 +278,8 @@ class AWSDeployerStrategy:
     # ==========================================
     
     def deploy_all(self, context: 'DeploymentContext') -> None:
-        """Deploy all layers in order (L0 → L5)."""
+        """Deploy all layers in order (Setup → L0 → L5)."""
+        self.deploy_setup(context)
         self.deploy_l0(context)
         self.deploy_l1(context)
         self.deploy_l2(context)
@@ -255,7 +290,7 @@ class AWSDeployerStrategy:
         self.deploy_l5(context)
     
     def destroy_all(self, context: 'DeploymentContext') -> None:
-        """Destroy all layers in reverse order (L5 → L0)."""
+        """Destroy all layers in reverse order (L5 → L0 → Setup)."""
         self.destroy_l5(context)
         self.destroy_l4(context)
         self.destroy_l3_archive(context)
@@ -264,6 +299,7 @@ class AWSDeployerStrategy:
         self.destroy_l2(context)
         self.destroy_l1(context)
         self.destroy_l0(context)
+        self.destroy_setup(context)
 
     # ==========================================
     # Info / Status Checks

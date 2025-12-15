@@ -139,24 +139,14 @@ def _deploy_function_code_via_kudu(
     import src.util as util
     zip_content = util.compile_azure_function(function_dir, project_path)
     
-    # Deploy via Kudu
-    kudu_url = f"https://{app_name}.scm.azurewebsites.net/api/zipdeploy"
-    logger.info(f"  Deploying via Kudu zip deploy to {kudu_url}...")
-    
-    response = requests.post(
-        kudu_url,
-        data=zip_content,
-        auth=(creds.publishing_user_name, creds.publishing_password),
-        headers={"Content-Type": "application/zip"},
-        timeout=300
+    # Deploy via Kudu using shared helper with retry
+    from src.providers.azure.layers.deployment_helpers import deploy_to_kudu
+    deploy_to_kudu(
+        app_name=app_name,
+        zip_content=zip_content,
+        publish_username=creds.publishing_user_name,
+        publish_password=creds.publishing_password
     )
-    
-    if response.status_code not in (200, 202):
-        raise HttpResponseError(
-            f"Kudu zip deploy failed: {response.status_code} - {response.text}"
-        )
-    
-    logger.info("  ✓ Function code deployed")
 
 
 # ==========================================

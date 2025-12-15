@@ -99,6 +99,25 @@ def create_iot_hub(provider: 'AzureProvider') -> str:
         )
         hub = poller.result()
         logger.info(f"✓ IoT Hub created: {hub_name}")
+        
+        # Wait for IoT Hub to reach Active state
+        # The create operation returns before the hub is fully operational
+        logger.info("  Waiting for IoT Hub to reach Active state...")
+        max_wait_attempts = 30  # 5 minutes max (30 x 10s)
+        for wait_attempt in range(1, max_wait_attempts + 1):
+            hub_info = provider.clients["iothub"].iot_hub_resource.get(
+                resource_group_name=rg_name,
+                resource_name=hub_name
+            )
+            state = hub_info.properties.state if hub_info.properties else "Unknown"
+            if state == "Active":
+                logger.info(f"  ✓ IoT Hub is Active")
+                break
+            logger.info(f"  IoT Hub state: {state} (attempt {wait_attempt}/{max_wait_attempts})")
+            if wait_attempt == max_wait_attempts:
+                raise RuntimeError(f"IoT Hub {hub_name} did not reach Active state after 5 minutes")
+            time.sleep(10)
+        
         return hub.name
     except ClientAuthenticationError as e:
         logger.error(f"PERMISSION DENIED creating IoT Hub: {e.message}")
@@ -201,6 +220,8 @@ def _get_iot_hub_connection_string(provider: 'AzureProvider') -> str:
     This connection string is used for device registry operations,
     not for device telemetry.
     
+    Includes retry logic to handle RBAC propagation delay after IoT Hub creation.
+    
     Args:
         provider: Initialized AzureProvider with clients and naming
         
@@ -217,27 +238,47 @@ def _get_iot_hub_connection_string(provider: 'AzureProvider') -> str:
     rg_name = provider.naming.resource_group()
     hub_name = provider.naming.iot_hub()
     
-    try:
-        # Get the iothubowner shared access policy
-        keys = provider.clients["iothub"].iot_hub_resource.get_keys_for_key_name(
-            resource_group_name=rg_name,
-            resource_name=hub_name,
-            key_name="iothubowner"
-        )
-        
-        # Build connection string
-        connection_string = (
-            f"HostName={hub_name}.azure-devices.net;"
-            f"SharedAccessKeyName={keys.key_name};"
-            f"SharedAccessKey={keys.primary_key}"
-        )
-        
-        return connection_string
-    except ResourceNotFoundError:
-        raise RuntimeError(f"IoT Hub {hub_name} not found. Deploy IoT Hub first.")
-    except (ClientAuthenticationError, HttpResponseError, AzureError) as e:
-        logger.error(f"Error getting IoT Hub connection string: {e}")
-        raise
+    # Retry logic for RBAC/provisioning delay - IoT Hub can take 5+ minutes to fully provision
+    max_retries = 15
+    retry_delay = 20  # seconds - total max wait: 5 minutes
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            # Get the iothubowner shared access policy
+            keys = provider.clients["iothub"].iot_hub_resource.get_keys_for_key_name(
+                resource_group_name=rg_name,
+                resource_name=hub_name,
+                key_name="iothubowner"
+            )
+            
+            # Build connection string
+            connection_string = (
+                f"HostName={hub_name}.azure-devices.net;"
+                f"SharedAccessKeyName={keys.key_name};"
+                f"SharedAccessKey={keys.primary_key}"
+            )
+            
+            return connection_string
+        except ResourceNotFoundError:
+            raise RuntimeError(f"IoT Hub {hub_name} not found. Deploy IoT Hub first.")
+        except HttpResponseError as e:
+            error_str = str(e)
+            # Check for retryable errors:
+            # - AuthorizationFailed: RBAC not propagated yet
+            # - 409002/not Active: IoT Hub still provisioning
+            is_auth_failed = "AuthorizationFailed" in error_str
+            is_not_active = "409002" in error_str or "not currently in Active state" in error_str
+            
+            if (is_auth_failed or is_not_active) and attempt < max_retries:
+                reason = "RBAC propagation" if is_auth_failed else "IoT Hub not Active"
+                logger.warning(f"IoT Hub key access denied ({reason}, attempt {attempt}/{max_retries}), waiting {retry_delay}s...")
+                time.sleep(retry_delay)
+                continue
+            logger.error(f"Error getting IoT Hub connection string: {e}")
+            raise
+        except (ClientAuthenticationError, AzureError) as e:
+            logger.error(f"Error getting IoT Hub connection string: {e}")
+            raise
 
 
 # ==========================================
@@ -875,46 +916,15 @@ def deploy_dispatcher_function(
     
     zip_content = util.compile_azure_function(dispatcher_dir, project_path)
     
-    # 3. Deploy to Kudu zipdeploy endpoint (with retry for SCM startup)
-    logger.info("  Deploying via Kudu zip deploy...")
-    kudu_url = f"https://{app_name}.scm.azurewebsites.net/api/zipdeploy"
-    
-    # Retry logic: Kudu SCM may need 30-60s to become ready after Function App creation
-    max_retries = 5
-    retry_delay = 15  # seconds
-    
-    for attempt in range(1, max_retries + 1):
-        try:
-            response = requests.post(
-                kudu_url,
-                data=zip_content,
-                auth=(publish_username, publish_password),
-                headers={"Content-Type": "application/zip"},
-                timeout=300  # 5 minute timeout for deployment
-            )
-            
-            if response.status_code in (200, 202):
-                logger.info(f"✓ Dispatcher function deployed successfully")
-                return
-            elif response.status_code in (401, 503) and attempt < max_retries:
-                # 401: Kudu SCM not ready yet (auth not yet active)
-                # 503: Kudu service unavailable (still starting up)
-                logger.warning(f"  Kudu returned {response.status_code} (attempt {attempt}/{max_retries}), waiting {retry_delay}s for SCM to become ready...")
-                time.sleep(retry_delay)
-                continue
-            else:
-                logger.error(f"Kudu deploy failed: {response.status_code} - {response.text}")
-                raise HttpResponseError(
-                    message=f"Kudu zip deploy failed: {response.status_code}",
-                    response=response
-                )
-        except requests.exceptions.RequestException as e:
-            if attempt < max_retries:
-                logger.warning(f"  Network error (attempt {attempt}/{max_retries}): {e}, retrying in {retry_delay}s...")
-                time.sleep(retry_delay)
-                continue
-            logger.error(f"Network error during Kudu deploy: {e}")
-            raise
+    # 3. Deploy to Kudu zipdeploy endpoint using shared helper with retry
+    from src.providers.azure.layers.deployment_helpers import deploy_to_kudu
+    deploy_to_kudu(
+        app_name=app_name,
+        zip_content=zip_content,
+        publish_username=publish_username,
+        publish_password=publish_password
+    )
+    logger.info(f"✓ Dispatcher function deployed successfully")
 
 
 def destroy_dispatcher_function(provider: 'AzureProvider') -> None:
@@ -1143,6 +1153,8 @@ def create_iot_device(
     Creates a device identity in the IoT Hub with SAS authentication,
     then generates a simulator configuration file with the connection string.
     
+    Includes retry logic for IH409002 errors when IoT Hub is not yet Active.
+    
     Args:
         iot_device: Device configuration dict with 'id' and 'properties'
         provider: Initialized AzureProvider with clients and naming
@@ -1166,6 +1178,11 @@ def create_iot_device(
     
     logger.info(f"Creating IoT device: {device_id}")
     
+    # Retry logic for IoT Hub not Active state (IH409002)
+    # IoT Hub can take 5+ minutes to become fully operational after creation
+    max_retries = 18
+    retry_delay = 20  # seconds - total max wait: 6 minutes
+    
     try:
         # Get IoT Hub connection string for management operations
         hub_conn_str = _get_iot_hub_connection_string(provider)
@@ -1175,13 +1192,28 @@ def create_iot_device(
         
         registry_manager = IoTHubRegistryManager(hub_conn_str)
         
-        # Create device with SAS authentication
-        device = registry_manager.create_device_with_sas(
-            device_id=device_id,
-            primary_key=None,  # Auto-generate
-            secondary_key=None,  # Auto-generate
-            status="enabled"
-        )
+        # Create device with SAS authentication (with retry for Hub not Active)
+        device = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                device = registry_manager.create_device_with_sas(
+                    device_id=device_id,
+                    primary_key=None,  # Auto-generate
+                    secondary_key=None,  # Auto-generate
+                    status="enabled"
+                )
+                break  # Success
+            except Exception as e:
+                error_str = str(e)
+                # Check for IH409002: IoT Hub not in Active state
+                if ("409002" in error_str or "not currently in Active state" in error_str) and attempt < max_retries:
+                    logger.warning(f"IoT Hub not Active yet (attempt {attempt}/{max_retries}), waiting {retry_delay}s...")
+                    time.sleep(retry_delay)
+                    continue
+                raise  # Re-raise if not the expected error or out of retries
+        
+        if device is None:
+            raise RuntimeError(f"Failed to create device after {max_retries} attempts")
         
         # Build device connection string
         primary_key = device.authentication.symmetric_key.primary_key
@@ -1399,28 +1431,15 @@ def deploy_connector_function(
     
     zip_content = util.compile_azure_function(connector_dir, project_path)
     
-    # 3. Deploy to Kudu zipdeploy endpoint
-    logger.info("  Deploying connector code via Kudu zip deploy...")
-    kudu_url = f"https://{app_name}.scm.azurewebsites.net/api/zipdeploy"
-    
-    try:
-        response = requests.post(
-            kudu_url,
-            data=zip_content,
-            auth=(publish_username, publish_password),
-            headers={"Content-Type": "application/zip"},
-            timeout=300
-        )
-        
-        if response.status_code not in (200, 202):
-            logger.error(f"Kudu deploy failed: {response.status_code} - {response.text}")
-            raise HttpResponseError(
-                message=f"Kudu zip deploy failed: {response.status_code}",
-                response=response
-            )
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Network error during Kudu deploy: {e}")
-        raise
+    # 3. Deploy to Kudu zipdeploy endpoint using shared helper with retry
+    from src.providers.azure.layers.deployment_helpers import deploy_to_kudu
+    deploy_to_kudu(
+        app_name=app_name,
+        zip_content=zip_content,
+        publish_username=publish_username,
+        publish_password=publish_password
+    )
+    logger.info("  ✓ Connector function code deployed")
     
     # 4. Configure connector-specific app settings
     logger.info("  Configuring connector app settings...")

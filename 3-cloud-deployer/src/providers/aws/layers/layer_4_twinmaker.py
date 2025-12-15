@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from logger import logger
 import src.providers.aws.util_aws as util_aws
 from botocore.exceptions import ClientError
+from src.providers.aws.layers.tagging_helpers import tag_iam_role, tag_s3_bucket
 
 if TYPE_CHECKING:
     from providers.aws.provider import AWSProvider
@@ -64,6 +65,9 @@ def create_twinmaker_s3_bucket(provider: 'AWSProvider') -> None:
 
     s3_client.create_bucket(**create_args)
     logger.info(f"Created S3 Bucket: {bucket_name}")
+    
+    # Tag the S3 bucket for resource grouping
+    tag_s3_bucket(provider, bucket_name, "L4")
 
 
 def destroy_twinmaker_s3_bucket(provider: 'AWSProvider') -> None:
@@ -106,6 +110,10 @@ def create_twinmaker_iam_role(provider: 'AWSProvider') -> None:
         })
     )
     logger.info("Attached inline IAM policy: TwinMakerExecutionPolicy")
+    
+    # Tag the IAM role for resource grouping
+    tag_iam_role(provider, role_name, "L4")
+    
     logger.info("Waiting for propagation...")
     time.sleep(20)
 

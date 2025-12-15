@@ -31,10 +31,11 @@ from botocore.exceptions import ClientError
 class TestL3ToL4MultiCloudIntegration:
     """Tests for L3→L4 multi-cloud deployment flow."""
     
+    @patch("src.providers.aws.layers.l0_adapter._check_setup_deployed")
     @patch("time.sleep")
     @patch("secrets.token_urlsafe", return_value="test-token-abc123")
     def test_deploy_l0_creates_function_urls_when_l4_different(
-        self, mock_token, mock_sleep
+        self, mock_token, mock_sleep, mock_check_setup
     ):
         """l0_adapter.deploy_l0() creates Hot Reader Function URLs when L3≠L4.
         
@@ -279,9 +280,10 @@ class TestDeployerIntegration:
         # Verify DT Data Connector was destroyed
         mock_destroy.assert_called_once()
     
+    @patch("src.providers.aws.layers.l1_adapter._check_setup_deployed")
     @patch("src.providers.aws.layers.l1_adapter._check_l0_deployed")
     @patch("time.sleep")
-    def test_l1_adapter_deploys_connector_when_l2_different(self, mock_sleep, mock_check_l0):
+    def test_l1_adapter_deploys_connector_when_l2_different(self, mock_sleep, mock_check_l0, mock_check_setup):
         """l1_adapter.deploy_l1() deploys Connector when L1≠L2."""
         from src.providers.aws.layers.l1_adapter import deploy_l1
         
@@ -425,12 +427,14 @@ class TestBoundaryConditions:
         mock_provider = MagicMock()
         mock_provider.clients = {"lambda": MagicMock(), "iam": MagicMock(), "iot": MagicMock()}
         
-        with patch("src.providers.aws.layers.layer_1_iot.create_dispatcher_iam_role"):
-            with patch("src.providers.aws.layers.layer_1_iot.create_dispatcher_lambda_function"):
-                with patch("src.providers.aws.layers.layer_1_iot.create_dispatcher_iot_rule"):
-                    with patch("src.providers.aws.layers.layer_1_iot.create_iot_thing") as mock_thing:
-                        with patch("src.providers.aws.layers.layer_1_iot.post_init_values_to_iot_core") as mock_post:
-                            deploy_l1(mock_context, mock_provider)
+        with patch("src.providers.aws.layers.l1_adapter._check_setup_deployed"):
+            with patch("src.providers.aws.layers.l1_adapter._check_l0_deployed"):
+                with patch("src.providers.aws.layers.layer_1_iot.create_dispatcher_iam_role"):
+                    with patch("src.providers.aws.layers.layer_1_iot.create_dispatcher_lambda_function"):
+                        with patch("src.providers.aws.layers.layer_1_iot.create_dispatcher_iot_rule"):
+                            with patch("src.providers.aws.layers.layer_1_iot.create_iot_thing") as mock_thing:
+                                with patch("src.providers.aws.layers.layer_1_iot.post_init_values_to_iot_core") as mock_post:
+                                    deploy_l1(mock_context, mock_provider)
         
         # No IoT things created, no values posted
         mock_thing.assert_not_called()

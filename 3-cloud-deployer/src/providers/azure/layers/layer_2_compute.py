@@ -138,44 +138,14 @@ def _deploy_function_code_via_kudu(
         logger.info(f"  Compiling function from {os.path.basename(function_dir)}...")
         zip_content = util.compile_azure_function(function_dir, project_path)
         
-        # Deploy via Kudu with retry logic
-        kudu_url = f"https://{app_name}.scm.azurewebsites.net/api/zipdeploy"
-        logger.info(f"  Deploying via Kudu zip deploy to {kudu_url}...")
-        
-        # Retry logic: Kudu SCM may need 30-60s to become ready after Function App creation
-        max_retries = 5
-        retry_delay = 15  # seconds
-        
-        for attempt in range(1, max_retries + 1):
-            try:
-                response = requests.post(
-                    kudu_url,
-                    data=zip_content,
-                    auth=(creds.publishing_user_name, creds.publishing_password),
-                    headers={"Content-Type": "application/zip"},
-                    timeout=300
-                )
-                
-                if response.status_code in (200, 202):
-                    logger.info(f"  ✓ Function code deployed successfully")
-                    return
-                elif response.status_code in (401, 503) and attempt < max_retries:
-                    # 401: Kudu SCM not ready yet (auth not yet active)
-                    # 503: Kudu service unavailable (still starting up)
-                    logger.warning(f"  Kudu returned {response.status_code} (attempt {attempt}/{max_retries}), waiting {retry_delay}s for SCM to become ready...")
-                    time.sleep(retry_delay)
-                    continue
-                else:
-                    raise HttpResponseError(
-                        f"Kudu zip deploy failed: {response.status_code} - {response.text}"
-                    )
-            except requests.RequestException as e:
-                if attempt < max_retries:
-                    logger.warning(f"  Network error (attempt {attempt}/{max_retries}): {e}, retrying in {retry_delay}s...")
-                    time.sleep(retry_delay)
-                    continue
-                logger.error(f"HTTP error during Kudu deployment: {e}")
-                raise HttpResponseError(f"Kudu deployment failed: {e}")
+        # Deploy via Kudu using shared helper with retry
+        from src.providers.azure.layers.deployment_helpers import deploy_to_kudu
+        deploy_to_kudu(
+            app_name=app_name,
+            zip_content=zip_content,
+            publish_username=creds.publishing_user_name,
+            publish_password=creds.publishing_password
+        )
         
     except ClientAuthenticationError as e:
         logger.error(f"PERMISSION DENIED getting publish credentials: {e.message}")

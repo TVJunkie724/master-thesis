@@ -801,29 +801,15 @@ def _deploy_l4_functions(provider: 'AzureProvider') -> None:
     
     zip_content = zip_buffer.getvalue()
     
-    # Deploy to Kudu
-    kudu_url = f"https://{app_name}.scm.azurewebsites.net/api/zipdeploy"
-    
-    try:
-        response = requests.post(
-            kudu_url,
-            data=zip_content,
-            auth=(publish_username, publish_password),
-            headers={"Content-Type": "application/zip"},
-            timeout=300
-        )
-        
-        if response.status_code in (200, 202):
-            logger.info(f"  ✓ L4 function code deployed")
-        else:
-            logger.error(f"Kudu deploy failed: {response.status_code} - {response.text}")
-            raise HttpResponseError(
-                message=f"Kudu zip deploy failed: {response.status_code}",
-                response=response
-            )
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Network error during Kudu deploy: {e}")
-        raise
+    # Deploy to Kudu using shared helper with retry
+    from src.providers.azure.layers.deployment_helpers import deploy_to_kudu
+    deploy_to_kudu(
+        app_name=app_name,
+        zip_content=zip_content,
+        publish_username=publish_username,
+        publish_password=publish_password
+    )
+    logger.info(f"  ✓ L4 function code deployed")
 
 
 def destroy_l4_function_app(provider: 'AzureProvider') -> None:

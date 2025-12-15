@@ -18,9 +18,10 @@ class TestProviderConfigValidation:
     # L2 Adapter Tests (Missing Provider Config)
     # ==========================================
 
+    @patch("src.providers.aws.layers.l0_adapter._check_setup_deployed")
     @patch("time.sleep")
     @patch("src.util.compile_lambda_function", return_value=b"mock-zip")
-    def test_deploy_l0_missing_layer_1_provider_fails(self, mock_compile, mock_sleep):
+    def test_deploy_l0_missing_layer_1_provider_fails(self, mock_compile, mock_sleep, mock_check_setup):
         """deploy_l0() should fail fast when layer_1_provider is missing.
         
         NOTE: Provider config validation moved from L2 adapter to L0 adapter.

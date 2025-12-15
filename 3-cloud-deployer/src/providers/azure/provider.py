@@ -243,6 +243,20 @@ class AzureProvider(BaseProvider):
             credential=credential,
             subscription_id=subscription_id
         )
+        
+        # Cosmos DB Management - for Cosmos DB (L3)
+        from azure.mgmt.cosmosdb import CosmosDBManagementClient
+        self._clients["cosmos"] = CosmosDBManagementClient(
+            credential=credential,
+            subscription_id=subscription_id
+        )
+        
+        # Digital Twins Management - for Azure Digital Twins (L4)
+        from azure.mgmt.digitaltwins import AzureDigitalTwinsManagementClient
+        self._clients["digitaltwins"] = AzureDigitalTwinsManagementClient(
+            credential=credential,
+            subscription_id=subscription_id
+        )
     
     def get_resource_name(self, resource_type: str, suffix: str = "") -> str:
         """

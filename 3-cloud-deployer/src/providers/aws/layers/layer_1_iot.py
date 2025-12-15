@@ -19,6 +19,7 @@ import src.providers.aws.util_aws as util_aws
 from botocore.exceptions import ClientError
 import shutil
 import constants as CONSTANTS
+from src.providers.aws.layers.tagging_helpers import tag_iam_role, get_tags_list
 
 if TYPE_CHECKING:
     from providers.aws.provider import AWSProvider
@@ -61,6 +62,9 @@ def create_dispatcher_iam_role(provider: 'AWSProvider') -> None:
     for policy_arn in policy_arns:
         iam_client.attach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
         logger.info(f"Attached IAM policy ARN: {policy_arn}")
+    
+    # Tag the IAM role for resource grouping
+    tag_iam_role(provider, role_name, "L1")
 
     logger.info("Waiting for propagation...")
     time.sleep(20)
@@ -167,7 +171,8 @@ def create_dispatcher_lambda_function(
                 "DIGITAL_TWIN_INFO": json.dumps(digital_twin_info),
                 "TARGET_FUNCTION_SUFFIX": target_suffix
             }
-        }
+        },
+        Tags=provider.naming.get_common_tags("L1")
     )
 
     logger.info(f"Created Lambda function: {function_name}")
@@ -530,6 +535,14 @@ def create_connector_iam_role(iot_device, provider: 'AWSProvider') -> None:
     for policy_arn in policy_arns:
         iam_client.attach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
         logger.info(f"Attached IAM policy ARN: {policy_arn}")
+    
+    # Tag the IAM role for resource grouping
+    tags = provider.naming.get_common_tags("L1")
+    iam_client.tag_role(
+        RoleName=role_name,
+        Tags=[{"Key": k, "Value": v} for k, v in tags.items()]
+    )
+    logger.info(f"Tagged Connector IAM role: {role_name}")
 
 
 def destroy_connector_iam_role(iot_device, provider: 'AWSProvider') -> None:
@@ -623,7 +636,8 @@ def create_connector_lambda_function(
                 "REMOTE_INGESTION_URL": remote_ingestion_url,
                 "INTER_CLOUD_TOKEN": inter_cloud_token
             }
-        }
+        },
+        Tags=provider.naming.get_common_tags("L1")
     )
     logger.info(f"Created Connector Lambda function: {function_name}")
 
