@@ -40,8 +40,7 @@ def mock_azure_provider():
     
     # Mock clients - use correct key names from Azure provider
     provider.clients = {
-        "digitaltwins_mgmt": MagicMock(),  # Azure Digital Twins Management
-        "digitaltwins": MagicMock(),        # Azure Digital Twins Data
+        "digitaltwins": MagicMock(),  # Azure Digital Twins Management
         "web": MagicMock(),
         "authorization": MagicMock(),       # Role assignments
         "msi": MagicMock(),
@@ -75,7 +74,7 @@ class TestADTInstance:
         
         mock_poller = MagicMock()
         mock_poller.result.return_value = MagicMock(host_name="test-twin-adt.eastus.digitaltwins.azure.net")
-        mock_azure_provider.clients["digitaltwins_mgmt"].digital_twins.begin_create_or_update.return_value = mock_poller
+        mock_azure_provider.clients["digitaltwins"].digital_twins.begin_create_or_update.return_value = mock_poller
         
         # Mock managed identity access grant
         mock_azure_provider.clients["msi"].user_assigned_identities.get.return_value = MagicMock(
@@ -87,7 +86,7 @@ class TestADTInstance:
         result = create_adt_instance(mock_azure_provider)
         
         assert result is not None
-        mock_azure_provider.clients["digitaltwins_mgmt"].digital_twins.begin_create_or_update.assert_called_once()
+        mock_azure_provider.clients["digitaltwins"].digital_twins.begin_create_or_update.assert_called_once()
     
     def test_create_adt_instance_missing_provider_raises(self):
         """Validation: None provider raises ValueError."""
@@ -101,17 +100,17 @@ class TestADTInstance:
         from src.providers.azure.layers.layer_4_adt import destroy_adt_instance
         
         mock_poller = MagicMock()
-        mock_azure_provider.clients["digitaltwins_mgmt"].digital_twins.begin_delete.return_value = mock_poller
+        mock_azure_provider.clients["digitaltwins"].digital_twins.begin_delete.return_value = mock_poller
         
         destroy_adt_instance(mock_azure_provider)
         
-        mock_azure_provider.clients["digitaltwins_mgmt"].digital_twins.begin_delete.assert_called_once()
+        mock_azure_provider.clients["digitaltwins"].digital_twins.begin_delete.assert_called_once()
     
     def test_destroy_adt_instance_not_found_handled(self, mock_azure_provider):
         """Error handling: ResourceNotFoundError handled gracefully."""
         from src.providers.azure.layers.layer_4_adt import destroy_adt_instance
         
-        mock_azure_provider.clients["digitaltwins_mgmt"].digital_twins.begin_delete.side_effect = ResourceNotFoundError("Not found")
+        mock_azure_provider.clients["digitaltwins"].digital_twins.begin_delete.side_effect = ResourceNotFoundError("Not found")
         
         # Should not raise
         destroy_adt_instance(mock_azure_provider)
@@ -127,7 +126,7 @@ class TestADTInstance:
         """Check: Returns True when instance exists."""
         from src.providers.azure.layers.layer_4_adt import check_adt_instance
         
-        mock_azure_provider.clients["digitaltwins_mgmt"].digital_twins.get.return_value = MagicMock()
+        mock_azure_provider.clients["digitaltwins"].digital_twins.get.return_value = MagicMock()
         
         result = check_adt_instance(mock_azure_provider)
         
@@ -137,7 +136,7 @@ class TestADTInstance:
         """Check: Returns False when not found."""
         from src.providers.azure.layers.layer_4_adt import check_adt_instance
         
-        mock_azure_provider.clients["digitaltwins_mgmt"].digital_twins.get.side_effect = ResourceNotFoundError("Not found")
+        mock_azure_provider.clients["digitaltwins"].digital_twins.get.side_effect = ResourceNotFoundError("Not found")
         
         result = check_adt_instance(mock_azure_provider)
         
@@ -149,7 +148,7 @@ class TestADTInstance:
         
         mock_adt = MagicMock()
         mock_adt.host_name = "test-twin-adt.eastus.digitaltwins.azure.net"
-        mock_azure_provider.clients["digitaltwins_mgmt"].digital_twins.get.return_value = mock_adt
+        mock_azure_provider.clients["digitaltwins"].digital_twins.get.return_value = mock_adt
         
         result = get_adt_instance_url(mock_azure_provider)
         
@@ -159,7 +158,7 @@ class TestADTInstance:
         """Edge case: Returns None when instance not found."""
         from src.providers.azure.layers.layer_4_adt import get_adt_instance_url
         
-        mock_azure_provider.clients["digitaltwins_mgmt"].digital_twins.get.side_effect = ResourceNotFoundError("Not found")
+        mock_azure_provider.clients["digitaltwins"].digital_twins.get.side_effect = ResourceNotFoundError("Not found")
         
         result = get_adt_instance_url(mock_azure_provider)
         

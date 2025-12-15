@@ -50,7 +50,7 @@ class TestValidation(unittest.TestCase):
         """Test valid credentials config"""
         content = {
             "aws": {"aws_access_key_id": "x", "aws_secret_access_key": "x", "aws_region": "x"},
-            "azure": {"azure_subscription_id": "x", "azure_tenant_id": "x", "azure_client_id": "x", "azure_client_secret": "x", "azure_region": "x", "azure_region_iothub": "x"},
+            "azure": {"azure_subscription_id": "x", "azure_tenant_id": "x", "azure_client_id": "x", "azure_client_secret": "x", "azure_region": "x", "azure_region_iothub": "x", "azure_region_digital_twin": "x"},
             "gcp": {"gcp_project_id": "x", "gcp_credentials_file": "x", "gcp_region": "x"}
         }
         validator.validate_config_content(CONSTANTS.CONFIG_CREDENTIALS_FILE, content)

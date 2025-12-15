@@ -733,7 +733,7 @@ def _hash_credentials(creds: dict) -> str:
     # Use account-identifying fields only (not secrets)
     identity_fields = {
         "aws": ["aws_access_key_id", "aws_region"],
-        "azure": ["azure_subscription_id", "azure_tenant_id", "azure_region", "azure_region_iothub"],
+        "azure": ["azure_subscription_id", "azure_tenant_id", "azure_region", "azure_region_iothub", "azure_region_digital_twin"],
         "gcp": ["gcp_project_id", "gcp_region"]
     }
     

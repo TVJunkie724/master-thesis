@@ -53,7 +53,7 @@ AZURE_HIERARCHY_SCHEMA = {
 
 REQUIRED_CREDENTIALS_FIELDS = {
     "aws": ["aws_access_key_id", "aws_secret_access_key", "aws_region"],
-    "azure": ["azure_subscription_id", "azure_tenant_id", "azure_client_id", "azure_client_secret", "azure_region", "azure_region_iothub"],
+    "azure": ["azure_subscription_id", "azure_tenant_id", "azure_client_id", "azure_client_secret", "azure_region", "azure_region_iothub", "azure_region_digital_twin"],
     "gcp": ["gcp_project_id", "gcp_credentials_file", "gcp_region"]
 }
 

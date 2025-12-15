@@ -245,14 +245,14 @@ class TestL4PreFlightCheck:
         mock_provider = MagicMock()
         
         with patch("src.providers.azure.layers.l3_adapter.info_l3") as mock_info:
+            # info_l3 returns flat booleans
             mock_info.return_value = {
-                "hot_storage": {
-                    "cosmos_account": {"exists": True},
-                    "hot_container": {"exists": True}
-                }
+                "cosmos_account": True,
+                "hot_cosmos_container": True
             }
             # Should not raise
-            _check_l3_deployed(mock_context, mock_provider)
+            result = _check_l3_deployed(mock_context, mock_provider)
+            assert result is True
     
     def test_l4_preflight_fails_when_cosmos_missing(self):
         """L4 pre-flight should fail when Cosmos DB Account is missing."""
@@ -263,10 +263,8 @@ class TestL4PreFlightCheck:
         
         with patch("src.providers.azure.layers.l3_adapter.info_l3") as mock_info:
             mock_info.return_value = {
-                "hot_storage": {
-                    "cosmos_account": {"exists": False},
-                    "hot_container": {"exists": True}
-                }
+                "cosmos_account": False,
+                "hot_cosmos_container": True
             }
             with pytest.raises(RuntimeError, match="Cosmos DB Account"):
                 _check_l3_deployed(mock_context, mock_provider)
@@ -280,10 +278,8 @@ class TestL4PreFlightCheck:
         
         with patch("src.providers.azure.layers.l3_adapter.info_l3") as mock_info:
             mock_info.return_value = {
-                "hot_storage": {
-                    "cosmos_account": {"exists": True},
-                    "hot_container": {"exists": False}
-                }
+                "cosmos_account": True,
+                "hot_cosmos_container": False
             }
             with pytest.raises(RuntimeError, match="Hot Container"):
                 _check_l3_deployed(mock_context, mock_provider)
@@ -297,13 +293,12 @@ class TestL4PreFlightCheck:
         
         with patch("src.providers.azure.layers.l3_adapter.info_l3") as mock_info:
             mock_info.return_value = {
-                "hot_storage": {
-                    "cosmos_account": {"exists": False},
-                    "hot_container": {"exists": False}
-                }
+                "cosmos_account": False,
+                "hot_cosmos_container": False
             }
             with pytest.raises(RuntimeError) as exc_info:
                 _check_l3_deployed(mock_context, mock_provider)
             
             assert "Cosmos DB Account" in str(exc_info.value)
             assert "Hot Container" in str(exc_info.value)
+

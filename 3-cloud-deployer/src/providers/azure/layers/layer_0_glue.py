@@ -280,12 +280,14 @@ def _deploy_glue_functions(provider: 'AzureProvider') -> None:
     
     logger.info("  Deploying L0 Glue function code...")
     
-    # 1. Get publish credentials
+    # 1. Get publish credentials with retry for ServiceUnavailable
     try:
-        creds = provider.clients["web"].web_apps.begin_list_publishing_credentials(
-            resource_group_name=rg_name,
-            name=app_name
-        ).result()
+        from src.providers.azure.layers.deployment_helpers import get_publishing_credentials_with_retry
+        creds = get_publishing_credentials_with_retry(
+            web_client=provider.clients["web"],
+            resource_group=rg_name,
+            app_name=app_name
+        )
         
         publish_username = creds.publishing_user_name
         publish_password = creds.publishing_password

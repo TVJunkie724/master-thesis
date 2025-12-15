@@ -29,8 +29,8 @@
             <div class="callout info mb-4">
                 <strong><i class="fa-solid fa-check-circle me-2"></i>Status: Full Multi-Cloud Architecture
                     Implemented</strong>
-                Core single-cloud deployment, L2 Event Processing, and multi-cloud Layer 0 (Glue) are fully operational.
-                Lambda Function URLs provide cross-cloud HTTP endpoints. Error Handling system is under review.
+                All layers (Setup, L0-L5) are fully operational with pre-flight dependency checks between layers.
+                Setup Layer provides AWS Resource Group tagging; Lambda Function URLs enable cross-cloud HTTP endpoints.
             </div>
 
             <!-- Table of Contents -->
@@ -135,7 +135,28 @@
                     to verify your credentials have all required permissions before deploying.
                 </div>
 
-                <p>Your AWS credentials need the following permissions to deploy all layers (L0-L5):</p>
+                <p>Your AWS credentials need the following permissions to deploy all layers (Setup, L0-L5):</p>
+
+                <h5 class="text-success mt-4"><i class="fa-solid fa-cog me-2"></i>Setup Layer - Resource Grouping</h5>
+                <p class="text-muted small">Deployed <em>first</em> to create the Resource Group for tagging.</p>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Required Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Resource Groups</td>
+                            <td><code>CreateGroup</code>, <code>DeleteGroup</code>, <code>GetGroup</code></td>
+                        </tr>
+                        <tr>
+                            <td>IAM</td>
+                            <td><code>TagRole</code> (for tagging all IAM roles)</td>
+                        </tr>
+                    </tbody>
+                </table>
 
                 <h5 class="text-warning mt-4"><i class="fa-solid fa-plug me-2"></i>Layer 0 - Multi-Cloud Glue</h5>
                 <p class="text-muted small">Deployed <em>before</em> L1-L5 when cross-cloud boundaries exist.</p>
@@ -198,6 +219,9 @@
                                 <code>CreateKeysAndCertificate</code>, <code>CreatePolicy</code>,
                                 <code>DeletePolicy</code>, <code>AttachThingPrincipal</code>,
                                 <code>DetachThingPrincipal</code>, <code>AttachPolicy</code>, <code>DetachPolicy</code>,
+                                <code>UpdateCertificate</code>, <code>DeleteCertificate</code>,
+                                <code>ListThingPrincipals</code>, <code>ListAttachedPolicies</code>,
+                                <code>ListPolicyVersions</code>, <code>DeletePolicyVersion</code>,
                                 <code>CreateTopicRule</code>, <code>DeleteTopicRule</code>,
                                 <code>DescribeEndpoint</code>
                             </td>
@@ -284,10 +308,11 @@
                         <tr>
                             <td>IoT TwinMaker</td>
                             <td><code>CreateWorkspace</code>, <code>DeleteWorkspace</code>, <code>GetWorkspace</code>,
-                                <code>ListEntities</code>, <code>DeleteEntity</code>, <code>ListScenes</code>,
-                                <code>DeleteScene</code>, <code>ListComponentTypes</code>,
-                                <code>DeleteComponentType</code>, <code>CreateComponentType</code>,
-                                <code>GetComponentType</code>
+                                <code>ListEntities</code>, <code>DeleteEntity</code>, <code>GetEntity</code>,
+                                <code>UpdateEntity</code>,
+                                <code>ListScenes</code>, <code>DeleteScene</code>,
+                                <code>ListComponentTypes</code>, <code>DeleteComponentType</code>,
+                                <code>CreateComponentType</code>, <code>GetComponentType</code>
                             </td>
                         </tr>
                     </tbody>
@@ -343,7 +368,7 @@
                     For simplicity, you can use the <code>AdministratorAccess</code> managed policy during development.
                     For production, use our <a href="references/aws_deployer_policy.json" target="_blank">ready-to-use
                         IAM policy JSON</a>
-                    with only the required permissions. See the <a href="docs-credentials-setup.html#aws-setup">Cloud
+                    with only the required permissions. See the <a href="docs-credentials-aws.html">AWS
                         Credentials Setup Guide</a> for step-by-step instructions.
                 </div>
             </div>
@@ -351,26 +376,75 @@
 
             <div class="card mb-4" id="implementation-roadmap">
                 <h2 class="mb-3"><i class="fa-solid fa-road me-2"></i>Implementation Roadmap</h2>
-                <p>The AWS deployer follows a modular, layer-by-layer architecture with a dedicated <strong>Layer 0
-                        (Glue Layer)</strong> for cross-cloud connectivity:</p>
+                <p>The AWS deployer follows a modular, layer-by-layer architecture with a dedicated <strong>Setup
+                        Layer</strong> for resource grouping and a <strong>Layer 0 (Glue Layer)</strong> for cross-cloud
+                    connectivity:</p>
 
                 <div class="callout info mb-4">
                     <strong><i class="fa-solid fa-layer-group me-2"></i>Architecture Overview</strong>
                     <ul class="mb-0 mt-2">
-                        <li><strong>Layer 0 (Glue):</strong> Cross-cloud HTTP receivers deployed <em>before</em> all
-                            other layers</li>
-                        <li><strong>Layers 1-5:</strong> Core digital twin components</li>
+                        <li><strong>Setup Layer:</strong> Creates AWS Resource Group with tag-based queries for all
+                            digital twin resources</li>
+                        <li><strong>Layer 0 (Glue):</strong> Cross-cloud HTTP receivers deployed <em>before</em> L1-L5
+                        </li>
+                        <li><strong>Layers 1-5:</strong> Core digital twin components with pre-flight dependency checks
+                        </li>
                         <li><strong>Shared Module:</strong> <code>inter_cloud.py</code> provides token validation and
                             HTTP POST logic</li>
                         <li><strong>Function URLs:</strong> All cross-cloud endpoints use Lambda Function URLs (no API
                             Gateway)</li>
+                        <li><strong>Tagging:</strong> All resources tagged with <code>DigitalTwin</code>,
+                            <code>Project</code>, and <code>Layer</code> for cost tracking and grouping
+                        </li>
                     </ul>
                 </div>
 
                 <div class="roadmap-content">
-                    <!-- Layer 0 (Glue) -->
+                    <!-- Setup Layer -->
+                    <h3 class="mt-4 text-success"><i class="fa-solid fa-cog me-2"></i>Setup Layer: Resource Grouping
+                    </h3>
+                    <div class="callout info mb-3">
+                        <strong>Deployment Order:</strong> Setup Layer must be deployed <em>first</em> before any other
+                        layer.
+                        It creates the Resource Group that all subsequent resources will be tagged to join.
+                    </div>
+                    <ul>
+                        <li><strong>Source Module:</strong> <code>src/providers/aws/layers/layer_setup_aws.py</code>
+                            <ul>
+                                <li><strong>Contains:</strong> 3 functions (create, destroy, check)</li>
+                                <li><strong>Pattern:</strong> Tag-based resource grouping (unlike Azure's
+                                    container-based Resource Groups)</li>
+                            </ul>
+                        </li>
+                        <li><strong>AWS Resource Group</strong>
+                            <ul>
+                                <li><strong>Name:</strong> <code>{digital_twin_name}-rg</code></li>
+                                <li><strong>Query Type:</strong> <code>TAG_FILTERS_1_0</code></li>
+                                <li><strong>Filter:</strong> All resources with tag <code>DigitalTwin={twin_name}</code>
+                                </li>
+                                <li><strong>Purpose:</strong> Centralized view of all deployed resources for this
+                                    digital twin</li>
+                            </ul>
+                        </li>
+                        <li><strong>Tagging Helpers</strong> <span class="badge text-bg-secondary">Shared Module</span>
+                            <ul>
+                                <li><strong>Module:</strong> <code>src/providers/aws/layers/tagging_helpers.py</code>
+                                </li>
+                                <li><strong>Functions:</strong> <code>tag_iam_role</code>, <code>tag_lambda</code>,
+                                    <code>tag_s3_bucket</code>, <code>tag_dynamodb_table</code>,
+                                    <code>tag_step_function</code>, <code>tag_eventbridge_rule</code>
+                                </li>
+                                <li><strong>Tags Applied:</strong> <code>DigitalTwin</code>, <code>Project</code>,
+                                    <code>Layer</code>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+
                     <h3 class="mt-4 text-warning"><i class="fa-solid fa-plug me-2"></i>Layer 0: Glue Layer (Cross-Cloud
                         Receivers)</h3>
+                    <p class="text-muted small"><strong>Pre-flight Check:</strong> Verifies Setup Layer (Resource Group)
+                        is deployed.</p>
                     <div class="callout warn mb-3">
                         <strong>Deployment Order:</strong> Layer 0 deploys <em>before</em> Layers 1-5 to ensure all
                         Function URLs are saved to <code>config_inter_cloud.json</code> before senders deploy.
@@ -448,6 +522,8 @@
                     <!-- Layer 1 -->
                     <h3 class="mt-4 text-primary"><i class="fa-solid fa-satellite-dish me-2"></i>Layer 1: Data
                         Acquisition (IoT Core)</h3>
+                    <p class="text-muted small"><strong>Pre-flight Checks:</strong> Verifies Setup Layer (Resource
+                        Group) and L0 (Ingestion if multi-cloud) are deployed.</p>
                     <ul>
                         <li><strong>Dispatcher Lambda:</strong>
                             <ul>
@@ -458,7 +534,7 @@
                                 <li><strong>Logic:</strong> Central router for all incoming MQTT messages</li>
                                 <li><strong>Single Cloud:</strong> Invokes local Processor directly</li>
                                 <li><strong>Multi Cloud:</strong> Invokes local Connector (which POSTs to remote
-                                    Ingestion)</li>
+                                    Ingestion) <span class="badge text-bg-warning">Multi-Cloud</span></li>
                             </ul>
                         </li>
                         <li><strong>Connector Lambda</strong> <span class="badge text-bg-warning">Multi-Cloud
@@ -491,6 +567,8 @@
                     <!-- Layer 2 -->
                     <h3 class="mt-4 text-primary"><i class="fa-solid fa-microchip me-2"></i>Layer 2: Data Processing
                         (Lambda & Step Functions)</h3>
+                    <p class="text-muted small"><strong>Pre-flight Check:</strong> Verifies L1 Dispatcher Lambda and IoT
+                        Topic Rule are deployed.</p>
                     <ul>
                         <li><strong>Processor Lambda:</strong>
                             <ul>
@@ -506,7 +584,7 @@
                                 <li><strong>Single Cloud:</strong> Writes directly to DynamoDB via <code>boto3</code>
                                 </li>
                                 <li><strong>Multi Cloud:</strong> POSTs to remote Hot Writer URL via
-                                    <code>inter_cloud.py</code>
+                                    <code>inter_cloud.py</code> <span class="badge text-bg-warning">Multi-Cloud</span>
                                 </li>
                                 <li><strong>Interaction:</strong> Asynchronously invokes Event Checker (if enabled)</li>
                             </ul>
@@ -536,6 +614,8 @@
                     <!-- Layer 3 -->
                     <h3 class="mt-4 text-primary"><i class="fa-solid fa-database me-2"></i>Layer 3: Storage & Access
                         (DynamoDB, S3)</h3>
+                    <p class="text-muted small"><strong>Pre-flight Check:</strong> Verifies L2 Persister Lambda is
+                        deployed.</p>
                     <ul>
                         <li><strong>Hot Storage (DynamoDB):</strong>
                             <ul>
@@ -547,7 +627,8 @@
                         <li><strong>Hot Reader & Hot Reader Last Entry:</strong>
                             <ul>
                                 <li><strong>Purpose:</strong> Query DynamoDB for L4/L5 visualization</li>
-                                <li><strong>Multi Cloud:</strong> Function URLs added by Layer 0 (if L3 ≠ L4)</li>
+                                <li><strong>Multi Cloud:</strong> Function URLs added by Layer 0 (if L3 ≠ L4) <span
+                                        class="badge text-bg-warning">Multi-Cloud</span></li>
                             </ul>
                         </li>
                         <li><strong>Cold Storage (S3):</strong>
@@ -567,6 +648,7 @@
                                 <li><strong>Type:</strong> Scheduled Lambda (EventBridge Rule)</li>
                                 <li><strong>Logic:</strong> Moves aged data from DynamoDB to S3</li>
                                 <li><strong>Multi Cloud:</strong> Chunks data (≤5MB) and POSTs to remote Cold Writer
+                                    <span class="badge text-bg-warning">Multi-Cloud</span>
                                 </li>
                             </ul>
                         </li>
@@ -574,7 +656,8 @@
                             <ul>
                                 <li><strong>Type:</strong> Scheduled Lambda (EventBridge Rule)</li>
                                 <li><strong>Logic:</strong> Moves aged data from S3 Cool to Glacier</li>
-                                <li><strong>Multi Cloud:</strong> POSTs to remote Archive Writer</li>
+                                <li><strong>Multi Cloud:</strong> POSTs to remote Archive Writer <span
+                                        class="badge text-bg-warning">Multi-Cloud</span></li>
                             </ul>
                         </li>
                     </ul>
@@ -582,6 +665,8 @@
                     <!-- Layer 4 -->
                     <h3 class="mt-4 text-primary"><i class="fa-solid fa-cubes me-2"></i>Layer 4: Twin Management (IoT
                         TwinMaker)</h3>
+                    <p class="text-muted small"><strong>Pre-flight Check:</strong> Verifies L3 Hot DynamoDB table and
+                        Hot Reader Lambda are deployed.</p>
                     <ul>
                         <li><strong>Workspace:</strong>
                             <ul>
@@ -593,13 +678,16 @@
                             <ul>
                                 <li><strong>Single Cloud:</strong> Uses native DynamoDB Lambda connector</li>
                                 <li><strong>Multi Cloud:</strong> POSTs to remote Hot Reader URL via
-                                    <code>inter_cloud.py</code>
+                                    <code>inter_cloud.py</code> <span class="badge text-bg-warning">Multi-Cloud</span>
                                 </li>
                             </ul>
                         </li>
                         <li><strong>Entities & Component Types:</strong>
                             <ul>
-                                <li><strong>Created:</strong> Based on <code>config_entities.json</code></li>
+                                <li><strong>Created:</strong> Based on <code>config_hierarchy.json</code></li>
+                                <li><strong>IoT Device Types:</strong> Component Types created for each device in
+                                    <code>config_iot_devices.json</code>
+                                </li>
                             </ul>
                         </li>
                     </ul>
@@ -626,7 +714,8 @@
                     <ul>
                         <li><strong>IAM:</strong> Roles and policies for all layers</li>
                         <li><strong>EventBridge:</strong> Scheduled rules for data movers</li>
-                        <li><strong>Step Functions:</strong> Event workflow orchestration (optional)</li>
+                        <li><strong>Step Functions:</strong> Event workflow orchestration <span
+                                class="badge text-bg-secondary">Optional</span></li>
                         <li><strong>Shared Module (<code>_shared/inter_cloud.py</code>):</strong>
                             <ul>
                                 <li><strong>Purpose:</strong> Reusable cross-cloud HTTP POST logic</li>

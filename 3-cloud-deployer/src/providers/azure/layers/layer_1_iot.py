@@ -900,13 +900,15 @@ def deploy_dispatcher_function(
     
     logger.info(f"Deploying Dispatcher function to: {app_name}")
     
-    # 1. Get publish credentials from SDK
+    # 1. Get publish credentials from SDK with retry
     logger.info("  Getting publish credentials...")
     try:
-        creds = provider.clients["web"].web_apps.begin_list_publishing_credentials(
-            resource_group_name=rg_name,
-            name=app_name
-        ).result()
+        from src.providers.azure.layers.deployment_helpers import get_publishing_credentials_with_retry
+        creds = get_publishing_credentials_with_retry(
+            web_client=provider.clients["web"],
+            resource_group=rg_name,
+            app_name=app_name
+        )
         
         publish_username = creds.publishing_user_name
         publish_password = creds.publishing_password
@@ -1434,13 +1436,15 @@ def deploy_connector_function(
     
     logger.info(f"Deploying Connector function for multi-cloud")
     
-    # 1. Get publish credentials from SDK
+    # 1. Get publish credentials from SDK with retry
     logger.info("  Getting publish credentials...")
     try:
-        creds = provider.clients["web"].web_apps.begin_list_publishing_credentials(
-            resource_group_name=rg_name,
-            name=app_name
-        ).result()
+        from src.providers.azure.layers.deployment_helpers import get_publishing_credentials_with_retry
+        creds = get_publishing_credentials_with_retry(
+            web_client=provider.clients["web"],
+            resource_group=rg_name,
+            app_name=app_name
+        )
         
         publish_username = creds.publishing_user_name
         publish_password = creds.publishing_password

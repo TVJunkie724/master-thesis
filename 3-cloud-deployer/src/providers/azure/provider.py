@@ -48,6 +48,7 @@ class AzureProvider(BaseProvider):
         self._resource_group: str = ""
         self._location: str = ""
         self._location_iothub: str = ""
+        self._location_digital_twin: str = ""
         self._naming: Optional['AzureNaming'] = None
         self._clients: Dict[str, Any] = {}
     
@@ -74,6 +75,11 @@ class AzureProvider(BaseProvider):
         return self._location_iothub
     
     @property
+    def location_digital_twin(self) -> str:
+        """Get the Azure region for Digital Twins (may differ from general location)."""
+        return self._location_digital_twin
+    
+    @property
     def naming(self) -> 'AzureNaming':
         """Get the Azure naming instance."""
         if not self._naming:
@@ -94,6 +100,7 @@ class AzureProvider(BaseProvider):
                 - azure_subscription_id: Azure subscription ID (REQUIRED)
                 - azure_region: Azure region for general resources (REQUIRED)
                 - azure_region_iothub: Azure region for IoT Hub (REQUIRED, may differ)
+                - azure_region_digital_twin: Azure region for Digital Twins (REQUIRED, may differ)
                 - azure_tenant_id: Azure AD tenant ID (optional for DefaultCredential)
                 - azure_client_id: Service principal client ID (optional)
                 - azure_client_secret: Service principal secret (optional)
@@ -132,6 +139,16 @@ class AzureProvider(BaseProvider):
                 "IoT Hub is not available in all regions."
             )
         self._location_iothub = credentials["azure_region_iothub"]
+        
+        if "azure_region_digital_twin" not in credentials or not credentials["azure_region_digital_twin"]:
+            raise ValueError(
+                "Missing required credential 'azure_region_digital_twin'. "
+                "Digital Twins region (e.g., 'westeurope') must be provided in config_credentials.json. "
+                "Azure Digital Twins is only available in select regions: westcentralus, westus2, "
+                "northeurope, australiaeast, westeurope, eastus, southcentralus, southeastasia, uksouth, "
+                "eastus2, westus3, japaneast, koreacentral, qatarcentral."
+            )
+        self._location_digital_twin = credentials["azure_region_digital_twin"]
         
         # Initialize naming
         self._naming = AzureNaming(twin_name)

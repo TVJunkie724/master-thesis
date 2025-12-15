@@ -16,13 +16,91 @@ from azure.core.exceptions import HttpResponseError
 logger = logging.getLogger("digital_twin")
 
 
+def get_publishing_credentials_with_retry(
+    web_client: Any,
+    resource_group: str,
+    app_name: str,
+    max_retries: int = 10,
+    retry_delay: int = 30
+) -> Any:
+    """
+    Get publishing credentials for a Function App with retry logic.
+    
+    The list_publishing_credentials API can fail with ServiceUnavailable (503)
+    when the Function App is still initializing. This function retries until
+    the credentials are available.
+    
+    Args:
+        web_client: Azure WebSiteManagementClient
+        resource_group: Resource group name
+        app_name: Function App name
+        max_retries: Maximum retry attempts (default 10, ~5 min with 30s delay)
+        retry_delay: Seconds to wait between retries (default 30)
+        
+    Returns:
+        Publishing credentials object with publishing_user_name and publishing_password
+        
+    Raises:
+        HttpResponseError: If credentials cannot be retrieved after all retries
+    """
+    for attempt in range(1, max_retries + 1):
+        try:
+            creds = web_client.web_apps.begin_list_publishing_credentials(
+                resource_group_name=resource_group,
+                name=app_name
+            ).result()
+            return creds
+        except HttpResponseError as e:
+            error_str = str(e)
+            # Retry on ServiceUnavailable or BadRequest with host runtime error
+            if ("ServiceUnavailable" in error_str or 
+                "503" in error_str or 
+                "host runtime" in error_str.lower()) and attempt < max_retries:
+                logger.warning(
+                    f"  Function App not ready (attempt {attempt}/{max_retries}), "
+                    f"waiting {retry_delay}s..."
+                )
+                time.sleep(retry_delay)
+                continue
+            # Not a retryable error or out of retries
+            logger.error(f"Failed to get publishing credentials: {e}")
+            raise
+    
+    raise HttpResponseError(
+        f"Failed to get publishing credentials for {app_name} after {max_retries} attempts"
+    )
+
+
+def wait_for_function_warmup(app_name: str, warmup_seconds: int = 60) -> None:
+    """
+    Wait for Azure Function App to warm up after deployment.
+    
+    After Kudu ZIP deployment, the Azure Function runtime needs time to:
+    - Extract and load the function code
+    - Initialize the runtime environment
+    - Start the function host
+    
+    This is especially important for:
+    - Azure Student accounts (may have slower provisioning)
+    - Functions with dependencies (longer cold start)
+    - Sequential layer deployments (avoid ServiceUnavailable errors)
+    
+    Args:
+        app_name: Name of the Function App (for logging)
+        warmup_seconds: Seconds to wait (default 60)
+    """
+    logger.info(f"  Waiting {warmup_seconds}s for {app_name} function runtime to warm up...")
+    time.sleep(warmup_seconds)
+    logger.info(f"  ✓ Warmup complete for {app_name}")
+
+
 def deploy_to_kudu(
     app_name: str,
     zip_content: bytes,
     publish_username: str,
     publish_password: str,
-    max_retries: int = 10,
-    retry_delay: int = 20
+    max_retries: int = 15,
+    retry_delay: int = 30
 ) -> None:
     """
     Deploy a ZIP package to Azure Function App via Kudu zipdeploy with retry.
@@ -36,14 +114,15 @@ def deploy_to_kudu(
         zip_content: Compiled ZIP file content (bytes)
         publish_username: Publishing username from Function App credentials
         publish_password: Publishing password from Function App credentials
-        max_retries: Maximum retry attempts (default 10, ~3.3 min with 20s delay)
-        retry_delay: Seconds to wait between retries (default 20)
+        max_retries: Maximum retry attempts (default 15, ~7.5 min with 30s delay)
+        retry_delay: Seconds to wait between retries (default 30)
         
     Raises:
         HttpResponseError: If deployment fails after all retries
         
     Note:
-        Kudu SCM may need 2-3+ minutes to become ready after Function App creation.
+        Kudu SCM may need 2-5+ minutes to become ready after Function App creation.
+        Azure Student accounts may require longer wait times.
         This function automatically retries on 401/503 errors to handle this.
     """
     kudu_url = f"https://{app_name}.scm.azurewebsites.net/api/zipdeploy"
@@ -62,6 +141,8 @@ def deploy_to_kudu(
             
             if response.status_code in (200, 202):
                 logger.info(f"  ✓ Function code deployed successfully")
+                # Wait for function runtime to warm up after deployment
+                wait_for_function_warmup(app_name, warmup_seconds=60)
                 return
             elif response.status_code in (401, 503) and attempt < max_retries:
                 # 401: Kudu SCM not ready yet (auth not yet active)

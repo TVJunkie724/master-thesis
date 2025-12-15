@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from ..provider import AzureProvider
 
 
-def _check_l3_deployed(context: 'DeploymentContext', provider: 'AzureProvider') -> None:
+def _check_l3_deployed(context: 'DeploymentContext', provider: 'AzureProvider') -> bool:
     """
     Verify that L3 Hot is deployed before deploying L4.
     
@@ -46,6 +46,9 @@ def _check_l3_deployed(context: 'DeploymentContext', provider: 'AzureProvider') 
     
     Uses info_l3 to check all L3 Hot components.
     
+    Returns:
+        True if L3 Hot is deployed
+        
     Raises:
         RuntimeError: If L3 Hot is not fully deployed
     """
@@ -53,16 +56,13 @@ def _check_l3_deployed(context: 'DeploymentContext', provider: 'AzureProvider') 
     
     l3_status = info_l3(context, provider)
     
-    # Check if L3 Hot components are deployed
-    hot_storage = l3_status.get("hot_storage", {})
-    
-    # Verify core components exist
-    cosmos_exists = hot_storage.get("cosmos_account", {}).get("exists", False)
-    container_exists = hot_storage.get("hot_container", {}).get("exists", False)
+    # info_l3 returns flat booleans like {"cosmos_account": True, ...}
+    cosmos_exists = l3_status.get("cosmos_account", False)
+    container_exists = l3_status.get("hot_cosmos_container", False)
     
     if cosmos_exists and container_exists:
         logger.info("[L4] ✓ Pre-flight check: L3 Hot is deployed")
-        return
+        return True
     else:
         missing = []
         if not cosmos_exists:

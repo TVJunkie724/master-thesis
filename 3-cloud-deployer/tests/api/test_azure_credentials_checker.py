@@ -106,42 +106,49 @@ class TestActionMatching:
     """Tests for action matching logic."""
 
     def test_action_matches_direct(self):
-        """Test direct action match."""
+        """Test direct action match returns 'exact'."""
         from api.azure_credentials_checker import _action_matches
         
         user_actions = {"Microsoft.Web/sites/write", "Microsoft.Web/sites/read"}
         
-        assert _action_matches(user_actions, "Microsoft.Web/sites/write") == True
-        assert _action_matches(user_actions, "Microsoft.Web/sites/delete") == False
+        # Direct match returns "exact"
+        assert _action_matches(user_actions, "Microsoft.Web/sites/write") == "exact"
+        # No match returns "none"
+        assert _action_matches(user_actions, "Microsoft.Web/sites/delete") == "none"
 
     def test_action_matches_wildcard_all(self):
-        """Test wildcard * matches everything."""
+        """Test wildcard * matches everything and returns 'wildcard'."""
         from api.azure_credentials_checker import _action_matches
         
         user_actions = {"*"}
         
-        assert _action_matches(user_actions, "Microsoft.Web/sites/write") == True
-        assert _action_matches(user_actions, "Microsoft.Storage/storageAccounts/delete") == True
+        # Wildcard matches return "wildcard"
+        assert _action_matches(user_actions, "Microsoft.Web/sites/write") == "wildcard"
+        assert _action_matches(user_actions, "Microsoft.Storage/storageAccounts/delete") == "wildcard"
 
     def test_action_matches_suffix_wildcard(self):
-        """Test suffix wildcard like Microsoft.Web/*."""
+        """Test suffix wildcard like Microsoft.Web/* returns 'wildcard'."""
         from api.azure_credentials_checker import _action_matches
         
         user_actions = {"Microsoft.Web/*"}
         
-        assert _action_matches(user_actions, "Microsoft.Web/sites/write") == True
-        assert _action_matches(user_actions, "Microsoft.Web/serverfarms/delete") == True
-        assert _action_matches(user_actions, "Microsoft.Storage/storageAccounts/write") == False
+        # Prefix wildcard matches return "wildcard"
+        assert _action_matches(user_actions, "Microsoft.Web/sites/write") == "wildcard"
+        assert _action_matches(user_actions, "Microsoft.Web/serverfarms/delete") == "wildcard"
+        # Non-matching prefix returns "none"
+        assert _action_matches(user_actions, "Microsoft.Storage/storageAccounts/write") == "none"
 
     def test_action_matches_read_wildcard(self):
-        """Test */read wildcard."""
+        """Test */read wildcard returns 'wildcard' for read actions."""
         from api.azure_credentials_checker import _action_matches
         
         user_actions = {"*/read"}
         
-        assert _action_matches(user_actions, "Microsoft.Web/sites/read") == True
-        assert _action_matches(user_actions, "Microsoft.Storage/storageAccounts/read") == True
-        assert _action_matches(user_actions, "Microsoft.Web/sites/write") == False
+        # Suffix wildcard matches return "wildcard"
+        assert _action_matches(user_actions, "Microsoft.Web/sites/read") == "wildcard"
+        assert _action_matches(user_actions, "Microsoft.Storage/storageAccounts/read") == "wildcard"
+        # Non-matching suffix returns "none"
+        assert _action_matches(user_actions, "Microsoft.Web/sites/write") == "none"
 
 
 class TestComparePermissions:

@@ -305,7 +305,7 @@ Every implementation plan must include the following sections:
 - Use pytest fixtures from `conftest.py`
 
 #### Running Tests
-**NEVER RUN E2E TESTS.** E2E tests in `tests/e2e/` make real API calls to cloud providers and should ONLY be run by humans during dedicated integration testing phases with proper credentials.
+**DO NOT RUN E2E TESTS UNLESS THE USER EXPLICITLY TELLS YOU TO.** E2E tests in `tests/e2e/` make real API calls to cloud providers and deploy real resources that cost money.
 
 ```bash
 # Standard test run - USE THIS BY DEFAULT
@@ -314,15 +314,15 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
 # Quick test run (minimal output)
 docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/ --ignore=tests/e2e -q
 
-# ❌ DO NOT RUN E2E TESTS - They require real cloud credentials and human oversight
-# docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/e2e/ -v
+# E2E TESTS - Only run when user explicitly requests
+# docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/e2e/azure/test_azure_single_cloud_e2e.py -v -m live
 ```
 
-> **🚫 CRITICAL:** AI agents must NEVER run e2e tests. E2E tests create real cloud resources that cost money.
-> Only humans may run e2e tests when:
-> - Valid cloud credentials are configured
-> - They intend to test actual cloud deployments
-> - They understand resources will be created/destroyed
+> **⚠️ E2E TEST POLICY:**
+> - **Default behavior:** Do NOT run E2E tests automatically
+> - **Exception:** Run E2E tests ONLY when the user explicitly instructs you to do so
+> - E2E tests create real cloud resources that cost money
+> - Ensure credentials are configured before running
 
 ---
 

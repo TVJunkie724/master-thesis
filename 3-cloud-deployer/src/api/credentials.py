@@ -34,6 +34,7 @@ class AzureCredentialsRequest(BaseModel):
     azure_client_secret: str = Field(..., description="Service Principal Client Secret")
     azure_region: str = Field(..., description="Azure Region for general resources (e.g., 'italynorth')")
     azure_region_iothub: str = Field(..., description="Azure Region for IoT Hub (e.g., 'westeurope'), may differ from azure_region")
+    azure_region_digital_twin: str = Field(..., description="Azure Region for Digital Twins (e.g., 'westeurope'), must be in ADT supported list")
 
 
 class CredentialsCheckResponse(BaseModel):

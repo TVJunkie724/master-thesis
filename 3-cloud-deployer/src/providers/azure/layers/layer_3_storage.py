@@ -47,6 +47,7 @@ from typing import TYPE_CHECKING, Optional, Dict, Any
 import logging
 import json
 import os
+import time
 import requests
 
 from azure.core.exceptions import (
@@ -127,12 +128,14 @@ def _deploy_function_code_via_kudu(
     """
     rg_name = provider.naming.resource_group()
     
-    # Get publish credentials
+    # Get publish credentials with retry for ServiceUnavailable
     logger.info("  Getting publish credentials...")
-    creds = provider.clients["web"].web_apps.begin_list_publishing_credentials(
-        resource_group_name=rg_name,
-        name=app_name
-    ).result()
+    from src.providers.azure.layers.deployment_helpers import get_publishing_credentials_with_retry
+    creds = get_publishing_credentials_with_retry(
+        web_client=provider.clients["web"],
+        resource_group=rg_name,
+        app_name=app_name
+    )
     
     # Compile function code
     logger.info(f"  Compiling function code from {function_dir}...")
@@ -157,6 +160,9 @@ def create_cosmos_account(provider: 'AzureProvider') -> str:
     """
     Create an Azure Cosmos DB Account (Serverless mode).
     
+    Includes retry logic for transient ServiceRequestError (network/capacity issues)
+    and a post-creation readiness wait to ensure Cosmos DB is fully operational.
+    
     Args:
         provider: Initialized AzureProvider with clients and naming
         
@@ -165,8 +171,9 @@ def create_cosmos_account(provider: 'AzureProvider') -> str:
         
     Raises:
         ValueError: If provider is None
-        HttpResponseError: If creation fails
+        HttpResponseError: If creation fails after retries
         ClientAuthenticationError: If permission denied
+        ServiceRequestError: If network errors persist after retries
     """
     if provider is None:
         raise ValueError("provider is required")
@@ -202,21 +209,75 @@ def create_cosmos_account(provider: 'AzureProvider') -> str:
         }
     }
     
-    try:
-        poller = provider.clients["cosmos"].database_accounts.begin_create_or_update(
-            resource_group_name=rg_name,
-            account_name=account_name,
-            create_update_parameters=params
-        )
-        account = poller.result()
-        logger.info(f"✓ Cosmos DB Account created: {account_name}")
-        return account_name
-    except ClientAuthenticationError as e:
-        logger.error(f"PERMISSION DENIED creating Cosmos DB Account: {e.message}")
-        raise
-    except HttpResponseError as e:
-        logger.error(f"HTTP error creating Cosmos DB Account: {e.status_code} - {e.message}")
-        raise
+    # Retry logic for transient errors (ServiceRequestError, 503 ServiceUnavailable)
+    max_retries = 5
+    retry_delay = 30  # seconds
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            poller = provider.clients["cosmos"].database_accounts.begin_create_or_update(
+                resource_group_name=rg_name,
+                account_name=account_name,
+                create_update_parameters=params
+            )
+            account = poller.result()
+            
+            # Post-creation readiness wait
+            # Cosmos DB may still be initializing internal components after ARM returns
+            logger.info("  Waiting for Cosmos DB to fully initialize (60s)...")
+            time.sleep(60)
+            
+            # Verify account is accessible by checking its status
+            logger.info("  Verifying Cosmos DB account is ready...")
+            max_ready_attempts = 10
+            for ready_attempt in range(1, max_ready_attempts + 1):
+                try:
+                    account_info = provider.clients["cosmos"].database_accounts.get(
+                        resource_group_name=rg_name,
+                        account_name=account_name
+                    )
+                    # Check provisioning state
+                    prov_state = account_info.provisioning_state if hasattr(account_info, 'provisioning_state') else "Unknown"
+                    if prov_state == "Succeeded":
+                        logger.info(f"  ✓ Cosmos DB Account is ready (provisioning_state: {prov_state})")
+                        break
+                    logger.info(f"  Cosmos DB provisioning_state: {prov_state} (attempt {ready_attempt}/{max_ready_attempts})")
+                    if ready_attempt < max_ready_attempts:
+                        time.sleep(15)
+                except ServiceRequestError as e:
+                    if ready_attempt < max_ready_attempts:
+                        logger.warning(f"  Readiness check failed (attempt {ready_attempt}/{max_ready_attempts}): {e}")
+                        time.sleep(15)
+                    else:
+                        raise
+            
+            logger.info(f"✓ Cosmos DB Account created: {account_name}")
+            return account_name
+            
+        except ServiceRequestError as e:
+            if attempt < max_retries:
+                logger.warning(
+                    f"Network error creating Cosmos DB (attempt {attempt}/{max_retries}), "
+                    f"waiting {retry_delay}s before retry: {e}"
+                )
+                time.sleep(retry_delay)
+                continue
+            logger.error(f"Network error creating Cosmos DB Account after {max_retries} attempts: {e}")
+            raise
+        except HttpResponseError as e:
+            # Check for ServiceUnavailable (503) which may be transient
+            if e.status_code == 503 and attempt < max_retries:
+                logger.warning(
+                    f"ServiceUnavailable (503) creating Cosmos DB (attempt {attempt}/{max_retries}), "
+                    f"waiting {retry_delay}s before retry: {e.message}"
+                )
+                time.sleep(retry_delay)
+                continue
+            logger.error(f"HTTP error creating Cosmos DB Account: {e.status_code} - {e.message}")
+            raise
+        except ClientAuthenticationError as e:
+            logger.error(f"PERMISSION DENIED creating Cosmos DB Account: {e.message}")
+            raise
 
 
 def destroy_cosmos_account(provider: 'AzureProvider') -> None:
@@ -554,7 +615,7 @@ def create_cold_blob_container(provider: 'AzureProvider') -> str:
     logger.info(f"Creating Cold Blob Container: {container_name}")
     
     try:
-        provider.clients["blob"].blob_containers.create(
+        provider.clients["storage"].blob_containers.create(
             resource_group_name=rg_name,
             account_name=storage_name,
             container_name=container_name,
@@ -591,7 +652,7 @@ def destroy_cold_blob_container(provider: 'AzureProvider') -> None:
     logger.info(f"Deleting Cold Blob Container: {container_name}")
     
     try:
-        provider.clients["blob"].blob_containers.delete(
+        provider.clients["storage"].blob_containers.delete(
             resource_group_name=rg_name,
             account_name=storage_name,
             container_name=container_name
@@ -619,7 +680,7 @@ def check_cold_blob_container(provider: 'AzureProvider') -> bool:
     container_name = provider.naming.cold_blob_container()
     
     try:
-        provider.clients["blob"].blob_containers.get(
+        provider.clients["storage"].blob_containers.get(
             resource_group_name=rg_name,
             account_name=storage_name,
             container_name=container_name
@@ -666,7 +727,7 @@ def create_archive_blob_container(provider: 'AzureProvider') -> str:
     logger.info(f"Creating Archive Blob Container: {container_name}")
     
     try:
-        provider.clients["blob"].blob_containers.create(
+        provider.clients["storage"].blob_containers.create(
             resource_group_name=rg_name,
             account_name=storage_name,
             container_name=container_name,
@@ -703,7 +764,7 @@ def destroy_archive_blob_container(provider: 'AzureProvider') -> None:
     logger.info(f"Deleting Archive Blob Container: {container_name}")
     
     try:
-        provider.clients["blob"].blob_containers.delete(
+        provider.clients["storage"].blob_containers.delete(
             resource_group_name=rg_name,
             account_name=storage_name,
             container_name=container_name
@@ -731,7 +792,7 @@ def check_archive_blob_container(provider: 'AzureProvider') -> bool:
     container_name = provider.naming.archive_blob_container()
     
     try:
-        provider.clients["blob"].blob_containers.get(
+        provider.clients["storage"].blob_containers.get(
             resource_group_name=rg_name,
             account_name=storage_name,
             container_name=container_name

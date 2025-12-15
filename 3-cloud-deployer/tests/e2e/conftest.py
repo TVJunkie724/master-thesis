@@ -25,8 +25,18 @@ def pytest_configure(config):
 
 @pytest.fixture(scope="session")
 def e2e_test_id():
-    """Generate a unique ID for this E2E test run."""
-    return f"e2e-{uuid.uuid4().hex[:8]}"
+    """
+    Fixed, deterministic ID for E2E test runs.
+    
+    Using a consistent ID ensures:
+    - Idempotent resource naming across test runs
+    - Skip-if-exists logic can reuse existing resources
+    - Reduced costs (no duplicate resources created)
+    - Easy resumption after partial failures
+    
+    The ID is kept short to comply with Azure naming limits.
+    """
+    return "twin2c-e2e"
 
 
 @pytest.fixture(scope="session")

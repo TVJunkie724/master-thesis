@@ -222,13 +222,13 @@ class TestColdBlobContainer:
         result = create_cold_blob_container(mock_azure_provider)
         
         assert result == "cold-data"
-        mock_azure_provider.clients["blob"].blob_containers.create.assert_called_once()
+        mock_azure_provider.clients["storage"].blob_containers.create.assert_called_once()
     
     def test_create_cold_blob_container_already_exists(self, mock_azure_provider):
         """Edge case: Container already exists returns name."""
         from src.providers.azure.layers.layer_3_storage import create_cold_blob_container
         
-        mock_azure_provider.clients["blob"].blob_containers.create.side_effect = HttpResponseError("ContainerAlreadyExists")
+        mock_azure_provider.clients["storage"].blob_containers.create.side_effect = HttpResponseError("ContainerAlreadyExists")
         
         result = create_cold_blob_container(mock_azure_provider)
         
@@ -238,7 +238,7 @@ class TestColdBlobContainer:
         """Error handling: Not found handled."""
         from src.providers.azure.layers.layer_3_storage import destroy_cold_blob_container
         
-        mock_azure_provider.clients["blob"].blob_containers.delete.side_effect = ResourceNotFoundError("")
+        mock_azure_provider.clients["storage"].blob_containers.delete.side_effect = ResourceNotFoundError("")
         
         destroy_cold_blob_container(mock_azure_provider)  # Should not raise
 
@@ -262,7 +262,7 @@ class TestArchiveBlobContainer:
         """Check: Returns True when exists."""
         from src.providers.azure.layers.layer_3_storage import check_archive_blob_container
         
-        mock_azure_provider.clients["blob"].blob_containers.get.return_value = MagicMock()
+        mock_azure_provider.clients["storage"].blob_containers.get.return_value = MagicMock()
         
         assert check_archive_blob_container(mock_azure_provider) is True
 

@@ -99,13 +99,13 @@ def create_adt_instance(provider: 'AzureProvider') -> str:
     
     rg_name = provider.naming.resource_group()
     adt_name = provider.naming.digital_twins_instance()
-    location = provider.location
+    location = provider.location_digital_twin  # ADT uses dedicated region
     
     # Skip if already exists
     if check_adt_instance(provider):
         logger.info(f"✓ ADT Instance already exists (skipping): {adt_name}")
         # Retrieve existing host name
-        existing = provider.clients["digitaltwins_mgmt"].digital_twins.get(
+        existing = provider.clients["digitaltwins"].digital_twins.get(
             resource_group_name=rg_name,
             resource_name=adt_name
         )
@@ -115,7 +115,7 @@ def create_adt_instance(provider: 'AzureProvider') -> str:
     
     try:
         # Create ADT instance
-        poller = provider.clients["digitaltwins_mgmt"].digital_twins.begin_create_or_update(
+        poller = provider.clients["digitaltwins"].digital_twins.begin_create_or_update(
             resource_group_name=rg_name,
             resource_name=adt_name,
             digital_twins_create={"location": location}
@@ -223,7 +223,7 @@ def destroy_adt_instance(provider: 'AzureProvider') -> None:
     logger.info(f"Deleting ADT Instance: {adt_name}")
     
     try:
-        poller = provider.clients["digitaltwins_mgmt"].digital_twins.begin_delete(
+        poller = provider.clients["digitaltwins"].digital_twins.begin_delete(
             resource_group_name=rg_name,
             resource_name=adt_name
         )
@@ -253,7 +253,7 @@ def check_adt_instance(provider: 'AzureProvider') -> bool:
     adt_name = provider.naming.digital_twins_instance()
     
     try:
-        result = provider.clients["digitaltwins_mgmt"].digital_twins.get(
+        result = provider.clients["digitaltwins"].digital_twins.get(
             resource_group_name=rg_name,
             resource_name=adt_name
         )
@@ -282,7 +282,7 @@ def get_adt_instance_url(provider: 'AzureProvider') -> Optional[str]:
     adt_name = provider.naming.digital_twins_instance()
     
     try:
-        result = provider.clients["digitaltwins_mgmt"].digital_twins.get(
+        result = provider.clients["digitaltwins"].digital_twins.get(
             resource_group_name=rg_name,
             resource_name=adt_name
         )
@@ -767,12 +767,14 @@ def _deploy_l4_functions(provider: 'AzureProvider') -> None:
     
     logger.info("  Deploying L4 function code...")
     
-    # Get publish credentials
+    # Get publish credentials with retry for ServiceUnavailable
     try:
-        creds = provider.clients["web"].web_apps.begin_list_publishing_credentials(
-            resource_group_name=rg_name,
-            name=app_name
-        ).result()
+        from src.providers.azure.layers.deployment_helpers import get_publishing_credentials_with_retry
+        creds = get_publishing_credentials_with_retry(
+            web_client=provider.clients["web"],
+            resource_group=rg_name,
+            app_name=app_name
+        )
         
         publish_username = creds.publishing_user_name
         publish_password = creds.publishing_password

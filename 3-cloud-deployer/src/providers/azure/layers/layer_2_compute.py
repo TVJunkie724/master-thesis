@@ -129,10 +129,12 @@ def _deploy_function_code_via_kudu(
     logger.info(f"  Getting publish credentials for {app_name}...")
     
     try:
-        creds = provider.clients["web"].web_apps.begin_list_publishing_credentials(
-            resource_group_name=rg_name,
-            name=app_name
-        ).result()
+        from src.providers.azure.layers.deployment_helpers import get_publishing_credentials_with_retry
+        creds = get_publishing_credentials_with_retry(
+            web_client=provider.clients["web"],
+            resource_group=rg_name,
+            app_name=app_name
+        )
         
         # Compile function code into zip
         logger.info(f"  Compiling function from {os.path.basename(function_dir)}...")
