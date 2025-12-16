@@ -657,6 +657,56 @@ def verify_project_structure(project_name, project_path: str = None):
              except Exception as e:
                  raise ValueError(f"Invalid state machine content for '{provider}': {e}")
 
+    # 3. Processor Code Validation
+    # Check that processor code exists for each device in config_iot_devices.json
+    devices_file = os.path.join(upload_dir, CONSTANTS.CONFIG_IOT_DEVICES_FILE)
+    providers_file = os.path.join(upload_dir, CONSTANTS.CONFIG_PROVIDERS_FILE)
+    
+    if os.path.exists(devices_file) and os.path.exists(providers_file):
+        try:
+            with open(devices_file, 'r') as f:
+                devices_config = json.load(f)
+            with open(providers_file, 'r') as f:
+                prov_config = json.load(f)
+        except Exception:
+            devices_config = []
+            prov_config = {}
+        
+        # Determine L2 provider for processor path
+        l2_provider = prov_config.get("layer_2_provider")
+        if l2_provider:
+            l2_provider = l2_provider.lower()
+            
+            # Track unique processors to avoid duplicate checks
+            processors_checked = set()
+            
+            for device in devices_config:
+                if "id" not in device:
+                    raise ValueError("Device config entry missing required 'id' field")
+                
+                # Get processor name (default_processor if not specified)
+                processor_name = device.get("processor", "default_processor")
+                
+                if processor_name in processors_checked:
+                    continue
+                processors_checked.add(processor_name)
+                
+                # Determine processor directory path based on provider
+                if l2_provider == "aws":
+                    proc_dir = os.path.join(upload_dir, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, "processors", processor_name)
+                elif l2_provider == "azure":
+                    proc_dir = os.path.join(upload_dir, "azure_functions", "processors", processor_name)
+                elif l2_provider == "google":
+                    proc_dir = os.path.join(upload_dir, "cloud_functions", "processors", processor_name)
+                else:
+                    raise ValueError(f"Unsupported layer_2_provider: {l2_provider}")
+                
+                if not os.path.exists(proc_dir):
+                    raise ValueError(
+                        f"Missing processor code for device '{device['id']}'. "
+                        f"Expected directory: {proc_dir}"
+                    )
+
     logger.info(f"Project structure verified for '{project_name}'.")
 
 # ==========================================

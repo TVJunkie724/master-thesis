@@ -20,7 +20,7 @@ from logger import logger
 import src.core.state as state
 
 # Import API routers
-from src.api import projects, validation, deployment, status, info, aws_gateway, simulator, credentials
+from src.api import projects, validation, deployment, status, info, aws_gateway, simulator, credentials, functions
 
 # --------- Lifespan context manager ----------
 @asynccontextmanager
@@ -66,3 +66,4 @@ app.include_router(status.router)
 app.include_router(aws_gateway.router)
 app.include_router(simulator.router)
 app.include_router(credentials.router)
+app.include_router(functions.router)

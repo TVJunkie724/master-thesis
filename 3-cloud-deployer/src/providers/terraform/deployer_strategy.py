@@ -8,9 +8,10 @@ Architecture:
     TerraformDeployerStrategy
         ├── terraform apply (all infrastructure)
         └── Post-terraform steps:
-            ├── Function code deployment (Kudu ZIP)
-            ├── DTDL model upload (Azure SDK)
-            ├── IoT device registration (Azure SDK)
+            ├── Azure: Function code deployment (Kudu ZIP)
+            ├── AWS: Lambda code deployment (boto3)
+            ├── DTDL/TwinMaker model upload (SDK)
+            ├── IoT device registration (SDK)
             └── Grafana datasource config (API)
 
 Usage:
@@ -25,19 +26,22 @@ Usage:
 import json
 import logging
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, Dict, Any, TYPE_CHECKING
 
 from src.terraform_runner import TerraformRunner, TerraformError
 from src.tfvars_generator import generate_tfvars, ConfigurationError
-from src.providers.azure.layers.function_bundler import (
-    bundle_l0_functions,
-    bundle_l1_functions,
-    bundle_l2_functions,
-    bundle_l3_functions,
+
+# Provider-specific deployers
+from src.providers.terraform.azure_deployer import (
+    deploy_azure_function_code,
+    upload_dtdl_models,
+    register_azure_iot_devices,
+    configure_azure_grafana,
 )
-from src.providers.azure.layers.deployment_helpers import (
-    deploy_to_kudu,
-    get_publishing_credentials_with_retry,
+from src.providers.terraform.aws_deployer import (
+    create_twinmaker_entities,
+    register_aws_iot_devices,
+    configure_aws_grafana,
 )
 
 if TYPE_CHECKING:
@@ -53,7 +57,7 @@ class TerraformDeployerStrategy:
     This strategy:
     1. Generates tfvars.json from project configs
     2. Runs terraform init + apply
-    3. Deploys function code via Kudu
+    3. Deploys function code via Kudu (Azure) / boto3 (AWS)
     4. Runs SDK operations (DTDL, Grafana, IoT devices)
     
     Attributes:
@@ -111,16 +115,21 @@ class TerraformDeployerStrategy:
         with open(creds_file) as f:
             return json.load(f)
     
+    # =========================================================================
+    # Main Deployment Methods
+    # =========================================================================
+    
     def deploy_all(self, context: Optional['DeploymentContext'] = None) -> dict:
         """
         Deploy all infrastructure and code.
         
         Steps:
-        1. Generate tfvars.json
-        2. terraform init
-        3. terraform apply
-        4. Deploy function code (Kudu)
-        5. Post-deployment SDK operations
+        1. Build function packages (Lambda ZIPs, Function ZIPs)
+        2. Generate tfvars.json
+        3. terraform init
+        4. terraform apply (AWS uses pre-built ZIPs)
+        5. Deploy Azure function code (Kudu)
+        6. Post-deployment SDK operations
         
         Args:
             context: Optional deployment context for SDK operations
@@ -136,30 +145,32 @@ class TerraformDeployerStrategy:
         logger.info("  TERRAFORM DEPLOYMENT - STARTING")
         logger.info("=" * 60)
         
-        # Step 1: Generate tfvars
-        logger.info("\n[STEP 1/5] Generating tfvars.json...")
-        self.tfvars_path.parent.mkdir(parents=True, exist_ok=True)
-        generate_tfvars(str(self.project_path), str(self.tfvars_path))
-        logger.info(f"✓ Generated: {self.tfvars_path}")
+        # Step 1: Build function packages
+        logger.info("\n[STEP 1/6] Building function packages...")
+        self._build_packages()
         
-        # Step 2: Terraform init
-        logger.info("\n[STEP 2/5] Terraform init...")
+        # Step 2: Generate tfvars
+        logger.info("\n[STEP 2/6] Generating tfvars.json...")
+        self._generate_tfvars()
+        
+        # Step 3: Terraform init
+        logger.info("\n[STEP 3/6] Terraform init...")
         self.runner.init()
         
-        # Step 3: Terraform apply
-        logger.info("\n[STEP 3/5] Terraform apply...")
+        # Step 4: Terraform apply (AWS Lambda uses pre-built ZIPs)
+        logger.info("\n[STEP 4/6] Terraform apply...")
         self.runner.apply(var_file=str(self.tfvars_path))
         
         # Get outputs
         self._terraform_outputs = self.runner.output()
         logger.info(f"✓ Terraform outputs: {list(self._terraform_outputs.keys())}")
         
-        # Step 4: Deploy function code
-        logger.info("\n[STEP 4/5] Deploying function code...")
-        self._deploy_all_function_code()
+        # Step 5: Deploy Azure function code (Kudu)
+        logger.info("\n[STEP 5/6] Deploying Azure function code...")
+        self._deploy_azure_function_code()
         
-        # Step 5: Post-deployment SDK operations
-        logger.info("\n[STEP 5/5] Running post-deployment operations...")
+        # Step 6: Post-deployment SDK operations
+        logger.info("\n[STEP 6/6] Running post-deployment operations...")
         if context:
             self._run_post_deployment(context)
         else:
@@ -171,7 +182,7 @@ class TerraformDeployerStrategy:
         
         return self._terraform_outputs
     
-    def destroy_all(self) -> None:
+    def destroy_all(self, context: Optional['DeploymentContext'] = None) -> None:
         """
         Destroy all Terraform-managed resources.
         
@@ -184,83 +195,53 @@ class TerraformDeployerStrategy:
         
         if not self.tfvars_path.exists():
             logger.warning("tfvars.json not found, generating...")
-            generate_tfvars(str(self.project_path), str(self.tfvars_path))
+            self._generate_tfvars()
         
         self.runner.init()
         self.runner.destroy(var_file=str(self.tfvars_path))
         
         logger.info("✓ All resources destroyed")
     
-    def _deploy_all_function_code(self) -> None:
-        """Deploy all function code via Kudu ZIP deploy."""
+    def get_outputs(self) -> dict:
+        """Get Terraform outputs (run after deploy)."""
+        if self._terraform_outputs is None:
+            self._terraform_outputs = self.runner.output()
+        return self._terraform_outputs
+    
+    # =========================================================================
+    # Internal Methods
+    # =========================================================================
+    
+    def _generate_tfvars(self) -> None:
+        """Generate tfvars.json from project config."""
+        self.tfvars_path.parent.mkdir(parents=True, exist_ok=True)
+        generate_tfvars(str(self.project_path), str(self.tfvars_path))
+        logger.info(f"✓ Generated: {self.tfvars_path}")
+    
+    def _build_packages(self) -> None:
+        """Build all Lambda/Function packages before Terraform."""
+        from src.providers.terraform.package_builder import build_all_packages
+        
+        providers = self._load_providers_config()
+        build_all_packages(self.terraform_dir, self.project_path, providers)
+    
+    def _deploy_azure_function_code(self) -> None:
+        """Deploy Azure Function code via Kudu (using pre-built ZIPs)."""
         providers = self._load_providers_config()
         
-        # Validate required provider keys
-        required_keys = [
-            "layer_1_provider", "layer_2_provider", "layer_3_hot_provider",
-            "layer_4_provider", "layer_5_provider"
-        ]
-        for key in required_keys:
-            if key not in providers:
-                raise ValueError(f"Missing required provider config: {key}")
+        # Check if any layer uses Azure
+        azure_layers = ["layer_1_provider", "layer_2_provider", "layer_3_hot_provider",
+                        "layer_4_provider", "layer_5_provider"]
+        has_azure = any(providers.get(layer) == "azure" for layer in azure_layers)
         
-        # Deploy L0 glue functions (if needed)
-        l0_zip, l0_funcs = bundle_l0_functions(str(self.project_path), providers)
-        if l0_zip and l0_funcs:
-            app_name = self._terraform_outputs.get("azure_l0_function_app_name")
-            if app_name:
-                self._deploy_to_app(app_name, l0_zip, f"L0 ({len(l0_funcs)} functions)")
-        
-        # Deploy L1 functions
-        if providers["layer_1_provider"] == "azure":
-            app_name = self._terraform_outputs.get("azure_l1_function_app_name")
-            if app_name:
-                l1_zip = bundle_l1_functions(str(self.project_path))
-                self._deploy_to_app(app_name, l1_zip, "L1")
-        
-        # Deploy L2 functions
-        if providers["layer_2_provider"] == "azure":
-            app_name = self._terraform_outputs.get("azure_l2_function_app_name")
-            if app_name:
-                l2_zip = bundle_l2_functions(str(self.project_path))
-                self._deploy_to_app(app_name, l2_zip, "L2")
-        
-        # Deploy L3 functions
-        if providers["layer_3_hot_provider"] == "azure":
-            app_name = self._terraform_outputs.get("azure_l3_function_app_name")
-            if app_name:
-                l3_zip = bundle_l3_functions(str(self.project_path))
-                self._deploy_to_app(app_name, l3_zip, "L3")
-    
-    def _deploy_to_app(self, app_name: str, zip_bytes: bytes, label: str) -> None:
-        """Deploy ZIP bytes to a Function App via Kudu."""
-        logger.info(f"  Deploying {label} to {app_name}...")
-        
-        # Get credentials from Terraform outputs or Azure SDK
-        azure_creds = self._load_credentials().get("azure", {})
-        rg_name = self._terraform_outputs.get("azure_resource_group_name")
-        
-        if not rg_name:
-            logger.warning(f"  Resource group not found, skipping {label}")
+        if not has_azure:
+            logger.info("  No Azure layers configured, skipping Kudu deployment")
             return
         
-        try:
-            creds = get_publishing_credentials_with_retry(
-                resource_group=rg_name,
-                app_name=app_name,
-                credentials=azure_creds
-            )
-            
-            deploy_to_kudu(
-                app_name=app_name,
-                zip_content=zip_bytes,
-                publish_username=creds.publishing_user_name,
-                publish_password=creds.publishing_password
-            )
-            logger.info(f"  ✓ {label} deployed")
-        except Exception as e:
-            logger.error(f"  ✗ {label} deployment failed: {e}")
-            raise
+        # Deploy Azure functions via Kudu
+        deploy_azure_function_code(
+            self.project_path, providers, self._terraform_outputs, self._load_credentials
+        )
     
     def _run_post_deployment(self, context: 'DeploymentContext') -> None:
         """Run post-Terraform SDK operations."""
@@ -271,58 +252,24 @@ class TerraformDeployerStrategy:
             if key not in providers:
                 raise ValueError(f"Missing required provider config: {key}")
         
-        # DTDL model upload (L4)
+        # ===== Azure Post-Deployment =====
         if providers["layer_4_provider"] == "azure":
-            self._upload_dtdl_models(context)
+            upload_dtdl_models(context, self.project_path)
         
-        # IoT device registration (L1)
         if providers["layer_1_provider"] == "azure":
-            self._register_iot_devices(context)
+            register_azure_iot_devices(context, self.project_path)
         
-        # Grafana datasource configuration (L5)
         if providers["layer_5_provider"] == "azure":
-            self._configure_grafana(context)
-    
-    def _upload_dtdl_models(self, context: 'DeploymentContext') -> None:
-        """Upload DTDL models to Azure Digital Twins."""
-        logger.info("  Uploading DTDL models...")
-        try:
-            from src.providers.azure.layers.layer_4_adt import upload_dtdl_models
-            provider = context.providers.get("azure")
-            if provider:
-                upload_dtdl_models(provider, context.config, str(self.project_path))
-                logger.info("  ✓ DTDL models uploaded")
-        except ImportError:
-            logger.warning("  layer_4_adt not available, skipping DTDL upload")
-        except Exception as e:
-            logger.warning(f"  DTDL upload failed: {e}")
-    
-    def _register_iot_devices(self, context: 'DeploymentContext') -> None:
-        """Register IoT devices via SDK."""
-        logger.info("  Registering IoT devices...")
-        try:
-            from src.providers.azure.layers.layer_1_iot import register_iot_devices
-            provider = context.providers.get("azure")
-            if provider:
-                register_iot_devices(provider, context.config, str(self.project_path))
-                logger.info("  ✓ IoT devices registered")
-        except ImportError:
-            logger.warning("  layer_1_iot not available, skipping device registration")
-        except Exception as e:
-            logger.warning(f"  IoT device registration failed: {e}")
-    
-    def _configure_grafana(self, context: 'DeploymentContext') -> None:
-        """Configure Grafana datasources."""
-        logger.info("  Configuring Grafana...")
-        try:
-            from src.providers.azure.layers.layer_5_grafana import configure_grafana_datasource
-            provider = context.providers.get("azure")
-            if provider:
-                hot_reader_url = self._terraform_outputs.get("azure_l3_hot_reader_url")
-                if hot_reader_url:
-                    configure_grafana_datasource(provider, hot_reader_url)
-                    logger.info("  ✓ Grafana configured")
-        except ImportError:
-            logger.warning("  layer_5_grafana not available, skipping config")
-        except Exception as e:
-            logger.warning(f"  Grafana config failed: {e}")
+            configure_azure_grafana(context, self._terraform_outputs)
+        
+        # ===== AWS Post-Deployment =====
+        if providers["layer_4_provider"] == "aws":
+            create_twinmaker_entities(
+                self.project_path, self._terraform_outputs, self._load_credentials
+            )
+        
+        if providers["layer_1_provider"] == "aws":
+            register_aws_iot_devices(self.project_path, self._load_credentials)
+        
+        if providers["layer_5_provider"] == "aws":
+            configure_aws_grafana(self._terraform_outputs, self._load_credentials)

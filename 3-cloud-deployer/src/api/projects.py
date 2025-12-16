@@ -7,6 +7,7 @@ from api.dependencies import ConfigType, ProviderEnum
 import constants as CONSTANTS
 from logger import logger
 from api.utils import extract_file_content
+from api.functions import invalidate_function_cache, clear_all_hash_metadata
 
 import src.core.state as state
 
@@ -168,6 +169,10 @@ async def update_project_zip(
     try:
         content = await extract_file_content(request)
         result = file_manager.update_project_from_zip(project_name, content, description=description)
+        
+        # Clear all hash metadata since project ZIP is fully replaced
+        clear_all_hash_metadata(project_name)
+        
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -239,6 +244,10 @@ async def update_function_file(
         content_str = content.decode('utf-8')
         
         file_manager.update_function_code_file(project_name, function_name, target_filename, content_str)
+        
+        # Invalidate function cache since code changed
+        invalidate_function_cache(project_name)
+        
         return {"message": f"File '{target_filename}' updated for function '{function_name}'."}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

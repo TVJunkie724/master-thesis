@@ -18,6 +18,12 @@ terraform {
       version = "~> 5.31"
     }
 
+    # AWS Cloud Control provider (for TwinMaker entities/components)
+    awscc = {
+      source  = "hashicorp/awscc"
+      version = "~> 1.0"
+    }
+
     # Google Cloud provider (for multi-cloud deployments)
     google = {
       source  = "hashicorp/google"

@@ -192,10 +192,74 @@ def destroy_l5(context: 'DeploymentContext', provider: str) -> None:
 # ==========================================
 
 def deploy_all(context: 'DeploymentContext', provider: str) -> None:
-    """Deploy all layers for a provider.
-    
-    Pre-deployment safety: Checks if cloud resources already exist.
     """
+    Deploy all layers using Terraform (primary approach).
+    
+    This function uses Terraform for infrastructure provisioning,
+    with Python handling code deployment and post-deployment operations.
+    
+    Args:
+        context: Deployment context with config and credentials
+        provider: Cloud provider name (aws, azure, gcp)
+    
+    Note:
+        For SDK-only deployment (deprecated), use deploy_all_sdk().
+    """
+    logger.info(f"Deploying all layers via Terraform for provider: {provider}")
+    
+    from pathlib import Path
+    from src.providers.terraform.deployer_strategy import TerraformDeployerStrategy
+    
+    terraform_dir = str(Path(__file__).parent.parent / "terraform")
+    
+    strategy = TerraformDeployerStrategy(
+        terraform_dir=terraform_dir,
+        project_path=str(context.project_path)
+    )
+    
+    strategy.deploy_all(context)
+
+
+def destroy_all(context: 'DeploymentContext', provider: str) -> None:
+    """
+    Destroy all layers using Terraform.
+    
+    Args:
+        context: Deployment context with config and credentials
+        provider: Cloud provider name
+    """
+    logger.info(f"Destroying all layers via Terraform for provider: {provider}")
+    
+    from pathlib import Path
+    from src.providers.terraform.deployer_strategy import TerraformDeployerStrategy
+    
+    terraform_dir = str(Path(__file__).parent.parent / "terraform")
+    
+    strategy = TerraformDeployerStrategy(
+        terraform_dir=terraform_dir,
+        project_path=str(context.project_path)
+    )
+    
+    strategy.destroy_all(context)
+
+
+# ==========================================
+# SDK Deployment (DEPRECATED)
+# ==========================================
+
+def deploy_all_sdk(context: 'DeploymentContext', provider: str) -> None:
+    """
+    [DEPRECATED] Deploy all layers using Python SDK.
+    
+    Use deploy_all() instead, which uses Terraform.
+    """
+    import warnings
+    warnings.warn(
+        "deploy_all_sdk() is deprecated. Use deploy_all() with Terraform instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    
     # Pre-deployment safety check
     if provider in context.providers:
         provider_instance = context.providers[provider]
@@ -214,8 +278,19 @@ def deploy_all(context: 'DeploymentContext', provider: str) -> None:
     deploy_l5(context, provider)
 
 
-def destroy_all(context: 'DeploymentContext', provider: str) -> None:
-    """Destroy all layers for a provider (reverse order)."""
+def destroy_all_sdk(context: 'DeploymentContext', provider: str) -> None:
+    """
+    [DEPRECATED] Destroy all layers using Python SDK.
+    
+    Use destroy_all() instead, which uses Terraform.
+    """
+    import warnings
+    warnings.warn(
+        "destroy_all_sdk() is deprecated. Use destroy_all() with Terraform instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    
     destroy_l5(context, provider)
     destroy_l4(context, provider)
     destroy_l3(context, provider)
