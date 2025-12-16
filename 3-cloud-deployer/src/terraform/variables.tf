@@ -170,6 +170,13 @@ variable "gcp_region" {
   default     = "europe-west1"
 }
 
+variable "gcp_billing_account" {
+  description = "GCP Billing Account ID for project creation (format: 0XXXXX-XXXXXX-XXXXXX)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 # ==============================================================================
 # Storage Configuration (from config.json)
 # ==============================================================================

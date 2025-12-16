@@ -48,13 +48,43 @@ This document tracks planned improvements and features for the Digital Twin Mult
 - `src/providers/gcp/provider.py` - Minimal stub
 - `src/providers/gcp/layers/*.py` - Need to be created
 
+### Documentation to Add
+
+- [ ] `docs-gcp-deployment.html` - Add Setup Layer section
+- [ ] `docs-gcp-deployment.html` - Add L0 Glue Layer section
+- [ ] `docs-gcp-deployment.html` - Add IAM Permissions section
+- [ ] `docs-credentials-gcp.html` - Create new credentials guide page
+- [ ] `gcp_credentials_checker.py` - Create credentials validation
+
+### IoT Device Simulator Note
+
+> [!TIP]
+> When implementing the IoT device simulator in `/upload/template/`, add support for GCP Pub/Sub:
+> - Primary: HTTP REST API (simplest, use Service Account JSON key)
+> - Alternative: gRPC (faster, same auth via ADC)
+> - MQTT is NOT required for GCP (no native support)
+
 ### Architecture Notes
 
 GCP implementation will be **Terraform-only** (no SDK layer deployment):
-- Cloud Functions will be deployed via Terraform `google_cloudfunctions2_function`
-- IoT Core (or Cloud IoT alternatives) via Terraform
+- Cloud Functions Gen2 via `google_cloudfunctions2_function`
+- Pub/Sub for IoT ingestion (HTTP/gRPC, not MQTT)
 - Firestore for hot storage
-- Cloud Storage for cold/archive
+- Cloud Storage lifecycle policies for cold/archive (custom age days like AWS/Azure)
+
+### Future Enhancement: gRPC Migration
+
+> [!NOTE]
+> Initial implementation uses HTTP REST for simplicity. Consider gRPC migration for production:
+
+| Aspect | HTTP REST (Current) | gRPC (Future) |
+|--------|---------------------|---------------|
+| Speed | Baseline | 7x faster |
+| Payload | JSON (text) | Protocol Buffers (binary) |
+| Auth | Service Account JSON | Same (ADC) |
+| Use case | Development, <1k msg/sec | Production, >1k msg/sec |
+
+**When to migrate**: High-throughput IoT scenarios requiring >1000 messages/second.
 
 ---
 
@@ -172,6 +202,42 @@ Use existing `info_l*` functions from provider strategies:
 - [ ] Support Azure Key Vault for credential storage
 - [ ] Support AWS Secrets Manager for credential storage
 - [ ] Add certificate-based authentication option
+
+---
+
+## 11. Azure Custom Role: Cosmos DB Permission Investigation
+
+### Status: Needs Investigation
+
+### Issue
+
+During E2E testing with the custom "Digital Twin Deployer" role (`docs/references/azure_custom_role.json`), Terraform fails with:
+
+```
+AuthorizationFailed: ... Microsoft.DocumentDB/databaseAccounts/read ... or the scope is invalid
+```
+
+This occurs **even though** the custom role includes:
+- `Microsoft.DocumentDB/databaseAccounts/read` (line 66)
+- `Microsoft.DocumentDB/databaseAccounts/listKeys/action` (line 67)
+- `*/read` wildcard (line 11)
+
+### Potential Causes
+
+1. **Missing `readMetadata` permission**: Research indicates `Microsoft.DocumentDB/databaseAccounts/readMetadata` may be required, but it's a **dataAction** (not visible in Portal UI for control plane roles)
+2. **Student subscription limitations**: Possible restrictions on custom roles or specific permissions
+3. **Role propagation timing**: RBAC changes can take 5-30 minutes to propagate
+
+### Workaround
+
+Assign the built-in **Contributor** role alongside the custom role. If Contributor works, the custom role is missing a permission.
+
+### TODO
+
+- [ ] Identify exact minimum permission set for Cosmos DB Terraform operations
+- [ ] Document whether `readMetadata` needs to be in `dataActions` section
+- [ ] Consider using Azure CLI to update custom role: `az role definition update --role-definition azure_custom_role.json`
+- [ ] Update `azure_custom_role.json` once root cause is confirmed
 
 ---
 

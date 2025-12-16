@@ -1,0 +1,144 @@
+# GCP Custom Role Definition for Digital Twin Deployer
+#
+# This role grants the minimum permissions required for the Cloud Deployer
+# to provision Digital Twin infrastructure on Google Cloud Platform.
+#
+# Usage:
+#   1. Create the custom role:
+#      gcloud iam roles create DigitalTwinDeployer \
+#        --project=YOUR_PROJECT_ID \
+#        --file=gcp_custom_role.yaml
+#
+#   2. Assign the role to your service account:
+#      gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+#        --member="serviceAccount:YOUR_SA@YOUR_PROJECT.iam.gserviceaccount.com" \
+#        --role="projects/YOUR_PROJECT_ID/roles/DigitalTwinDeployer"
+#
+# Note: GCP uses YAML for role definitions, not JSON like Azure.
+# Note: GCP custom roles cannot use wildcards (*) in permission names.
+
+title: "Digital Twin Deployer"
+description: "Custom role for deploying Digital Twin infrastructure via Cloud Deployer. Provides least-privilege access for L1-L3 layers."
+stage: "GA"
+includedPermissions:
+  # ===========================================
+  # Cloud Resource Manager (Project access)
+  # ===========================================
+  - resourcemanager.projects.get
+  - resourcemanager.projects.getIamPolicy
+
+  # ===========================================
+  # IAM (Service Account management)
+  # ===========================================
+  - iam.serviceAccounts.create
+  - iam.serviceAccounts.delete
+  - iam.serviceAccounts.get
+  - iam.serviceAccounts.list
+  - iam.serviceAccounts.actAs
+  - iam.roles.create
+  - iam.roles.delete
+  - iam.roles.get
+  - iam.roles.list
+  - iam.roles.update
+
+  # ===========================================
+  # Cloud Storage (Function source & cold storage)
+  # ===========================================
+  - storage.buckets.create
+  - storage.buckets.delete
+  - storage.buckets.get
+  - storage.buckets.list
+  - storage.buckets.update
+  - storage.objects.create
+  - storage.objects.delete
+  - storage.objects.get
+  - storage.objects.list
+  - storage.objects.update
+
+  # ===========================================
+  # Cloud Pub/Sub (L1 - Data Acquisition)
+  # ===========================================
+  - pubsub.topics.create
+  - pubsub.topics.delete
+  - pubsub.topics.get
+  - pubsub.topics.list
+  - pubsub.topics.publish
+  - pubsub.subscriptions.create
+  - pubsub.subscriptions.delete
+  - pubsub.subscriptions.get
+  - pubsub.subscriptions.list
+
+  # ===========================================
+  # Cloud Functions (L2 - Data Processing)
+  # ===========================================
+  - cloudfunctions.functions.create
+  - cloudfunctions.functions.delete
+  - cloudfunctions.functions.get
+  - cloudfunctions.functions.list
+  - cloudfunctions.functions.update
+  - cloudfunctions.functions.sourceCodeSet
+  - cloudfunctions.operations.get
+  - cloudfunctions.operations.list
+
+  # ===========================================
+  # Cloud Run (Gen2 Functions)
+  # ===========================================
+  - run.services.create
+  - run.services.delete
+  - run.services.get
+  - run.services.list
+  - run.services.update
+  - run.services.setIamPolicy
+  - run.services.getIamPolicy
+  - run.operations.get
+  - run.operations.list
+
+  # ===========================================
+  # Eventarc (Function triggers)
+  # ===========================================
+  - eventarc.triggers.create
+  - eventarc.triggers.delete
+  - eventarc.triggers.get
+  - eventarc.triggers.list
+  - eventarc.triggers.update
+
+  # ===========================================
+  # Cloud Build (Function deployment)
+  # ===========================================
+  - cloudbuild.builds.create
+  - cloudbuild.builds.get
+  - cloudbuild.builds.list
+
+  # ===========================================
+  # Firestore (L3 - Hot Storage)
+  # ===========================================
+  - datastore.databases.create
+  - datastore.databases.delete
+  - datastore.databases.get
+  - datastore.databases.list
+  - datastore.entities.create
+  - datastore.entities.delete
+  - datastore.entities.get
+  - datastore.entities.list
+  - datastore.entities.update
+  - datastore.indexes.create
+  - datastore.indexes.delete
+  - datastore.indexes.get
+  - datastore.indexes.list
+
+  # ===========================================
+  # Cloud Scheduler (L3 - Mover jobs)
+  # ===========================================
+  - cloudscheduler.jobs.create
+  - cloudscheduler.jobs.delete
+  - cloudscheduler.jobs.get
+  - cloudscheduler.jobs.list
+  - cloudscheduler.jobs.update
+
+  # ===========================================
+  # Service Usage (Enable APIs)
+  # ===========================================
+  - serviceusage.services.enable
+  - serviceusage.services.disable
+  - serviceusage.services.get
+  - serviceusage.services.list

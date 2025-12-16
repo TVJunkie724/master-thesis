@@ -30,8 +30,8 @@ resource "azurerm_dashboard_grafana" "main" {
   # Standard SKU for production use
   sku = "Standard"
   
-  # Grafana version (required in azurerm v4+)
-  grafana_major_version = 10
+  # Grafana version (version 9 is widely supported)
+  grafana_major_version = 9
 
   # Enable managed identity for data source authentication
   identity {

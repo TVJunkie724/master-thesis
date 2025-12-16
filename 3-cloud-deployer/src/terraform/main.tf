@@ -90,6 +90,15 @@ locals {
     var.layer_4_provider,
     var.layer_5_provider
   ], "aws")
+
+  deploy_gcp = contains([
+    var.layer_1_provider,
+    var.layer_2_provider,
+    var.layer_3_hot_provider,
+    var.layer_3_cold_provider,
+    var.layer_3_archive_provider
+    # Note: L4/L5 not supported for GCP (no managed services)
+  ], "google")
   
   # Azure region to use for IoT Hub (may differ from main region)
   azure_iothub_region = var.azure_region_iothub != "" ? var.azure_region_iothub : var.azure_region

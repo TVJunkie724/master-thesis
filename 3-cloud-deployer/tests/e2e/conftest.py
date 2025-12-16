@@ -283,6 +283,118 @@ def azure_credentials(template_project_path):
         )
 
 
+@pytest.fixture(scope="session")
+def gcp_terraform_e2e_test_id():
+    """
+    Fixed, deterministic ID for GCP Terraform E2E test runs.
+    """
+    return "tf-e2e-gcp"
+
+
+@pytest.fixture(scope="session")
+def gcp_terraform_e2e_project_path(template_project_path, gcp_terraform_e2e_test_id, tmp_path_factory):
+    """
+    Create a unique temporary E2E test project for GCP Terraform deployment.
+    
+    Configures all layers to use GCP (except L4/L5 which are disabled).
+    """
+    # Create temp directory for E2E project
+    temp_dir = tmp_path_factory.mktemp("gcp_terraform_e2e")
+    project_path = temp_dir / gcp_terraform_e2e_test_id
+    
+    # Copy template project
+    shutil.copytree(template_project_path, project_path)
+    
+    # Modify config.json with unique twin name
+    config_path = project_path / "config.json"
+    with open(config_path, "r") as f:
+        config = json.load(f)
+    config["digital_twin_name"] = gcp_terraform_e2e_test_id
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=2)
+    
+    # Modify config_providers.json to all-GCP (L1-L3 only)
+    providers_path = project_path / "config_providers.json"
+    providers = {
+        "layer_1_provider": "google",
+        "layer_2_provider": "google",
+        "layer_3_hot_provider": "google",
+        "layer_3_cold_provider": "google",
+        "layer_3_archive_provider": "google",
+        "layer_4_provider": "",  # GCP has no managed Digital Twin
+        "layer_5_provider": ""   # GCP has no managed Grafana
+    }
+    with open(providers_path, "w") as f:
+        json.dump(providers, f, indent=2)
+    
+    print(f"\n[GCP TERRAFORM E2E] Created unique test project: {project_path}")
+    print(f"[GCP TERRAFORM E2E] Digital twin name: {gcp_terraform_e2e_test_id}")
+    print(f"[GCP TERRAFORM E2E] L4/L5 disabled (no GCP managed services)")
+    
+    yield str(project_path)
+    
+    # Cleanup temp directory
+    print(f"\n[GCP TERRAFORM E2E] Cleaning up temp project: {project_path}")
+
+
+@pytest.fixture(scope="session")
+def gcp_credentials(template_project_path):
+    """
+    Load GCP credentials from config_credentials.json.
+    
+    Falls back to environment variables if file not found.
+    """
+    # First try to load from config_credentials.json
+    creds_path = template_project_path / "config_credentials.json"
+    
+    if creds_path.exists():
+        with open(creds_path, "r") as f:
+            all_creds = json.load(f)
+        
+        gcp_creds = all_creds.get("gcp", {})
+        
+        # Check for credentials file or project_id
+        has_creds_file = gcp_creds.get("gcp_credentials_file")
+        has_project = gcp_creds.get("gcp_project_id") or gcp_creds.get("gcp_billing_account")
+        
+        if has_creds_file and has_project:
+            print("[GCP E2E] Using credentials from config_credentials.json")
+            
+            # Set environment variable for GCP SDK
+            if has_creds_file and os.path.exists(has_creds_file):
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = has_creds_file
+            
+            return {
+                "auth_type": "service_account",
+                "project_id": gcp_creds.get("gcp_project_id", ""),
+                "region": gcp_creds.get("gcp_region", "europe-west1"),
+                "credentials_file": has_creds_file
+            }
+    
+    # Fallback: Check for environment variables
+    if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+        print("[GCP E2E] Using credentials from GOOGLE_APPLICATION_CREDENTIALS")
+        return {
+            "auth_type": "service_account",
+            "credentials_file": os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+        }
+    
+    # Last resort: Try Application Default Credentials
+    try:
+        from google.auth import default
+        credentials, project = default()
+        print("[GCP E2E] Using Application Default Credentials")
+        return {
+            "auth_type": "adc",
+            "project_id": project
+        }
+    except Exception:
+        pytest.skip(
+            f"GCP credentials not configured. "
+            f"Please set credentials in config_credentials.json or GOOGLE_APPLICATION_CREDENTIALS."
+        )
+
+
 @pytest.fixture(scope="class")
 def deployment_context(request, e2e_project_path, azure_credentials):
     """

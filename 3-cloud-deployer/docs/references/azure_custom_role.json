@@ -64,6 +64,7 @@
                     "Microsoft.DocumentDB/databaseAccounts/write",
                     "Microsoft.DocumentDB/databaseAccounts/delete",
                     "Microsoft.DocumentDB/databaseAccounts/read",
+                    "Microsoft.DocumentDB/databaseAccounts/readMetadata",
                     "Microsoft.DocumentDB/databaseAccounts/listKeys/action",
                     "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/write",
                     "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/delete",

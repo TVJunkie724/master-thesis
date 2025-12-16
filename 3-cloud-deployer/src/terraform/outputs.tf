@@ -301,3 +301,98 @@ output "aws_grafana_api_key" {
   value       = try(aws_grafana_workspace_api_key.admin[0].key, null)
   sensitive   = true
 }
+
+# ==============================================================================
+# GCP Setup Outputs
+# ==============================================================================
+
+output "gcp_project_id" {
+  description = "GCP Project ID"
+  value       = try(google_project.main[0].project_id, var.gcp_project_id)
+}
+
+output "gcp_service_account_email" {
+  description = "Email of the GCP Service Account"
+  value       = try(google_service_account.functions[0].email, null)
+}
+
+output "gcp_function_source_bucket" {
+  description = "Name of the function source bucket"
+  value       = try(google_storage_bucket.function_source[0].name, null)
+}
+
+# ==============================================================================
+# GCP L1 IoT Outputs
+# ==============================================================================
+
+output "gcp_pubsub_telemetry_topic" {
+  description = "Pub/Sub topic for telemetry"
+  value       = try(google_pubsub_topic.telemetry[0].id, null)
+}
+
+output "gcp_pubsub_events_topic" {
+  description = "Pub/Sub topic for events"
+  value       = try(google_pubsub_topic.events[0].id, null)
+}
+
+output "gcp_dispatcher_url" {
+  description = "URL of the dispatcher function"
+  value       = try(google_cloudfunctions2_function.dispatcher[0].url, null)
+}
+
+# ==============================================================================
+# GCP L2 Compute Outputs
+# ==============================================================================
+
+output "gcp_processor_url" {
+  description = "URL of the processor function"
+  value       = try(google_cloudfunctions2_function.processor[0].url, null)
+}
+
+output "gcp_persister_url" {
+  description = "URL of the persister function"
+  value       = try(google_cloudfunctions2_function.persister[0].url, null)
+}
+
+# ==============================================================================
+# GCP L3 Storage Outputs
+# ==============================================================================
+
+output "gcp_firestore_database" {
+  description = "Firestore database name"
+  value       = try(google_firestore_database.main[0].name, null)
+}
+
+output "gcp_cold_bucket" {
+  description = "Name of the cold storage bucket"
+  value       = try(google_storage_bucket.cold[0].name, null)
+}
+
+output "gcp_hot_reader_url" {
+  description = "URL of the hot reader function"
+  value       = try(google_cloudfunctions2_function.hot_reader[0].url, null)
+}
+
+# ==============================================================================
+# GCP L0 Glue Outputs
+# ==============================================================================
+
+output "gcp_ingestion_url" {
+  description = "URL of the ingestion function (multi-cloud)"
+  value       = try(google_cloudfunctions2_function.ingestion[0].url, null)
+}
+
+output "gcp_hot_writer_url" {
+  description = "URL of the hot writer function (multi-cloud)"
+  value       = try(google_cloudfunctions2_function.hot_writer[0].url, null)
+}
+
+output "gcp_cold_writer_url" {
+  description = "URL of the cold writer function (multi-cloud)"
+  value       = try(google_cloudfunctions2_function.cold_writer[0].url, null)
+}
+
+output "gcp_archive_writer_url" {
+  description = "URL of the archive writer function (multi-cloud)"
+  value       = try(google_cloudfunctions2_function.archive_writer[0].url, null)
+}

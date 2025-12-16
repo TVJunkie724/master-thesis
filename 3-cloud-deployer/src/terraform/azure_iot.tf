@@ -149,4 +149,7 @@ resource "azurerm_eventgrid_system_topic_event_subscription" "iothub_to_dispatch
   included_event_types = [
     "Microsoft.Devices.DeviceTelemetry"
   ]
+
+  # Ensure the function app is fully deployed before creating the subscription
+  depends_on = [azurerm_linux_function_app.l1]
 }

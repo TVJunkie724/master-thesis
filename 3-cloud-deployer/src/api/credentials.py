@@ -171,3 +171,82 @@ async def check_azure_from_config(
     """
     return check_azure_credentials_from_config(project)
 
+
+# ==========================================
+# GCP Credentials Endpoints
+# ==========================================
+
+# Import GCP checker (at the top, import was added separately)
+from api.gcp_credentials_checker import check_gcp_credentials, check_gcp_credentials_from_config
+
+
+class GCPCredentialsRequest(BaseModel):
+    """Request body for GCP credential validation."""
+    gcp_project_id: Optional[str] = Field(None, description="GCP Project ID (optional if billing_account provided)")
+    gcp_billing_account: Optional[str] = Field(None, description="GCP Billing Account (for project creation)")
+    gcp_credentials_file: str = Field(..., description="Path to Service Account JSON key file")
+    gcp_region: str = Field(..., description="GCP Region (e.g., 'europe-west1')")
+
+
+class GCPCredentialsCheckResponse(BaseModel):
+    """Response schema for GCP credential validation."""
+    status: str = Field(..., description="Result status: 'valid', 'partial', 'invalid', 'sdk_missing', or 'error'")
+    message: str = Field(..., description="Human-readable result message")
+    caller_identity: Optional[dict] = Field(None, description="GCP service account info")
+    project_access: Optional[dict] = Field(None, description="Project access status")
+    api_status: Optional[dict] = Field(None, description="API enablement status by layer")
+    required_roles: list = Field(..., description="List of required IAM roles")
+
+
+@router.post(
+    "/check/gcp",
+    response_model=GCPCredentialsCheckResponse,
+    summary="Validate GCP credentials from request body",
+    description=(
+        "Validates GCP Service Account credentials against required permissions. "
+        "Checks project access and API enablement status. "
+        "Returns status and missing APIs by layer."
+    )
+)
+async def check_gcp_from_body(request: GCPCredentialsRequest):
+    """
+    Validate GCP Service Account credentials from request body.
+    
+    Checks permissions for L1-L3 deployment layers:
+    - **L1**: Pub/Sub, Eventarc
+    - **L2**: Cloud Functions, Cloud Run, Cloud Build
+    - **L3**: Firestore, Cloud Storage, Cloud Scheduler
+    
+    Note: L4/L5 not available - GCP lacks managed Digital Twin and Grafana services.
+    
+    Returns status and missing APIs.
+    """
+    return check_gcp_credentials(request.model_dump())
+
+
+@router.get(
+    "/check/gcp",
+    response_model=GCPCredentialsCheckResponse,
+    summary="Validate GCP credentials from project config",
+    description=(
+        "Validates GCP credentials from the project's config_credentials.json file. "
+        "Uses the active project if no project name is specified. "
+        "Returns status and API enablement results."
+    )
+)
+async def check_gcp_from_config(
+    project: Optional[str] = Query(
+        None, 
+        description="Project name to load credentials from. Uses active project if not specified."
+    )
+):
+    """
+    Validate GCP credentials from project's config_credentials.json.
+    
+    Reads the GCP credentials from the specified project's configuration file
+    and validates them against required permissions.
+    
+    If no project is specified, uses the currently active project.
+    """
+    return check_gcp_credentials_from_config(project)
+
