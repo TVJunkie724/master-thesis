@@ -2,7 +2,7 @@
 GCP Deployer Strategy (Stub).
 
 Minimal stub implementing DeployerStrategy protocol for Google Cloud.
-All methods raise NotImplementedError until full implementation.
+GCP deployment will be Terraform-only when implemented.
 """
 
 from typing import TYPE_CHECKING
@@ -13,7 +13,13 @@ if TYPE_CHECKING:
 
 
 class GCPDeployerStrategy:
-    """GCP implementation of DeployerStrategy (Stub)."""
+    """
+    GCP implementation of DeployerStrategy (Stub).
+    
+    Note:
+        GCP deployment will be Terraform-only when implemented.
+        This strategy provides stub info_* methods for status checks.
+    """
     
     def __init__(self, provider: 'GCPProvider'):
         self._provider = provider
@@ -22,44 +28,30 @@ class GCPDeployerStrategy:
     def provider(self) -> 'GCPProvider':
         return self._provider
     
-    def deploy_l1(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("GCP L1 deployment not yet implemented")
+    # ==========================================
+    # Info / Status Checks (Stubs)
+    # ==========================================
     
-    def destroy_l1(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("GCP L1 destruction not yet implemented")
+    def info_l1(self, context: 'DeploymentContext') -> dict:
+        """Check status of L1 (GCP - not yet implemented)."""
+        return {"status": "not_implemented", "layer": "L1", "provider": "gcp"}
     
-    def deploy_l2(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("GCP L2 deployment not yet implemented")
+    def info_l2(self, context: 'DeploymentContext') -> dict:
+        """Check status of L2 (GCP - not yet implemented)."""
+        return {"status": "not_implemented", "layer": "L2", "provider": "gcp"}
     
-    def destroy_l2(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("GCP L2 destruction not yet implemented")
+    def info_l3(self, context: 'DeploymentContext') -> dict:
+        """Check status of L3 (GCP - not yet implemented)."""
+        return {"status": "not_implemented", "layer": "L3", "provider": "gcp"}
     
-    def deploy_l3_hot(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("GCP L3 hot deployment not yet implemented")
+    def info_l4(self, context: 'DeploymentContext') -> dict:
+        """Check status of L4 (GCP - not yet implemented)."""
+        return {"status": "not_implemented", "layer": "L4", "provider": "gcp"}
     
-    def destroy_l3_hot(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("GCP L3 hot destruction not yet implemented")
+    def info_l5(self, context: 'DeploymentContext') -> dict:
+        """Check status of L5 (GCP - not yet implemented)."""
+        return {"status": "not_implemented", "layer": "L5", "provider": "gcp"}
     
-    def deploy_l3_cold(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("GCP L3 cold deployment not yet implemented")
-    
-    def destroy_l3_cold(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("GCP L3 cold destruction not yet implemented")
-    
-    def deploy_l3_archive(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("GCP L3 archive deployment not yet implemented")
-    
-    def destroy_l3_archive(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("GCP L3 archive destruction not yet implemented")
-    
-    def deploy_l4(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("GCP L4 deployment not yet implemented")
-    
-    def destroy_l4(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("GCP L4 destruction not yet implemented")
-    
-    def deploy_l5(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("GCP L5 deployment not yet implemented")
-    
-    def destroy_l5(self, context: 'DeploymentContext') -> None:
-        raise NotImplementedError("GCP L5 destruction not yet implemented")
+    def info_all(self, context: 'DeploymentContext') -> None:
+        """Check status of all layers (GCP - not yet implemented)."""
+        pass

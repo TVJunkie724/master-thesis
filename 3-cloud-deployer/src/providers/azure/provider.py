@@ -2,35 +2,39 @@
 Azure CloudProvider implementation.
 
 This module provides the Azure implementation of the CloudProvider protocol,
-including SDK client initialization and resource naming.
+including SDK client initialization, resource naming, and status checks.
 
 SDK Clients Initialized:
     - ResourceManagementClient: For Resource Group management
     - ManagedServiceIdentityClient: For User-Assigned Managed Identity
     - StorageManagementClient: For Storage Account management
     - WebSiteManagementClient: For Function App management
+    - IotHubClient: For IoT Hub management
+    - DigitalTwinsManagementClient: For Azure Digital Twins
+    - DashboardManagementClient: For Azure Managed Grafana
 
 Usage:
     from src.providers.azure.provider import AzureProvider
     
     provider = AzureProvider()
     provider.initialize_clients(credentials, twin_name)
-    # Now ready to use provider.clients["resource"], etc.
+    # Access clients: provider.clients["resource"], etc.
+    # Check status: provider.info_l1(context), etc.
 """
 
 from typing import Dict, Any, TYPE_CHECKING, Optional
 from providers.base import BaseProvider
 
 if TYPE_CHECKING:
-    from src.core.protocols import DeployerStrategy
     from src.providers.azure.naming import AzureNaming
+    from src.core.context import DeploymentContext
 
 
 class AzureProvider(BaseProvider):
     """
     Azure implementation of the CloudProvider protocol.
     
-    Manages Azure SDK clients and provides resource naming conventions.
+    Manages Azure SDK clients, resource naming, and status checks.
     
     Attributes:
         name: Provider identifier ("azure")
@@ -99,19 +103,15 @@ class AzureProvider(BaseProvider):
             credentials: Azure credentials dictionary with:
                 - azure_subscription_id: Azure subscription ID (REQUIRED)
                 - azure_region: Azure region for general resources (REQUIRED)
-                - azure_region_iothub: Azure region for IoT Hub (REQUIRED, may differ)
-                - azure_region_digital_twin: Azure region for Digital Twins (REQUIRED, may differ)
-                - azure_tenant_id: Azure AD tenant ID (optional for DefaultCredential)
+                - azure_region_iothub: Azure region for IoT Hub (REQUIRED)
+                - azure_region_digital_twin: Azure region for Digital Twins (REQUIRED)
+                - azure_tenant_id: Azure AD tenant ID (optional)
                 - azure_client_id: Service principal client ID (optional)
                 - azure_client_secret: Service principal secret (optional)
             twin_name: Digital twin name for resource naming
         
         Raises:
             ValueError: If required credentials are missing
-        
-        Note:
-            If azure_client_id/azure_client_secret are not provided, uses DefaultAzureCredential
-            which supports managed identity, Azure CLI, environment variables, etc.
         """
         from src.providers.azure.naming import AzureNaming
         
@@ -135,39 +135,28 @@ class AzureProvider(BaseProvider):
         if "azure_region_iothub" not in credentials or not credentials["azure_region_iothub"]:
             raise ValueError(
                 "Missing required credential 'azure_region_iothub'. "
-                "IoT Hub region (e.g., 'westeurope') must be provided in config_credentials.json. "
-                "IoT Hub is not available in all regions."
+                "IoT Hub region (e.g., 'westeurope') must be provided in config_credentials.json."
             )
         self._location_iothub = credentials["azure_region_iothub"]
         
         if "azure_region_digital_twin" not in credentials or not credentials["azure_region_digital_twin"]:
             raise ValueError(
                 "Missing required credential 'azure_region_digital_twin'. "
-                "Digital Twins region (e.g., 'westeurope') must be provided in config_credentials.json. "
-                "Azure Digital Twins is only available in select regions: westcentralus, westus2, "
-                "northeurope, australiaeast, westeurope, eastus, southcentralus, southeastasia, uksouth, "
-                "eastus2, westus3, japaneast, koreacentral, qatarcentral."
+                "Digital Twins region (e.g., 'westeurope') must be provided in config_credentials.json."
             )
         self._location_digital_twin = credentials["azure_region_digital_twin"]
         
         # Initialize naming
         self._naming = AzureNaming(twin_name)
         
-        # Get credentials
+        # Get credentials and initialize SDK clients
         credential = self._get_credential(credentials)
-        
-        # Initialize SDK clients
         self._initialize_sdk_clients(credential)
         
         self._initialized = True
     
     def _get_credential(self, credentials: dict) -> Any:
-        """
-        Get Azure credential for SDK clients.
-        
-        Uses ServicePrincipalCredential if client_id/secret provided,
-        otherwise uses DefaultAzureCredential for flexible auth.
-        """
+        """Get Azure credential for SDK clients."""
         from azure.identity import DefaultAzureCredential, ClientSecretCredential
         
         client_id = credentials.get("azure_client_id")
@@ -175,33 +164,16 @@ class AzureProvider(BaseProvider):
         tenant_id = credentials.get("azure_tenant_id")
         
         if client_id and client_secret and tenant_id:
-            # Use service principal credentials
             return ClientSecretCredential(
                 tenant_id=tenant_id,
                 client_id=client_id,
                 client_secret=client_secret
             )
         else:
-            # Use default credential chain (managed identity, CLI, env vars)
             return DefaultAzureCredential()
     
     def _initialize_sdk_clients(self, credential: Any) -> None:
-        """
-        Initialize all required Azure SDK clients.
-        
-        Args:
-            credential: Azure credential object
-            
-        Clients Initialized:
-            - resource: ResourceManagementClient (Resource Groups)
-            - storage: StorageManagementClient (Storage Accounts)
-            - web: WebSiteManagementClient (Function Apps)
-            - msi: ManagedServiceIdentityClient (Managed Identity)
-            - iothub: IotHubClient (IoT Hub management) - L1
-            - eventgrid: EventGridManagementClient (Event Grid subscriptions) - L1
-            - authorization: AuthorizationManagementClient (RBAC role assignments) - L1
-            - dashboard: DashboardManagementClient (Azure Managed Grafana) - L5
-        """
+        """Initialize all required Azure SDK clients."""
         from azure.mgmt.resource import ResourceManagementClient
         from azure.mgmt.storage import StorageManagementClient
         from azure.mgmt.web import WebSiteManagementClient
@@ -209,83 +181,38 @@ class AzureProvider(BaseProvider):
         from azure.mgmt.iothub import IotHubClient
         from azure.mgmt.eventgrid import EventGridManagementClient
         from azure.mgmt.authorization import AuthorizationManagementClient
+        from azure.mgmt.dashboard import DashboardManagementClient
+        from azure.mgmt.cosmosdb import CosmosDBManagementClient
+        from azure.mgmt.digitaltwins import AzureDigitalTwinsManagementClient
         
         subscription_id = self._subscription_id
         
-        # Resource Management - for Resource Groups
-        self._clients["resource"] = ResourceManagementClient(
-            credential=credential,
-            subscription_id=subscription_id
-        )
-        
-        # Storage Management - for Storage Accounts
-        self._clients["storage"] = StorageManagementClient(
-            credential=credential,
-            subscription_id=subscription_id
-        )
-        
-        # Web Site Management - for Function Apps
-        self._clients["web"] = WebSiteManagementClient(
-            credential=credential,
-            subscription_id=subscription_id
-        )
-        
-        # Managed Service Identity - for User-Assigned Managed Identity
-        self._clients["msi"] = ManagedServiceIdentityClient(
-            credential=credential,
-            subscription_id=subscription_id
-        )
-        
-        # IoT Hub Management - for IoT Hub (L1)
-        self._clients["iothub"] = IotHubClient(
-            credential=credential,
-            subscription_id=subscription_id
-        )
-        
-        # Event Grid Management - for Event Grid subscriptions (L1)
-        self._clients["eventgrid"] = EventGridManagementClient(
-            credential=credential,
-            subscription_id=subscription_id
-        )
-        
-        # Authorization Management - for RBAC role assignments (L1)
-        self._clients["authorization"] = AuthorizationManagementClient(
-            credential=credential,
-            subscription_id=subscription_id
-        )
-        
-        # Dashboard Management - for Azure Managed Grafana (L5)
-        from azure.mgmt.dashboard import DashboardManagementClient
-        self._clients["dashboard"] = DashboardManagementClient(
-            credential=credential,
-            subscription_id=subscription_id
-        )
-        
-        # Cosmos DB Management - for Cosmos DB (L3)
-        from azure.mgmt.cosmosdb import CosmosDBManagementClient
-        self._clients["cosmos"] = CosmosDBManagementClient(
-            credential=credential,
-            subscription_id=subscription_id
-        )
-        
-        # Digital Twins Management - for Azure Digital Twins (L4)
-        from azure.mgmt.digitaltwins import AzureDigitalTwinsManagementClient
-        self._clients["digitaltwins"] = AzureDigitalTwinsManagementClient(
-            credential=credential,
-            subscription_id=subscription_id
-        )
+        self._clients["resource"] = ResourceManagementClient(credential=credential, subscription_id=subscription_id)
+        self._clients["storage"] = StorageManagementClient(credential=credential, subscription_id=subscription_id)
+        self._clients["web"] = WebSiteManagementClient(credential=credential, subscription_id=subscription_id)
+        self._clients["msi"] = ManagedServiceIdentityClient(credential=credential, subscription_id=subscription_id)
+        self._clients["iothub"] = IotHubClient(credential=credential, subscription_id=subscription_id)
+        self._clients["eventgrid"] = EventGridManagementClient(credential=credential, subscription_id=subscription_id)
+        self._clients["authorization"] = AuthorizationManagementClient(credential=credential, subscription_id=subscription_id)
+        self._clients["dashboard"] = DashboardManagementClient(credential=credential, subscription_id=subscription_id)
+        self._clients["cosmos"] = CosmosDBManagementClient(credential=credential, subscription_id=subscription_id)
+        self._clients["digitaltwins"] = AzureDigitalTwinsManagementClient(credential=credential, subscription_id=subscription_id)
     
-    def get_resource_name(self, resource_type: str, suffix: str = "") -> str:
-        """
-        Generate an Azure resource name.
-        
-        Deprecated: Use provider.naming methods instead.
-        """
-        if suffix:
-            return f"{self.twin_name}-{resource_type}-{suffix}"
-        return f"{self.twin_name}-{resource_type}"
+    # ==========================================
+    # Status Checks (Used by API)
+    # ==========================================
     
-    def get_deployer_strategy(self) -> 'DeployerStrategy':
-        """Return the Azure deployment strategy."""
-        from .deployer_strategy import AzureDeployerStrategy
-        return AzureDeployerStrategy(self)
+    def info_l1(self, context: 'DeploymentContext') -> dict:
+        """Get status of L1 Data Acquisition components."""
+        from src.providers.azure.layers.layer_1_iot import info_l1
+        return info_l1(context, self)
+    
+    def info_l4(self, context: 'DeploymentContext') -> dict:
+        """Get status of L4 Twin Management components."""
+        from src.providers.azure.layers.layer_4_adt import info_l4
+        return info_l4(context, self)
+    
+    def info_l5(self, context: 'DeploymentContext') -> dict:
+        """Get status of L5 Visualization components."""
+        from src.providers.azure.layers.layer_5_grafana import info_l5
+        return info_l5(context, self)

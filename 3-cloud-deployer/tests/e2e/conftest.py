@@ -48,13 +48,17 @@ def template_project_path():
 @pytest.fixture(scope="session")
 def terraform_e2e_test_id():
     """
-    UNIQUE ID for Terraform E2E test runs.
+    Fixed, deterministic ID for Terraform E2E test runs.
     
-    Uses a short UUID suffix to ensure each test run creates fresh resources,
-    avoiding conflicts with stale Terraform state from previous runs.
+    Using a consistent ID ensures:
+    - Idempotent resource naming across test runs
+    - Skip-if-exists logic can reuse existing resources
+    - Reduced costs (no duplicate resources created)
+    - Easy resumption after partial failures
+    
+    The ID is kept short to comply with Azure naming limits.
     """
-    short_uuid = str(uuid.uuid4())[:8]
-    return f"tf-{short_uuid}"
+    return "tf-e2e-azure"
 
 
 @pytest.fixture(scope="session")

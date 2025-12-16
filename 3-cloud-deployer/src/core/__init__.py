@@ -5,14 +5,14 @@ This package provides the foundational interfaces and utilities for supporting
 multiple cloud providers (AWS, Azure, GCP) in the Digital Twin deployment system.
 
 Modules:
-    protocols: Interface definitions (CloudProvider, DeployerStrategy)
+    protocols: Interface definitions (CloudProvider)
     context: DeploymentContext for dependency injection
     registry: ProviderRegistry for dynamic provider lookup
     config_loader: Configuration loading utilities
     exceptions: Custom exception types for deployment operations
 
 Usage:
-    from core import CloudProvider, DeployerStrategy, DeploymentContext
+    from core import CloudProvider, DeploymentContext
     from core import ProviderRegistry
     
     # Get a provider by name
@@ -21,9 +21,8 @@ Usage:
     # Create deployment context
     context = DeploymentContext(...)
     
-    # Deploy using the provider's strategy
-    strategy = provider.get_deployer_strategy()
-    strategy.deploy_l1(context)
+    # Check status using the provider directly
+    status = provider.info_l1(context)
 """
 
 from .protocols import CloudProvider, DeployerStrategy

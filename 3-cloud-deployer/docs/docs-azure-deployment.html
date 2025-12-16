@@ -381,9 +381,8 @@
                         resources required by all other layers.
                     </div>
                     <ul>
-                        <li><strong>Source Module:</strong> <code>src/providers/azure/layers/layer_setup_azure.py</code>
+                        <li><strong>Source:</strong> Terraform (<code>azure_setup.tf</code>)
                             <ul>
-                                <li><strong>Contains:</strong> 9 functions (3 triplets for RG, Identity, Storage)</li>
                                 <li><strong>Pattern:</strong> All foundational resources in one module</li>
                             </ul>
                         </li>
@@ -415,9 +414,8 @@
                         Function URLs are saved to <code>config_inter_cloud.json</code> before senders deploy.
                     </div>
                     <ul>
-                        <li><strong>Source Module:</strong> <code>src/providers/azure/layers/layer_0_glue.py</code>
+                        <li><strong>Source:</strong> Terraform (<code>azure_glue.tf</code>)
                             <ul>
-                                <li><strong>Contains:</strong> 43 functions (create/destroy/check + helpers)</li>
                                 <li><strong>Pattern:</strong> All multi-cloud receivers consolidated in one module</li>
                             </ul>
                         </li>

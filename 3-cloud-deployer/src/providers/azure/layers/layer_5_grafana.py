@@ -1,172 +1,46 @@
 """
-Layer 5 (Visualization) Component Implementations for Azure.
+Layer 5 (Visualization) SDK Operations for Azure.
 
-This module contains ALL Grafana workspace implementations that are
-deployed by the L5 adapter.
+This module provides:
+1. Post-Terraform SDK operations (Grafana datasource configuration)
+2. SDK-managed resource checks (datasource status)
 
 Components Managed:
-- Azure Managed Grafana Workspace: The visualization platform
-- Hot Reader HTTP Endpoint: For single-cloud, creates endpoint for Grafana
-- JSON API Datasource: Configured to point to Hot Reader
+- Grafana Datasource: JSON API datasource pointing to Hot Reader
 
-Data Flow:
-    Single-cloud (L3=L5): Grafana → JSON API → L5-created endpoint → L3 Hot Reader → Cosmos DB
-    Multi-cloud (L3≠L5): Grafana → JSON API → L0 Hot Reader URL → Remote L3
+Architecture:
+    Hot Reader URL → Grafana Datasource → Dashboard Panels
+         │                   │                   │
+         │                   │                   └── Visualizations
+         │                   └── JSON API Config
+         └── L3 Hot Reader endpoint
 
-Authentication:
-    - Uses X-Inter-Cloud-Token header for Hot Reader endpoints
-    - Grafana uses System-Assigned Managed Identity for Azure resources
+Note:
+    Infrastructure (Grafana workspace) is handled by Terraform.
+    This file handles SDK-managed datasource configuration.
 """
 
-from typing import TYPE_CHECKING, Dict, Any, Optional
-import os
-import json
-import time
+from typing import TYPE_CHECKING, Optional, Dict, Any
+import logging
 import requests
-from logger import logger
-from azure.core.exceptions import ResourceNotFoundError, HttpResponseError
+
+from azure.core.exceptions import (
+    ResourceNotFoundError,
+    ClientAuthenticationError,
+    HttpResponseError,
+    AzureError
+)
 
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
-    from src.core.config import ProjectConfig
-    from ..provider import AzureProvider
+    from src.providers.azure.provider import AzureProvider
+
+logger = logging.getLogger(__name__)
 
 
 # ==========================================
-# 1. Grafana Workspace - Create/Destroy/Check Triplet
+# Helper Functions
 # ==========================================
-
-def create_grafana_workspace(provider: 'AzureProvider') -> str:
-    """
-    Create an Azure Managed Grafana workspace.
-    
-    Creates the workspace with System-Assigned Managed Identity for
-    accessing other Azure resources.
-    
-    Args:
-        provider: Initialized AzureProvider with clients and naming
-        
-    Returns:
-        The Grafana workspace endpoint URL
-        
-    Raises:
-        ValueError: If provider is None
-        HttpResponseError: If creation fails
-    """
-    if provider is None:
-        raise ValueError("provider is required")
-    
-    rg_name = provider.naming.resource_group()
-    workspace_name = provider.naming.grafana_workspace()
-    location = provider.location
-    
-    logger.info(f"[L5] Creating Azure Managed Grafana workspace: {workspace_name}")
-    
-    # Grafana workspace parameters
-    workspace_params = {
-        "location": location,
-        "sku": {"name": "Standard"},  # Standard tier for production features
-        "identity": {"type": "SystemAssigned"},  # For accessing Azure resources
-        "properties": {
-            "zoneRedundancy": "Disabled",  # Cost optimization for dev/test
-            "publicNetworkAccess": "Enabled",  # Allow public access
-            "apiKey": "Enabled",  # Enable API key auth for datasource config
-        }
-    }
-    
-    try:
-        poller = provider.clients["dashboard"].grafana.begin_create(
-            resource_group_name=rg_name,
-            workspace_name=workspace_name,
-            request_body_parameters=workspace_params
-        )
-        workspace = poller.result()
-        
-        endpoint = workspace.properties.endpoint
-        logger.info(f"[L5] ✓ Grafana workspace created: {workspace_name}")
-        logger.info(f"[L5]   Endpoint: {endpoint}")
-        
-        # Wait for workspace to be fully ready
-        logger.info("[L5]   Waiting for workspace to be fully provisioned...")
-        time.sleep(30)  # Azure Managed Grafana needs time to initialize
-        
-        return endpoint
-        
-    except HttpResponseError as e:
-        logger.error(f"[L5] HTTP error creating Grafana workspace: {e.status_code} - {e.message}")
-        raise
-
-
-def destroy_grafana_workspace(provider: 'AzureProvider') -> None:
-    """
-    Delete the Azure Managed Grafana workspace.
-    
-    Args:
-        provider: Initialized AzureProvider with clients and naming
-        
-    Raises:
-        ValueError: If provider is None
-    """
-    if provider is None:
-        raise ValueError("provider is required")
-    
-    rg_name = provider.naming.resource_group()
-    workspace_name = provider.naming.grafana_workspace()
-    
-    logger.info(f"[L5] Deleting Grafana workspace: {workspace_name}")
-    
-    try:
-        poller = provider.clients["dashboard"].grafana.begin_delete(
-            resource_group_name=rg_name,
-            workspace_name=workspace_name
-        )
-        poller.result()
-        logger.info(f"[L5] ✓ Grafana workspace deleted: {workspace_name}")
-    except ResourceNotFoundError:
-        logger.info(f"[L5] ✗ Grafana workspace not found (already deleted): {workspace_name}")
-    except HttpResponseError as e:
-        if "ResourceNotFound" in str(e):
-            logger.info(f"[L5] ✗ Grafana workspace not found: {workspace_name}")
-        else:
-            logger.error(f"[L5] HTTP error deleting Grafana workspace: {e.status_code} - {e.message}")
-            raise
-
-
-def check_grafana_workspace(provider: 'AzureProvider') -> bool:
-    """
-    Check if the Azure Managed Grafana workspace exists.
-    
-    Args:
-        provider: Initialized AzureProvider with clients and naming
-        
-    Returns:
-        True if workspace exists, False otherwise
-        
-    Raises:
-        ValueError: If provider is None
-    """
-    if provider is None:
-        raise ValueError("provider is required")
-    
-    rg_name = provider.naming.resource_group()
-    workspace_name = provider.naming.grafana_workspace()
-    
-    try:
-        provider.clients["dashboard"].grafana.get(
-            resource_group_name=rg_name,
-            workspace_name=workspace_name
-        )
-        logger.info(f"[L5] ✓ Grafana workspace exists: {workspace_name}")
-        return True
-    except ResourceNotFoundError:
-        logger.info(f"[L5] ✗ Grafana workspace not found: {workspace_name}")
-        return False
-    except HttpResponseError as e:
-        if "ResourceNotFound" in str(e):
-            logger.info(f"[L5] ✗ Grafana workspace not found: {workspace_name}")
-            return False
-        raise
-
 
 def get_grafana_workspace_url(provider: 'AzureProvider') -> Optional[str]:
     """
@@ -176,10 +50,11 @@ def get_grafana_workspace_url(provider: 'AzureProvider') -> Optional[str]:
         provider: Initialized AzureProvider with clients and naming
         
     Returns:
-        The Grafana workspace endpoint URL, or None if not found
+        The Grafana workspace URL or None if not found
         
     Raises:
         ValueError: If provider is None
+        ClientAuthenticationError: If permission denied
     """
     if provider is None:
         raise ValueError("provider is required")
@@ -188,356 +63,250 @@ def get_grafana_workspace_url(provider: 'AzureProvider') -> Optional[str]:
     workspace_name = provider.naming.grafana_workspace()
     
     try:
-        workspace = provider.clients["dashboard"].grafana.get(
+        grafana_client = provider.clients.get("dashboard")
+        if grafana_client is None:
+            logger.warning("Dashboard client not initialized")
+            return None
+        
+        workspace = grafana_client.grafana.get(
             resource_group_name=rg_name,
             workspace_name=workspace_name
         )
-        return workspace.properties.endpoint
+        if workspace.properties and workspace.properties.endpoint:
+            return workspace.properties.endpoint
+        return None
     except ResourceNotFoundError:
+        logger.info(f"✗ Grafana workspace not found: {workspace_name}")
         return None
-    except HttpResponseError:
-        return None
+    except ClientAuthenticationError as e:
+        logger.error(f"PERMISSION DENIED getting Grafana workspace: {e.message}")
+        raise
+    except AzureError as e:
+        logger.error(f"Azure error getting Grafana workspace: {type(e).__name__}: {e}")
+        raise
 
 
-# ==========================================
-# 2. Hot Reader HTTP Endpoint for Grafana
-# ==========================================
-
-def create_hot_reader_endpoint_for_grafana(
-    provider: 'AzureProvider',
-    inter_cloud_token: str
-) -> str:
+def _get_grafana_service_account_token(provider: 'AzureProvider') -> Optional[str]:
     """
-    Create or get the HTTP endpoint for Hot Reader (single-cloud scenario).
+    Get a service account token for Grafana API access.
     
-    In single-cloud (L3=L5 provider), the Hot Reader function exists in L3
-    but may not have an HTTP endpoint configured. This function creates
-    the endpoint so Grafana can access it via JSON API.
+    Azure Managed Grafana uses Azure AD authentication.
+    This function retrieves an access token for the Grafana API.
     
     Args:
-        provider: Initialized AzureProvider with clients and naming
-        inter_cloud_token: The shared authentication token
+        provider: Initialized AzureProvider
         
     Returns:
-        The Hot Reader HTTP URL
-        
-    Raises:
-        ValueError: If provider is None
-        RuntimeError: If Hot Reader function doesn't exist
+        Access token for Grafana API or None if not available
     """
     if provider is None:
         raise ValueError("provider is required")
-    if not inter_cloud_token:
-        raise ValueError("inter_cloud_token is required")
     
-    # The L3 Function App hosts the Hot Reader
-    rg_name = provider.naming.resource_group()
-    app_name = provider.naming.l3_function_app()
-    function_name = provider.naming.hot_reader_function()
-    
-    logger.info(f"[L5] Getting Hot Reader endpoint from {app_name}")
-    
-    # Get the function app default hostname
     try:
-        app = provider.clients["web"].web_apps.get(
-            resource_group_name=rg_name,
-            name=app_name
-        )
-        default_hostname = app.default_host_name
+        from azure.identity import DefaultAzureCredential
         
-        # Construct the function URL
-        # Azure Functions HTTP triggers use: https://{app}.azurewebsites.net/api/{function}
-        hot_reader_url = f"https://{default_hostname}/api/{function_name}"
-        
-        logger.info(f"[L5] ✓ Hot Reader endpoint: {hot_reader_url}")
-        return hot_reader_url
-        
-    except ResourceNotFoundError:
-        raise RuntimeError(
-            f"[L5] L3 Function App '{app_name}' not found. "
-            "Deploy L3 first before deploying L5."
-        )
+        credential = DefaultAzureCredential()
+        # Get token for Azure Managed Grafana resource
+        token = credential.get_token("https://grafana.azure.com/.default")
+        return token.token
+    except Exception as e:
+        logger.warning(f"Could not get Grafana API token: {e}")
+        return None
 
 
 # ==========================================
-# 3. Hot Reader URL Resolution
+# SDK-Managed Resource Checks
 # ==========================================
 
-def get_hot_reader_url(
-    context: 'DeploymentContext',
-    provider: 'AzureProvider',
-    project_path: str
-) -> str:
+def check_datasource(datasource_name: str, provider: 'AzureProvider') -> bool:
     """
-    Get the Hot Reader URL based on deployment configuration.
+    Check if a Grafana datasource exists.
     
-    Single-cloud (L3=L5): Get URL from L3 Function App
-    Multi-cloud (L3≠L5): Get URL from config_inter_cloud.json
+    Uses the Grafana HTTP API to check datasource status.
     
     Args:
-        context: Deployment context with provider config
+        datasource_name: Name of the datasource to check
         provider: Initialized AzureProvider
-        project_path: Path to project root for config files
         
     Returns:
-        The Hot Reader HTTP URL
+        True if datasource exists, False otherwise
         
     Raises:
-        RuntimeError: If URL cannot be determined
+        ValueError: If datasource_name or provider is None
     """
-    l3_hot_provider = context.config.providers.get("layer_3_hot_provider")
-    l5_provider = context.config.providers.get("layer_5_provider")
+    if datasource_name is None:
+        raise ValueError("datasource_name is required")
+    if provider is None:
+        raise ValueError("provider is required")
     
-    if not l3_hot_provider:
-        raise ValueError(
-            "[L5] Configuration error: 'layer_3_hot_provider' is not set in config.providers. "
-            "This is required to determine single-cloud vs multi-cloud deployment."
+    grafana_url = get_grafana_workspace_url(provider)
+    if not grafana_url:
+        logger.info("✗ Grafana workspace not accessible")
+        return False
+    
+    token = _get_grafana_service_account_token(provider)
+    if not token:
+        logger.info("✗ Could not get Grafana API token")
+        return False
+    
+    try:
+        response = requests.get(
+            f"{grafana_url}/api/datasources/name/{datasource_name}",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=30
         )
-    if not l5_provider:
-        raise ValueError(
-            "[L5] Configuration error: 'layer_5_provider' is not set in config.providers. "
-            "This is required to determine single-cloud vs multi-cloud deployment."
-        )
-    
-    l3_hot_provider = l3_hot_provider.lower()
-    l5_provider = l5_provider.lower()
-    
-    if l3_hot_provider == l5_provider:
-        # Single-cloud: Get URL from L3 Function App
-        logger.info("[L5] Single-cloud: Getting Hot Reader URL from L3 Function App")
-        rg_name = provider.naming.resource_group()
-        app_name = provider.naming.l3_function_app()
-        function_name = provider.naming.hot_reader_function()
         
-        try:
-            app = provider.clients["web"].web_apps.get(
-                resource_group_name=rg_name,
-                name=app_name
-            )
-            url = f"https://{app.default_host_name}/api/{function_name}"
-            logger.info(f"[L5] ✓ Hot Reader URL (single-cloud): {url}")
-            return url
-        except ResourceNotFoundError:
-            raise RuntimeError(
-                "[L5] L3 Function App not found. Deploy L3 before L5."
-            )
-    else:
-        # Multi-cloud: Get URL from config_inter_cloud.json
-        logger.info("[L5] Multi-cloud: Getting Hot Reader URL from config_inter_cloud.json")
-        inter_cloud_path = os.path.join(project_path, "config_inter_cloud.json")
-        
-        if not os.path.exists(inter_cloud_path):
-            raise RuntimeError(
-                f"[L5] config_inter_cloud.json not found at {inter_cloud_path}. "
-                "Deploy L0 glue layer first."
-            )
-        
-        with open(inter_cloud_path, 'r') as f:
-            config = json.load(f)
-        
-        # Look for Hot Reader URL from the L3 provider's section
-        hot_reader_url = None
-        for provider_name, provider_config in config.items():
-            if isinstance(provider_config, dict):
-                url = provider_config.get("l3_hot_reader_url")
-                if url:
-                    hot_reader_url = url
-                    break
-        
-        if not hot_reader_url:
-            raise RuntimeError(
-                "[L5] Hot Reader URL not found in config_inter_cloud.json. "
-                "Ensure L0 glue layer deployed the Hot Reader endpoint."
-            )
-        
-        logger.info(f"[L5] ✓ Hot Reader URL (multi-cloud): {hot_reader_url}")
-        return hot_reader_url
+        if response.status_code == 200:
+            logger.info(f"✓ Grafana datasource exists: {datasource_name}")
+            return True
+        elif response.status_code == 404:
+            logger.info(f"✗ Grafana datasource not found: {datasource_name}")
+            return False
+        else:
+            logger.warning(f"Unexpected response checking datasource: {response.status_code}")
+            return False
+    except requests.RequestException as e:
+        logger.error(f"HTTP error checking datasource: {e}")
+        return False
 
 
-def get_inter_cloud_token(project_path: str) -> str:
+def info_l5(context: 'DeploymentContext', provider: 'AzureProvider') -> Dict[str, Any]:
     """
-    Get the inter-cloud token from config_inter_cloud.json.
+    Check status of SDK-managed L5 resources.
+    
+    Checks Grafana datasource configuration status.
     
     Args:
-        project_path: Path to project root
+        context: Deployment context with config
+        provider: Initialized AzureProvider
         
     Returns:
-        The inter-cloud authentication token
+        Dictionary with L5 status information
         
     Raises:
-        RuntimeError: If token not found
+        ValueError: If context or provider is None
     """
-    inter_cloud_path = os.path.join(project_path, "config_inter_cloud.json")
+    if context is None:
+        raise ValueError("context is required")
+    if provider is None:
+        raise ValueError("provider is required")
     
-    if not os.path.exists(inter_cloud_path):
-        raise RuntimeError(
-            f"[L5] config_inter_cloud.json not found at {inter_cloud_path}"
-        )
+    logger.info(f"[L5] Checking SDK-managed resources for {context.config.digital_twin_name}")
     
-    with open(inter_cloud_path, 'r') as f:
-        config = json.load(f)
+    workspace_url = get_grafana_workspace_url(provider)
+    datasource_name = f"{context.config.digital_twin_name}-hot-reader"
+    datasource_exists = False
     
-    # Look for token in any provider section
-    for provider_name, provider_config in config.items():
-        if isinstance(provider_config, dict):
-            token = provider_config.get("l3_hot_reader_token")
-            if token:
-                return token
+    if workspace_url:
+        datasource_exists = check_datasource(datasource_name, provider)
     
-    # Check for global token
-    token = config.get("inter_cloud_token")
-    if token:
-        return token
-    
-    raise RuntimeError(
-        "[L5] Inter-cloud token not found in config_inter_cloud.json"
-    )
+    return {
+        "layer": "5",
+        "provider": "azure",
+        "grafana_url": workspace_url,
+        "datasources": {
+            datasource_name: datasource_exists
+        }
+    }
 
 
 # ==========================================
-# 4. JSON API Datasource Configuration
+# Post-Terraform SDK Operations
 # ==========================================
 
-def configure_json_api_datasource(
-    provider: 'AzureProvider',
-    hot_reader_url: str,
-    inter_cloud_token: str
-) -> None:
+def configure_grafana_datasource(provider: 'AzureProvider', hot_reader_url: str) -> None:
     """
-    Configure the JSON API datasource in Grafana to point to Hot Reader.
+    Configure JSON API datasource in Grafana (post-Terraform).
     
-    Uses the Grafana HTTP API to create a datasource that points to
-    the Hot Reader endpoint with authentication.
+    Creates a JSON API datasource in Azure Managed Grafana that points
+    to the Hot Reader function for data visualization.
     
     Args:
         provider: Initialized AzureProvider with clients and naming
-        hot_reader_url: The Hot Reader HTTP URL
-        inter_cloud_token: Authentication token for Hot Reader
+        hot_reader_url: URL of the Hot Reader function (L3)
         
     Raises:
-        ValueError: If required parameters are None
-        RuntimeError: If datasource configuration fails
+        ValueError: If provider or hot_reader_url is None/empty
+        requests.RequestException: If HTTP request fails
     """
     if provider is None:
         raise ValueError("provider is required")
     if not hot_reader_url:
         raise ValueError("hot_reader_url is required")
-    if not inter_cloud_token:
-        raise ValueError("inter_cloud_token is required")
     
-    # Get Grafana workspace details
     grafana_url = get_grafana_workspace_url(provider)
     if not grafana_url:
-        raise RuntimeError("[L5] Grafana workspace not found. Create workspace first.")
+        logger.warning("Grafana workspace not found, skipping datasource config")
+        return
     
-    logger.info(f"[L5] Configuring JSON API datasource pointing to: {hot_reader_url}")
+    token = _get_grafana_service_account_token(provider)
+    if not token:
+        logger.warning("Could not get Grafana API token, skipping datasource config")
+        return
     
-    # Get Grafana API key for authentication
-    rg_name = provider.naming.resource_group()
-    workspace_name = provider.naming.grafana_workspace()
+    datasource_name = f"{provider.twin_name}-hot-reader"
     
-    try:
-        # Create a service account API key for datasource management
-        api_key_response = provider.clients["dashboard"].grafana.create_service_account_token(
-            resource_group_name=rg_name,
-            workspace_name=workspace_name,
-            service_account_name="l5-deployer",
-            body={
-                "name": "l5-datasource-config",
-                "secondsToLive": 3600  # 1 hour validity
-            }
-        )
-        api_key = api_key_response.key
-    except Exception as e:
-        # If service account API fails, try legacy API key
-        logger.warning(f"[L5] Could not create service account token: {e}")
-        logger.info("[L5] Attempting legacy API key creation...")
-        try:
-            api_key_response = provider.clients["dashboard"].grafana.create_api_key(
-                resource_group_name=rg_name,
-                workspace_name=workspace_name,
-                body={
-                    "name": "l5-datasource-config",
-                    "role": "Admin",
-                    "secondsToLive": 3600
-                }
-            )
-            api_key = api_key_response.key
-        except Exception as e2:
-            raise RuntimeError(
-                f"[L5] Failed to create Grafana API key for datasource configuration. "
-                f"Service account error: {e}, Legacy API key error: {e2}"
-            )
+    logger.info(f"Configuring Grafana datasource: {datasource_name}")
+    logger.info(f"  Hot Reader URL: {hot_reader_url}")
     
-    # Configure datasource via Grafana HTTP API
+    # Create JSON API datasource
     datasource_config = {
-        "name": "Hot-Reader-Data",
-        "type": "marcusolsson-json-datasource",  # JSON API plugin
+        "name": datasource_name,
+        "type": "marcusolsson-json-datasource",
         "url": hot_reader_url,
-        "access": "proxy",  # Grafana server proxies requests
+        "access": "proxy",
         "basicAuth": False,
         "jsonData": {
-            "httpHeaderName1": "X-Inter-Cloud-Token"
-        },
-        "secureJsonData": {
-            "httpHeaderValue1": inter_cloud_token
+            "httpMethod": "GET"
         }
     }
     
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-    
     try:
-        response = requests.post(
-            f"{grafana_url}/api/datasources",
-            json=datasource_config,
-            headers=headers,
+        # Check if datasource already exists
+        response = requests.get(
+            f"{grafana_url}/api/datasources/name/{datasource_name}",
+            headers={"Authorization": f"Bearer {token}"},
             timeout=30
         )
         
-        if response.status_code in (200, 201):
-            logger.info("[L5] ✓ JSON API datasource configured successfully")
-        elif response.status_code == 409:
-            logger.info("[L5] ✓ JSON API datasource already exists")
-        else:
-            raise RuntimeError(
-                f"[L5] Datasource configuration failed with status {response.status_code}. "
-                f"Response: {response.text[:200]}"
+        if response.status_code == 200:
+            # Update existing datasource
+            existing_ds = response.json()
+            datasource_id = existing_ds.get("id")
+            
+            response = requests.put(
+                f"{grafana_url}/api/datasources/{datasource_id}",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json"
+                },
+                json=datasource_config,
+                timeout=30
             )
             
+            if response.status_code == 200:
+                logger.info(f"✓ Grafana datasource updated: {datasource_name}")
+            else:
+                logger.warning(f"Failed to update datasource: {response.status_code} - {response.text}")
+        else:
+            # Create new datasource
+            response = requests.post(
+                f"{grafana_url}/api/datasources",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json"
+                },
+                json=datasource_config,
+                timeout=30
+            )
+            
+            if response.status_code in (200, 201):
+                logger.info(f"✓ Grafana datasource created: {datasource_name}")
+            else:
+                logger.warning(f"Failed to create datasource: {response.status_code} - {response.text}")
+                
     except requests.RequestException as e:
-        raise RuntimeError(
-            f"[L5] Failed to configure datasource via Grafana API: {e}"
-        )
-
-
-# ==========================================
-# 5. Info/Status Functions
-# ==========================================
-
-def info_l5(context: 'DeploymentContext', provider: 'AzureProvider') -> Dict[str, Any]:
-    """
-    Check status of Layer 5 (Visualization) components.
+        logger.error(f"HTTP error configuring Grafana datasource: {e}")
+        raise
     
-    Args:
-        context: Deployment context with config
-        provider: Initialized AzureProvider instance
-        
-    Returns:
-        Dictionary with status of all L5 components
-    """
-    logger.info(f"[L5] Checking status for {context.config.digital_twin_name}")
-    
-    workspace_exists = check_grafana_workspace(provider)
-    workspace_url = get_grafana_workspace_url(provider) if workspace_exists else None
-    
-    status = {
-        "grafana_workspace": {
-            "exists": workspace_exists,
-            "url": workspace_url
-        }
-    }
-    
-    return status
+    logger.info("✓ Grafana datasource configuration complete")

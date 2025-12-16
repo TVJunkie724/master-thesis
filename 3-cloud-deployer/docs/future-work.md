@@ -90,7 +90,36 @@ Most of these are already handled by Terraform for Azure. The only one that migh
 
 ---
 
-## 5. SDK Managed Resource Validation
+## 5. Event Checker Azure Support
+
+### Status: Not Implemented
+
+The event checker redeployment function only supports AWS. Azure support needs implementation.
+
+**File:** `src/providers/deployer.py:162`
+
+```python
+raise NotImplementedError("Event checker redeployment only supported for AWS.")
+```
+
+---
+
+## 6. Template Processor Cleanup
+
+### Status: Not Implemented
+
+The processor function in `upload/template/*/processors/default_processor/` already uses the correct minimal `process()` signature. However, the built-in default processors at `src/providers/*/default-processor/` contain full boilerplate code.
+
+**Goal:** Ensure consistency - the default processors should only contain a `process(event)` function like the template, with the system wrapper handling the Lambda/Function boilerplate.
+
+**Files:**
+- `src/providers/aws/lambda_functions/default-processor/lambda_function.py`
+- `src/providers/azure/azure_functions/default-processor/`
+- `src/providers/gcp/cloud_functions/default-processor/`
+
+---
+
+## 7. SDK Managed Resource Validation
 
 ### Status: Placeholder
 
@@ -114,18 +143,18 @@ Use existing `info_l*` functions from provider strategies:
 
 ---
 
-## 6. Documentation
+## 8. Documentation
 
 ### Status: Ongoing
 
-- [ ] Update architecture docs with Terraform-first approach
+- [x] Update architecture docs with Terraform-first approach
 - [ ] Document multi-cloud configuration examples
 - [ ] Add troubleshooting guide for common deployment issues
 - [ ] Create video walkthrough of deployment process
 
 ---
 
-## 7. Performance Improvements
+## 9. Performance Improvements
 
 ### Ideas
 
@@ -135,7 +164,7 @@ Use existing `info_l*` functions from provider strategies:
 
 ---
 
-## 8. Security Enhancements
+## 10. Security Enhancements
 
 ### Ideas
 

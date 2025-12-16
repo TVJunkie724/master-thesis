@@ -1,268 +1,359 @@
 """
-Layer 5 (Grafana) Deployment for AWS.
+Layer 5 (Visualization) SDK Operations for AWS.
 
-This module handles deployment and destruction of Layer 5 components:
-- Grafana IAM Role
-- Amazon Managed Grafana Workspace
-- CORS configuration for TwinMaker S3 bucket
+This module provides:
+1. Post-Terraform SDK operations (Grafana datasource configuration)
+2. SDK-managed resource checks (datasource status)
 
-All functions accept provider parameters explicitly.
+Components Managed:
+- Grafana Datasource: JSON API datasource pointing to Hot Reader
+
+Architecture:
+    Hot Reader URL → Grafana Datasource → Dashboard Panels
+         │                   │                   │
+         │                   │                   └── Visualizations
+         │                   └── JSON API Config
+         └── L3 Hot Reader Lambda (via API Gateway)
+
+Note:
+    Infrastructure (Grafana workspace, IAM roles) is handled by Terraform.
+    This file handles SDK-managed datasource configuration.
 """
 
-import json
-import time
-from typing import TYPE_CHECKING
-from logger import logger
-import src.providers.aws.util_aws as util_aws
+from typing import TYPE_CHECKING, Dict, Any, Optional
+import logging
+import requests
+
 from botocore.exceptions import ClientError
-from src.providers.aws.layers.tagging_helpers import tag_iam_role
 
 if TYPE_CHECKING:
     from providers.aws.provider import AWSProvider
     from src.core.context import DeploymentContext
 
-
-def _destroy_iam_role(provider: 'AWSProvider', role_name: str) -> None:
-    """Generic IAM role destruction with policy cleanup."""
-    iam_client = provider.clients["iam"]
-    try:
-        response = iam_client.list_attached_role_policies(RoleName=role_name)
-        for policy in response["AttachedPolicies"]:
-            iam_client.detach_role_policy(RoleName=role_name, PolicyArn=policy["PolicyArn"])
-
-        response = iam_client.list_role_policies(RoleName=role_name)
-        for policy_name in response["PolicyNames"]:
-            iam_client.delete_role_policy(RoleName=role_name, PolicyName=policy_name)
-
-        response = iam_client.list_instance_profiles_for_role(RoleName=role_name)
-        for profile in response["InstanceProfiles"]:
-            iam_client.remove_role_from_instance_profile(
-                InstanceProfileName=profile["InstanceProfileName"],
-                RoleName=role_name
-            )
-
-        iam_client.delete_role(RoleName=role_name)
-        logger.info(f"Deleted IAM role: {role_name}")
-    except ClientError as e:
-        if e.response["Error"]["Code"] != "NoSuchEntity":
-            raise
+logger = logging.getLogger(__name__)
 
 
 # ==========================================
-# Grafana IAM Role
+# Helper Functions
 # ==========================================
 
-def create_grafana_iam_role(provider: 'AWSProvider') -> None:
-    """Creates the IAM Role for Amazon Managed Grafana."""
-    role_name = provider.naming.grafana_iam_role()
-    iam_client = provider.clients["iam"]
-
-    response = iam_client.create_role(
-        RoleName=role_name,
-        AssumeRolePolicyDocument=json.dumps({
-            "Version": "2012-10-17",
-            "Statement": [{
-                "Effect": "Allow",
-                "Principal": {"Service": "grafana.amazonaws.com"},
-                "Action": "sts:AssumeRole"
-            }]
-        })
-    )
-    role_arn = response["Role"]["Arn"]
-    logger.info(f"Created IAM role: {role_name}")
-    logger.info("Waiting for propagation...")
-    time.sleep(20)
-
-    # Update trust policy to also trust itself
-    trust_policy = iam_client.get_role(RoleName=role_name)['Role']['AssumeRolePolicyDocument']
-    if isinstance(trust_policy['Statement'], dict):
-        trust_policy['Statement'] = [trust_policy['Statement']]
-
-    trust_policy['Statement'].append({
-        "Effect": "Allow",
-        "Principal": {"AWS": role_arn},
-        "Action": "sts:AssumeRole"
-    })
-
-    iam_client.update_assume_role_policy(
-        RoleName=role_name,
-        PolicyDocument=json.dumps(trust_policy)
-    )
-    logger.info(f"Updated IAM role trust policy: {role_name}")
-
-    # Attach inline policy
-    iam_client.put_role_policy(
-        RoleName=role_name,
-        PolicyName="GrafanaExecutionPolicy",
-        PolicyDocument=json.dumps({
-            "Version": "2012-10-17",
-            "Statement": [
-                {"Effect": "Allow", "Action": "iottwinmaker:ListWorkspaces", "Resource": "*"},
-                {"Effect": "Allow", "Action": ["iottwinmaker:*"], "Resource": "*"},
-                {"Effect": "Allow", "Action": ["dynamodb:*"], "Resource": "*"},
-                {"Effect": "Allow", "Action": ["s3:*"], "Resource": "*"}
-            ]
-        })
-    )
-    logger.info("Attached inline IAM policy: GrafanaExecutionPolicy")
+def _get_grafana_workspace_id(provider: 'AWSProvider') -> Optional[str]:
+    """
+    Get the Grafana workspace ID.
     
-    # Tag the IAM role for resource grouping
-    tag_iam_role(provider, role_name, "L5")
+    Args:
+        provider: Initialized AWSProvider
+        
+    Returns:
+        Workspace ID or None if not found
+        
+    Raises:
+        ValueError: If provider is None
+    """
+    if provider is None:
+        raise ValueError("provider is required")
     
-    time.sleep(20)
-
-
-def destroy_grafana_iam_role(provider: 'AWSProvider') -> None:
-    """Destroys the Grafana IAM Role."""
-    _destroy_iam_role(provider, provider.naming.grafana_iam_role())
-
-
-# ==========================================
-# Grafana Workspace
-# ==========================================
-
-def create_grafana_workspace(provider: 'AWSProvider') -> None:
-    """Creates the Amazon Managed Grafana Workspace."""
-    workspace_name = provider.naming.grafana_workspace()
-    role_name = provider.naming.grafana_iam_role()
-    iam_client = provider.clients["iam"]
-    grafana_client = provider.clients["grafana"]
-
-    response = iam_client.get_role(RoleName=role_name)
-    role_arn = response["Role"]["Arn"]
-
-    response = grafana_client.create_workspace(
-        workspaceName=workspace_name,
-        workspaceDescription="",
-        grafanaVersion="10.4",
-        accountAccessType="CURRENT_ACCOUNT",
-        authenticationProviders=["AWS_SSO"],
-        permissionType="CUSTOMER_MANAGED",
-        workspaceRoleArn=role_arn,
-        configuration=json.dumps({"plugins": {"pluginAdminEnabled": True}}),
-        tags={"Environment": "Dev"}
-    )
-    workspace_id = response["workspace"]["id"]
-    logger.info(f"Creation of Grafana workspace initiated: {workspace_name}")
-
-    while True:
-        response = grafana_client.describe_workspace(workspaceId=workspace_id)
-        if response['workspace']['status'] == "ACTIVE":
-            break
-        time.sleep(2)
-
-    logger.info(f"Created Grafana workspace: {workspace_name}")
-
-
-def destroy_grafana_workspace(provider: 'AWSProvider') -> None:
-    """Destroys the Grafana Workspace."""
-    workspace_name = provider.naming.grafana_workspace()
-    grafana_client = provider.clients["grafana"]
-
-    try:
-        workspace_id = util_aws.get_grafana_workspace_id_by_name(workspace_name, grafana_client)
-        grafana_client.delete_workspace(workspaceId=workspace_id)
-    except ClientError as e:
-        if e.response["Error"]["Code"] == "ResourceNotFoundException":
-            return
-        raise
-
-    logger.info(f"Deletion of Grafana workspace initiated: {workspace_name}")
-
-    while True:
-        try:
-            grafana_client.describe_workspace(workspaceId=workspace_id)
-            time.sleep(2)
-        except ClientError as e:
-            if e.response["Error"]["Code"] == "ResourceNotFoundException":
-                break
-            raise
-
-    logger.info(f"Deleted Grafana workspace: {workspace_name}")
-
-
-# ==========================================
-# CORS Configuration
-# ==========================================
-
-def add_cors_to_twinmaker_s3_bucket(provider: 'AWSProvider') -> None:
-    """Adds CORS configuration to the TwinMaker S3 bucket for Grafana access."""
-    bucket_name = provider.naming.twinmaker_s3_bucket()
-    workspace_name = provider.naming.grafana_workspace()
-    s3_client = provider.clients["s3"]
-    grafana_client = provider.clients["grafana"]
-
-    workspace_id = util_aws.get_grafana_workspace_id_by_name(workspace_name, grafana_client)
-    region = grafana_client.meta.region_name
-
-    s3_client.put_bucket_cors(
-        Bucket=bucket_name,
-        CORSConfiguration={
-            "CORSRules": [{
-                "AllowedOrigins": [f"https://grafana.{region}.amazonaws.com/workspaces/{workspace_id}"],
-                "AllowedMethods": ["GET"],
-                "AllowedHeaders": ["*"],
-                "MaxAgeSeconds": 3000
-            }]
-        }
-    )
-    logger.info(f"CORS configuration applied to bucket: {bucket_name}")
-    logger.info(f"Allowed origin: https://grafana.{region}.amazonaws.com/workspaces/{workspace_id}")
-
-
-def remove_cors_from_twinmaker_s3_bucket(provider: 'AWSProvider') -> None:
-    """Removes CORS configuration from the TwinMaker S3 bucket."""
-    bucket_name = provider.naming.twinmaker_s3_bucket()
-    s3_client = provider.clients["s3"]
-
-    try:
-        s3_client.get_bucket_cors(Bucket=bucket_name)
-        s3_client.delete_bucket_cors(Bucket=bucket_name)
-        logger.info(f"CORS configuration removed from bucket: {bucket_name}")
-    except ClientError as e:
-        if e.response["Error"]["Code"] not in ("NoSuchBucket", "NoSuchCORSConfiguration"):
-            raise
-
-
-# ==========================================
-# 10. Info / Status Checks
-# ==========================================
-
-def _links():
-    return util_aws
-
-def check_grafana_iam_role(provider: 'AWSProvider'):
-    role_name = provider.naming.grafana_iam_role()
-    client = provider.clients["iam"]
-
-    try:
-        client.get_role(RoleName=role_name)
-        logger.info(f"✅ Grafana IAM Role exists: {_links().link_to_iam_role(role_name, region=provider.region)}")
-    except ClientError as e:
-        if e.response["Error"]["Code"] == "NoSuchEntity":
-            logger.error(f"❌ Grafana IAM Role missing: {role_name}")
-        else:
-            raise
-
-def check_grafana_workspace(provider: 'AWSProvider'):
     workspace_name = provider.naming.grafana_workspace()
     client = provider.clients["grafana"]
-    # get_grafana_workspace_id_by_name uses list_workspaces, so it's a good check + gets ID
+    
     try:
-        workspace_id = _links().get_grafana_workspace_id_by_name(workspace_name, grafana_client=client) 
-        client.describe_workspace(workspaceId=workspace_id)
-        logger.info(f"✅ Grafana Workspace exists: {_links().link_to_grafana_workspace(workspace_id, region=provider.region)}")
+        response = client.list_workspaces()
+        for workspace in response.get("workspaces", []):
+            if workspace.get("name") == workspace_name:
+                return workspace.get("id")
+        logger.info(f"✗ Grafana workspace not found: {workspace_name}")
+        return None
     except ClientError as e:
-        if e.response["Error"]["Code"] == "ResourceNotFoundException":
-            logger.error(f"❌ Grafana Workspace missing: {workspace_name}")
-        else:
+        error_code = e.response["Error"]["Code"]
+        if error_code == "AccessDeniedException":
+            logger.error(f"PERMISSION DENIED listing Grafana workspaces: {e}")
             raise
-    except ValueError: # Raised by get_grafana_workspace_id_by_name if not found
-         logger.error(f"❌ Grafana Workspace missing: {workspace_name}")
+        else:
+            logger.error(f"AWS error listing Grafana workspaces: {error_code} - {e}")
+            raise
 
 
-def info_l5(context: 'DeploymentContext', provider: 'AWSProvider') -> None:
-    """Check status of all L5 components."""
-    check_grafana_iam_role(provider)
-    check_grafana_workspace(provider)
+def _get_grafana_workspace_url(provider: 'AWSProvider') -> Optional[str]:
+    """
+    Get the Grafana workspace URL.
+    
+    Args:
+        provider: Initialized AWSProvider
+        
+    Returns:
+        Workspace URL or None if not found
+    """
+    if provider is None:
+        raise ValueError("provider is required")
+    
+    workspace_id = _get_grafana_workspace_id(provider)
+    if not workspace_id:
+        return None
+    
+    client = provider.clients["grafana"]
+    
+    try:
+        response = client.describe_workspace(workspaceId=workspace_id)
+        return response.get("workspace", {}).get("endpoint")
+    except ClientError as e:
+        error_code = e.response["Error"]["Code"]
+        logger.error(f"AWS error getting Grafana workspace: {error_code}")
+        return None
 
+
+def _get_grafana_api_key(provider: 'AWSProvider', workspace_id: str) -> Optional[str]:
+    """
+    Get or create a Grafana API key for datasource configuration.
+    
+    Args:
+        provider: Initialized AWSProvider
+        workspace_id: Grafana workspace ID
+        
+    Returns:
+        API key or None if not available
+    """
+    if provider is None:
+        raise ValueError("provider is required")
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
+    
+    client = provider.clients["grafana"]
+    key_name = f"{provider.twin_name}-deployer-key"
+    
+    try:
+        # Create a new API key
+        response = client.create_workspace_api_key(
+            workspaceId=workspace_id,
+            keyName=key_name,
+            keyRole="ADMIN",
+            secondsToLive=3600  # 1 hour
+        )
+        return response.get("key")
+    except ClientError as e:
+        error_code = e.response["Error"]["Code"]
+        if error_code == "ConflictException":
+            # Key already exists, delete and recreate
+            try:
+                client.delete_workspace_api_key(
+                    workspaceId=workspace_id,
+                    keyName=key_name
+                )
+                response = client.create_workspace_api_key(
+                    workspaceId=workspace_id,
+                    keyName=key_name,
+                    keyRole="ADMIN",
+                    secondsToLive=3600
+                )
+                return response.get("key")
+            except ClientError:
+                logger.warning("Could not create Grafana API key")
+                return None
+        else:
+            logger.warning(f"Could not create Grafana API key: {error_code}")
+            return None
+
+
+# ==========================================
+# SDK-Managed Resource Checks
+# ==========================================
+
+def check_datasource(datasource_name: str, provider: 'AWSProvider') -> bool:
+    """
+    Check if a Grafana datasource exists.
+    
+    Uses the Grafana HTTP API to check datasource status.
+    
+    Args:
+        datasource_name: Name of the datasource to check
+        provider: Initialized AWSProvider
+        
+    Returns:
+        True if datasource exists, False otherwise
+        
+    Raises:
+        ValueError: If datasource_name or provider is None
+    """
+    if datasource_name is None:
+        raise ValueError("datasource_name is required")
+    if provider is None:
+        raise ValueError("provider is required")
+    
+    workspace_id = _get_grafana_workspace_id(provider)
+    if not workspace_id:
+        logger.info("✗ Grafana workspace not accessible")
+        return False
+    
+    grafana_url = _get_grafana_workspace_url(provider)
+    if not grafana_url:
+        return False
+    
+    api_key = _get_grafana_api_key(provider, workspace_id)
+    if not api_key:
+        logger.info("✗ Could not get Grafana API key")
+        return False
+    
+    try:
+        response = requests.get(
+            f"https://{grafana_url}/api/datasources/name/{datasource_name}",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            logger.info(f"✓ Grafana datasource exists: {datasource_name}")
+            return True
+        elif response.status_code == 404:
+            logger.info(f"✗ Grafana datasource not found: {datasource_name}")
+            return False
+        else:
+            logger.warning(f"Unexpected response: {response.status_code}")
+            return False
+    except requests.RequestException as e:
+        logger.error(f"HTTP error checking datasource: {e}")
+        return False
+
+
+def info_l5(context: 'DeploymentContext', provider: 'AWSProvider') -> Dict[str, Any]:
+    """
+    Check status of SDK-managed L5 resources.
+    
+    Checks Grafana datasource configuration status.
+    
+    Args:
+        context: Deployment context with config
+        provider: Initialized AWSProvider
+        
+    Returns:
+        Dictionary with L5 status information
+        
+    Raises:
+        ValueError: If context or provider is None
+    """
+    if context is None:
+        raise ValueError("context is required")
+    if provider is None:
+        raise ValueError("provider is required")
+    
+    logger.info(f"[L5] Checking SDK-managed resources for {context.config.digital_twin_name}")
+    
+    workspace_url = _get_grafana_workspace_url(provider)
+    datasource_name = f"{context.config.digital_twin_name}-hot-reader"
+    datasource_exists = False
+    
+    if workspace_url:
+        datasource_exists = check_datasource(datasource_name, provider)
+    
+    return {
+        "layer": "5",
+        "provider": "aws",
+        "grafana_url": workspace_url,
+        "datasources": {
+            datasource_name: datasource_exists
+        }
+    }
+
+
+# ==========================================
+# Post-Terraform SDK Operations
+# ==========================================
+
+def configure_grafana_datasource(provider: 'AWSProvider', hot_reader_url: str) -> None:
+    """
+    Configure JSON API datasource in AWS Managed Grafana (post-Terraform).
+    
+    Creates a JSON API datasource that points to the Hot Reader Lambda
+    for data visualization.
+    
+    Args:
+        provider: Initialized AWSProvider
+        hot_reader_url: URL of the Hot Reader Lambda (via API Gateway)
+        
+    Raises:
+        ValueError: If provider or hot_reader_url is None/empty
+        requests.RequestException: If HTTP request fails
+    """
+    if provider is None:
+        raise ValueError("provider is required")
+    if not hot_reader_url:
+        raise ValueError("hot_reader_url is required")
+    
+    workspace_id = _get_grafana_workspace_id(provider)
+    if not workspace_id:
+        logger.warning("Grafana workspace not found, skipping datasource config")
+        return
+    
+    grafana_url = _get_grafana_workspace_url(provider)
+    if not grafana_url:
+        logger.warning("Grafana workspace URL not found, skipping datasource config")
+        return
+    
+    api_key = _get_grafana_api_key(provider, workspace_id)
+    if not api_key:
+        logger.warning("Could not get Grafana API key, skipping datasource config")
+        return
+    
+    datasource_name = f"{provider.twin_name}-hot-reader"
+    
+    logger.info(f"Configuring Grafana datasource: {datasource_name}")
+    logger.info(f"  Hot Reader URL: {hot_reader_url}")
+    
+    datasource_config = {
+        "name": datasource_name,
+        "type": "marcusolsson-json-datasource",
+        "url": hot_reader_url,
+        "access": "proxy",
+        "basicAuth": False,
+        "jsonData": {
+            "httpMethod": "GET"
+        }
+    }
+    
+    try:
+        # Check if datasource exists
+        response = requests.get(
+            f"https://{grafana_url}/api/datasources/name/{datasource_name}",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            # Update existing
+            existing_ds = response.json()
+            datasource_id = existing_ds.get("id")
+            
+            response = requests.put(
+                f"https://{grafana_url}/api/datasources/{datasource_id}",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json=datasource_config,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                logger.info(f"✓ Grafana datasource updated: {datasource_name}")
+            else:
+                logger.warning(f"Failed to update datasource: {response.status_code}")
+        else:
+            # Create new
+            response = requests.post(
+                f"https://{grafana_url}/api/datasources",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json=datasource_config,
+                timeout=30
+            )
+            
+            if response.status_code in (200, 201):
+                logger.info(f"✓ Grafana datasource created: {datasource_name}")
+            else:
+                logger.warning(f"Failed to create datasource: {response.status_code}")
+                
+    except requests.RequestException as e:
+        logger.error(f"HTTP error configuring datasource: {e}")
+        raise
+    
+    logger.info("✓ Grafana datasource configuration complete")

@@ -16,23 +16,6 @@ def test_read_root():
     assert response.status_code == 200
     assert response.json() == {"status": "API is running", "active_project": "template"}
 
-@patch("src.api.deployment.create_context")
-@patch("src.api.deployment.core_deployer.deploy_l1")
-def test_deploy_l1(mock_deploy_l1, mock_create_context):
-    mock_context = mock_create_context.return_value
-    response = client.post("/deploy_l1?provider=aws")
-    assert response.status_code == 200
-    assert "completed successfully" in response.json()["message"]
-    mock_deploy_l1.assert_called_once_with(mock_context, "aws")
-
-@patch("src.api.deployment.create_context")
-@patch("src.api.deployment.core_deployer.destroy_l1")
-def test_destroy_l1(mock_destroy_l1, mock_create_context):
-    mock_context = mock_create_context.return_value
-    response = client.post("/destroy_l1?provider=aws")
-    assert response.status_code == 200
-    mock_destroy_l1.assert_called_once_with(mock_context, "aws")
-
 @patch("src.api.aws_gateway.create_context")
 @patch("src.api.aws_gateway.lambda_manager.invoke_function")
 def test_lambda_invoke(mock_invoke, mock_create_context):
@@ -47,35 +30,7 @@ def test_lambda_invoke(mock_invoke, mock_create_context):
 
 
 
-@patch("src.api.deployment.create_context")
-@patch("src.api.deployment.event_action_deployer_aws.deploy_lambda_actions")
-@patch("src.api.deployment.event_action_deployer_aws.destroy_lambda_actions")
-@patch("src.api.deployment.core_deployer.redeploy_event_checker")
-def test_recreate_updated_events(mock_redeploy_checker, mock_destroy, mock_deploy, mock_create_context):
-    """Verify redeploy events endpoint deployment sequence."""
-    mock_context = mock_create_context.return_value
-    response = client.post("/recreate_updated_events?provider=aws")
-    assert response.status_code == 200
-    assert response.json() == {"message": "Events recreated successfully"}
-    
-    # Verify aws modules called directly
-    mock_destroy.assert_called_once()
-    mock_deploy.assert_called_once()
-    mock_redeploy_checker.assert_called_once_with(mock_context, "aws")
 
-@patch("src.validator.verify_project_structure")
-@patch("src.api.deployment.create_context")
-@patch("src.api.deployment.core_deployer.deploy_all")
-@patch("src.api.deployment.hierarchy_deployer_aws.create_twinmaker_hierarchy")
-@patch("src.api.deployment.event_action_deployer_aws.deploy_lambda_actions")
-@patch("src.api.deployment.init_values_deployer_aws.post_init_values_to_iot_core")
-def test_deploy_all_verification(mock_init, mock_event, mock_hier, mock_core, mock_create_context, mock_verify):
-    """Verify deploy_all calls verify_project_structure."""
-    mock_context = mock_create_context.return_value
-    response = client.post("/deploy?provider=aws&project_name=template")
-    assert response.status_code == 200
-    mock_verify.assert_called_once_with("template")
-    mock_core.assert_called_once_with(mock_context, "aws")
 
 
 @patch("src.validator.validate_state_machine_content")

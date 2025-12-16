@@ -56,11 +56,16 @@ class ConfigurationError(Exception):
 ADT_INSTANCE_URL = os.environ.get("ADT_INSTANCE_URL", "").strip()
 INTER_CLOUD_TOKEN = os.environ.get("INTER_CLOUD_TOKEN", "").strip()
 
-# TODO is this intential to be optional?
+# Load DIGITAL_TWIN_INFO using fail-fast pattern (matches other functions)
 try:
-    DIGITAL_TWIN_INFO = json.loads(os.environ.get("DIGITAL_TWIN_INFO", "{}"))
-except json.JSONDecodeError:
-    DIGITAL_TWIN_INFO = {}
+    from _shared.env_utils import require_env
+    DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
+except ModuleNotFoundError:
+    # Handle import for test context
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from _shared.env_utils import require_env
+    DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
 
 
 # ==========================================

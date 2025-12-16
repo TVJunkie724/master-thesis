@@ -43,6 +43,14 @@ provider "aws" {
   skip_requesting_account_id  = var.aws_access_key_id == "" ? true : false
 }
 
+# AWS Cloud Control Provider (for TwinMaker)
+# Only used when layer_4_provider = "aws". Resources have count conditions.
+provider "awscc" {
+  region     = var.aws_region
+  access_key = var.aws_access_key_id
+  secret_key = var.aws_secret_access_key
+}
+
 # Google Cloud Provider (for multi-cloud deployments)
 provider "google" {
   project     = var.gcp_project_id

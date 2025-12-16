@@ -120,27 +120,8 @@ Deployment commands:
   destroy <provider>          - Destroys core and IoT services for the specified provider.
   recreate_updated_events     - Redeploys the events.
 
-Individual core layer deployments:
-  deploy_l1 <provider>        - Deploys core layer 1 services for the specified provider.
-  deploy_l2 <provider>        - Deploys core layer 2 services for the specified provider.
-  deploy_l3 <provider>        - Deploys core layer 3 services (hot, cold, archive).
-  deploy_l4 <provider>        - Deploys core layer 4 services for the specified provider.
-  deploy_l5 <provider>        - Deploys core layer 5 services for the specified provider.
-  destroy_l1 <provider>       - Destroys core layer 1 services for the specified provider.
-  destroy_l2 <provider>       - Destroys core layer 2 services for the specified provider.
-  destroy_l3 <provider>       - Destroys core layer 3 services (hot, cold, archive).
-  destroy_l4 <provider>       - Destroys core layer 4 services for the specified provider.
-  destroy_l5 <provider>       - Destroys core layer 5 services for the specified provider.
-
 Check/Info deployment status:
   check <provider>            - Runs all checks (L1 to L5) for the specified provider.
-
-Individual layer deployment status checks:
-  check_l1 <provider>         - Checks Level 1 (IoT Dispatcher Layer) for the specified provider.
-  check_l2 <provider>         - Checks Level 2 (Persister & Processor Layer) for the specified provider.
-  check_l3 <provider>         - Checks Level 3 (Hot, Cold, Archive) for the specified provider.
-  check_l4 <provider>         - Checks Level 4 (TwinMaker) for the specified provider.
-  check_l5 <provider>         - Checks Level 5 (Grafana/Visualization) for the specified provider.
 
 Configuration & Info commands:
   info_config                 - Shows main configuration (config.json).
@@ -178,46 +159,20 @@ VALID_PROVIDERS = {"aws", "azure", "google"}
 
 
 def handle_deploy(provider: str, context: DeploymentContext) -> None:
-    """Handle full deployment."""
-    deployer.deploy_all(context, provider)
-    # Per-device resources (IoT Things, Processors, Component Types) are now
-    # handled by layer adapters (l1, l2, l4) within deploy_all()
-    # Additional deployers
-    import src.providers.aws.layers.layer_4_twinmaker as hierarchy_layer
-    import src.providers.aws.layers.layer_2_compute as compute_layer
-    import src.providers.aws.layers.layer_1_iot as iot_layer
+    """Handle full deployment.
     
-    if provider == "aws":
-        aws_provider = context.providers.get("aws")
-        if aws_provider:
-            hierarchy_layer.create_twinmaker_hierarchy(
-                provider=aws_provider, 
-                hierarchy=context.config.hierarchy,
-                config=context.config
-            )
-            compute_layer.deploy_lambda_actions(
-                provider=aws_provider, 
-                config=context.config,
-                project_path=str(context.project_path)
-            )
-            iot_layer.post_init_values_to_iot_core(
-                provider=aws_provider, 
-                iot_devices=context.config.iot_devices
-            )
+    Note: All AWS-specific operations (TwinMaker hierarchy, IoT registration,
+    Lambda code deployment) are now handled by TerraformDeployerStrategy via
+    aws_deployer.py functions after Terraform infrastructure creation.
+    """
+    deployer.deploy_all(context, provider)
 
 
 def handle_destroy(provider: str, context: DeploymentContext) -> None:
-    """Handle full destruction."""
-    import src.providers.aws.layers.layer_4_twinmaker as hierarchy_layer
-    import src.providers.aws.layers.layer_2_compute as compute_layer
+    """Handle full destruction.
     
-    if provider == "aws":
-        aws_provider = context.providers.get("aws")
-        if aws_provider:
-            compute_layer.destroy_lambda_actions(provider=aws_provider, config=context.config)
-            hierarchy_layer.destroy_twinmaker_hierarchy(provider=aws_provider, hierarchy=context.config.hierarchy)
-    
-    # Per-device resources destroyed by layer adapters within destroy_all()
+    Note: All destruction is handled by TerraformDeployerStrategy.
+    """
     deployer.destroy_all(context, provider)
 
 
@@ -383,13 +338,9 @@ def main():
         # Commands that need provider
         deployment_commands = {
             "deploy", "destroy", "recreate_updated_events",
-            "deploy_l1", "deploy_l2", "deploy_l3", "deploy_l4", "deploy_l5",
-            "destroy_l1", "destroy_l2", "destroy_l3", "destroy_l4", "destroy_l5",
         }
         
-        check_commands = {
-            "check", "check_l1", "check_l2", "check_l3", "check_l4", "check_l5"
-        }
+        check_commands = {"check"}
         
         lambda_commands = {"lambda_update", "lambda_logs", "lambda_invoke"}
         
@@ -411,33 +362,9 @@ def main():
                     handle_deploy(provider, context)
                 elif command == "destroy":
                     handle_destroy(provider, context)
-                elif command == "deploy_l1":
-                    deployer.deploy_l1(context, provider)
-                elif command == "deploy_l2":
-                    deployer.deploy_l2(context, provider)
-                elif command == "deploy_l3":
-                    deployer.deploy_l3(context, provider)
-                elif command == "deploy_l4":
-                    deployer.deploy_l4(context, provider)
-                elif command == "deploy_l5":
-                    deployer.deploy_l5(context, provider)
-                elif command == "destroy_l1":
-                    deployer.destroy_l1(context, provider)
-                elif command == "destroy_l2":
-                    deployer.destroy_l2(context, provider)
-                elif command == "destroy_l3":
-                    deployer.destroy_l3(context, provider)
-                elif command == "destroy_l4":
-                    deployer.destroy_l4(context, provider)
-                elif command == "destroy_l5":
-                    deployer.destroy_l5(context, provider)
                 elif command == "check":
                     import info
                     info.check(provider=provider, context=context)
-                elif command.startswith("check_l"):
-                    import info
-                    layer = command.replace("check_l", "")
-                    getattr(info, f"check_l{layer}")(provider=provider, context=context)
                     
             except Exception as e:
                 print_stack_trace()

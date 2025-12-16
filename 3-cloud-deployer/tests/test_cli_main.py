@@ -76,45 +76,9 @@ class TestCLIContextManagement:
             assert "does not exist" in str(exc.value)
 
 
-class TestCLIDeploymentCommands:
-    """Test deployment command handling."""
 
-    @pytest.fixture
-    def mock_context(self):
-        """Create a mock deployment context."""
-        mock_ctx = MagicMock()
-        mock_ctx.project_path = Path("/app/upload/test")
-        mock_ctx.config.iot_devices = []
-        mock_ctx.config.events = []
-        mock_ctx.config.hierarchy = []
-        mock_ctx.config.get_digital_twin_info = MagicMock(return_value={})
-        mock_ctx.providers = {"aws": MagicMock()}
-        return mock_ctx
 
-    def test_handle_deploy_calls_deployer(self, mock_context):
-        """Test that deploy command calls deployer.deploy_all."""
-        import main
-        
-        with patch("providers.deployer.deploy_all") as mock_deploy, \
-             patch("src.providers.aws.layers.layer_4_twinmaker.create_twinmaker_hierarchy"), \
-             patch("src.providers.aws.layers.layer_2_compute.deploy_lambda_actions"), \
-             patch("src.providers.aws.layers.layer_1_iot.post_init_values_to_iot_core"):
-            
-            main.handle_deploy("aws", mock_context)
-            
-            mock_deploy.assert_called_once_with(mock_context, "aws")
-
-    def test_handle_destroy_calls_deployer(self, mock_context):
-        """Test that destroy command calls deployer.destroy_all."""
-        import main
-        
-        with patch("providers.deployer.destroy_all") as mock_destroy, \
-             patch("src.providers.aws.layers.layer_4_twinmaker.destroy_twinmaker_hierarchy"), \
-             patch("src.providers.aws.layers.layer_2_compute.destroy_lambda_actions"):
-            
-            main.handle_destroy("aws", mock_context)
-            
-            mock_destroy.assert_called_once_with(mock_context, "aws")
+# TestCLIDeploymentCommands class removed - tested deprecated SDK deployment functions
 
 
 class TestCLIInfoCommands:
@@ -485,28 +449,7 @@ class TestCLIAdditionalEdgeCases:
         assert main._current_context is None
         assert main._current_project == "new-project"
 
-    def test_individual_layer_deploy_commands(self):
-        """Test individual deploy_l1 through deploy_l5 commands."""
-        import main
-        
-        mock_ctx = MagicMock()
-        
-        for i in range(1, 6):
-            with patch(f"providers.deployer.deploy_l{i}") as mock_deploy:
-                # Call the layer deploy through main loop simulation
-                mock_deploy(mock_ctx, "aws")
-                mock_deploy.assert_called_once_with(mock_ctx, "aws")
 
-    def test_individual_layer_destroy_commands(self):
-        """Test individual destroy_l1 through destroy_l5 commands."""
-        import main
-        
-        mock_ctx = MagicMock()
-        
-        for i in range(1, 6):
-            with patch(f"providers.deployer.destroy_l{i}") as mock_destroy:
-                mock_destroy(mock_ctx, "aws")
-                mock_destroy.assert_called_once_with(mock_ctx, "aws")
 
     def test_config_with_all_iot_devices(self):
         """Test info_config_iot_devices with various device configurations."""
@@ -827,7 +770,8 @@ class TestCLIDeploymentWithProvider:
         """Test check commands require provider argument."""
         import main
         
-        for cmd in ["check", "check_l1", "check_l2", "check_l3", "check_l4", "check_l5"]:
+        # Only unified check command remains (layer commands removed)
+        for cmd in ["check"]:
             with patch("builtins.print") as mock_print, \
                  patch("builtins.input", side_effect=[cmd, "exit"]):
                 main.main()

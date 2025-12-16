@@ -409,9 +409,8 @@
                         It creates the Resource Group that all subsequent resources will be tagged to join.
                     </div>
                     <ul>
-                        <li><strong>Source Module:</strong> <code>src/providers/aws/layers/layer_setup_aws.py</code>
+                        <li><strong>Source:</strong> Terraform (<code>aws_setup.tf</code>)
                             <ul>
-                                <li><strong>Contains:</strong> 3 functions (create, destroy, check)</li>
                                 <li><strong>Pattern:</strong> Tag-based resource grouping (unlike Azure's
                                     container-based Resource Groups)</li>
                             </ul>
@@ -450,9 +449,8 @@
                         Function URLs are saved to <code>config_inter_cloud.json</code> before senders deploy.
                     </div>
                     <ul>
-                        <li><strong>Source Module:</strong> <code>src/providers/aws/layers/layer_0_glue.py</code>
+                        <li><strong>Source:</strong> Terraform (<code>aws_glue.tf</code>)
                             <ul>
-                                <li><strong>Contains:</strong> 30 functions (20 deploy/destroy + 10 check/info)</li>
                                 <li><strong>Pattern:</strong> All multi-cloud receivers consolidated in one module</li>
                             </ul>
                         </li>
