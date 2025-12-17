@@ -128,7 +128,12 @@ def register_iot_devices(provider: 'AzureProvider', config, project_path: str) -
     
     This function is called by Terraform azure_deployer.py after
     infrastructure is created to register IoT devices via SDK.
+    Also generates config_generated.json for the simulator.
     """
+    import json
+    import os
+    from pathlib import Path
+    
     if provider is None:
         raise ValueError("provider is required")
     if config is None:
@@ -139,6 +144,7 @@ def register_iot_devices(provider: 'AzureProvider', config, project_path: str) -
         return
     
     hub_conn_str = _get_iot_hub_connection_string(provider)
+    hub_name = provider.naming.iot_hub()
     
     from azure.iot.hub import IoTHubRegistryManager
     registry_manager = IoTHubRegistryManager(hub_conn_str)
@@ -147,20 +153,82 @@ def register_iot_devices(provider: 'AzureProvider', config, project_path: str) -
         device_id = provider.naming.iot_device(device["id"])
         
         try:
-            registry_manager.get_device(device_id=device_id)
+            # Try to get existing device
+            existing_device = registry_manager.get_device(device_id=device_id)
             logger.info(f"✓ IoT device already exists: {device_id}")
+            primary_key = existing_device.authentication.symmetric_key.primary_key
         except Exception as e:
             if "DeviceNotFound" in str(e):
                 try:
-                    registry_manager.create_device_with_sas(
+                    # Create new device with auto-generated keys
+                    new_device = registry_manager.create_device_with_sas(
                         device_id=device_id,
                         primary_key=None,
                         secondary_key=None,
                         status="enabled"
                     )
                     logger.info(f"✓ IoT device registered: {device_id}")
+                    primary_key = new_device.authentication.symmetric_key.primary_key
                 except Exception as create_e:
                     logger.error(f"Failed to register device {device_id}: {create_e}")
                     raise
             else:
                 raise
+        
+        # Build device connection string
+        device_conn_str = (
+            f"HostName={hub_name}.azure-devices.net;"
+            f"DeviceId={device_id};"
+            f"SharedAccessKey={primary_key}"
+        )
+        
+        # Generate simulator config
+        _generate_azure_simulator_config(
+            device, device_conn_str, config.digital_twin_name, project_path
+        )
+
+
+def _generate_azure_simulator_config(
+    iot_device: dict,
+    device_conn_str: str,
+    digital_twin_name: str,
+    project_path: str
+) -> None:
+    """
+    Generate config_generated.json for the Azure IoT device simulator.
+    
+    Note: Unlike GCP which uses Terraform's local_file resource, Azure config
+    generation MUST be done via SDK because the device_conn_str (connection
+    string) is only available AFTER registering the device in IoT Hub. The
+    connection string contains device-specific credentials created during
+    registration and cannot be known at Terraform plan time.
+    
+    Args:
+        iot_device: Device configuration dict
+        device_conn_str: Device connection string from IoT Hub
+        digital_twin_name: Name of the digital twin
+        project_path: Path to project directory
+    """
+    import json
+    import os
+    from pathlib import Path
+    
+    device_id = iot_device["id"]
+    
+    config_data = {
+        "connection_string": device_conn_str,
+        "device_id": device_id,
+        "digital_twin_name": digital_twin_name,
+        "payload_path": "../payloads.json"
+    }
+    
+    # Write to upload/{project}/iot_device_simulator/azure/
+    project_dir = Path(project_path)
+    sim_dir = project_dir / "iot_device_simulator" / "azure"
+    sim_dir.mkdir(parents=True, exist_ok=True)
+    config_path = sim_dir / "config_generated.json"
+    
+    with open(config_path, "w") as f:
+        json.dump(config_data, f, indent=2)
+    
+    logger.info(f"  ✓ Generated simulator config: {config_path}")

@@ -73,6 +73,9 @@ resource "azurerm_linux_function_app" "l1" {
   storage_account_name       = azurerm_storage_account.main[0].name
   storage_account_access_key = azurerm_storage_account.main[0].primary_access_key
 
+  # Deploy function code via Terraform (enables EventGrid to find the dispatcher)
+  zip_deploy_file = var.azure_l1_zip_path != "" ? var.azure_l1_zip_path : null
+
   # Managed Identity
   identity {
     type         = "UserAssigned"
@@ -90,14 +93,18 @@ resource "azurerm_linux_function_app" "l1" {
     FUNCTIONS_WORKER_RUNTIME       = "python"
     FUNCTIONS_EXTENSION_VERSION    = "~4"
     AzureWebJobsStorage           = local.azure_storage_connection_string
-    WEBSITE_RUN_FROM_PACKAGE      = "1"
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
+    ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
+    AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
 
     # IoT Hub connection (for Event Grid subscription)
     IOTHUB_CONNECTION_STRING = azurerm_iothub.main[0].event_hub_events_endpoint
 
-    # Cross-cloud: L2 target URL (set by Python orchestrator based on config)
-    # L2_INGESTION_URL = "https://..." (populated post-deployment)
+    # Multi-cloud L1→L2: When Azure L1 sends to remote L2
+    REMOTE_INGESTION_URL = var.layer_1_provider == "azure" && var.layer_2_provider != "azure" ? (
+      var.layer_2_provider == "aws" ? try(aws_lambda_function_url.l0_ingestion[0].function_url, "") :
+      var.layer_2_provider == "google" ? try(google_cloudfunctions2_function.ingestion[0].url, "") : ""
+    ) : ""
 
     # Digital Twin info
     DIGITAL_TWIN_NAME = var.digital_twin_name
@@ -110,10 +117,7 @@ resource "azurerm_linux_function_app" "l1" {
   tags = local.common_tags
 
   lifecycle {
-    ignore_changes = [
-      app_settings["WEBSITE_RUN_FROM_PACKAGE"],
-      app_settings["L2_INGESTION_URL"],
-    ]
+    ignore_changes = []
   }
 }
 
@@ -133,11 +137,27 @@ resource "azurerm_eventgrid_system_topic" "iothub" {
 }
 
 # ==============================================================================
+# Wait for Function App Code Sync
+# ==============================================================================
+
+# Azure Functions needs time to sync and recognize functions after zip_deploy_file.
+# This delay ensures the dispatcher function is registered before EventGrid tries to subscribe.
+resource "time_sleep" "wait_for_function_sync" {
+  count           = var.layer_1_provider == "azure" && var.azure_l1_zip_path != "" ? 1 : 0
+  depends_on      = [azurerm_linux_function_app.l1]
+  create_duration = "180s"  # Wait 3 minutes for function sync (EventGrid triggers need more time)
+}
+
+# ==============================================================================
 # Event Grid Subscription: IoT Hub → L1 Dispatcher
 # ==============================================================================
 
+# EventGrid subscription to route IoT Hub telemetry to L1 dispatcher function.
+# NOTE: Requires zip_deploy_file on the function app to ensure the dispatcher
+# function exists before this subscription is created.
 resource "azurerm_eventgrid_system_topic_event_subscription" "iothub_to_dispatcher" {
-  count               = var.layer_1_provider == "azure" ? 1 : 0
+  # Only create if L1 is Azure AND we have a ZIP file (function code deployed)
+  count               = var.layer_1_provider == "azure" && var.azure_l1_zip_path != "" ? 1 : 0
   name                = "${var.digital_twin_name}-iothub-subscription"
   system_topic        = azurerm_eventgrid_system_topic.iothub[0].name
   resource_group_name = azurerm_resource_group.main[0].name
@@ -150,6 +170,7 @@ resource "azurerm_eventgrid_system_topic_event_subscription" "iothub_to_dispatch
     "Microsoft.Devices.DeviceTelemetry"
   ]
 
-  # Ensure the function app is fully deployed before creating the subscription
-  depends_on = [azurerm_linux_function_app.l1]
+  # Ensure the function app (with code) is deployed and synced before creating the subscription
+  depends_on = [time_sleep.wait_for_function_sync]
 }
+

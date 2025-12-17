@@ -124,6 +124,12 @@ resource "google_cloudfunctions2_function" "persister" {
       INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
       )
+
+      # Multi-cloud L2→L3: When GCP L2 sends to remote L3
+      REMOTE_WRITER_URL = var.layer_2_provider == "google" && var.layer_3_hot_provider != "google" ? (
+        var.layer_3_hot_provider == "aws" ? try(aws_lambda_function_url.l0_hot_writer[0].function_url, "") :
+        var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/hot-writer" : ""
+      ) : ""
     }
   }
 

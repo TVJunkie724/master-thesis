@@ -105,7 +105,7 @@ resource "aws_lambda_function" "l2_persister" {
   count         = local.l2_aws_enabled ? 1 : 0
   function_name = "${var.digital_twin_name}-l2-persister"
   role          = aws_iam_role.l2_lambda[0].arn
-  handler       = "handler.lambda_handler"
+  handler       = "lambda_function.lambda_handler"
   runtime       = "python3.11"
   timeout       = 30
   memory_size   = 256
@@ -116,9 +116,26 @@ resource "aws_lambda_function" "l2_persister" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_NAME = var.digital_twin_name
-      L3_HOT_PROVIDER   = var.layer_3_hot_provider
+      DIGITAL_TWIN_INFO = local.digital_twin_info_json
       DYNAMODB_TABLE    = "${var.digital_twin_name}-hot"
+
+      # Multi-cloud L2→L3: When AWS L2 sends to remote L3
+      REMOTE_WRITER_URL = var.layer_2_provider == "aws" && var.layer_3_hot_provider != "aws" ? (
+        var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/hot-writer" :
+        var.layer_3_hot_provider == "google" ? try(google_cloudfunctions2_function.hot_writer[0].url, "") : ""
+      ) : ""
+
+      # Multi-cloud L2→L4: When AWS L2 sends to Azure ADT (Azure-only feature)
+      # ADT pusher is part of L0 Glue layer, like other cross-cloud receivers
+      REMOTE_ADT_PUSHER_URL = var.layer_2_provider == "aws" && var.layer_4_provider == "azure" ? (
+        "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/adt-pusher"
+      ) : ""
+      ADT_PUSHER_TOKEN = var.layer_4_provider == "azure" ? (
+        var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      ) : ""
+
+      # Inter-cloud token for cross-cloud authentication
+      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
     }
   }
 
@@ -127,13 +144,14 @@ resource "aws_lambda_function" "l2_persister" {
 
 # ==============================================================================
 # Event Checker Lambda Function (Optional - for anomaly detection)
+# Only deployed if use_event_checking is enabled
 # ==============================================================================
 
 resource "aws_lambda_function" "l2_event_checker" {
-  count         = local.l2_aws_enabled ? 1 : 0
+  count         = local.l2_aws_enabled && var.use_event_checking ? 1 : 0
   function_name = "${var.digital_twin_name}-l2-event-checker"
   role          = aws_iam_role.l2_lambda[0].arn
-  handler       = "handler.lambda_handler"
+  handler       = "lambda_function.lambda_handler"
   runtime       = "python3.11"
   timeout       = 30
   memory_size   = 256
@@ -144,7 +162,7 @@ resource "aws_lambda_function" "l2_event_checker" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_NAME = var.digital_twin_name
+      DIGITAL_TWIN_INFO = local.digital_twin_info_json
     }
   }
 
@@ -153,10 +171,12 @@ resource "aws_lambda_function" "l2_event_checker" {
 
 # ==============================================================================
 # Step Functions State Machine (Optional - for event workflow)
+# Only deployed if trigger_notification_workflow is enabled
 # ==============================================================================
 
 resource "aws_iam_role" "l2_step_functions" {
-  count = local.l2_aws_enabled ? 1 : 0
+  # Requires both flags since Step Functions invokes event_checker
+  count = local.l2_aws_enabled && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
   name  = "${var.digital_twin_name}-l2-sfn-role"
 
   assume_role_policy = jsonencode({
@@ -176,7 +196,8 @@ resource "aws_iam_role" "l2_step_functions" {
 }
 
 resource "aws_iam_role_policy" "l2_sfn_lambda" {
-  count = local.l2_aws_enabled ? 1 : 0
+  # Requires both flags since Step Functions invokes event_checker
+  count = local.l2_aws_enabled && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
   name  = "${var.digital_twin_name}-l2-sfn-lambda-policy"
   role  = aws_iam_role.l2_step_functions[0].id
 
@@ -197,7 +218,8 @@ resource "aws_iam_role_policy" "l2_sfn_lambda" {
 }
 
 resource "aws_sfn_state_machine" "l2_event_workflow" {
-  count    = local.l2_aws_enabled ? 1 : 0
+  # Requires both flags since workflow invokes event_checker
+  count    = local.l2_aws_enabled && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
   name     = "${var.digital_twin_name}-l2-event-workflow"
   role_arn = aws_iam_role.l2_step_functions[0].arn
 

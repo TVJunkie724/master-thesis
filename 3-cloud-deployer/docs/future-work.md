@@ -241,7 +241,190 @@ Assign the built-in **Contributor** role alongside the custom role. If Contribut
 
 ---
 
+## 12. EventGrid Subscription Deployment Order
+
+### Status: ✅ RESOLVED
+
+### Issue
+
+The EventGrid subscription in `azure_iot.tf` references a specific function endpoint:
+
+```hcl
+function_id = "${azurerm_linux_function_app.l1[0].id}/functions/dispatcher"
+```
+
+This failed with `Resource should pre-exist before attempting this operation` because:
+1. **Terraform** creates the function app container (empty shell)
+2. **Python** deploys the actual function code **AFTER** Terraform finishes
+3. When EventGrid subscription is created, the `dispatcher` function doesn't exist yet
+
+### Solution Implemented
+
+Used Terraform's `zip_deploy_file` attribute to deploy function code during terraform apply:
+1. `tfvars_generator.py` now pre-builds function ZIPs using `function_bundler.py`
+2. ZIP paths are passed as terraform variables (`azure_l1_zip_path`, etc.)
+3. Each `azurerm_linux_function_app` has `zip_deploy_file = var.azure_lX_zip_path`
+4. Function code exists before EventGrid subscription is created
+5. No more Kudu deployment needed after terraform apply
+
+---
+
+## 13. Azure Managed Grafana Version Issue
+
+### Status: ✅ RESOLVED
+
+### Issue
+
+Azure Managed Grafana deployment failed with:
+- `GrafanaMajorVersionNotSupported: version 'X' is not valid for sku type Standard`
+
+**Root cause:** Azure only supports v11 for Standard SKU, but Terraform provider 3.x only accepted v9/v10.
+
+### Solution Implemented
+
+1. Upgraded AzureRM provider from `~> 3.85` to `~> 4.0` in `versions.tf`
+2. Changed `grafana_major_version` from `"10"` to `"11"` in `azure_grafana.tf`
+3. Replaced deprecated `skip_provider_registration = true` with `resource_provider_registrations = "none"` in `main.tf`
+
+---
+
+## 14. AWS User Functions Terraform Implementation (GCP as well????)
+
+> [!CAUTION]
+> HIGH PRIORITY - This feature gap blocks AWS user function deployment.
+
+### Status: Not Implemented
+
+### Issue
+
+AWS Terraform configuration (`aws_compute.tf`) does not include infrastructure for user-customizable functions:
+- **Event Actions**: User-defined Lambda functions triggered by event conditions
+- **Event Feedback**: Lambda functions for sending responses to IoT devices
+- **Processors**: User logic wrappers for data processing
+
+Currently only system functions (Persister, Event Checker) and Step Functions workflow are implemented.
+
+### Required Implementation
+
+1. Add AWS Lambda resources for user functions (similar to Azure's `user-functions` app)
+2. Add conditional deployment based on `use_event_checking` and `return_feedback_to_device` flags
+3. Implement SDK-based deployment for user function code (already exists for Azure)
+4. Integrate with `package_builder.py` for AWS Lambda packaging
+
+### Azure Implementation (Reference)
+
+Azure has:
+- `azurerm_linux_function_app.user` - user functions app container
+- `build_combined_user_package()` - builds combined ZIP
+- `_deploy_user_functions()` - SDK deployment post-Terraform
+
+AWS needs equivalent:
+- Lambda functions with `count` conditional on feature flags
+- Lambda deployment via package_builder (already has `build_aws_lambda_packages`)
+
+---
+
+## 15. GCP L2 Compute Layer Implementation
+
+> [!CAUTION]
+> HIGH PRIORITY - GCP L2 architecture and user functions still missing.
+
+### Status: Partially Implemented
+
+### Completed ✅
+
+- `REMOTE_WRITER_URL` added to `gcp_compute.tf` persister
+- `INTER_CLOUD_TOKEN` already present in persister
+- Simulator `config_generated.json` via Terraform `local_file` resource in `gcp_iot.tf`
+- `iot_devices` variable added to `variables.tf`
+
+### Remaining Gaps ❌
+
+1. **User Functions Cloud Function** - No user-customizable functions (processors, event_actions, event-feedback)
+2. **GCP L2 Deployer** - No SDK post-Terraform deployment for user functions (unlike Azure's `azure_deployer.py`)
+3. **User Function Terraform Resource** - Need `google_cloudfunctions2_function.user_functions` in `gcp_compute.tf`
+4. **Package Builder** - Need GCP support in `package_builder.py` for user function bundling
+
+### Required Implementation
+
+```hcl
+# gcp_compute.tf - Add user functions Cloud Function
+resource "google_cloudfunctions2_function" "user_functions" {
+  count    = local.gcp_l2_enabled ? 1 : 0
+  name     = "${var.digital_twin_name}-user-functions"
+  location = var.gcp_region
+  # ... similar config to processor
+}
+```
+
+---
+
+## 16. Multi-Cloud Environment Variables Gap
+
+> [!NOTE]
+> Phase 1 implemented - all env vars added to Terraform files.
+
+### Status: Implemented ✅
+
+### What Was Done
+
+Multi-cloud environment variables now in all Terraform files.
+
+### Complete List of Multi-Cloud Environment Variables
+
+| Env Variable | Function | Condition |
+|-------------|----------|-----------|
+| `REMOTE_INGESTION_URL` | Connector (L1) | L1 ≠ L2 |
+| `REMOTE_WRITER_URL` | Persister (L2) | L2 ≠ L3 |
+| `REMOTE_ADT_PUSHER_URL` | Persister (L2) | L2 ≠ L4 (Azure ADT) |
+| `ADT_PUSHER_TOKEN` | Persister (L2) | L2 ≠ L4 (Azure ADT) |
+| `REMOTE_COLD_WRITER_URL` | Hot-to-Cold Mover (L3) | L3 Hot ≠ L3 Cold |
+| `REMOTE_ARCHIVE_WRITER_URL` | Cold-to-Archive Mover (L3) | L3 Cold ≠ L3 Archive |
+| `REMOTE_HOT_READER_URL` | DT Data Connector (L4) | L4 ≠ L3 |
+| `EVENT_CHECKER_FUNCTION_URL` | Persister (L2) | Azure only, when using event checking |
+| `INTER_CLOUD_TOKEN` | All above | Any multi-cloud |
+
+### Current State
+
+| Provider | All Multi-Cloud Env Vars |
+|----------|--------------------------|
+| Azure | ✅ Implemented |
+| AWS | ✅ Implemented |
+| GCP | ✅ Implemented (except GCP Layer 2?) |
+
+### Solution (Per Function)
+
+Add to Terraform:
+
+**Connector (L1) - `*_iot.tf`:**
+```hcl
+REMOTE_INGESTION_URL = var.layer_1_provider != var.layer_2_provider ? <L0_ingestion_url_from_L2_provider> : ""
+```
+
+**Persister (L2) - `*_compute.tf`:**
+```hcl
+REMOTE_WRITER_URL = var.layer_2_provider != var.layer_3_hot_provider ? <L0_hot_writer_url_from_L3_provider> : ""
+```
+
+**Hot-to-Cold Mover (L3) - `*_storage.tf`:**
+```hcl
+REMOTE_COLD_WRITER_URL = var.layer_3_hot_provider != var.layer_3_cold_provider ? <L0_cold_writer_url> : ""
+```
+
+**Cold-to-Archive Mover (L3) - `*_storage.tf`:**
+```hcl
+REMOTE_ARCHIVE_WRITER_URL = var.layer_3_cold_provider != var.layer_3_archive_provider ? <L0_archive_writer_url> : ""
+```
+
+**DT Data Connector (L4) - `*_digital_twin.tf`:**
+```hcl
+REMOTE_HOT_READER_URL = var.layer_4_provider != var.layer_3_hot_provider ? <L3_hot_reader_url> : ""
+```
+
+---
+
 ## Notes
 
 - **Priority**: E2E testing > Azure init values > SDK validation > GCP
 - **Timeline**: To be determined based on thesis requirements
+

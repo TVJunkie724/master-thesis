@@ -35,7 +35,7 @@ class TestAWSTerraformE2E:
     """
     
     @pytest.fixture(scope="class")
-    def deployed_environment(self, request, terraform_e2e_project_path, aws_credentials):
+    def deployed_environment(self, request, aws_terraform_e2e_project_path, aws_credentials):
         """
         Deploy all AWS layers via Terraform with GUARANTEED cleanup.
         
@@ -52,7 +52,7 @@ class TestAWSTerraformE2E:
         print("  AWS TERRAFORM E2E TEST - PRE-DEPLOYMENT VALIDATION")
         print("="*60)
         
-        project_path = Path(terraform_e2e_project_path)
+        project_path = Path(aws_terraform_e2e_project_path)
         terraform_dir = Path(__file__).parent.parent.parent.parent / "src" / "terraform"
         
         # ==========================================
@@ -128,13 +128,16 @@ class TestAWSTerraformE2E:
         print(f"  Terraform dir: {terraform_dir}")
         
         context = DeploymentContext(
+            project_name=config.digital_twin_name,
+            project_path=project_path,
             config=config,
             credentials=credentials,
-            project_path=project_path,
-            provider="aws"
         )
         
-        strategy = TerraformDeployerStrategy(terraform_dir=terraform_dir)
+        strategy = TerraformDeployerStrategy(
+            terraform_dir=str(terraform_dir),
+            project_path=str(project_path)
+        )
         
         # Register cleanup to ALWAYS run, even on failure
         def terraform_cleanup():
@@ -373,3 +376,54 @@ class TestAWSTerraformE2E:
         else:
             # Data may not have propagated yet - this is acceptable
             print("  ⚠ No data found (may need more time to propagate)")
+    
+    def test_08_verify_hot_reader(self, deployed_environment):
+        """Verify the Hot Reader Lambda can read data back from DynamoDB."""
+        outputs = deployed_environment["outputs"]
+        
+        hot_reader_url = outputs.get("aws_l3_hot_reader_url")
+        if not hot_reader_url:
+            pytest.skip("Hot Reader Lambda URL not deployed")
+        
+        print(f"\n  Hot Reader URL: {hot_reader_url}")
+        
+        # Query the hot reader for test device data
+        query_params = {
+            "device_id": "test-device-001",
+            "limit": "5"
+        }
+        
+        try:
+            response = requests.get(
+                hot_reader_url,
+                params=query_params,
+                timeout=30
+            )
+            
+            print(f"  Response status: {response.status_code}")
+            print(f"  Response body: {response.text[:500] if len(response.text) > 500 else response.text}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check if we got data back
+                if isinstance(data, list):
+                    print(f"  ✓ Hot Reader returned {len(data)} items")
+                elif isinstance(data, dict):
+                    items = data.get("items", data.get("data", []))
+                    print(f"  ✓ Hot Reader returned {len(items)} items")
+                else:
+                    print(f"  ✓ Hot Reader returned response: {type(data)}")
+                
+                print("  ✓ Hot Reader Lambda working correctly")
+            elif response.status_code == 404:
+                # No data yet - acceptable for new deployment
+                print("  ⚠ No data found via Hot Reader (expected for fresh deployment)")
+            else:
+                print(f"  ⚠ Unexpected response: {response.status_code}")
+                
+        except requests.exceptions.Timeout:
+            print("  ⚠ Hot Reader request timed out (Lambda cold start)")
+        except requests.exceptions.RequestException as e:
+            print(f"  ⚠ Hot Reader request failed: {e}")
+

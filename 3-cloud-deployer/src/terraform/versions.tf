@@ -9,7 +9,7 @@ terraform {
     # Azure Resource Manager provider
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.85"
+      version = "~> 4.0"
     }
 
     # AWS provider (for multi-cloud deployments)
@@ -40,6 +40,12 @@ terraform {
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6"
+    }
+
+    # Time provider for delays (e.g., waiting for function sync)
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.9"
     }
   }
 }

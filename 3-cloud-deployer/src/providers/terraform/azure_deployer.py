@@ -25,49 +25,64 @@ def deploy_azure_function_code(
     """
     Deploy Azure Function code via Kudu ZIP deploy.
     
+    NOTE: System functions (L0-L3) are now deployed via Terraform's zip_deploy_file.
+    This function only deploys USER functions (event actions, processors, feedback).
+    
     Args:
         project_path: Path to project directory
         providers_config: Layer provider configuration
         terraform_outputs: Terraform output values
         load_credentials_fn: Function to load credentials
     """
-    from src.providers.azure.layers.function_bundler import (
-        bundle_l0_functions,
-        bundle_l1_functions,
-        bundle_l2_functions,
-        bundle_l3_functions,
+    # User functions deployment
+    if providers_config.get("layer_2_provider") == "azure":
+        _deploy_user_functions(
+            project_path, providers_config, terraform_outputs, load_credentials_fn
+        )
+
+
+def _deploy_user_functions(
+    project_path: Path,
+    providers_config: dict,
+    terraform_outputs: dict,
+    load_credentials_fn
+) -> None:
+    """Deploy user-customizable functions (event actions, processors) via Kudu."""
+    from src.providers.terraform.package_builder import (
+        build_combined_user_package,
+        get_combined_user_package_path,
     )
     
-    # Deploy L0 glue functions (if needed)
-    l0_zip, l0_funcs = bundle_l0_functions(str(project_path), providers_config)
-    if l0_zip and l0_funcs:
-        app_name = terraform_outputs.get("azure_l0_function_app_name")
-        if app_name:
-            _deploy_to_azure_app(
-                app_name, l0_zip, f"L0 ({len(l0_funcs)} functions)",
-                terraform_outputs, load_credentials_fn
-            )
+    app_name = terraform_outputs.get("azure_user_functions_app_name")
     
-    # Deploy L1 functions
-    if providers_config.get("layer_1_provider") == "azure":
-        app_name = terraform_outputs.get("azure_l1_function_app_name")
-        if app_name:
-            l1_zip = bundle_l1_functions(str(project_path))
-            _deploy_to_azure_app(app_name, l1_zip, "L1", terraform_outputs, load_credentials_fn)
+    if not app_name:
+        logger.info("  No user functions app deployed, skipping user function deployment")
+        return
     
-    # Deploy L2 functions
-    if providers_config.get("layer_2_provider") == "azure":
-        app_name = terraform_outputs.get("azure_l2_function_app_name")
-        if app_name:
-            l2_zip = bundle_l2_functions(str(project_path))
-            _deploy_to_azure_app(app_name, l2_zip, "L2", terraform_outputs, load_credentials_fn)
+    logger.info("  Building and deploying user functions...")
     
-    # Deploy L3 functions
-    if providers_config.get("layer_3_hot_provider") == "azure":
-        app_name = terraform_outputs.get("azure_l3_function_app_name")
-        if app_name:
-            l3_zip = bundle_l3_functions(str(project_path))
-            _deploy_to_azure_app(app_name, l3_zip, "L3", terraform_outputs, load_credentials_fn)
+    try:
+        # Build combined user package (all event actions, processors, feedback)
+        combined_zip_path = build_combined_user_package(project_path, providers_config)
+        
+        if not combined_zip_path or not combined_zip_path.exists():
+            logger.info("  No user functions to deploy")
+            return
+        
+        # Read ZIP and deploy
+        with open(combined_zip_path, "rb") as f:
+            zip_bytes = f.read()
+        
+        _deploy_to_azure_app(
+            app_name, zip_bytes, "User Functions",
+            terraform_outputs, load_credentials_fn
+        )
+        
+        logger.info("  ✓ User functions deployed successfully")
+        
+    except Exception as e:
+        logger.error(f"  User function deployment failed: {e}")
+        raise
 
 
 def _deploy_to_azure_app(
@@ -78,6 +93,8 @@ def _deploy_to_azure_app(
     load_credentials_fn
 ) -> None:
     """Deploy ZIP bytes to an Azure Function App via Kudu."""
+    from azure.identity import ClientSecretCredential
+    from azure.mgmt.web import WebSiteManagementClient
     from src.providers.azure.layers.deployment_helpers import (
         deploy_to_kudu,
         get_publishing_credentials_with_retry,
@@ -93,10 +110,21 @@ def _deploy_to_azure_app(
         return
     
     try:
+        # Create Azure SDK client from credentials
+        credential = ClientSecretCredential(
+            tenant_id=azure_creds["azure_tenant_id"],
+            client_id=azure_creds["azure_client_id"],
+            client_secret=azure_creds["azure_client_secret"]
+        )
+        web_client = WebSiteManagementClient(
+            credential=credential,
+            subscription_id=azure_creds["azure_subscription_id"]
+        )
+        
         creds = get_publishing_credentials_with_retry(
+            web_client=web_client,
             resource_group=rg_name,
-            app_name=app_name,
-            credentials=azure_creds
+            app_name=app_name
         )
         
         deploy_to_kudu(

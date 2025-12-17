@@ -31,8 +31,16 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables - fail fast if missing
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
+# DIGITAL_TWIN_INFO is lazy-loaded to allow Azure function discovery
+# (module-level require_env would fail during import if env var is missing)
+_digital_twin_info = None
+
+def _get_digital_twin_info():
+    """Lazy-load DIGITAL_TWIN_INFO to avoid import-time failures."""
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
 
 # Optional environment variables
 ADT_INSTANCE_URL = os.environ.get("ADT_INSTANCE_URL", "").strip()
@@ -43,8 +51,8 @@ FUNCTION_APP_BASE_URL = os.environ.get("FUNCTION_APP_BASE_URL", "").strip()
 USE_LOGIC_APPS = os.environ.get("USE_LOGIC_APPS", "false").lower() == "true"
 USE_FEEDBACK = os.environ.get("USE_FEEDBACK", "false").lower() == "true"
 
-# Create Function App instance
-app = func.FunctionApp()
+# Create Blueprint for registration in main function_app.py
+bp = func.Blueprint()
 
 # ADT client (lazy initialized)
 _adt_client = None
@@ -162,8 +170,8 @@ def _send_feedback(feedback_payload: dict) -> None:
         raise
 
 
-@app.function_name(name="event-checker")
-@app.route(route="event-checker", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
+@bp.function_name(name="event-checker")
+@bp.route(route="event-checker", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def event_checker(req: func.HttpRequest) -> func.HttpResponse:
     """
     Evaluate data against configured event rules and trigger actions.
@@ -174,7 +182,7 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
         event = req.get_json()
         logging.info(f"Event: {json.dumps(event)}")
         
-        config_events = DIGITAL_TWIN_INFO.get("config_events", [])
+        config_events = _get_digital_twin_info().get("config_events", [])
         logging.info(f"Checking {len(config_events)} configured events")
         
         results = []

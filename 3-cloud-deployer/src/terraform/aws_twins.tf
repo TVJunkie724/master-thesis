@@ -49,27 +49,33 @@ resource "aws_iam_role" "l4_twinmaker" {
   tags = local.aws_common_tags
 }
 
-# S3 access for TwinMaker workspace data
+# S3/DynamoDB/Lambda access for TwinMaker workspace
+# Note: Uses exact permissions from AWS TwinMaker documentation:
+# https://docs.aws.amazon.com/iot-twinmaker/latest/guide/twinmaker-gs-service-role.html
 resource "aws_iam_role_policy" "l4_twinmaker_s3" {
   count = local.l4_aws_enabled ? 1 : 0
   name  = "${var.digital_twin_name}-l4-twinmaker-s3-policy"
   role  = aws_iam_role.l4_twinmaker[0].id
 
+  # AWS TwinMaker requires access to S3 for workspace resources
+  # Per official docs, this requires broad S3 access (arn:aws:s3:::*)
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Effect = "Allow"
         Action = [
+          "s3:GetBucket*",
           "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject",
-          "s3:ListBucket"
+          "s3:ListBucket",
+          "s3:PutObject"
         ]
-        Resource = [
-          aws_s3_bucket.l4_twinmaker[0].arn,
-          "${aws_s3_bucket.l4_twinmaker[0].arn}/*"
-        ]
+        Resource = ["arn:aws:s3:::*"]
+      },
+      {
+        Effect = "Allow"
+        Action = ["s3:DeleteObject"]
+        Resource = ["arn:aws:s3:::*/DO_NOT_DELETE_WORKSPACE_*"]
       }
     ]
   })
@@ -106,6 +112,40 @@ resource "aws_s3_bucket" "l4_twinmaker" {
   tags = local.aws_common_tags
 }
 
+# CORS configuration for TwinMaker S3 bucket
+# Required for Grafana Scene Viewer to access scene assets
+resource "aws_s3_bucket_cors_configuration" "l4_twinmaker" {
+  count  = local.l4_aws_enabled ? 1 : 0
+  bucket = aws_s3_bucket.l4_twinmaker[0].id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["GET", "HEAD"]
+    allowed_origins = ["*"]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+}
+
+# ==============================================================================
+# IAM Propagation Delay
+# ==============================================================================
+# AWS IAM role propagation can take 10-30 seconds across all regions.
+# TwinMaker validates the role by assuming it at creation time, so we need
+# to wait for propagation to complete before creating the workspace.
+
+resource "time_sleep" "l4_iam_propagation" {
+  count           = local.l4_aws_enabled ? 1 : 0
+  create_duration = "30s"
+
+  depends_on = [
+    aws_iam_role.l4_twinmaker,
+    aws_iam_role_policy.l4_twinmaker_s3,
+    aws_iam_role_policy.l4_twinmaker_lambda,
+    aws_s3_bucket.l4_twinmaker  # Ensure bucket exists before TwinMaker
+  ]
+}
+
 # ==============================================================================
 # TwinMaker Workspace (using awscc provider)
 # ==============================================================================
@@ -120,6 +160,8 @@ resource "awscc_iottwinmaker_workspace" "main" {
   tags = {
     for key, value in local.aws_common_tags : key => value
   }
+
+  depends_on = [time_sleep.l4_iam_propagation]
 }
 
 # ==============================================================================
@@ -177,7 +219,7 @@ resource "aws_lambda_function" "l4_connector" {
   count         = local.l4_aws_enabled ? 1 : 0
   function_name = "${var.digital_twin_name}-l4-connector"
   role          = aws_iam_role.l4_connector_lambda[0].arn
-  handler       = "handler.lambda_handler"
+  handler       = "lambda_function.lambda_handler"
   runtime       = "python3.11"
   timeout       = 30
   memory_size   = 256
@@ -188,9 +230,8 @@ resource "aws_lambda_function" "l4_connector" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_NAME = var.digital_twin_name
+      DIGITAL_TWIN_INFO = local.digital_twin_info_json
       WORKSPACE_ID      = var.digital_twin_name
-      L3_HOT_PROVIDER   = var.layer_3_hot_provider
     }
   }
 

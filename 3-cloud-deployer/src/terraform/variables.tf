@@ -194,6 +194,28 @@ variable "layer_3_cold_to_archive_interval_days" {
 }
 
 # ==============================================================================
+# Feature Flags (from config_optimization.json inputParamsUsed)
+# ==============================================================================
+
+variable "trigger_notification_workflow" {
+  description = "Enable notification workflows (Logic Apps/Step Functions)"
+  type        = bool
+  default     = false  # Disabled by default for testing
+}
+
+variable "use_event_checking" {
+  description = "Enable event checking and user event actions"
+  type        = bool
+  default     = true
+}
+
+variable "return_feedback_to_device" {
+  description = "Enable feedback functions to send responses to IoT devices"
+  type        = bool
+  default     = false
+}
+
+# ==============================================================================
 # IoT Devices (from config_iot_devices.json)
 # ==============================================================================
 
@@ -211,6 +233,16 @@ variable "iot_devices" {
 }
 
 # ==============================================================================
+# Events Configuration (from config_events.json)
+# ==============================================================================
+
+variable "events" {
+  description = "List of event action definitions"
+  type        = any
+  default     = []
+}
+
+# ==============================================================================
 # Cross-Cloud Configuration
 # ==============================================================================
 
@@ -220,3 +252,35 @@ variable "inter_cloud_token" {
   default     = ""
   sensitive   = true
 }
+
+# ==============================================================================
+# Azure Function ZIP Deployment Paths
+# These paths are populated by tfvars_generator.py with pre-built function ZIPs.
+# Using zip_deploy_file enables Terraform to deploy function code directly,
+# ensuring functions exist before EventGrid subscriptions are created.
+# ==============================================================================
+
+variable "azure_l0_zip_path" {
+  description = "Path to the L0 glue functions ZIP file"
+  type        = string
+  default     = ""
+}
+
+variable "azure_l1_zip_path" {
+  description = "Path to the L1 (Dispatcher) functions ZIP file"
+  type        = string
+  default     = ""
+}
+
+variable "azure_l2_zip_path" {
+  description = "Path to the L2 (Processor) functions ZIP file"
+  type        = string
+  default     = ""
+}
+
+variable "azure_l3_zip_path" {
+  description = "Path to the L3 (Storage) functions ZIP file"
+  type        = string
+  default     = ""
+}
+

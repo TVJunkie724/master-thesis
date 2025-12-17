@@ -92,7 +92,7 @@ def terraform_e2e_project_path(template_project_path, terraform_e2e_test_id, tmp
         "layer_3_cold_provider": "azure",
         "layer_3_archive_provider": "azure",
         "layer_4_provider": "azure",
-        "layer_5_provider": "azure"
+        "layer_5_provider": "azure"  # Using AzureRM 4.x with Grafana v11
     }
     with open(providers_path, "w") as f:
         json.dump(providers, f, indent=2)
@@ -413,3 +413,109 @@ def deployment_context(request, e2e_project_path, azure_credentials):
     context = create_context(config, e2e_project_path)
     
     return context
+
+
+@pytest.fixture(scope="session")
+def aws_credentials(template_project_path):
+    """
+    Load AWS credentials from config_credentials.json.
+    
+    Falls back to environment variables if file not found.
+    """
+    # First try to load from config_credentials.json
+    creds_path = template_project_path / "config_credentials.json"
+    
+    if creds_path.exists():
+        with open(creds_path, "r") as f:
+            all_creds = json.load(f)
+        
+        aws_creds = all_creds.get("aws", {})
+        
+        if aws_creds.get("aws_access_key_id") and aws_creds.get("aws_secret_access_key"):
+            print("[AWS E2E] Using credentials from config_credentials.json")
+            
+            # Set environment variables for AWS SDK and Terraform
+            os.environ["AWS_ACCESS_KEY_ID"] = aws_creds["aws_access_key_id"]
+            os.environ["AWS_SECRET_ACCESS_KEY"] = aws_creds["aws_secret_access_key"]
+            os.environ["AWS_REGION"] = aws_creds.get("aws_region", "eu-west-1")
+            
+            return {
+                "auth_type": "access_key",
+                "region": aws_creds.get("aws_region", "eu-west-1"),
+                "access_key_id": aws_creds["aws_access_key_id"],
+                "secret_access_key": aws_creds["aws_secret_access_key"],
+            }
+    
+    # Fallback: Check for environment variables
+    if os.environ.get("AWS_ACCESS_KEY_ID") and os.environ.get("AWS_SECRET_ACCESS_KEY"):
+        print("[AWS E2E] Using AWS credentials from environment variables")
+        return {
+            "auth_type": "access_key",
+            "region": os.environ.get("AWS_REGION", "eu-west-1"),
+        }
+    
+    pytest.skip(
+        "AWS credentials not configured. "
+        "Please set credentials in config_credentials.json or environment variables."
+    )
+
+
+@pytest.fixture(scope="session")
+def aws_terraform_e2e_test_id():
+    """
+    Fixed, deterministic ID for AWS Terraform E2E test runs.
+    
+    Using a consistent ID ensures:
+    - Idempotent resource naming across test runs
+    - Skip-if-exists logic can reuse existing resources
+    - Reduced costs (no duplicate resources created)
+    - Easy resumption after partial failures
+    
+    The ID is kept short to comply with AWS naming limits.
+    """
+    return "tf-e2e-aws"
+
+
+@pytest.fixture(scope="session")
+def aws_terraform_e2e_project_path(template_project_path, aws_terraform_e2e_test_id, tmp_path_factory):
+    """
+    Create a unique temporary E2E test project for AWS Terraform deployment.
+    
+    Configures all layers to use AWS.
+    """
+    # Create temp directory for E2E project
+    temp_dir = tmp_path_factory.mktemp("aws_terraform_e2e")
+    project_path = temp_dir / aws_terraform_e2e_test_id
+    
+    # Copy template project
+    shutil.copytree(template_project_path, project_path)
+    
+    # Modify config.json with unique twin name
+    config_path = project_path / "config.json"
+    with open(config_path, "r") as f:
+        config = json.load(f)
+    config["digital_twin_name"] = aws_terraform_e2e_test_id
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=2)
+    
+    # Modify config_providers.json to all-AWS
+    providers_path = project_path / "config_providers.json"
+    providers = {
+        "layer_1_provider": "aws",
+        "layer_2_provider": "aws",
+        "layer_3_hot_provider": "aws",
+        "layer_3_cold_provider": "aws",
+        "layer_3_archive_provider": "aws",
+        "layer_4_provider": "aws",
+        "layer_5_provider": "aws"
+    }
+    with open(providers_path, "w") as f:
+        json.dump(providers, f, indent=2)
+    
+    print(f"\n[AWS TERRAFORM E2E] Created unique test project: {project_path}")
+    print(f"[AWS TERRAFORM E2E] Digital twin name: {aws_terraform_e2e_test_id}")
+    
+    yield str(project_path)
+    
+    # Cleanup temp directory
+    print(f"\n[AWS TERRAFORM E2E] Cleaning up temp project: {project_path}")

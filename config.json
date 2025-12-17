@@ -1,24 +1,3 @@
 {
-    "mode": "DEBUG",
-    "twin2clouds": {
-        "fetch_aws_data_anew": false,
-        "fetch_azure_data_anew": true,
-        "fetch_gcp_data_anew": false,
-        "aws_required_services": [
-            "iot",
-            "lambda",
-            "dynamodb",
-            "s3",
-            "s3glacierdeeparchive",
-            "iottwinmaker",
-            "grafana"
-        ],
-        "azure_required_services": [
-            "storage.blob_storage",
-            "azure_cosmos_db",
-            "storage__blob_storage",
-            "azure_grafana_service"
-        ],
-        "gcp_required_services": []
-    }
+    "mode": "DEBUG"
 }

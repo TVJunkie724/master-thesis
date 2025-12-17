@@ -828,6 +828,47 @@ curl -X POST "{API_HOST}/deploy_l5?provider=aws&project_name=template"
                         functions</li>
                     <li><strong>TwinMaker workspace creation fails:</strong> Ensure S3 bucket is created first</li>
                 </ul>
+
+                <h5 class="mt-4"><i class="fa-solid fa-tags me-2"></i>Resource Group Tagging Limitation</h5>
+                <p>AWS Resource Groups use tag-based queries to group resources. However, <strong>not all AWS resources
+                        support tags</strong> at the AWS API level. This is an AWS limitation, not a configuration
+                    issue.</p>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-success"><i class="fa-solid fa-check me-2"></i>Appear in Resource Group (31
+                            resources)</h6>
+                        <ul class="small">
+                            <li>Lambda Functions</li>
+                            <li>IAM Roles</li>
+                            <li>S3 Buckets</li>
+                            <li>DynamoDB Tables</li>
+                            <li>CloudWatch Event Rules</li>
+                            <li>IoT Topic Rules</li>
+                            <li>TwinMaker Workspaces</li>
+                            <li>Grafana Workspaces</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-warning"><i class="fa-solid fa-exclamation-triangle me-2"></i>Cannot Be Tagged
+                            (AWS Limitation)</h6>
+                        <ul class="small">
+                            <li>IAM Role Policies (inline)</li>
+                            <li>IAM Role Policy Attachments</li>
+                            <li>Lambda Permissions</li>
+                            <li>Lambda Function URLs</li>
+                            <li>CloudWatch Event Targets</li>
+                            <li>S3 Lifecycle Configurations</li>
+                            <li>Grafana API Keys</li>
+                        </ul>
+                    </div>
+                </div>
+                <p class="small text-muted mt-2">
+                    <i class="fa-solid fa-info-circle me-2"></i>
+                    The non-taggable resources are "helper" resources (permissions, policies, configurations) that are
+                    logically linked to their parent resources. Your main infrastructure resources are all properly
+                    tagged and visible in the Resource Group.
+                </p>
             </div>
 
         </main>

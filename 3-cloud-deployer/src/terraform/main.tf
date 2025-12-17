@@ -23,8 +23,8 @@ provider "azurerm" {
     }
   }
 
-  # Skip auto-registration of resource providers (requires elevated permissions)
-  skip_provider_registration = true
+  # Disable auto-registration of resource providers (requires elevated permissions)
+  resource_provider_registrations = "none"
 
   subscription_id = var.azure_subscription_id
   client_id       = var.azure_client_id
@@ -52,9 +52,10 @@ provider "awscc" {
 }
 
 # Google Cloud Provider (for multi-cloud deployments)
+# TODO: project defaults to "placeholder" to avoid validation errors when GCP is not used
 provider "google" {
-  project     = var.gcp_project_id
-  region      = var.gcp_region
+  project     = var.gcp_project_id != "" ? var.gcp_project_id : "placeholder-not-used"
+  region      = var.gcp_region != "" ? var.gcp_region : "us-central1"
   credentials = var.gcp_credentials_json != "" ? var.gcp_credentials_json : null
 }
 
@@ -102,4 +103,26 @@ locals {
   
   # Azure region to use for IoT Hub (may differ from main region)
   azure_iothub_region = var.azure_region_iothub != "" ? var.azure_region_iothub : var.azure_region
+  
+  # Shared DIGITAL_TWIN_INFO JSON for all AWS Lambda functions
+  # This complex object is expected by Lambda functions like dispatcher, persister, etc.
+  digital_twin_info_json = jsonencode({
+    config = {
+      digital_twin_name         = var.digital_twin_name
+      hot_storage_size_in_days  = var.layer_3_hot_to_cold_interval_days
+      cold_storage_size_in_days = var.layer_3_cold_to_archive_interval_days
+      mode                      = var.environment
+    }
+    config_iot_devices = var.iot_devices
+    config_events      = var.events
+    config_providers = {
+      layer_1_provider         = var.layer_1_provider
+      layer_2_provider         = var.layer_2_provider
+      layer_3_hot_provider     = var.layer_3_hot_provider
+      layer_3_cold_provider    = var.layer_3_cold_provider
+      layer_3_archive_provider = var.layer_3_archive_provider
+      layer_4_provider         = var.layer_4_provider
+      layer_5_provider         = var.layer_5_provider
+    }
+  })
 }

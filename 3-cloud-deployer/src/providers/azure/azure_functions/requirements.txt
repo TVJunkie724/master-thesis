@@ -1,0 +1,7 @@
+# Azure Functions SDK
+azure-functions
+
+# Azure SDK dependencies used by L2/L3 functions
+azure-cosmos
+azure-identity
+azure-digitaltwins-core

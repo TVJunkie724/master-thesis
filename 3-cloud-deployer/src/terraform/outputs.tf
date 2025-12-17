@@ -76,6 +76,11 @@ output "azure_l2_function_app_name" {
   value       = try(azurerm_linux_function_app.l2[0].name, null)
 }
 
+output "azure_user_functions_app_name" {
+  description = "Name of the User Functions App (event actions, processors)"
+  value       = try(azurerm_linux_function_app.user[0].name, null)
+}
+
 # ==============================================================================
 # Azure L3 Storage Outputs
 # ==============================================================================

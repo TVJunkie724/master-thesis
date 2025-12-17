@@ -133,8 +133,21 @@ class TestAzureTerraformE2E:
         deployment_success = False
         terraform_outputs = {}
         
+        # Flag to control cleanup behavior - set to True for faster retries
+        SKIP_CLEANUP_ON_FAILURE = True
+        
         def terraform_cleanup():
-            """Cleanup function - always runs terraform destroy."""
+            """Cleanup function - only destroys if deployment succeeded or flag is False."""
+            nonlocal deployment_success
+            
+            if SKIP_CLEANUP_ON_FAILURE and not deployment_success:
+                print("\n" + "="*60)
+                print("  CLEANUP: SKIPPING (deployment failed, resources reusable)")
+                print("="*60)
+                print("  Resources kept for faster retry. To clean up manually:")
+                print(f"    terraform -chdir=/app/src/terraform destroy -auto-approve")
+                return
+            
             print("\n" + "="*60)
             print("  CLEANUP: TERRAFORM DESTROY")
             print("="*60)

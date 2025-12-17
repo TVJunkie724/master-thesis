@@ -81,7 +81,7 @@ resource "aws_lambda_function" "l1_dispatcher" {
   count         = local.l1_aws_enabled ? 1 : 0
   function_name = "${var.digital_twin_name}-l1-dispatcher"
   role          = aws_iam_role.l1_dispatcher[0].arn
-  handler       = "handler.lambda_handler"
+  handler       = "lambda_function.lambda_handler"
   runtime       = "python3.11"
   timeout       = 30
   memory_size   = 256
@@ -92,8 +92,17 @@ resource "aws_lambda_function" "l1_dispatcher" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_NAME = var.digital_twin_name
-      L2_PROVIDER       = var.layer_2_provider
+      DIGITAL_TWIN_INFO      = local.digital_twin_info_json
+      TARGET_FUNCTION_SUFFIX = var.layer_2_provider == "aws" ? "-processor" : "-connector"
+
+      # Multi-cloud L1→L2: When AWS L1 sends to remote L2
+      REMOTE_INGESTION_URL = var.layer_1_provider == "aws" && var.layer_2_provider != "aws" ? (
+        var.layer_2_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/ingestion" :
+        var.layer_2_provider == "google" ? try(google_cloudfunctions2_function.ingestion[0].url, "") : ""
+      ) : ""
+
+      # Inter-cloud token for cross-cloud authentication
+      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
     }
   }
 

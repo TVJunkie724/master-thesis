@@ -38,8 +38,16 @@ class ConfigurationError(Exception):
     pass
 
 
-# Required environment variables - fail fast if missing
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
+# DIGITAL_TWIN_INFO is lazy-loaded to allow Azure function discovery
+# (module-level require_env would fail during import if env var is missing)
+_digital_twin_info = None
+
+def _get_digital_twin_info():
+    """Lazy-load DIGITAL_TWIN_INFO to avoid import-time failures."""
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
 
 # Cosmos DB config (for single-cloud mode)
 COSMOS_DB_ENDPOINT = os.environ.get("COSMOS_DB_ENDPOINT", "").strip()
@@ -65,8 +73,8 @@ FUNCTION_APP_BASE_URL = os.environ.get("FUNCTION_APP_BASE_URL", "").strip()
 # Cosmos DB client (lazy initialized)
 _cosmos_container = None
 
-# Create Function App instance
-app = func.FunctionApp()
+# Create Blueprint for registration in main function_app.py
+bp = func.Blueprint()
 
 
 def _get_cosmos_container():
@@ -94,7 +102,7 @@ def _is_multi_cloud_storage() -> bool:
     if not REMOTE_WRITER_URL:
         return False
     
-    providers = DIGITAL_TWIN_INFO.get("config_providers")
+    providers = _get_digital_twin_info().get("config_providers")
     if providers is None:
         raise ConfigurationError(
             "CRITICAL: 'config_providers' missing from DIGITAL_TWIN_INFO."
@@ -183,8 +191,8 @@ def _push_to_adt(event: dict) -> None:
         logging.warning(f"ADT push failed (non-fatal): {e}")
 
 
-@app.function_name(name="persister")
-@app.route(route="persister", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
+@bp.function_name(name="persister")
+@bp.route(route="persister", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def persister(req: func.HttpRequest) -> func.HttpResponse:
     """
     Persist processed data to storage.

@@ -13,7 +13,7 @@
         },
         "inputParamsUsed": {
             "useEventChecking": true,
-            "triggerNotificationWorkflow": true,
+            "triggerNotificationWorkflow": false,
             "returnFeedbackToDevice": false,
             "integrateErrorHandling": true
         }

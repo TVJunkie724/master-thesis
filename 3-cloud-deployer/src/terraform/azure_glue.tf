@@ -49,6 +49,9 @@ resource "azurerm_linux_function_app" "l0_glue" {
   storage_account_name       = azurerm_storage_account.main[0].name
   storage_account_access_key = azurerm_storage_account.main[0].primary_access_key
 
+  # Deploy function code via Terraform
+  zip_deploy_file = var.azure_l0_zip_path != "" ? var.azure_l0_zip_path : null
+
   # Managed Identity for accessing other Azure resources
   identity {
     type         = "UserAssigned"
@@ -71,8 +74,9 @@ resource "azurerm_linux_function_app" "l0_glue" {
     FUNCTIONS_WORKER_RUNTIME       = "python"
     FUNCTIONS_EXTENSION_VERSION    = "~4"
     AzureWebJobsStorage           = local.azure_storage_connection_string
-    WEBSITE_RUN_FROM_PACKAGE      = "1"
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
+    ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
+    AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
 
     # Cross-cloud authentication
     INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : random_password.inter_cloud_token[0].result
@@ -90,10 +94,7 @@ resource "azurerm_linux_function_app" "l0_glue" {
   tags = local.common_tags
 
   lifecycle {
-    ignore_changes = [
-      # Ignore changes to ZIP deployment settings managed by Python orchestrator
-      app_settings["WEBSITE_RUN_FROM_PACKAGE"],
-    ]
+    ignore_changes = []
   }
 }
 

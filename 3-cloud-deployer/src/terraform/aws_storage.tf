@@ -146,7 +146,7 @@ resource "aws_lambda_function" "l3_hot_reader" {
   count         = local.l3_hot_aws_enabled ? 1 : 0
   function_name = "${var.digital_twin_name}-l3-hot-reader"
   role          = aws_iam_role.l3_lambda[0].arn
-  handler       = "handler.lambda_handler"
+  handler       = "lambda_function.lambda_handler"
   runtime       = "python3.11"
   timeout       = 30
   memory_size   = 256
@@ -157,7 +157,7 @@ resource "aws_lambda_function" "l3_hot_reader" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_NAME = var.digital_twin_name
+      DIGITAL_TWIN_INFO = local.digital_twin_info_json
       DYNAMODB_TABLE    = aws_dynamodb_table.l3_hot[0].name
     }
   }
@@ -207,7 +207,7 @@ resource "aws_lambda_function" "l3_hot_to_cold_mover" {
   count         = local.l3_hot_aws_enabled && local.l3_cold_aws_enabled ? 1 : 0
   function_name = "${var.digital_twin_name}-l3-hot-to-cold-mover"
   role          = aws_iam_role.l3_lambda[0].arn
-  handler       = "handler.lambda_handler"
+  handler       = "lambda_function.lambda_handler"
   runtime       = "python3.11"
   timeout       = 300
   memory_size   = 512
@@ -218,10 +218,18 @@ resource "aws_lambda_function" "l3_hot_to_cold_mover" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_NAME      = var.digital_twin_name
+      DIGITAL_TWIN_INFO      = local.digital_twin_info_json
       SOURCE_TABLE           = aws_dynamodb_table.l3_hot[0].name
       DESTINATION_BUCKET     = aws_s3_bucket.l3_cold[0].bucket
-      RETENTION_DAYS         = tostring(var.layer_3_hot_to_cold_interval_days)
+
+      # Multi-cloud Hot→Cold: When AWS L3 Hot sends to remote Cold
+      REMOTE_COLD_WRITER_URL = var.layer_3_hot_provider == "aws" && var.layer_3_cold_provider != "aws" ? (
+        var.layer_3_cold_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/cold-writer" :
+        var.layer_3_cold_provider == "google" ? try(google_cloudfunctions2_function.cold_writer[0].url, "") : ""
+      ) : ""
+
+      # Inter-cloud token
+      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
     }
   }
 
@@ -290,7 +298,7 @@ resource "aws_lambda_function" "l3_cold_to_archive_mover" {
   count         = local.l3_cold_aws_enabled && local.l3_archive_aws_enabled ? 1 : 0
   function_name = "${var.digital_twin_name}-l3-cold-to-archive-mover"
   role          = aws_iam_role.l3_lambda[0].arn
-  handler       = "handler.lambda_handler"
+  handler       = "lambda_function.lambda_handler"
   runtime       = "python3.11"
   timeout       = 300
   memory_size   = 512
@@ -301,10 +309,18 @@ resource "aws_lambda_function" "l3_cold_to_archive_mover" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_NAME      = var.digital_twin_name
+      DIGITAL_TWIN_INFO      = local.digital_twin_info_json
       SOURCE_BUCKET          = aws_s3_bucket.l3_cold[0].bucket
       DESTINATION_BUCKET     = aws_s3_bucket.l3_archive[0].bucket
-      RETENTION_DAYS         = tostring(var.layer_3_cold_to_archive_interval_days)
+
+      # Multi-cloud Cold→Archive: When AWS L3 Cold sends to remote Archive
+      REMOTE_ARCHIVE_WRITER_URL = var.layer_3_cold_provider == "aws" && var.layer_3_archive_provider != "aws" ? (
+        var.layer_3_archive_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/archive-writer" :
+        var.layer_3_archive_provider == "google" ? try(google_cloudfunctions2_function.archive_writer[0].url, "") : ""
+      ) : ""
+
+      # Inter-cloud token
+      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
     }
   }
 

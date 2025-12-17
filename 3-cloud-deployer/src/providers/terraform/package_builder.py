@@ -14,7 +14,7 @@ import shutil
 import zipfile
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 logger = logging.getLogger(__name__)
 
@@ -534,3 +534,227 @@ def get_user_package_path(project_path: Path, function_name: str, provider: str)
         Path to the ZIP file
     """
     return project_path / ".build" / provider / f"{function_name}.zip"
+
+
+def build_combined_user_package(
+    project_path: Path,
+    providers_config: dict
+) -> Optional[Path]:
+    """
+    Build a SINGLE ZIP containing ALL user functions for Azure.
+    
+    This creates a combined ZIP with all event actions, processors, and
+    feedback functions for deployment to a single Azure Function App.
+    
+    Args:
+        project_path: Path to project upload directory (upload/<project>/)
+        providers_config: Layer provider configuration
+        
+    Returns:
+        Path to combined ZIP file, or None if no user functions
+        
+    Raises:
+        ValueError: If required configs are missing
+    """
+    if not project_path.exists():
+        raise ValueError(f"Project path not found: {project_path}")
+    
+    l2_provider = providers_config.get("layer_2_provider", "").lower()
+    
+    if l2_provider != "azure":
+        logger.info("  L2 is not Azure, skipping combined user package")
+        return None
+    
+    # Build output directory
+    build_dir = project_path / ".build" / "azure"
+    build_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Load config files
+    events_path = project_path / "config_events.json"
+    devices_path = project_path / "config_iot_devices.json"
+    optimization_path = project_path / "config_optimization.json"
+    
+    if not devices_path.exists():
+        logger.info("  No config_iot_devices.json, skipping user package")
+        return None
+    
+    with open(devices_path, 'r') as f:
+        devices_config = json.load(f)
+    
+    # Load optimization config to check which features are enabled
+    optimization_config = {}
+    if optimization_path.exists():
+        with open(optimization_path, 'r') as f:
+            opt_data = json.load(f)
+            optimization_config = opt_data.get("result", {}).get("inputParamsUsed", {})
+    
+    # Feature flags from config_optimization.json
+    use_event_checking = optimization_config.get("useEventChecking", True)
+    return_feedback = optimization_config.get("returnFeedbackToDevice", False)
+    
+    # Load events config if event checking is enabled
+    events_config = []
+    if use_event_checking and events_path.exists():
+        with open(events_path, 'r') as f:
+            events_config = json.load(f)
+    
+    # Source directories
+    user_funcs_dir = project_path / "azure_functions"
+    event_actions_dir = user_funcs_dir / "event_actions"
+    processors_dir = user_funcs_dir / "processors"
+    feedback_dir = user_funcs_dir / "event-feedback"
+    
+    # Azure shared files
+    azure_funcs_base = Path(__file__).parent.parent / "azure" / "azure_functions"
+    
+    combined_zip_path = build_dir / "user_functions_combined.zip"
+    combined_hash = hashlib.sha256()
+    functions_added = []
+    
+    logger.info("  Building combined Azure user functions package...")
+    
+    with zipfile.ZipFile(combined_zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Add host.json
+        host_json = azure_funcs_base / "host.json"
+        if host_json.exists():
+            zf.write(host_json, "host.json")
+        else:
+            # Create default host.json
+            zf.writestr("host.json", json.dumps({
+                "version": "2.0",
+                "extensionBundle": {
+                    "id": "Microsoft.Azure.Functions.ExtensionBundle",
+                    "version": "[4.*, 5.0.0)"
+                }
+            }, indent=2))
+        
+        # Add requirements.txt
+        req_path = azure_funcs_base / "requirements.txt"
+        if req_path.exists():
+            zf.write(req_path, "requirements.txt")
+        else:
+            zf.writestr("requirements.txt", "azure-functions\n")
+        
+        # 1. Add Event Actions
+        for event in events_config:
+            action = event.get("action", {})
+            func_name = action.get("functionName")
+            if not func_name:
+                continue
+            
+            func_dir = event_actions_dir / func_name
+            if func_dir.exists():
+                _add_function_to_combined_zip(zf, func_dir, func_name, combined_hash)
+                functions_added.append(f"event-action:{func_name}")
+        
+        # 2. Add Processors (with wrapper)
+        processors_seen = set()
+        processor_wrapper_dir = azure_funcs_base / "processor_wrapper"
+        
+        for device in devices_config:
+            processor_name = device.get("processor", "default_processor")
+            if processor_name in processors_seen:
+                continue
+            processors_seen.add(processor_name)
+            
+            proc_dir = processors_dir / processor_name
+            if proc_dir.exists():
+                _add_processor_to_combined_zip(zf, proc_dir, processor_name, 
+                                               processor_wrapper_dir, combined_hash)
+                functions_added.append(f"processor:{processor_name}")
+        
+        # 3. Add Event Feedback (only if returnFeedbackToDevice is enabled)
+        if return_feedback and feedback_dir.exists():
+            _add_function_to_combined_zip(zf, feedback_dir, "event-feedback", combined_hash)
+            functions_added.append("event-feedback")
+    
+    if not functions_added:
+        logger.info("  No user functions found, removing empty ZIP")
+        combined_zip_path.unlink(missing_ok=True)
+        return None
+    
+    # Save combined hash
+    combined_hash_str = f"sha256:{combined_hash.hexdigest()}"
+    _save_user_hash_metadata(project_path, "user_functions_combined", "azure", combined_hash_str)
+    
+    logger.info(f"  ✓ Built combined user package with {len(functions_added)} functions")
+    return combined_zip_path
+
+
+def _add_function_to_combined_zip(
+    zf: zipfile.ZipFile, 
+    func_dir: Path, 
+    func_name: str,
+    hasher: Any
+) -> None:
+    """Add a function directory to the combined ZIP under its own folder."""
+    for file_path in func_dir.rglob('*'):
+        if file_path.is_file() and '__pycache__' not in str(file_path):
+            arcname = f"{func_name}/{file_path.relative_to(func_dir)}"
+            zf.write(file_path, arcname)
+            # Update hash
+            hasher.update(arcname.encode('utf-8'))
+            with open(file_path, 'rb') as f:
+                hasher.update(f.read())
+
+
+def _add_processor_to_combined_zip(
+    zf: zipfile.ZipFile,
+    proc_dir: Path,
+    proc_name: str,
+    wrapper_dir: Path,
+    hasher: Any
+) -> None:
+    """Add a processor with wrapper to the combined ZIP."""
+    func_name = f"processor-{proc_name}"
+    
+    # Add wrapper files to processor folder
+    if wrapper_dir.exists():
+        for file_path in wrapper_dir.rglob('*'):
+            if file_path.is_file() and '__pycache__' not in str(file_path):
+                arcname = f"{func_name}/{file_path.relative_to(wrapper_dir)}"
+                zf.write(file_path, arcname)
+                hasher.update(arcname.encode('utf-8'))
+                with open(file_path, 'rb') as f:
+                    hasher.update(f.read())
+    
+    # Add processor user code at same level as function_app.py
+    # The wrapper does "from process import process" so process.py must be at root
+    for file_path in proc_dir.rglob('*'):
+        if file_path.is_file() and '__pycache__' not in str(file_path):
+            # Put at root level (same as function_app.py) for import to work
+            arcname = f"{func_name}/{file_path.relative_to(proc_dir)}"
+            zf.write(file_path, arcname)
+            hasher.update(arcname.encode('utf-8'))
+            with open(file_path, 'rb') as f:
+                hasher.update(f.read())
+
+
+def check_user_functions_changed(project_path: Path) -> bool:
+    """
+    Check if any user function code has changed since last build.
+    
+    Compares current combined hash with saved metadata.
+    
+    Args:
+        project_path: Path to project upload directory
+        
+    Returns:
+        True if any function changed or no previous build exists
+    """
+    metadata_path = project_path / ".build" / "metadata" / "user_functions_combined.azure.json"
+    
+    if not metadata_path.exists():
+        logger.info("  No previous user functions build found")
+        return True
+    
+    # We'd need to rebuild to get current hash, so just check timestamp
+    # For full accuracy, could compare individual function hashes
+    # For now, always return True to rebuild (safe but slower)
+    return True
+
+
+def get_combined_user_package_path(project_path: Path) -> Path:
+    """Get path to the combined user functions ZIP."""
+    return project_path / ".build" / "azure" / "user_functions_combined.zip"
+

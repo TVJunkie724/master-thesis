@@ -132,6 +132,9 @@ resource "azurerm_linux_function_app" "l3" {
   storage_account_name       = azurerm_storage_account.main[0].name
   storage_account_access_key = azurerm_storage_account.main[0].primary_access_key
 
+  # Deploy function code via Terraform
+  zip_deploy_file = var.azure_l3_zip_path != "" ? var.azure_l3_zip_path : null
+
   # Managed Identity
   identity {
     type         = "UserAssigned"
@@ -154,8 +157,9 @@ resource "azurerm_linux_function_app" "l3" {
     FUNCTIONS_WORKER_RUNTIME       = "python"
     FUNCTIONS_EXTENSION_VERSION    = "~4"
     AzureWebJobsStorage           = local.azure_storage_connection_string
-    WEBSITE_RUN_FROM_PACKAGE      = "1"
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
+    ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
+    AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
 
     # Cosmos DB connection
     COSMOS_ENDPOINT = azurerm_cosmosdb_account.main[0].endpoint
@@ -175,14 +179,24 @@ resource "azurerm_linux_function_app" "l3" {
 
     # Cross-cloud authentication
     INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : random_password.inter_cloud_token[0].result
+
+    # Multi-cloud Hot→Cold: When Azure L3 Hot sends to remote Cold
+    REMOTE_COLD_WRITER_URL = var.layer_3_hot_provider == "azure" && var.layer_3_cold_provider != "azure" ? (
+      var.layer_3_cold_provider == "aws" ? try(aws_lambda_function_url.l0_cold_writer[0].function_url, "") :
+      var.layer_3_cold_provider == "google" ? try(google_cloudfunctions2_function.cold_writer[0].url, "") : ""
+    ) : ""
+
+    # Multi-cloud Cold→Archive: When Azure L3 Cold sends to remote Archive
+    REMOTE_ARCHIVE_WRITER_URL = var.layer_3_cold_provider == "azure" && var.layer_3_archive_provider != "azure" ? (
+      var.layer_3_archive_provider == "aws" ? try(aws_lambda_function_url.l0_archive_writer[0].function_url, "") :
+      var.layer_3_archive_provider == "google" ? try(google_cloudfunctions2_function.archive_writer[0].url, "") : ""
+    ) : ""
   }
 
   tags = local.common_tags
 
   lifecycle {
-    ignore_changes = [
-      app_settings["WEBSITE_RUN_FROM_PACKAGE"],
-    ]
+    ignore_changes = []
   }
 }
 
