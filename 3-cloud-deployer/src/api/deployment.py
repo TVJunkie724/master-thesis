@@ -71,3 +71,41 @@ def destroy_all(
         print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --------- AWS TwinMaker Force Delete ----------
+@router.delete("/force_delete_twinmaker", tags=["Cleanup"])
+def force_delete_twinmaker(
+    project_name: str = Query("template", description="Name of the project context")
+):
+    """
+    Force delete AWS TwinMaker workspace when Terraform destroy fails.
+    
+    Use when Terraform cannot destroy TwinMaker because it contains entities.
+    Deletes all entities → component types → workspace.
+    """
+    validate_project_context(project_name)
+    try:
+        from src.providers.aws.provider import AWSProvider
+        from src.providers.aws.layers.layer_4_twinmaker import force_delete_twinmaker_workspace
+        from src.core.config_loader import load_project_config, load_credentials
+        from pathlib import Path
+        
+        project_path = Path("upload") / project_name
+        config = load_project_config(project_path)
+        credentials = load_credentials(project_path)
+        
+        provider = AWSProvider()
+        provider.initialize_clients(credentials.get("aws", {}), config.digital_twin_name)
+        
+        result = force_delete_twinmaker_workspace(provider)
+        
+        return {
+            "message": "TwinMaker workspace deletion complete",
+            "result": result
+        }
+    except Exception as e:
+        print_stack_trace()
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+

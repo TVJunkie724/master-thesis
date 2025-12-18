@@ -186,20 +186,41 @@ class TestEventGridMinimal:
                             {"name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "true"},
                             {"name": "ENABLE_ORYX_BUILD", "value": "true"},
                             {"name": "AzureWebJobsFeatureFlags", "value": "EnableWorkerIndexing"},
+                            # Required for Consumption Plan
+                            {"name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", "value": storage_conn_str},
+                            {"name": "WEBSITE_CONTENTSHARE", "value": func_app_name.lower()},
                         ],
                     ),
                 )
             ).result()
             resources["func_app_id"] = func_app.id
+            resources["func_app_name"] = func_app_name
             print("  ✓ Function App created")
+            
+            # Step 4.5: Enable SCM Basic Auth (required for zip deploy)
+            from azure.mgmt.web.models import CsmPublishingCredentialsPoliciesEntity
+            print("  Enabling SCM Basic Auth...")
+            azure_clients["web"].web_apps.update_scm_allowed(
+                rg_name, func_app_name,
+                CsmPublishingCredentialsPoliciesEntity(allow=True)
+            )
+            azure_clients["web"].web_apps.update_ftp_allowed(
+                rg_name, func_app_name,
+                CsmPublishingCredentialsPoliciesEntity(allow=True)
+            )
+            print("  ✓ Basic Auth enabled")
+            
+            # Wait for function app to initialize
+            print("  Waiting 20s for function app to initialize...")
+            time.sleep(20)
             
             # Step 5: Deploy function code via ZIP
             print(f"\n[5/7] Deploying dispatcher function code...")
             self._deploy_function_code(azure_clients, rg_name, func_app_name)
             
-            # Wait for function to sync - increased to 600s (10 minutes)
-            print("  Waiting up to 600 seconds for Oryx build...")
-            for i in range(60):  # 60 * 10s = 600s = 10 minutes
+            # Wait for function to sync - increased to 180s (3 minutes)
+            print("  Waiting up to 180 seconds for Oryx build...")
+            for i in range(18):  # 18 * 10s = 180s = 3 minutes
                 time.sleep(10)
                 # Check if function is visible
                 try:
@@ -213,7 +234,7 @@ class TestEventGridMinimal:
                 print(f"    Waiting... ({(i+1)*10}s)")
             
             if not resources["function_deployed"]:
-                print("  ⚠ Function not visible after 600s, trying EventGrid anyway...")
+                print("  ⚠ Function not visible after 180s, trying EventGrid anyway...")
             
             # Step 6: Create IoT Hub
             print(f"\n[6/7] Creating IoT Hub: {iothub_name}")
@@ -252,21 +273,24 @@ class TestEventGridMinimal:
             print(f"  Creating subscription to: {function_endpoint}")
             
             try:
+                from azure.mgmt.eventgrid.models import (
+                    EventSubscription,
+                    AzureFunctionEventSubscriptionDestination,
+                    EventSubscriptionFilter
+                )
+                
                 subscription = azure_clients["eventgrid"].system_topic_event_subscriptions.begin_create_or_update(
                     rg_name,
                     topic_name,
                     sub_name,
-                    {
-                        "destination": {
-                            "endpoint_type": "AzureFunction",
-                            "properties": {
-                                "resource_id": function_endpoint,
-                            }
-                        },
-                        "filter": {
-                            "included_event_types": ["Microsoft.Devices.DeviceTelemetry"],
-                        },
-                    }
+                    EventSubscription(
+                        destination=AzureFunctionEventSubscriptionDestination(
+                            resource_id=function_endpoint
+                        ),
+                        filter=EventSubscriptionFilter(
+                            included_event_types=["Microsoft.Devices.DeviceTelemetry"]
+                        )
+                    )
                 ).result()
                 resources["eventgrid_created"] = True
                 print("  ✓ EventGrid subscription created!")
@@ -301,7 +325,8 @@ class TestEventGridMinimal:
             rg_name, func_app_name
         ).result()
         
-        deploy_url = f"https://{func_app_name}.scm.azurewebsites.net/api/zipdeploy"
+        # Use async ZIP deploy to trigger remote build (CRITICAL for Oryx)
+        deploy_url = f"https://{func_app_name}.scm.azurewebsites.net/api/zipdeploy?isAsync=true"
         
         print(f"  Deploying to: {deploy_url}")
         

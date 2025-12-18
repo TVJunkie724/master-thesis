@@ -23,7 +23,7 @@
 
 resource "google_firestore_database" "main" {
   count      = local.gcp_l3_hot_enabled ? 1 : 0
-  project    = var.gcp_project_id
+  project    = google_project.main[0].project_id
   name       = "(default)"
   location_id = var.gcp_region
   type       = "FIRESTORE_NATIVE"
@@ -37,7 +37,7 @@ resource "google_firestore_database" "main" {
 
 resource "google_storage_bucket" "cold" {
   count         = local.gcp_l3_cold_enabled ? 1 : 0
-  name          = "${var.gcp_project_id}-${var.digital_twin_name}-cold"
+  name          = "${google_project.main[0].project_id}-${var.digital_twin_name}-cold"
   location      = var.gcp_region
   storage_class = "NEARLINE"
   force_destroy = true
@@ -66,7 +66,7 @@ resource "google_storage_bucket" "cold" {
 
 resource "google_storage_bucket" "archive" {
   count         = local.gcp_l3_archive_enabled && !local.gcp_l3_cold_enabled ? 1 : 0
-  name          = "${var.gcp_project_id}-${var.digital_twin_name}-archive"
+  name          = "${google_project.main[0].project_id}-${var.digital_twin_name}-archive"
   location      = var.gcp_region
   storage_class = "ARCHIVE"
   force_destroy = true
@@ -108,7 +108,7 @@ resource "google_cloudfunctions2_function" "hot_reader" {
   count    = local.gcp_l3_hot_enabled ? 1 : 0
   name     = "${var.digital_twin_name}-hot-reader"
   location = var.gcp_region
-  project  = var.gcp_project_id
+  project  = google_project.main[0].project_id
 
   build_config {
     runtime     = "python311"
@@ -131,7 +131,7 @@ resource "google_cloudfunctions2_function" "hot_reader" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
-      GCP_PROJECT_ID       = var.gcp_project_id
+      GCP_PROJECT_ID       = google_project.main[0].project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
       INTER_CLOUD_TOKEN    = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
@@ -157,7 +157,7 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
   count    = local.gcp_l3_hot_enabled && local.gcp_l3_cold_enabled ? 1 : 0
   name     = "${var.digital_twin_name}-hot-to-cold-mover"
   location = var.gcp_region
-  project  = var.gcp_project_id
+  project  = google_project.main[0].project_id
 
   build_config {
     runtime     = "python311"
@@ -180,7 +180,7 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
-      GCP_PROJECT_ID       = var.gcp_project_id
+      GCP_PROJECT_ID       = google_project.main[0].project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
       COLD_BUCKET          = google_storage_bucket.cold[0].name
       HOT_TO_COLD_DAYS     = var.layer_3_hot_to_cold_interval_days
@@ -205,7 +205,7 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
 resource "google_cloud_scheduler_job" "hot_to_cold" {
   count    = local.gcp_l3_hot_enabled && local.gcp_l3_cold_enabled ? 1 : 0
   name     = "${var.digital_twin_name}-hot-to-cold-schedule"
-  project  = var.gcp_project_id
+  project  = google_project.main[0].project_id
   region   = var.gcp_region
   schedule = "0 2 * * *"  # Run daily at 2 AM
   
@@ -227,7 +227,7 @@ resource "google_cloud_scheduler_job" "hot_to_cold" {
 
 resource "google_cloud_run_service_iam_member" "hot_reader_invoker" {
   count    = local.gcp_l3_hot_enabled ? 1 : 0
-  project  = var.gcp_project_id
+  project  = google_project.main[0].project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.hot_reader[0].name
   role     = "roles/run.invoker"
@@ -236,7 +236,7 @@ resource "google_cloud_run_service_iam_member" "hot_reader_invoker" {
 
 resource "google_cloud_run_service_iam_member" "hot_to_cold_mover_invoker" {
   count    = local.gcp_l3_hot_enabled && local.gcp_l3_cold_enabled ? 1 : 0
-  project  = var.gcp_project_id
+  project  = google_project.main[0].project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.hot_to_cold_mover[0].name
   role     = "roles/run.invoker"

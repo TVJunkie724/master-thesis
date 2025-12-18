@@ -30,11 +30,18 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables - fail fast if missing
-PERSISTER_FUNCTION_URL = require_env("PERSISTER_FUNCTION_URL")
+# Lazy loading for environment variables to allow Azure function discovery
+_persister_function_url = None
 
-# Create Function App instance
-app = func.FunctionApp()
+def _get_persister_function_url():
+    global _persister_function_url
+    if _persister_function_url is None:
+        _persister_function_url = require_env("PERSISTER_FUNCTION_URL")
+    return _persister_function_url
+
+
+# Create Blueprint for registration by main function_app.py
+bp = func.Blueprint()
 
 
 def _invoke_persister(payload: dict) -> None:
@@ -44,9 +51,10 @@ def _invoke_persister(payload: dict) -> None:
     Args:
         payload: Processed event data to persist
     """
+    persister_url = _get_persister_function_url()
     data = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
-    req = urllib.request.Request(PERSISTER_FUNCTION_URL, data=data, headers=headers, method="POST")
+    req = urllib.request.Request(persister_url, data=data, headers=headers, method="POST")
     
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
@@ -59,8 +67,8 @@ def _invoke_persister(payload: dict) -> None:
         raise
 
 
-@app.function_name(name="processor")
-@app.route(route="processor", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
+@bp.function_name(name="processor")
+@bp.route(route="processor", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def processor(req: func.HttpRequest) -> func.HttpResponse:
     """
     Execute user processing logic and invoke Persister.

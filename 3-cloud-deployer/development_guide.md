@@ -261,7 +261,8 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
 docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/ --ignore=tests/e2e -q
 
 # E2E TESTS - Only run when user explicitly requests
-# docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/e2e/azure/test_azure_single_cloud_e2e.py -v -m live
+# ALWAYS use -s flag for real-time output (don't wait until test ends to see errors)
+# docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/e2e/azure/test_azure_terraform_e2e.py -v -s -m live
 ```
 
 > **⚠️ E2E TEST POLICY:**

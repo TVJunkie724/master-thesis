@@ -46,6 +46,10 @@ resource "azurerm_linux_function_app" "l2" {
   # Deploy function code via Terraform
   zip_deploy_file = var.azure_l2_zip_path != "" ? var.azure_l2_zip_path : null
 
+  # Enable SCM Basic Auth (required for zip_deploy_file)
+  webdeploy_publish_basic_authentication_enabled = true
+  ftp_publish_basic_authentication_enabled       = true
+
   # Managed Identity
   identity {
     type         = "UserAssigned"
@@ -66,6 +70,10 @@ resource "azurerm_linux_function_app" "l2" {
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
     ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
     AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
+
+    # Required for Consumption Plan with zip deploy
+    WEBSITE_CONTENTAZUREFILECONNECTIONSTRING = local.azure_storage_connection_string
+    WEBSITE_CONTENTSHARE                     = "${var.digital_twin_name}-l2-content"
 
     # L3 Hot Storage connection (Cosmos DB - set after L3 deployment)
     # COSMOS_CONNECTION_STRING = "..." (populated by Python orchestrator)
@@ -117,6 +125,10 @@ resource "azurerm_linux_function_app" "user" {
 
   # NO zip_deploy_file - user functions deployed via SDK after terraform
 
+  # Enable SCM Basic Auth (required for SDK zip deploy)
+  webdeploy_publish_basic_authentication_enabled = true
+  ftp_publish_basic_authentication_enabled       = true
+
   identity {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.main[0].id]
@@ -136,6 +148,10 @@ resource "azurerm_linux_function_app" "user" {
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
     ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
     AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
+
+    # Required for Consumption Plan with zip deploy
+    WEBSITE_CONTENTAZUREFILECONNECTIONSTRING = local.azure_storage_connection_string
+    WEBSITE_CONTENTSHARE                     = "${var.digital_twin_name}-user-content"
 
     # Digital Twin info
     DIGITAL_TWIN_NAME = var.digital_twin_name

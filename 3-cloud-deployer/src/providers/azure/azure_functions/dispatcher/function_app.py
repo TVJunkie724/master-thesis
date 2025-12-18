@@ -29,8 +29,17 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables - fail fast if missing
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
+# DIGITAL_TWIN_INFO is lazy-loaded to allow Azure function discovery
+# (module-level require_env would fail during import if env var is missing)
+_digital_twin_info = None
+
+def _get_digital_twin_info():
+    """Lazy-load DIGITAL_TWIN_INFO to avoid import-time failures."""
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
+
 
 # Target function suffix: "-processor" for single-cloud, "-connector" for multi-cloud
 TARGET_FUNCTION_SUFFIX = os.environ.get("TARGET_FUNCTION_SUFFIX", "-processor")
@@ -38,8 +47,8 @@ TARGET_FUNCTION_SUFFIX = os.environ.get("TARGET_FUNCTION_SUFFIX", "-processor")
 # Function URL base for invoking other functions
 FUNCTION_APP_BASE_URL = os.environ.get("FUNCTION_APP_BASE_URL", "").strip()
 
-# Create Function App instance
-app = func.FunctionApp()
+# Create Blueprint for registration by main function_app.py
+bp = func.Blueprint()
 
 
 def _get_target_function_name(device_id: str) -> str:
@@ -50,7 +59,8 @@ def _get_target_function_name(device_id: str) -> str:
     - "-processor" for device-specific processor (single-cloud)
     - "-connector" for connector (multi-cloud L1→L2 bridge)
     """
-    twin_name = DIGITAL_TWIN_INFO["config"]["digital_twin_name"]
+    twin_info = _get_digital_twin_info()
+    twin_name = twin_info["config"]["digital_twin_name"]
     
     if TARGET_FUNCTION_SUFFIX == "-connector":
         # Multi-cloud: route to connector (no device-specific naming)
@@ -94,8 +104,8 @@ def _invoke_function(function_name: str, payload: dict) -> None:
         raise
 
 
-@app.function_name(name="dispatcher")
-@app.event_grid_trigger(arg_name="event")
+@bp.function_name(name="dispatcher")
+@bp.event_grid_trigger(arg_name="event")
 def dispatcher(event: func.EventGridEvent) -> None:
     """
     Main dispatcher function triggered by Event Grid (IoT Hub events).

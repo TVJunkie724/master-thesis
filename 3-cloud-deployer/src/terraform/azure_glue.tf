@@ -52,6 +52,10 @@ resource "azurerm_linux_function_app" "l0_glue" {
   # Deploy function code via Terraform
   zip_deploy_file = var.azure_l0_zip_path != "" ? var.azure_l0_zip_path : null
 
+  # Enable SCM Basic Auth (required for zip_deploy_file)
+  webdeploy_publish_basic_authentication_enabled = true
+  ftp_publish_basic_authentication_enabled       = true
+
   # Managed Identity for accessing other Azure resources
   identity {
     type         = "UserAssigned"
@@ -77,6 +81,10 @@ resource "azurerm_linux_function_app" "l0_glue" {
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
     ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
     AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
+
+    # Required for Consumption Plan with zip deploy
+    WEBSITE_CONTENTAZUREFILECONNECTIONSTRING = local.azure_storage_connection_string
+    WEBSITE_CONTENTSHARE                     = "${var.digital_twin_name}-l0-content"
 
     # Cross-cloud authentication
     INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : random_password.inter_cloud_token[0].result

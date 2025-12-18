@@ -151,11 +151,8 @@ variable "aws_region" {
 # GCP Credentials (from config_credentials.json)
 # ==============================================================================
 
-variable "gcp_project_id" {
-  description = "GCP Project ID"
-  type        = string
-  default     = ""
-}
+# Note: gcp_project_id is no longer used - Terraform always creates a new project
+# using the gcp_billing_account. The project ID is generated as "${digital_twin_name}-project"
 
 variable "gcp_credentials_json" {
   description = "GCP Service Account credentials JSON (contents, not path)"

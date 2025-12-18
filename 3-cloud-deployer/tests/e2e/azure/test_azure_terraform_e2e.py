@@ -163,7 +163,8 @@ class TestAzureTerraformE2E:
                 print(f"  Please check the Azure Portal and manually delete:")
                 print(f"    Resource Group: rg-{config.digital_twin_name}")
         
-        request.addfinalizer(terraform_cleanup)
+        # DISABLED FOR DEBUGGING - resources persist for re-run (Terraform is idempotent)
+        # request.addfinalizer(terraform_cleanup)
         
         # Deploy
         try:

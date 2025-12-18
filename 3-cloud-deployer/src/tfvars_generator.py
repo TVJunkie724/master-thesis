@@ -268,7 +268,7 @@ def _load_credentials(project_dir: Path) -> dict:
         tfvars["aws_secret_access_key"] = aws["aws_secret_access_key"]
         tfvars["aws_region"] = aws["aws_region"]
     
-    # GCP credentials - require either project_id (existing) OR billing_account (new)
+    # GCP credentials - require billing_account for project creation
     if "gcp" in creds:
         gcp = creds["gcp"]
         
@@ -276,34 +276,20 @@ def _load_credentials(project_dir: Path) -> dict:
         if "gcp_region" not in gcp:
             raise ConfigurationError("Missing required GCP credential: gcp_region")
         
-        # Must have either project_id (use existing) OR billing_account (create new)
-        has_project_id = "gcp_project_id" in gcp and gcp["gcp_project_id"].strip()
+        # gcp_billing_account is required (Terraform always creates a new project)
         has_billing_account = "gcp_billing_account" in gcp and gcp["gcp_billing_account"].strip()
         
-        if not has_project_id and not has_billing_account:
+        if not has_billing_account:
             raise ConfigurationError(
-                "GCP requires either 'gcp_project_id' (use existing project) "
-                "or 'gcp_billing_account' (create new project). Neither was provided."
+                "GCP requires 'gcp_billing_account' for project creation. "
+                "The project ID is auto-generated as '${digital_twin_name}-project'."
             )
         
-        tfvars["gcp_project_id"] = gcp.get("gcp_project_id", "").strip()
         tfvars["gcp_region"] = gcp["gcp_region"]
-        tfvars["gcp_billing_account"] = gcp.get("gcp_billing_account", "").strip()
+        tfvars["gcp_billing_account"] = gcp["gcp_billing_account"].strip()
         
         # GCP credentials file - read if exists, use dummy if not
         # TODO: Make this stricter when actually deploying GCP resources
-
-        # GCP credentials file is required if deploying to GCP
-        # if "gcp_credentials_file" not in gcp:
-        #     raise ConfigurationError("Missing required GCP credential: gcp_credentials_file")
-        
-        # creds_file_path = Path(gcp["gcp_credentials_file"])
-        # if not creds_file_path.exists():
-        #     raise ConfigurationError(
-        #         f"GCP credentials file not found: {gcp['gcp_credentials_file']}"
-        #     )
-
-        # TODO: remove dummy credentials
         creds_file_path = Path(gcp.get("gcp_credentials_file", ""))
         if creds_file_path.exists():
             with open(creds_file_path) as f:

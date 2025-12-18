@@ -299,12 +299,9 @@ def _merge_function_files(zf: zipfile.ZipFile, func_dirs: List[Path],
     
         deployment.zip/
         ├── function_app.py           ← Main entry (imports from subfolder modules)
-        ├── persister/
+        ├── dispatcher/
         │   ├── __init__.py           ← Auto-generated for Python package
-        │   └── function_app.py       ← Has: "from _shared.env_utils import..."
-        ├── event_checker/
-        │   ├── __init__.py           ← Auto-generated for Python package  
-        │   └── function_app.py       ← Has: "from _shared.env_utils import..."
+        │   └── function_app.py       ← Has: bp = func.Blueprint()
         ├── _shared/
         │   ├── __init__.py
         │   └── env_utils.py
@@ -316,8 +313,8 @@ def _merge_function_files(zf: zipfile.ZipFile, func_dirs: List[Path],
         func_dirs: List of function directory paths
         azure_functions_dir: Base azure_functions directory
     """
-    if len(func_dirs) <= 1:
-        return  # Single function doesn't need Blueprint registration
+    if not func_dirs:
+        return  # No functions to bundle
     
     # Copy function folders to ZIP (including their function_app.py files)
     for func_dir in func_dirs:
@@ -330,8 +327,8 @@ def _merge_function_files(zf: zipfile.ZipFile, func_dirs: List[Path],
         
         for root, _, files in os.walk(func_dir):
             for file in files:
-                # Skip __pycache__ and .pyc files
-                if "__pycache__" in root or file.endswith(".pyc"):
+                # Skip __pycache__, .pyc files, and __init__.py (we create our own)
+                if "__pycache__" in root or file.endswith(".pyc") or file == "__init__.py":
                     continue
                 file_path = Path(root) / file
                 
@@ -491,10 +488,19 @@ def bundle_l0_functions(
 
 def bundle_l1_functions(project_path: str) -> bytes:
     """
-    Bundle L1 functions (dispatcher).
+    Bundle L1 functions (dispatcher) using Blueprint pattern.
+    
+    NOTE: L1 functions are CORE SYSTEM functions from src/providers/azure/azure_functions/,
+    NOT user functions from the project directory.
+    
+    Creates a ZIP with:
+    - function_app.py (main, registers dispatcher blueprint)
+    - dispatcher/ (module with bp = func.Blueprint())
+    - _shared/
+    - host.json, requirements.txt
     
     Args:
-        project_path: Absolute path to project directory
+        project_path: Absolute path to project directory (used for shared config only)
     
     Returns:
         ZIP bytes for L1 Function App
@@ -505,22 +511,32 @@ def bundle_l1_functions(project_path: str) -> bytes:
     if not project_path:
         raise ValueError("project_path is required")
     
-    azure_functions_dir = _get_azure_functions_dir(project_path)
+    # L1 dispatcher is a CORE SYSTEM function - always use src/providers/azure/azure_functions/
+    core_functions_dir = Path(__file__).parent.parent / "azure_functions"
+    
+    if not core_functions_dir.exists():
+        raise BundleError(f"Core azure_functions directory not found: {core_functions_dir}")
     
     functions = ["dispatcher"]
     
-    logger.info(f"Bundling L1 functions: {functions}")
+    logger.info(f"Bundling L1 functions from {core_functions_dir}: {functions}")
     
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        _add_shared_files(zf, azure_functions_dir)
+        _add_shared_files(zf, core_functions_dir)
         
+        # Collect function directories
+        func_dirs = []
         for func_name in functions:
-            func_dir = azure_functions_dir / func_name
+            func_dir = core_functions_dir / func_name
             if func_dir.exists():
-                _add_function_dir(zf, func_dir, azure_functions_dir)
+                func_dirs.append(func_dir)
             else:
-                logger.warning(f"L1 function not found: {func_name}")
+                raise BundleError(f"L1 function not found: {func_dir}")
+        
+        # Always use Blueprint pattern - even for single function
+        # This ensures consistent structure and proper function discovery
+        _merge_function_files(zf, func_dirs, core_functions_dir)
     
     return zip_buffer.getvalue()
 
@@ -529,8 +545,11 @@ def bundle_l2_functions(project_path: str) -> bytes:
     """
     Bundle L2 functions (persister, event-checker).
     
+    NOTE: L2 functions are CORE SYSTEM functions from src/providers/azure/azure_functions/,
+    NOT user functions from the project directory.
+    
     Args:
-        project_path: Absolute path to project directory
+        project_path: Absolute path to project directory (used for shared config only)
     
     Returns:
         ZIP bytes for L2 Function App
@@ -541,38 +560,42 @@ def bundle_l2_functions(project_path: str) -> bytes:
     if not project_path:
         raise ValueError("project_path is required")
     
-    azure_functions_dir = _get_azure_functions_dir(project_path)
+    # L2 functions are CORE SYSTEM functions - always use src/providers/azure/azure_functions/
+    core_functions_dir = Path(__file__).parent.parent / "azure_functions"
+    
+    if not core_functions_dir.exists():
+        raise BundleError(f"Core azure_functions directory not found: {core_functions_dir}")
     
     # Core functions
     functions = ["persister"]
     
     # Optional: event-checker if exists
-    event_checker_dir = azure_functions_dir / "event-checker"
+    event_checker_dir = core_functions_dir / "event-checker"
     if event_checker_dir.exists():
         functions.append("event-checker")
     
-    logger.info(f"Bundling L2 functions: {functions}")
+    logger.info(f"Bundling L2 functions from {core_functions_dir}: {functions}")
     
     # Determine if this is a single or multi-function bundle
     is_single = len(functions) == 1
     
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        _add_shared_files(zf, azure_functions_dir)
+        _add_shared_files(zf, core_functions_dir)
         
         # Collect existing function directories
         func_dirs = []
         for func_name in functions:
-            func_dir = azure_functions_dir / func_name
+            func_dir = core_functions_dir / func_name
             if func_dir.exists():
                 func_dirs.append(func_dir)
-                _add_function_dir(zf, func_dir, azure_functions_dir, is_single_function=is_single)
+                _add_function_dir(zf, func_dir, core_functions_dir, is_single_function=is_single)
             else:
-                logger.warning(f"L2 function not found: {func_name}")
+                raise BundleError(f"L2 function not found: {func_dir}")
         
         # For multi-function bundles, merge function_app.py files
         if not is_single:
-            _merge_function_files(zf, func_dirs, azure_functions_dir)
+            _merge_function_files(zf, func_dirs, core_functions_dir)
     
     return zip_buffer.getvalue()
 
@@ -581,8 +604,11 @@ def bundle_l3_functions(project_path: str) -> bytes:
     """
     Bundle L3 functions (hot-reader, movers).
     
+    NOTE: L3 functions are CORE SYSTEM functions from src/providers/azure/azure_functions/,
+    NOT user functions from the project directory.
+    
     Args:
-        project_path: Absolute path to project directory
+        project_path: Absolute path to project directory (used for shared config only)
     
     Returns:
         ZIP bytes for L3 Function App
@@ -593,7 +619,11 @@ def bundle_l3_functions(project_path: str) -> bytes:
     if not project_path:
         raise ValueError("project_path is required")
     
-    azure_functions_dir = _get_azure_functions_dir(project_path)
+    # L3 functions are CORE SYSTEM functions - always use src/providers/azure/azure_functions/
+    core_functions_dir = Path(__file__).parent.parent / "azure_functions"
+    
+    if not core_functions_dir.exists():
+        raise BundleError(f"Core azure_functions directory not found: {core_functions_dir}")
     
     # Core functions for L3
     functions = [
@@ -603,28 +633,28 @@ def bundle_l3_functions(project_path: str) -> bytes:
         "cold-archive-mover"
     ]
     
-    logger.info(f"Bundling L3 functions: {functions}")
+    logger.info(f"Bundling L3 functions from {core_functions_dir}: {functions}")
     
     # L3 always has multiple functions
     is_single = len(functions) == 1
     
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        _add_shared_files(zf, azure_functions_dir)
+        _add_shared_files(zf, core_functions_dir)
         
         # Collect existing function directories
         func_dirs = []
         for func_name in functions:
-            func_dir = azure_functions_dir / func_name
+            func_dir = core_functions_dir / func_name
             if func_dir.exists():
                 func_dirs.append(func_dir)
-                _add_function_dir(zf, func_dir, azure_functions_dir, is_single_function=is_single)
+                _add_function_dir(zf, func_dir, core_functions_dir, is_single_function=is_single)
             else:
-                logger.warning(f"L3 function not found: {func_name}")
+                logger.warning(f"L3 function not found (optional): {func_name}")
         
         # For multi-function bundles, merge function_app.py files
         if not is_single:
-            _merge_function_files(zf, func_dirs, azure_functions_dir)
+            _merge_function_files(zf, func_dirs, core_functions_dir)
     
     return zip_buffer.getvalue()
 

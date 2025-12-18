@@ -32,7 +32,7 @@ resource "google_cloudfunctions2_function" "ingestion" {
   count    = local.gcp_needs_ingestion ? 1 : 0
   name     = "${var.digital_twin_name}-ingestion"
   location = var.gcp_region
-  project  = var.gcp_project_id
+  project  = google_project.main[0].project_id
 
   build_config {
     runtime     = "python311"
@@ -89,7 +89,7 @@ resource "google_cloudfunctions2_function" "hot_writer" {
   count    = local.gcp_needs_hot_writer ? 1 : 0
   name     = "${var.digital_twin_name}-hot-writer"
   location = var.gcp_region
-  project  = var.gcp_project_id
+  project  = google_project.main[0].project_id
 
   build_config {
     runtime     = "python311"
@@ -112,7 +112,7 @@ resource "google_cloudfunctions2_function" "hot_writer" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
-      GCP_PROJECT_ID       = var.gcp_project_id
+      GCP_PROJECT_ID       = google_project.main[0].project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
       INTER_CLOUD_TOKEN    = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
@@ -148,7 +148,7 @@ resource "google_cloudfunctions2_function" "cold_writer" {
   count    = local.gcp_needs_cold_writer ? 1 : 0
   name     = "${var.digital_twin_name}-cold-writer"
   location = var.gcp_region
-  project  = var.gcp_project_id
+  project  = google_project.main[0].project_id
 
   build_config {
     runtime     = "python311"
@@ -206,7 +206,7 @@ resource "google_cloudfunctions2_function" "archive_writer" {
   count    = local.gcp_needs_archive_writer ? 1 : 0
   name     = "${var.digital_twin_name}-archive-writer"
   location = var.gcp_region
-  project  = var.gcp_project_id
+  project  = google_project.main[0].project_id
 
   build_config {
     runtime     = "python311"
@@ -252,7 +252,7 @@ resource "google_cloudfunctions2_function" "archive_writer" {
 
 resource "google_cloud_run_service_iam_member" "ingestion_invoker" {
   count    = local.gcp_needs_ingestion ? 1 : 0
-  project  = var.gcp_project_id
+  project  = google_project.main[0].project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.ingestion[0].name
   role     = "roles/run.invoker"
@@ -261,7 +261,7 @@ resource "google_cloud_run_service_iam_member" "ingestion_invoker" {
 
 resource "google_cloud_run_service_iam_member" "hot_writer_invoker" {
   count    = local.gcp_needs_hot_writer ? 1 : 0
-  project  = var.gcp_project_id
+  project  = google_project.main[0].project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.hot_writer[0].name
   role     = "roles/run.invoker"
@@ -270,7 +270,7 @@ resource "google_cloud_run_service_iam_member" "hot_writer_invoker" {
 
 resource "google_cloud_run_service_iam_member" "cold_writer_invoker" {
   count    = local.gcp_needs_cold_writer ? 1 : 0
-  project  = var.gcp_project_id
+  project  = google_project.main[0].project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.cold_writer[0].name
   role     = "roles/run.invoker"
@@ -279,7 +279,7 @@ resource "google_cloud_run_service_iam_member" "cold_writer_invoker" {
 
 resource "google_cloud_run_service_iam_member" "archive_writer_invoker" {
   count    = local.gcp_needs_archive_writer ? 1 : 0
-  project  = var.gcp_project_id
+  project  = google_project.main[0].project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.archive_writer[0].name
   role     = "roles/run.invoker"

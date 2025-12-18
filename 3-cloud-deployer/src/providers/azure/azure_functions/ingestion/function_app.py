@@ -32,15 +32,31 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables - fail fast if missing
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
-INTER_CLOUD_TOKEN = require_env("INTER_CLOUD_TOKEN")
+# Lazy loading for environment variables to allow Azure function discovery
+# (module-level require_env would fail during import if env var is missing)
+_digital_twin_info = None
+_inter_cloud_token = None
+
+def _get_digital_twin_info():
+    """Lazy-load DIGITAL_TWIN_INFO to avoid import-time failures."""
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
+
+def _get_inter_cloud_token():
+    """Lazy-load INTER_CLOUD_TOKEN to avoid import-time failures."""
+    global _inter_cloud_token
+    if _inter_cloud_token is None:
+        _inter_cloud_token = require_env("INTER_CLOUD_TOKEN")
+    return _inter_cloud_token
+
 
 # Function base URL for invoking other functions
 FUNCTION_APP_BASE_URL = os.environ.get("FUNCTION_APP_BASE_URL", "").strip()
 
-# Create Function App instance
-app = func.FunctionApp()
+# Create Blueprint for registration by main function_app.py
+bp = func.Blueprint()
 
 
 def _invoke_processor(processor_name: str, payload: dict) -> None:
@@ -72,8 +88,8 @@ def _invoke_processor(processor_name: str, payload: dict) -> None:
         raise
 
 
-@app.function_name(name="ingestion")
-@app.route(route="ingestion", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+@bp.function_name(name="ingestion")
+@bp.route(route="ingestion", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 def ingestion(req: func.HttpRequest) -> func.HttpResponse:
     """
     Receive and validate events from remote cloud connectors.
@@ -86,7 +102,7 @@ def ingestion(req: func.HttpRequest) -> func.HttpResponse:
     try:
         # 1. Validate authentication token
         headers = dict(req.headers)
-        if not validate_token(headers, INTER_CLOUD_TOKEN):
+        if not validate_token(headers, _get_inter_cloud_token()):
             logging.error("Token validation failed")
             return func.HttpResponse(
                 json.dumps({"error": "Unauthorized", "message": "Invalid X-Inter-Cloud-Token"}),
@@ -120,7 +136,8 @@ def ingestion(req: func.HttpRequest) -> func.HttpResponse:
             )
         
         # 5. Determine target processor
-        twin_name = DIGITAL_TWIN_INFO["config"]["digital_twin_name"]
+        twin_info = _get_digital_twin_info()
+        twin_name = twin_info["config"]["digital_twin_name"]
         processor_name = f"{twin_name}-{device_id}-processor"
         
         logging.info(f"Invoking processor: {processor_name}")

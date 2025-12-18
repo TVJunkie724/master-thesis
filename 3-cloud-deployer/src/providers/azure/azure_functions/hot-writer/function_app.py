@@ -30,32 +30,63 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables - fail fast if missing
-INTER_CLOUD_TOKEN = require_env("INTER_CLOUD_TOKEN")
-COSMOS_DB_ENDPOINT = require_env("COSMOS_DB_ENDPOINT")
-COSMOS_DB_KEY = require_env("COSMOS_DB_KEY")
-COSMOS_DB_DATABASE = require_env("COSMOS_DB_DATABASE")
-COSMOS_DB_CONTAINER = require_env("COSMOS_DB_CONTAINER")
+# Lazy loading for environment variables to allow Azure function discovery
+_inter_cloud_token = None
+_cosmos_db_endpoint = None
+_cosmos_db_key = None
+_cosmos_db_database = None
+_cosmos_db_container = None
+
+def _get_inter_cloud_token():
+    global _inter_cloud_token
+    if _inter_cloud_token is None:
+        _inter_cloud_token = require_env("INTER_CLOUD_TOKEN")
+    return _inter_cloud_token
+
+def _get_cosmos_db_endpoint():
+    global _cosmos_db_endpoint
+    if _cosmos_db_endpoint is None:
+        _cosmos_db_endpoint = require_env("COSMOS_DB_ENDPOINT")
+    return _cosmos_db_endpoint
+
+def _get_cosmos_db_key():
+    global _cosmos_db_key
+    if _cosmos_db_key is None:
+        _cosmos_db_key = require_env("COSMOS_DB_KEY")
+    return _cosmos_db_key
+
+def _get_cosmos_db_database():
+    global _cosmos_db_database
+    if _cosmos_db_database is None:
+        _cosmos_db_database = require_env("COSMOS_DB_DATABASE")
+    return _cosmos_db_database
+
+def _get_cosmos_db_container_name():
+    global _cosmos_db_container
+    if _cosmos_db_container is None:
+        _cosmos_db_container = require_env("COSMOS_DB_CONTAINER")
+    return _cosmos_db_container
+
 
 # Cosmos DB container (lazy initialized)
-_cosmos_container = None
+_cosmos_container_client = None
 
-# Create Function App instance
-app = func.FunctionApp()
+# Create Blueprint for registration by main function_app.py
+bp = func.Blueprint()
 
 
 def _get_cosmos_container():
     """Lazy initialization of Cosmos DB container."""
-    global _cosmos_container
-    if _cosmos_container is None:
-        client = CosmosClient(COSMOS_DB_ENDPOINT, credential=COSMOS_DB_KEY)
-        database = client.get_database_client(COSMOS_DB_DATABASE)
-        _cosmos_container = database.get_container_client(COSMOS_DB_CONTAINER)
-    return _cosmos_container
+    global _cosmos_container_client
+    if _cosmos_container_client is None:
+        client = CosmosClient(_get_cosmos_db_endpoint(), credential=_get_cosmos_db_key())
+        database = client.get_database_client(_get_cosmos_db_database())
+        _cosmos_container_client = database.get_container_client(_get_cosmos_db_container_name())
+    return _cosmos_container_client
 
 
-@app.function_name(name="hot-writer")
-@app.route(route="hot-writer", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+@bp.function_name(name="hot-writer")
+@bp.route(route="hot-writer", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 def hot_writer(req: func.HttpRequest) -> func.HttpResponse:
     """
     Receive and write data from remote Persister.
@@ -67,7 +98,7 @@ def hot_writer(req: func.HttpRequest) -> func.HttpResponse:
     try:
         # 1. Validate token
         headers = dict(req.headers)
-        if not validate_token(headers, INTER_CLOUD_TOKEN):
+        if not validate_token(headers, _get_inter_cloud_token()):
             return func.HttpResponse(
                 json.dumps({"error": "Unauthorized", "message": "Invalid X-Inter-Cloud-Token"}),
                 status_code=403,

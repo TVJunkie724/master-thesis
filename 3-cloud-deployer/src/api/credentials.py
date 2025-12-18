@@ -182,8 +182,7 @@ from api.gcp_credentials_checker import check_gcp_credentials, check_gcp_credent
 
 class GCPCredentialsRequest(BaseModel):
     """Request body for GCP credential validation."""
-    gcp_project_id: Optional[str] = Field(None, description="GCP Project ID (optional if billing_account provided)")
-    gcp_billing_account: Optional[str] = Field(None, description="GCP Billing Account (for project creation)")
+    gcp_billing_account: str = Field(..., description="GCP Billing Account ID for project creation")
     gcp_credentials_file: str = Field(..., description="Path to Service Account JSON key file")
     gcp_region: str = Field(..., description="GCP Region (e.g., 'europe-west1')")
 

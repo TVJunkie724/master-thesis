@@ -12,10 +12,11 @@ Note:
 """
 
 # Layer 1 info (used by API)
-from .l1_adapter import info_l1
+from .layer_1_iot import info_l1
 
 # Layer 4 info (used by API)
-from .l4_adapter import info_l4
+from .layer_4_twinmaker import info_l4
 
 # Layer 5 info (used by API)
-from .l5_adapter import info_l5
+from .layer_5_grafana import info_l5
+

@@ -216,7 +216,7 @@ def check_gcp_credentials(credentials: dict) -> dict:
     Main entry point. Validates GCP credentials against required permissions.
     
     Args:
-        credentials: Dict with gcp_project_id, gcp_region, gcp_credentials_file
+        credentials: Dict with gcp_billing_account, gcp_region, gcp_credentials_file
     
     Returns:
         Dict with status, caller_identity, and permission results
@@ -239,14 +239,13 @@ def check_gcp_credentials(credentials: dict) -> dict:
         result["message"] = "Missing required credential: gcp_region"
         return result
     
-    # Must have either project_id or billing_account
-    has_project_id = credentials.get("gcp_project_id", "").strip()
+    # gcp_billing_account is required (Terraform always creates projects)
     has_billing_account = credentials.get("gcp_billing_account", "").strip()
     
-    if not has_project_id and not has_billing_account:
+    if not has_billing_account:
         result["message"] = (
-            "GCP requires either 'gcp_project_id' (use existing project) "
-            "or 'gcp_billing_account' (create new project). Neither was provided."
+            "GCP requires 'gcp_billing_account' for project creation. "
+            "The project ID is auto-generated as '${digital_twin_name}-project'."
         )
         return result
     
@@ -263,8 +262,8 @@ def check_gcp_credentials(credentials: dict) -> dict:
             result["message"] = str(e)
             return result
         
-        # Determine which project to check
-        project_id = has_project_id or sa_info["project_id"]
+        # Use service account's project for permission checks
+        project_id = sa_info["project_id"]
         
         # Set GOOGLE_APPLICATION_CREDENTIALS for SDK
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials["gcp_credentials_file"]

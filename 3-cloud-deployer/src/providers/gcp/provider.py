@@ -90,7 +90,7 @@ class GCPProvider(BaseProvider):
         
         Args:
             credentials: GCP credentials dictionary containing:
-                - gcp_project_id: GCP project ID (optional if creating new)
+                - gcp_billing_account: GCP billing account for project creation
                 - gcp_region: GCP region (REQUIRED)
             twin_name: Digital twin name for resource naming
         
@@ -104,8 +104,9 @@ class GCPProvider(BaseProvider):
             raise ValueError("Missing required credential: gcp_region")
         
         # Store configuration
+        # Note: project_id is auto-generated as "${twin_name}-project" by Terraform
         self._twin_name = twin_name
-        self._project_id = credentials.get("gcp_project_id", "")
+        self._project_id = f"{twin_name}-project"
         self._region = credentials["gcp_region"]
         
         # Initialize naming helper

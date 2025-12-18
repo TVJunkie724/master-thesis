@@ -32,12 +32,43 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables - fail fast if missing
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
-COSMOS_DB_ENDPOINT = require_env("COSMOS_DB_ENDPOINT")
-COSMOS_DB_KEY = require_env("COSMOS_DB_KEY")
-COSMOS_DB_DATABASE = require_env("COSMOS_DB_DATABASE")
-COSMOS_DB_CONTAINER = require_env("COSMOS_DB_CONTAINER")
+# Lazy loading for environment variables to allow Azure function discovery
+_digital_twin_info = None
+_cosmos_db_endpoint = None
+_cosmos_db_key = None
+_cosmos_db_database = None
+_cosmos_db_container = None
+
+def _get_digital_twin_info():
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
+
+def _get_cosmos_db_endpoint():
+    global _cosmos_db_endpoint
+    if _cosmos_db_endpoint is None:
+        _cosmos_db_endpoint = require_env("COSMOS_DB_ENDPOINT")
+    return _cosmos_db_endpoint
+
+def _get_cosmos_db_key():
+    global _cosmos_db_key
+    if _cosmos_db_key is None:
+        _cosmos_db_key = require_env("COSMOS_DB_KEY")
+    return _cosmos_db_key
+
+def _get_cosmos_db_database():
+    global _cosmos_db_database
+    if _cosmos_db_database is None:
+        _cosmos_db_database = require_env("COSMOS_DB_DATABASE")
+    return _cosmos_db_database
+
+def _get_cosmos_db_container_name():
+    global _cosmos_db_container
+    if _cosmos_db_container is None:
+        _cosmos_db_container = require_env("COSMOS_DB_CONTAINER")
+    return _cosmos_db_container
+
 
 # Optional: For cross-cloud HTTP access
 INTER_CLOUD_TOKEN = os.environ.get("INTER_CLOUD_TOKEN", "").strip()
@@ -46,20 +77,20 @@ INTER_CLOUD_TOKEN = os.environ.get("INTER_CLOUD_TOKEN", "").strip()
 ADT_INSTANCE_URL = os.environ.get("ADT_INSTANCE_URL", "").strip()
 
 # Cosmos DB client (lazy initialized)
-_cosmos_container = None
+_cosmos_container_client = None
 
-# Create Function App instance
-app = func.FunctionApp()
+# Create Blueprint for registration by main function_app.py
+bp = func.Blueprint()
 
 
 def _get_cosmos_container():
     """Lazy initialization of Cosmos DB container."""
-    global _cosmos_container
-    if _cosmos_container is None:
-        client = CosmosClient(COSMOS_DB_ENDPOINT, credential=COSMOS_DB_KEY)
-        database = client.get_database_client(COSMOS_DB_DATABASE)
-        _cosmos_container = database.get_container_client(COSMOS_DB_CONTAINER)
-    return _cosmos_container
+    global _cosmos_container_client
+    if _cosmos_container_client is None:
+        client = CosmosClient(_get_cosmos_db_endpoint(), credential=_get_cosmos_db_key())
+        database = client.get_database_client(_get_cosmos_db_database())
+        _cosmos_container_client = database.get_container_client(_get_cosmos_db_container_name())
+    return _cosmos_container_client
 
 
 def _is_http_request_with_token(headers: dict) -> bool:
@@ -88,8 +119,8 @@ def _query_cosmos_db(query_params: dict) -> dict:
     properties_metadata = query_params.get("properties", {})
     
     # Get IoT device ID from component type
-    # Component type follows pattern: {twin_name}-{device_id}
-    twin_name = DIGITAL_TWIN_INFO["config"]["digital_twin_name"]
+    twin_info = _get_digital_twin_info()
+    twin_name = twin_info["config"]["digital_twin_name"]
     
     # Query ADT to get the device ID if ADT_INSTANCE_URL is available
     iot_device_id = None
@@ -161,8 +192,8 @@ def _query_cosmos_db(query_params: dict) -> dict:
     return {"propertyValues": property_values}
 
 
-@app.function_name(name="hot-reader")
-@app.route(route="hot-reader", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+@bp.function_name(name="hot-reader")
+@bp.route(route="hot-reader", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 def hot_reader(req: func.HttpRequest) -> func.HttpResponse:
     """
     Query Cosmos DB for time-range data.

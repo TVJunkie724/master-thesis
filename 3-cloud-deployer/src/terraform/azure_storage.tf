@@ -135,6 +135,10 @@ resource "azurerm_linux_function_app" "l3" {
   # Deploy function code via Terraform
   zip_deploy_file = var.azure_l3_zip_path != "" ? var.azure_l3_zip_path : null
 
+  # Enable SCM Basic Auth (required for zip_deploy_file)
+  webdeploy_publish_basic_authentication_enabled = true
+  ftp_publish_basic_authentication_enabled       = true
+
   # Managed Identity
   identity {
     type         = "UserAssigned"
@@ -160,6 +164,10 @@ resource "azurerm_linux_function_app" "l3" {
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
     ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
     AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
+
+    # Required for Consumption Plan with zip deploy
+    WEBSITE_CONTENTAZUREFILECONNECTIONSTRING = local.azure_storage_connection_string
+    WEBSITE_CONTENTSHARE                     = "${var.digital_twin_name}-l3-content"
 
     # Cosmos DB connection
     COSMOS_ENDPOINT = azurerm_cosmosdb_account.main[0].endpoint

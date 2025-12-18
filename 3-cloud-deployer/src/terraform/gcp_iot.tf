@@ -20,7 +20,7 @@
 
 resource "google_pubsub_topic" "telemetry" {
   count   = local.gcp_l1_enabled ? 1 : 0
-  project = var.gcp_project_id
+  project = google_project.main[0].project_id
   name    = "${var.digital_twin_name}-telemetry"
   
   labels = local.gcp_common_labels
@@ -34,7 +34,7 @@ resource "google_pubsub_topic" "telemetry" {
 
 resource "google_pubsub_topic" "events" {
   count   = local.gcp_l1_enabled ? 1 : 0
-  project = var.gcp_project_id
+  project = google_project.main[0].project_id
   name    = "${var.digital_twin_name}-events"
   
   labels = local.gcp_common_labels
@@ -63,7 +63,7 @@ resource "google_cloudfunctions2_function" "dispatcher" {
   count    = local.gcp_l1_enabled ? 1 : 0
   name     = "${var.digital_twin_name}-dispatcher"
   location = var.gcp_region
-  project  = var.gcp_project_id
+  project  = google_project.main[0].project_id
 
   build_config {
     runtime     = "python311"
@@ -118,7 +118,7 @@ resource "google_cloudfunctions2_function" "dispatcher" {
 
 resource "google_cloud_run_service_iam_member" "dispatcher_invoker" {
   count    = local.gcp_l1_enabled ? 1 : 0
-  project  = var.gcp_project_id
+  project  = google_project.main[0].project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.dispatcher[0].name
   role     = "roles/run.invoker"
@@ -143,7 +143,7 @@ resource "local_file" "gcp_simulator_config" {
   filename = "${var.project_path}/iot_device_simulator/gcp/config_generated_${each.key}.json"
   
   content = jsonencode({
-    project_id              = var.gcp_project_id
+    project_id              = google_project.main[0].project_id
     topic_name              = "dt/${var.digital_twin_name}/telemetry"
     device_id               = each.key
     digital_twin_name       = var.digital_twin_name

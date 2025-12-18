@@ -48,16 +48,17 @@ resource "azurerm_dashboard_grafana" "main" {
 }
 
 # ==============================================================================
-# RBAC: Grafana Managed Identity → Monitoring Reader
-# (For Azure Monitor data sources if needed)
+# NOTE: Monitoring Reader role NOT needed for our architecture!
+# Our L5 uses: Grafana → JSON API → Hot Reader → Cosmos DB
+# Azure Monitor datasources are NOT used, so this role is skipped.
 # ==============================================================================
 
-resource "azurerm_role_assignment" "grafana_monitoring_reader" {
-  count                = var.layer_5_provider == "azure" ? 1 : 0
-  scope                = azurerm_resource_group.main[0].id
-  role_definition_name = "Monitoring Reader"
-  principal_id         = azurerm_dashboard_grafana.main[0].identity[0].principal_id
-}
+# resource "azurerm_role_assignment" "grafana_monitoring_reader" {
+#   count                = var.layer_5_provider == "azure" ? 1 : 0
+#   scope                = azurerm_resource_group.main[0].id
+#   role_definition_name = "Monitoring Reader"
+#   principal_id         = azurerm_dashboard_grafana.main[0].identity[0].principal_id
+# }
 
 # ==============================================================================
 # RBAC: User Access to Grafana

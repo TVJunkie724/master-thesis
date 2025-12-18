@@ -968,6 +968,62 @@ curl -X POST "{API_HOST}/deploy_l5?provider=azure&project_name=template"</code><
                     <li><strong>Storage account name invalid:</strong> Names must be 3-24 chars, lowercase alphanumeric
                     </li>
                 </ul>
+
+                <h3 class="mt-4 text-warning"><i class="fa-solid fa-clock me-2"></i>Oryx Remote Build Issues</h3>
+                <p>Azure Functions use Oryx for remote builds (<code>pip install</code>). Common issues:</p>
+
+                <h4 class="mt-3">Functions Not Visible After Deployment</h4>
+                <ul>
+                    <li><strong>Symptom:</strong> Function App shows 0 functions in Azure Portal</li>
+                    <li><strong>Symptom:</strong> <code>list_functions()</code> API returns empty list</li>
+                    <li><strong>Symptom:</strong> EventGrid subscription fails because the function endpoint doesn't
+                        exist yet</li>
+                    <li><strong>Error:</strong> EventGrid subscription fails with <em>"The specified function does not
+                            exist"</em> or <em>"endpoint not found"</em></li>
+                </ul>
+
+                <h4 class="mt-3">EventGrid Subscription Format Error</h4>
+                <ul>
+                    <li><strong>Error:</strong> <em>"Invalid destination properties. Please make sure the 'properties'
+                            field of 'destination' property is correctly specified and is not null or empty."</em></li>
+                    <li><strong>Cause:</strong> Using wrong property name in the destination (e.g.,
+                        <code>resource_id</code> instead of <code>function_id</code>)</li>
+                    <li><strong>Solution:</strong> Ensure the EventGrid subscription uses <code>function_id</code>
+                        property with format: <code>{function_app_id}/functions/{function_name}</code></li>
+                </ul>
+
+                <div class="callout warn mt-3">
+                    <strong><i class="fa-solid fa-triangle-exclamation me-2"></i>Critical</strong>
+                    ZIP deploy <strong>MUST</strong> use <code>?isAsync=true</code> query parameter to trigger Oryx
+                    remote build.
+                    Without it, <code>pip install</code> will NOT run and functions will not be discovered.
+                    <pre
+                        class="p-2 rounded mt-2"><code>https://{app-name}.scm.azurewebsites.net/api/zipdeploy?isAsync=true</code></pre>
+                </div>
+
+                <h4 class="mt-3">Build Time Considerations</h4>
+                <p>Oryx build time depends on the number and complexity of dependencies:</p>
+                <ul>
+                    <li><strong>Minimal dependencies</strong> (azure-functions, azure-cosmos): ~60-120 seconds</li>
+                    <li><strong>Medium dependencies:</strong> ~120-180 seconds</li>
+                    <li><strong>Large dependencies</strong> (numpy, pandas, etc.): 180-300+ seconds</li>
+                </ul>
+                <p><strong>Recommendation:</strong> Wait at least 180 seconds after ZIP deploy before creating EventGrid
+                    subscriptions. Use polling with <code>list_functions()</code> API to detect when functions become
+                    available.</p>
+
+                <h4 class="mt-3">Future Work: Pre-installed Packages</h4>
+                <p>An alternative to remote builds is using <code>WEBSITE_RUN_FROM_PACKAGE=1</code> with pre-installed
+                    dependencies:</p>
+                <ul>
+                    <li><strong>Pros:</strong> Faster cold starts, deterministic deployments, no build time wait</li>
+                    <li><strong>Cons:</strong> ZIP must be built on Linux, larger ZIP size, more complex CI/CD</li>
+                </ul>
+                <div class="callout info mt-2">
+                    <strong><i class="fa-solid fa-info-circle me-2"></i>Note</strong>
+                    <code>WEBSITE_RUN_FROM_PACKAGE</code> and remote build settings are <strong>mutually
+                        exclusive</strong>. Never use both.
+                </div>
             </div>
 
         </main>

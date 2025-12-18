@@ -313,7 +313,7 @@ output "aws_grafana_api_key" {
 
 output "gcp_project_id" {
   description = "GCP Project ID"
-  value       = try(google_project.main[0].project_id, var.gcp_project_id)
+  value       = try(google_project.main[0].project_id, null)
 }
 
 output "gcp_service_account_email" {
@@ -357,6 +357,21 @@ output "gcp_processor_url" {
 output "gcp_persister_url" {
   description = "URL of the persister function"
   value       = try(google_cloudfunctions2_function.persister[0].url, null)
+}
+
+output "gcp_event_checker_url" {
+  description = "URL of the event checker function (optional)"
+  value       = try(google_cloudfunctions2_function.event_checker[0].url, null)
+}
+
+output "gcp_user_functions_url" {
+  description = "URL of the user functions (event actions, processors)"
+  value       = try(google_cloudfunctions2_function.user_functions[0].url, null)
+}
+
+output "gcp_event_workflow_id" {
+  description = "ID of the event processing Cloud Workflow (optional)"
+  value       = try(google_workflows_workflow.event_workflow[0].id, null)
 }
 
 # ==============================================================================

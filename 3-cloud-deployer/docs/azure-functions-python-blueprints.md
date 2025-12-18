@@ -203,6 +203,69 @@ Module-level checks are valid **if you ensure** Terraform sets app settings befo
 | **Module not found** | Verify dependency is in `requirements.txt`; check Python version matches |
 | **Deployment fails** | Ensure `host.json` is at ZIP root; check app settings are correct |
 | **Functions work locally but not in Azure** | Dependencies may be OS-specific; use remote build instead of local build on Windows |
+| **EventGrid subscription fails** | If you see "Invalid destination properties", ensure you use `function_id` not `resource_id` in the destination properties |
+
+## Oryx Remote Build Issues
+
+### Error: Functions Not Visible After Deployment
+
+If functions are not visible in Azure Portal after ZIP deploy, even with correct Blueprint structure:
+
+1. **Oryx build not complete**: The remote build (`pip install`) may still be running
+2. **Missing `isAsync=true`**: ZIP deploy MUST use `?isAsync=true` query parameter
+
+**Error symptoms (Functions Not Visible):**
+- Function App shows 0 functions in Azure Portal
+- `list_functions()` API returns empty list
+- EventGrid subscription fails with: `The specified function does not exist` or `endpoint not found`
+
+**EventGrid Subscription Format Error:**
+- Error: `Invalid destination properties. Please make sure the 'properties' field of 'destination' property is correctly specified and is not null or empty.`
+- Cause: Using wrong property name (e.g., `resource_id` instead of `function_id`)
+- Solution: Use `function_id` with format: `{function_app_id}/functions/{function_name}`
+
+**Required ZIP deploy URL format:**
+```
+https://{func_app_name}.scm.azurewebsites.net/api/zipdeploy?isAsync=true
+```
+
+> [!WARNING]
+> Without `?isAsync=true`, the Oryx remote build (pip install) will NOT be triggered, and your functions will not be discovered!
+
+### Build Time Considerations
+
+Oryx build time depends on the number and complexity of dependencies:
+- **Minimal dependencies** (azure-functions, azure-cosmos): ~60-120 seconds
+- **Medium dependencies**: ~120-180 seconds
+- **Large dependencies** (numpy, pandas, etc.): 180-300+ seconds
+
+**Recommendation**: Wait at least 180 seconds after ZIP deploy before creating EventGrid subscriptions or checking function visibility. Use polling with `list_functions()` API to detect when functions become available.
+
+### Future Work: Pre-installed Packages (WEBSITE_RUN_FROM_PACKAGE)
+
+An alternative to remote builds is using `WEBSITE_RUN_FROM_PACKAGE=1` with pre-installed dependencies:
+
+**Pros:**
+- Faster cold starts (no pip install at runtime)
+- Deterministic deployments (exact same packages every time)
+- No build time wait
+
+**Cons:**
+- ZIP must be built on Linux (or matching architecture)
+- ZIP size is larger (includes all dependencies)
+- More complex CI/CD pipeline
+
+```hcl
+# Alternative Terraform app_settings (mutually exclusive with remote build)
+app_settings = {
+  "WEBSITE_RUN_FROM_PACKAGE" = "1"
+  # Do NOT set ENABLE_ORYX_BUILD or SCM_DO_BUILD_DURING_DEPLOYMENT
+}
+```
+
+> [!IMPORTANT]
+> `WEBSITE_RUN_FROM_PACKAGE` and remote build settings are **mutually exclusive**. Never use both.
+
 
 ## Bundling Multiple Functions (Blueprint Pattern)
 

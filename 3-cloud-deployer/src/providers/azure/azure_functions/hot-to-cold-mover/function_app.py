@@ -38,16 +38,57 @@ class ConfigurationError(Exception):
     pass
 
 
-# Required environment variables - fail fast if missing
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
-COSMOS_DB_ENDPOINT = require_env("COSMOS_DB_ENDPOINT")
-COSMOS_DB_KEY = require_env("COSMOS_DB_KEY")
-COSMOS_DB_DATABASE = require_env("COSMOS_DB_DATABASE")
-COSMOS_DB_CONTAINER = require_env("COSMOS_DB_CONTAINER")
+# Lazy loading for environment variables to allow Azure function discovery
+_digital_twin_info = None
+_cosmos_db_endpoint = None
+_cosmos_db_key = None
+_cosmos_db_database = None
+_cosmos_db_container = None
+_blob_connection_string = None
+_cold_storage_container = None
 
-# Blob Storage config
-BLOB_CONNECTION_STRING = require_env("BLOB_CONNECTION_STRING")
-COLD_STORAGE_CONTAINER = require_env("COLD_STORAGE_CONTAINER")
+def _get_digital_twin_info():
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
+
+def _get_cosmos_db_endpoint():
+    global _cosmos_db_endpoint
+    if _cosmos_db_endpoint is None:
+        _cosmos_db_endpoint = require_env("COSMOS_DB_ENDPOINT")
+    return _cosmos_db_endpoint
+
+def _get_cosmos_db_key():
+    global _cosmos_db_key
+    if _cosmos_db_key is None:
+        _cosmos_db_key = require_env("COSMOS_DB_KEY")
+    return _cosmos_db_key
+
+def _get_cosmos_db_database():
+    global _cosmos_db_database
+    if _cosmos_db_database is None:
+        _cosmos_db_database = require_env("COSMOS_DB_DATABASE")
+    return _cosmos_db_database
+
+def _get_cosmos_db_container_name():
+    global _cosmos_db_container
+    if _cosmos_db_container is None:
+        _cosmos_db_container = require_env("COSMOS_DB_CONTAINER")
+    return _cosmos_db_container
+
+def _get_blob_connection_string():
+    global _blob_connection_string
+    if _blob_connection_string is None:
+        _blob_connection_string = require_env("BLOB_CONNECTION_STRING")
+    return _blob_connection_string
+
+def _get_cold_storage_container():
+    global _cold_storage_container
+    if _cold_storage_container is None:
+        _cold_storage_container = require_env("COLD_STORAGE_CONTAINER")
+    return _cold_storage_container
+
 
 # Multi-cloud config (optional)
 REMOTE_COLD_WRITER_URL = os.environ.get("REMOTE_COLD_WRITER_URL", "").strip()
@@ -56,30 +97,30 @@ INTER_CLOUD_TOKEN = os.environ.get("INTER_CLOUD_TOKEN", "").strip()
 # Constants
 MAX_CHUNK_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 
-# Create Function App instance
-app = func.FunctionApp()
+# Create Blueprint for registration by main function_app.py
+bp = func.Blueprint()
 
 # Lazy-initialized clients
-_cosmos_container = None
+_cosmos_container_client = None
 _blob_container_client = None
 
 
 def _get_cosmos_container():
     """Lazy initialization of Cosmos DB container."""
-    global _cosmos_container
-    if _cosmos_container is None:
-        client = CosmosClient(COSMOS_DB_ENDPOINT, credential=COSMOS_DB_KEY)
-        database = client.get_database_client(COSMOS_DB_DATABASE)
-        _cosmos_container = database.get_container_client(COSMOS_DB_CONTAINER)
-    return _cosmos_container
+    global _cosmos_container_client
+    if _cosmos_container_client is None:
+        client = CosmosClient(_get_cosmos_db_endpoint(), credential=_get_cosmos_db_key())
+        database = client.get_database_client(_get_cosmos_db_database())
+        _cosmos_container_client = database.get_container_client(_get_cosmos_db_container_name())
+    return _cosmos_container_client
 
 
 def _get_blob_container():
     """Lazy initialization of Blob container client."""
     global _blob_container_client
     if _blob_container_client is None:
-        blob_service = BlobServiceClient.from_connection_string(BLOB_CONNECTION_STRING)
-        _blob_container_client = blob_service.get_container_client(COLD_STORAGE_CONTAINER)
+        blob_service = BlobServiceClient.from_connection_string(_get_blob_connection_string())
+        _blob_container_client = blob_service.get_container_client(_get_cold_storage_container())
     return _blob_container_client
 
 
@@ -88,7 +129,8 @@ def _is_multi_cloud_cold() -> bool:
     if not REMOTE_COLD_WRITER_URL:
         return False
     
-    providers = DIGITAL_TWIN_INFO.get("config_providers")
+    twin_info = _get_digital_twin_info()
+    providers = twin_info.get("config_providers")
     if providers is None:
         raise ConfigurationError("CRITICAL: 'config_providers' missing from DIGITAL_TWIN_INFO")
     
@@ -201,8 +243,8 @@ def _delete_from_cosmos(container, items: list) -> None:
     logging.info(f"Deleted {len(items)} items from Cosmos DB")
 
 
-@app.function_name(name="hot-to-cold-mover")
-@app.timer_trigger(schedule="0 0 0 * * *", arg_name="timer", run_on_startup=False)
+@bp.function_name(name="hot-to-cold-mover")
+@bp.timer_trigger(schedule="0 0 0 * * *", arg_name="timer", run_on_startup=False)
 def hot_to_cold_mover(timer: func.TimerRequest) -> None:
     """
     Move aged data from Cosmos DB to cold storage.
@@ -220,10 +262,11 @@ def hot_to_cold_mover(timer: func.TimerRequest) -> None:
         if multi_cloud:
             logging.info(f"Multi-cloud mode: Posting to {REMOTE_COLD_WRITER_URL}")
         else:
-            logging.info(f"Single-cloud mode: Writing to Blob container {COLD_STORAGE_CONTAINER}")
+            logging.info(f"Single-cloud mode: Writing to Blob container {_get_cold_storage_container()}")
         
         # Calculate cutoff
-        hot_days = DIGITAL_TWIN_INFO["config"].get("hot_storage_size_in_days", 7)
+        twin_info = _get_digital_twin_info()
+        hot_days = twin_info["config"].get("hot_storage_size_in_days", 7)
         cutoff = datetime.now(timezone.utc) - timedelta(days=hot_days)
         cutoff_iso = cutoff.isoformat(timespec='milliseconds').replace('+00:00', 'Z')
         logging.info(f"Moving items older than: {cutoff_iso}")
@@ -231,7 +274,7 @@ def hot_to_cold_mover(timer: func.TimerRequest) -> None:
         container = _get_cosmos_container()
         
         # Process each IoT device
-        for iot_device in DIGITAL_TWIN_INFO.get("config_iot_devices", []):
+        for iot_device in twin_info.get("config_iot_devices", []):
             device_id = iot_device["id"]
             logging.info(f"Processing device: {device_id}")
             

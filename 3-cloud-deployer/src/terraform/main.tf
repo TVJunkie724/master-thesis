@@ -54,7 +54,7 @@ provider "awscc" {
 # Google Cloud Provider (for multi-cloud deployments)
 # TODO: project defaults to "placeholder" to avoid validation errors when GCP is not used
 provider "google" {
-  project     = var.gcp_project_id != "" ? var.gcp_project_id : "placeholder-not-used"
+  project     = local.deploy_gcp ? "${var.digital_twin_name}-project" : "placeholder-not-used"
   region      = var.gcp_region != "" ? var.gcp_region : "us-central1"
   credentials = var.gcp_credentials_json != "" ? var.gcp_credentials_json : null
 }

@@ -29,16 +29,29 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables - fail fast if missing
-REMOTE_INGESTION_URL = require_env("REMOTE_INGESTION_URL")
-INTER_CLOUD_TOKEN = require_env("INTER_CLOUD_TOKEN")
+# Lazy loading for environment variables to allow Azure function discovery
+_remote_ingestion_url = None
+_inter_cloud_token = None
 
-# Create Function App instance
-app = func.FunctionApp()
+def _get_remote_ingestion_url():
+    global _remote_ingestion_url
+    if _remote_ingestion_url is None:
+        _remote_ingestion_url = require_env("REMOTE_INGESTION_URL")
+    return _remote_ingestion_url
+
+def _get_inter_cloud_token():
+    global _inter_cloud_token
+    if _inter_cloud_token is None:
+        _inter_cloud_token = require_env("INTER_CLOUD_TOKEN")
+    return _inter_cloud_token
 
 
-@app.function_name(name="connector")
-@app.route(route="connector", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
+# Create Blueprint for registration by main function_app.py
+bp = func.Blueprint()
+
+
+@bp.function_name(name="connector")
+@bp.route(route="connector", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def connector(req: func.HttpRequest) -> func.HttpResponse:
     """
     Forward device telemetry to remote L2 Ingestion endpoint.
@@ -61,8 +74,8 @@ def connector(req: func.HttpRequest) -> func.HttpResponse:
         
         # POST to remote Ingestion endpoint
         result = post_to_remote(
-            url=REMOTE_INGESTION_URL,
-            token=INTER_CLOUD_TOKEN,
+            url=_get_remote_ingestion_url(),
+            token=_get_inter_cloud_token(),
             payload=event,
             target_layer="L2"
         )

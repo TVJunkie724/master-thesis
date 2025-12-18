@@ -142,6 +142,10 @@ Credential validation:
   check_credentials <provider> - Validates credentials against required permissions.
                               - Supported: aws, azure
 
+Cleanup commands:
+  cleanup_twinmaker           - Force delete AWS TwinMaker workspace when Terraform destroy fails.
+                              - Deletes all entities, component types, and workspace.
+
 Other commands:
   simulate <provider> [project] - Runs the IoT Device Simulator interactively.
   list_projects               - Lists available projects.
@@ -505,6 +509,56 @@ def main():
                 
             else:
                 print(f"Error: Provider '{provider}' not supported. Supported: aws, azure.")
+            continue
+        
+        elif command == "cleanup_twinmaker":
+            # Force delete AWS TwinMaker workspace when Terraform destroy fails
+            try:
+                context = get_context("aws")
+                aws_provider = context.providers.get("aws")
+                
+                if not aws_provider:
+                    print("Error: AWS provider not initialized. Check your credentials.")
+                    continue
+                
+                workspace_id = aws_provider.naming.twinmaker_workspace()
+                
+                # User confirmation
+                print(f"\n⚠️  WARNING: This will permanently delete the TwinMaker workspace:")
+                print(f"   Workspace: {workspace_id}")
+                print(f"   Project: {_current_project}")
+                print(f"\nThis will delete ALL entities, component types, and the workspace itself.")
+                print("This action cannot be undone.\n")
+                
+                confirm = input("Are you sure you want to proceed? (yes/no): ").strip().lower()
+                
+                if confirm not in ("yes", "y"):
+                    print("Operation cancelled.")
+                    continue
+                
+                # Second confirmation for safety
+                confirm2 = input(f"Type '{workspace_id}' to confirm deletion: ").strip()
+                
+                if confirm2 != workspace_id:
+                    print("Workspace name mismatch. Operation cancelled.")
+                    continue
+                
+                # Proceed with deletion
+                print("\nDeleting TwinMaker workspace...")
+                from src.providers.aws.layers.layer_4_twinmaker import force_delete_twinmaker_workspace
+                
+                result = force_delete_twinmaker_workspace(aws_provider)
+                
+                print(f"\n{'='*60}")
+                print(f"Status: {result['status'].upper()}")
+                print(f"Workspace: {result['workspace_id']}")
+                print(f"Entities deleted: {result['entities_deleted']}")
+                print(f"Component types deleted: {result['component_types_deleted']}")
+                print(f"{'='*60}\n")
+                
+            except Exception as e:
+                print_stack_trace()
+                logger.error(f"Error during cleanup_twinmaker: {e}")
             continue
         
         else:

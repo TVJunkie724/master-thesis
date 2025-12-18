@@ -105,6 +105,10 @@ def deploy_to_kudu(
     """
     Deploy a ZIP package to Azure Function App via Kudu zipdeploy with retry.
     
+    Uses async deployment (?isAsync=true) to allow Oryx remote build to complete.
+    When ENABLE_ORYX_BUILD=true, Azure runs pip install from requirements.txt
+    during deployment, which can take 2-3+ minutes.
+    
     Handles transient errors during Function App startup:
     - 401 Unauthorized: SCM Basic Auth not yet active
     - 503 Service Unavailable: Kudu SCM still starting up
@@ -121,13 +125,16 @@ def deploy_to_kudu(
         HttpResponseError: If deployment fails after all retries
         
     Note:
-        Kudu SCM may need 2-5+ minutes to become ready after Function App creation.
-        Azure Student accounts may require longer wait times.
-        This function automatically retries on 401/503 errors to handle this.
+        - Kudu SCM may need 2-5+ minutes to become ready after Function App creation.
+        - Oryx build (pip install) needs ~180s to complete.
+        - Azure Student accounts may require longer wait times.
+        - This function automatically retries on 401/503 errors to handle this.
     """
-    kudu_url = f"https://{app_name}.scm.azurewebsites.net/api/zipdeploy"
+    # Use ?isAsync=true for async deployment - required for ENABLE_ORYX_BUILD
+    # This allows the Oryx build system to run pip install from requirements.txt
+    kudu_url = f"https://{app_name}.scm.azurewebsites.net/api/zipdeploy?isAsync=true"
     
-    logger.info(f"  Deploying via Kudu zip deploy to {kudu_url}...")
+    logger.info(f"  Deploying via Kudu async zip deploy to {app_name}...")
     
     for attempt in range(1, max_retries + 1):
         try:
@@ -140,9 +147,10 @@ def deploy_to_kudu(
             )
             
             if response.status_code in (200, 202):
-                logger.info(f"  ✓ Function code deployed successfully")
-                # Wait for function runtime to warm up after deployment
-                wait_for_function_warmup(app_name, warmup_seconds=60)
+                logger.info(f"  ✓ ZIP uploaded, waiting for Oryx build to complete...")
+                # Wait for Oryx build (pip install) to complete
+                # This is critical - without it, functions won't have their dependencies
+                wait_for_function_warmup(app_name, warmup_seconds=180)
                 return
             elif response.status_code in (401, 503) and attempt < max_retries:
                 # 401: Kudu SCM not ready yet (auth not yet active)

@@ -58,7 +58,7 @@ def terraform_e2e_test_id():
     
     The ID is kept short to comply with Azure naming limits.
     """
-    return "tf-e2e-azure"
+    return "tf-e2e-az2"
 
 
 @pytest.fixture(scope="session")

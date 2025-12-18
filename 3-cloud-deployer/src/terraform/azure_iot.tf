@@ -76,6 +76,10 @@ resource "azurerm_linux_function_app" "l1" {
   # Deploy function code via Terraform (enables EventGrid to find the dispatcher)
   zip_deploy_file = var.azure_l1_zip_path != "" ? var.azure_l1_zip_path : null
 
+  # Enable SCM Basic Auth (required for zip_deploy_file)
+  webdeploy_publish_basic_authentication_enabled = true
+  ftp_publish_basic_authentication_enabled       = true
+
   # Managed Identity
   identity {
     type         = "UserAssigned"
@@ -96,6 +100,10 @@ resource "azurerm_linux_function_app" "l1" {
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
     ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
     AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
+
+    # Required for Consumption Plan with zip deploy
+    WEBSITE_CONTENTAZUREFILECONNECTIONSTRING = local.azure_storage_connection_string
+    WEBSITE_CONTENTSHARE                     = "${var.digital_twin_name}-l1-content"
 
     # IoT Hub connection (for Event Grid subscription)
     IOTHUB_CONNECTION_STRING = azurerm_iothub.main[0].event_hub_events_endpoint
@@ -145,7 +153,7 @@ resource "azurerm_eventgrid_system_topic" "iothub" {
 resource "time_sleep" "wait_for_function_sync" {
   count           = var.layer_1_provider == "azure" && var.azure_l1_zip_path != "" ? 1 : 0
   depends_on      = [azurerm_linux_function_app.l1]
-  create_duration = "300s"  # Wait 5 minutes for Oryx build + function indexing
+  create_duration = "180s"  # Wait 3 minutes for Oryx build + function indexing
 }
 
 # ==============================================================================
