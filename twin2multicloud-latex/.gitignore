@@ -1,0 +1,42 @@
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.synctex(busy)
+*.bbl
+*.blg
+*.xwm
+
+# Glossary files
+*.acn
+*.acr
+*.alg
+*.glg
+*.glo
+*.gls
+*.ist
+
+# Build output directory
+build/
+
+# PDF - only keep in build/ folder
+*.pdf
+!build/main.pdf
+
+# Editor backup files
+*~
+*.bak
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Archives
+**/*.zip

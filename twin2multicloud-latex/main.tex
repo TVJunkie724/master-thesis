@@ -1,0 +1,79 @@
+\documentclass[a4paper]{styles/QEmaster}
+\usepackage[a4paper]{geometry}
+
+\usepackage{color}
+
+\graphicspath{{figures/}}
+\usepackage{enumitem}
+\usepackage{selinput}
+\SelectInputMappings{
+	adieresis={ä},
+	germandbls={ß},
+	Euro={€}
+}
+
+% Clickable links in PDF (configures hyperref loaded by QEmaster)
+\PassOptionsToPackage{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    citecolor=blue,
+    bookmarks=true
+}{hyperref}
+
+% Glossary and acronyms
+\usepackage[acronym,toc]{glossaries}
+\makeglossaries
+\input{styles/glossary}
+
+% Watermark (comment out for final version)
+\usepackage{savesym}
+\savesymbol{csvloop}
+\usepackage[printwatermark]{xwatermark}
+\restoresymbol{WATERMARK}{csvloop}
+
+% Code highlighting
+\input{styles/codeKeywords}
+
+% Custom hyphenation
+\hyphenation{Mi-cro-soft}
+
+% *** DOCUMENT INFO ***
+\title{TITLE}
+\author{Caroline Steinacker}
+\mailaddress{caroline.haller@student.uibk.ac.at}
+\supervisor{Dr. Sashko RISTOV}
+\date{\today}
+
+% *** DOCUMENT ***
+\begin{document}
+	\maketitle
+	
+	% \include{frontmatter/affidavit}
+	% \include{frontmatter/acknowledgements}
+
+	\abstract{\input{chapters/abstract}}
+	
+	\tableofcontents
+	% \listoffigures
+	% \listoftables
+	% \printglossary[type=\acronymtype,title=Acronyms]
+	
+	% === CHAPTERS ===
+	% \include{chapters/introduction}
+	% \include{chapters/background}
+	% \include{chapters/motivation}
+	% \include{chapters/systemArchitecture}
+	% \include{chapters/evaluation}
+	% \include{chapters/discussion}
+	% \include{chapters/relatedWork}
+	% \include{chapters/conclusion}
+
+	% === BIBLIOGRAPHY ===
+	% \bibliographystyle{plain}
+	% \bibliography{bibliography/biblio}
+
+	% === APPENDIX ===
+	% \include{chapters/appendix}
+
+\end{document}

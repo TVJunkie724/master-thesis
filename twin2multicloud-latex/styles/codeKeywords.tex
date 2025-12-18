@@ -1,0 +1,99 @@
+% Code style settings for listings
+% Supports: Python, JSON, YAML, Terraform, Docker, Bash
+
+\usepackage{listings}
+\usepackage{xcolor}
+
+% Color definitions
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{codeblue}{rgb}{0.13,0.29,0.53}
+\definecolor{codeorange}{rgb}{0.8,0.4,0}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+
+% Base style
+\lstdefinestyle{basestyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen}\itshape,
+    keywordstyle=\color{codeblue}\bfseries,
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codeorange},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2,
+    frame=single,
+    framerule=0.5pt,
+    rulecolor=\color{codegray}
+}
+
+% Python
+\lstdefinelanguage{Python}{
+    keywords={False,None,True,and,as,assert,async,await,break,class,continue,def,del,elif,else,except,finally,for,from,global,if,import,in,is,lambda,nonlocal,not,or,pass,raise,return,try,while,with,yield},
+    morekeywords={self,cls},
+    sensitive=true,
+    morecomment=[l]{\#},
+    morecomment=[s]{'''}{'''},
+    morecomment=[s]{"""}{"""},
+    morestring=[b]',
+    morestring=[b]"
+}
+
+% JSON
+\lstdefinelanguage{JSON}{
+    keywords={true,false,null},
+    sensitive=true,
+    morestring=[b]"
+}
+
+% YAML
+\lstdefinelanguage{YAML}{
+    keywords={true,false,null,yes,no,on,off},
+    sensitive=true,
+    morecomment=[l]{\#},
+    morestring=[b]',
+    morestring=[b]"
+}
+
+% Terraform (HCL)
+\lstdefinelanguage{Terraform}{
+    keywords={resource,data,variable,output,locals,module,provider,terraform,backend,required_providers,required_version,for_each,count,depends_on,lifecycle,provisioner,connection},
+    morekeywords={string,number,bool,list,map,set,object,tuple,any,null,true,false},
+    sensitive=true,
+    morecomment=[l]{\#},
+    morecomment=[s]{/*}{*/},
+    morestring=[b]"
+}
+
+% Dockerfile
+\lstdefinelanguage{Dockerfile}{
+    keywords={FROM,RUN,CMD,LABEL,EXPOSE,ENV,ADD,COPY,ENTRYPOINT,VOLUME,USER,WORKDIR,ARG,ONBUILD,STOPSIGNAL,HEALTHCHECK,SHELL,AS},
+    sensitive=false,
+    morecomment=[l]{\#},
+    morestring=[b]"
+}
+
+% Bash/Shell
+\lstdefinelanguage{Bash}{
+    keywords={if,then,else,elif,fi,case,esac,for,while,do,done,in,function,select,until,return,exit,break,continue,local,export,readonly,declare,typeset,unset,shift},
+    morekeywords={echo,cd,ls,mkdir,rm,cp,mv,cat,grep,sed,awk,find,chmod,chown,sudo,apt,yum,pip,npm,docker,git,curl,wget},
+    sensitive=true,
+    morecomment=[l]{\#},
+    morestring=[b]',
+    morestring=[b]"
+}
+
+% Set default style
+\lstset{style=basestyle}
+
+% Convenience commands for inline code
+\newcommand{\code}[1]{\lstinline|#1|}
+\newcommand{\pycode}[1]{\lstinline[language=Python]|#1|}

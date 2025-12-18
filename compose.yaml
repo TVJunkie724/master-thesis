@@ -12,64 +12,6 @@ services:
   #   networks:
   #     - my_master_thesis_network
 
-#   1aasx-server-mock:
-  #   ## !! see https://v3.admin-shell-io.com/swagger/index.html
-  #   image: adminshellio/aasx-server-blazor-for-demo:main
-  #   restart: unless-stopped
-  #   ports:
-  #     - "5001:5001"
-  #   volumes:
-  #     - ./1-AAS-server/aasxs:/AasxServerBlazor/aasxs
-  #   command: >
-  #     --no-security
-  #     --data-path /AasxServerBlazor/aasxs
-  #     --with-db
-  #     --start-index 0
-  #   networks:
-  #     - my_master_thesis_network
-
-#   1basyx-communicator:
-  #   image: basyx-communicator
-  #   build: 
-  #     context: ./1-Basyx-Communicator
-  #     dockerfile: /Dockerfile
-  #   volumes:
-  #     - ./1-Basyx-Communicator/:/app/
-  #   tty: true
-  #   depends_on:
-  #     - 1basyx-server
-  #   networks:
-  #     - my_master_thesis_network
-
-#   1aasx-server-local:
-  #   ## !! see https://v3.admin-shell-io.com/swagger/index.html
-  #   image: adminshellio/aasx-server-blazor-for-demo:main
-  #   restart: unless-stopped
-  #   ports:
-  #     - "50020:5001"
-  #   volumes:
-  #     - ./1-AAS-server-local/aasxs:/AasxServerBlazor/aasxs
-  #   command: >
-  #     --no-security
-  #     --data-path /AasxServerBlazor/aasxs
-  #     --with-db
-  #     --start-index 0
-  #   networks:
-  #     - my_master_thesis_network
-
-#   1basyx-server:
-  #   image: basyx-server
-  #   build: 
-  #     context: .
-  #     dockerfile: ./1-Basyx-Server/Dockerfile
-  #   ports:
-  #     - "5002:8081"
-  #   # volumes:
-  #   #   - ./1-Basyx-Server/:/application/
-  #   networks:
-  #     - my_master_thesis_network
-#
-
   2twin2clouds:
     image: 2twin2clouds
     build: 
@@ -103,20 +45,18 @@ services:
     networks:
       - my_master_thesis_network
 
-### for Testing purposes only ###
-  # aws_cli:
-  #   image: amazon/aws-cli:latest
-  #   container_name: aws_cli
-  #   volumes:
-  #     - ./aws_cli:/aws_cli   
-  #     - ~/.aws:/root/.aws  
-  #   working_dir: /aws_cli
-  #   tty: true                   
-  #   stdin_open: true        
-  #   entrypoint: /bin/bash
-  #   # entrypoint: /bin/bash aws sts get-caller-identity
-  #   networks:
-  #     - my_master_thesis_network
+### LaTeX Thesis ###
+  # Watch mode (default): docker compose run --rm thesis-latex
+  # Compile once:         docker compose run --rm thesis-latex latexmk -pdf -interaction=nonstopmode -cd /thesis/main.tex
+  thesis-latex:
+    image: thesis-latex
+    build:
+      context: ./twin2multicloud-latex
+      dockerfile: Dockerfile
+    volumes:
+      - ./twin2multicloud-latex:/thesis
+    profiles:
+      - latex
 
 networks:
   my_master_thesis_network:

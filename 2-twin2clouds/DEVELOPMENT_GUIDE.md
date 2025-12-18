@@ -47,29 +47,15 @@ docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest tes
 docker exec master-thesis-2twin2clouds-1 bash -c "ls -la /app"
 ```
 
-> **⚠️ IMPORTANT: Avoid Windows-Specific Commands**
-> 
-> Always run commands **inside the Docker container** using `docker exec`. Do NOT use:
-> - PowerShell-specific commands (e.g., `Get-Content`, `Select-String`, `Remove-Item`)
-> - Windows path separators (use `/` not `\` inside container)
-> - Piping to Windows commands (pipe to `grep` inside Docker instead)
->
-> **WRONG:** `docker exec ... | Select-String "pattern"`  
-> **RIGHT:** `docker exec ... bash -c "grep 'pattern' file.txt"`
->
-> **For file operations:** Use the agent's built-in file tools (write_to_file, etc.) or Docker commands:
-> - **Delete file:** Use `docker exec ... bash -c "rm /app/path/to/file"` (NOT `Remove-Item`)
-> - **Move file:** Use `docker exec ... bash -c "mv /app/src /app/dest"` (NOT `Move-Item`)
-
 > **⚠️ COMMAND FORMAT BEST PRACTICES (AI Agent Specific)**
 >
-> When running commands, prefer simple, standard formats:
-> - **Use pytest directly:** `docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest tests/ -v --tb=short`
-> - **Avoid inline Python with complex quotes:** Do NOT use `-c "print(...)"` with nested quotes or special characters
-> - **For Python inspection:** Use file tools (`view_file_outline`, `view_code_item`) instead of inline Python commands
-> - **Keep commands simple:** If a command needs complex escaping, find an alternative approach
+> - **Use simple, single commands only** - no pipes, &&, ||, or redirects
+> - **FORBIDDEN:** `bash -c "..."` commands - find alternative approaches
+> - **Prefer agent tools** over shell commands (view_file, grep_search, list_dir)
+> - **Avoid inline Python with complex quotes:** Do NOT use `-c "print(...)"` with nested quotes
+> - **For file operations:** Use agent's built-in tools
 
-> **Note:** The `head` and `tail` commands are not available in the minimal Docker container. Use Python or `cat` with `grep` for file inspection instead.
+> **Note:** The `head` and `tail` commands are not available in the minimal Docker container. Use the agent's `view_file` tool with line ranges instead.
 
 ---
 
