@@ -51,6 +51,10 @@ def build_all_packages(
     azure_packages = build_azure_function_packages(terraform_dir, project_path, providers_config)
     packages.update(azure_packages)
     
+    # Build GCP Cloud Function packages
+    gcp_packages = build_gcp_cloud_function_packages(terraform_dir, project_path, providers_config)
+    packages.update(gcp_packages)
+    
     logger.info(f"✓ Built {len(packages)} function packages")
     return packages
 
@@ -236,6 +240,160 @@ def get_lambda_zip_path(terraform_dir: Path, function_name: str) -> str:
 def get_azure_zip_path(terraform_dir: Path, app_name: str) -> str:
     """Get the path to a pre-built Azure Function ZIP."""
     return str(terraform_dir / BUILD_DIR / "azure" / f"{app_name}.zip")
+
+
+def build_gcp_cloud_function_packages(
+    terraform_dir: Path,
+    project_path: Path,
+    providers_config: dict
+) -> Dict[str, Path]:
+    """
+    Build GCP Cloud Function packages to .build/gcp/*.zip.
+    Only builds functions that are needed based on provider config.
+    
+    Returns:
+        Dict mapping function names to ZIP paths
+    """
+    # Check if any layer uses GCP
+    gcp_layers = ["layer_1_provider", "layer_2_provider", "layer_3_hot_provider",
+                  "layer_3_cold_provider", "layer_3_archive_provider"]
+    has_gcp = any(providers_config.get(layer) == "google" for layer in gcp_layers)
+    
+    if not has_gcp:
+        logger.info("  No GCP layers configured, skipping Cloud Function package build")
+        return {}
+    
+    build_dir = terraform_dir / BUILD_DIR / "gcp"
+    build_dir.mkdir(parents=True, exist_ok=True)
+    
+    packages = {}
+    functions_to_build = []
+    
+    # Get GCP Cloud Functions source directory (from deployer src)
+    gcp_funcs_dir = Path(__file__).parent.parent / "gcp" / "cloud_functions"
+    shared_dir = gcp_funcs_dir / "_shared"
+    
+    # Get provider config for layer boundaries
+    l1 = providers_config.get("layer_1_provider", "")
+    l2 = providers_config.get("layer_2_provider", "")
+    l3_hot = providers_config.get("layer_3_hot_provider", "")
+    l3_cold = providers_config.get("layer_3_cold_provider", "")
+    l3_archive = providers_config.get("layer_3_archive_provider", "")
+    l4 = providers_config.get("layer_4_provider", "")
+    
+    # L0 Glue functions - only when cross-cloud boundaries exist
+    # Ingestion: L1 on another cloud, L2 on GCP
+    if l1 != "google" and l2 == "google":
+        functions_to_build.append("ingestion")
+    
+    # Hot Writer: L2 on another cloud, L3 hot on GCP
+    if l2 != "google" and l3_hot == "google":
+        functions_to_build.append("hot-writer")
+    
+    # Hot Reader: L3 hot on GCP, L4 on another cloud
+    if l3_hot == "google" and l4 != "google" and l4 != "":
+        functions_to_build.append("hot-reader")
+        functions_to_build.append("hot-reader-last-entry")
+    
+    # Cold Writer: L3 hot on another cloud, L3 cold on GCP
+    if l3_hot != "google" and l3_cold == "google":
+        functions_to_build.append("cold-writer")
+    
+    # Archive Writer: L3 cold on another cloud, L3 archive on GCP
+    if l3_cold != "google" and l3_archive == "google":
+        functions_to_build.append("archive-writer")
+    
+    # L1 IoT functions - when L1 is GCP
+    if l1 == "google":
+        functions_to_build.extend(["dispatcher", "connector"])
+    
+    # L2 Compute functions - when L2 is GCP
+    if l2 == "google":
+        functions_to_build.extend(["processor_wrapper", "persister"])
+        # Event Checker (optional based on config)
+        if providers_config.get("use_event_checking", True):
+            functions_to_build.append("event-checker")
+    
+    # L3 Storage functions - when L3 hot is GCP
+    if l3_hot == "google":
+        functions_to_build.append("hot-to-cold-mover")
+    if l3_cold == "google":
+        functions_to_build.append("cold-to-archive-mover")
+    
+    # Build each function
+    for func_name in functions_to_build:
+        func_dir = gcp_funcs_dir / func_name
+        if func_dir.exists():
+            zip_path = build_dir / f"{func_name}.zip"
+            # Processor gets user code merged
+            if func_name == "processor_wrapper":
+                _create_gcp_function_zip(func_dir, shared_dir, zip_path, project_path)
+            else:
+                _create_gcp_function_zip(func_dir, shared_dir, zip_path)
+            packages[f"gcp_{func_name}"] = zip_path
+            logger.info(f"  ✓ Built GCP: {func_name}.zip")
+        else:
+            logger.warning(f"  ⚠ GCP function dir not found: {func_dir}")
+    
+    if not functions_to_build:
+        logger.info("  No GCP Cloud Functions needed for this configuration")
+    
+    return packages
+
+
+def _create_gcp_function_zip(
+    func_dir: Path, 
+    shared_dir: Path, 
+    output_path: Path,
+    project_path: Optional[Path] = None
+) -> None:
+    """
+    Create a GCP Cloud Function deployment ZIP with shared modules.
+    
+    Args:
+        func_dir: Path to function source directory
+        shared_dir: Path to _shared modules directory
+        output_path: Path to output ZIP file
+        project_path: Optional project path for processor user code merge
+    """
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Add function code
+        for file_path in func_dir.rglob('*'):
+            if file_path.is_file() and '__pycache__' not in str(file_path):
+                arcname = file_path.relative_to(func_dir)
+                zf.write(file_path, arcname)
+        
+        # Add shared modules under _shared/
+        if shared_dir and shared_dir.exists():
+            for file_path in shared_dir.rglob('*'):
+                if file_path.is_file() and '__pycache__' not in str(file_path):
+                    arcname = Path("_shared") / file_path.relative_to(shared_dir)
+                    zf.write(file_path, arcname)
+        
+        # For processor: merge user processor code from project
+        if project_path and "processor" in str(func_dir):
+            # Try GCP-specific processors directory first
+            user_processor = project_path / "cloud_functions" / "processors" / "default_processor"
+            if not user_processor.exists():
+                # Fall back to generic processors directory
+                user_processor = project_path / "processors" / "default_processor"
+            
+            if user_processor.exists():
+                for file_path in user_processor.rglob('*.py'):
+                    if '__pycache__' not in str(file_path):
+                        arcname = file_path.relative_to(user_processor)
+                        zf.write(file_path, arcname)
+                logger.info(f"    → Merged user processor code from: {user_processor}")
+        
+        # Add requirements.txt if not present
+        if not (func_dir / "requirements.txt").exists():
+            requirements = "functions-framework\ngoogle-cloud-firestore\ngoogle-cloud-storage\ngoogle-cloud-pubsub\n"
+            zf.writestr("requirements.txt", requirements)
+
+
+def get_gcp_zip_path(terraform_dir: Path, function_name: str) -> str:
+    """Get the path to a pre-built GCP Cloud Function ZIP for Terraform."""
+    return str(terraform_dir / BUILD_DIR / "gcp" / f"{function_name}.zip")
 
 
 # ==========================================

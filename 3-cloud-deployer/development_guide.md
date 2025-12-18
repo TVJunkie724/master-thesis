@@ -43,49 +43,16 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
 docker exec master-thesis-3cloud-deployer-1 ls -la /app
 ```
 
-#### 2. Docker Exec with Bash Wrapper (Recommended for Complex Commands)
-When you need pipes, redirects, or logical operators, **wrap the entire command inside `bash -c "..."`**:
-
-```bash
-# Piping INSIDE bash (correct)
-docker exec master-thesis-3cloud-deployer-1 bash -c "cat /app/file.txt | grep 'pattern'"
-
-# Logical operators INSIDE bash (correct)
-docker exec master-thesis-3cloud-deployer-1 bash -c "ls /app || echo 'directory not found'"
-
-# Redirects INSIDE bash (correct)
-docker exec master-thesis-3cloud-deployer-1 bash -c "python script.py 2>&1"
-
-# Multiple commands INSIDE bash (correct)
-docker exec master-thesis-3cloud-deployer-1 bash -c "cd /app && python -m pytest tests/ -v"
-```
-
-#### 3. Terraform Commands
-Terraform is installed in the Docker container.
-
-> **IMPORTANT:** NEVER chain terraform commands with `&&`. Run each command **separately** and wait for completion before running the next.
-
-```bash
-# Step 1: Init (run separately, wait for completion)
-docker exec master-thesis-3cloud-deployer-1 terraform -chdir=/app/src/terraform init
-
-# Step 2: Validate (run separately)
-docker exec master-thesis-3cloud-deployer-1 terraform -chdir=/app/src/terraform validate
-
-# Step 3: Plan (use bash wrapper for -var-file)
-docker exec master-thesis-3cloud-deployer-1 bash -c "cd /app/src/terraform && terraform plan -var-file=/app/upload/<project>/terraform/generated.tfvars.json"
-
-# Step 4: Apply (after plan succeeds)
-docker exec master-thesis-3cloud-deployer-1 bash -c "cd /app/src/terraform && terraform apply -auto-approve -var-file=/app/upload/<project>/terraform/generated.tfvars.json"
-
-# Destroy (when needed)
-docker exec master-thesis-3cloud-deployer-1 bash -c "cd /app/src/terraform && terraform destroy -auto-approve -var-file=/app/upload/<project>/terraform/generated.tfvars.json"
-```
-
-> **Note:** Use bash wrapper (`bash -c "cd ... && terraform ..."`) for commands with `-var-file` argument. The `&&` inside bash is for `cd` only, NOT for chaining multiple terraform commands.
-
-#### 4. Using Agent's Built-in File Tools (Preferred)
+#### 2. Using Agent's Built-in File Tools (Preferred)
 For file operations, **always prefer the agent's built-in tools** over commands:
+
+| Task | Use This Tool | NOT This Command |
+|------|---------------|------------------|
+| View file contents | `view_file` | `docker exec ... cat file` |
+| Search in files | `grep_search` | `docker exec ... grep` |
+| List directory | `list_dir` | `docker exec ... ls` |
+| View file structure | `view_file_outline` | `docker exec ... head/tail` |
+| Create/edit files | `write_to_file`, `replace_file_content` | `docker exec ... echo > file` |
 
 | Task | Use This Tool | NOT This Command |
 |------|---------------|------------------|
@@ -97,77 +64,32 @@ For file operations, **always prefer the agent's built-in tools** over commands:
 
 ---
 
-### ❌ FORBIDDEN Commands (Will Trigger Approval Prompt)
+### ❌ FORBIDDEN Commands
 
-> **⚠️ CRITICAL:** The following command patterns will **ALWAYS trigger an approval prompt** regardless of `SafeToAutoRun: true`. This is an IDE extension behavior that cannot be overridden.
+> **⚠️ CRITICAL:** The following command patterns are forbidden. Find alternative approaches using agent tools.
 
-#### Forbidden Pattern 1: Piping to Windows/PowerShell Commands
 ```bash
-# ❌ FORBIDDEN - pipes to Windows command
-docker exec container python -c "print('test')" | findstr "test"
-docker exec container cat file.txt | Select-String "pattern"
+# ❌ Pipes, &&, ||, or redirects
+docker exec ... | grep "pattern"        # Use grep_search tool instead
+docker exec ... && command2             # Run commands separately
+docker exec ... bash -c "..."           # Find alternative approach
 
-# ✅ CORRECT - pipe inside bash
-docker exec container bash -c "python -c 'print(test)' | grep 'test'"
+# ❌ PowerShell commands
+Get-Content, Select-String, Remove-Item # Use agent tools instead
+
+# ❌ Windows paths inside container
+docker exec container ls d:\path        # Use forward slashes /app
 ```
-
-#### Forbidden Pattern 2: Stderr Redirection Outside Bash
-```bash
-# ❌ FORBIDDEN - redirect outside bash
-docker exec container python script.py 2>&1 | Out-Null
-docker exec container command 2>/dev/null
-
-# ✅ CORRECT - redirect inside bash
-docker exec container bash -c "python script.py 2>&1"
-docker exec container bash -c "command 2>/dev/null"
-```
-
-#### Forbidden Pattern 3: Logical Operators Outside Bash
-```bash
-# ❌ FORBIDDEN - operators outside bash
-docker exec container ls /app || echo "failed"
-docker exec container test -f file && echo "exists"
-
-# ✅ CORRECT - operators inside bash
-docker exec container bash -c "ls /app || echo 'failed'"
-docker exec container bash -c "test -f file && echo 'exists'"
-```
-
-#### Forbidden Pattern 4: PowerShell-Specific Commands
-```bash
-# ❌ FORBIDDEN - never use these
-Get-Content file.txt
-Select-String "pattern" file.txt
-Remove-Item file.txt
-$variable = docker exec ...
-
-# ✅ CORRECT - use Docker or agent tools instead
-docker exec container cat /app/file.txt
-# Or better: use view_file tool
-```
-
-#### Forbidden Pattern 5: Windows Path Separators Inside Container
-```bash
-# ❌ FORBIDDEN - backslashes inside container
-docker exec container ls d:\Git\project
-
-# ✅ CORRECT - forward slashes inside container
-docker exec container ls /app
-```
-
----
 
 ### Quick Reference Table
 
-| Pattern | Permitted? | Example |
-|---------|------------|---------|
-| Simple `docker exec` | ✅ Yes | `docker exec container python script.py` |
-| `docker exec` with `bash -c "..."` | ✅ Yes | `docker exec container bash -c "cmd1 \| cmd2"` |
-| Pipe (`\|`) outside bash | ❌ No | `docker exec ... \| findstr` |
-| Redirect (`2>&1`, `>`) outside bash | ❌ No | `docker exec ... 2>&1` |
-| Logical ops (`\|\|`, `&&`) outside bash | ❌ No | `docker exec ... \|\| echo` |
-| PowerShell cmdlets | ❌ No | `Select-String`, `Get-Content` |
-| Agent file tools | ✅ Yes (Preferred) | `view_file`, `grep_search`, `list_dir` |
+| Pattern | Permitted? |
+|---------|------------|
+| Simple `docker exec` | ✅ Yes |
+| Pipes, redirects, logical ops | ❌ No |
+| `bash -c "..."` | ❌ No |
+| PowerShell cmdlets | ❌ No |
+| Agent file tools | ✅ Yes (Preferred) |
 
 ---
 

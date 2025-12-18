@@ -145,7 +145,7 @@ resource "azurerm_eventgrid_system_topic" "iothub" {
 resource "time_sleep" "wait_for_function_sync" {
   count           = var.layer_1_provider == "azure" && var.azure_l1_zip_path != "" ? 1 : 0
   depends_on      = [azurerm_linux_function_app.l1]
-  create_duration = "180s"  # Wait 3 minutes for function sync (EventGrid triggers need more time)
+  create_duration = "300s"  # Wait 5 minutes for Oryx build + function indexing
 }
 
 # ==============================================================================
