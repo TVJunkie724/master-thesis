@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Twin2Clouds Documentation — Facade Pattern</title>
+    <link rel="icon" type="image/x-icon" href="references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <link rel="stylesheet" href="css/docs_styles.css" />
+
+</head>
+
+<body>
+
+    <div class="layout">
+
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="docs-patterns.html">Design Patterns</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Facade Pattern</li>
+                </ol>
+            </nav>
+
+            <h1 class="mb-3">
+                <i class="fa-solid fa-layer-group me-2 text-warning"></i>Facade Pattern
+            </h1>
+
+            <p class="text-muted mb-4">
+                The Facade pattern provides a simplified interface to a complex subsystem of component calculators.
+                Layer facades aggregate multiple service-level costs into unified layer results, hiding the complexity
+                of individual service calculations from the orchestration engine.
+            </p>
+
+            <!-- Pattern Overview -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-info-circle me-2"></i>What It Does</h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Each cloud provider has a layer facade class that:
+                    </p>
+                    <ul>
+                        <li><strong>Aggregates component calculators</strong> — Instantiates and coordinates multiple
+                            service calculators</li>
+                        <li><strong>Provides layer-level methods</strong> — One method per architectural layer (L1, L2,
+                            etc.)</li>
+                        <li><strong>Returns structured results</strong> — Uses <code>LayerResult</code> dataclass for
+                            consistent output</li>
+                        <li><strong>Hides complexity</strong> — The engine only needs to call layer methods, not
+                            individual component calculations</li>
+                    </ul>
+
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <h5>Architecture Layers</h5>
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Layer</th>
+                                        <th>Name</th>
+                                        <th>Components</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="badge bg-primary">L1</span></td>
+                                        <td>Data Acquisition</td>
+                                        <td>IoT messaging, dispatcher function</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-success">L2</span></td>
+                                        <td>Compute</td>
+                                        <td>Processing function, routing</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-info">L3</span></td>
+                                        <td>Storage</td>
+                                        <td>Database, indices</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-warning">L4</span></td>
+                                        <td>Digital Twin</td>
+                                        <td>Twin service, update functions</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-danger">L5</span></td>
+                                        <td>Visualization</td>
+                                        <td>Dashboard, API access</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Relationship Diagram</h5>
+                            <pre class="bg-dark text-light p-3 rounded" style="font-size: 0.8rem;">
+┌─────────────────────────────┐
+│     Calculation Engine      │
+│        (engine.py)          │
+└──────────────┬──────────────┘
+               │ calls layer methods
+               ▼
+┌─────────────────────────────┐
+│    AWSLayerCalculators      │
+│         (Facade)            │
+├─────────────────────────────┤
+│ calculate_l1_cost()         │
+│ calculate_l2_cost()         │
+│ calculate_l3_cost()         │
+│ calculate_l4_cost()         │
+│ calculate_l5_cost()         │
+└──────────────┬──────────────┘
+               │ uses
+               ▼
+┌──────┬───────┬───────┬──────┐
+│Lambda│IoTCore│DynamoDB│...  │
+│ Calc │ Calc  │  Calc  │     │
+└──────┴───────┴───────┴──────┘</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Where It's Used -->
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-folder-open me-2"></i>Where It's Used</h2>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>File</th>
+                                <th>Class</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>calculation_v2/layers/aws_layers.py</code></td>
+                                <td><code>AWSLayerCalculators</code></td>
+                                <td>Aggregates AWS service calculators into layer costs</td>
+                            </tr>
+                            <tr>
+                                <td><code>calculation_v2/layers/azure_layers.py</code></td>
+                                <td><code>AzureLayerCalculators</code></td>
+                                <td>Aggregates Azure service calculators into layer costs</td>
+                            </tr>
+                            <tr>
+                                <td><code>calculation_v2/layers/gcp_layers.py</code></td>
+                                <td><code>GCPLayerCalculators</code></td>
+                                <td>Aggregates GCP service calculators into layer costs</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h5 class="mt-4">Layer Methods</h5>
+                    <p>Each facade provides these methods returning <code>LayerResult</code>:</p>
+                    <ul class="list-group">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <code>calculate_l1_cost()</code>
+                            <span class="badge bg-primary">Data Acquisition Layer</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <code>calculate_l2_cost()</code>
+                            <span class="badge bg-success">Compute Layer</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <code>calculate_l3_cost()</code>
+                            <span class="badge bg-info">Storage Layer</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <code>calculate_l4_cost()</code>
+                            <span class="badge bg-warning">Digital Twin Layer</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <code>calculate_l5_cost()</code>
+                            <span class="badge bg-danger">Visualization Layer</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Code Examples -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-code me-2"></i>Code Examples</h2>
+                </div>
+                <div class="card-body">
+
+                    <h5>AWS Layer Facade</h5>
+                    <p class="text-muted">The main facade class for AWS cost calculations.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>from typing import Dict, Any
+from dataclasses import dataclass
+
+from calculation_v2.components.aws import (
+    AWSLambdaCalculator,
+    AWSIoTCoreCalculator,
+    AWSDynamoDBCalculator,
+    AWSAPIGatewayCalculator,
+    AWSTwinMakerCalculator,
+    AWSGrafanaCalculator
+)
+
+@dataclass
+class LayerResult:
+    """Structured result from layer calculations."""
+    provider: str
+    layer: str
+    total_cost: float
+    data_size_gb: float = 0.0
+    messages: int = 0
+    components: Dict[str, float] = None
+    
+    def __post_init__(self):
+        if self.components is None:
+            self.components = {}
+
+
+class AWSLayerCalculators:
+    """
+    Facade aggregating AWS component calculators.
+    
+    Provides a simplified interface for calculating costs at the layer level,
+    hiding the complexity of individual service calculations.
+    """
+    
+    def __init__(self):
+        """Initialize all component calculators."""
+        self.lambda_calc = AWSLambdaCalculator()
+        self.iot_core = AWSIoTCoreCalculator()
+        self.dynamodb = AWSDynamoDBCalculator()
+        self.api_gateway = AWSAPIGatewayCalculator()
+        self.twinmaker = AWSTwinMakerCalculator()
+        self.grafana = AWSGrafanaCalculator()
+    
+    def calculate_l1_cost(
+        self,
+        number_of_devices: int,
+        messages_per_month: int,
+        average_message_size_kb: float,
+        pricing: Dict[str, Any]
+    ) -> LayerResult:
+        """
+        Calculate Layer 1 (Data Acquisition) cost.
+        
+        Components:
+        - IoT Core for device messaging
+        - Lambda for message dispatching
+        
+        Args:
+            number_of_devices: Connected IoT devices
+            messages_per_month: Total messages from all devices
+            average_message_size_kb: Average payload size
+            pricing: AWS pricing data
+        
+        Returns:
+            LayerResult with total cost and component breakdown
+        """
+        # IoT Core messaging cost
+        iot_cost = self.iot_core.calculate_cost(
+            pricing=pricing,
+            num_devices=number_of_devices,
+            messages_per_month=messages_per_month,
+            avg_message_size_kb=average_message_size_kb
+        )
+        
+        # Dispatcher Lambda (one execution per message)
+        dispatcher_cost = self.lambda_calc.calculate_cost(
+            pricing=pricing,
+            executions=messages_per_month,
+            duration_ms=100,  # Fast message routing
+            memory_mb=128
+        )
+        
+        total = iot_cost + dispatcher_cost
+        
+        return LayerResult(
+            provider="aws",
+            layer="L1_ingestion",
+            total_cost=total,
+            data_size_gb=(messages_per_month * average_message_size_kb) / (1024 * 1024),
+            messages=messages_per_month,
+            components={
+                "iotCore": iot_cost,
+                "dispatcherLambda": dispatcher_cost
+            }
+        )</code></pre>
+
+                    <h5 class="mt-4">Layer 4 Example (Digital Twin)</h5>
+                    <p class="text-muted">More complex layer with multiple related services.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>def calculate_l4_cost(
+    self,
+    number_of_twins: int,
+    updates_per_twin_per_month: int,
+    queries_per_month: int,
+    pricing: Dict[str, Any]
+) -> LayerResult:
+    """
+    Calculate Layer 4 (Digital Twin) cost.
+    
+    Components:
+    - TwinMaker for twin management
+    - Lambda for twin update processing
+    - DynamoDB for twin state storage (if applicable)
+    
+    Args:
+        number_of_twins: Total digital twins
+        updates_per_twin_per_month: State updates per twin
+        queries_per_month: Read queries against twins
+        pricing: AWS pricing data
+    
+    Returns:
+        LayerResult with cost breakdown
+    """
+    total_updates = number_of_twins * updates_per_twin_per_month
+    
+    # TwinMaker costs (per twin, per update, per query)
+    twinmaker_cost = self.twinmaker.calculate_cost(
+        pricing=pricing,
+        num_twins=number_of_twins,
+        updates=total_updates,
+        queries=queries_per_month
+    )
+    
+    # Update processing Lambda
+    update_lambda_cost = self.lambda_calc.calculate_cost(
+        pricing=pricing,
+        executions=total_updates,
+        duration_ms=200,  # More processing than dispatcher
+        memory_mb=256
+    )
+    
+    total = twinmaker_cost + update_lambda_cost
+    
+    return LayerResult(
+        provider="aws",
+        layer="L4_digitaltwin",
+        total_cost=total,
+        components={
+            "twinMaker": twinmaker_cost,
+            "updateLambda": update_lambda_cost
+        }
+    )</code></pre>
+
+                    <h5 class="mt-4">Engine Using Facades</h5>
+                    <p class="text-muted">How the calculation engine uses layer facades.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>from calculation_v2.layers.aws_layers import AWSLayerCalculators
+from calculation_v2.layers.azure_layers import AzureLayerCalculators
+from calculation_v2.layers.gcp_layers import GCPLayerCalculators
+
+def calculate_provider_costs(
+    provider: str,
+    params: Dict[str, Any],
+    pricing: Dict[str, Any]
+) -> Dict[str, LayerResult]:
+    """
+    Calculate all layer costs for a single provider.
+    
+    Uses the appropriate facade to simplify access to component calculators.
+    """
+    facades = {
+        "aws": AWSLayerCalculators(),
+        "azure": AzureLayerCalculators(),
+        "gcp": GCPLayerCalculators()
+    }
+    
+    facade = facades[provider]
+    
+    return {
+        "L1": facade.calculate_l1_cost(
+            number_of_devices=params['devices'],
+            messages_per_month=params['messages'],
+            average_message_size_kb=params['messageSize'],
+            pricing=pricing
+        ),
+        "L2": facade.calculate_l2_cost(
+            compute_executions=params['computeExecutions'],
+            duration_ms=params['computeDuration'],
+            memory_mb=params['computeMemory'],
+            pricing=pricing
+        ),
+        # ... L3, L4, L5
+    }</code></pre>
+                </div>
+            </div>
+
+            <!-- Extension Guide -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-plus-circle me-2"></i>How to Extend</h2>
+                </div>
+                <div class="card-body">
+                    <h5>Adding a New Layer</h5>
+                    <ol>
+                        <li>
+                            <strong>Identify required components</strong> — List all cloud services used in the new
+                            layer.
+                        </li>
+                        <li>
+                            <strong>Create/verify component calculators</strong> — Ensure each service has a calculator.
+                        </li>
+                        <li>
+                            <strong>Add the layer method</strong> to each provider's facade:
+                            <pre class="bg-dark text-light p-3 rounded mt-2"><code>def calculate_l6_cost(
+    self,
+    param1: int,
+    param2: float,
+    pricing: Dict[str, Any]
+) -> LayerResult:
+    """Calculate Layer 6 (New Layer Name) cost."""
+    
+    service1_cost = self.service1_calc.calculate_cost(
+        pricing=pricing,
+        usage=param1
+    )
+    
+    service2_cost = self.service2_calc.calculate_cost(
+        pricing=pricing,
+        usage=param2
+    )
+    
+    return LayerResult(
+        provider="aws",  # or appropriate provider
+        layer="L6_newlayer",
+        total_cost=service1_cost + service2_cost,
+        components={
+            "service1": service1_cost,
+            "service2": service2_cost
+        }
+    )</code></pre>
+                        </li>
+                        <li>
+                            <strong>Update the engine</strong> to call the new layer method.
+                        </li>
+                        <li>
+                            <strong>Update the frontend</strong> to display the new layer in the UI.
+                        </li>
+                    </ol>
+
+                    <h5 class="mt-4">Adding a New Provider</h5>
+                    <ol>
+                        <li>Create component calculators in <code>calculation_v2/components/{provider}/</code></li>
+                        <li>Create the facade in <code>calculation_v2/layers/{provider}_layers.py</code></li>
+                        <li>Register the facade in the engine's provider dictionary</li>
+                        <li>Add pricing fetcher support via the Factory pattern</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="d-flex justify-content-between mt-4">
+                <a href="docs-pattern-component.html" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-arrow-left me-2"></i>Component Calculator
+                </a>
+                <a href="docs-pattern-dataclass.html" class="btn btn-primary">
+                    Next: Dataclass Pattern<i class="fa-solid fa-arrow-right ms-2"></i>
+                </a>
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+
+    <script src="js/docs-nav.js" defer></script>
+</body>
+
+</html>

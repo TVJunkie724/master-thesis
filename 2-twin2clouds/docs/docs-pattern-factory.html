@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Twin2Clouds Documentation — Factory Pattern</title>
+    <link rel="icon" type="image/x-icon" href="references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <link rel="stylesheet" href="css/docs_styles.css" />
+
+</head>
+
+<body>
+
+    <div class="layout">
+
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="docs-patterns.html">Design Patterns</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Factory Pattern</li>
+                </ol>
+            </nav>
+
+            <h1 class="mb-3">
+                <i class="fa-solid fa-industry me-2 text-danger"></i>Factory Pattern
+            </h1>
+
+            <p class="text-muted mb-4">
+                The Factory pattern centralizes the creation of pricing fetcher instances. It provides a registry-based
+                approach for creating provider-specific fetchers, making it easy to add new providers, swap
+                implementations, or create mock fetchers for testing.
+            </p>
+
+            <!-- Pattern Overview -->
+            <div class="card mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-info-circle me-2"></i>What It Does</h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        The <code>PriceFetcherFactory</code> class:
+                    </p>
+                    <ul>
+                        <li><strong>Maintains a registry</strong> of available fetcher classes</li>
+                        <li><strong>Creates fetcher instances</strong> based on provider name</li>
+                        <li><strong>Allows runtime registration</strong> of new fetchers (useful for testing)</li>
+                        <li><strong>Provides discovery</strong> of all registered fetchers</li>
+                    </ul>
+
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <h5>Benefits</h5>
+                            <ul>
+                                <li><strong>Decoupling</strong> — Clients don't need to know concrete classes</li>
+                                <li><strong>Extensibility</strong> — Add providers without modifying existing code</li>
+                                <li><strong>Testability</strong> — Register mock fetchers during tests</li>
+                                <li><strong>Single responsibility</strong> — Creation logic in one place</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Factory Flow</h5>
+                            <pre class="bg-dark text-light p-3 rounded" style="font-size: 0.8rem;">
+┌──────────────────────┐
+│   API Endpoint       │
+│  /api/fetch_pricing  │
+└──────────┬───────────┘
+           │ requests fetcher
+           ▼
+┌──────────────────────┐
+│ PriceFetcherFactory  │
+│    .create("aws")    │
+├──────────────────────┤
+│ Registry:            │
+│   aws → AWSPriceFet  │
+│   azure → AzurePric  │
+│   gcp → GCPPriceFet  │
+└──────────┬───────────┘
+           │ returns instance
+           ▼
+┌──────────────────────┐
+│   AWSPriceFetcher    │
+│   .fetch_pricing()   │
+└──────────────────────┘</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Where It's Used -->
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-folder-open me-2"></i>Where It's Used</h2>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>File</th>
+                                <th>Component</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td rowspan="4"><code>backend/fetch_data/factory.py</code></td>
+                                <td><code>PriceFetcher</code></td>
+                                <td>Protocol defining the fetcher interface</td>
+                            </tr>
+                            <tr>
+                                <td><code>PriceFetcherFactory</code></td>
+                                <td>Factory class with registry and create method</td>
+                            </tr>
+                            <tr>
+                                <td><code>AWSPriceFetcher</code></td>
+                                <td>AWS pricing API fetcher implementation</td>
+                            </tr>
+                            <tr>
+                                <td><code>AzurePriceFetcher</code> / <code>GCPPriceFetcher</code></td>
+                                <td>Azure and GCP implementations</td>
+                            </tr>
+                            <tr>
+                                <td><code>api/pricing.py</code></td>
+                                <td><code>/api/fetch_pricing/{provider}</code></td>
+                                <td>Uses factory to get appropriate fetcher</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h5 class="mt-4">Registered Fetchers</h5>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card border-warning">
+                                <div class="card-body text-center">
+                                    <i class="fa-brands fa-aws fa-2x text-warning mb-2"></i>
+                                    <h6><code>AWSPriceFetcher</code></h6>
+                                    <small class="text-muted">AWS Pricing API</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-info">
+                                <div class="card-body text-center">
+                                    <i class="fa-brands fa-microsoft fa-2x text-info mb-2"></i>
+                                    <h6><code>AzurePriceFetcher</code></h6>
+                                    <small class="text-muted">Azure Retail Prices API</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-danger">
+                                <div class="card-body text-center">
+                                    <i class="fa-brands fa-google fa-2x text-danger mb-2"></i>
+                                    <h6><code>GCPPriceFetcher</code></h6>
+                                    <small class="text-muted">Cloud Billing Catalog API</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code Examples -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-code me-2"></i>Code Examples</h2>
+                </div>
+                <div class="card-body">
+
+                    <h5>PriceFetcher Protocol</h5>
+                    <p class="text-muted">Defines the interface that all fetchers must implement.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>from typing import Protocol, Dict, Any, runtime_checkable
+
+@runtime_checkable
+class PriceFetcher(Protocol):
+    """
+    Protocol for cloud provider pricing fetchers.
+    
+    Any class implementing this protocol must provide:
+    - name: String identifier for the provider
+    - fetch_pricing: Method to retrieve pricing data
+    """
+    
+    name: str
+    
+    def fetch_pricing(
+        self,
+        region: str,
+        credentials: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Fetch pricing data for a specific region.
+        
+        Args:
+            region: Provider-specific region code (e.g., 'us-east-1')
+            credentials: Authentication credentials for API access
+        
+        Returns:
+            Dictionary containing service pricing data
+        
+        Raises:
+            FetchError: If pricing data cannot be retrieved
+        """
+        ...</code></pre>
+
+                    <h5 class="mt-4">PriceFetcherFactory Implementation</h5>
+                    <p class="text-muted">Registry-based factory with class methods.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>from typing import Dict, Type
+
+class PriceFetcherFactory:
+    """
+    Factory for creating cloud provider price fetcher instances.
+    
+    Uses a class-level registry to map provider names to fetcher classes.
+    Supports runtime registration for testing and extensibility.
+    """
+    
+    # Class-level registry of fetcher classes
+    _registry: Dict[str, Type[PriceFetcher]] = {}
+    
+    @classmethod
+    def register(cls, name: str, fetcher_class: Type[PriceFetcher]) -> None:
+        """
+        Register a fetcher class for a provider.
+        
+        Args:
+            name: Provider identifier (lowercase)
+            fetcher_class: Class implementing PriceFetcher protocol
+        
+        Example:
+            PriceFetcherFactory.register("oracle", OraclePriceFetcher)
+        """
+        cls._registry[name.lower()] = fetcher_class
+    
+    @classmethod
+    def create(cls, provider: str) -> PriceFetcher:
+        """
+        Create a fetcher instance for the specified provider.
+        
+        Args:
+            provider: Provider name (case-insensitive)
+        
+        Returns:
+            Instance of the appropriate fetcher class
+        
+        Raises:
+            ValueError: If provider is not registered
+        """
+        provider_lower = provider.lower()
+        
+        if provider_lower not in cls._registry:
+            available = list(cls._registry.keys())
+            raise ValueError(
+                f"Unknown provider: {provider}. "
+                f"Available providers: {available}"
+            )
+        
+        return cls._registry[provider_lower]()
+    
+    @classmethod
+    def get_all(cls) -> Dict[str, PriceFetcher]:
+        """
+        Get instances of all registered fetchers.
+        
+        Returns:
+            Dictionary mapping provider names to fetcher instances
+        """
+        return {
+            name: fetcher_class()
+            for name, fetcher_class in cls._registry.items()
+        }
+    
+    @classmethod
+    def is_registered(cls, provider: str) -> bool:
+        """Check if a provider is registered."""
+        return provider.lower() in cls._registry
+
+
+# Register default fetchers at module load time
+PriceFetcherFactory.register("aws", AWSPriceFetcher)
+PriceFetcherFactory.register("azure", AzurePriceFetcher)
+PriceFetcherFactory.register("gcp", GCPPriceFetcher)</code></pre>
+
+                    <h5 class="mt-4">AWS Price Fetcher Implementation</h5>
+                    <p class="text-muted">Example of a concrete fetcher class.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>import boto3
+from typing import Dict, Any
+
+class AWSPriceFetcher:
+    """
+    Fetches pricing data from AWS Pricing API.
+    
+    Uses boto3 to connect to AWS Pricing service and retrieve
+    cost data for various services like Lambda, IoT Core, DynamoDB.
+    """
+    
+    name = "aws"
+    
+    def __init__(self):
+        """Initialize the fetcher (pricing client created per-call)."""
+        self._services = [
+            'AWSLambda',
+            'AWSIoT',
+            'AmazonDynamoDB',
+            'AmazonAPIGateway',
+            'AWSIoTTwinMaker',
+            'AmazonManagedGrafana'
+        ]
+    
+    def fetch_pricing(
+        self,
+        region: str,
+        credentials: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Fetch AWS pricing for the specified region.
+        
+        Args:
+            region: AWS region code (e.g., 'us-east-1')
+            credentials: Dict with aws_access_key_id,
+                        aws_secret_access_key, aws_region
+        
+        Returns:
+            Nested dict with service pricing data
+        """
+        # Create pricing client (Pricing API only in us-east-1)
+        client = boto3.client(
+            'pricing',
+            region_name='us-east-1',
+            aws_access_key_id=credentials.get('aws_access_key_id'),
+            aws_secret_access_key=credentials.get('aws_secret_access_key')
+        )
+        
+        pricing_data = {}
+        
+        for service_code in self._services:
+            pricing_data[service_code] = self._fetch_service_pricing(
+                client, service_code, region
+            )
+        
+        return self._normalize_pricing(pricing_data)
+    
+    def _fetch_service_pricing(
+        self,
+        client,
+        service_code: str,
+        region: str
+    ) -> Dict[str, Any]:
+        """Fetch pricing for a single service."""
+        # Implementation details...
+        pass
+    
+    def _normalize_pricing(
+        self,
+        raw_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Convert raw API response to standardized format."""
+        # Transform to match expected schema
+        return {
+            'lambda': self._extract_lambda_pricing(raw_data),
+            'iotCore': self._extract_iot_pricing(raw_data),
+            'dynamodb': self._extract_dynamodb_pricing(raw_data),
+            # ... more services
+        }</code></pre>
+
+                    <h5 class="mt-4">Using the Factory</h5>
+                    <p class="text-muted">How API endpoints use the factory.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>from fastapi import APIRouter, HTTPException
+from backend.fetch_data.factory import PriceFetcherFactory
+
+router = APIRouter()
+
+@router.post("/api/fetch_pricing/{provider}")
+async def fetch_pricing(provider: str, region: str):
+    """
+    Fetch pricing data for a cloud provider.
+    
+    Args:
+        provider: Cloud provider ('aws', 'azure', 'gcp')
+        region: Provider-specific region code
+    
+    Returns:
+        Pricing data for the specified region
+    """
+    try:
+        # Factory creates the appropriate fetcher
+        fetcher = PriceFetcherFactory.create(provider)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    # Load credentials from config
+    credentials = load_credentials(provider)
+    
+    # Fetch and return pricing
+    pricing = fetcher.fetch_pricing(region, credentials)
+    return {"provider": provider, "region": region, "pricing": pricing}</code></pre>
+                </div>
+            </div>
+
+            <!-- Testing with Mock Fetchers -->
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-vial me-2"></i>Testing with Mock Fetchers</h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        The Factory pattern makes testing easy by allowing mock fetchers to be registered at runtime.
+                    </p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>import pytest
+from backend.fetch_data.factory import PriceFetcherFactory
+
+class MockPriceFetcher:
+    """Mock fetcher for testing that returns predictable data."""
+    
+    name = "mock"
+    
+    def __init__(self, return_data: dict = None):
+        self._return_data = return_data or self._default_data()
+    
+    def fetch_pricing(self, region: str, credentials: dict) -> dict:
+        """Return mock pricing data."""
+        return self._return_data
+    
+    @staticmethod
+    def _default_data():
+        return {
+            'lambda': {
+                'pricePerRequest': 0.0000002,
+                'pricePerGBSecond': 0.0000166667,
+                'freeRequests': 1000000,
+                'freeGBSeconds': 400000
+            },
+            'iotCore': {
+                'pricePerMessage': 0.000001,
+                'freeMessages': 250000
+            }
+        }
+
+
+class TestWithMockFetcher:
+    """Tests using mock fetcher."""
+    
+    @pytest.fixture(autouse=True)
+    def register_mock(self):
+        """Register mock fetcher before each test."""
+        PriceFetcherFactory.register("mock", MockPriceFetcher)
+        yield
+        # Optionally clean up after test
+    
+    def test_factory_creates_mock(self):
+        """Verify factory returns mock fetcher."""
+        fetcher = PriceFetcherFactory.create("mock")
+        assert fetcher.name == "mock"
+    
+    def test_mock_returns_expected_data(self):
+        """Verify mock returns predictable data."""
+        fetcher = PriceFetcherFactory.create("mock")
+        pricing = fetcher.fetch_pricing("us-east-1", {})
+        
+        assert pricing['lambda']['pricePerRequest'] == 0.0000002
+        assert pricing['iotCore']['freeMessages'] == 250000
+    
+    def test_calculation_with_mock_pricing(self):
+        """Integration test using mock pricing data."""
+        fetcher = PriceFetcherFactory.create("mock")
+        pricing = fetcher.fetch_pricing("us-east-1", {})
+        
+        # Use pricing in calculation
+        from calculation_v2.components.aws import AWSLambdaCalculator
+        calc = AWSLambdaCalculator()
+        cost = calc.calculate_cost(
+            pricing=pricing,
+            executions=2000000,
+            duration_ms=100,
+            memory_mb=128
+        )
+        
+        # Verify expected cost calculation
+        assert cost > 0</code></pre>
+                </div>
+            </div>
+
+            <!-- Extension Guide -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-plus-circle me-2"></i>How to Extend</h2>
+                </div>
+                <div class="card-body">
+                    <h5>Adding a New Cloud Provider</h5>
+                    <ol>
+                        <li>
+                            <strong>Create the fetcher class</strong> implementing the
+                            <code>PriceFetcher</code> protocol:
+                            <pre class="bg-dark text-light p-3 rounded mt-2"><code># backend/fetch_data/oracle_fetcher.py
+from typing import Dict, Any
+import oci  # Oracle Cloud SDK
+
+class OraclePriceFetcher:
+    """Fetches pricing from Oracle Cloud Infrastructure."""
+    
+    name = "oracle"
+    
+    def fetch_pricing(
+        self,
+        region: str,
+        credentials: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        # Connect to OCI Pricing API
+        config = oci.config.from_file()
+        client = oci.usage_api.UsageapiClient(config)
+        
+        # Fetch and normalize pricing data
+        raw_pricing = self._fetch_from_api(client, region)
+        return self._normalize(raw_pricing)
+    
+    def _fetch_from_api(self, client, region):
+        # Implementation...
+        pass
+    
+    def _normalize(self, raw_data):
+        # Convert to standard schema
+        return {
+            'functions': {...},
+            'streaming': {...},
+            # ... other services
+        }</code></pre>
+                        </li>
+                        <li>
+                            <strong>Register in the factory</strong>:
+                            <pre class="bg-dark text-light p-3 rounded mt-2"><code># At the end of factory.py or in a setup module
+from backend.fetch_data.oracle_fetcher import OraclePriceFetcher
+
+PriceFetcherFactory.register("oracle", OraclePriceFetcher)</code></pre>
+                        </li>
+                        <li>
+                            <strong>Add API endpoint</strong> (optional if using generic endpoint):
+                            <pre class="bg-dark text-light p-3 rounded mt-2"><code># api/pricing.py - no changes needed if using:
+@router.post("/api/fetch_pricing/{provider}")
+# The factory handles the new provider automatically</code></pre>
+                        </li>
+                        <li>
+                            <strong>Create component calculators</strong> for Oracle services
+                        </li>
+                        <li>
+                            <strong>Update frontend</strong> to include Oracle as a provider option
+                        </li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="d-flex justify-content-between mt-4">
+                <a href="docs-pattern-dataclass.html" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-arrow-left me-2"></i>Dataclass Pattern
+                </a>
+                <a href="docs-pattern-frontend.html" class="btn btn-primary">
+                    Next: Frontend Patterns<i class="fa-solid fa-arrow-right ms-2"></i>
+                </a>
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+
+    <script src="js/docs-nav.js" defer></script>
+</body>
+
+</html>

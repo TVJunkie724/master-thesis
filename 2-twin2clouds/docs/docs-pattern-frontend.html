@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Twin2Clouds Documentation — Frontend Patterns</title>
+    <link rel="icon" type="image/x-icon" href="references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <link rel="stylesheet" href="css/docs_styles.css" />
+
+</head>
+
+<body>
+
+    <div class="layout">
+
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="docs-patterns.html">Design Patterns</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Frontend Patterns</li>
+                </ol>
+            </nav>
+
+            <h1 class="mb-3">
+                <i class="fa-brands fa-js me-2 text-warning"></i>Frontend Patterns
+            </h1>
+
+            <p class="text-muted mb-4">
+                The Twin2Clouds web UI uses a modular JavaScript architecture without heavy frameworks.
+                This page documents the four core patterns that organize the frontend codebase:
+                Registry, Component, Orchestrator, and Utility patterns.
+            </p>
+
+            <!-- Architecture Overview -->
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-sitemap me-2"></i>Architecture Overview</h2>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Module Structure</h5>
+                            <pre class="bg-dark p-3 rounded"><code>webui/
+├── js/
+│   ├── config/           # Registry Pattern
+│   │   ├── layers.js     # Layer definitions
+│   │   ├── providers.js  # Provider configuration
+│   │   └── services.js   # Service mappings
+│   │
+│   ├── components/       # Component Pattern
+│   │   ├── layer-card.js
+│   │   ├── comparison-table.js
+│   │   └── warning-box.js
+│   │
+│   ├── utils/            # Utility Pattern
+│   │   ├── formatters.js
+│   │   └── path-parser.js
+│   │
+│   ├── api.js            # API communication
+│   └── ui-components.js  # Orchestrator Pattern
+│
+└── index.html            # Main application</code></pre>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Data Flow</h5>
+                            <pre class="bg-dark text-light p-3 rounded" style="font-size: 0.8rem;">
+┌─────────────────────────────────────┐
+│           index.html                │
+│      (Event handlers, form)         │
+└─────────────────┬───────────────────┘
+                  │ user input
+                  ▼
+┌─────────────────────────────────────┐
+│            api.js                   │
+│   (Fetch data from backend)         │
+└─────────────────┬───────────────────┘
+                  │ API response
+                  ▼
+┌─────────────────────────────────────┐
+│       ui-components.js              │
+│    (Orchestrator: updateHtml)       │
+└─────────────────┬───────────────────┘
+        ┌─────────┴─────────┐
+        ▼                   ▼
+┌─────────────┐    ┌─────────────────┐
+│  config/    │    │   components/   │
+│ (Registries)│    │ (UI generators) │
+└─────────────┘    └─────────────────┘
+        │                   │
+        └─────────┬─────────┘
+                  ▼
+┌─────────────────────────────────────┐
+│            utils/                   │
+│   (Formatters, parsers, helpers)    │
+└─────────────────────────────────────┘</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Registry Pattern -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-database me-2"></i>Registry Pattern</h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Configuration objects that define static data structures used throughout the application.
+                        Registries provide a single source of truth for layers, providers, and service mappings.
+                    </p>
+
+                    <h5>Layers Registry</h5>
+                    <p class="text-muted">Defines the architecture layers and their properties.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>// js/config/layers.js
+
+/**
+ * Registry of architecture layers.
+ * Each layer has an id, display name, order, and path prefix for parsing.
+ */
+export const LAYERS = {
+    L1: {
+        id: 'L1',
+        name: 'Data Acquisition',
+        order: 1,
+        pathPrefix: 'L1_',
+        description: 'IoT device messaging and initial data ingestion'
+    },
+    L2: {
+        id: 'L2',
+        name: 'Compute',
+        order: 2,
+        pathPrefix: 'L2_',
+        description: 'Serverless data processing and routing'
+    },
+    L3: {
+        id: 'L3',
+        name: 'Storage',
+        order: 3,
+        pathPrefix: 'L3_',
+        description: 'Database storage and indexing'
+    },
+    L4: {
+        id: 'L4',
+        name: 'Digital Twin',
+        order: 4,
+        pathPrefix: 'L4_',
+        description: 'Twin model management and synchronization'
+    },
+    L5: {
+        id: 'L5',
+        name: 'Visualization',
+        order: 5,
+        pathPrefix: 'L5_',
+        description: 'Dashboard and API access'
+    }
+};
+
+/**
+ * Get layer by ID.
+ * @param {string} id - Layer identifier (e.g., 'L1')
+ * @returns {Object} Layer definition
+ */
+export function getLayerById(id) {
+    return LAYERS[id] || null;
+}
+
+/**
+ * Get layer by path prefix (for parsing cheapest path).
+ * @param {string} pathSegment - Path segment (e.g., 'L1_aws')
+ * @returns {Object} Layer definition
+ */
+export function getLayerByPathPrefix(pathSegment) {
+    for (const [key, layer] of Object.entries(LAYERS)) {
+        if (pathSegment.startsWith(layer.pathPrefix)) {
+            return layer;
+        }
+    }
+    return null;
+}</code></pre>
+
+                    <h5 class="mt-4">Providers Registry</h5>
+                    <p class="text-muted">Defines cloud providers and their display properties.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>// js/config/providers.js
+
+/**
+ * Registry of cloud providers with display properties.
+ */
+export const PROVIDERS = {
+    aws: {
+        id: 'aws',
+        name: 'AWS',
+        fullName: 'Amazon Web Services',
+        icon: 'fa-brands fa-aws',
+        color: '#FF9900',
+        borderClass: 'border-warning',
+        bgClass: 'bg-aws'
+    },
+    azure: {
+        id: 'azure',
+        name: 'Azure',
+        fullName: 'Microsoft Azure',
+        icon: 'fa-brands fa-microsoft',
+        color: '#0089D6',
+        borderClass: 'border-info',
+        bgClass: 'bg-azure'
+    },
+    gcp: {
+        id: 'gcp',
+        name: 'GCP',
+        fullName: 'Google Cloud Platform',
+        icon: 'fa-brands fa-google',
+        color: '#DB4437',
+        borderClass: 'border-danger',
+        bgClass: 'bg-gcp'
+    }
+};
+
+/**
+ * Get provider styling information.
+ * @param {string} providerId - Provider identifier
+ * @returns {Object} Provider display properties
+ */
+export function getProviderStyles(providerId) {
+    return PROVIDERS[providerId.toLowerCase()] || PROVIDERS.aws;
+}</code></pre>
+
+                    <h5 class="mt-4">Services Registry</h5>
+                    <p class="text-muted">Maps layers and providers to specific cloud services.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>// js/config/services.js
+
+/**
+ * Service mappings for each layer and provider combination.
+ * Used to display the "service stack" on layer cards.
+ */
+export const SERVICES = {
+    L1: {
+        aws: ['IoT Core', 'Lambda (Dispatcher)'],
+        azure: ['IoT Hub', 'Functions (Dispatcher)'],
+        gcp: ['Pub/Sub', 'Cloud Functions (Dispatcher)']
+    },
+    L2: {
+        aws: ['Lambda (Processor)', 'SNS'],
+        azure: ['Functions (Processor)', 'Event Grid'],
+        gcp: ['Cloud Functions (Processor)', 'Cloud Scheduler']
+    },
+    L3: {
+        aws: ['DynamoDB', 'Lambda (Query Handler)'],
+        azure: ['Cosmos DB', 'Functions (Query Handler)'],
+        gcp: ['Firestore', 'Cloud Functions (Query Handler)']
+    },
+    L4: {
+        aws: ['TwinMaker', 'Lambda (Updater)'],
+        azure: ['Digital Twins', 'Functions (Updater)'],
+        gcp: ['Self-Hosted TwinMaker', 'Compute Engine']  // Not implemented
+    },
+    L5: {
+        aws: ['Managed Grafana', 'API Gateway'],
+        azure: ['Managed Grafana', 'API Management'],
+        gcp: ['Self-Hosted Grafana', 'API Gateway']  // Not implemented
+    }
+};
+
+/**
+ * Get services for a specific layer and provider.
+ * @param {string} layerId - Layer ID (e.g., 'L1')
+ * @param {string} providerId - Provider ID (e.g., 'aws')
+ * @param {Object} params - User parameters (for conditional services)
+ * @param {Object} selectedProviders - Currently selected providers
+ * @returns {string[]} List of service names
+ */
+export function getServicesForLayer(layerId, providerId, params, selectedProviders) {
+    const services = SERVICES[layerId]?.[providerId] || [];
+    
+    // Add cross-cloud transfer service if L3 provider differs from L4
+    if (layerId === 'L3' && selectedProviders?.L4 !== providerId) {
+        return [...services, 'Data Transfer (Cross-Cloud)'];
+    }
+    
+    return services;
+}</code></pre>
+                </div>
+            </div>
+
+            <!-- Component Pattern -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-cube me-2"></i>Component Pattern</h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Reusable UI generation functions that produce HTML strings. Each component is responsible
+                        for a specific visual element and can be composed together by the orchestrator.
+                    </p>
+
+                    <h5>Layer Card Component</h5>
+                    <p class="text-muted">Generates the flip card showing layer costs and service stacks.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>// js/components/layer-card.js
+
+import { getProviderStyles, PROVIDERS } from '../config/providers.js';
+import { getServicesForLayer } from '../config/services.js';
+import { formatCurrency, getCurrencySymbol } from '../utils/formatters.js';
+
+/**
+ * Generate HTML for a layer comparison card.
+ * 
+ * @param {Object} layerCosts - Cost data: {aws: number, azure: number, gcp?: number}
+ * @param {string} title - Display title for the layer
+ * @param {string} layerKey - Layer identifier (L1, L2, etc.)
+ * @param {Object} params - User input parameters
+ * @param {Object} selectedProviders - Selected provider per layer
+ * @param {string} currency - Currency code (default: 'USD')
+ * @returns {string} HTML string for the card
+ */
+export function generateLayerCard(
+    layerCosts,
+    title,
+    layerKey,
+    params,
+    selectedProviders,
+    currency = 'USD'
+) {
+    const currencySymbol = getCurrencySymbol(currency);
+    const selectedProvider = selectedProviders[layerKey] || 'aws';
+    const localCheapest = findLocalCheapest(layerCosts);
+    const styles = getProviderStyles(selectedProvider);
+    
+    // Get service stacks for each provider
+    const awsServices = getServicesForLayer(layerKey, 'aws', params, selectedProviders);
+    const azureServices = getServicesForLayer(layerKey, 'azure', params, selectedProviders);
+    const gcpServices = layerCosts.gcp !== undefined 
+        ? getServicesForLayer(layerKey, 'gcp', params, selectedProviders)
+        : [];
+
+    return `
+    <div class="col">
+        <div class="cost-card-container" onclick="flipCard(this)">
+            <div class="cost-card shadow-sm h-100 ${styles.borderClass}">
+                <!-- Front: Cost comparison -->
+                <div class="card-front p-4">
+                    <h4 class="text-primary mb-3">${title}</h4>
+                    ${generateCostRow('AWS', layerCosts.aws, currencySymbol, 'aws', selectedProvider, localCheapest)}
+                    ${generateCostRow('Azure', layerCosts.azure, currencySymbol, 'azure', selectedProvider, localCheapest)}
+                    ${layerCosts.gcp !== undefined 
+                        ? generateCostRow('GCP', layerCosts.gcp, currencySymbol, 'gcp', selectedProvider, localCheapest, true)
+                        : ''}
+                </div>
+                
+                <!-- Back: Service stack -->
+                <div class="card-back p-4">
+                    <h4 class="text-primary mb-3">${title} Services</h4>
+                    ${generateServiceStack('AWS', 'aws', awsServices, selectedProvider)}
+                    ${generateServiceStack('Azure', 'azure', azureServices, selectedProvider)}
+                    ${layerCosts.gcp !== undefined
+                        ? generateServiceStack('GCP', 'gcp', gcpServices, selectedProvider)
+                        : ''}
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+/**
+ * Find the cheapest provider for a layer.
+ * @param {Object} costs - {provider: cost} mapping
+ * @returns {string} Provider ID of the cheapest option
+ */
+function findLocalCheapest(costs) {
+    let cheapest = null;
+    let lowestCost = Infinity;
+    
+    for (const [provider, cost] of Object.entries(costs)) {
+        if (cost !== undefined && cost < lowestCost) {
+            lowestCost = cost;
+            cheapest = provider;
+        }
+    }
+    
+    return cheapest;
+}
+
+/**
+ * Generate a single cost row within the card.
+ */
+function generateCostRow(name, cost, symbol, providerId, selected, cheapest, disabled = false) {
+    const isSelected = providerId === selected;
+    const isCheapest = providerId === cheapest;
+    const styles = getProviderStyles(providerId);
+    
+    let classes = 'd-flex justify-content-between align-items-center py-2';
+    if (isSelected) classes += ' bg-dark rounded';
+    if (disabled) classes += ' text-muted';
+    
+    const badges = [];
+    if (isSelected) badges.push('<span class="badge bg-primary ms-2">Selected</span>');
+    if (isCheapest) badges.push('<span class="badge bg-success ms-2">Cheapest</span>');
+    
+    return `
+    <div class="${classes}">
+        <span>
+            <i class="${styles.icon} me-2" style="color: ${styles.color}"></i>
+            ${name}
+            ${badges.join('')}
+        </span>
+        <strong>${disabled ? 'N/A' : formatCurrency(cost, symbol)}</strong>
+    </div>`;
+}</code></pre>
+
+                    <h5 class="mt-4">Warning Box Component</h5>
+                    <p class="text-muted">Displays status warnings like GCP disabled layers.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>// js/components/warning-box.js
+
+/**
+ * Generate a warning box for displaying status messages.
+ * 
+ * @param {string} type - Alert type: 'warning', 'info', 'danger', 'success'
+ * @param {string} title - Warning title
+ * @param {string} message - Warning message body
+ * @param {string} icon - FontAwesome icon class (optional)
+ * @returns {string} HTML string for warning box
+ */
+export function generateWarningBox(type, title, message, icon = null) {
+    const iconClass = icon || getDefaultIcon(type);
+    
+    return `
+    <div class="alert alert-${type} d-flex align-items-start" role="alert">
+        <i class="${iconClass} me-3 mt-1"></i>
+        <div>
+            <strong>${title}</strong>
+            <p class="mb-0 mt-1">${message}</p>
+        </div>
+    </div>`;
+}
+
+function getDefaultIcon(type) {
+    const icons = {
+        warning: 'fa-solid fa-triangle-exclamation',
+        info: 'fa-solid fa-info-circle',
+        danger: 'fa-solid fa-exclamation-circle',
+        success: 'fa-solid fa-check-circle'
+    };
+    return icons[type] || icons.info;
+}
+
+/**
+ * Generate GCP disabled warning for L4/L5.
+ */
+export function generateGCPDisabledWarning() {
+    return generateWarningBox(
+        'warning',
+        'GCP Not Available for L4/L5',
+        'Self-hosted TwinMaker and Grafana on GCP Compute Engine are not yet implemented. ' +
+        'GCP is automatically excluded from Layer 4 (Digital Twin) and Layer 5 (Visualization) calculations.'
+    );
+}</code></pre>
+                </div>
+            </div>
+
+            <!-- Orchestrator Pattern -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-wand-magic-sparkles me-2"></i>Orchestrator Pattern</h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        The orchestrator module (<code>ui-components.js</code>) coordinates UI updates based on
+                        API responses. It acts as the central hub that composes components and updates the DOM.
+                    </p>
+
+                    <h5>Main Update Function</h5>
+                    <pre class="bg-dark text-light p-3 rounded"><code>// js/ui-components.js
+
+import { generateLayerCard } from './components/layer-card.js';
+import { generateComparisonTable } from './components/comparison-table.js';
+import { generateGCPDisabledWarning } from './components/warning-box.js';
+import { LAYERS, getLayerById } from './config/layers.js';
+import { parseCheapestPath } from './utils/path-parser.js';
+import { formatCurrency } from './utils/formatters.js';
+
+/**
+ * Main UI update function called after API response.
+ * Orchestrates the rendering of all UI components.
+ * 
+ * @param {Object} data - API response with calculation results
+ * @param {Object} params - User input parameters
+ * @param {string} currency - Selected currency code
+ */
+export function updateHtml(data, params, currency) {
+    // Parse cheapest path to get selected providers per layer
+    const selectedProviders = parseCheapestPath(data.cheapestPath);
+    
+    // Build comparison object organizing costs by layer
+    const comparison = buildComparisonObject(data);
+    
+    // Generate layer cards
+    const cardsHtml = Object.entries(LAYERS)
+        .sort((a, b) => a[1].order - b[1].order)
+        .map(([key, layer]) => {
+            // Skip if no costs for this layer
+            if (!comparison[key]) return '';
+            
+            return generateLayerCard(
+                comparison[key],
+                layer.name,
+                key,
+                params,
+                selectedProviders,
+                currency
+            );
+        })
+        .join('');
+    
+    // Update DOM
+    document.getElementById('layer-cards').innerHTML = cardsHtml;
+    
+    // Update total cost display
+    document.getElementById('total-cost').textContent = 
+        formatCurrency(data.totalCost, currency);
+    
+    // Update cheapest path visualization
+    document.getElementById('cheapest-path').innerHTML = 
+        generatePathVisualization(data.cheapestPath, selectedProviders);
+    
+    // Show warnings if needed
+    if (!params.includeGcpL4 || !params.includeGcpL5) {
+        document.getElementById('warnings').innerHTML = generateGCPDisabledWarning();
+    } else {
+        document.getElementById('warnings').innerHTML = '';
+    }
+    
+    // Generate comparison table
+    document.getElementById('comparison-table').innerHTML = 
+        generateComparisonTable(comparison, selectedProviders, currency);
+}
+
+/**
+ * Build a comparison object from API response.
+ * Transforms flat cost data into layer-grouped structure.
+ * 
+ * @param {Object} data - API response
+ * @returns {Object} Costs organized by layer: {L1: {aws, azure, gcp}, ...}
+ */
+function buildComparisonObject(data) {
+    const comparison = {};
+    
+    // Process each provider's layer costs
+    for (const [provider, costs] of Object.entries(data.providerCosts || {})) {
+        for (const [layerKey, cost] of Object.entries(costs)) {
+            if (!comparison[layerKey]) {
+                comparison[layerKey] = {};
+            }
+            comparison[layerKey][provider] = cost;
+        }
+    }
+    
+    return comparison;
+}
+
+/**
+ * Generate visual representation of the cheapest path.
+ */
+function generatePathVisualization(cheapestPath, selectedProviders) {
+    return cheapestPath
+        .map(segment => {
+            const layer = getLayerByPathPrefix(segment);
+            const provider = segment.split('_')[1];
+            const styles = getProviderStyles(provider);
+            
+            return `
+            <div class="path-segment ${styles.bgClass}">
+                <span class="layer-label">${layer?.name || segment}</span>
+                <span class="provider-label">${provider.toUpperCase()}</span>
+            </div>`;
+        })
+        .join('<i class="fa-solid fa-arrow-right mx-2"></i>');
+}</code></pre>
+                </div>
+            </div>
+
+            <!-- Utility Pattern -->
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-wrench me-2"></i>Utility Pattern</h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Pure helper functions for common operations like formatting and parsing.
+                        Utilities have no dependencies on the DOM or application state.
+                    </p>
+
+                    <h5>Formatters</h5>
+                    <pre class="bg-dark text-light p-3 rounded"><code>// js/utils/formatters.js
+
+/**
+ * Currency symbols for supported currencies.
+ */
+const CURRENCY_SYMBOLS = {
+    USD: '$',
+    EUR: '€',
+    GBP: '£',
+    JPY: '¥',
+    CHF: 'CHF'
+};
+
+/**
+ * Get currency symbol for a currency code.
+ * @param {string} code - Currency code (e.g., 'USD')
+ * @returns {string} Currency symbol
+ */
+export function getCurrencySymbol(code) {
+    return CURRENCY_SYMBOLS[code?.toUpperCase()] || code || '$';
+}
+
+/**
+ * Format a number as currency.
+ * @param {number} amount - Amount to format
+ * @param {string} currencyCode - Currency code or symbol
+ * @param {number} decimals - Decimal places (default: 2)
+ * @returns {string} Formatted currency string
+ */
+export function formatCurrency(amount, currencyCode = 'USD', decimals = 2) {
+    if (amount === null || amount === undefined) return 'N/A';
+    
+    const symbol = getCurrencySymbol(currencyCode);
+    const formatted = amount.toFixed(decimals);
+    
+    // Add thousands separators
+    const parts = formatted.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    
+    return `${symbol}${parts.join('.')}`;
+}
+
+/**
+ * Format large numbers with K/M/B suffixes.
+ * @param {number} num - Number to format
+ * @returns {string} Formatted string
+ */
+export function formatCompactNumber(num) {
+    if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
+    if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+    if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+    return num.toString();
+}
+
+/**
+ * Format data size with appropriate unit.
+ * @param {number} bytes - Size in bytes
+ * @returns {string} Formatted size string
+ */
+export function formatDataSize(bytes) {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let unitIndex = 0;
+    let size = bytes;
+    
+    while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024;
+        unitIndex++;
+    }
+    
+    return `${size.toFixed(2)} ${units[unitIndex]}`;
+}</code></pre>
+
+                    <h5 class="mt-4">Path Parser</h5>
+                    <pre class="bg-dark text-light p-3 rounded"><code>// js/utils/path-parser.js
+
+import { getLayerByPathPrefix } from '../config/layers.js';
+
+/**
+ * Parse the cheapest path array into a layer-provider mapping.
+ * 
+ * @param {string[]} cheapestPath - Array like ['L1_aws', 'L2_azure', ...]
+ * @returns {Object} Mapping of layer to provider: {L1: 'aws', L2: 'azure', ...}
+ */
+export function parseCheapestPath(cheapestPath) {
+    const selected = {};
+    
+    if (!Array.isArray(cheapestPath)) return selected;
+    
+    for (const segment of cheapestPath) {
+        const layer = getLayerByPathPrefix(segment);
+        if (layer) {
+            // Extract provider from segment (e.g., 'L1_aws' -> 'aws')
+            const parts = segment.split('_');
+            const provider = parts[parts.length - 1];
+            selected[layer.id] = provider;
+        }
+    }
+    
+    return selected;
+}
+
+/**
+ * Build a path array from layer-provider selections.
+ * Inverse of parseCheapestPath.
+ * 
+ * @param {Object} selections - {L1: 'aws', L2: 'azure', ...}
+ * @returns {string[]} Path array like ['L1_aws', 'L2_azure', ...]
+ */
+export function buildPath(selections) {
+    return Object.entries(selections)
+        .sort((a, b) => {
+            // Sort by layer number
+            const numA = parseInt(a[0].substring(1));
+            const numB = parseInt(b[0].substring(1));
+            return numA - numB;
+        })
+        .map(([layer, provider]) => `${layer}_${provider}`);
+}</code></pre>
+                </div>
+            </div>
+
+            <!-- Best Practices -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-lightbulb me-2"></i>Best Practices</h2>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Do</h5>
+                            <ul class="list-group">
+                                <li class="list-group-item list-group-item-success">
+                                    <i class="fa-solid fa-check me-2"></i>Use ES6 module imports/exports
+                                </li>
+                                <li class="list-group-item list-group-item-success">
+                                    <i class="fa-solid fa-check me-2"></i>Keep components pure (no side effects)
+                                </li>
+                                <li class="list-group-item list-group-item-success">
+                                    <i class="fa-solid fa-check me-2"></i>Document functions with JSDoc comments
+                                </li>
+                                <li class="list-group-item list-group-item-success">
+                                    <i class="fa-solid fa-check me-2"></i>Use template literals for HTML generation
+                                </li>
+                                <li class="list-group-item list-group-item-success">
+                                    <i class="fa-solid fa-check me-2"></i>Centralize DOM updates in the orchestrator
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Don't</h5>
+                            <ul class="list-group">
+                                <li class="list-group-item list-group-item-danger">
+                                    <i class="fa-solid fa-times me-2"></i>Put DOM manipulation in components
+                                </li>
+                                <li class="list-group-item list-group-item-danger">
+                                    <i class="fa-solid fa-times me-2"></i>Store state in utility functions
+                                </li>
+                                <li class="list-group-item list-group-item-danger">
+                                    <i class="fa-solid fa-times me-2"></i>Mix configuration with logic
+                                </li>
+                                <li class="list-group-item list-group-item-danger">
+                                    <i class="fa-solid fa-times me-2"></i>Use inline event handlers in components
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="d-flex justify-content-between mt-4">
+                <a href="docs-pattern-factory.html" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-arrow-left me-2"></i>Factory Pattern
+                </a>
+                <a href="docs-patterns.html" class="btn btn-primary">
+                    Back to Patterns Overview<i class="fa-solid fa-arrow-right ms-2"></i>
+                </a>
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+
+    <script src="js/docs-nav.js" defer></script>
+</body>
+
+</html>

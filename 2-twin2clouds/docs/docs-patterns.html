@@ -27,210 +27,296 @@
             </h1>
 
             <p class="text-muted mb-4">
-                This project uses formalized software design patterns to ensure maintainability,
-                testability, and extensibility. This page documents which patterns are used,
-                where they are implemented, and how to extend them.
+                The Twin2Clouds cost optimizer uses formalized software design patterns to ensure maintainability,
+                testability, and extensibility. This page provides an overview of the architecture and links to
+                detailed documentation for each pattern.
             </p>
 
-            <!-- Strategy Pattern -->
+            <!-- Architecture Overview -->
             <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h2 class="mb-0 h5"><i class="fa-solid fa-chess me-2"></i>Strategy Pattern</h2>
+                <div class="card-header bg-dark text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-sitemap me-2"></i>Architecture Overview</h2>
                 </div>
                 <div class="card-body">
-                    <h5>What It Does</h5>
                     <p>
-                        Defines a family of cloud provider cost calculators with interchangeable implementations.
-                        Each provider (AWS, Azure, GCP) has its own calculator class that implements a common interface.
+                        The v2 cost calculation architecture follows a <strong>component-level approach</strong> where
+                        costs are computed at the individual service level and aggregated upward to layers. This design
+                        enables precise cost attribution and easy extension for new services.
                     </p>
 
-                    <h5>Where It's Used</h5>
-                    <table class="table table-sm table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th>File</th>
-                                <th>Purpose</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><code>backend/calculation/base.py</code></td>
-                                <td><strong>CloudProviderCalculator</strong> Protocol (interface) definition</td>
-                            </tr>
-                            <tr>
-                                <td><code>backend/calculation/aws.py</code></td>
-                                <td><strong>AWSCalculator</strong> class implementing the Protocol</td>
-                            </tr>
-                            <tr>
-                                <td><code>backend/calculation/azure.py</code></td>
-                                <td><strong>AzureCalculator</strong> class implementing the Protocol</td>
-                            </tr>
-                            <tr>
-                                <td><code>backend/calculation/gcp.py</code></td>
-                                <td><strong>GCPCalculator</strong> class implementing the Protocol</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Core Principles</h5>
+                            <ul>
+                                <li><strong>Separation of Concerns</strong> — Formulas, components, and layers are
+                                    isolated</li>
+                                <li><strong>Composability</strong> — Small, focused calculators combine into larger
+                                    structures</li>
+                                <li><strong>Type Safety</strong> — Protocols define clear interfaces between modules
+                                </li>
+                                <li><strong>Testability</strong> — Pure functions and dependency injection enable easy
+                                    testing</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Key Directories</h5>
+                            <table class="table table-sm table-bordered">
+                                <tbody>
+                                    <tr>
+                                        <td><code>calculation_v2/formulas/</code></td>
+                                        <td>Pure cost formulas</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>calculation_v2/components/</code></td>
+                                        <td>Service-level calculators</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>calculation_v2/layers/</code></td>
+                                        <td>Layer-level aggregators</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>fetch_data/</code></td>
+                                        <td>Pricing data fetchers</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
-                    <h5>How to Extend</h5>
-                    <p>To add a new cloud provider:</p>
-                    <ol>
-                        <li>Create a new calculator class (e.g., <code>OCICalculator</code>) in a new file</li>
-                        <li>Implement all methods defined in <code>CloudProviderCalculator</code> Protocol</li>
-                        <li>Register the calculator in <code>base.py</code>'s <code>get_calculators()</code> function
-                        </li>
-                    </ol>
+                    <!-- Architecture Diagram -->
+                    <h5 class="mt-3">Data Flow</h5>
+                    <pre class="bg-dark p-3 rounded text-start text-light"
+                        style="font-family: monospace; font-size: 0.85rem;">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              API Layer                                       │
+│                         (api/calculation.py)                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          Calculation Engine                                  │
+│                    (calculation_v2/engine.py)                                │
+│         Orchestrates provider calculations, finds cheapest path              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                     │
+          ┌──────────────────────────┼──────────────────────────┐
+          ▼                          ▼                          ▼
+┌───────────────────┐    ┌───────────────────┐    ┌───────────────────┐
+│ AWSLayerCalculators│    │AzureLayerCalculators│   │ GCPLayerCalculators│
+│     (Facade)       │    │      (Facade)       │   │      (Facade)      │
+└───────────────────┘    └───────────────────┘    └───────────────────┘
+          │                          │                          │
+          ▼                          ▼                          ▼
+┌───────────────────┐    ┌───────────────────┐    ┌───────────────────┐
+│ Component Calculators│  │ Component Calculators│  │ Component Calculators│
+│  (IoT, Lambda, etc.) │  │  (IoT Hub, Functions) │  │  (PubSub, Functions) │
+│     (Protocol)       │  │      (Protocol)       │  │      (Protocol)      │
+└───────────────────┘    └───────────────────┘    └───────────────────┘
+          │                          │                          │
+          └──────────────────────────┼──────────────────────────┘
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Core Formulas                                      │
+│                    (calculation_v2/formulas/)                                │
+│              Pure mathematical functions: CM, CE, CA, CS, CU, CT             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                     ▲
+                                     │
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        PriceFetcherFactory                                   │
+│                       (fetch_data/factory.py)                                │
+│              Creates provider-specific pricing data fetchers                 │
+└─────────────────────────────────────────────────────────────────────────────┘</pre>
+                </div>
+            </div>
 
-                    <div class="alert alert-info">
-                        <i class="fa-solid fa-info-circle me-1"></i>
-                        <strong>Note:</strong> Each calculator accesses its own provider-specific pricing keys
-                        (e.g., AWS uses <code>iotCore</code>, Azure uses <code>iotHub</code>).
-                        The Protocol only unifies method signatures, not the underlying data structure.
+            <!-- Backend Patterns -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-server me-2"></i>Backend Patterns</h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        The Python backend uses six core design patterns to structure the cost calculation system.
+                        Click each pattern for detailed documentation including code examples and extension guides.
+                    </p>
+
+                    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+                        <!-- Pure Functions -->
+                        <div class="col">
+                            <a href="docs-pattern-pure-functions.html" class="text-decoration-none">
+                                <div class="card h-100 border-success">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-success">
+                                            <i class="fa-solid fa-function me-2"></i>Pure Functions
+                                        </h5>
+                                        <p class="card-text text-muted small">
+                                            Mathematical formulas with no side effects. The foundation of all cost
+                                            calculations.
+                                        </p>
+                                        <span class="badge bg-success">Core Formula</span>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
+                        <!-- Protocol Pattern -->
+                        <div class="col">
+                            <a href="docs-pattern-protocol.html" class="text-decoration-none">
+                                <div class="card h-100 border-info">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-info">
+                                            <i class="fa-solid fa-handshake me-2"></i>Protocol Pattern
+                                        </h5>
+                                        <p class="card-text text-muted small">
+                                            Type-safe interfaces using Python's <code>typing.Protocol</code> for
+                                            structural subtyping.
+                                        </p>
+                                        <span class="badge bg-info">Interface</span>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
+                        <!-- Component Calculator -->
+                        <div class="col">
+                            <a href="docs-pattern-component.html" class="text-decoration-none">
+                                <div class="card h-100 border-primary">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-primary">
+                                            <i class="fa-solid fa-microchip me-2"></i>Component Calculator
+                                        </h5>
+                                        <p class="card-text text-muted small">
+                                            Service-specific cost calculators that implement the
+                                            <code>ResourceCalculator</code> protocol.
+                                        </p>
+                                        <span class="badge bg-primary">Service-Level</span>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
+                        <!-- Facade Pattern -->
+                        <div class="col">
+                            <a href="docs-pattern-facade.html" class="text-decoration-none">
+                                <div class="card h-100 border-warning">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-warning">
+                                            <i class="fa-solid fa-layer-group me-2"></i>Facade Pattern
+                                        </h5>
+                                        <p class="card-text text-muted small">
+                                            Layer-level aggregators that combine component costs into unified results.
+                                        </p>
+                                        <span class="badge bg-warning">Layer-Level</span>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
+                        <!-- Dataclass Pattern -->
+                        <div class="col">
+                            <a href="docs-pattern-dataclass.html" class="text-decoration-none">
+                                <div class="card h-100 border-secondary">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-secondary">
+                                            <i class="fa-solid fa-database me-2"></i>Dataclass Pattern
+                                        </h5>
+                                        <p class="card-text text-muted small">
+                                            Immutable result containers using Python's <code>@dataclass</code>
+                                            decorator.
+                                        </p>
+                                        <span class="badge bg-secondary">Data Structure</span>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
+                        <!-- Factory Pattern -->
+                        <div class="col">
+                            <a href="docs-pattern-factory.html" class="text-decoration-none">
+                                <div class="card h-100 border-danger">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-danger">
+                                            <i class="fa-solid fa-industry me-2"></i>Factory Pattern
+                                        </h5>
+                                        <p class="card-text text-muted small">
+                                            Centralized creation of pricing fetcher instances with registry support.
+                                        </p>
+                                        <span class="badge bg-danger">Creation</span>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Builder Pattern -->
+            <!-- Frontend Patterns -->
             <div class="card mb-4">
                 <div class="card-header bg-success text-white">
-                    <h2 class="mb-0 h5"><i class="fa-solid fa-hammer me-2"></i>Builder Pattern</h2>
+                    <h2 class="mb-0 h5"><i class="fa-brands fa-js me-2"></i>Frontend Patterns</h2>
                 </div>
                 <div class="card-body">
-                    <h5>What It Does</h5>
                     <p>
-                        Provides a fluent API for constructing cost calculation result objects.
-                        Ensures all required fields are present and enables method chaining for readable code.
+                        The JavaScript frontend uses modular patterns to manage configuration, UI rendering, and API
+                        communication.
                     </p>
 
-                    <h5>Where It's Used</h5>
-                    <table class="table table-sm table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th>File</th>
-                                <th>Purpose</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><code>backend/calculation/builders.py</code></td>
-                                <td><strong>LayerResultBuilder</strong> for layer cost results</td>
-                            </tr>
-                            <tr>
-                                <td><code>backend/calculation/builders.py</code></td>
-                                <td><strong>CostBreakdownBuilder</strong> for full optimization results</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <a href="docs-pattern-frontend.html" class="btn btn-outline-success btn-lg w-100">
+                        <i class="fa-solid fa-arrow-right me-2"></i>View Frontend Architecture &amp; Patterns
+                    </a>
 
-                    <h5>Example Usage</h5>
-                    <pre class="bg-dark text-light p-3 rounded"><code>from backend.calculation.builders import LayerResultBuilder
-
-result = (LayerResultBuilder("AWS")
-    .set_cost(123.45)
-    .set_data_size(10.5)
-    .set_messages(1000000)
-    .add_component("storageCost", 50.0)
-    .add_component("computeCost", 73.45)
-    .include_components()
-    .build())</code></pre>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h6>Key Patterns</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fa-solid fa-check text-success me-2"></i><strong>Registry Pattern</strong>
+                                    — Configuration objects for layers, providers, services</li>
+                                <li><i class="fa-solid fa-check text-success me-2"></i><strong>Component
+                                        Pattern</strong>
+                                    — Reusable UI elements (cards, tables, warnings)</li>
+                                <li><i class="fa-solid fa-check text-success me-2"></i><strong>Orchestrator
+                                        Pattern</strong> — Coordinates UI updates from API responses</li>
+                                <li><i class="fa-solid fa-check text-success me-2"></i><strong>Utility Pattern</strong>
+                                    — Helper functions for formatting and parsing</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Module Structure</h6>
+                            <table class="table table-sm table-bordered">
+                                <tbody>
+                                    <tr>
+                                        <td><code>js/config/</code></td>
+                                        <td>Registries (layers, providers, services)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>js/components/</code></td>
+                                        <td>Reusable UI components</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>js/utils/</code></td>
+                                        <td>Formatting and parsing helpers</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>js/api.js</code></td>
+                                        <td>Backend API communication</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Factory Pattern -->
-            <div class="card mb-4">
-                <div class="card-header bg-warning">
-                    <h2 class="mb-0 h5"><i class="fa-solid fa-industry me-2"></i>Factory Pattern</h2>
-                </div>
-                <div class="card-body">
-                    <h5>What It Does</h5>
-                    <p>
-                        Centralizes the creation of price fetcher instances.
-                        Makes it easy to add new fetchers, mock fetchers for testing, or swap implementations.
-                    </p>
-
-                    <h5>Where It's Used</h5>
-                    <table class="table table-sm table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th>File</th>
-                                <th>Purpose</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><code>backend/fetch_data/factory.py</code></td>
-                                <td><strong>PriceFetcher</strong> Protocol and <strong>PriceFetcherFactory</strong>
-                                    class</td>
-                            </tr>
-                            <tr>
-                                <td><code>backend/fetch_data/factory.py</code></td>
-                                <td><strong>AWSPriceFetcher</strong>, <strong>AzurePriceFetcher</strong>,
-                                    <strong>GCPPriceFetcher</strong> wrapper classes
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <h5>Example Usage</h5>
-                    <pre class="bg-dark text-light p-3 rounded"><code>from backend.fetch_data.factory import PriceFetcherFactory
-
-# Create a specific fetcher
-aws_fetcher = PriceFetcherFactory.create("aws")
-prices = aws_fetcher.fetch_price("iotCore", "us-east-1", region_map)
-
-# Get all available fetchers
-for fetcher in PriceFetcherFactory.get_all():
-    print(f"Fetcher: {fetcher.name}")</code></pre>
-
-                    <h5>How to Register a Mock Fetcher</h5>
-                    <pre class="bg-dark text-light p-3 rounded"><code># In tests, register a mock fetcher
-class MockFetcher:
-    name = "mock"
-    def fetch_price(self, *args, **kwargs):
-        return {"price": 0.0}
-
-PriceFetcherFactory.register("mock", MockFetcher)</code></pre>
-                </div>
-            </div>
-
-            <!-- Pattern Relationship Diagram -->
-            <div class="card mb-4">
-                <div class="card-header bg-secondary text-white">
-                    <h2 class="mb-0 h5"><i class="fa-solid fa-diagram-project me-2"></i>Pattern Relationships</h2>
-                </div>
-                <div class="card-body text-center">
-                    <p class="text-muted">How the patterns work together:</p>
-                    <pre class="bg-dark p-3 rounded text-start" style="font-family: monospace;">
-┌─────────────────────────────────────────────────────────────┐
-│                    Calculation Engine                       │
-│                      (engine.py)                            │
-└─────────────────────────────────────────────────────────────┘
-         │                    │                    │
-         ▼                    ▼                    ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│  AWSCalculator  │  │ AzureCalculator │  │  GCPCalculator  │
-│   (Strategy)    │  │   (Strategy)    │  │   (Strategy)    │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
-         │                    │                    │
-         └────────────────────┼────────────────────┘
-                              ▼
-                 ┌─────────────────────────┐
-                 │   LayerResultBuilder    │
-                 │       (Builder)         │
-                 └─────────────────────────┘
-                              ▼
-                 ┌─────────────────────────┐
-                 │   PriceFetcherFactory   │
-                 │       (Factory)         │
-                 └─────────────────────────┘
-                              │
-         ┌────────────────────┼────────────────────┐
-         ▼                    ▼                    ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│ AWSPriceFetcher │  │AzurePriceFetcher│  │ GCPPriceFetcher │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
-          </pre>
-                </div>
+            <!-- Deprecated Patterns Notice -->
+            <div class="alert alert-warning" role="alert">
+                <h5 class="alert-heading"><i class="fa-solid fa-triangle-exclamation me-2"></i>Deprecated Patterns</h5>
+                <p class="mb-0">
+                    The <strong>Strategy Pattern</strong> and <strong>Builder Pattern</strong> documented in earlier
+                    versions have been deprecated. The code remains in <code>backend/deprecated_calculation/</code> for
+                    reference but is no longer used. The v2 architecture described above replaces these patterns with a
+                    more modular component-based approach.
+                </p>
             </div>
 
         </main>

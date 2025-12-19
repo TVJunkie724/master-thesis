@@ -23,139 +23,515 @@
             </h1>
 
             <p class="text-muted mb-4">
-                A guide to using the Twin2Clouds graphical interface for configuring and optimizing your Digital Twin.
+                Complete guide to the Twin2Clouds web interface for configuring and optimizing
+                multi-cloud Digital Twin architectures. This page documents all input parameters,
+                scenario presets, and output interpretation.
             </p>
 
             <!-- Accessing the UI -->
             <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-link me-2"></i>Accessing the Interface</h2>
+                </div>
                 <div class="card-body">
-                    <h2 class="mb-3"><i class="fa-solid fa-link me-2"></i>Accessing the Interface</h2>
                     <p>
-                        Once the application is running (see <a href="docs-setup-usage.html">Setup & Usage</a>), open
-                        your
-                        browser and navigate to: <a href="ui">http://your-server/ui</a>
+                        After starting the application (see <a href="docs-setup-usage.html">Setup & Usage</a>),
+                        open your browser and navigate to:
+                    </p>
+                    <pre class="bg-dark p-3 rounded"><code>http://localhost:8000/</code></pre>
+                    <p class="text-muted small mb-0">
+                        The UI automatically loads pricing data and currency rates on first access.
                     </p>
                 </div>
             </div>
 
             <!-- Scenario Presets -->
             <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-sliders me-2"></i>Scenario Presets</h2>
+                </div>
                 <div class="card-body">
-                    <h2 class="mb-3"><i class="fa-solid fa-sliders me-2"></i>Scenario Presets</h2>
-                    <p>The UI provides three built-in presets to quickly populate the configuration fields:</p>
+                    <p>
+                        The UI provides three pre-configured scenarios to quickly populate all input fields.
+                        Click any preset button to load its values, then customize as needed.
+                    </p>
 
                     <div class="row g-3">
                         <div class="col-md-4">
-                            <div class="p-3 border border-secondary rounded bg-dark h-100">
-                                <h5 class="text-info"><i class="fa-solid fa-house me-2"></i>Smart Home</h5>
-                                <p class="small text-muted mb-0">Small scale. 100 devices, low data volume, short
-                                    retention.
-                                </p>
+                            <div class="card h-100 border-info">
+                                <div class="card-header bg-info text-white">
+                                    <i class="fa-solid fa-house me-2"></i>Smart Home
+                                </div>
+                                <div class="card-body">
+                                    <p class="small text-muted">Small scale residential deployment</p>
+                                    <ul class="small mb-0">
+                                        <li>100 devices</li>
+                                        <li>1 message/10 min</li>
+                                        <li>1 KB message size</li>
+                                        <li>1 month hot storage</li>
+                                        <li>10 twins, basic visualization</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="p-3 border border-secondary rounded bg-dark h-100">
-                                <h5 class="text-warning"><i class="fa-solid fa-industry me-2"></i>Industrial Facility
-                                </h5>
-                                <p class="small text-muted mb-0">Medium scale. 4,000 devices, high frequency, longer
-                                    retention.</p>
+                            <div class="card h-100 border-warning">
+                                <div class="card-header bg-warning text-dark">
+                                    <i class="fa-solid fa-industry me-2"></i>Industrial Facility
+                                </div>
+                                <div class="card-body">
+                                    <p class="small text-muted">Medium scale manufacturing</p>
+                                    <ul class="small mb-0">
+                                        <li>4,000 devices</li>
+                                        <li>1 message/min</li>
+                                        <li>2 KB message size</li>
+                                        <li>3 months hot, 6 cool storage</li>
+                                        <li>500 twins, 3D visualization</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="p-3 border border-secondary rounded bg-dark h-100">
-                                <h5 class="text-success"><i class="fa-solid fa-building me-2"></i>Large Building</h5>
-                                <p class="small text-muted mb-0">Large scale. 30,000 devices, 3D models enabled, complex
-                                    visualization.</p>
+                            <div class="card h-100 border-success">
+                                <div class="card-header bg-success text-white">
+                                    <i class="fa-solid fa-building me-2"></i>Large Building
+                                </div>
+                                <div class="card-body">
+                                    <p class="small text-muted">Large commercial building</p>
+                                    <ul class="small mb-0">
+                                        <li>30,000 devices</li>
+                                        <li>1 message/5 min</li>
+                                        <li>5 KB message size</li>
+                                        <li>6 months hot, 12 cool, 24 archive</li>
+                                        <li>5,000 twins, complex dashboards</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Configuration Sections -->
+            <!-- Input Parameters - Core -->
             <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-gears me-2"></i>Input Parameters — Core Configuration</h2>
+                </div>
                 <div class="card-body">
-                    <h2 class="mb-3"><i class="fa-solid fa-gears me-2"></i>Configuration Parameters</h2>
+                    <p>
+                        These parameters define the fundamental properties of your IoT deployment.
+                    </p>
 
-                    <h4 class="mt-3">Layer 1/3: IoT & Processing</h4>
-                    <ul>
-                        <li><strong>Number of Devices:</strong> Total count of physical sensors/devices.</li>
-                        <li><strong>Sending Interval:</strong> How often each device sends a message (in minutes).</li>
-                        <li><strong>Message Size:</strong> Average payload size in KB.</li>
-                    </ul>
-
-                    <h4 class="mt-3">Layer 2: Storage Retention</h4>
-                    <p>Use the sliders to set retention periods for each storage tier:</p>
-                    <ul>
-                        <li><strong>Hot Storage:</strong> Expensive, fast access (e.g., 1-3 months).</li>
-                        <li><strong>Cool Storage:</strong> Cheaper, slower access (e.g., 3-12 months).</li>
-                        <li><strong>Archive Storage:</strong> Cheapest, very slow access (e.g., 12+ months).</li>
-                    </ul>
-
-                    <h4 class="mt-3">Layer 4: Twin Management</h4>
-                    <ul>
-                        <li><strong>3D Model:</strong> Enable if you need a spatial representation (TwinMaker/Azure
-                            Digital
-                            Twins).</li>
-                        <li><strong>Entity Count:</strong> Number of 3D objects/nodes in the scene.</li>
-                    </ul>
-
-                    <h4 class="mt-3">Layer 5: Visualization</h4>
-                    <ul>
-                        <li><strong>Dashboard Refresh:</strong> How often the Grafana dashboard updates per hour.</li>
-                        <li><strong>Active Hours:</strong> How many hours per day the dashboard is actively viewed.</li>
-                        <li><strong>Users:</strong> Number of editors (creators) and viewers (read-only).</li>
-                    </ul>
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="25%">Parameter</th>
+                                <th width="15%">Type</th>
+                                <th width="45%">Description</th>
+                                <th width="15%">Default</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>numberOfDevices</code></td>
+                                <td><span class="badge bg-primary">Number</span></td>
+                                <td>Total count of IoT devices/sensors sending data. Affects L1 (messaging) and L4
+                                    (twin) costs.</td>
+                                <td>1000</td>
+                            </tr>
+                            <tr>
+                                <td><code>sendingIntervalMinutes</code></td>
+                                <td><span class="badge bg-primary">Number</span></td>
+                                <td>How often each device sends a message (in minutes). Lower = more messages.</td>
+                                <td>1</td>
+                            </tr>
+                            <tr>
+                                <td><code>averageMessageSizeKB</code></td>
+                                <td><span class="badge bg-primary">Number</span></td>
+                                <td>Average payload size per message in KB. Affects messaging and storage costs.</td>
+                                <td>1</td>
+                            </tr>
+                            <tr>
+                                <td><code>region</code></td>
+                                <td><span class="badge bg-secondary">Select</span></td>
+                                <td>Deployment region for pricing lookup. Options vary by provider.</td>
+                                <td>us-east-1</td>
+                            </tr>
+                            <tr>
+                                <td><code>currency</code></td>
+                                <td><span class="badge bg-secondary">Select</span></td>
+                                <td>Display currency for all cost calculations (USD, EUR, GBP, JPY, CHF).</td>
+                                <td>USD</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
-            <!-- Results -->
+            <!-- Input Parameters - Storage -->
             <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-database me-2"></i>Input Parameters — Storage Retention
+                    </h2>
+                </div>
                 <div class="card-body">
-
-                    <h2 class="mb-3"><i class="fa-solid fa-chart-pie me-2"></i>Interpreting Results</h2>
                     <p>
-                        Click <strong>Calculate Cost</strong> to run the optimization. The results section will display:
+                        Storage costs depend heavily on data retention periods across tiered storage.
+                        Use sliders to configure each tier.
+                    </p>
+
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="25%">Parameter</th>
+                                <th width="15%">Type</th>
+                                <th width="45%">Description</th>
+                                <th width="15%">Range</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>hotRetentionMonths</code></td>
+                                <td><span class="badge bg-danger">Slider</span></td>
+                                <td>
+                                    <strong>Hot Storage:</strong> Fast, expensive. Data available for immediate queries.
+                                    <br><small class="text-muted">DynamoDB Standard / Cosmos DB / Firestore</small>
+                                </td>
+                                <td>0—24 months</td>
+                            </tr>
+                            <tr>
+                                <td><code>coolRetentionMonths</code></td>
+                                <td><span class="badge bg-warning text-dark">Slider</span></td>
+                                <td>
+                                    <strong>Cool Storage:</strong> Balanced cost/performance. Slight access delay.
+                                    <br><small class="text-muted">S3 Standard-IA / Blob Cool / Cloud Storage
+                                        Nearline</small>
+                                </td>
+                                <td>0—48 months</td>
+                            </tr>
+                            <tr>
+                                <td><code>archiveRetentionMonths</code></td>
+                                <td><span class="badge bg-secondary">Slider</span></td>
+                                <td>
+                                    <strong>Archive Storage:</strong> Cheapest, hours to retrieve.
+                                    <br><small class="text-muted">S3 Glacier / Blob Archive / Cloud Storage
+                                        Archive</small>
+                                </td>
+                                <td>0—120 months</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="alert alert-info mt-3">
+                        <i class="fa-solid fa-calculator me-1"></i>
+                        <strong>Data Accumulation:</strong> Total stored data = messages/month × message_size ×
+                        retention_months.
+                        Long retention with high message volume can significantly impact costs.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Parameters - Advanced -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-cogs me-2"></i>Input Parameters — Advanced Settings</h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Fine-tune layer-specific parameters for precise cost estimation.
+                    </p>
+
+                    <h5 class="mt-3">Layer 2: Compute</h5>
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="25%">Parameter</th>
+                                <th width="15%">Type</th>
+                                <th width="45%">Description</th>
+                                <th width="15%">Default</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>processorDurationMs</code></td>
+                                <td><span class="badge bg-primary">Number</span></td>
+                                <td>Average execution time of processor function in milliseconds.</td>
+                                <td>100</td>
+                            </tr>
+                            <tr>
+                                <td><code>processorMemoryMB</code></td>
+                                <td><span class="badge bg-primary">Number</span></td>
+                                <td>Memory allocation for processor function (128-3008 MB).</td>
+                                <td>128</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h5 class="mt-4">Layer 4: Digital Twin</h5>
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="25%">Parameter</th>
+                                <th width="15%">Type</th>
+                                <th width="45%">Description</th>
+                                <th width="15%">Default</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>numberOfTwins</code></td>
+                                <td><span class="badge bg-primary">Number</span></td>
+                                <td>Total digital twins to manage. Typically equals or less than device count.</td>
+                                <td>100</td>
+                            </tr>
+                            <tr>
+                                <td><code>twinUpdatesPerMonth</code></td>
+                                <td><span class="badge bg-primary">Number</span></td>
+                                <td>State updates per twin per month. Often correlates with message volume.</td>
+                                <td>10000</td>
+                            </tr>
+                            <tr>
+                                <td><code>twinQueriesPerMonth</code></td>
+                                <td><span class="badge bg-primary">Number</span></td>
+                                <td>Read queries against twin state per month.</td>
+                                <td>5000</td>
+                            </tr>
+                            <tr>
+                                <td><code>enable3DModel</code></td>
+                                <td><span class="badge bg-success">Checkbox</span></td>
+                                <td>
+                                    Enable 3D scene/model support (TwinMaker Scene, Azure DT Model).
+                                    Adds additional compute costs.
+                                </td>
+                                <td>Unchecked</td>
+                            </tr>
+                            <tr>
+                                <td><code>entityCount</code></td>
+                                <td><span class="badge bg-primary">Number</span></td>
+                                <td>Number of 3D entities (only shown when 3D model is enabled).</td>
+                                <td>100</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h5 class="mt-4">Layer 5: Visualization</h5>
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="25%">Parameter</th>
+                                <th width="15%">Type</th>
+                                <th width="45%">Description</th>
+                                <th width="15%">Default</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>dashboardRefreshPerHour</code></td>
+                                <td><span class="badge bg-primary">Number</span></td>
+                                <td>Dashboard auto-refresh rate (1-60 times per hour).</td>
+                                <td>12</td>
+                            </tr>
+                            <tr>
+                                <td><code>activeHoursPerDay</code></td>
+                                <td><span class="badge bg-primary">Number</span></td>
+                                <td>Hours per day the dashboard is actively viewed (affects query costs).</td>
+                                <td>8</td>
+                            </tr>
+                            <tr>
+                                <td><code>editorUsers</code></td>
+                                <td><span class="badge bg-primary">Number</span></td>
+                                <td>Grafana editor/admin users (higher license cost).</td>
+                                <td>2</td>
+                            </tr>
+                            <tr>
+                                <td><code>viewerUsers</code></td>
+                                <td><span class="badge bg-primary">Number</span></td>
+                                <td>Grafana viewer users (read-only, lower license cost).</td>
+                                <td>10</td>
+                            </tr>
+                            <tr>
+                                <td><code>apiCallsPerMonth</code></td>
+                                <td><span class="badge bg-primary">Number</span></td>
+                                <td>External API calls to the visualization layer per month.</td>
+                                <td>10000</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Provider Inclusion -->
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-check-square me-2"></i>Provider Inclusion Toggles</h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Control which cloud providers are included in the optimization for each layer.
+                        Uncheck a provider to exclude it from comparison.
+                    </p>
+
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="20%">Layer</th>
+                                <th width="25%">AWS</th>
+                                <th width="25%">Azure</th>
+                                <th width="30%">GCP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>L1</strong> Data Acquisition</td>
+                                <td><span class="badge bg-success">Available</span></td>
+                                <td><span class="badge bg-success">Available</span></td>
+                                <td><span class="badge bg-success">Available</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>L2</strong> Compute</td>
+                                <td><span class="badge bg-success">Available</span></td>
+                                <td><span class="badge bg-success">Available</span></td>
+                                <td><span class="badge bg-success">Available</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>L3</strong> Storage</td>
+                                <td><span class="badge bg-success">Available</span></td>
+                                <td><span class="badge bg-success">Available</span></td>
+                                <td><span class="badge bg-success">Available</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>L4</strong> Digital Twin</td>
+                                <td><span class="badge bg-success">Available</span></td>
+                                <td><span class="badge bg-success">Available</span></td>
+                                <td>
+                                    <span class="badge bg-warning text-dark">Not Implemented</span>
+                                    <small class="text-muted d-block mt-1">Self-hosted TwinMaker on GCE</small>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>L5</strong> Visualization</td>
+                                <td><span class="badge bg-success">Available</span></td>
+                                <td><span class="badge bg-success">Available</span></td>
+                                <td>
+                                    <span class="badge bg-warning text-dark">Not Implemented</span>
+                                    <small class="text-muted d-block mt-1">Self-hosted Grafana on GCE</small>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="alert alert-warning mt-3">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                        <strong>GCP L4/L5 Status:</strong> Self-hosted Digital Twin (TwinMaker) and Visualization
+                        (Grafana) on GCP Compute Engine are planned but not yet implemented. The GCP checkboxes for
+                        L4 and L5 are disabled in the UI and automatically excluded from calculations.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Interpretation -->
+            <div class="card mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-chart-pie me-2"></i>Interpreting Results</h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Click <strong>Calculate Cost</strong> to run the optimization. Results include:
+                    </p>
+
+                    <h5>Result Components</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="card h-100 border-primary">
+                                <div class="card-body">
+                                    <h6 class="card-title text-primary">
+                                        <i class="fa-solid fa-route me-2"></i>Cheapest Path
+                                    </h6>
+                                    <p class="card-text small">
+                                        Visual representation of the optimal provider selection for each layer.
+                                        Shows the recommended multi-cloud architecture.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 border-success">
+                                <div class="card-body">
+                                    <h6 class="card-title text-success">
+                                        <i class="fa-solid fa-dollar-sign me-2"></i>Total Monthly Cost
+                                    </h6>
+                                    <p class="card-text small">
+                                        Estimated total monthly cost following the optimal path. Includes
+                                        cross-cloud transfer costs if path spans multiple providers.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 border-info">
+                                <div class="card-body">
+                                    <h6 class="card-title text-info">
+                                        <i class="fa-solid fa-table me-2"></i>Layer Cost Cards
+                                    </h6>
+                                    <p class="card-text small">
+                                        Flip cards showing cost comparison per layer. Front shows costs,
+                                        back shows service stack. Click to flip.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5>Cross-Cloud Transfer Costs</h5>
+                    <p>
+                        When the optimal architecture spans multiple clouds, additional "glue" costs apply:
                     </p>
                     <ul>
-                        <li><strong>Optimal Provider per Layer:</strong> The cheapest provider found for each
-                            architectural
-                            layer.</li>
-                        <li><strong>Total Monthly Cost:</strong> The estimated total cost for the optimized
-                            configuration.
-                        </li>
-                        <li><strong>Cost Breakdown:</strong> Detailed costs for AWS, Azure, and GCP for comparison.</li>
+                        <li><strong>Egress Traffic:</strong> Cost to transfer data out of a cloud provider</li>
+                        <li><strong>Connector Function:</strong> Serverless function at source to push data</li>
+                        <li><strong>Ingestion Function:</strong> Serverless function at destination to receive data</li>
                     </ul>
 
-                    <h3 class="mt-4 text-primary" id="optimization-notes">Optimization Notes (Glue Code)</h3>
-                    <p>
-                        If the optimal architecture spans multiple clouds (e.g., AWS IoT &rarr; Azure Storage), the UI
-                        displays
-                        <strong>Optimization Notes</strong> tables. These highlight the "hidden" costs of cross-cloud
-                        integration:
-                    </p>
-
-                    <div class="card border mb-3">
+                    <div class="card bg-dark">
                         <div class="card-body">
-                            <h5 class="card-title text-muted"> <i class="fa-solid fa-table me-2"></i>Table Logic</h5>
-                            <p class="card-text">
-                                When <strong>Provider A (Source)</strong> sends data to <strong>Provider B
-                                    (Destination)</strong>, specific intermediate resources are required:
-                            </p>
-                            <ul>
-                                <li><strong>Egress Traffic:</strong> Cost to send data out of the source cloud via the
-                                    internet.</li>
-                                <li><strong>Connector Function:</strong> A serverless function (Lambda/Azure
-                                    Function/Cloud Function) at the source to read/push data.</li>
-                                <li><strong>Ingestion Function:</strong> A serverless function at the destination to
-                                    receive/write data.</li>
-                            </ul>
-                            <p class="card-text small text-muted">
-                                <em>The "Optimization Note" table explicitly lists these add-on costs so you can see why
-                                    a multi-cloud option might be more expensive than expected.</em>
+                            <h6><i class="fa-solid fa-lightbulb me-1 text-warning"></i>Optimization Notes</h6>
+                            <p class="small mb-0">
+                                When cross-cloud transfers are detected, the results section displays
+                                <strong>Optimization Notes</strong> showing the explicit breakdown of transfer costs.
+                                This helps you understand if a single-provider solution might be more cost-effective
+                                despite higher individual layer costs.
                             </p>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Keyboard Shortcuts -->
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-keyboard me-2"></i>Keyboard Shortcuts</h2>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td><kbd>Enter</kbd></td>
+                                <td>Run calculation (when focus is in any input field)</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>1</kbd></td>
+                                <td>Load Smart Home preset</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>2</kbd></td>
+                                <td>Load Industrial Facility preset</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>3</kbd></td>
+                                <td>Load Large Building preset</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

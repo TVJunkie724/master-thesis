@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Twin2Clouds Documentation — Protocol Pattern</title>
+    <link rel="icon" type="image/x-icon" href="references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <link rel="stylesheet" href="css/docs_styles.css" />
+
+</head>
+
+<body>
+
+    <div class="layout">
+
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="docs-patterns.html">Design Patterns</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Protocol Pattern</li>
+                </ol>
+            </nav>
+
+            <h1 class="mb-3">
+                <i class="fa-solid fa-handshake me-2 text-info"></i>Protocol Pattern
+            </h1>
+
+            <p class="text-muted mb-4">
+                The Protocol pattern uses Python's <code>typing.Protocol</code> to define type-safe interfaces
+                without requiring inheritance. This enables structural subtyping (duck typing with type safety)
+                where any class that implements the required methods is considered compatible.
+            </p>
+
+            <!-- Pattern Overview -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-info-circle me-2"></i>What It Does</h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Protocols define contracts that classes must fulfill. Unlike abstract base classes,
+                        protocols use structural subtyping — a class is compatible with a protocol if it has the
+                        required methods, even without explicit inheritance.
+                    </p>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Benefits</h5>
+                            <ul>
+                                <li><strong>Type Safety</strong> — Static type checkers validate implementations</li>
+                                <li><strong>Flexibility</strong> — No inheritance hierarchy required</li>
+                                <li><strong>Decoupling</strong> — Easy to swap implementations</li>
+                                <li><strong>Testability</strong> — Simple to create mock implementations</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Protocol vs ABC</h5>
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Feature</th>
+                                        <th>Protocol</th>
+                                        <th>ABC</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Inheritance required</td>
+                                        <td class="text-success">No</td>
+                                        <td class="text-danger">Yes</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Runtime checking</td>
+                                        <td>Optional</td>
+                                        <td>Yes</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Static type checking</td>
+                                        <td class="text-success">Yes</td>
+                                        <td class="text-success">Yes</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Implementation style</td>
+                                        <td>Structural</td>
+                                        <td>Nominal</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Where It's Used -->
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-folder-open me-2"></i>Where It's Used</h2>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>File</th>
+                                <th>Protocol</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>calculation_v2/components/base.py</code></td>
+                                <td><code>ResourceCalculator</code></td>
+                                <td>Interface for all component-level cost calculators</td>
+                            </tr>
+                            <tr>
+                                <td><code>fetch_data/factory.py</code></td>
+                                <td><code>PriceFetcher</code></td>
+                                <td>Interface for pricing data fetchers</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h5 class="mt-3">Implementations</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>ResourceCalculator Implementations</h6>
+                            <ul class="list-group">
+                                <li class="list-group-item"><code>AWSLambdaCalculator</code></li>
+                                <li class="list-group-item"><code>AWSIoTCoreCalculator</code></li>
+                                <li class="list-group-item"><code>AWSDynamoDBCalculator</code></li>
+                                <li class="list-group-item"><code>AzureFunctionsCalculator</code></li>
+                                <li class="list-group-item"><code>AzureIoTHubCalculator</code></li>
+                                <li class="list-group-item"><code>AzureCosmosDBCalculator</code></li>
+                                <li class="list-group-item"><code>GCPCloudFunctionsCalculator</code></li>
+                                <li class="list-group-item"><code>GCPPubSubCalculator</code></li>
+                                <li class="list-group-item"><code>GCPFirestoreCalculator</code></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>PriceFetcher Implementations</h6>
+                            <ul class="list-group">
+                                <li class="list-group-item"><code>AWSPriceFetcher</code></li>
+                                <li class="list-group-item"><code>AzurePriceFetcher</code></li>
+                                <li class="list-group-item"><code>GCPPriceFetcher</code></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code Examples -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-code me-2"></i>Code Examples</h2>
+                </div>
+                <div class="card-body">
+
+                    <h5>ResourceCalculator Protocol Definition</h5>
+                    <p class="text-muted">Defines the interface for all component-level cost calculators.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>from typing import Protocol, Dict, Any, runtime_checkable
+
+@runtime_checkable
+class ResourceCalculator(Protocol):
+    """
+    Protocol defining the interface for component-level cost calculators.
+    
+    Any class implementing this protocol must provide a calculate_cost method
+    that takes usage parameters and pricing data, returning a cost float.
+    
+    The @runtime_checkable decorator enables isinstance() checks at runtime,
+    though static type checking is the primary validation mechanism.
+    """
+    
+    def calculate_cost(
+        self,
+        pricing: Dict[str, Any],
+        **kwargs
+    ) -> float:
+        """
+        Calculate the cost for this resource/component.
+        
+        Args:
+            pricing: Pricing data dictionary for the provider
+            **kwargs: Resource-specific usage parameters
+        
+        Returns:
+            Monthly cost in selected currency
+        """
+        ...</code></pre>
+
+                    <h5 class="mt-4">Implementing the Protocol</h5>
+                    <p class="text-muted">Component calculators implement the protocol without explicit inheritance.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>from typing import Dict, Any
+from calculation_v2.components.base import CalculatorBase
+
+class AWSLambdaCalculator(CalculatorBase):
+    """
+    Calculates AWS Lambda execution costs.
+    
+    Implicitly implements ResourceCalculator protocol by providing
+    the calculate_cost method with the correct signature.
+    """
+    
+    def calculate_cost(
+        self,
+        pricing: Dict[str, Any],
+        executions: int = 0,
+        duration_ms: float = 100,
+        memory_mb: int = 128,
+        **kwargs
+    ) -> float:
+        """
+        Calculate Lambda execution cost.
+        
+        Args:
+            pricing: AWS pricing data
+            executions: Number of function invocations per month
+            duration_ms: Average execution duration in milliseconds
+            memory_mb: Allocated memory in MB
+        
+        Returns:
+            Monthly Lambda cost
+        """
+        # Get pricing values using inherited helper
+        price_per_request = self.get_pricing_value(
+            pricing, 'lambda', 'pricePerRequest', default=0.0000002
+        )
+        price_per_gb_second = self.get_pricing_value(
+            pricing, 'lambda', 'pricePerGBSecond', default=0.0000166667
+        )
+        free_requests = self.get_pricing_value(
+            pricing, 'lambda', 'freeRequests', default=1000000
+        )
+        free_gb_seconds = self.get_pricing_value(
+            pricing, 'lambda', 'freeGBSeconds', default=400000
+        )
+        
+        # Calculate using pure formula
+        from calculation_v2.formulas.core_formulas import calculate_execution_cost
+        
+        return calculate_execution_cost(
+            executions=executions,
+            duration_ms=duration_ms,
+            memory_mb=memory_mb,
+            price_per_request=price_per_request,
+            price_per_gb_second=price_per_gb_second,
+            free_tier_requests=int(free_requests),
+            free_tier_gb_seconds=free_gb_seconds
+        )</code></pre>
+
+                    <h5 class="mt-4">Using Protocol for Type Hints</h5>
+                    <p class="text-muted">Functions can accept any implementation of the protocol.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>from typing import List
+from calculation_v2.components.base import ResourceCalculator
+
+def calculate_total_cost(
+    calculators: List[ResourceCalculator],
+    pricing: Dict[str, Any],
+    params: Dict[str, Any]
+) -> float:
+    """
+    Calculate total cost from multiple calculators.
+    
+    Args:
+        calculators: List of any objects implementing ResourceCalculator
+        pricing: Provider pricing data
+        params: Usage parameters
+    
+    Returns:
+        Sum of all component costs
+    """
+    return sum(
+        calc.calculate_cost(pricing=pricing, **params)
+        for calc in calculators
+    )</code></pre>
+
+                    <h5 class="mt-4">PriceFetcher Protocol</h5>
+                    <p class="text-muted">Protocol for pricing data fetchers used by the Factory pattern.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>from typing import Protocol, Dict, Any
+
+class PriceFetcher(Protocol):
+    """Protocol for cloud provider pricing fetchers."""
+    
+    name: str  # Protocol can also define attributes
+    
+    def fetch_pricing(
+        self,
+        region: str,
+        credentials: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Fetch pricing data for a specific region.
+        
+        Args:
+            region: Cloud provider region code
+            credentials: Provider-specific credentials
+        
+        Returns:
+            Pricing data dictionary
+        """
+        ...</code></pre>
+                </div>
+            </div>
+
+            <!-- Extension Guide -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-plus-circle me-2"></i>How to Extend</h2>
+                </div>
+                <div class="card-body">
+                    <h5>Adding a New Component Calculator</h5>
+                    <ol>
+                        <li>
+                            <strong>Create a new calculator class</strong> in the appropriate provider directory:
+                            <pre class="bg-dark text-light p-3 rounded mt-2"><code># calculation_v2/components/aws/s3_calculator.py
+from typing import Dict, Any
+from calculation_v2.components.base import CalculatorBase
+
+class AWSS3Calculator(CalculatorBase):
+    """Calculates AWS S3 storage costs."""
+    
+    def calculate_cost(
+        self,
+        pricing: Dict[str, Any],
+        storage_gb: float = 0,
+        requests_get: int = 0,
+        requests_put: int = 0,
+        **kwargs
+    ) -> float:
+        # Get pricing values
+        storage_price = self.get_pricing_value(
+            pricing, 's3', 'storagePerGB', default=0.023
+        )
+        get_price = self.get_pricing_value(
+            pricing, 's3', 'pricePerGetRequest', default=0.0000004
+        )
+        put_price = self.get_pricing_value(
+            pricing, 's3', 'pricePerPutRequest', default=0.000005
+        )
+        
+        storage_cost = storage_gb * storage_price
+        request_cost = (requests_get * get_price) + (requests_put * put_price)
+        
+        return storage_cost + request_cost</code></pre>
+                        </li>
+                        <li>
+                            <strong>Type checking automatically validates</strong> — No registration needed.
+                            If your class has the correct <code>calculate_cost</code> signature, it satisfies the
+                            protocol.
+                        </li>
+                        <li>
+                            <strong>Use in layer facades</strong> — Instantiate your calculator in the appropriate
+                            layer facade and call its <code>calculate_cost</code> method.
+                        </li>
+                    </ol>
+
+                    <div class="alert alert-info mt-3">
+                        <i class="fa-solid fa-lightbulb me-1"></i>
+                        <strong>Tip:</strong> Run <code>mypy</code> or <code>pyright</code> to verify your
+                        implementation
+                        satisfies the protocol. Type errors at the protocol level are caught at development time, not
+                        runtime.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="d-flex justify-content-between mt-4">
+                <a href="docs-pattern-pure-functions.html" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-arrow-left me-2"></i>Pure Functions
+                </a>
+                <a href="docs-pattern-component.html" class="btn btn-primary">
+                    Next: Component Calculator<i class="fa-solid fa-arrow-right ms-2"></i>
+                </a>
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+
+    <script src="js/docs-nav.js" defer></script>
+</body>
+
+</html>

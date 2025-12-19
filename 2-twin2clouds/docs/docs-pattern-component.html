@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Twin2Clouds Documentation — Component Calculator Pattern</title>
+    <link rel="icon" type="image/x-icon" href="references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <link rel="stylesheet" href="css/docs_styles.css" />
+
+</head>
+
+<body>
+
+    <div class="layout">
+
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="docs-patterns.html">Design Patterns</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Component Calculator</li>
+                </ol>
+            </nav>
+
+            <h1 class="mb-3">
+                <i class="fa-solid fa-microchip me-2 text-primary"></i>Component Calculator Pattern
+            </h1>
+
+            <p class="text-muted mb-4">
+                Component Calculators are service-specific cost calculation classes that implement the
+                <code>ResourceCalculator</code> protocol. Each calculator encapsulates the pricing logic for a single
+                cloud service, enabling precise cost attribution and easy maintenance.
+            </p>
+
+            <!-- Pattern Overview -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-info-circle me-2"></i>What It Does</h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Each cloud service (Lambda, IoT Core, DynamoDB, etc.) has its own calculator class that:
+                    </p>
+                    <ul>
+                        <li><strong>Encapsulates service-specific logic</strong> — Handles unique pricing models,
+                            tiers, and parameters</li>
+                        <li><strong>Uses shared utilities</strong> — Inherits from <code>CalculatorBase</code> for
+                            common operations</li>
+                        <li><strong>Delegates to pure functions</strong> — Calls core formulas for actual
+                            calculations</li>
+                        <li><strong>Provides sensible defaults</strong> — Default parameter values handle missing
+                            inputs</li>
+                    </ul>
+
+                    <div class="alert alert-info">
+                        <i class="fa-solid fa-lightbulb me-1"></i>
+                        <strong>Design Philosophy:</strong> Component calculators act as adapters between the generic
+                        layer API and the provider-specific pricing data structure.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Where It's Used -->
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-folder-open me-2"></i>Where It's Used</h2>
+                </div>
+                <div class="card-body">
+                    <h5>Directory Structure</h5>
+                    <pre class="bg-dark p-3 rounded"><code>calculation_v2/
+└── components/
+    ├── base.py              # ResourceCalculator protocol + CalculatorBase
+    ├── aws/
+    │   ├── __init__.py
+    │   ├── lambda_calculator.py
+    │   ├── iot_core_calculator.py
+    │   ├── dynamodb_calculator.py
+    │   ├── api_gateway_calculator.py
+    │   └── twinmaker_calculator.py
+    ├── azure/
+    │   ├── __init__.py
+    │   ├── functions_calculator.py
+    │   ├── iot_hub_calculator.py
+    │   ├── cosmos_db_calculator.py
+    │   ├── api_management_calculator.py
+    │   └── digital_twins_calculator.py
+    └── gcp/
+        ├── __init__.py
+        ├── cloud_functions_calculator.py
+        ├── pubsub_calculator.py
+        ├── firestore_calculator.py
+        ├── api_gateway_calculator.py
+        └── compute_engine_calculator.py</code></pre>
+
+                    <h5 class="mt-4">Component Calculators by Provider</h5>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning text-dark">
+                                    <i class="fa-brands fa-aws me-2"></i>AWS
+                                </div>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item"><code>AWSLambdaCalculator</code></li>
+                                    <li class="list-group-item"><code>AWSIoTCoreCalculator</code></li>
+                                    <li class="list-group-item"><code>AWSDynamoDBCalculator</code></li>
+                                    <li class="list-group-item"><code>AWSAPIGatewayCalculator</code></li>
+                                    <li class="list-group-item"><code>AWSTwinMakerCalculator</code></li>
+                                    <li class="list-group-item"><code>AWSGrafanaCalculator</code></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-info">
+                                <div class="card-header bg-info text-white">
+                                    <i class="fa-brands fa-microsoft me-2"></i>Azure
+                                </div>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item"><code>AzureFunctionsCalculator</code></li>
+                                    <li class="list-group-item"><code>AzureIoTHubCalculator</code></li>
+                                    <li class="list-group-item"><code>AzureCosmosDBCalculator</code></li>
+                                    <li class="list-group-item"><code>AzureAPIManagementCalculator</code></li>
+                                    <li class="list-group-item"><code>AzureDigitalTwinsCalculator</code></li>
+                                    <li class="list-group-item"><code>AzureGrafanaCalculator</code></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-danger">
+                                <div class="card-header bg-danger text-white">
+                                    <i class="fa-brands fa-google me-2"></i>GCP
+                                </div>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item"><code>GCPCloudFunctionsCalculator</code></li>
+                                    <li class="list-group-item"><code>GCPPubSubCalculator</code></li>
+                                    <li class="list-group-item"><code>GCPFirestoreCalculator</code></li>
+                                    <li class="list-group-item"><code>GCPAPIGatewayCalculator</code></li>
+                                    <li class="list-group-item"><code>GCPComputeEngineCalculator</code></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code Examples -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-code me-2"></i>Code Examples</h2>
+                </div>
+                <div class="card-body">
+
+                    <h5>CalculatorBase — Shared Utilities</h5>
+                    <p class="text-muted">All component calculators inherit from this base class for common operations.
+                    </p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>from typing import Dict, Any
+
+class CalculatorBase:
+    """
+    Base class providing shared utilities for component calculators.
+    
+    Does NOT implement ResourceCalculator directly — subclasses must
+    provide their own calculate_cost method.
+    """
+    
+    @staticmethod
+    def get_pricing_value(
+        pricing: Dict[str, Any],
+        *keys: str,
+        default: float = 0.0
+    ) -> float:
+        """
+        Safely retrieve a nested value from pricing data.
+        
+        Args:
+            pricing: The pricing data dictionary
+            *keys: Path of keys to traverse
+            default: Value to return if path not found
+        
+        Returns:
+            The pricing value, or default if not found
+        
+        Example:
+            price = self.get_pricing_value(pricing, 'lambda', 'pricePerRequest')
+            # Equivalent to: pricing.get('lambda', {}).get('pricePerRequest', 0.0)
+        """
+        current = pricing
+        for key in keys:
+            if isinstance(current, dict) and key in current:
+                current = current[key]
+            else:
+                return default
+        return float(current) if current is not None else default
+    
+    @staticmethod
+    def get_tier_value(
+        pricing: Dict[str, Any],
+        *keys: str,
+        default: list = None
+    ) -> list:
+        """
+        Retrieve tiered pricing data.
+        
+        Args:
+            pricing: The pricing data dictionary
+            *keys: Path to tier data
+            default: Default tier list if not found
+        
+        Returns:
+            List of tier dictionaries with 'limit' and 'price' keys
+        """
+        if default is None:
+            default = [{'limit': float('inf'), 'price': 0.0}]
+        
+        current = pricing
+        for key in keys:
+            if isinstance(current, dict) and key in current:
+                current = current[key]
+            else:
+                return default
+        return current if isinstance(current, list) else default</code></pre>
+
+                    <h5 class="mt-4">AWS IoT Core Calculator</h5>
+                    <p class="text-muted">Calculates IoT Core messaging costs with connection fees.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>from typing import Dict, Any
+from calculation_v2.components.base import CalculatorBase
+from calculation_v2.formulas.core_formulas import calculate_messaging_cost
+
+class AWSIoTCoreCalculator(CalculatorBase):
+    """
+    Calculates AWS IoT Core costs including messaging and connection fees.
+    
+    Pricing model:
+    - Per-message fee based on message count and size
+    - Per-minute connection fee for connected devices
+    - Free tier: 250,000 messages, 500,000 connection minutes
+    """
+    
+    def calculate_cost(
+        self,
+        pricing: Dict[str, Any],
+        num_devices: int = 0,
+        messages_per_month: int = 0,
+        avg_message_size_kb: float = 1.0,
+        connection_minutes_per_device: int = 43200,  # 30 days
+        **kwargs
+    ) -> float:
+        """
+        Calculate IoT Core cost.
+        
+        Args:
+            pricing: AWS pricing data
+            num_devices: Number of connected IoT devices
+            messages_per_month: Total messages across all devices
+            avg_message_size_kb: Average message size in KB
+            connection_minutes_per_device: Minutes each device is connected
+        
+        Returns:
+            Monthly IoT Core cost
+        """
+        # Get pricing values
+        price_per_message = self.get_pricing_value(
+            pricing, 'iotCore', 'pricePerMessage', default=0.000001
+        )
+        price_per_connection_minute = self.get_pricing_value(
+            pricing, 'iotCore', 'pricePerConnectionMinute', default=0.00000008
+        )
+        free_messages = int(self.get_pricing_value(
+            pricing, 'iotCore', 'freeMessages', default=250000
+        ))
+        free_connection_minutes = int(self.get_pricing_value(
+            pricing, 'iotCore', 'freeConnectionMinutes', default=500000
+        ))
+        
+        # Calculate messaging cost
+        messaging_cost = calculate_messaging_cost(
+            messages_per_month=messages_per_month,
+            message_size_kb=avg_message_size_kb,
+            price_per_message=price_per_message,
+            free_tier_messages=free_messages
+        )
+        
+        # Calculate connection cost
+        total_connection_minutes = num_devices * connection_minutes_per_device
+        billable_minutes = max(0, total_connection_minutes - free_connection_minutes)
+        connection_cost = billable_minutes * price_per_connection_minute
+        
+        return messaging_cost + connection_cost</code></pre>
+
+                    <h5 class="mt-4">Azure Functions Calculator</h5>
+                    <p class="text-muted">Handles Azure's consumption plan pricing model.</p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>from typing import Dict, Any
+from calculation_v2.components.base import CalculatorBase
+from calculation_v2.formulas.core_formulas import calculate_execution_cost
+
+class AzureFunctionsCalculator(CalculatorBase):
+    """
+    Calculates Azure Functions costs on the Consumption Plan.
+    
+    Azure uses a similar GB-seconds model to AWS Lambda, but with
+    different defaults and free tier amounts.
+    """
+    
+    def calculate_cost(
+        self,
+        pricing: Dict[str, Any],
+        executions: int = 0,
+        duration_ms: float = 100,
+        memory_mb: int = 128,
+        **kwargs
+    ) -> float:
+        """
+        Calculate Azure Functions execution cost.
+        
+        Args:
+            pricing: Azure pricing data
+            executions: Number of function executions per month
+            duration_ms: Average execution time in milliseconds
+            memory_mb: Memory allocation in MB
+        
+        Returns:
+            Monthly Azure Functions cost
+        """
+        # Get Azure-specific pricing values
+        price_per_execution = self.get_pricing_value(
+            pricing, 'functions', 'pricePerExecution', default=0.0000002
+        )
+        price_per_gb_second = self.get_pricing_value(
+            pricing, 'functions', 'pricePerGBSecond', default=0.000016
+        )
+        free_executions = int(self.get_pricing_value(
+            pricing, 'functions', 'freeExecutions', default=1000000
+        ))
+        free_gb_seconds = self.get_pricing_value(
+            pricing, 'functions', 'freeGBSeconds', default=400000.0
+        )
+        
+        return calculate_execution_cost(
+            executions=executions,
+            duration_ms=duration_ms,
+            memory_mb=memory_mb,
+            price_per_request=price_per_execution,
+            price_per_gb_second=price_per_gb_second,
+            free_tier_requests=free_executions,
+            free_tier_gb_seconds=free_gb_seconds
+        )</code></pre>
+                </div>
+            </div>
+
+            <!-- How Layer Facades Use Calculators -->
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-layer-group me-2"></i>Integration with Layer Facades</h2>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Layer facades instantiate component calculators and aggregate their results. Each layer
+                        can use multiple calculators.
+                    </p>
+                    <pre class="bg-dark text-light p-3 rounded"><code>from calculation_v2.components.aws.lambda_calculator import AWSLambdaCalculator
+from calculation_v2.components.aws.iot_core_calculator import AWSIoTCoreCalculator
+from calculation_v2.layers.base import LayerResult
+
+class AWSLayerCalculators:
+    """Facade aggregating AWS component calculators into layer results."""
+    
+    def __init__(self):
+        # Instantiate all component calculators
+        self.lambda_calc = AWSLambdaCalculator()
+        self.iot_core = AWSIoTCoreCalculator()
+        self.dynamodb = AWSDynamoDBCalculator()
+        # ... more calculators
+    
+    def calculate_l1_cost(
+        self,
+        number_of_devices: int,
+        messages_per_month: int,
+        average_message_size_kb: float,
+        pricing: Dict[str, Any]
+    ) -> LayerResult:
+        """Calculate Layer 1 (Data Acquisition) cost."""
+        
+        # Use IoT Core calculator for messaging
+        iot_cost = self.iot_core.calculate_cost(
+            pricing=pricing,
+            num_devices=number_of_devices,
+            messages_per_month=messages_per_month,
+            avg_message_size_kb=average_message_size_kb
+        )
+        
+        # Use Lambda calculator for dispatcher function
+        dispatcher_cost = self.lambda_calc.calculate_cost(
+            pricing=pricing,
+            executions=messages_per_month,
+            duration_ms=100,
+            memory_mb=128
+        )
+        
+        total = iot_cost + dispatcher_cost
+        
+        return LayerResult(
+            provider="aws",
+            layer="L1_ingestion",
+            total_cost=total,
+            components={
+                "iotCore": iot_cost,
+                "dispatcherLambda": dispatcher_cost
+            }
+        )</code></pre>
+                </div>
+            </div>
+
+            <!-- Extension Guide -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning">
+                    <h2 class="mb-0 h5"><i class="fa-solid fa-plus-circle me-2"></i>How to Extend</h2>
+                </div>
+                <div class="card-body">
+                    <h5>Adding a New Service Calculator</h5>
+                    <ol>
+                        <li>
+                            <strong>Create the calculator file</strong> in the appropriate provider directory:
+                            <code>calculation_v2/components/{provider}/{service}_calculator.py</code>
+                        </li>
+                        <li>
+                            <strong>Inherit from CalculatorBase</strong> and implement <code>calculate_cost</code>:
+                            <pre class="bg-dark text-light p-3 rounded mt-2"><code>from typing import Dict, Any
+from calculation_v2.components.base import CalculatorBase
+
+class AWSNewServiceCalculator(CalculatorBase):
+    """Calculates costs for AWS NewService."""
+    
+    def calculate_cost(
+        self,
+        pricing: Dict[str, Any],
+        usage_param_1: float = 0,
+        usage_param_2: int = 0,
+        **kwargs
+    ) -> float:
+        price = self.get_pricing_value(
+            pricing, 'newService', 'pricePerUnit'
+        )
+        return usage_param_1 * price</code></pre>
+                        </li>
+                        <li>
+                            <strong>Export from __init__.py</strong>:
+                            <pre class="bg-dark text-light p-3 rounded mt-2"><code># calculation_v2/components/aws/__init__.py
+from .new_service_calculator import AWSNewServiceCalculator</code></pre>
+                        </li>
+                        <li>
+                            <strong>Integrate with layer facade</strong> — Add the calculator to the appropriate layer
+                            method and include its result in the components dictionary.
+                        </li>
+                        <li>
+                            <strong>Update pricing schema</strong> — Ensure the pricing fetcher includes data for the
+                            new service.
+                        </li>
+                    </ol>
+
+                    <div class="alert alert-warning mt-3">
+                        <i class="fa-solid fa-exclamation-triangle me-1"></i>
+                        <strong>Important:</strong> Always include <code>**kwargs</code> in your
+                        <code>calculate_cost</code>
+                        signature to allow for future parameter additions without breaking existing code.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="d-flex justify-content-between mt-4">
+                <a href="docs-pattern-protocol.html" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-arrow-left me-2"></i>Protocol Pattern
+                </a>
+                <a href="docs-pattern-facade.html" class="btn btn-primary">
+                    Next: Facade Pattern<i class="fa-solid fa-arrow-right ms-2"></i>
+                </a>
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <button id="backToTop" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 shadow fade p-3"
+        style="display:none;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+
+    <script src="js/docs-nav.js" defer></script>
+</body>
+
+</html>
