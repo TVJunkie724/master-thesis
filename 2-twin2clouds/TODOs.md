@@ -17,10 +17,10 @@
 
 - [x] run and fix tests
 - [x] update docs (with changes in pricing calculations, web ui, rest api, architecture? and concerning deployment roadmap)
-- [ ] update architecture section in ui
+- [x] update architecture section in ui
 
 !!! IMPORTANT: !!!
-- [ ] adapt ui and validation of inputs: trigger workflow, return feedback to device and corresponding fields are dependent on useEventChecking = true!!!
+- [x] adapt ui and validation of inputs: trigger workflow, return feedback to device and corresponding fields are dependent on useEventChecking = true!!!
 
 ## flutter later
 - [ ] add section after header with buttons for fetching up-to-date prices and regions??? on page load, the age of the json files should be shown, for the user to decide if he wants to update them or not

@@ -1,7 +1,55 @@
+# =============================================================================
+# Git Ignore - 3-cloud-deployer (Deployer)
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Python Artifacts
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# -----------------------------------------------------------------------------
+# IDE and Editor Settings
+# -----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+
+# -----------------------------------------------------------------------------
+# Credentials (NEVER commit)
+# -----------------------------------------------------------------------------
 config_credentials.json
 iot_devices_auth/
-src/__pycache__
-iot_device_simulator/src/__pycache__
+
+# -----------------------------------------------------------------------------
+# Terraform
+# -----------------------------------------------------------------------------
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+*.tfvars.json
+generated.tfvars.json
+
+# -----------------------------------------------------------------------------
+# Lambda/Function Zips (regenerated during build)
+# -----------------------------------------------------------------------------
+*.zip
+
+# Old specific paths (kept for backwards compatibility)
 lambda_functions/cold-to-archive-mover/zipped.zip
 lambda_functions/default-processor/zipped.zip
 lambda_functions/dispatcher/zipped.zip
@@ -11,4 +59,11 @@ lambda_functions/hot-reader/zipped.zip
 lambda_functions/hot-reader-last-entry/zipped.zip
 lambda_functions/event-checker/zipped.zip
 event_actions/high-temperature-callback/zipped.zip
-**/__pycache__/
+
+# -----------------------------------------------------------------------------
+# OS Files
+# -----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
