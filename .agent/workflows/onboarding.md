@@ -115,6 +115,15 @@ E2E tests in `tests/e2e/` deploy real cloud resources that cost money.
 ### ALWAYS Check implementation_plans/ First
 Before creating a new implementation plan, check if one already exists for your task.
 
+### UI Verification
+Do NOT use browser subagent to verify UI changes unless explicitly instructed.
+The user will check UI themselves.
+
+```
+❌ FORBIDDEN: Browser verification of UI changes by default
+✅ ALLOWED: Browser verification only when user explicitly requests it
+```
+
 ---
 
 ## Command Execution Rules
