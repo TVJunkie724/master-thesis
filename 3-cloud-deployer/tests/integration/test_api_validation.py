@@ -51,22 +51,71 @@ class TestValidationAPI(unittest.TestCase):
         response = client.post("/validate/config/invalid_type", files=files)
         self.assertEqual(response.status_code, 422) # FastAPI validation error for Enum
 
-    @patch('src.validator.get_provider_for_function')
     @patch('src.validator.validate_python_code_aws')
-    def test_validate_function_endpoint(self, mock_validate_aws, mock_get_provider):
-        mock_get_provider.return_value = "aws"
+    def test_validate_function_code_endpoint(self, mock_validate_aws):
+        """Test new function-code endpoint with file upload."""
         mock_validate_aws.return_value = None
         
-        payload = {
-            "project_name": "test-proj",
-            "function_name": "dispatcher",
-            "filename": "lambda_function.py",
-            "code": "def lambda_handler..."
-        }
+        code = b"def lambda_handler(event, context):\n    return {'statusCode': 200}"
+        files = {'file': ('lambda_function.py', code, 'text/x-python')}
         
-        response = client.post("/validate/function", json=payload)
+        response = client.post("/validate/function-code?provider=aws", files=files)
         self.assertEqual(response.status_code, 200)
-        self.assertIn("valid for provider 'aws'", response.json()["message"])
+        self.assertIn("valid for aws", response.json()["message"])
+
+    @patch('src.validator.validate_state_machine_content')
+    def test_validate_state_machine_endpoint(self, mock_validate):
+        """Test state machine validation with required file."""
+        mock_validate.return_value = None
+        
+        sm_content = b'{"StartAt": "Init", "States": {}}'
+        files = {'file': ('aws_step_function.json', sm_content, 'application/json')}
+        
+        response = client.post("/validate/state-machine?provider=aws", files=files)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("valid for aws", response.json()["message"])
+
+    @patch('src.validator.validate_simulator_payloads')
+    def test_validate_payloads_endpoint(self, mock_validate):
+        """Test payload structure validation."""
+        mock_validate.return_value = (True, [], [])
+        
+        payload_content = b'[{"iotDeviceId": "device-1"}]'
+        files = {'file': ('payloads.json', payload_content, 'application/json')}
+        
+        response = client.post("/validate/simulator/payloads", files=files)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["valid"])
+
+    def test_validate_payloads_with_devices_endpoint(self):
+        """Test cross-validation of payloads against devices config."""
+        payloads = b'[{"iotDeviceId": "device-1"}]'
+        devices = b'[{"id": "device-1", "properties": []}]'
+        
+        files = [
+            ('payloads_file', ('payloads.json', payloads, 'application/json')),
+            ('devices_file', ('config_iot_devices.json', devices, 'application/json'))
+        ]
+        
+        response = client.post("/validate/payloads-with-devices", files=files)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["valid"])
+        self.assertIn("device-1", response.json()["devices_found"])
+
+    def test_validate_payloads_with_devices_invalid_device(self):
+        """Test that missing device IDs are detected."""
+        payloads = b'[{"iotDeviceId": "device-unknown"}]'
+        devices = b'[{"id": "device-1", "properties": []}]'
+        
+        files = [
+            ('payloads_file', ('payloads.json', payloads, 'application/json')),
+            ('devices_file', ('config_iot_devices.json', devices, 'application/json'))
+        ]
+        
+        response = client.post("/validate/payloads-with-devices", files=files)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["valid"])
+        self.assertTrue(any("device-unknown" in e for e in response.json()["errors"]))
 
 if __name__ == '__main__':
     unittest.main()

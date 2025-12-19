@@ -51,7 +51,7 @@ class TestValidation(unittest.TestCase):
         content = {
             "aws": {"aws_access_key_id": "x", "aws_secret_access_key": "x", "aws_region": "x"},
             "azure": {"azure_subscription_id": "x", "azure_tenant_id": "x", "azure_client_id": "x", "azure_client_secret": "x", "azure_region": "x", "azure_region_iothub": "x", "azure_region_digital_twin": "x"},
-            "gcp": {"gcp_project_id": "x", "gcp_credentials_file": "x", "gcp_region": "x"}
+            "gcp": {"gcp_billing_account": "x", "gcp_credentials_file": "x", "gcp_region": "x"}
         }
         validator.validate_config_content(CONSTANTS.CONFIG_CREDENTIALS_FILE, content)
 
@@ -152,7 +152,7 @@ class TestValidation(unittest.TestCase):
         code_args = "def main(other): pass"
         with self.assertRaises(ValueError) as cm:
             validator.validate_python_code_azure(code_args)
-        self.assertIn("must have a 'main(req)'", str(cm.exception))
+        self.assertIn("main(req)", str(cm.exception))  # Updated: new message uses "signature: main(req)"
 
     def test_validate_python_code_google_valid(self):
         code = "def any_func(request): pass"
@@ -198,6 +198,17 @@ class TestValidation(unittest.TestCase):
             if configs and CONSTANTS.CONFIG_OPTIMIZATION_FILE in configs:
                 opt_content = json.dumps(configs[CONSTANTS.CONFIG_OPTIMIZATION_FILE])
             zf.writestr(CONSTANTS.CONFIG_OPTIMIZATION_FILE, opt_content)
+            
+            # Add hierarchy file for L4 provider (required by new cross-config validation)
+            # Default providers config sets layer_4_provider=aws
+            providers_config = configs.get(CONSTANTS.CONFIG_PROVIDERS_FILE) if configs else None
+            layer_4_provider = (providers_config or {}).get("layer_4_provider", "aws")
+            if layer_4_provider == "aws":
+                zf.writestr("twin_hierarchy/aws_hierarchy.json", "[]")
+            elif layer_4_provider == "azure":
+                zf.writestr("twin_hierarchy/azure_hierarchy.json", json.dumps({
+                    "models": [], "twins": [], "relationships": []
+                }))
             
             if extra_files:
                 for name, content in extra_files.items():
@@ -333,6 +344,180 @@ class TestValidation(unittest.TestCase):
             validator.get_provider_for_function("p", "unknown-func", project_path="/app")
         self.assertIn("Unknown function", str(cm.exception))
         self.assertIn("Cannot determine provider layer", str(cm.exception))
+
+    # ==========================================
+    # 6. Cross-Config Validation (NEW TESTS)
+    # ==========================================
+    
+    def test_validate_zip_payloads_valid_device_reference(self):
+        """Test payloads.json with valid iotDeviceId reference."""
+        iot = [{"id": "device-1", "properties": []}]
+        configs = {CONSTANTS.CONFIG_IOT_DEVICES_FILE: iot}
+        extras = {
+            f"{CONSTANTS.IOT_DEVICE_SIMULATOR_DIR_NAME}/{CONSTANTS.PAYLOADS_FILE}": json.dumps([
+                {"iotDeviceId": "device-1", "payload": {}}
+            ])
+        }
+        zip_buf = self._create_zip_with_configs(configs, extras)
+        validator.validate_project_zip(zip_buf)  # Should pass
+
+    def test_validate_zip_payloads_invalid_device_reference(self):
+        """Test payloads.json with unknown iotDeviceId raises error."""
+        iot = [{"id": "device-1", "properties": []}]
+        configs = {CONSTANTS.CONFIG_IOT_DEVICES_FILE: iot}
+        extras = {
+            f"{CONSTANTS.IOT_DEVICE_SIMULATOR_DIR_NAME}/{CONSTANTS.PAYLOADS_FILE}": json.dumps([
+                {"iotDeviceId": "unknown-device", "payload": {}}
+            ])
+        }
+        zip_buf = self._create_zip_with_configs(configs, extras)
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_project_zip(zip_buf)
+        self.assertIn("unknown device", str(cm.exception).lower())
+        self.assertIn("unknown-device", str(cm.exception))
+
+    def test_validate_zip_payloads_multiple_devices(self):
+        """Test payloads.json with multiple valid devices."""
+        iot = [
+            {"id": "device-1", "properties": []},
+            {"id": "device-2", "properties": []}
+        ]
+        configs = {CONSTANTS.CONFIG_IOT_DEVICES_FILE: iot}
+        extras = {
+            f"{CONSTANTS.IOT_DEVICE_SIMULATOR_DIR_NAME}/{CONSTANTS.PAYLOADS_FILE}": json.dumps([
+                {"iotDeviceId": "device-1", "payload": {}},
+                {"iotDeviceId": "device-2", "payload": {}}
+            ])
+        }
+        zip_buf = self._create_zip_with_configs(configs, extras)
+        validator.validate_project_zip(zip_buf)  # Should pass
+
+    def test_validate_zip_credentials_missing_for_provider(self):
+        """Test credentials missing for a configured provider raises error."""
+        providers = {
+            "layer_1_provider": "aws",
+            "layer_2_provider": "azure",  # Needs azure credentials
+            "layer_3_hot_provider": "aws",
+            "layer_4_provider": "aws"
+        }
+        # AWS credentials present but missing azure entirely
+        credentials = {"aws": {
+            "aws_access_key_id": "x", 
+            "aws_secret_access_key": "y", 
+            "aws_region": "us-east-1"
+        }}
+        configs = {
+            CONSTANTS.CONFIG_PROVIDERS_FILE: providers,
+            CONSTANTS.CONFIG_CREDENTIALS_FILE: credentials
+        }
+        extras = {"twin_hierarchy/azure_hierarchy.json": json.dumps({"models": [], "twins": [], "relationships": []})}
+        zip_buf = self._create_zip_with_configs(configs, extras)
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_project_zip(zip_buf)
+        self.assertIn("Missing credentials", str(cm.exception))
+        self.assertIn("azure", str(cm.exception))
+
+    def test_validate_zip_credentials_all_providers_present(self):
+        """Test credentials present for all configured providers."""
+        providers = {
+            "layer_1_provider": "aws",
+            "layer_2_provider": "azure",
+            "layer_3_hot_provider": "aws",
+            "layer_4_provider": "azure"
+        }
+        credentials = {
+            "aws": {
+                "aws_access_key_id": "x", 
+                "aws_secret_access_key": "y", 
+                "aws_region": "us-east-1"
+            },
+            "azure": {
+                "azure_subscription_id": "z",
+                "azure_tenant_id": "t",
+                "azure_client_id": "c",
+                "azure_client_secret": "s",
+                "azure_region": "eastus",
+                "azure_region_iothub": "eastus",
+                "azure_region_digital_twin": "eastus"
+            }
+        }
+        configs = {
+            CONSTANTS.CONFIG_PROVIDERS_FILE: providers,
+            CONSTANTS.CONFIG_CREDENTIALS_FILE: credentials
+        }
+        extras = {"twin_hierarchy/azure_hierarchy.json": json.dumps({"models": [], "twins": [], "relationships": []})}
+        zip_buf = self._create_zip_with_configs(configs, extras)
+        validator.validate_project_zip(zip_buf)  # Should pass
+
+    def test_validate_zip_hierarchy_aws_missing(self):
+        """Test aws_hierarchy.json missing when layer_4_provider=aws."""
+        providers = {
+            "layer_1_provider": "aws",
+            "layer_2_provider": "aws",
+            "layer_3_hot_provider": "aws",
+            "layer_4_provider": "aws"
+        }
+        configs = {CONSTANTS.CONFIG_PROVIDERS_FILE: providers}
+        # Note: We need to override the helper's auto-add of hierarchy
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w') as zf:
+            for req in CONSTANTS.REQUIRED_CONFIG_FILES:
+                content = "{}"
+                if req in [CONSTANTS.CONFIG_IOT_DEVICES_FILE, CONSTANTS.CONFIG_EVENTS_FILE]:
+                    content = "[]"
+                elif req == CONSTANTS.CONFIG_FILE:
+                    content = json.dumps({"digital_twin_name": "t", "hot_storage_size_in_days": 1, "cold_storage_size_in_days": 1, "mode": "b"})
+                elif req == CONSTANTS.CONFIG_PROVIDERS_FILE:
+                    content = json.dumps(providers)
+                zf.writestr(req, content)
+            zf.writestr(CONSTANTS.CONFIG_OPTIMIZATION_FILE, json.dumps({"result": {}}))
+            # Deliberately NOT adding aws_hierarchy.json
+        zip_buffer.seek(0)
+        
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_project_zip(zip_buffer)
+        self.assertIn("Missing hierarchy file", str(cm.exception))
+        self.assertIn("aws_hierarchy.json", str(cm.exception))
+
+    def test_validate_zip_hierarchy_azure_present(self):
+        """Test azure_hierarchy.json present when layer_4_provider=azure."""
+        providers = {
+            "layer_1_provider": "azure",
+            "layer_2_provider": "azure",
+            "layer_3_hot_provider": "azure",
+            "layer_4_provider": "azure"
+        }
+        configs = {CONSTANTS.CONFIG_PROVIDERS_FILE: providers}
+        extras = {"twin_hierarchy/azure_hierarchy.json": json.dumps({
+            "models": [], "twins": [], "relationships": []
+        })}
+        zip_buf = self._create_zip_with_configs(configs, extras)
+        validator.validate_project_zip(zip_buf)  # Should pass
+
+    def test_validate_zip_hierarchy_google_no_file_required(self):
+        """Test Google provider doesn't require hierarchy file."""
+        providers = {
+            "layer_1_provider": "google",
+            "layer_2_provider": "google",
+            "layer_3_hot_provider": "google",
+            "layer_4_provider": "google"
+        }
+        configs = {CONSTANTS.CONFIG_PROVIDERS_FILE: providers}
+        # No hierarchy file added - should still pass for Google
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w') as zf:
+            for req in CONSTANTS.REQUIRED_CONFIG_FILES:
+                content = "{}"
+                if req in [CONSTANTS.CONFIG_IOT_DEVICES_FILE, CONSTANTS.CONFIG_EVENTS_FILE]:
+                    content = "[]"
+                elif req == CONSTANTS.CONFIG_FILE:
+                    content = json.dumps({"digital_twin_name": "t", "hot_storage_size_in_days": 1, "cold_storage_size_in_days": 1, "mode": "b"})
+                elif req == CONSTANTS.CONFIG_PROVIDERS_FILE:
+                    content = json.dumps(providers)
+                zf.writestr(req, content)
+            zf.writestr(CONSTANTS.CONFIG_OPTIMIZATION_FILE, json.dumps({"result": {}}))
+        zip_buffer.seek(0)
+        validator.validate_project_zip(zip_buffer)  # Should pass for Google (no L4 hierarchy)
 
 if __name__ == '__main__':
     unittest.main()

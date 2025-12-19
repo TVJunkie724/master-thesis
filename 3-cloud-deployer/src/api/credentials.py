@@ -1,18 +1,22 @@
 """
-Credentials API Router
+Permissions API Router
 
-Provides endpoints for validating cloud credentials against required permissions.
-Supports AWS and Azure credential validation.
+Provides endpoints for verifying cloud credentials against required permissions.
+Supports AWS, Azure, and GCP credential validation.
+
+Categories:
+- "Permissions - Upload": Verify credentials from request body
+- "Permissions - Project": Verify credentials from project config files
 """
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 from typing import Optional
-import json
 
 from api.credentials_checker import check_aws_credentials, check_aws_credentials_from_config
 from api.azure_credentials_checker import check_azure_credentials, check_azure_credentials_from_config
+from api.gcp_credentials_checker import check_gcp_credentials, check_gcp_credentials_from_config
 
-router = APIRouter(prefix="/credentials", tags=["Credentials"])
+router = APIRouter(prefix="/permissions")
 
 
 class AWSCredentialsRequest(BaseModel):
@@ -35,6 +39,13 @@ class AzureCredentialsRequest(BaseModel):
     azure_region: str = Field(..., description="Azure Region for general resources (e.g., 'italynorth')")
     azure_region_iothub: str = Field(..., description="Azure Region for IoT Hub (e.g., 'westeurope'), may differ from azure_region")
     azure_region_digital_twin: str = Field(..., description="Azure Region for Digital Twins (e.g., 'westeurope'), must be in ADT supported list")
+
+
+class GCPCredentialsRequest(BaseModel):
+    """Request body for GCP credential validation."""
+    gcp_billing_account: str = Field(..., description="GCP Billing Account ID for project creation")
+    gcp_credentials_file: str = Field(..., description="Path to Service Account JSON key file")
+    gcp_region: str = Field(..., description="GCP Region (e.g., 'europe-west1')")
 
 
 class CredentialsCheckResponse(BaseModel):
@@ -60,12 +71,26 @@ class AzureCredentialsCheckResponse(BaseModel):
     recommended_roles: Optional[dict] = Field(None, description="Recommended roles: custom (preferred) and builtin alternatives")
 
 
+class GCPCredentialsCheckResponse(BaseModel):
+    """Response schema for GCP credential validation."""
+    status: str = Field(..., description="Result status: 'valid', 'partial', 'invalid', 'sdk_missing', or 'error'")
+    message: str = Field(..., description="Human-readable result message")
+    caller_identity: Optional[dict] = Field(None, description="GCP service account info")
+    project_access: Optional[dict] = Field(None, description="Project access status")
+    api_status: Optional[dict] = Field(None, description="API enablement status by layer")
+    required_roles: list = Field(..., description="List of required IAM roles")
+
+
+# ==========================================
+# AWS Permissions - Upload
+# ==========================================
 @router.post(
-    "/check/aws",
+    "/verify/aws",
     response_model=CredentialsCheckResponse,
-    summary="Validate AWS credentials from request body",
+    tags=["Permissions - Upload"],
+    summary="Verify AWS permissions from request body",
     description=(
-        "Validates AWS credentials against all required permissions for the deployer. "
+        "Verifies AWS credentials against all required permissions for the deployer. "
         "Accepts credentials directly in the request body. "
         "Returns categorized results by layer and by service."
     )
@@ -86,12 +111,16 @@ async def check_aws_from_body(request: AWSCredentialsRequest):
     return check_aws_credentials(request.model_dump())
 
 
+# ==========================================
+# AWS Permissions - Project
+# ==========================================
 @router.get(
-    "/check/aws",
+    "/verify/aws",
     response_model=CredentialsCheckResponse,
-    summary="Validate AWS credentials from project config",
+    tags=["Permissions - Project"],
+    summary="Verify AWS permissions from project config",
     description=(
-        "Validates AWS credentials from the project's config_credentials.json file. "
+        "Verifies AWS credentials from the project's config_credentials.json file. "
         "Uses the active project if no project name is specified. "
         "Returns categorized results by layer and by service."
     )
@@ -114,15 +143,15 @@ async def check_aws_from_config(
 
 
 # ==========================================
-# Azure Credentials Endpoints
+# Azure Permissions - Upload
 # ==========================================
-
 @router.post(
-    "/check/azure",
+    "/verify/azure",
     response_model=AzureCredentialsCheckResponse,
-    summary="Validate Azure credentials from request body",
+    tags=["Permissions - Upload"],
+    summary="Verify Azure permissions from request body",
     description=(
-        "Validates Azure Service Principal credentials against required RBAC roles. "
+        "Verifies Azure Service Principal credentials against required RBAC roles. "
         "Checks if Contributor and User Access Administrator roles are assigned. "
         "Returns categorized results by deployment layer."
     )
@@ -145,12 +174,16 @@ async def check_azure_from_body(request: AzureCredentialsRequest):
     return check_azure_credentials(request.model_dump())
 
 
+# ==========================================
+# Azure Permissions - Project
+# ==========================================
 @router.get(
-    "/check/azure",
+    "/verify/azure",
     response_model=AzureCredentialsCheckResponse,
-    summary="Validate Azure credentials from project config",
+    tags=["Permissions - Project"],
+    summary="Verify Azure permissions from project config",
     description=(
-        "Validates Azure credentials from the project's config_credentials.json file. "
+        "Verifies Azure credentials from the project's config_credentials.json file. "
         "Uses the active project if no project name is specified. "
         "Returns categorized results by layer."
     )
@@ -173,36 +206,15 @@ async def check_azure_from_config(
 
 
 # ==========================================
-# GCP Credentials Endpoints
+# GCP Permissions - Upload
 # ==========================================
-
-# Import GCP checker (at the top, import was added separately)
-from api.gcp_credentials_checker import check_gcp_credentials, check_gcp_credentials_from_config
-
-
-class GCPCredentialsRequest(BaseModel):
-    """Request body for GCP credential validation."""
-    gcp_billing_account: str = Field(..., description="GCP Billing Account ID for project creation")
-    gcp_credentials_file: str = Field(..., description="Path to Service Account JSON key file")
-    gcp_region: str = Field(..., description="GCP Region (e.g., 'europe-west1')")
-
-
-class GCPCredentialsCheckResponse(BaseModel):
-    """Response schema for GCP credential validation."""
-    status: str = Field(..., description="Result status: 'valid', 'partial', 'invalid', 'sdk_missing', or 'error'")
-    message: str = Field(..., description="Human-readable result message")
-    caller_identity: Optional[dict] = Field(None, description="GCP service account info")
-    project_access: Optional[dict] = Field(None, description="Project access status")
-    api_status: Optional[dict] = Field(None, description="API enablement status by layer")
-    required_roles: list = Field(..., description="List of required IAM roles")
-
-
 @router.post(
-    "/check/gcp",
+    "/verify/gcp",
     response_model=GCPCredentialsCheckResponse,
-    summary="Validate GCP credentials from request body",
+    tags=["Permissions - Upload"],
+    summary="Verify GCP permissions from request body",
     description=(
-        "Validates GCP Service Account credentials against required permissions. "
+        "Verifies GCP Service Account credentials against required permissions. "
         "Checks project access and API enablement status. "
         "Returns status and missing APIs by layer."
     )
@@ -223,12 +235,16 @@ async def check_gcp_from_body(request: GCPCredentialsRequest):
     return check_gcp_credentials(request.model_dump())
 
 
+# ==========================================
+# GCP Permissions - Project
+# ==========================================
 @router.get(
-    "/check/gcp",
+    "/verify/gcp",
     response_model=GCPCredentialsCheckResponse,
-    summary="Validate GCP credentials from project config",
+    tags=["Permissions - Project"],
+    summary="Verify GCP permissions from project config",
     description=(
-        "Validates GCP credentials from the project's config_credentials.json file. "
+        "Verifies GCP credentials from the project's config_credentials.json file. "
         "Uses the active project if no project name is specified. "
         "Returns status and API enablement results."
     )
@@ -248,4 +264,3 @@ async def check_gcp_from_config(
     If no project is specified, uses the currently active project.
     """
     return check_gcp_credentials_from_config(project)
-

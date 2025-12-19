@@ -36,6 +36,7 @@ htmlcov/
 # -----------------------------------------------------------------------------
 config_credentials.json
 google_*.json
+google-*.json
 **/*credentials*.json
 !**/config_credentials.json.example
 !**/google_credentials.json.example
@@ -83,3 +84,4 @@ Festo_Demo_Box/
 # Project-Specific
 # -----------------------------------------------------------------------------
 2-twin2clouds/pricing/fetched_data/
+

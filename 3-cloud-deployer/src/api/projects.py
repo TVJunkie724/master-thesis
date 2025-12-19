@@ -16,11 +16,21 @@ router = APIRouter()
 # ==========================================
 # 1. Project Management
 # ==========================================
-@router.get("/projects", tags=["Projects"])
+@router.get(
+    "/projects", 
+    tags=["Projects"],
+    summary="List all projects",
+    responses={200: {"description": "Project list retrieved successfully"}}
+)
 def list_projects():
     """
     List all available projects with metadata.
-    Returns project names, descriptions, and version counts.
+    
+    **Returns:**
+    - Project names, descriptions, and version counts
+    - Currently active project name
+    
+    **Use case:** Dashboard project selector, project overview.
     """
     try:
         project_names = file_manager.list_projects()
@@ -58,7 +68,15 @@ def list_projects():
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/projects", tags=["Projects"])
+@router.post(
+    "/projects", 
+    tags=["Projects"],
+    summary="Create new project from zip",
+    responses={
+        200: {"description": "Project created successfully"},
+        400: {"description": "Invalid zip file or validation failed"}
+    }
+)
 async def create_project(
     request: Request, 
     project_name: str = Query(..., description="Name of the new project"),
@@ -66,8 +84,15 @@ async def create_project(
 ):
     """
     Upload a new project zip file with optional description.
-    If description is not provided, it will be auto-generated from digital_twin_name.
-    Supports Multipart (binary) or JSON (Base64).
+    
+    **Accepts:** Multipart (binary) or JSON (Base64 encoded).
+    
+    **Validation performed:**
+    - Zip structure validation (required files)
+    - Config schema validation
+    - Cross-config consistency checks (payloads ↔ devices, credentials ↔ providers)
+    
+    **If description not provided:** Auto-generated from digital_twin_name in config.json.
     """
     try:
         content = await extract_file_content(request)
@@ -81,10 +106,22 @@ async def create_project(
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/projects/{project_name}/activate", tags=["Projects"])
+@router.put(
+    "/projects/{project_name}/activate", 
+    tags=["Projects"],
+    summary="Switch active project (DEPRECATED)",
+    deprecated=True,
+    responses={
+        200: {"description": "Project activated"},
+        404: {"description": "Project not found"}
+    }
+)
 def activate_project(project_name: str):
     """
-    Switch the active project.
+    Switch the active project context.
+    
+    > **⚠️ DEPRECATED**: This endpoint will be removed in a future version.
+    > Use explicit `project` parameter on each endpoint instead for stateless API design.
     """
     try:
         state.set_active_project(project_name)
@@ -96,17 +133,26 @@ def activate_project(project_name: str):
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/projects/{project_name}/validate", tags=["Projects"])
+@router.get(
+    "/projects/{project_name}/validate", 
+    tags=["Projects"],
+    summary="Validate project structure",
+    responses={
+        200: {"description": "Project structure is valid"},
+        400: {"description": "Validation failed with details"}
+    }
+)
 def validate_project_structure(project_name: str = Path(..., description="Name of the project structure to validate")):
     """
-    Triggers a full validation of the project structure.
-    Checks:
-    - Required files presence.
-    - Content validity of configs.
-    - Consistency of optimization flags (e.g., dependencies like code presence).
+    Validates an existing project's structure on disk.
     
-    Returns:
-        JSON message indicating validity.
+    **Checks performed:**
+    - Required files presence (config.json, config_providers.json, etc.)
+    - Config content validity (schema validation)
+    - Optimization flag dependencies (event_actions, feedback functions, state machines)
+    - Cross-config consistency (payloads ↔ devices, credentials ↔ providers)
+    
+    **Use case:** Pre-deployment readiness check for existing projects.
     """
     try:
         validator.verify_project_structure(project_name)
@@ -337,5 +383,60 @@ async def upload_simulator_payloads(project_name: str, request: Request):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==========================================
+# 4. Project Cleanup (AWS-specific)
+# ==========================================
+@router.delete(
+    "/projects/{project_name}/cleanup/aws-twinmaker",
+    tags=["Projects"],
+    summary="Force delete AWS TwinMaker workspace",
+    responses={
+        200: {"description": "TwinMaker workspace deleted"},
+        500: {"description": "Deletion failed"}
+    }
+)
+def cleanup_aws_twinmaker(
+    project_name: str = Path(..., description="Name of the project")
+):
+    """
+    Force delete AWS TwinMaker workspace when Terraform destroy fails.
+    
+    **Use case:** When `terraform destroy` fails because TwinMaker contains entities.
+    
+    **Deletion order:**
+    1. Delete all entities
+    2. Delete all component types
+    3. Delete workspace
+    
+    **Note:** AWS-specific operation. Only works for projects using AWS for L4.
+    """
+    from api.dependencies import validate_project_context
+    validate_project_context(project_name)
+    try:
+        from src.providers.aws.provider import AWSProvider
+        from src.providers.aws.layers.layer_4_twinmaker import force_delete_twinmaker_workspace
+        from src.core.config_loader import load_project_config, load_credentials
+        from pathlib import Path as PathLib
+        from logger import print_stack_trace
+        
+        project_path = PathLib("upload") / project_name
+        config = load_project_config(project_path)
+        credentials = load_credentials(project_path)
+        
+        provider = AWSProvider()
+        provider.initialize_clients(credentials.get("aws", {}), config.digital_twin_name)
+        
+        result = force_delete_twinmaker_workspace(provider)
+        
+        return {
+            "message": "TwinMaker workspace deletion complete",
+            "result": result
+        }
+    except Exception as e:
+        print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))

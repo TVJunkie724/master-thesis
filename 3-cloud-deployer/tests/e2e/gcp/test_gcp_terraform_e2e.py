@@ -170,7 +170,8 @@ class TestGCPTerraformE2E:
                 print("!"*60)
         
         # Register cleanup to run ALWAYS
-        request.addfinalizer(terraform_cleanup)
+        # NOTE: Commented out for debugging - resources will NOT be destroyed
+        # request.addfinalizer(terraform_cleanup)
         
         # ==========================================
         # PHASE 4: Terraform Deployment

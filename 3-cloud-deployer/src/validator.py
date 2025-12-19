@@ -314,151 +314,26 @@ def validate_project_zip(zip_source):
     Validates that a zip file contains all required configuration files 
     AND validates their content against defined schemas.
     
+    This function delegates to src.validation.zip_validator which provides:
+    - Required files check
+    - Zip Slip prevention
+    - Config schema validation
+    - State machine validation
+    - Processor syntax validation
+    - Event action/feedback checks
+    - NEW: Payloads vs IoT devices cross-validation
+    - NEW: Credentials per provider check
+    - NEW: Hierarchy provider match validation
+    
     Args:
-        zip_source (str | BytesIO): Path to the zip file or a file-like object.
+        zip_source (str | BytesIO | bytes): Path to the zip file, BytesIO, or raw bytes.
         
     Raises:
         ValueError: If required files are missing, if file paths are malicious (Zip Slip),
         or if any configuration file has invalid content/schema.
     """
-    if isinstance(zip_source, bytes):
-        zip_source = io.BytesIO(zip_source)
-
-    with zipfile.ZipFile(zip_source, 'r') as zf:
-        file_list = zf.namelist()
-        
-        # 1. Check for Missing Required Files (Basic Check)
-        zip_files = zf.namelist()
-        
-        # Identify project root prefix if any (e.g. project_folder/config.json)
-        project_root = ""
-        for f in zip_files:
-            if f.endswith(CONSTANTS.CONFIG_FILE):
-                project_root = f.replace(CONSTANTS.CONFIG_FILE, "")
-                break
-        
-        for required_file in CONSTANTS.REQUIRED_CONFIG_FILES:
-            expected_path = project_root + required_file
-            if expected_path not in zip_files:
-                 raise ValueError(f"Missing required configuration file in zip: {required_file}")
-
-        # Capture configs for dependency check
-        opt_config = {}
-        prov_config = {}
-        events_config = []
-        
-        # Track existence of code directories
-        seen_event_actions = set()
-        seen_state_machines = set()
-        seen_feedback_func = False
-
-        for member in zf.infolist():
-            # Skip directories themselves
-            if member.is_dir():
-                continue
-                
-            # 2. Zip Slip Prevention
-            if ".." in member.filename or os.path.isabs(member.filename):
-                 raise ValueError("Malicious file path detected in zip (Zip Slip Prevention).")
-
-            filename = member.filename
-            
-            # 3. Validate Content + Capture Configs
-            basename = os.path.basename(filename)
-            
-            if basename in CONSTANTS.CONFIG_SCHEMAS:
-                try:
-                    with zf.open(member) as f:
-                        content = f.read().decode('utf-8')
-                        validate_config_content(basename, content)
-                        
-                        # Capture for Logic Check
-                        if basename == CONSTANTS.CONFIG_OPTIMIZATION_FILE:
-                            opt_config = json.loads(content)
-                        elif basename == CONSTANTS.CONFIG_PROVIDERS_FILE:
-                            prov_config = json.loads(content)
-                        elif basename == CONSTANTS.CONFIG_EVENTS_FILE:
-                             events_config = json.loads(content)
-                             
-                except Exception as e:
-                     raise ValueError(f"Validation failed for {basename} inside zip: {e}")
-
-            # 4. State Machine Content Validation
-            if basename in CONSTANTS.STATE_MACHINE_SIGNATURES:
-                 try:
-                    with zf.open(member) as f:
-                        content = f.read().decode('utf-8')
-                        validate_state_machine_content(basename, content)
-                        seen_state_machines.add(basename)
-                 except Exception as e:
-                     raise ValueError(f"State Machine validation failed for {basename} inside zip: {e}")
-            
-            # 5. User Processor Logic Validation
-            if filename.endswith("process.py") and f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/processors/" in filename:
-                 try:
-                    with zf.open(member) as f:
-                        content = f.read().decode('utf-8')
-                        # Syntax check is sufficient here, logic check comes later
-                        ast.parse(content)
-                 except SyntaxError as e:
-                     raise ValueError(f"Syntax error in processor file {filename}: {e.msg} at line {e.lineno}")
-                 except Exception as e:
-                     raise ValueError(f"Validation failed for processor code {filename}: {e}")
-
-            # Track Directories (using file paths)
-            # Check for event-feedback
-            if f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event-feedback/" in filename:
-                seen_feedback_func = True
-            
-            # Check for event actions
-            if f"{CONSTANTS.EVENT_ACTIONS_DIR_NAME}/" in filename:
-                # Extract function name: .../event_actions/<func_name>/...
-                parts = filename.split(f"{CONSTANTS.EVENT_ACTIONS_DIR_NAME}/")
-                if len(parts) > 1:
-                    sub = parts[1]
-                    func_name = sub.split('/')[0]
-                    if func_name:
-                        seen_event_actions.add(func_name)
-
-
-        # 6. Dependency Validation (Optimization Flags)
-        optimization = opt_config.get("result", {}).get("inputParamsUsed", {})
-        
-        if optimization.get("useEventChecking", False):
-            # Check Event Actions
-            for event in events_config:
-                 action = event.get("action", {})
-                 if action.get("type") == "lambda":
-                     func_name = action.get("functionName")
-                     if func_name and func_name not in seen_event_actions:
-                         raise ValueError(f"Missing code for event action in zip: {func_name}")
-                         
-        if optimization.get("returnFeedbackToDevice", False):
-            if not seen_feedback_func:
-                 raise ValueError("Missing event-feedback function in zip (required by returnFeedbackToDevice).")
-                 
-        if optimization.get("triggerNotificationWorkflow", False):
-             # Determine Expected Provider - REQUIRED when triggerNotificationWorkflow is enabled
-             provider = prov_config.get("layer_2_provider")
-             if not provider:
-                 raise ValueError(
-                     "Missing 'layer_2_provider' in config_providers.json. "
-                     "Required when 'triggerNotificationWorkflow' is enabled."
-                 )
-             provider = provider.lower()
-             
-             # Explicit provider handling - no fallbacks
-             if provider == "aws":
-                 target_file = CONSTANTS.AWS_STATE_MACHINE_FILE
-             elif provider == "azure":
-                 target_file = CONSTANTS.AZURE_STATE_MACHINE_FILE
-             elif provider == "google":
-                 target_file = CONSTANTS.GOOGLE_STATE_MACHINE_FILE
-             else:
-                 raise ValueError(f"Invalid provider '{provider}' for state machine. Must be 'aws', 'azure', or 'google'.")
-                 
-             if target_file not in seen_state_machines:
-                  raise ValueError(f"Missing state machine definition '{target_file}' in zip for provider '{provider}' (required by triggerNotificationWorkflow).")
+    from src.validation.zip_validator import validate_project_zip as _validate_project_zip
+    return _validate_project_zip(zip_source)
 
 # ==========================================
 # 4. Function Code Validation (Syntax & Structure)
@@ -469,14 +344,26 @@ def validate_python_code_aws(code_content):
     except SyntaxError as e:
         raise ValueError(f"Python Syntax Error at line {e.lineno}: {e.msg}")
 
+    # Find all lambda_handler definitions
+    handlers = []
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name == "lambda_handler":
-            # Check args: event, context
+            handlers.append(node.lineno)
+    
+    if len(handlers) == 0:
+        raise ValueError("AWS Lambda function must have a 'lambda_handler(event, context)' function.")
+    
+    if len(handlers) > 1:
+        raise ValueError(f"Duplicate 'lambda_handler' definitions found at lines {handlers}. Only one entry point allowed.")
+    
+    # Validate signature
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "lambda_handler":
             args = [arg.arg for arg in node.args.args]
             if len(args) >= 2 and args[0] == "event" and args[1] == "context":
                 return # Valid
-    
-    raise ValueError("AWS Lambda function must have a 'lambda_handler(event, context)' function.")
+            else:
+                raise ValueError("AWS Lambda 'lambda_handler' must have signature: lambda_handler(event, context)")
 
 def validate_python_code_azure(code_content):
     try:
@@ -484,13 +371,26 @@ def validate_python_code_azure(code_content):
     except SyntaxError as e:
         raise ValueError(f"Python Syntax Error at line {e.lineno}: {e.msg}")
 
+    # Find all main definitions
+    mains = []
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name == "main":
-             args = [arg.arg for arg in node.args.args]
-             if len(args) >= 1 and args[0] == "req":
-                 return # Valid
+            mains.append(node.lineno)
     
-    raise ValueError("Azure Function must have a 'main(req)' entry point.")
+    if len(mains) == 0:
+        raise ValueError("Azure Function must have a 'main(req)' entry point.")
+    
+    if len(mains) > 1:
+        raise ValueError(f"Duplicate 'main' definitions found at lines {mains}. Only one entry point allowed.")
+    
+    # Validate signature
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "main":
+            args = [arg.arg for arg in node.args.args]
+            if len(args) >= 1 and args[0] == "req":
+                return # Valid
+            else:
+                raise ValueError("Azure Function 'main' must have signature: main(req)")
 
 def validate_python_code_google(code_content):
     try:
@@ -498,11 +398,66 @@ def validate_python_code_google(code_content):
     except SyntaxError as e:
         raise ValueError(f"Python Syntax Error at line {e.lineno}: {e.msg}")
     
-    for node in ast.walk(tree):
+    # Count top-level function definitions
+    functions = []
+    for node in ast.iter_child_nodes(tree):
         if isinstance(node, ast.FunctionDef):
-             return # Has at least one function
+            functions.append(node.name)
     
-    raise ValueError("Google Cloud Function must define at least one function.")
+    if len(functions) == 0:
+        raise ValueError("Google Cloud Function must define at least one function.")
+    
+    # Check for duplicate function names
+    seen = set()
+    duplicates = []
+    for name in functions:
+        if name in seen:
+            duplicates.append(name)
+        seen.add(name)
+    
+    if duplicates:
+        raise ValueError(f"Duplicate function definitions found: {duplicates}. Each function name must be unique.")
+
+def validate_processor_code(code_content):
+    """
+    Validates processor code (process.py files).
+    
+    Processors must have a `process(event)` function that:
+    - Receives the incoming IoT event
+    - Returns the transformed event to be passed to the Persister
+    
+    Args:
+        code_content: Python source code as string
+        
+    Raises:
+        ValueError: If syntax is invalid, process function is missing,
+                   or multiple process functions are defined
+    """
+    try:
+        tree = ast.parse(code_content)
+    except SyntaxError as e:
+        raise ValueError(f"Python Syntax Error at line {e.lineno}: {e.msg}")
+
+    # Find all process definitions
+    processes = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "process":
+            processes.append(node.lineno)
+    
+    if len(processes) == 0:
+        raise ValueError("Processor must have a 'process(event)' function.")
+    
+    if len(processes) > 1:
+        raise ValueError(f"Duplicate 'process' definitions found at lines {processes}. Only one process function allowed.")
+    
+    # Validate signature
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "process":
+            args = [arg.arg for arg in node.args.args]
+            if len(args) >= 1 and args[0] == "event":
+                return # Valid
+            else:
+                raise ValueError("Processor 'process' must have signature: process(event)")
 
 # ==========================================
 # 5. Project Structure & Provider Resolution

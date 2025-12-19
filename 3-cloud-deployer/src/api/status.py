@@ -1,5 +1,5 @@
 """
-Status API - Hybrid Infrastructure Status Checks.
+Infrastructure Status API - Hybrid Deployment Status Checks.
 
 This module provides endpoints for checking deployment status using a hybrid approach:
 1. Terraform State: Fast infrastructure check via `terraform state list`
@@ -7,8 +7,8 @@ This module provides endpoints for checking deployment status using a hybrid app
 3. SDK Managed: Dynamic resources checked via cloud SDK (TwinMaker, IoT, Grafana)
 
 Endpoints:
-- GET /check: Unified status check with categorized output
-- GET /check?detailed=true: Includes terraform plan -refresh-only for drift detection
+- GET /infrastructure/status: Unified status check with categorized output
+- GET /infrastructure/status?detailed=true: Includes terraform plan -refresh-only for drift detection
 
 Architecture:
     Infrastructure (Terraform State) + User Functions (Hash Metadata) + SDK Managed (API Calls)
@@ -364,22 +364,33 @@ def check_terraform_drift(project_name: str) -> Dict[str, Any]:
 # API Endpoints
 # ==========================================
 
-@router.get("/check", tags=["Status"])
+@router.get(
+    "/infrastructure/status", 
+    tags=["Infrastructure"],
+    summary="Check deployment status",
+    responses={
+        200: {"description": "Status check successful"},
+        400: {"description": "Invalid project or provider"}
+    }
+)
 def check_endpoint(
     provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
     project_name: str = Query("template", description="Name of the project context"),
     detailed: bool = Query(False, description="Include drift detection (slower, makes cloud API calls)")
 ):
     """
-    Unified status check with categorized output.
+    Unified infrastructure and deployment status check.
     
-    Returns three categories of status:
-    1. infrastructure: Terraform-managed resources (fast, local state check)
-    2. user_functions: User function deployment status (from hash metadata)
-    3. sdk_managed: Dynamic resources (TwinMaker entities, IoT devices, dashboards)
+    **Returns three categories of status:**
+    1. **infrastructure**: Terraform-managed resources (fast, local state check)
+    2. **user_functions**: User function deployment status (from hash metadata)
+    3. **sdk_managed**: Dynamic resources (TwinMaker entities, IoT devices)
     
-    With detailed=true, also performs drift detection using terraform plan -refresh-only.
-    This is slower as it makes actual cloud API calls.
+    **Performance:**
+    - Default: ~instant (reads local terraform state file)
+    - With `detailed=true`: 5-30 seconds (makes cloud API calls for drift detection)
+    
+    **Use case:** Dashboard status display, pre-deploy checks.
     """
     validate_project_context(project_name)
     

@@ -31,7 +31,8 @@ async def extract_file_content(request: Request, file_field: str = "file", base6
         # Duck typing or assumption it's UploadFile
         return await file.read()
         
-    elif "application/json" in content_type:
+    elif "application/json" in content_type or not content_type:
+        # Also try JSON parsing when Content-Type is missing (common in API clients)
         try:
             body = await request.json()
             # Check if body parses to our model structure or direct dict
@@ -41,12 +42,15 @@ async def extract_file_content(request: Request, file_field: str = "file", base6
                  raise HTTPException(status_code=400, detail="Invalid JSON body.")
 
             if not b64_str:
-                raise HTTPException(status_code=400, detail=f"Missing '{base64_field}' field in JSON body.")
+                raise HTTPException(status_code=400, detail=f"Missing '{base64_field}' field in JSON body. Send Content-Type: 'multipart/form-data' for file uploads or 'application/json' with a '{base64_field}' field containing base64-encoded content.")
                 
             return base64.b64decode(b64_str)
         except json.JSONDecodeError:
+            # If Content-Type was missing and JSON parsing failed, give helpful error
+            if not content_type:
+                raise HTTPException(status_code=415, detail="Missing Content-Type header. Use 'multipart/form-data' for file uploads or 'application/json' with base64-encoded content.")
             raise HTTPException(status_code=400, detail="Invalid JSON.")
-        except  ValueError: # base64 error
+        except ValueError:  # base64 error
              raise HTTPException(status_code=400, detail="Invalid Base64 string.")
              
     else:
