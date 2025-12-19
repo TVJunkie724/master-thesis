@@ -54,7 +54,9 @@ AZURE_HIERARCHY_SCHEMA = {
 REQUIRED_CREDENTIALS_FIELDS = {
     "aws": ["aws_access_key_id", "aws_secret_access_key", "aws_region"],
     "azure": ["azure_subscription_id", "azure_tenant_id", "azure_client_id", "azure_client_secret", "azure_region", "azure_region_iothub", "azure_region_digital_twin"],
-    "gcp": ["gcp_billing_account", "gcp_credentials_file", "gcp_region"]
+    # GCP: credentials_file and region are always required
+    # Either gcp_project_id (private) OR gcp_billing_account (org) must be provided - validated in code
+    "gcp": ["gcp_credentials_file", "gcp_region"]
 }
 
 # ==========================================

@@ -14,7 +14,15 @@ class FunctionCodeValidationRequest(BaseModel):
 # ==========================================
 # 1. Zip Validation
 # ==========================================
-@router.post("/validate/zip", tags=["Validation"])
+@router.post(
+    "/validate/zip",
+    tags=["Validation"],
+    summary="Validate project zip file",
+    responses={
+        200: {"description": "Project zip is valid"},
+        400: {"description": "Validation failed with details"}
+    }
+)
 async def validate_zip(file: UploadFile = File(..., description="Project zip file to validate")):
     """
     Validates a project zip file without extracting it.
@@ -94,7 +102,15 @@ async def validate_zip(file: UploadFile = File(..., description="Project zip fil
 # ==========================================
 # 2. Config Validation
 # ==========================================
-@router.post("/validate/config/{config_type}", tags=["Validation"])
+@router.post(
+    "/validate/config/{config_type}",
+    tags=["Validation"],
+    summary="Validate configuration file",
+    responses={
+        200: {"description": "Configuration is valid"},
+        400: {"description": "Schema validation failed"}
+    }
+)
 async def validate_config(
     config_type: ConfigType,
     file: UploadFile = File(..., description="Configuration file to validate")
@@ -134,7 +150,7 @@ async def validate_config(
     {
       "aws": {"aws_access_key_id": "...", "aws_secret_access_key": "...", "aws_region": "eu-central-1"},
       "azure": {"azure_subscription_id": "...", "azure_tenant_id": "...", "azure_client_id": "...", "azure_client_secret": "...", "azure_region": "italynorth", "azure_region_iothub": "westeurope", "azure_region_digital_twin": "westeurope"},
-      "gcp": {"gcp_billing_account": "...", "gcp_credentials_file": "google_credentials.json", "gcp_region": "europe-west1"}
+      "gcp": {"gcp_project_id": "...", "gcp_credentials_file": "google_credentials.json", "gcp_region": "europe-west1"}
     }
     ```
     
@@ -185,7 +201,15 @@ async def validate_config(
 # ==========================================
 # 3. State Machine Validation
 # ==========================================
-@router.post("/validate/state-machine", tags=["Validation"])
+@router.post(
+    "/validate/state-machine",
+    tags=["Validation"],
+    summary="Validate state machine definition",
+    responses={
+        200: {"description": "State machine is valid"},
+        400: {"description": "Invalid structure or schema"}
+    }
+)
 async def validate_state_machine(
     provider: ProviderEnum = Query(..., description="Target cloud provider"),
     file: UploadFile = File(..., description="State machine definition file (JSON)")
@@ -236,7 +260,15 @@ async def validate_state_machine(
 # ==========================================
 # 4. Function Code Validation
 # ==========================================
-@router.post("/validate/function-code", tags=["Validation"])
+@router.post(
+    "/validate/function-code",
+    tags=["Validation"],
+    summary="Validate function code syntax",
+    responses={
+        200: {"description": "Code is valid"},
+        400: {"description": "Syntax or signature error"}
+    }
+)
 async def validate_function_code(
     provider: ProviderEnum = Query(..., description="Target cloud provider"),
     file: UploadFile = File(..., description="Python file to validate")
@@ -297,7 +329,15 @@ async def validate_function_code(
 # ==========================================
 # 4b. Processor Code Validation
 # ==========================================
-@router.post("/validate/processor", tags=["Validation"])
+@router.post(
+    "/validate/processor",
+    tags=["Validation"],
+    summary="Validate processor code",
+    responses={
+        200: {"description": "Processor code is valid"},
+        400: {"description": "Missing process(event) function"}
+    }
+)
 async def validate_processor_code(
     provider: ProviderEnum = Query(..., description="Target cloud provider"),
     file: UploadFile = File(..., description="Processor Python file (process.py) to validate")
@@ -342,7 +382,14 @@ async def validate_processor_code(
 # ==========================================
 # 5. Simulator Payload Validation
 # ==========================================
-@router.post("/validate/simulator/payloads", tags=["Validation"])
+@router.post(
+    "/validate/simulator/payloads",
+    tags=["Validation"],
+    summary="Validate simulator payloads",
+    responses={
+        200: {"description": "Payloads structure is valid"}
+    }
+)
 async def validate_simulator_payloads(
     file: UploadFile = File(..., description="payloads.json file to validate")
 ):
@@ -382,7 +429,15 @@ async def validate_simulator_payloads(
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/validate/payloads-with-devices", tags=["Validation"])
+@router.post(
+    "/validate/payloads-with-devices",
+    tags=["Validation"],
+    summary="Cross-validate payloads against devices",
+    responses={
+        200: {"description": "All payload device IDs exist in devices config"},
+        400: {"description": "Device ID mismatch"}
+    }
+)
 async def validate_payloads_with_devices(
     payloads_file: UploadFile = File(..., description="payloads.json file"),
     devices_file: UploadFile = File(..., description="config_iot_devices.json file")

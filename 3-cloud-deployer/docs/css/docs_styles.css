@@ -331,6 +331,11 @@ main a:hover {
   border-color: #3b82f6;
 }
 
+.callout.success {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: #10b981;
+}
+
 .callout.warn {
   background: rgba(245, 158, 11, 0.12);
   border-color: #f59e0b;

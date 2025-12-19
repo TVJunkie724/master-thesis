@@ -43,7 +43,9 @@ class AzureCredentialsRequest(BaseModel):
 
 class GCPCredentialsRequest(BaseModel):
     """Request body for GCP credential validation."""
-    gcp_billing_account: str = Field(..., description="GCP Billing Account ID for project creation")
+    # Dual-mode: either project_id (private account) OR billing_account (org account) required
+    gcp_project_id: Optional[str] = Field(None, description="GCP Project ID for existing project (private accounts)")
+    gcp_billing_account: Optional[str] = Field(None, description="GCP Billing Account ID for auto-project creation (org accounts)")
     gcp_credentials_file: str = Field(..., description="Path to Service Account JSON key file")
     gcp_region: str = Field(..., description="GCP Region (e.g., 'europe-west1')")
 

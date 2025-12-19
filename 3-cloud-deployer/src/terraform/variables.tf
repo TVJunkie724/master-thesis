@@ -151,8 +151,16 @@ variable "aws_region" {
 # GCP Credentials (from config_credentials.json)
 # ==============================================================================
 
-# Note: gcp_project_id is no longer used - Terraform always creates a new project
-# using the gcp_billing_account. The project ID is generated as "${digital_twin_name}-project"
+# GCP supports two modes:
+# 1. Private Account Mode: Provide gcp_project_id to use an existing project
+# 2. Organization Account Mode: Provide gcp_billing_account to auto-create a new project
+# At least one of these must be provided. If gcp_project_id is provided, it takes precedence.
+
+variable "gcp_project_id" {
+  description = "GCP Project ID for existing project (for private accounts without organization)"
+  type        = string
+  default     = ""
+}
 
 variable "gcp_credentials_json" {
   description = "GCP Service Account credentials JSON (contents, not path)"
@@ -168,7 +176,7 @@ variable "gcp_region" {
 }
 
 variable "gcp_billing_account" {
-  description = "GCP Billing Account ID for project creation (format: 0XXXXX-XXXXXX-XXXXXX)"
+  description = "GCP Billing Account ID for project creation (for organization accounts)"
   type        = string
   default     = ""
   sensitive   = true

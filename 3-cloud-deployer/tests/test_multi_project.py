@@ -154,17 +154,14 @@ def test_api_create_project():
     assert f"Project '{project_name}' created" in response.json()["message"]
     assert os.path.exists(os.path.join(state.get_project_upload_path(), project_name))
 
-def test_api_activate_project():
+def test_api_set_active_project():
+    """Test direct state change for project activation."""
     project_name = "test_proj_api_activate"
     file_manager.create_project_from_zip(project_name, create_valid_zip_bytes())
     
-    response = client.put(f"/projects/{project_name}/activate")
-    assert response.status_code == 200
+    # Use state directly since activate endpoint was removed
+    state.set_active_project(project_name)
     assert state.get_active_project() == project_name
-
-def test_api_activate_project_not_found():
-    response = client.put("/projects/fake_project/activate")
-    assert response.status_code == 404
 
 def test_api_update_config():
     project_name = "test_proj_config"

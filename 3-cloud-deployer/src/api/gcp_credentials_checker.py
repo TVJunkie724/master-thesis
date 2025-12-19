@@ -163,15 +163,15 @@ def _check_enabled_apis(project_id: str) -> dict:
         Dict with API status by layer
     """
     try:
-        from google.cloud import serviceusage_v1
+        from google.cloud import service_usage_v1
         
-        client = serviceusage_v1.ServiceUsageClient()
+        client = service_usage_v1.ServiceUsageClient()
         parent = f"projects/{project_id}"
         
         # Get list of enabled services
         enabled_services = set()
         try:
-            request = serviceusage_v1.ListServicesRequest(
+            request = service_usage_v1.ListServicesRequest(
                 parent=parent,
                 filter="state:ENABLED",
             )
@@ -216,7 +216,8 @@ def check_gcp_credentials(credentials: dict) -> dict:
     Main entry point. Validates GCP credentials against required permissions.
     
     Args:
-        credentials: Dict with gcp_billing_account, gcp_region, gcp_credentials_file
+        credentials: Dict with gcp_credentials_file, gcp_region, and either
+                     gcp_project_id (private) or gcp_billing_account (org)
     
     Returns:
         Dict with status, caller_identity, and permission results
@@ -235,17 +236,28 @@ def check_gcp_credentials(credentials: dict) -> dict:
         result["message"] = "Missing required credential: gcp_credentials_file"
         return result
     
+    # Early check: verify credentials file exists
+    creds_file_path = Path(credentials["gcp_credentials_file"])
+    if not creds_file_path.exists():
+        result["message"] = (
+            f"GCP credentials file not found: {credentials['gcp_credentials_file']}. "
+            f"Please verify the path in config_credentials.json points to a valid service account JSON file."
+        )
+        return result
+    
     if "gcp_region" not in credentials:
         result["message"] = "Missing required credential: gcp_region"
         return result
     
-    # gcp_billing_account is required (Terraform always creates projects)
+    # Dual-mode validation: either gcp_project_id OR gcp_billing_account required
+    has_project_id = credentials.get("gcp_project_id", "").strip()
     has_billing_account = credentials.get("gcp_billing_account", "").strip()
     
-    if not has_billing_account:
+    if not has_project_id and not has_billing_account:
         result["message"] = (
-            "GCP requires 'gcp_billing_account' for project creation. "
-            "The project ID is auto-generated as '${digital_twin_name}-project'."
+            "GCP requires either 'gcp_project_id' (for private accounts with existing project) "
+            "or 'gcp_billing_account' (for organization accounts with auto-project creation). "
+            "Please provide at least one."
         )
         return result
     
@@ -390,6 +402,13 @@ def check_gcp_credentials_from_config(project_name: Optional[str] = None) -> dic
                 "api_status": None,
                 "project_name": project_name
             }
+        
+        # Resolve gcp_credentials_file relative to project directory if needed
+        if "gcp_credentials_file" in gcp_creds:
+            creds_path = gcp_creds["gcp_credentials_file"]
+            # If not an absolute path, resolve relative to project directory
+            if not os.path.isabs(creds_path):
+                gcp_creds["gcp_credentials_file"] = os.path.join(project_dir, creds_path)
         
         # Check the credentials
         result = check_gcp_credentials(gcp_creds)

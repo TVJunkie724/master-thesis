@@ -268,7 +268,7 @@ def _load_credentials(project_dir: Path) -> dict:
         tfvars["aws_secret_access_key"] = aws["aws_secret_access_key"]
         tfvars["aws_region"] = aws["aws_region"]
     
-    # GCP credentials - require billing_account for project creation
+    # GCP credentials - support dual-mode: project_id (private) OR billing_account (org)
     if "gcp" in creds:
         gcp = creds["gcp"]
         
@@ -276,21 +276,36 @@ def _load_credentials(project_dir: Path) -> dict:
         if "gcp_region" not in gcp:
             raise ConfigurationError("Missing required GCP credential: gcp_region")
         
-        # gcp_billing_account is required (Terraform always creates a new project)
+        # Dual-mode validation: either gcp_project_id OR gcp_billing_account required
+        has_project_id = "gcp_project_id" in gcp and gcp["gcp_project_id"].strip()
         has_billing_account = "gcp_billing_account" in gcp and gcp["gcp_billing_account"].strip()
         
-        if not has_billing_account:
+        if not has_project_id and not has_billing_account:
             raise ConfigurationError(
-                "GCP requires 'gcp_billing_account' for project creation. "
-                "The project ID is auto-generated as '${digital_twin_name}-project'."
+                "GCP requires either 'gcp_project_id' (for private accounts with existing project) "
+                "or 'gcp_billing_account' (for organization accounts with auto-project creation). "
+                "Please provide at least one."
             )
         
         tfvars["gcp_region"] = gcp["gcp_region"]
-        tfvars["gcp_billing_account"] = gcp["gcp_billing_account"].strip()
         
-        # GCP credentials file - read if exists, use dummy if not
-        # TODO: Make this stricter when actually deploying GCP resources
-        creds_file_path = Path(gcp.get("gcp_credentials_file", ""))
+        # Private account mode: use existing project
+        if has_project_id:
+            tfvars["gcp_project_id"] = gcp["gcp_project_id"].strip()
+        
+        # Organization account mode: auto-create project
+        if has_billing_account:
+            tfvars["gcp_billing_account"] = gcp["gcp_billing_account"].strip()
+        
+        # GCP credentials file - resolve relative paths, then read if exists
+        creds_file_raw = gcp.get("gcp_credentials_file", "")
+        
+        # Resolve relative paths relative to project directory
+        if creds_file_raw and not os.path.isabs(creds_file_raw):
+            creds_file_path = project_dir / creds_file_raw
+        else:
+            creds_file_path = Path(creds_file_raw)
+        
         if creds_file_path.exists():
             with open(creds_file_path) as f:
                 tfvars["gcp_credentials_json"] = f.read()

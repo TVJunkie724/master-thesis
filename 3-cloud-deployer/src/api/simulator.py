@@ -1,3 +1,9 @@
+"""
+Simulator API - IoT device simulation endpoints.
+
+Provides WebSocket endpoint for real-time simulator interaction and
+download endpoint for standalone simulator package.
+"""
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import StreamingResponse
 import subprocess
@@ -19,6 +25,11 @@ router = APIRouter()
 # ==========================================
 @router.websocket("/projects/{project_name}/simulator/{provider}/stream")
 async def simulator_stream(websocket: WebSocket, project_name: str, provider: str):
+    """
+    WebSocket endpoint for real-time IoT device simulation.
+    
+    Connect to stream simulation logs and send commands to the simulator.
+    """
     await websocket.accept()
     
     # 1. Validation
@@ -146,8 +157,28 @@ def _load_template(provider: str, template_name: str, variables: dict = None) ->
 # ==========================================
 # 3. Download Package
 # ==========================================
-@router.get("/projects/{project_name}/simulator/{provider}/download")
+@router.get(
+    "/projects/{project_name}/simulator/{provider}/download",
+    tags=["Projects"],
+    summary="Download standalone simulator package",
+    responses={
+        200: {"description": "Simulator zip package"},
+        400: {"description": "Unsupported provider"},
+        404: {"description": "Simulator config not found - deploy L1 first"}
+    }
+)
 async def download_simulator_package(project_name: str, provider: str):
+    """
+    Download a standalone IoT device simulator package as a ZIP file.
+    
+    **Package contents:**
+    - config.json: Simulator configuration
+    - payloads.json: IoT device payloads
+    - src/: Simulator source code
+    - certificates/: Device certificates (AWS only)
+    - Dockerfile & docker-compose.yml: Container setup
+    - README.md: Usage instructions
+    """
     if provider not in ("aws", "azure"):
         raise HTTPException(status_code=400, detail=f"Provider '{provider}' not supported. Supported: aws, azure.")
 

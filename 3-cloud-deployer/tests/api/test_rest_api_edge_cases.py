@@ -47,15 +47,7 @@ class TestRestApiEdgeCases:
     # 1. Project Management Edge Cases
     # ==========================================
 
-    @patch("src.core.state.set_active_project")
-    def test_activate_non_existent_project(self, mock_set_active):
-        """Verify 404 when switching to a missing project."""
-        mock_set_active.side_effect = ValueError("Project does not exist")
-        
-        response = client.put("/projects/non_existent_project/activate")
-        
-        assert response.status_code == 404
-        assert "not found" in response.json()["detail"].lower() or "does not exist" in response.json()["detail"].lower()
+    # Note: test_activate_non_existent_project removed - endpoint deleted
 
     @patch("src.file_manager.create_project_from_zip")
     def test_create_project_invalid_zip(self, mock_create):
@@ -148,14 +140,7 @@ class TestRestApiEdgeCases:
     # 3. Info Edge Cases
     # ==========================================
 
-    @patch("src.api.info._read_json_file")
-    def test_info_config_missing_file(self, mock_read):
-        """Verify 500/404 when reading a missing config file."""
-        mock_read.side_effect = FileNotFoundError("File not found")
-        
-        response = client.get("/info/config/config")
-        
-        assert response.status_code in [404, 500] 
+    # Note: test_info_config_missing_file removed - endpoint deleted 
 
     # ==========================================
     # 4. Security & Limits
@@ -164,7 +149,7 @@ class TestRestApiEdgeCases:
     def test_api_path_traversal(self):
         """Attempt to access projects via ../system."""
         # FastAPI/Starlette usually sanitizes path params, but good to verify our logic checks
-        response = client.put("/projects/../system/activate")
+        response = client.get("/projects/../system/validate")
         # Should be 404 (not found) or 400 (bad request) or 422 (validation error)
         # Note: most modern web servers/frameworks normalize paths before they reach code, 
         # so this might just look like "system" or return 404.

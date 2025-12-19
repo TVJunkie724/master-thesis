@@ -58,6 +58,8 @@ def create_valid_zip_bytes(twin_name=None, creds=None):
             "layer_4_provider": "aws"
         }))
         zf.writestr(CONSTANTS.CONFIG_OPTIMIZATION_FILE, json.dumps({"result": {}}))
+        # Required for hierarchy provider match validation
+        zf.writestr("twin_hierarchy/aws_hierarchy.json", "[]")
     bio.seek(0)
     return bio.getvalue()
 
@@ -252,9 +254,8 @@ class TestDeleteProject:
         create_resp = client.post(f"/projects?project_name={project_name}", files=files)
         assert create_resp.status_code == 200
         
-        # Activate
-        activate_resp = client.put(f"/projects/{project_name}/activate")
-        assert activate_resp.status_code == 200
+        # Set active project directly (activate endpoint removed)
+        state.set_active_project(project_name)
         assert state.get_active_project() == project_name
         
         # Delete

@@ -26,7 +26,8 @@ from io import BytesIO
 from pathlib import Path
 from typing import Dict, Optional, Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File
+from fastapi.responses import StreamingResponse
 
 import constants as CONSTANTS
 import src.core.state as state
@@ -180,6 +181,8 @@ def _get_updatable_functions(project_name: str) -> Dict[str, Any]:
             func_dir = os.path.join(upload_dir, CONSTANTS.EVENT_ACTIONS_DIR_NAME, func_name)
         elif l2_provider == "azure":
             func_dir = os.path.join(upload_dir, "azure_functions", "event_actions", func_name)
+        elif l2_provider == "google":
+            func_dir = os.path.join(upload_dir, "cloud_functions", "event_actions", func_name)
         else:
             raise ValueError(f"Unsupported layer_2_provider: {l2_provider}")
         
@@ -214,6 +217,8 @@ def _get_updatable_functions(project_name: str) -> Dict[str, Any]:
             proc_dir = os.path.join(upload_dir, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, "processors", processor_name)
         elif l2_provider == "azure":
             proc_dir = os.path.join(upload_dir, "azure_functions", "processors", processor_name)
+        elif l2_provider == "google":
+            proc_dir = os.path.join(upload_dir, "cloud_functions", "processors", processor_name)
         else:
             raise ValueError(f"Unsupported layer_2_provider: {l2_provider}")
         
@@ -234,6 +239,8 @@ def _get_updatable_functions(project_name: str) -> Dict[str, Any]:
         feedback_dir = os.path.join(upload_dir, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, "event-feedback")
     elif l2_provider == "azure":
         feedback_dir = os.path.join(upload_dir, "azure_functions", "event-feedback")
+    elif l2_provider == "google":
+        feedback_dir = os.path.join(upload_dir, "cloud_functions", "event-feedback")
     else:
         raise ValueError(f"Unsupported layer_2_provider: {l2_provider}")
     
@@ -633,23 +640,34 @@ def clear_all_hash_metadata(project_name: str) -> None:
 # API Endpoints
 # ==========================================
 
-@router.get("/updatable_functions", tags=["Functions"])
+@router.get(
+    "/updatable_functions",
+    tags=["Functions"],
+    summary="List user-modifiable functions",
+    responses={
+        200: {"description": "Function list retrieved successfully"},
+        400: {"description": "Invalid project or missing config"}
+    }
+)
 def get_updatable_functions(
     project_name: str = Query("template", description="Name of the project")
 ):
     """
     List all user-modifiable functions for a project.
     
-    Cross-checks config files with actual code presence:
-    - Event actions from config_events.json
-    - Processors from config_iot_devices.json
-    - Event-feedback function
+    **Provider auto-discovery:** The provider (AWS/Azure/Google) is determined automatically 
+    from the project's `config_providers.json` (`layer_2_provider` field).
     
-    Returns dict mapping function names to metadata including:
-    - provider: aws or azure
-    - type: event_action, processor, or feedback
-    - exists: whether code directory exists
-    - error: error message if code is missing
+    **Function types discovered:**
+    - Event actions from `config_events.json`
+    - Processors from `config_iot_devices.json`
+    - Event-feedback function (if configured)
+    
+    **Returns:** Dict mapping function names to metadata including:
+    - `provider`: aws, azure, or google (from config)
+    - `type`: event_action, processor, or feedback
+    - `exists`: whether code directory exists
+    - `path`: absolute path to function code
     
     Results are cached for 60 seconds.
     """
@@ -684,7 +702,16 @@ def get_updatable_functions(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/update_function/{function_name}", tags=["Functions"])
+@router.post(
+    "/update_function/{function_name}",
+    tags=["Functions"],
+    summary="Update function code via SDK",
+    responses={
+        200: {"description": "Function updated successfully"},
+        400: {"description": "Invalid function or missing code"},
+        500: {"description": "SDK upload failed"}
+    }
+)
 def update_function(
     function_name: str,
     project_name: str = Query("template", description="Name of the project"),
@@ -693,21 +720,17 @@ def update_function(
     """
     Update a single function's code via SDK.
     
-    Validation steps:
-    1. Verify function_name is in the updatable list
-    2. Verify function code exists in upload directory
-    3. Build ZIP (with shared modules for AWS Lambda)
-    4. Compare hash - skip update if unchanged (unless force=True)
-    5. Upload via SDK (boto3 for AWS, Kudu for Azure)
-    6. Save hash metadata for future comparisons
+    **Prerequisites:** Function must be listed in `GET /functions/updatable_functions`.
+    The provider (AWS/Azure/Google) is determined from the project's `config_providers.json`.
     
-    Args:
-        function_name: Name of the function to update
-        project_name: Name of the project
-        force: Force update even if code hash is unchanged
+    **Process:**
+    1. Verify `function_name` exists in the updatable functions list
+    2. Build deployment ZIP (with shared modules for AWS Lambda)
+    3. Compare hash - skip if unchanged (unless `force=True`)
+    4. Upload via SDK (boto3 for AWS, Kudu for Azure, gcloud for GCP)
+    5. Save hash metadata for future comparisons
     
-    Returns:
-        Dict with update result including success status and version info
+    **Returns:** Update result with status, version info, and hash.
     """
     validate_project_context(project_name)
     
@@ -853,3 +876,215 @@ def invalidate_function_cache(project_name: str) -> None:
         project_name: Name of the project
     """
     _invalidate_cache(project_name)
+
+
+# ==========================================
+# Build Function ZIP Endpoint
+# ==========================================
+
+import ast
+
+
+def _validate_python_syntax(content: bytes, filename: str) -> None:
+    """
+    Validate Python syntax using AST parsing.
+    
+    Args:
+        content: Python file content as bytes
+        filename: Name of the file (for error messages)
+        
+    Raises:
+        ValueError: If syntax is invalid
+    """
+    try:
+        ast.parse(content.decode('utf-8'))
+    except SyntaxError as e:
+        raise ValueError(f"Python syntax error in {filename}: {e.msg} (line {e.lineno})")
+    except UnicodeDecodeError as e:
+        raise ValueError(f"Invalid encoding in {filename}: {e}")
+
+
+def _validate_entry_point(content: bytes, provider: str) -> None:
+    """
+    Validate that the function has a valid entry point.
+    
+    Args:
+        content: Python file content as bytes
+        provider: Cloud provider (aws, azure, google)
+        
+    Raises:
+        ValueError: If entry point is missing
+    """
+    source = content.decode('utf-8')
+    tree = ast.parse(source)
+    
+    # Extract function names
+    function_names = [node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
+    
+    # Check for expected entry points by provider
+    if provider == "aws":
+        valid_entries = ["handler", "lambda_handler"]
+        if not any(name in function_names for name in valid_entries):
+            raise ValueError(
+                f"AWS Lambda requires 'handler(event, context)' or 'lambda_handler(event, context)'. "
+                f"Found functions: {function_names}"
+            )
+    elif provider == "azure":
+        # Azure Functions use decorators, check for any function
+        if not function_names:
+            raise ValueError("No functions found in the file. Azure Functions require at least one function.")
+    elif provider == "google":
+        # GCP Cloud Functions use a specific entry point
+        valid_entries = ["main", "handler", "hello_http"]
+        if not any(name in function_names for name in valid_entries):
+            raise ValueError(
+                f"GCP Cloud Functions require 'main(request)' or 'handler(request)'. "
+                f"Found functions: {function_names}"
+            )
+
+
+def _build_aws_zip(function_content: bytes, requirements_content: bytes = None) -> bytes:
+    """Build AWS Lambda deployment ZIP."""
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("lambda_function.py", function_content)
+        if requirements_content:
+            zf.writestr("requirements.txt", requirements_content)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def _build_azure_zip(function_content: bytes, requirements_content: bytes = None) -> bytes:
+    """Build Azure Function deployment ZIP."""
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Add function code
+        zf.writestr("function_app.py", function_content)
+        
+        # Add host.json
+        host_json = {
+            "version": "2.0",
+            "extensionBundle": {
+                "id": "Microsoft.Azure.Functions.ExtensionBundle",
+                "version": "[4.*, 5.0.0)"
+            }
+        }
+        zf.writestr("host.json", json.dumps(host_json, indent=2))
+        
+        # Add requirements.txt
+        if requirements_content:
+            zf.writestr("requirements.txt", requirements_content)
+        else:
+            zf.writestr("requirements.txt", "azure-functions\n")
+    
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def _build_gcp_zip(function_content: bytes, requirements_content: bytes = None) -> bytes:
+    """Build GCP Cloud Function deployment ZIP."""
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Add function code
+        zf.writestr("main.py", function_content)
+        
+        # Add requirements.txt
+        if requirements_content:
+            zf.writestr("requirements.txt", requirements_content)
+        else:
+            zf.writestr("requirements.txt", "functions-framework\n")
+    
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+@router.post(
+    "/build",
+    tags=["Functions"],
+    summary="Build function deployment ZIP",
+    responses={
+        200: {"description": "ZIP file download", "content": {"application/zip": {}}},
+        400: {"description": "Validation failed - syntax error or missing entry point"},
+        422: {"description": "Invalid file upload"}
+    }
+)
+async def build_function_zip(
+    provider: str = Query(..., description="Cloud provider: aws, azure, or google"),
+    function_file: UploadFile = File(..., description="Python function file (.py)"),
+    requirements_file: UploadFile = File(None, description="Optional requirements.txt")
+):
+    """
+    Build a cloud-ready deployment ZIP from a Python function file.
+    
+    **Validation performed:**
+    - Python syntax check (AST parsing)
+    - Entry point validation by provider:
+      - AWS: `handler(event, context)` or `lambda_handler(event, context)`
+      - Azure: Any function (uses decorators)
+      - Google: `main(request)` or `handler(request)`
+    
+    **ZIP contents by provider:**
+    - **AWS**: `lambda_function.py` + optional `requirements.txt`
+    - **Azure**: `function_app.py` + `host.json` + `requirements.txt`
+    - **Google**: `main.py` + `requirements.txt`
+    
+    **Returns:** ZIP file download ready for cloud deployment.
+    """
+    # Validate provider
+    provider = provider.lower()
+    if provider not in ("aws", "azure", "google"):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid provider: {provider}. Must be aws, azure, or google."
+        )
+    
+    # Validate file extension
+    if not function_file.filename.endswith('.py'):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Function file must be a Python file (.py). Got: {function_file.filename}"
+        )
+    
+    try:
+        # Read function file
+        function_content = await function_file.read()
+        
+        if not function_content:
+            raise HTTPException(status_code=400, detail="Function file is empty")
+        
+        # Validate Python syntax
+        _validate_python_syntax(function_content, function_file.filename)
+        
+        # Validate entry point
+        _validate_entry_point(function_content, provider)
+        
+        # Read optional requirements file
+        requirements_content = None
+        if requirements_file:
+            requirements_content = await requirements_file.read()
+        
+        # Build ZIP based on provider
+        if provider == "aws":
+            zip_content = _build_aws_zip(function_content, requirements_content)
+            filename = "lambda_function.zip"
+        elif provider == "azure":
+            zip_content = _build_azure_zip(function_content, requirements_content)
+            filename = "azure_function.zip"
+        else:  # google
+            zip_content = _build_gcp_zip(function_content, requirements_content)
+            filename = "cloud_function.zip"
+        
+        # Return as downloadable ZIP
+        return StreamingResponse(
+            BytesIO(zip_content),
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error building function ZIP: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

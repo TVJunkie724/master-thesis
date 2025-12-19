@@ -106,33 +106,6 @@ async def create_project(
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put(
-    "/projects/{project_name}/activate", 
-    tags=["Projects"],
-    summary="Switch active project (DEPRECATED)",
-    deprecated=True,
-    responses={
-        200: {"description": "Project activated"},
-        404: {"description": "Project not found"}
-    }
-)
-def activate_project(project_name: str):
-    """
-    Switch the active project context.
-    
-    > **⚠️ DEPRECATED**: This endpoint will be removed in a future version.
-    > Use explicit `project` parameter on each endpoint instead for stateless API design.
-    """
-    try:
-        state.set_active_project(project_name)
-        # Note: Global AWS client initialization is removed as we move to per-request DeploymentContext
-        return {"message": f"Active project switched to '{project_name}'."}
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
 @router.get(
     "/projects/{project_name}/validate", 
     tags=["Projects"],
@@ -166,7 +139,79 @@ def validate_project_structure(project_name: str = Path(..., description="Name o
         raise HTTPException(status_code=500, detail=str(e))
 
 # ==========================================
-# 2. Config & Code Updates
+# 2. Config Reading (Stateless)
+# ==========================================
+@router.get(
+    "/projects/{project_name}/config/{config_type}",
+    tags=["Projects"],
+    summary="Get project configuration",
+    responses={
+        200: {"description": "Configuration retrieved successfully"},
+        404: {"description": "Project or config file not found"}
+    }
+)
+def get_project_config(
+    project_name: str = Path(..., description="Project name"),
+    config_type: ConfigType = Path(..., description="Type of configuration to retrieve")
+):
+    """
+    Retrieve a specific configuration file from a project.
+    
+    **Config types:**
+    - `config`: Main config.json (digital twin settings)
+    - `iot`: IoT devices configuration
+    - `events`: Event-driven automation rules
+    - `providers`: Cloud provider per layer
+    - `aws_hierarchy`: AWS TwinMaker hierarchy
+    - `azure_hierarchy`: Azure Digital Twins hierarchy
+    - `credentials`: Cloud credentials (sensitive)
+    - `optimization`: Optimization flags
+    
+    **Note:** This endpoint replaces the deprecated `/info/config*` endpoints
+    with explicit project parameter for stateless API design.
+    """
+    config_map = {
+        ConfigType.config: "config.json",
+        ConfigType.iot: "config_iot_devices.json",
+        ConfigType.events: "config_events.json",
+        ConfigType.aws_hierarchy: "twin_hierarchy/aws_hierarchy.json",
+        ConfigType.azure_hierarchy: "twin_hierarchy/azure_hierarchy.json",
+        ConfigType.credentials: "config_credentials.json",
+        ConfigType.providers: "config_providers.json",
+        ConfigType.optimization: "config_optimization.json"
+    }
+    
+    filename = config_map[config_type]
+    
+    try:
+        project_path = os.path.join(
+            state.get_project_base_path(),
+            CONSTANTS.PROJECT_UPLOAD_DIR_NAME,
+            project_name
+        )
+        
+        if not os.path.exists(project_path):
+            raise HTTPException(status_code=404, detail=f"Project '{project_name}' not found")
+        
+        file_path = os.path.join(project_path, filename)
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Config file '{filename}' not found in project '{project_name}'"
+            )
+        
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error reading config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# 3. Config Updates
 # ==========================================
 @router.put("/projects/{project_name}/config/{config_type}", tags=["Projects"])
 async def update_config(project_name: str, config_type: ConfigType, request: Request):
@@ -267,36 +312,6 @@ async def update_project_info_endpoint(project_name: str, request: Request):
         raise HTTPException(status_code=404, detail=str(e))
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON body.")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/projects/{project_name}/functions/{function_name}/file", tags=["Projects"])
-async def update_function_file(
-    project_name: str, 
-    function_name: str, 
-    request: Request,
-    target_filename: str = Query(..., description="Target filename (e.g., lambda_function.py)")
-):
-    """
-    Uploads and updates a specific code file for a function.
-    Strictly validates code based on the function's provider.
-    Supports Multipart (binary) or JSON (Base64).
-    """
-    try:
-        content = await extract_file_content(request)
-        content_str = content.decode('utf-8')
-        
-        file_manager.update_function_code_file(project_name, function_name, target_filename, content_str)
-        
-        # Invalidate function cache since code changed
-        invalidate_function_cache(project_name)
-        
-        return {"message": f"File '{target_filename}' updated for function '{function_name}'."}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:

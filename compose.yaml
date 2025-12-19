@@ -23,7 +23,7 @@ services:
       - ./2-twin2clouds:/app
       - ./config_credentials.json:/config/config_credentials.json
       - ./config.json:/config/config.json
-      - ./google_master-thesis-475915-7f20314ddb42.json:/config/gcp_credentials.json
+      - ./google-credentials.json:/config/gcp_credentials.json
     tty: true
     networks:
       - my_master_thesis_network
@@ -37,10 +37,10 @@ services:
       - "5004:8000"
     volumes: 
       - ./3-cloud-deployer:/app/
-      - ./config_credentials.json:/config/config_credentials.json
-      - ./config_credentials.json:/app/upload/config_credentials.json
+      # mount into upload/template folder to simulate upload process
       - ./config.json:/config/config.json
-      - ./google_master-thesis-475915-7f20314ddb42.json:/config/gcp_credentials.json
+      # - ./config_credentials.json:/config/config_credentials.json
+      # - ./google-credentials.json:/config/gcp_credentials.json
     tty: true
     networks:
       - my_master_thesis_network

@@ -312,8 +312,8 @@ output "aws_grafana_api_key" {
 # ==============================================================================
 
 output "gcp_project_id" {
-  description = "GCP Project ID"
-  value       = try(google_project.main[0].project_id, null)
+  description = "GCP Project ID (provided or auto-created)"
+  value       = local.deploy_gcp ? local.gcp_project_id : null
 }
 
 output "gcp_service_account_email" {

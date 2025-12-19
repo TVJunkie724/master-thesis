@@ -41,7 +41,7 @@ resource "google_cloudfunctions2_function" "processor" {
   count    = local.gcp_l2_enabled ? 1 : 0
   name     = "${var.digital_twin_name}-processor"
   location = var.gcp_region
-  project  = google_project.main[0].project_id
+  project  = local.gcp_project_id
 
   build_config {
     runtime     = "python311"
@@ -96,7 +96,7 @@ resource "google_cloudfunctions2_function" "persister" {
   count    = local.gcp_l2_enabled && local.gcp_l3_hot_enabled ? 1 : 0
   name     = "${var.digital_twin_name}-persister"
   location = var.gcp_region
-  project  = google_project.main[0].project_id
+  project  = local.gcp_project_id
 
   build_config {
     runtime     = "python311"
@@ -119,7 +119,7 @@ resource "google_cloudfunctions2_function" "persister" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME      = var.digital_twin_name
-      GCP_PROJECT_ID         = google_project.main[0].project_id
+      GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
       INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
@@ -149,7 +149,7 @@ resource "google_cloudfunctions2_function" "persister" {
 
 resource "google_cloud_run_service_iam_member" "persister_invoker" {
   count    = local.gcp_l2_enabled && local.gcp_l3_hot_enabled ? 1 : 0
-  project  = google_project.main[0].project_id
+  project  = local.gcp_project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.persister[0].name
   role     = "roles/run.invoker"
@@ -175,7 +175,7 @@ resource "google_cloudfunctions2_function" "event_checker" {
   count    = local.gcp_l2_enabled && var.use_event_checking ? 1 : 0
   name     = "${var.digital_twin_name}-event-checker"
   location = var.gcp_region
-  project  = google_project.main[0].project_id
+  project  = local.gcp_project_id
 
   build_config {
     runtime     = "python311"
@@ -199,7 +199,7 @@ resource "google_cloudfunctions2_function" "event_checker" {
     environment_variables = {
       DIGITAL_TWIN_NAME     = var.digital_twin_name
       DIGITAL_TWIN_INFO     = local.digital_twin_info_json
-      GCP_PROJECT_ID        = google_project.main[0].project_id
+      GCP_PROJECT_ID        = local.gcp_project_id
       INTER_CLOUD_TOKEN     = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
       )
@@ -225,7 +225,7 @@ resource "google_cloudfunctions2_function" "event_checker" {
 
 resource "google_project_service" "workflows" {
   count   = local.gcp_l2_enabled && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
-  project = google_project.main[0].project_id
+  project = local.gcp_project_id
   service = "workflows.googleapis.com"
   
   disable_on_destroy = false
@@ -239,7 +239,7 @@ resource "google_workflows_workflow" "event_workflow" {
   count    = local.gcp_l2_enabled && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
   name     = "${var.digital_twin_name}-event-workflow"
   region   = var.gcp_region
-  project  = google_project.main[0].project_id
+  project  = local.gcp_project_id
   
   service_account = google_service_account.functions[0].email
   
@@ -289,7 +289,7 @@ resource "google_cloudfunctions2_function" "user_functions" {
   count    = local.gcp_l2_enabled ? 1 : 0
   name     = "${var.digital_twin_name}-user-functions"
   location = var.gcp_region
-  project  = google_project.main[0].project_id
+  project  = local.gcp_project_id
 
   build_config {
     runtime     = "python311"
@@ -312,7 +312,7 @@ resource "google_cloudfunctions2_function" "user_functions" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
-      GCP_PROJECT_ID       = google_project.main[0].project_id
+      GCP_PROJECT_ID       = local.gcp_project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
       INTER_CLOUD_TOKEN    = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
@@ -335,7 +335,7 @@ resource "google_cloudfunctions2_function" "user_functions" {
 
 resource "google_cloud_run_service_iam_member" "user_functions_invoker" {
   count    = local.gcp_l2_enabled ? 1 : 0
-  project  = google_project.main[0].project_id
+  project  = local.gcp_project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.user_functions[0].name
   role     = "roles/run.invoker"
@@ -348,7 +348,7 @@ resource "google_cloud_run_service_iam_member" "user_functions_invoker" {
 
 resource "google_cloud_run_service_iam_member" "event_checker_invoker" {
   count    = local.gcp_l2_enabled && var.use_event_checking ? 1 : 0
-  project  = google_project.main[0].project_id
+  project  = local.gcp_project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.event_checker[0].name
   role     = "roles/run.invoker"
