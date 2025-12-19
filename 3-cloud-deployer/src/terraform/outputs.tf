@@ -119,6 +119,14 @@ output "azure_adt_endpoint" {
   value       = try("https://${azurerm_digital_twins_instance.main[0].host_name}", null)
 }
 
+output "azure_3d_scenes_container_url" {
+  description = "Azure Blob container URL for 3D Scenes Studio (if deployed)"
+  value       = try(
+    "https://${azurerm_storage_account.main[0].name}.blob.core.windows.net/${azurerm_storage_container.scenes[0].name}",
+    null
+  )
+}
+
 # ==============================================================================
 # Azure L5 Visualization Outputs
 # ==============================================================================
@@ -285,6 +293,11 @@ output "aws_twinmaker_workspace_id" {
 output "aws_twinmaker_workspace_arn" {
   description = "ARN of the TwinMaker Workspace"
   value       = try(awscc_iottwinmaker_workspace.main[0].arn, null)
+}
+
+output "aws_twinmaker_scene_id" {
+  description = "AWS TwinMaker 3D scene ID (if deployed)"
+  value       = try(awscc_iottwinmaker_scene.main[0].scene_id, null)
 }
 
 # ==============================================================================

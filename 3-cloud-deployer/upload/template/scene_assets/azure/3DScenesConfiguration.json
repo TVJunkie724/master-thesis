@@ -1,0 +1,211 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/iot-cardboard-js/main/schemas/3DScenesConfiguration/v1.0.0/3DScenesConfiguration.schema.json",
+    "configuration": {
+        "scenes": [
+            {
+                "id": "digital-twin-scene",
+                "displayName": "Digital Twin Factory Scene",
+                "description": "3D visualization of the digital twin hierarchy with 2 rooms, 1 machine, and 3 sensors",
+                "assets": [
+                    {
+                        "type": "3DAsset",
+                        "url": "digital_twin_scene.glb"
+                    }
+                ],
+                "elements": [
+                    {
+                        "type": "TwinToObjectMapping",
+                        "id": "element-room-1",
+                        "displayName": "Room 1",
+                        "primaryTwinID": "room-1",
+                        "objectIDs": [
+                            "room-1-floor",
+                            "room-1-walls"
+                        ]
+                    },
+                    {
+                        "type": "TwinToObjectMapping",
+                        "id": "element-room-2",
+                        "displayName": "Room 2",
+                        "primaryTwinID": "room-2",
+                        "objectIDs": [
+                            "room-2-floor",
+                            "room-2-walls"
+                        ]
+                    },
+                    {
+                        "type": "TwinToObjectMapping",
+                        "id": "element-machine-1",
+                        "displayName": "Machine 1",
+                        "primaryTwinID": "machine-1",
+                        "objectIDs": [
+                            "machine-1-body",
+                            "machine-1-panel",
+                            "machine-1-vent"
+                        ]
+                    },
+                    {
+                        "type": "TwinToObjectMapping",
+                        "id": "element-temp-sensor-1",
+                        "displayName": "Temperature Sensor 1",
+                        "primaryTwinID": "temperature-sensor-1",
+                        "objectIDs": [
+                            "temp-sensor-1"
+                        ]
+                    },
+                    {
+                        "type": "TwinToObjectMapping",
+                        "id": "element-temp-sensor-2",
+                        "displayName": "Temperature Sensor 2",
+                        "primaryTwinID": "temperature-sensor-2",
+                        "objectIDs": [
+                            "temp-sensor-2"
+                        ]
+                    },
+                    {
+                        "type": "TwinToObjectMapping",
+                        "id": "element-pressure-sensor-1",
+                        "displayName": "Pressure Sensor 1",
+                        "primaryTwinID": "pressure-sensor-1",
+                        "objectIDs": [
+                            "pressure-sensor-1"
+                        ]
+                    }
+                ],
+                "behaviorIDs": [
+                    "behavior-temperature-visual",
+                    "behavior-pressure-visual"
+                ]
+            }
+        ],
+        "behaviors": [
+            {
+                "id": "behavior-temperature-visual",
+                "displayName": "Temperature Visualization",
+                "datasources": [
+                    {
+                        "type": "ElementTwinToObjectMappingDataSource",
+                        "elementIDs": [
+                            "element-temp-sensor-1",
+                            "element-temp-sensor-2"
+                        ]
+                    }
+                ],
+                "visuals": [
+                    {
+                        "type": "ExpressionRangeVisual",
+                        "expressionType": "NumericRange",
+                        "objectIDs": {
+                            "expression": "meshIDs"
+                        },
+                        "valueExpression": "PrimaryTwin.temperature",
+                        "valueRanges": [
+                            {
+                                "id": "temp-normal",
+                                "min": 0,
+                                "max": 30,
+                                "visual": {
+                                    "color": "#00FF00",
+                                    "iconName": "Thermometer"
+                                }
+                            },
+                            {
+                                "id": "temp-warning",
+                                "min": 30,
+                                "max": 50,
+                                "visual": {
+                                    "color": "#FFAA00",
+                                    "iconName": "Warning"
+                                }
+                            },
+                            {
+                                "id": "temp-critical",
+                                "min": 50,
+                                "max": "Infinity",
+                                "visual": {
+                                    "color": "#FF0000",
+                                    "iconName": "Error"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "behavior-pressure-visual",
+                "displayName": "Pressure Visualization",
+                "datasources": [
+                    {
+                        "type": "ElementTwinToObjectMappingDataSource",
+                        "elementIDs": [
+                            "element-pressure-sensor-1"
+                        ]
+                    }
+                ],
+                "visuals": [
+                    {
+                        "type": "ExpressionRangeVisual",
+                        "expressionType": "NumericRange",
+                        "objectIDs": {
+                            "expression": "meshIDs"
+                        },
+                        "valueExpression": "PrimaryTwin.pressure",
+                        "valueRanges": [
+                            {
+                                "id": "pressure-low",
+                                "min": 0,
+                                "max": 800,
+                                "visual": {
+                                    "color": "#00AAFF",
+                                    "iconName": "SpeedLow"
+                                }
+                            },
+                            {
+                                "id": "pressure-normal",
+                                "min": 800,
+                                "max": 1200,
+                                "visual": {
+                                    "color": "#00FF00",
+                                    "iconName": "SpeedMedium"
+                                }
+                            },
+                            {
+                                "id": "pressure-high",
+                                "min": 1200,
+                                "max": "Infinity",
+                                "visual": {
+                                    "color": "#FF0000",
+                                    "iconName": "SpeedHigh"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "layers": [
+            {
+                "id": "layer-all",
+                "displayName": "All Sensors",
+                "behaviorIDs": [
+                    "behavior-temperature-visual",
+                    "behavior-pressure-visual"
+                ]
+            },
+            {
+                "id": "layer-temperature",
+                "displayName": "Temperature Only",
+                "behaviorIDs": [
+                    "behavior-temperature-visual"
+                ]
+            },
+            {
+                "id": "layer-pressure",
+                "displayName": "Pressure Only",
+                "behaviorIDs": [
+                    "behavior-pressure-visual"
+                ]
+            }
+        ]
+    }
+}

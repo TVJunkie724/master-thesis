@@ -263,7 +263,8 @@ def build_gcp_cloud_function_packages(
         logger.info("  No GCP layers configured, skipping Cloud Function package build")
         return {}
     
-    build_dir = terraform_dir / BUILD_DIR / "gcp"
+    # Build to project_path/.build/gcp/ (matches Terraform's expected paths)
+    build_dir = project_path / ".build" / "gcp"
     build_dir.mkdir(parents=True, exist_ok=True)
     
     packages = {}
@@ -316,14 +317,24 @@ def build_gcp_cloud_function_packages(
     
     # L3 Storage functions - when L3 hot is GCP
     if l3_hot == "google":
-        functions_to_build.append("hot-to-cold-mover")
+        functions_to_build.extend(["hot-to-cold-mover", "hot-reader"])
     if l3_cold == "google":
         functions_to_build.append("cold-to-archive-mover")
+    
+    # Copy source files to project_path/cloud_functions/ for Terraform filemd5() access
+    cloud_functions_dir = project_path / "cloud_functions"
+    cloud_functions_dir.mkdir(parents=True, exist_ok=True)
     
     # Build each function
     for func_name in functions_to_build:
         func_dir = gcp_funcs_dir / func_name
         if func_dir.exists():
+            # Copy source to project path for Terraform filemd5()
+            dest_dir = cloud_functions_dir / func_name
+            if dest_dir.exists():
+                shutil.rmtree(dest_dir)
+            shutil.copytree(func_dir, dest_dir)
+            
             zip_path = build_dir / f"{func_name}.zip"
             # Processor gets user code merged
             if func_name == "processor_wrapper":
@@ -334,6 +345,13 @@ def build_gcp_cloud_function_packages(
             logger.info(f"  ✓ Built GCP: {func_name}.zip")
         else:
             logger.warning(f"  ⚠ GCP function dir not found: {func_dir}")
+    
+    # Build user-functions.zip (event actions, processors, feedback) if L2 is GCP
+    if l2 == "google":
+        user_funcs_zip = build_dir / "user-functions.zip"
+        _create_gcp_user_functions_zip(project_path, gcp_funcs_dir, user_funcs_zip)
+        packages["gcp_user_functions"] = user_funcs_zip
+        logger.info("  ✓ Built GCP: user-functions.zip")
     
     if not functions_to_build:
         logger.info("  No GCP Cloud Functions needed for this configuration")
@@ -389,6 +407,63 @@ def _create_gcp_function_zip(
         if not (func_dir / "requirements.txt").exists():
             requirements = "functions-framework\ngoogle-cloud-firestore\ngoogle-cloud-storage\ngoogle-cloud-pubsub\n"
             zf.writestr("requirements.txt", requirements)
+
+
+def _create_gcp_user_functions_zip(
+    project_path: Path,
+    gcp_funcs_dir: Path,
+    output_path: Path
+) -> None:
+    """
+    Create GCP user-functions.zip containing event actions, processors, and feedback handlers.
+    
+    Uses the default-processor template from providers/gcp/cloud_functions/default-processor/
+    as the base, then merges user code from the project's event_actions/ and processors/ directories.
+    
+    Args:
+        project_path: Path to the project upload directory
+        gcp_funcs_dir: Path to GCP cloud functions source directory
+        output_path: Path to write the ZIP file
+    """
+    default_processor = gcp_funcs_dir / "default-processor"
+    shared_dir = gcp_funcs_dir / "_shared"
+    
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Add default processor template as base
+        if default_processor.exists():
+            for file_path in default_processor.rglob('*'):
+                if file_path.is_file() and '__pycache__' not in str(file_path):
+                    arcname = file_path.relative_to(default_processor)
+                    zf.write(file_path, arcname)
+        
+        # Add shared modules
+        if shared_dir.exists():
+            for file_path in shared_dir.rglob('*'):
+                if file_path.is_file() and '__pycache__' not in str(file_path):
+                    arcname = file_path.relative_to(shared_dir)
+                    zf.write(file_path, arcname)
+        
+        # Merge user event_actions if present
+        user_event_actions = project_path / "event_actions"
+        if user_event_actions.exists():
+            for file_path in user_event_actions.rglob('*.py'):
+                if '__pycache__' not in str(file_path):
+                    arcname = Path("event_actions") / file_path.relative_to(user_event_actions)
+                    zf.write(file_path, arcname)
+            logger.info(f"    → Merged user event_actions from: {user_event_actions}")
+        
+        # Merge user processors if present
+        user_processors = project_path / "processors"
+        if user_processors.exists():
+            for file_path in user_processors.rglob('*.py'):
+                if '__pycache__' not in str(file_path):
+                    arcname = Path("processors") / file_path.relative_to(user_processors)
+                    zf.write(file_path, arcname)
+            logger.info(f"    → Merged user processors from: {user_processors}")
+        
+        # Add requirements.txt
+        requirements = "functions-framework\ngoogle-cloud-firestore\ngoogle-cloud-storage\ngoogle-cloud-pubsub\n"
+        zf.writestr("requirements.txt", requirements)
 
 
 def get_gcp_zip_path(terraform_dir: Path, function_name: str) -> str:

@@ -131,3 +131,23 @@ FUNCTION_LAYER_MAPPING = {
     "hot-to-cold-mover": "layer_3_hot_provider",
     "cold-to-archive-mover": "layer_3_cold_provider"
 }
+
+# ==========================================
+# 8. Scene Asset Constants (3D Visualization)
+# ==========================================
+SCENE_ASSETS_DIR_NAME = "scene_assets"
+SCENE_GLB_FILE = "scene.glb"
+SCENE_JSON_FILE = "scene.json"  # AWS TwinMaker
+AZURE_SCENE_CONFIG_FILE = "3DScenesConfiguration.json"
+
+# Required scene files per provider (when needs3DModel=true)
+SCENE_REQUIRED_FILES = {
+    "aws": [
+        f"{SCENE_ASSETS_DIR_NAME}/aws/{SCENE_GLB_FILE}",
+        f"{SCENE_ASSETS_DIR_NAME}/aws/{SCENE_JSON_FILE}"
+    ],
+    "azure": [
+        f"{SCENE_ASSETS_DIR_NAME}/azure/{SCENE_GLB_FILE}",
+        f"{SCENE_ASSETS_DIR_NAME}/azure/{AZURE_SCENE_CONFIG_FILE}"
+    ]
+}

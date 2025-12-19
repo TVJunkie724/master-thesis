@@ -22,6 +22,7 @@ Config Files Read:
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -403,6 +404,7 @@ def _load_optimization_flags(project_dir: Path) -> dict:
     - useEventChecking -> use_event_checking
     - triggerNotificationWorkflow -> trigger_notification_workflow
     - returnFeedbackToDevice -> return_feedback_to_device
+    - needs3DModel -> needs_3d_model + scene_assets_path
     """
     optimization_file = project_dir / "config_optimization.json"
     
@@ -411,6 +413,8 @@ def _load_optimization_flags(project_dir: Path) -> dict:
         "use_event_checking": True,
         "trigger_notification_workflow": False,  # Disabled for initial testing
         "return_feedback_to_device": False,
+        "needs_3d_model": False,
+        "scene_assets_path": "",
     }
     
     if not optimization_file.exists():
@@ -423,10 +427,23 @@ def _load_optimization_flags(project_dir: Path) -> dict:
         
         input_params = data.get("result", {}).get("inputParamsUsed", {})
         
+        # Extract needs3DModel and set scene_assets_path if enabled
+        needs_3d_model = input_params.get("needs3DModel", False)
+        scene_assets_path = ""
+        if needs_3d_model:
+            scene_assets_dir = project_dir / "scene_assets"
+            if scene_assets_dir.exists():
+                scene_assets_path = str(scene_assets_dir)
+                logger.info(f"  3D scene assets enabled: {scene_assets_path}")
+            else:
+                logger.warning(f"  needs3DModel=true but scene_assets/ not found")
+        
         return {
             "use_event_checking": input_params.get("useEventChecking", True),
             "trigger_notification_workflow": input_params.get("triggerNotificationWorkflow", False),
             "return_feedback_to_device": input_params.get("returnFeedbackToDevice", False),
+            "needs_3d_model": needs_3d_model,
+            "scene_assets_path": scene_assets_path,
         }
     except Exception as e:
         logger.warning(f"  Failed to load config_optimization.json: {e}, using defaults")

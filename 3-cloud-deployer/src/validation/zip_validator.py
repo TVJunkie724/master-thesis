@@ -67,6 +67,7 @@ def validate_project_zip(zip_source: Union[str, bytes, io.BytesIO]) -> None:
         _check_payloads_vs_devices(zf, ctx)
         _check_credentials_per_provider(ctx)
         _check_hierarchy_provider_match(zf, ctx)
+        _check_scene_assets(zf, ctx)
 
 
 # ==========================================
@@ -404,3 +405,51 @@ def _check_hierarchy_provider_match(zf: zipfile.ZipFile, ctx: ValidationContext)
         raise ValueError(
             f"Missing hierarchy file '{expected_file}' for layer_4_provider='{layer_4_provider}'."
         )
+
+
+def _check_scene_assets(zf: zipfile.ZipFile, ctx: ValidationContext) -> None:
+    """
+    Validate scene assets when needs3DModel is enabled.
+    
+    Checks:
+    - If needs3DModel=true in config_optimization
+    - If layer_4_provider is AWS or Azure
+    - Required scene files exist for that provider
+    
+    AWS requires: scene_assets/aws/scene.glb, scene_assets/aws/scene.json
+    Azure requires: scene_assets/azure/scene.glb, scene_assets/azure/3DScenesConfiguration.json
+    """
+    # Get needs3DModel from optimization config
+    input_params = ctx.opt_config.get("result", {}).get("inputParamsUsed", {})
+    needs_3d_model = input_params.get("needs3DModel", False)
+    
+    if not needs_3d_model:
+        return  # No 3D scene required
+    
+    # Get layer 4 provider
+    layer_4_provider = ctx.prov_config.get("layer_4_provider", "")
+    if layer_4_provider:
+        layer_4_provider = layer_4_provider.lower()
+    
+    if not layer_4_provider:
+        return  # L4 not configured
+    
+    if layer_4_provider not in CONSTANTS.SCENE_REQUIRED_FILES:
+        return  # Provider doesn't support scenes (e.g., Google)
+    
+    # Check required files exist
+    required_files = CONSTANTS.SCENE_REQUIRED_FILES[layer_4_provider]
+    missing_files = []
+    
+    for required_file in required_files:
+        full_path = ctx.project_root + required_file
+        if full_path not in ctx.zip_files:
+            missing_files.append(required_file)
+    
+    if missing_files:
+        raise ValueError(
+            f"Missing scene asset(s) for layer_4_provider='{layer_4_provider}' when needs3DModel=true: "
+            f"{missing_files}. "
+            f"Required files: {required_files}"
+        )
+

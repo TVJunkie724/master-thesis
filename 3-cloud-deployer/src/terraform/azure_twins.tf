@@ -66,3 +66,45 @@ resource "azurerm_role_assignment" "identity_adt_owner" {
 #
 #   tags = local.common_tags
 # }
+
+# ==============================================================================
+# 3D Scene Assets for ADT 3D Scenes Studio
+# ==============================================================================
+
+locals {
+  l4_azure_scene_enabled = var.layer_4_provider == "azure" && var.needs_3d_model && var.scene_assets_path != ""
+  scene_assets_azure     = var.scene_assets_path != "" ? "${var.scene_assets_path}/azure" : ""
+}
+
+# Storage container for 3D scenes
+resource "azurerm_storage_container" "scenes" {
+  count                 = local.l4_azure_scene_enabled ? 1 : 0
+  name                  = "3dscenes"
+  storage_account_name  = azurerm_storage_account.main[0].name
+  container_access_type = "private"
+}
+
+# Upload GLB model
+resource "azurerm_storage_blob" "scene_glb" {
+  count                  = local.l4_azure_scene_enabled ? 1 : 0
+  name                   = "scene.glb"
+  storage_account_name   = azurerm_storage_account.main[0].name
+  storage_container_name = azurerm_storage_container.scenes[0].name
+  type                   = "Block"
+  source                 = "${local.scene_assets_azure}/scene.glb"
+  content_md5            = filemd5("${local.scene_assets_azure}/scene.glb")
+  content_type           = "model/gltf-binary"
+}
+
+# Upload 3D Scenes configuration
+resource "azurerm_storage_blob" "scene_config" {
+  count                  = local.l4_azure_scene_enabled ? 1 : 0
+  name                   = "3DScenesConfiguration.json"
+  storage_account_name   = azurerm_storage_account.main[0].name
+  storage_container_name = azurerm_storage_container.scenes[0].name
+  type                   = "Block"
+  source                 = "${local.scene_assets_azure}/3DScenesConfiguration.json"
+  content_md5            = filemd5("${local.scene_assets_azure}/3DScenesConfiguration.json")
+  content_type           = "application/json"
+}
+

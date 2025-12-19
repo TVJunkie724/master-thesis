@@ -220,6 +220,18 @@ variable "return_feedback_to_device" {
   default     = false
 }
 
+variable "needs_3d_model" {
+  description = "Deploy 3D scene assets (GLB + scene config) for visualization"
+  type        = bool
+  default     = false
+}
+
+variable "scene_assets_path" {
+  description = "Absolute path to scene_assets directory (set when needs_3d_model=true)"
+  type        = string
+  default     = ""
+}
+
 # ==============================================================================
 # IoT Devices (from config_iot_devices.json)
 # ==============================================================================

@@ -237,3 +237,60 @@ resource "aws_lambda_function" "l4_connector" {
 
   tags = local.aws_common_tags
 }
+
+# ==============================================================================
+# 3D Scene Assets (conditional on needs_3d_model)
+# ==============================================================================
+
+locals {
+  l4_scene_enabled = local.l4_aws_enabled && var.needs_3d_model && var.scene_assets_path != ""
+  scene_assets_aws = var.scene_assets_path != "" ? "${var.scene_assets_path}/aws" : ""
+}
+
+# Upload GLB model to S3
+resource "aws_s3_object" "scene_glb" {
+  count  = local.l4_scene_enabled ? 1 : 0
+  bucket = aws_s3_bucket.l4_twinmaker[0].id
+  key    = "scene_assets/scene.glb"
+  source = "${local.scene_assets_aws}/scene.glb"
+  etag   = filemd5("${local.scene_assets_aws}/scene.glb")
+  
+  content_type = "model/gltf-binary"
+  
+  tags = local.aws_common_tags
+  
+  depends_on = [awscc_iottwinmaker_workspace.main]
+}
+
+# Upload scene.json config to S3
+resource "aws_s3_object" "scene_json" {
+  count  = local.l4_scene_enabled ? 1 : 0
+  bucket = aws_s3_bucket.l4_twinmaker[0].id
+  key    = "scene_assets/scene.json"
+  source = "${local.scene_assets_aws}/scene.json"
+  etag   = filemd5("${local.scene_assets_aws}/scene.json")
+  
+  content_type = "application/json"
+  
+  tags = local.aws_common_tags
+  
+  depends_on = [awscc_iottwinmaker_workspace.main]
+}
+
+# Create TwinMaker Scene
+resource "awscc_iottwinmaker_scene" "main" {
+  count            = local.l4_scene_enabled ? 1 : 0
+  workspace_id     = awscc_iottwinmaker_workspace.main[0].workspace_id
+  scene_id         = "main-scene"
+  content_location = "s3://${aws_s3_bucket.l4_twinmaker[0].bucket}/scene_assets/scene.json"
+  
+  tags = {
+    for key, value in local.aws_common_tags : key => value
+  }
+  
+  depends_on = [
+    aws_s3_object.scene_glb,
+    aws_s3_object.scene_json
+  ]
+}
+
