@@ -220,7 +220,7 @@ class TestBuildGcpCloudFunctionPackages:
             "layer_3_hot_provider": "google",
             "layer_3_cold_provider": "google",
             "layer_3_archive_provider": "google",
-            "layer_4_provider": "",  # GCP doesn't support L4/L5
+            "layer_4_provider": "",  # TODO(GCP-L4L5): GCP doesn't support L4/L5 yet
         }
     
     @pytest.fixture

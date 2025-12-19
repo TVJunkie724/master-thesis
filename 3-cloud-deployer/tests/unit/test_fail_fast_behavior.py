@@ -84,14 +84,24 @@ class TestConfigLoaderFailFast(unittest.TestCase):
     # INVALID PROVIDER FOR HIERARCHY
     # ==========================================
     
+    def test_load_hierarchy_google_returns_empty(self):
+        """
+        'google' provider returns empty hierarchy (no Digital Twin service).
+        
+        TODO(GCP-L4L5): When GCP L4 is implemented, update this test.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = _load_hierarchy_for_provider(Path(tmpdir), "google")
+            self.assertEqual(result, [])  # Empty list for GCP = no entities
+    
     def test_load_hierarchy_invalid_provider_raises(self):
-        """Invalid provider (google) raises ValueError."""
+        """Invalid provider (unknown) raises ValueError."""
         with tempfile.TemporaryDirectory() as tmpdir:
             with self.assertRaises(ValueError) as cm:
-                _load_hierarchy_for_provider(Path(tmpdir), "google")
+                _load_hierarchy_for_provider(Path(tmpdir), "invalid_provider")
             
             self.assertIn("Invalid provider", str(cm.exception))
-            self.assertIn("google", str(cm.exception))
+            self.assertIn("invalid_provider", str(cm.exception))
             self.assertIn("aws", str(cm.exception).lower())
             self.assertIn("azure", str(cm.exception).lower())
     
@@ -134,6 +144,12 @@ class TestConfigLoaderFailFast(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             result = _load_hierarchy_for_provider(Path(tmpdir), "AZURE")
             self.assertEqual(result, {})
+    
+    def test_load_hierarchy_case_insensitive_google(self):
+        """Provider matching is case-insensitive: 'GOOGLE' works."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = _load_hierarchy_for_provider(Path(tmpdir), "GOOGLE")
+            self.assertEqual(result, [])  # Empty list for GCP
 
 
 class TestValidatorStateMachineFailFast(unittest.TestCase):
@@ -229,72 +245,9 @@ class TestValidatorUnknownFunctionFailFast(unittest.TestCase):
         self.assertEqual(result, "azure")
 
 
-class TestAPIHierarchyProviderValidation(unittest.TestCase):
-    """Tests for API endpoint provider validation."""
-    
-    def test_api_invalid_provider_gcp_returns_400(self):
-        """API: 'gcp' provider returns 400 error."""
-        from fastapi.testclient import TestClient
-        from rest_api import app
-        
-        client = TestClient(app)
-        response = client.get("/info/config_hierarchy?provider=gcp")
-        
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("Invalid provider", response.json()["detail"])
-    
-    def test_api_invalid_provider_empty_returns_400(self):
-        """API: empty string provider returns 400 for blank (defaults to aws which works)."""
-        from fastapi.testclient import TestClient
-        from rest_api import app
-        
-        client = TestClient(app)
-        # Empty string defaults to "aws" in Query default, so this should NOT fail
-        response = client.get("/info/config_hierarchy?provider=")
-        
-        # Empty becomes "" which fails validation
-        self.assertEqual(response.status_code, 400)
-    
-    def test_api_invalid_provider_random_returns_400(self):
-        """API: random string provider returns 400 error."""
-        from fastapi.testclient import TestClient
-        from rest_api import app
-        
-        client = TestClient(app)
-        response = client.get("/info/config_hierarchy?provider=foobar123")
-        
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("foobar123", response.json()["detail"])
-    
-    def test_api_valid_provider_aws_not_400(self):
-        """API: 'aws' provider is valid."""
-        from fastapi.testclient import TestClient
-        from rest_api import app
-        
-        client = TestClient(app)
-        response = client.get("/info/config_hierarchy?provider=aws")
-        
-        self.assertNotEqual(response.status_code, 400)
-    
-    def test_api_valid_provider_azure_not_400(self):
-        """API: 'azure' provider is valid."""
-        from fastapi.testclient import TestClient
-        from rest_api import app
-        
-        client = TestClient(app)
-        response = client.get("/info/config_hierarchy?provider=azure")
-        
-        self.assertNotEqual(response.status_code, 400)
-    
-    def test_api_case_insensitive_AWS(self):
-        """API: 'AWS' (uppercase) is valid."""
-        from fastapi.testclient import TestClient
-        from rest_api import app
-        
-        client = TestClient(app)
-        response = client.get("/info/config_hierarchy?provider=AWS")
-        
-        self.assertNotEqual(response.status_code, 400)
+# Note: TestAPIHierarchyProviderValidation was removed - the /info/config_hierarchy
+# endpoint has been deprecated and migrated to /projects/{name}/config/{type}.
+# Provider validation is now tested via unit tests on _load_hierarchy_for_provider.
 
 
 if __name__ == "__main__":

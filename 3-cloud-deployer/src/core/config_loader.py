@@ -115,10 +115,16 @@ def _load_hierarchy_for_provider(project_path: Path, provider: str) -> Dict[str,
     """
     provider_lower = provider.lower()
     
-    # Strict validation: only aws and azure are valid
+    # TODO(GCP-L4L5): GCP has no managed Digital Twin service. When GCP L4 is implemented,
+    # add a 'google' branch here similar to 'aws' and 'azure' to load GCP hierarchy format.
+    # For now, return empty hierarchy - Terraform skips L4/L5 resources for GCP.
+    if provider_lower == "google":
+        return []  # No hierarchy for GCP - no Digital Twin service
+    
+    # Strict validation: only aws and azure have hierarchy support
     if provider_lower not in ("aws", "azure"):
         raise ValueError(
-            f"Invalid provider '{provider}'. Hierarchy is only available for 'aws' or 'azure'."
+            f"Invalid provider '{provider}'. Hierarchy is only available for 'aws', 'azure', or 'google' (empty)."
         )
     
     hierarchy_dir = project_path / TWIN_HIERARCHY_DIR_NAME

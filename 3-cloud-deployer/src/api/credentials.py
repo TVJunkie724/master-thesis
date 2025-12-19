@@ -230,7 +230,8 @@ async def check_gcp_from_body(request: GCPCredentialsRequest):
     - **L2**: Cloud Functions, Cloud Run, Cloud Build
     - **L3**: Firestore, Cloud Storage, Cloud Scheduler
     
-    Note: L4/L5 not available - GCP lacks managed Digital Twin and Grafana services.
+    TODO(GCP-L4L5): L4/L5 not available - GCP lacks managed Digital Twin and Grafana services.
+    When GCP L4/L5 is implemented, add permission checks for those layers here.
     
     Returns status and missing APIs.
     """

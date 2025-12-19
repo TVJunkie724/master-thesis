@@ -36,8 +36,8 @@ class TestGCPTerraformE2E:
     
     Uses TerraformDeployerStrategy for infrastructure provisioning.
     
-    Note: L4/L5 not tested - GCP lacks managed Digital Twin and Grafana services.
-    # TODO: assume azure for l4/l5
+    TODO(GCP-L4L5): L4/L5 not tested - GCP lacks managed Digital Twin and Grafana services.
+    When GCP L4/L5 is implemented, add test phases for those layers similar to AWS/Azure E2E tests.
     """
     
     @pytest.fixture(scope="class")
@@ -278,7 +278,11 @@ class TestGCPTerraformE2E:
             pytest.skip("L3 Cold not deployed to GCP")
     
     def test_06_l4_l5_not_available(self, deployed_environment):
-        """Verify L4/L5: Not available in GCP (no managed services)."""
+        """
+        Verify L4/L5: Not available in GCP (no managed services).
+        
+        TODO(GCP-L4L5): When GCP L4/L5 is implemented, convert this to actual verification tests.
+        """
         # GCP does not have managed Digital Twin or Grafana services
         # This test documents that fact
         print("[VERIFY] ℹ L4/L5 not available - GCP lacks managed Digital Twin and Grafana")

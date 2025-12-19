@@ -98,7 +98,8 @@ locals {
     var.layer_3_hot_provider,
     var.layer_3_cold_provider,
     var.layer_3_archive_provider
-    # Note: L4/L5 not supported for GCP (no managed services)
+    # TODO(GCP-L4L5): L4/L5 not supported for GCP (no managed services).
+    # When GCP L4/L5 is implemented, add var.layer_4_provider and var.layer_5_provider here.
   ], "google")
   
   # Azure region to use for IoT Hub (may differ from main region)

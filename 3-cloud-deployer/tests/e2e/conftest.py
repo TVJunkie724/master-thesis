@@ -321,12 +321,13 @@ def gcp_terraform_e2e_project_path(template_project_path, gcp_terraform_e2e_test
         "layer_3_hot_provider": "google",
         "layer_3_cold_provider": "google",
         "layer_3_archive_provider": "google",
-        "layer_4_provider": "",  # GCP has no managed Digital Twin
-        "layer_5_provider": ""   # GCP has no managed Grafana
+        "layer_4_provider": "google",  # TODO(GCP-L4L5): No managed Digital Twin - Terraform skips
+        "layer_5_provider": "google"   # TODO(GCP-L4L5): No managed Grafana - Terraform skips
     }
     with open(providers_path, "w") as f:
         json.dump(providers, f, indent=2)
     
+    # TODO(GCP-L4L5): Update this message when GCP L4/L5 is implemented
     print(f"\n[GCP TERRAFORM E2E] Created unique test project: {project_path}")
     print(f"[GCP TERRAFORM E2E] Digital twin name: {gcp_terraform_e2e_test_id}")
     print(f"[GCP TERRAFORM E2E] L4/L5 disabled (no GCP managed services)")

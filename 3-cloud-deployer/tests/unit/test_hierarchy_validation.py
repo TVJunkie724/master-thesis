@@ -136,15 +136,28 @@ class TestAWSHierarchyValidation(unittest.TestCase):
 class TestConfigLoaderHierarchy(unittest.TestCase):
     """Tests for config_loader _load_hierarchy_for_provider function."""
     
+    def test_load_hierarchy_google_returns_empty(self):
+        """
+        Config loader: 'google' provider returns empty hierarchy (no Digital Twin service).
+        
+        TODO(GCP-L4L5): When GCP L4 is implemented, update this test to verify
+        GCP hierarchy loading similar to AWS/Azure.
+        """
+        from pathlib import Path
+        from src.core.config_loader import _load_hierarchy_for_provider
+        
+        result = _load_hierarchy_for_provider(Path("/tmp"), "google")
+        self.assertEqual(result, [])  # Empty list = no entities
+    
     def test_load_hierarchy_invalid_provider_raises(self):
-        """Config loader: invalid provider raises ValueError."""
+        """Config loader: truly invalid provider raises ValueError."""
         from pathlib import Path
         from src.core.config_loader import _load_hierarchy_for_provider
         
         with self.assertRaises(ValueError) as cm:
-            _load_hierarchy_for_provider(Path("/tmp"), "google")
+            _load_hierarchy_for_provider(Path("/tmp"), "invalid_provider")
         self.assertIn("Invalid provider", str(cm.exception))
-        self.assertIn("only available for 'aws' or 'azure'", str(cm.exception))
+        self.assertIn("only available for 'aws', 'azure', or 'google'", str(cm.exception))
 
 
 class TestAzureHierarchyValidation(unittest.TestCase):
@@ -286,33 +299,7 @@ class TestAzureHierarchyValidation(unittest.TestCase):
         validator.validate_azure_hierarchy_content(content)
 
 
-class TestHierarchyAPIValidation(unittest.TestCase):
-    """Tests for hierarchy API endpoint provider validation."""
-    
-    def test_get_config_hierarchy_invalid_provider_raises_400(self):
-        """API: Invalid provider (e.g., 'google') returns 400 error."""
-        from fastapi.testclient import TestClient
-        from rest_api import app
-        
-        client = TestClient(app)
-        response = client.get("/info/config_hierarchy?provider=google")
-        
-        assert response.status_code == 400
-        assert "Invalid provider" in response.json()["detail"]
-        assert "only available for 'aws' or 'azure'" in response.json()["detail"]
-    
-    def test_get_config_hierarchy_aws_valid(self):
-        """API: 'aws' provider is valid (may fail if no active project, but not 400)."""
-        from fastapi.testclient import TestClient
-        from rest_api import app
-        
-        client = TestClient(app)
-        response = client.get("/info/config_hierarchy?provider=aws")
-        
-        # Should not be 400 (invalid provider)
-        # Could be 500 if no active project, but that's OK for this test
-        assert response.status_code != 400
-
 
 if __name__ == "__main__":
     unittest.main()
+

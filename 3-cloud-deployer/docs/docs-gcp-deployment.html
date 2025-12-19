@@ -45,7 +45,11 @@
                         <div class="col-md-6">
                             <ul>
                                 <li><a href="#technical-specs">Technical Specifications</a></li>
-                                <li><a href="#future-work">Future Work</a></li>
+                                <li><a href="#future-work">Future Work</a>
+                                    <ul>
+                                        <li><a href="#l4l5-implementation">L4/L5 Implementation Guide</a></li>
+                                    </ul>
+                                </li>
                             </ul>
                         </div>
                     </div>
@@ -434,6 +438,83 @@
                             </ul>
                         </li>
                     </ul>
+
+                    <!-- L4/L5 Implementation Guide -->
+                    <h3 class="mt-4 text-primary" id="l4l5-implementation">L4/L5 Implementation Guide</h3>
+                    <div class="callout info mb-3">
+                        <strong><i class="fa-solid fa-code me-2"></i>TODO(GCP-L4L5) Markers</strong>
+                        <p class="mb-2">
+                            The codebase uses <code>TODO(GCP-L4L5)</code> markers to identify all locations that need
+                            modification when GCP Digital Twin (L4) and Grafana (L5) support is implemented.
+                        </p>
+                        <p class="mb-0">
+                            <strong>Search command:</strong> <code>grep -r "TODO(GCP-L4L5)" src/ tests/</code>
+                        </p>
+                    </div>
+
+                    <p><strong>Current Status:</strong> GCP has no managed Digital Twin or Grafana services equivalent
+                        to
+                        AWS TwinMaker and Azure Digital Twins. When <code>layer_4_provider</code> or
+                        <code>layer_5_provider</code>
+                        is set to <code>google</code>, Terraform skips those layers entirely.
+                    </p>
+
+                    <h4 class="mt-3">Files with TODO Markers</h4>
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>File</th>
+                                <th>Location</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>src/core/config_loader.py</code></td>
+                                <td><code>_load_hierarchy_for_provider()</code></td>
+                                <td>Returns empty hierarchy for 'google'. Add GCP hierarchy loading when L4 is
+                                    available.</td>
+                            </tr>
+                            <tr>
+                                <td><code>src/api/credentials.py</code></td>
+                                <td>GCP validation docstring</td>
+                                <td>Add L4/L5 permission checks when services are available.</td>
+                            </tr>
+                            <tr>
+                                <td><code>src/terraform/main.tf</code></td>
+                                <td><code>deploy_gcp</code> local</td>
+                                <td>Add L4/L5 provider checks to deployment conditions.</td>
+                            </tr>
+                            <tr>
+                                <td><code>tests/e2e/conftest.py</code></td>
+                                <td>GCP fixture</td>
+                                <td>Update provider config and messages for L4/L5.</td>
+                            </tr>
+                            <tr>
+                                <td><code>tests/e2e/gcp/test_gcp_terraform_e2e.py</code></td>
+                                <td>Class docstring, placeholder test</td>
+                                <td>Add actual L4/L5 verification tests.</td>
+                            </tr>
+                            <tr>
+                                <td><code>tests/unit/test_hierarchy_validation.py</code></td>
+                                <td>Config loader tests</td>
+                                <td>Update tests when GCP hierarchy format is defined.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h4 class="mt-3">Implementation Steps</h4>
+                    <ol>
+                        <li><strong>Define GCP hierarchy format</strong> - Create <code>gcp_hierarchy.json</code> schema
+                        </li>
+                        <li><strong>Create Terraform resources</strong> - Add <code>gcp_twins.tf</code> and
+                            <code>gcp_grafana.tf</code>
+                        </li>
+                        <li><strong>Update config_loader.py</strong> - Add GCP hierarchy loading branch</li>
+                        <li><strong>Update credentials checker</strong> - Add L4/L5 permission validation</li>
+                        <li><strong>Update E2E tests</strong> - Add L4/L5 verification phases</li>
+                        <li><strong>Remove TODO markers</strong> - Clean up after implementation</li>
+                    </ol>
                 </div>
             </div>
 
