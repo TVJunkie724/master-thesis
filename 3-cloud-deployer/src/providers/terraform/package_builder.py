@@ -38,6 +38,10 @@ def build_all_packages(
     Returns:
         Dict mapping function names to ZIP paths
     """
+    # Convert to Path if strings are passed
+    terraform_dir = Path(terraform_dir) if isinstance(terraform_dir, str) else terraform_dir
+    project_path = Path(project_path) if isinstance(project_path, str) else project_path
+    
     build_dir = terraform_dir / BUILD_DIR
     build_dir.mkdir(parents=True, exist_ok=True)
     

@@ -23,6 +23,50 @@ def pytest_configure(config):
     )
 
 
+# ==============================================================================
+# Test Output Capture Hook
+# ==============================================================================
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_logreport(report):
+    """
+    Capture all test output to file for debugging.
+    
+    Creates a timestamped results file in the test directory.
+    """
+    yield
+    
+    # Only capture call phase (actual test execution), not setup/teardown
+    if report.when == "call" or (report.when == "setup" and report.outcome == "error"):
+        # Determine output file based on test location
+        test_file = report.fspath
+        if "gcp" in str(test_file):
+            output_dir = Path(__file__).parent / "gcp"
+        elif "azure" in str(test_file):
+            output_dir = Path(__file__).parent / "azure"
+        elif "aws" in str(test_file):
+            output_dir = Path(__file__).parent / "aws"
+        else:
+            output_dir = Path(__file__).parent
+        
+        output_file = output_dir / "test_results.txt"
+        
+        # Write test result
+        with open(output_file, "a") as f:
+            status = report.outcome.upper()
+            f.write(f"{report.nodeid}: {status}\n")
+            
+            # Write captured stdout if any
+            if hasattr(report, "capstdout") and report.capstdout:
+                f.write(f"  STDOUT:\n{report.capstdout}\n")
+            
+            # Write failure details
+            if report.failed and hasattr(report, "longrepr") and report.longrepr:
+                f.write(f"  FAILURE:\n{report.longrepr}\n")
+            
+            f.write("\n")
+
+
 @pytest.fixture(scope="session")
 def e2e_test_id():
     """
@@ -288,7 +332,7 @@ def gcp_terraform_e2e_test_id():
     """
     Fixed, deterministic ID for GCP Terraform E2E test runs.
     """
-    return "tf-e2e-gcp"
+    return "gcp-e2e-test"
 
 
 @pytest.fixture(scope="session")

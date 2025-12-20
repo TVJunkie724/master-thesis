@@ -1,0 +1,44 @@
+INFO     src.providers.terraform.deployer_strategy:deployer_strategy.py:144 ============================================================
+INFO     src.providers.terraform.deployer_strategy:deployer_strategy.py:145   TERRAFORM DEPLOYMENT - STARTING
+INFO     src.providers.terraform.deployer_strategy:deployer_strategy.py:146 ============================================================
+INFO     src.providers.terraform.deployer_strategy:deployer_strategy.py:149 
+[STEP 1/6] Building function packages...
+INFO     src.providers.terraform.package_builder:package_builder.py:156   No AWS Lambda functions needed for this configuration
+INFO     src.providers.terraform.package_builder:package_builder.py:178   No Azure layers configured, skipping Function package build
+INFO     src.providers.terraform.package_builder:package_builder.py:349   ✓ Built GCP: dispatcher.zip
+INFO     src.providers.terraform.package_builder:package_builder.py:349   ✓ Built GCP: connector.zip
+INFO     src.providers.terraform.package_builder:package_builder.py:405     → Merged user processor code from: /tmp/pytest-of-root/pytest-87/gcp_terraform_e2e0/gcp-e2e-test/cloud_functions/processors/default_processor
+INFO     src.providers.terraform.package_builder:package_builder.py:349   ✓ Built GCP: processor_wrapper.zip
+INFO     src.providers.terraform.package_builder:package_builder.py:349   ✓ Built GCP: persister.zip
+INFO     src.providers.terraform.package_builder:package_builder.py:349   ✓ Built GCP: event-checker.zip
+INFO     src.providers.terraform.package_builder:package_builder.py:349   ✓ Built GCP: hot-to-cold-mover.zip
+INFO     src.providers.terraform.package_builder:package_builder.py:349   ✓ Built GCP: hot-reader.zip
+INFO     src.providers.terraform.package_builder:package_builder.py:349   ✓ Built GCP: cold-to-archive-mover.zip
+INFO     src.providers.terraform.package_builder:package_builder.py:62 ✓ Built 8 function packages
+INFO     src.providers.terraform.deployer_strategy:deployer_strategy.py:153 
+[STEP 2/6] Generating tfvars.json...
+INFO     src.tfvars_generator:tfvars_generator.py:510   3D scene assets enabled: /tmp/pytest-of-root/pytest-87/gcp_terraform_e2e0/gcp-e2e-test/scene_assets
+INFO     src.tfvars_generator:tfvars_generator.py:149   No Azure providers configured, skipping ZIP builds
+INFO     src.tfvars_generator:tfvars_generator.py:102 ✓ Generated tfvars: /tmp/pytest-of-root/pytest-87/gcp_terraform_e2e0/gcp-e2e-test/terraform/generated.tfvars.json
+INFO     src.providers.terraform.deployer_strategy:deployer_strategy.py:219 ✓ Generated: /tmp/pytest-of-root/pytest-87/gcp_terraform_e2e0/gcp-e2e-test/terraform/generated.tfvars.json
+INFO     src.providers.terraform.deployer_strategy:deployer_strategy.py:157 
+[STEP 3/6] Terraform init...
+INFO     src.terraform_runner:terraform_runner.py:157 Initializing Terraform...
+INFO     src.terraform_runner:terraform_runner.py:90 Running: terraform -chdir=/app/src/terraform init
+INFO     src.terraform_runner:terraform_runner.py:159 ✓ Terraform initialized
+INFO     src.providers.terraform.deployer_strategy:deployer_strategy.py:161 
+[STEP 4/6] Terraform apply...
+INFO     src.terraform_runner:terraform_runner.py:245 Applying Terraform configuration...
+INFO     src.terraform_runner:terraform_runner.py:90 Running: terraform -chdir=/app/src/terraform apply -auto-approve -var-file=/tmp/pytest-of-root/pytest-87/gcp_terraform_e2e0/gcp-e2e-test/terraform/generated.tfvars.json
+INFO     src.terraform_runner:terraform_runner.py:247 ✓ Apply complete
+INFO     src.terraform_runner:terraform_runner.py:90 Running: terraform -chdir=/app/src/terraform output -json
+INFO     src.providers.terraform.deployer_strategy:deployer_strategy.py:166 ✓ Terraform outputs: ['gcp_cold_bucket', 'gcp_dispatcher_url', 'gcp_event_checker_url', 'gcp_event_workflow_id', 'gcp_firestore_database', 'gcp_function_source_bucket', 'gcp_hot_reader_url', 'gcp_persister_url', 'gcp_project_id', 'gcp_pubsub_events_topic', 'gcp_pubsub_telemetry_topic', 'gcp_service_account_email']
+INFO     src.providers.terraform.deployer_strategy:deployer_strategy.py:169 
+[STEP 5/6] Deploying Azure function code...
+INFO     src.providers.terraform.deployer_strategy:deployer_strategy.py:238   No Azure layers configured, skipping Kudu deployment
+INFO     src.providers.terraform.deployer_strategy:deployer_strategy.py:173 
+[STEP 6/6] Running post-deployment operations...
+INFO     src.providers.terraform.deployer_strategy:deployer_strategy.py:179 
+============================================================
+INFO     src.providers.terraform.deployer_strategy:deployer_strategy.py:180   TERRAFORM DEPLOYMENT - COMPLETE
+INFO     src.providers.terraform.deployer_strategy:deployer_strategy.py:181 ============================================================

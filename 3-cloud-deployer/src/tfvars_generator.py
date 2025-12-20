@@ -225,7 +225,7 @@ def _build_gcp_user_function_vars(project_dir: Path, providers: dict) -> dict:
     if providers.get("layer_2_provider") != "google":
         return gcp_vars
     
-    build_dir = project_dir / ".build" / "google"
+    build_dir = project_dir / ".build" / "gcp"
     
     # Load IoT devices config to get processors
     devices_path = project_dir / "config_iot_devices.json"

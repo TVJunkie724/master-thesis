@@ -308,10 +308,17 @@ class TestGCPTerraformE2E:
         try:
             from google.cloud import pubsub_v1
             
-            # Set credentials
+            # Set credentials - convert relative path to absolute
             creds_file = gcp_creds.get("gcp_credentials_file")
             if creds_file:
-                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_file
+                # If relative path, make absolute using project path
+                project_path = Path(deployed_environment["project_path"])
+                if not os.path.isabs(creds_file):
+                    creds_file = str(project_path / creds_file)
+                if os.path.exists(creds_file):
+                    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_file
+                else:
+                    print(f"[WARN] Credentials file not found: {creds_file}")
             
             publisher = pubsub_v1.PublisherClient()
             topic_path = telemetry_topic

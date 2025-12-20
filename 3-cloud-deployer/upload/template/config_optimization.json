@@ -13,10 +13,10 @@
         },
         "inputParamsUsed": {
             "useEventChecking": true,
-            "triggerNotificationWorkflow": false,
-            "returnFeedbackToDevice": false,
+            "triggerNotificationWorkflow": true,
+            "returnFeedbackToDevice": true,
             "integrateErrorHandling": true,
-            "needs3DModel": false
+            "needs3DModel": true
         }
     }
 }
