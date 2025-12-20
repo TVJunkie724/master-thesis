@@ -27,7 +27,7 @@ except ModuleNotFoundError:
 
 # Required environment variables
 INTER_CLOUD_TOKEN = require_env("INTER_CLOUD_TOKEN")
-COLD_BUCKET_NAME = require_env("COLD_BUCKET_NAME")
+COLD_BUCKET_NAME = require_env("COLD_BUCKET")
 
 # Storage client
 _storage_client = None

@@ -21,6 +21,7 @@ azure-mgmt-resource
 azure-mgmt-web
 azure-mgmt-storage
 azure-mgmt-msi
+azure-mgmt-subscription
 
 # Azure SDK packages for L1 (IoT/Data Acquisition)
 azure-mgmt-iothub

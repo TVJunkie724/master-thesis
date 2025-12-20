@@ -60,6 +60,29 @@ REQUIRED_CREDENTIALS_FIELDS = {
 }
 
 # ==========================================
+# Azure Region Validation
+# ==========================================
+# Regions known to NOT support Consumption Plan (Y1) with Linux OS
+# Based on empirical testing (December 2025)
+# Note: These regions may support Flex Consumption (FC1) but not traditional Y1+Linux
+AZURE_UNSUPPORTED_REGIONS_Y1_LINUX = [
+    "italynorth",  # Confirmed: Only supports Flex Consumption (FC1), not Y1+Linux
+]
+
+# Recommended Azure regions for Consumption Plan (Y1) with Linux
+# These regions have been verified to support Y1+Linux combination
+AZURE_RECOMMENDED_REGIONS_Y1_LINUX = [
+    "westeurope",          # Primary recommendation - full support, high capacity
+    "northeurope",         # Alternative - Dublin, Ireland
+    "francecentral",       # Alternative - Paris, France  
+    "germanywestcentral",  # Alternative - Frankfurt, Germany
+    "uksouth",             # Alternative - London, UK
+    "eastus",              # Alternative - Virginia, USA
+    "westus2",             # Alternative - Washington, USA
+]
+
+
+# ==========================================
 # 2. Directory Names
 # ==========================================
 IOT_DATA_DIR_NAME = "iot_devices_auth"

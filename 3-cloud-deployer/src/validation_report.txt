@@ -1,0 +1,146 @@
+================================================================================
+ENVIRONMENT VARIABLE VALIDATION REPORT
+================================================================================
+
+
+📄 gcp_glue.tf
+--------------------------------------------------------------------------------
+  ❌ ingestion: MISMATCH DETECTED
+     Missing in Terraform (used in Python):
+       - DIGITAL_TWIN_INFO
+       - FUNCTION_BASE_URL
+     Unused in Python (defined in Terraform):
+       - DIGITAL_TWIN_NAME
+       - EVENTS_TOPIC
+  ❌ hot_writer: MISMATCH DETECTED
+     Missing in Terraform (used in Python):
+       - INTER_CLOUD_TOKEN
+     Unused in Python (defined in Terraform):
+       - DIGITAL_TWIN_NAME
+       - FIRESTORE_COLLECTION
+       - GCP_PROJECT_ID
+  ❌ cold_writer: MISMATCH DETECTED
+     Unused in Python (defined in Terraform):
+       - DIGITAL_TWIN_NAME
+  ❌ archive_writer: MISMATCH DETECTED
+     Missing in Terraform (used in Python):
+       - ARCHIVE_BUCKET_NAME
+     Unused in Python (defined in Terraform):
+       - ARCHIVE_BUCKET
+       - DIGITAL_TWIN_NAME
+
+📄 gcp_compute.tf
+--------------------------------------------------------------------------------
+  ⚠️  dispatcher: Function not found in Terraform (may be conditional)
+  ❌ processor: MISMATCH DETECTED
+     Missing in Terraform (used in Python):
+       - PERSISTER_FUNCTION_URL
+     Unused in Python (defined in Terraform):
+       - DIGITAL_TWIN_INFO
+       - DIGITAL_TWIN_NAME
+       - FIRESTORE_COLLECTION
+       - GCP_PROJECT_ID
+  ❌ persister: MISMATCH DETECTED
+     Missing in Terraform (used in Python):
+       - REMOTE_WRITER_URL
+     Unused in Python (defined in Terraform):
+       - DIGITAL_TWIN_NAME
+       - FIRESTORE_COLLECTION
+       - GCP_PROJECT_ID
+  ⚠️  connector: Function not found in Terraform (may be conditional)
+
+📄 gcp_storage.tf
+--------------------------------------------------------------------------------
+  ❌ hot_reader: MISMATCH DETECTED
+     Unused in Python (defined in Terraform):
+       - DIGITAL_TWIN_INFO
+       - DIGITAL_TWIN_NAME
+       - FIRESTORE_COLLECTION
+       - GCP_PROJECT_ID
+  ❌ hot_to_cold_mover: MISMATCH DETECTED
+     Missing in Terraform (used in Python):
+       - COLD_BUCKET_NAME
+     Unused in Python (defined in Terraform):
+       - DIGITAL_TWIN_NAME
+       - GCP_PROJECT_ID
+
+📄 gcp_iot.tf
+--------------------------------------------------------------------------------
+  ⚠️  event_checker: Function not found in Terraform (may be conditional)
+
+📄 aws_glue.tf
+--------------------------------------------------------------------------------
+  ❌ l0_ingestion: MISMATCH DETECTED
+     Missing in Terraform (used in Python):
+       - DIGITAL_TWIN_INFO
+       - INTER_CLOUD_TOKEN
+  ❌ l0_hot_writer: MISMATCH DETECTED
+     Missing in Terraform (used in Python):
+       - DYNAMODB_TABLE_NAME
+       - INTER_CLOUD_TOKEN
+  ❌ l0_cold_writer: MISMATCH DETECTED
+     Missing in Terraform (used in Python):
+       - COLD_S3_BUCKET_NAME
+       - INTER_CLOUD_TOKEN
+
+📄 aws_compute.tf
+--------------------------------------------------------------------------------
+  ⚠️  dispatcher: Function not found in Terraform (may be conditional)
+  ⚠️  persister: Function not found in Terraform (may be conditional)
+  ⚠️  connector: Function not found in Terraform (may be conditional)
+
+📄 aws_storage.tf
+--------------------------------------------------------------------------------
+  ⚠️  hot_reader: Function not found in Terraform (may be conditional)
+  ⚠️  hot_to_cold_mover: Function not found in Terraform (may be conditional)
+
+📄 azure_compute.tf
+--------------------------------------------------------------------------------
+  ⚠️  dispatcher: Function not found in Terraform (may be conditional)
+  ⚠️  persister: Function not found in Terraform (may be conditional)
+  ⚠️  connector: Function not found in Terraform (may be conditional)
+
+📄 azure_storage.tf
+--------------------------------------------------------------------------------
+  ⚠️  hot_reader: Function not found in Terraform (may be conditional)
+  ⚠️  hot_to_cold_mover: Function not found in Terraform (may be conditional)
+
+================================================================================
+❌ FOUND 34 ISSUES
+
+Summary of Issues:
+  - ingestion: DIGITAL_TWIN_INFO (missing_in_terraform)
+  - ingestion: FUNCTION_BASE_URL (missing_in_terraform)
+  - ingestion: DIGITAL_TWIN_NAME (unused_in_python)
+  - ingestion: EVENTS_TOPIC (unused_in_python)
+  - hot_writer: INTER_CLOUD_TOKEN (missing_in_terraform)
+  - hot_writer: DIGITAL_TWIN_NAME (unused_in_python)
+  - hot_writer: FIRESTORE_COLLECTION (unused_in_python)
+  - hot_writer: GCP_PROJECT_ID (unused_in_python)
+  - cold_writer: DIGITAL_TWIN_NAME (unused_in_python)
+  - archive_writer: ARCHIVE_BUCKET_NAME (missing_in_terraform)
+  - archive_writer: ARCHIVE_BUCKET (unused_in_python)
+  - archive_writer: DIGITAL_TWIN_NAME (unused_in_python)
+  - processor: PERSISTER_FUNCTION_URL (missing_in_terraform)
+  - processor: DIGITAL_TWIN_INFO (unused_in_python)
+  - processor: DIGITAL_TWIN_NAME (unused_in_python)
+  - processor: FIRESTORE_COLLECTION (unused_in_python)
+  - processor: GCP_PROJECT_ID (unused_in_python)
+  - persister: REMOTE_WRITER_URL (missing_in_terraform)
+  - persister: DIGITAL_TWIN_NAME (unused_in_python)
+  - persister: FIRESTORE_COLLECTION (unused_in_python)
+  - persister: GCP_PROJECT_ID (unused_in_python)
+  - hot_reader: DIGITAL_TWIN_INFO (unused_in_python)
+  - hot_reader: DIGITAL_TWIN_NAME (unused_in_python)
+  - hot_reader: FIRESTORE_COLLECTION (unused_in_python)
+  - hot_reader: GCP_PROJECT_ID (unused_in_python)
+  - hot_to_cold_mover: COLD_BUCKET_NAME (missing_in_terraform)
+  - hot_to_cold_mover: DIGITAL_TWIN_NAME (unused_in_python)
+  - hot_to_cold_mover: GCP_PROJECT_ID (unused_in_python)
+  - l0_ingestion: DIGITAL_TWIN_INFO (missing_in_terraform)
+  - l0_ingestion: INTER_CLOUD_TOKEN (missing_in_terraform)
+  - l0_hot_writer: DYNAMODB_TABLE_NAME (missing_in_terraform)
+  - l0_hot_writer: INTER_CLOUD_TOKEN (missing_in_terraform)
+  - l0_cold_writer: COLD_S3_BUCKET_NAME (missing_in_terraform)
+  - l0_cold_writer: INTER_CLOUD_TOKEN (missing_in_terraform)
+================================================================================

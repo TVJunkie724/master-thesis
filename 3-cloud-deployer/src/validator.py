@@ -71,6 +71,13 @@ def validate_config_content(filename, content):
                     for key in keys:
                         if key not in content[provider]:
                             raise ValueError(f"Missing required credential field '{key}' for provider '{provider}' in {filename}.")
+                    
+                    # Azure-specific validation
+                    if provider == "azure":
+                        azure_region = content[provider].get("azure_region")
+                        if azure_region:
+                            validate_azure_region_for_consumption_plan(azure_region)
+
         
         # General Case: List of objects (IOT, EVENTS, HIERARCHY)
         elif isinstance(content, list):
@@ -116,6 +123,45 @@ def validate_config_content(filename, content):
                  for conn_id, details in connections.items():
                      if not all(k in details for k in ["provider", "token", "url"]):
                          raise ValueError(f"Connection '{conn_id}' missing required fields: provider, token, url")
+
+
+# ==========================================
+# 0.a. Azure Region Validation
+# ==========================================
+def validate_azure_region_for_consumption_plan(azure_region: str) -> None:
+    """
+    Validates that the Azure region supports Consumption Plan (Y1) with Linux.
+    
+    Azure Functions Consumption Plan (Y1) with Linux OS is not supported in all regions.
+    Some regions (like italynorth) only support the newer Flex Consumption plan (FC1).
+    
+    Note: There is no programmatic API to query Y1+Linux regional support.
+    This validation is based on empirical testing (December 2025).
+    
+    Args:
+        azure_region: The Azure region to validate
+        
+    Raises:
+        ValueError: If region is known to not support Y1 + Linux
+    """
+    if azure_region in CONSTANTS.AZURE_UNSUPPORTED_REGIONS_Y1_LINUX:
+        recommended = ", ".join(CONSTANTS.AZURE_RECOMMENDED_REGIONS_Y1_LINUX[:3])
+        raise ValueError(
+            f"Azure region '{azure_region}' does NOT support Consumption Plan (Y1) with Linux OS.\n"
+            f"\n"
+            f"This region only supports the Flex Consumption plan (FC1), which requires:\n"
+            f"  - Different Terraform configuration\n"
+            f"  - Different deployment mechanism (blob storage instead of zip_deploy_file)\n"
+            f"  - Significant code changes\n"
+            f"\n"
+            f"Recommended regions for Consumption Plan (Y1) with Linux:\n"
+            f"  - {recommended}\n"
+            f"\n"
+            f"To fix: Change 'azure_region' in config_credentials.json to one of the recommended regions.\n"
+            f"\n"
+            f"For more information, see: docs/azure_flex_consumption_migration.md"
+        ) # TODO: Add link to docs when docs html is updated
+
 
 
 # ==========================================

@@ -168,7 +168,7 @@ def get_project_config(
     - `providers`: Cloud provider per layer
     - `aws_hierarchy`: AWS TwinMaker hierarchy
     - `azure_hierarchy`: Azure Digital Twins hierarchy
-    - `credentials`: Cloud credentials (sensitive)
+    - `credentials`: Cloud credentials (sensitive --> only example file returned)
     - `optimization`: Optimization flags
     
     **Note:** This endpoint replaces the deprecated `/info/config*` endpoints
@@ -187,7 +187,13 @@ def get_project_config(
     
     filename = config_map[config_type]
     
+    is_template_project = project_name == CONSTANTS.DEFAULT_PROJECT_NAME
+    do_return_credentials_file = False
     try:
+        if config_type == ConfigType.credentials:
+            do_return_credentials_file = True
+
+
         project_path = os.path.join(
             state.get_project_base_path(),
             CONSTANTS.PROJECT_UPLOAD_DIR_NAME,
@@ -197,14 +203,18 @@ def get_project_config(
         if not os.path.exists(project_path):
             raise HTTPException(status_code=404, detail=f"Project '{project_name}' not found")
         
-        file_path = os.path.join(project_path, filename)
-        
+        if not do_return_credentials_file:
+            file_path = os.path.join(project_path, filename)
+        else:
+            file_path = os.path.join(project_path, filename + ".example")
+
         if not os.path.exists(file_path):
             raise HTTPException(
                 status_code=404, 
                 detail=f"Config file '{filename}' not found in project '{project_name}'"
             )
         
+        print(is_template_project, do_return_credentials_file)
         with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)
             

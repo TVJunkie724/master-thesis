@@ -170,9 +170,8 @@ class TestGCPTerraformE2E:
                 print("  Console: https://console.cloud.google.com")
                 print("!"*60)
         
-        # Register cleanup to run ALWAYS
-        # NOTE: Commented out for debugging - resources will NOT be destroyed
-        # request.addfinalizer(terraform_cleanup)
+        # Register cleanup to run ALWAYS (on success or failure)
+        request.addfinalizer(terraform_cleanup)
         
         # ==========================================
         # PHASE 4: Terraform Deployment

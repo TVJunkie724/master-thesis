@@ -564,3 +564,72 @@ def aws_terraform_e2e_project_path(template_project_path, aws_terraform_e2e_test
     
     # Cleanup temp directory
     print(f"\n[AWS TERRAFORM E2E] Cleaning up temp project: {project_path}")
+
+
+# ==============================================================================
+# Multi-Cloud E2E Test Fixtures
+# ==============================================================================
+
+@pytest.fixture(scope="session")
+def multicloud_e2e_test_id():
+    """
+    Fixed, deterministic ID for multi-cloud E2E test runs.
+    
+    Tests ALL cross-cloud connections:
+    - GCP L1 → Azure L2 → AWS L3 → Azure L4 → AWS L5
+    """
+    return "mc-e2e-test"
+
+
+@pytest.fixture(scope="session")
+def multicloud_e2e_project_path(template_project_path, multicloud_e2e_test_id, tmp_path_factory):
+    """
+    Create multi-cloud E2E test project.
+    
+    Provider configuration (ALL cross-cloud):
+    - L1: google (Pub/Sub)
+    - L2: azure (Functions)
+    - L3 hot: aws (DynamoDB)
+    - L3 cold: google (Cloud Storage)
+    - L3 archive: azure (Blob Storage)
+    - L4: azure (Digital Twins)
+    - L5: aws (Grafana)
+    """
+    # Create temp directory for E2E project
+    temp_dir = tmp_path_factory.mktemp("multicloud_e2e")
+    project_path = temp_dir / multicloud_e2e_test_id
+    
+    # Copy template project
+    shutil.copytree(template_project_path, project_path)
+    
+    # Modify config.json with unique twin name
+    config_path = project_path / "config.json"
+    with open(config_path, "r") as f:
+        config = json.load(f)
+    config["digital_twin_name"] = multicloud_e2e_test_id
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=2)
+    
+    # Multi-cloud provider configuration
+    providers_path = project_path / "config_providers.json"
+    providers = {
+        "layer_1_provider": "google",
+        "layer_2_provider": "azure",
+        "layer_3_hot_provider": "aws",
+        "layer_3_cold_provider": "google",
+        "layer_3_archive_provider": "azure",
+        "layer_4_provider": "azure",
+        "layer_5_provider": "aws"
+    }
+    with open(providers_path, "w") as f:
+        json.dump(providers, f, indent=2)
+    
+    print(f"\n[MULTICLOUD E2E] Created test project: {project_path}")
+    print(f"[MULTICLOUD E2E] Digital twin name: {multicloud_e2e_test_id}")
+    print(f"[MULTICLOUD E2E] Cross-cloud: GCP→Azure→AWS→Azure→AWS")
+    
+    yield str(project_path)
+    
+    # Cleanup temp directory
+    print(f"\n[MULTICLOUD E2E] Cleaning up temp project: {project_path}")
+

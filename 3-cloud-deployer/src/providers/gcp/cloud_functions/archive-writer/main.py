@@ -38,7 +38,7 @@ def _get_inter_cloud_token():
 def _get_archive_bucket_name():
     global _archive_bucket_name
     if _archive_bucket_name is None:
-        _archive_bucket_name = require_env("ARCHIVE_BUCKET_NAME")
+        _archive_bucket_name = require_env("ARCHIVE_BUCKET")
     return _archive_bucket_name
 
 # Storage client
