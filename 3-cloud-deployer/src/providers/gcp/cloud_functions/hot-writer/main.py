@@ -25,8 +25,15 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables - fail fast if missing
-INTER_CLOUD_TOKEN = require_env("INTER_CLOUD_TOKEN")
+# Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
+_inter_cloud_token = None
+
+def _get_inter_cloud_token():
+    global _inter_cloud_token
+    if _inter_cloud_token is None:
+        _inter_cloud_token = require_env("INTER_CLOUD_TOKEN")
+    return _inter_cloud_token
+
 FIRESTORE_COLLECTION = os.environ.get("FIRESTORE_COLLECTION", "hot_data")
 
 # Firestore client
@@ -49,7 +56,7 @@ def main(request):
     print("Hello from Hot Writer!")
     
     # Validate token
-    if not validate_token(request, INTER_CLOUD_TOKEN):
+    if not validate_token(request, _get_inter_cloud_token()):
         return build_auth_error_response()
     
     try:

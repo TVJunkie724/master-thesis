@@ -23,12 +23,26 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables - fail fast if missing
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
+# Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
+_digital_twin_info = None
+_function_base_url = None
+
+def _get_digital_twin_info():
+    """Lazy-load DIGITAL_TWIN_INFO to avoid import-time failures."""
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
+
+def _get_function_base_url():
+    """Lazy-load FUNCTION_BASE_URL to avoid import-time failures."""
+    global _function_base_url
+    if _function_base_url is None:
+        _function_base_url = require_env("FUNCTION_BASE_URL")
+    return _function_base_url
+
 # Target function suffix is used to identify the target function, can be either "-processor" or "-connector"
 TARGET_FUNCTION_SUFFIX = os.environ.get("TARGET_FUNCTION_SUFFIX", "-processor")
-# Base URL for Cloud Functions (e.g., https://REGION-PROJECT.cloudfunctions.net)
-FUNCTION_BASE_URL = require_env("FUNCTION_BASE_URL")
 
 
 @functions_framework.http
@@ -52,13 +66,13 @@ def main(request):
         
         # Construct target function name
         # FORMAT: {twin_name}-{device_id}{target_suffix}
-        twin_name = DIGITAL_TWIN_INFO["config"]["digital_twin_name"]
+        twin_name = _get_digital_twin_info()["config"]["digital_twin_name"]
         function_name = f"{twin_name}-{device_id}{TARGET_FUNCTION_SUFFIX}"
         
         print(f"Dispatching to: {function_name}")
         
         # Invoke target function via HTTP POST
-        target_url = f"{FUNCTION_BASE_URL}/{function_name}"
+        target_url = f"{_get_function_base_url()}/{function_name}"
         response = requests.post(
             target_url,
             json=event,
@@ -73,3 +87,4 @@ def main(request):
     except Exception as e:
         print(f"Dispatcher Error: {e}")
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})
+

@@ -36,7 +36,7 @@ resource "google_cloudfunctions2_function" "ingestion" {
 
   build_config {
     runtime     = "python311"
-    entry_point = "ingestion_handler"
+    entry_point = "main"
     
     source {
       storage_source {
@@ -93,7 +93,7 @@ resource "google_cloudfunctions2_function" "hot_writer" {
 
   build_config {
     runtime     = "python311"
-    entry_point = "hot_writer_handler"
+    entry_point = "main"
     
     source {
       storage_source {
@@ -152,7 +152,7 @@ resource "google_cloudfunctions2_function" "cold_writer" {
 
   build_config {
     runtime     = "python311"
-    entry_point = "cold_writer_handler"
+    entry_point = "main"
     
     source {
       storage_source {
@@ -210,7 +210,7 @@ resource "google_cloudfunctions2_function" "archive_writer" {
 
   build_config {
     runtime     = "python311"
-    entry_point = "archive_writer_handler"
+    entry_point = "main"
     
     source {
       storage_source {

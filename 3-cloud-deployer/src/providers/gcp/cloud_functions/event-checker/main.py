@@ -24,8 +24,14 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables - fail fast if missing
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
+# Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
+_digital_twin_info = None
+
+def _get_digital_twin_info():
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
 
 # Optional - Cloud Workflow trigger URL
 WORKFLOW_TRIGGER_URL = os.environ.get("WORKFLOW_TRIGGER_URL", "")
@@ -102,7 +108,7 @@ def _trigger_action(event: dict, action: dict) -> None:
         if FEEDBACK_FUNCTION_URL:
             feedback_payload = {
                 "detail": {
-                    "digitalTwinName": DIGITAL_TWIN_INFO["config"]["digital_twin_name"],
+                    "digitalTwinName": _get_digital_twin_info()["config"]["digital_twin_name"],
                     "iotDeviceId": event.get("iotDeviceId"),
                     "payload": action.get("payload", {})
                 }
@@ -128,7 +134,7 @@ def main(request):
         print("Event: " + json.dumps(event))
         
         # Get event rules from DIGITAL_TWIN_INFO
-        event_rules = DIGITAL_TWIN_INFO.get("config_events", [])
+        event_rules = _get_digital_twin_info().get("config_events", [])
         
         triggered_count = 0
         for rule in event_rules:
@@ -145,3 +151,4 @@ def main(request):
     except Exception as e:
         print(f"Event Checker Error: {e}")
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})
+

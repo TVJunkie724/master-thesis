@@ -87,12 +87,12 @@ class TestSimulatorAPIEndpoints:
         """Test POST /validate/simulator/payloads with valid data."""
         mock_validate.return_value = (True, [], [])
         
-        response = client.post(
-            "/validate/simulator/payloads",
-            json={"content": "W3siaW90RGV2aWNlSWQiOiAiZDEifV0="}  # Base64 encoded
-        )
-        # May need adjustment based on actual content handling
-        assert response.status_code in [200, 500]  # Will refine based on actual implementation
+        # Endpoint now expects file upload, not JSON body
+        payload_content = json.dumps([{"iotDeviceId": "d1"}])
+        files = {"file": ("payloads.json", payload_content, "application/json")}
+        response = client.post("/validate/simulator/payloads", files=files)
+        
+        assert response.status_code == 200
 
     @patch('os.path.exists')
     def test_download_package_missing_config(self, mock_exists):

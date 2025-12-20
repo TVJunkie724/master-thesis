@@ -201,14 +201,24 @@ class TestValidation(unittest.TestCase):
             
             # Add hierarchy file for L4 provider (required by new cross-config validation)
             # Default providers config sets layer_4_provider=aws
+            # Skip if already in extra_files to avoid duplicate warnings
             providers_config = configs.get(CONSTANTS.CONFIG_PROVIDERS_FILE) if configs else None
             layer_4_provider = (providers_config or {}).get("layer_4_provider", "aws")
-            if layer_4_provider == "aws":
-                zf.writestr("twin_hierarchy/aws_hierarchy.json", "[]")
-            elif layer_4_provider == "azure":
-                zf.writestr("twin_hierarchy/azure_hierarchy.json", json.dumps({
-                    "models": [], "twins": [], "relationships": []
-                }))
+            
+            aws_hierarchy_path = "twin_hierarchy/aws_hierarchy.json"
+            azure_hierarchy_path = "twin_hierarchy/azure_hierarchy.json"
+            
+            already_in_extras = extra_files and (
+                aws_hierarchy_path in extra_files or azure_hierarchy_path in extra_files
+            )
+            
+            if not already_in_extras:
+                if layer_4_provider == "aws":
+                    zf.writestr(aws_hierarchy_path, "[]")
+                elif layer_4_provider == "azure":
+                    zf.writestr(azure_hierarchy_path, json.dumps({
+                        "models": [], "twins": [], "relationships": []
+                    }))
             
             if extra_files:
                 for name, content in extra_files.items():

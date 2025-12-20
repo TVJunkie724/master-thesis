@@ -16,17 +16,8 @@ def test_read_root():
     assert response.status_code == 200
     assert response.json() == {"status": "API is running", "active_project": "template"}
 
-@patch("src.api.aws_gateway.create_context")
-@patch("src.api.aws_gateway.lambda_manager.invoke_function")
-def test_lambda_invoke(mock_invoke, mock_create_context):
-    mock_context = mock_create_context.return_value
-    mock_provider = mock_context.providers.__getitem__.return_value
-    
-    payload = {"local_function_name": "test-func", "payload": {}, "sync": True}
-    response = client.post("/lambda_invoke", json=payload)
-    assert response.status_code == 200
-    from unittest.mock import ANY
-    mock_invoke.assert_called_once_with("test-func", {}, True, provider=ANY)
+# NOTE: test_lambda_invoke removed - endpoint /lambda_invoke is deprecated 
+# and no longer included in rest_api.py (aws_gateway router not included)
 
 
 
@@ -37,7 +28,7 @@ def test_lambda_invoke(mock_invoke, mock_create_context):
 def test_upload_state_machine_success(mock_validate):
     """Test successful state machine upload."""
     files = {'file': ('aws_step_function.json', '{"StartAt": "x", "States": {}}', 'application/json')}
-    response = client.put("/projects/template/state_machines/aws", files=files)
+    response = client.put("/projects/test_rest_project/state_machines/aws", files=files)
     assert response.status_code == 200
     assert "uploaded and verified" in response.json()["message"]
     mock_validate.assert_called_once()
@@ -46,7 +37,7 @@ def test_upload_state_machine_success(mock_validate):
 def test_upload_state_machine_invalid_provider(mock_validate):
     """Test upload with invalid provider."""
     files = {'file': ('aws_step_function.json', '{}', 'application/json')}
-    response = client.put("/projects/template/state_machines/unknown", files=files)
+    response = client.put("/projects/test_rest_project/state_machines/unknown", files=files)
     assert response.status_code == 422
     # Just verify it's a validation error structure (list of errors)
     assert isinstance(response.json()["detail"], list)
@@ -56,7 +47,7 @@ def test_upload_state_machine_validation_fail(mock_validate):
     """Test upload validation failure."""
     mock_validate.side_effect = ValueError("Missing content")
     files = {'file': ('aws_step_function.json', '{}', 'application/json')}
-    response = client.put("/projects/template/state_machines/aws", files=files)
+    response = client.put("/projects/test_rest_project/state_machines/aws", files=files)
     assert response.status_code == 400
     assert "Missing content" in response.json()["detail"]
 

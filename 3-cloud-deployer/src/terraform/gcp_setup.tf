@@ -52,6 +52,25 @@ locals {
     (var.layer_4_provider != "google" && var.layer_4_provider != "" && local.gcp_l3_hot_enabled) ||
     (var.layer_5_provider != "google" && var.layer_5_provider != "" && local.gcp_l3_hot_enabled)
   )
+  
+  # Standard Digital Twin Info JSON for all Cloud Functions
+  gcp_digital_twin_info = jsonencode({
+    config = {
+      digital_twin_name = var.digital_twin_name
+    }
+    config_providers = {
+      layer_1_provider         = var.layer_1_provider
+      layer_2_provider         = var.layer_2_provider
+      layer_3_hot_provider     = var.layer_3_hot_provider
+      layer_3_cold_provider    = var.layer_3_cold_provider
+      layer_3_archive_provider = var.layer_3_archive_provider
+      layer_4_provider         = var.layer_4_provider
+      layer_5_provider         = var.layer_5_provider
+    }
+  })
+  
+  # Base URL for GCP Cloud Functions
+  gcp_function_base_url = "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net"
 }
 
 # ==============================================================================
@@ -72,12 +91,22 @@ resource "google_project" "main" {
 # Enable Required APIs
 # ==============================================================================
 
+# Cloud Resource Manager API is required to enable other APIs
+resource "google_project_service" "cloudresourcemanager" {
+  count   = local.deploy_gcp ? 1 : 0
+  project = local.gcp_project_id
+  service = "cloudresourcemanager.googleapis.com"
+  
+  disable_on_destroy = false
+}
+
 resource "google_project_service" "pubsub" {
   count   = local.deploy_gcp ? 1 : 0
   project = local.gcp_project_id
   service = "pubsub.googleapis.com"
   
   disable_on_destroy = false
+  depends_on = [google_project_service.cloudresourcemanager]
 }
 
 resource "google_project_service" "cloudfunctions" {
@@ -86,6 +115,7 @@ resource "google_project_service" "cloudfunctions" {
   service = "cloudfunctions.googleapis.com"
   
   disable_on_destroy = false
+  depends_on = [google_project_service.cloudresourcemanager]
 }
 
 resource "google_project_service" "run" {
@@ -94,6 +124,7 @@ resource "google_project_service" "run" {
   service = "run.googleapis.com"
   
   disable_on_destroy = false
+  depends_on = [google_project_service.cloudresourcemanager]
 }
 
 resource "google_project_service" "firestore" {
@@ -102,6 +133,7 @@ resource "google_project_service" "firestore" {
   service = "firestore.googleapis.com"
   
   disable_on_destroy = false
+  depends_on = [google_project_service.cloudresourcemanager]
 }
 
 resource "google_project_service" "storage" {
@@ -110,6 +142,7 @@ resource "google_project_service" "storage" {
   service = "storage.googleapis.com"
   
   disable_on_destroy = false
+  depends_on = [google_project_service.cloudresourcemanager]
 }
 
 resource "google_project_service" "eventarc" {
@@ -118,6 +151,7 @@ resource "google_project_service" "eventarc" {
   service = "eventarc.googleapis.com"
   
   disable_on_destroy = false
+  depends_on = [google_project_service.cloudresourcemanager]
 }
 
 resource "google_project_service" "cloudbuild" {
@@ -126,6 +160,7 @@ resource "google_project_service" "cloudbuild" {
   service = "cloudbuild.googleapis.com"
   
   disable_on_destroy = false
+  depends_on = [google_project_service.cloudresourcemanager]
 }
 
 resource "google_project_service" "cloudscheduler" {
@@ -134,6 +169,16 @@ resource "google_project_service" "cloudscheduler" {
   service = "cloudscheduler.googleapis.com"
   
   disable_on_destroy = false
+  depends_on = [google_project_service.cloudresourcemanager]
+}
+
+resource "google_project_service" "iam" {
+  count   = local.deploy_gcp ? 1 : 0
+  project = local.gcp_project_id
+  service = "iam.googleapis.com"
+  
+  disable_on_destroy = false
+  depends_on = [google_project_service.cloudresourcemanager]
 }
 
 # ==============================================================================
@@ -145,6 +190,8 @@ resource "google_service_account" "functions" {
   project      = local.gcp_project_id
   account_id   = "${var.digital_twin_name}-functions-sa"
   display_name = "${var.digital_twin_name} Cloud Functions Service Account"
+  
+  depends_on = [google_project_service.iam]
 }
 
 # ==============================================================================
@@ -182,6 +229,8 @@ resource "google_project_iam_custom_role" "functions_role" {
     # Cloud Run (Function invocation)
     "run.routes.invoke",
   ]
+  
+  depends_on = [google_project_service.iam]
 }
 
 # Bind custom role to service account
@@ -198,6 +247,7 @@ resource "google_project_iam_member" "functions_custom_role" {
 
 resource "google_storage_bucket" "function_source" {
   count         = local.deploy_gcp ? 1 : 0
+  project       = local.gcp_project_id
   name          = "${local.gcp_project_id}-${var.digital_twin_name}-functions"
   location      = var.gcp_region
   force_destroy = true

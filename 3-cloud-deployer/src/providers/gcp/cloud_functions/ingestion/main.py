@@ -25,10 +25,28 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables - fail fast if missing
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
-INTER_CLOUD_TOKEN = require_env("INTER_CLOUD_TOKEN")
-FUNCTION_BASE_URL = require_env("FUNCTION_BASE_URL")
+# Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
+_digital_twin_info = None
+_inter_cloud_token = None
+_function_base_url = None
+
+def _get_digital_twin_info():
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
+
+def _get_inter_cloud_token():
+    global _inter_cloud_token
+    if _inter_cloud_token is None:
+        _inter_cloud_token = require_env("INTER_CLOUD_TOKEN")
+    return _inter_cloud_token
+
+def _get_function_base_url():
+    global _function_base_url
+    if _function_base_url is None:
+        _function_base_url = require_env("FUNCTION_BASE_URL")
+    return _function_base_url
 
 
 @functions_framework.http
@@ -41,7 +59,7 @@ def main(request):
     print("Hello from Ingestion!")
     
     # Validate token
-    if not validate_token(request, INTER_CLOUD_TOKEN):
+    if not validate_token(request, _get_inter_cloud_token()):
         return build_auth_error_response()
     
     try:
@@ -57,9 +75,9 @@ def main(request):
             return (json.dumps({"error": "Missing iotDeviceId in payload"}), 400, {"Content-Type": "application/json"})
         
         # Invoke local processor
-        twin_name = DIGITAL_TWIN_INFO["config"]["digital_twin_name"]
+        twin_name = _get_digital_twin_info()["config"]["digital_twin_name"]
         processor_name = f"{twin_name}-{device_id}-processor"
-        processor_url = f"{FUNCTION_BASE_URL}/{processor_name}"
+        processor_url = f"{_get_function_base_url()}/{processor_name}"
         
         print(f"Invoking local processor: {processor_url}")
         
@@ -77,3 +95,4 @@ def main(request):
     except Exception as e:
         print(f"Ingestion Error: {e}")
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})
+

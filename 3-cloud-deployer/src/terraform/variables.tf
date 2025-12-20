@@ -260,6 +260,41 @@ variable "events" {
 }
 
 # ==============================================================================
+# GCP User Functions (Processors, Event Actions, Event Feedback)
+# ==============================================================================
+
+variable "gcp_processors" {
+  description = "List of processor configurations for GCP deployment"
+  type = list(object({
+    name = string
+    zip_path = string
+  }))
+  default = []
+}
+
+variable "gcp_event_actions" {
+  description = "List of event action configurations for GCP deployment"
+  type = list(object({
+    name = string
+    zip_path = string
+  }))
+  default = []
+}
+
+variable "gcp_event_feedback_enabled" {
+  description = "Enable event feedback function for GCP"
+  type        = bool
+  default     = false
+}
+
+variable "gcp_event_feedback_zip_path" {
+  description = "Path to event feedback ZIP for GCP"
+  type        = string
+  default     = ""
+}
+
+
+# ==============================================================================
 # Cross-Cloud Configuration
 # ==============================================================================
 

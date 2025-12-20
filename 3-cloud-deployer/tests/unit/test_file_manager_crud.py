@@ -58,6 +58,8 @@ def valid_zip_bytes():
             "layer_4_provider": "aws"
         }))
         zf.writestr(CONSTANTS.CONFIG_OPTIMIZATION_FILE, json.dumps({"result": {}}))
+        # Add required hierarchy file for layer_4_provider=aws
+        zf.writestr("twin_hierarchy/aws_hierarchy.json", "[]")
     bio.seek(0)
     return bio.getvalue()
 

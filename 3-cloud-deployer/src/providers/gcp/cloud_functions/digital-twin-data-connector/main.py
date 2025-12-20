@@ -30,8 +30,14 @@ class ConfigurationError(Exception):
     pass
 
 
-# Required environment variables
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
+# Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
+_digital_twin_info = None
+
+def _get_digital_twin_info():
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
 
 # Optional - for protected endpoints
 INTER_CLOUD_TOKEN = os.environ.get("INTER_CLOUD_TOKEN", "")
@@ -48,7 +54,7 @@ def _is_multi_cloud_reader() -> bool:
     if not REMOTE_HOT_READER_URL:
         return False
     
-    providers = DIGITAL_TWIN_INFO.get("config_providers")
+    providers = _get_digital_twin_info().get("config_providers")
     if providers is None:
         return False
     

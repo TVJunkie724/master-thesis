@@ -7,7 +7,7 @@ This module provides REST API endpoints for infrastructure operations.
 
 from fastapi import APIRouter, HTTPException, Query, Path
 import src.validator as validator
-from api.dependencies import validate_project_context, validate_provider
+from api.dependencies import validate_project_context, validate_provider, check_template_protection
 from logger import print_stack_trace, logger
 
 import providers.deployer as core_deployer
@@ -49,6 +49,7 @@ def deploy_all(
     
     **Note:** Long-running operation (2-10 minutes depending on resources).
     """
+    check_template_protection(project_name, "deploy")
     validate_project_context(project_name)
     try:
         validator.verify_project_structure(project_name)
@@ -93,6 +94,7 @@ def destroy_all(
     
     **Note:** This operation cannot be undone. All data will be lost.
     """
+    check_template_protection(project_name, "destroy")
     validate_project_context(project_name)
     try:
         provider = provider.lower()

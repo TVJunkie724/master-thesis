@@ -24,10 +24,28 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables - fail fast if missing
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
-REMOTE_INGESTION_URL = require_env("REMOTE_INGESTION_URL")
-INTER_CLOUD_TOKEN = require_env("INTER_CLOUD_TOKEN")
+# Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
+_digital_twin_info = None
+_remote_ingestion_url = None
+_inter_cloud_token = None
+
+def _get_digital_twin_info():
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
+
+def _get_remote_ingestion_url():
+    global _remote_ingestion_url
+    if _remote_ingestion_url is None:
+        _remote_ingestion_url = require_env("REMOTE_INGESTION_URL")
+    return _remote_ingestion_url
+
+def _get_inter_cloud_token():
+    global _inter_cloud_token
+    if _inter_cloud_token is None:
+        _inter_cloud_token = require_env("INTER_CLOUD_TOKEN")
+    return _inter_cloud_token
 
 
 @functions_framework.http
@@ -44,11 +62,12 @@ def main(request):
         print("Event: " + json.dumps(event))
         
         # POST to remote Ingestion API
-        print(f"Forwarding to remote ingestion: {REMOTE_INGESTION_URL}")
+        remote_url = _get_remote_ingestion_url()
+        print(f"Forwarding to remote ingestion: {remote_url}")
         
         result = post_to_remote(
-            url=REMOTE_INGESTION_URL,
-            token=INTER_CLOUD_TOKEN,
+            url=remote_url,
+            token=_get_inter_cloud_token(),
             payload=event,
             target_layer="L2"
         )
@@ -60,3 +79,4 @@ def main(request):
     except Exception as e:
         print(f"Connector Error: {e}")
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})
+

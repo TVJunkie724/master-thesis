@@ -41,6 +41,9 @@ def create_valid_zip_bytes():
                 })
             
             zf.writestr(fname, content)
+        
+        # Add required hierarchy file for layer_4_provider=aws
+        zf.writestr("twin_hierarchy/aws_hierarchy.json", "[]")
     bio.seek(0)
     return bio.getvalue()
 
@@ -185,12 +188,12 @@ def test_api_update_config():
 
 def test_api_safety_check_deploy_mismatch():
     # Current is template
-    response = client.post("/deploy?project_name=other_project&provider=aws")
+    response = client.post("/infrastructure/deploy?project_name=other_project&provider=aws")
     assert response.status_code == 409
     assert "SAFETY ERROR" in response.json()["detail"]
 
 def test_api_safety_check_destroy_mismatch():
     # Current is template
-    response = client.post("/destroy?project_name=other_project&provider=aws")
+    response = client.post("/infrastructure/destroy?project_name=other_project&provider=aws")
     assert response.status_code == 409
     assert "SAFETY ERROR" in response.json()["detail"]

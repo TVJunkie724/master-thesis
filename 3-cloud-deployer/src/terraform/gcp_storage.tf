@@ -37,6 +37,7 @@ resource "google_firestore_database" "main" {
 
 resource "google_storage_bucket" "cold" {
   count         = local.gcp_l3_cold_enabled ? 1 : 0
+  project       = local.gcp_project_id
   name          = "${local.gcp_project_id}-${var.digital_twin_name}-cold"
   location      = var.gcp_region
   storage_class = "NEARLINE"
@@ -66,6 +67,7 @@ resource "google_storage_bucket" "cold" {
 
 resource "google_storage_bucket" "archive" {
   count         = local.gcp_l3_archive_enabled && !local.gcp_l3_cold_enabled ? 1 : 0
+  project       = local.gcp_project_id
   name          = "${local.gcp_project_id}-${var.digital_twin_name}-archive"
   location      = var.gcp_region
   storage_class = "ARCHIVE"
@@ -112,7 +114,7 @@ resource "google_cloudfunctions2_function" "hot_reader" {
 
   build_config {
     runtime     = "python311"
-    entry_point = "hot_reader_handler"
+    entry_point = "main"
     
     source {
       storage_source {
@@ -131,6 +133,7 @@ resource "google_cloudfunctions2_function" "hot_reader" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
+      DIGITAL_TWIN_INFO    = local.gcp_digital_twin_info
       GCP_PROJECT_ID       = local.gcp_project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
       INTER_CLOUD_TOKEN    = var.inter_cloud_token != "" ? var.inter_cloud_token : (
@@ -161,7 +164,7 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
 
   build_config {
     runtime     = "python311"
-    entry_point = "mover_handler"
+    entry_point = "main"
     
     source {
       storage_source {
@@ -180,10 +183,11 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
+      DIGITAL_TWIN_INFO    = local.gcp_digital_twin_info
       GCP_PROJECT_ID       = local.gcp_project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
-      COLD_BUCKET          = google_storage_bucket.cold[0].name
-      HOT_TO_COLD_DAYS     = var.layer_3_hot_to_cold_interval_days
+      COLD_BUCKET_NAME     = google_storage_bucket.cold[0].name
+      HOT_RETENTION_DAYS   = var.layer_3_hot_to_cold_interval_days
     }
   }
 

@@ -35,6 +35,13 @@ def lambda_update(
     - If `local_function_name` is "default-processor", updates all processor Lambdas
     - Otherwise, updates a single Lambda function by name
     """
+    # Protect template project from modifications
+    if project == "template":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot update functions in the 'template' project. It is a protected system folder."
+        )
+    
     try:
         context = create_context(project, "aws")
         aws_provider = context.providers["aws"]
@@ -114,6 +121,13 @@ def lambda_invoke(
     - `payload`: JSON payload to pass to the function
     - `sync`: Whether to wait for response (default True)
     """
+    # Protect template project from modifications
+    if project == "template":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot invoke functions on the 'template' project. It is a protected system folder."
+        )
+    
     try:
         context = create_context(project, "aws")
         aws_provider = context.providers["aws"]

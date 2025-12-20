@@ -1,0 +1,1883 @@
+=== STDOUT ===
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-9.0.2, pluggy-1.6.0 -- /usr/local/bin/python
+cachedir: .pytest_cache
+rootdir: /app
+plugins: anyio-4.12.0
+collecting ... collected 1 item
+
+tests/e2e/gcp/test_gcp_terraform_e2e.py::TestGCPTerraformE2E::test_01_terraform_outputs_present ERROR [100%]
+
+==================================== ERRORS ====================================
+___ ERROR at setup of TestGCPTerraformE2E.test_01_terraform_outputs_present ____
+tests/e2e/gcp/test_gcp_terraform_e2e.py:185: in deployed_environment
+    terraform_outputs = strategy.deploy_all(context)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/providers/terraform/deployer_strategy.py:162: in deploy_all
+    self.runner.apply(var_file=str(self.tfvars_path))
+src/terraform_runner.py:246: in apply
+    self._run_command(args, stream_output=True)
+src/terraform_runner.py:134: in _run_command
+    raise TerraformError(args[0], result.returncode, error_output)
+E   src.terraform_runner.TerraformError: Terraform apply failed (exit 1): [0m[1mgoogle_project_service.cloudresourcemanager[0]: Refreshing state... [id=digital-twin-dev-481720/cloudresourcemanager.googleapis.com][0m
+E   [0m[1mgoogle_storage_bucket.function_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions][0m
+E   [0m[1mlocal_file.gcp_simulator_config["temperature-sensor-2"]: Refreshing state... [id=2a37f4f17496e1571fc3609434c8aaec02f74814][0m
+E   [0m[1mlocal_file.gcp_simulator_config["pressure-sensor-1"]: Refreshing state... [id=2824719fcc22bc7f5971a455630b7373e43f8aa3][0m
+E   [0m[1mlocal_file.gcp_simulator_config["temperature-sensor-1"]: Refreshing state... [id=f05b0c165c25e40fe4d6e70001b7cd5de463bac7][0m
+E   [0m[1mgoogle_storage_bucket_object.hot_to_cold_mover_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip][0m
+E   [0m[1mgoogle_storage_bucket_object.persister_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-persister-51fd295ef504168b8c18e590573f422e.zip][0m
+E   [0m[1mgoogle_storage_bucket_object.hot_reader_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip][0m
+E   [0m[1mgoogle_storage_bucket_object.user_functions_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-user-functions-8774339f925ecccbd7fafed5c2324082.zip][0m
+E   [0m[1mgoogle_storage_bucket_object.event_checker_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip][0m
+E   [0m[1mgoogle_storage_bucket_object.processor_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-processor-4f9bab6c6593a373bf20f6cb33e696b9.zip][0m
+E   [0m[1mgoogle_storage_bucket_object.dispatcher_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip][0m
+E   [0m[1mgoogle_project_service.cloudbuild[0]: Refreshing state... [id=digital-twin-dev-481720/cloudbuild.googleapis.com][0m
+E   [0m[1mgoogle_project_service.iam[0]: Refreshing state... [id=digital-twin-dev-481720/iam.googleapis.com][0m
+E   [0m[1mgoogle_project_service.pubsub[0]: Refreshing state... [id=digital-twin-dev-481720/pubsub.googleapis.com][0m
+E   [0m[1mgoogle_project_service.cloudscheduler[0]: Refreshing state... [id=digital-twin-dev-481720/cloudscheduler.googleapis.com][0m
+E   [0m[1mgoogle_project_service.cloudfunctions[0]: Refreshing state... [id=digital-twin-dev-481720/cloudfunctions.googleapis.com][0m
+E   [0m[1mgoogle_project_service.firestore[0]: Refreshing state... [id=digital-twin-dev-481720/firestore.googleapis.com][0m
+E   [0m[1mgoogle_project_service.eventarc[0]: Refreshing state... [id=digital-twin-dev-481720/eventarc.googleapis.com][0m
+E   [0m[1mgoogle_project_service.storage[0]: Refreshing state... [id=digital-twin-dev-481720/storage.googleapis.com][0m
+E   [0m[1mgoogle_project_service.run[0]: Refreshing state... [id=digital-twin-dev-481720/run.googleapis.com][0m
+E   [0m[1mgoogle_pubsub_topic.telemetry[0]: Refreshing state... [id=projects/digital-twin-dev-481720/topics/tf-e2e-gcp-telemetry][0m
+E   [0m[1mgoogle_firestore_database.main[0]: Refreshing state... [id=projects/digital-twin-dev-481720/databases/(default)][0m
+E   [0m[1mgoogle_pubsub_topic.events[0]: Refreshing state... [id=projects/digital-twin-dev-481720/topics/tf-e2e-gcp-events][0m
+E   [0m[1mgoogle_service_account.functions[0]: Refreshing state... [id=projects/digital-twin-dev-481720/serviceAccounts/tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+E   [0m[1mgoogle_project_iam_custom_role.functions_role[0]: Refreshing state... [id=projects/digital-twin-dev-481720/roles/tf_e2e_gcp_functions_role][0m
+E   [0m[1mgoogle_storage_bucket.cold[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-cold][0m
+E   [0m[1mgoogle_project_iam_member.functions_custom_role[0]: Refreshing state... [id=digital-twin-dev-481720/projects/digital-twin-dev-481720/roles/tf_e2e_gcp_functions_role/serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+E   [0m[1mgoogle_cloudfunctions2_function.hot_reader[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-hot-reader][0m
+E   [0m[1mgoogle_cloudfunctions2_function.hot_to_cold_mover[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-hot-to-cold-mover][0m
+E   [0m[1mgoogle_cloudfunctions2_function.persister[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-persister][0m
+E   [0m[1mgoogle_cloudfunctions2_function.dispatcher[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-dispatcher][0m
+E   [0m[1mgoogle_cloud_run_service_iam_member.hot_reader_invoker[0]: Refreshing state... [id=v1/projects/digital-twin-dev-481720/locations/europe-west1/services/tf-e2e-gcp-hot-reader/roles/run.invoker/serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+E   [0m[1mgoogle_cloud_run_service_iam_member.persister_invoker[0]: Refreshing state... [id=v1/projects/digital-twin-dev-481720/locations/europe-west1/services/tf-e2e-gcp-persister/roles/run.invoker/serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+E   [0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-user-functions][0m
+E   [0m[1mgoogle_cloudfunctions2_function.processor[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-processor][0m
+E   [0m[1mgoogle_cloud_run_service_iam_member.hot_to_cold_mover_invoker[0]: Refreshing state... [id=v1/projects/digital-twin-dev-481720/locations/europe-west1/services/tf-e2e-gcp-hot-to-cold-mover/roles/run.invoker/serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+E   [0m[1mgoogle_cloud_scheduler_job.hot_to_cold[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/jobs/tf-e2e-gcp-hot-to-cold-schedule][0m
+E   [0m[1mgoogle_cloud_run_service_iam_member.dispatcher_invoker[0]: Refreshing state... [id=v1/projects/digital-twin-dev-481720/locations/europe-west1/services/tf-e2e-gcp-dispatcher/roles/run.invoker/serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+E   
+E   [1m[36mNote:[0m[1m Objects have changed outside of Terraform
+E   [0m
+E   Terraform detected the following changes made outside of Terraform since the
+E   last "terraform apply" which may have affected this plan:
+E   
+E   [1m  # google_cloudfunctions2_function.user_functions[0][0m has changed
+E   [0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "user_functions" {
+E           id               = "projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-user-functions"
+E           name             = "tf-e2e-gcp-user-functions"
+E         [32m+[0m[0m url              = "https://europe-west1-digital-twin-dev-481720.cloudfunctions.net/tf-e2e-gcp-user-functions"
+E           [90m# (5 unchanged attributes hidden)[0m[0m
+E   
+E           [90m# (2 unchanged blocks hidden)[0m[0m
+E       }
+E   
+E   
+E   Unless you have made equivalent changes to your configuration, or ignored the
+E   relevant attributes using ignore_changes, the following plan may include
+E   actions to undo or respond to these changes.
+E   [90m
+E   ─────────────────────────────────────────────────────────────────────────────[0m
+E   
+E   Terraform used the selected providers to generate the following execution
+E   plan. Resource actions are indicated with the following symbols:
+E     [32m+[0m create[0m
+E   [31m-[0m/[32m+[0m destroy and then create replacement[0m
+E   
+E   Terraform will perform the following actions:
+E   
+E   [1m  # google_cloud_run_service_iam_member.event_checker_invoker[0][0m will be created
+E   [0m  [32m+[0m[0m resource "google_cloud_run_service_iam_member" "event_checker_invoker" {
+E         [32m+[0m[0m etag     = (known after apply)
+E         [32m+[0m[0m id       = (known after apply)
+E         [32m+[0m[0m location = "europe-west1"
+E         [32m+[0m[0m member   = "serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com"
+E         [32m+[0m[0m project  = "digital-twin-dev-481720"
+E         [32m+[0m[0m role     = "roles/run.invoker"
+E         [32m+[0m[0m service  = "tf-e2e-gcp-event-checker"
+E       }
+E   
+E   [1m  # google_cloud_run_service_iam_member.user_functions_invoker[0][0m will be created
+E   [0m  [32m+[0m[0m resource "google_cloud_run_service_iam_member" "user_functions_invoker" {
+E         [32m+[0m[0m etag     = (known after apply)
+E         [32m+[0m[0m id       = (known after apply)
+E         [32m+[0m[0m location = "europe-west1"
+E         [32m+[0m[0m member   = "serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com"
+E         [32m+[0m[0m project  = "digital-twin-dev-481720"
+E         [32m+[0m[0m role     = "roles/run.invoker"
+E         [32m+[0m[0m service  = "tf-e2e-gcp-user-functions"
+E       }
+E   
+E   [1m  # google_cloudfunctions2_function.event_checker[0][0m will be created
+E   [0m  [32m+[0m[0m resource "google_cloudfunctions2_function" "event_checker" {
+E         [32m+[0m[0m effective_labels = {
+E             [32m+[0m[0m "digital-twin" = "tf-e2e-gcp"
+E             [32m+[0m[0m "environment"  = "dev"
+E             [32m+[0m[0m "managed-by"   = "terraform"
+E           }
+E         [32m+[0m[0m environment      = (known after apply)
+E         [32m+[0m[0m id               = (known after apply)
+E         [32m+[0m[0m labels           = {
+E             [32m+[0m[0m "digital-twin" = "tf-e2e-gcp"
+E             [32m+[0m[0m "environment"  = "dev"
+E             [32m+[0m[0m "managed-by"   = "terraform"
+E           }
+E         [32m+[0m[0m location         = "europe-west1"
+E         [32m+[0m[0m name             = "tf-e2e-gcp-event-checker"
+E         [32m+[0m[0m project          = "digital-twin-dev-481720"
+E         [32m+[0m[0m state            = (known after apply)
+E         [32m+[0m[0m terraform_labels = {
+E             [32m+[0m[0m "digital-twin" = "tf-e2e-gcp"
+E             [32m+[0m[0m "environment"  = "dev"
+E             [32m+[0m[0m "managed-by"   = "terraform"
+E           }
+E         [32m+[0m[0m update_time      = (known after apply)
+E         [32m+[0m[0m url              = (known after apply)
+E   
+E         [32m+[0m[0m build_config {
+E             [32m+[0m[0m build                 = (known after apply)
+E             [32m+[0m[0m docker_repository     = (known after apply)
+E             [32m+[0m[0m entry_point           = "main"
+E             [32m+[0m[0m environment_variables = (known after apply)
+E             [32m+[0m[0m runtime               = "python311"
+E             [32m+[0m[0m service_account       = (known after apply)
+E   
+E             [32m+[0m[0m source {
+E                 [32m+[0m[0m storage_source {
+E                     [32m+[0m[0m bucket     = "digital-twin-dev-481720-tf-e2e-gcp-functions"
+E                     [32m+[0m[0m generation = (known after apply)
+E                     [32m+[0m[0m object     = "event-checker-3288e9bf6fc67ea5f8978a99164e975d.zip"
+E                   }
+E               }
+E           }
+E   
+E         [32m+[0m[0m service_config {
+E             [32m+[0m[0m all_traffic_on_latest_revision   = true
+E             [32m+[0m[0m available_cpu                    = (known after apply)
+E             [32m+[0m[0m available_memory                 = "256M"
+E             [32m+[0m[0m environment_variables            = {
+E                 [32m+[0m[0m "DIGITAL_TWIN_INFO"     = jsonencode(
+E                       {
+E                         [32m+[0m[0m config             = {
+E                             [32m+[0m[0m cold_storage_size_in_days = 90
+E                             [32m+[0m[0m digital_twin_name         = "tf-e2e-gcp"
+E                             [32m+[0m[0m hot_storage_size_in_days  = 30
+E                             [32m+[0m[0m mode                      = "dev"
+E                           }
+E                         [32m+[0m[0m config_events      = [
+E                             [32m+[0m[0m {
+E                                 [32m+[0m[0m action    = {
+E                                     [32m+[0m[0m autoDeploy   = true
+E                                     [32m+[0m[0m feedback     = {
+E                                         [32m+[0m[0m iotDeviceId = "temperature-sensor-1"
+E                                         [32m+[0m[0m payload     = "High Temp Warning"
+E                                         [32m+[0m[0m type        = "mqtt"
+E                                       }
+E                                     [32m+[0m[0m functionName = "high-temperature-callback"
+E                                     [32m+[0m[0m type         = "lambda"
+E                                   }
+E                                 [32m+[0m[0m condition = "testEntityId.temperature-sensor-1.temperature == DOUBLE(30)"
+E                               },
+E                             [32m+[0m[0m {
+E                                 [32m+[0m[0m action    = {
+E                                     [32m+[0m[0m autoDeploy   = true
+E                                     [32m+[0m[0m feedback     = {
+E                                         [32m+[0m[0m iotDeviceId = "temperature-sensor-2"
+E                                         [32m+[0m[0m payload     = "action-result"
+E                                         [32m+[0m[0m type        = "mqtt"
+E                                       }
+E                                     [32m+[0m[0m functionName = "high-temperature-callback-2"
+E                                     [32m+[0m[0m pathToCode   = "lambda_functions/event_actions/high-temperature-callback-2"
+E                                     [32m+[0m[0m type         = "lambda"
+E                                   }
+E                                 [32m+[0m[0m condition = "testEntityId.temperature-sensor-2.temperature == DOUBLE(40)"
+E                               },
+E                           ]
+E                         [32m+[0m[0m config_iot_devices = [
+E                             [32m+[0m[0m {
+E                                 [32m+[0m[0m id         = "temperature-sensor-1"
+E                                 [32m+[0m[0m properties = [
+E                                     [32m+[0m[0m {
+E                                         [32m+[0m[0m dataType  = "DOUBLE"
+E                                         [32m+[0m[0m initValue = "25"
+E                                         [32m+[0m[0m name      = "temperature"
+E                                       },
+E                                   ]
+E                               },
+E                             [32m+[0m[0m {
+E                                 [32m+[0m[0m id         = "temperature-sensor-2"
+E                                 [32m+[0m[0m properties = [
+E                                     [32m+[0m[0m {
+E                                         [32m+[0m[0m dataType  = "DOUBLE"
+E                                         [32m+[0m[0m initValue = "22"
+E                                         [32m+[0m[0m name      = "temperature"
+E                                       },
+E                                     [32m+[0m[0m {
+E                                         [32m+[0m[0m dataType  = "DOUBLE"
+E                                         [32m+[0m[0m initValue = "60"
+E                                         [32m+[0m[0m name      = "maxTemperature"
+E                                       },
+E                                   ]
+E                               },
+E                             [32m+[0m[0m {
+E                                 [32m+[0m[0m id         = "pressure-sensor-1"
+E                                 [32m+[0m[0m properties = [
+E                                     [32m+[0m[0m {
+E                                         [32m+[0m[0m dataType  = "DOUBLE"
+E                                         [32m+[0m[0m initValue = "1000"
+E                                         [32m+[0m[0m name      = "pressure"
+E                                       },
+E                                     [32m+[0m[0m {
+E                                         [32m+[0m[0m dataType  = "DOUBLE"
+E                                         [32m+[0m[0m initValue = [90mnull[0m[0m
+E                                         [32m+[0m[0m name      = "density"
+E                                       },
+E                                     [32m+[0m[0m {
+E                                         [32m+[0m[0m dataType  = "DOUBLE"
+E                                         [32m+[0m[0m initValue = [90mnull[0m[0m
+E                                         [32m+[0m[0m name      = "hardness"
+E                                       },
+E                                   ]
+E                               },
+E                           ]
+E                         [32m+[0m[0m config_providers   = {
+E                             [32m+[0m[0m layer_1_provider         = "google"
+E                             [32m+[0m[0m layer_2_provider         = "google"
+E                             [32m+[0m[0m layer_3_archive_provider = "google"
+E                             [32m+[0m[0m layer_3_cold_provider    = "google"
+E                             [32m+[0m[0m layer_3_hot_provider     = "google"
+E                             [32m+[0m[0m layer_4_provider         = "google"
+E                             [32m+[0m[0m layer_5_provider         = "google"
+E                           }
+E                       }
+E                   )
+E                 [32m+[0m[0m "DIGITAL_TWIN_NAME"     = "tf-e2e-gcp"
+E                 [32m+[0m[0m "FEEDBACK_FUNCTION_URL" = ""
+E                 [32m+[0m[0m "GCP_PROJECT_ID"        = "digital-twin-dev-481720"
+E                 [32m+[0m[0m "INTER_CLOUD_TOKEN"     = ""
+E               }
+E             [32m+[0m[0m gcf_uri                          = (known after apply)
+E             [32m+[0m[0m ingress_settings                 = "ALLOW_ALL"
+E             [32m+[0m[0m max_instance_count               = 10
+E             [32m+[0m[0m max_instance_request_concurrency = (known after apply)
+E             [32m+[0m[0m min_instance_count               = 0
+E             [32m+[0m[0m service                          = (known after apply)
+E             [32m+[0m[0m service_account_email            = "tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com"
+E             [32m+[0m[0m timeout_seconds                  = 60
+E             [32m+[0m[0m uri                              = (known after apply)
+E           }
+E       }
+E   
+E   [1m  # google_cloudfunctions2_function.user_functions[0][0m is tainted, so must be [1m[31mreplaced[0m
+E   [0m[31m-[0m/[32m+[0m[0m resource "google_cloudfunctions2_function" "user_functions" {
+E         [33m~[0m[0m environment      = "GEN_2" -> (known after apply)
+E         [33m~[0m[0m id               = "projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-user-functions" -> (known after apply)
+E           name             = "tf-e2e-gcp-user-functions"
+E         [33m~[0m[0m state            = "FAILED" -> (known after apply)
+E         [33m~[0m[0m update_time      = "2025-12-19T23:42:24.441635428Z" -> (known after apply)
+E         [33m~[0m[0m url              = "https://europe-west1-digital-twin-dev-481720.cloudfunctions.net/tf-e2e-gcp-user-functions" -> (known after apply)
+E           [90m# (5 unchanged attributes hidden)[0m[0m
+E   
+E         [33m~[0m[0m build_config {
+E             [33m~[0m[0m build                 = "projects/1058889403132/locations/europe-west1/builds/bfbd6963-dfca-477d-81df-e8abac519204" -> (known after apply)
+E             [33m~[0m[0m docker_repository     = "projects/digital-twin-dev-481720/locations/europe-west1/repositories/gcf-artifacts" -> (known after apply)
+E             [33m~[0m[0m environment_variables = {} -> (known after apply)
+E             [33m~[0m[0m service_account       = "projects/digital-twin-dev-481720/serviceAccounts/1058889403132-compute@developer.gserviceaccount.com" -> (known after apply)
+E               [90m# (2 unchanged attributes hidden)[0m[0m
+E   
+E             [31m-[0m[0m automatic_update_policy {}
+E   
+E             [33m~[0m[0m source {
+E                 [33m~[0m[0m storage_source {
+E                     [33m~[0m[0m generation = 1766187679960930 -> (known after apply)
+E                     [33m~[0m[0m object     = "user-functions-8774339f925ecccbd7fafed5c2324082.zip" [33m->[0m[0m "user-functions-7bbd4fe328af1b2635a704320e2dd0b3.zip"
+E                       [90m# (1 unchanged attribute hidden)[0m[0m
+E                   }
+E               }
+E           }
+E   
+E         [32m+[0m[0m service_config {
+E             [32m+[0m[0m all_traffic_on_latest_revision   = true
+E             [32m+[0m[0m available_cpu                    = (known after apply)
+E             [32m+[0m[0m available_memory                 = "256M"
+E             [32m+[0m[0m environment_variables            = {
+E                 [32m+[0m[0m "DIGITAL_TWIN_INFO"      = jsonencode(
+E                       {
+E                         [32m+[0m[0m config           = {
+E                             [32m+[0m[0m digital_twin_name = "tf-e2e-gcp"
+E                           }
+E                         [32m+[0m[0m config_providers = {
+E                             [32m+[0m[0m layer_1_provider         = "google"
+E                             [32m+[0m[0m layer_2_provider         = "google"
+E                             [32m+[0m[0m layer_3_archive_provider = "google"
+E                             [32m+[0m[0m layer_3_cold_provider    = "google"
+E                             [32m+[0m[0m layer_3_hot_provider     = "google"
+E                             [32m+[0m[0m layer_4_provider         = "google"
+E                             [32m+[0m[0m layer_5_provider         = "google"
+E                           }
+E                       }
+E                   )
+E                 [32m+[0m[0m "DIGITAL_TWIN_NAME"      = "tf-e2e-gcp"
+E                 [32m+[0m[0m "FIRESTORE_COLLECTION"   = "tf-e2e-gcp-hot-data"
+E                 [32m+[0m[0m "GCP_PROJECT_ID"         = "digital-twin-dev-481720"
+E                 [32m+[0m[0m "INTER_CLOUD_TOKEN"      = ""
+E                 [32m+[0m[0m "PERSISTER_FUNCTION_URL" = "https://europe-west1-digital-twin-dev-481720.cloudfunctions.net/tf-e2e-gcp-persister"
+E               }
+E             [32m+[0m[0m gcf_uri                          = (known after apply)
+E             [32m+[0m[0m ingress_settings                 = "ALLOW_ALL"
+E             [32m+[0m[0m max_instance_count               = 10
+E             [32m+[0m[0m max_instance_request_concurrency = (known after apply)
+E             [32m+[0m[0m min_instance_count               = 0
+E             [32m+[0m[0m service                          = (known after apply)
+E             [32m+[0m[0m service_account_email            = "tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com"
+E             [32m+[0m[0m timeout_seconds                  = 60
+E             [32m+[0m[0m uri                              = (known after apply)
+E           }
+E       }
+E   
+E   [1m  # google_storage_bucket_object.dispatcher_source[0][0m must be [1m[31mreplaced[0m
+E   [0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "dispatcher_source" {
+E         [32m+[0m[0m content          = (sensitive value)
+E         [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+E         [33m~[0m[0m crc32c           = "m/CLUQ==" -> (known after apply)
+E         [33m~[0m[0m detect_md5hash   = "h7OMqlbtR1pWVdqWk/YDIQ==" [33m->[0m[0m "different hash"
+E         [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+E         [33m~[0m[0m generation       = 1766187669279116 -> (known after apply)
+E         [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip" -> (known after apply)
+E         [32m+[0m[0m kms_key_name     = (known after apply)
+E         [33m~[0m[0m md5hash          = "h7OMqlbtR1pWVdqWk/YDIQ==" -> (known after apply)
+E         [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip?generation=1766187669279116&alt=media" -> (known after apply)
+E         [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+E           name             = "dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip"
+E         [33m~[0m[0m output_name      = "dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip" -> (known after apply)
+E         [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip" -> (known after apply)
+E         [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/dispatcher.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/dispatcher.zip" [31m# forces replacement[0m[0m
+E         [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+E         [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+E           [90m# (1 unchanged attribute hidden)[0m[0m
+E       }
+E   
+E   [1m  # google_storage_bucket_object.event_checker_source[0][0m must be [1m[31mreplaced[0m
+E   [0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "event_checker_source" {
+E         [32m+[0m[0m content          = (sensitive value)
+E         [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+E         [33m~[0m[0m crc32c           = "EK/DGA==" -> (known after apply)
+E         [33m~[0m[0m detect_md5hash   = "hs5g5AlM9gGtfkCGrD57FA==" [33m->[0m[0m "different hash"
+E         [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+E         [33m~[0m[0m generation       = 1766187669419419 -> (known after apply)
+E         [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip" -> (known after apply)
+E         [32m+[0m[0m kms_key_name     = (known after apply)
+E         [33m~[0m[0m md5hash          = "hs5g5AlM9gGtfkCGrD57FA==" -> (known after apply)
+E         [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip?generation=1766187669419419&alt=media" -> (known after apply)
+E         [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+E         [33m~[0m[0m name             = "event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip" [33m->[0m[0m "event-checker-3288e9bf6fc67ea5f8978a99164e975d.zip" [31m# forces replacement[0m[0m
+E         [33m~[0m[0m output_name      = "event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip" -> (known after apply)
+E         [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip" -> (known after apply)
+E         [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/event-checker.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/event-checker.zip" [31m# forces replacement[0m[0m
+E         [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+E         [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+E           [90m# (1 unchanged attribute hidden)[0m[0m
+E       }
+E   
+E   [1m  # google_storage_bucket_object.hot_reader_source[0][0m must be [1m[31mreplaced[0m
+E   [0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "hot_reader_source" {
+E         [32m+[0m[0m content          = (sensitive value)
+E         [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+E         [33m~[0m[0m crc32c           = "MpHEWw==" -> (known after apply)
+E         [33m~[0m[0m detect_md5hash   = "0pBBt6u/GN3/Riq6JC/bCw==" [33m->[0m[0m "different hash"
+E         [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+E         [33m~[0m[0m generation       = 1766187669417640 -> (known after apply)
+E         [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip" -> (known after apply)
+E         [32m+[0m[0m kms_key_name     = (known after apply)
+E         [33m~[0m[0m md5hash          = "0pBBt6u/GN3/Riq6JC/bCw==" -> (known after apply)
+E         [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip?generation=1766187669417640&alt=media" -> (known after apply)
+E         [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+E           name             = "hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip"
+E         [33m~[0m[0m output_name      = "hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip" -> (known after apply)
+E         [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip" -> (known after apply)
+E         [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/hot-reader.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/hot-reader.zip" [31m# forces replacement[0m[0m
+E         [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+E         [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+E           [90m# (1 unchanged attribute hidden)[0m[0m
+E       }
+E   
+E   [1m  # google_storage_bucket_object.hot_to_cold_mover_source[0][0m must be [1m[31mreplaced[0m
+E   [0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "hot_to_cold_mover_source" {
+E         [32m+[0m[0m content          = (sensitive value)
+E         [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+E         [33m~[0m[0m crc32c           = "Mq8ZUw==" -> (known after apply)
+E         [33m~[0m[0m detect_md5hash   = "FAO+lkOuTZqnH7/mbV0ZPQ==" [33m->[0m[0m "different hash"
+E         [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+E         [33m~[0m[0m generation       = 1766187669350799 -> (known after apply)
+E         [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip" -> (known after apply)
+E         [32m+[0m[0m kms_key_name     = (known after apply)
+E         [33m~[0m[0m md5hash          = "FAO+lkOuTZqnH7/mbV0ZPQ==" -> (known after apply)
+E         [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip?generation=1766187669350799&alt=media" -> (known after apply)
+E         [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+E           name             = "hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip"
+E         [33m~[0m[0m output_name      = "hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip" -> (known after apply)
+E         [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip" -> (known after apply)
+E         [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/hot-to-cold-mover.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/hot-to-cold-mover.zip" [31m# forces replacement[0m[0m
+E         [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+E         [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+E           [90m# (1 unchanged attribute hidden)[0m[0m
+E       }
+E   
+E   [1m  # google_storage_bucket_object.persister_source[0][0m must be [1m[31mreplaced[0m
+E   [0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "persister_source" {
+E         [32m+[0m[0m content          = (sensitive value)
+E         [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+E         [33m~[0m[0m crc32c           = "sWQPeA==" -> (known after apply)
+E         [33m~[0m[0m detect_md5hash   = "vAn/b3rHIpCnrotd0SSSzA==" [33m->[0m[0m "different hash"
+E         [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+E         [33m~[0m[0m generation       = 1766187679563691 -> (known after apply)
+E         [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-persister-51fd295ef504168b8c18e590573f422e.zip" -> (known after apply)
+E         [32m+[0m[0m kms_key_name     = (known after apply)
+E         [33m~[0m[0m md5hash          = "vAn/b3rHIpCnrotd0SSSzA==" -> (known after apply)
+E         [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/persister-51fd295ef504168b8c18e590573f422e.zip?generation=1766187679563691&alt=media" -> (known after apply)
+E         [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+E           name             = "persister-51fd295ef504168b8c18e590573f422e.zip"
+E         [33m~[0m[0m output_name      = "persister-51fd295ef504168b8c18e590573f422e.zip" -> (known after apply)
+E         [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/persister-51fd295ef504168b8c18e590573f422e.zip" -> (known after apply)
+E         [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/persister.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/persister.zip" [31m# forces replacement[0m[0m
+E         [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+E         [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+E           [90m# (1 unchanged attribute hidden)[0m[0m
+E       }
+E   
+E   [1m  # google_storage_bucket_object.processor_source[0][0m must be [1m[31mreplaced[0m
+E   [0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "processor_source" {
+E         [32m+[0m[0m content          = (sensitive value)
+E         [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+E         [33m~[0m[0m crc32c           = "PYZtdA==" -> (known after apply)
+E         [33m~[0m[0m detect_md5hash   = "xfxkadJeQbkA5I6atto3Kg==" [33m->[0m[0m "different hash"
+E         [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+E         [33m~[0m[0m generation       = 1766187669429974 -> (known after apply)
+E         [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-processor-4f9bab6c6593a373bf20f6cb33e696b9.zip" -> (known after apply)
+E         [32m+[0m[0m kms_key_name     = (known after apply)
+E         [33m~[0m[0m md5hash          = "xfxkadJeQbkA5I6atto3Kg==" -> (known after apply)
+E         [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/processor-4f9bab6c6593a373bf20f6cb33e696b9.zip?generation=1766187669429974&alt=media" -> (known after apply)
+E         [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+E           name             = "processor-4f9bab6c6593a373bf20f6cb33e696b9.zip"
+E         [33m~[0m[0m output_name      = "processor-4f9bab6c6593a373bf20f6cb33e696b9.zip" -> (known after apply)
+E         [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/processor-4f9bab6c6593a373bf20f6cb33e696b9.zip" -> (known after apply)
+E         [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/processor_wrapper.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/processor_wrapper.zip" [31m# forces replacement[0m[0m
+E         [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+E         [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+E           [90m# (1 unchanged attribute hidden)[0m[0m
+E       }
+E   
+E   [1m  # google_storage_bucket_object.user_functions_source[0][0m must be [1m[31mreplaced[0m
+E   [0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "user_functions_source" {
+E         [32m+[0m[0m content          = (sensitive value)
+E         [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+E         [33m~[0m[0m crc32c           = "YDeBiQ==" -> (known after apply)
+E         [33m~[0m[0m detect_md5hash   = "h3Qzn5JezMvX+v7VwjJAgg==" [33m->[0m[0m "different hash"
+E         [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+E         [33m~[0m[0m generation       = 1766187679501878 -> (known after apply)
+E         [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-user-functions-8774339f925ecccbd7fafed5c2324082.zip" -> (known after apply)
+E         [32m+[0m[0m kms_key_name     = (known after apply)
+E         [33m~[0m[0m md5hash          = "h3Qzn5JezMvX+v7VwjJAgg==" -> (known after apply)
+E         [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/user-functions-8774339f925ecccbd7fafed5c2324082.zip?generation=1766187679501878&alt=media" -> (known after apply)
+E         [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+E         [33m~[0m[0m name             = "user-functions-8774339f925ecccbd7fafed5c2324082.zip" [33m->[0m[0m "user-functions-7bbd4fe328af1b2635a704320e2dd0b3.zip" [31m# forces replacement[0m[0m
+E         [33m~[0m[0m output_name      = "user-functions-8774339f925ecccbd7fafed5c2324082.zip" -> (known after apply)
+E         [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/user-functions-8774339f925ecccbd7fafed5c2324082.zip" -> (known after apply)
+E         [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/user-functions.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/user-functions.zip" [31m# forces replacement[0m[0m
+E         [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+E         [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+E           [90m# (1 unchanged attribute hidden)[0m[0m
+E       }
+E   
+E   [1m  # local_file.gcp_simulator_config["pressure-sensor-1"][0m will be created
+E   [0m  [32m+[0m[0m resource "local_file" "gcp_simulator_config" {
+E         [32m+[0m[0m content              = jsonencode(
+E               {
+E                 [32m+[0m[0m auth_method              = "service_account"
+E                 [32m+[0m[0m device_id                = "pressure-sensor-1"
+E                 [32m+[0m[0m digital_twin_name        = "tf-e2e-gcp"
+E                 [32m+[0m[0m payload_path             = "../payloads.json"
+E                 [32m+[0m[0m project_id               = "digital-twin-dev-481720"
+E                 [32m+[0m[0m service_account_key_path = "service_account.json"
+E                 [32m+[0m[0m topic_name               = "dt/tf-e2e-gcp/telemetry"
+E               }
+E           )
+E         [32m+[0m[0m content_base64sha256 = (known after apply)
+E         [32m+[0m[0m content_base64sha512 = (known after apply)
+E         [32m+[0m[0m content_md5          = (known after apply)
+E         [32m+[0m[0m content_sha1         = (known after apply)
+E         [32m+[0m[0m content_sha256       = (known after apply)
+E         [32m+[0m[0m content_sha512       = (known after apply)
+E         [32m+[0m[0m directory_permission = "0777"
+E         [32m+[0m[0m file_permission      = "0644"
+E         [32m+[0m[0m filename             = "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/iot_device_simulator/gcp/config_generated_pressure-sensor-1.json"
+E         [32m+[0m[0m id                   = (known after apply)
+E       }
+E   
+E   [1m  # local_file.gcp_simulator_config["temperature-sensor-1"][0m will be created
+E   [0m  [32m+[0m[0m resource "local_file" "gcp_simulator_config" {
+E         [32m+[0m[0m content              = jsonencode(
+E               {
+E                 [32m+[0m[0m auth_method              = "service_account"
+E                 [32m+[0m[0m device_id                = "temperature-sensor-1"
+E                 [32m+[0m[0m digital_twin_name        = "tf-e2e-gcp"
+E                 [32m+[0m[0m payload_path             = "../payloads.json"
+E                 [32m+[0m[0m project_id               = "digital-twin-dev-481720"
+E                 [32m+[0m[0m service_account_key_path = "service_account.json"
+E                 [32m+[0m[0m topic_name               = "dt/tf-e2e-gcp/telemetry"
+E               }
+E           )
+E         [32m+[0m[0m content_base64sha256 = (known after apply)
+E         [32m+[0m[0m content_base64sha512 = (known after apply)
+E         [32m+[0m[0m content_md5          = (known after apply)
+E         [32m+[0m[0m content_sha1         = (known after apply)
+E         [32m+[0m[0m content_sha256       = (known after apply)
+E         [32m+[0m[0m content_sha512       = (known after apply)
+E         [32m+[0m[0m directory_permission = "0777"
+E         [32m+[0m[0m file_permission      = "0644"
+E         [32m+[0m[0m filename             = "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/iot_device_simulator/gcp/config_generated_temperature-sensor-1.json"
+E         [32m+[0m[0m id                   = (known after apply)
+E       }
+E   
+E   [1m  # local_file.gcp_simulator_config["temperature-sensor-2"][0m will be created
+E   [0m  [32m+[0m[0m resource "local_file" "gcp_simulator_config" {
+E         [32m+[0m[0m content              = jsonencode(
+E               {
+E                 [32m+[0m[0m auth_method              = "service_account"
+E                 [32m+[0m[0m device_id                = "temperature-sensor-2"
+E                 [32m+[0m[0m digital_twin_name        = "tf-e2e-gcp"
+E                 [32m+[0m[0m payload_path             = "../payloads.json"
+E                 [32m+[0m[0m project_id               = "digital-twin-dev-481720"
+E                 [32m+[0m[0m service_account_key_path = "service_account.json"
+E                 [32m+[0m[0m topic_name               = "dt/tf-e2e-gcp/telemetry"
+E               }
+E           )
+E         [32m+[0m[0m content_base64sha256 = (known after apply)
+E         [32m+[0m[0m content_base64sha512 = (known after apply)
+E         [32m+[0m[0m content_md5          = (known after apply)
+E         [32m+[0m[0m content_sha1         = (known after apply)
+E         [32m+[0m[0m content_sha256       = (known after apply)
+E         [32m+[0m[0m content_sha512       = (known after apply)
+E         [32m+[0m[0m directory_permission = "0777"
+E         [32m+[0m[0m file_permission      = "0644"
+E         [32m+[0m[0m filename             = "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/iot_device_simulator/gcp/config_generated_temperature-sensor-2.json"
+E         [32m+[0m[0m id                   = (known after apply)
+E       }
+E   
+E   [1mPlan:[0m 14 to add, 0 to change, 8 to destroy.
+E   [0m
+E   Changes to Outputs:
+E     [32m+[0m[0m gcp_event_checker_url               = (known after apply)
+E     [32m+[0m[0m gcp_user_functions_url              = (known after apply)
+E   [0m[1mgoogle_storage_bucket_object.hot_to_cold_mover_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip][0m[0m
+E   [0m[1mgoogle_storage_bucket_object.dispatcher_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip][0m[0m
+E   [0m[1mgoogle_storage_bucket_object.processor_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-processor-4f9bab6c6593a373bf20f6cb33e696b9.zip][0m[0m
+E   [0m[1mgoogle_storage_bucket_object.hot_reader_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip][0m[0m
+E   [0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Destroying... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-user-functions][0m[0m
+E   [0m[1mgoogle_storage_bucket_object.event_checker_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip][0m[0m
+E   [0m[1mlocal_file.gcp_simulator_config["temperature-sensor-1"]: Creating...[0m[0m
+E   [0m[1mlocal_file.gcp_simulator_config["pressure-sensor-1"]: Creating...[0m[0m
+E   [0m[1mlocal_file.gcp_simulator_config["temperature-sensor-2"]: Creating...[0m[0m
+E   [0m[1mlocal_file.gcp_simulator_config["temperature-sensor-1"]: Creation complete after 0s [id=f05b0c165c25e40fe4d6e70001b7cd5de463bac7][0m
+E   [0m[1mlocal_file.gcp_simulator_config["pressure-sensor-1"]: Creation complete after 0s [id=2824719fcc22bc7f5971a455630b7373e43f8aa3][0m
+E   [0m[1mlocal_file.gcp_simulator_config["temperature-sensor-2"]: Creation complete after 1s [id=2a37f4f17496e1571fc3609434c8aaec02f74814][0m
+E   [0m[1mgoogle_storage_bucket_object.hot_reader_source[0]: Destruction complete after 1s[0m
+E   [0m[1mgoogle_storage_bucket_object.hot_to_cold_mover_source[0]: Destruction complete after 1s[0m
+E   [0m[1mgoogle_storage_bucket_object.event_checker_source[0]: Destruction complete after 1s[0m
+E   [0m[1mgoogle_storage_bucket_object.processor_source[0]: Destruction complete after 1s[0m
+E   [0m[1mgoogle_storage_bucket_object.dispatcher_source[0]: Destruction complete after 1s[0m
+E   [0m[1mgoogle_storage_bucket_object.hot_reader_source[0]: Creating...[0m[0m
+E   [0m[1mgoogle_storage_bucket_object.hot_to_cold_mover_source[0]: Creating...[0m[0m
+E   [0m[1mgoogle_storage_bucket_object.event_checker_source[0]: Creating...[0m[0m
+E   [0m[1mgoogle_storage_bucket_object.dispatcher_source[0]: Creating...[0m[0m
+E   [0m[1mgoogle_storage_bucket_object.processor_source[0]: Creating...[0m[0m
+E   [0m[1mgoogle_storage_bucket_object.hot_reader_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip][0m
+E   [0m[1mgoogle_storage_bucket_object.hot_to_cold_mover_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip][0m
+E   [0m[1mgoogle_storage_bucket_object.processor_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-processor-4f9bab6c6593a373bf20f6cb33e696b9.zip][0m
+E   [0m[1mgoogle_storage_bucket_object.event_checker_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-event-checker-3288e9bf6fc67ea5f8978a99164e975d.zip][0m
+E   [0m[1mgoogle_storage_bucket_object.dispatcher_source[0]: Creation complete after 1s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip][0m
+E   [0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still destroying... [id=projects/digital-twin-dev-481720/locati...t1/functions/tf-e2e-gcp-user-functions, 10s elapsed][0m[0m
+E   [0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Destruction complete after 11s[0m
+E   [0m[1mgoogle_storage_bucket_object.persister_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-persister-51fd295ef504168b8c18e590573f422e.zip][0m[0m
+E   [0m[1mgoogle_storage_bucket_object.user_functions_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-user-functions-8774339f925ecccbd7fafed5c2324082.zip][0m[0m
+E   [0m[1mgoogle_storage_bucket_object.user_functions_source[0]: Destruction complete after 0s[0m
+E   [0m[1mgoogle_storage_bucket_object.persister_source[0]: Destruction complete after 0s[0m
+E   [0m[1mgoogle_storage_bucket_object.persister_source[0]: Creating...[0m[0m
+E   [0m[1mgoogle_storage_bucket_object.user_functions_source[0]: Creating...[0m[0m
+E   [0m[1mgoogle_storage_bucket_object.persister_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-persister-51fd295ef504168b8c18e590573f422e.zip][0m
+E   [0m[1mgoogle_storage_bucket_object.user_functions_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-user-functions-7bbd4fe328af1b2635a704320e2dd0b3.zip][0m
+E   [0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Creating...[0m[0m
+E   [0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [10s elapsed][0m[0m
+E   [0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [20s elapsed][0m[0m
+E   [0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [30s elapsed][0m[0m
+E   [0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [40s elapsed][0m[0m
+E   [0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [50s elapsed][0m[0m
+E   [0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [1m0s elapsed][0m[0m
+E   [31m╷[0m[0m
+E   [31m│[0m [0m[1m[31mError: [0m[0m[1mError waiting to create function: Error waiting for Creating function: Error code 3, message: Could not create or update Cloud Run service tf-e2e-gcp-user-functions, Container Healthcheck failed. The user-provided container failed to start and listen on the port defined provided by the PORT=8080 environment variable within the allocated timeout. This can happen when the container port is misconfigured or if the timeout is too short. The health check timeout can be extended. Logs for this revision might contain more information.
+E   [31m│[0m [0m
+E   [31m│[0m [0mLogs URL: https://console.cloud.google.com/logs/viewer?project=digital-twin-dev-481720&resource=cloud_run_revision/service_name/tf-e2e-gcp-user-functions/revision_name/tf-e2e-gcp-user-functions-00001-xof&advancedFilter=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22tf-e2e-gcp-user-functions%22%0Aresource.labels.revision_name%3D%22tf-e2e-gcp-user-functions-00001-xof%22 
+E   [31m│[0m [0mFor more troubleshooting guidance, see https://cloud.google.com/run/docs/troubleshooting#container-failed-to-start[0m
+E   [31m│[0m [0m
+E   [31m│[0m [0m[0m  with google_cloudfunctions2_function.user_functions[0],
+E   [31m│[0m [0m  on gcp_compute.tf line 291, in resource "google_cloudfunctions2_function" "user_functions":
+E   [31m│[0m [0m 291: resource "google_cloudfunctions2_function" "user_functions" [4m{[0m[0m
+E   [31m│[0m [0m
+E   [31m╵[0m[0m
+---------------------------- Captured stdout setup -----------------------------
+
+[GCP TERRAFORM E2E] Created unique test project: /tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp
+[GCP TERRAFORM E2E] Digital twin name: tf-e2e-gcp
+[GCP TERRAFORM E2E] L4/L5 disabled (no GCP managed services)
+[GCP E2E] Using credentials from config_credentials.json
+
+============================================================
+  GCP TERRAFORM E2E TEST - PRE-DEPLOYMENT VALIDATION
+============================================================
+
+[VALIDATION] Phase 1: Configuration Files
+  ✓ config.json validated
+  ✓ config_iot_devices.json validated
+  ✓ config_events.json validated
+  ✓ config_credentials.json validated
+  ✓ config_providers.json validated
+  ✓ Project config loaded (twin_name: tf-e2e-gcp)
+
+[VALIDATION] Phase 2: GCP Credentials
+  ✓ GCP credentials validated
+
+[VALIDATION] Phase 3: Terraform Initialization
+  ✓ Terraform strategy initialized
+    - Terraform dir: /app/src/terraform
+    - Project path: /tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp
+
+============================================================
+  TERRAFORM DEPLOYMENT
+============================================================
+[0m[1mgoogle_project_service.cloudresourcemanager[0]: Refreshing state... [id=digital-twin-dev-481720/cloudresourcemanager.googleapis.com][0m
+[0m[1mgoogle_storage_bucket.function_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions][0m
+[0m[1mlocal_file.gcp_simulator_config["temperature-sensor-2"]: Refreshing state... [id=2a37f4f17496e1571fc3609434c8aaec02f74814][0m
+[0m[1mlocal_file.gcp_simulator_config["pressure-sensor-1"]: Refreshing state... [id=2824719fcc22bc7f5971a455630b7373e43f8aa3][0m
+[0m[1mlocal_file.gcp_simulator_config["temperature-sensor-1"]: Refreshing state... [id=f05b0c165c25e40fe4d6e70001b7cd5de463bac7][0m
+[0m[1mgoogle_storage_bucket_object.hot_to_cold_mover_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip][0m
+[0m[1mgoogle_storage_bucket_object.persister_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-persister-51fd295ef504168b8c18e590573f422e.zip][0m
+[0m[1mgoogle_storage_bucket_object.hot_reader_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip][0m
+[0m[1mgoogle_storage_bucket_object.user_functions_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-user-functions-8774339f925ecccbd7fafed5c2324082.zip][0m
+[0m[1mgoogle_storage_bucket_object.event_checker_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip][0m
+[0m[1mgoogle_storage_bucket_object.processor_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-processor-4f9bab6c6593a373bf20f6cb33e696b9.zip][0m
+[0m[1mgoogle_storage_bucket_object.dispatcher_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip][0m
+[0m[1mgoogle_project_service.cloudbuild[0]: Refreshing state... [id=digital-twin-dev-481720/cloudbuild.googleapis.com][0m
+[0m[1mgoogle_project_service.iam[0]: Refreshing state... [id=digital-twin-dev-481720/iam.googleapis.com][0m
+[0m[1mgoogle_project_service.pubsub[0]: Refreshing state... [id=digital-twin-dev-481720/pubsub.googleapis.com][0m
+[0m[1mgoogle_project_service.cloudscheduler[0]: Refreshing state... [id=digital-twin-dev-481720/cloudscheduler.googleapis.com][0m
+[0m[1mgoogle_project_service.cloudfunctions[0]: Refreshing state... [id=digital-twin-dev-481720/cloudfunctions.googleapis.com][0m
+[0m[1mgoogle_project_service.firestore[0]: Refreshing state... [id=digital-twin-dev-481720/firestore.googleapis.com][0m
+[0m[1mgoogle_project_service.eventarc[0]: Refreshing state... [id=digital-twin-dev-481720/eventarc.googleapis.com][0m
+[0m[1mgoogle_project_service.storage[0]: Refreshing state... [id=digital-twin-dev-481720/storage.googleapis.com][0m
+[0m[1mgoogle_project_service.run[0]: Refreshing state... [id=digital-twin-dev-481720/run.googleapis.com][0m
+[0m[1mgoogle_pubsub_topic.telemetry[0]: Refreshing state... [id=projects/digital-twin-dev-481720/topics/tf-e2e-gcp-telemetry][0m
+[0m[1mgoogle_firestore_database.main[0]: Refreshing state... [id=projects/digital-twin-dev-481720/databases/(default)][0m
+[0m[1mgoogle_pubsub_topic.events[0]: Refreshing state... [id=projects/digital-twin-dev-481720/topics/tf-e2e-gcp-events][0m
+[0m[1mgoogle_service_account.functions[0]: Refreshing state... [id=projects/digital-twin-dev-481720/serviceAccounts/tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+[0m[1mgoogle_project_iam_custom_role.functions_role[0]: Refreshing state... [id=projects/digital-twin-dev-481720/roles/tf_e2e_gcp_functions_role][0m
+[0m[1mgoogle_storage_bucket.cold[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-cold][0m
+[0m[1mgoogle_project_iam_member.functions_custom_role[0]: Refreshing state... [id=digital-twin-dev-481720/projects/digital-twin-dev-481720/roles/tf_e2e_gcp_functions_role/serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+[0m[1mgoogle_cloudfunctions2_function.hot_reader[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-hot-reader][0m
+[0m[1mgoogle_cloudfunctions2_function.hot_to_cold_mover[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-hot-to-cold-mover][0m
+[0m[1mgoogle_cloudfunctions2_function.persister[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-persister][0m
+[0m[1mgoogle_cloudfunctions2_function.dispatcher[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-dispatcher][0m
+[0m[1mgoogle_cloud_run_service_iam_member.hot_reader_invoker[0]: Refreshing state... [id=v1/projects/digital-twin-dev-481720/locations/europe-west1/services/tf-e2e-gcp-hot-reader/roles/run.invoker/serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+[0m[1mgoogle_cloud_run_service_iam_member.persister_invoker[0]: Refreshing state... [id=v1/projects/digital-twin-dev-481720/locations/europe-west1/services/tf-e2e-gcp-persister/roles/run.invoker/serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-user-functions][0m
+[0m[1mgoogle_cloudfunctions2_function.processor[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-processor][0m
+[0m[1mgoogle_cloud_run_service_iam_member.hot_to_cold_mover_invoker[0]: Refreshing state... [id=v1/projects/digital-twin-dev-481720/locations/europe-west1/services/tf-e2e-gcp-hot-to-cold-mover/roles/run.invoker/serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+[0m[1mgoogle_cloud_scheduler_job.hot_to_cold[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/jobs/tf-e2e-gcp-hot-to-cold-schedule][0m
+[0m[1mgoogle_cloud_run_service_iam_member.dispatcher_invoker[0]: Refreshing state... [id=v1/projects/digital-twin-dev-481720/locations/europe-west1/services/tf-e2e-gcp-dispatcher/roles/run.invoker/serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+
+[1m[36mNote:[0m[1m Objects have changed outside of Terraform
+[0m
+Terraform detected the following changes made outside of Terraform since the
+last "terraform apply" which may have affected this plan:
+
+[1m  # google_cloudfunctions2_function.user_functions[0][0m has changed
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "user_functions" {
+        id               = "projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-user-functions"
+        name             = "tf-e2e-gcp-user-functions"
+      [32m+[0m[0m url              = "https://europe-west1-digital-twin-dev-481720.cloudfunctions.net/tf-e2e-gcp-user-functions"
+        [90m# (5 unchanged attributes hidden)[0m[0m
+
+        [90m# (2 unchanged blocks hidden)[0m[0m
+    }
+
+
+Unless you have made equivalent changes to your configuration, or ignored the
+relevant attributes using ignore_changes, the following plan may include
+actions to undo or respond to these changes.
+[90m
+─────────────────────────────────────────────────────────────────────────────[0m
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  [32m+[0m create[0m
+[31m-[0m/[32m+[0m destroy and then create replacement[0m
+
+Terraform will perform the following actions:
+
+[1m  # google_cloud_run_service_iam_member.event_checker_invoker[0][0m will be created
+[0m  [32m+[0m[0m resource "google_cloud_run_service_iam_member" "event_checker_invoker" {
+      [32m+[0m[0m etag     = (known after apply)
+      [32m+[0m[0m id       = (known after apply)
+      [32m+[0m[0m location = "europe-west1"
+      [32m+[0m[0m member   = "serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com"
+      [32m+[0m[0m project  = "digital-twin-dev-481720"
+      [32m+[0m[0m role     = "roles/run.invoker"
+      [32m+[0m[0m service  = "tf-e2e-gcp-event-checker"
+    }
+
+[1m  # google_cloud_run_service_iam_member.user_functions_invoker[0][0m will be created
+[0m  [32m+[0m[0m resource "google_cloud_run_service_iam_member" "user_functions_invoker" {
+      [32m+[0m[0m etag     = (known after apply)
+      [32m+[0m[0m id       = (known after apply)
+      [32m+[0m[0m location = "europe-west1"
+      [32m+[0m[0m member   = "serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com"
+      [32m+[0m[0m project  = "digital-twin-dev-481720"
+      [32m+[0m[0m role     = "roles/run.invoker"
+      [32m+[0m[0m service  = "tf-e2e-gcp-user-functions"
+    }
+
+[1m  # google_cloudfunctions2_function.event_checker[0][0m will be created
+[0m  [32m+[0m[0m resource "google_cloudfunctions2_function" "event_checker" {
+      [32m+[0m[0m effective_labels = {
+          [32m+[0m[0m "digital-twin" = "tf-e2e-gcp"
+          [32m+[0m[0m "environment"  = "dev"
+          [32m+[0m[0m "managed-by"   = "terraform"
+        }
+      [32m+[0m[0m environment      = (known after apply)
+      [32m+[0m[0m id               = (known after apply)
+      [32m+[0m[0m labels           = {
+          [32m+[0m[0m "digital-twin" = "tf-e2e-gcp"
+          [32m+[0m[0m "environment"  = "dev"
+          [32m+[0m[0m "managed-by"   = "terraform"
+        }
+      [32m+[0m[0m location         = "europe-west1"
+      [32m+[0m[0m name             = "tf-e2e-gcp-event-checker"
+      [32m+[0m[0m project          = "digital-twin-dev-481720"
+      [32m+[0m[0m state            = (known after apply)
+      [32m+[0m[0m terraform_labels = {
+          [32m+[0m[0m "digital-twin" = "tf-e2e-gcp"
+          [32m+[0m[0m "environment"  = "dev"
+          [32m+[0m[0m "managed-by"   = "terraform"
+        }
+      [32m+[0m[0m update_time      = (known after apply)
+      [32m+[0m[0m url              = (known after apply)
+
+      [32m+[0m[0m build_config {
+          [32m+[0m[0m build                 = (known after apply)
+          [32m+[0m[0m docker_repository     = (known after apply)
+          [32m+[0m[0m entry_point           = "main"
+          [32m+[0m[0m environment_variables = (known after apply)
+          [32m+[0m[0m runtime               = "python311"
+          [32m+[0m[0m service_account       = (known after apply)
+
+          [32m+[0m[0m source {
+              [32m+[0m[0m storage_source {
+                  [32m+[0m[0m bucket     = "digital-twin-dev-481720-tf-e2e-gcp-functions"
+                  [32m+[0m[0m generation = (known after apply)
+                  [32m+[0m[0m object     = "event-checker-3288e9bf6fc67ea5f8978a99164e975d.zip"
+                }
+            }
+        }
+
+      [32m+[0m[0m service_config {
+          [32m+[0m[0m all_traffic_on_latest_revision   = true
+          [32m+[0m[0m available_cpu                    = (known after apply)
+          [32m+[0m[0m available_memory                 = "256M"
+          [32m+[0m[0m environment_variables            = {
+              [32m+[0m[0m "DIGITAL_TWIN_INFO"     = jsonencode(
+                    {
+                      [32m+[0m[0m config             = {
+                          [32m+[0m[0m cold_storage_size_in_days = 90
+                          [32m+[0m[0m digital_twin_name         = "tf-e2e-gcp"
+                          [32m+[0m[0m hot_storage_size_in_days  = 30
+                          [32m+[0m[0m mode                      = "dev"
+                        }
+                      [32m+[0m[0m config_events      = [
+                          [32m+[0m[0m {
+                              [32m+[0m[0m action    = {
+                                  [32m+[0m[0m autoDeploy   = true
+                                  [32m+[0m[0m feedback     = {
+                                      [32m+[0m[0m iotDeviceId = "temperature-sensor-1"
+                                      [32m+[0m[0m payload     = "High Temp Warning"
+                                      [32m+[0m[0m type        = "mqtt"
+                                    }
+                                  [32m+[0m[0m functionName = "high-temperature-callback"
+                                  [32m+[0m[0m type         = "lambda"
+                                }
+                              [32m+[0m[0m condition = "testEntityId.temperature-sensor-1.temperature == DOUBLE(30)"
+                            },
+                          [32m+[0m[0m {
+                              [32m+[0m[0m action    = {
+                                  [32m+[0m[0m autoDeploy   = true
+                                  [32m+[0m[0m feedback     = {
+                                      [32m+[0m[0m iotDeviceId = "temperature-sensor-2"
+                                      [32m+[0m[0m payload     = "action-result"
+                                      [32m+[0m[0m type        = "mqtt"
+                                    }
+                                  [32m+[0m[0m functionName = "high-temperature-callback-2"
+                                  [32m+[0m[0m pathToCode   = "lambda_functions/event_actions/high-temperature-callback-2"
+                                  [32m+[0m[0m type         = "lambda"
+                                }
+                              [32m+[0m[0m condition = "testEntityId.temperature-sensor-2.temperature == DOUBLE(40)"
+                            },
+                        ]
+                      [32m+[0m[0m config_iot_devices = [
+                          [32m+[0m[0m {
+                              [32m+[0m[0m id         = "temperature-sensor-1"
+                              [32m+[0m[0m properties = [
+                                  [32m+[0m[0m {
+                                      [32m+[0m[0m dataType  = "DOUBLE"
+                                      [32m+[0m[0m initValue = "25"
+                                      [32m+[0m[0m name      = "temperature"
+                                    },
+                                ]
+                            },
+                          [32m+[0m[0m {
+                              [32m+[0m[0m id         = "temperature-sensor-2"
+                              [32m+[0m[0m properties = [
+                                  [32m+[0m[0m {
+                                      [32m+[0m[0m dataType  = "DOUBLE"
+                                      [32m+[0m[0m initValue = "22"
+                                      [32m+[0m[0m name      = "temperature"
+                                    },
+                                  [32m+[0m[0m {
+                                      [32m+[0m[0m dataType  = "DOUBLE"
+                                      [32m+[0m[0m initValue = "60"
+                                      [32m+[0m[0m name      = "maxTemperature"
+                                    },
+                                ]
+                            },
+                          [32m+[0m[0m {
+                              [32m+[0m[0m id         = "pressure-sensor-1"
+                              [32m+[0m[0m properties = [
+                                  [32m+[0m[0m {
+                                      [32m+[0m[0m dataType  = "DOUBLE"
+                                      [32m+[0m[0m initValue = "1000"
+                                      [32m+[0m[0m name      = "pressure"
+                                    },
+                                  [32m+[0m[0m {
+                                      [32m+[0m[0m dataType  = "DOUBLE"
+                                      [32m+[0m[0m initValue = [90mnull[0m[0m
+                                      [32m+[0m[0m name      = "density"
+                                    },
+                                  [32m+[0m[0m {
+                                      [32m+[0m[0m dataType  = "DOUBLE"
+                                      [32m+[0m[0m initValue = [90mnull[0m[0m
+                                      [32m+[0m[0m name      = "hardness"
+                                    },
+                                ]
+                            },
+                        ]
+                      [32m+[0m[0m config_providers   = {
+                          [32m+[0m[0m layer_1_provider         = "google"
+                          [32m+[0m[0m layer_2_provider         = "google"
+                          [32m+[0m[0m layer_3_archive_provider = "google"
+                          [32m+[0m[0m layer_3_cold_provider    = "google"
+                          [32m+[0m[0m layer_3_hot_provider     = "google"
+                          [32m+[0m[0m layer_4_provider         = "google"
+                          [32m+[0m[0m layer_5_provider         = "google"
+                        }
+                    }
+                )
+              [32m+[0m[0m "DIGITAL_TWIN_NAME"     = "tf-e2e-gcp"
+              [32m+[0m[0m "FEEDBACK_FUNCTION_URL" = ""
+              [32m+[0m[0m "GCP_PROJECT_ID"        = "digital-twin-dev-481720"
+              [32m+[0m[0m "INTER_CLOUD_TOKEN"     = ""
+            }
+          [32m+[0m[0m gcf_uri                          = (known after apply)
+          [32m+[0m[0m ingress_settings                 = "ALLOW_ALL"
+          [32m+[0m[0m max_instance_count               = 10
+          [32m+[0m[0m max_instance_request_concurrency = (known after apply)
+          [32m+[0m[0m min_instance_count               = 0
+          [32m+[0m[0m service                          = (known after apply)
+          [32m+[0m[0m service_account_email            = "tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com"
+          [32m+[0m[0m timeout_seconds                  = 60
+          [32m+[0m[0m uri                              = (known after apply)
+        }
+    }
+
+[1m  # google_cloudfunctions2_function.user_functions[0][0m is tainted, so must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_cloudfunctions2_function" "user_functions" {
+      [33m~[0m[0m environment      = "GEN_2" -> (known after apply)
+      [33m~[0m[0m id               = "projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-user-functions" -> (known after apply)
+        name             = "tf-e2e-gcp-user-functions"
+      [33m~[0m[0m state            = "FAILED" -> (known after apply)
+      [33m~[0m[0m update_time      = "2025-12-19T23:42:24.441635428Z" -> (known after apply)
+      [33m~[0m[0m url              = "https://europe-west1-digital-twin-dev-481720.cloudfunctions.net/tf-e2e-gcp-user-functions" -> (known after apply)
+        [90m# (5 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+          [33m~[0m[0m build                 = "projects/1058889403132/locations/europe-west1/builds/bfbd6963-dfca-477d-81df-e8abac519204" -> (known after apply)
+          [33m~[0m[0m docker_repository     = "projects/digital-twin-dev-481720/locations/europe-west1/repositories/gcf-artifacts" -> (known after apply)
+          [33m~[0m[0m environment_variables = {} -> (known after apply)
+          [33m~[0m[0m service_account       = "projects/digital-twin-dev-481720/serviceAccounts/1058889403132-compute@developer.gserviceaccount.com" -> (known after apply)
+            [90m# (2 unchanged attributes hidden)[0m[0m
+
+          [31m-[0m[0m automatic_update_policy {}
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m generation = 1766187679960930 -> (known after apply)
+                  [33m~[0m[0m object     = "user-functions-8774339f925ecccbd7fafed5c2324082.zip" [33m->[0m[0m "user-functions-7bbd4fe328af1b2635a704320e2dd0b3.zip"
+                    [90m# (1 unchanged attribute hidden)[0m[0m
+                }
+            }
+        }
+
+      [32m+[0m[0m service_config {
+          [32m+[0m[0m all_traffic_on_latest_revision   = true
+          [32m+[0m[0m available_cpu                    = (known after apply)
+          [32m+[0m[0m available_memory                 = "256M"
+          [32m+[0m[0m environment_variables            = {
+              [32m+[0m[0m "DIGITAL_TWIN_INFO"      = jsonencode(
+                    {
+                      [32m+[0m[0m config           = {
+                          [32m+[0m[0m digital_twin_name = "tf-e2e-gcp"
+                        }
+                      [32m+[0m[0m config_providers = {
+                          [32m+[0m[0m layer_1_provider         = "google"
+                          [32m+[0m[0m layer_2_provider         = "google"
+                          [32m+[0m[0m layer_3_archive_provider = "google"
+                          [32m+[0m[0m layer_3_cold_provider    = "google"
+                          [32m+[0m[0m layer_3_hot_provider     = "google"
+                          [32m+[0m[0m layer_4_provider         = "google"
+                          [32m+[0m[0m layer_5_provider         = "google"
+                        }
+                    }
+                )
+              [32m+[0m[0m "DIGITAL_TWIN_NAME"      = "tf-e2e-gcp"
+              [32m+[0m[0m "FIRESTORE_COLLECTION"   = "tf-e2e-gcp-hot-data"
+              [32m+[0m[0m "GCP_PROJECT_ID"         = "digital-twin-dev-481720"
+              [32m+[0m[0m "INTER_CLOUD_TOKEN"      = ""
+              [32m+[0m[0m "PERSISTER_FUNCTION_URL" = "https://europe-west1-digital-twin-dev-481720.cloudfunctions.net/tf-e2e-gcp-persister"
+            }
+          [32m+[0m[0m gcf_uri                          = (known after apply)
+          [32m+[0m[0m ingress_settings                 = "ALLOW_ALL"
+          [32m+[0m[0m max_instance_count               = 10
+          [32m+[0m[0m max_instance_request_concurrency = (known after apply)
+          [32m+[0m[0m min_instance_count               = 0
+          [32m+[0m[0m service                          = (known after apply)
+          [32m+[0m[0m service_account_email            = "tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com"
+          [32m+[0m[0m timeout_seconds                  = 60
+          [32m+[0m[0m uri                              = (known after apply)
+        }
+    }
+
+[1m  # google_storage_bucket_object.dispatcher_source[0][0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "dispatcher_source" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "m/CLUQ==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "h7OMqlbtR1pWVdqWk/YDIQ==" [33m->[0m[0m "different hash"
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m generation       = 1766187669279116 -> (known after apply)
+      [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "h7OMqlbtR1pWVdqWk/YDIQ==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip?generation=1766187669279116&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+        name             = "dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip"
+      [33m~[0m[0m output_name      = "dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip" -> (known after apply)
+      [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/dispatcher.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/dispatcher.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (1 unchanged attribute hidden)[0m[0m
+    }
+
+[1m  # google_storage_bucket_object.event_checker_source[0][0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "event_checker_source" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "EK/DGA==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "hs5g5AlM9gGtfkCGrD57FA==" [33m->[0m[0m "different hash"
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m generation       = 1766187669419419 -> (known after apply)
+      [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "hs5g5AlM9gGtfkCGrD57FA==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip?generation=1766187669419419&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+      [33m~[0m[0m name             = "event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip" [33m->[0m[0m "event-checker-3288e9bf6fc67ea5f8978a99164e975d.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m output_name      = "event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip" -> (known after apply)
+      [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/event-checker.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/event-checker.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (1 unchanged attribute hidden)[0m[0m
+    }
+
+[1m  # google_storage_bucket_object.hot_reader_source[0][0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "hot_reader_source" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "MpHEWw==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "0pBBt6u/GN3/Riq6JC/bCw==" [33m->[0m[0m "different hash"
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m generation       = 1766187669417640 -> (known after apply)
+      [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "0pBBt6u/GN3/Riq6JC/bCw==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip?generation=1766187669417640&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+        name             = "hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip"
+      [33m~[0m[0m output_name      = "hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip" -> (known after apply)
+      [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/hot-reader.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/hot-reader.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (1 unchanged attribute hidden)[0m[0m
+    }
+
+[1m  # google_storage_bucket_object.hot_to_cold_mover_source[0][0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "hot_to_cold_mover_source" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "Mq8ZUw==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "FAO+lkOuTZqnH7/mbV0ZPQ==" [33m->[0m[0m "different hash"
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m generation       = 1766187669350799 -> (known after apply)
+      [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "FAO+lkOuTZqnH7/mbV0ZPQ==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip?generation=1766187669350799&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+        name             = "hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip"
+      [33m~[0m[0m output_name      = "hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip" -> (known after apply)
+      [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/hot-to-cold-mover.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/hot-to-cold-mover.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (1 unchanged attribute hidden)[0m[0m
+    }
+
+[1m  # google_storage_bucket_object.persister_source[0][0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "persister_source" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "sWQPeA==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "vAn/b3rHIpCnrotd0SSSzA==" [33m->[0m[0m "different hash"
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m generation       = 1766187679563691 -> (known after apply)
+      [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-persister-51fd295ef504168b8c18e590573f422e.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "vAn/b3rHIpCnrotd0SSSzA==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/persister-51fd295ef504168b8c18e590573f422e.zip?generation=1766187679563691&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+        name             = "persister-51fd295ef504168b8c18e590573f422e.zip"
+      [33m~[0m[0m output_name      = "persister-51fd295ef504168b8c18e590573f422e.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/persister-51fd295ef504168b8c18e590573f422e.zip" -> (known after apply)
+      [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/persister.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/persister.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (1 unchanged attribute hidden)[0m[0m
+    }
+
+[1m  # google_storage_bucket_object.processor_source[0][0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "processor_source" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "PYZtdA==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "xfxkadJeQbkA5I6atto3Kg==" [33m->[0m[0m "different hash"
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m generation       = 1766187669429974 -> (known after apply)
+      [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-processor-4f9bab6c6593a373bf20f6cb33e696b9.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "xfxkadJeQbkA5I6atto3Kg==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/processor-4f9bab6c6593a373bf20f6cb33e696b9.zip?generation=1766187669429974&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+        name             = "processor-4f9bab6c6593a373bf20f6cb33e696b9.zip"
+      [33m~[0m[0m output_name      = "processor-4f9bab6c6593a373bf20f6cb33e696b9.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/processor-4f9bab6c6593a373bf20f6cb33e696b9.zip" -> (known after apply)
+      [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/processor_wrapper.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/processor_wrapper.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (1 unchanged attribute hidden)[0m[0m
+    }
+
+[1m  # google_storage_bucket_object.user_functions_source[0][0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "user_functions_source" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "YDeBiQ==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "h3Qzn5JezMvX+v7VwjJAgg==" [33m->[0m[0m "different hash"
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m generation       = 1766187679501878 -> (known after apply)
+      [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-user-functions-8774339f925ecccbd7fafed5c2324082.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "h3Qzn5JezMvX+v7VwjJAgg==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/user-functions-8774339f925ecccbd7fafed5c2324082.zip?generation=1766187679501878&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+      [33m~[0m[0m name             = "user-functions-8774339f925ecccbd7fafed5c2324082.zip" [33m->[0m[0m "user-functions-7bbd4fe328af1b2635a704320e2dd0b3.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m output_name      = "user-functions-8774339f925ecccbd7fafed5c2324082.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/user-functions-8774339f925ecccbd7fafed5c2324082.zip" -> (known after apply)
+      [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/user-functions.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/user-functions.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (1 unchanged attribute hidden)[0m[0m
+    }
+
+[1m  # local_file.gcp_simulator_config["pressure-sensor-1"][0m will be created
+[0m  [32m+[0m[0m resource "local_file" "gcp_simulator_config" {
+      [32m+[0m[0m content              = jsonencode(
+            {
+              [32m+[0m[0m auth_method              = "service_account"
+              [32m+[0m[0m device_id                = "pressure-sensor-1"
+              [32m+[0m[0m digital_twin_name        = "tf-e2e-gcp"
+              [32m+[0m[0m payload_path             = "../payloads.json"
+              [32m+[0m[0m project_id               = "digital-twin-dev-481720"
+              [32m+[0m[0m service_account_key_path = "service_account.json"
+              [32m+[0m[0m topic_name               = "dt/tf-e2e-gcp/telemetry"
+            }
+        )
+      [32m+[0m[0m content_base64sha256 = (known after apply)
+      [32m+[0m[0m content_base64sha512 = (known after apply)
+      [32m+[0m[0m content_md5          = (known after apply)
+      [32m+[0m[0m content_sha1         = (known after apply)
+      [32m+[0m[0m content_sha256       = (known after apply)
+      [32m+[0m[0m content_sha512       = (known after apply)
+      [32m+[0m[0m directory_permission = "0777"
+      [32m+[0m[0m file_permission      = "0644"
+      [32m+[0m[0m filename             = "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/iot_device_simulator/gcp/config_generated_pressure-sensor-1.json"
+      [32m+[0m[0m id                   = (known after apply)
+    }
+
+[1m  # local_file.gcp_simulator_config["temperature-sensor-1"][0m will be created
+[0m  [32m+[0m[0m resource "local_file" "gcp_simulator_config" {
+      [32m+[0m[0m content              = jsonencode(
+            {
+              [32m+[0m[0m auth_method              = "service_account"
+              [32m+[0m[0m device_id                = "temperature-sensor-1"
+              [32m+[0m[0m digital_twin_name        = "tf-e2e-gcp"
+              [32m+[0m[0m payload_path             = "../payloads.json"
+              [32m+[0m[0m project_id               = "digital-twin-dev-481720"
+              [32m+[0m[0m service_account_key_path = "service_account.json"
+              [32m+[0m[0m topic_name               = "dt/tf-e2e-gcp/telemetry"
+            }
+        )
+      [32m+[0m[0m content_base64sha256 = (known after apply)
+      [32m+[0m[0m content_base64sha512 = (known after apply)
+      [32m+[0m[0m content_md5          = (known after apply)
+      [32m+[0m[0m content_sha1         = (known after apply)
+      [32m+[0m[0m content_sha256       = (known after apply)
+      [32m+[0m[0m content_sha512       = (known after apply)
+      [32m+[0m[0m directory_permission = "0777"
+      [32m+[0m[0m file_permission      = "0644"
+      [32m+[0m[0m filename             = "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/iot_device_simulator/gcp/config_generated_temperature-sensor-1.json"
+      [32m+[0m[0m id                   = (known after apply)
+    }
+
+[1m  # local_file.gcp_simulator_config["temperature-sensor-2"][0m will be created
+[0m  [32m+[0m[0m resource "local_file" "gcp_simulator_config" {
+      [32m+[0m[0m content              = jsonencode(
+            {
+              [32m+[0m[0m auth_method              = "service_account"
+              [32m+[0m[0m device_id                = "temperature-sensor-2"
+              [32m+[0m[0m digital_twin_name        = "tf-e2e-gcp"
+              [32m+[0m[0m payload_path             = "../payloads.json"
+              [32m+[0m[0m project_id               = "digital-twin-dev-481720"
+              [32m+[0m[0m service_account_key_path = "service_account.json"
+              [32m+[0m[0m topic_name               = "dt/tf-e2e-gcp/telemetry"
+            }
+        )
+      [32m+[0m[0m content_base64sha256 = (known after apply)
+      [32m+[0m[0m content_base64sha512 = (known after apply)
+      [32m+[0m[0m content_md5          = (known after apply)
+      [32m+[0m[0m content_sha1         = (known after apply)
+      [32m+[0m[0m content_sha256       = (known after apply)
+      [32m+[0m[0m content_sha512       = (known after apply)
+      [32m+[0m[0m directory_permission = "0777"
+      [32m+[0m[0m file_permission      = "0644"
+      [32m+[0m[0m filename             = "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/iot_device_simulator/gcp/config_generated_temperature-sensor-2.json"
+      [32m+[0m[0m id                   = (known after apply)
+    }
+
+[1mPlan:[0m 14 to add, 0 to change, 8 to destroy.
+[0m
+Changes to Outputs:
+  [32m+[0m[0m gcp_event_checker_url               = (known after apply)
+  [32m+[0m[0m gcp_user_functions_url              = (known after apply)
+[0m[1mgoogle_storage_bucket_object.hot_to_cold_mover_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip][0m[0m
+[0m[1mgoogle_storage_bucket_object.dispatcher_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip][0m[0m
+[0m[1mgoogle_storage_bucket_object.processor_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-processor-4f9bab6c6593a373bf20f6cb33e696b9.zip][0m[0m
+[0m[1mgoogle_storage_bucket_object.hot_reader_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip][0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Destroying... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-user-functions][0m[0m
+[0m[1mgoogle_storage_bucket_object.event_checker_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip][0m[0m
+[0m[1mlocal_file.gcp_simulator_config["temperature-sensor-1"]: Creating...[0m[0m
+[0m[1mlocal_file.gcp_simulator_config["pressure-sensor-1"]: Creating...[0m[0m
+[0m[1mlocal_file.gcp_simulator_config["temperature-sensor-2"]: Creating...[0m[0m
+[0m[1mlocal_file.gcp_simulator_config["temperature-sensor-1"]: Creation complete after 0s [id=f05b0c165c25e40fe4d6e70001b7cd5de463bac7][0m
+[0m[1mlocal_file.gcp_simulator_config["pressure-sensor-1"]: Creation complete after 0s [id=2824719fcc22bc7f5971a455630b7373e43f8aa3][0m
+[0m[1mlocal_file.gcp_simulator_config["temperature-sensor-2"]: Creation complete after 1s [id=2a37f4f17496e1571fc3609434c8aaec02f74814][0m
+[0m[1mgoogle_storage_bucket_object.hot_reader_source[0]: Destruction complete after 1s[0m
+[0m[1mgoogle_storage_bucket_object.hot_to_cold_mover_source[0]: Destruction complete after 1s[0m
+[0m[1mgoogle_storage_bucket_object.event_checker_source[0]: Destruction complete after 1s[0m
+[0m[1mgoogle_storage_bucket_object.processor_source[0]: Destruction complete after 1s[0m
+[0m[1mgoogle_storage_bucket_object.dispatcher_source[0]: Destruction complete after 1s[0m
+[0m[1mgoogle_storage_bucket_object.hot_reader_source[0]: Creating...[0m[0m
+[0m[1mgoogle_storage_bucket_object.hot_to_cold_mover_source[0]: Creating...[0m[0m
+[0m[1mgoogle_storage_bucket_object.event_checker_source[0]: Creating...[0m[0m
+[0m[1mgoogle_storage_bucket_object.dispatcher_source[0]: Creating...[0m[0m
+[0m[1mgoogle_storage_bucket_object.processor_source[0]: Creating...[0m[0m
+[0m[1mgoogle_storage_bucket_object.hot_reader_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip][0m
+[0m[1mgoogle_storage_bucket_object.hot_to_cold_mover_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip][0m
+[0m[1mgoogle_storage_bucket_object.processor_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-processor-4f9bab6c6593a373bf20f6cb33e696b9.zip][0m
+[0m[1mgoogle_storage_bucket_object.event_checker_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-event-checker-3288e9bf6fc67ea5f8978a99164e975d.zip][0m
+[0m[1mgoogle_storage_bucket_object.dispatcher_source[0]: Creation complete after 1s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip][0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still destroying... [id=projects/digital-twin-dev-481720/locati...t1/functions/tf-e2e-gcp-user-functions, 10s elapsed][0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Destruction complete after 11s[0m
+[0m[1mgoogle_storage_bucket_object.persister_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-persister-51fd295ef504168b8c18e590573f422e.zip][0m[0m
+[0m[1mgoogle_storage_bucket_object.user_functions_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-user-functions-8774339f925ecccbd7fafed5c2324082.zip][0m[0m
+[0m[1mgoogle_storage_bucket_object.user_functions_source[0]: Destruction complete after 0s[0m
+[0m[1mgoogle_storage_bucket_object.persister_source[0]: Destruction complete after 0s[0m
+[0m[1mgoogle_storage_bucket_object.persister_source[0]: Creating...[0m[0m
+[0m[1mgoogle_storage_bucket_object.user_functions_source[0]: Creating...[0m[0m
+[0m[1mgoogle_storage_bucket_object.persister_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-persister-51fd295ef504168b8c18e590573f422e.zip][0m
+[0m[1mgoogle_storage_bucket_object.user_functions_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-user-functions-7bbd4fe328af1b2635a704320e2dd0b3.zip][0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Creating...[0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [10s elapsed][0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [20s elapsed][0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [30s elapsed][0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [40s elapsed][0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [50s elapsed][0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [1m0s elapsed][0m[0m
+[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mError waiting to create function: Error waiting for Creating function: Error code 3, message: Could not create or update Cloud Run service tf-e2e-gcp-user-functions, Container Healthcheck failed. The user-provided container failed to start and listen on the port defined provided by the PORT=8080 environment variable within the allocated timeout. This can happen when the container port is misconfigured or if the timeout is too short. The health check timeout can be extended. Logs for this revision might contain more information.
+[31m│[0m [0m
+[31m│[0m [0mLogs URL: https://console.cloud.google.com/logs/viewer?project=digital-twin-dev-481720&resource=cloud_run_revision/service_name/tf-e2e-gcp-user-functions/revision_name/tf-e2e-gcp-user-functions-00001-xof&advancedFilter=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22tf-e2e-gcp-user-functions%22%0Aresource.labels.revision_name%3D%22tf-e2e-gcp-user-functions-00001-xof%22 
+[31m│[0m [0mFor more troubleshooting guidance, see https://cloud.google.com/run/docs/troubleshooting#container-failed-to-start[0m
+[31m│[0m [0m
+[31m│[0m [0m[0m  with google_cloudfunctions2_function.user_functions[0],
+[31m│[0m [0m  on gcp_compute.tf line 291, in resource "google_cloudfunctions2_function" "user_functions":
+[31m│[0m [0m 291: resource "google_cloudfunctions2_function" "user_functions" [4m{[0m[0m
+[31m│[0m [0m
+[31m╵[0m[0m
+
+[DEPLOY] ✗ DEPLOYMENT FAILED: TerraformError: Terraform apply failed (exit 1): [0m[1mgoogle_project_service.cloudresourcemanager[0]: Refreshing state... [id=digital-twin-dev-481720/cloudresourcemanager.googleapis.com][0m
+[0m[1mgoogle_storage_bucket.function_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions][0m
+[0m[1mlocal_file.gcp_simulator_config["temperature-sensor-2"]: Refreshing state... [id=2a37f4f17496e1571fc3609434c8aaec02f74814][0m
+[0m[1mlocal_file.gcp_simulator_config["pressure-sensor-1"]: Refreshing state... [id=2824719fcc22bc7f5971a455630b7373e43f8aa3][0m
+[0m[1mlocal_file.gcp_simulator_config["temperature-sensor-1"]: Refreshing state... [id=f05b0c165c25e40fe4d6e70001b7cd5de463bac7][0m
+[0m[1mgoogle_storage_bucket_object.hot_to_cold_mover_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip][0m
+[0m[1mgoogle_storage_bucket_object.persister_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-persister-51fd295ef504168b8c18e590573f422e.zip][0m
+[0m[1mgoogle_storage_bucket_object.hot_reader_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip][0m
+[0m[1mgoogle_storage_bucket_object.user_functions_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-user-functions-8774339f925ecccbd7fafed5c2324082.zip][0m
+[0m[1mgoogle_storage_bucket_object.event_checker_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip][0m
+[0m[1mgoogle_storage_bucket_object.processor_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-processor-4f9bab6c6593a373bf20f6cb33e696b9.zip][0m
+[0m[1mgoogle_storage_bucket_object.dispatcher_source[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip][0m
+[0m[1mgoogle_project_service.cloudbuild[0]: Refreshing state... [id=digital-twin-dev-481720/cloudbuild.googleapis.com][0m
+[0m[1mgoogle_project_service.iam[0]: Refreshing state... [id=digital-twin-dev-481720/iam.googleapis.com][0m
+[0m[1mgoogle_project_service.pubsub[0]: Refreshing state... [id=digital-twin-dev-481720/pubsub.googleapis.com][0m
+[0m[1mgoogle_project_service.cloudscheduler[0]: Refreshing state... [id=digital-twin-dev-481720/cloudscheduler.googleapis.com][0m
+[0m[1mgoogle_project_service.cloudfunctions[0]: Refreshing state... [id=digital-twin-dev-481720/cloudfunctions.googleapis.com][0m
+[0m[1mgoogle_project_service.firestore[0]: Refreshing state... [id=digital-twin-dev-481720/firestore.googleapis.com][0m
+[0m[1mgoogle_project_service.eventarc[0]: Refreshing state... [id=digital-twin-dev-481720/eventarc.googleapis.com][0m
+[0m[1mgoogle_project_service.storage[0]: Refreshing state... [id=digital-twin-dev-481720/storage.googleapis.com][0m
+[0m[1mgoogle_project_service.run[0]: Refreshing state... [id=digital-twin-dev-481720/run.googleapis.com][0m
+[0m[1mgoogle_pubsub_topic.telemetry[0]: Refreshing state... [id=projects/digital-twin-dev-481720/topics/tf-e2e-gcp-telemetry][0m
+[0m[1mgoogle_firestore_database.main[0]: Refreshing state... [id=projects/digital-twin-dev-481720/databases/(default)][0m
+[0m[1mgoogle_pubsub_topic.events[0]: Refreshing state... [id=projects/digital-twin-dev-481720/topics/tf-e2e-gcp-events][0m
+[0m[1mgoogle_service_account.functions[0]: Refreshing state... [id=projects/digital-twin-dev-481720/serviceAccounts/tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+[0m[1mgoogle_project_iam_custom_role.functions_role[0]: Refreshing state... [id=projects/digital-twin-dev-481720/roles/tf_e2e_gcp_functions_role][0m
+[0m[1mgoogle_storage_bucket.cold[0]: Refreshing state... [id=digital-twin-dev-481720-tf-e2e-gcp-cold][0m
+[0m[1mgoogle_project_iam_member.functions_custom_role[0]: Refreshing state... [id=digital-twin-dev-481720/projects/digital-twin-dev-481720/roles/tf_e2e_gcp_functions_role/serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+[0m[1mgoogle_cloudfunctions2_function.hot_reader[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-hot-reader][0m
+[0m[1mgoogle_cloudfunctions2_function.hot_to_cold_mover[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-hot-to-cold-mover][0m
+[0m[1mgoogle_cloudfunctions2_function.persister[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-persister][0m
+[0m[1mgoogle_cloudfunctions2_function.dispatcher[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-dispatcher][0m
+[0m[1mgoogle_cloud_run_service_iam_member.hot_reader_invoker[0]: Refreshing state... [id=v1/projects/digital-twin-dev-481720/locations/europe-west1/services/tf-e2e-gcp-hot-reader/roles/run.invoker/serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+[0m[1mgoogle_cloud_run_service_iam_member.persister_invoker[0]: Refreshing state... [id=v1/projects/digital-twin-dev-481720/locations/europe-west1/services/tf-e2e-gcp-persister/roles/run.invoker/serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-user-functions][0m
+[0m[1mgoogle_cloudfunctions2_function.processor[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-processor][0m
+[0m[1mgoogle_cloud_run_service_iam_member.hot_to_cold_mover_invoker[0]: Refreshing state... [id=v1/projects/digital-twin-dev-481720/locations/europe-west1/services/tf-e2e-gcp-hot-to-cold-mover/roles/run.invoker/serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+[0m[1mgoogle_cloud_scheduler_job.hot_to_cold[0]: Refreshing state... [id=projects/digital-twin-dev-481720/locations/europe-west1/jobs/tf-e2e-gcp-hot-to-cold-schedule][0m
+[0m[1mgoogle_cloud_run_service_iam_member.dispatcher_invoker[0]: Refreshing state... [id=v1/projects/digital-twin-dev-481720/locations/europe-west1/services/tf-e2e-gcp-dispatcher/roles/run.invoker/serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com][0m
+
+[1m[36mNote:[0m[1m Objects have changed outside of Terraform
+[0m
+Terraform detected the following changes made outside of Terraform since the
+last "terraform apply" which may have affected this plan:
+
+[1m  # google_cloudfunctions2_function.user_functions[0][0m has changed
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "user_functions" {
+        id               = "projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-user-functions"
+        name             = "tf-e2e-gcp-user-functions"
+      [32m+[0m[0m url              = "https://europe-west1-digital-twin-dev-481720.cloudfunctions.net/tf-e2e-gcp-user-functions"
+        [90m# (5 unchanged attributes hidden)[0m[0m
+
+        [90m# (2 unchanged blocks hidden)[0m[0m
+    }
+
+
+Unless you have made equivalent changes to your configuration, or ignored the
+relevant attributes using ignore_changes, the following plan may include
+actions to undo or respond to these changes.
+[90m
+─────────────────────────────────────────────────────────────────────────────[0m
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  [32m+[0m create[0m
+[31m-[0m/[32m+[0m destroy and then create replacement[0m
+
+Terraform will perform the following actions:
+
+[1m  # google_cloud_run_service_iam_member.event_checker_invoker[0][0m will be created
+[0m  [32m+[0m[0m resource "google_cloud_run_service_iam_member" "event_checker_invoker" {
+      [32m+[0m[0m etag     = (known after apply)
+      [32m+[0m[0m id       = (known after apply)
+      [32m+[0m[0m location = "europe-west1"
+      [32m+[0m[0m member   = "serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com"
+      [32m+[0m[0m project  = "digital-twin-dev-481720"
+      [32m+[0m[0m role     = "roles/run.invoker"
+      [32m+[0m[0m service  = "tf-e2e-gcp-event-checker"
+    }
+
+[1m  # google_cloud_run_service_iam_member.user_functions_invoker[0][0m will be created
+[0m  [32m+[0m[0m resource "google_cloud_run_service_iam_member" "user_functions_invoker" {
+      [32m+[0m[0m etag     = (known after apply)
+      [32m+[0m[0m id       = (known after apply)
+      [32m+[0m[0m location = "europe-west1"
+      [32m+[0m[0m member   = "serviceAccount:tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com"
+      [32m+[0m[0m project  = "digital-twin-dev-481720"
+      [32m+[0m[0m role     = "roles/run.invoker"
+      [32m+[0m[0m service  = "tf-e2e-gcp-user-functions"
+    }
+
+[1m  # google_cloudfunctions2_function.event_checker[0][0m will be created
+[0m  [32m+[0m[0m resource "google_cloudfunctions2_function" "event_checker" {
+      [32m+[0m[0m effective_labels = {
+          [32m+[0m[0m "digital-twin" = "tf-e2e-gcp"
+          [32m+[0m[0m "environment"  = "dev"
+          [32m+[0m[0m "managed-by"   = "terraform"
+        }
+      [32m+[0m[0m environment      = (known after apply)
+      [32m+[0m[0m id               = (known after apply)
+      [32m+[0m[0m labels           = {
+          [32m+[0m[0m "digital-twin" = "tf-e2e-gcp"
+          [32m+[0m[0m "environment"  = "dev"
+          [32m+[0m[0m "managed-by"   = "terraform"
+        }
+      [32m+[0m[0m location         = "europe-west1"
+      [32m+[0m[0m name             = "tf-e2e-gcp-event-checker"
+      [32m+[0m[0m project          = "digital-twin-dev-481720"
+      [32m+[0m[0m state            = (known after apply)
+      [32m+[0m[0m terraform_labels = {
+          [32m+[0m[0m "digital-twin" = "tf-e2e-gcp"
+          [32m+[0m[0m "environment"  = "dev"
+          [32m+[0m[0m "managed-by"   = "terraform"
+        }
+      [32m+[0m[0m update_time      = (known after apply)
+      [32m+[0m[0m url              = (known after apply)
+
+      [32m+[0m[0m build_config {
+          [32m+[0m[0m build                 = (known after apply)
+          [32m+[0m[0m docker_repository     = (known after apply)
+          [32m+[0m[0m entry_point           = "main"
+          [32m+[0m[0m environment_variables = (known after apply)
+          [32m+[0m[0m runtime               = "python311"
+          [32m+[0m[0m service_account       = (known after apply)
+
+          [32m+[0m[0m source {
+              [32m+[0m[0m storage_source {
+                  [32m+[0m[0m bucket     = "digital-twin-dev-481720-tf-e2e-gcp-functions"
+                  [32m+[0m[0m generation = (known after apply)
+                  [32m+[0m[0m object     = "event-checker-3288e9bf6fc67ea5f8978a99164e975d.zip"
+                }
+            }
+        }
+
+      [32m+[0m[0m service_config {
+          [32m+[0m[0m all_traffic_on_latest_revision   = true
+          [32m+[0m[0m available_cpu                    = (known after apply)
+          [32m+[0m[0m available_memory                 = "256M"
+          [32m+[0m[0m environment_variables            = {
+              [32m+[0m[0m "DIGITAL_TWIN_INFO"     = jsonencode(
+                    {
+                      [32m+[0m[0m config             = {
+                          [32m+[0m[0m cold_storage_size_in_days = 90
+                          [32m+[0m[0m digital_twin_name         = "tf-e2e-gcp"
+                          [32m+[0m[0m hot_storage_size_in_days  = 30
+                          [32m+[0m[0m mode                      = "dev"
+                        }
+                      [32m+[0m[0m config_events      = [
+                          [32m+[0m[0m {
+                              [32m+[0m[0m action    = {
+                                  [32m+[0m[0m autoDeploy   = true
+                                  [32m+[0m[0m feedback     = {
+                                      [32m+[0m[0m iotDeviceId = "temperature-sensor-1"
+                                      [32m+[0m[0m payload     = "High Temp Warning"
+                                      [32m+[0m[0m type        = "mqtt"
+                                    }
+                                  [32m+[0m[0m functionName = "high-temperature-callback"
+                                  [32m+[0m[0m type         = "lambda"
+                                }
+                              [32m+[0m[0m condition = "testEntityId.temperature-sensor-1.temperature == DOUBLE(30)"
+                            },
+                          [32m+[0m[0m {
+                              [32m+[0m[0m action    = {
+                                  [32m+[0m[0m autoDeploy   = true
+                                  [32m+[0m[0m feedback     = {
+                                      [32m+[0m[0m iotDeviceId = "temperature-sensor-2"
+                                      [32m+[0m[0m payload     = "action-result"
+                                      [32m+[0m[0m type        = "mqtt"
+                                    }
+                                  [32m+[0m[0m functionName = "high-temperature-callback-2"
+                                  [32m+[0m[0m pathToCode   = "lambda_functions/event_actions/high-temperature-callback-2"
+                                  [32m+[0m[0m type         = "lambda"
+                                }
+                              [32m+[0m[0m condition = "testEntityId.temperature-sensor-2.temperature == DOUBLE(40)"
+                            },
+                        ]
+                      [32m+[0m[0m config_iot_devices = [
+                          [32m+[0m[0m {
+                              [32m+[0m[0m id         = "temperature-sensor-1"
+                              [32m+[0m[0m properties = [
+                                  [32m+[0m[0m {
+                                      [32m+[0m[0m dataType  = "DOUBLE"
+                                      [32m+[0m[0m initValue = "25"
+                                      [32m+[0m[0m name      = "temperature"
+                                    },
+                                ]
+                            },
+                          [32m+[0m[0m {
+                              [32m+[0m[0m id         = "temperature-sensor-2"
+                              [32m+[0m[0m properties = [
+                                  [32m+[0m[0m {
+                                      [32m+[0m[0m dataType  = "DOUBLE"
+                                      [32m+[0m[0m initValue = "22"
+                                      [32m+[0m[0m name      = "temperature"
+                                    },
+                                  [32m+[0m[0m {
+                                      [32m+[0m[0m dataType  = "DOUBLE"
+                                      [32m+[0m[0m initValue = "60"
+                                      [32m+[0m[0m name      = "maxTemperature"
+                                    },
+                                ]
+                            },
+                          [32m+[0m[0m {
+                              [32m+[0m[0m id         = "pressure-sensor-1"
+                              [32m+[0m[0m properties = [
+                                  [32m+[0m[0m {
+                                      [32m+[0m[0m dataType  = "DOUBLE"
+                                      [32m+[0m[0m initValue = "1000"
+                                      [32m+[0m[0m name      = "pressure"
+                                    },
+                                  [32m+[0m[0m {
+                                      [32m+[0m[0m dataType  = "DOUBLE"
+                                      [32m+[0m[0m initValue = [90mnull[0m[0m
+                                      [32m+[0m[0m name      = "density"
+                                    },
+                                  [32m+[0m[0m {
+                                      [32m+[0m[0m dataType  = "DOUBLE"
+                                      [32m+[0m[0m initValue = [90mnull[0m[0m
+                                      [32m+[0m[0m name      = "hardness"
+                                    },
+                                ]
+                            },
+                        ]
+                      [32m+[0m[0m config_providers   = {
+                          [32m+[0m[0m layer_1_provider         = "google"
+                          [32m+[0m[0m layer_2_provider         = "google"
+                          [32m+[0m[0m layer_3_archive_provider = "google"
+                          [32m+[0m[0m layer_3_cold_provider    = "google"
+                          [32m+[0m[0m layer_3_hot_provider     = "google"
+                          [32m+[0m[0m layer_4_provider         = "google"
+                          [32m+[0m[0m layer_5_provider         = "google"
+                        }
+                    }
+                )
+              [32m+[0m[0m "DIGITAL_TWIN_NAME"     = "tf-e2e-gcp"
+              [32m+[0m[0m "FEEDBACK_FUNCTION_URL" = ""
+              [32m+[0m[0m "GCP_PROJECT_ID"        = "digital-twin-dev-481720"
+              [32m+[0m[0m "INTER_CLOUD_TOKEN"     = ""
+            }
+          [32m+[0m[0m gcf_uri                          = (known after apply)
+          [32m+[0m[0m ingress_settings                 = "ALLOW_ALL"
+          [32m+[0m[0m max_instance_count               = 10
+          [32m+[0m[0m max_instance_request_concurrency = (known after apply)
+          [32m+[0m[0m min_instance_count               = 0
+          [32m+[0m[0m service                          = (known after apply)
+          [32m+[0m[0m service_account_email            = "tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com"
+          [32m+[0m[0m timeout_seconds                  = 60
+          [32m+[0m[0m uri                              = (known after apply)
+        }
+    }
+
+[1m  # google_cloudfunctions2_function.user_functions[0][0m is tainted, so must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_cloudfunctions2_function" "user_functions" {
+      [33m~[0m[0m environment      = "GEN_2" -> (known after apply)
+      [33m~[0m[0m id               = "projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-user-functions" -> (known after apply)
+        name             = "tf-e2e-gcp-user-functions"
+      [33m~[0m[0m state            = "FAILED" -> (known after apply)
+      [33m~[0m[0m update_time      = "2025-12-19T23:42:24.441635428Z" -> (known after apply)
+      [33m~[0m[0m url              = "https://europe-west1-digital-twin-dev-481720.cloudfunctions.net/tf-e2e-gcp-user-functions" -> (known after apply)
+        [90m# (5 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+          [33m~[0m[0m build                 = "projects/1058889403132/locations/europe-west1/builds/bfbd6963-dfca-477d-81df-e8abac519204" -> (known after apply)
+          [33m~[0m[0m docker_repository     = "projects/digital-twin-dev-481720/locations/europe-west1/repositories/gcf-artifacts" -> (known after apply)
+          [33m~[0m[0m environment_variables = {} -> (known after apply)
+          [33m~[0m[0m service_account       = "projects/digital-twin-dev-481720/serviceAccounts/1058889403132-compute@developer.gserviceaccount.com" -> (known after apply)
+            [90m# (2 unchanged attributes hidden)[0m[0m
+
+          [31m-[0m[0m automatic_update_policy {}
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m generation = 1766187679960930 -> (known after apply)
+                  [33m~[0m[0m object     = "user-functions-8774339f925ecccbd7fafed5c2324082.zip" [33m->[0m[0m "user-functions-7bbd4fe328af1b2635a704320e2dd0b3.zip"
+                    [90m# (1 unchanged attribute hidden)[0m[0m
+                }
+            }
+        }
+
+      [32m+[0m[0m service_config {
+          [32m+[0m[0m all_traffic_on_latest_revision   = true
+          [32m+[0m[0m available_cpu                    = (known after apply)
+          [32m+[0m[0m available_memory                 = "256M"
+          [32m+[0m[0m environment_variables            = {
+              [32m+[0m[0m "DIGITAL_TWIN_INFO"      = jsonencode(
+                    {
+                      [32m+[0m[0m config           = {
+                          [32m+[0m[0m digital_twin_name = "tf-e2e-gcp"
+                        }
+                      [32m+[0m[0m config_providers = {
+                          [32m+[0m[0m layer_1_provider         = "google"
+                          [32m+[0m[0m layer_2_provider         = "google"
+                          [32m+[0m[0m layer_3_archive_provider = "google"
+                          [32m+[0m[0m layer_3_cold_provider    = "google"
+                          [32m+[0m[0m layer_3_hot_provider     = "google"
+                          [32m+[0m[0m layer_4_provider         = "google"
+                          [32m+[0m[0m layer_5_provider         = "google"
+                        }
+                    }
+                )
+              [32m+[0m[0m "DIGITAL_TWIN_NAME"      = "tf-e2e-gcp"
+              [32m+[0m[0m "FIRESTORE_COLLECTION"   = "tf-e2e-gcp-hot-data"
+              [32m+[0m[0m "GCP_PROJECT_ID"         = "digital-twin-dev-481720"
+              [32m+[0m[0m "INTER_CLOUD_TOKEN"      = ""
+              [32m+[0m[0m "PERSISTER_FUNCTION_URL" = "https://europe-west1-digital-twin-dev-481720.cloudfunctions.net/tf-e2e-gcp-persister"
+            }
+          [32m+[0m[0m gcf_uri                          = (known after apply)
+          [32m+[0m[0m ingress_settings                 = "ALLOW_ALL"
+          [32m+[0m[0m max_instance_count               = 10
+          [32m+[0m[0m max_instance_request_concurrency = (known after apply)
+          [32m+[0m[0m min_instance_count               = 0
+          [32m+[0m[0m service                          = (known after apply)
+          [32m+[0m[0m service_account_email            = "tf-e2e-gcp-functions-sa@digital-twin-dev-481720.iam.gserviceaccount.com"
+          [32m+[0m[0m timeout_seconds                  = 60
+          [32m+[0m[0m uri                              = (known after apply)
+        }
+    }
+
+[1m  # google_storage_bucket_object.dispatcher_source[0][0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "dispatcher_source" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "m/CLUQ==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "h7OMqlbtR1pWVdqWk/YDIQ==" [33m->[0m[0m "different hash"
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m generation       = 1766187669279116 -> (known after apply)
+      [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "h7OMqlbtR1pWVdqWk/YDIQ==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip?generation=1766187669279116&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+        name             = "dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip"
+      [33m~[0m[0m output_name      = "dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip" -> (known after apply)
+      [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/dispatcher.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/dispatcher.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (1 unchanged attribute hidden)[0m[0m
+    }
+
+[1m  # google_storage_bucket_object.event_checker_source[0][0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "event_checker_source" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "EK/DGA==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "hs5g5AlM9gGtfkCGrD57FA==" [33m->[0m[0m "different hash"
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m generation       = 1766187669419419 -> (known after apply)
+      [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "hs5g5AlM9gGtfkCGrD57FA==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip?generation=1766187669419419&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+      [33m~[0m[0m name             = "event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip" [33m->[0m[0m "event-checker-3288e9bf6fc67ea5f8978a99164e975d.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m output_name      = "event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip" -> (known after apply)
+      [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/event-checker.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/event-checker.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (1 unchanged attribute hidden)[0m[0m
+    }
+
+[1m  # google_storage_bucket_object.hot_reader_source[0][0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "hot_reader_source" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "MpHEWw==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "0pBBt6u/GN3/Riq6JC/bCw==" [33m->[0m[0m "different hash"
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m generation       = 1766187669417640 -> (known after apply)
+      [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "0pBBt6u/GN3/Riq6JC/bCw==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip?generation=1766187669417640&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+        name             = "hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip"
+      [33m~[0m[0m output_name      = "hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip" -> (known after apply)
+      [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/hot-reader.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/hot-reader.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (1 unchanged attribute hidden)[0m[0m
+    }
+
+[1m  # google_storage_bucket_object.hot_to_cold_mover_source[0][0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "hot_to_cold_mover_source" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "Mq8ZUw==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "FAO+lkOuTZqnH7/mbV0ZPQ==" [33m->[0m[0m "different hash"
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m generation       = 1766187669350799 -> (known after apply)
+      [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "FAO+lkOuTZqnH7/mbV0ZPQ==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip?generation=1766187669350799&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+        name             = "hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip"
+      [33m~[0m[0m output_name      = "hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip" -> (known after apply)
+      [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/hot-to-cold-mover.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/hot-to-cold-mover.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (1 unchanged attribute hidden)[0m[0m
+    }
+
+[1m  # google_storage_bucket_object.persister_source[0][0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "persister_source" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "sWQPeA==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "vAn/b3rHIpCnrotd0SSSzA==" [33m->[0m[0m "different hash"
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m generation       = 1766187679563691 -> (known after apply)
+      [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-persister-51fd295ef504168b8c18e590573f422e.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "vAn/b3rHIpCnrotd0SSSzA==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/persister-51fd295ef504168b8c18e590573f422e.zip?generation=1766187679563691&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+        name             = "persister-51fd295ef504168b8c18e590573f422e.zip"
+      [33m~[0m[0m output_name      = "persister-51fd295ef504168b8c18e590573f422e.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/persister-51fd295ef504168b8c18e590573f422e.zip" -> (known after apply)
+      [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/persister.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/persister.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (1 unchanged attribute hidden)[0m[0m
+    }
+
+[1m  # google_storage_bucket_object.processor_source[0][0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "processor_source" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "PYZtdA==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "xfxkadJeQbkA5I6atto3Kg==" [33m->[0m[0m "different hash"
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m generation       = 1766187669429974 -> (known after apply)
+      [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-processor-4f9bab6c6593a373bf20f6cb33e696b9.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "xfxkadJeQbkA5I6atto3Kg==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/processor-4f9bab6c6593a373bf20f6cb33e696b9.zip?generation=1766187669429974&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+        name             = "processor-4f9bab6c6593a373bf20f6cb33e696b9.zip"
+      [33m~[0m[0m output_name      = "processor-4f9bab6c6593a373bf20f6cb33e696b9.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/processor-4f9bab6c6593a373bf20f6cb33e696b9.zip" -> (known after apply)
+      [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/processor_wrapper.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/processor_wrapper.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (1 unchanged attribute hidden)[0m[0m
+    }
+
+[1m  # google_storage_bucket_object.user_functions_source[0][0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "user_functions_source" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "YDeBiQ==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "h3Qzn5JezMvX+v7VwjJAgg==" [33m->[0m[0m "different hash"
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m generation       = 1766187679501878 -> (known after apply)
+      [33m~[0m[0m id               = "digital-twin-dev-481720-tf-e2e-gcp-functions-user-functions-8774339f925ecccbd7fafed5c2324082.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "h3Qzn5JezMvX+v7VwjJAgg==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/user-functions-8774339f925ecccbd7fafed5c2324082.zip?generation=1766187679501878&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+      [33m~[0m[0m name             = "user-functions-8774339f925ecccbd7fafed5c2324082.zip" [33m->[0m[0m "user-functions-7bbd4fe328af1b2635a704320e2dd0b3.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m output_name      = "user-functions-8774339f925ecccbd7fafed5c2324082.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/digital-twin-dev-481720-tf-e2e-gcp-functions/o/user-functions-8774339f925ecccbd7fafed5c2324082.zip" -> (known after apply)
+      [33m~[0m[0m source           = "/tmp/pytest-of-root/pytest-52/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/user-functions.zip" [33m->[0m[0m "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/.build/gcp/user-functions.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (1 unchanged attribute hidden)[0m[0m
+    }
+
+[1m  # local_file.gcp_simulator_config["pressure-sensor-1"][0m will be created
+[0m  [32m+[0m[0m resource "local_file" "gcp_simulator_config" {
+      [32m+[0m[0m content              = jsonencode(
+            {
+              [32m+[0m[0m auth_method              = "service_account"
+              [32m+[0m[0m device_id                = "pressure-sensor-1"
+              [32m+[0m[0m digital_twin_name        = "tf-e2e-gcp"
+              [32m+[0m[0m payload_path             = "../payloads.json"
+              [32m+[0m[0m project_id               = "digital-twin-dev-481720"
+              [32m+[0m[0m service_account_key_path = "service_account.json"
+              [32m+[0m[0m topic_name               = "dt/tf-e2e-gcp/telemetry"
+            }
+        )
+      [32m+[0m[0m content_base64sha256 = (known after apply)
+      [32m+[0m[0m content_base64sha512 = (known after apply)
+      [32m+[0m[0m content_md5          = (known after apply)
+      [32m+[0m[0m content_sha1         = (known after apply)
+      [32m+[0m[0m content_sha256       = (known after apply)
+      [32m+[0m[0m content_sha512       = (known after apply)
+      [32m+[0m[0m directory_permission = "0777"
+      [32m+[0m[0m file_permission      = "0644"
+      [32m+[0m[0m filename             = "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/iot_device_simulator/gcp/config_generated_pressure-sensor-1.json"
+      [32m+[0m[0m id                   = (known after apply)
+    }
+
+[1m  # local_file.gcp_simulator_config["temperature-sensor-1"][0m will be created
+[0m  [32m+[0m[0m resource "local_file" "gcp_simulator_config" {
+      [32m+[0m[0m content              = jsonencode(
+            {
+              [32m+[0m[0m auth_method              = "service_account"
+              [32m+[0m[0m device_id                = "temperature-sensor-1"
+              [32m+[0m[0m digital_twin_name        = "tf-e2e-gcp"
+              [32m+[0m[0m payload_path             = "../payloads.json"
+              [32m+[0m[0m project_id               = "digital-twin-dev-481720"
+              [32m+[0m[0m service_account_key_path = "service_account.json"
+              [32m+[0m[0m topic_name               = "dt/tf-e2e-gcp/telemetry"
+            }
+        )
+      [32m+[0m[0m content_base64sha256 = (known after apply)
+      [32m+[0m[0m content_base64sha512 = (known after apply)
+      [32m+[0m[0m content_md5          = (known after apply)
+      [32m+[0m[0m content_sha1         = (known after apply)
+      [32m+[0m[0m content_sha256       = (known after apply)
+      [32m+[0m[0m content_sha512       = (known after apply)
+      [32m+[0m[0m directory_permission = "0777"
+      [32m+[0m[0m file_permission      = "0644"
+      [32m+[0m[0m filename             = "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/iot_device_simulator/gcp/config_generated_temperature-sensor-1.json"
+      [32m+[0m[0m id                   = (known after apply)
+    }
+
+[1m  # local_file.gcp_simulator_config["temperature-sensor-2"][0m will be created
+[0m  [32m+[0m[0m resource "local_file" "gcp_simulator_config" {
+      [32m+[0m[0m content              = jsonencode(
+            {
+              [32m+[0m[0m auth_method              = "service_account"
+              [32m+[0m[0m device_id                = "temperature-sensor-2"
+              [32m+[0m[0m digital_twin_name        = "tf-e2e-gcp"
+              [32m+[0m[0m payload_path             = "../payloads.json"
+              [32m+[0m[0m project_id               = "digital-twin-dev-481720"
+              [32m+[0m[0m service_account_key_path = "service_account.json"
+              [32m+[0m[0m topic_name               = "dt/tf-e2e-gcp/telemetry"
+            }
+        )
+      [32m+[0m[0m content_base64sha256 = (known after apply)
+      [32m+[0m[0m content_base64sha512 = (known after apply)
+      [32m+[0m[0m content_md5          = (known after apply)
+      [32m+[0m[0m content_sha1         = (known after apply)
+      [32m+[0m[0m content_sha256       = (known after apply)
+      [32m+[0m[0m content_sha512       = (known after apply)
+      [32m+[0m[0m directory_permission = "0777"
+      [32m+[0m[0m file_permission      = "0644"
+      [32m+[0m[0m filename             = "/tmp/pytest-of-root/pytest-66/gcp_terraform_e2e0/tf-e2e-gcp/iot_device_simulator/gcp/config_generated_temperature-sensor-2.json"
+      [32m+[0m[0m id                   = (known after apply)
+    }
+
+[1mPlan:[0m 14 to add, 0 to change, 8 to destroy.
+[0m
+Changes to Outputs:
+  [32m+[0m[0m gcp_event_checker_url               = (known after apply)
+  [32m+[0m[0m gcp_user_functions_url              = (known after apply)
+[0m[1mgoogle_storage_bucket_object.hot_to_cold_mover_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip][0m[0m
+[0m[1mgoogle_storage_bucket_object.dispatcher_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip][0m[0m
+[0m[1mgoogle_storage_bucket_object.processor_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-processor-4f9bab6c6593a373bf20f6cb33e696b9.zip][0m[0m
+[0m[1mgoogle_storage_bucket_object.hot_reader_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip][0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Destroying... [id=projects/digital-twin-dev-481720/locations/europe-west1/functions/tf-e2e-gcp-user-functions][0m[0m
+[0m[1mgoogle_storage_bucket_object.event_checker_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-event-checker-86ce60e4094cf601ad7e4086ac3e7b14.zip][0m[0m
+[0m[1mlocal_file.gcp_simulator_config["temperature-sensor-1"]: Creating...[0m[0m
+[0m[1mlocal_file.gcp_simulator_config["pressure-sensor-1"]: Creating...[0m[0m
+[0m[1mlocal_file.gcp_simulator_config["temperature-sensor-2"]: Creating...[0m[0m
+[0m[1mlocal_file.gcp_simulator_config["temperature-sensor-1"]: Creation complete after 0s [id=f05b0c165c25e40fe4d6e70001b7cd5de463bac7][0m
+[0m[1mlocal_file.gcp_simulator_config["pressure-sensor-1"]: Creation complete after 0s [id=2824719fcc22bc7f5971a455630b7373e43f8aa3][0m
+[0m[1mlocal_file.gcp_simulator_config["temperature-sensor-2"]: Creation complete after 1s [id=2a37f4f17496e1571fc3609434c8aaec02f74814][0m
+[0m[1mgoogle_storage_bucket_object.hot_reader_source[0]: Destruction complete after 1s[0m
+[0m[1mgoogle_storage_bucket_object.hot_to_cold_mover_source[0]: Destruction complete after 1s[0m
+[0m[1mgoogle_storage_bucket_object.event_checker_source[0]: Destruction complete after 1s[0m
+[0m[1mgoogle_storage_bucket_object.processor_source[0]: Destruction complete after 1s[0m
+[0m[1mgoogle_storage_bucket_object.dispatcher_source[0]: Destruction complete after 1s[0m
+[0m[1mgoogle_storage_bucket_object.hot_reader_source[0]: Creating...[0m[0m
+[0m[1mgoogle_storage_bucket_object.hot_to_cold_mover_source[0]: Creating...[0m[0m
+[0m[1mgoogle_storage_bucket_object.event_checker_source[0]: Creating...[0m[0m
+[0m[1mgoogle_storage_bucket_object.dispatcher_source[0]: Creating...[0m[0m
+[0m[1mgoogle_storage_bucket_object.processor_source[0]: Creating...[0m[0m
+[0m[1mgoogle_storage_bucket_object.hot_reader_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-reader-e7d75926d8d9a4122c335b2df4b0f667.zip][0m
+[0m[1mgoogle_storage_bucket_object.hot_to_cold_mover_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-hot-to-cold-mover-52dd3f9dd478b3adca127595414f828e.zip][0m
+[0m[1mgoogle_storage_bucket_object.processor_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-processor-4f9bab6c6593a373bf20f6cb33e696b9.zip][0m
+[0m[1mgoogle_storage_bucket_object.event_checker_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-event-checker-3288e9bf6fc67ea5f8978a99164e975d.zip][0m
+[0m[1mgoogle_storage_bucket_object.dispatcher_source[0]: Creation complete after 1s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-dispatcher-932e9bb6589cd49b7dab2ec4aa640f22.zip][0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still destroying... [id=projects/digital-twin-dev-481720/locati...t1/functions/tf-e2e-gcp-user-functions, 10s elapsed][0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Destruction complete after 11s[0m
+[0m[1mgoogle_storage_bucket_object.persister_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-persister-51fd295ef504168b8c18e590573f422e.zip][0m[0m
+[0m[1mgoogle_storage_bucket_object.user_functions_source[0]: Destroying... [id=digital-twin-dev-481720-tf-e2e-gcp-functions-user-functions-8774339f925ecccbd7fafed5c2324082.zip][0m[0m
+[0m[1mgoogle_storage_bucket_object.user_functions_source[0]: Destruction complete after 0s[0m
+[0m[1mgoogle_storage_bucket_object.persister_source[0]: Destruction complete after 0s[0m
+[0m[1mgoogle_storage_bucket_object.persister_source[0]: Creating...[0m[0m
+[0m[1mgoogle_storage_bucket_object.user_functions_source[0]: Creating...[0m[0m
+[0m[1mgoogle_storage_bucket_object.persister_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-persister-51fd295ef504168b8c18e590573f422e.zip][0m
+[0m[1mgoogle_storage_bucket_object.user_functions_source[0]: Creation complete after 0s [id=digital-twin-dev-481720-tf-e2e-gcp-functions-user-functions-7bbd4fe328af1b2635a704320e2dd0b3.zip][0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Creating...[0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [10s elapsed][0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [20s elapsed][0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [30s elapsed][0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [40s elapsed][0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [50s elapsed][0m[0m
+[0m[1mgoogle_cloudfunctions2_function.user_functions[0]: Still creating... [1m0s elapsed][0m[0m
+[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mError waiting to create function: Error waiting for Creating function: Error code 3, message: Could not create or update Cloud Run service tf-e2e-gcp-user-functions, Container Healthcheck failed. The user-provided container failed to start and listen on the port defined provided by the PORT=8080 environment variable within the allocated timeout. This can happen when the container port is misconfigured or if the timeout is too short. The health check timeout can be extended. Logs for this revision might contain more information.
+[31m│[0m [0m
+[31m│[0m [0mLogs URL: https://console.cloud.google.com/logs/viewer?project=digital-twin-dev-481720&resource=cloud_run_revision/service_name/tf-e2e-gcp-user-functions/revision_name/tf-e2e-gcp-user-functions-00001-xof&advancedFilter=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22tf-e2e-gcp-user-functions%22%0Aresource.labels.revision_name%3D%22tf-e2e-gcp-user-functions-00001-xof%22 
+[31m│[0m [0mFor more troubleshooting guidance, see https://cloud.google.com/run/docs/troubleshooting#container-failed-to-start[0m
+[31m│[0m [0m
+[31m│[0m [0m[0m  with google_cloudfunctions2_function.user_functions[0],
+[31m│[0m [0m  on gcp_compute.tf line 291, in resource "google_cloudfunctions2_function" "user_functions":
+[31m│[0m [0m 291: resource "google_cloudfunctions2_function" "user_functions" [4m{[0m[0m
+[31m│[0m [0m
+[31m╵[0m[0m
+
+=========================== short test summary info ============================
+ERROR tests/e2e/gcp/test_gcp_terraform_e2e.py::TestGCPTerraformE2E::test_01_terraform_outputs_present
+========================= 1 error in 123.91s (0:02:03) =========================
+
+
+=== STDERR ===
+
+
+=== RETURN CODE: 1 ===

@@ -27,8 +27,15 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables - fail fast if missing
-PERSISTER_FUNCTION_URL = require_env("PERSISTER_FUNCTION_URL")
+# Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
+_persister_function_url = None
+
+def _get_persister_function_url():
+    """Lazy-load PERSISTER_FUNCTION_URL to avoid import-time failures."""
+    global _persister_function_url
+    if _persister_function_url is None:
+        _persister_function_url = require_env("PERSISTER_FUNCTION_URL")
+    return _persister_function_url
 
 
 @functions_framework.http
@@ -55,7 +62,7 @@ def main(request):
         
         # 2. Invoke Persister
         response = requests.post(
-            PERSISTER_FUNCTION_URL,
+            _get_persister_function_url(),
             json=processed_event,
             headers={"Content-Type": "application/json"},
             timeout=30
@@ -67,3 +74,4 @@ def main(request):
     except Exception as e:
         print(f"[SYSTEM_ERROR] Processor error: {e}")
         return (json.dumps({"error": "System error", "message": str(e)}), 500, {"Content-Type": "application/json"})
+

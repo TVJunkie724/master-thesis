@@ -31,10 +31,28 @@ class ConfigurationError(Exception):
     pass
 
 
-# Required environment variables
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
-COLD_BUCKET_NAME = require_env("COLD_BUCKET_NAME")
-ARCHIVE_BUCKET_NAME = require_env("ARCHIVE_BUCKET_NAME")
+# Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
+_digital_twin_info = None
+_cold_bucket_name = None
+_archive_bucket_name = None
+
+def _get_digital_twin_info():
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
+
+def _get_cold_bucket_name():
+    global _cold_bucket_name
+    if _cold_bucket_name is None:
+        _cold_bucket_name = require_env("COLD_BUCKET_NAME")
+    return _cold_bucket_name
+
+def _get_archive_bucket_name():
+    global _archive_bucket_name
+    if _archive_bucket_name is None:
+        _archive_bucket_name = require_env("ARCHIVE_BUCKET_NAME")
+    return _archive_bucket_name
 
 # Multi-cloud config (optional)
 REMOTE_ARCHIVE_WRITER_URL = os.environ.get("REMOTE_ARCHIVE_WRITER_URL", "")
@@ -59,7 +77,7 @@ def _is_multi_cloud_archive() -> bool:
     if not REMOTE_ARCHIVE_WRITER_URL:
         return False
     
-    providers = DIGITAL_TWIN_INFO.get("config_providers")
+    providers = _get_digital_twin_info().get("config_providers")
     if providers is None:
         return False
     
@@ -80,8 +98,8 @@ def main(request):
     
     try:
         client = _get_storage_client()
-        cold_bucket = client.bucket(COLD_BUCKET_NAME)
-        archive_bucket = client.bucket(ARCHIVE_BUCKET_NAME)
+        cold_bucket = client.bucket(_get_cold_bucket_name())
+        archive_bucket = client.bucket(_get_archive_bucket_name())
         
         # Calculate cutoff time
         cutoff = datetime.now(timezone.utc) - timedelta(days=COLD_RETENTION_DAYS)

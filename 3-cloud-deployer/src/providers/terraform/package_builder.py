@@ -346,12 +346,9 @@ def build_gcp_cloud_function_packages(
         else:
             logger.warning(f"  ⚠ GCP function dir not found: {func_dir}")
     
-    # Build user-functions.zip (event actions, processors, feedback) if L2 is GCP
-    if l2 == "google":
-        user_funcs_zip = build_dir / "user-functions.zip"
-        _create_gcp_user_functions_zip(project_path, gcp_funcs_dir, user_funcs_zip)
-        packages["gcp_user_functions"] = user_funcs_zip
-        logger.info("  ✓ Built GCP: user-functions.zip")
+    # Note: User functions (processors, event_actions, event_feedback) are built separately
+    # via build_user_packages() which creates individual ZIPs per function (like AWS)
+    # This matches the GCP Cloud Functions architecture where each function is deployed separately
     
     if not functions_to_build:
         logger.info("  No GCP Cloud Functions needed for this configuration")
@@ -409,61 +406,50 @@ def _create_gcp_function_zip(
             zf.writestr("requirements.txt", requirements)
 
 
-def _create_gcp_user_functions_zip(
-    project_path: Path,
-    gcp_funcs_dir: Path,
+def _create_gcp_processor_zip(
+    base_dir: Path,
+    user_dir: Path,
+    shared_dir: Path,
     output_path: Path
 ) -> None:
     """
-    Create GCP user-functions.zip containing event actions, processors, and feedback handlers.
-    
-    Uses the default-processor template from providers/gcp/cloud_functions/default-processor/
-    as the base, then merges user code from the project's event_actions/ and processors/ directories.
+    Create a GCP Processor ZIP by wrapping user code with default-processor base.
     
     Args:
-        project_path: Path to the project upload directory
-        gcp_funcs_dir: Path to GCP cloud functions source directory
-        output_path: Path to write the ZIP file
+        base_dir: Path to default-processor base directory (src/providers/gcp/cloud_functions/default-processor)
+        user_dir: Path to specific user processor directory (containing process.py)
+        shared_dir: Path to _shared modules directory
+        output_path: Path to output ZIP file
     """
-    default_processor = gcp_funcs_dir / "default-processor"
-    shared_dir = gcp_funcs_dir / "_shared"
-    
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-        # Add default processor template as base
-        if default_processor.exists():
-            for file_path in default_processor.rglob('*'):
+        # 1. Add base processor code (main.py, etc.)
+        if base_dir.exists():
+            for file_path in base_dir.rglob('*'):
                 if file_path.is_file() and '__pycache__' not in str(file_path):
-                    arcname = file_path.relative_to(default_processor)
+                    arcname = file_path.relative_to(base_dir)
                     zf.write(file_path, arcname)
         
-        # Add shared modules
-        if shared_dir.exists():
+        # 2. Add shared modules under _shared/
+        if shared_dir and shared_dir.exists():
             for file_path in shared_dir.rglob('*'):
                 if file_path.is_file() and '__pycache__' not in str(file_path):
-                    arcname = file_path.relative_to(shared_dir)
+                    arcname = Path("_shared") / file_path.relative_to(shared_dir)
                     zf.write(file_path, arcname)
         
-        # Merge user event_actions if present
-        user_event_actions = project_path / "event_actions"
-        if user_event_actions.exists():
-            for file_path in user_event_actions.rglob('*.py'):
+        # 3. Add/Overwrite with user processor code (process.py)
+        if user_dir.exists():
+            for file_path in user_dir.rglob('*.py'):
                 if '__pycache__' not in str(file_path):
-                    arcname = Path("event_actions") / file_path.relative_to(user_event_actions)
+                    arcname = file_path.relative_to(user_dir)
                     zf.write(file_path, arcname)
-            logger.info(f"    → Merged user event_actions from: {user_event_actions}")
+            logger.info(f"    → Merged user processor code from: {user_dir}")
+            
+        # 4. Add requirements.txt if not present
+        if not (user_dir / "requirements.txt").exists():
+            requirements = "functions-framework\ngoogle-cloud-firestore\ngoogle-cloud-storage\ngoogle-cloud-pubsub\n"
+            zf.writestr("requirements.txt", requirements)
         
-        # Merge user processors if present
-        user_processors = project_path / "processors"
-        if user_processors.exists():
-            for file_path in user_processors.rglob('*.py'):
-                if '__pycache__' not in str(file_path):
-                    arcname = Path("processors") / file_path.relative_to(user_processors)
-                    zf.write(file_path, arcname)
-            logger.info(f"    → Merged user processors from: {user_processors}")
-        
-        # Add requirements.txt
-        requirements = "functions-framework\ngoogle-cloud-firestore\ngoogle-cloud-storage\ngoogle-cloud-pubsub\n"
-        zf.writestr("requirements.txt", requirements)
+
 
 
 def get_gcp_zip_path(terraform_dir: Path, function_name: str) -> str:
@@ -625,12 +611,12 @@ def build_user_packages(
         processors_dir = user_funcs_dir / "processors"
         feedback_dir = user_funcs_dir / "event-feedback"
         shared_dir = None  # Azure doesn't use shared dir
-    else:
+    else:  # google
         user_funcs_dir = project_path / "cloud_functions"
         event_actions_dir = user_funcs_dir / "event_actions"
         processors_dir = user_funcs_dir / "processors"
         feedback_dir = user_funcs_dir / "event-feedback"
-        shared_dir = None
+        shared_dir = Path(__file__).parent.parent / "gcp" / "cloud_functions" / "_shared"
     
     logger.info(f"Building user packages for provider: {l2_provider}")
     
@@ -656,7 +642,9 @@ def build_user_packages(
         zip_path = build_dir / f"{func_name}.zip"
         if l2_provider == "aws":
             _create_lambda_zip(func_dir, shared_dir, zip_path)
-        else:
+        elif l2_provider == "google":
+            _create_gcp_function_zip(func_dir, shared_dir, zip_path)
+        else:  # azure
             _create_azure_function_zip(func_dir, zip_path)
         
         packages[func_name] = zip_path
@@ -694,8 +682,10 @@ def build_user_packages(
         elif l2_provider == "azure":
             # For Azure, we wrap the processor with the processor_wrapper
             _create_processor_with_wrapper(proc_dir, zip_path)
-        else:
-            _create_azure_function_zip(proc_dir, zip_path)
+        else:  # google
+            # For GCP, we also need to wrap with default-processor base
+            base_gcp_proc_dir = Path(__file__).parent.parent / "gcp" / "cloud_functions" / "default-processor"
+            _create_gcp_processor_zip(base_gcp_proc_dir, proc_dir, shared_dir, zip_path)
         
         packages[f"processor-{processor_name}"] = zip_path
         
@@ -711,7 +701,9 @@ def build_user_packages(
         zip_path = build_dir / "event-feedback.zip"
         if l2_provider == "aws":
             _create_lambda_zip(feedback_dir, shared_dir, zip_path)
-        else:
+        elif l2_provider == "google":
+            _create_gcp_function_zip(feedback_dir, shared_dir, zip_path)
+        else:  # azure
             _create_azure_function_zip(feedback_dir, zip_path)
         
         packages["event-feedback"] = zip_path

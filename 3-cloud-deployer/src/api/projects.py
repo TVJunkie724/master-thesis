@@ -3,7 +3,7 @@ import json
 import os
 import file_manager
 import src.validator as validator
-from api.dependencies import ConfigType, ProviderEnum
+from api.dependencies import ConfigType, ProviderEnum, check_template_protection
 import constants as CONSTANTS
 from logger import logger
 from api.utils import extract_file_content
@@ -12,6 +12,10 @@ from api.functions import invalidate_function_cache, clear_all_hash_metadata
 import src.core.state as state
 
 router = APIRouter()
+
+
+
+
 
 # ==========================================
 # 1. Project Management
@@ -128,7 +132,7 @@ def validate_project_structure(project_name: str = Path(..., description="Name o
     **Use case:** Pre-deployment readiness check for existing projects.
     """
     try:
-        validator.verify_project_structure(project_name)
+        validator.verify_project_structure(project_name, state.get_project_base_path())
         return {"message": f"Project structure for '{project_name}' is valid."}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -220,6 +224,8 @@ async def update_config(project_name: str, config_type: ConfigType, request: Req
     config_type: Select from the dropdown.
     Supports Multipart (binary) or JSON (Base64).
     """
+    check_template_protection(project_name, "update config for")
+    
     config_map = {
         ConfigType.config: "config.json",
         ConfigType.iot: "config_iot_devices.json",
@@ -246,19 +252,34 @@ async def update_config(project_name: str, config_type: ConfigType, request: Req
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/projects/{project_name}/upload/zip", tags=["Projects"])
-async def update_project_zip(
+@router.post("/projects/{project_name}/import", tags=["Projects"])
+async def import_project(
     project_name: str, 
-    request: Request,
+    file: UploadFile = File(..., description="Project zip file"),
     description: str = Query(None, description="Optional project description update")
 ):
     """
-    Updates an existing project by overwriting it with a new validated zip file.
-    Archives the new version before extracting.
-    Supports Multipart (binary) or JSON (Base64).
+    Import/update a project from a zip file.
+    
+    **Prerequisite:** Project must exist or be created via POST /projects first.
+    
+    **Validation performed:**
+    - Project existence check
+    - Zip structure validation
+    - Config schema validation
     """
+    check_template_protection(project_name, "import to")
+    
+    # Check project exists first
+    project_path = os.path.join(state.get_project_upload_path(), project_name)
+    if not os.path.exists(project_path):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Project '{project_name}' does not exist. Create it first with POST /projects"
+        )
+    
     try:
-        content = await extract_file_content(request)
+        content = await file.read()
         result = file_manager.update_project_from_zip(project_name, content, description=description)
         
         # Clear all hash metadata since project ZIP is fully replaced
@@ -274,12 +295,157 @@ async def update_project_zip(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get(
+    "/projects/{project_name}/export",
+    tags=["Projects"],
+    summary="Export project as zip",
+    responses={
+        200: {"description": "Project zip file"},
+        404: {"description": "Project not found"}
+    }
+)
+async def export_project(
+    project_name: str = Path(..., description="Name of the project to export")
+):
+    """
+    Export a project as a downloadable zip file.
+    
+    **Package contents:**
+    - All configuration files (config.json, config_*.json)
+    - Twin hierarchy definitions
+    - State machines, user functions, IoT payloads, 3D assets
+    
+    **Use case:** Backup, share, or migrate projects.
+    """
+    from fastapi.responses import StreamingResponse
+    
+    try:
+        zip_buffer = file_manager.export_project_to_zip(project_name)
+        
+        filename = f"{project_name}_export.zip"
+        return StreamingResponse(
+            zip_buffer,
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/projects/{project_name}/summary",
+    tags=["Projects"],
+    summary="Get project dashboard summary"
+)
+def get_project_summary(
+    project_name: str = Path(..., description="Project name")
+):
+    """
+    Dashboard overview for Flutter frontend integration.
+    
+    Returns:
+    - name, description
+    - providers (from config_providers.json)
+    - deployment_status (local check)
+    - validation_status (structure check)
+    """
+    project_path = os.path.join(state.get_project_upload_path(), project_name)
+    if not os.path.exists(project_path):
+        raise HTTPException(status_code=404, detail=f"Project '{project_name}' not found")
+
+    summary = {
+        "name": project_name,
+        "description": None,
+        "providers": {},
+        "deployment_status": "unknown", # placeholder, implement real logic if needed
+        "validation_status": "unknown"
+    }
+
+    # 1. Description
+    info_path = os.path.join(project_path, CONSTANTS.PROJECT_INFO_FILE)
+    if os.path.exists(info_path):
+        try:
+            with open(info_path, 'r') as f:
+                info = json.load(f)
+                summary["description"] = info.get("description")
+        except: pass
+
+    # 2. Providers
+    prov_path = os.path.join(project_path, CONSTANTS.CONFIG_PROVIDERS_FILE)
+    if os.path.exists(prov_path):
+        try:
+            with open(prov_path, 'r') as f:
+                summary["providers"] = json.load(f)
+        except: pass
+
+    # 3. Validation Status
+    try:
+        validator.verify_project_structure(project_name, state.get_project_base_path())
+        summary["validation_status"] = "valid"
+    except Exception as e:
+        summary["validation_status"] = "invalid"
+        summary["validation_error"] = str(e)
+        
+    return summary
+
+
+@router.get(
+    "/projects/{project_name}/files",
+    tags=["Projects"],
+    summary="Get project file tree"
+)
+def get_project_files(
+    project_name: str = Path(..., description="Project name")
+):
+    """
+    Returns a recursive file tree structure for the project.
+    Used for file browsing in the frontend.
+    """
+    try:
+        files = file_manager.get_project_file_tree(project_name)
+        return {"files": files}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/projects/{project_name}/files/{file_path:path}",
+    tags=["Projects"],
+    summary="Get project file content"
+)
+def get_project_file_content_endpoint(
+    project_name: str = Path(..., description="Project name"),
+    file_path: str = Path(..., description="Relative path to file")
+):
+    """
+    Returns the content of a specific file.
+    """
+    try:
+        content = file_manager.get_project_file_content(project_name, file_path)
+        return content
+    except ValueError as e:
+        if "not found" in str(e):
+             raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/projects/{project_name}", tags=["Projects"])
 def delete_project_endpoint(project_name: str):
     """
     Deletes a project and all its versions.
     If the deleted project was active, resets to default project.
     """
+    check_template_protection(project_name, "delete")
+    
     try:
         # Check if active project and reset to default if needed
         if state.get_active_project() == project_name:
@@ -300,6 +466,8 @@ async def update_project_info_endpoint(project_name: str, request: Request):
     Updates project metadata (description only, without re-uploading zip).
     Body: {"description": "New description"}
     """
+    check_template_protection(project_name, "update info for")
+    
     try:
         body = await request.json()
         description = body.get("description")
@@ -328,6 +496,8 @@ async def upload_state_machine(
     Uploads and validates a state machine definition file for a specific provider.
     Supports Multipart (binary) or JSON (Base64).
     """
+    check_template_protection(project_name, "upload state machine to")
+    
     try:
         provider_value = provider.value.lower()
         target_filename = None
@@ -373,6 +543,8 @@ async def upload_simulator_payloads(project_name: str, request: Request):
     Uploads payloads.json for the simulator (provider-agnostic).
     Validates structure before saving to iot_device_simulator/payloads.json.
     """
+    check_template_protection(project_name, "upload payloads to")
+    
     try:
         content = await extract_file_content(request)
         content_str = content.decode('utf-8')

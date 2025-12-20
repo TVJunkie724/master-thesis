@@ -23,9 +23,23 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables - fail fast if missing
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
-PERSISTER_FUNCTION_URL = require_env("PERSISTER_FUNCTION_URL")
+# Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
+_digital_twin_info = None
+_persister_function_url = None
+
+def _get_digital_twin_info():
+    """Lazy-load DIGITAL_TWIN_INFO to avoid import-time failures."""
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
+
+def _get_persister_function_url():
+    """Lazy-load PERSISTER_FUNCTION_URL to avoid import-time failures."""
+    global _persister_function_url
+    if _persister_function_url is None:
+        _persister_function_url = require_env("PERSISTER_FUNCTION_URL")
+    return _persister_function_url
 
 
 def process(event):
@@ -51,7 +65,7 @@ def main(request):
         
         # Invoke Persister
         response = requests.post(
-            PERSISTER_FUNCTION_URL,
+            _get_persister_function_url(),
             json=payload,
             headers={"Content-Type": "application/json"},
             timeout=30
@@ -63,3 +77,4 @@ def main(request):
     except Exception as e:
         print(f"Default Processor Error: {e}")
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})
+

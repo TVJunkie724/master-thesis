@@ -32,10 +32,31 @@ class ConfigurationError(Exception):
     pass
 
 
-# Required environment variables
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
-FIRESTORE_COLLECTION = require_env("FIRESTORE_COLLECTION")
-COLD_BUCKET_NAME = require_env("COLD_BUCKET_NAME")
+# Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
+_digital_twin_info = None
+_firestore_collection = None
+_cold_bucket_name = None
+
+def _get_digital_twin_info():
+    """Lazy-load DIGITAL_TWIN_INFO to avoid import-time failures."""
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
+
+def _get_firestore_collection():
+    """Lazy-load FIRESTORE_COLLECTION to avoid import-time failures."""
+    global _firestore_collection
+    if _firestore_collection is None:
+        _firestore_collection = require_env("FIRESTORE_COLLECTION")
+    return _firestore_collection
+
+def _get_cold_bucket_name():
+    """Lazy-load COLD_BUCKET_NAME to avoid import-time failures."""
+    global _cold_bucket_name
+    if _cold_bucket_name is None:
+        _cold_bucket_name = require_env("COLD_BUCKET_NAME")
+    return _cold_bucket_name
 
 # Multi-cloud config (optional)
 REMOTE_COLD_WRITER_URL = os.environ.get("REMOTE_COLD_WRITER_URL", "")
@@ -71,7 +92,7 @@ def _is_multi_cloud_cold() -> bool:
     if not REMOTE_COLD_WRITER_URL:
         return False
     
-    providers = DIGITAL_TWIN_INFO.get("config_providers")
+    providers = _get_digital_twin_info().get("config_providers")
     if providers is None:
         return False
     
@@ -107,7 +128,7 @@ def _chunk_items(items: list, max_bytes: int = MAX_CHUNK_SIZE_BYTES) -> list:
 def _write_to_local_gcs(device_id: str, items: list, start: str, end: str, chunk_index: int):
     """Write chunk to local Cloud Storage (Nearline class)."""
     client = _get_storage_client()
-    bucket = client.bucket(COLD_BUCKET_NAME)
+    bucket = client.bucket(_get_cold_bucket_name())
     
     blob_name = f"{device_id}/{start}_to_{end}_chunk{chunk_index}.json"
     blob = bucket.blob(blob_name)
@@ -143,7 +164,7 @@ def main(request):
         
         # Query old items
         query = (
-            db.collection(FIRESTORE_COLLECTION)
+            db.collection(_get_firestore_collection())
             .where("id", "<", cutoff_str)
             .order_by("id")
             .limit(1000)  # Process in batches

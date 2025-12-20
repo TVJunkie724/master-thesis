@@ -67,7 +67,7 @@ resource "google_cloudfunctions2_function" "dispatcher" {
 
   build_config {
     runtime     = "python311"
-    entry_point = "dispatcher_handler"
+    entry_point = "main"
     
     source {
       storage_source {
@@ -86,8 +86,9 @@ resource "google_cloudfunctions2_function" "dispatcher" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME = var.digital_twin_name
+      DIGITAL_TWIN_INFO = local.gcp_digital_twin_info
       EVENTS_TOPIC      = google_pubsub_topic.events[0].id
-      # L2_PROCESSOR_URL set by orchestrator after L2 deployment
+      FUNCTION_BASE_URL = local.gcp_function_base_url
       INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
       )

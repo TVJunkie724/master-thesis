@@ -31,7 +31,7 @@ from fastapi.responses import StreamingResponse
 
 import constants as CONSTANTS
 import src.core.state as state
-from api.dependencies import validate_project_context
+from api.dependencies import validate_project_context, check_template_protection
 from logger import logger
 
 # Optional SDK imports - fail at runtime if SDK not available for that provider
@@ -732,6 +732,10 @@ def update_function(
     
     **Returns:** Update result with status, version info, and hash.
     """
+    # Protect template project from modifications
+    # Protect template project from modifications
+    check_template_protection(project_name, "update function in")
+    
     validate_project_context(project_name)
     
     try:

@@ -215,7 +215,7 @@ class TestBundleL3Functions:
         azure_funcs.mkdir()
         
         # Create L3 functions with function_app.py (v2 model)
-        for func_name in ["hot-reader", "hot-reader-last-entry", "hot-cold-mover", "cold-archive-mover"]:
+        for func_name in ["hot-reader", "hot-reader-last-entry", "hot-to-cold-mover", "cold-to-archive-mover"]:
             func_dir = azure_funcs / func_name
             func_dir.mkdir()
             safe_name = func_name.replace("-", "_")
@@ -242,11 +242,15 @@ def {safe_name}(req: func.HttpRequest) -> func.HttpResponse:
             # Read the merged file and check it contains function definitions
             content = zf.read("function_app.py").decode("utf-8")
             assert "hot_reader" in content
-            assert "hot_cold_mover" in content
+            assert "hot_to_cold_mover" in content
 
 
 class TestSingleFunctionZip:
-    """Tests for single-function ZIP bundling (no merge needed)."""
+    """Tests for single-function ZIP bundling.
+    
+    Note: L1 functions now always use core system functions with Blueprint pattern,
+    so the "single function not merged" behavior no longer applies to L1.
+    """
     
     @pytest.fixture
     def single_func_dir(self, tmp_path):
@@ -266,18 +270,22 @@ def dispatcher(req: func.HttpRequest) -> func.HttpResponse:
 ''')
         return tmp_path
     
-    def test_single_function_not_merged(self, single_func_dir):
-        """Single function should be placed at root without merge."""
-        zip_bytes = bundle_l1_functions(str(single_func_dir))
+    def test_l1_uses_blueprint_pattern(self, single_func_dir):
+        """L1 bundle should use Blueprint pattern for proper function discovery."""
+        # Note: bundle_l1_functions now always uses core system functions,
+        # so the project_path is only used for config, not for function source.
+        # This test just passes a valid path to avoid ValueError.
+        import os
+        project_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        zip_bytes = bundle_l1_functions(project_path)
         
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
             content = zf.read("function_app.py").decode("utf-8")
-            # Should NOT have the auto-generated header
-            assert "Auto-generated merged" not in content
-            # Should have the function
-            assert "dispatcher" in content
-            # Should only appear once (not merged from multiple sources)
-            assert content.count("@app.function_name") == 1
+            # L1 now uses Blueprint pattern with auto-generated header
+            assert "Auto-generated" in content
+            # Should register the dispatcher blueprint
+            assert "register_functions" in content
+            assert "dispatcher" in content.lower()
 
 
 class TestCleanFunctionAppImports:
@@ -545,84 +553,75 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
 
 
 class TestSharedFilesHandling:
-    """Tests for shared files (requirements.txt, host.json, _shared/)."""
+    """Tests for shared files (requirements.txt, host.json, _shared/).
     
-    @pytest.fixture
-    def func_dir_with_shared(self, tmp_path):
-        """Create directory with shared files."""
-        azure_funcs = tmp_path / "azure_functions"
-        azure_funcs.mkdir()
-        
-        # Custom requirements.txt
-        (azure_funcs / "requirements.txt").write_text("""azure-functions
-azure-cosmos
-requests
-""")
-        
-        # Custom host.json
-        (azure_funcs / "host.json").write_text('{"version": "2.0", "custom": true}')
-        
-        # _shared directory
-        shared = azure_funcs / "_shared"
-        shared.mkdir()
-        (shared / "__init__.py").write_text("# Shared module")
-        (shared / "utils.py").write_text("def shared_util(): pass")
-        
-        # A function
-        dispatcher = azure_funcs / "dispatcher"
-        dispatcher.mkdir()
-        (dispatcher / "function_app.py").write_text('''import azure.functions as func
-app = func.FunctionApp()
-
-@app.function_name(name="dispatcher")
-@app.route(route="dispatcher", methods=["POST"])
-def dispatcher(req): return func.HttpResponse("OK")
-''')
-        
-        return tmp_path
+    Note: L1/L2/L3 bundlers now use core system functions from src/providers/azure/azure_functions/,
+    so these tests verify the real shared files from the core directory.
+    """
     
-    def test_includes_custom_requirements(self, func_dir_with_shared):
-        """Should include custom requirements.txt from source."""
-        zip_bytes = bundle_l1_functions(str(func_dir_with_shared))
+    def test_includes_requirements(self):
+        """L1 bundle should include requirements.txt from core functions directory."""
+        import os
+        project_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        zip_bytes = bundle_l1_functions(project_path)
         
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
             content = zf.read("requirements.txt").decode("utf-8")
-            assert "azure-cosmos" in content
-            assert "requests" in content
+            # Core requirements should include azure-functions
+            assert "azure-functions" in content
     
-    def test_includes_custom_host_json(self, func_dir_with_shared):
-        """Should include custom host.json from source."""
-        zip_bytes = bundle_l1_functions(str(func_dir_with_shared))
+    def test_includes_host_json(self):
+        """L1 bundle should include host.json."""
+        import os
+        project_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        zip_bytes = bundle_l1_functions(project_path)
         
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
             content = zf.read("host.json").decode("utf-8")
-            assert '"custom": true' in content
+            assert '"version": "2.0"' in content
     
-    def test_includes_shared_directory(self, func_dir_with_shared):
-        """Should include _shared/ directory contents."""
-        zip_bytes = bundle_l1_functions(str(func_dir_with_shared))
+    def test_includes_shared_directory(self):
+        """L1 bundle should include _shared/ directory contents from core functions."""
+        import os
+        project_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        zip_bytes = bundle_l1_functions(project_path)
         
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
             names = zf.namelist()
             assert "_shared/__init__.py" in names
-            assert "_shared/utils.py" in names
+            # Core _shared has env_utils.py, not utils.py
+            assert "_shared/env_utils.py" in names
     
     def test_generates_default_files_if_missing(self, tmp_path):
-        """Should generate default requirements.txt and host.json if not present."""
+        """Should generate default requirements.txt and host.json if not present.
+        
+        Note: This behavior is only relevant for bundle_l0_functions which uses
+        project paths. L1/L2/L3 always use core functions with existing files.
+        Testing with bundle_l0_functions instead.
+        """
         azure_funcs = tmp_path / "azure_functions"
         azure_funcs.mkdir()
         
-        dispatcher = azure_funcs / "dispatcher"
-        dispatcher.mkdir()
-        (dispatcher / "function_app.py").write_text('''import azure.functions as func
+        # Create ingestion function for L0
+        ingestion = azure_funcs / "ingestion"
+        ingestion.mkdir()
+        (ingestion / "function_app.py").write_text('''import azure.functions as func
 app = func.FunctionApp()
 
-@app.function_name(name="dispatcher")
-@app.route(route="dispatcher", methods=["POST"])
-def dispatcher(req): return func.HttpResponse("OK")
+@app.function_name(name="ingestion")
+@app.route(route="ingestion", methods=["POST"])
+def ingestion(req): return func.HttpResponse("OK")
 ''')
         
-        zip_bytes = bundle_l1_functions(str(tmp_path))
+        providers = {
+            "layer_1_provider": "aws",
+            "layer_2_provider": "azure",
+            "layer_3_hot_provider": "azure",
+            "layer_4_provider": "azure",
+            "layer_5_provider": "azure"
+        }
+        
+        zip_bytes, functions = bundle_l0_functions(str(tmp_path), providers)
         
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
             names = zf.namelist()
@@ -702,7 +701,7 @@ class TestMultiFunctionMergeCount:
         azure_funcs = tmp_path / "azure_functions"
         azure_funcs.mkdir()
         
-        functions = ["hot-reader", "hot-reader-last-entry", "hot-cold-mover", "cold-archive-mover"]
+        functions = ["hot-reader", "hot-reader-last-entry", "hot-to-cold-mover", "cold-to-archive-mover"]
         for func_name in functions:
             func_dir = azure_funcs / func_name
             func_dir.mkdir()
@@ -730,8 +729,8 @@ def {safe_name}(req): return func.HttpResponse("OK from {func_name}")
             # All function modules should be imported (using Python-safe names)
             assert "hot_reader" in content
             assert "hot_reader_last_entry" in content
-            assert "hot_cold_mover" in content
-            assert "cold_archive_mover" in content
+            assert "hot_to_cold_mover" in content
+            assert "cold_to_archive_mover" in content
 
 
 class TestRealFunctionBundler:

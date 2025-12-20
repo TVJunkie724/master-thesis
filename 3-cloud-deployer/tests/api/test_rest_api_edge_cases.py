@@ -86,7 +86,7 @@ class TestRestApiEdgeCases:
         mock_verify.return_value = None
         mock_create_context.side_effect = ValueError("Project not found")
         
-        response = client.post("/deploy?project_name=missing&provider=aws")
+        response = client.post("/infrastructure/deploy?project_name=missing&provider=aws")
         
         # Now validation passes, create_context fails -> 500
         assert response.status_code == 500
@@ -98,7 +98,7 @@ class TestRestApiEdgeCases:
         """Verify 400 when using an unsupported provider."""
         mock_validate_ctx.return_value = None
         mock_verify.return_value = None
-        response = client.post("/deploy?project_name=test&provider=mars_cloud")
+        response = client.post("/infrastructure/deploy?project_name=test&provider=mars_cloud")
         
         assert response.status_code == 400
         assert "Invalid provider" in response.json()["detail"]
@@ -112,7 +112,7 @@ class TestRestApiEdgeCases:
         mock_verify.return_value = None
         mock_create_context.side_effect = FileNotFoundError("Missing config.json")
         
-        response = client.post("/deploy?project_name=test&provider=aws")
+        response = client.post("/infrastructure/deploy?project_name=test&provider=aws")
         
         assert response.status_code == 500
         assert "Missing config.json" in response.json()["detail"]
@@ -131,7 +131,7 @@ class TestRestApiEdgeCases:
         error_response = {'Error': {'Code': 'AccessDenied', 'Message': 'Access Denied'}}
         mock_deploy.side_effect = ClientError(error_response, 'CreateStack')
         
-        response = client.post("/deploy?project_name=test&provider=aws")
+        response = client.post("/infrastructure/deploy?project_name=test&provider=aws")
         
         assert response.status_code == 500
         assert "AccessDenied" in response.json()["detail"]

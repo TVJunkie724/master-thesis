@@ -10,8 +10,6 @@ from pydantic import BaseModel
 import src.core.state as state
 
 
-
-
 class Base64FileRequest(BaseModel):
     file_base64: str
     filename: Optional[str] = None
@@ -30,6 +28,25 @@ class ConfigType(str, Enum):
     credentials = "credentials"
     providers = "providers"
     optimization = "optimization"
+
+
+def check_template_protection(project_name: str, operation: str = "modify"):
+    """
+    Prevent modifications to the template project.
+    
+    Args:
+        project_name: Name of the project being accessed
+        operation: Description of the operation (for error message)
+        
+    Raises:
+        HTTPException: If trying to modify the template project
+    """
+    if project_name == "template":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot {operation} the 'template' project. It is a protected system folder."
+        )
+
 
 def validate_project_context(project_name: str):
     """

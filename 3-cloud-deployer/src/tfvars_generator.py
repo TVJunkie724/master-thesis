@@ -89,6 +89,9 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
     # Build Azure function ZIPs if Azure is used as a provider
     tfvars.update(_build_azure_function_zips(project_dir, providers))
     
+    # Build GCP user function variables if GCP is used as a provider
+    tfvars.update(_build_gcp_user_function_vars(project_dir, providers))
+    
     # Write output file
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -195,6 +198,76 @@ def _build_azure_function_zips(project_dir: Path, providers: dict) -> dict:
         raise
     
     return zip_paths
+
+
+def _build_gcp_user_function_vars(project_dir: Path, providers: dict) -> dict:
+    """
+    Build GCP user function variables for Terraform.
+    
+    Reads config_iot_devices.json and config_events.json to generate lists
+    of processors and event_actions with their ZIP paths.
+    
+    Args:
+        project_dir: Path to project directory
+        providers: Provider configuration dict from config_providers.json
+    
+    Returns:
+        Dict with gcp_processors, gcp_event_actions, gcp_event_feedback_enabled, etc.
+    """
+    gcp_vars = {
+        "gcp_processors": [],
+        "gcp_event_actions": [],
+        "gcp_event_feedback_enabled": False,
+        "gcp_event_feedback_zip_path": ""
+    }
+    
+    # Only build if L2 is GCP
+    if providers.get("layer_2_provider") != "google":
+        return gcp_vars
+    
+    build_dir = project_dir / ".build" / "google"
+    
+    # Load IoT devices config to get processors
+    devices_path = project_dir / "config_iot_devices.json"
+    if devices_path.exists():
+        with open(devices_path, 'r') as f:
+            devices = json.load(f)
+        
+        processors_seen = set()
+        for device in devices:
+            processor_name = device.get("processor", "default_processor")
+            if processor_name not in processors_seen:
+                processors_seen.add(processor_name)
+                zip_path = build_dir / f"processor-{processor_name}.zip"
+                if zip_path.exists():
+                    gcp_vars["gcp_processors"].append({
+                        "name": processor_name,
+                        "zip_path": str(zip_path)
+                    })
+    
+    # Load events config to get event actions
+    events_path = project_dir / "config_events.json"
+    if events_path.exists():
+        with open(events_path, 'r') as f:
+            events = json.load(f)
+        
+        for event in events:
+            if "action" in event and "functionName" in event["action"]:
+                func_name = event["action"]["functionName"]
+                zip_path = build_dir / f"{func_name}.zip"
+                if zip_path.exists():
+                    gcp_vars["gcp_event_actions"].append({
+                        "name": func_name,
+                        "zip_path": str(zip_path)
+                    })
+    
+    # Check for event feedback
+    feedback_zip = build_dir / "event-feedback.zip"
+    if feedback_zip.exists():
+        gcp_vars["gcp_event_feedback_enabled"] = True
+        gcp_vars["gcp_event_feedback_zip_path"] = str(feedback_zip)
+    
+    return gcp_vars
 
 
 def _load_config(project_dir: Path) -> dict:

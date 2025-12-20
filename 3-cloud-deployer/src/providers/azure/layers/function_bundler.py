@@ -629,8 +629,8 @@ def bundle_l3_functions(project_path: str) -> bytes:
     functions = [
         "hot-reader",
         "hot-reader-last-entry",
-        "hot-cold-mover",
-        "cold-archive-mover"
+        "hot-to-cold-mover",
+        "cold-to-archive-mover"
     ]
     
     logger.info(f"Bundling L3 functions from {core_functions_dir}: {functions}")

@@ -72,16 +72,10 @@ def test_validate_config_binary(mock_val):
     assert response.status_code == 200
     mock_val.assert_called_once()
 
-@patch("src.validator.validate_config_content")
-def test_validate_config_base64(mock_val):
-    """Test config validation with base64"""
-    # content "{}" in base64 is "e30="
-    payload = {"file_base64": "e30="}
-    
-    response = client.post("/validate/config/config", json=payload)
-    assert response.status_code == 200
-    mock_val.assert_called_once()
-    
+# NOTE: test_validate_config_base64 removed - /validate/config/{type} endpoint
+# now only accepts file uploads, not JSON with base64.
+# See test_validate_config_binary for the file upload test.
+
 def test_invalid_base64_string():
     """Test invalid base64 string returns 400"""
     payload = {"file_base64": "not-a-valid-base64-string!!"}

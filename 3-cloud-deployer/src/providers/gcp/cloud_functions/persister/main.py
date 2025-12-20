@@ -31,8 +31,15 @@ class ConfigurationError(Exception):
     pass
 
 
-# Required environment variables - fail fast if missing
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
+# Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
+_digital_twin_info = None
+
+def _get_digital_twin_info():
+    """Lazy-load DIGITAL_TWIN_INFO to avoid import-time failures."""
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
 
 # Optional environment variables (only used in certain modes)
 FIRESTORE_COLLECTION = os.environ.get("FIRESTORE_COLLECTION", "hot_data")
@@ -62,7 +69,7 @@ def _is_multi_cloud_storage() -> bool:
     if not remote_url:
         return False
     
-    providers = DIGITAL_TWIN_INFO.get("config_providers")
+    providers = _get_digital_twin_info().get("config_providers")
     if providers is None:
         raise ConfigurationError(
             "CRITICAL: 'config_providers' missing from DIGITAL_TWIN_INFO. "

@@ -424,3 +424,135 @@ def update_project_info(project_name, description: str, project_path: str = None
         json.dump(info, f, indent=2)
     
     logger.info(f"Updated info for project '{project_name}'.")
+
+
+def export_project_to_zip(project_name: str, project_path: str = None) -> io.BytesIO:
+    """
+    Exports an entire project directory to a zip file in memory.
+    
+    Args:
+        project_name: Name of the project to export.
+        project_path: Base project path. If None, auto-detected.
+        
+    Returns:
+        BytesIO: In-memory zip file buffer.
+        
+    Raises:
+        ValueError: If project does not exist.
+    """
+    if project_path is None:
+        project_path = _get_project_base_path()
+    
+    safe_name = os.path.basename(project_name)
+    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+    
+    if not os.path.exists(target_dir):
+        raise ValueError(f"Project '{project_name}' does not exist.")
+    
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for root, dirs, files in os.walk(target_dir):
+            # Exclude versions, .build, and internal metadata
+            dirs[:] = [d for d in dirs if d not in [CONSTANTS.PROJECT_VERSIONS_DIR_NAME, ".build", "__pycache__"]]
+            
+            for file in files:
+                if file == CONSTANTS.PROJECT_INFO_FILE or file.endswith(".pyc"):
+                    continue
+                    
+                full_path = os.path.join(root, file)
+                rel_path = os.path.relpath(full_path, target_dir)
+                zip_file.write(full_path, rel_path)
+                
+    zip_buffer.seek(0)
+    return zip_buffer
+
+
+def get_project_file_tree(project_name: str, project_path: str = None) -> list:
+    """
+    Returns a recursive file tree structure for the project.
+    """
+    if project_path is None:
+        project_path = _get_project_base_path()
+        
+    safe_name = os.path.basename(project_name)
+    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+    
+    if not os.path.exists(target_dir):
+        raise ValueError(f"Project '{project_name}' does not exist.")
+        
+    def build_tree(current_path, rel_base):
+        items = []
+        try:
+            entries = sorted(os.listdir(current_path))
+        except OSError:
+            return []
+            
+        for entry in entries:
+            # Skip hidden/internal folders
+            if entry.startswith(".") or entry in [CONSTANTS.PROJECT_VERSIONS_DIR_NAME, "__pycache__"]:
+                continue
+            if entry == CONSTANTS.PROJECT_INFO_FILE:
+                continue
+                
+            full_path = os.path.join(current_path, entry)
+            rel_path = os.path.join(rel_base, entry).replace("\\", "/") # force posix path for API
+            
+            item = {
+                "name": entry,
+                "path": rel_path
+            }
+            
+            if os.path.isdir(full_path):
+                item["type"] = "directory"
+                item["children"] = build_tree(full_path, rel_path)
+            else:
+                item["type"] = "file"
+                item["size"] = os.path.getsize(full_path)
+                
+            items.append(item)
+        return items
+
+    return build_tree(target_dir, "")
+
+
+def get_project_file_content(project_name: str, relative_path: str, project_path: str = None) -> dict:
+    """
+    Returns the content of a specific file.
+    """
+    if project_path is None:
+        project_path = _get_project_base_path()
+        
+    safe_name = os.path.basename(project_name)
+    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+    
+    # Security check: prevent directory traversal
+    target_file = os.path.abspath(os.path.join(target_dir, relative_path))
+    if not target_file.startswith(os.path.abspath(target_dir)):
+        raise ValueError("Invalid file path: Traversal attempt detected.")
+        
+    if not os.path.exists(target_file):
+        raise ValueError(f"File '{relative_path}' not found.")
+        
+    if os.path.isdir(target_file):
+        raise ValueError(f"'{relative_path}' is a directory, not a file.")
+        
+    try:
+        with open(target_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+            
+        result = {
+            "path": relative_path,
+            "raw": content
+        }
+        
+        # Try parsing JSON if applicable
+        if relative_path.endswith(".json"):
+            try:
+                result["content"] = json.loads(content)
+            except json.JSONDecodeError:
+                pass
+                
+        return result
+    except UnicodeDecodeError:
+        raise ValueError("Cannot read binary file as text.")
+

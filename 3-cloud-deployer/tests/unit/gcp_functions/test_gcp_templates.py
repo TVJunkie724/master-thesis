@@ -2,6 +2,7 @@
 Tests for GCP Template Functions.
 
 Tests the user-uploadable template functions in upload/template/cloud_functions/.
+These tests are skipped if the cloud_functions directory does not exist.
 """
 import pytest
 import json
@@ -13,6 +14,12 @@ from unittest.mock import patch, MagicMock
 GCP_TEMPLATES_PATH = os.path.join(
     os.path.dirname(__file__), 
     '..', '..', '..', 'upload', 'template', 'cloud_functions'
+)
+
+# Skip all tests in this module if the template directory doesn't exist
+pytestmark = pytest.mark.skipif(
+    not os.path.exists(GCP_TEMPLATES_PATH),
+    reason=f"GCP template directory not found: {GCP_TEMPLATES_PATH}"
 )
 
 

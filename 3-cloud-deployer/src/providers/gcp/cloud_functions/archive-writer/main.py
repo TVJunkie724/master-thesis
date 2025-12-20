@@ -25,9 +25,21 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables
-INTER_CLOUD_TOKEN = require_env("INTER_CLOUD_TOKEN")
-ARCHIVE_BUCKET_NAME = require_env("ARCHIVE_BUCKET_NAME")
+# Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
+_inter_cloud_token = None
+_archive_bucket_name = None
+
+def _get_inter_cloud_token():
+    global _inter_cloud_token
+    if _inter_cloud_token is None:
+        _inter_cloud_token = require_env("INTER_CLOUD_TOKEN")
+    return _inter_cloud_token
+
+def _get_archive_bucket_name():
+    global _archive_bucket_name
+    if _archive_bucket_name is None:
+        _archive_bucket_name = require_env("ARCHIVE_BUCKET_NAME")
+    return _archive_bucket_name
 
 # Storage client
 _storage_client = None
@@ -48,7 +60,7 @@ def main(request):
     print("Hello from Archive Writer!")
     
     # Validate token
-    if not validate_token(request, INTER_CLOUD_TOKEN):
+    if not validate_token(request, _get_inter_cloud_token()):
         return build_auth_error_response()
     
     try:
@@ -63,7 +75,7 @@ def main(request):
         
         # Write to Cloud Storage with Archive class
         client = _get_storage_client()
-        bucket = client.bucket(ARCHIVE_BUCKET_NAME)
+        bucket = client.bucket(_get_archive_bucket_name())
         
         blob = bucket.blob(blob_name)
         blob.storage_class = "ARCHIVE"

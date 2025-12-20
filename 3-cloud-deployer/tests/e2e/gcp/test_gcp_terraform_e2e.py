@@ -114,12 +114,13 @@ class TestGCPTerraformE2E:
         if missing_fields:
             pytest.fail(f"Missing required GCP credential fields: {missing_fields}")
         
-        # gcp_billing_account is required (Terraform always creates the project)
+        # gcp_billing_account OR gcp_project_id is required
         has_billing = gcp_creds.get("gcp_billing_account", "").strip()
-        if not has_billing:
+        has_project_id = gcp_creds.get("gcp_project_id", "").strip()
+        if not has_billing and not has_project_id:
             pytest.fail(
-                "GCP requires 'gcp_billing_account' for project creation. "
-                "The project ID is auto-generated as '${digital_twin_name}-project'."
+                "GCP requires either 'gcp_project_id' (existing project) or "
+                "'gcp_billing_account' (new project creation) in credentials."
             )
         
         print(f"  ✓ GCP credentials validated")

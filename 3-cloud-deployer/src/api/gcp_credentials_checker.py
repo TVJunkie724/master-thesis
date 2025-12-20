@@ -360,6 +360,7 @@ def check_gcp_credentials_from_config(project_name: Optional[str] = None) -> dic
                     "caller_identity": None,
                     "project_access": None,
                     "api_status": None,
+                    "required_roles": REQUIRED_GCP_ROLES,
                     "project_name": project_name
                 }
         else:
@@ -375,6 +376,7 @@ def check_gcp_credentials_from_config(project_name: Optional[str] = None) -> dic
                 "caller_identity": None,
                 "project_access": None,
                 "api_status": None,
+                "required_roles": REQUIRED_GCP_ROLES,
                 "project_name": project_name
             }
         
@@ -388,6 +390,7 @@ def check_gcp_credentials_from_config(project_name: Optional[str] = None) -> dic
                 "caller_identity": None,
                 "project_access": None,
                 "api_status": None,
+                "required_roles": REQUIRED_GCP_ROLES,
                 "project_name": project_name
             }
         
@@ -400,6 +403,7 @@ def check_gcp_credentials_from_config(project_name: Optional[str] = None) -> dic
                 "caller_identity": None,
                 "project_access": None,
                 "api_status": None,
+                "required_roles": REQUIRED_GCP_ROLES,
                 "project_name": project_name
             }
         
@@ -422,6 +426,7 @@ def check_gcp_credentials_from_config(project_name: Optional[str] = None) -> dic
             "caller_identity": None,
             "project_access": None,
             "api_status": None,
+            "required_roles": REQUIRED_GCP_ROLES,
             "project_name": project_name
         }
 

@@ -1,0 +1,27 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-9.0.2, pluggy-1.6.0 -- /usr/local/bin/python
+cachedir: .pytest_cache
+rootdir: /app
+plugins: anyio-4.12.0
+collecting ... collected 1 item
+
+tests/e2e/gcp/test_gcp_function_upload_minimal.py::TestGCPFunctionUploadMinimal::test_invoke_function [GCP E2E] Using credentials from config_credentials.json
+ERROR
+
+==================================== ERRORS ====================================
+_____ ERROR at setup of TestGCPFunctionUploadMinimal.test_invoke_function ______
+
+self = <e2e.gcp.test_gcp_function_upload_minimal.TestGCPFunctionUploadMinimal object at 0x7ba6a49b7710>
+gcp_credentials = {'auth_type': 'service_account', 'credentials_file': 'gcp_credentials.json', 'project_id': 'digital-twin-dev-481720', 'region': 'europe-west1'}
+
+    @pytest.fixture(scope="class")
+    def gcp_clients(self, gcp_credentials):
+        """Initialize GCP clients."""
+        from google.cloud import storage
+>       from google.cloud import functions_v2
+E       ImportError: cannot import name 'functions_v2' from 'google.cloud' (unknown location)
+
+tests/e2e/gcp/test_gcp_function_upload_minimal.py:33: ImportError
+=========================== short test summary info ============================
+ERROR tests/e2e/gcp/test_gcp_function_upload_minimal.py::TestGCPFunctionUploadMinimal::test_invoke_function
+=============================== 1 error in 0.47s ===============================
