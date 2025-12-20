@@ -84,6 +84,7 @@ class TerraformDeployerStrategy:
         self.terraform_dir = Path(terraform_dir)
         self.project_path = Path(project_path)
         self.tfvars_path = self.project_path / "terraform" / "generated.tfvars.json"
+        self.state_path = self.project_path / "terraform" / "terraform.tfstate"
         
         self._runner: Optional[TerraformRunner] = None
         self._providers_config: Optional[dict] = None
@@ -93,7 +94,10 @@ class TerraformDeployerStrategy:
     def runner(self) -> TerraformRunner:
         """Lazy-load Terraform runner."""
         if self._runner is None:
-            self._runner = TerraformRunner(str(self.terraform_dir))
+            self._runner = TerraformRunner(
+                terraform_dir=str(self.terraform_dir),
+                state_path=str(self.state_path)
+            )
         return self._runner
     
     def _load_providers_config(self) -> dict:

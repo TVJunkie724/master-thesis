@@ -46,7 +46,7 @@ def _run_terraform_command(args: List[str], project_name: str) -> subprocess.Com
     
     Args:
         args: List of terraform arguments (without 'terraform' prefix)
-        project_name: Name of the project for var-file
+        project_name: Name of the project for state file path
         
     Returns:
         CompletedProcess result
@@ -55,8 +55,25 @@ def _run_terraform_command(args: List[str], project_name: str) -> subprocess.Com
         ValueError: If terraform command fails
     """
     terraform_dir = "/app/src/terraform"
+    upload_dir = _get_upload_dir(project_name)
+    state_path = os.path.join(upload_dir, "terraform", "terraform.tfstate")
     
-    cmd = ["terraform", "-chdir=" + terraform_dir] + args
+    # Build base command with correct Terraform syntax:
+    # terraform -chdir=X <subcommand> -state=Y [other args]
+    cmd = ["terraform", "-chdir=" + terraform_dir]
+    
+    stateful_commands = ["apply", "destroy", "plan", "output", "show", "import"]
+    
+    if len(args) > 0:
+        subcommand = args[0]
+        cmd.append(subcommand)
+        
+        # Add state path for stateful commands (per-project isolation)
+        if subcommand in stateful_commands:
+            cmd.append(f"-state={state_path}")
+        
+        # Add remaining args
+        cmd.extend(args[1:])
     
     try:
         result = subprocess.run(

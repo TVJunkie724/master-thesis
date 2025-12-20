@@ -38,7 +38,7 @@ locals {
   l0_archive_writer_enabled = var.layer_3_cold_provider != "aws" && var.layer_3_archive_provider == "aws"
   
   # Pre-built Lambda packages directory (built by Python before terraform apply)
-  lambda_build_dir = "${path.module}/.build/aws"
+  lambda_build_dir = "${var.project_path}/.build/aws"
 }
 
 # ==============================================================================

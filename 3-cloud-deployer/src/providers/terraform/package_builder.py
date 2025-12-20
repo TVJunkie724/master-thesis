@@ -75,7 +75,7 @@ def build_aws_lambda_packages(
     Returns:
         Dict mapping Lambda names to ZIP paths
     """
-    build_dir = terraform_dir / BUILD_DIR / "aws"
+    build_dir = project_path / ".build" / "aws"
     build_dir.mkdir(parents=True, exist_ok=True)
     
     # Lambda functions directory
@@ -178,7 +178,7 @@ def build_azure_function_packages(
         logger.info("  No Azure layers configured, skipping Function package build")
         return {}
     
-    build_dir = terraform_dir / BUILD_DIR / "azure"
+    build_dir = project_path / ".build" / "azure"
     build_dir.mkdir(parents=True, exist_ok=True)
     
     # Azure functions directory
@@ -236,14 +236,14 @@ def _create_azure_function_zip(app_dir: Path, output_path: Path) -> None:
                 zf.write(file_path, arcname)
 
 
-def get_lambda_zip_path(terraform_dir: Path, function_name: str) -> str:
-    """Get the path to a pre-built Lambda ZIP for Terraform."""
-    return str(terraform_dir / BUILD_DIR / "aws" / f"{function_name}.zip")
+def get_lambda_zip_path(project_path: Path, function_name: str) -> str:
+    """Get the path to a Lambda ZIP file (for Terraform variable references)."""
+    return str(project_path / ".build" / "aws" / f"{function_name}.zip")
 
 
-def get_azure_zip_path(terraform_dir: Path, app_name: str) -> str:
-    """Get the path to a pre-built Azure Function ZIP."""
-    return str(terraform_dir / BUILD_DIR / "azure" / f"{app_name}.zip")
+def get_azure_zip_path(project_path: Path, app_name: str) -> str:
+    """Get the path to an Azure Function ZIP file."""
+    return str(project_path / ".build" / "azure" / f"{app_name}.zip")
 
 
 def build_gcp_cloud_function_packages(
@@ -456,9 +456,9 @@ def _create_gcp_processor_zip(
 
 
 
-def get_gcp_zip_path(terraform_dir: Path, function_name: str) -> str:
-    """Get the path to a pre-built GCP Cloud Function ZIP for Terraform."""
-    return str(terraform_dir / BUILD_DIR / "gcp" / f"{function_name}.zip")
+def get_gcp_zip_path(project_path: Path, function_name: str) -> str:
+    """Get the path to a GCP Cloud Function ZIP file (for Terraform variable references)."""
+    return str(project_path / ".build" / "gcp" / f"{function_name}.zip")
 
 
 # ==========================================

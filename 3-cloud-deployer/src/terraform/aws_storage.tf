@@ -23,7 +23,7 @@ locals {
   l3_any_aws_enabled     = local.l3_hot_aws_enabled || local.l3_cold_aws_enabled || local.l3_archive_aws_enabled
   
   # Pre-built Lambda packages directory
-  l3_lambda_build_dir = "${path.module}/.build/aws"
+  l3_lambda_build_dir = "${var.project_path}/.build/aws"
 }
 
 # ==============================================================================

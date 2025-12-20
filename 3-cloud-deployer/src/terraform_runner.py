@@ -8,7 +8,10 @@ operations (DTDL upload, Grafana config, function code deployment).
 Usage:
     from terraform_runner import TerraformRunner
     
-    runner = TerraformRunner(terraform_dir="/app/src/terraform")
+    runner = TerraformRunner(
+        terraform_dir="/app/src/terraform",
+        state_path="/app/upload/my_project/terraform/terraform.tfstate"
+    )
     runner.init()
     runner.plan(var_file="/app/upload/my_project/terraform/generated.tfvars.json")
     runner.apply()
@@ -45,13 +48,15 @@ class TerraformRunner:
         terraform_dir: Path to the Terraform configuration directory
     """
     
-    def __init__(self, terraform_dir: str):
+    def __init__(self, terraform_dir: str, state_path: str = None):
         """
         Initialize the Terraform runner.
         
         Args:
             terraform_dir: Absolute path to the Terraform configuration directory
                            (typically /app/src/terraform inside Docker)
+            state_path: Optional absolute path to terraform.tfstate file
+                       (for per-project state isolation)
         
         Raises:
             ValueError: If terraform_dir is empty or None
@@ -60,6 +65,7 @@ class TerraformRunner:
             raise ValueError("terraform_dir is required")
         
         self.terraform_dir = Path(terraform_dir)
+        self.state_path = Path(state_path) if state_path else None
         
         if not self.terraform_dir.exists():
             raise ValueError(f"Terraform directory does not exist: {terraform_dir}")
@@ -86,7 +92,24 @@ class TerraformRunner:
         Raises:
             TerraformError: If command fails and check=True
         """
-        cmd = ["terraform", f"-chdir={self.terraform_dir}"] + args
+        # Build base command
+        cmd = ["terraform", f"-chdir={self.terraform_dir}"]
+        
+        # For stateful commands, insert -state flag AFTER the subcommand
+        # Terraform syntax: terraform -chdir=X <subcommand> -state=Y [other args]
+        stateful_commands = ["apply", "destroy", "plan", "output", "show", "import", "taint", "untaint"]
+        
+        if len(args) > 0:
+            subcommand = args[0]
+            cmd.append(subcommand)
+            
+            # Add state path for stateful commands (per-project isolation)
+            if self.state_path and subcommand in stateful_commands:
+                cmd.append(f"-state={self.state_path}")
+            
+            # Add remaining args
+            cmd.extend(args[1:])
+        
         logger.info(f"Running: {' '.join(cmd)}")
         
         if stream_output:

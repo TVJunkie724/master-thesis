@@ -22,7 +22,7 @@ locals {
   l4_aws_enabled = var.layer_4_provider == "aws"
   
   # Pre-built Lambda packages directory
-  l4_lambda_build_dir = "${path.module}/.build/aws"
+  l4_lambda_build_dir = "${var.project_path}/.build/aws"
 }
 
 # ==============================================================================
