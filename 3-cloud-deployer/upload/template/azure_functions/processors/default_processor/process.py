@@ -1,64 +1,58 @@
 # --- CONTEXT: System Wrapper (DO NOT EDIT) ---
-# Your process() function is imported and called by this Azure Function.
+# Your process() function is imported and called by the Processor wrapper.
 # This shows what happens when your code is deployed:
 #
-# """Processor Wrapper Azure Function - Merges user logic with system pipeline."""
+# """Processor Wrapper - Processes IoT telemetry and sends to Persister."""
 # import json
-# import os
-# import logging
 # import urllib.request
-# import urllib.error
-#
-# import azure.functions as func
 # from process import process  # <-- YOUR FUNCTION IS IMPORTED HERE
 #
-# PERSISTER_FUNCTION_URL = os.environ.get("PERSISTER_FUNCTION_URL")
-#
-# app = func.FunctionApp()
-#
-# def _invoke_persister(payload: dict) -> None:
-#     """Invoke Persister function via HTTP POST."""
-#     data = json.dumps(payload).encode("utf-8")
-#     req = urllib.request.Request(PERSISTER_FUNCTION_URL, data=data,
-#                                   headers={"Content-Type": "application/json"}, method="POST")
-#     with urllib.request.urlopen(req, timeout=30) as response:
-#         logging.info(f"Persister invoked: {response.getcode()}")
-#
 # @app.function_name(name="processor")
-# @app.route(route="processor", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
-# def processor(req: func.HttpRequest) -> func.HttpResponse:
-#     """Execute user processing logic and invoke Persister."""
+# @app.route(route="processor", methods=["POST"])
+# def main(req: func.HttpRequest):
 #     event = req.get_json()
-#
+#     
 #     # YOUR process() FUNCTION IS CALLED HERE:
 #     processed_event = process(event)  # <-- YOUR CODE RUNS HERE
-#
-#     # Then the result is sent to the Persister:
-#     _invoke_persister(processed_event)
-#
-#     return func.HttpResponse(json.dumps({"status": "processed"}), status_code=200)
+#     
+#     # Then the wrapper sends to Persister:
+#     urllib.request.urlopen(
+#         urllib.request.Request(
+#             PERSISTER_FUNCTION_URL,
+#             data=json.dumps(processed_event).encode('utf-8'),
+#             headers={'Content-Type': 'application/json'}
+#         )
+#     )
 # ---------------------------------------------
 
-# Example Event:
+# --- INPUT/OUTPUT SCHEMA ---
+# Input: IoT telemetry event dict
 # {
 #   "iotDeviceId": "temperature-sensor-1",
-#   "time": "",
+#   "time": "2025-12-21T22:00:00Z",
 #   "temperature": 28
 # }
+#
+# Output: Modified event dict (passed to Persister)
+# {
+#   "iotDeviceId": "temperature-sensor-1",
+#   "time": "2025-12-21T22:00:00Z",
+#   "temperature": 28,
+#   "temperature_f": 82.4  # Added by user logic
+# }
 
-def process(event):
+def process(event: dict) -> dict:
     """
     Process the incoming IoT event.
-    This function is called by the system wrapper (processor_wrapper).
-    Return the modified event to be passed to the Persister.
+    
+    This is where you add your custom processing logic.
+    The event is then automatically sent to the Persister.
     
     Args:
         event: IoT telemetry event dict
         
     Returns:
-        dict: Modified event to persist
+        dict: Processed event (can be modified or returned as-is)
     """
-    # Example Logic:
-    # event["temperature_f"] = event["temperature"] * 1.8 + 32
-    
+    # Example: Pass through without modification
     return event

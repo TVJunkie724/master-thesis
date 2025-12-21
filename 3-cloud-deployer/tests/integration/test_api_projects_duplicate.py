@@ -199,7 +199,7 @@ class TestDuplicateOnUpdate:
         # Update same project with same config (should not conflict with self)
         zip_bytes2 = create_valid_zip_bytes(twin_name=twin_name, creds=creds)
         files2 = {"file": ("project.zip", zip_bytes2, "application/zip")}
-        response2 = client.post("/projects/test_dup_update/upload/zip", files=files2)
+        response2 = client.post("/projects/test_dup_update/import", files=files2)
         
         assert response2.status_code == 200
 
@@ -230,7 +230,7 @@ class TestDuplicateOnUpdate:
         # Try to update second project to have conflicting config
         zip_bytes3 = create_valid_zip_bytes(twin_name=conflict_twin, creds=creds)
         files3 = {"file": ("project.zip", zip_bytes3, "application/zip")}
-        response3 = client.post("/projects/test_dup_change/upload/zip", files=files3)
+        response3 = client.post("/projects/test_dup_change/import", files=files3)
         
         assert response3.status_code == 400
         assert "duplicate" in response3.json()["detail"].lower()

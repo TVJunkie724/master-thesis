@@ -38,6 +38,33 @@ WORKFLOW_TRIGGER_URL = os.environ.get("WORKFLOW_TRIGGER_URL", "")
 FEEDBACK_FUNCTION_URL = os.environ.get("FEEDBACK_FUNCTION_URL", "")
 
 
+def _extract_condition_context(event: dict, condition: dict) -> dict:
+    """
+    Extract runtime context from GCP-style structured condition.
+    
+    GCP conditions use: {"field": "temperature", "operator": ">", "value": 30}
+    Unlike AWS/Azure which use: "entity.component.temperature > DOUBLE(30)"
+    
+    Returns:
+        dict with actual_value, threshold, and condition string
+    """
+    field = condition.get("field", "")
+    operator = condition.get("operator", "")
+    value = condition.get("value")
+    
+    # Get actual value from event
+    actual_value = event.get(field)
+    
+    # Build human-readable condition string
+    condition_str = f"{field} {operator} {value}"
+    
+    return {
+        "actual_value": actual_value,
+        "threshold": value,
+        "condition": condition_str
+    }
+
+
 def _evaluate_condition(event: dict, condition: dict) -> bool:
     """
     Evaluate a condition against an event.
@@ -76,8 +103,8 @@ def _evaluate_condition(event: dict, condition: dict) -> bool:
         return False
 
 
-def _trigger_action(event: dict, action: dict) -> None:
-    """Execute the configured action."""
+def _trigger_action(event: dict, action: dict, condition: dict = None) -> None:
+    """Execute the configured action with enriched context."""
     action_type = action.get("type", "")
     
     if action_type == "workflow":
@@ -104,13 +131,21 @@ def _trigger_action(event: dict, action: dict) -> None:
             )
     
     elif action_type == "feedback":
+        # Extract context for enriched feedback
+        context = _extract_condition_context(event, condition) if condition else {}
+        
         # Send feedback to device
         if FEEDBACK_FUNCTION_URL:
             feedback_payload = {
                 "detail": {
                     "digitalTwinName": _get_digital_twin_info()["config"]["digital_twin_name"],
                     "iotDeviceId": event.get("iotDeviceId"),
-                    "payload": action.get("payload", {})
+                    "payload": {
+                        "message": action.get("payload", {}),
+                        "actual_value": context.get("actual_value"),
+                        "threshold": context.get("threshold"),
+                        "condition": context.get("condition")
+                    }
                 }
             }
             print(f"Sending feedback via: {FEEDBACK_FUNCTION_URL}")
@@ -143,7 +178,7 @@ def main(request):
             
             if _evaluate_condition(event, condition):
                 print(f"Rule triggered: {condition}")
-                _trigger_action(event, action)
+                _trigger_action(event, action, condition)  # Pass condition for context extraction
                 triggered_count += 1
         
         return (json.dumps({"status": "checked", "triggered": triggered_count}), 200, {"Content-Type": "application/json"})

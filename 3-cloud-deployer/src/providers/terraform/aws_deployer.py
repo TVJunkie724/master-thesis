@@ -15,22 +15,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Mapping from Terraform output keys to Lambda function directories
-# Uses hyphenated names as they exist in lambda_functions/
-LAMBDA_FUNCTION_MAP = {
-    "aws_l1_dispatcher_function_name": "dispatcher",
-    "aws_l2_persister_function_name": "persister",
-    "aws_l2_event_checker_function_name": "event-checker",
-    "aws_l3_hot_reader_function_name": "hot-reader",
-    "aws_l3_hot_to_cold_mover_function_name": "hot-to-cold-mover",
-    "aws_l3_cold_to_archive_mover_function_name": "cold-to-archive-mover",
-    "aws_l0_ingestion_function_name": "ingestion",
-    "aws_l0_hot_writer_function_name": "hot-writer",
-    "aws_l0_hot_reader_function_name": "hot-reader",
-    "aws_l0_cold_writer_function_name": "cold-writer",
-    "aws_l0_archive_writer_function_name": "archive-writer",
-    "aws_l4_connector_function_name": "digital-twin-data-connector",
-}
+from src.function_registry import get_terraform_output_map
+
+# Dynamically generated from function registry
+# Maps Terraform output keys to Lambda function directory names
+LAMBDA_FUNCTION_MAP = get_terraform_output_map("aws")
 
 
 def deploy_aws_lambda_code(

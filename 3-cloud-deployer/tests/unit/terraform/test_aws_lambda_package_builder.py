@@ -196,10 +196,7 @@ class TestBuildAwsLambdaPackages:
             "layer_4_provider": "azure",
         }
     
-    def test_requires_provider_config_keys(self, tmp_path):
-        """Should raise ValueError if required provider config keys are missing."""
-        with pytest.raises(ValueError, match="Missing required provider config"):
-            build_aws_lambda_packages(tmp_path, tmp_path, {})
+
     
     def test_no_packages_for_azure_only(self, tmp_path, providers_all_azure):
         """Should return empty dict when no AWS layers configured."""

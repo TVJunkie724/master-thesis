@@ -1,7 +1,9 @@
 # Azure Functions SDK
 azure-functions
 
-# Azure SDK dependencies used by L2/L3 functions
+# Azure SDK dependencies used by L0/L2/L3/User functions
 azure-cosmos
 azure-identity
 azure-digitaltwins-core
+azure-storage-blob
+azure-iot-hub

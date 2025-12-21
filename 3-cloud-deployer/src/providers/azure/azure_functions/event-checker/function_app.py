@@ -237,14 +237,19 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
                         _invoke_function(function_name, {"e": e})
                         results.append({"event": condition, "action": f"function_invoked:{function_name}"})
                     
-                    # Handle feedback
                     if "feedback" in e.get("action", {}) and USE_FEEDBACK:
                         feedback_config = e["action"]["feedback"]
+                        # Enrich feedback payload with runtime context
                         feedback_payload = {
                             "detail": {
-                                "digitalTwinName": DIGITAL_TWIN_INFO["config"]["digital_twin_name"],
+                                "digitalTwinName": _get_digital_twin_info()["config"]["digital_twin_name"],
                                 "iotDeviceId": feedback_config.get("iotDeviceId"),
-                                "payload": feedback_config.get("payload")
+                                "payload": {
+                                    "message": feedback_config.get("payload"),
+                                    "actual_value": param1_value,
+                                    "threshold": param2_value,
+                                    "condition": condition
+                                }
                             }
                         }
                         _send_feedback(feedback_payload)

@@ -177,7 +177,7 @@ class TestCreateProject:
 # Test: Update Project
 # ==========================================
 class TestUpdateProject:
-    """Tests for POST /projects/{name}/upload/zip endpoint."""
+    """Tests for POST /projects/{name}/import endpoint."""
 
     def test_update_project_creates_new_version(self):
         """Second upload creates second version file."""
@@ -204,7 +204,7 @@ class TestUpdateProject:
         # Update project with same config
         zip_bytes2 = create_valid_zip_bytes(twin_name=twin_name, creds=creds)
         files2 = {"file": ("project.zip", zip_bytes2, "application/zip")}
-        response = client.post(f"/projects/{project_name}/upload/zip", files=files2)
+        response = client.post(f"/projects/{project_name}/import", files=files2)
         
         assert response.status_code == 200
         

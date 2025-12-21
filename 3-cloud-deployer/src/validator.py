@@ -11,6 +11,7 @@ import json
 import hashlib
 import re
 import constants as CONSTANTS
+from function_registry import get_function_by_name
 from logger import logger
 import io
 import ast
@@ -533,8 +534,9 @@ def get_provider_for_function(project_name, function_name, project_path: str = N
         raise ValueError("Project configuration is corrupted. Please re-upload config_providers.json.")
         
     # logic to map function_name to layer
-    # 1. Direct Mapping
-    layer_key = CONSTANTS.FUNCTION_LAYER_MAPPING.get(function_name)
+    # 1. Direct Mapping via Registry
+    func = get_function_by_name(function_name)
+    layer_key = func.layer_provider_key if func else None
     
     # 2. Implicit Mapping (Processors)
     if not layer_key and function_name.endswith("-processor"):
@@ -543,7 +545,7 @@ def get_provider_for_function(project_name, function_name, project_path: str = N
     if not layer_key:
          raise ValueError(
              f"Unknown function '{function_name}'. Cannot determine provider layer. "
-             "Function must be in FUNCTION_LAYER_MAPPING or end with '-processor'."
+             f"Function must exist in the registry or end with '-processor'."
          )
 
     provider = config_providers.get(layer_key)

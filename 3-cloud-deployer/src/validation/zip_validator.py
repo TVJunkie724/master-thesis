@@ -25,6 +25,7 @@ import os
 import io
 import json
 import ast
+import re
 import zipfile
 from typing import Dict, List, Set, Any, Optional, Union
 from logger import logger
@@ -102,6 +103,13 @@ def _build_validation_context(zf: zipfile.ZipFile) -> ValidationContext:
     ctx = ValidationContext()
     ctx.zip_files = zf.namelist()
     
+    # Provider path constants
+    FUNCTION_DIR_NAMES = [
+        CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME,  # lambda_functions (AWS)
+        "azure_functions",                     # Azure
+        "cloud_functions",                     # GCP
+    ]
+    
     # Find project root (handles nested folders)
     for f in ctx.zip_files:
         if f.endswith(CONSTANTS.CONFIG_FILE):
@@ -116,17 +124,21 @@ def _build_validation_context(zf: zipfile.ZipFile) -> ValidationContext:
         filename = member.filename
         basename = os.path.basename(filename)
         
-        # Track event-feedback presence
-        if f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event-feedback/" in filename:
-            ctx.seen_feedback_func = True
+        # Track event-feedback presence (ALL PROVIDERS)
+        for func_dir in FUNCTION_DIR_NAMES:
+            if f"{func_dir}/event-feedback/" in filename:
+                ctx.seen_feedback_func = True
+                break
         
-        # Track event actions
-        if f"{CONSTANTS.EVENT_ACTIONS_DIR_NAME}/" in filename:
-            parts = filename.split(f"{CONSTANTS.EVENT_ACTIONS_DIR_NAME}/")
-            if len(parts) > 1:
-                func_name = parts[1].split('/')[0]
-                if func_name:
-                    ctx.seen_event_actions.add(func_name)
+        # Track event actions (ALL PROVIDERS)
+        for func_dir in FUNCTION_DIR_NAMES:
+            if f"{func_dir}/{CONSTANTS.EVENT_ACTIONS_DIR_NAME}/" in filename:
+                parts = filename.split(f"{CONSTANTS.EVENT_ACTIONS_DIR_NAME}/")
+                if len(parts) > 1:
+                    func_name = parts[1].split('/')[0]
+                    if func_name:
+                        ctx.seen_event_actions.add(func_name)
+                break
         
         # Track state machines
         if basename in CONSTANTS.STATE_MACHINE_SIGNATURES:
@@ -227,27 +239,81 @@ def _check_state_machines(zf: zipfile.ZipFile, ctx: ValidationContext) -> None:
                 raise ValueError(f"State Machine validation failed for {basename} inside zip: {e}")
 
 
+
+def _validate_process_signature(content: str, filename: str) -> None:
+    """Validate process() function has correct signature with type hints."""
+    tree = ast.parse(content)
+    
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "process":
+            # Check has exactly 1 argument
+            if len(node.args.args) != 1:
+                raise ValueError(f"{filename}: process() must have exactly 1 parameter")
+            
+            arg = node.args.args[0]
+            
+            # Check argument has type annotation
+            if arg.annotation is None:
+                raise ValueError(f"{filename}: process() parameter must have type hint 'dict'")
+            
+            # Check annotation is 'dict'
+            if not (isinstance(arg.annotation, ast.Name) and arg.annotation.id == "dict"):
+                raise ValueError(f"{filename}: process() parameter type must be 'dict'")
+            
+            # Check return type annotation
+            if node.returns is None:
+                raise ValueError(f"{filename}: process() must have return type hint '-> dict'")
+            
+            if not (isinstance(node.returns, ast.Name) and node.returns.id == "dict"):
+                raise ValueError(f"{filename}: process() return type must be 'dict'")
+            
+            return  # Found valid process function
+    
+    raise ValueError(f"{filename}: Missing required process() function")
+
+
 def _check_processor_syntax(zf: zipfile.ZipFile, ctx: ValidationContext) -> None:
     """
-    Validate Python syntax for processor files.
+    Validate Python syntax and signatures for user code files.
     
-    Checks process.py files in lambda_functions/processors/.
+    Checks process.py files in ALL provider directories:
+    - lambda_functions/processors/ and event-feedback/
+    - azure_functions/processors/ and event-feedback/
+    - cloud_functions/processors/ and event-feedback/
     """
+    PROCESSOR_PATTERNS = [
+        rf".*{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/processors/[^/]+/process\.py$",
+        r".*azure_functions/processors/[^/]+/process\.py$",
+        r".*cloud_functions/processors/[^/]+/process\.py$",
+    ]
+    
+    EVENT_FEEDBACK_PATTERNS = [
+        rf".*{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event-feedback/process\.py$",
+        r".*azure_functions/event-feedback/process\.py$",
+        r".*cloud_functions/event-feedback/process\.py$",
+    ]
+    
+    ALL_PATTERNS = PROCESSOR_PATTERNS + EVENT_FEEDBACK_PATTERNS
+    
     for member in zf.infolist():
         if member.is_dir():
             continue
             
         filename = member.filename
         
-        if filename.endswith("process.py") and f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/processors/" in filename:
+        # Check if this is a user code file in any provider path
+        is_user_code = any(re.match(pattern, filename) for pattern in ALL_PATTERNS)
+        
+        if is_user_code:
             try:
                 with zf.open(member) as f:
                     content = f.read().decode('utf-8')
-                    ast.parse(content)
+                    ast.parse(content)  # Syntax check
+                    _validate_process_signature(content, filename)  # Signature check
             except SyntaxError as e:
-                raise ValueError(f"Syntax error in processor file {filename}: {e.msg} at line {e.lineno}")
+                raise ValueError(f"Syntax error in {filename}: {e.msg} at line {e.lineno}")
             except Exception as e:
-                raise ValueError(f"Validation failed for processor code {filename}: {e}")
+                raise ValueError(f"Validation failed for {filename}: {e}")
 
 
 def _check_event_actions(ctx: ValidationContext) -> None:

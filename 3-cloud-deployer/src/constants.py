@@ -141,19 +141,6 @@ AWS_CRON_COLD_TO_ARCHIVE = "cron(0 18 * * ? *)"
 AWS_HOT_COLD_SCHEDULE = AWS_CRON_HOT_TO_COLD
 AWS_COLD_ARCHIVE_SCHEDULE = AWS_CRON_COLD_TO_ARCHIVE
 
-# ==========================================
-# 7. Layer & Function Mappings
-# ==========================================
-# Mapping functions to their provider layer for code validation
-FUNCTION_LAYER_MAPPING = {
-    "dispatcher": "layer_1_provider",
-    "persister": "layer_2_provider",
-    "event-checker": "layer_2_provider",
-    "event-feedback": "layer_2_provider",
-    "hot-reader": "layer_3_hot_provider",
-    "hot-to-cold-mover": "layer_3_hot_provider",
-    "cold-to-archive-mover": "layer_3_cold_provider"
-}
 
 # ==========================================
 # 8. Scene Asset Constants (3D Visualization)

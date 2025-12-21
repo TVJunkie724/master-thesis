@@ -16,6 +16,8 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
+from src.function_registry import get_functions_for_provider_build
+
 logger = logging.getLogger(__name__)
 
 # Build output directory (relative to terraform directory)
@@ -83,63 +85,9 @@ def build_aws_lambda_packages(
     shared_dir = lambda_dir / "_shared"
     
     packages = {}
-    functions_to_build = []
     
-    # L0 Glue functions - only when cross-cloud boundaries exist
-    # Required config keys (fail-fast - no silent fallbacks)
-    required_keys = [
-        "layer_1_provider", "layer_2_provider", 
-        "layer_3_hot_provider", "layer_3_cold_provider", "layer_3_archive_provider",
-        "layer_4_provider"
-    ]
-    for key in required_keys:
-        if key not in providers_config:
-            raise ValueError(f"Missing required provider config: {key}")
-    
-    l1 = providers_config["layer_1_provider"]
-    l2 = providers_config["layer_2_provider"]
-    l3_hot = providers_config["layer_3_hot_provider"]
-    l3_cold = providers_config["layer_3_cold_provider"]
-    l3_archive = providers_config["layer_3_archive_provider"]
-    l4 = providers_config["layer_4_provider"]
-    
-    # Ingestion: L1 on another cloud, L2 on AWS
-    if l1 != "aws" and l2 == "aws":
-        functions_to_build.append("ingestion")
-    
-    # Hot Writer: L2 on another cloud, L3 hot on AWS
-    if l2 != "aws" and l3_hot == "aws":
-        functions_to_build.append("hot-writer")
-    
-    # Hot Reader: L3 hot on AWS, L4 on another cloud
-    if l3_hot == "aws" and l4 != "aws":
-        functions_to_build.append("hot-reader")
-    
-    # Cold Writer: L3 hot on another cloud, L3 cold on AWS
-    if l3_hot != "aws" and l3_cold == "aws":
-        functions_to_build.append("cold-writer")
-    
-    # Archive Writer: L3 cold on another cloud, L3 archive on AWS
-    if l3_cold != "aws" and l3_archive == "aws":
-        functions_to_build.append("archive-writer")
-    
-    # L1 IoT functions - when L1 is AWS
-    if l1 == "aws":
-        functions_to_build.extend(["dispatcher", "connector"])
-    
-    # L2 Compute functions - when L2 is AWS
-    if l2 == "aws":
-        functions_to_build.extend(["persister", "event-checker"])
-    
-    # L3 Storage functions - when L3 is AWS
-    if l3_hot == "aws":
-        functions_to_build.append("hot-to-cold-mover")
-    if l3_cold == "aws":
-        functions_to_build.append("cold-to-archive-mover")
-    
-    # L4 Twin functions - when L4 is AWS
-    if l4 == "aws":
-        functions_to_build.append("digital-twin-data-connector")
+    # Get functions from registry (replaces hardcoded boundary logic)
+    functions_to_build = get_functions_for_provider_build("aws", providers_config)
     
     # Build each function
     for func_name in functions_to_build:
@@ -186,26 +134,16 @@ def build_azure_function_packages(
     
     packages = {}
     
-    # Azure Function Apps to build (each is a separate app with multiple functions)
-    function_apps = [
-        "dispatcher",
-        "persister", 
-        "connector",
-        "hot-reader",
-        "hot-writer",
-        "hot-to-cold-mover",
-        "cold-to-archive-mover",
-        "digital-twin-data-connector",
-        "adt-updater",
-    ]
+    # Get functions from registry
+    functions_to_build = get_functions_for_provider_build("azure", providers_config)
     
-    for app_name in function_apps:
-        app_dir = azure_funcs_dir / app_name
+    for func_name in functions_to_build:
+        app_dir = azure_funcs_dir / func_name
         if app_dir.exists():
-            zip_path = build_dir / f"{app_name}.zip"
+            zip_path = build_dir / f"{func_name}.zip"
             _create_azure_function_zip(app_dir, zip_path)
-            packages[f"azure_{app_name}"] = zip_path
-            logger.info(f"  ✓ Built: {app_name}.zip")
+            packages[f"azure_{func_name}"] = zip_path
+            logger.info(f"  ✓ Built: {func_name}.zip")
     
     return packages
 
@@ -223,7 +161,7 @@ def _create_lambda_zip(func_dir: Path, shared_dir: Path, output_path: Path) -> N
         if shared_dir.exists():
             for file_path in shared_dir.rglob('*'):
                 if file_path.is_file() and '__pycache__' not in str(file_path):
-                    arcname = file_path.relative_to(shared_dir)
+                    arcname = f"_shared/{file_path.relative_to(shared_dir)}"
                     zf.write(file_path, arcname)
 
 
@@ -272,58 +210,13 @@ def build_gcp_cloud_function_packages(
     build_dir.mkdir(parents=True, exist_ok=True)
     
     packages = {}
-    functions_to_build = []
     
     # Get GCP Cloud Functions source directory (from deployer src)
     gcp_funcs_dir = Path(__file__).parent.parent / "gcp" / "cloud_functions"
     shared_dir = gcp_funcs_dir / "_shared"
     
-    # Get provider config for layer boundaries
-    l1 = providers_config.get("layer_1_provider", "")
-    l2 = providers_config.get("layer_2_provider", "")
-    l3_hot = providers_config.get("layer_3_hot_provider", "")
-    l3_cold = providers_config.get("layer_3_cold_provider", "")
-    l3_archive = providers_config.get("layer_3_archive_provider", "")
-    l4 = providers_config.get("layer_4_provider", "")
-    
-    # L0 Glue functions - only when cross-cloud boundaries exist
-    # Ingestion: L1 on another cloud, L2 on GCP
-    if l1 != "google" and l2 == "google":
-        functions_to_build.append("ingestion")
-    
-    # Hot Writer: L2 on another cloud, L3 hot on GCP
-    if l2 != "google" and l3_hot == "google":
-        functions_to_build.append("hot-writer")
-    
-    # Hot Reader: L3 hot on GCP, L4 on another cloud
-    if l3_hot == "google" and l4 != "google" and l4 != "":
-        functions_to_build.append("hot-reader")
-        functions_to_build.append("hot-reader-last-entry")
-    
-    # Cold Writer: L3 hot on another cloud, L3 cold on GCP
-    if l3_hot != "google" and l3_cold == "google":
-        functions_to_build.append("cold-writer")
-    
-    # Archive Writer: L3 cold on another cloud, L3 archive on GCP
-    if l3_cold != "google" and l3_archive == "google":
-        functions_to_build.append("archive-writer")
-    
-    # L1 IoT functions - when L1 is GCP
-    if l1 == "google":
-        functions_to_build.extend(["dispatcher", "connector"])
-    
-    # L2 Compute functions - when L2 is GCP
-    if l2 == "google":
-        functions_to_build.extend(["processor_wrapper", "persister"])
-        # Event Checker (optional based on config)
-        if providers_config.get("use_event_checking", True):
-            functions_to_build.append("event-checker")
-    
-    # L3 Storage functions - when L3 hot is GCP
-    if l3_hot == "google":
-        functions_to_build.extend(["hot-to-cold-mover", "hot-reader"])
-    if l3_cold == "google":
-        functions_to_build.append("cold-to-archive-mover")
+    # Get functions from registry (replaces hardcoded boundary logic)
+    functions_to_build = get_functions_for_provider_build("gcp", providers_config)
     
     # Copy source files to project_path/cloud_functions/ for Terraform filemd5() access
     cloud_functions_dir = project_path / "cloud_functions"
@@ -698,17 +591,25 @@ def build_user_packages(
         
         logger.info(f"  ✓ Built processor: processor-{processor_name}.zip")
     
-    # 3. Build Event-Feedback package
+    # 3. Build Event-Feedback package (WITH WRAPPER MERGING)
     if feedback_dir.exists():
         code_hash = _compute_directory_hash(feedback_dir)
-        
         zip_path = build_dir / "event-feedback.zip"
-        if l2_provider == "aws":
-            _create_lambda_zip(feedback_dir, shared_dir, zip_path)
-        elif l2_provider == "google":
-            _create_gcp_function_zip(feedback_dir, shared_dir, zip_path)
-        else:  # azure
-            _create_azure_function_zip(feedback_dir, zip_path)
+        
+        # Check if user has process.py (new pattern) or raw files (old pattern)
+        has_process_py = (feedback_dir / "process.py").exists()
+        
+        if has_process_py:
+            # New pattern: merge with wrapper
+            _create_event_feedback_with_wrapper(feedback_dir, zip_path, l2_provider)
+        else:
+            # Legacy pattern: bundle as-is
+            if l2_provider == "aws":
+                _create_lambda_zip(feedback_dir, shared_dir, zip_path)
+            elif l2_provider == "google":
+                _create_gcp_function_zip(feedback_dir, shared_dir, zip_path)
+            else:  # azure
+                _create_azure_function_zip(feedback_dir, zip_path)
         
         packages["event-feedback"] = zip_path
         
@@ -725,8 +626,8 @@ def _create_processor_with_wrapper(proc_dir: Path, output_path: Path) -> None:
     """
     Create a processor ZIP with the Azure processor wrapper.
     
-    For Azure, processors need to be wrapped with function_app.py
-    from the processor_wrapper directory.
+    FIXED: User code now placed at root level (not processor/ subfolder)
+    to match wrapper's 'from process import process' import.
     
     Args:
         proc_dir: Path to processor code directory
@@ -736,18 +637,125 @@ def _create_processor_with_wrapper(proc_dir: Path, output_path: Path) -> None:
     wrapper_dir = Path(__file__).parent.parent / "azure" / "azure_functions" / "processor_wrapper"
     
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-        # Add wrapper files (function_app.py, host.json, requirements.txt)
+        # Add wrapper files (function_app.py, requirements.txt)
         if wrapper_dir.exists():
             for file_path in wrapper_dir.rglob('*'):
                 if file_path.is_file() and '__pycache__' not in str(file_path):
                     arcname = file_path.relative_to(wrapper_dir)
                     zf.write(file_path, arcname)
         
-        # Add processor code under 'processor/' subdirectory
+        # FIXED: Add processor code at ROOT level (same as function_app.py)
+        # The wrapper does "from process import process" so process.py must be at root
+        # Skip requirements.txt - will merge later
         for file_path in proc_dir.rglob('*'):
             if file_path.is_file() and '__pycache__' not in str(file_path):
-                arcname = Path("processor") / file_path.relative_to(proc_dir)
+                if file_path.name == 'requirements.txt':
+                    continue  # Skip - will merge
+                # Put at root level, NOT in processor/ subdirectory
+                arcname = file_path.relative_to(proc_dir)
                 zf.write(file_path, arcname)
+        
+        # Merge requirements.txt
+        wrapper_req = wrapper_dir / "requirements.txt"
+        user_req = proc_dir / "requirements.txt"
+        merged = _merge_requirements(wrapper_req, user_req)
+        if merged:
+            zf.writestr("requirements.txt", merged)
+
+
+def _merge_requirements(wrapper_req: Path, user_req: Path) -> str:
+    """Merge wrapper and user requirements.txt files."""
+    lines = set()
+    
+    if wrapper_req.exists():
+        for line in wrapper_req.read_text().strip().splitlines():
+            if line.strip() and not line.startswith('#'):
+                lines.add(line.strip())
+    
+    if user_req.exists():
+        for line in user_req.read_text().strip().splitlines():
+            if line.strip() and not line.startswith('#'):
+                lines.add(line.strip())
+    
+    return '\n'.join(sorted(lines)) if lines else ''
+
+
+def _create_event_feedback_with_wrapper(
+    feedback_dir: Path, 
+    output_path: Path, 
+    provider: str
+) -> None:
+    """
+    Create event-feedback ZIP with the provider's event_feedback_wrapper.
+    
+    Merges user process.py with static wrapper code from /src.
+    
+    Args:
+        feedback_dir: Path to user's event-feedback code (containing process.py)
+        output_path: Path to output ZIP file
+        provider: 'aws', 'azure', or 'google'
+    """
+    # Map provider to wrapper directory path
+    provider_map = {
+        'aws': Path(__file__).parent.parent / 'aws' / 'lambda_functions' / 'event_feedback_wrapper',
+        'azure': Path(__file__).parent.parent / 'azure' / 'azure_functions' / 'event_feedback_wrapper',
+        'google': Path(__file__).parent.parent / 'gcp' / 'cloud_functions' / 'event_feedback_wrapper',
+    }
+    
+    wrapper_dir = provider_map.get(provider)
+    if not wrapper_dir or not wrapper_dir.exists():
+        logger.warning(f"No event_feedback_wrapper found for {provider}, bundling raw files")
+        # Fallback to raw bundling
+        if provider == 'aws':
+            shared_dir = Path(__file__).parent.parent / 'aws' / 'lambda_functions' / '_shared'
+            _create_lambda_zip(feedback_dir, shared_dir, output_path)
+        elif provider == 'google':
+            shared_dir = Path(__file__).parent.parent / 'gcp' / 'cloud_functions' / '_shared'
+            _create_gcp_function_zip(feedback_dir, shared_dir, output_path)
+        else:
+            _create_azure_function_zip(feedback_dir, output_path)
+        return
+    
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # 1. Add wrapper files (lambda_function.py/function_app.py/main.py, etc.)
+        for file_path in wrapper_dir.rglob('*'):
+            if file_path.is_file() and '__pycache__' not in str(file_path):
+                arcname = file_path.relative_to(wrapper_dir)
+                zf.write(file_path, arcname)
+        
+        # 2. Add user's process.py at root level (required for 'from process import process')
+        # Skip requirements.txt - will merge later
+        for file_path in feedback_dir.rglob('*'):
+            if file_path.is_file() and '__pycache__' not in str(file_path):
+                if file_path.name == 'requirements.txt':
+                    continue  # Skip - will merge
+                arcname = file_path.relative_to(feedback_dir)
+                zf.write(file_path, arcname)
+        
+        # 3. Add shared modules for AWS/GCP
+        if provider == 'aws':
+            shared_dir = Path(__file__).parent.parent / 'aws' / 'lambda_functions' / '_shared'
+            if shared_dir.exists():
+                for file_path in shared_dir.rglob('*'):
+                    if file_path.is_file() and '__pycache__' not in str(file_path):
+                        arcname = f"_shared/{file_path.relative_to(shared_dir)}"
+                        zf.write(file_path, arcname)
+        elif provider == 'google':
+            shared_dir = Path(__file__).parent.parent / 'gcp' / 'cloud_functions' / '_shared'
+            if shared_dir.exists():
+                for file_path in shared_dir.rglob('*'):
+                    if file_path.is_file() and '__pycache__' not in str(file_path):
+                        arcname = f"_shared/{file_path.relative_to(shared_dir)}"
+                        zf.write(file_path, arcname)
+        
+        # 4. Merge requirements.txt
+        wrapper_req = wrapper_dir / "requirements.txt"
+        user_req = feedback_dir / "requirements.txt"
+        merged = _merge_requirements(wrapper_req, user_req)
+        if merged:
+            zf.writestr("requirements.txt", merged)
+    
+    logger.info(f"  ✓ Built event-feedback.zip with wrapper for {provider}")
 
 
 def get_user_package_path(project_path: Path, function_name: str, provider: str) -> Path:
