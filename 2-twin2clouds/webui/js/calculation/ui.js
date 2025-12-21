@@ -42,6 +42,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Add event listeners for toggles
     document.getElementById("useEventChecking").addEventListener("change", toggleEventsInput);
     document.getElementById("triggerNotificationWorkflow").addEventListener("change", toggleOrchestrationInput);
+    document.getElementById("returnFeedbackToDevice").addEventListener("change", toggleEventActionsInput);
 
     // Select Preset 1 by default
     const firstPreset = document.querySelector('.preset-btn');
@@ -68,6 +69,7 @@ function fillScenario(
     devices,
     interval,
     messageSize,
+    numberOfDeviceTypes,
     hotStorageMonths,
     coolStorageMonths,
     archiveStorageMonths,
@@ -81,6 +83,7 @@ function fillScenario(
     useEventChecking,
     eventsPerMessage,
     returnFeedbackToDevice,
+    numberOfEventActions,
     triggerNotificationWorkflow,
     orchestrationActionsPerMessage,
     integrateErrorHandling,
@@ -91,6 +94,7 @@ function fillScenario(
     document.getElementById("devices").value = devices;
     document.getElementById("interval").value = interval;
     document.getElementById("messageSize").value = messageSize;
+    document.getElementById("numberOfDeviceTypes").value = numberOfDeviceTypes;
     document.getElementById("hotStorageDurationInMonths").value = hotStorageMonths;
     document.getElementById("coolStorageDurationInMonths").value = coolStorageMonths;
     document.getElementById("archiveStorageDurationInMonths").value = archiveStorageMonths;
@@ -116,6 +120,7 @@ function fillScenario(
     document.getElementById("useEventChecking").checked = useEventChecking;
     document.getElementById("eventsPerMessage").value = eventsPerMessage;
     document.getElementById("returnFeedbackToDevice").checked = returnFeedbackToDevice;
+    document.getElementById("numberOfEventActions").value = numberOfEventActions;
     document.getElementById("triggerNotificationWorkflow").checked = triggerNotificationWorkflow;
     document.getElementById("orchestrationActionsPerMessage").value = orchestrationActionsPerMessage;
     (document.getElementById("integrateErrorHandling") || {}).checked = integrateErrorHandling;
@@ -187,8 +192,39 @@ function toggleEntityInput() {
 function toggleEventsInput() {
     const checkbox = document.getElementById("useEventChecking");
     const container = document.getElementById("eventsPerMessageContainer");
+
+    // Dependent checkboxes that require event checking to be enabled
+    const triggerWorkflow = document.getElementById("triggerNotificationWorkflow");
+    const returnFeedback = document.getElementById("returnFeedbackToDevice");
+
+    const isEnabled = checkbox && checkbox.checked;
+
+    // Show/hide events per message input
+    if (container) {
+        container.classList.toggle("d-none", !isEnabled);
+        container.classList.toggle("d-block", isEnabled);
+    }
+
+    // Enable/disable dependent checkboxes
+    if (triggerWorkflow) {
+        triggerWorkflow.disabled = !isEnabled;
+        if (!isEnabled) triggerWorkflow.checked = false;
+    }
+    if (returnFeedback) {
+        returnFeedback.disabled = !isEnabled;
+        if (!isEnabled) returnFeedback.checked = false;
+    }
+
+    // Trigger dependent toggle updates
+    toggleOrchestrationInput();
+    toggleEventActionsInput();
+}
+
+function toggleOrchestrationInput() {
+    const checkbox = document.getElementById("triggerNotificationWorkflow");
+    const container = document.getElementById("orchestrationActionsPerMessageContainer");
     if (checkbox && container) {
-        if (checkbox.checked) {
+        if (checkbox.checked && !checkbox.disabled) {
             container.classList.remove("d-none");
             container.classList.add("d-block");
         } else {
@@ -198,16 +234,14 @@ function toggleEventsInput() {
     }
 }
 
-function toggleOrchestrationInput() {
-    const checkbox = document.getElementById("triggerNotificationWorkflow");
-    const container = document.getElementById("orchestrationActionsPerMessageContainer");
-    if (checkbox && container) {
-        if (checkbox.checked) {
-            container.classList.remove("d-none");
-            container.classList.add("d-block");
-        } else {
-            container.classList.remove("d-block");
-            container.classList.add("d-none");
-        }
+function toggleEventActionsInput() {
+    const returnFeedback = document.getElementById("returnFeedbackToDevice");
+    const container = document.getElementById("eventActionsContainer");
+
+    if (container) {
+        // Event Actions only visible when returnFeedbackToDevice is checked AND enabled
+        const isVisible = returnFeedback && returnFeedback.checked && !returnFeedback.disabled;
+        container.classList.toggle("d-none", !isVisible);
+        container.classList.toggle("d-block", isVisible);
     }
 }

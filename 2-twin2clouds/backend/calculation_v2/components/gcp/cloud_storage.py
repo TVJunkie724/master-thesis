@@ -58,7 +58,7 @@ class GCSNearlineCalculator:
         )
         
         # Write cost
-        write_price = p.get("writePrice", 0.01)
+        write_price = p.get("writePrice", p.get("requestPrice", 0.01))
         write_cost = action_based_cost(
             price_per_action=write_price,
             num_actions=writes_per_month

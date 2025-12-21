@@ -52,7 +52,7 @@ class AzureLogicAppsCalculator:
         actions_per_execution = actions_per_execution or self.DEFAULT_ACTIONS_PER_EXECUTION
         
         p = pricing["azure"]["logicApps"]
-        price_per_action = p.get("pricePerAction", p.get("actionPrice", 0))
+        price_per_action = p.get("pricePerAction", p.get("pricePerStateTransition", 0))
         total_actions = executions * actions_per_execution
         
         return action_based_cost(

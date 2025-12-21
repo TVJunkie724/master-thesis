@@ -223,7 +223,8 @@ async function calculateCheapestCostsFromUI() {
             results.l2_cool_combinations, // Pass Cool combinations
             results.l2_archive_combinations, // Pass Archive combinations
             results.l1OptimizationOverride, // Pass L1 override info
-            results.l4OptimizationOverride // Pass L4 override info
+            results.l4OptimizationOverride, // Pass L4 override info
+            results.transferCosts // Pass transfer costs for cross-cloud display
         );
 
         // Mark UI as fresh (results are current)

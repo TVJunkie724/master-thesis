@@ -231,6 +231,10 @@ def _normalize_price(price: float, unit_text: str, neutral_service: str) -> floa
     """Normalize price to a standard unit (usually per 1 or per 1M)."""
     unit_text = unit_text.lower()
     
+    # Special Case: Functions - API returns per million, we want per execution
+    if neutral_service == "functions" and ("1 million" in unit_text or "1m" in unit_text):
+        return price / 1_000_000  # Convert to per-execution
+    
     # Special Case: Logic Apps (Actions are per 1, we want per 1k)
     if neutral_service == "orchestration" and "1" in unit_text:
         return price * 1000

@@ -452,13 +452,15 @@ def calculate_cheapest_costs(
     # L3_hot → L3_cool transfer
     if l3_hot_provider != l3_cool_provider:
         egress = _calculate_egress_cost(derived["hot_storage_gb"], pricing, l3_hot_provider)
-        glue = _calculate_glue_cost(derived["total_messages_per_month"], pricing, l3_cool_provider)
+        # Glue runs with mover (daily = 30/month), not per-message
+        glue = _calculate_glue_cost(30, pricing, l3_cool_provider)
         transfer_costs["L3_hot_to_L3_cool"] = egress + glue
     
     # L3_cool → L3_archive transfer
     if l3_cool_provider != l3_archive_provider:
         egress = _calculate_egress_cost(derived["cool_storage_gb"], pricing, l3_cool_provider)
-        glue = _calculate_glue_cost(derived["total_messages_per_month"], pricing, l3_archive_provider)
+        # Glue runs with mover (weekly = 4/month), not per-message
+        glue = _calculate_glue_cost(4, pricing, l3_archive_provider)
         transfer_costs["L3_cool_to_L3_archive"] = egress + glue
     
     # L3_hot → L4 transfer (Hot Reader for Digital Twin queries)

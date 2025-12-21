@@ -67,7 +67,7 @@ class AzureCosmosDBCalculator:
         total_rus = (writes_per_month * ru_per_write) + (reads_per_month * ru_per_read)
         
         # RU cost (price is per million RU)
-        ru_price_per_million = p.get("requestUnitPrice", p.get("pricePerMillionRU", 0))
+        ru_price_per_million = p.get("requestUnitPrice", p.get("requestPrice", 0))
         ru_price_per_unit = ru_price_per_million / 1_000_000
         
         ru_cost = action_based_cost(

@@ -28,6 +28,7 @@
   <script src="./js/components/comparison-table.js" defer></script>
   <script src="./js/components/warning-box.js" defer></script>
   <script src="./js/components/architecture-flowchart.js" defer></script>
+  <script src="./js/components/service-breakdown.js" defer></script>
 
   <!-- UI interaction and orchestration -->
   <script src="./js/calculation/ui.js" defer></script>
@@ -123,7 +124,7 @@
         <div class="card h-100 border-0 shadow-sm">
           <div class="card-body">
             <button class="btn btn-outline-primary w-100 mb-3 preset-btn"
-              onclick="fillScenario(this, 100, 2, 0.25, 1, 3, 12, 'no', 0, 100, 2, 0, 12, 1, true, 1, true, true, 3, false, 1, true, true)">
+              onclick="fillScenario(this, 100, 2, 0.25, 3, 1, 3, 12, 'no', 0, 100, 2, 0, 12, 1, true, 1, true, 1, true, 3, false, 1, false, false)">
               Preset 1 (Smart Home)
             </button>
             <p class="card-text small text-muted">Small scale, low frequency. Ideal for home automation with few
@@ -135,7 +136,7 @@
         <div class="card h-100 border-0 shadow-sm">
           <div class="card-body">
             <button class="btn btn-outline-primary w-100 mb-3 preset-btn"
-              onclick="fillScenario(this, 4000, 0.5, 0.5, 3, 12, 36 , 'no', 0, 100, 25, 10, 60, 4, true, 1, true, true, 5, true, 10, false, false)">
+              onclick="fillScenario(this, 4000, 0.5, 0.5, 5, 3, 12, 36, 'no', 0, 100, 25, 10, 60, 4, true, 1, true, 2, true, 5, true, 10, false, false)">
               Preset 2 (Smart Industrial)
             </button>
             <p class="card-text small text-muted">Medium scale, high frequency. Typical for factory monitoring with
@@ -147,7 +148,7 @@
         <div class="card h-100 border-0 shadow-sm">
           <div class="card-body">
             <button class="btn btn-outline-primary w-100 mb-3 preset-btn"
-              onclick="fillScenario(this, 30000, 0.1, 0.8, 3, 12, 24, 'yes' , 1200, 100, 100, 300, 120, 8, true, 5, true, true, 10, true, 100, false, false)">
+              onclick="fillScenario(this, 30000, 0.1, 0.8, 8, 3, 12, 24, 'yes', 1200, 100, 100, 300, 120, 8, true, 5, true, 5, true, 10, true, 100, false, false)">
               Preset 3 (Large Building)
             </button>
             <p class="card-text small text-muted">Large scale, very high frequency. Complex building management with
@@ -206,25 +207,6 @@
         <div class="row g-3 align-items-center mb-3">
           <div class="col-md-6">
             <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="triggerNotificationWorkflow">
-              <label class="form-check-label fw-bold" for="triggerNotificationWorkflow">Trigger Notification Workflow?
-                <i class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
-                  title="If enabled, specific events trigger a multi-step workflow (e.g., sending an email, updating a ticket)."></i></label>
-            </div>
-          </div>
-          <div class="col-md-6" id="orchestrationActionsPerMessageContainer">
-            <label for="orchestrationActionsPerMessage" class="form-label">Actions per Message <i
-                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
-                title="The number of steps in the orchestration workflow. More steps increase orchestration costs."></i></label>
-            <input type="number" id="orchestrationActionsPerMessage" class="form-control" value="3" min="1" />
-          </div>
-        </div>
-
-        <hr class="my-4 border-secondary border-opacity-25 border-dashed">
-
-        <div class="row g-3 align-items-center mb-3">
-          <div class="col-md-6">
-            <div class="form-check form-switch">
               <input class="form-check-input" type="checkbox" id="useEventChecking">
               <label class="form-check-label fw-bold" for="useEventChecking">Enable Event Checking? <i
                   class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
@@ -244,17 +226,36 @@
         <div class="row g-3 align-items-center mb-3">
           <div class="col-md-6">
             <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="triggerNotificationWorkflow">
+              <label class="form-check-label fw-bold" for="triggerNotificationWorkflow">Trigger Notification Workflow?
+                <i class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                  title="If enabled, specific events trigger a multi-step workflow (e.g., sending an email, updating a ticket)."></i></label>
+            </div>
+          </div>
+          <div class="col-md-6" id="orchestrationActionsPerMessageContainer">
+            <label for="orchestrationActionsPerMessage" class="form-label">Actions per Message <i
+                class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
+                title="The number of steps in the orchestration workflow. More steps increase orchestration costs."></i></label>
+            <input type="number" id="orchestrationActionsPerMessage" class="form-control" value="3" min="1" />
+          </div>
+        </div>
+
+        <hr class="my-4 border-secondary border-opacity-25 border-dashed">
+
+        <div class="row g-3 align-items-center mb-3">
+          <div class="col-md-6">
+            <div class="form-check form-switch">
               <input class="form-check-input" type="checkbox" id="returnFeedbackToDevice">
               <label class="form-check-label fw-bold" for="returnFeedbackToDevice">Return Feedback to Device? <i
                   class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
                   title="If enabled, the system sends a confirmation or command back to the device after processing. Increases egress traffic."></i></label>
             </div>
           </div>
-          <div class="col-md-6">
+          <div class="col-md-6" id="eventActionsContainer">
             <label for="numberOfEventActions" class="form-label">Event Actions <i
                 class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip"
                 title="Number of custom event action handlers from config_events.json. Each action is a separate serverless function."></i></label>
-            <input type="number" id="numberOfEventActions" class="form-control" value="0" min="0" />
+            <input type="number" id="numberOfEventActions" class="form-control" value="1" min="0" />
           </div>
         </div>
 

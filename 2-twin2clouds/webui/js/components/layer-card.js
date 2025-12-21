@@ -38,9 +38,11 @@ function generateLayerCard(layerCosts, title, layerKey, params, selectedProvider
     const gcpServices = getServicesForLayer(layerKey, 'gcp', params, selectedProviders);
 
     // Check if glue code is included (for badge display)
-    const hasGlueCode = awsServices.some(s => s.name.includes('Glue Code')) ||
-        azureServices.some(s => s.name.includes('Glue Code')) ||
-        gcpServices.some(s => s.name.includes('Glue Code'));
+    // Only check the SELECTED provider's services, not all providers
+    const selectedServices = selectedProvider === 'aws' ? awsServices :
+        selectedProvider === 'azure' ? azureServices :
+            gcpServices;
+    const hasGlueCode = selectedServices.some(s => s.isGlue);
 
     return `
     <div class="col">

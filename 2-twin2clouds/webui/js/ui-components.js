@@ -49,12 +49,13 @@
  * @param {Array} l2_archive_combinations - Archive combinations
  * @param {object} l1OptimizationOverride - L1 override info (glue code consideration)
  * @param {object} l4OptimizationOverride - L4 override info (glue code consideration)
+ * @param {object} transferCosts - Cross-cloud transfer costs (egress + glue)
  */
 async function updateHtml(
     awsCosts, azureCosts, gcpCosts, cheapestPath, currency, params,
     l2Override, l3Override, l2CoolOverride, l2_l3_combinations,
     l2ArchiveOverride, l2_cool_combinations, l2_archive_combinations,
-    l1OptimizationOverride, l4OptimizationOverride
+    l1OptimizationOverride, l4OptimizationOverride, transferCosts
 ) {
     // 1. Parse selected providers from cheapest path
     const selectedProviders = parseSelectedProviders(cheapestPath);
@@ -79,8 +80,8 @@ async function updateHtml(
     // 3. Build comparison object from provider costs
     const comparison = buildComparisonObject(awsCosts, azureCosts, gcpCosts);
 
-    // 4. Generate result HTML
-    const resultHTML = generateResultHTML(comparison, cheapestPath, currency, params, selectedProviders);
+    // 4. Generate result HTML (pass raw costs for service breakdown)
+    const resultHTML = generateResultHTML(comparison, cheapestPath, currency, params, selectedProviders, awsCosts, azureCosts, gcpCosts, transferCosts);
 
     // 5. Insert into DOM
     const resultContainer = document.getElementById("result");
@@ -156,6 +157,7 @@ function buildComparisonObject(awsCosts, azureCosts, gcpCosts) {
  * Assembles the full results section including:
  * - Layer comparison cards (7 cards)
  * - Cheapest path visualization
+ * - Service breakdown accordion (NEW)
  * - Total monthly cost display
  * 
  * @param {object} comparison - Layer-keyed cost comparison object
@@ -163,9 +165,13 @@ function buildComparisonObject(awsCosts, azureCosts, gcpCosts) {
  * @param {string} currency - Currency code
  * @param {object} params - User parameters
  * @param {object} selectedProviders - Selected provider per layer
+ * @param {object} awsCosts - Full AWS costs with components
+ * @param {object} azureCosts - Full Azure costs with components
+ * @param {object} gcpCosts - Full GCP costs with components
+ * @param {object} transferCosts - Cross-cloud transfer costs
  * @returns {string} Complete HTML string
  */
-function generateResultHTML(comparison, cheapestPath, currency, params, selectedProviders) {
+function generateResultHTML(comparison, cheapestPath, currency, params, selectedProviders, awsCosts, azureCosts, gcpCosts, transferCosts) {
     const currencySymbol = getCurrencySymbol(currency);
 
     return `
@@ -186,6 +192,8 @@ function generateResultHTML(comparison, cheapestPath, currency, params, selected
         ${generateLayerCard(comparison.layer4, 'Layer 4: Twin Management', 'l4', params, selectedProviders, currency)}
         ${generateLayerCard(comparison.layer5, 'Layer 5: Visualization', 'l5', params, selectedProviders, currency)}
     </div>
+
+    ${generateServiceBreakdown(awsCosts, azureCosts, gcpCosts, currency, transferCosts, cheapestPath)}
 
     <h3 class="text-secondary mt-5 mb-3">Total Monthly Cost</h3>
     <div class="d-flex justify-content-center align-items-center gap-2 mt-3 mb-2 flex-wrap">
