@@ -84,4 +84,4 @@ Festo_Demo_Box/
 # Project-Specific
 # -----------------------------------------------------------------------------
 2-twin2clouds/pricing/fetched_data/
-
+**/test_results.txt
