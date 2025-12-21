@@ -228,6 +228,16 @@ output "aws_iot_topic_rule_name" {
   value       = try(aws_iot_topic_rule.dispatcher[0].name, null)
 }
 
+output "aws_iot_role_arn" {
+  description = "ARN of the IoT Topic Rule IAM role"
+  value       = try(aws_iam_role.l1_iot_rule[0].arn, null)
+}
+
+output "aws_l1_connector_function_name" {
+  description = "Name of the AWS L1 connector Lambda (multi-cloud)"
+  value       = try(aws_lambda_function.l1_connector[0].function_name, null)
+}
+
 # ==============================================================================
 # AWS L2 Compute Outputs
 # ==============================================================================
@@ -356,6 +366,11 @@ output "gcp_pubsub_events_topic" {
 output "gcp_dispatcher_url" {
   description = "URL of the dispatcher function"
   value       = try(google_cloudfunctions2_function.dispatcher[0].url, null)
+}
+
+output "gcp_connector_url" {
+  description = "URL of the GCP L1 connector function (multi-cloud)"
+  value       = try(google_cloudfunctions2_function.connector[0].url, null)
 }
 
 # ==============================================================================

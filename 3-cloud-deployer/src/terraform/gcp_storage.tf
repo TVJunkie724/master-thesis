@@ -137,7 +137,7 @@ resource "google_cloudfunctions2_function" "hot_reader" {
       GCP_PROJECT_ID       = local.gcp_project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
       INTER_CLOUD_TOKEN    = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
+        try(random_password.inter_cloud_token[0].result, "")
       )
     }
   }

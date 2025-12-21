@@ -582,9 +582,13 @@ def multicloud_e2e_test_id():
 
 
 @pytest.fixture(scope="session")
-def multicloud_e2e_project_path(template_project_path, multicloud_e2e_test_id, tmp_path_factory):
+def multicloud_e2e_project_path(template_project_path, multicloud_e2e_test_id):
     """
-    Create multi-cloud E2E test project.
+    Create multi-cloud E2E test project in a FIXED directory.
+    
+    Uses a fixed path (/tmp/multicloud-e2e/) instead of pytest temp directories
+    to ensure Terraform state persists across test runs. This is important because
+    the digital_twin_name is hardcoded, so resources in the cloud stay the same.
     
     Provider configuration (ALL cross-cloud):
     - L1: google (Pub/Sub)
@@ -595,14 +599,21 @@ def multicloud_e2e_project_path(template_project_path, multicloud_e2e_test_id, t
     - L4: azure (Digital Twins)
     - L5: aws (Grafana)
     """
-    # Create temp directory for E2E project
-    temp_dir = tmp_path_factory.mktemp("multicloud_e2e")
-    project_path = temp_dir / multicloud_e2e_test_id
+    # Use FIXED directory for consistent state across runs
+    fixed_base_dir = Path("/tmp/multicloud-e2e")
+    project_path = fixed_base_dir / multicloud_e2e_test_id
     
-    # Copy template project
-    shutil.copytree(template_project_path, project_path)
+    # Create or reuse directory
+    if not project_path.exists():
+        # Fresh copy from template
+        fixed_base_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(template_project_path, project_path)
+        print(f"\n[MULTICLOUD E2E] Created NEW test project: {project_path}")
+    else:
+        # Reuse existing directory but update config files
+        print(f"\n[MULTICLOUD E2E] Reusing existing project: {project_path}")
     
-    # Modify config.json with unique twin name
+    # Always update config.json with the test ID
     config_path = project_path / "config.json"
     with open(config_path, "r") as f:
         config = json.load(f)
@@ -610,7 +621,7 @@ def multicloud_e2e_project_path(template_project_path, multicloud_e2e_test_id, t
     with open(config_path, "w") as f:
         json.dump(config, f, indent=2)
     
-    # Multi-cloud provider configuration
+    # Always update provider configuration
     providers_path = project_path / "config_providers.json"
     providers = {
         "layer_1_provider": "google",
@@ -624,12 +635,11 @@ def multicloud_e2e_project_path(template_project_path, multicloud_e2e_test_id, t
     with open(providers_path, "w") as f:
         json.dump(providers, f, indent=2)
     
-    print(f"\n[MULTICLOUD E2E] Created test project: {project_path}")
     print(f"[MULTICLOUD E2E] Digital twin name: {multicloud_e2e_test_id}")
     print(f"[MULTICLOUD E2E] Cross-cloud: GCP→Azure→AWS→Azure→AWS")
     
     yield str(project_path)
     
-    # Cleanup temp directory
-    print(f"\n[MULTICLOUD E2E] Cleaning up temp project: {project_path}")
+    # NOTE: No cleanup - keep project for state persistence
+    print(f"\n[MULTICLOUD E2E] Project retained at: {project_path}")
 

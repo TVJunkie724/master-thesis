@@ -90,8 +90,10 @@ resource "google_cloudfunctions2_function" "dispatcher" {
       EVENTS_TOPIC      = google_pubsub_topic.events[0].id
       FUNCTION_BASE_URL = local.gcp_function_base_url
       INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
+        try(random_password.inter_cloud_token[0].result, "")
       )
+      # Multi-cloud L1→L2: Route to connector when L2 is on a different cloud
+      TARGET_FUNCTION_SUFFIX = var.layer_2_provider != "google" ? "-connector" : "-processor"
     }
   }
 

@@ -7,17 +7,6 @@
 # - Resource Group: Container for all Azure resources
 # - User-Assigned Managed Identity: For secure authentication between services
 # - Storage Account: For Azure Function deployments and state storage
-# - Random Password: For inter-cloud authentication token (if not provided)
-
-# ==============================================================================
-# Random Password for Inter-Cloud Token
-# ==============================================================================
-
-resource "random_password" "inter_cloud_token" {
-  count   = var.inter_cloud_token == "" && local.deploy_azure ? 1 : 0
-  length  = 64
-  special = false
-}
 
 # ==============================================================================
 # Resource Group

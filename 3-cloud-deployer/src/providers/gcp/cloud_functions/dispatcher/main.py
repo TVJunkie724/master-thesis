@@ -65,9 +65,15 @@ def main(request):
             return (json.dumps({"error": "Missing iotDeviceId"}), 400, {"Content-Type": "application/json"})
         
         # Construct target function name
-        # FORMAT: {twin_name}-{device_id}{target_suffix}
+        # For multi-cloud connector: {twin_name}-connector (no device_id)
+        # For single-cloud processor: {twin_name}-{device_id}-processor
         twin_name = _get_digital_twin_info()["config"]["digital_twin_name"]
-        function_name = f"{twin_name}-{device_id}{TARGET_FUNCTION_SUFFIX}"
+        if TARGET_FUNCTION_SUFFIX == "-connector":
+            # Multi-cloud: route to connector (no device-specific naming)
+            function_name = f"{twin_name}-connector"
+        else:
+            # Single-cloud: route to device-specific processor
+            function_name = f"{twin_name}-{device_id}{TARGET_FUNCTION_SUFFIX}"
         
         print(f"Dispatching to: {function_name}")
         

@@ -57,7 +57,7 @@ resource "google_cloudfunctions2_function" "persister" {
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
       INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
+        try(random_password.inter_cloud_token[0].result, "")
       )
 
       # Multi-cloud L2→L3: When GCP L2 sends to remote L3
@@ -87,6 +87,83 @@ resource "google_cloud_run_service_iam_member" "persister_invoker" {
   project  = local.gcp_project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.persister[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.functions[0].email}"
+}
+
+# ==============================================================================
+# L1 Connector Function Source (Multi-Cloud Only)
+# ==============================================================================
+
+resource "google_storage_bucket_object" "connector_source" {
+  count  = local.gcp_l1_enabled && var.layer_2_provider != "google" ? 1 : 0
+  name   = "connector-${filemd5("${var.project_path}/cloud_functions/connector/main.py")}.zip"
+  bucket = google_storage_bucket.function_source[0].name
+  source = "${var.project_path}/.build/gcp/connector.zip"
+}
+
+# ==============================================================================
+# L1 Connector Cloud Function (Gen2) - Multi-Cloud Only
+# ==============================================================================
+
+resource "google_cloudfunctions2_function" "connector" {
+  count    = local.gcp_l1_enabled && var.layer_2_provider != "google" ? 1 : 0
+  name     = "${var.digital_twin_name}-connector"
+  location = var.gcp_region
+  project  = local.gcp_project_id
+
+  build_config {
+    runtime     = "python311"
+    entry_point = "main"
+    
+    source {
+      storage_source {
+        bucket = google_storage_bucket.function_source[0].name
+        object = google_storage_bucket_object.connector_source[0].name
+      }
+    }
+  }
+
+  service_config {
+    max_instance_count    = 10
+    min_instance_count    = 0
+    available_memory      = "256M"
+    timeout_seconds       = 60
+    service_account_email = google_service_account.functions[0].email
+    
+    environment_variables = {
+      DIGITAL_TWIN_INFO = local.gcp_digital_twin_info
+      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : (
+        try(random_password.inter_cloud_token[0].result, "")
+      )
+      # Multi-cloud L1→L2: Remote ingestion endpoint
+      REMOTE_INGESTION_URL = var.layer_2_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/ingestion" : (
+        var.layer_2_provider == "aws" ? try(aws_lambda_function_url.l0_ingestion[0].function_url, "") : ""
+      )
+    }
+  }
+
+  labels = local.gcp_common_labels
+
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_project_iam_member.functions_custom_role,
+    # Cross-cloud L2 targets (ensure they exist before connector deployment)
+    azurerm_linux_function_app.l0_glue,
+    aws_lambda_function_url.l0_ingestion
+  ]
+}
+
+# ==============================================================================
+# IAM: Allow authenticated invocations of connector
+# ==============================================================================
+
+resource "google_cloud_run_service_iam_member" "connector_invoker" {
+  count    = local.gcp_l1_enabled && var.layer_2_provider != "google" ? 1 : 0
+  project  = local.gcp_project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.connector[0].name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.functions[0].email}"
 }
@@ -136,7 +213,7 @@ resource "google_cloudfunctions2_function" "event_checker" {
       DIGITAL_TWIN_INFO     = local.digital_twin_info_json
       GCP_PROJECT_ID        = local.gcp_project_id
       INTER_CLOUD_TOKEN     = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
+        try(random_password.inter_cloud_token[0].result, "")
       )
       # Feedback function URL (if enabled)
       FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? (
@@ -251,7 +328,7 @@ resource "google_cloudfunctions2_function" "processor" {
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
       PERSISTER_FUNCTION_URL = local.gcp_l3_hot_enabled ? google_cloudfunctions2_function.persister[0].url : ""
       INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
+        try(random_password.inter_cloud_token[0].result, "")
       )
     }
   }
@@ -319,7 +396,7 @@ resource "google_cloudfunctions2_function" "event_action" {
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
       INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
+        try(random_password.inter_cloud_token[0].result, "")
       )
     }
   }
@@ -387,7 +464,7 @@ resource "google_cloudfunctions2_function" "event_feedback" {
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
       INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
+        try(random_password.inter_cloud_token[0].result, "")
       )
     }
   }

@@ -110,6 +110,69 @@ resource "aws_lambda_function" "l1_dispatcher" {
 }
 
 # ==============================================================================
+# L1 Connector Lambda (Multi-Cloud Only)
+# ==============================================================================
+
+resource "aws_iam_role" "l1_connector" {
+  count = local.l1_aws_enabled && var.layer_2_provider != "aws" ? 1 : 0
+  name  = "${var.digital_twin_name}-l1-connector-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = local.aws_common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "l1_connector_logs" {
+  count      = local.l1_aws_enabled && var.layer_2_provider != "aws" ? 1 : 0
+  role       = aws_iam_role.l1_connector[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_lambda_function" "l1_connector" {
+  count         = local.l1_aws_enabled && var.layer_2_provider != "aws" ? 1 : 0
+  function_name = "${var.digital_twin_name}-connector"
+  role          = aws_iam_role.l1_connector[0].arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.11"
+  timeout       = 30
+  memory_size   = 256
+
+  # Pre-built by Python before terraform apply
+  filename         = "${local.l1_lambda_build_dir}/connector.zip"
+  source_code_hash = filebase64sha256("${local.l1_lambda_build_dir}/connector.zip")
+
+  environment {
+    variables = {
+      DIGITAL_TWIN_INFO = local.digital_twin_info_json
+      # Multi-cloud L1→L2: Remote ingestion endpoint
+      REMOTE_INGESTION_URL = var.layer_2_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/ingestion" : (
+        var.layer_2_provider == "google" ? try(google_cloudfunctions2_function.ingestion[0].url, "") : ""
+      )
+      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+    }
+  }
+
+  tags = local.aws_common_tags
+
+  depends_on = [
+    # Cross-cloud L2 targets (ensure they exist before connector deployment)
+    azurerm_linux_function_app.l0_glue,
+    google_cloudfunctions2_function.ingestion
+  ]
+}
+
+# ==============================================================================
 # IoT Topic Rule (triggers dispatcher on telemetry)
 # ==============================================================================
 

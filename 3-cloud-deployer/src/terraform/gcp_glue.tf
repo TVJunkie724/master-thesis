@@ -57,7 +57,7 @@ resource "google_cloudfunctions2_function" "ingestion" {
       DIGITAL_TWIN_NAME = var.digital_twin_name
       EVENTS_TOPIC      = local.gcp_l1_enabled ? google_pubsub_topic.events[0].id : ""
       INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
+        try(random_password.inter_cloud_token[0].result, "")
       )
     }
   }
@@ -115,7 +115,7 @@ resource "google_cloudfunctions2_function" "hot_writer" {
       GCP_PROJECT_ID       = local.gcp_project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
       INTER_CLOUD_TOKEN    = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
+        try(random_password.inter_cloud_token[0].result, "")
       )
     }
   }
@@ -173,7 +173,7 @@ resource "google_cloudfunctions2_function" "cold_writer" {
       DIGITAL_TWIN_NAME = var.digital_twin_name
       COLD_BUCKET       = local.gcp_l3_cold_enabled ? google_storage_bucket.cold[0].name : ""
       INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
+        try(random_password.inter_cloud_token[0].result, "")
       )
     }
   }
@@ -233,7 +233,7 @@ resource "google_cloudfunctions2_function" "archive_writer" {
         local.gcp_l3_archive_enabled ? google_storage_bucket.archive[0].name : ""
       )
       INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        local.deploy_azure ? random_password.inter_cloud_token[0].result : ""
+        try(random_password.inter_cloud_token[0].result, "")
       )
     }
   }

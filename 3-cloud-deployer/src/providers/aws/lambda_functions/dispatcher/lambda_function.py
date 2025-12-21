@@ -35,9 +35,15 @@ def lambda_handler(event, context):
         target_suffix = os.environ.get("TARGET_FUNCTION_SUFFIX", "-processor")
         
         # Construct target function name
-        # FORMAT: {twin_name}-{device_id}{target_suffix}
+        # For multi-cloud connector: {twin_name}-connector (no device_id)
+        # For single-cloud processor: {twin_name}-{device_id}-processor
         twin_name = DIGITAL_TWIN_INFO["config"]["digital_twin_name"]
-        function_name = f"{twin_name}-{device_id}{target_suffix}"
+        if target_suffix == "-connector":
+            # Multi-cloud: route to connector (no device-specific naming)
+            function_name = f"{twin_name}-connector"
+        else:
+            # Single-cloud: route to device-specific processor
+            function_name = f"{twin_name}-{device_id}{target_suffix}"
         
         print(f"Dispatching to: {function_name}")
         
