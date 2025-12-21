@@ -112,6 +112,17 @@ E2E tests in `tests/e2e/` deploy real cloud resources that cost money.
 ✅ ALLOWED: Running unit/integration tests (--ignore=tests/e2e)
 ```
 
+### E2E Test Protocol
+When running E2E tests (with explicit user permission):
+1. Run the test
+2. **STOP immediately** after test completes
+3. Collect all outputs:
+   - `test_results.txt` (from pytest hook)
+   - `terraform_outputs.json` (if saved)
+   - Console output
+4. **Return to PLANNING mode**
+5. Discuss results with user before any further action
+
 ### ALWAYS Check implementation_plans/ First
 Before creating a new implementation plan, check if one already exists for your task.
 
