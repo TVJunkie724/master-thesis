@@ -336,3 +336,9 @@ variable "azure_l3_zip_path" {
   default     = ""
 }
 
+variable "azure_user_zip_path" {
+  description = "Path to user functions ZIP (processors, event_actions, event-feedback)"
+  type        = string
+  default     = ""
+}
+

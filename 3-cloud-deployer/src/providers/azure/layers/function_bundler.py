@@ -282,6 +282,107 @@ def _clean_function_app_imports(content: str) -> str:
     return '\n'.join(final_lines)
 
 
+def _convert_functionapp_to_blueprint(content: str) -> str:
+    """
+    Convert FunctionApp pattern to Blueprint for multi-function bundles.
+    
+    User functions use app = func.FunctionApp() for standalone testing,
+    but bundling requires bp = func.Blueprint() for registration.
+    
+    Transforms:
+        app = func.FunctionApp()  →  bp = func.Blueprint()
+        @app.function_name(...)   →  @bp.function_name(...)
+        @app.route(...)           →  @bp.route(...)
+    
+    Args:
+        content: The original function_app.py content
+        
+    Returns:
+        Transformed content with Blueprint pattern
+    """
+    import re
+    # Use regex with word boundaries to avoid matching unrelated code (e.g., email_app.send())
+    content = re.sub(
+        r'\bapp\s*=\s*func\.FunctionApp\(\)',
+        'bp = func.Blueprint()',
+        content
+    )
+    content = re.sub(r'@app\.', '@bp.', content)
+    return content
+
+
+def _convert_require_env_to_lazy(content: str) -> str:
+    """
+    Convert module-level _require_env calls to lazy loading pattern.
+    
+    Module-level _require_env() fails at import time during Azure function
+    discovery if the env var is missing. Convert to lazy getter functions.
+    
+    Transforms:
+        VAR_NAME = _require_env("ENV_NAME")
+    To:
+        _var_name = None
+        def _get_var_name():
+            global _var_name
+            if _var_name is None:
+                _var_name = _require_env("ENV_NAME")
+            return _var_name
+    
+    Args:
+        content: Original function_app.py content
+        
+    Returns:
+        Transformed content with lazy loading
+    """
+    import re
+    
+    # Patterns: Handle both _require_env and require_env (no underscore)
+    # CONST_NAME = _require_env("ENV_NAME") or CONST_NAME = require_env("ENV_NAME")
+    # at module level (not indented)
+    patterns = [
+        r'^([A-Z][A-Z0-9_]*)\s*=\s*_require_env\(["\']([^"\']+)["\']\)\s*$',
+        r'^([A-Z][A-Z0-9_]*)\s*=\s*require_env\(["\']([^"\']+)["\']\)\s*$',
+    ]
+    
+    lines = content.split('\n')
+    new_lines = []
+    var_map = {}  # CONST_NAME -> getter_call
+    
+    for line in lines:
+        matched = False
+        for pattern in patterns:
+            match = re.match(pattern, line)
+            if match:
+                const_name = match.group(1)
+                env_name = match.group(2)
+                private_var = f"_{const_name.lower()}"
+                getter_name = f"_get{private_var}"
+                var_map[const_name] = f"{getter_name}()"
+                
+                # Replace with lazy getter definition
+                new_lines.extend([
+                    f"{private_var} = None",
+                    f"def {getter_name}():",
+                    f"    global {private_var}",
+                    f"    if {private_var} is None:",
+                    f'        {private_var} = _require_env("{env_name}")',
+                    f"    return {private_var}",
+                ])
+                matched = True
+                break
+        
+        if not matched:
+            new_lines.append(line)
+    
+    content = '\n'.join(new_lines)
+    
+    # Replace usages: CONST_NAME → getter_call()
+    for const_name, getter_call in var_map.items():
+        content = re.sub(rf'\b{const_name}\b', getter_call, content)
+    
+    return content
+
+
 def _merge_function_files(zf: zipfile.ZipFile, func_dirs: List[Path], 
                           azure_functions_dir: Path) -> None:
     """
@@ -336,10 +437,12 @@ def _merge_function_files(zf: zipfile.ZipFile, func_dirs: List[Path],
                 rel_path = file_path.relative_to(func_dir)
                 arcname = f"{module_name}/{rel_path}"
                 
-                # For function_app.py files, clean up import paths
+                # For function_app.py files, clean up import paths and convert to Blueprint
                 if file == "function_app.py":
                     content = file_path.read_text(encoding="utf-8")
                     content = _clean_function_app_imports(content)
+                    content = _convert_functionapp_to_blueprint(content)
+                    content = _convert_require_env_to_lazy(content)
                     zf.writestr(arcname, content)
                 else:
                     zf.write(file_path, arcname)
@@ -407,7 +510,9 @@ def bundle_l0_functions(
     if not project_path:
         raise ValueError("project_path is required")
     
-    azure_functions_dir = _get_azure_functions_dir(project_path)
+    # L0 glue functions are CORE SYSTEM functions - always use src/providers/azure/azure_functions/
+    # This matches the pattern used by bundle_l1_functions and bundle_l2_functions
+    azure_functions_dir = Path(__file__).parent.parent / "azure_functions"
     
     if not azure_functions_dir.exists():
         raise BundleError(f"azure_functions directory not found: {azure_functions_dir}")
@@ -738,9 +843,14 @@ def bundle_user_functions(project_path: str) -> Optional[bytes]:
     for folder_name in user_function_folders:
         folder_path = user_funcs_dir / folder_name
         if folder_path.exists() and folder_path.is_dir():
-            # Check if folder has function_app.py
+            # Direct function_app.py (e.g., event-feedback/)
             if (folder_path / "function_app.py").exists():
-                found_folders.append(folder_name)
+                found_folders.append(folder_path)
+            else:
+                # Nested subfolders (e.g., processors/sensor-1/, event_actions/callback/)
+                for subfolder in folder_path.iterdir():
+                    if subfolder.is_dir() and (subfolder / "function_app.py").exists():
+                        found_folders.append(subfolder)
     
     if not found_folders:
         logger.info(f"No user functions found in {user_funcs_dir}")
@@ -752,13 +862,12 @@ def bundle_user_functions(project_path: str) -> Optional[bytes]:
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         # Add shared files from the core azure_functions directory
         # (requirements.txt, host.json, _shared/)
-        core_azure_funcs = _get_azure_functions_dir(project_path)
+        core_azure_funcs = Path(__file__).parent.parent / "azure_functions"
         _add_shared_files(zf, core_azure_funcs)
         
         # Add each user function folder
         func_dirs = []
-        for folder_name in found_folders:
-            func_dir = user_funcs_dir / folder_name
+        for func_dir in found_folders:
             func_dirs.append(func_dir)
             _add_function_dir(zf, func_dir, user_funcs_dir, is_single_function=False)
         

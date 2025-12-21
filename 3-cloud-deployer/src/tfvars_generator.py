@@ -123,6 +123,7 @@ def _build_azure_function_zips(project_dir: Path, providers: dict) -> dict:
         bundle_l1_functions,
         bundle_l2_functions,
         bundle_l3_functions,
+        bundle_user_functions,
     )
     
     zip_paths = {
@@ -130,6 +131,7 @@ def _build_azure_function_zips(project_dir: Path, providers: dict) -> dict:
         "azure_l1_zip_path": "",
         "azure_l2_zip_path": "",
         "azure_l3_zip_path": "",
+        "azure_user_zip_path": "",
     }
     
     # Create a temp directory for ZIP files in the project
@@ -190,6 +192,16 @@ def _build_azure_function_zips(project_dir: Path, providers: dict) -> dict:
                     f.write(l3_zip)
                 zip_paths["azure_l3_zip_path"] = str(l3_path)
                 logger.info("    ✓ L3 ZIP: reader/mover functions")
+        
+        # Build user functions (processors, event_actions, event-feedback)
+        if providers.get("layer_2_provider") == "azure":
+            user_zip = bundle_user_functions(str(project_dir))
+            if user_zip:
+                user_path = zip_dir / "user_functions.zip"
+                with open(user_path, "wb") as f:
+                    f.write(user_zip)
+                zip_paths["azure_user_zip_path"] = str(user_path)
+                logger.info("    ✓ User ZIP: processors/event_actions/event-feedback")
                 
     except ImportError as e:
         logger.warning(f"  Function bundler not available: {e}")

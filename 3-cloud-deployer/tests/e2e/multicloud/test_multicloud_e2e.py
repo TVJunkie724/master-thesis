@@ -298,6 +298,90 @@ class TestMultiCloudE2E:
         assert dispatcher_url, "Azure dispatcher function not deployed"
         print(f"  ✓ Azure L2 Functions: {dispatcher_url}")
     
+    def test_05b_azure_functions_deployed(self, deployed_environment):
+        """Verify Azure Function Apps have their functions deployed (not empty).
+        
+        CRITICAL: This test catches the case where Function Apps exist but have
+        no function code deployed (empty ZIP or ZIP deploy failure).
+        """
+        outputs = deployed_environment["terraform_outputs"]
+        credentials = deployed_environment["credentials"]
+        config = deployed_environment["config"]
+        
+        azure_creds = credentials.get("azure", {})
+        subscription_id = azure_creds.get("azure_subscription_id")
+        resource_group = outputs.get("azure_resource_group_name")
+        
+        if not subscription_id or not resource_group:
+            pytest.skip("Azure credentials or resource group not available")
+        
+        # Check SDK availability first
+        try:
+            from azure.identity import ClientSecretCredential
+            from azure.mgmt.web import WebSiteManagementClient
+        except ImportError:
+            pytest.skip("azure-mgmt-web SDK not installed")
+        
+        credential = ClientSecretCredential(
+            tenant_id=azure_creds.get("azure_tenant_id"),
+            client_id=azure_creds.get("azure_client_id"),
+            client_secret=azure_creds.get("azure_client_secret")
+        )
+        
+        web_client = WebSiteManagementClient(credential, subscription_id)
+        
+        # Use Terraform outputs directly for app names
+        apps_to_check = {}
+        
+        # L0 Glue - only if Azure is used (cross-cloud scenario)
+        l0_app_name = outputs.get("azure_l0_function_app_name")
+        if l0_app_name:
+            apps_to_check[l0_app_name] = ["ingestion"]  # Expected based on config
+        
+        # L2 Functions - only if L2 is Azure
+        l2_app_name = outputs.get("azure_l2_function_app_name")
+        if l2_app_name:
+            apps_to_check[l2_app_name] = ["persister"]
+        
+        # User Functions - optional
+        user_app_name = outputs.get("azure_user_functions_app_name")
+        if user_app_name:
+            apps_to_check[user_app_name] = []  # User functions are optional
+        
+        if not apps_to_check:
+            pytest.skip("No Azure Function Apps deployed")
+        
+        all_passed = True
+        failures = []
+        
+        for app_name, expected_functions in apps_to_check.items():
+            try:
+                functions = list(web_client.web_apps.list_functions(resource_group, app_name))
+                function_names = [f.name.split('/')[-1] for f in functions]
+                
+                print(f"  [{app_name}] Found {len(functions)} functions: {function_names}")
+                
+                # CRITICAL: Fail if app should have functions but doesn't
+                if expected_functions and len(functions) == 0:
+                    failures.append(f"{app_name} has NO functions deployed!")
+                    all_passed = False
+                
+                # Check for expected functions
+                for expected in expected_functions:
+                    if expected not in function_names:
+                        print(f"    ⚠ Missing expected: {expected}")
+                    else:
+                        print(f"    ✓ Found: {expected}")
+                        
+            except Exception as e:
+                failures.append(f"Could not list functions for {app_name}: {e}")
+                all_passed = False
+        
+        if not all_passed:
+            pytest.fail(f"Azure Function verification failed: {'; '.join(failures)}")
+        
+        print("  ✓ All Azure Function Apps verified")
+    
     def test_06_aws_l3_dynamodb(self, deployed_environment):
         """Verify AWS L3 DynamoDB deployed."""
         outputs = deployed_environment["terraform_outputs"]

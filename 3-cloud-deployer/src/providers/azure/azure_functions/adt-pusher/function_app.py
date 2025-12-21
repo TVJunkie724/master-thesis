@@ -41,7 +41,8 @@ except ModuleNotFoundError:
     )
 
 
-app = func.FunctionApp()
+# Create Blueprint for registration in main function_app.py
+bp = func.Blueprint()
 
 # ==========================================
 # Environment Variable Validation (Fail-Fast)
@@ -56,24 +57,30 @@ class ConfigurationError(Exception):
 ADT_INSTANCE_URL = os.environ.get("ADT_INSTANCE_URL", "").strip()
 INTER_CLOUD_TOKEN = os.environ.get("INTER_CLOUD_TOKEN", "").strip()
 
-# Load DIGITAL_TWIN_INFO using fail-fast pattern (matches other functions)
+# Lazy loading for DIGITAL_TWIN_INFO to allow Azure function discovery
+_digital_twin_info = None
+
+# Import require_env with fallback (same pattern as adt_helper)
 try:
     from _shared.env_utils import require_env
-    DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
 except ModuleNotFoundError:
-    # Handle import for test context
-    import sys
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # Fallback already handled in adt_helper import above
     from _shared.env_utils import require_env
-    DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
+
+def _get_digital_twin_info():
+    """Lazy-load DIGITAL_TWIN_INFO to avoid import-time failures."""
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
 
 
 # ==========================================
 # HTTP Triggered Function
 # ==========================================
 
-@app.function_name(name="adt-pusher")
-@app.route(route="adt-pusher", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+@bp.function_name(name="adt-pusher")
+@bp.route(route="adt-pusher", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 def adt_pusher(req: func.HttpRequest) -> func.HttpResponse:
     """
     Update Azure Digital Twin from remote Persister HTTP request.
@@ -186,7 +193,7 @@ def adt_pusher(req: func.HttpRequest) -> func.HttpResponse:
             adt_client=adt_client,
             device_id=device_id,
             telemetry=telemetry,
-            digital_twin_info=DIGITAL_TWIN_INFO
+            digital_twin_info=_get_digital_twin_info()
         )
         
         logging.info(f"ADT Pusher: Successfully updated twin '{twin_id}'")

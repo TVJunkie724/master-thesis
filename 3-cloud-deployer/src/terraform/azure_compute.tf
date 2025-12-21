@@ -123,7 +123,8 @@ resource "azurerm_linux_function_app" "user" {
   storage_account_name       = azurerm_storage_account.main[0].name
   storage_account_access_key = azurerm_storage_account.main[0].primary_access_key
 
-  # NO zip_deploy_file - user functions deployed via SDK after terraform
+  # Deploy user function code via Terraform (changed from SDK deployment)
+  zip_deploy_file = var.azure_user_zip_path != "" ? var.azure_user_zip_path : null
 
   # Enable SCM Basic Auth (required for SDK zip deploy)
   webdeploy_publish_basic_authentication_enabled = true
