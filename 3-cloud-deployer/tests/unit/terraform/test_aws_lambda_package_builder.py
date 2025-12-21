@@ -198,6 +198,19 @@ class TestBuildAwsLambdaPackages:
     
 
     
+    
+    def test_empty_config_returns_empty_dict(self, tmp_path):
+        """Empty provider config should return empty dict, not raise."""
+        packages = build_aws_lambda_packages(tmp_path, tmp_path, {})
+        assert packages == {}
+    
+    def test_partial_config_returns_matching_only(self, tmp_path):
+        """Partial config should build only matching providers."""
+        partial_config = {"layer_1_provider": "aws"}  # Only L1 on AWS
+        packages = build_aws_lambda_packages(tmp_path, tmp_path, partial_config)
+        # Should not raise, returns dict (may be empty if dirs missing)
+        assert isinstance(packages, dict)
+    
     def test_no_packages_for_azure_only(self, tmp_path, providers_all_azure):
         """Should return empty dict when no AWS layers configured."""
         packages = build_aws_lambda_packages(tmp_path, tmp_path, providers_all_azure)

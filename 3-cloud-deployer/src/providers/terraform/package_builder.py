@@ -334,17 +334,20 @@ def _create_gcp_processor_zip(
                     zf.write(file_path, arcname)
         
         # 3. Add/Overwrite with user processor code (process.py)
+        # Skip requirements.txt - will merge later
         if user_dir.exists():
             for file_path in user_dir.rglob('*.py'):
                 if '__pycache__' not in str(file_path):
                     arcname = file_path.relative_to(user_dir)
                     zf.write(file_path, arcname)
             logger.info(f"    → Merged user processor code from: {user_dir}")
-            
-        # 4. Add requirements.txt if not present
-        if not (user_dir / "requirements.txt").exists():
-            requirements = "functions-framework\ngoogle-cloud-firestore\ngoogle-cloud-storage\ngoogle-cloud-pubsub\n"
-            zf.writestr("requirements.txt", requirements)
+        
+        # 4. Merge requirements.txt (wrapper + user, no fallback)
+        wrapper_req = base_dir / "requirements.txt"
+        user_req = user_dir / "requirements.txt"
+        merged = _merge_requirements(wrapper_req, user_req)
+        if merged:
+            zf.writestr("requirements.txt", merged)
         
 
 

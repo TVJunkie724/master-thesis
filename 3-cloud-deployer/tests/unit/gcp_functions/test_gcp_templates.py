@@ -119,7 +119,7 @@ class TestGCPTemplateSyntax:
         """Test high-temperature-callback has valid syntax (LEGACY: main.py)."""
         path = os.path.join(GCP_TEMPLATES_PATH, 'event_actions', 'high-temperature-callback', 'main.py')
         if not os.path.exists(path):
-            return
+            pytest.skip("Legacy file not present: high-temperature-callback/main.py")
 
         with open(path, 'r') as f:
             code = f.read()
@@ -134,7 +134,7 @@ class TestGCPTemplateSyntax:
         """Test high-temperature-callback-2 has valid syntax (LEGACY: main.py)."""
         path = os.path.join(GCP_TEMPLATES_PATH, 'event_actions', 'high-temperature-callback-2', 'main.py')
         if not os.path.exists(path):
-            return
+            pytest.skip("Legacy file not present: high-temperature-callback-2/main.py")
             
         with open(path, 'r') as f:
             code = f.read()

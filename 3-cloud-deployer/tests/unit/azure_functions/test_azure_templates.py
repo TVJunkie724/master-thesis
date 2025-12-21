@@ -126,7 +126,7 @@ class TestAzureTemplateSyntax:
         path = os.path.join(AZURE_TEMPLATES_PATH, 'event_actions', 'high-temperature-callback', 'function_app.py')
         # Only test if it exists, otherwise skip (in case it was removed/changed)
         if not os.path.exists(path):
-            return 
+            pytest.skip("Legacy file not present: high-temperature-callback/function_app.py") 
 
         with open(path, 'r') as f:
             code = f.read()
@@ -141,7 +141,7 @@ class TestAzureTemplateSyntax:
         """Test high-temperature-callback-2 has valid syntax (LEGACY: function_app.py)."""
         path = os.path.join(AZURE_TEMPLATES_PATH, 'event_actions', 'high-temperature-callback-2', 'function_app.py')
         if not os.path.exists(path):
-            return 
+            pytest.skip("Legacy file not present: high-temperature-callback-2/function_app.py") 
 
         with open(path, 'r') as f:
             code = f.read()
@@ -206,7 +206,7 @@ class TestAzureTemplateValidation:
         """Test high-temperature-callback passes Azure validation (LEGACY)."""
         path = os.path.join(AZURE_TEMPLATES_PATH, 'event_actions', 'high-temperature-callback', 'function_app.py')
         if not os.path.exists(path):
-            return
+            pytest.skip("Legacy file not present: high-temperature-callback/function_app.py")
 
         with open(path, 'r') as f:
             code = f.read()
