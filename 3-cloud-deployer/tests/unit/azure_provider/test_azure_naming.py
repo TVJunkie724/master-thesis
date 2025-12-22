@@ -6,7 +6,7 @@ Azure naming rules and restrictions.
 """
 
 import pytest
-from src.providers.azure.naming import AzureNaming, get_naming
+from src.providers.azure.naming import AzureNaming
 
 
 class TestAzureNaming:
@@ -167,21 +167,3 @@ class TestAzureNamingDevices:
         """iot_device() should return {twin_name}-{device_id}."""
         naming = AzureNaming("test-twin")
         assert naming.iot_device("sensor-001") == "test-twin-sensor-001"
-
-
-class TestGetNamingHelper:
-    """Tests for get_naming helper function."""
-    
-    def test_get_naming_returns_azure_naming_instance(self):
-        """get_naming() should return an AzureNaming instance."""
-        naming = get_naming("test-twin")
-        assert isinstance(naming, AzureNaming)
-        assert naming.twin_name == "test-twin"
-    
-    def test_get_naming_different_twins_different_names(self):
-        """Different twins should produce different resource names."""
-        naming1 = get_naming("twin-a")
-        naming2 = get_naming("twin-b")
-        
-        assert naming1.resource_group() != naming2.resource_group()
-        assert naming1.glue_function_app() != naming2.glue_function_app()

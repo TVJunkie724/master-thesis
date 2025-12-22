@@ -1,18 +1,17 @@
 """
 Event-Feedback Wrapper GCP Cloud Function.
 
-Merges user-defined processing logic with the IoT Core command pipeline.
-Executes user logic and sends result to IoT device.
+Calls user-defined event-feedback function via HTTP and sends result to IoT device.
 
 Architecture:
-    Event-Checker → Event-Feedback (user logic) → IoT Device
+    Event-Checker → Event-Feedback Wrapper → HTTP → User Function → Wrapper → IoT Device
 """
 import json
 import logging
 import os
 import functions_framework
+import requests
 from google.cloud import iot_v1
-from process import process  # User logic import
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,6 +22,7 @@ _project_id = None
 _region = None
 _registry_id = None
 _iot_client = None
+_event_feedback_function_url = None
 
 
 def _get_project_id():
@@ -66,6 +66,14 @@ def _get_iot_client():
     return _iot_client
 
 
+def _get_event_feedback_function_url():
+    """Lazy load event feedback function URL."""
+    global _event_feedback_function_url
+    if _event_feedback_function_url is None:
+        _event_feedback_function_url = os.environ.get("EVENT_FEEDBACK_FUNCTION_URL", "").strip()
+    return _event_feedback_function_url
+
+
 @functions_framework.http
 def main(request):
     """Execute user processing logic and send feedback to IoT device."""
@@ -79,13 +87,21 @@ def main(request):
         payload = detail["payload"]  # Extract payload for user processing
         iot_device_id = detail["iotDeviceId"]
         
-        # 1. Execute User Logic
-        try:
-            processed_payload = process(payload)
-            logger.info(f"User Logic Complete. Result: {json.dumps(processed_payload)}")
-        except Exception as e:
-            logger.error(f"[USER_LOGIC_ERROR] Processing failed: {e}")
-            raise e
+        # 1. Call User Event-Feedback Function via HTTP
+        url = _get_event_feedback_function_url()
+        if not url or not url.startswith("http"):
+            logger.warning("EVENT_FEEDBACK_FUNCTION_URL not set - using passthrough")
+            processed_payload = payload
+        else:
+            try:
+                logger.info(f"Calling user event-feedback function at {url}")
+                response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
+                response.raise_for_status()
+                processed_payload = response.json()
+                logger.info(f"User Logic Complete. Result: {json.dumps(processed_payload)}")
+            except Exception as e:
+                logger.error(f"[USER_LOGIC_ERROR] Processing failed: {e}")
+                raise e
         
         # 2. Build topic and send to IoT Device via IoT Core
         topic = f"{detail['digitalTwinName']}-{iot_device_id}"

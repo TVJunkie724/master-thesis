@@ -26,7 +26,10 @@ import os
 from pathlib import Path
 from typing import Any
 
+from src.core.config_loader import load_optimization_flags
+
 logger = logging.getLogger(__name__)
+
 
 
 class ConfigurationError(Exception):
@@ -84,10 +87,28 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
     tfvars.update(_load_inter_cloud(project_dir))
     
     # Load optimization feature flags (for conditional resources)
-    tfvars.update(_load_optimization_flags(project_dir))
+    optimization_flags = load_optimization_flags(project_dir)
+        
+    # Handle scene_assets_path for 3D models
+    scene_assets_path = ""
+    if optimization_flags["needs3DModel"]:
+        scene_assets_dir = project_dir / "scene_assets"
+        if scene_assets_dir.exists():
+            scene_assets_path = str(scene_assets_dir)
+            logger.info(f"  3D scene assets enabled: {scene_assets_path}")
+        else:
+            logger.warning(f"  needs3DModel=true but scene_assets/ not found")
+    
+    tfvars.update({
+        "use_event_checking": optimization_flags["useEventChecking"],
+        "trigger_notification_workflow": optimization_flags["triggerNotificationWorkflow"],
+        "return_feedback_to_device": optimization_flags["returnFeedbackToDevice"],
+        "needs_3d_model": optimization_flags["needs3DModel"],
+        "scene_assets_path": scene_assets_path,
+    })
     
     # Build Azure function ZIPs if Azure is used as a provider
-    tfvars.update(_build_azure_function_zips(project_dir, providers))
+    tfvars.update(_build_azure_function_zips(project_dir, providers, optimization_flags))
     
     # Build GCP user function variables if GCP is used as a provider
     tfvars.update(_build_gcp_user_function_vars(project_dir, providers))
@@ -103,7 +124,7 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
     return tfvars
 
 
-def _build_azure_function_zips(project_dir: Path, providers: dict) -> dict:
+def _build_azure_function_zips(project_dir: Path, providers: dict, optimization_flags: dict) -> dict:
     """
     Build Azure function ZIP files for Terraform zip_deploy_file.
     
@@ -118,12 +139,12 @@ def _build_azure_function_zips(project_dir: Path, providers: dict) -> dict:
     Returns:
         Dict with azure_l0_zip_path, azure_l1_zip_path, etc.
     """
-    from src.providers.azure.layers.function_bundler import (
-        bundle_l0_functions,
-        bundle_l1_functions,
-        bundle_l2_functions,
-        bundle_l3_functions,
-        bundle_user_functions,
+    from src.providers.terraform.package_builder import (
+        build_azure_l0_bundle,
+        build_azure_l1_bundle,
+        build_azure_l2_bundle,
+        build_azure_l3_bundle,
+        build_azure_user_bundle,
     )
     
     zip_paths = {
@@ -155,53 +176,38 @@ def _build_azure_function_zips(project_dir: Path, providers: dict) -> dict:
     
     try:
         # Build L0 glue functions
-        l0_zip, l0_funcs = bundle_l0_functions(str(project_dir), providers)
-        if l0_zip and l0_funcs:
-            l0_path = zip_dir / "l0_functions.zip"
-            with open(l0_path, "wb") as f:
-                f.write(l0_zip)
+        l0_path = build_azure_l0_bundle(project_dir, providers)
+        if l0_path:
             zip_paths["azure_l0_zip_path"] = str(l0_path)
-            logger.info(f"    ✓ L0 ZIP: {len(l0_funcs)} functions")
+            logger.info("    ✓ L0 ZIP built")
         
         # Build L1 dispatcher
         if providers.get("layer_1_provider") == "azure":
-            l1_zip = bundle_l1_functions(str(project_dir))
-            if l1_zip:
-                l1_path = zip_dir / "l1_functions.zip"
-                with open(l1_path, "wb") as f:
-                    f.write(l1_zip)
+            l1_path = build_azure_l1_bundle(project_dir)
+            if l1_path:
                 zip_paths["azure_l1_zip_path"] = str(l1_path)
-                logger.info("    ✓ L1 ZIP: dispatcher function")
+                logger.info("    ✓ L1 ZIP built")
         
         # Build L2 persister/processor
         if providers.get("layer_2_provider") == "azure":
-            l2_zip = bundle_l2_functions(str(project_dir))
-            if l2_zip:
-                l2_path = zip_dir / "l2_functions.zip"
-                with open(l2_path, "wb") as f:
-                    f.write(l2_zip)
+            l2_path = build_azure_l2_bundle(project_dir)
+            if l2_path:
                 zip_paths["azure_l2_zip_path"] = str(l2_path)
-                logger.info("    ✓ L2 ZIP: persister/processor functions")
+                logger.info("    ✓ L2 ZIP built")
         
         # Build L3 reader/movers
         if providers.get("layer_3_hot_provider") == "azure":
-            l3_zip = bundle_l3_functions(str(project_dir))
-            if l3_zip:
-                l3_path = zip_dir / "l3_functions.zip"
-                with open(l3_path, "wb") as f:
-                    f.write(l3_zip)
+            l3_path = build_azure_l3_bundle(project_dir)
+            if l3_path:
                 zip_paths["azure_l3_zip_path"] = str(l3_path)
-                logger.info("    ✓ L3 ZIP: reader/mover functions")
+                logger.info("    ✓ L3 ZIP built")
         
         # Build user functions (processors, event_actions, event-feedback)
         if providers.get("layer_2_provider") == "azure":
-            user_zip = bundle_user_functions(str(project_dir))
-            if user_zip:
-                user_path = zip_dir / "user_functions.zip"
-                with open(user_path, "wb") as f:
-                    f.write(user_zip)
+            user_path = build_azure_user_bundle(project_dir, providers, optimization_flags)
+            if user_path:
                 zip_paths["azure_user_zip_path"] = str(user_path)
-                logger.info("    ✓ User ZIP: processors/event_actions/event-feedback")
+                logger.info("    ✓ User ZIP built")
                 
     except ImportError as e:
         logger.warning(f"  Function bundler not available: {e}")
@@ -479,60 +485,6 @@ def _load_inter_cloud(project_dir: Path) -> dict:
         return {"inter_cloud_token": inter_cloud["inter_cloud_token"]}
     
     return {}
-
-
-def _load_optimization_flags(project_dir: Path) -> dict:
-    """
-    Load feature flags from config_optimization.json for conditional Terraform resources.
-    
-    Maps inputParamsUsed to Terraform variable names:
-    - useEventChecking -> use_event_checking
-    - triggerNotificationWorkflow -> trigger_notification_workflow
-    - returnFeedbackToDevice -> return_feedback_to_device
-    - needs3DModel -> needs_3d_model + scene_assets_path
-    """
-    optimization_file = project_dir / "config_optimization.json"
-    
-    # Default values (safe defaults for testing)
-    defaults = {
-        "use_event_checking": True,
-        "trigger_notification_workflow": False,  # Disabled for initial testing
-        "return_feedback_to_device": False,
-        "needs_3d_model": False,
-        "scene_assets_path": "",
-    }
-    
-    if not optimization_file.exists():
-        logger.info("  No config_optimization.json, using default feature flags")
-        return defaults
-    
-    try:
-        with open(optimization_file) as f:
-            data = json.load(f)
-        
-        input_params = data.get("result", {}).get("inputParamsUsed", {})
-        
-        # Extract needs3DModel and set scene_assets_path if enabled
-        needs_3d_model = input_params.get("needs3DModel", False)
-        scene_assets_path = ""
-        if needs_3d_model:
-            scene_assets_dir = project_dir / "scene_assets"
-            if scene_assets_dir.exists():
-                scene_assets_path = str(scene_assets_dir)
-                logger.info(f"  3D scene assets enabled: {scene_assets_path}")
-            else:
-                logger.warning(f"  needs3DModel=true but scene_assets/ not found")
-        
-        return {
-            "use_event_checking": input_params.get("useEventChecking", True),
-            "trigger_notification_workflow": input_params.get("triggerNotificationWorkflow", False),
-            "return_feedback_to_device": input_params.get("returnFeedbackToDevice", False),
-            "needs_3d_model": needs_3d_model,
-            "scene_assets_path": scene_assets_path,
-        }
-    except Exception as e:
-        logger.warning(f"  Failed to load config_optimization.json: {e}, using defaults")
-        return defaults
 
 
 if __name__ == "__main__":

@@ -220,6 +220,16 @@ class TestValidation(unittest.TestCase):
                         "models": [], "twins": [], "relationships": []
                     }))
             
+            # Add function directory placeholder for L2 provider (required by check_provider_function_directory)
+            layer_2_provider = (providers_config or {}).get("layer_2_provider", "aws")
+            func_dir_map = {"aws": "lambda_functions", "azure": "azure_functions", "google": "cloud_functions", "gcp": "cloud_functions"}
+            func_dir = func_dir_map.get(layer_2_provider)
+            if func_dir:
+                func_placeholder = f"{func_dir}/placeholder.txt"
+                # Only add if not already in extra_files
+                if not extra_files or not any(f.startswith(func_dir + "/") for f in extra_files):
+                    zf.writestr(func_placeholder, "placeholder")
+            
             if extra_files:
                 for name, content in extra_files.items():
                     zf.writestr(name, content)
@@ -232,7 +242,7 @@ class TestValidation(unittest.TestCase):
         zip_buf = self._create_zip_with_configs({CONSTANTS.CONFIG_OPTIMIZATION_FILE: opt})
         with self.assertRaises(ValueError) as cm:
              validator.validate_project_zip(zip_buf)
-        self.assertIn("Missing event-feedback function in zip", str(cm.exception))
+        self.assertIn("Missing event-feedback function", str(cm.exception))
 
     def test_validate_zip_feedback_success(self):
         """Test zip with returnFeedbackToDevice=True AND feedback logic present"""
@@ -264,56 +274,56 @@ class TestValidation(unittest.TestCase):
         self.assertIn("Missing state machine definition", str(cm.exception))
         self.assertIn("aws_step_function.json", str(cm.exception))
 
-    def test_verify_project_structure_corrupt_configs(self):
-        """Test verify structure with invalid content on disk"""
-        with patch('os.path.exists', return_value=True), \
-             patch('builtins.open', unittest.mock.mock_open(read_data="{invalid")), \
-             self.assertRaises(ValueError) as cm:
-                 validator.verify_project_structure("p", project_path="/app")
-        self.assertIn("Invalid content", str(cm.exception))
+    def test_validate_project_directory_corrupt_configs(self):
+        """Test validation with invalid JSON content on disk."""
+        import tempfile
+        from pathlib import Path
+        from src.validation.directory_validator import validate_project_directory
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            (project_dir / "config.json").write_text("{invalid")
+            
+            with self.assertRaises(ValueError) as cm:
+                validate_project_directory(project_dir)
+            # Should fail on invalid JSON
+            error_msg = str(cm.exception).lower()
+            self.assertTrue("json" in error_msg or "invalid" in error_msg)
 
-    @patch('os.path.exists')
-    @patch('builtins.open')
-    @patch('json.load')
-    def test_verify_project_structure_workflow_checks(self, mock_json, mock_open, mock_exists):
-        # Scenario: Optimization needs workflow, Provider is Azure via config
-        mock_exists.return_value = True
+    def test_validate_project_directory_workflow_checks(self):
+        """Test workflow flag requires state machine."""
+        import tempfile
+        from pathlib import Path
+        from src.validation.directory_validator import validate_project_directory
         
-        opt_conf = {"result": {"optimization": {"triggerNotificationWorkflow": True}}}
-        # verify_project_structure logic:
-        # 1. Basic Verify (reads all config files via open, calls validate_config_content)
-        # 2. Open optimization -> return opt_conf
-        # 3. Read Providers -> return azure
-        # 4. Check State Machine File -> must exist and validate
-        
-        # We need a robust side_effect for json.load to handle different files being opened
-        # But open() returns the same mock object in simplest form.
-        
-        # Simulating file reads by path is hard with standard mock_open. 
-        # Using a specialized side_effect for open logic:
-        
-        file_contents = {
-            CONSTANTS.CONFIG_OPTIMIZATION_FILE: json.dumps(opt_conf),
-            CONSTANTS.CONFIG_PROVIDERS_FILE: json.dumps({"layer_2_provider": "azure"}),
-            CONSTANTS.AZURE_STATE_MACHINE_FILE: json.dumps({"definition": {}}) # Valid Azure
-        }
-        
-        def open_side_effect(file, mode='r'):
-            # Extract basename to match our simple map
-            basename = os.path.basename(file)
-            if basename in file_contents:
-                return io.StringIO(file_contents[basename])
-            return io.StringIO("{}") # Default empty JSON for others
-        
-        mock_open.side_effect = open_side_effect
-        
-        # We also need json.load to work with StringIO
-        mock_json.side_effect = json.load # Use real json.load on StringIO
-        
-        # Mocking validate_config_content to pass (too complex to mock its internal json.loads)
-        with patch('validator.validate_config_content'):
-             validator.verify_project_structure("test-proj", project_path="/app")
-             # Should pass if Azure State Machine is found and valid
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            # Create minimal project with triggerNotificationWorkflow=True
+            (project_dir / "config.json").write_text(json.dumps({
+                "digital_twin_name": "t", "hot_storage_size_in_days": 1,
+                "cold_storage_size_in_days": 1, "mode": "b"
+            }))
+            (project_dir / "config_providers.json").write_text(json.dumps({
+                "layer_1_provider": "aws", "layer_2_provider": "aws",
+                "layer_3_hot_provider": "aws", "layer_4_provider": "aws"
+            }))
+            (project_dir / "config_iot_devices.json").write_text("[]")
+            (project_dir / "config_events.json").write_text("[]")
+            (project_dir / "config_credentials.json").write_text(json.dumps({
+                "aws": {"aws_access_key_id": "x", "aws_secret_access_key": "x", "aws_region": "us-east-1"}
+            }))
+            (project_dir / "config_optimization.json").write_text(json.dumps({
+                "result": {"inputParamsUsed": {"triggerNotificationWorkflow": True}}
+            }))
+            (project_dir / "twin_hierarchy").mkdir()
+            (project_dir / "twin_hierarchy/aws_hierarchy.json").write_text("[]")
+            (project_dir / "lambda_functions").mkdir()
+            (project_dir / "lambda_functions/placeholder.txt").write_text("dummy")  # Needs a file to pass check_provider_function_directory
+            # Missing state_machines directory - should fail
+            
+            with self.assertRaises(ValueError) as cm:
+                validate_project_directory(project_dir)
+            self.assertIn("state machine", str(cm.exception).lower())
 
     # ==========================================
     # 5. Project Provider Resolution
@@ -376,7 +386,7 @@ class TestValidation(unittest.TestCase):
         iot = [{"id": "device-1", "properties": []}]
         configs = {CONSTANTS.CONFIG_IOT_DEVICES_FILE: iot}
         extras = {
-            f"{CONSTANTS.IOT_DEVICE_SIMULATOR_DIR_NAME}/{CONSTANTS.PAYLOADS_FILE}": json.dumps([
+            CONSTANTS.PAYLOADS_FILE: json.dumps([
                 {"iotDeviceId": "unknown-device", "payload": {}}
             ])
         }
@@ -481,6 +491,8 @@ class TestValidation(unittest.TestCase):
                     content = json.dumps(providers)
                 zf.writestr(req, content)
             zf.writestr(CONSTANTS.CONFIG_OPTIMIZATION_FILE, json.dumps({"result": {}}))
+            # Add function directory placeholder for L2 provider
+            zf.writestr("lambda_functions/placeholder.txt", "placeholder")
             # Deliberately NOT adding aws_hierarchy.json
         zip_buffer.seek(0)
         
@@ -526,8 +538,102 @@ class TestValidation(unittest.TestCase):
                     content = json.dumps(providers)
                 zf.writestr(req, content)
             zf.writestr(CONSTANTS.CONFIG_OPTIMIZATION_FILE, json.dumps({"result": {}}))
+            # Add function directory placeholder for L2 provider (google)
+            zf.writestr("cloud_functions/placeholder.txt", "placeholder")
         zip_buffer.seek(0)
         validator.validate_project_zip(zip_buffer)  # Should pass for Google (no L4 hierarchy)
+
+
+class TestProviderDirectoryValidation(unittest.TestCase):
+    """Tests for provider directory validation logic."""
+    
+    def test_provider_directory_exists(self):
+        """Test validation passes when provider directory exists with files."""
+        from src.validation.core import check_provider_function_directory, ValidationContext
+        import constants as CONSTANTS
+        
+        ctx = ValidationContext()
+        # Mock file list correctly
+        ctx.all_files = [f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/func/process.py"]
+        mock_accessor = MagicMock()
+        
+        # Should not raise
+        check_provider_function_directory(mock_accessor, ctx, "aws")
+
+    def test_provider_directory_missing(self):
+        """Test validation fails when provider directory has no files."""
+        from src.validation.core import check_provider_function_directory, ValidationContext
+        
+        ctx = ValidationContext()
+        ctx.all_files = ["azure_functions/func/process.py"] # Wrong provider
+        mock_accessor = MagicMock()
+        
+        with self.assertRaises(ValueError) as cm:
+            check_provider_function_directory(mock_accessor, ctx, "aws")
+        self.assertIn("Missing function directory", str(cm.exception))
+        self.assertIn("lambda_functions", str(cm.exception))
+
+    def test_provider_directory_skipped_if_no_provider(self):
+        """Test check is skipped if no provider configured."""
+        from src.validation.core import check_provider_function_directory, ValidationContext
+        
+        ctx = ValidationContext()
+        ctx.all_files = [] 
+        mock_accessor = MagicMock()
+        
+        # Should return early, not raise
+        check_provider_function_directory(mock_accessor, ctx, "")
+
+    def test_provider_directory_unknown_provider_raises(self):
+        """Test check raises for unknown provider."""
+        from src.validation.core import check_provider_function_directory, ValidationContext
+        
+        ctx = ValidationContext()
+        ctx.all_files = []
+        mock_accessor = MagicMock()
+        
+        with self.assertRaises(ValueError) as cm:
+            check_provider_function_directory(mock_accessor, ctx, "invalid_provider")
+        self.assertIn("Unknown layer_2_provider", str(cm.exception))
+
+
+class TestPayloadsValidation(unittest.TestCase):
+    """Tests for payloads.json validation."""
+    
+    def test_check_payloads_vs_devices_invalid_json_raises(self):
+        """Test that invalid JSON in payloads.json raises ValueError."""
+        import tempfile
+        from pathlib import Path
+        from src.validation.directory_validator import validate_project_directory
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            # Create minimal valid project structure (matching test_validate_project_directory_workflow_checks pattern)
+            (project_dir / "config.json").write_text(json.dumps({
+                "digital_twin_name": "t", "hot_storage_size_in_days": 1,
+                "cold_storage_size_in_days": 1, "mode": "b"
+            }))
+            (project_dir / "config_providers.json").write_text(json.dumps({
+                "layer_1_provider": "aws", "layer_2_provider": "aws",
+                "layer_3_hot_provider": "aws", "layer_4_provider": "aws"
+            }))
+            (project_dir / "config_iot_devices.json").write_text("[]")
+            (project_dir / "config_events.json").write_text("[]")
+            (project_dir / "config_credentials.json").write_text(json.dumps({
+                "aws": {"aws_access_key_id": "x", "aws_secret_access_key": "x", "aws_region": "us-east-1"}
+            }))
+            (project_dir / "config_optimization.json").write_text(json.dumps({"result": {"inputParamsUsed": {}}}))
+            (project_dir / "twin_hierarchy").mkdir()
+            (project_dir / "twin_hierarchy/aws_hierarchy.json").write_text("[]")
+            (project_dir / "lambda_functions").mkdir()
+            (project_dir / "lambda_functions/placeholder.txt").write_text("dummy")
+            # Create INVALID payloads.json
+            (project_dir / "payloads.json").write_text("{invalid json")
+            
+            with self.assertRaises(ValueError) as cm:
+                validate_project_directory(project_dir)
+            self.assertIn("payloads.json", str(cm.exception))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -130,14 +130,6 @@ Configuration & Info commands:
   info_config_hierarchy       - Shows hierarchy configuration.
   info_config_events          - Shows event actions configuration.
 
-Lambda management:
-  lambda_update <local_function_name> <o:environment>               
-                              - Deploys a new version of the specified lambda function.
-  lambda_logs <local_function_name> <o:n> <o:filter_system_logs>    
-                              - Fetches the last n logged messages of the specified lambda function.
-  lambda_invoke <local_function_name> <o:payload> <o:sync>          
-                              - Invokes the specified lambda function.
-
 Credential validation:
   check_credentials <provider> - Validates credentials against required permissions.
                               - Supported: aws, azure
@@ -187,64 +179,6 @@ def handle_info_config(context: DeploymentContext) -> None:
     print(f"Hot Storage Days: {context.config.hot_storage_size_in_days}")
     print(f"Cold Storage Days: {context.config.cold_storage_size_in_days}")
 
-
-def handle_lambda_command(command: str, args: list, context: DeploymentContext) -> None:
-    """Handle Lambda management commands."""
-    import src.providers.aws.lambda_manager as lambda_manager
-    
-    aws_provider = context.providers.get("aws")
-    if not aws_provider:
-        print("Error: AWS provider not initialized.")
-        return
-    
-    if command == "lambda_update":
-        if len(args) > 1:
-            lambda_manager.update_function(
-                args[0], 
-                json.loads(args[1]),
-                provider=aws_provider,
-                project_path=str(context.project_path),
-                iot_devices=context.config.iot_devices
-            )
-        elif len(args) > 0:
-            lambda_manager.update_function(
-                args[0],
-                provider=aws_provider,
-                project_path=str(context.project_path),
-                iot_devices=context.config.iot_devices
-            )
-        else:
-            print("Usage: lambda_update <local_function_name> <o:environment>")
-    
-    elif command == "lambda_logs":
-        if len(args) > 2:
-            print("".join(lambda_manager.fetch_logs(
-                args[0], 
-                int(args[1]), 
-                args[2].lower() in ("true", "1", "yes", "y"),
-                provider=aws_provider
-            )))
-        elif len(args) > 1:
-            print("".join(lambda_manager.fetch_logs(args[0], int(args[1]), provider=aws_provider)))
-        elif len(args) > 0:
-            print("".join(lambda_manager.fetch_logs(args[0], provider=aws_provider)))
-        else:
-            print("Usage: lambda_logs <local_function_name> <o:n> <o:filter_system_logs>")
-    
-    elif command == "lambda_invoke":
-        if len(args) > 2:
-            lambda_manager.invoke_function(
-                args[0], 
-                json.loads(args[1]), 
-                args[2].lower() in ("true", "1", "yes", "y"),
-                provider=aws_provider
-            )
-        elif len(args) > 1:
-            lambda_manager.invoke_function(args[0], json.loads(args[1]), provider=aws_provider)
-        elif len(args) > 0:
-            lambda_manager.invoke_function(args[0], provider=aws_provider)
-        else:
-            print("Usage: lambda_invoke <local_function_name> <o:payload> <o:sync>")
 
 
 # ==========================================
@@ -346,8 +280,6 @@ def main():
         
         check_commands = {"check"}
         
-        lambda_commands = {"lambda_update", "lambda_logs", "lambda_invoke"}
-        
         if command in deployment_commands or command in check_commands:
             if not args:
                 print(f"Error: Provider argument required. Valid: {', '.join(VALID_PROVIDERS)}")
@@ -375,14 +307,6 @@ def main():
                 logger.error(f"Error during '{command} {provider}': {e}")
             continue
         
-        elif command in lambda_commands:
-            try:
-                context = get_context("aws")
-                handle_lambda_command(command, args, context)
-            except Exception as e:
-                print_stack_trace()
-                logger.error(f"Error during '{command}': {e}")
-            continue
         
         elif command == "simulate":
             if not args:

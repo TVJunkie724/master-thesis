@@ -331,23 +331,3 @@ class AzureNaming:
     def iot_device(self, device_id: str) -> str:
         """IoT Hub device ID."""
         return f"{self._twin_name}-{device_id}"
-
-
-# ==========================================
-# Helper function for backward compatibility
-# ==========================================
-
-def get_naming(twin_name: str) -> AzureNaming:
-    """
-    Create an AzureNaming instance for the given twin name.
-    
-    This is a convenience function for cases where you need
-    quick access to naming without storing the instance.
-    
-    Args:
-        twin_name: The digital twin name
-    
-    Returns:
-        AzureNaming instance
-    """
-    return AzureNaming(twin_name)

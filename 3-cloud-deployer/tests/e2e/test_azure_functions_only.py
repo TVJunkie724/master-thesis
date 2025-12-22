@@ -199,6 +199,7 @@ class TestAzureFunctionsOnly:
         plan_name = f"test-az-plan-{unique_id}"
         
         l0_app_name = f"test-l0-glue-{unique_id}"
+        l1_app_name = f"test-l1-disp-{unique_id}"
         l2_app_name = f"test-l2-funcs-{unique_id}"
         user_app_name = f"test-user-{unique_id}"
         
@@ -207,6 +208,7 @@ class TestAzureFunctionsOnly:
         print(f"{'='*60}")
         print(f"  Resource Group: {rg_name}")
         print(f"  L0 Glue App: {l0_app_name}")
+        print(f"  L1 Dispatcher App: {l1_app_name}")
         print(f"  L2 App: {l2_app_name}")
         print(f"  User App: {user_app_name}")
         print(f"{'='*60}\n")
@@ -299,22 +301,31 @@ class TestAzureFunctionsOnly:
             create_function_app(l0_app_name, f"{l0_app_name}-content")
             print(f"   ✓ L0 app created")
             
-            # 5. Create L2 Function App
-            print("5️⃣ Creating L2 Function App...")
+            # 5. Create L1 Dispatcher Function App
+            print("5️⃣ Creating L1 Dispatcher Function App...")
+            create_function_app(l1_app_name, f"{l1_app_name}-content")
+            print(f"   ✓ L1 app created")
+            
+            # 6. Create L2 Function App
+            print("6️⃣ Creating L2 Function App...")
             create_function_app(l2_app_name, f"{l2_app_name}-content")
             print(f"   ✓ L2 app created")
             
-            # 6. Create User Functions App
-            print("6️⃣ Creating User Functions App...")
+            # 7. Create User Functions App
+            print("7️⃣ Creating User Functions App...")
             create_function_app(user_app_name, f"{user_app_name}-content")
             print(f"   ✓ User app created")
             
-            # 7. Build ZIPs
-            print("\n7️⃣ Building function ZIPs...")
+            # 8. Build ZIPs
+            print("\n8️⃣ Building function ZIPs...")
             
             # L0 ZIP (multicloud config triggers ingestion + adt-pusher)
             l0_zip, l0_funcs = bundle_l0_functions(template_project_path, multicloud_providers)
             print(f"   ✓ L0 ZIP: {len(l0_zip)} bytes, functions: {l0_funcs}")
+            
+            # L1 ZIP (dispatcher)
+            l1_zip = bundle_l1_functions(template_project_path)
+            print(f"   ✓ L1 ZIP: {len(l1_zip)} bytes")
             
             # L2 ZIP
             l2_zip = bundle_l2_functions(template_project_path)
@@ -327,13 +338,18 @@ class TestAzureFunctionsOnly:
             else:
                 print(f"   ⚠ User ZIP: None (no user functions in template)")
             
-            # 8. Deploy ZIPs
-            print("\n8️⃣ Deploying ZIPs via Kudu...")
+            # 9. Deploy ZIPs
+            print("\n9️⃣ Deploying ZIPs via Kudu...")
             
             if deploy_zip_to_function_app(web_client, rg_name, l0_app_name, l0_zip):
                 print(f"   ✓ L0 ZIP deployed")
             else:
                 print(f"   ✗ L0 ZIP deployment failed")
+            
+            if deploy_zip_to_function_app(web_client, rg_name, l1_app_name, l1_zip):
+                print(f"   ✓ L1 ZIP deployed")
+            else:
+                print(f"   ✗ L1 ZIP deployment failed")
             
             if deploy_zip_to_function_app(web_client, rg_name, l2_app_name, l2_zip):
                 print(f"   ✓ L2 ZIP deployed")
@@ -346,8 +362,8 @@ class TestAzureFunctionsOnly:
                 else:
                     print(f"   ✗ User ZIP deployment failed")
             
-            # 9. Wait for function sync (Oryx build takes 2-3 minutes)
-            print("\n9️⃣ Waiting for function sync (180 seconds for Oryx build)...")
+            # 10. Wait for function sync (Oryx build takes 2-3 minutes)
+            print("\n🔟 Waiting for function sync (180 seconds for Oryx build)...")
             time.sleep(180)
             
             print(f"\n{'='*60}")
@@ -359,6 +375,7 @@ class TestAzureFunctionsOnly:
                 "resource_client": resource_client,
                 "rg_name": rg_name,
                 "l0_app_name": l0_app_name,
+                "l1_app_name": l1_app_name,
                 "l2_app_name": l2_app_name,
                 "user_app_name": user_app_name,
                 "l0_expected_functions": l0_funcs,
@@ -456,22 +473,22 @@ class TestAzureFunctionsOnly:
         """
         Verify L1 functions (dispatcher) are deployed.
         
-        This covers the gap identified in the audit.
+        This covers the deployment gap identified in the audit.
         """
         web_client = azure_infra["web_client"]
         rg_name = azure_infra["rg_name"]
+        l1_app_name = azure_infra["l1_app_name"]
         
-        # Note: In this test setup, we don't have a separate L1 app configured in azure_infra
-        # because the template L0/L2/User split was hardcoded.
-        # However, for completeness, we SHOULD be testing L1.
-        # But since we didn't deploy an L1 app in azure_infra, we can't test it easily 
-        # without modifying the fixture to deploy an L1 app properly.
-        #
-        # For now, we'll verify it via the L0 app which contains 'ingestion' (L0)
-        # Check if 'dispatcher' is present? No, dispatcher is L1.
+        print(f"\n  Checking L1 app: {l1_app_name}")
         
-        print(f"\n  [INFO] L1 Coverage: L1 functions (dispatcher) are bundled but not currently deployed in this targeted test fixture.", flush=True)
-        # To truly test L1, we'd need to add 'l1_app_name' to azure_infra and deploy 'bundle_l1_functions()' to it.
+        actual_funcs = list_function_names(web_client, rg_name, l1_app_name)
+        print(f"  Functions found: {actual_funcs}")
+        
+        # L1 should have 'dispatcher' function
+        assert len(actual_funcs) > 0, f"❌ L1 app has NO functions!"
+        assert "dispatcher" in actual_funcs, f"❌ Missing 'dispatcher'. Found: {actual_funcs}"
+        
+        print(f"\n  ✅ L1 FUNCTION DEPLOYMENT VERIFIED")
     
     
 # Allow running this file directly

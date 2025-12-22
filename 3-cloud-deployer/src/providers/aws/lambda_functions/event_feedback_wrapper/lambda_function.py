@@ -1,17 +1,15 @@
 """
-Event-Feedback Wrapper AWS Lambda Function.
+Event-Feedback Wrapper AWS Lambda.
 
-Merges user-defined processing logic with the IoT Core feedback pipeline.
-Executes user logic and sends result to IoT device.
+Calls user-defined event-feedback Lambda and sends result to IoT device.
 
 Architecture:
-    Event-Checker → Event-Feedback (user logic) → IoT Device
+    Event-Checker → Event-Feedback Wrapper → Lambda Invoke → User Function → Wrapper → IoT Device
 """
 import json
 import logging
 import os
 import boto3
-from process import process  # User logic import
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 # Lazy-loaded environment variables
 _iot_client = None
+_lambda_client = None
+_event_feedback_lambda_name = None
 
 
 def _require_env(key: str) -> str:
@@ -35,6 +35,20 @@ def _get_iot_client():
         _iot_client = boto3.client('iot-data')
     return _iot_client
 
+def _get_lambda_client():
+    """Lazy initialization of Lambda client."""
+    global _lambda_client
+    if _lambda_client is None:
+        _lambda_client = boto3.client('lambda')
+    return _lambda_client
+
+def _get_event_feedback_lambda_name():
+    """Lazy load event feedback Lambda name."""
+    global _event_feedback_lambda_name
+    if _event_feedback_lambda_name is None:
+        _event_feedback_lambda_name = os.environ.get("EVENT_FEEDBACK_LAMBDA_NAME", "").strip()
+    return _event_feedback_lambda_name
+
 
 def lambda_handler(event, context):
     """Execute user processing logic and send feedback to IoT device."""
@@ -46,13 +60,24 @@ def lambda_handler(event, context):
         payload = detail["payload"]  # Extract payload for user processing
         iot_device_id = detail["iotDeviceId"]
         
-        # 1. Execute User Logic
-        try:
-            processed_payload = process(payload)
-            logger.info(f"User Logic Complete. Result: {json.dumps(processed_payload)}")
-        except Exception as e:
-            logger.error(f"[USER_LOGIC_ERROR] Processing failed: {e}")
-            raise e
+        # 1. Call User Event-Feedback Lambda
+        lambda_name = _get_event_feedback_lambda_name()
+        if not lambda_name:
+            logger.warning("EVENT_FEEDBACK_LAMBDA_NAME not set - using passthrough")
+            processed_payload = payload
+        else:
+            try:
+                logger.info(f"Invoking user event-feedback Lambda: {lambda_name}")
+                response = _get_lambda_client().invoke(
+                    FunctionName=lambda_name,
+                    InvocationType="RequestResponse",
+                    Payload=json.dumps(payload).encode("utf-8")
+                )
+                processed_payload = json.loads(response['Payload'].read().decode("utf-8"))
+                logger.info(f"User Logic Complete. Result: {json.dumps(processed_payload)}")
+            except Exception as e:
+                logger.error(f"[USER_LOGIC_ERROR] Processing failed: {e}")
+                raise e
         
         # 2. Build topic and send to IoT Device
         topic = f"{detail['digitalTwinName']}-{iot_device_id}"

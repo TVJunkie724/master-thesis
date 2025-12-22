@@ -184,19 +184,3 @@ class GCPNaming:
         """Cloud Function name for DT Data Connector Last Entry."""
         return f"{self._twin_name}-dt-data-connector-last-entry"
 
-
-# ==========================================
-# Helper function for backward compatibility
-# ==========================================
-
-def get_naming(twin_name: str) -> GCPNaming:
-    """
-    Create a GCPNaming instance for the given twin name.
-    
-    Args:
-        twin_name: The digital twin name
-    
-    Returns:
-        GCPNaming instance
-    """
-    return GCPNaming(twin_name)

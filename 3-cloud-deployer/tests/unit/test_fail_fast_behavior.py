@@ -164,20 +164,21 @@ class TestValidatorStateMachineFailFast(unittest.TestCase):
         # by testing verify_project_structure instead (easier to trigger the code path)
         pass  # Covered by integration tests below
     
-    @patch('os.path.exists')
-    @patch('builtins.open')  
-    @patch('json.load')
-    def test_verify_project_structure_calls_config_validation(self, mock_json, mock_open, mock_exists):
-        """verify_project_structure validates config files exist."""
-        # When a required file is missing, it raises ValueError
-        mock_exists.return_value = False  # No files exist
+    def test_validate_project_directory_missing_config_raises(self):
+        """validate_project_directory raises for missing config files."""
+        import tempfile
+        from pathlib import Path
+        from src.validation.directory_validator import validate_project_directory
         
-        with self.assertRaises(ValueError) as cm:
-            validator.verify_project_structure("test-proj", project_path="/fake")
-        
-        # Should fail on missing project or config file
-        error_msg = str(cm.exception).lower()
-        self.assertTrue("does not exist" in error_msg or "missing" in error_msg)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            # Empty directory - no required files
+            
+            with self.assertRaises(ValueError) as cm:
+                validate_project_directory(project_dir)
+            
+            error_msg = str(cm.exception).lower()
+            self.assertTrue("missing" in error_msg or "required" in error_msg)
 
 
 class TestValidatorUnknownFunctionFailFast(unittest.TestCase):

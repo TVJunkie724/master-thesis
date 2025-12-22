@@ -219,6 +219,59 @@ def load_project_config(project_path: Path) -> ProjectConfig:
     )
 
 
+def load_optimization_flags(project_path: Path) -> dict:
+    """
+    Load feature flags from config_optimization.json.
+    
+    Args:
+        project_path: Path to the project directory
+        
+    Returns:
+        Dict with boolean feature flags. All default to False if missing.
+        
+    Note:
+        Defaults are False for safety. Missing config triggers warning.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    defaults = {
+        "useEventChecking": False,
+        "triggerNotificationWorkflow": False,
+        "returnFeedbackToDevice": False,
+        "needs3DModel": False,
+    }
+    
+    optimization_file = project_path / CONFIG_OPTIMIZATION_FILE
+    
+    if not optimization_file.exists():
+        logger.warning(
+            f"config_optimization.json not found in {project_path}. "
+            f"All optimization features disabled (defaults to False)."
+        )
+        return defaults
+    
+    try:
+        data = _load_json_file(optimization_file, required=False)
+        flags = data.get("result", {}).get("inputParamsUsed", {})
+        
+        result = {}
+        for key, default_val in defaults.items():
+            if key in flags:
+                result[key] = flags[key]
+            else:
+                logger.warning(f"  Missing optimization flag '{key}', defaulting to {default_val}")
+                result[key] = default_val
+        
+        return result
+    except Exception as e:
+        logger.warning(
+            f"Failed to load config_optimization.json: {e}. "
+            f"Using defaults (all False)."
+        )
+        return defaults
+
+
 def save_inter_cloud_connection(
     project_path: Path,
     conn_id: str,

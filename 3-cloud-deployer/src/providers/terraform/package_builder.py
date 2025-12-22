@@ -17,6 +17,16 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 from src.function_registry import get_functions_for_provider_build
+from src.providers.azure.azure_bundler import (
+    bundle_l0_functions as _azure_bundle_l0,
+    bundle_l1_functions as _azure_bundle_l1,
+    bundle_l2_functions as _azure_bundle_l2,
+    bundle_l3_functions as _azure_bundle_l3,
+    _merge_function_files,
+    _convert_functionapp_to_blueprint,
+    _convert_require_env_to_lazy,
+    _add_shared_files,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +156,191 @@ def build_azure_function_packages(
             logger.info(f"  ✓ Built: {func_name}.zip")
     
     return packages
+
+
+def build_azure_l0_bundle(project_path: Path, providers_config: dict) -> Optional[Path]:
+    """Build L0 Glue functions ZIP. Returns path or None."""
+    zip_bytes, func_list = _azure_bundle_l0(str(project_path), providers_config)
+    if not zip_bytes:
+        return None
+    build_dir = project_path / ".terraform_zips"
+    build_dir.mkdir(parents=True, exist_ok=True)
+    output = build_dir / "l0_functions.zip"
+    output.write_bytes(zip_bytes)
+    return output
+
+
+def build_azure_l1_bundle(project_path: Path) -> Optional[Path]:
+    """Build L1 Dispatcher functions ZIP. Returns path or None."""
+    zip_bytes = _azure_bundle_l1(str(project_path))
+    if not zip_bytes:
+        return None
+    build_dir = project_path / ".terraform_zips"
+    build_dir.mkdir(parents=True, exist_ok=True)
+    output = build_dir / "l1_functions.zip"
+    output.write_bytes(zip_bytes)
+    return output
+
+
+def build_azure_l2_bundle(project_path: Path) -> Optional[Path]:
+    """Build L2 Processor functions ZIP. Returns path or None."""
+    zip_bytes = _azure_bundle_l2(str(project_path))
+    if not zip_bytes:
+        return None
+    build_dir = project_path / ".terraform_zips"
+    build_dir.mkdir(parents=True, exist_ok=True)
+    output = build_dir / "l2_functions.zip"
+    output.write_bytes(zip_bytes)
+    return output
+
+
+def build_azure_l3_bundle(project_path: Path) -> Optional[Path]:
+    """Build L3 Storage functions ZIP. Returns path or None."""
+    zip_bytes = _azure_bundle_l3(str(project_path))
+    if not zip_bytes:
+        return None
+    build_dir = project_path / ".terraform_zips"
+    build_dir.mkdir(parents=True, exist_ok=True)
+    output = build_dir / "l3_functions.zip"
+    output.write_bytes(zip_bytes)
+    return output
+
+
+def _discover_azure_user_functions(user_funcs_dir: Path, optimization_flags: dict = None) -> List[tuple]:
+    """
+    Discover user functions using function_app.py pattern.
+    
+    Returns list of (func_type, folder_path) tuples.
+    
+    Conditional inclusion based on optimization flags:
+    - event-feedback: included if returnFeedbackToDevice=true
+    - event_actions: included if useEventChecking=true
+    - processors: always included
+    """
+    result = []
+    flags = optimization_flags or {}
+    
+    # event-feedback (if returnFeedbackToDevice)
+    if flags.get("returnFeedbackToDevice", True):
+        feedback_dir = user_funcs_dir / "event-feedback"
+        if feedback_dir.exists() and (feedback_dir / "function_app.py").exists():
+            result.append(('event_feedback', feedback_dir))
+    
+    # processors (always included)
+    processors_dir = user_funcs_dir / "processors"
+    if processors_dir.exists():
+        for subfolder in processors_dir.iterdir():
+            if subfolder.is_dir() and (subfolder / "function_app.py").exists():
+                result.append(('processor', subfolder))
+    
+    # event_actions (if useEventChecking)
+    if flags.get("useEventChecking", True):
+        actions_dir = user_funcs_dir / "event_actions"
+        if actions_dir.exists():
+            for subfolder in actions_dir.iterdir():
+                if subfolder.is_dir() and (subfolder / "function_app.py").exists():
+                    result.append(('event_action', subfolder))
+    
+    return result
+
+
+def _add_azure_function_app_directly(
+    zf: zipfile.ZipFile, 
+    user_dir: Path, 
+    module_name: str
+) -> None:
+    """
+    Add user's function_app.py directly (converted to Blueprint).
+    
+    Used for event_actions that provide complete function_app.py files.
+    """
+    # 1. Add __init__.py
+    zf.writestr(f"{module_name}/__init__.py", "# Auto-generated\n")
+    
+    # 2. Add user's function_app.py (converted to Blueprint)
+    func_app = user_dir / "function_app.py"
+    if func_app.exists():
+        content = func_app.read_text(encoding="utf-8")
+        content = _convert_functionapp_to_blueprint(content)
+        content = _convert_require_env_to_lazy(content)
+        zf.writestr(f"{module_name}/function_app.py", content)
+
+
+def _generate_main_function_app(modules: list) -> str:
+    """Generate main function_app.py that registers all Blueprints."""
+    imports = []
+    registers = []
+    
+    for module in modules:
+        bp_alias = f"{module}_bp"
+        imports.append(f"from {module}.function_app import bp as {bp_alias}")
+        registers.append(f"app.register_functions({bp_alias})")
+    
+    return f'''"""
+Auto-generated main function_app.py for Azure Functions Bundle.
+Functions included: {', '.join(modules)}
+"""
+import azure.functions as func
+
+{chr(10).join(imports)}
+
+app = func.FunctionApp()
+{chr(10).join(registers)}
+'''
+
+
+def build_azure_user_bundle(project_path: Path, providers_config: dict, optimization_flags: dict = None) -> Optional[Path]:
+    """
+    Build combined Azure user functions ZIP.
+    
+    Supports both process.py + wrapper and direct function_app.py patterns.
+    Returns path to ZIP or None if no user functions found.
+    """
+    if providers_config.get("layer_2_provider") != "azure":
+        return None
+    
+    user_funcs_dir = project_path / "azure_functions"
+    if not user_funcs_dir.exists():
+        logger.info("  No azure_functions directory, skipping user bundle")
+        return None
+    
+    # Load flags if not provided (for standalone use)
+    if optimization_flags is None:
+        from src.core.config_loader import load_optimization_flags
+        optimization_flags = load_optimization_flags(project_path)
+    
+    discovered = _discover_azure_user_functions(user_funcs_dir, optimization_flags)
+    
+    if not discovered:
+        logger.info("  No user functions found")
+        return None
+    
+    build_dir = project_path / ".terraform_zips"
+    build_dir.mkdir(parents=True, exist_ok=True)
+    output_path = build_dir / "user_functions.zip"
+    
+    azure_funcs_base = Path(__file__).parent.parent / "azure" / "azure_functions"
+    
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Add shared files (host.json, requirements.txt base, _shared/)
+        _add_shared_files(zf, azure_funcs_base)
+        
+        all_modules = []
+        
+        # Add all user functions (all use function_app.py pattern now)
+        for func_type, user_dir in discovered:
+            module_name = user_dir.name.replace("-", "_")
+            _add_azure_function_app_directly(zf, user_dir, module_name)
+            all_modules.append(module_name)
+        
+        # Generate main function_app.py
+        if all_modules:
+            main_content = _generate_main_function_app(all_modules)
+            zf.writestr("function_app.py", main_content)
+    
+    logger.info(f"  ✓ Built user bundle: {len(all_modules)} functions")
+    return output_path
+
 
 
 def _create_lambda_zip(func_dir: Path, shared_dir: Path, output_path: Path) -> None:
@@ -281,21 +476,6 @@ def _create_gcp_function_zip(
                 if file_path.is_file() and '__pycache__' not in str(file_path):
                     arcname = Path("_shared") / file_path.relative_to(shared_dir)
                     zf.write(file_path, arcname)
-        
-        # For processor: merge user processor code from project
-        if project_path and "processor" in str(func_dir):
-            # Try GCP-specific processors directory first
-            user_processor = project_path / "cloud_functions" / "processors" / "default_processor"
-            if not user_processor.exists():
-                # Fall back to generic processors directory
-                user_processor = project_path / "processors" / "default_processor"
-            
-            if user_processor.exists():
-                for file_path in user_processor.rglob('*.py'):
-                    if '__pycache__' not in str(file_path):
-                        arcname = file_path.relative_to(user_processor)
-                        zf.write(file_path, arcname)
-                logger.info(f"    → Merged user processor code from: {user_processor}")
         
         # Add requirements.txt if not present
         if not (func_dir / "requirements.txt").exists():
@@ -578,92 +758,52 @@ def build_user_packages(
         zip_path = build_dir / f"processor-{processor_name}.zip"
         
         if l2_provider == "aws":
+            # User provides standalone lambda_function.py
             _create_lambda_zip(proc_dir, shared_dir, zip_path)
+            packages[f"processor-{processor_name}"] = zip_path
+            _save_user_hash_metadata(project_path, f"processor-{processor_name}", l2_provider, code_hash)
+            logger.info(f"  ✓ Built processor: processor-{processor_name}.zip")
         elif l2_provider == "azure":
-            # For Azure, we wrap the processor with the processor_wrapper
-            _create_processor_with_wrapper(proc_dir, zip_path)
+            # Azure user functions are bundled together separately via build_azure_user_bundle()
+            logger.info(f"  → Skipping individual processor ZIP for Azure (bundled together)")
         else:  # google
-            # For GCP, we also need to wrap with default-processor base
-            base_gcp_proc_dir = Path(__file__).parent.parent / "gcp" / "cloud_functions" / "default-processor"
-            _create_gcp_processor_zip(base_gcp_proc_dir, proc_dir, shared_dir, zip_path)
-        
-        packages[f"processor-{processor_name}"] = zip_path
-        
-        # Save hash metadata
-        _save_user_hash_metadata(project_path, f"processor-{processor_name}", l2_provider, code_hash)
-        
-        logger.info(f"  ✓ Built processor: processor-{processor_name}.zip")
+            # User provides standalone main.py - just copy it
+            _create_gcp_function_zip(proc_dir, shared_dir, zip_path)
+            packages[f"processor-{processor_name}"] = zip_path
+            _save_user_hash_metadata(project_path, f"processor-{processor_name}", l2_provider, code_hash)
+            logger.info(f"  ✓ Built processor: processor-{processor_name}.zip")
     
     # 3. Build Event-Feedback package (WITH WRAPPER MERGING)
     if feedback_dir.exists():
         code_hash = _compute_directory_hash(feedback_dir)
         zip_path = build_dir / "event-feedback.zip"
         
-        # Check if user has process.py (new pattern) or raw files (old pattern)
-        has_process_py = (feedback_dir / "process.py").exists()
-        
-        if has_process_py:
-            # New pattern: merge with wrapper
-            _create_event_feedback_with_wrapper(feedback_dir, zip_path, l2_provider)
-        else:
-            # Legacy pattern: bundle as-is
-            if l2_provider == "aws":
-                _create_lambda_zip(feedback_dir, shared_dir, zip_path)
-            elif l2_provider == "google":
-                _create_gcp_function_zip(feedback_dir, shared_dir, zip_path)
-            else:  # azure
-                _create_azure_function_zip(feedback_dir, zip_path)
-        
-        packages["event-feedback"] = zip_path
-        
-        # Save hash metadata
-        _save_user_hash_metadata(project_path, "event-feedback", l2_provider, code_hash)
-        
-        logger.info(f"  ✓ Built event-feedback.zip")
+        # User provides standalone serverless function
+        if l2_provider == "aws":
+            _create_lambda_zip(feedback_dir, shared_dir, zip_path)
+            packages["event-feedback"] = zip_path
+            _save_user_hash_metadata(project_path, "event-feedback", l2_provider, code_hash)
+            logger.info(f"  ✓ Built event-feedback.zip")
+        elif l2_provider == "azure":
+            # Azure bundles all user functions together via build_azure_user_bundle()
+            logger.info(f"  → Skipping individual event-feedback ZIP for Azure (bundled together)")
+        else:  # google
+            _create_gcp_function_zip(feedback_dir, shared_dir, zip_path)
+            packages["event-feedback"] = zip_path
+            _save_user_hash_metadata(project_path, "event-feedback", l2_provider, code_hash)
+            logger.info(f"  ✓ Built event-feedback.zip")
     
     logger.info(f"✓ Built {len(packages)} user packages")
     return packages
 
 
-def _create_processor_with_wrapper(proc_dir: Path, output_path: Path) -> None:
-    """
-    Create a processor ZIP with the Azure processor wrapper.
-    
-    FIXED: User code now placed at root level (not processor/ subfolder)
-    to match wrapper's 'from process import process' import.
-    
-    Args:
-        proc_dir: Path to processor code directory
-        output_path: Path to output ZIP file
-    """
-    # Get processor wrapper directory
-    wrapper_dir = Path(__file__).parent.parent / "azure" / "azure_functions" / "processor_wrapper"
-    
-    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-        # Add wrapper files (function_app.py, requirements.txt)
-        if wrapper_dir.exists():
-            for file_path in wrapper_dir.rglob('*'):
-                if file_path.is_file() and '__pycache__' not in str(file_path):
-                    arcname = file_path.relative_to(wrapper_dir)
-                    zf.write(file_path, arcname)
-        
-        # FIXED: Add processor code at ROOT level (same as function_app.py)
-        # The wrapper does "from process import process" so process.py must be at root
-        # Skip requirements.txt - will merge later
-        for file_path in proc_dir.rglob('*'):
-            if file_path.is_file() and '__pycache__' not in str(file_path):
-                if file_path.name == 'requirements.txt':
-                    continue  # Skip - will merge
-                # Put at root level, NOT in processor/ subdirectory
-                arcname = file_path.relative_to(proc_dir)
-                zf.write(file_path, arcname)
-        
-        # Merge requirements.txt
-        wrapper_req = wrapper_dir / "requirements.txt"
-        user_req = proc_dir / "requirements.txt"
-        merged = _merge_requirements(wrapper_req, user_req)
-        if merged:
-            zf.writestr("requirements.txt", merged)
+# Obsolete function removed - user functions now use HTTP call pattern
+
+
+
+# Obsolete function removed - AWS processors now use standalone lambda_function.py
+
+
 
 
 def _merge_requirements(wrapper_req: Path, user_req: Path) -> str:

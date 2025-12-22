@@ -52,17 +52,19 @@ def deploy_all(
     check_template_protection(project_name, "deploy")
     validate_project_context(project_name)
     try:
-        validator.verify_project_structure(project_name)
         provider = validate_provider(provider)
         
         context = create_context(project_name, provider)
         
-        # TerraformDeployerStrategy handles all deployment
+        # TerraformDeployerStrategy handles validation + deployment
         core_deployer.deploy_all(context, provider)
         
         return {"message": "Core and IoT services deployed successfully"}
     except HTTPException:
         raise
+    except ValueError as e:
+        # Validation errors get 400, not 500
+        raise HTTPException(status_code=400, detail=f"Validation failed: {e}")
     except Exception as e:
         print_stack_trace()
         logger.error(str(e))
@@ -108,4 +110,3 @@ def destroy_all(
         print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail=str(e))
-

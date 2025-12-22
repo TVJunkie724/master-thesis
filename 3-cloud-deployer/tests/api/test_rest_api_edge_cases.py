@@ -77,39 +77,33 @@ class TestRestApiEdgeCases:
     # 2. Deployment Edge Cases
     # ==========================================
 
-    @patch("src.validator.verify_project_structure")
     @patch("src.api.deployment.validate_project_context")
     @patch("src.api.deployment.create_context")
-    def test_deploy_non_existent_project(self, mock_create_context, mock_validate_ctx, mock_verify):
+    def test_deploy_non_existent_project(self, mock_create_context, mock_validate_ctx):
         """Verify 500 when deployment fails (simulated by create_context failure)."""
         mock_validate_ctx.return_value = None
-        mock_verify.return_value = None
         mock_create_context.side_effect = ValueError("Project not found")
         
         response = client.post("/infrastructure/deploy?project_name=missing&provider=aws")
         
-        # Now validation passes, create_context fails -> 500
-        assert response.status_code == 500
+        # Now validation passes, create_context fails -> ValueError -> 400
+        assert response.status_code == 400
         assert "Project not found" in response.json()["detail"]
 
-    @patch("src.validator.verify_project_structure")
     @patch("src.api.deployment.validate_project_context")
-    def test_deploy_invalid_provider(self, mock_validate_ctx, mock_verify):
+    def test_deploy_invalid_provider(self, mock_validate_ctx):
         """Verify 400 when using an unsupported provider."""
         mock_validate_ctx.return_value = None
-        mock_verify.return_value = None
         response = client.post("/infrastructure/deploy?project_name=test&provider=mars_cloud")
         
         assert response.status_code == 400
         assert "Invalid provider" in response.json()["detail"]
 
-    @patch("src.validator.verify_project_structure")
     @patch("src.api.deployment.validate_project_context")
     @patch("src.api.deployment.create_context")
-    def test_deploy_missing_config_files(self, mock_create_context, mock_validate_ctx, mock_verify):
+    def test_deploy_missing_config_files(self, mock_create_context, mock_validate_ctx):
         """Verify 500 when config files are missing."""
         mock_validate_ctx.return_value = None
-        mock_verify.return_value = None
         mock_create_context.side_effect = FileNotFoundError("Missing config.json")
         
         response = client.post("/infrastructure/deploy?project_name=test&provider=aws")
@@ -117,14 +111,12 @@ class TestRestApiEdgeCases:
         assert response.status_code == 500
         assert "Missing config.json" in response.json()["detail"]
 
-    @patch("src.validator.verify_project_structure")
     @patch("src.api.deployment.validate_project_context")
     @patch("src.api.deployment.core_deployer.deploy_all")
     @patch("src.api.deployment.create_context")
-    def test_deploy_provider_error(self, mock_create_context, mock_deploy, mock_validate_ctx, mock_verify):
+    def test_deploy_provider_error(self, mock_create_context, mock_deploy, mock_validate_ctx):
         """Verify 500 response with error details when AWS fails."""
         mock_validate_ctx.return_value = None
-        mock_verify.return_value = None
         mock_create_context.return_value = MagicMock()
         
         from botocore.exceptions import ClientError

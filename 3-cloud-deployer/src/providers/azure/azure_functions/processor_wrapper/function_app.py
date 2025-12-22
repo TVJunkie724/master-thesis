@@ -1,11 +1,11 @@
 """
 Processor Wrapper Azure Function.
 
-Merges user-defined processing logic with the system pipeline.
-Executes user logic and then invokes the Persister.
+Calls user-defined processor function via HTTP and invokes the Persister.
+Dynamically constructs processor URL from device ID.
 
 Architecture:
-    Ingestion → Processor (user logic) → Persister
+    Ingestion → Processor Wrapper → HTTP → User Processor → Wrapper → Persister
 
 Source: src/providers/azure/azure_functions/processor_wrapper/function_app.py
 Editable: Yes - This is the runtime Azure Function code
@@ -18,7 +18,6 @@ import urllib.request
 import urllib.error
 
 import azure.functions as func
-from process import process  # User logic import
 
 # Handle import path for shared module
 try:
@@ -32,12 +31,27 @@ except ModuleNotFoundError:
 
 # Lazy loading for environment variables to allow Azure function discovery
 _persister_function_url = None
+_digital_twin_info = None
 
 def _get_persister_function_url():
     global _persister_function_url
     if _persister_function_url is None:
         _persister_function_url = require_env("PERSISTER_FUNCTION_URL")
     return _persister_function_url
+
+def _get_digital_twin_info():
+    """Lazy-load DIGITAL_TWIN_INFO to avoid import-time failures."""
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
+
+def _get_processor_url(device_id: str) -> str:
+    """Construct processor URL dynamically from device ID."""
+    twin_name = _get_digital_twin_info()["config"]["digital_twin_name"]
+    processor_name = f"{twin_name}-{device_id}-processor"
+    base_url = os.environ.get("FUNCTION_APP_BASE_URL", "")
+    return f"{base_url}/api/{processor_name}"
 
 
 # Create Blueprint for registration by main function_app.py
@@ -71,10 +85,10 @@ def _invoke_persister(payload: dict) -> None:
 @bp.route(route="processor", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def processor(req: func.HttpRequest) -> func.HttpResponse:
     """
-    Execute user processing logic and invoke Persister.
+    Call user processor via HTTP and invoke Persister.
     
-    This function wraps user-defined `process()` logic with the
-    system pipeline, ensuring processed data flows to storage.
+    Dynamically constructs the processor URL from the device ID in the event,
+    calls the user's processor function, then sends the result to Persister.
     """
     logging.info("Azure Processor Wrapper: Executing user logic...")
     
@@ -82,10 +96,21 @@ def processor(req: func.HttpRequest) -> func.HttpResponse:
         # Parse input event
         event = req.get_json()
         
-        # 1. Execute User Logic
+        # 1. Call User Processor via HTTP
+        device_id = event.get("iotDeviceId", "default")
         try:
-            processed_event = process(event)
-            logging.info(f"User Logic Complete. Result: {json.dumps(processed_event)}")
+            url = _get_processor_url(device_id)
+            if not url or not url.startswith("http"):
+                logging.warning(f"Cannot construct processor URL for device {device_id} - using passthrough")
+                processed_event = event
+            else:
+                logging.info(f"Calling user processor at {url}")
+                data = json.dumps(event).encode("utf-8")
+                headers = {"Content-Type": "application/json"}
+                req_proc = urllib.request.Request(url, data=data, headers=headers, method="POST")
+                with urllib.request.urlopen(req_proc, timeout=30) as response:
+                    processed_event = json.loads(response.read().decode("utf-8"))
+                logging.info(f"User Logic Complete. Result: {json.dumps(processed_event)}")
         except Exception as e:
             logging.error(f"[USER_LOGIC_ERROR] Processing failed: {e}")
             return func.HttpResponse(

@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Path, Request
 import json
 import os
+from pathlib import Path as PathLib
 import file_manager
 import src.validator as validator
+from src.validation.directory_validator import validate_project_directory
 from api.dependencies import ConfigType, ProviderEnum, check_template_protection
 import constants as CONSTANTS
 from logger import logger
@@ -132,7 +134,8 @@ def validate_project_structure(project_name: str = Path(..., description="Name o
     **Use case:** Pre-deployment readiness check for existing projects.
     """
     try:
-        validator.verify_project_structure(project_name, state.get_project_base_path())
+        project_dir = PathLib(state.get_project_base_path()) / CONSTANTS.PROJECT_UPLOAD_DIR_NAME / project_name
+        validate_project_directory(project_dir)
         return {"message": f"Project structure for '{project_name}' is valid."}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -393,7 +396,8 @@ def get_project_summary(
 
     # 3. Validation Status
     try:
-        validator.verify_project_structure(project_name, state.get_project_base_path())
+        project_dir = PathLib(state.get_project_base_path()) / CONSTANTS.PROJECT_UPLOAD_DIR_NAME / project_name
+        validate_project_directory(project_dir)
         summary["validation_status"] = "valid"
     except Exception as e:
         summary["validation_status"] = "invalid"

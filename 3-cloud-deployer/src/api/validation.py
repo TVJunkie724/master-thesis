@@ -327,57 +327,26 @@ async def validate_function_code(
         raise HTTPException(status_code=500, detail=str(e))
 
 # ==========================================
-# 4b. Processor Code Validation
+# 4b. Processor Code Validation - DEPRECATED
 # ==========================================
-@router.post(
-    "/validate/processor",
-    tags=["Validation"],
-    summary="Validate processor code",
-    responses={
-        200: {"description": "Processor code is valid"},
-        400: {"description": "Missing process(event) function"}
-    }
-)
-async def validate_processor_code(
-    provider: ProviderEnum = Query(..., description="Target cloud provider"),
-    file: UploadFile = File(..., description="Processor Python file (process.py) to validate")
-):
-    """
-    Validates processor code (process.py files).
-    
-    **Checks performed:**
-    1. **Python syntax** - File must be valid, compilable Python
-    2. **Entry point** - Must have `process(event)` function
-    3. **No duplicates** - Only one `process` function allowed
-    
-    **File locations per provider:**
-    - `aws` → `lambda_functions/processors/<name>/process.py`
-    - `azure` → `azure_functions/processors/<name>/process.py`
-    - `google` → `cloud_functions/processors/<name>/process.py`
-    
-    **Minimal example:**
-    ```python
-    def process(event):
-        # Transform incoming IoT data
-        event["processed"] = True
-        return event
-    ```
-    
-    **Note:** Processors are wrapped by the system at deployment time.
-    The `process(event)` function is called by the generated wrapper.
-    """
-    try:
-        content = await file.read()
-        code = content.decode('utf-8')
-        
-        validator.validate_processor_code(code)
-            
-        return {"message": f"Processor code is valid for {provider.value}."}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+# This endpoint validated process.py files which are no longer used.
+# User functions are now standalone serverless functions validated by /validate/function-code
+# 
+# @router.post(
+#     "/validate/processor",
+#     tags=["Validation"],
+#     summary="Validate processor code",
+#     responses={
+#         200: {"description": "Processor code is valid"},
+#         400: {"description": "Missing process(event) function"}
+#     }
+# )
+# async def validate_processor_code(
+#     provider: ProviderEnum = Query(..., description="Target cloud provider"),
+#     file: UploadFile = File(..., description="Processor Python file (process.py) to validate")
+# ):
+#     """DEPRECATED - process.py pattern no longer used"""
+#     pass
 
 # ==========================================
 # 5. Simulator Payload Validation

@@ -611,8 +611,9 @@ def bundle_user_functions(project_path: str) -> Optional[bytes]:
     
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        # Add shared files from the core azure_functions directory
-        core_azure_funcs = _get_azure_functions_dir(project_path)
+        # Add shared files from the CORE azure_functions directory (not project path)
+        # This ensures _shared/ utilities (env_utils.py, etc.) are always included
+        core_azure_funcs = Path(__file__).parent / "azure_functions"
         _add_shared_files(zf, core_azure_funcs)
         
         # Add each user function folder

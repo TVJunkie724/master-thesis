@@ -163,6 +163,19 @@ resource "azurerm_linux_function_app" "user" {
 
     # Cosmos DB connection for user functions to access hot storage
     COSMOS_ENDPOINT = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_account.main[0].endpoint : ""
+
+    # NEW: Required for HTTP call pattern (wrappers call user functions via HTTP)
+    FUNCTION_APP_BASE_URL = "https://${var.digital_twin_name}-user-functions.azurewebsites.net"
+    
+    DIGITAL_TWIN_INFO = jsonencode({
+      config = {
+        digital_twin_name = var.digital_twin_name
+      }
+    })
+    
+    EVENT_FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? "https://${var.digital_twin_name}-user-functions.azurewebsites.net/api/event-feedback" : ""
+    
+    PERSISTER_FUNCTION_URL = "https://${var.digital_twin_name}-l2-functions.azurewebsites.net/api/persister"
   }
 
   tags = local.common_tags

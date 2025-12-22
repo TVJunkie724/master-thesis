@@ -128,12 +128,13 @@ class TerraformDeployerStrategy:
         Deploy all infrastructure and code.
         
         Steps:
-        1. Build function packages (Lambda ZIPs, Function ZIPs)
-        2. Generate tfvars.json
-        3. terraform init
-        4. terraform apply (AWS uses pre-built ZIPs)
-        5. Deploy Azure function code (Kudu)
-        6. Post-deployment SDK operations
+        1. Validate project structure
+        2. Build function packages (Lambda ZIPs, Function ZIPs)
+        3. Generate tfvars.json
+        4. terraform init
+        5. terraform apply (AWS uses pre-built ZIPs)
+        6. Deploy Azure function code (Kudu)
+        7. Post-deployment SDK operations
         
         Args:
             context: Optional deployment context for SDK operations
@@ -144,37 +145,44 @@ class TerraformDeployerStrategy:
         Raises:
             TerraformError: If Terraform fails
             ConfigurationError: If config is invalid
+            ValueError: If project validation fails
         """
         logger.info("=" * 60)
         logger.info("  TERRAFORM DEPLOYMENT - STARTING")
         logger.info("=" * 60)
         
-        # Step 1: Build function packages
-        logger.info("\n[STEP 1/6] Building function packages...")
+        # Step 1: Validate project structure
+        logger.info("\n[STEP 1/7] Validating project structure...")
+        from src.validation.directory_validator import validate_project_directory
+        validate_project_directory(self.project_path)
+        logger.info("✓ Project validation passed")
+        
+        # Step 2: Build function packages
+        logger.info("\n[STEP 2/7] Building function packages...")
         self._build_packages()
         
-        # Step 2: Generate tfvars
-        logger.info("\n[STEP 2/6] Generating tfvars.json...")
+        # Step 3: Generate tfvars
+        logger.info("\n[STEP 3/7] Generating tfvars.json...")
         self._generate_tfvars()
         
-        # Step 3: Terraform init
-        logger.info("\n[STEP 3/6] Terraform init...")
+        # Step 4: Terraform init
+        logger.info("\n[STEP 4/7] Terraform init...")
         self.runner.init()
         
-        # Step 4: Terraform apply (AWS Lambda uses pre-built ZIPs)
-        logger.info("\n[STEP 4/6] Terraform apply...")
+        # Step 5: Terraform apply (AWS Lambda uses pre-built ZIPs)
+        logger.info("\n[STEP 5/7] Terraform apply...")
         self.runner.apply(var_file=str(self.tfvars_path))
         
         # Get outputs
         self._terraform_outputs = self.runner.output()
         logger.info(f"✓ Terraform outputs: {list(self._terraform_outputs.keys())}")
         
-        # Step 5: Deploy Azure function code (Kudu)
-        logger.info("\n[STEP 5/6] Deploying Azure function code...")
+        # Step 6: Deploy Azure function code (Kudu)
+        logger.info("\n[STEP 6/7] Deploying Azure function code...")
         self._deploy_azure_function_code()
         
-        # Step 6: Post-deployment SDK operations
-        logger.info("\n[STEP 6/6] Running post-deployment operations...")
+        # Step 7: Post-deployment SDK operations
+        logger.info("\n[STEP 7/7] Running post-deployment operations...")
         if context:
             self._run_post_deployment(context)
         else:

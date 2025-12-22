@@ -18,10 +18,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from src.providers.azure.layers.function_bundler import (
-    bundle_l0_functions,
-    bundle_l2_functions,
-    bundle_user_functions
+from src.providers.terraform.package_builder import (
+    build_azure_l0_bundle,
+    build_azure_l2_bundle,
+    build_azure_user_bundle,
 )
 
 
@@ -173,8 +173,8 @@ def test_all_zips():
     print("\n" + "="*60)
     print("Building L0 Glue Functions ZIP...")
     print("="*60)
-    l0_result = bundle_l0_functions(project_path, providers_config)
-    l0_bytes = l0_result[0] if l0_result else None
+    l0_path = build_azure_l0_bundle(Path(project_path), providers_config)
+    l0_bytes = l0_path.read_bytes() if l0_path else None
     expected_l0 = ["ingestion", "adt-pusher", "hot-reader", "hot-reader-last-entry"]
     if not validate_zip_structure(l0_bytes, "L0 Glue Functions", expected_l0):
         all_passed = False
@@ -183,7 +183,8 @@ def test_all_zips():
     print("\n" + "="*60)
     print("Building L2 Processor Functions ZIP...")
     print("="*60)
-    l2_bytes = bundle_l2_functions(project_path)
+    l2_path = build_azure_l2_bundle(Path(project_path))
+    l2_bytes = l2_path.read_bytes() if l2_path else None
     expected_l2 = ["persister", "event-checker"]
     if not validate_zip_structure(l2_bytes, "L2 Processor Functions", expected_l2):
         all_passed = False
@@ -192,8 +193,13 @@ def test_all_zips():
     print("\n" + "="*60)
     print("Building User Functions ZIP...")
     print("="*60)
-    user_bytes = bundle_user_functions(project_path)
-    expected_user = ["event-feedback", "temperature-sensor-2", "high-temperature-callback", "high-temperature-callback-2"]
+    providers = {"layer_2_provider": "azure"}
+    user_zip_path = build_azure_user_bundle(Path(project_path), providers)
+    if user_zip_path:
+        user_bytes = user_zip_path.read_bytes()
+    else:
+        user_bytes = None
+    expected_user = ["event_feedback", "default_processor", "temperature_sensor_2", "high_temperature_callback", "high_temperature_callback_2"]
     if not validate_zip_structure(user_bytes, "User Functions", expected_user):
         all_passed = False
     

@@ -165,14 +165,12 @@ class TestInfrastructureDeploy:
         assert response.status_code in [404, 409]
 
     @patch("providers.deployer.deploy_all")
-    @patch("src.validator.verify_project_structure")
     @patch("src.core.factory.create_context")
     @patch("api.dependencies.validate_project_context")
-    def test_deploy_valid_request(self, mock_validate, mock_ctx, mock_verify, mock_deploy):
+    def test_deploy_valid_request(self, mock_validate, mock_ctx, mock_deploy):
         """Happy: Valid deploy request is blocked for template project."""
         mock_validate.return_value = None
         mock_ctx.return_value = MagicMock()
-        mock_verify.return_value = None
         mock_deploy.return_value = None
         
         # Template project is now protected

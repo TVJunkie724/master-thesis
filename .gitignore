@@ -50,6 +50,7 @@ google-*.json
 **/*.tfstate.backup
 **/*.tfvars.json
 **/generated.tfvars.json
+**/.terraform_zips/
 
 # -----------------------------------------------------------------------------
 # Lambda/Function Zips (regenerated during build)
@@ -85,3 +86,6 @@ Festo_Demo_Box/
 # -----------------------------------------------------------------------------
 2-twin2clouds/pricing/fetched_data/
 **/test_results.txt
+**/zip_samples/
+
+

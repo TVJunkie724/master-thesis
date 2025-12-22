@@ -321,22 +321,3 @@ class AWSNaming:
         """Lambda function name for a device's processor."""
         return f"{self._twin_name}-{device_id}-processor"
 
-
-# ==========================================
-# Helper function for backward compatibility
-# ==========================================
-
-def get_naming(twin_name: str) -> AWSNaming:
-    """
-    Create an AWSNaming instance for the given twin name.
-    
-    This is a convenience function for cases where you need
-    quick access to naming without storing the instance.
-    
-    Args:
-        twin_name: The digital twin name
-    
-    Returns:
-        AWSNaming instance
-    """
-    return AWSNaming(twin_name)

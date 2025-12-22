@@ -23,7 +23,7 @@ Usage:
 """
 
 from typing import Dict, Any, TYPE_CHECKING, Optional
-from providers.base import BaseProvider
+from src.providers.base import BaseProvider
 
 if TYPE_CHECKING:
     from src.providers.azure.naming import AzureNaming

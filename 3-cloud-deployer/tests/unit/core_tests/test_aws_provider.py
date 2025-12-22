@@ -9,7 +9,7 @@ Tests the AWSProvider class and related modules:
 
 import pytest
 from unittest.mock import patch, MagicMock
-from src.providers.aws.naming import AWSNaming, get_naming
+from src.providers.aws.naming import AWSNaming
 
 
 class TestAWSNaming:
@@ -136,16 +136,6 @@ class TestAWSNaming:
         """Test processor role and function names include device ID."""
         assert self.naming.processor_iam_role("sensor-001") == "my-twin-sensor-001-processor"
         assert self.naming.processor_lambda_function("sensor-001") == "my-twin-sensor-001-processor"
-
-    # ==========================================
-    # Helper function
-    # ==========================================
-
-    def test_get_naming_helper(self):
-        """Test the get_naming convenience function."""
-        naming = get_naming("test-twin")
-        assert isinstance(naming, AWSNaming)
-        assert naming.twin_name == "test-twin"
 
 
 class TestAWSProviderNaming:

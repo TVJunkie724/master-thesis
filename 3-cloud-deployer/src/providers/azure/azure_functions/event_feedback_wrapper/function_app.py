@@ -1,11 +1,10 @@
 """
 Event-Feedback Wrapper Azure Function.
 
-Merges user-defined processing logic with the IoT Hub C2D feedback pipeline.
-Executes user logic and sends result to IoT device.
+Calls user-defined event-feedback function via HTTP and sends result to IoT device.
 
 Architecture:
-    Event-Checker → Event-Feedback (user logic) → IoT Device
+    Event-Checker → Event-Feedback Wrapper → HTTP → User Function → Wrapper → IoT Device
 """
 import json
 import logging
@@ -13,7 +12,8 @@ import os
 
 import azure.functions as func
 from azure.iot.hub import IoTHubRegistryManager
-from process import process  # User logic import
+import urllib.request
+import urllib.error
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # Lazy-loaded environment variables
 _iot_hub_connection_string = None
 _registry_manager = None
+_event_feedback_function_url = None
 
 
 def _get_iot_hub_connection_string():
@@ -43,11 +44,19 @@ def _get_registry_manager():
     return _registry_manager
 
 
-app = func.FunctionApp()
+def _get_event_feedback_function_url():
+    """Lazy load event feedback function URL."""
+    global _event_feedback_function_url
+    if _event_feedback_function_url is None:
+        _event_feedback_function_url = os.environ.get("EVENT_FEEDBACK_FUNCTION_URL", "").strip()
+    return _event_feedback_function_url
 
 
-@app.function_name(name="event-feedback")
-@app.route(route="event-feedback", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
+bp = func.Blueprint()
+
+
+@bp.function_name(name="event-feedback")
+@bp.route(route="event-feedback", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def main(req: func.HttpRequest) -> func.HttpResponse:
     """Execute user processing logic and send feedback to IoT device."""
     logger.info("Event-Feedback Wrapper: Executing user logic...")
@@ -60,13 +69,23 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         payload = detail["payload"]  # Extract payload for user processing
         iot_device_id = detail["iotDeviceId"]
         
-        # 1. Execute User Logic
-        try:
-            processed_payload = process(payload)
-            logger.info(f"User Logic Complete. Result: {json.dumps(processed_payload)}")
-        except Exception as e:
-            logger.error(f"[USER_LOGIC_ERROR] Processing failed: {e}")
-            raise e
+        # 1. Call User Event-Feedback Function via HTTP
+        url = _get_event_feedback_function_url()
+        if not url or not url.startswith("http"):
+            logger.warning("EVENT_FEEDBACK_FUNCTION_URL not set - using passthrough")
+            processed_payload = payload
+        else:
+            try:
+                logger.info(f"Calling user event-feedback function at {url}")
+                data = json.dumps(payload).encode("utf-8")
+                headers = {"Content-Type": "application/json"}
+                req_feedback = urllib.request.Request(url, data=data, headers=headers, method="POST")
+                with urllib.request.urlopen(req_feedback, timeout=30) as response:
+                    processed_payload = json.loads(response.read().decode("utf-8"))
+                logger.info(f"User Logic Complete. Result: {json.dumps(processed_payload)}")
+            except Exception as e:
+                logger.error(f"[USER_LOGIC_ERROR] Processing failed: {e}")
+                raise e
         
         # 2. Build topic and send to IoT Device via C2D
         topic = f"{detail['digitalTwinName']}-{iot_device_id}"
