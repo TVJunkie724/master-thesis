@@ -56,6 +56,7 @@ resource "google_cloudfunctions2_function" "persister" {
       DIGITAL_TWIN_INFO      = local.gcp_digital_twin_info
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
+      FIRESTORE_DATABASE     = var.digital_twin_name
       INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         try(random_password.inter_cloud_token[0].result, "")
       )
@@ -378,6 +379,7 @@ resource "google_cloudfunctions2_function" "processor" {
       DIGITAL_TWIN_INFO      = local.gcp_digital_twin_info
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
+      FIRESTORE_DATABASE     = var.digital_twin_name
       PERSISTER_FUNCTION_URL = local.gcp_l3_hot_enabled ? google_cloudfunctions2_function.persister[0].url : ""
       INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         try(random_password.inter_cloud_token[0].result, "")
@@ -447,6 +449,7 @@ resource "google_cloudfunctions2_function" "event_action" {
       DIGITAL_TWIN_INFO      = local.gcp_digital_twin_info
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
+      FIRESTORE_DATABASE     = var.digital_twin_name
       INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         try(random_password.inter_cloud_token[0].result, "")
       )
@@ -515,6 +518,7 @@ resource "google_cloudfunctions2_function" "event_feedback" {
       DIGITAL_TWIN_INFO      = local.gcp_digital_twin_info
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
+      FIRESTORE_DATABASE     = var.digital_twin_name
       INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         try(random_password.inter_cloud_token[0].result, "")
       )

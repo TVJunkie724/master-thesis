@@ -114,6 +114,7 @@ resource "google_cloudfunctions2_function" "hot_writer" {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
       GCP_PROJECT_ID       = local.gcp_project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
+      FIRESTORE_DATABASE   = var.digital_twin_name
       INTER_CLOUD_TOKEN    = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         try(random_password.inter_cloud_token[0].result, "")
       )

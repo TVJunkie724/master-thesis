@@ -24,11 +24,41 @@
 resource "google_firestore_database" "main" {
   count      = local.gcp_l3_hot_enabled ? 1 : 0
   project    = local.gcp_project_id
-  name       = "(default)"
+  # Use unique database ID per digital twin (allows parallel E2E tests)
+  # Note: Database IDs must be 1-63 chars, lowercase letters, numbers, hyphens
+  name       = var.digital_twin_name
   location_id = var.gcp_region
   type       = "FIRESTORE_NATIVE"
   
+  # Allow deletion without protection
+  deletion_policy = "DELETE"
+  
   depends_on = [google_project_service.firestore]
+}
+
+# ==============================================================================
+# Firestore Composite Index (Required for hot-reader queries)
+# ==============================================================================
+# Standard index for time-series IoT queries: filter by device, sort by time
+# Same pattern as DynamoDB (partition key + sort key) and Cosmos DB (partition key)
+
+resource "google_firestore_index" "hot_data_device_id" {
+  count      = local.gcp_l3_hot_enabled ? 1 : 0
+  project    = local.gcp_project_id
+  database   = google_firestore_database.main[0].name
+  collection = "${var.digital_twin_name}-hot-data"
+
+  fields {
+    field_path = "iotDeviceId"
+    order      = "ASCENDING"
+  }
+
+  fields {
+    field_path = "id"
+    order      = "DESCENDING"
+  }
+
+  depends_on = [google_firestore_database.main]
 }
 
 # ==============================================================================
@@ -136,6 +166,7 @@ resource "google_cloudfunctions2_function" "hot_reader" {
       DIGITAL_TWIN_INFO    = local.gcp_digital_twin_info
       GCP_PROJECT_ID       = local.gcp_project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
+      FIRESTORE_DATABASE   = var.digital_twin_name
       INTER_CLOUD_TOKEN    = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         try(random_password.inter_cloud_token[0].result, "")
       )
@@ -186,6 +217,7 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
       DIGITAL_TWIN_INFO    = local.gcp_digital_twin_info
       GCP_PROJECT_ID       = local.gcp_project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
+      FIRESTORE_DATABASE   = var.digital_twin_name
       COLD_BUCKET_NAME     = google_storage_bucket.cold[0].name
       HOT_RETENTION_DAYS   = var.layer_3_hot_to_cold_interval_days
     }

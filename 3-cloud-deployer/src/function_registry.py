@@ -162,6 +162,13 @@ STATIC_FUNCTIONS: List[FunctionDefinition] = [
         # The wrapper handles SDK boilerplate, user provides process.py.
         # Wrapper location: src/providers/{provider}/*/event_feedback_wrapper/
     ),
+    FunctionDefinition(
+        name="processor_wrapper",
+        layer=Layer.L2_PROCESSING,
+        dir_name="processor_wrapper",
+        # NOTE: Static wrapper that routes to device-specific user processors.
+        # Dispatcher → processor_wrapper → {twin}-{device_id}-processor
+    ),
     
     # L3: Storage
     FunctionDefinition(
@@ -235,7 +242,11 @@ def get_layer_provider_key(layer: Layer) -> Optional[str]:
     return mapping.get(layer)
 
 
-def get_functions_for_provider_build(provider: str, providers_config: dict) -> List[str]:
+def get_functions_for_provider_build(
+    provider: str, 
+    providers_config: dict,
+    optimization_flags: dict = None
+) -> List[str]:
     """
     Get function directory names to build for a provider.
     
@@ -245,6 +256,7 @@ def get_functions_for_provider_build(provider: str, providers_config: dict) -> L
     Args:
         provider: "aws", "azure", or "gcp" (use "google" internally)
         providers_config: Dict with layer_X_provider keys
+        optimization_flags: Dict with feature flags like useEventChecking, returnFeedbackToDevice
     
     Returns:
         List of function directory names to build
@@ -252,6 +264,7 @@ def get_functions_for_provider_build(provider: str, providers_config: dict) -> L
     # Terraform/Config uses "google", Registry uses "gcp"
     config_target = "google" if provider == "gcp" else provider
     registry_target = provider
+    optimization_flags = optimization_flags or {}
     
     functions = []
     
@@ -267,8 +280,15 @@ def get_functions_for_provider_build(provider: str, providers_config: dict) -> L
     # L2 functions
     if providers_config.get("layer_2_provider") == config_target:
         for f in get_by_layer(Layer.L2_PROCESSING):
-            if registry_target in f.providers and not f.is_optional:
-                functions.append(f.get_dir_name())
+            if registry_target in f.providers:
+                if f.is_optional:
+                    # Include optional functions based on feature flags
+                    if f.name == "event-checker" and optimization_flags.get("useEventChecking"):
+                        functions.append(f.get_dir_name())
+                    elif f.name == "event-feedback" and optimization_flags.get("returnFeedbackToDevice"):
+                        functions.append(f.get_dir_name())
+                else:
+                    functions.append(f.get_dir_name())
     
     # L3 functions
     if providers_config.get("layer_3_hot_provider") == config_target:

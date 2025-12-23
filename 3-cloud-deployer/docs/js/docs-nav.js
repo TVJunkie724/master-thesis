@@ -29,19 +29,28 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   /* ============================================================
-     3. Highlight active menu link
+     3. Highlight active menu link & expand parent submenu
      ============================================================ */
   const current = window.location.pathname.replace(/\/$/, "");
   const links = placeholder.querySelectorAll("a.nav-link");
 
   links.forEach(link => {
     const href = link.getAttribute("href")?.replace(/\/$/, "");
-    if (!href) return;
+    if (!href || href.startsWith("#")) return; // Skip collapse toggles
 
     if (current.endsWith(href)) {
       link.classList.add("active");
       link.classList.add("bg-primary");
       link.classList.add("text-white");
+
+      // Auto-expand parent Bootstrap Collapse submenu if exists
+      const parentCollapse = link.closest(".collapse");
+      if (parentCollapse) {
+        parentCollapse.classList.add("show");
+        // Also update aria-expanded on the toggle button
+        const toggle = document.querySelector(`[href="#${parentCollapse.id}"]`);
+        if (toggle) toggle.setAttribute("aria-expanded", "true");
+      }
     }
   });
 

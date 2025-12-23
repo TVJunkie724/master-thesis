@@ -87,7 +87,7 @@ AZURE_RECOMMENDED_REGIONS_Y1_LINUX = [
 # ==========================================
 IOT_DATA_DIR_NAME = "iot_devices_auth"
 LAMBDA_FUNCTIONS_DIR_NAME = "lambda_functions"
-EVENT_ACTIONS_DIR_NAME = "lambda_functions/event_actions"
+EVENT_ACTIONS_DIR_NAME = "event_actions"
 PROJECT_UPLOAD_DIR_NAME = "upload"
 STATE_MACHINES_DIR_NAME = "state_machines"
 
@@ -109,7 +109,7 @@ GOOGLE_STATE_MACHINE_FILE = "google_cloud_workflow.json"
 STATE_MACHINE_SIGNATURES = {
     AWS_STATE_MACHINE_FILE: ["StartAt", "States"],
     AZURE_STATE_MACHINE_FILE: ["definition"], 
-    GOOGLE_STATE_MACHINE_FILE: ["main", "steps"]
+    GOOGLE_STATE_MACHINE_FILE: ["main"]  # 'steps' is inside 'main', not top-level
 }
 
 # ==========================================

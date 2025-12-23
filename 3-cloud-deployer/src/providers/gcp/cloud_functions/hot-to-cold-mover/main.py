@@ -64,6 +64,7 @@ INTER_CLOUD_TOKEN = os.environ.get("INTER_CLOUD_TOKEN", "")
 
 # Retention period - items older than this are moved
 RETENTION_DAYS = int(os.environ.get("HOT_RETENTION_DAYS", "7"))
+FIRESTORE_DATABASE = os.environ.get("FIRESTORE_DATABASE", "(default)")
 
 # Firestore and Storage clients
 _firestore_client = None
@@ -74,9 +75,10 @@ MAX_CHUNK_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
 def _get_firestore_client():
+    """Lazy initialization of Firestore client with named database support."""
     global _firestore_client
     if _firestore_client is None:
-        _firestore_client = firestore.Client()
+        _firestore_client = firestore.Client(database=FIRESTORE_DATABASE)
     return _firestore_client
 
 

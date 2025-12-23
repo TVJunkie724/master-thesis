@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 from src.function_registry import get_functions_for_provider_build
+from src.core.config_loader import load_optimization_flags as _load_optimization_flags
 from src.providers.azure.azure_bundler import (
     bundle_l0_functions as _azure_bundle_l0,
     bundle_l1_functions as _azure_bundle_l1,
@@ -55,8 +56,9 @@ def build_all_packages(
     terraform_dir = Path(terraform_dir) if isinstance(terraform_dir, str) else terraform_dir
     project_path = Path(project_path) if isinstance(project_path, str) else project_path
     
-    build_dir = terraform_dir / BUILD_DIR
-    build_dir.mkdir(parents=True, exist_ok=True)
+    # NOTE: Build directories are created by individual builder functions
+    # (aws -> project_path/.build/aws/, gcp -> project_path/.build/gcp/, etc.)
+    # Do NOT create terraform_dir/.build/ - that pollutes the shared /src directory!
     
     packages = {}
     
@@ -71,6 +73,11 @@ def build_all_packages(
     # Build GCP Cloud Function packages
     gcp_packages = build_gcp_cloud_function_packages(terraform_dir, project_path, providers_config)
     packages.update(gcp_packages)
+    
+    # Build user function packages (processors, event_actions, event_feedback)
+    # These are per-device/per-function ZIPs needed for GCP's individual Cloud Function architecture
+    user_packages = build_user_packages(project_path, providers_config)
+    packages.update(user_packages)
     
     logger.info(f"✓ Built {len(packages)} function packages")
     return packages
@@ -97,8 +104,11 @@ def build_aws_lambda_packages(
     
     packages = {}
     
+    # Load optimization flags from config_optimization.json
+    optimization_flags = _load_optimization_flags(project_path)
+    
     # Get functions from registry (replaces hardcoded boundary logic)
-    functions_to_build = get_functions_for_provider_build("aws", providers_config)
+    functions_to_build = get_functions_for_provider_build("aws", providers_config, optimization_flags)
     
     # Build each function
     for func_name in functions_to_build:
@@ -407,6 +417,21 @@ def build_azure_user_bundle(project_path: Path, providers_config: dict, optimiza
 
 
 
+
+def _should_include_file(file_path: Path) -> bool:
+    """
+    Check if a file should be included in the function ZIP.
+    Excludes .zip files, .git*, .DS_Store, and __pycache__ directories.
+    """
+    if '__pycache__' in str(file_path):
+        return False
+    if file_path.name.startswith('.git') or file_path.name == '.DS_Store':
+        return False
+    if file_path.suffix.lower() == '.zip':
+        return False
+    return True
+
+
 def _create_lambda_zip(
     func_dir: Path, 
     shared_dir: Path, 
@@ -427,14 +452,14 @@ def _create_lambda_zip(
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         # Add function files
         for file_path in func_dir.rglob('*'):
-            if file_path.is_file() and '__pycache__' not in str(file_path):
+            if file_path.is_file() and _should_include_file(file_path):
                 arcname = file_path.relative_to(func_dir)
                 zf.write(file_path, arcname)
         
         # Add shared modules
         if shared_dir.exists():
             for file_path in shared_dir.rglob('*'):
-                if file_path.is_file() and '__pycache__' not in str(file_path):
+                if file_path.is_file() and _should_include_file(file_path):
                     arcname = f"_shared/{file_path.relative_to(shared_dir)}"
                     zf.write(file_path, arcname)
 
@@ -443,7 +468,7 @@ def _create_azure_function_zip(app_dir: Path, output_path: Path) -> None:
     """Create an Azure Function App deployment ZIP."""
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         for file_path in app_dir.rglob('*'):
-            if file_path.is_file() and '__pycache__' not in str(file_path):
+            if file_path.is_file() and _should_include_file(file_path):
                 arcname = file_path.relative_to(app_dir)
                 zf.write(file_path, arcname)
 
@@ -507,11 +532,9 @@ def build_gcp_cloud_function_packages(
             shutil.copytree(func_dir, dest_dir)
             
             zip_path = build_dir / f"{func_name}.zip"
-            # Processor gets user code merged
-            if func_name == "processor_wrapper":
-                _create_gcp_function_zip(func_dir, shared_dir, zip_path, project_path)
-            else:
-                _create_gcp_function_zip(func_dir, shared_dir, zip_path)
+            # Note: processor_wrapper no longer merges user code - per-device processors
+            # are built separately via build_user_packages() which creates individual ZIPs
+            _create_gcp_function_zip(func_dir, shared_dir, zip_path)
             packages[f"gcp_{func_name}"] = zip_path
             logger.info(f"  ✓ Built GCP: {func_name}.zip")
         else:
@@ -547,9 +570,13 @@ def _create_gcp_function_zip(
         device_id: Optional device ID for processor renaming
     """
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-        # Add function code
+        # Add function code (skip requirements.txt - will merge with defaults later)
         for file_path in func_dir.rglob('*'):
-            if file_path.is_file() and '__pycache__' not in str(file_path):
+            if file_path.is_file() and _should_include_file(file_path):
+                # Skip requirements.txt - we'll merge it with defaults
+                if file_path.name == 'requirements.txt':
+                    continue
+                    
                 arcname = file_path.relative_to(func_dir)
                 
                 # Apply renaming logic to main.py for processors
@@ -563,14 +590,41 @@ def _create_gcp_function_zip(
         # Add shared modules under _shared/
         if shared_dir and shared_dir.exists():
             for file_path in shared_dir.rglob('*'):
-                if file_path.is_file() and '__pycache__' not in str(file_path):
+                if file_path.is_file() and _should_include_file(file_path):
                     arcname = Path("_shared") / file_path.relative_to(shared_dir)
                     zf.write(file_path, arcname)
         
-        # Add requirements.txt if not present
-        if not (func_dir / "requirements.txt").exists():
-            requirements = "functions-framework\ngoogle-cloud-firestore\ngoogle-cloud-storage\ngoogle-cloud-pubsub\n"
-            zf.writestr("requirements.txt", requirements)
+        # Merge defaults with function's requirements.txt (always include defaults)
+        defaults = {"functions-framework", "requests", "google-cloud-firestore", 
+                   "google-cloud-storage", "google-cloud-pubsub"}
+        func_req = func_dir / "requirements.txt"
+        if func_req.exists():
+            for line in func_req.read_text().strip().splitlines():
+                if line.strip() and not line.startswith('#'):
+                    defaults.add(line.strip())
+        zf.writestr("requirements.txt", '\n'.join(sorted(defaults)) + '\n')
+
+
+
+def _rewrite_gcp_function_names(content: str, twin_name: str, device_id: str) -> str:
+    """
+    Rewrite function names in GCP Cloud Function code.
+    
+    This handles any necessary renaming of entry points or identifiers
+    to match the GCP naming constraints and project structure.
+    
+    Args:
+        content: The python source code content
+        twin_name: The digital twin name
+        device_id: The device ID
+        
+    Returns:
+        Modified source code
+    """
+    # Currently no rewriting needed for Decoupled Invoke pattern
+    # The entry point is defined in main.py as 'process' or similar
+    # and configured via Cloud Function entry_point setting.
+    return content
 
 
 def _create_gcp_processor_zip(
@@ -592,14 +646,14 @@ def _create_gcp_processor_zip(
         # 1. Add base processor code (main.py, etc.)
         if base_dir.exists():
             for file_path in base_dir.rglob('*'):
-                if file_path.is_file() and '__pycache__' not in str(file_path):
+                if file_path.is_file() and _should_include_file(file_path):
                     arcname = file_path.relative_to(base_dir)
                     zf.write(file_path, arcname)
         
         # 2. Add shared modules under _shared/
         if shared_dir and shared_dir.exists():
             for file_path in shared_dir.rglob('*'):
-                if file_path.is_file() and '__pycache__' not in str(file_path):
+                if file_path.is_file() and _should_include_file(file_path):
                     arcname = Path("_shared") / file_path.relative_to(shared_dir)
                     zf.write(file_path, arcname)
         
@@ -607,7 +661,7 @@ def _create_gcp_processor_zip(
         # Skip requirements.txt - will merge later
         if user_dir.exists():
             for file_path in user_dir.rglob('*.py'):
-                if '__pycache__' not in str(file_path):
+                if _should_include_file(file_path):
                     arcname = file_path.relative_to(user_dir)
                     zf.write(file_path, arcname)
             logger.info(f"    → Merged user processor code from: {user_dir}")
@@ -748,8 +802,12 @@ def build_user_packages(
     if l2_provider not in ("aws", "azure", "google"):
         raise ValueError(f"Invalid layer_2_provider: {l2_provider}")
     
+    # Normalize google -> gcp for consistent paths with other package builders
+    # This ensures ZIPs go to .build/gcp/ where tfvars_generator expects them
+    build_provider = "gcp" if l2_provider == "google" else l2_provider
+    
     # Build output directory in project
-    build_dir = project_path / ".build" / l2_provider
+    build_dir = project_path / ".build" / build_provider
     build_dir.mkdir(parents=True, exist_ok=True)
     
     packages = {}
@@ -972,14 +1030,16 @@ def _create_event_feedback_with_wrapper(
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         # 1. Add wrapper files (lambda_function.py/function_app.py/main.py, etc.)
         for file_path in wrapper_dir.rglob('*'):
-            if file_path.is_file() and '__pycache__' not in str(file_path):
+            if file_path.is_file() and _should_include_file(file_path):
                 arcname = file_path.relative_to(wrapper_dir)
                 zf.write(file_path, arcname)
         
         # 2. Add user's process.py at root level (required for 'from process import process')
         # Skip requirements.txt - will merge later
+        # 2. Add user's process.py at root level (required for 'from process import process')
+        # Skip requirements.txt - will merge later
         for file_path in feedback_dir.rglob('*'):
-            if file_path.is_file() and '__pycache__' not in str(file_path):
+            if file_path.is_file() and _should_include_file(file_path):
                 if file_path.name == 'requirements.txt':
                     continue  # Skip - will merge
                 arcname = file_path.relative_to(feedback_dir)
@@ -990,14 +1050,14 @@ def _create_event_feedback_with_wrapper(
             shared_dir = Path(__file__).parent.parent / 'aws' / 'lambda_functions' / '_shared'
             if shared_dir.exists():
                 for file_path in shared_dir.rglob('*'):
-                    if file_path.is_file() and '__pycache__' not in str(file_path):
+                    if file_path.is_file() and _should_include_file(file_path):
                         arcname = f"_shared/{file_path.relative_to(shared_dir)}"
                         zf.write(file_path, arcname)
         elif provider == 'google':
             shared_dir = Path(__file__).parent.parent / 'gcp' / 'cloud_functions' / '_shared'
             if shared_dir.exists():
                 for file_path in shared_dir.rglob('*'):
-                    if file_path.is_file() and '__pycache__' not in str(file_path):
+                    if file_path.is_file() and _should_include_file(file_path):
                         arcname = f"_shared/{file_path.relative_to(shared_dir)}"
                         zf.write(file_path, arcname)
         
@@ -1179,7 +1239,7 @@ def _add_function_to_combined_zip(
 ) -> None:
     """Add a function directory to the combined ZIP under its own folder."""
     for file_path in func_dir.rglob('*'):
-        if file_path.is_file() and '__pycache__' not in str(file_path):
+        if file_path.is_file() and _should_include_file(file_path):
             arcname = f"{func_name}/{file_path.relative_to(func_dir)}"
             zf.write(file_path, arcname)
             # Update hash
@@ -1201,7 +1261,7 @@ def _add_processor_to_combined_zip(
     # Add wrapper files to processor folder
     if wrapper_dir.exists():
         for file_path in wrapper_dir.rglob('*'):
-            if file_path.is_file() and '__pycache__' not in str(file_path):
+            if file_path.is_file() and _should_include_file(file_path):
                 arcname = f"{func_name}/{file_path.relative_to(wrapper_dir)}"
                 zf.write(file_path, arcname)
                 hasher.update(arcname.encode('utf-8'))
@@ -1210,8 +1270,9 @@ def _add_processor_to_combined_zip(
     
     # Add processor user code at same level as function_app.py
     # The wrapper does "from process import process" so process.py must be at root
+    # The wrapper does "from process import process" so process.py must be at root
     for file_path in proc_dir.rglob('*'):
-        if file_path.is_file() and '__pycache__' not in str(file_path):
+        if file_path.is_file() and _should_include_file(file_path):
             # Put at root level (same as function_app.py) for import to work
             arcname = f"{func_name}/{file_path.relative_to(proc_dir)}"
             zf.write(file_path, arcname)

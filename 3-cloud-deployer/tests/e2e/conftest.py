@@ -330,9 +330,13 @@ def azure_credentials(template_project_path):
 @pytest.fixture(scope="session")
 def gcp_terraform_e2e_test_id():
     """
-    Fixed, deterministic ID for GCP Terraform E2E test runs.
+    Unique ID for GCP Terraform E2E test runs.
+    
+    Includes a short UUID suffix to avoid Firestore database deletion cooldown.
+    GCP Firestore requires ~5 minute wait before reusing a deleted database ID.
     """
-    return "gcp-e2e-test"
+    suffix = uuid.uuid4().hex[:4]  # Short 4-char suffix for uniqueness
+    return f"gcp-e2e-{suffix}"
 
 
 @pytest.fixture(scope="session")

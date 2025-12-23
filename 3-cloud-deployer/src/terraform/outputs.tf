@@ -379,7 +379,7 @@ output "gcp_connector_url" {
 
 output "gcp_processor_url" {
   description = "URL of the processor function"
-  value       = try(google_cloudfunctions2_function.processor[0].url, null)
+  value       = try(google_cloudfunctions2_function.processor_wrapper[0].url, null)
 }
 
 output "gcp_persister_url" {
@@ -394,7 +394,7 @@ output "gcp_event_checker_url" {
 
 output "gcp_user_functions_url" {
   description = "URL of the user functions (event actions, processors)"
-  value       = try(google_cloudfunctions2_function.processor[0].url, null)
+  value       = try(google_cloudfunctions2_function.processor_wrapper[0].url, null)
 }
 
 output "gcp_event_workflow_id" {

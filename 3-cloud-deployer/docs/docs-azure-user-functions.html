@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Azure User Functions — Deployer Documentation</title>
+    <link rel="icon" type="image/x-icon" href="references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="css/docs_styles.css" />
+</head>
+
+<body>
+
+    <div class="layout">
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+            <h1 class="mb-3">
+                <i class="fa-brands fa-microsoft me-2"></i> Azure User Functions (Processors)
+            </h1>
+
+            <p class="text-muted mb-4">
+                Architecture, packaging, and data flow guide for user-defined processor functions on Azure.
+            </p>
+
+            <div class="callout info mb-4">
+                <strong><i class="fa-solid fa-check-circle me-2"></i>Status: Active</strong>
+                Decoupled HTTP pattern between Infrastructure App and User Function App.
+            </div>
+
+            <!-- Table of Contents -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Table of Contents</h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#high-level-architecture">High-Level Architecture</a></li>
+                                <li><a href="#naming-discovery">Naming & Discovery</a></li>
+                                <li><a href="#packaging-bundling">Packaging & Bundling</a></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#configuration">Configuration & Environment</a></li>
+                                <li><a href="#development-flow">Development Flow</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4" id="high-level-architecture">
+                <h2 class="mb-3"><i class="fa-solid fa-sitemap me-2"></i>High-Level Architecture</h2>
+                <p>The Azure implementation uses a <strong>Decoupled HTTP Pattern</strong> where the infrastructure
+                    wrapper invokes the user-defined logic via internal HTTP calls between Function Apps.</p>
+
+                <div class="card bg-dark text-white mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Flow Diagram</h5>
+                        <div class="mermaid-diagram text-center">
+                            Dispatcher (→ Connector → Ingestion) → Wrapper [L2 Infrastructure App] <br>
+                            ↓ <br>
+                            User Processor [User Function App] (HTTP POST) <br>
+                            ↓ <br>
+                            Wrapper → Persister [L2 Infrastructure App] → CosmosDB [L3 Hot Storage]
+                        </div>
+                    </div>
+                </div>
+
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>App Resource</th>
+                            <th>Function Name</th>
+                            <th>Role</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Wrapper</strong></td>
+                            <td><code>l2-functions</code></td>
+                            <td><code>processor</code></td>
+                            <td>Infrastructure. Routes events to user processors via HTTP.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>User Processor</strong></td>
+                            <td><code>user-functions</code></td>
+                            <td><code>{twin}-{device}-processor</code></td>
+                            <td>User Code. Processes telemetry. Dedicated app allows independent updates.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Persister</strong></td>
+                            <td><code>l2-functions</code></td>
+                            <td><code>persister</code></td>
+                            <td>Infrastructure. Writes to Cosmos DB.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card mb-4" id="naming-discovery">
+                <h2 class="mb-3"><i class="fa-solid fa-magnifying-glass me-2"></i>Naming & Discovery</h2>
+                <ul>
+                    <li><strong>App URL:</strong> <code>https://{twin}-user-functions.azurewebsites.net</code></li>
+                    <li><strong>Function Route:</strong> <code>/api/{twin}-{device}-processor</code></li>
+                    <li><strong>Discovery:</strong> The Wrapper uses the <code>FUNCTION_APP_BASE_URL</code> environment
+                        variable to locate the User Function App, then appends the specific processor path.</li>
+                    <li><strong>Invocation:</strong> Standard HTTP POST using <code>urllib</code>.</li>
+                </ul>
+
+                <h5 class="mt-3">Code Reference</h5>
+                <p><code>src/providers/azure/azure_functions/processor_wrapper/function_app.py</code></p>
+                <div class="bg-dark text-white p-3 rounded">
+                    <pre><code>def _get_processor_url(device_id: str) -> str:
+    # FUNCTION_APP_BASE_URL injected by Terraform
+    base_url = os.environ.get("FUNCTION_APP_BASE_URL", "")
+    processor_name = f"{twin_name}-{device_id}-processor"
+    return f"{base_url}/api/{processor_name}"</code></pre>
+                </div>
+            </div>
+
+            <div class="card mb-4" id="packaging-bundling">
+                <h2 class="mb-3"><i class="fa-solid fa-box-open me-2"></i>Packaging & Bundling</h2>
+                <p>The bundling process is handled by <code>src/providers/terraform/package_builder.py</code>. Unlike
+                    AWS/GCP, Azure <strong>bundles all user functions together</strong> into a single Function App.</p>
+
+                <h5 class="mt-3">Build Process</h5>
+                <ol>
+                    <li><strong>Iterate Devices:</strong> Reads <code>config_iot_devices.json</code>.</li>
+                    <li><strong>Locate Code:</strong> Looks for user code in
+                        <code>upload/{project}/azure_functions/processors/{device_id}/</code>.
+                    </li>
+                    <li><strong>Build Bundle:</strong> Creates a <strong>single</strong> ZIP file containing all user
+                        processors.
+                        <ul>
+                            <li>File: <code>.build/azure/user_functions_combined.zip</code></li>
+                            <li><strong>Structure:</strong>
+                                <ul>
+                                    <li><code>host.json</code></li>
+                                    <li><code>function_app.py</code> (Main entry point generated dynamically)</li>
+                                    <li><code>processor-{device_id}/</code> (User code module)</li>
+                                    <li><code>event-feedback/</code> (User code module)</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                    <li><strong>Blueprint Registration:</strong> The builder automatically generates a main
+                        <code>function_app.py</code> that imports and registers each user function as a Blueprint.
+                    </li>
+                </ol>
+
+                <h5 class="mt-3">Terraform Deployment</h5>
+                <p><code>src/terraform/azure_compute.tf</code> deploys this <em>single</em> bundle to the User Function
+                    App:</p>
+                <div class="bg-dark text-white p-3 rounded">
+                    <pre><code>resource "azurerm_linux_function_app" "user" {
+  name = "${var.digital_twin_name}-user-functions"
+  zip_deploy_file = var.azure_user_zip_path
+  ...
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="card mb-4" id="configuration">
+                <h2 class="mb-3"><i class="fa-solid fa-gear me-2"></i>Configuration & Environment</h2>
+                <p>The Wrapper depends on correct Environment Variables to find the User App.</p>
+                <ul>
+                    <li><strong>Configured in:</strong> <code>azurerm_linux_function_app.l2</code> (in
+                        <code>azure_compute.tf</code>)
+                    </li>
+                    <li><strong>Key Variable:</strong> <code>FUNCTION_APP_BASE_URL</code></li>
+                    <li><strong>Value Pattern:</strong>
+                        <code>https://${var.digital_twin_name}-user-functions.azurewebsites.net</code>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="card mb-4" id="development-flow">
+                <h2 class="mb-3"><i class="fa-solid fa-code me-2"></i>Development Flow</h2>
+                <ol>
+                    <li><strong>Create Processor:</strong> User creates a folder <code>processors/{device_id}</code>.
+                    </li>
+                    <li><strong>Add Code:</strong> User adds <code>function_app.py</code> using the Blueprint pattern.
+                    </li>
+                    <li><strong>Deploy:</strong>
+                        <ul>
+                            <li><code>package_builder.py</code> bundles this folder into the combined ZIP.</li>
+                            <li>It generates a root <code>function_app.py</code> that registers
+                                <code>processor-{device_id}.function_app.bp</code>.
+                            </li>
+                            <li>Terraform updates the User Function App with the new ZIP.</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/docs-nav.js"></script>
+</body>
+
+</html>

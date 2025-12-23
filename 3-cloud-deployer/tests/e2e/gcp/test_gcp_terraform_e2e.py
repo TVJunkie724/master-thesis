@@ -361,15 +361,41 @@ class TestGCPTerraformE2E:
             pytest.skip("Hot Reader URL not available")
         
         try:
-            # Query for last entry
-            response = requests.get(
-                hot_reader_url,
-                params={
-                    "iotDeviceId": test_device_id,
-                    "limit": 1
-                },
-                timeout=30
-            )
+            # Get ID token for authenticated request to Cloud Run-backed function
+            from google.auth.transport.requests import Request
+            from google.oauth2 import id_token
+            
+            auth_req = Request()
+            token = id_token.fetch_id_token(auth_req, hot_reader_url)
+            headers = {"Authorization": f"Bearer {token}"}
+            
+            # Query for last entry with authentication
+            # Retry logic for index propagation (E2E only - index may not be ready immediately)
+            max_retries = 3
+            response = None
+            
+            for attempt in range(max_retries):
+                response = requests.get(
+                    hot_reader_url,
+                    params={
+                        "iotDeviceId": test_device_id,
+                        "limit": 1
+                    },
+                    headers=headers,
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    break
+                
+                # Check if this is an index propagation issue
+                if "requires an index" in response.text and attempt < max_retries - 1:
+                    print(f"[DATA] Index not ready, retrying in 30s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(30)
+                    continue
+                
+                # Non-index error or final attempt - exit loop
+                break
             
             if response.status_code == 200:
                 data = response.json()
@@ -382,7 +408,8 @@ class TestGCPTerraformE2E:
                     print("[DATA] ⚠ No data found yet - may need more propagation time")
             else:
                 print(f"[DATA] Hot Reader returned: {response.status_code}")
-                pytest.skip(f"Hot Reader returned {response.status_code}")
+                print(f"[DATA] Response body: {response.text[:500]}")  # Capture error details
+                pytest.skip(f"Hot Reader returned {response.status_code}: {response.text[:200]}")
                 
         except Exception as e:
             print(f"[DATA] Warning: Could not verify Firestore data: {e}")

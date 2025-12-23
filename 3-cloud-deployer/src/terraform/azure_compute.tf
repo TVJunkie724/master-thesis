@@ -95,6 +95,9 @@ resource "azurerm_linux_function_app" "l2" {
     LOGIC_APP_TRIGGER_URL = var.trigger_notification_workflow && var.use_event_checking ? (
       try(azurerm_logic_app_trigger_http_request.event_trigger[0].callback_url, "")
     ) : ""
+
+    # NEW: Required for Wrapper to find User Functions
+    FUNCTION_APP_BASE_URL = "https://${var.digital_twin_name}-user-functions.azurewebsites.net"
   }
 
   tags = local.common_tags

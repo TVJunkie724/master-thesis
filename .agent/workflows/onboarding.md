@@ -114,14 +114,20 @@ E2E tests in `tests/e2e/` deploy real cloud resources that cost money.
 
 ### E2E Test Protocol
 When running E2E tests (with explicit user permission):
-1. Run the test
-2. **STOP immediately** after test completes
-3. Collect all outputs:
-   - `test_results.txt` (from pytest hook)
-   - `terraform_outputs.json` (if saved)
-   - Console output
-4. **Return to PLANNING mode**
-5. Discuss results with user before any further action
+
+**⚠️ ALWAYS use the helper script** - never run pytest directly for E2E tests:
+```bash
+# ✅ CORRECT: Use helper script (saves full output to e2e_output.txt)
+docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python tests/e2e/run_e2e_test.py --provider gcp
+
+# ❌ WRONG: Direct pytest (truncates output, loses critical info)
+docker exec ... python -m pytest tests/e2e/gcp/test_gcp_terraform_e2e.py
+```
+
+**After test completes:**
+1. Read the output file: `view_file: 3-cloud-deployer/e2e_output.txt`
+2. **STOP immediately** - return to PLANNING mode
+3. Discuss results with user before any further action
 
 ### ALWAYS Check implementation_plans/ First
 Before creating a new implementation plan, check if one already exists for your task.

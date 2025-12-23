@@ -43,6 +43,7 @@ def _get_digital_twin_info():
 
 # Optional environment variables (only used in certain modes)
 FIRESTORE_COLLECTION = os.environ.get("FIRESTORE_COLLECTION", "hot_data")
+FIRESTORE_DATABASE = os.environ.get("FIRESTORE_DATABASE", "(default)")
 EVENT_CHECKER_FUNCTION_URL = os.environ.get("EVENT_CHECKER_FUNCTION_URL", "")
 
 # Firestore client (initialized lazily)
@@ -50,10 +51,10 @@ _firestore_client = None
 
 
 def _get_firestore_client():
-    """Lazy initialization of Firestore client."""
+    """Lazy initialization of Firestore client with named database support."""
     global _firestore_client
     if _firestore_client is None:
-        _firestore_client = firestore.Client()
+        _firestore_client = firestore.Client(database=FIRESTORE_DATABASE)
     return _firestore_client
 
 

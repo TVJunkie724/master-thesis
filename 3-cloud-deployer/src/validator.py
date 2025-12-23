@@ -347,6 +347,15 @@ def validate_state_machine_content(filename, content):
              if "definition" in json_content:
                  pass
         
+        # Special handling for GCP - 'steps' is nested inside 'main', not top-level
+        if filename == CONSTANTS.GOOGLE_STATE_MACHINE_FILE:
+            if "main" not in json_content:
+                raise ValueError(f"GCP Workflow missing required 'main' block")
+            main_block = json_content.get("main", {})
+            if "steps" not in main_block:
+                raise ValueError(f"GCP Workflow 'main' block missing required 'steps' array")
+            return  # Valid GCP workflow
+        
         if missing_keys:
              if filename == CONSTANTS.AZURE_STATE_MACHINE_FILE and "definition" in json_content:
                  pass 

@@ -183,20 +183,44 @@ def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None
 
 
 def check_state_machines(accessor: FileAccessor, ctx: ValidationContext) -> None:
-    """Validate state machine file contents."""
+    """
+    Validate state machine file content ONLY if:
+    1. triggerNotificationWorkflow is enabled in config_optimization.json
+    2. Only validates the state machine for the configured layer_2_provider
+    """
     from src.validator import validate_state_machine_content
     
+    # Check if state machine validation is even needed
+    opt_params = ctx.opt_config.get("result", {}).get("inputParamsUsed", {})
+    if not opt_params.get("triggerNotificationWorkflow", False):
+        return  # State machine not required, skip validation entirely
+    
+    # Get configured provider
+    l2_provider = ctx.prov_config.get("layer_2_provider", "").lower()
+    
+    # Map provider to expected state machine file
+    provider_state_machine = {
+        "aws": CONSTANTS.AWS_STATE_MACHINE_FILE,
+        "azure": CONSTANTS.AZURE_STATE_MACHINE_FILE,
+        "google": CONSTANTS.GOOGLE_STATE_MACHINE_FILE,
+        "gcp": CONSTANTS.GOOGLE_STATE_MACHINE_FILE,
+    }
+    
+    target_file = provider_state_machine.get(l2_provider)
+    if not target_file:
+        return  # Unknown provider, skip
+    
+    # Only validate the provider's state machine if it exists
     for filepath in ctx.all_files:
-        basename = os.path.basename(filepath)
-        
-        if basename in CONSTANTS.STATE_MACHINE_SIGNATURES:
+        if os.path.basename(filepath) == target_file:
             try:
                 content = accessor.read_text(filepath)
-                validate_state_machine_content(basename, content)
+                validate_state_machine_content(target_file, content)
             except ValueError:
                 raise
             except Exception as e:
-                raise ValueError(f"State Machine validation failed for {basename}: {e}")
+                raise ValueError(f"State Machine validation failed for {target_file}: {e}")
+            return  # Found and validated
 
 
 def check_processor_syntax(accessor: FileAccessor, ctx: ValidationContext, l2_provider: str = None) -> None:
@@ -355,11 +379,21 @@ def check_credentials_per_provider(ctx: ValidationContext) -> None:
         if key.startswith("layer_") and value:
             configured_providers.add(value.lower())
     
+    # Normalize provider names for credentials lookup
+    # config_providers.json uses "google" but config_credentials.json uses "gcp"
+    provider_to_cred_key = {
+        "google": "gcp",
+        "gcp": "gcp",
+        "aws": "aws",
+        "azure": "azure",
+    }
+    
     for provider in configured_providers:
-        if provider not in ctx.credentials_config:
+        cred_key = provider_to_cred_key.get(provider, provider)
+        if cred_key not in ctx.credentials_config:
             raise ValueError(
                 f"Missing credentials for provider '{provider}'. "
-                f"Add '{provider}' section to config_credentials.json."
+                f"Add '{cred_key}' section to config_credentials.json."
             )
 
 

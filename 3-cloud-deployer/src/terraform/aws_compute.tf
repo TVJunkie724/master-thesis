@@ -97,6 +97,27 @@ resource "aws_iam_role_policy" "l2_s3" {
   })
 }
 
+# L2 Lambda Invocation (Wrapper calling User Processors)
+resource "aws_iam_role_policy" "l2_invoke_lambda" {
+  count = local.l2_aws_enabled ? 1 : 0
+  name  = "${var.digital_twin_name}-l2-invoke-policy"
+  role  = aws_iam_role.l2_lambda[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:InvokeFunction"
+        ]
+        # Allow invoking any function starting with the digital twin name (processors, feedback, etc.)
+        Resource = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:function:${var.digital_twin_name}-*"
+      }
+    ]
+  })
+}
+
 # ==============================================================================
 # Persister Lambda Function
 # ==============================================================================

@@ -26,16 +26,17 @@ except ModuleNotFoundError:
 # Optional - for protected endpoints
 INTER_CLOUD_TOKEN = os.environ.get("INTER_CLOUD_TOKEN", "")
 FIRESTORE_COLLECTION = os.environ.get("FIRESTORE_COLLECTION", "hot_data")
+FIRESTORE_DATABASE = os.environ.get("FIRESTORE_DATABASE", "(default)")
 
 # Firestore client
 _firestore_client = None
 
 
 def _get_firestore_client():
-    """Lazy initialization of Firestore client."""
+    """Lazy initialization of Firestore client with named database support."""
     global _firestore_client
     if _firestore_client is None:
-        _firestore_client = firestore.Client()
+        _firestore_client = firestore.Client(database=FIRESTORE_DATABASE)
     return _firestore_client
 
 

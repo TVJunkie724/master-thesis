@@ -480,56 +480,8 @@ class TestGetGcpZipPath:
         assert path == expected
 
 
-class TestProcessorUserCodeMerge:
-    """Tests for processor user code merging functionality."""
-    
-    def test_merges_user_processor_code(self, tmp_path):
-        """Should merge user processor code into processor ZIP."""
-        # Create function directory
-        func_dir = tmp_path / "processor_wrapper"
-        func_dir.mkdir()
-        (func_dir / "main.py").write_text('''
-from process import process
 
-def main(request):
-    return process(request.get_json())
-''')
-        
-        # Create project with user processor
-        project_path = tmp_path / "project"
-        user_processor_dir = project_path / "processors" / "default_processor"
-        user_processor_dir.mkdir(parents=True)
-        (user_processor_dir / "process.py").write_text('''
-def process(data):
-    return {"processed": True, "data": data}
-''')
-        
-        shared_dir = tmp_path / "_shared"
-        shared_dir.mkdir()
-        
-        output = tmp_path / "processor.zip"
-        _create_gcp_function_zip(func_dir, shared_dir, output, project_path)
-        
-        with zipfile.ZipFile(output) as zf:
-            names = zf.namelist()
-            assert "main.py" in names, "Should have base main.py"
-            assert "process.py" in names, "Should have merged user process.py"
-    
-    def test_works_without_user_code(self, tmp_path):
-        """Should work even if no user processor code exists."""
-        func_dir = tmp_path / "processor_wrapper"
-        func_dir.mkdir()
-        (func_dir / "main.py").write_text("def main(r): pass")
-        
-        project_path = tmp_path / "project"
-        project_path.mkdir()  # No processors directory
-        
-        shared_dir = tmp_path / "_shared"
-        shared_dir.mkdir()
-        
-        output = tmp_path / "processor.zip"
-        _create_gcp_function_zip(func_dir, shared_dir, output, project_path)
-        
-        assert output.exists()
-        with zipfile.ZipFile(output) as zf:
-            assert "main.py" in zf.namelist()
+# Note: TestProcessorUserCodeMerge was removed - it tested deprecated legacy behavior
+# where processor_wrapper merged user code. Per-device processors are now built 
+# separately via build_user_packages() and tested in integration tests.
+

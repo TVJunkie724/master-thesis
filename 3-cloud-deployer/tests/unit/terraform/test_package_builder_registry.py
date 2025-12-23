@@ -137,6 +137,65 @@ class TestRegistryFunctionLists:
         assert "digital-twin-data-connector" not in functions, "AWS-only connector should NOT be in GCP"
 
 
+class TestOptionalFunctionsWithFlags:
+    """Tests for optional function inclusion based on optimization flags."""
+    
+    @pytest.fixture
+    def all_aws_config(self):
+        return {
+            "layer_1_provider": "aws",
+            "layer_2_provider": "aws",
+            "layer_3_hot_provider": "aws",
+            "layer_4_provider": "aws",
+        }
+    
+    def test_event_checker_excluded_without_flag(self, all_aws_config):
+        """event-checker should be EXCLUDED when useEventChecking is False."""
+        functions = get_functions_for_provider_build("aws", all_aws_config, {})
+        assert "event-checker" not in functions, "event-checker should NOT be included without flag"
+    
+    def test_event_checker_included_with_flag(self, all_aws_config):
+        """event-checker should be INCLUDED when useEventChecking is True."""
+        functions = get_functions_for_provider_build(
+            "aws", all_aws_config, {"useEventChecking": True}
+        )
+        assert "event-checker" in functions, "event-checker SHOULD be included when useEventChecking=True"
+    
+    def test_event_feedback_excluded_without_flag(self, all_aws_config):
+        """event-feedback should be EXCLUDED when returnFeedbackToDevice is False."""
+        functions = get_functions_for_provider_build("aws", all_aws_config, {})
+        assert "event-feedback" not in functions, "event-feedback should NOT be included without flag"
+    
+    def test_event_feedback_included_with_flag(self, all_aws_config):
+        """event-feedback should be INCLUDED when returnFeedbackToDevice is True."""
+        functions = get_functions_for_provider_build(
+            "aws", all_aws_config, {"returnFeedbackToDevice": True}
+        )
+        assert "event-feedback" in functions, "event-feedback SHOULD be included when returnFeedbackToDevice=True"
+    
+    def test_both_optional_functions_included(self, all_aws_config):
+        """Both optional functions should be included when both flags are True."""
+        functions = get_functions_for_provider_build(
+            "aws", all_aws_config, 
+            {"useEventChecking": True, "returnFeedbackToDevice": True}
+        )
+        assert "event-checker" in functions, "event-checker should be included"
+        assert "event-feedback" in functions, "event-feedback should be included"
+    
+    def test_azure_optional_functions_with_flags(self):
+        """Azure should also respect optimization flags for optional functions."""
+        azure_config = {
+            "layer_1_provider": "azure",
+            "layer_2_provider": "azure",
+            "layer_3_hot_provider": "azure",
+            "layer_4_provider": "azure",
+        }
+        functions = get_functions_for_provider_build(
+            "azure", azure_config, {"useEventChecking": True}
+        )
+        assert "event-checker" in functions, "Azure event-checker should be included with flag"
+
+
 class TestNoHardcodedLists:
     """Meta-tests to verify no hardcoded lists in package_builder.py."""
     

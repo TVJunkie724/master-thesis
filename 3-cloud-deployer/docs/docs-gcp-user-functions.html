@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>GCP User Functions — Deployer Documentation</title>
+    <link rel="icon" type="image/x-icon" href="references/favicon.ico">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="css/docs_styles.css" />
+</head>
+
+<body>
+
+    <div class="layout">
+        <aside id="nav-placeholder"></aside>
+
+        <main class="p-4">
+            <h1 class="mb-3">
+                <i class="fa-brands fa-google me-2"></i> GCP User Functions (Processors)
+            </h1>
+
+            <p class="text-muted mb-4">
+                Architecture, packaging, and data flow guide for user-defined processor functions on Google Cloud
+                Platform.
+            </p>
+
+            <div class="callout warn mb-4">
+                <strong><i class="fa-solid fa-exclamation-triangle me-2"></i>Critical: Gen 2 URL Discovery</strong>
+                The current discovery mechanism checks for URLs at <code>...cloudfunctions.net/api/...</code>.
+                For <strong>Cloud Functions Gen 2</strong>, URLs are non-deterministic (containing a random hash) and do
+                not natively support <code>/api/</code> path routing without an API Gateway.
+                <em>Runtime discovery may fail without explicit URL injection or an API Gateway.</em>
+            </div>
+
+            <!-- Table of Contents -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Table of Contents</h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#high-level-architecture">High-Level Architecture</a></li>
+                                <li><a href="#naming-discovery">Naming & Discovery</a></li>
+                                <li><a href="#packaging-bundling">Packaging & Bundling</a></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul>
+                                <li><a href="#security-iam">Security & IAM</a></li>
+                                <li><a href="#development-flow">Development Flow</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4" id="high-level-architecture">
+                <h2 class="mb-3"><i class="fa-solid fa-sitemap me-2"></i>High-Level Architecture</h2>
+                <p>The GCP implementation uses a <strong>Decoupled HTTP Pattern</strong> where the infrastructure
+                    wrapper invokes the user-defined logic via HTTP calls.</p>
+
+                <div class="card bg-dark text-white mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Flow Diagram</h5>
+                        <div class="mermaid-diagram text-center">
+                            Dispatcher (→ Connector [L0] → Ingestion [L0]) → Wrapper [L2 Cloud Function] <br>
+                            ↓ <br>
+                            User Processor [Cloud Function Gen 2] (HTTP POST) <br>
+                            ↓ <br>
+                            Wrapper → Persister [L2 Cloud Function] → Firestore [L3 Hot Storage]
+                        </div>
+                    </div>
+                </div>
+
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Resource Name</th>
+                            <th>Type</th>
+                            <th>Role</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Wrapper</strong></td>
+                            <td><code>{twin}-processor</code></td>
+                            <td>Cloud Function V2</td>
+                            <td>Infrastructure. Routes events to user processors via HTTP.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>User Processor</strong></td>
+                            <td><code>{twin}-{device}-processor</code></td>
+                            <td>Cloud Function V2</td>
+                            <td>User Code. Processes telemetry.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Persister</strong></td>
+                            <td><code>{twin}-persister</code></td>
+                            <td>Cloud Function V2</td>
+                            <td>Infrastructure. Writes to Firestore.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card mb-4" id="naming-discovery">
+                <h2 class="mb-3"><i class="fa-solid fa-magnifying-glass me-2"></i>Naming & Discovery</h2>
+                <ul>
+                    <li><strong>Target Pattern:</strong>
+                        <code>https://{region}-{project}.cloudfunctions.net/api/{twin_name}-{device_id}-processor</code>
+                        (<span class="text-warning">See Warning</span>)
+                    </li>
+                    <li><strong>Discovery:</strong> The Wrapper uses the <code>FUNCTION_APP_BASE_URL</code> logic to
+                        construct the URL.</li>
+                    <li><strong>Invocation:</strong> Standard HTTP POST using <code>requests</code>.</li>
+                </ul>
+
+                <h5 class="mt-3">Code Reference</h5>
+                <p><code>src/providers/gcp/cloud_functions/processor_wrapper/main.py</code></p>
+                <div class="bg-dark text-white p-3 rounded">
+                    <pre><code>def _get_processor_url(device_id: str) -> str:
+    base_url = os.environ.get("FUNCTION_APP_BASE_URL", "")
+    # Result: base_url + /api/ + processor_name
+    return f"{base_url}/api/{twin_name}-{device_id}-processor"</code></pre>
+                </div>
+            </div>
+
+            <div class="card mb-4" id="packaging-bundling">
+                <h2 class="mb-3"><i class="fa-solid fa-box-open me-2"></i>Packaging & Bundling</h2>
+                <p>The bundling process is handled by <code>src/providers/terraform/package_builder.py</code>. Similar
+                    to
+                    AWS, GCP functions are <strong>packaged individually</strong>.</p>
+
+                <h5 class="mt-3">Build Process</h5>
+                <ol>
+                    <li><strong>Iterate Devices:</strong> Reads <code>config_iot_devices.json</code>.</li>
+                    <li><strong>Locate Code:</strong> Looks for user code in
+                        <code>upload/{project}/gcp/cloud_functions/processors/{device_id}/</code>.
+                    </li>
+                    <li><strong>Build ZIP:</strong> Creates an individual ZIP file for <strong>each</strong> device
+                        processor.
+                        <ul>
+                            <li>File: <code>.build/gcp/processor-{device_id}.zip</code></li>
+                            <li>Contents: User's <code>main.py</code> + <code>_shared/</code> modules.</li>
+                        </ul>
+                    </li>
+                    <li><strong>TfVars Generation:</strong> <code>tfvars_generator.py</code> creates a list variable
+                        <code>gcp_processors</code>.
+                    </li>
+                </ol>
+
+                <h5 class="mt-3">Terraform Deployment</h5>
+                <p><code>src/terraform/gcp_compute.tf</code> iterates over this list to create resources:</p>
+                <div class="bg-dark text-white p-3 rounded">
+                    <pre><code>resource "google_cloudfunctions2_function" "processor" {
+  for_each = { for p in var.gcp_processors : p.name => p }
+  name     = "${var.digital_twin_name}-${each.value.name}-processor"
+  ...
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="card mb-4" id="security-iam">
+                <h2 class="mb-3"><i class="fa-solid fa-lock me-2"></i>Security & IAM</h2>
+                <p>We use <strong>Service Account Identity</strong> for secure invocation.</p>
+                <ul>
+                    <li><strong>Service Account:</strong> All L2 functions (Wrapper, Processor, Persister) run as the
+                        same
+                        <code>functions</code> service account.
+                    </li>
+                    <li><strong>Permissions:</strong> <code>google_cloud_run_service_iam_member</code> resources are
+                        created for <em>each</em> processor.</li>
+                    <li><strong>Authentication:</strong> The Wrapper automatically attaches an OIDC token to its
+                        request.
+                    </li>
+                </ul>
+            </div>
+
+            <div class="card mb-4" id="development-flow">
+                <h2 class="mb-3"><i class="fa-solid fa-code me-2"></i>Development Flow</h2>
+                <ol>
+                    <li><strong>Create Processor:</strong> User creates a folder <code>processors/{device_id}</code>.
+                    </li>
+                    <li><strong>Add Code:</strong> User adds <code>main.py</code> with
+                        <code>def main(request): ...</code>.
+                    </li>
+                    <li><strong>Deploy:</strong>
+                        <ul>
+                            <li><code>package_builder.py</code> zips the code.</li>
+                            <li>Terraform creates the new Cloud Function V2 resource.</li>
+                            <li>IAM binding is created to allow the Wrapper to call it.</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/docs-nav.js"></script>
+</body>
+
+</html>

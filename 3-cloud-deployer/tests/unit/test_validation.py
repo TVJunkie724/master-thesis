@@ -131,10 +131,20 @@ class TestValidation(unittest.TestCase):
         self.assertIn("Invalid State Machine format", str(cm.exception))
 
     def test_validate_state_machine_content_google(self):
-        # Missing main
+        """Test GCP workflow validation - 'main' at top level, 'steps' inside 'main'."""
+        # 1. Missing 'main' entirely
         with self.assertRaises(ValueError) as cm:
              validator.validate_state_machine_content(CONSTANTS.GOOGLE_STATE_MACHINE_FILE, {"steps": []})
-        self.assertIn("Missing required keys", str(cm.exception))
+        self.assertIn("missing required 'main' block", str(cm.exception))
+        
+        # 2. 'main' present but missing 'steps' inside
+        with self.assertRaises(ValueError) as cm:
+             validator.validate_state_machine_content(CONSTANTS.GOOGLE_STATE_MACHINE_FILE, {"main": {}})
+        self.assertIn("missing required 'steps' array", str(cm.exception))
+        
+        # 3. Valid - 'main' with 'steps' inside (nested structure)
+        valid_gcp = {"main": {"steps": [{"init": {"assign": [{"result": "ok"}]}}]}}
+        validator.validate_state_machine_content(CONSTANTS.GOOGLE_STATE_MACHINE_FILE, valid_gcp)
 
     # ==========================================
     # 3. Code Validation Tests (Azure/Google)
@@ -224,6 +234,21 @@ class TestValidation(unittest.TestCase):
             layer_2_provider = (providers_config or {}).get("layer_2_provider", "aws")
             func_dir_map = {"aws": "lambda_functions", "azure": "azure_functions", "google": "cloud_functions", "gcp": "cloud_functions"}
             func_dir = func_dir_map.get(layer_2_provider)
+            
+            # Add processor folders for each device (required by check_processor_folders_match_devices)
+            iot_config = configs.get(CONSTANTS.CONFIG_IOT_DEVICES_FILE) if configs else None
+            if iot_config and func_dir:
+                # Map provider to expected file in processor folder
+                processor_file_map = {"aws": "lambda_function.py", "azure": "function_app.py", "google": "main.py", "gcp": "main.py"}
+                proc_file = processor_file_map.get(layer_2_provider, "lambda_function.py")
+                for device in iot_config:
+                    device_id = device.get("id")
+                    if device_id:
+                        proc_path = f"{func_dir}/processors/{device_id}/{proc_file}"
+                        # Only add if not already in extra_files
+                        if not extra_files or proc_path not in extra_files:
+                            zf.writestr(proc_path, "def process(data: dict) -> dict:\n    return data\n")
+            
             if func_dir:
                 func_placeholder = f"{func_dir}/placeholder.txt"
                 # Only add if not already in extra_files
@@ -273,6 +298,15 @@ class TestValidation(unittest.TestCase):
              validator.validate_project_zip(zip_buf)
         self.assertIn("Missing state machine definition", str(cm.exception))
         self.assertIn("aws_step_function.json", str(cm.exception))
+
+    def test_validate_zip_workflow_disabled_skips_state_machine_validation(self):
+        """Test state machine validation is SKIPPED when triggerNotificationWorkflow=False."""
+        # triggerNotificationWorkflow=False means state machine file is NOT required
+        opt = {"result": {"inputParamsUsed": {"triggerNotificationWorkflow": False}}}
+        configs = {CONSTANTS.CONFIG_OPTIMIZATION_FILE: opt}
+        # No state machine file included - should still pass
+        zip_buf = self._create_zip_with_configs(configs)
+        validator.validate_project_zip(zip_buf)  # Should NOT raise
 
     def test_validate_project_directory_corrupt_configs(self):
         """Test validation with invalid JSON content on disk."""
@@ -633,6 +667,213 @@ class TestPayloadsValidation(unittest.TestCase):
             with self.assertRaises(ValueError) as cm:
                 validate_project_directory(project_dir)
             self.assertIn("payloads.json", str(cm.exception))
+
+
+class TestStateMachineValidation(unittest.TestCase):
+    """Comprehensive tests for check_state_machines in core.py."""
+    
+    def test_state_machine_skipped_when_workflow_disabled(self):
+        """Test state machine validation is SKIPPED when triggerNotificationWorkflow=False."""
+        from src.validation.core import check_state_machines, ValidationContext
+        
+        ctx = ValidationContext()
+        ctx.opt_config = {"result": {"inputParamsUsed": {"triggerNotificationWorkflow": False}}}
+        ctx.prov_config = {"layer_2_provider": "aws"}
+        ctx.all_files = []  # No state machine file
+        mock_accessor = MagicMock()
+        
+        # Should NOT raise - validation is skipped
+        check_state_machines(mock_accessor, ctx)
+    
+    def test_state_machine_skipped_when_no_opt_config(self):
+        """Test state machine validation is SKIPPED when opt_config is empty."""
+        from src.validation.core import check_state_machines, ValidationContext
+        
+        ctx = ValidationContext()
+        ctx.opt_config = {}  # Empty - no triggerNotificationWorkflow key
+        ctx.prov_config = {"layer_2_provider": "aws"}
+        ctx.all_files = []
+        mock_accessor = MagicMock()
+        
+        # Should NOT raise - no workflow flag defaults to skip
+        check_state_machines(mock_accessor, ctx)
+    
+    def test_state_machine_aws_validates_correct_file(self):
+        """Test AWS provider validates aws_step_function.json only."""
+        from src.validation.core import check_state_machines, ValidationContext
+        import constants as CONSTANTS
+        
+        ctx = ValidationContext()
+        ctx.opt_config = {"result": {"inputParamsUsed": {"triggerNotificationWorkflow": True}}}
+        ctx.prov_config = {"layer_2_provider": "aws"}
+        ctx.all_files = [f"state_machines/{CONSTANTS.AWS_STATE_MACHINE_FILE}"]
+        
+        mock_accessor = MagicMock()
+        # Return valid AWS step function content
+        mock_accessor.read_text.return_value = json.dumps({"StartAt": "Init", "States": {}})
+        
+        # Should NOT raise - valid AWS state machine
+        check_state_machines(mock_accessor, ctx)
+        mock_accessor.read_text.assert_called_once()
+    
+    def test_state_machine_azure_validates_correct_file(self):
+        """Test Azure provider validates azure_logic_app.json only."""
+        from src.validation.core import check_state_machines, ValidationContext
+        import constants as CONSTANTS
+        
+        ctx = ValidationContext()
+        ctx.opt_config = {"result": {"inputParamsUsed": {"triggerNotificationWorkflow": True}}}
+        ctx.prov_config = {"layer_2_provider": "azure"}
+        ctx.all_files = [f"state_machines/{CONSTANTS.AZURE_STATE_MACHINE_FILE}"]
+        
+        mock_accessor = MagicMock()
+        mock_accessor.read_text.return_value = json.dumps({"definition": {}})
+        
+        check_state_machines(mock_accessor, ctx)
+        mock_accessor.read_text.assert_called_once()
+    
+    def test_state_machine_google_validates_correct_file(self):
+        """Test Google provider validates google_cloud_workflow.json with nested steps."""
+        from src.validation.core import check_state_machines, ValidationContext
+        import constants as CONSTANTS
+        
+        ctx = ValidationContext()
+        ctx.opt_config = {"result": {"inputParamsUsed": {"triggerNotificationWorkflow": True}}}
+        ctx.prov_config = {"layer_2_provider": "google"}
+        ctx.all_files = [f"state_machines/{CONSTANTS.GOOGLE_STATE_MACHINE_FILE}"]
+        
+        mock_accessor = MagicMock()
+        # Valid GCP workflow - 'steps' is INSIDE 'main'
+        mock_accessor.read_text.return_value = json.dumps({"main": {"steps": []}})
+        
+        check_state_machines(mock_accessor, ctx)
+        mock_accessor.read_text.assert_called_once()
+    
+    def test_state_machine_google_invalid_missing_steps(self):
+        """Test Google workflow fails when 'main' exists but 'steps' is missing."""
+        from src.validation.core import check_state_machines, ValidationContext
+        import constants as CONSTANTS
+        
+        ctx = ValidationContext()
+        ctx.opt_config = {"result": {"inputParamsUsed": {"triggerNotificationWorkflow": True}}}
+        ctx.prov_config = {"layer_2_provider": "google"}
+        ctx.all_files = [f"state_machines/{CONSTANTS.GOOGLE_STATE_MACHINE_FILE}"]
+        
+        mock_accessor = MagicMock()
+        # Invalid - 'main' exists but no 'steps' inside
+        mock_accessor.read_text.return_value = json.dumps({"main": {}})
+        
+        with self.assertRaises(ValueError) as cm:
+            check_state_machines(mock_accessor, ctx)
+        self.assertIn("missing required 'steps'", str(cm.exception))
+    
+    def test_state_machine_ignores_other_providers_files(self):
+        """Test AWS validation ignores GCP/Azure state machine files present."""
+        from src.validation.core import check_state_machines, ValidationContext
+        import constants as CONSTANTS
+        
+        ctx = ValidationContext()
+        ctx.opt_config = {"result": {"inputParamsUsed": {"triggerNotificationWorkflow": True}}}
+        ctx.prov_config = {"layer_2_provider": "aws"}
+        # AWS file present, GCP file also present but should be IGNORED
+        ctx.all_files = [
+            f"state_machines/{CONSTANTS.AWS_STATE_MACHINE_FILE}",
+            f"state_machines/{CONSTANTS.GOOGLE_STATE_MACHINE_FILE}"
+        ]
+        
+        mock_accessor = MagicMock()
+        mock_accessor.read_text.return_value = json.dumps({"StartAt": "Init", "States": {}})
+        
+        check_state_machines(mock_accessor, ctx)
+        # Should only read AWS file, not GCP
+        self.assertEqual(mock_accessor.read_text.call_count, 1)
+
+
+class TestDigitalTwinNameValidation(unittest.TestCase):
+    """Tests for validate_digital_twin_name in validator.py."""
+    
+    def test_valid_name(self):
+        """Test valid digital twin name passes."""
+        validator.validate_digital_twin_name("my-twin-123")
+        validator.validate_digital_twin_name("test_twin")
+        validator.validate_digital_twin_name("Twin-Name_01")
+    
+    def test_name_too_long(self):
+        """Test name exceeding 30 characters raises error."""
+        long_name = "a" * 31
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_digital_twin_name(long_name)
+        self.assertIn("exceeds", str(cm.exception))
+    
+    def test_name_invalid_characters(self):
+        """Test name with invalid characters raises error."""
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_digital_twin_name("my twin")  # Space
+        self.assertIn("invalid characters", str(cm.exception))
+        
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_digital_twin_name("my.twin")  # Period
+        self.assertIn("invalid characters", str(cm.exception))
+
+
+class TestAzureRegionValidation(unittest.TestCase):
+    """Tests for validate_azure_region_for_consumption_plan in validator.py."""
+    
+    def test_valid_region_passes(self):
+        """Test supported regions pass validation."""
+        validator.validate_azure_region_for_consumption_plan("westeurope")
+        validator.validate_azure_region_for_consumption_plan("eastus")
+        validator.validate_azure_region_for_consumption_plan("northeurope")
+    
+    def test_unsupported_region_raises(self):
+        """Test unsupported region (italynorth) raises error."""
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_azure_region_for_consumption_plan("italynorth")
+        self.assertIn("does NOT support Consumption Plan", str(cm.exception))
+        self.assertIn("westeurope", str(cm.exception))  # Should suggest alternative
+
+
+class TestSceneAssetsValidation(unittest.TestCase):
+    """Tests for check_scene_assets in core.py."""
+    
+    def test_scene_assets_skipped_when_disabled(self):
+        """Test scene assets check is SKIPPED when needs3DModel=False."""
+        from src.validation.core import check_scene_assets, ValidationContext
+        
+        ctx = ValidationContext()
+        ctx.opt_config = {"result": {"inputParamsUsed": {"needs3DModel": False}}}
+        ctx.prov_config = {"layer_4_provider": "aws"}
+        mock_accessor = MagicMock()
+        
+        # Should NOT raise - check is skipped
+        check_scene_assets(mock_accessor, ctx)
+    
+    def test_scene_assets_aws_required_files(self):
+        """Test AWS scene assets requires scene.glb and scene.json."""
+        from src.validation.core import check_scene_assets, ValidationContext
+        
+        ctx = ValidationContext()
+        ctx.opt_config = {"result": {"inputParamsUsed": {"needs3DModel": True}}}
+        ctx.prov_config = {"layer_4_provider": "aws"}
+        
+        mock_accessor = MagicMock()
+        mock_accessor.file_exists.return_value = False  # Files missing
+        
+        with self.assertRaises(ValueError) as cm:
+            check_scene_assets(mock_accessor, ctx)
+        self.assertIn("Missing scene asset", str(cm.exception))
+    
+    def test_scene_assets_google_skipped(self):
+        """Test Google L4 provider does not require scene assets."""
+        from src.validation.core import check_scene_assets, ValidationContext
+        
+        ctx = ValidationContext()
+        ctx.opt_config = {"result": {"inputParamsUsed": {"needs3DModel": True}}}
+        ctx.prov_config = {"layer_4_provider": "google"}  # Google has no managed L4
+        mock_accessor = MagicMock()
+        
+        # Should NOT raise - Google doesn't have scene requirements
+        check_scene_assets(mock_accessor, ctx)
 
 
 if __name__ == '__main__':

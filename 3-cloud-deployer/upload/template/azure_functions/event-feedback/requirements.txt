@@ -1,1 +1,2 @@
-azure-functions
+# Add custom dependencies here
+azure-iot-hub
