@@ -515,6 +515,7 @@ def run_all_checks(accessor: FileAccessor) -> None:
     check_processor_syntax(accessor, ctx, l2_provider)
     check_event_actions(ctx)
     check_feedback_function(ctx)
+    check_processor_folders_match_devices(accessor, ctx, l2_provider)
     check_state_machine_presence(ctx)  # Already provider-aware
     
     # Phase 5: Cross-cutting validations

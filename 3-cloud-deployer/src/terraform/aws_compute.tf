@@ -237,3 +237,55 @@ resource "aws_sfn_state_machine" "l2_event_workflow" {
 
   tags = local.aws_common_tags
 }
+
+# ==============================================================================
+# AWS Processor Wrapper Lambda (Routes to user processors)
+# ==============================================================================
+
+resource "aws_lambda_function" "processor_wrapper" {
+  count         = local.l2_aws_enabled ? 1 : 0
+  function_name = "${var.digital_twin_name}-processor"
+  role          = aws_iam_role.l2_lambda[0].arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.11"
+  timeout       = 30
+  memory_size   = 256
+
+  filename         = "${local.l2_lambda_build_dir}/processor_wrapper.zip"
+  source_code_hash = filebase64sha256("${local.l2_lambda_build_dir}/processor_wrapper.zip")
+
+  environment {
+    variables = {
+      DIGITAL_TWIN_INFO     = local.digital_twin_info_json
+      PERSISTER_LAMBDA_NAME = aws_lambda_function.l2_persister[0].function_name
+    }
+  }
+
+  tags = local.aws_common_tags
+}
+
+# ==============================================================================
+# AWS User Processor Lambda Functions (Individual per device)
+# ==============================================================================
+
+resource "aws_lambda_function" "user_processor" {
+  for_each = { for p in var.aws_processors : p.name => p }
+  
+  function_name = "${var.digital_twin_name}-${each.value.name}-processor"
+  role          = aws_iam_role.l2_lambda[0].arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.11"
+  timeout       = 30
+  memory_size   = 256
+
+  filename         = each.value.zip_path
+  source_code_hash = filebase64sha256(each.value.zip_path)
+
+  environment {
+    variables = {
+      DIGITAL_TWIN_INFO = local.digital_twin_info_json
+    }
+  }
+
+  tags = local.aws_common_tags
+}

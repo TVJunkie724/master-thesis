@@ -293,6 +293,40 @@ variable "gcp_event_feedback_zip_path" {
   default     = ""
 }
 
+# ==============================================================================
+# AWS User Functions (Processors, Event Actions, Event Feedback)
+# ==============================================================================
+
+variable "aws_processors" {
+  description = "List of processor configurations for AWS deployment"
+  type = list(object({
+    name     = string
+    zip_path = string
+  }))
+  default = []
+}
+
+variable "aws_event_actions" {
+  description = "List of event action configurations for AWS deployment"
+  type = list(object({
+    name     = string
+    zip_path = string
+  }))
+  default = []
+}
+
+variable "aws_event_feedback_enabled" {
+  description = "Enable event feedback function for AWS"
+  type        = bool
+  default     = false
+}
+
+variable "aws_event_feedback_zip_path" {
+  description = "Path to event feedback ZIP for AWS"
+  type        = string
+  default     = ""
+}
+
 
 # ==============================================================================
 # Cross-Cloud Configuration

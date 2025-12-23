@@ -10,6 +10,7 @@ Azure: ZIPs are uploaded via Kudu after Terraform creates infrastructure
 
 import io
 import os
+import re
 import shutil
 import zipfile
 import logging
@@ -247,12 +248,15 @@ def _discover_azure_user_functions(user_funcs_dir: Path, optimization_flags: dic
 def _add_azure_function_app_directly(
     zf: zipfile.ZipFile, 
     user_dir: Path, 
-    module_name: str
+    module_name: str,
+    digital_twin_name: Optional[str] = None,
+    device_id: Optional[str] = None
 ) -> None:
     """
     Add user's function_app.py directly (converted to Blueprint).
     
     Used for event_actions that provide complete function_app.py files.
+    Applies renaming if digital_twin_name and device_id are provided (for processors).
     """
     # 1. Add __init__.py
     zf.writestr(f"{module_name}/__init__.py", "# Auto-generated\n")
@@ -261,6 +265,11 @@ def _add_azure_function_app_directly(
     func_app = user_dir / "function_app.py"
     if func_app.exists():
         content = func_app.read_text(encoding="utf-8")
+        
+        # Apply renaming for processors (if twin name and device ID provided)
+        if digital_twin_name and device_id:
+            content = _rewrite_azure_function_names(content, digital_twin_name, device_id)
+            
         content = _convert_functionapp_to_blueprint(content)
         content = _convert_require_env_to_lazy(content)
         zf.writestr(f"{module_name}/function_app.py", content)
@@ -287,6 +296,42 @@ import azure.functions as func
 app = func.FunctionApp()
 {chr(10).join(registers)}
 '''
+
+
+def _rewrite_azure_function_names(content: str, digital_twin_name: str, device_id: str) -> str:
+    """
+    Rewrite Azure function names and routes to match {twin}-{device_id}-processor pattern.
+    
+    Args:
+        content: Original function_app.py content
+        digital_twin_name: Name of the digital twin
+        device_id: Device ID (from folder name)
+        
+    Returns:
+        Modified content with updated function names and routes
+    """
+    expected_name = f"{digital_twin_name}-{device_id}-processor"
+    
+    # Pattern 1: @bp.route(route="...", ...)
+    content = re.sub(
+        r'@bp\.route\(route="[^"]*"',
+        f'@bp.route(route="{expected_name}"',
+        content
+    )
+    
+    # Pattern 2: @bp.function_name("...")
+    content = re.sub(
+        r'@bp\.function_name\("[^"]*"\)',
+        f'@bp.function_name("{expected_name}")',
+        content
+    )
+    
+    return content
+
+
+# NOTE: GCP and AWS renaming functions removed - Terraform handles function names,
+# not the Python code. GCP uses entry_point="main", AWS uses handler="lambda_function.lambda_handler".
+# Only Azure needs code renaming due to decorator-based function naming.
 
 
 def build_azure_user_bundle(project_path: Path, providers_config: dict, optimization_flags: dict = None) -> Optional[Path]:
@@ -321,6 +366,13 @@ def build_azure_user_bundle(project_path: Path, providers_config: dict, optimiza
     
     azure_funcs_base = Path(__file__).parent.parent / "azure" / "azure_functions"
     
+    # Load digital_twin_name for processor renaming
+    config_file = project_path / "config.json"
+    digital_twin_name = ""
+    if config_file.exists():
+        config_data = json.loads(config_file.read_text())
+        digital_twin_name = config_data.get("digital_twin_name", "")
+    
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         # Add shared files (host.json, requirements.txt base, _shared/)
         _add_shared_files(zf, azure_funcs_base)
@@ -330,7 +382,19 @@ def build_azure_user_bundle(project_path: Path, providers_config: dict, optimiza
         # Add all user functions (all use function_app.py pattern now)
         for func_type, user_dir in discovered:
             module_name = user_dir.name.replace("-", "_")
-            _add_azure_function_app_directly(zf, user_dir, module_name)
+            
+            # Extract device_id for processors to enable renaming
+            device_id = None
+            if func_type == 'processor':
+                device_id = user_dir.name
+                
+            _add_azure_function_app_directly(
+                zf, 
+                user_dir, 
+                module_name,
+                digital_twin_name=digital_twin_name,
+                device_id=device_id
+            )
             all_modules.append(module_name)
         
         # Generate main function_app.py
@@ -343,8 +407,23 @@ def build_azure_user_bundle(project_path: Path, providers_config: dict, optimiza
 
 
 
-def _create_lambda_zip(func_dir: Path, shared_dir: Path, output_path: Path) -> None:
-    """Create a Lambda deployment ZIP with function code and shared modules."""
+def _create_lambda_zip(
+    func_dir: Path, 
+    shared_dir: Path, 
+    output_path: Path,
+    digital_twin_name: Optional[str] = None,
+    device_id: Optional[str] = None
+) -> None:
+    """
+    Create a Lambda deployment ZIP with function code and shared modules.
+    
+    Args:
+        func_dir: Path to function source directory
+        shared_dir: Path to _shared modules directory
+        output_path: Path to output ZIP file
+        digital_twin_name: Optional digital twin name for processor renaming
+        device_id: Optional device ID for processor renaming
+    """
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         # Add function files
         for file_path in func_dir.rglob('*'):
@@ -452,7 +531,9 @@ def _create_gcp_function_zip(
     func_dir: Path, 
     shared_dir: Path, 
     output_path: Path,
-    project_path: Optional[Path] = None
+    project_path: Optional[Path] = None,
+    digital_twin_name: Optional[str] = None,
+    device_id: Optional[str] = None
 ) -> None:
     """
     Create a GCP Cloud Function deployment ZIP with shared modules.
@@ -462,13 +543,22 @@ def _create_gcp_function_zip(
         shared_dir: Path to _shared modules directory
         output_path: Path to output ZIP file
         project_path: Optional project path for processor user code merge
+        digital_twin_name: Optional digital twin name for processor renaming
+        device_id: Optional device ID for processor renaming
     """
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         # Add function code
         for file_path in func_dir.rglob('*'):
             if file_path.is_file() and '__pycache__' not in str(file_path):
                 arcname = file_path.relative_to(func_dir)
-                zf.write(file_path, arcname)
+                
+                # Apply renaming logic to main.py for processors
+                if file_path.name == 'main.py' and digital_twin_name and device_id:
+                    content = file_path.read_text(encoding='utf-8')
+                    content = _rewrite_gcp_function_names(content, digital_twin_name, device_id)
+                    zf.writestr(str(arcname), content)
+                else:
+                    zf.write(file_path, arcname)
         
         # Add shared modules under _shared/
         if shared_dir and shared_dir.exists():
@@ -735,43 +825,63 @@ def build_user_packages(
         logger.info(f"  ✓ Built event action: {func_name}.zip")
     
     # 2. Build Processor packages
+    # Load digital_twin_name for processor renaming
+    config_file = project_path / "config.json"
+    digital_twin_name = ""
+    if config_file.exists():
+        config_data = json.loads(config_file.read_text())
+        digital_twin_name = config_data.get("digital_twin_name", "")
+    
     processors_seen = set()
     for device in devices_config:
         if "id" not in device:
             raise ValueError("Device config entry missing required 'id' field")
         
-        processor_name = device.get("processor", "default_processor")
+        device_id = device["id"]
         
-        if processor_name in processors_seen:
+        # Use device_id for folder lookup and ZIP naming (matches tfvars_generator)
+        if device_id in processors_seen:
             continue
-        processors_seen.add(processor_name)
+        processors_seen.add(device_id)
         
-        proc_dir = processors_dir / processor_name
+        proc_dir = processors_dir / device_id
         
         if not proc_dir.exists():
-            raise ValueError(f"Missing processor code: {processor_name}. Expected: {proc_dir}")
+            raise ValueError(f"Missing processor code for device '{device_id}'. Expected: {proc_dir}")
         
         # Compute hash
         code_hash = _compute_directory_hash(proc_dir)
         
         # Build ZIP with processor wrapper for Azure
-        zip_path = build_dir / f"processor-{processor_name}.zip"
+        zip_path = build_dir / f"processor-{device_id}.zip"
         
         if l2_provider == "aws":
             # User provides standalone lambda_function.py
-            _create_lambda_zip(proc_dir, shared_dir, zip_path)
-            packages[f"processor-{processor_name}"] = zip_path
-            _save_user_hash_metadata(project_path, f"processor-{processor_name}", l2_provider, code_hash)
-            logger.info(f"  ✓ Built processor: processor-{processor_name}.zip")
+            _create_lambda_zip(
+                proc_dir, 
+                shared_dir, 
+                zip_path,
+                digital_twin_name=digital_twin_name,
+                device_id=device_id
+            )
+            packages[f"processor-{device_id}"] = zip_path
+            _save_user_hash_metadata(project_path, f"processor-{device_id}", l2_provider, code_hash)
+            logger.info(f"  ✓ Built processor: processor-{device_id}.zip")
         elif l2_provider == "azure":
             # Azure user functions are bundled together separately via build_azure_user_bundle()
             logger.info(f"  → Skipping individual processor ZIP for Azure (bundled together)")
         else:  # google
-            # User provides standalone main.py - just copy it
-            _create_gcp_function_zip(proc_dir, shared_dir, zip_path)
-            packages[f"processor-{processor_name}"] = zip_path
-            _save_user_hash_metadata(project_path, f"processor-{processor_name}", l2_provider, code_hash)
-            logger.info(f"  ✓ Built processor: processor-{processor_name}.zip")
+            # User provides standalone main.py
+            _create_gcp_function_zip(
+                proc_dir, 
+                shared_dir, 
+                zip_path,
+                digital_twin_name=digital_twin_name,
+                device_id=device_id
+            )
+            packages[f"processor-{device_id}"] = zip_path
+            _save_user_hash_metadata(project_path, f"processor-{device_id}", l2_provider, code_hash)
+            logger.info(f"  ✓ Built processor: processor-{device_id}.zip")
     
     # 3. Build Event-Feedback package (WITH WRAPPER MERGING)
     if feedback_dir.exists():

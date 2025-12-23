@@ -284,6 +284,58 @@ resource "google_workflows_workflow" "event_workflow" {
 
 
 # ==============================================================================
+# GCP Processor Wrapper Cloud Function (Routes to user processors)
+# ==============================================================================
+
+resource "google_storage_bucket_object" "processor_wrapper_source" {
+  count  = local.gcp_l2_enabled ? 1 : 0
+  
+  name   = "processor-wrapper-${filemd5("${var.project_path}/.build/gcp/processor_wrapper.zip")}.zip"
+  bucket = google_storage_bucket.function_source[0].name
+  source = "${var.project_path}/.build/gcp/processor_wrapper.zip"
+}
+
+resource "google_cloudfunctions2_function" "processor_wrapper" {
+  count    = local.gcp_l2_enabled ? 1 : 0
+  name     = "${var.digital_twin_name}-processor"
+  location = var.gcp_region
+  project  = local.gcp_project_id
+
+  build_config {
+    runtime     = "python311"
+    entry_point = "main"
+    
+    source {
+      storage_source {
+        bucket = google_storage_bucket.function_source[0].name
+        object = google_storage_bucket_object.processor_wrapper_source[0].name
+      }
+    }
+  }
+
+  service_config {
+    max_instance_count    = 10
+    min_instance_count    = 0
+    available_memory      = "256M"
+    timeout_seconds       = 60
+    service_account_email = google_service_account.functions[0].email
+    
+    environment_variables = {
+      DIGITAL_TWIN_NAME      = var.digital_twin_name
+      DIGITAL_TWIN_INFO      = local.gcp_digital_twin_info
+      GCP_PROJECT_ID         = local.gcp_project_id
+      FUNCTION_BASE_URL      = "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net"
+      PERSISTER_FUNCTION_URL = local.gcp_l3_hot_enabled ? google_cloudfunctions2_function.persister[0].url : ""
+      INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
+        try(random_password.inter_cloud_token[0].result, "")
+      )
+    }
+  }
+
+  labels = local.gcp_common_labels
+}
+
+# ==============================================================================
 # GCP Processor Cloud Functions (Individual per processor)
 # ==============================================================================
 
@@ -298,7 +350,7 @@ resource "google_storage_bucket_object" "processor_source" {
 resource "google_cloudfunctions2_function" "processor" {
   for_each = { for p in var.gcp_processors : p.name => p }
   
-  name     = "${var.digital_twin_name}-processor-${each.value.name}"
+  name     = "${var.digital_twin_name}-${each.value.name}-processor"
   location = var.gcp_region
   project  = local.gcp_project_id
 

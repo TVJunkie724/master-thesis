@@ -113,6 +113,9 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
     # Build GCP user function variables if GCP is used as a provider
     tfvars.update(_build_gcp_user_function_vars(project_dir, providers))
     
+    # Build AWS user function variables if AWS is used as a provider
+    tfvars.update(_get_aws_user_function_vars(project_dir, providers))
+    
     # Write output file
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -253,13 +256,14 @@ def _build_gcp_user_function_vars(project_dir: Path, providers: dict) -> dict:
         
         processors_seen = set()
         for device in devices:
-            processor_name = device.get("processor", "default_processor")
-            if processor_name not in processors_seen:
-                processors_seen.add(processor_name)
-                zip_path = build_dir / f"processor-{processor_name}.zip"
+            # Use device ID as processor folder name (matches wrapper expectations)
+            device_id = device.get("id")
+            if device_id and device_id not in processors_seen:
+                processors_seen.add(device_id)
+                zip_path = build_dir / f"processor-{device_id}.zip"
                 if zip_path.exists():
                     gcp_vars["gcp_processors"].append({
-                        "name": processor_name,
+                        "name": device_id,
                         "zip_path": str(zip_path)
                     })
     
@@ -286,6 +290,70 @@ def _build_gcp_user_function_vars(project_dir: Path, providers: dict) -> dict:
         gcp_vars["gcp_event_feedback_zip_path"] = str(feedback_zip)
     
     return gcp_vars
+
+
+def _get_aws_user_function_vars(project_dir: Path, providers: dict) -> dict:
+    """
+    Build AWS user function variable values from project config.
+    
+    Returns:
+        Dict with aws_processors, aws_event_actions, aws_event_feedback_enabled, etc.
+    """
+    aws_vars = {
+        "aws_processors": [],
+        "aws_event_actions": [],
+        "aws_event_feedback_enabled": False,
+        "aws_event_feedback_zip_path": ""
+    }
+    
+    # Only build if L2 is AWS
+    if providers.get("layer_2_provider") != "aws":
+        return aws_vars
+    
+    build_dir = project_dir / ".build" / "aws"
+    
+    # Load IoT devices config to get processors
+    devices_path = project_dir / "config_iot_devices.json"
+    if devices_path.exists():
+        with open(devices_path, 'r') as f:
+            devices = json.load(f)
+        
+        processors_seen = set()
+        for device in devices:
+            # Use device ID as processor folder name (matches wrapper expectations)
+            device_id = device.get("id")
+            if device_id and device_id not in processors_seen:
+                processors_seen.add(device_id)
+                zip_path = build_dir / f"processor-{device_id}.zip"
+                if zip_path.exists():
+                    aws_vars["aws_processors"].append({
+                        "name": device_id,
+                        "zip_path": str(zip_path)
+                    })
+    
+    # Load events config to get event actions
+    events_path = project_dir / "config_events.json"
+    if events_path.exists():
+        with open(events_path, 'r') as f:
+            events = json.load(f)
+        
+        for event in events:
+            if "action" in event and "functionName" in event["action"]:
+                func_name = event["action"]["functionName"]
+                zip_path = build_dir / f"{func_name}.zip"
+                if zip_path.exists():
+                    aws_vars["aws_event_actions"].append({
+                        "name": func_name,
+                        "zip_path": str(zip_path)
+                    })
+    
+    # Check for event feedback
+    feedback_zip = build_dir / "event-feedback.zip"
+    if feedback_zip.exists():
+        aws_vars["aws_event_feedback_enabled"] = True
+        aws_vars["aws_event_feedback_zip_path"] = str(feedback_zip)
+    
+    return aws_vars
 
 
 def _load_config(project_dir: Path) -> dict:

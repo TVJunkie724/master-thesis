@@ -66,8 +66,8 @@ def _get_target_function_name(device_id: str) -> str:
         # Multi-cloud: route to connector (no device-specific naming)
         return f"{twin_name}-connector"
     else:
-        # Single-cloud: route to device-specific processor
-        return f"{twin_name}-{device_id}-processor"
+        # Single-cloud: route to processor wrapper (which then calls user processor)
+        return f"{twin_name}-processor"
 
 
 def _invoke_function(function_name: str, payload: dict) -> None:

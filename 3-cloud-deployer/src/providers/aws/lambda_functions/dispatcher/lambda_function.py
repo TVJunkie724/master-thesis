@@ -42,8 +42,8 @@ def lambda_handler(event, context):
             # Multi-cloud: route to connector (no device-specific naming)
             function_name = f"{twin_name}-connector"
         else:
-            # Single-cloud: route to device-specific processor
-            function_name = f"{twin_name}-{device_id}{target_suffix}"
+            # Single-cloud: route to processor wrapper (which then calls user processor)
+            function_name = f"{twin_name}-processor"
         
         print(f"Dispatching to: {function_name}")
         
