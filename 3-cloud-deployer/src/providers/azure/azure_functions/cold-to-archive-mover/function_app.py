@@ -36,11 +36,40 @@ class ConfigurationError(Exception):
     pass
 
 
-# Required environment variables - fail fast if missing
-DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
-BLOB_CONNECTION_STRING = require_env("BLOB_CONNECTION_STRING")
-COLD_STORAGE_CONTAINER = require_env("COLD_STORAGE_CONTAINER")
-ARCHIVE_STORAGE_CONTAINER = require_env("ARCHIVE_STORAGE_CONTAINER")
+# Lazy loading for environment variables to allow Azure function discovery
+_digital_twin_info = None
+_blob_connection_string = None
+_cold_storage_container = None
+_archive_storage_container = None
+
+
+def _get_digital_twin_info():
+    global _digital_twin_info
+    if _digital_twin_info is None:
+        _digital_twin_info = json.loads(require_env("DIGITAL_TWIN_INFO"))
+    return _digital_twin_info
+
+
+def _get_blob_connection_string():
+    global _blob_connection_string
+    if _blob_connection_string is None:
+        _blob_connection_string = require_env("BLOB_CONNECTION_STRING")
+    return _blob_connection_string
+
+
+def _get_cold_storage_container():
+    global _cold_storage_container
+    if _cold_storage_container is None:
+        _cold_storage_container = require_env("COLD_STORAGE_CONTAINER")
+    return _cold_storage_container
+
+
+def _get_archive_storage_container():
+    global _archive_storage_container
+    if _archive_storage_container is None:
+        _archive_storage_container = require_env("ARCHIVE_STORAGE_CONTAINER")
+    return _archive_storage_container
+
 
 # Multi-cloud config (optional)
 REMOTE_ARCHIVE_WRITER_URL = os.environ.get("REMOTE_ARCHIVE_WRITER_URL", "").strip()
@@ -60,7 +89,7 @@ def _get_blob_service():
     """Lazy initialization of Blob service client."""
     global _blob_service_client
     if _blob_service_client is None:
-        _blob_service_client = BlobServiceClient.from_connection_string(BLOB_CONNECTION_STRING)
+        _blob_service_client = BlobServiceClient.from_connection_string(_get_blob_connection_string())
     return _blob_service_client
 
 
@@ -69,7 +98,7 @@ def _is_multi_cloud_archive() -> bool:
     if not REMOTE_ARCHIVE_WRITER_URL:
         return False
     
-    providers = DIGITAL_TWIN_INFO.get("config_providers")
+    providers = _get_digital_twin_info().get("config_providers")
     if providers is None:
         raise ConfigurationError("CRITICAL: 'config_providers' missing from DIGITAL_TWIN_INFO")
     
@@ -124,16 +153,16 @@ def cold_to_archive_mover(timer: func.TimerRequest) -> None:
         if multi_cloud:
             logging.info(f"Multi-cloud mode: Posting to {REMOTE_ARCHIVE_WRITER_URL}")
         else:
-            logging.info(f"Single-cloud mode: Archiving to {ARCHIVE_STORAGE_CONTAINER}")
+            logging.info(f"Single-cloud mode: Archiving to {_get_archive_storage_container()}")
         
         # Calculate cutoff
-        cold_days = DIGITAL_TWIN_INFO["config"].get("cold_storage_size_in_days", 30)
+        cold_days = _get_digital_twin_info()["config"].get("cold_storage_size_in_days", 30)
         cutoff = datetime.now(timezone.utc) - timedelta(days=cold_days)
         logging.info(f"Archiving items older than: {cutoff.isoformat()}")
         
         blob_service = _get_blob_service()
-        cold_container = blob_service.get_container_client(COLD_STORAGE_CONTAINER)
-        archive_container = blob_service.get_container_client(ARCHIVE_STORAGE_CONTAINER)
+        cold_container = blob_service.get_container_client(_get_cold_storage_container())
+        archive_container = blob_service.get_container_client(_get_archive_storage_container())
         
         # List blobs in cold container
         blobs = list(cold_container.list_blobs())

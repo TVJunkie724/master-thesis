@@ -90,3 +90,56 @@ resource "aws_grafana_workspace_api_key" "admin" {
   seconds_to_live = 2592000  # 30 days
   workspace_id    = aws_grafana_workspace.main[0].id
 }
+
+# ==============================================================================
+# IAM Identity Center User Management
+# ==============================================================================
+
+# Get IAM Identity Center instance
+data "aws_ssoadmin_instances" "main" {
+  count = local.l5_aws_enabled ? 1 : 0
+}
+
+locals {
+  identity_store_id = try(
+    tolist(data.aws_ssoadmin_instances.main[0].identity_store_ids)[0],
+    ""
+  )
+  grafana_admin_enabled = local.l5_aws_enabled && var.grafana_admin_email != ""
+}
+
+# ==============================================================================
+# Create IAM Identity Center User
+# NOTE: If user already exists, Terraform will error with clear message.
+#       User can then use: terraform import aws_identitystore_user.grafana_admin[0] <store_id>/<user_id>
+# ==============================================================================
+
+resource "aws_identitystore_user" "grafana_admin" {
+  count = local.grafana_admin_enabled ? 1 : 0
+  
+  identity_store_id = local.identity_store_id
+  display_name      = "${var.grafana_admin_first_name} ${var.grafana_admin_last_name}"
+  user_name         = var.grafana_admin_email
+  
+  name {
+    given_name  = var.grafana_admin_first_name
+    family_name = var.grafana_admin_last_name
+  }
+  
+  emails {
+    value   = var.grafana_admin_email
+    primary = true
+  }
+}
+
+# ==============================================================================
+# Assign User to Grafana Workspace
+# ==============================================================================
+
+resource "aws_grafana_role_association" "admin" {
+  count = local.grafana_admin_enabled ? 1 : 0
+  
+  role         = "ADMIN"
+  user_ids     = [aws_identitystore_user.grafana_admin[0].user_id]
+  workspace_id = aws_grafana_workspace.main[0].id
+}

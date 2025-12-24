@@ -423,8 +423,81 @@ REMOTE_HOT_READER_URL = var.layer_4_provider != var.layer_3_hot_provider ? <L3_h
 
 ---
 
+## 17. Grafana Dashboard & Datasource Automation via Terraform
+
+> [!NOTE]
+> Research completed December 2024. Implementation deferred.
+
+### Status: Research Complete, Not Implemented
+
+### Background
+
+AWS Managed Grafana now supports automated user provisioning (implemented December 2024). However, dashboard creation and datasource configuration still require manual steps or SDK post-deployment.
+
+### Research Findings
+
+**Terraform Grafana Provider** can manage dashboards/datasources in AWS Managed Grafana:
+
+```hcl
+# Configure Grafana provider using API key from AWS workspace
+provider "grafana" {
+  url  = aws_grafana_workspace.main[0].endpoint
+  auth = aws_grafana_workspace_api_key.admin[0].key
+}
+
+# Create datasource (JSON API to Hot Reader)
+resource "grafana_data_source" "hot_reader" {
+  type = "marcusolsson-json-datasource"
+  name = "Hot Reader API"
+  url  = aws_lambda_function_url.l3_hot_reader[0].function_url
+}
+
+# Create dashboard from JSON template
+resource "grafana_dashboard" "main" {
+  config_json = file("${path.module}/dashboard.json")
+}
+```
+
+### Requirements
+
+| Requirement | Details |
+|-------------|---------|
+| Provider | `grafana/grafana` (separate from hashicorp/aws) |
+| Authentication | Uses API key already created by `aws_grafana_workspace_api_key` |
+| Dashboard JSON | Can export from Grafana UI or create template |
+| Plugin | JSON API datasource needs `marcusolsson-json-datasource` plugin |
+
+### Data Flow Architecture
+
+```
+IoT Device → L1 Dispatcher → L2 Persister → L3 DynamoDB
+                                               ↓
+                                    L3 Hot Reader (Lambda)
+                                               ↓
+                         L5 Grafana (polls Hot Reader via JSON API datasource)
+```
+
+Grafana does **not** receive real-time data - it queries the Hot Reader on dashboard refresh.
+
+### E2E Validation Options
+
+1. **Existing coverage sufficient**: `test_08_verify_hot_reader` validates data accessibility
+2. **Grafana API query**: Use API key to query `/api/search` for dashboards, `/api/datasources` for datasources
+3. **Full data flow**: Send IoT message → wait → query Grafana dashboard panel API for data
+
+### Implementation Tasks (If Prioritized)
+
+- [ ] Add `grafana` provider to `versions.tf`
+- [ ] Create `aws_grafana_config.tf` for datasource + dashboard resources
+- [ ] Create dashboard JSON template (`src/terraform/templates/grafana_dashboard.json`)
+- [ ] Add E2E test to verify datasource connectivity
+- [ ] Document JSON API datasource configuration in docs
+
+---
+
 ## Notes
 
 - **Priority**: E2E testing > Azure init values > SDK validation > GCP
 - **Timeline**: To be determined based on thesis requirements
+
 

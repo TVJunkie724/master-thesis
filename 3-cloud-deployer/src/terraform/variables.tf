@@ -148,6 +148,28 @@ variable "aws_region" {
 }
 
 # ==============================================================================
+# L5 Grafana User (Required when layer_5_provider=aws)
+# ==============================================================================
+
+variable "grafana_admin_email" {
+  description = "Email for Grafana admin user. Required if layer_5_provider=aws."
+  type        = string
+  default     = ""
+}
+
+variable "grafana_admin_first_name" {
+  description = "First name for Grafana admin user"
+  type        = string
+  default     = "Grafana"
+}
+
+variable "grafana_admin_last_name" {
+  description = "Last name for Grafana admin user"
+  type        = string
+  default     = "Admin"
+}
+
+# ==============================================================================
 # GCP Credentials (from config_credentials.json)
 # ==============================================================================
 

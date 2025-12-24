@@ -30,10 +30,32 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
-# Required environment variables - fail fast if missing
-INTER_CLOUD_TOKEN = require_env("INTER_CLOUD_TOKEN")
-BLOB_CONNECTION_STRING = require_env("BLOB_CONNECTION_STRING")
-ARCHIVE_STORAGE_CONTAINER = require_env("ARCHIVE_STORAGE_CONTAINER")
+# Lazy loading for environment variables to allow Azure function discovery
+_inter_cloud_token = None
+_blob_connection_string = None
+_archive_storage_container = None
+
+
+def _get_inter_cloud_token():
+    global _inter_cloud_token
+    if _inter_cloud_token is None:
+        _inter_cloud_token = require_env("INTER_CLOUD_TOKEN")
+    return _inter_cloud_token
+
+
+def _get_blob_connection_string():
+    global _blob_connection_string
+    if _blob_connection_string is None:
+        _blob_connection_string = require_env("BLOB_CONNECTION_STRING")
+    return _blob_connection_string
+
+
+def _get_archive_storage_container():
+    global _archive_storage_container
+    if _archive_storage_container is None:
+        _archive_storage_container = require_env("ARCHIVE_STORAGE_CONTAINER")
+    return _archive_storage_container
+
 
 # Blob container (lazy initialized)
 _blob_container_client = None
@@ -46,8 +68,8 @@ def _get_blob_container():
     """Lazy initialization of Blob container client."""
     global _blob_container_client
     if _blob_container_client is None:
-        blob_service = BlobServiceClient.from_connection_string(BLOB_CONNECTION_STRING)
-        _blob_container_client = blob_service.get_container_client(ARCHIVE_STORAGE_CONTAINER)
+        blob_service = BlobServiceClient.from_connection_string(_get_blob_connection_string())
+        _blob_container_client = blob_service.get_container_client(_get_archive_storage_container())
     return _blob_container_client
 
 
@@ -62,7 +84,7 @@ def archive_writer(req: func.HttpRequest) -> func.HttpResponse:
     try:
         # 1. Validate token
         headers = dict(req.headers)
-        if not validate_token(headers, INTER_CLOUD_TOKEN):
+        if not validate_token(headers, _get_inter_cloud_token()):
             return func.HttpResponse(
                 json.dumps({"error": "Unauthorized"}),
                 status_code=403,

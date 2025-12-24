@@ -30,8 +30,8 @@ def _get_registry_manager():
     return _registry_manager
 
 
-@app.function_name(name="high-temperature-callback-2")
-@app.route(route="high-temperature-callback-2", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
+@app.function_name(name="event-feedback")
+@app.route(route="event-feedback", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def main(req: func.HttpRequest) -> func.HttpResponse:
     """Handle high temperature callback with MQTT feedback."""
     event = req.get_json()

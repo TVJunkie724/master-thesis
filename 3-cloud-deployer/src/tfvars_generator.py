@@ -427,6 +427,12 @@ def _load_credentials(project_dir: Path) -> dict:
         tfvars["aws_access_key_id"] = aws["aws_access_key_id"]
         tfvars["aws_secret_access_key"] = aws["aws_secret_access_key"]
         tfvars["aws_region"] = aws["aws_region"]
+        
+        # Grafana admin user (validation done in validation/core.py)
+        if "grafana_admin_email" in aws:
+            tfvars["grafana_admin_email"] = aws["grafana_admin_email"]
+            tfvars["grafana_admin_first_name"] = aws.get("grafana_admin_first_name", "Grafana")
+            tfvars["grafana_admin_last_name"] = aws.get("grafana_admin_last_name", "Admin")
     
     # GCP credentials - support dual-mode: project_id (private) OR billing_account (org)
     if "gcp" in creds:

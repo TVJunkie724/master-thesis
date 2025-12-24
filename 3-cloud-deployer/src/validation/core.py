@@ -515,7 +515,36 @@ def check_processor_folders_match_devices(accessor: FileAccessor, ctx: Validatio
 
 
 # ==========================================
-# 5. Main Orchestrator
+# 5. AWS Grafana Admin Validation
+# ==========================================
+
+def check_grafana_admin_for_aws_l5(ctx: ValidationContext) -> None:
+    """Validate grafana_admin_email exists and is valid when layer_5_provider=aws."""
+    l5_provider = ctx.prov_config.get("layer_5_provider", "").lower()
+    
+    if l5_provider != "aws":
+        return  # Not using AWS L5, skip
+    
+    aws_creds = ctx.credentials_config.get("aws", {})
+    grafana_email = aws_creds.get("grafana_admin_email", "")
+    
+    if not grafana_email:
+        raise ValueError(
+            "Missing 'grafana_admin_email' in config_credentials.json (aws section). "
+            "Required when layer_5_provider='aws' to create/assign IAM Identity Center user."
+        )
+    
+    # Email format validation
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(pattern, grafana_email):
+        raise ValueError(
+            f"Invalid email format for grafana_admin_email: '{grafana_email}'. "
+            "Please provide a valid email address."
+        )
+
+
+# ==========================================
+# 6. Main Orchestrator
 # ==========================================
 
 def run_all_checks(accessor: FileAccessor) -> None:
@@ -557,5 +586,6 @@ def run_all_checks(accessor: FileAccessor) -> None:
     check_credentials_per_provider(ctx)
     check_hierarchy_provider_match(accessor, ctx)
     check_scene_assets(accessor, ctx)
+    check_grafana_admin_for_aws_l5(ctx)
     
     logger.info("✓ All validation checks passed")

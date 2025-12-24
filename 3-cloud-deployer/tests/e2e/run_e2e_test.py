@@ -25,6 +25,7 @@ def main():
         "aws": "tests/e2e/aws/test_aws_terraform_e2e.py",
         "gcp": "tests/e2e/gcp/test_gcp_terraform_e2e.py",
         "azure": "tests/e2e/azure/test_azure_functions_only.py",
+        "azure-zip": "tests/e2e/test_azure_functions_only.py",
     }
     
     if provider not in test_map:

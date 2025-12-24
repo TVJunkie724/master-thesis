@@ -330,6 +330,22 @@ output "aws_grafana_api_key" {
   sensitive   = true
 }
 
+output "aws_grafana_admin_email" {
+  description = "Grafana admin email"
+  value       = var.grafana_admin_email != "" && local.l5_aws_enabled ? var.grafana_admin_email : null
+}
+
+output "aws_grafana_login_instructions" {
+  description = "How to access Grafana"
+  value = local.grafana_admin_enabled ? join("\n", [
+    "========== AWS Managed Grafana Access ==========",
+    "Email: ${var.grafana_admin_email}",
+    "Check email for AWS IAM Identity Center activation link",
+    "URL: ${try(aws_grafana_workspace.main[0].endpoint, "Not available")}",
+    "================================================"
+  ]) : null
+}
+
 # ==============================================================================
 # GCP Setup Outputs
 # ==============================================================================

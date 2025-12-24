@@ -227,12 +227,62 @@ def _convert_functionapp_to_blueprint(content: str) -> str:
     return content
 
 
+def _extract_function_names(content: str) -> List[str]:
+    """
+    Extract Azure function names from function_app.py content.
+    
+    Matches patterns like:
+        @app.function_name(name="my-function")
+        @bp.function_name(name="my-function")
+    """
+    pattern = r'@(?:app|bp)\.function_name\s*\(\s*name\s*=\s*["\']([^"\']+)["\']\s*\)'
+    return re.findall(pattern, content)
+
+
+def _validate_no_duplicate_function_names(
+    func_dirs: List[Path],
+    processed_contents: dict[str, str]
+) -> None:
+    """
+    Validate that no duplicate Azure function names exist across all functions.
+    
+    Args:
+        func_dirs: List of function directories being bundled
+        processed_contents: Dict mapping module_name -> processed function_app.py content
+    
+    Raises:
+        BundleError: If duplicate function names are detected
+    """
+    seen_names: dict[str, str] = {}  # function_name -> module_name that declared it
+    duplicates: List[str] = []
+    
+    for module_name, content in processed_contents.items():
+        func_names = _extract_function_names(content)
+        for func_name in func_names:
+            if func_name in seen_names:
+                duplicates.append(
+                    f"Function name '{func_name}' is declared in both "
+                    f"'{seen_names[func_name]}' and '{module_name}'"
+                )
+            else:
+                seen_names[func_name] = module_name
+    
+    if duplicates:
+        error_msg = "Duplicate Azure function names detected:\n" + "\n".join(f"  - {d}" for d in duplicates)
+        logger.error(error_msg)
+        raise BundleError(error_msg)
+
+
 def _convert_require_env_to_lazy(content: str) -> str:
     """
-    Convert module-level _require_env calls to lazy loading pattern.
+    Convert module-level require_env calls to lazy loading pattern.
     
-    Module-level _require_env() fails at import time during Azure function
+    Module-level require_env() fails at import time during Azure function
     discovery if the env var is missing. Convert to lazy getter functions.
+    
+    NOTE: This only converts simple `CONST = require_env("ENV")` patterns.
+    Complex patterns like `json.loads(require_env("ENV"))` should be manually
+    refactored in the source files to use lazy loading.
     """
     patterns = [
         r'^([A-Z][A-Z0-9_]*)\s*=\s*_require_env\(["\']([^"\']+)["\']\)\s*$',
@@ -242,6 +292,9 @@ def _convert_require_env_to_lazy(content: str) -> str:
     lines = content.split('\n')
     new_lines = []
     var_map = {}
+    # Store env_name -> placeholder to protect from replacement
+    env_placeholders = {}
+    placeholder_counter = 0
     
     for line in lines:
         matched = False
@@ -254,12 +307,17 @@ def _convert_require_env_to_lazy(content: str) -> str:
                 getter_name = f"_get{private_var}"
                 var_map[const_name] = f"{getter_name}()"
                 
+                # Create a unique placeholder for the env var name
+                placeholder = f"__ENV_PLACEHOLDER_{placeholder_counter}__"
+                env_placeholders[placeholder] = env_name
+                placeholder_counter += 1
+                
                 new_lines.extend([
                     f"{private_var} = None",
                     f"def {getter_name}():",
                     f"    global {private_var}",
                     f"    if {private_var} is None:",
-                    f'        {private_var} = _require_env("{env_name}")',
+                    f'        {private_var} = require_env("{placeholder}")',
                     f"    return {private_var}",
                 ])
                 matched = True
@@ -270,9 +328,13 @@ def _convert_require_env_to_lazy(content: str) -> str:
     
     content = '\n'.join(new_lines)
     
-    # Replace usages
+    # Replace usages of const names with getter calls
     for const_name, getter_call in var_map.items():
         content = re.sub(rf'\b{const_name}\b', getter_call, content)
+    
+    # Restore the actual env var names from placeholders
+    for placeholder, env_name in env_placeholders.items():
+        content = content.replace(placeholder, env_name)
     
     return content
 
@@ -283,17 +345,18 @@ def _merge_function_files(zf: zipfile.ZipFile, func_dirs: List[Path],
     Create a main function_app.py that imports and registers Blueprints.
     
     Azure Functions v2 Python model supports Blueprints for modular organization.
+    Validates that no duplicate function names exist before writing to ZIP.
     """
     if not func_dirs:
         return
     
-    # Copy function folders to ZIP
+    # First pass: collect and process all function_app.py files
+    processed_contents: dict[str, str] = {}  # module_name -> processed content
+    other_files: List[Tuple[Path, str, str]] = []  # (file_path, arcname, module_name)
+    
     for func_dir in func_dirs:
         func_name = func_dir.name
         module_name = func_name.replace("-", "_")
-        
-        # Add __init__.py to make folder a Python package
-        zf.writestr(f"{module_name}/__init__.py", "# Auto-generated to make this folder a Python package\n")
         
         for root, _, files in os.walk(func_dir):
             for file in files:
@@ -304,15 +367,34 @@ def _merge_function_files(zf: zipfile.ZipFile, func_dirs: List[Path],
                 rel_path = file_path.relative_to(func_dir)
                 arcname = f"{module_name}/{rel_path}"
                 
-                # For function_app.py files, clean up and convert
+                # For function_app.py files, process and store for validation
                 if file == "function_app.py":
                     content = file_path.read_text(encoding="utf-8")
                     content = _clean_function_app_imports(content)
                     content = _convert_functionapp_to_blueprint(content)
                     content = _convert_require_env_to_lazy(content)
-                    zf.writestr(arcname, content)
+                    processed_contents[module_name] = content
                 else:
-                    zf.write(file_path, arcname)
+                    other_files.append((file_path, arcname, module_name))
+    
+    # VALIDATE: Check for duplicate function names before writing anything
+    _validate_no_duplicate_function_names(func_dirs, processed_contents)
+    
+    # Second pass: write validated content to ZIP
+    for func_dir in func_dirs:
+        func_name = func_dir.name
+        module_name = func_name.replace("-", "_")
+        
+        # Add __init__.py to make folder a Python package
+        zf.writestr(f"{module_name}/__init__.py", "# Auto-generated to make this folder a Python package\n")
+        
+        # Write the processed function_app.py
+        if module_name in processed_contents:
+            zf.writestr(f"{module_name}/function_app.py", processed_contents[module_name])
+    
+    # Write other files
+    for file_path, arcname, _ in other_files:
+        zf.write(file_path, arcname)
     
     # Generate main function_app.py with Blueprint registrations
     import_lines = []
