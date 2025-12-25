@@ -1,0 +1,5 @@
+{
+  "twin2clouds_url": "http://2twin2clouds:8000/",
+  "cloud_deployer_url": "http://3cloud-deployer:8000/",
+  "mode": "DEBUG"
+}

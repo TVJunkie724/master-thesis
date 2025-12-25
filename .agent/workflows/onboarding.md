@@ -119,10 +119,12 @@ view_file: d:\Git\master-thesis\integration_vision.md
 | Project | Purpose | Priority |
 |---------|---------|----------|
 | `twin2multicloud_cli` | CLI orchestrator | 🎯 **Thesis Goal** |
-| `twin2multicloud_flutter` | Flutter UI | Nice to have |
+| `twin2multicloud_flutter` | Flutter UI | Nice to have (see `FRONTEND_ARCHITECTURE.md`) |
 | `2-twin2clouds` | Cost optimizer (Brain) | Core component |
 | `3-cloud-deployer` | Cloud deployer (Muscle) | Core component |
 | `twin2multicloud-latex` | Thesis document | Documentation |
+
+> **Flutter Frontend Blueprint:** For the Flutter UI implementation, see [`FRONTEND_ARCHITECTURE.md`](file:///d:/Git/master-thesis/FRONTEND_ARCHITECTURE.md) in the repository root. This contains the complete architecture proposal, UI wireframes, and implementation plan.
 
 ---
 
