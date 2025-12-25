@@ -8,31 +8,85 @@ Follow these steps **in order** when starting work on any project in this reposi
 
 ---
 
-## Step 0: Create Feature Branch (MANDATORY)
+## Step 0: Setup AI Working Branch & Session (MANDATORY)
 
-**Before starting ANY task**, create a dedicated feature branch:
+**Before starting ANY task**, set up the working branch and session tracking.
+
+### 0.1 Switch to AI Working Branch
+
+AI agents always work on a dedicated `ai/dev` branch (not per-task feature branches):
 
 ```bash
-# 1. Check current git status to see any existing changes
+# 1. Check current git status
 git status
 
-# 2. Stash any uncommitted changes (if any exist from previous work)
-git stash --include-untracked
+# 2. Check if ai/dev branch exists
+git branch --list ai/dev
 
-# 3. Switch to main branch and pull latest
+# 3a. If ai/dev EXISTS: switch to it and pull latest
+git checkout ai/dev
+git pull origin ai/dev --rebase
+
+# 3b. If ai/dev DOES NOT EXIST: create it from main
 git checkout main
 git pull origin main
-
-# 4. Create and switch to a new feature branch
-git checkout -b feature/<descriptive-task-name>
+git checkout -b ai/dev
+git push -u origin ai/dev
 ```
 
-**Branch naming conventions:**
-- Use lowercase with hyphens: `feature/fix-azure-e2e-tests`
-- Be descriptive: `feature/add-gcp-firestore-index`
-- Include ticket/issue if available: `feature/issue-42-fix-login`
+### 0.2 Initialize or Resume Session Tracking
 
-> ⚠️ **CRITICAL:** Never work directly on `main` branch. Always create a feature branch first.
+Check for existing session file `.ai-session.json` (gitignored):
+
+```bash
+# Check if session file exists
+view_file: d:\Git\master-thesis\.ai-session.json
+```
+
+**If file exists and task is RELATED to previous session:**
+- Reuse the existing `session_id`
+- Add new files to `files_modified` list
+
+**If file does NOT exist or this is a NEW unrelated task:**
+- Generate a new session ID using format: `AI-<MMDD>-<4-char-hash>`
+- Create new `.ai-session.json` file:
+
+```json
+{
+  "session_id": "AI-1225-a7f3",
+  "task_description": "Brief description of the task",
+  "started_at": "2025-12-25T10:40:00Z",
+  "files_modified": []
+}
+```
+
+> 💡 **Session ID Format:** `AI-<MMDD>-<first 4 chars of conversation ID>`
+> Example: For conversation `cc2e6ffe-...` on Dec 25 → `AI-1225-cc2e`
+
+### 0.3 Commit Message Format (REQUIRED)
+
+ALL commits must include the session ID:
+
+```
+[AI-1225-a7f3] <type>: <description>
+```
+
+**Types:**
+- `WIP` - Work in progress (can commit anytime)
+- `feat` - New feature
+- `fix` - Bug fix
+- `docs` - Documentation
+- `test` - Test changes
+- `refactor` - Code refactoring
+
+**Examples:**
+```
+[AI-1225-cc2e] WIP: started Azure compute fix
+[AI-1225-cc2e] feat: resolve Azure E2E test failure
+[AI-1225-cc2e] test: add unit test for new function
+```
+
+> ⚠️ **CRITICAL:** Never work directly on `main` branch. Always use `ai/dev`.
 
 ---
 
@@ -231,7 +285,46 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
 
 ---
 
-## Task Completion: Commit Workflow (MANDATORY)
+## During Work: Commit Workflow
+
+### WIP Commits (Anytime)
+
+You can make WIP commits at any point without user approval:
+
+```bash
+# 1. Check what files you've modified
+git status
+
+# 2. Update .ai-session.json with files you modified
+# (add to files_modified array)
+
+# 3. Stage your changes
+git add <files-you-modified>
+
+# 4. Commit with session ID and WIP prefix
+git commit -m "[AI-1225-cc2e] WIP: <what you did>"
+```
+
+> 💡 WIP commits keep your work safe and provide checkpoints.
+
+### Ensuring Only YOUR Changes Are Committed
+
+**Before committing, ALWAYS verify:**
+
+1. **Check `.ai-session.json`** for the files you should have modified
+2. **List all modified files:** `git status`
+3. **Compare against your session file:**
+   - Only stage files listed in `files_modified`
+   - If you see unexpected files, ask the user
+
+4. **If you see changes you did NOT make:**
+   - Do NOT stage those files
+   - Use selective staging: `git add <only-your-files>`
+   - Update `.ai-session.json` to reflect actual changes
+
+---
+
+## Task Completion: Merge Workflow (MANDATORY)
 
 > ⚠️ **CRITICAL:** A task is NOT complete until it is:
 > 1. ✅ Fully implemented
@@ -240,73 +333,72 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
 
 ### When User Approves the Task
 
-Only after the user explicitly approves the completed work, follow this commit workflow:
+**Step 1: Final commit (if any uncommitted changes)**
 
 ```bash
-# 1. Verify you're on the correct feature branch
+# Verify you're on ai/dev
 git branch --show-current
-# Expected: feature/<your-task-name>
 
-# 2. Check status to see ALL changes
-git status
-
-# 3. Review the diff to ensure ONLY your changes are present
-git diff
-
-# 4. Stage ONLY the files YOU modified (be selective!)
-git add <specific-file-1> <specific-file-2>
-# Or if all changes are yours:
-git add -A
-
-# 5. Commit with a descriptive message
-git commit -m "feat: <descriptive message of what was accomplished>"
+# Stage and commit remaining changes with session ID
+git add <your-files>
+git commit -m "[AI-1225-cc2e] feat: <final description>"
 ```
 
-### Ensuring Only YOUR Changes Are Committed
+**Step 2: Push ai/dev to remote**
 
-**Before committing, ALWAYS verify:**
-
-1. **List all modified files:**
-   ```bash
-   git status
-   ```
-
-2. **Review each file's changes:**
-   ```bash
-   git diff <filename>
-   ```
-
-3. **If you see changes you did NOT make:**
-   - Do NOT stage those files
-   - Use selective staging: `git add <only-your-files>`
-   - Or use interactive staging: `git add -p` (to stage specific hunks)
-
-4. **If unsure about any changes:**
-   - Ask the user before committing
-   - Never commit files you didn't intentionally modify
-
-### Commit Message Format
-
-Follow conventional commits:
-- `feat: ` - New feature
-- `fix: ` - Bug fix
-- `docs: ` - Documentation changes
-- `test: ` - Test additions/modifications
-- `refactor: ` - Code refactoring
-
-**Examples:**
-```
-feat: add GCP Firestore composite index for hot-reader queries
-fix: resolve Azure L3 function discovery issue
-test: add E2E test for single-cloud Azure deployment
+```bash
+git push origin ai/dev
 ```
 
-### After Commit (User Decides Next Steps)
+**Step 3: Create clean merge commit (User decides approach)**
 
-After committing, inform the user. They will decide whether to:
-- Push to remote: `git push origin feature/<branch-name>`
-- Create a pull request
-- Merge to main
-- Continue with additional work
+Inform the user of these options:
 
-> 💡 **Remember:** The AI agent creates commits, but the user controls when to push and merge.
+| Option | Command | Result |
+|--------|---------|--------|
+| **Squash merge** (recommended) | `git checkout main && git merge --squash ai/dev` | Single clean commit on main |
+| **Regular merge** | `git checkout main && git merge ai/dev` | Preserves all WIP commits |
+| **Create PR** | Via GitHub/GitLab | Code review before merge |
+
+**Squash merge example:**
+```bash
+git checkout main
+git pull origin main
+git merge --squash ai/dev
+git commit -m "feat: <summary of all work from session AI-1225-cc2e>"
+git push origin main
+```
+
+**Step 4: Reset ai/dev to main (after merge)**
+
+```bash
+git checkout ai/dev
+git reset --hard main
+git push origin ai/dev --force
+```
+
+### Rollback: If Something Goes Wrong
+
+To revert all commits from a specific session:
+
+```bash
+# Find all commits from the session
+git log --oneline --grep="AI-1225-cc2e"
+
+# Option 1: Revert each commit (safe, preserves history)
+git revert <commit-hash-1> <commit-hash-2> ...
+
+# Option 2: Reset to before session started (destructive)
+git reset --hard <commit-before-session>
+```
+
+### Session Cleanup
+
+After successful merge, delete the session file:
+
+```bash
+# Delete session file (it's gitignored anyway)
+rm .ai-session.json
+```
+
+> 💡 **Remember:** The AI agent creates commits on `ai/dev`, but the user controls when to merge to `main`.
