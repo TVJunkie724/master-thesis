@@ -92,6 +92,8 @@ Festo_Demo_Box/
 3-cloud-deployer/manual_inspection*
 3-cloud-deployer/scripts/
 **/temp_tfvars.json
+**/e2e_*.txt
+
 
 # -----------------------------------------------------------------------------
 # AI Agent Session Tracking
