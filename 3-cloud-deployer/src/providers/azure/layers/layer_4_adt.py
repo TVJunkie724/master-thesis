@@ -44,6 +44,22 @@ logger = logging.getLogger(__name__)
 # Helper Functions
 # ==========================================
 
+def _sanitize_for_dtmi(name: str) -> str:
+    """
+    Sanitize a name for use in DTMI identifiers.
+    
+    DTMI path segments must be: letters, digits, underscores only.
+    Cannot start with digit, cannot end with underscore.
+    
+    Args:
+        name: The name to sanitize (e.g., twin_name, node_id, device_id)
+        
+    Returns:
+        DTMI-safe string with hyphens replaced by underscores
+    """
+    return name.replace("-", "_")
+
+
 def get_adt_instance_url(provider: 'AzureProvider') -> Optional[str]:
     """
     Get the Azure Digital Twins instance endpoint URL.
@@ -214,7 +230,7 @@ def _convert_hierarchy_to_dtdl(hierarchy: dict, twin_name: str) -> List[Dict[str
     
     # Create a base model for all entities
     base_model = {
-        "@id": f"dtmi:{twin_name}:BaseEntity;1",
+        "@id": f"dtmi:{_sanitize_for_dtmi(twin_name)}:BaseEntity;1",
         "@type": "Interface",
         "displayName": "Base Entity",
         "@context": "dtmi:dtdl:context;2",
@@ -236,14 +252,14 @@ def _convert_hierarchy_to_dtdl(hierarchy: dict, twin_name: str) -> List[Dict[str
     def process_node(node: dict, parent_id: Optional[str] = None):
         """Recursively process hierarchy nodes into DTDL models."""
         node_id = node.get("id", "unknown")
-        model_id = f"dtmi:{twin_name}:{node_id};1"
+        model_id = f"dtmi:{_sanitize_for_dtmi(twin_name)}:{_sanitize_for_dtmi(node_id)};1"
         
         model = {
             "@id": model_id,
             "@type": "Interface",
             "displayName": node.get("name", node_id),
             "@context": "dtmi:dtdl:context;2",
-            "extends": f"dtmi:{twin_name}:BaseEntity;1",
+            "extends": f"dtmi:{_sanitize_for_dtmi(twin_name)}:BaseEntity;1",
             "contents": []
         }
         
@@ -264,14 +280,14 @@ def _convert_hierarchy_to_dtdl(hierarchy: dict, twin_name: str) -> List[Dict[str
         # Process devices as leaf nodes with telemetry
         for device in node.get("devices", []):
             device_id = device.get("id", "unknown")
-            device_model_id = f"dtmi:{twin_name}:{device_id};1"
+            device_model_id = f"dtmi:{_sanitize_for_dtmi(twin_name)}:{_sanitize_for_dtmi(device_id)};1"
             
             device_model = {
                 "@id": device_model_id,
                 "@type": "Interface",
                 "displayName": device.get("name", device_id),
                 "@context": "dtmi:dtdl:context;2",
-                "extends": f"dtmi:{twin_name}:BaseEntity;1",
+                "extends": f"dtmi:{_sanitize_for_dtmi(twin_name)}:BaseEntity;1",
                 "contents": [
                     {
                         "@type": "Relationship",
@@ -359,7 +375,7 @@ def upload_dtdl_models(provider: 'AzureProvider', config, project_path: str) -> 
         logger.info(f"Creating {len(config.iot_devices)} Digital Twins...")
         for device in config.iot_devices:
             device_id = device.get("id", device.get("name", "unknown"))
-            model_id = f"dtmi:{twin_name}:{device_id};1"
+            model_id = f"dtmi:{_sanitize_for_dtmi(twin_name)}:{_sanitize_for_dtmi(device_id)};1"
             
             try:
                 twin = {
@@ -419,7 +435,7 @@ def info_l4(context, provider: 'AzureProvider') -> Dict[str, Any]:
     
     if adt_url:
         # Check base model
-        base_model_id = f"dtmi:{twin_name}:BaseEntity;1"
+        base_model_id = f"dtmi:{_sanitize_for_dtmi(twin_name)}:BaseEntity;1"
         status["models"][base_model_id] = check_model(base_model_id, provider)
         
         # Check twins for each IoT device
