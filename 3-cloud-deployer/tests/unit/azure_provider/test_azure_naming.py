@@ -18,9 +18,9 @@ class TestAzureNaming:
         assert naming.twin_name == "my-digital-twin"
     
     def test_resource_group_name_format(self):
-        """resource_group() should return rg-{twin_name} format."""
+        """resource_group() should return {twin_name}-rg format."""
         naming = AzureNaming("test-twin")
-        assert naming.resource_group() == "rg-test-twin"
+        assert naming.resource_group() == "test-twin-rg"
     
     def test_managed_identity_name_format(self):
         """managed_identity() should return {twin_name}-identity format."""

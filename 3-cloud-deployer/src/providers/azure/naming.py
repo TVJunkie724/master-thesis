@@ -67,9 +67,9 @@ class AzureNaming:
         """
         Resource Group name for all twin resources.
         
-        Pattern: rg-{twin_name}
+        Pattern: {twin_name}-rg
         """
-        return f"rg-{self._twin_name}"
+        return f"{self._twin_name}-rg"
     
     def managed_identity(self) -> str:
         """
