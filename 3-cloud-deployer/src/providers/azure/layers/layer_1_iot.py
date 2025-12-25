@@ -52,6 +52,12 @@ def _get_iot_hub_connection_string(provider: 'AzureProvider') -> str:
         raise
 
 
+def _is_not_found_error(exception: Exception) -> bool:
+    """Check if exception indicates a 404/NotFound error."""
+    error_str = str(exception).lower()
+    return "not found" in error_str or "devicenotfound" in error_str or "404" in error_str
+
+
 # ==========================================
 # SDK-Managed Resource Checks
 # ==========================================
@@ -86,7 +92,7 @@ def check_iot_device(iot_device: dict, provider: 'AzureProvider') -> bool:
         return True
         
     except Exception as e:
-        if "DeviceNotFound" in str(e):
+        if _is_not_found_error(e):
             logger.info(f"✗ IoT device not found: {device_id}")
             return False
         else:
@@ -158,7 +164,7 @@ def register_iot_devices(provider: 'AzureProvider', config, project_path: str) -
             logger.info(f"✓ IoT device already exists: {device_id}")
             primary_key = existing_device.authentication.symmetric_key.primary_key
         except Exception as e:
-            if "DeviceNotFound" in str(e):
+            if _is_not_found_error(e):
                 try:
                     # Create new device with auto-generated keys
                     new_device = registry_manager.create_device_with_sas(
