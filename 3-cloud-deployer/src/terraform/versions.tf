@@ -12,6 +12,13 @@ terraform {
       version = "~> 4.0"
     }
 
+    # Azure AD provider (for Entra ID user management)
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = "~> 2.47"
+    }
+
+
     # AWS provider (for multi-cloud deployments)
     aws = {
       source  = "hashicorp/aws"

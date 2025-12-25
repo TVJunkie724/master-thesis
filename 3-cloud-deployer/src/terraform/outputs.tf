@@ -141,6 +141,36 @@ output "azure_grafana_endpoint" {
   value       = try(azurerm_dashboard_grafana.main[0].endpoint, null)
 }
 
+output "azure_grafana_admin_password" {
+  description = "Initial password for Azure Grafana admin (only if new user was created)"
+  value       = local.should_create_user ? random_password.grafana_admin[0].result : null
+  sensitive   = true
+}
+
+output "azure_grafana_user_created" {
+  description = "Whether a new Entra ID user was created for Grafana"
+  value       = local.should_create_user
+}
+
+output "azure_grafana_access_instructions" {
+  description = "How to access Azure Managed Grafana"
+  value = local.azure_grafana_enabled ? join("\n", [
+    "========== Azure Managed Grafana Access ==========",
+    "Admin: ${var.grafana_admin_email}",
+    "",
+    local.user_found ? "User: Existing (Grafana Admin role assigned)" : (
+      local.should_create_user ? "User: NEW - retrieve password with: terraform output -raw azure_grafana_admin_password" :
+      "ERROR: Cannot create user - email domain not verified in tenant"
+    ),
+    "",
+    "URL: ${try(azurerm_dashboard_grafana.main[0].endpoint, "N/A")}",
+    "Login: Use Microsoft/Entra ID credentials",
+    local.should_create_user ? "Note: Password must be changed on first login" : "",
+    "==================================================="
+  ]) : null
+}
+
+
 # ==============================================================================
 # Cross-Cloud Outputs
 # ==============================================================================

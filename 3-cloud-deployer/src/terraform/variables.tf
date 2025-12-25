@@ -148,11 +148,11 @@ variable "aws_region" {
 }
 
 # ==============================================================================
-# L5 Grafana User (Required when layer_5_provider=aws)
+# L5 Grafana User (Required when layer_5_provider=aws or azure)
 # ==============================================================================
 
 variable "grafana_admin_email" {
-  description = "Email for Grafana admin user. Required if layer_5_provider=aws."
+  description = "Email for Grafana admin user. Required when layer_5_provider is 'aws' or 'azure'. For Azure: use format 'user@TENANT.onmicrosoft.com'"
   type        = string
   default     = ""
 }

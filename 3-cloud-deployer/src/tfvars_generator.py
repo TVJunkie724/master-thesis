@@ -86,6 +86,9 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
     # Load existing inter-cloud token if available
     tfvars.update(_load_inter_cloud(project_dir))
     
+    # Load config_grafana.json for Grafana admin user
+    tfvars.update(_load_grafana_config(project_dir))
+    
     # Load optimization feature flags (for conditional resources)
     optimization_flags = load_optimization_flags(project_dir)
         
@@ -559,6 +562,32 @@ def _load_inter_cloud(project_dir: Path) -> dict:
         return {"inter_cloud_token": inter_cloud["inter_cloud_token"]}
     
     return {}
+
+
+def _load_grafana_config(project_dir: Path) -> dict:
+    """Load Grafana admin configuration from config_grafana.json."""
+    grafana_file = project_dir / "config_grafana.json"
+    
+    if not grafana_file.exists():
+        return {}
+    
+    with open(grafana_file) as f:
+        grafana = json.load(f)
+    
+    result = {}
+    
+    # Map config fields to Terraform variables
+    if grafana.get("admin_email"):
+        result["grafana_admin_email"] = grafana["admin_email"]
+        logger.info(f"  Grafana admin email: {grafana['admin_email']}")
+    
+    if grafana.get("admin_first_name"):
+        result["grafana_admin_first_name"] = grafana["admin_first_name"]
+    
+    if grafana.get("admin_last_name"):
+        result["grafana_admin_last_name"] = grafana["admin_last_name"]
+    
+    return result
 
 
 if __name__ == "__main__":
