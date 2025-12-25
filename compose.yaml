@@ -45,6 +45,26 @@ services:
     networks:
       - my_master_thesis_network
 
+  # Management API (Sprint 1)
+  management-api:
+    build:
+      context: ./twin2multicloud_backend
+      dockerfile: Dockerfile
+    ports:
+      - "5005:5005"
+    volumes:
+      - ./twin2multicloud_backend:/app
+      - management-data:/app/data
+    environment:
+      - DATABASE_URL=sqlite:///./data/app.db
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key}
+      - DEBUG=true
+    networks:
+      - my_master_thesis_network
+    depends_on:
+      - 2twin2clouds
+      - 3cloud-deployer
+
 ### LaTeX Thesis ###
   # Watch mode (default): docker compose run --rm thesis-latex
   # Compile once:         docker compose run --rm thesis-latex latexmk -pdf -interaction=nonstopmode -cd /thesis/main.tex
@@ -61,3 +81,6 @@ services:
 networks:
   my_master_thesis_network:
     driver: bridge
+
+volumes:
+  management-data:

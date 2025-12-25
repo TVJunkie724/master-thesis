@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 from src.models.twin import TwinState
 
 class TwinCreate(BaseModel):
