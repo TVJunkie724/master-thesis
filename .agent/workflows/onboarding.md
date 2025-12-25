@@ -8,6 +8,34 @@ Follow these steps **in order** when starting work on any project in this reposi
 
 ---
 
+## Step 0: Create Feature Branch (MANDATORY)
+
+**Before starting ANY task**, create a dedicated feature branch:
+
+```bash
+# 1. Check current git status to see any existing changes
+git status
+
+# 2. Stash any uncommitted changes (if any exist from previous work)
+git stash --include-untracked
+
+# 3. Switch to main branch and pull latest
+git checkout main
+git pull origin main
+
+# 4. Create and switch to a new feature branch
+git checkout -b feature/<descriptive-task-name>
+```
+
+**Branch naming conventions:**
+- Use lowercase with hyphens: `feature/fix-azure-e2e-tests`
+- Be descriptive: `feature/add-gcp-firestore-index`
+- Include ticket/issue if available: `feature/issue-42-fix-login`
+
+> ⚠️ **CRITICAL:** Never work directly on `main` branch. Always create a feature branch first.
+
+---
+
 ## Step 1: Check Knowledge Items (KIs)
 
 Before any research or implementation, check existing Knowledge Items for relevant context:
@@ -200,3 +228,85 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
 
 - **Optimizer docs:** `2-twin2clouds/docs/docs-overview.html`
 - **Deployer docs:** `3-cloud-deployer/docs/docs-overview.html`
+
+---
+
+## Task Completion: Commit Workflow (MANDATORY)
+
+> ⚠️ **CRITICAL:** A task is NOT complete until it is:
+> 1. ✅ Fully implemented
+> 2. ✅ Thoroughly tested (unit tests pass, E2E tests if applicable)
+> 3. ✅ **Explicitly approved by the user**
+
+### When User Approves the Task
+
+Only after the user explicitly approves the completed work, follow this commit workflow:
+
+```bash
+# 1. Verify you're on the correct feature branch
+git branch --show-current
+# Expected: feature/<your-task-name>
+
+# 2. Check status to see ALL changes
+git status
+
+# 3. Review the diff to ensure ONLY your changes are present
+git diff
+
+# 4. Stage ONLY the files YOU modified (be selective!)
+git add <specific-file-1> <specific-file-2>
+# Or if all changes are yours:
+git add -A
+
+# 5. Commit with a descriptive message
+git commit -m "feat: <descriptive message of what was accomplished>"
+```
+
+### Ensuring Only YOUR Changes Are Committed
+
+**Before committing, ALWAYS verify:**
+
+1. **List all modified files:**
+   ```bash
+   git status
+   ```
+
+2. **Review each file's changes:**
+   ```bash
+   git diff <filename>
+   ```
+
+3. **If you see changes you did NOT make:**
+   - Do NOT stage those files
+   - Use selective staging: `git add <only-your-files>`
+   - Or use interactive staging: `git add -p` (to stage specific hunks)
+
+4. **If unsure about any changes:**
+   - Ask the user before committing
+   - Never commit files you didn't intentionally modify
+
+### Commit Message Format
+
+Follow conventional commits:
+- `feat: ` - New feature
+- `fix: ` - Bug fix
+- `docs: ` - Documentation changes
+- `test: ` - Test additions/modifications
+- `refactor: ` - Code refactoring
+
+**Examples:**
+```
+feat: add GCP Firestore composite index for hot-reader queries
+fix: resolve Azure L3 function discovery issue
+test: add E2E test for single-cloud Azure deployment
+```
+
+### After Commit (User Decides Next Steps)
+
+After committing, inform the user. They will decide whether to:
+- Push to remote: `git push origin feature/<branch-name>`
+- Create a pull request
+- Merge to main
+- Continue with additional work
+
+> 💡 **Remember:** The AI agent creates commits, but the user controls when to push and merge.
