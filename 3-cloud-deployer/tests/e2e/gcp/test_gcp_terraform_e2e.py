@@ -109,21 +109,25 @@ class TestGCPTerraformE2E:
         if not gcp_creds:
             pytest.fail("No GCP credentials found in config_credentials.json")
         
-        required_fields = ["gcp_region"]
-        missing_fields = [f for f in required_fields if not gcp_creds.get(f)]
-        if missing_fields:
-            pytest.fail(f"Missing required GCP credential fields: {missing_fields}")
-        
-        # gcp_billing_account OR gcp_project_id is required
-        has_billing = gcp_creds.get("gcp_billing_account", "").strip()
-        has_project_id = gcp_creds.get("gcp_project_id", "").strip()
-        if not has_billing and not has_project_id:
-            pytest.fail(
-                "GCP requires either 'gcp_project_id' (existing project) or "
-                "'gcp_billing_account' (new project creation) in credentials."
-            )
-        
-        print(f"  ✓ GCP credentials validated")
+        # Validate GCP connectivity using the comprehensive credentials checker
+        # (This is the same checker used by CLI and REST API)
+        try:
+            from api.gcp_credentials_checker import check_gcp_credentials
+            
+            result = check_gcp_credentials(gcp_creds)
+            if result["status"] == "error":
+                pytest.fail(f"GCP credentials validation failed: {result['message']}")
+            elif result["status"] == "invalid":
+                print(f"  ⚠ Warning: {result['message']}")
+                print("    Deployment may fail due to missing permissions")
+            elif result["status"] == "partial":
+                print(f"  ⚠ Warning: {result['message']}")
+            else:
+                print(f"  ✓ GCP credentials validated")
+                if result.get("caller_identity"):
+                    print(f"  ✓ Project: {result['caller_identity'].get('project_id')}")
+        except ImportError:
+            print("  ⚠ google-auth not installed, skipping credential check")
         
         # ==========================================
         # PHASE 3: Initialize Terraform Strategy

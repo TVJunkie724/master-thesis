@@ -119,7 +119,7 @@ resource "azurerm_linux_function_app" "l1" {
     AZURE_CLIENT_ID   = azurerm_user_assigned_identity.main[0].client_id
 
     # Inter-cloud token for cross-cloud L2 calls
-    INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : random_password.inter_cloud_token[0].result
+    INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
   }
 
   tags = local.common_tags
@@ -134,12 +134,12 @@ resource "azurerm_linux_function_app" "l1" {
 # ==============================================================================
 
 resource "azurerm_eventgrid_system_topic" "iothub" {
-  count                  = var.layer_1_provider == "azure" ? 1 : 0
-  name                   = "${var.digital_twin_name}-iothub-events"
-  resource_group_name    = azurerm_resource_group.main[0].name
-  location               = local.azure_iothub_region
-  source_arm_resource_id = azurerm_iothub.main[0].id
-  topic_type             = "Microsoft.Devices.IoTHubs"
+  count               = var.layer_1_provider == "azure" ? 1 : 0
+  name                = "${var.digital_twin_name}-iothub-events"
+  resource_group_name = azurerm_resource_group.main[0].name
+  location            = local.azure_iothub_region
+  source_resource_id  = azurerm_iothub.main[0].id
+  topic_type          = "Microsoft.Devices.IoTHubs"
 
   tags = local.common_tags
 }

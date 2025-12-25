@@ -83,7 +83,7 @@ resource "azurerm_linux_function_app" "l2" {
     AZURE_CLIENT_ID   = azurerm_user_assigned_identity.main[0].client_id
 
     # Inter-cloud token for cross-cloud L3 calls
-    INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : random_password.inter_cloud_token[0].result
+    INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
 
     # Multi-cloud L2→L3: When Azure L2 sends to remote L3
     REMOTE_WRITER_URL = var.layer_2_provider == "azure" && var.layer_3_hot_provider != "azure" ? (
@@ -162,7 +162,7 @@ resource "azurerm_linux_function_app" "user" {
     AZURE_CLIENT_ID   = azurerm_user_assigned_identity.main[0].client_id
 
     # Inter-cloud token for cross-cloud calls
-    INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : random_password.inter_cloud_token[0].result
+    INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
 
     # Cosmos DB connection for user functions to access hot storage
     COSMOS_ENDPOINT = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_account.main[0].endpoint : ""

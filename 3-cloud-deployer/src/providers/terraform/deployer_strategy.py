@@ -123,11 +123,12 @@ class TerraformDeployerStrategy:
     # Main Deployment Methods
     # =========================================================================
     
-    def deploy_all(self, context: Optional['DeploymentContext'] = None) -> dict:
+    def deploy_all(self, context: Optional['DeploymentContext'] = None, skip_credential_check: bool = False) -> dict:
         """
         Deploy all infrastructure and code.
         
         Steps:
+        0. Validate cloud credentials (optional, default: enabled)
         1. Validate project structure
         2. Build function packages (Lambda ZIPs, Function ZIPs)
         3. Generate tfvars.json
@@ -138,6 +139,8 @@ class TerraformDeployerStrategy:
         
         Args:
             context: Optional deployment context for SDK operations
+            skip_credential_check: If True, skip pre-deployment credential validation.
+                                   Default is False (validation enabled).
         
         Returns:
             Dictionary of Terraform outputs
@@ -145,32 +148,39 @@ class TerraformDeployerStrategy:
         Raises:
             TerraformError: If Terraform fails
             ConfigurationError: If config is invalid
-            ValueError: If project validation fails
+            ValueError: If project validation fails or credentials are invalid
         """
         logger.info("=" * 60)
         logger.info("  TERRAFORM DEPLOYMENT - STARTING")
         logger.info("=" * 60)
         
+        # Step 0: Validate cloud credentials (optional)
+        if not skip_credential_check:
+            logger.info("\n[STEP 0/8] Validating cloud credentials...")
+            self._validate_credentials()
+        else:
+            logger.info("\n[STEP 0/8] Skipping credential validation (skip_credential_check=True)")
+        
         # Step 1: Validate project structure
-        logger.info("\n[STEP 1/7] Validating project structure...")
+        logger.info("\n[STEP 1/8] Validating project structure...")
         from src.validation.directory_validator import validate_project_directory
         validate_project_directory(self.project_path)
         logger.info("✓ Project validation passed")
         
         # Step 2: Build function packages
-        logger.info("\n[STEP 2/7] Building function packages...")
+        logger.info("\n[STEP 2/8] Building function packages...")
         self._build_packages()
         
         # Step 3: Generate tfvars
-        logger.info("\n[STEP 3/7] Generating tfvars.json...")
+        logger.info("\n[STEP 3/8] Generating tfvars.json...")
         self._generate_tfvars()
         
         # Step 4: Terraform init
-        logger.info("\n[STEP 4/7] Terraform init...")
+        logger.info("\n[STEP 4/8] Terraform init...")
         self.runner.init()
         
         # Step 5: Terraform apply (AWS Lambda uses pre-built ZIPs)
-        logger.info("\n[STEP 5/7] Terraform apply...")
+        logger.info("\n[STEP 5/8] Terraform apply...")
         self.runner.apply(var_file=str(self.tfvars_path))
         
         # Get outputs
@@ -178,11 +188,11 @@ class TerraformDeployerStrategy:
         logger.info(f"✓ Terraform outputs: {list(self._terraform_outputs.keys())}")
         
         # Step 6: Deploy Azure function code (Kudu)
-        logger.info("\n[STEP 6/7] Deploying Azure function code...")
+        logger.info("\n[STEP 6/8] Deploying Azure function code...")
         self._deploy_azure_function_code()
         
         # Step 7: Post-deployment SDK operations
-        logger.info("\n[STEP 7/7] Running post-deployment operations...")
+        logger.info("\n[STEP 7/8] Running post-deployment operations...")
         if context:
             self._run_post_deployment(context)
         else:
@@ -229,6 +239,99 @@ class TerraformDeployerStrategy:
         self.tfvars_path.parent.mkdir(parents=True, exist_ok=True)
         generate_tfvars(str(self.project_path), str(self.tfvars_path))
         logger.info(f"✓ Generated: {self.tfvars_path}")
+    
+    def _validate_credentials(self) -> None:
+        """
+        Validate cloud credentials before deployment.
+        
+        Checks credentials for each provider configured in config_providers.json.
+        This provides fail-fast behavior with clear error messages instead of
+        waiting for Terraform to fail 10+ minutes into deployment.
+        
+        Raises:
+            ValueError: If credentials are invalid or missing required permissions
+        """
+        providers = self._load_providers_config()
+        credentials = self._load_credentials()
+        
+        # Determine which clouds are in use
+        all_layers = ["layer_1_provider", "layer_2_provider", "layer_3_hot_provider",
+                      "layer_3_cold_provider", "layer_3_archive_provider",
+                      "layer_4_provider", "layer_5_provider"]
+        
+        used_clouds = set()
+        for layer in all_layers:
+            cloud = providers.get(layer)
+            if cloud:
+                used_clouds.add(cloud)
+        
+        logger.info(f"  Configured clouds: {', '.join(used_clouds) or 'none'}")
+        
+        # Validate Azure credentials
+        if "azure" in used_clouds:
+            azure_creds = credentials.get("azure", {})
+            if not azure_creds:
+                raise ValueError("Azure is configured but no Azure credentials found")
+            
+            try:
+                from api.azure_credentials_checker import check_azure_credentials
+                result = check_azure_credentials(azure_creds)
+                
+                if result["status"] == "error":
+                    raise ValueError(f"Azure credential validation failed: {result['message']}")
+                elif result["status"] == "invalid":
+                    logger.warning(f"  ⚠ Azure: {result['message']}")
+                    logger.warning("    Deployment may fail due to missing permissions")
+                elif result["status"] == "partial":
+                    logger.warning(f"  ⚠ Azure: {result['message']}")
+                else:
+                    logger.info("  ✓ Azure credentials validated")
+            except ImportError:
+                logger.warning("  ⚠ Azure SDK not installed, skipping credential check")
+        
+        # Validate AWS credentials
+        if "aws" in used_clouds:
+            aws_creds = credentials.get("aws", {})
+            if not aws_creds:
+                raise ValueError("AWS is configured but no AWS credentials found")
+            
+            try:
+                from api.credentials_checker import check_aws_credentials
+                result = check_aws_credentials(aws_creds)
+                
+                if result["status"] == "error":
+                    raise ValueError(f"AWS credential validation failed: {result['message']}")
+                elif result["status"] == "invalid":
+                    logger.warning(f"  ⚠ AWS: {result['message']}")
+                    logger.warning("    Deployment may fail due to missing permissions")
+                elif result["status"] == "partial":
+                    logger.warning(f"  ⚠ AWS: {result['message']}")
+                else:
+                    logger.info("  ✓ AWS credentials validated")
+            except ImportError:
+                logger.warning("  ⚠ boto3 not installed, skipping AWS credential check")
+        
+        # Validate GCP credentials
+        if "google" in used_clouds:
+            gcp_creds = credentials.get("gcp", {})
+            if not gcp_creds:
+                raise ValueError("GCP is configured but no GCP credentials found")
+            
+            try:
+                from api.gcp_credentials_checker import check_gcp_credentials
+                result = check_gcp_credentials(gcp_creds)
+                
+                if result["status"] == "error":
+                    raise ValueError(f"GCP credential validation failed: {result['message']}")
+                elif result["status"] == "invalid":
+                    logger.warning(f"  ⚠ GCP: {result['message']}")
+                    logger.warning("    Deployment may fail due to missing permissions")
+                elif result["status"] == "partial":
+                    logger.warning(f"  ⚠ GCP: {result['message']}")
+                else:
+                    logger.info("  ✓ GCP credentials validated")
+            except ImportError:
+                logger.warning("  ⚠ google-auth not installed, skipping GCP credential check")
     
     def _build_packages(self) -> None:
         """Build all Lambda/Function packages before Terraform."""

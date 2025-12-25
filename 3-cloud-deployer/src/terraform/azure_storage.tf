@@ -92,14 +92,14 @@ resource "azurerm_cosmosdb_sql_container" "hot" {
 resource "azurerm_storage_container" "cold" {
   count                 = var.layer_3_cold_provider == "azure" ? 1 : 0
   name                  = "cold"
-  storage_account_name  = azurerm_storage_account.main[0].name
+  storage_account_id    = azurerm_storage_account.main[0].id
   container_access_type = "private"
 }
 
 resource "azurerm_storage_container" "archive" {
   count                 = var.layer_3_archive_provider == "azure" ? 1 : 0
   name                  = "archive"
-  storage_account_name  = azurerm_storage_account.main[0].name
+  storage_account_id    = azurerm_storage_account.main[0].id
   container_access_type = "private"
 }
 
@@ -186,7 +186,7 @@ resource "azurerm_linux_function_app" "l3" {
     AZURE_CLIENT_ID   = azurerm_user_assigned_identity.main[0].client_id
 
     # Cross-cloud authentication
-    INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : random_password.inter_cloud_token[0].result
+    INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
 
     # Multi-cloud Hot→Cold: When Azure L3 Hot sends to remote Cold
     REMOTE_COLD_WRITER_URL = var.layer_3_hot_provider == "azure" && var.layer_3_cold_provider != "azure" ? (

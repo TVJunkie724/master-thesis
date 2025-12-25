@@ -62,7 +62,7 @@ def get_adt_instance_url(provider: 'AzureProvider') -> Optional[str]:
         raise ValueError("provider is required")
     
     rg_name = provider.naming.resource_group()
-    adt_name = provider.naming.adt_instance()
+    adt_name = provider.naming.digital_twins_instance()
     
     try:
         instance = provider.clients["digitaltwins"].digital_twins.get(

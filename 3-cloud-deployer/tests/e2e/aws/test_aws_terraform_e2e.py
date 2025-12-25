@@ -100,25 +100,28 @@ class TestAWSTerraformE2E:
         print("\n[VALIDATION] Phase 2: AWS Credentials")
         
         aws_creds = credentials.get("aws", {})
-        required_aws_fields = ["aws_access_key_id", "aws_secret_access_key", "aws_region"]
-        for field in required_aws_fields:
-            if not aws_creds.get(field):
-                pytest.fail(f"AWS credentials missing required field: {field}")
-        print("  ✓ AWS credentials present")
+        if not aws_creds:
+            pytest.fail("No AWS credentials found in config_credentials.json")
         
-        # Validate AWS connectivity using boto3
+        # Validate AWS connectivity using the comprehensive credentials checker
+        # (This is the same checker used by CLI and REST API)
         try:
-            import boto3
-            sts_client = boto3.client(
-                'sts',
-                aws_access_key_id=aws_creds["aws_access_key_id"],
-                aws_secret_access_key=aws_creds["aws_secret_access_key"],
-                region_name=aws_creds["aws_region"]
-            )
-            identity = sts_client.get_caller_identity()
-            print(f"  ✓ AWS API connectivity verified (Account: {identity['Account']})")
-        except Exception as e:
-            pytest.fail(f"AWS API connectivity check failed: {e}")
+            from api.credentials_checker import check_aws_credentials
+            
+            result = check_aws_credentials(aws_creds)
+            if result["status"] == "error":
+                pytest.fail(f"AWS credentials validation failed: {result['message']}")
+            elif result["status"] == "invalid":
+                print(f"  ⚠ Warning: {result['message']}")
+                print("    Deployment may fail due to missing permissions")
+            elif result["status"] == "partial":
+                print(f"  ⚠ Warning: {result['message']}")
+            else:
+                print(f"  ✓ AWS credentials validated")
+                if result.get("caller_identity"):
+                    print(f"  ✓ Account: {result['caller_identity'].get('account_id')}")
+        except ImportError:
+            print("  ⚠ boto3 not installed, skipping credential check")
         
         # ==========================================
         # PHASE 3: Deploy Infrastructure

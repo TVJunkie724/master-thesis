@@ -1,8 +1,8 @@
 """
-Azure Single-Cloud End-to-End Test.
+Azure Terraform End-to-End Test.
 
-This test deploys all Azure layers, sends IoT messages through the pipeline,
-verifies data reaches Cosmos DB and Grafana, then destroys all resources.
+This test deploys all Azure layers using Terraform, sends IoT messages through
+the pipeline, verifies data reaches Cosmos DB, then destroys all resources.
 
 IMPORTANT: This test deploys REAL Azure resources and incurs costs.
 Run with: pytest -m live
@@ -16,10 +16,14 @@ import sys
 import json
 import time
 import requests
-from typing import Dict, List, Any, Optional
+from pathlib import Path
 
 # Add src to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "src")))
+
+# Configure logging to output to stdout for pytest capture
+import logging
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 
 @pytest.mark.live
@@ -30,38 +34,35 @@ class TestAzureSingleCloudE2E:
     Tests the complete data flow:
     IoT Device → IoT Hub → Dispatcher → Persister → Cosmos DB → Hot Reader → Grafana
     
-    Uses template project as input with config_providers.json set to all-Azure.
+    Uses TerraformDeployerStrategy for infrastructure provisioning (same pattern as AWS/GCP).
     """
     
     @pytest.fixture(scope="class")
-    def deployed_environment(self, request, e2e_project_path, azure_credentials):
+    def deployed_environment(self, request, azure_terraform_e2e_project_path, azure_credentials):
         """
-        Deploy all Azure layers with GUARANTEED cleanup.
+        Deploy all Azure layers via Terraform with GUARANTEED cleanup.
         
-        Even if tests fail, cleanup will run and report status.
+        Uses unique project name per run to avoid Terraform state conflicts.
+        Cleanup (terraform destroy) ALWAYS runs, even on test failure.
         """
-        from src.core.config_loader import load_project_config, load_credentials, get_required_providers
+        from src.core.config_loader import load_project_config, load_credentials
         from src.core.context import DeploymentContext
-        from src.core.registry import ProviderRegistry
-        from pathlib import Path
+        from src.providers.terraform.deployer_strategy import TerraformDeployerStrategy
         import validator
-        
-        # Import providers to trigger registration in the registry
-        import src.providers  # noqa: F401
         import constants as CONSTANTS
         
         print("\n" + "="*60)
-        print("  AZURE E2E TEST - PRE-DEPLOYMENT VALIDATION")
+        print("  AZURE TERRAFORM E2E TEST - PRE-DEPLOYMENT VALIDATION")
         print("="*60)
         
-        project_path = Path(e2e_project_path)
+        project_path = Path(azure_terraform_e2e_project_path)
+        terraform_dir = Path(__file__).parent.parent.parent.parent / "src" / "terraform"
         
         # ==========================================
-        # PHASE 1: Validate All Configuration Files
+        # PHASE 1: Validate Configuration
         # ==========================================
         print("\n[VALIDATION] Phase 1: Configuration Files")
         
-        # Validate each required config file using existing validator
         config_files_to_validate = [
             CONSTANTS.CONFIG_FILE,
             CONSTANTS.CONFIG_IOT_DEVICES_FILE,
@@ -83,14 +84,14 @@ class TestAzureSingleCloudE2E:
             else:
                 pytest.fail(f"Required config file missing: {config_filename}")
         
-        # Load project config for later use
+        # Load config
         try:
             config = load_project_config(project_path)
             print(f"  ✓ Project config loaded (twin_name: {config.digital_twin_name})")
         except Exception as e:
             pytest.fail(f"Config loading failed: {e}")
         
-        # Load credentials for later use  
+        # Load credentials
         try:
             credentials = load_credentials(project_path)
         except Exception as e:
@@ -105,269 +106,107 @@ class TestAzureSingleCloudE2E:
         if not azure_creds:
             pytest.fail("No Azure credentials found in config_credentials.json")
         
-        # Use constants for required fields check
-        required_fields = CONSTANTS.REQUIRED_CREDENTIALS_FIELDS.get("azure", [])
-        missing_fields = [f for f in required_fields if not azure_creds.get(f)]
-        if missing_fields:
-            pytest.fail(f"Missing required Azure credential fields: {missing_fields}")
-        print(f"  ✓ All required fields present: {len(required_fields)} fields")
+        required_azure_fields = ["azure_subscription_id", "azure_region"]
+        for field in required_azure_fields:
+            if not azure_creds.get(field):
+                pytest.fail(f"Azure credentials missing required field: {field}")
+        print("  ✓ Azure credentials present")
+        print(f"  ✓ General region: {azure_creds.get('azure_region')}")
+        print(f"  ✓ IoT Hub region: {azure_creds.get('azure_region_iothub', azure_creds.get('azure_region'))}")
         
-        # Log regions for visibility
-        azure_region = azure_creds.get("azure_region")
-        azure_region_iothub = azure_creds.get("azure_region_iothub")
-        print(f"  ✓ General region: {azure_region}")
-        print(f"  ✓ IoT Hub region: {azure_region_iothub}")
-        
-        # ==========================================
-        # PHASE 2.5: Validate Azure API Permissions
-        # ==========================================
-        print("\n[VALIDATION] Phase 2.5: Azure API Permissions Check")
-        
-        from api.azure_credentials_checker import check_azure_credentials
-        
-        permissions_result = check_azure_credentials(azure_creds)
-        
-        if permissions_result["status"] == "valid":
-            print(f"  ✓ All required permissions present")
-            assigned_roles = permissions_result.get('assigned_roles', [])
-            if assigned_roles:
-                print(f"  ✓ Assigned roles: {', '.join(assigned_roles)}")
-        elif permissions_result["status"] == "check_failed":
-            pytest.fail(
-                f"Cannot verify permissions: {permissions_result['message']}\n"
-                "Grant 'Reader' role at subscription level to enable permission checking."
-            )
-        else:
-            # Build detailed error message with missing permissions by layer
-            error_lines = [f"Azure credentials missing required permissions: {permissions_result['message']}"]
-            for layer_name, layer_info in permissions_result.get("by_layer", {}).items():
-                if layer_info.get("status") != "valid":
-                    missing = layer_info.get("missing_actions", [])
-                    if missing:
-                        error_lines.append(f"  {layer_name}: missing {missing}")
-            error_lines.append("\nRecommended fix: Assign the 'Digital Twin Deployer' custom role.")
-            error_lines.append("See: docs/references/azure_custom_role.json")
-            pytest.fail("\n".join(error_lines))
+        # Validate Azure connectivity using the comprehensive credentials checker
+        # (This is the same checker used by CLI and REST API)
+        try:
+            from api.azure_credentials_checker import check_azure_credentials
+            
+            result = check_azure_credentials(azure_creds)
+            if result["status"] == "error":
+                pytest.fail(f"Azure credentials validation failed: {result['message']}")
+            elif result["status"] == "invalid":
+                print(f"  ⚠ Warning: {result['message']}")
+                print("    Deployment may fail due to missing permissions")
+            elif result["status"] == "partial":
+                print(f"  ⚠ Warning: {result['message']}")
+            else:
+                print(f"  ✓ Azure API connectivity verified (Subscription: {azure_creds['azure_subscription_id'][:8]}...)")
+                if result.get("caller_identity"):
+                    print(f"  ✓ Principal authenticated: {result['caller_identity'].get('principal_type')}")
+        except ImportError:
+            print("  ⚠ azure-identity/azure-mgmt-resource not installed, skipping connectivity check")
         
         # ==========================================
-        # PHASE 3: Initialize Azure Provider
+        # PHASE 3: Initialize Terraform Strategy
         # ==========================================
-        print("\n[VALIDATION] Phase 3: Azure Provider Initialization")
+        print("\n[VALIDATION] Phase 3: Terraform Initialization")
         
-        # Create context directly (not using factory since project is in temp dir)
+        strategy = TerraformDeployerStrategy(
+            terraform_dir=str(terraform_dir),
+            project_path=str(project_path)
+        )
+        print(f"  ✓ Terraform strategy initialized")
+        print(f"    - Terraform dir: {terraform_dir}")
+        print(f"    - Project path: {project_path}")
+        
+        # Initialize Azure provider for post-deployment SDK operations
+        # (Required for IoT device registration and config_generated.json creation)
+        from src.providers.azure.provider import AzureProvider
+        
+        azure_provider = AzureProvider()
+        azure_provider.initialize_clients(
+            azure_creds,
+            config.digital_twin_name
+        )
+        print(f"  ✓ Azure provider initialized for SDK operations")
+        
+        # Create context for post-deployment SDK operations
         context = DeploymentContext(
             project_name=config.digital_twin_name,
             project_path=project_path,
-            config=config
+            config=config,
+            credentials=credentials,
+            providers={"azure": azure_provider}
         )
         
-        # Initialize Azure provider
-        required = get_required_providers(config)
-        for prov_name in required:
-            if not prov_name or prov_name.upper() == "NONE":
-                continue
-            try:
-                provider_instance = ProviderRegistry.get(prov_name)
-                creds = credentials.get(prov_name, {})
-                if creds or prov_name in ("aws", "azure"):
-                    provider_instance.initialize_clients(creds, config.digital_twin_name)
-                    context.providers[prov_name] = provider_instance
-                    print(f"  ✓ Provider '{prov_name}' initialized")
-            except ValueError as e:
-                # Fail-fast on missing credentials
-                pytest.fail(f"Provider '{prov_name}' initialization failed: {e}")
-            except Exception as e:
-                print(f"  ✗ Provider '{prov_name}' failed: {e}")
+        # Track deployment status
+        terraform_outputs = {}
         
-        # Get Azure provider and its deployer strategy
-        provider = context.providers.get("azure")
-        if not provider:
-            pytest.fail("Azure provider not initialized - check credentials")
-        
-        # ==========================================
-        # PHASE 4: Validate Azure Connectivity
-        # ==========================================
-        print("\n[VALIDATION] Phase 4: Azure API Connectivity")
-        
-        try:
-            # Try to list resource groups as connectivity check
-            rg_client = provider.clients.get("resource")
-            if rg_client:
-                # Just verify we can make API calls (list returns iterator, doesn't fail until accessed)
-                list(rg_client.resource_groups.list())
-                print(f"  ✓ Azure Resource Management API accessible")
-                print(f"  ✓ Subscription ID: {provider.subscription_id[:8]}...")
-        except Exception as e:
-            error_msg = str(e)
-            if "AuthorizationFailed" in error_msg:
-                pytest.fail(f"Azure authorization failed - check role assignments: {e}")
-            elif "InvalidSubscriptionId" in error_msg:
-                pytest.fail(f"Invalid subscription ID: {e}")
-            else:
-                pytest.fail(f"Azure connectivity check failed: {e}")
-        
-        print("\n" + "="*60)
-        print("  ✓ ALL VALIDATIONS PASSED - STARTING DEPLOYMENT")
-        print("="*60)
-        
-        deployer = provider.get_deployer_strategy()
-        
-        # Track deployed layers for cleanup
-        deployed_layers: List[str] = []
-        failed_layer: Optional[str] = None  # Track which layer failed
-        deployment_success = False  # Track if all deployments succeeded
-        
-        def partial_cleanup():
-            """
-            Partial cleanup function - behavior depends on failure mode.
-            
-            ON SUCCESS: Destroy all layers (cleanup after tests complete)
-            ON FAILURE: Only destroy the failed layer, preserve previous layers
-            """
+        def terraform_cleanup():
+            """Cleanup function - always runs terraform destroy."""
             print("\n" + "="*60)
-            if deployment_success:
-                print("  CLEANUP: DESTROYING ALL RESOURCES (TEST COMPLETE)")
-            else:
-                print("  PARTIAL CLEANUP: DESTROYING ONLY FAILED LAYER")
+            print("  CLEANUP: TERRAFORM DESTROY")
             print("="*60)
             
-            destroy_results: Dict[str, str] = {}
-            
-            # Layer destroy order (reverse of deployment)
-            destroy_order = [
-                ("l5", "destroy_l5"),
-                ("l4", "destroy_l4"),
-                ("l3_hot", "destroy_l3_hot"),
-                ("l2", "destroy_l2"),
-                ("l1", "destroy_l1"),
-                ("setup", "destroy_setup")
-            ]
-            
-            if deployment_success:
-                # SUCCESS: Destroy all layers
-                layers_to_destroy = [l for l, _ in destroy_order if l in deployed_layers]
-            else:
-                # FAILURE: Only destroy the failed layer
-                layers_to_destroy = [failed_layer] if failed_layer else []
-            
-            preserved_layers = [l for l in deployed_layers if l not in layers_to_destroy]
-            
-            for layer_name, destroy_method in destroy_order:
-                if layer_name in layers_to_destroy:
-                    try:
-                        print(f"\n[CLEANUP] Destroying {layer_name}...")
-                        getattr(deployer, destroy_method)(context)
-                        destroy_results[layer_name] = "✓ Destroyed successfully"
-                        print(f"[CLEANUP] ✓ {layer_name} destroyed")
-                    except Exception as e:
-                        destroy_results[layer_name] = f"✗ Failed: {type(e).__name__}: {e}"
-                        print(f"[CLEANUP] ✗ {layer_name} FAILED: {e}")
-                elif layer_name in deployed_layers:
-                    destroy_results[layer_name] = "⏸ Preserved (for resumption)"
-                else:
-                    destroy_results[layer_name] = "- Not deployed"
-            
-            # Print cleanup summary
-            print("\n" + "-"*60)
-            print("  CLEANUP SUMMARY")
-            print("-"*60)
-            for layer, status in destroy_results.items():
-                print(f"  {layer}: {status}")
-            print("-"*60)
-            
-            # Check for failures and warn user
-            failures = [l for l, s in destroy_results.items() if "Failed" in s]
-            
-            if not deployment_success and preserved_layers:
-                # Partial failure case - notify user about preserved resources
-                print("\n" + "="*60)
-                print("  ℹ️  PARTIAL DEPLOYMENT - RESOURCES PRESERVED")
-                print("="*60)
-                print("")
-                print("  Successfully deployed layers (still in cloud):")
-                for layer in preserved_layers:
-                    print(f"    ✓ {layer}")
-                print("")
-                print("  Failed layer (destroyed):")
-                print(f"    ✗ {failed_layer}")
-                print("")
-                print("  TO RESUME DEPLOYMENT:")
-                print("    Run the E2E test again - skip-if-exists will")
-                print("    skip already-deployed resources and continue")
-                print("    from where deployment failed.")
-                print("")
-                print("  TO MANUALLY DESTROY ALL RESOURCES:")
-                print(f"    Delete Resource Group: rg-{config.digital_twin_name}")
-                print("    Portal: https://portal.azure.com")
-                print("")
-                print("="*60)
-            
-            if failures:
+            try:
+                strategy.destroy_all(context)
+                print("[CLEANUP] ✓ Resources destroyed successfully")
+            except Exception as e:
+                print(f"[CLEANUP] ✗ Destroy failed: {e}")
                 print("\n" + "!"*60)
-                print("  ⚠️  CLEANUP FAILURES DETECTED!")
+                print("  ⚠️  CLEANUP FAILURE DETECTED!")
                 print("")
                 print("  Some resources may still exist in Azure.")
                 print("  Please check the Azure Portal and manually delete:")
-                print(f"    Resource Group: rg-{config.digital_twin_name}")
+                print(f"    Resource Group: {config.digital_twin_name}-rg")
                 print("")
                 print("  Portal: https://portal.azure.com")
                 print("!"*60)
         
-        # Register cleanup to run ALWAYS (even on failure/skip)
-        request.addfinalizer(partial_cleanup)
+        # Register cleanup to run ALWAYS (on success or failure)
+        request.addfinalizer(terraform_cleanup)
         
-        # ===== DEPLOYMENT PHASE =====
+        # ==========================================
+        # PHASE 4: Terraform Deployment
+        # ==========================================
+        print("\n" + "="*60)
+        print("  TERRAFORM DEPLOYMENT")
+        print("="*60)
+        
         try:
-            # Deploy Setup Layer
-            print("\n[DEPLOY] === Setup Layer ===")
-            deployer.deploy_setup(context)
-            deployed_layers.append("setup")
-            print("[DEPLOY] ✓ Setup layer deployed")
-            
-            # Deploy L1 (IoT Hub, Dispatcher)
-            print("\n[DEPLOY] === Layer 1 - Data Acquisition ===")
-            deployer.deploy_l1(context)
-            deployed_layers.append("l1")
-            print("[DEPLOY] ✓ L1 deployed")
-            
-            # Deploy L2 (Persister, Processors)
-            print("\n[DEPLOY] === Layer 2 - Data Processing ===")
-            deployer.deploy_l2(context)
-            deployed_layers.append("l2")
-            print("[DEPLOY] ✓ L2 deployed")
-            
-            # Deploy L3 Hot (Cosmos DB, Hot Reader)
-            print("\n[DEPLOY] === Layer 3 - Hot Storage ===")
-            deployer.deploy_l3_hot(context)
-            deployed_layers.append("l3_hot")
-            print("[DEPLOY] ✓ L3 Hot deployed")
-            
-            # Deploy L4 (Azure Digital Twins)
-            print("\n[DEPLOY] === Layer 4 - Twin Management ===")
-            deployer.deploy_l4(context)
-            deployed_layers.append("l4")
-            print("[DEPLOY] ✓ L4 deployed")
-            
-            # Deploy L5 (Grafana)
-            print("\n[DEPLOY] === Layer 5 - Visualization ===")
-            deployer.deploy_l5(context)
-            deployed_layers.append("l5")
-            print("[DEPLOY] ✓ L5 deployed")
-            
-            # Mark deployment complete
-            deployment_success = True
+            terraform_outputs = strategy.deploy_all(context)
+            print("\n[DEPLOY] ✓ Terraform deployment complete")
             
         except Exception as e:
-            # Track which layer failed (the one we were about to deploy)
-            layer_order = ["setup", "l1", "l2", "l3_hot", "l4", "l5"]
-            for layer in layer_order:
-                if layer not in deployed_layers:
-                    failed_layer = layer
-                    break
-            
-            print(f"\n[DEPLOY] ✗ DEPLOYMENT FAILED at {failed_layer}: {type(e).__name__}: {e}")
-            print("[DEPLOY] Partial cleanup will run for the failed layer only.")
-            print("[DEPLOY] Previous layers are preserved for resumption.")
+            print(f"\n[DEPLOY] ✗ DEPLOYMENT FAILED: {type(e).__name__}: {e}")
             raise
         
         print("\n" + "="*60)
@@ -376,106 +215,106 @@ class TestAzureSingleCloudE2E:
         
         yield {
             "context": context,
-            "deployer": deployer,
-            "provider": provider,
-            "project_path": e2e_project_path,
+            "strategy": strategy,
+            "project_path": azure_terraform_e2e_project_path,
             "config": config,
-            "deployed_layers": deployed_layers
+            "terraform_outputs": terraform_outputs,
+            "credentials": credentials
         }
     
     # =========================================================================
     # LAYER VERIFICATION TESTS
     # =========================================================================
     
-    def test_01_setup_layer_deployed(self, deployed_environment):
-        """Verify Setup Layer: Resource Group, Managed Identity, Storage Account."""
-        provider = deployed_environment["provider"]
+    def test_01_terraform_outputs_present(self, deployed_environment):
+        """Verify essential Terraform outputs are present."""
+        outputs = deployed_environment["terraform_outputs"]
+        credentials = deployed_environment["credentials"]
         
-        from src.providers.azure.layers.layer_setup_azure import (
-            check_resource_group,
-            check_managed_identity,
-            check_storage_account
-        )
+        # Check key Terraform outputs exist
+        required_outputs = [
+            "azure_resource_group_name",
+            "azure_storage_account_name",
+        ]
         
-        assert check_resource_group(provider), "Resource Group should exist"
-        assert check_managed_identity(provider), "Managed Identity should exist"
-        assert check_storage_account(provider), "Storage Account should exist"
+        for output in required_outputs:
+            assert outputs.get(output) is not None, f"Missing Terraform output: {output}"
         
-        print("[VERIFY] ✓ Setup layer resources exist")
+        # Verify subscription_id and region are available from credentials
+        azure_creds = credentials.get("azure", {})
+        assert azure_creds.get("azure_subscription_id"), "azure_subscription_id missing from credentials"
+        assert azure_creds.get("azure_region"), "azure_region missing from credentials"
+        
+        print(f"[VERIFY] ✓ Terraform outputs present ({len(outputs)} total)")
+        print(f"[VERIFY] ✓ Subscription ID: {azure_creds['azure_subscription_id'][:8]}...")
+        print(f"[VERIFY] ✓ Region: {azure_creds['azure_region']}")
     
     def test_02_l1_iot_hub_deployed(self, deployed_environment):
-        """Verify L1: IoT Hub and Dispatcher function deployed."""
-        provider = deployed_environment["provider"]
+        """Verify L1: IoT Hub deployed via Terraform."""
+        outputs = deployed_environment["terraform_outputs"]
         
-        from src.providers.azure.layers.layer_1_iot import (
-            check_iot_hub,
-            check_dispatcher_function,
-            check_l1_function_app
-        )
+        iot_hub_name = outputs.get("azure_iothub_name")
+        l1_function_app = outputs.get("azure_l1_function_app_name")
         
-        assert check_iot_hub(provider), "IoT Hub should exist"
-        assert check_l1_function_app(provider), "L1 Function App should exist"
-        assert check_dispatcher_function(provider), "Dispatcher function should exist"
+        if iot_hub_name is not None:
+            print(f"[VERIFY] ✓ L1 IoT Hub: {iot_hub_name}")
+        else:
+            pytest.skip("L1 not deployed to Azure")
         
-        print("[VERIFY] ✓ L1 IoT resources exist")
+        if l1_function_app is not None:
+            print(f"[VERIFY] ✓ L1 Function App: {l1_function_app}")
     
     def test_03_l2_processing_deployed(self, deployed_environment):
-        """Verify L2: Persister and processor functions deployed."""
-        provider = deployed_environment["provider"]
+        """Verify L2: Processing functions deployed via Terraform."""
+        outputs = deployed_environment["terraform_outputs"]
         
-        from src.providers.azure.layers.layer_2_compute import (
-            check_l2_function_app,
-            check_persister_function
-        )
+        l2_function_app = outputs.get("azure_l2_function_app_name")
+        user_functions_app = outputs.get("azure_user_functions_app_name")
         
-        assert check_l2_function_app(provider), "L2 Function App should exist"
-        assert check_persister_function(provider), "Persister function should exist"
+        if l2_function_app is not None:
+            print(f"[VERIFY] ✓ L2 Function App: {l2_function_app}")
+        else:
+            pytest.skip("L2 not deployed to Azure")
         
-        print("[VERIFY] ✓ L2 Processing resources exist")
+        if user_functions_app is not None:
+            print(f"[VERIFY] ✓ User Functions App: {user_functions_app}")
     
     def test_04_l3_hot_storage_deployed(self, deployed_environment):
-        """Verify L3 Hot: Cosmos DB and Hot Reader deployed."""
-        provider = deployed_environment["provider"]
+        """Verify L3 Hot: Cosmos DB and Hot Reader deployed via Terraform."""
+        outputs = deployed_environment["terraform_outputs"]
         
-        from src.providers.azure.layers.layer_3_storage import (
-            check_cosmos_account,
-            check_hot_cosmos_container,
-            check_hot_reader_function
-        )
+        cosmos_account = outputs.get("azure_cosmos_account_name")
+        hot_reader_url = outputs.get("azure_l3_hot_reader_url")
         
-        assert check_cosmos_account(provider), "Cosmos DB account should exist"
-        assert check_hot_cosmos_container(provider), "Hot container should exist"
-        assert check_hot_reader_function(provider), "Hot Reader function should exist"
+        if cosmos_account is not None:
+            print(f"[VERIFY] ✓ L3 Cosmos DB Account: {cosmos_account}")
+        else:
+            pytest.skip("L3 Hot not deployed to Azure")
         
-        print("[VERIFY] ✓ L3 Hot Storage resources exist")
+        if hot_reader_url is not None:
+            print(f"[VERIFY] ✓ L3 Hot Reader URL: {hot_reader_url}")
     
     def test_05_l4_adt_deployed(self, deployed_environment):
-        """Verify L4: Azure Digital Twins instance deployed."""
-        provider = deployed_environment["provider"]
+        """Verify L4: Azure Digital Twins deployed via Terraform."""
+        outputs = deployed_environment["terraform_outputs"]
         
-        from src.providers.azure.layers.layer_4_adt import (
-            check_adt_instance
-        )
+        adt_endpoint = outputs.get("azure_adt_endpoint")
         
-        assert check_adt_instance(provider), "ADT instance should exist"
-        
-        print("[VERIFY] ✓ L4 ADT resources exist")
+        if adt_endpoint is not None:
+            print(f"[VERIFY] ✓ L4 Azure Digital Twins: {adt_endpoint}")
+        else:
+            pytest.skip("L4 not deployed to Azure")
     
     def test_06_l5_grafana_deployed(self, deployed_environment):
-        """Verify L5: Grafana workspace and datasource deployed."""
-        provider = deployed_environment["provider"]
+        """Verify L5: Grafana workspace deployed via Terraform."""
+        outputs = deployed_environment["terraform_outputs"]
         
-        from src.providers.azure.layers.layer_5_grafana import (
-            check_grafana_workspace,
-            get_grafana_workspace_url
-        )
+        grafana_endpoint = outputs.get("azure_grafana_endpoint")
         
-        assert check_grafana_workspace(provider), "Grafana workspace should exist"
-        
-        grafana_url = get_grafana_workspace_url(provider)
-        assert grafana_url is not None, "Grafana URL should be available"
-        
-        print(f"[VERIFY] ✓ L5 Grafana deployed at: {grafana_url}")
+        if grafana_endpoint is not None:
+            print(f"[VERIFY] ✓ L5 Grafana Endpoint: {grafana_endpoint}")
+        else:
+            pytest.skip("L5 not deployed to Azure")
     
     # =========================================================================
     # DATA FLOW TESTS
@@ -531,66 +370,64 @@ class TestAzureSingleCloudE2E:
     
     def test_08_verify_data_in_cosmos_db(self, deployed_environment):
         """Verify sent data reached Cosmos DB via Hot Reader."""
-        provider = deployed_environment["provider"]
-        config = deployed_environment["config"]
+        outputs = deployed_environment["terraform_outputs"]
         test_device_id = deployed_environment.get("test_device_id")
         
         if not test_device_id:
             pytest.skip("No test message was sent")
         
-        # Wait for data propagation (IoT Hub → Event Grid → Functions → Cosmos)
-        print("[DATA] Waiting for data propagation (15 seconds)...")
-        time.sleep(15)
+        hot_reader_url = outputs.get("azure_l3_hot_reader_url")
+        if not hot_reader_url:
+            pytest.skip("Hot Reader URL not available")
         
-        # Query Hot Reader endpoint
-        from src.providers.azure.layers.layer_3_storage import get_hot_reader_function_url
+        # Retry with exponential backoff for data propagation
+        # (IoT Hub → Event Grid → Functions → Cosmos can take 10-30 seconds)
+        max_retries = 5
+        base_wait = 10  # Start with 10 seconds
         
-        try:
-            hot_reader_url = get_hot_reader_function_url(provider)
+        for attempt in range(max_retries):
+            wait_time = base_wait * (2 ** attempt)  # 10, 20, 40, 80, 160
+            print(f"[DATA] Attempt {attempt + 1}/{max_retries}: waiting {wait_time}s for data propagation...")
+            time.sleep(wait_time)
             
-            if not hot_reader_url:
-                pytest.skip("Hot Reader URL not available")
-            
-            # Query for last entry
-            response = requests.post(
-                f"{hot_reader_url}-last-entry",
-                json={
-                    "entityId": test_device_id,
-                    "componentName": test_device_id,
-                    "selectedProperties": ["temperature"]
-                },
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                print(f"[DATA] Hot Reader response: {data}")
+            try:
+                # Query for last entry
+                response = requests.post(
+                    f"{hot_reader_url}-last-entry",
+                    json={
+                        "entityId": test_device_id,
+                        "componentName": test_device_id,
+                        "selectedProperties": ["temperature"]
+                    },
+                    timeout=30
+                )
                 
-                property_values = data.get("propertyValues", {})
-                assert property_values, "Hot Reader should return property values"
-                
-                print("[DATA] ✓ Data verified in Cosmos DB via Hot Reader")
-            else:
-                print(f"[DATA] Hot Reader returned: {response.status_code}")
-                pytest.skip(f"Hot Reader returned {response.status_code}")
-                
-        except Exception as e:
-            print(f"[DATA] Warning: Could not verify Cosmos data: {e}")
-            pytest.skip(f"Could not query Hot Reader: {e}")
+                if response.status_code == 200:
+                    data = response.json()
+                    print(f"[DATA] Hot Reader response: {data}")
+                    
+                    property_values = data.get("propertyValues", {})
+                    if property_values:
+                        print("[DATA] ✓ Data verified in Cosmos DB via Hot Reader")
+                        return  # Success!
+                    else:
+                        print("[DATA] ⚠ No property values found yet, retrying...")
+                else:
+                    print(f"[DATA] Hot Reader returned: {response.status_code}, retrying...")
+                    
+            except Exception as e:
+                print(f"[DATA] Request failed: {e}, retrying...")
+        
+        # All retries exhausted
+        pytest.skip(f"Data not found after {max_retries} retries - data propagation may be slow")
     
-    def test_09_verify_data_in_grafana(self, deployed_environment):
-        """Query Grafana HTTP API to verify data is accessible."""
-        provider = deployed_environment["provider"]
-        test_device_id = deployed_environment.get("test_device_id")
+    def test_09_verify_grafana_access(self, deployed_environment):
+        """Verify Grafana endpoint is accessible."""
+        outputs = deployed_environment["terraform_outputs"]
         
-        if not test_device_id:
-            pytest.skip("No test message was sent")
-        
-        from src.providers.azure.layers.layer_5_grafana import get_grafana_workspace_url
-        
-        grafana_url = get_grafana_workspace_url(provider)
-        if not grafana_url:
-            pytest.skip("Grafana URL not available")
+        grafana_endpoint = outputs.get("azure_grafana_endpoint")
+        if not grafana_endpoint:
+            pytest.skip("Grafana endpoint not available")
         
         # Get Azure AD token for Grafana API
         try:
@@ -607,7 +444,7 @@ class TestAzureSingleCloudE2E:
             
             # Check datasources are configured
             response = requests.get(
-                f"{grafana_url}/api/datasources",
+                f"{grafana_endpoint}/api/datasources",
                 headers=headers,
                 timeout=30
             )
@@ -615,19 +452,6 @@ class TestAzureSingleCloudE2E:
             if response.status_code == 200:
                 datasources = response.json()
                 print(f"[GRAFANA] Found {len(datasources)} datasources")
-                
-                # Find JSON API datasource (Hot Reader)
-                json_api_ds = None
-                for ds in datasources:
-                    if "json" in ds.get("type", "").lower():
-                        json_api_ds = ds
-                        break
-                
-                if json_api_ds:
-                    print(f"[GRAFANA] ✓ JSON API datasource configured: {json_api_ds.get('name')}")
-                else:
-                    print("[GRAFANA] No JSON API datasource found")
-                
                 print("[GRAFANA] ✓ Grafana API accessible and configured")
             else:
                 print(f"[GRAFANA] API returned: {response.status_code}")

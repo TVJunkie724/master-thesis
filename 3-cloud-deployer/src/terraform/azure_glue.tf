@@ -87,7 +87,7 @@ resource "azurerm_linux_function_app" "l0_glue" {
     WEBSITE_CONTENTSHARE                     = "${var.digital_twin_name}-l0-content"
 
     # Cross-cloud authentication
-    INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : random_password.inter_cloud_token[0].result
+    INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
 
     # Digital Twin info (populated by Python orchestrator)
     DIGITAL_TWIN_NAME = var.digital_twin_name

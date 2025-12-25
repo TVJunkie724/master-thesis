@@ -148,6 +148,68 @@ def terraform_e2e_project_path(template_project_path, terraform_e2e_test_id, tmp
     
     # Cleanup temp directory
     print(f"\n[TERRAFORM E2E] Cleaning up temp project: {project_path}")
+
+
+@pytest.fixture(scope="session")
+def azure_terraform_e2e_test_id():
+    """
+    Fixed, deterministic ID for Azure Terraform E2E test runs.
+    
+    Using a consistent ID ensures:
+    - Idempotent resource naming across test runs
+    - Skip-if-exists logic can reuse existing resources
+    - Reduced costs (no duplicate resources created)
+    - Easy resumption after partial failures
+    
+    The ID is kept short to comply with Azure naming limits.
+    """
+    return "tf-e2e-az"
+
+
+@pytest.fixture(scope="session")
+def azure_terraform_e2e_project_path(template_project_path, azure_terraform_e2e_test_id, tmp_path_factory):
+    """
+    Create a unique temporary E2E test project for Azure Terraform deployment.
+    
+    Configures all layers to use Azure.
+    """
+    # Create temp directory for E2E project
+    temp_dir = tmp_path_factory.mktemp("azure_terraform_e2e")
+    project_path = temp_dir / azure_terraform_e2e_test_id
+    
+    # Copy template project
+    shutil.copytree(template_project_path, project_path)
+    
+    # Modify config.json with unique twin name
+    config_path = project_path / "config.json"
+    with open(config_path, "r") as f:
+        config = json.load(f)
+    config["digital_twin_name"] = azure_terraform_e2e_test_id
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=2)
+    
+    # Modify config_providers.json to all-Azure
+    providers_path = project_path / "config_providers.json"
+    providers = {
+        "layer_1_provider": "azure",
+        "layer_2_provider": "azure",
+        "layer_3_hot_provider": "azure",
+        "layer_3_cold_provider": "azure",
+        "layer_3_archive_provider": "azure",
+        "layer_4_provider": "azure",
+        "layer_5_provider": "azure"
+    }
+    with open(providers_path, "w") as f:
+        json.dump(providers, f, indent=2)
+    
+    print(f"\n[AZURE TERRAFORM E2E] Created unique test project: {project_path}")
+    print(f"[AZURE TERRAFORM E2E] Digital twin name: {azure_terraform_e2e_test_id}")
+    
+    yield str(project_path)
+    
+    # Cleanup temp directory
+    print(f"\n[AZURE TERRAFORM E2E] Cleaning up temp project: {project_path}")
+
 @pytest.fixture(scope="session")
 def e2e_project_path(template_project_path, e2e_test_id, tmp_path_factory):
     """

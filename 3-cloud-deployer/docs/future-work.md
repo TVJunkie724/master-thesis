@@ -2,106 +2,23 @@
 
 This document tracks planned improvements and features for the Digital Twin Multi-Cloud Deployer.
 
----
-
-## 1. End-to-End Testing
-
-> [!IMPORTANT]
-> E2E tests are critical for ensuring the complete deployment pipeline works correctly.
-
-### Status: Not Implemented
-
-### Tasks
-
-- [ ] Create E2E test suite for AWS single-cloud deployment
-- [ ] Create E2E test suite for Azure single-cloud deployment
-- [ ] Create E2E test suite for AWS↔Azure hybrid combinations
-- [ ] Test all provider combination matrix (see below)
-
-### Provider Combination Matrix (All Need E2E Tests)
-
-| L1 | L2 | L3 Hot | L3 Cold | L3 Archive | L4 | L5 |
-|----|----|----|----|----|----|----|
-| AWS | AWS | AWS | AWS | AWS | AWS | AWS |
-| Azure | Azure | Azure | Azure | Azure | Azure | Azure |
-| AWS | Azure | Azure | Azure | Azure | Azure | Azure |
-| Azure | AWS | AWS | AWS | AWS | AWS | AWS |
-| AWS | AWS | Azure | Azure | Azure | Azure | Azure |
-| Azure | Azure | AWS | AWS | AWS | AWS | AWS |
-| AWS | AWS | AWS | Azure | Azure | Azure | Azure |
-| AWS | AWS | AWS | AWS | Azure | Azure | Azure |
-| Azure | AWS | Azure | AWS | Azure | AWS | Azure |
-| ... and more combinations |
-
----
-
-## 2. GCP Implementation
-
-> [!NOTE]
-> GCP is currently a stub implementation. The provider pattern validates but does not deploy.
-
-### Status: Stub Only
-
-### Files to Implement
-
-- `src/providers/gcp/deployer_strategy.py` - All methods raise `NotImplementedError`
-- `src/providers/gcp/provider.py` - Minimal stub
-- `src/providers/gcp/layers/*.py` - Need to be created
-
-### Documentation to Add
-
-- [ ] `docs-gcp-deployment.html` - Add Setup Layer section
-- [ ] `docs-gcp-deployment.html` - Add L0 Glue Layer section
-- [ ] `docs-gcp-deployment.html` - Add IAM Permissions section
-- [ ] `docs-credentials-gcp.html` - Create new credentials guide page
-- [ ] `gcp_credentials_checker.py` - Create credentials validation
-
-### IoT Device Simulator Note
-
 > [!TIP]
-> When implementing the IoT device simulator in `/upload/template/`, add support for GCP Pub/Sub:
-> - Primary: HTTP REST API (simplest, use Service Account JSON key)
-> - Alternative: gRPC (faster, same auth via ADC)
-> - MQTT is NOT required for GCP (no native support)
-
-### Architecture Notes
-
-GCP implementation will be **Terraform-only** (no SDK layer deployment):
-- Cloud Functions Gen2 via `google_cloudfunctions2_function`
-- Pub/Sub for IoT ingestion (HTTP/gRPC, not MQTT)
-- Firestore for hot storage
-- Cloud Storage lifecycle policies for cold/archive (custom age days like AWS/Azure)
-
-### Future Enhancement: gRPC Migration
-
-> [!NOTE]
-> Initial implementation uses HTTP REST for simplicity. Consider gRPC migration for production:
-
-| Aspect | HTTP REST (Current) | gRPC (Future) |
-|--------|---------------------|---------------|
-| Speed | Baseline | 7x faster |
-| Payload | JSON (text) | Protocol Buffers (binary) |
-| Auth | Service Account JSON | Same (ADC) |
-| Use case | Development, <1k msg/sec | Production, >1k msg/sec |
-
-**When to migrate**: High-throughput IoT scenarios requiring >1000 messages/second.
+> See [future-work-resolved.md](future-work-resolved.md) for completed items.
 
 ---
 
-## 3. Deprecated Code Cleanup
+## 1. Deprecated Code Cleanup
 
-### Status: In Progress
+### Status: Pending
 
-### Items to Remove
+### Items to Review
 
-- [ ] `deploy_all_sdk()` in `src/providers/deployer.py` (deprecated, use Terraform)
-- [ ] `destroy_all_sdk()` in `src/providers/deployer.py` (deprecated)
-- [ ] GCP stubs if GCP implementation is not prioritized
 - [ ] Legacy `provider.naming` method in `src/providers/azure/provider.py`
+- [ ] Audit for any remaining SDK deployment methods that should be Terraform-only
 
 ---
 
-## 4. Azure API Helper Functions
+## 2. Azure API Helper Functions
 
 ### Status: Partially Missing
 
@@ -120,7 +37,7 @@ Most of these are already handled by Terraform for Azure. The only one that migh
 
 ---
 
-## 5. Event Checker Azure Support
+## 3. Event Checker Azure Support
 
 ### Status: Not Implemented
 
@@ -134,7 +51,7 @@ raise NotImplementedError("Event checker redeployment only supported for AWS.")
 
 ---
 
-## 6. Template Processor Cleanup
+## 4. Template Processor Cleanup
 
 ### Status: Not Implemented
 
@@ -149,7 +66,7 @@ The processor function in `upload/template/*/processors/default_processor/` alre
 
 ---
 
-## 7. SDK Managed Resource Validation
+## 5. SDK Managed Resource Validation
 
 ### Status: Placeholder
 
@@ -173,7 +90,7 @@ Use existing `info_l*` functions from provider strategies:
 
 ---
 
-## 8. Documentation
+## 6. Documentation
 
 ### Status: Ongoing
 
@@ -184,7 +101,7 @@ Use existing `info_l*` functions from provider strategies:
 
 ---
 
-## 9. Performance Improvements
+## 7. Performance Improvements
 
 ### Ideas
 
@@ -194,7 +111,7 @@ Use existing `info_l*` functions from provider strategies:
 
 ---
 
-## 10. Security Enhancements
+## 8. Security Enhancements
 
 ### Ideas
 
@@ -205,7 +122,7 @@ Use existing `info_l*` functions from provider strategies:
 
 ---
 
-## 11. Azure Custom Role: Cosmos DB Permission Investigation
+## 9. Azure Custom Role: Cosmos DB Permission Investigation
 
 ### Status: Needs Investigation
 
@@ -241,189 +158,7 @@ Assign the built-in **Contributor** role alongside the custom role. If Contribut
 
 ---
 
-## 12. EventGrid Subscription Deployment Order
-
-### Status: ✅ RESOLVED
-
-### Issue
-
-The EventGrid subscription in `azure_iot.tf` references a specific function endpoint:
-
-```hcl
-function_id = "${azurerm_linux_function_app.l1[0].id}/functions/dispatcher"
-```
-
-This failed with `Resource should pre-exist before attempting this operation` because:
-1. **Terraform** creates the function app container (empty shell)
-2. **Python** deploys the actual function code **AFTER** Terraform finishes
-3. When EventGrid subscription is created, the `dispatcher` function doesn't exist yet
-
-### Solution Implemented
-
-Used Terraform's `zip_deploy_file` attribute to deploy function code during terraform apply:
-1. `tfvars_generator.py` now pre-builds function ZIPs using `function_bundler.py`
-2. ZIP paths are passed as terraform variables (`azure_l1_zip_path`, etc.)
-3. Each `azurerm_linux_function_app` has `zip_deploy_file = var.azure_lX_zip_path`
-4. Function code exists before EventGrid subscription is created
-5. No more Kudu deployment needed after terraform apply
-
----
-
-## 13. Azure Managed Grafana Version Issue
-
-### Status: ✅ RESOLVED
-
-### Issue
-
-Azure Managed Grafana deployment failed with:
-- `GrafanaMajorVersionNotSupported: version 'X' is not valid for sku type Standard`
-
-**Root cause:** Azure only supports v11 for Standard SKU, but Terraform provider 3.x only accepted v9/v10.
-
-### Solution Implemented
-
-1. Upgraded AzureRM provider from `~> 3.85` to `~> 4.0` in `versions.tf`
-2. Changed `grafana_major_version` from `"10"` to `"11"` in `azure_grafana.tf`
-3. Replaced deprecated `skip_provider_registration = true` with `resource_provider_registrations = "none"` in `main.tf`
-
----
-
-## 14. AWS User Functions Terraform Implementation (GCP as well????)
-
-> [!CAUTION]
-> HIGH PRIORITY - This feature gap blocks AWS user function deployment.
-
-### Status: Not Implemented
-
-### Issue
-
-AWS Terraform configuration (`aws_compute.tf`) does not include infrastructure for user-customizable functions:
-- **Event Actions**: User-defined Lambda functions triggered by event conditions
-- **Event Feedback**: Lambda functions for sending responses to IoT devices
-- **Processors**: User logic wrappers for data processing
-
-Currently only system functions (Persister, Event Checker) and Step Functions workflow are implemented.
-
-### Required Implementation
-
-1. Add AWS Lambda resources for user functions (similar to Azure's `user-functions` app)
-2. Add conditional deployment based on `use_event_checking` and `return_feedback_to_device` flags
-3. Implement SDK-based deployment for user function code (already exists for Azure)
-4. Integrate with `package_builder.py` for AWS Lambda packaging
-
-### Azure Implementation (Reference)
-
-Azure has:
-- `azurerm_linux_function_app.user` - user functions app container
-- `build_combined_user_package()` - builds combined ZIP
-- `_deploy_user_functions()` - SDK deployment post-Terraform
-
-AWS needs equivalent:
-- Lambda functions with `count` conditional on feature flags
-- Lambda deployment via package_builder (already has `build_aws_lambda_packages`)
-
----
-
-## 15. GCP L2 Compute Layer Implementation
-
-> [!CAUTION]
-> HIGH PRIORITY - GCP L2 architecture and user functions still missing.
-
-### Status: Partially Implemented
-
-### Completed ✅
-
-- `REMOTE_WRITER_URL` added to `gcp_compute.tf` persister
-- `INTER_CLOUD_TOKEN` already present in persister
-- Simulator `config_generated.json` via Terraform `local_file` resource in `gcp_iot.tf`
-- `iot_devices` variable added to `variables.tf`
-
-### Remaining Gaps ❌
-
-1. **User Functions Cloud Function** - No user-customizable functions (processors, event_actions, event-feedback)
-2. **GCP L2 Deployer** - No SDK post-Terraform deployment for user functions (unlike Azure's `azure_deployer.py`)
-3. **User Function Terraform Resource** - Need `google_cloudfunctions2_function.user_functions` in `gcp_compute.tf`
-4. **Package Builder** - Need GCP support in `package_builder.py` for user function bundling
-
-### Required Implementation
-
-```hcl
-# gcp_compute.tf - Add user functions Cloud Function
-resource "google_cloudfunctions2_function" "user_functions" {
-  count    = local.gcp_l2_enabled ? 1 : 0
-  name     = "${var.digital_twin_name}-user-functions"
-  location = var.gcp_region
-  # ... similar config to processor
-}
-```
-
----
-
-## 16. Multi-Cloud Environment Variables Gap
-
-> [!NOTE]
-> Phase 1 implemented - all env vars added to Terraform files.
-
-### Status: Implemented ✅
-
-### What Was Done
-
-Multi-cloud environment variables now in all Terraform files.
-
-### Complete List of Multi-Cloud Environment Variables
-
-| Env Variable | Function | Condition |
-|-------------|----------|-----------|
-| `REMOTE_INGESTION_URL` | Connector (L1) | L1 ≠ L2 |
-| `REMOTE_WRITER_URL` | Persister (L2) | L2 ≠ L3 |
-| `REMOTE_ADT_PUSHER_URL` | Persister (L2) | L2 ≠ L4 (Azure ADT) |
-| `ADT_PUSHER_TOKEN` | Persister (L2) | L2 ≠ L4 (Azure ADT) |
-| `REMOTE_COLD_WRITER_URL` | Hot-to-Cold Mover (L3) | L3 Hot ≠ L3 Cold |
-| `REMOTE_ARCHIVE_WRITER_URL` | Cold-to-Archive Mover (L3) | L3 Cold ≠ L3 Archive |
-| `REMOTE_HOT_READER_URL` | DT Data Connector (L4) | L4 ≠ L3 |
-| `EVENT_CHECKER_FUNCTION_URL` | Persister (L2) | Azure only, when using event checking |
-| `INTER_CLOUD_TOKEN` | All above | Any multi-cloud |
-
-### Current State
-
-| Provider | All Multi-Cloud Env Vars |
-|----------|--------------------------|
-| Azure | ✅ Implemented |
-| AWS | ✅ Implemented |
-| GCP | ✅ Implemented (except GCP Layer 2?) |
-
-### Solution (Per Function)
-
-Add to Terraform:
-
-**Connector (L1) - `*_iot.tf`:**
-```hcl
-REMOTE_INGESTION_URL = var.layer_1_provider != var.layer_2_provider ? <L0_ingestion_url_from_L2_provider> : ""
-```
-
-**Persister (L2) - `*_compute.tf`:**
-```hcl
-REMOTE_WRITER_URL = var.layer_2_provider != var.layer_3_hot_provider ? <L0_hot_writer_url_from_L3_provider> : ""
-```
-
-**Hot-to-Cold Mover (L3) - `*_storage.tf`:**
-```hcl
-REMOTE_COLD_WRITER_URL = var.layer_3_hot_provider != var.layer_3_cold_provider ? <L0_cold_writer_url> : ""
-```
-
-**Cold-to-Archive Mover (L3) - `*_storage.tf`:**
-```hcl
-REMOTE_ARCHIVE_WRITER_URL = var.layer_3_cold_provider != var.layer_3_archive_provider ? <L0_archive_writer_url> : ""
-```
-
-**DT Data Connector (L4) - `*_digital_twin.tf`:**
-```hcl
-REMOTE_HOT_READER_URL = var.layer_4_provider != var.layer_3_hot_provider ? <L3_hot_reader_url> : ""
-```
-
----
-
-## 17. Grafana Dashboard & Datasource Automation via Terraform
+## 10. Grafana Dashboard & Datasource Automation via Terraform
 
 > [!NOTE]
 > Research completed December 2024. Implementation deferred.
@@ -467,24 +202,6 @@ resource "grafana_dashboard" "main" {
 | Dashboard JSON | Can export from Grafana UI or create template |
 | Plugin | JSON API datasource needs `marcusolsson-json-datasource` plugin |
 
-### Data Flow Architecture
-
-```
-IoT Device → L1 Dispatcher → L2 Persister → L3 DynamoDB
-                                               ↓
-                                    L3 Hot Reader (Lambda)
-                                               ↓
-                         L5 Grafana (polls Hot Reader via JSON API datasource)
-```
-
-Grafana does **not** receive real-time data - it queries the Hot Reader on dashboard refresh.
-
-### E2E Validation Options
-
-1. **Existing coverage sufficient**: `test_08_verify_hot_reader` validates data accessibility
-2. **Grafana API query**: Use API key to query `/api/search` for dashboards, `/api/datasources` for datasources
-3. **Full data flow**: Send IoT message → wait → query Grafana dashboard panel API for data
-
 ### Implementation Tasks (If Prioritized)
 
 - [ ] Add `grafana` provider to `versions.tf`
@@ -495,9 +212,531 @@ Grafana does **not** receive real-time data - it queries the Hot Reader on dashb
 
 ---
 
+## 11. GCP IoT Device Simulator Implementation
+
+> [!CAUTION]
+> The GCP IoT Device Simulator is **not implemented**. This section documents the required work.
+
+### Status: Not Implemented
+
+The `src/iot_device_simulator/google/` folder contains only `.gitkeep` and `__init__.py`. 
+Unlike AWS and Azure simulators, no functional simulator exists for GCP.
+
+### IoT Simulator Authentication Comparison
+
+| Cloud | Auth Method | Protocol | Config File Contents |
+|-------|-------------|----------|---------------------|
+| **Azure** | Symmetric Key (SAS) | MQTT/AMQP via SDK | `connection_string`, `device_id` |
+| **AWS** | X.509 Certificates | MQTT/TLS | `endpoint`, `cert_path`, `key_path`, `root_ca_path` |
+| **GCP** | Service Account | HTTP/gRPC to Pub/Sub | `project_id`, `topic_name`, `service_account_key_path` |
+
+### Key Architectural Difference
+
+**Azure and AWS** use **device-level authentication**:
+- Each physical/simulated device has unique credentials
+- Credentials are generated during IoT Hub/IoT Core device registration
+- Simulator needs `config_generated.json` with device-specific connection string
+
+**GCP** uses **project-level service account authentication**:
+- No device registry (GCP IoT Core was deprecated Jan 2023)
+- Uses standard Pub/Sub SDK with service account credentials
+- Any authorized service account can publish to the telemetry topic
+- Terraform already generates per-device `config_generated_{device_id}.json` (see `gcp_iot.tf` line 143-159)
+
+### Implementation Tasks
+
+#### 1. Create Simulator Files
+
+```
+src/iot_device_simulator/google/
+├── __init__.py          # Exists (empty)
+├── globals.py           # NEW - Config loading (similar to aws/globals.py)
+├── main.py              # NEW - Entry point
+├── transmission.py      # NEW - Pub/Sub message sending
+└── templates/           # NEW - Docker/README templates
+    ├── Dockerfile
+    ├── docker-compose.yml.template
+    ├── README.md.template
+    └── requirements.txt
+```
+
+#### 2. Config File Format
+
+Terraform already generates this at `{project_path}/iot_device_simulator/gcp/config_generated_{device_id}.json`:
+
+```json
+{
+    "project_id": "my-gcp-project",
+    "topic_name": "dt/my-twin/telemetry",
+    "device_id": "temperature-sensor-1",
+    "digital_twin_name": "my-twin",
+    "payload_path": "../payloads.json",
+    "auth_method": "service_account",
+    "service_account_key_path": "service_account.json"
+}
+```
+
+#### 3. Transmission Implementation
+
+```python
+# transmission.py (pseudocode)
+from google.cloud import pubsub_v1
+from google.oauth2 import service_account
+
+def publish_message(config, payload):
+    credentials = service_account.Credentials.from_service_account_file(
+        config["service_account_key_path"]
+    )
+    publisher = pubsub_v1.PublisherClient(credentials=credentials)
+    topic_path = f"projects/{config['project_id']}/topics/{config['topic_name']}"
+    
+    data = json.dumps(payload).encode("utf-8")
+    future = publisher.publish(topic_path, data)
+    return future.result()
+```
+
+#### 4. Update Download Simulator Endpoint
+
+The REST API endpoint that bundles simulators for download needs GCP support:
+- `src/api/simulator.py` - Add GCP case
+- Bundle the service account key file with the simulator
+
+#### 5. Add E2E Test Verification (Optional)
+
+Update `test_gcp_terraform_e2e.py` to verify:
+- `config_generated_*.json` files exist after deployment
+- Files contain correct `topic_name` and `project_id`
+
+### Dependencies
+
+```
+# requirements.txt for GCP simulator
+google-cloud-pubsub>=2.0.0
+google-auth>=2.0.0
+```
+
+### Notes
+
+- **No MQTT**: GCP Pub/Sub does not support MQTT natively (unlike AWS IoT Core)
+- **gRPC option**: For high-throughput scenarios, consider gRPC instead of HTTP (7x faster)
+- **Service Account security**: The SA key file must be protected; consider Workload Identity for production
+
+---
+
+## 12. L0 Glue Layer Conditional Deployment Optimization
+
+> [!CAUTION]
+> Current implementation deploys empty L0 Function Apps even in single-cloud scenarios.
+
+### Status: Needs Implementation
+
+### Issue
+
+The L0 Glue Layer (cross-cloud receiver functions) is currently deployed whenever a provider appears in **any** layer configuration, even when no cross-cloud communication is needed.
+
+**Current logic in `main.tf` (lines 75-83):**
+```hcl
+deploy_azure = contains([
+  var.layer_1_provider,
+  var.layer_2_provider,
+  var.layer_3_hot_provider,
+  var.layer_3_cold_provider,
+  var.layer_3_archive_provider,
+  var.layer_4_provider,
+  var.layer_5_provider
+], "azure")
+```
+
+**Current L0 deployment in `azure_glue.tf` (line 43):**
+```hcl
+resource "azurerm_linux_function_app" "l0_glue" {
+  count = local.deploy_azure ? 1 : 0  # <-- Too broad!
+  ...
+}
+```
+
+### Problem Scenario
+
+When deploying **Azure single-cloud** (all layers = Azure):
+- `local.deploy_azure = true` ✅
+- L0 Function App is created ❌ (empty, no functions needed)
+- Wasted resources and potential confusion
+
+### Expected Behavior
+
+L0 Glue functions should ONLY be deployed when:
+1. **Multi-cloud scenario**: More than one provider is used across layers
+2. **Cross-layer boundary exists** that requires glue code
+
+### L0 Function Deployment Matrix
+
+Each L0 function has specific deployment conditions:
+
+| L0 Function | Deploy When | Receives From | Sends To |
+|-------------|-------------|---------------|----------|
+| `ingestion` | L1 provider ≠ L2 provider | Remote L1 | Local L2 Persister |
+| `hot-writer` | L2 provider ≠ L3 Hot provider | Remote L2 | Local L3 Hot |
+| `cold-writer` | L3 Hot ≠ L3 Cold provider | Remote L3 Hot | Local L3 Cold |
+| `archive-writer` | L3 Cold ≠ L3 Archive provider | Remote L3 Cold | Local L3 Archive |
+| `hot-reader` | L4 provider ≠ L3 Hot provider | Remote L4/L5 | Local L3 Hot |
+
+### Proposed Implementation
+
+#### 1. Add granular locals in `main.tf`:
+
+```hcl
+locals {
+  # Multi-cloud boundary detection
+  needs_azure_l0_ingestion     = var.layer_1_provider != var.layer_2_provider && var.layer_2_provider == "azure"
+  needs_azure_l0_hot_writer    = var.layer_2_provider != var.layer_3_hot_provider && var.layer_3_hot_provider == "azure"
+  needs_azure_l0_cold_writer   = var.layer_3_hot_provider != var.layer_3_cold_provider && var.layer_3_cold_provider == "azure"
+  needs_azure_l0_archive_writer = var.layer_3_cold_provider != var.layer_3_archive_provider && var.layer_3_archive_provider == "azure"
+  needs_azure_l0_hot_reader    = var.layer_4_provider != var.layer_3_hot_provider && var.layer_3_hot_provider == "azure"
+  
+  # Only deploy L0 app if ANY L0 function is needed
+  deploy_azure_l0 = (
+    local.needs_azure_l0_ingestion ||
+    local.needs_azure_l0_hot_writer ||
+    local.needs_azure_l0_cold_writer ||
+    local.needs_azure_l0_archive_writer ||
+    local.needs_azure_l0_hot_reader
+  )
+}
+```
+
+#### 2. Update `azure_glue.tf`:
+
+```hcl
+resource "azurerm_linux_function_app" "l0_glue" {
+  count = local.deploy_azure_l0 ? 1 : 0  # <-- Precise condition
+  ...
+}
+```
+
+#### 3. Apply same pattern to AWS and GCP
+
+Each provider's L0 glue layer needs equivalent boundary detection.
+
+### Files to Modify
+
+- `src/terraform/main.tf` - Add boundary detection locals
+- `src/terraform/azure_glue.tf` - Update count condition
+- `src/terraform/aws_glue.tf` - Update count condition (if exists)
+- `src/terraform/gcp_glue.tf` - Update count condition
+- `src/core/tfvars_generator.py` - Optionally skip L0 ZIP building when not needed
+
+### Impact
+
+- Cleaner single-cloud deployments (no empty L0 apps)
+- Faster `terraform apply` (fewer resources)
+- Lower costs (no idle Function Apps)
+- Clearer resource visibility in cloud consoles
+
+---
+
+## 13. Multi-User Grafana Provisioning (N Users)
+
+> [!NOTE]
+> Current implementation (Dec 2024) supports **single admin user** per cloud.
+> This section documents the extension to support **N users** with different roles.
+
+### Status: Documented, Not Implemented
+
+### Background
+
+The optimizer collects `amountOfActiveEditors` and `amountOfActiveViewers` for cost calculation, but the deployer currently only provisions a **single admin** user. This enhancement would allow provisioning multiple users with appropriate roles (Admin, Editor, Viewer).
+
+### Current Implementation (Single Admin)
+
+```json
+// config_grafana.json - Current Simple Version
+{
+  "admin_email": "admin@example.com",
+  "admin_first_name": "Grafana",
+  "admin_last_name": "Admin"
+}
+```
+
+### Proposed N-User Implementation
+
+#### Config File Format
+
+```json
+// config_grafana.json - N-User Version
+{
+  "users": [
+    {
+      "email": "admin@example.com",
+      "first_name": "Jane",
+      "last_name": "Admin",
+      "role": "ADMIN"
+    },
+    {
+      "email": "editor1@example.com",
+      "first_name": "Editor",
+      "last_name": "One",
+      "role": "EDITOR"
+    },
+    {
+      "email": "editor2@example.com",
+      "first_name": "Editor",
+      "last_name": "Two",
+      "role": "EDITOR"
+    },
+    {
+      "email": "viewer1@example.com",
+      "first_name": "Viewer",
+      "last_name": "One",
+      "role": "VIEWER"
+    }
+  ]
+}
+```
+
+#### Terraform Implementation - AWS (Create N Users)
+
+```hcl
+# Variable receives list of users from config_grafana.json
+variable "grafana_users" {
+  type = list(object({
+    email      = string
+    first_name = string
+    last_name  = string
+    role       = string  # ADMIN, EDITOR, VIEWER
+  }))
+  default = []
+}
+
+# Create each user in IAM Identity Center
+resource "aws_identitystore_user" "grafana_users" {
+  for_each = { for u in var.grafana_users : u.email => u }
+  
+  identity_store_id = local.identity_store_id
+  display_name      = "${each.value.first_name} ${each.value.last_name}"
+  user_name         = each.value.email
+  
+  name {
+    given_name  = each.value.first_name
+    family_name = each.value.last_name
+  }
+  
+  emails {
+    value   = each.value.email
+    primary = true
+  }
+}
+
+# Group users by role for assignment
+locals {
+  grafana_admins  = [for u in var.grafana_users : u.email if u.role == "ADMIN"]
+  grafana_editors = [for u in var.grafana_users : u.email if u.role == "EDITOR"]
+  grafana_viewers = [for u in var.grafana_users : u.email if u.role == "VIEWER"]
+}
+
+# Assign roles (one resource per role type)
+resource "aws_grafana_role_association" "admins" {
+  count        = length(local.grafana_admins) > 0 ? 1 : 0
+  role         = "ADMIN"
+  user_ids     = [for email in local.grafana_admins : aws_identitystore_user.grafana_users[email].user_id]
+  workspace_id = aws_grafana_workspace.main[0].id
+}
+
+resource "aws_grafana_role_association" "editors" {
+  count        = length(local.grafana_editors) > 0 ? 1 : 0
+  role         = "EDITOR"
+  user_ids     = [for email in local.grafana_editors : aws_identitystore_user.grafana_users[email].user_id]
+  workspace_id = aws_grafana_workspace.main[0].id
+}
+
+resource "aws_grafana_role_association" "viewers" {
+  count        = length(local.grafana_viewers) > 0 ? 1 : 0
+  role         = "VIEWER"
+  user_ids     = [for email in local.grafana_viewers : aws_identitystore_user.grafana_users[email].user_id]
+  workspace_id = aws_grafana_workspace.main[0].id
+}
+```
+
+#### Terraform Implementation - Azure (Lookup + Assign N Users)
+
+```hcl
+# Azure role names differ from AWS
+# AWS: ADMIN, EDITOR, VIEWER
+# Azure: Grafana Admin, Grafana Editor, Grafana Viewer
+
+locals {
+  azure_role_map = {
+    "ADMIN"  = "Grafana Admin"
+    "EDITOR" = "Grafana Editor"
+    "VIEWER" = "Grafana Viewer"
+  }
+}
+
+# Look up existing Entra ID users (Azure cannot create users)
+data "azuread_user" "grafana_users" {
+  for_each = { for u in var.grafana_users : u.email => u }
+  mail     = each.value.email
+}
+
+# Assign roles to each user
+resource "azurerm_role_assignment" "grafana_users" {
+  for_each = { for u in var.grafana_users : u.email => u }
+  
+  scope                = azurerm_dashboard_grafana.main[0].id
+  role_definition_name = local.azure_role_map[each.value.role]
+  principal_id         = data.azuread_user.grafana_users[each.key].object_id
+}
+```
+
+### Key Differences: AWS vs Azure
+
+| Aspect | AWS | Azure |
+|--------|-----|-------|
+| **User Creation** | ✅ Creates new users in IAM Identity Center | ❌ Cannot create, must exist in Entra ID |
+| **Roles** | `ADMIN`, `EDITOR`, `VIEWER` | `Grafana Admin`, `Grafana Editor`, `Grafana Viewer` |
+| **User Lookup** | Not needed (we create the user) | Required via `data.azuread_user` |
+| **Activation** | User receives email invitation | Immediate access via Entra ID |
+| **Provider** | `aws` | `azuread` + `azurerm` |
+
+### Validation Requirements
+
+```python
+def validate_grafana_n_users(ctx: ValidationContext) -> None:
+    """Validate config_grafana.json for N-user support."""
+    grafana_config = ctx.grafana_config.get("users", [])
+    
+    if not grafana_config:
+        raise ValidationError("config_grafana.json must have at least one user")
+    
+    # Must have at least one admin
+    admins = [u for u in grafana_config if u.get("role") == "ADMIN"]
+    if not admins:
+        raise ValidationError("At least one user must have role 'ADMIN'")
+    
+    # Validate email format for all users
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    for user in grafana_config:
+        if not re.match(email_pattern, user.get("email", "")):
+            raise ValidationError(f"Invalid email: {user.get('email')}")
+        
+        # Validate role enum
+        if user.get("role") not in ["ADMIN", "EDITOR", "VIEWER"]:
+            raise ValidationError(
+                f"Invalid role '{user.get('role')}' for {user.get('email')}. "
+                "Must be: ADMIN, EDITOR, or VIEWER"
+            )
+    
+    # Check for duplicate emails
+    emails = [u["email"] for u in grafana_config]
+    if len(emails) != len(set(emails)):
+        raise ValidationError("Duplicate email addresses in config_grafana.json")
+```
+
+### E2E Test Requirements
+
+| Test Case | Description |
+|-----------|-------------|
+| `test_grafana_multiple_users_created` | Verify all users exist in IAM Identity Center (AWS) |
+| `test_grafana_role_assignments_correct` | Each user has correct role in Grafana workspace |
+| `test_grafana_user_lookup_azure` | All Entra ID users found successfully |
+| `test_grafana_user_not_found_azure` | Clear error when user doesn't exist in Entra ID |
+| `test_grafana_duplicate_emails_rejected` | Validation rejects duplicate emails |
+| `test_grafana_invalid_role_rejected` | Validation rejects invalid role values |
+
+### Integration with Optimizer
+
+The optimizer already returns `amountOfActiveEditors` and `amountOfActiveViewers` in `inputParamsUsed`. Future enhancement:
+
+1. **Validation alignment**: Warn if `config_grafana.json` user counts don't match optimizer input
+2. **Auto-generation**: Consider generating placeholder config based on counts
+3. **Cost verification**: Ensure actual provisioned users match billing expectations
+
+### Files to Modify/Create
+
+| File | Change Type | Description |
+|------|-------------|-------------|
+| `upload/template/config_grafana.json` | MODIFY | Update schema to array of users |
+| `src/terraform/variables.tf` | MODIFY | Change `grafana_admin_*` to `grafana_users` list |
+| `src/terraform/aws_grafana.tf` | MODIFY | Add `for_each` loop for N users |
+| `src/terraform/azure_grafana.tf` | MODIFY | Add `for_each` loop for N users |
+| `src/tfvars_generator.py` | MODIFY | Transform users array to terraform format |
+| `src/validation/core.py` | MODIFY | Add N-user validation logic |
+| `tests/unit/test_validation.py` | MODIFY | Add N-user test cases |
+| `tests/e2e/*/test_*_e2e.py` | MODIFY | Add multi-user verification |
+
+### Complexity Assessment
+
+| Aspect | Effort |
+|--------|--------|
+| Config schema change | Low |
+| Terraform for_each conversion | Medium |
+| AWS multi-user creation | Medium |
+| Azure user lookup handling | Medium |
+| Error handling for missing users | High |
+| E2E testing | Medium |
+| **Total** | **~3-4 days** |
+
+---
+
+## 14. Deploy API Return Value Enhancement
+
+### Status: Planned
+
+### Problem
+
+`deploy_all()` currently only returns Terraform outputs:
+
+```python
+def deploy_all(context, skip_credential_check=False) -> dict:
+    return self._terraform_outputs  # Only infrastructure IDs/URLs
+```
+
+Post-deployment SDK operations (IoT registration, DTDL upload, TwinMaker entities, Grafana config) log warnings on failure but don't report status in the return value.
+
+### Impact
+
+- Callers cannot programmatically determine if SDK operations succeeded
+- Must parse logs to determine full deployment status
+- AWS fail-soft pattern silently degrades without structured notification
+
+### Proposed Solution
+
+Return structured result including SDK operation status:
+
+```python
+return {
+    "terraform_outputs": {...},
+    "sdk_operations": {
+        "azure_dtdl_upload": {"success": True},
+        "azure_iot_registration": {"success": True, "devices": 2},
+        "azure_grafana_config": {"success": True},
+        "aws_twinmaker_entities": {"success": True, "entities": 2, "failed": 0},
+        "aws_iot_devices": {"success": True, "devices": 2, "failed": 0},
+        "aws_grafana_config": {"success": True}
+    }
+}
+```
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `deployer_strategy.py` | Capture SDK results, modify return |
+| `azure_deployer.py` | Return status from each function |
+| `aws_deployer.py` | Return status from each function |
+
+### Complexity Assessment
+
+| Aspect | Effort |
+|--------|--------|
+| Return type change | Low |
+| Azure deployer updates | Medium |
+| AWS deployer updates | Medium |
+| Unit test updates | Medium |
+| **Total** | **~1-2 days** |
+
+---
+
 ## Notes
 
-- **Priority**: E2E testing > Azure init values > SDK validation > GCP
+- **Priority**: GCP Simulator > L0 Optimization > SDK validation > N-User Grafana > Security enhancements
 - **Timeline**: To be determined based on thesis requirements
-
-
