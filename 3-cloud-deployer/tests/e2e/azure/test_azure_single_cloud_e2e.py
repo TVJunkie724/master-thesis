@@ -442,20 +442,35 @@ class TestAzureSingleCloudE2E:
                 "Content-Type": "application/json"
             }
             
-            # Check datasources are configured
-            response = requests.get(
-                f"{grafana_endpoint}/api/datasources",
-                headers=headers,
-                timeout=30
-            )
+            # Retry logic for role propagation (403 = role not yet propagated)
+            # Terraform waits 180s, but in edge cases it may take longer
+            max_retries = 5
+            base_wait = 30  # seconds
             
-            if response.status_code == 200:
-                datasources = response.json()
-                print(f"[GRAFANA] Found {len(datasources)} datasources")
-                print("[GRAFANA] ✓ Grafana API accessible and configured")
-            else:
-                print(f"[GRAFANA] API returned: {response.status_code}")
-                pytest.skip(f"Grafana API returned {response.status_code}")
+            for attempt in range(max_retries):
+                response = requests.get(
+                    f"{grafana_endpoint}/api/datasources",
+                    headers=headers,
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    datasources = response.json()
+                    print(f"[GRAFANA] Found {len(datasources)} datasources")
+                    print("[GRAFANA] ✓ Grafana API accessible and configured")
+                    return  # Success!
+                
+                if response.status_code == 403 and attempt < max_retries - 1:
+                    wait_time = base_wait * (attempt + 1)
+                    print(f"[GRAFANA] 403 - Role not propagated yet, waiting {wait_time}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                    continue
+                
+                # Non-403 error or final attempt
+                break
+            
+            print(f"[GRAFANA] API returned: {response.status_code}")
+            pytest.skip(f"Grafana API returned {response.status_code} after {max_retries} retries")
                 
         except ImportError:
             pytest.skip("azure-identity not installed")
