@@ -85,6 +85,12 @@ resource "azurerm_linux_function_app" "l2" {
     # Inter-cloud token for cross-cloud L3 calls
     INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
 
+    # L3 Hot Storage - Cosmos DB connection for persister (single-cloud mode)
+    COSMOS_DB_ENDPOINT  = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_account.main[0].endpoint : ""
+    COSMOS_DB_KEY       = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_account.main[0].primary_key : ""
+    COSMOS_DB_DATABASE  = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_sql_database.main[0].name : ""
+    COSMOS_DB_CONTAINER = "hot"
+
     # Multi-cloud L2→L3: When Azure L2 sends to remote L3
     REMOTE_WRITER_URL = var.layer_2_provider == "azure" && var.layer_3_hot_provider != "azure" ? (
       var.layer_3_hot_provider == "aws" ? try(aws_lambda_function_url.l0_hot_writer[0].function_url, "") :
