@@ -118,8 +118,7 @@ def _is_multi_cloud_storage() -> bool:
         )
     
     if l2_provider == l3_provider:
-        logging.warning(f"REMOTE_WRITER_URL set but providers match ({l2_provider}). Using local Cosmos DB.")
-        return False
+        raise ConfigurationError(f"REMOTE_WRITER_URL set but providers match ({l2_provider}). Invalid configuration.")
     
     return True
 

@@ -29,8 +29,7 @@ def lambda_handler(event, context):
         # Extract ID
         device_id = event.get("iotDeviceId")
         if not device_id:
-             print("Error: 'iotDeviceId' missing in event.")
-             return # Stop processing if key data is missing
+             raise ValueError("Error: 'iotDeviceId' missing in event.")
 
         target_suffix = os.environ.get("TARGET_FUNCTION_SUFFIX", "-processor")
         

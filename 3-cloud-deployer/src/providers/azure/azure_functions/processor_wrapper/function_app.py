@@ -101,8 +101,7 @@ def processor(req: func.HttpRequest) -> func.HttpResponse:
         try:
             url = _get_processor_url(device_id)
             if not url or not url.startswith("http"):
-                logging.warning(f"Cannot construct processor URL for device {device_id} - using passthrough")
-                processed_event = event
+                raise Exception(f"Cannot construct processor URL for device {device_id}")
             else:
                 logging.info(f"Calling user processor at {url}")
                 data = json.dumps(event).encode("utf-8")

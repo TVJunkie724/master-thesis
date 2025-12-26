@@ -81,8 +81,7 @@ def _invoke_function(function_name: str, payload: dict) -> None:
         payload: Event data to send
     """
     if not FUNCTION_APP_BASE_URL:
-        logging.warning(f"FUNCTION_APP_BASE_URL not set - cannot invoke {function_name}")
-        return
+        raise ValueError(f"FUNCTION_APP_BASE_URL not set - cannot invoke {function_name}")
     
     url = f"{FUNCTION_APP_BASE_URL}/api/{function_name}"
     data = json.dumps(payload).encode("utf-8")

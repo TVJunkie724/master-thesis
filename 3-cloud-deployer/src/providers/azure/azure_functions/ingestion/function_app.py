@@ -68,8 +68,7 @@ def _invoke_processor(processor_name: str, payload: dict) -> None:
         payload: Event data to send
     """
     if not FUNCTION_APP_BASE_URL:
-        logging.warning(f"FUNCTION_APP_BASE_URL not set - cannot invoke {processor_name}")
-        return
+        raise ValueError(f"FUNCTION_APP_BASE_URL not set - cannot invoke {processor_name}")
     
     url = f"{FUNCTION_APP_BASE_URL}/api/{processor_name}"
     data = json.dumps(payload).encode("utf-8")
