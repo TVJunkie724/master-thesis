@@ -108,5 +108,5 @@ def lambda_handler(event, context):
     except Exception as e:
         print(f"Digital Twin Data Connector Error: {e}")
         # Return empty to avoid breaking TwinMaker dashboard
-        print("Returning empty propertyValues due to error.")
-        return { "propertyValues": [] }
+        print(f"CRITICAL: Data Connector execution failed: {e}")
+        raise e

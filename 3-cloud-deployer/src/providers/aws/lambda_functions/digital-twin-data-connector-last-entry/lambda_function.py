@@ -102,5 +102,5 @@ def lambda_handler(event, context):
         
     except Exception as e:
         print(f"Digital Twin Data Connector Last Entry Error: {e}")
-        print("Returning empty propertyValues due to error.")
-        return { "propertyValues": {} }
+        print(f"CRITICAL: Last Entry Connector execution failed: {e}")
+        raise e

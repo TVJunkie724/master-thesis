@@ -239,9 +239,8 @@ def hot_reader(req: func.HttpRequest) -> func.HttpResponse:
         
     except Exception as e:
         logging.error(f"Hot Reader Error: {e}")
-        # Return empty to avoid breaking dashboard
         return func.HttpResponse(
-            json.dumps({"propertyValues": []}),
-            status_code=200,
+            json.dumps({"error": "Internal Server Error", "message": str(e)}),
+            status_code=500,
             mimetype="application/json"
         )

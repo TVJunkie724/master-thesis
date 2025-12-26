@@ -84,7 +84,10 @@ def _is_multi_cloud_archive() -> bool:
     l3_cold = providers.get("layer_3_cold_provider")
     l3_archive = providers.get("layer_3_archive_provider")
     
-    return l3_cold != l3_archive
+    if l3_cold == l3_archive:
+        raise ConfigurationError(f"REMOTE_ARCHIVE_WRITER_URL set but providers match ({l3_cold}). Invalid multi-cloud config.")
+
+    return True
 
 
 @functions_framework.http

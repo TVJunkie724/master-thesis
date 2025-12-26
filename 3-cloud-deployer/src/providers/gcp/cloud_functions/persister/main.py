@@ -87,8 +87,7 @@ def _is_multi_cloud_storage() -> bool:
         )
     
     if l2_provider == l3_provider:
-        print(f"Warning: REMOTE_WRITER_URL is set but providers match ({l2_provider}). Using local write.")
-        return False
+        raise ConfigurationError(f"REMOTE_WRITER_URL set but providers match ({l2_provider}). Invalid multi-cloud config.")
     
     return True
 
@@ -144,7 +143,8 @@ def main(request):
                         timeout=10
                     )
                 except Exception as e:
-                    print(f"Warning: Failed to invoke Event Checker: {e}")
+                    print(f"CRITICAL: Failed to invoke Event Checker: {e}")
+                    raise e
         
         return (json.dumps({"status": "persisted"}), 200, {"Content-Type": "application/json"})
         
