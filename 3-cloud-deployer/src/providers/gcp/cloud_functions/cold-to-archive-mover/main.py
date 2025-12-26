@@ -119,6 +119,9 @@ def main(request):
             if blob.time_created and blob.time_created < cutoff:
                 if _is_multi_cloud_archive():
                     # Multi-cloud: Download and POST to remote Archive Writer
+                    if not INTER_CLOUD_TOKEN:
+                        raise ConfigurationError("INTER_CLOUD_TOKEN is required for multi-cloud mode")
+
                     content = blob.download_as_text()
                     items = json.loads(content)
                     

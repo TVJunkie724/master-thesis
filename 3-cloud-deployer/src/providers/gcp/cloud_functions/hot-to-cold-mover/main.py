@@ -207,6 +207,9 @@ def main(request):
             for idx, chunk in enumerate(chunks):
                 if _is_multi_cloud_cold():
                     # Multi-cloud: POST to remote Cold Writer
+                    if not INTER_CLOUD_TOKEN:
+                        raise ConfigurationError("INTER_CLOUD_TOKEN is required for multi-cloud mode")
+                        
                     payload = {
                         "iotDeviceId": device_id,
                         "items": chunk,

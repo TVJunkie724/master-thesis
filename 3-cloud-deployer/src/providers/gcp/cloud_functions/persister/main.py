@@ -117,6 +117,9 @@ def main(request):
             remote_url = os.environ.get("REMOTE_WRITER_URL")
             token = os.environ.get("INTER_CLOUD_TOKEN", "").strip()
             
+            if not token:
+                 raise ConfigurationError("INTER_CLOUD_TOKEN required for multi-cloud mode")
+            
             print(f"Multi-cloud mode: POSTing to remote Hot Writer at {remote_url}")
             post_to_remote(
                 url=remote_url,

@@ -70,8 +70,13 @@ def _get_cosmos_db_container_name():
     return _cosmos_db_container
 
 
-# Optional: For cross-cloud HTTP access
-INTER_CLOUD_TOKEN = os.environ.get("INTER_CLOUD_TOKEN", "").strip()
+def _get_inter_cloud_token():
+    try:
+        return require_env("INTER_CLOUD_TOKEN")
+    except Exception:
+        # If missing, we must fail secure (cannot authenticate)
+        logging.error("CRITICAL: INTER_CLOUD_TOKEN missing. Hot Reader requires authentication.")
+        raise ValueError("INTER_CLOUD_TOKEN configuration missing")
 
 # Optional: Azure Digital Twins instance URL
 ADT_INSTANCE_URL = os.environ.get("ADT_INSTANCE_URL", "").strip()
@@ -207,16 +212,15 @@ def hot_reader(req: func.HttpRequest) -> func.HttpResponse:
         headers = dict(req.headers)
         
         # Validate token for cross-cloud requests
-        # CRITICAL: If token is configured, we MUST validate it for all requests.
-        # Do not allow requests to bypass validation by simply omitting the header.
-        if INTER_CLOUD_TOKEN:
-            logging.info("INTER_CLOUD_TOKEN configured - strictly enforcing authentication")
-            if not validate_token(headers, INTER_CLOUD_TOKEN):
-                return func.HttpResponse(
-                    json.dumps({"error": "Unauthorized", "message": "Invalid or missing X-Inter-Cloud-Token"}),
-                    status_code=401,
-                    mimetype="application/json"
-                )
+        # CRITICAL: Security - Always enforce token validation.
+        # This prevents accidental public exposure if the variable is missing.
+        token = _get_inter_cloud_token()
+        if not validate_token(headers, token):
+            return func.HttpResponse(
+                json.dumps({"error": "Unauthorized", "message": "Invalid or missing X-Inter-Cloud-Token"}),
+                status_code=401,
+                mimetype="application/json"
+            )
         
         # Parse query parameters
         query_params = req.get_json()

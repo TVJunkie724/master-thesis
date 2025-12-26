@@ -23,8 +23,13 @@ except ModuleNotFoundError:
     from _shared.inter_cloud import validate_token, build_auth_error_response
 
 
-# Optional - for protected endpoints
-INTER_CLOUD_TOKEN = os.environ.get("INTER_CLOUD_TOKEN", "")
+def _get_inter_cloud_token():
+    try:
+        return require_env("INTER_CLOUD_TOKEN")
+    except Exception:
+        # If missing, we must fail secure (cannot authenticate)
+        print("CRITICAL: INTER_CLOUD_TOKEN missing. Hot Reader requires authentication.")
+        raise ValueError("INTER_CLOUD_TOKEN configuration missing")
 FIRESTORE_COLLECTION = os.environ.get("FIRESTORE_COLLECTION", "hot_data")
 FIRESTORE_DATABASE = os.environ.get("FIRESTORE_DATABASE", "(default)")
 
@@ -53,10 +58,10 @@ def main(request):
     """
     print("Hello from Hot Reader!")
     
-    # Validate token if configured
-    if INTER_CLOUD_TOKEN:
-        if not validate_token(request, INTER_CLOUD_TOKEN):
-            return build_auth_error_response()
+    # Validate token
+    # CRITICAL: Security - Always enforce token validation.
+    if not validate_token(request, _get_inter_cloud_token()):
+        return build_auth_error_response()
     
     try:
         # Get query parameters
