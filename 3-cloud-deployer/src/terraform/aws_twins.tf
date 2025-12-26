@@ -230,7 +230,7 @@ resource "aws_lambda_function" "l4_connector" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO = local.digital_twin_info_json
+      DIGITAL_TWIN_INFO = var.digital_twin_info_json
       WORKSPACE_ID      = var.digital_twin_name
     }
   }

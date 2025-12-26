@@ -114,7 +114,7 @@ resource "aws_lambda_function" "l0_ingestion" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO   = local.digital_twin_info_json
+      DIGITAL_TWIN_INFO   = var.digital_twin_info_json
       INTER_CLOUD_TOKEN   = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
     }
   }
@@ -147,8 +147,8 @@ resource "aws_lambda_function" "l0_hot_writer" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO   = local.digital_twin_info_json
-      DYNAMODB_TABLE      = "${var.digital_twin_name}-hot"
+      DIGITAL_TWIN_INFO   = var.digital_twin_info_json
+      DYNAMODB_TABLE_NAME = "${var.digital_twin_name}-hot"
       INTER_CLOUD_TOKEN   = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
     }
   }
@@ -181,8 +181,8 @@ resource "aws_lambda_function" "l0_hot_reader" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO   = local.digital_twin_info_json
-      DYNAMODB_TABLE      = "${var.digital_twin_name}-hot"
+      DIGITAL_TWIN_INFO   = var.digital_twin_info_json
+      DYNAMODB_TABLE_NAME = "${var.digital_twin_name}-hot"
       INTER_CLOUD_TOKEN   = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
     }
   }
@@ -215,8 +215,8 @@ resource "aws_lambda_function" "l0_cold_writer" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO   = local.digital_twin_info_json
-      S3_BUCKET           = "${var.digital_twin_name}-cold"
+      DIGITAL_TWIN_INFO   = var.digital_twin_info_json
+      COLD_S3_BUCKET_NAME = "${var.digital_twin_name}-cold"
       INTER_CLOUD_TOKEN   = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
     }
   }
@@ -249,9 +249,9 @@ resource "aws_lambda_function" "l0_archive_writer" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO   = local.digital_twin_info_json
-      S3_BUCKET           = "${var.digital_twin_name}-archive"
-      INTER_CLOUD_TOKEN   = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      DIGITAL_TWIN_INFO      = var.digital_twin_info_json
+      ARCHIVE_S3_BUCKET_NAME = "${var.digital_twin_name}-archive"
+      INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
     }
   }
 

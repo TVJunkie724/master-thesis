@@ -137,7 +137,7 @@ resource "aws_lambda_function" "l2_persister" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO = local.digital_twin_info_json
+      DIGITAL_TWIN_INFO = var.digital_twin_info_json
       DYNAMODB_TABLE    = "${var.digital_twin_name}-hot"
 
       # Multi-cloud L2→L3: When AWS L2 sends to remote L3
@@ -183,7 +183,7 @@ resource "aws_lambda_function" "l2_event_checker" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO = local.digital_twin_info_json
+      DIGITAL_TWIN_INFO = var.digital_twin_info_json
     }
   }
 
@@ -277,7 +277,7 @@ resource "aws_lambda_function" "processor_wrapper" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO     = local.digital_twin_info_json
+      DIGITAL_TWIN_INFO     = var.digital_twin_info_json
       PERSISTER_LAMBDA_NAME = aws_lambda_function.l2_persister[0].function_name
     }
   }
@@ -304,7 +304,7 @@ resource "aws_lambda_function" "user_processor" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO = local.digital_twin_info_json
+      DIGITAL_TWIN_INFO = var.digital_twin_info_json
     }
   }
 

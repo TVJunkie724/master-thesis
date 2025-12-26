@@ -86,7 +86,7 @@ resource "google_cloudfunctions2_function" "dispatcher" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME = var.digital_twin_name
-      DIGITAL_TWIN_INFO = local.gcp_digital_twin_info
+      DIGITAL_TWIN_INFO = var.digital_twin_info_json
       EVENTS_TOPIC      = google_pubsub_topic.events[0].id
       FUNCTION_BASE_URL = local.gcp_function_base_url
       INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : (

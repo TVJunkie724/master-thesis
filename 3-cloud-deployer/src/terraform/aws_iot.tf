@@ -92,7 +92,7 @@ resource "aws_lambda_function" "l1_dispatcher" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO      = local.digital_twin_info_json
+      DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       TARGET_FUNCTION_SUFFIX = var.layer_2_provider == "aws" ? "-processor" : "-connector"
 
       # Multi-cloud L1→L2: When AWS L1 sends to remote L2
@@ -154,7 +154,7 @@ resource "aws_lambda_function" "l1_connector" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO = local.digital_twin_info_json
+      DIGITAL_TWIN_INFO = var.digital_twin_info_json
       # Multi-cloud L1→L2: Remote ingestion endpoint
       REMOTE_INGESTION_URL = var.layer_2_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/ingestion" : (
         var.layer_2_provider == "google" ? try(google_cloudfunctions2_function.ingestion[0].url, "") : ""

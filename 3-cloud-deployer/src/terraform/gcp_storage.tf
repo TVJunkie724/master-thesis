@@ -163,7 +163,7 @@ resource "google_cloudfunctions2_function" "hot_reader" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
-      DIGITAL_TWIN_INFO    = local.gcp_digital_twin_info
+      DIGITAL_TWIN_INFO    = var.digital_twin_info_json
       GCP_PROJECT_ID       = local.gcp_project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
       FIRESTORE_DATABASE   = var.digital_twin_name
@@ -214,12 +214,21 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
-      DIGITAL_TWIN_INFO    = local.gcp_digital_twin_info
+      DIGITAL_TWIN_INFO    = var.digital_twin_info_json
       GCP_PROJECT_ID       = local.gcp_project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
       FIRESTORE_DATABASE   = var.digital_twin_name
       COLD_BUCKET_NAME     = google_storage_bucket.cold[0].name
       HOT_RETENTION_DAYS   = var.layer_3_hot_to_cold_interval_days
+
+      # Multi-cloud Hot→Cold: When GCP L3 Hot sends to remote Cold
+      REMOTE_COLD_WRITER_URL = var.layer_3_hot_provider == "google" && var.layer_3_cold_provider != "google" ? (
+        var.layer_3_cold_provider == "aws" ? try(aws_lambda_function_url.l0_cold_writer[0].function_url, "") :
+        var.layer_3_cold_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/cold-writer" : ""
+      ) : ""
+
+      # Inter-cloud token
+      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
     }
   }
 
@@ -275,6 +284,113 @@ resource "google_cloud_run_service_iam_member" "hot_to_cold_mover_invoker" {
   project  = local.gcp_project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.hot_to_cold_mover[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.functions[0].email}"
+}
+
+# ==============================================================================
+# Cold-to-Archive Mover Function Source
+# ==============================================================================
+
+resource "google_storage_bucket_object" "cold_to_archive_mover_source" {
+  count  = local.gcp_l3_cold_enabled && local.gcp_l3_archive_enabled ? 1 : 0
+  name   = "cold-to-archive-mover-${filemd5("${var.project_path}/cloud_functions/cold-to-archive-mover/main.py")}.zip"
+  bucket = google_storage_bucket.function_source[0].name
+  source = "${var.project_path}/.build/gcp/cold-to-archive-mover.zip"
+}
+
+# ==============================================================================
+# L3 Cold-to-Archive Mover Cloud Function (Gen2) - Scheduled
+# ==============================================================================
+
+resource "google_cloudfunctions2_function" "cold_to_archive_mover" {
+  count    = local.gcp_l3_cold_enabled && local.gcp_l3_archive_enabled ? 1 : 0
+  name     = "${var.digital_twin_name}-cold-to-archive-mover"
+  location = var.gcp_region
+  project  = local.gcp_project_id
+
+  build_config {
+    runtime     = "python311"
+    entry_point = "main"
+    
+    source {
+      storage_source {
+        bucket = google_storage_bucket.function_source[0].name
+        object = google_storage_bucket_object.cold_to_archive_mover_source[0].name
+      }
+    }
+  }
+
+  service_config {
+    max_instance_count    = 1
+    min_instance_count    = 0
+    available_memory      = "512M"
+    timeout_seconds       = 540  # 9 minutes for batch processing
+    service_account_email = google_service_account.functions[0].email
+    
+    environment_variables = {
+      DIGITAL_TWIN_NAME   = var.digital_twin_name
+      DIGITAL_TWIN_INFO   = var.digital_twin_info_json
+      GCP_PROJECT_ID      = local.gcp_project_id
+      COLD_BUCKET_NAME    = google_storage_bucket.cold[0].name
+      ARCHIVE_BUCKET_NAME = local.gcp_l3_cold_enabled ? google_storage_bucket.cold[0].name : (
+        local.gcp_l3_archive_enabled ? google_storage_bucket.archive[0].name : ""
+      )
+      COLD_RETENTION_DAYS = var.layer_3_cold_to_archive_interval_days
+
+      # Multi-cloud Cold→Archive: When GCP L3 Cold sends to remote Archive
+      REMOTE_ARCHIVE_WRITER_URL = var.layer_3_cold_provider == "google" && var.layer_3_archive_provider != "google" ? (
+        var.layer_3_archive_provider == "aws" ? try(aws_lambda_function_url.l0_archive_writer[0].function_url, "") :
+        var.layer_3_archive_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/archive-writer" : ""
+      ) : ""
+
+      # Inter-cloud token
+      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+    }
+  }
+
+  labels = local.gcp_common_labels
+
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.run,
+    google_storage_bucket.cold,
+    google_project_iam_member.functions_custom_role
+  ]
+}
+
+# ==============================================================================
+# Cloud Scheduler for Cold-to-Archive Mover
+# ==============================================================================
+
+resource "google_cloud_scheduler_job" "cold_to_archive" {
+  count    = local.gcp_l3_cold_enabled && local.gcp_l3_archive_enabled ? 1 : 0
+  name     = "${var.digital_twin_name}-cold-to-archive-schedule"
+  project  = local.gcp_project_id
+  region   = var.gcp_region
+  schedule = "0 3 * * 0"  # Run weekly on Sunday at 3 AM
+  
+  http_target {
+    uri         = google_cloudfunctions2_function.cold_to_archive_mover[0].url
+    http_method = "POST"
+    
+    oidc_token {
+      service_account_email = google_service_account.functions[0].email
+    }
+  }
+  
+  depends_on = [google_project_service.cloudscheduler]
+}
+
+# ==============================================================================
+# IAM: Allow authenticated invocations
+# ==============================================================================
+
+resource "google_cloud_run_service_iam_member" "cold_to_archive_mover_invoker" {
+  count    = local.gcp_l3_cold_enabled && local.gcp_l3_archive_enabled ? 1 : 0
+  project  = local.gcp_project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.cold_to_archive_mover[0].name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.functions[0].email}"
 }
