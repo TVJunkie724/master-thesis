@@ -120,6 +120,9 @@ resource "azurerm_linux_function_app" "l1" {
 
     # Inter-cloud token for cross-cloud L2 calls
     INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+
+    # Full Digital Twin configuration - required by dispatcher for routing
+    DIGITAL_TWIN_INFO = var.digital_twin_info_json
   }
 
   tags = local.common_tags

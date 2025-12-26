@@ -104,6 +104,9 @@ resource "azurerm_linux_function_app" "l2" {
 
     # NEW: Required for Wrapper to find User Functions
     FUNCTION_APP_BASE_URL = "https://${var.digital_twin_name}-user-functions.azurewebsites.net"
+
+    # Full Digital Twin configuration - required by persister for multi-cloud routing
+    DIGITAL_TWIN_INFO = var.digital_twin_info_json
   }
 
   tags = local.common_tags

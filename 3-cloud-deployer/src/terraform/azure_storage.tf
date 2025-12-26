@@ -199,6 +199,9 @@ resource "azurerm_linux_function_app" "l3" {
       var.layer_3_archive_provider == "aws" ? try(aws_lambda_function_url.l0_archive_writer[0].function_url, "") :
       var.layer_3_archive_provider == "google" ? try(google_cloudfunctions2_function.archive_writer[0].url, "") : ""
     ) : ""
+
+    # Full Digital Twin configuration - required by movers and readers
+    DIGITAL_TWIN_INFO = var.digital_twin_info_json
   }
 
   tags = local.common_tags

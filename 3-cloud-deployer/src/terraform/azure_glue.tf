@@ -94,6 +94,9 @@ resource "azurerm_linux_function_app" "l0_glue" {
 
     # Managed Identity Client ID
     AZURE_CLIENT_ID = azurerm_user_assigned_identity.main[0].client_id
+
+    # Full Digital Twin configuration - required by ingestion for routing
+    DIGITAL_TWIN_INFO = var.digital_twin_info_json
   }
 
   # ZIP deployment will be handled by Python orchestrator post-Terraform

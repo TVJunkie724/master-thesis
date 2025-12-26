@@ -28,9 +28,16 @@ variable "project_path" {
   type        = string
 }
 
+variable "digital_twin_info_json" {
+  description = "JSON string containing full Digital Twin configuration (config, config_iot_devices, config_providers, config_events)"
+  type        = string
+  default     = "{}"
+}
+
 # ==============================================================================
 # Layer Provider Mapping (from config_providers.json)
 # ==============================================================================
+
 
 variable "layer_1_provider" {
   description = "Cloud provider for L1 (IoT/Data Acquisition)"
