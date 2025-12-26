@@ -1,3 +1,4 @@
-from src.api.routes import auth, twins, health
+from src.api.routes import auth, twins, health, config
 
-__all__ = ["auth", "twins", "health"]
+__all__ = ["auth", "twins", "health", "config"]
+

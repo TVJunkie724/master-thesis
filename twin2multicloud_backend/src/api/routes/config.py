@@ -1,0 +1,287 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+import httpx
+
+from src.models.database import get_db
+from src.models.twin import DigitalTwin
+from src.models.twin_config import TwinConfiguration
+from src.models.user import User
+from src.api.dependencies import get_current_user
+from src.schemas.twin_config import (
+    TwinConfigUpdate, TwinConfigResponse, CredentialValidationResult,
+    InlineValidationRequest
+)
+from src.config import settings
+from src.utils.crypto import encrypt, decrypt
+
+router = APIRouter(prefix="/twins/{twin_id}/config", tags=["configuration"])
+inline_router = APIRouter(prefix="/config", tags=["configuration"])
+
+
+async def get_user_twin(twin_id: str, user: User, db: Session) -> DigitalTwin:
+    """Helper to verify twin ownership."""
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == user.id
+    ).first()
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    return twin
+
+
+@router.get("/", response_model=TwinConfigResponse)
+async def get_config(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get configuration for a twin. Creates default if none exists."""
+    twin = await get_user_twin(twin_id, current_user, db)
+    
+    if not twin.configuration:
+        config = TwinConfiguration(twin_id=twin_id)
+        db.add(config)
+        db.commit()
+        db.refresh(config)
+    else:
+        config = twin.configuration
+    
+    return TwinConfigResponse.from_db(config)
+
+
+@router.put("/", response_model=TwinConfigResponse)
+async def update_config(
+    twin_id: str,
+    update: TwinConfigUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update configuration for a twin.
+    Credentials are ENCRYPTED with user+twin-specific key.
+    """
+    twin = await get_user_twin(twin_id, current_user, db)
+    
+    if not twin.configuration:
+        config = TwinConfiguration(twin_id=twin_id)
+        db.add(config)
+    else:
+        config = twin.configuration
+    
+    # Update fields
+    if update.debug_mode is not None:
+        config.debug_mode = update.debug_mode
+    
+    # AWS - ENCRYPT with user+twin-specific key
+    if update.aws:
+        config.aws_access_key_id = encrypt(update.aws.access_key_id, current_user.id, twin_id)
+        config.aws_secret_access_key = encrypt(update.aws.secret_access_key, current_user.id, twin_id)
+        config.aws_region = update.aws.region
+        if update.aws.session_token:
+            config.aws_session_token = encrypt(update.aws.session_token, current_user.id, twin_id)
+        else:
+            config.aws_session_token = None
+        config.aws_validated = False
+    
+    # Azure - ENCRYPT with user+twin-specific key
+    if update.azure:
+        config.azure_subscription_id = encrypt(update.azure.subscription_id, current_user.id, twin_id)
+        config.azure_client_id = encrypt(update.azure.client_id, current_user.id, twin_id)
+        config.azure_client_secret = encrypt(update.azure.client_secret, current_user.id, twin_id)
+        config.azure_tenant_id = encrypt(update.azure.tenant_id, current_user.id, twin_id)
+        config.azure_validated = False
+    
+    # GCP - ENCRYPT with user+twin-specific key
+    if update.gcp:
+        config.gcp_project_id = update.gcp.project_id  # Not encrypted (public)
+        config.gcp_service_account_json = encrypt(update.gcp.service_account_json, current_user.id, twin_id)
+        config.gcp_validated = False
+    
+    db.commit()
+    db.refresh(config)
+    return TwinConfigResponse.from_db(config)
+
+
+@router.post("/validate/{provider}", response_model=CredentialValidationResult)
+async def validate_credentials(
+    twin_id: str,
+    provider: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Validate credentials by calling the Deployer API.
+    DECRYPTS credentials with user+twin-specific key, sends to Deployer, never exposes to client.
+    """
+    if provider not in ["aws", "azure", "gcp"]:
+        raise HTTPException(status_code=400, detail="Invalid provider. Use: aws, azure, gcp")
+    
+    twin = await get_user_twin(twin_id, current_user, db)
+    config = twin.configuration
+    
+    if not config:
+        raise HTTPException(status_code=400, detail="No configuration found. Save credentials first.")
+    
+    # Build credentials payload - DECRYPT with user+twin-specific key
+    credentials = {}
+    if provider == "aws":
+        if not config.aws_access_key_id:
+            return CredentialValidationResult(
+                provider="aws", valid=False, message="AWS credentials not configured"
+            )
+        credentials = {
+            "aws_access_key_id": decrypt(config.aws_access_key_id, current_user.id, twin_id),
+            "aws_secret_access_key": decrypt(config.aws_secret_access_key, current_user.id, twin_id),
+            "aws_region": config.aws_region
+        }
+        if config.aws_session_token:
+            credentials["aws_session_token"] = decrypt(config.aws_session_token, current_user.id, twin_id)
+    elif provider == "azure":
+        if not config.azure_subscription_id:
+            return CredentialValidationResult(
+                provider="azure", valid=False, message="Azure credentials not configured"
+            )
+        credentials = {
+            "azure_subscription_id": decrypt(config.azure_subscription_id, current_user.id, twin_id),
+            "azure_client_id": decrypt(config.azure_client_id, current_user.id, twin_id),
+            "azure_client_secret": decrypt(config.azure_client_secret, current_user.id, twin_id),
+            "azure_tenant_id": decrypt(config.azure_tenant_id, current_user.id, twin_id)
+        }
+    elif provider == "gcp":
+        if not config.gcp_project_id:
+            return CredentialValidationResult(
+                provider="gcp", valid=False, message="GCP credentials not configured"
+            )
+        credentials = {
+            "gcp_project_id": config.gcp_project_id,
+            "gcp_service_account_json": decrypt(config.gcp_service_account_json, current_user.id, twin_id)
+        }
+    
+    # Call Deployer API
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{settings.DEPLOYER_URL}/api/credentials/validate/{provider}",
+                json=credentials,
+                timeout=30.0
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                valid = result.get("valid", False)
+                
+                # Update validation status in DB
+                if provider == "aws":
+                    config.aws_validated = valid
+                elif provider == "azure":
+                    config.azure_validated = valid
+                elif provider == "gcp":
+                    config.gcp_validated = valid
+                
+                db.commit()
+                
+                return CredentialValidationResult(
+                    provider=provider,
+                    valid=valid,
+                    message=result.get("message", "Validation complete"),
+                    permissions=result.get("missing_permissions")
+                )
+            else:
+                return CredentialValidationResult(
+                    provider=provider,
+                    valid=False,
+                    message=f"Deployer API error: {response.status_code}"
+                )
+    except httpx.ConnectError:
+        return CredentialValidationResult(
+            provider=provider,
+            valid=False,
+            message="Cannot connect to Deployer API. Is it running on port 5004?"
+        )
+    except httpx.RequestError as e:
+        return CredentialValidationResult(
+            provider=provider,
+            valid=False,
+            message=f"Request error: {str(e)}"
+        )
+
+
+@inline_router.post("/validate-inline", response_model=CredentialValidationResult)
+async def validate_credentials_inline(
+    request: InlineValidationRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Validate credentials WITHOUT storing them.
+    Useful for checking credentials before saving a twin.
+    Credentials are sent directly to Deployer API, never stored.
+    """
+    provider = request.provider
+    if provider not in ["aws", "azure", "gcp"]:
+        raise HTTPException(status_code=400, detail="Invalid provider. Use: aws, azure, gcp")
+    
+    # Build credentials payload from request (not from DB)
+    credentials = {}
+    if provider == "aws" and request.aws:
+        credentials = {
+            "aws_access_key_id": request.aws.access_key_id,
+            "aws_secret_access_key": request.aws.secret_access_key,
+            "aws_region": request.aws.region
+        }
+        if request.aws.session_token:
+            credentials["aws_session_token"] = request.aws.session_token
+    elif provider == "azure" and request.azure:
+        credentials = {
+            "azure_subscription_id": request.azure.subscription_id,
+            "azure_client_id": request.azure.client_id,
+            "azure_client_secret": request.azure.client_secret,
+            "azure_tenant_id": request.azure.tenant_id
+        }
+    elif provider == "gcp" and request.gcp:
+        credentials = {
+            "gcp_project_id": request.gcp.project_id,
+            "gcp_service_account_json": request.gcp.service_account_json
+        }
+    else:
+        return CredentialValidationResult(
+            provider=provider,
+            valid=False,
+            message=f"No {provider} credentials provided"
+        )
+    
+    # Call Deployer API
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{settings.DEPLOYER_URL}/api/credentials/validate/{provider}",
+                json=credentials,
+                timeout=30.0
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return CredentialValidationResult(
+                    provider=provider,
+                    valid=result.get("valid", False),
+                    message=result.get("message", "Validation complete"),
+                    permissions=result.get("missing_permissions")
+                )
+            else:
+                return CredentialValidationResult(
+                    provider=provider,
+                    valid=False,
+                    message=f"Deployer API error: {response.status_code}"
+                )
+    except httpx.ConnectError:
+        return CredentialValidationResult(
+            provider=provider,
+            valid=False,
+            message="Cannot connect to Deployer API"
+        )
+    except httpx.RequestError as e:
+        return CredentialValidationResult(
+            provider=provider,
+            valid=False,
+            message=f"Request error: {str(e)}"
+        )
+

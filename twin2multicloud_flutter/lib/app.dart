@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/wizard/wizard_screen.dart';
 import 'providers/auth_provider.dart';
 
 // Router configuration
@@ -32,10 +33,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/auth/callback',
         builder: (context, state) {
           // Handle OAuth callback (future implementation)
-          final token = state.uri.queryParameters['token'];
-          // TODO: Store token and redirect
+          // TODO: Store token from state.uri.queryParameters['token'] and redirect
           return const DashboardScreen();
         },
+      ),
+      GoRoute(
+        path: '/wizard',
+        builder: (context, state) => const WizardScreen(),
+      ),
+      GoRoute(
+        path: '/wizard/:twinId',
+        builder: (context, state) => WizardScreen(
+          twinId: state.pathParameters['twinId'],
+        ),
       ),
     ],
   );

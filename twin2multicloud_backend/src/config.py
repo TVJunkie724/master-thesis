@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     PORT: int = 5005
     DEBUG: bool = True
     
+    # Credential Encryption (Fernet key - 32 bytes base64)
+    # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    ENCRYPTION_KEY: str = "your-fernet-key-here-generate-new-one"
+    
+    # External APIs
+    DEPLOYER_URL: str = "http://localhost:5004"
+    
     class Config:
         env_file = ".env"
         extra = "ignore"

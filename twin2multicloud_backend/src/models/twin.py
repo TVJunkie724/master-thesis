@@ -27,3 +27,5 @@ class DigitalTwin(Base):
     owner = relationship("User", back_populates="twins")
     file_versions = relationship("FileVersion", back_populates="twin")
     deployments = relationship("Deployment", back_populates="twin")
+    configuration = relationship("TwinConfiguration", back_populates="twin", uselist=False)
+

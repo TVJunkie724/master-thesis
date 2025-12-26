@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/twins_provider.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/twin_list_item.dart';
@@ -41,7 +42,7 @@ class DashboardScreen extends ConsumerWidget {
               children: [
                 Text('My Digital Twins', style: Theme.of(context).textTheme.headlineSmall),
                 FilledButton.icon(
-                  onPressed: () {}, // TODO: Navigate to create wizard
+                  onPressed: () => context.go('/wizard'),
                   icon: const Icon(Icons.add),
                   label: const Text('New Twin'),
                 ),

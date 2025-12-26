@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 final apiServiceProvider = Provider((ref) => ApiService());
 
 final twinsProvider = FutureProvider<List<Twin>>((ref) async {
+  // ignore: unused_local_variable
   final api = ref.read(apiServiceProvider);
   
   // For now, return mock data (swap to real API when backend is running)
