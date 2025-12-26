@@ -5,6 +5,7 @@ import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/wizard/wizard_screen.dart';
 import 'providers/auth_provider.dart';
+import 'providers/theme_provider.dart';
 
 // Router configuration
 final routerProvider = Provider<GoRouter>((ref) {
@@ -75,7 +76,7 @@ class Twin2MultiCloudApp extends ConsumerWidget {
         ),
         useMaterial3: true,
       ),
-      themeMode: ThemeMode.system,
+      themeMode: ref.watch(themeProvider),
       routerConfig: router,
     );
   }

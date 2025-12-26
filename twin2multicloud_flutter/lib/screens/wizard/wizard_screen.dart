@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'step1_configuration.dart';
+import 'step2_optimizer.dart';
 import '../../providers/twins_provider.dart';
+import '../../providers/theme_provider.dart';
 
 class WizardScreen extends ConsumerStatefulWidget {
   final String? twinId; // null for new, set for edit
@@ -42,14 +44,43 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_activeTwinId == null ? 'Create Digital Twin' : 'Edit Digital Twin'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => context.go('/dashboard'),
-        ),
+        title: const Text('Twin2MultiCloud'),
+        automaticallyImplyLeading: false,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        actions: [
+          IconButton(
+            icon: Icon(
+              ref.watch(themeProvider) == ThemeMode.dark
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
+            ),
+            onPressed: () => ref.read(themeProvider.notifier).toggle(),
+            tooltip: 'Toggle theme',
+          ),
+          const CircleAvatar(child: Icon(Icons.person)),
+          const SizedBox(width: 16),
+        ],
       ),
       body: Column(
         children: [
+          // Screen-specific header with title and close button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => context.go('/dashboard'),
+                  tooltip: 'Close',
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _activeTwinId == null ? 'Create Digital Twin' : 'Edit Digital Twin',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+              ],
+            ),
+          ),
           _buildStepIndicator(),
           const Divider(height: 1),
           Expanded(child: _buildStepContent()),
@@ -134,7 +165,16 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           },
         );
       case 1:
-        return const Center(child: Text('Step 2: Optimizer (Sprint 3)'));
+        if (_activeTwinId == null) {
+          return const Center(
+            child: Text('Please complete Step 1 first to create a twin'),
+          );
+        }
+        return Step2Optimizer(
+          twinId: _activeTwinId!,
+          onNext: () => setState(() => _currentStep = 2),
+          onBack: () => setState(() => _currentStep = 0),
+        );
       case 2:
         return const Center(child: Text('Step 3: Deployer (Sprint 4)'));
       default:
