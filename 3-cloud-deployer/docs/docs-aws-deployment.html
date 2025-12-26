@@ -4,12 +4,12 @@
 <head>
     <meta charset="utf-8" />
     <title>AWS Deployment Guide — Deployer Documentation</title>
-    <link rel="icon" type="image/x-icon" href="references/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="../references/favicon.ico">
     <meta name="viewport" content="width=device-width,initial-scale=1" />
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="stylesheet" href="css/docs_styles.css" />
+    <link rel="stylesheet" href="../css/docs_styles.css" />
 </head>
 
 <body>
@@ -27,36 +27,11 @@
             </p>
 
             <div class="callout info mb-4">
-                <strong><i class="fa-solid fa-check-circle me-2"></i>Status: Full Multi-Cloud Architecture
-                    Implemented</strong>
-                All layers (Setup, L0-L5) are fully operational with pre-flight dependency checks between layers.
-                Setup Layer provides AWS Resource Group tagging; Lambda Function URLs enable cross-cloud HTTP endpoints.
+                <strong><i class="fa-solid fa-check-circle me-2"></i>Status: Fully Implemented</strong>
+                AWS deployment is fully operational for all 5 layers.
             </div>
 
-            <!-- Table of Contents -->
             <div class="card mb-4">
-                <div class="card-body">
-                    <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Table of Contents</h2>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <ul>
-                                <li><a href="#aws-services">AWS Services Used</a></li>
-                                <li><a href="#iam-permissions">Required IAM Permissions</a></li>
-                                <li><a href="#implementation-roadmap">Implementation Roadmap</a></li>
-                            </ul>
-                        </div>
-                        <div class="col-md-6">
-                            <ul>
-                                <li><a href="#technical-specs">Technical Specifications</a></li>
-                                <li><a href="#quick-deployment">Quick Deployment</a></li>
-                                <li><a href="#troubleshooting">Troubleshooting</a></li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card mb-4" id="aws-services">
                 <h2 class="mb-3"><i class="fa-solid fa-cloud me-2"></i>AWS Services Used</h2>
                 <table class="table table-striped">
                     <thead>
@@ -94,8 +69,8 @@
                         </tr>
                         <tr>
                             <td>L3 - Data Access</td>
-                            <td>Lambda Function URLs</td>
-                            <td>Cross-cloud HTTP endpoints (Hot Reader, Writers)</td>
+                            <td>Amazon API Gateway</td>
+                            <td>External access to hot data (for TwinMaker)</td>
                         </tr>
                         <tr>
                             <td>L4 - Twin Management</td>
@@ -115,7 +90,7 @@
                         <tr>
                             <td>Supporting</td>
                             <td>EventBridge</td>
-                            <td>Scheduled data movers, Error routing</td>
+                            <td>Scheduled data movers</td>
                         </tr>
                         <tr>
                             <td>Supporting</td>
@@ -126,655 +101,10 @@
                 </table>
             </div>
 
-            <div class="card mb-4" id="iam-permissions">
-                <h2 class="mb-3"><i class="fa-solid fa-key me-2"></i>Required IAM Permissions</h2>
-
-                <div class="callout info mb-3">
-                    <strong><i class="fa-solid fa-lightbulb me-2"></i>Pre-Deployment Verification</strong>
-                    Use <code>check_credentials aws</code> (CLI) or <code>POST /credentials/check/aws</code> (API)
-                    to verify your credentials have all required permissions before deploying.
-                </div>
-
-                <p>Your AWS credentials need the following permissions to deploy all layers (Setup, L0-L5):</p>
-
-                <h5 class="text-success mt-4"><i class="fa-solid fa-cog me-2"></i>Setup Layer - Resource Grouping</h5>
-                <p class="text-muted small">Deployed <em>first</em> to create the Resource Group for tagging.</p>
-                <table class="table table-sm table-striped">
-                    <thead>
-                        <tr>
-                            <th>Service</th>
-                            <th>Required Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Resource Groups</td>
-                            <td><code>CreateGroup</code>, <code>DeleteGroup</code>, <code>GetGroup</code></td>
-                        </tr>
-                        <tr>
-                            <td>IAM</td>
-                            <td><code>TagRole</code> (for tagging all IAM roles)</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <h5 class="text-warning mt-4"><i class="fa-solid fa-plug me-2"></i>Layer 0 - Multi-Cloud Glue</h5>
-                <p class="text-muted small">Deployed <em>before</em> L1-L5 when cross-cloud boundaries exist.</p>
-                <table class="table table-sm table-striped">
-                    <thead>
-                        <tr>
-                            <th>Service</th>
-                            <th>Required Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>IAM</td>
-                            <td><code>CreateRole</code>, <code>DeleteRole</code>, <code>GetRole</code>,
-                                <code>AttachRolePolicy</code>, <code>DetachRolePolicy</code>,
-                                <code>ListAttachedRolePolicies</code>, <code>ListRolePolicies</code>,
-                                <code>DeleteRolePolicy</code>, <code>PutRolePolicy</code>,
-                                <code>ListInstanceProfilesForRole</code>, <code>RemoveRoleFromInstanceProfile</code>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Lambda</td>
-                            <td><code>CreateFunction</code>, <code>DeleteFunction</code>, <code>GetFunction</code>,
-                                <code>AddPermission</code>, <code>RemovePermission</code>,
-                                <code>CreateFunctionUrlConfig</code>, <code>DeleteFunctionUrlConfig</code>,
-                                <code>GetFunctionUrlConfig</code>, <code>GetFunctionConfiguration</code>,
-                                <code>UpdateFunctionConfiguration</code>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <h5 class="text-primary mt-4">Layer 1 - Data Acquisition</h5>
-
-                <table class="table table-sm table-striped">
-                    <thead>
-                        <tr>
-                            <th>Service</th>
-                            <th>Required Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>IAM</td>
-                            <td><code>CreateRole</code>, <code>DeleteRole</code>, <code>GetRole</code>,
-                                <code>AttachRolePolicy</code>, <code>DetachRolePolicy</code>,
-                                <code>ListAttachedRolePolicies</code>, <code>ListRolePolicies</code>,
-                                <code>DeleteRolePolicy</code>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Lambda</td>
-                            <td><code>CreateFunction</code>, <code>DeleteFunction</code>, <code>GetFunction</code>,
-                                <code>AddPermission</code>, <code>RemovePermission</code>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>IoT Core</td>
-                            <td><code>CreateThing</code>, <code>DeleteThing</code>, <code>DescribeThing</code>,
-                                <code>CreateKeysAndCertificate</code>, <code>CreatePolicy</code>,
-                                <code>DeletePolicy</code>, <code>AttachThingPrincipal</code>,
-                                <code>DetachThingPrincipal</code>, <code>AttachPolicy</code>, <code>DetachPolicy</code>,
-                                <code>UpdateCertificate</code>, <code>DeleteCertificate</code>,
-                                <code>ListThingPrincipals</code>, <code>ListAttachedPolicies</code>,
-                                <code>ListPolicyVersions</code>, <code>DeletePolicyVersion</code>,
-                                <code>CreateTopicRule</code>, <code>DeleteTopicRule</code>,
-                                <code>DescribeEndpoint</code>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>STS</td>
-                            <td><code>GetCallerIdentity</code></td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <h5 class="text-primary mt-4">Layer 2 - Data Processing</h5>
-                <table class="table table-sm table-striped">
-                    <thead>
-                        <tr>
-                            <th>Service</th>
-                            <th>Required Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>IAM</td>
-                            <td><code>PutRolePolicy</code>, <code>UpdateAssumeRolePolicy</code></td>
-                        </tr>
-                        <tr>
-                            <td>Step Functions</td>
-                            <td><code>CreateStateMachine</code>, <code>DeleteStateMachine</code>,
-                                <code>DescribeStateMachine</code>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <h5 class="text-primary mt-4">Layer 3 - Storage</h5>
-                <table class="table table-sm table-striped">
-                    <thead>
-                        <tr>
-                            <th>Service</th>
-                            <th>Required Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>IAM</td>
-                            <td><code>PutRolePolicy</code> (for Cold/Archive Writer inline policies)</td>
-                        </tr>
-                        <tr>
-                            <td>DynamoDB</td>
-                            <td><code>CreateTable</code>, <code>DeleteTable</code>, <code>CreateBackup</code>,
-                                <code>DescribeBackup</code>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>S3</td>
-                            <td><code>CreateBucket</code>, <code>DeleteBucket</code>, <code>PutBucketCors</code>,
-                                <code>GetBucketCors</code>, <code>DeleteBucketCors</code>, <code>ListBucket</code>,
-                                <code>DeleteObject</code>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Lambda</td>
-                            <td><code>CreateFunctionUrlConfig</code>, <code>DeleteFunctionUrlConfig</code>,
-                                <code>GetFunctionUrlConfig</code> (for Writer Function URLs)
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>EventBridge</td>
-                            <td><code>PutRule</code>, <code>DeleteRule</code>, <code>DescribeRule</code>,
-                                <code>PutTargets</code>, <code>RemoveTargets</code>, <code>ListTargetsByRule</code>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <h5 class="text-primary mt-4">Layer 4 - Twin Management</h5>
-                <table class="table table-sm table-striped">
-                    <thead>
-                        <tr>
-                            <th>Service</th>
-                            <th>Required Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>IoT TwinMaker</td>
-                            <td><code>CreateWorkspace</code>, <code>DeleteWorkspace</code>, <code>GetWorkspace</code>,
-                                <code>ListEntities</code>, <code>DeleteEntity</code>, <code>GetEntity</code>,
-                                <code>UpdateEntity</code>,
-                                <code>ListScenes</code>, <code>DeleteScene</code>,
-                                <code>ListComponentTypes</code>, <code>DeleteComponentType</code>,
-                                <code>CreateComponentType</code>, <code>GetComponentType</code>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <h5 class="text-primary mt-4">Layer 5 - Visualization</h5>
-                <table class="table table-sm table-striped">
-                    <thead>
-                        <tr>
-                            <th>Service</th>
-                            <th>Required Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Grafana</td>
-                            <td><code>CreateWorkspace</code>, <code>DeleteWorkspace</code>,
-                                <code>DescribeWorkspace</code>, <code>ListWorkspaces</code>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <h5 class="text-info mt-4"><i class="fa-solid fa-magnifying-glass me-2"></i>Credential Checker
-                    (Self-Inspection)</h5>
-                <p class="text-muted small">Required for the <code>check_credentials</code> command to verify your
-                    permissions.</p>
-                <table class="table table-sm table-striped">
-                    <thead>
-                        <tr>
-                            <th>Service</th>
-                            <th>Required Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>IAM</td>
-                            <td><code>ListUserPolicies</code>, <code>GetUserPolicy</code>,
-                                <code>ListAttachedUserPolicies</code>, <code>GetPolicy</code>,
-                                <code>GetPolicyVersion</code>, <code>ListGroupsForUser</code>,
-                                <code>ListGroupPolicies</code>, <code>GetGroupPolicy</code>,
-                                <code>ListAttachedGroupPolicies</code>, <code>ListRolePolicies</code>,
-                                <code>GetRolePolicy</code>, <code>ListAttachedRolePolicies</code>
-                            </td>
-
-                        </tr>
-                    </tbody>
-                </table>
-
-                <div class="callout warn mt-4">
-
-                    <strong><i class="fa-solid fa-exclamation-triangle me-2"></i>Recommended Policy</strong>
-                    For simplicity, you can use the <code>AdministratorAccess</code> managed policy during development.
-                    For production, use our <a href="references/aws_deployer_policy.json" target="_blank">ready-to-use
-                        IAM policy JSON</a>
-                    with only the required permissions. See the <a href="docs-credentials-aws.html">AWS
-                        Credentials Setup Guide</a> for step-by-step instructions.
-                </div>
-            </div>
-
-
-            <div class="card mb-4" id="implementation-roadmap">
-                <h2 class="mb-3"><i class="fa-solid fa-road me-2"></i>Implementation Roadmap</h2>
-                <p>The AWS deployer follows a modular, layer-by-layer architecture with a dedicated <strong>Setup
-                        Layer</strong> for resource grouping and a <strong>Layer 0 (Glue Layer)</strong> for cross-cloud
-                    connectivity:</p>
-
-                <div class="callout info mb-4">
-                    <strong><i class="fa-solid fa-layer-group me-2"></i>Architecture Overview</strong>
-                    <ul class="mb-0 mt-2">
-                        <li><strong>Setup Layer:</strong> Creates AWS Resource Group with tag-based queries for all
-                            digital twin resources</li>
-                        <li><strong>Layer 0 (Glue):</strong> Cross-cloud HTTP receivers deployed <em>before</em> L1-L5
-                        </li>
-                        <li><strong>Layers 1-5:</strong> Core digital twin components with pre-flight dependency checks
-                        </li>
-                        <li><strong>Shared Module:</strong> <code>inter_cloud.py</code> provides token validation and
-                            HTTP POST logic</li>
-                        <li><strong>Function URLs:</strong> All cross-cloud endpoints use Lambda Function URLs (no API
-                            Gateway)</li>
-                        <li><strong>Tagging:</strong> All resources tagged with <code>DigitalTwin</code>,
-                            <code>Project</code>, and <code>Layer</code> for cost tracking and grouping
-                        </li>
-                    </ul>
-                </div>
-
-                <div class="roadmap-content">
-                    <!-- Setup Layer -->
-                    <h3 class="mt-4 text-success"><i class="fa-solid fa-cog me-2"></i>Setup Layer: Resource Grouping
-                    </h3>
-                    <div class="callout info mb-3">
-                        <strong>Deployment Order:</strong> Setup Layer must be deployed <em>first</em> before any other
-                        layer.
-                        It creates the Resource Group that all subsequent resources will be tagged to join.
-                    </div>
-                    <ul>
-                        <li><strong>Source:</strong> Terraform (<code>aws_setup.tf</code>)
-                            <ul>
-                                <li><strong>Pattern:</strong> Tag-based resource grouping (unlike Azure's
-                                    container-based Resource Groups)</li>
-                            </ul>
-                        </li>
-                        <li><strong>AWS Resource Group</strong>
-                            <ul>
-                                <li><strong>Name:</strong> <code>{digital_twin_name}-rg</code></li>
-                                <li><strong>Query Type:</strong> <code>TAG_FILTERS_1_0</code></li>
-                                <li><strong>Filter:</strong> All resources with tag <code>DigitalTwin={twin_name}</code>
-                                </li>
-                                <li><strong>Purpose:</strong> Centralized view of all deployed resources for this
-                                    digital twin</li>
-                            </ul>
-                        </li>
-                        <li><strong>Tagging Helpers</strong> <span class="badge text-bg-secondary">Shared Module</span>
-                            <ul>
-                                <li><strong>Module:</strong> <code>src/providers/aws/layers/tagging_helpers.py</code>
-                                </li>
-                                <li><strong>Functions:</strong> <code>tag_iam_role</code>, <code>tag_lambda</code>,
-                                    <code>tag_s3_bucket</code>, <code>tag_dynamodb_table</code>,
-                                    <code>tag_step_function</code>, <code>tag_eventbridge_rule</code>
-                                </li>
-                                <li><strong>Tags Applied:</strong> <code>DigitalTwin</code>, <code>Project</code>,
-                                    <code>Layer</code>
-                                </li>
-                            </ul>
-                        </li>
-                    </ul>
-
-                    <h3 class="mt-4 text-warning"><i class="fa-solid fa-plug me-2"></i>Layer 0: Glue Layer (Cross-Cloud
-                        Receivers)</h3>
-                    <p class="text-muted small"><strong>Pre-flight Check:</strong> Verifies Setup Layer (Resource Group)
-                        is deployed.</p>
-                    <div class="callout warn mb-3">
-                        <strong>Deployment Order:</strong> Layer 0 deploys <em>before</em> Layers 1-5 to ensure all
-                        Function URLs are saved to <code>config_inter_cloud.json</code> before senders deploy.
-                    </div>
-                    <ul>
-                        <li><strong>Source:</strong> Terraform (<code>aws_glue.tf</code>)
-                            <ul>
-                                <li><strong>Pattern:</strong> All multi-cloud receivers consolidated in one module</li>
-                            </ul>
-                        </li>
-                        <li><strong>Ingestion Lambda</strong> <span class="badge text-bg-info">L1→L2</span>
-                            <ul>
-                                <li><strong>Created:</strong> Only if <code>layer_1_provider ≠ layer_2_provider</code>
-                                </li>
-                                <li><strong>Trigger:</strong> Lambda Function URL (HTTP POST)</li>
-                                <li><strong>Logic:</strong> Receives events from remote Connector, validates token via
-                                    <code>inter_cloud.py</code>, invokes local Processor
-                                </li>
-                                <li><strong>Naming:</strong> <code>{digital_twin_name}-ingestion</code></li>
-                            </ul>
-                        </li>
-                        <li><strong>Hot Writer Lambda</strong> <span class="badge text-bg-info">L2→L3 Hot</span>
-                            <ul>
-                                <li><strong>Created:</strong> Only if
-                                    <code>layer_2_provider ≠ layer_3_hot_provider</code>
-                                </li>
-                                <li><strong>Trigger:</strong> Lambda Function URL (HTTP POST)</li>
-                                <li><strong>Logic:</strong> Receives data from remote Persister, validates token, writes
-                                    to DynamoDB</li>
-                                <li><strong>Naming:</strong> <code>{digital_twin_name}-hot-writer</code></li>
-                            </ul>
-                        </li>
-                        <li><strong>Cold Writer Lambda</strong> <span class="badge text-bg-info">L3 Hot→L3 Cold</span>
-                            <ul>
-                                <li><strong>Created:</strong> Only if
-                                    <code>layer_3_hot_provider ≠ layer_3_cold_provider</code>
-                                </li>
-                                <li><strong>Trigger:</strong> Lambda Function URL (HTTP POST)</li>
-                                <li><strong>Logic:</strong> Receives chunked data (≤5MB) from remote Hot-to-Cold Mover,
-                                    writes to S3 (STANDARD_IA)</li>
-                                <li><strong>Naming:</strong> <code>{digital_twin_name}-cold-writer</code></li>
-                            </ul>
-                        </li>
-                        <li><strong>Archive Writer Lambda</strong> <span class="badge text-bg-info">L3 Cold→L3
-                                Archive</span>
-                            <ul>
-                                <li><strong>Created:</strong> Only if
-                                    <code>layer_3_cold_provider ≠ layer_3_archive_provider</code>
-                                </li>
-                                <li><strong>Trigger:</strong> Lambda Function URL (HTTP POST)</li>
-                                <li><strong>Logic:</strong> Receives data from remote Cold-to-Archive Mover, writes to
-                                    S3 (DEEP_ARCHIVE)</li>
-                                <li><strong>Naming:</strong> <code>{digital_twin_name}-archive-writer</code></li>
-                            </ul>
-                        </li>
-                        <li><strong>Hot Reader Function URLs</strong> <span class="badge text-bg-info">L3→L4</span>
-                            <ul>
-                                <li><strong>Created:</strong> Only if
-                                    <code>layer_3_hot_provider ≠ layer_4_provider</code>
-                                </li>
-                                <li><strong>Endpoints:</strong>
-                                    <ul>
-                                        <li><code>Hot Reader</code> - Queries DynamoDB for time-range data</li>
-                                        <li><code>Hot Reader Last Entry</code> - Returns most recent entry per device
-                                        </li>
-                                    </ul>
-                                </li>
-                                <li><strong>Logic:</strong> Adds Function URL + <code>INTER_CLOUD_TOKEN</code> env var
-                                    to existing L3 readers</li>
-                            </ul>
-                        </li>
-                    </ul>
-
-                    <!-- Layer 1 -->
-                    <h3 class="mt-4 text-primary"><i class="fa-solid fa-satellite-dish me-2"></i>Layer 1: Data
-                        Acquisition (IoT Core)</h3>
-                    <p class="text-muted small"><strong>Pre-flight Checks:</strong> Verifies Setup Layer (Resource
-                        Group) and L0 (Ingestion if multi-cloud) are deployed.</p>
-                    <ul>
-                        <li><strong>Dispatcher Lambda:</strong>
-                            <ul>
-                                <li><strong>Role:</strong> <code>{digital_twin_name}-dispatcher-role</code></li>
-                                <li><strong>Policies:</strong> <code>AWSLambdaBasicExecutionRole</code>,
-                                    <code>AWSLambdaRole</code>
-                                </li>
-                                <li><strong>Logic:</strong> Central router for all incoming MQTT messages</li>
-                                <li><strong>Single Cloud:</strong> Invokes local Processor directly</li>
-                                <li><strong>Multi Cloud:</strong> Invokes local Connector (which POSTs to remote
-                                    Ingestion) <span class="badge text-bg-warning">Multi-Cloud</span></li>
-                            </ul>
-                        </li>
-                        <li><strong>Connector Lambda</strong> <span class="badge text-bg-warning">Multi-Cloud
-                                Only</span>
-                            <ul>
-                                <li><strong>Created:</strong> Only if <code>layer_1_provider ≠ layer_2_provider</code>
-                                </li>
-                                <li><strong>Logic:</strong> Masquerades as Processor, POSTs event to remote Ingestion
-                                    URL</li>
-                                <li><strong>Env Vars:</strong> <code>REMOTE_INGESTION_URL</code>,
-                                    <code>INTER_CLOUD_TOKEN</code>
-                                </li>
-                                <li><strong>Uses:</strong> Shared <code>inter_cloud.py</code> module for HTTP POST</li>
-                            </ul>
-                        </li>
-                        <li><strong>IoT Rule:</strong>
-                            <ul>
-                                <li><strong>SQL:</strong> <code>SELECT * FROM '{digital_twin_name}/iot-data'</code></li>
-                                <li><strong>Action:</strong> Triggers Dispatcher Lambda for every message</li>
-                            </ul>
-                        </li>
-                        <li><strong>IoT Things:</strong>
-                            <ul>
-                                <li><strong>Per Device:</strong> Thing, Certificate, Policy</li>
-                                <li><strong>Output:</strong> <code>iot_devices_auth/{device_id}/</code> with certs</li>
-                            </ul>
-                        </li>
-                    </ul>
-
-                    <!-- Layer 2 -->
-                    <h3 class="mt-4 text-primary"><i class="fa-solid fa-microchip me-2"></i>Layer 2: Data Processing
-                        (Lambda & Step Functions)</h3>
-                    <p class="text-muted small"><strong>Pre-flight Check:</strong> Verifies L1 Dispatcher Lambda and IoT
-                        Topic Rule are deployed.</p>
-                    <ul>
-                        <li><strong>Processor Lambda:</strong>
-                            <ul>
-                                <li><strong>Role:</strong> <code>{digital_twin_name}-{device_name}-processor-role</code>
-                                </li>
-                                <li><strong>Logic:</strong> Merges wrapper + user logic, invokes Persister</li>
-                            </ul>
-                        </li>
-                        <li><strong>Persister Lambda:</strong>
-                            <ul>
-                                <li><strong>Role:</strong> <code>{digital_twin_name}-persister-role</code> (DynamoDB
-                                    Full Access)</li>
-                                <li><strong>Single Cloud:</strong> Writes directly to DynamoDB via <code>boto3</code>
-                                </li>
-                                <li><strong>Multi Cloud:</strong> POSTs to remote Hot Writer URL via
-                                    <code>inter_cloud.py</code> <span class="badge text-bg-warning">Multi-Cloud</span>
-                                </li>
-                                <li><strong>Interaction:</strong> Asynchronously invokes Event Checker (if enabled)</li>
-                            </ul>
-                        </li>
-                        <li><strong>Event Checker Lambda</strong> <span class="badge text-bg-secondary">Optional</span>
-                            <ul>
-                                <li><strong>Role:</strong> <code>{digital_twin_name}-event-checker-role</code></li>
-                                <li><strong>Logic:</strong> Evaluates data against thresholds, triggers Step Function
-                                </li>
-                            </ul>
-                        </li>
-                        <li><strong>Event Workflow (Step Functions)</strong> <span
-                                class="badge text-bg-secondary">Optional</span>
-                            <ul>
-                                <li><strong>Type:</strong> Standard State Machine</li>
-                                <li><strong>Definition:</strong> User-defined multi-step remediation</li>
-                            </ul>
-                        </li>
-                        <li><strong>Event Feedback Lambda</strong> <span class="badge text-bg-secondary">Optional</span>
-                            <ul>
-                                <li><strong>Role:</strong> <code>{digital_twin_name}-event-feedback-role</code></li>
-                                <li><strong>Logic:</strong> Publishes commands back to device via MQTT</li>
-                            </ul>
-                        </li>
-                    </ul>
-
-                    <!-- Layer 3 -->
-                    <h3 class="mt-4 text-primary"><i class="fa-solid fa-database me-2"></i>Layer 3: Storage & Access
-                        (DynamoDB, S3)</h3>
-                    <p class="text-muted small"><strong>Pre-flight Check:</strong> Verifies L2 Persister Lambda is
-                        deployed.</p>
-                    <ul>
-                        <li><strong>Hot Storage (DynamoDB):</strong>
-                            <ul>
-                                <li><strong>Table:</strong> <code>{digital_twin_name}-hot-iot-data</code></li>
-                                <li><strong>Purpose:</strong> High-frequency, low-latency data (configurable retention)
-                                </li>
-                            </ul>
-                        </li>
-                        <li><strong>Hot Reader & Hot Reader Last Entry:</strong>
-                            <ul>
-                                <li><strong>Purpose:</strong> Query DynamoDB for L4/L5 visualization</li>
-                                <li><strong>Multi Cloud:</strong> Function URLs added by Layer 0 (if L3 ≠ L4) <span
-                                        class="badge text-bg-warning">Multi-Cloud</span></li>
-                            </ul>
-                        </li>
-                        <li><strong>Cold Storage (S3):</strong>
-                            <ul>
-                                <li><strong>Bucket:</strong> <code>{digital_twin_name}-cold-storage</code> (STANDARD_IA)
-                                </li>
-                            </ul>
-                        </li>
-                        <li><strong>Archive Storage (S3):</strong>
-                            <ul>
-                                <li><strong>Bucket:</strong> <code>{digital_twin_name}-archive-storage</code>
-                                    (DEEP_ARCHIVE)</li>
-                            </ul>
-                        </li>
-                        <li><strong>Hot-to-Cold Mover:</strong>
-                            <ul>
-                                <li><strong>Type:</strong> Scheduled Lambda (EventBridge Rule)</li>
-                                <li><strong>Logic:</strong> Moves aged data from DynamoDB to S3</li>
-                                <li><strong>Multi Cloud:</strong> Chunks data (≤5MB) and POSTs to remote Cold Writer
-                                    <span class="badge text-bg-warning">Multi-Cloud</span>
-                                </li>
-                            </ul>
-                        </li>
-                        <li><strong>Cold-to-Archive Mover:</strong>
-                            <ul>
-                                <li><strong>Type:</strong> Scheduled Lambda (EventBridge Rule)</li>
-                                <li><strong>Logic:</strong> Moves aged data from S3 Cool to Glacier</li>
-                                <li><strong>Multi Cloud:</strong> POSTs to remote Archive Writer <span
-                                        class="badge text-bg-warning">Multi-Cloud</span></li>
-                            </ul>
-                        </li>
-                    </ul>
-
-                    <!-- Layer 4 -->
-                    <h3 class="mt-4 text-primary"><i class="fa-solid fa-cubes me-2"></i>Layer 4: Twin Management (IoT
-                        TwinMaker)</h3>
-                    <p class="text-muted small"><strong>Pre-flight Check:</strong> Verifies L3 Hot DynamoDB table and
-                        Hot Reader Lambda are deployed.</p>
-                    <ul>
-                        <li><strong>Workspace:</strong>
-                            <ul>
-                                <li><strong>Created:</strong> <code>{digital_twin_name}</code> workspace</li>
-                                <li><strong>Requires:</strong> S3 bucket for TwinMaker assets</li>
-                            </ul>
-                        </li>
-                        <li><strong>Digital Twin Data Connector:</strong>
-                            <ul>
-                                <li><strong>Single Cloud:</strong> Uses native DynamoDB Lambda connector</li>
-                                <li><strong>Multi Cloud:</strong> POSTs to remote Hot Reader URL via
-                                    <code>inter_cloud.py</code> <span class="badge text-bg-warning">Multi-Cloud</span>
-                                </li>
-                            </ul>
-                        </li>
-                        <li><strong>Entities & Component Types:</strong>
-                            <ul>
-                                <li><strong>Created:</strong> Based on <code>config_hierarchy.json</code></li>
-                                <li><strong>IoT Device Types:</strong> Component Types created for each device in
-                                    <code>config_iot_devices.json</code>
-                                </li>
-                            </ul>
-                        </li>
-                    </ul>
-
-                    <!-- Layer 5 -->
-                    <h3 class="mt-4 text-primary"><i class="fa-solid fa-chart-line me-2"></i>Layer 5: Visualization
-                        (Managed Grafana)</h3>
-                    <ul>
-                        <li><strong>Workspace:</strong>
-                            <ul>
-                                <li><strong>Created:</strong> <code>{digital_twin_name}-grafana</code></li>
-                            </ul>
-                        </li>
-                        <li><strong>Dashboards:</strong>
-                            <ul>
-                                <li><strong>Source:</strong> AWS IoT TwinMaker plugin</li>
-                                <li><strong>Data Flow:</strong> Grafana → TwinMaker → Hot Reader (local or remote)</li>
-                            </ul>
-                        </li>
-                    </ul>
-
-                    <!-- Supporting -->
-                    <h3 class="mt-4 text-primary"><i class="fa-solid fa-gears me-2"></i>Supporting Services</h3>
-                    <ul>
-                        <li><strong>IAM:</strong> Roles and policies for all layers</li>
-                        <li><strong>EventBridge:</strong> Scheduled rules for data movers</li>
-                        <li><strong>Step Functions:</strong> Event workflow orchestration <span
-                                class="badge text-bg-secondary">Optional</span></li>
-                        <li><strong>Shared Module (<code>_shared/inter_cloud.py</code>):</strong>
-                            <ul>
-                                <li><strong>Purpose:</strong> Reusable cross-cloud HTTP POST logic</li>
-                                <li><strong>Features:</strong> Token validation, chunked transfers, error handling</li>
-                                <li><strong>Used By:</strong> Connector, Persister, Movers, DT Data Connector, Writers
-                                </li>
-                            </ul>
-                        </li>
-                </div>
-            </div>
-
-            <div class="card mb-4" id="technical-specs">
-                <h2 class="mb-3"><i class="fa-solid fa-cogs me-2"></i>Technical Specifications</h2>
-                <div class="roadmap-content">
-                    <h3 class="mt-4 text-primary">Cross-Cloud Implementation Details</h3>
-                    <ul>
-                        <li><strong>Configuration & Discovery:</strong>
-                            <ul>
-                                <li><strong>Mechanism:</strong> Environment Variables injected at deployment time.</li>
-                                <li><strong>Variables:</strong> <code>REMOTE_INGESTION_URL</code>,
-                                    <code>REMOTE_WRITER_URL</code>, <code>REMOTE_READER_URL</code>.
-                                </li>
-                            </ul>
-                        </li>
-                        <li><strong>Authentication (Public Endpoints):</strong>
-                            <ul>
-                                <li><strong>Mechanism:</strong> AWS IAM (SigV4) for internal calls; API Keys for
-                                    cross-cloud.</li>
-                                <li><strong>Ingestion/Writer API:</strong> Protected via Function URL IAM Auth or API
-                                    Gateway Key.</li>
-                            </ul>
-                        </li>
-                        <li><strong>Error Handling Strategy:</strong>
-                            <ul>
-                                <li><strong>Pipeline:</strong> Components publish to <strong>EventBridge</strong>.</li>
-                                <li><strong>Persistence:</strong> Reporter writes to <strong>DynamoDB</strong>
-                                    (Cloud-First).</li>
-                                <li><strong>Reliability:</strong> Connectors implement exponential backoff retries. Dead
-                                    Letter Queues (DLQ) configured.</li>
-                            </ul>
-                        </li>
-                        <li><strong>Data Contracts:</strong>
-                            <ul>
-                                <li><strong>Format:</strong> Standard JSON Envelope
-                                    <pre class="p-3 rounded"><code>{ 
-    "source": "aws", 
-    "layer": "L2", 
-    "payload": {...},
-    "timestamp": "2023-10-27T10:00:00Z"
-}</code></pre>
-                                </li>
-                            </ul>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="card mb-4" id="quick-deployment">
+            <div class="card mb-4">
                 <h2 class="mb-3"><i class="fa-solid fa-rocket me-2"></i>Quick Deployment</h2>
                 <pre class="p-3 rounded"><code># Deploy all layers to AWS
-curl -X POST "{API_HOST}/deploy?provider=aws&project_name=template"
+curl -X POST "http://localhost:8000/deploy?provider=aws"
 </code></pre>
                 <p class="mt-2">Full deployment typically takes 5-15 minutes depending on the number of IoT devices and
                     complexity.</p>
@@ -784,19 +114,19 @@ curl -X POST "{API_HOST}/deploy?provider=aws&project_name=template"
                 <h2 class="mb-3"><i class="fa-solid fa-layer-group me-2"></i>Layer-by-Layer Deployment</h2>
                 <p>For better control and debugging, deploy each layer individually:</p>
                 <pre class="p-3 rounded"><code># Layer 1: IoT Dispatcher
-curl -X POST "{API_HOST}/deploy_l1?provider=aws&project_name=template"
+curl -X POST "http://localhost:8000/deploy_l1?provider=aws"
 
 # Layer 2: Persister/Processor
-curl -X POST "{API_HOST}/deploy_l2?provider=aws&project_name=template"
+curl -X POST "http://localhost:8000/deploy_l2?provider=aws"
 
 # Layer 3: Storage (Hot, Cool, Archive)
-curl -X POST "{API_HOST}/deploy_l3?provider=aws&project_name=template"
+curl -X POST "http://localhost:8000/deploy_l3?provider=aws"
 
 # Layer 4: TwinMaker
-curl -X POST "{API_HOST}/deploy_l4?provider=aws&project_name=template"
+curl -X POST "http://localhost:8000/deploy_l4?provider=aws"
 
 # Layer 5: Grafana
-curl -X POST "{API_HOST}/deploy_l5?provider=aws&project_name=template"
+curl -X POST "http://localhost:8000/deploy_l5?provider=aws"
 </code></pre>
             </div>
 
@@ -813,11 +143,11 @@ curl -X POST "{API_HOST}/deploy_l5?provider=aws&project_name=template"
                 </ol>
 
                 <p class="mt-3">Or use the API:</p>
-                <pre class="p-3 rounded"><code>curl "{API_HOST}/check?provider=aws&project_name=template"
+                <pre class="p-3 rounded"><code>curl "http://localhost:8000/check?provider=aws"
 </code></pre>
             </div>
 
-            <div class="card mb-4" id="troubleshooting">
+            <div class="card mb-4">
                 <h2 class="mb-3"><i class="fa-solid fa-wrench me-2"></i>AWS-Specific Troubleshooting</h2>
                 <ul>
                     <li><strong>IAM propagation delays:</strong> Wait 30-60 seconds after creating IAM roles</li>
@@ -828,47 +158,6 @@ curl -X POST "{API_HOST}/deploy_l5?provider=aws&project_name=template"
                         functions</li>
                     <li><strong>TwinMaker workspace creation fails:</strong> Ensure S3 bucket is created first</li>
                 </ul>
-
-                <h5 class="mt-4"><i class="fa-solid fa-tags me-2"></i>Resource Group Tagging Limitation</h5>
-                <p>AWS Resource Groups use tag-based queries to group resources. However, <strong>not all AWS resources
-                        support tags</strong> at the AWS API level. This is an AWS limitation, not a configuration
-                    issue.</p>
-
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6 class="text-success"><i class="fa-solid fa-check me-2"></i>Appear in Resource Group (31
-                            resources)</h6>
-                        <ul class="small">
-                            <li>Lambda Functions</li>
-                            <li>IAM Roles</li>
-                            <li>S3 Buckets</li>
-                            <li>DynamoDB Tables</li>
-                            <li>CloudWatch Event Rules</li>
-                            <li>IoT Topic Rules</li>
-                            <li>TwinMaker Workspaces</li>
-                            <li>Grafana Workspaces</li>
-                        </ul>
-                    </div>
-                    <div class="col-md-6">
-                        <h6 class="text-warning"><i class="fa-solid fa-exclamation-triangle me-2"></i>Cannot Be Tagged
-                            (AWS Limitation)</h6>
-                        <ul class="small">
-                            <li>IAM Role Policies (inline)</li>
-                            <li>IAM Role Policy Attachments</li>
-                            <li>Lambda Permissions</li>
-                            <li>Lambda Function URLs</li>
-                            <li>CloudWatch Event Targets</li>
-                            <li>S3 Lifecycle Configurations</li>
-                            <li>Grafana API Keys</li>
-                        </ul>
-                    </div>
-                </div>
-                <p class="small text-muted mt-2">
-                    <i class="fa-solid fa-info-circle me-2"></i>
-                    The non-taggable resources are "helper" resources (permissions, policies, configurations) that are
-                    logically linked to their parent resources. Your main infrastructure resources are all properly
-                    tagged and visible in the Resource Group.
-                </p>
             </div>
 
         </main>
@@ -879,7 +168,7 @@ curl -X POST "{API_HOST}/deploy_l5?provider=aws&project_name=template"
         style="display:none;">
         <i class="fa-solid fa-arrow-up"></i>
     </button>
-    <script src="js/docs-nav.js" defer></script>
+    <script src="../js/docs-nav.js" defer></script>
 </body>
 
 </html>

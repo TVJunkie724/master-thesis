@@ -1,115 +1,14 @@
-"""
-Digital Twin Manager - CLI Entry Point.
-
-This module provides the interactive CLI for managing Digital Twin deployments.
-It uses the new DeploymentContext/provider architecture.
-"""
-
 import json
-import os
-import sys
-from pathlib import Path
+import globals
+import aws.globals_aws as globals_aws
+import aws.lambda_manager as lambda_manager
+import deployers.core_deployer as core_deployer
+import deployers.iot_deployer as iot_deployer
+import info
+import deployers.additional_deployer as hierarchy_deployer
+import deployers.event_action_deployer as event_action_deployer
 
-import constants as CONSTANTS
-from logger import logger, print_stack_trace
-
-# New architecture imports
-from core.config_loader import load_project_config, load_credentials, get_required_providers
-from core.context import DeploymentContext
-import providers.deployer as deployer
-
-
-# ==========================================
-# Configuration & Context Management
-# ==========================================
-
-# Current project state
-_current_project: str = CONSTANTS.DEFAULT_PROJECT_NAME
-_current_context: DeploymentContext = None
-
-
-def get_project_path() -> Path:
-    """Get the project root path."""
-    return Path(__file__).parent.parent
-
-
-def get_upload_path(project_name: str) -> Path:
-    """Get the upload path for a project."""
-    return get_project_path() / CONSTANTS.PROJECT_UPLOAD_DIR_NAME / project_name
-
-
-def _create_context(project_name: str, provider_name: str = None) -> DeploymentContext:
-    """
-    Create a DeploymentContext for a project.
-    
-    Args:
-        project_name: Name of the project
-        provider_name: Optional provider to initialize (e.g., "aws")
-        
-    Returns:
-        Initialized DeploymentContext
-    """
-    project_path = get_upload_path(project_name)
-    
-    # Load configuration
-    config = load_project_config(project_path)
-    credentials = load_credentials(project_path)
-    
-    # Create context
-    context = DeploymentContext(
-        project_name=project_name,
-        project_path=project_path,
-        config=config,
-    )
-    
-    # Initialize required providers
-    required = get_required_providers(config) if provider_name is None else {provider_name}
-    
-    from core.registry import ProviderRegistry
-    for prov_name in required:
-        try:
-            provider = ProviderRegistry.get(prov_name)
-            creds = credentials.get(prov_name, {})
-            if creds or prov_name == "aws":  # AWS can use env vars
-                provider.initialize_clients(creds, config.digital_twin_name)
-                context.providers[prov_name] = provider
-        except Exception as e:
-            logger.warning(f"Could not initialize {prov_name} provider: {e}")
-    
-    return context
-
-
-def set_active_project(project_name: str) -> None:
-    """Set the currently active project."""
-    global _current_project, _current_context
-    
-    # Validate project name - reject empty, dots-only, or path traversal
-    if not project_name or project_name in (".", ".."):
-        raise ValueError("Invalid project name.")
-    
-    safe_name = os.path.basename(project_name)
-    if safe_name != project_name:
-        raise ValueError("Invalid project name.")
-    
-    target_path = get_upload_path(project_name)
-    if not target_path.exists():
-        raise ValueError(f"Project '{project_name}' does not exist.")
-    
-    _current_project = project_name
-    _current_context = None  # Lazy initialization
-
-
-def get_context(provider_name: str = None) -> DeploymentContext:
-    """Get the current deployment context, creating if needed."""
-    global _current_context
-    if _current_context is None:
-        _current_context = _create_context(_current_project, provider_name)
-    return _current_context
-
-
-# ==========================================
-# Command Helpers
-# ==========================================
+logger = None
 
 def help_menu():
     print("""
@@ -120,374 +19,191 @@ Deployment commands:
   destroy <provider>          - Destroys core and IoT services for the specified provider.
   recreate_updated_events     - Redeploys the events.
 
+Individual core layer deployments:
+  deploy_l1 <provider>        - Deploys core layer 1 services for the specified provider.
+  deploy_l2 <provider>        - Deploys core layer 2 services for the specified provider.
+  deploy_l3 <provider>        - Deploys core layer 3 services (hot, cold, archive).
+  deploy_l4 <provider>        - Deploys core layer 4 services for the specified provider.
+  deploy_l5 <provider>        - Deploys core layer 5 services for the specified provider.
+
 Check/Info deployment status:
   check <provider>            - Runs all checks (L1 to L5) for the specified provider.
+
+Individual layer deployment status checks:
+  check_l1 <provider>         - Checks Level 1 (IoT Dispatcher Layer) for the specified provider.
+  check_l2 <provider>         - Checks Level 2 (Persister & Processor Layer) for the specified provider.
+  check_l3 <provider>         - Checks Level 3 (Hot, Cold, Archive) for the specified provider.
+  check_l4 <provider>         - Checks Level 4 (TwinMaker) for the specified provider.
+  check_l5 <provider>         - Checks Level 5 (Grafana/Visualization) for the specified provider.
 
 Configuration & Info commands:
   info_config                 - Shows main configuration (config.json).
   info_config_iot_devices     - Shows IoT devices configuration.
   info_config_providers       - Shows cloud providers configuration.
-  info_config_hierarchy       - Shows hierarchy configuration.
+  info_config_credentials     - Shows credentials configuration.
+  info_config_hierarchy       - Shows provider configuration for layers.
   info_config_events          - Shows event actions configuration.
 
-Credential validation:
-  check_credentials <provider> - Validates credentials against required permissions.
-                              - Supported: aws, azure
-
-Cleanup commands:
-  cleanup_twinmaker           - Force delete AWS TwinMaker workspace when Terraform destroy fails.
-                              - Deletes all entities, component types, and workspace.
+Lambda management:
+  lambda_update <local_function_name> <o:environment>               
+                              - Deploys a new version of the specified lambda function.
+  lambda_logs <local_function_name> <o:n> <o:filter_system_logs>    
+                              - Fetches the last n logged messages of the specified lambda function.
+  lambda_invoke <local_function_name> <o:payload> <o:sync>          
+                              - Invokes the specified lambda function.
 
 Other commands:
-  simulate <provider> [project] - Runs the IoT Device Simulator interactively.
-  list_projects               - Lists available projects.
-  set_project <name>          - Sets the active project.
   help                        - Show this help menu.
   exit                        - Exit the program.
 """)
+    
 
+deployment_commands = {
+    "deploy": lambda provider: (
+        core_deployer.deploy(provider=provider), 
+        iot_deployer.deploy(provider=provider),
+        hierarchy_deployer.deploy(provider=provider),
+        event_action_deployer.deploy(provider=provider)
+      ),
+    "destroy": lambda provider: (
+        event_action_deployer.destroy(provider=provider),
+        hierarchy_deployer.destroy(provider=provider),
+        iot_deployer.destroy(provider=provider), 
+        core_deployer.destroy(provider=provider)
+      ),
+    "recreate_updated_events": lambda provider: (
+        event_action_deployer.redeploy(provider=provider),
+        core_deployer.redeploy_l2_event_checker(provider=provider)
+      ),
+    
+    # Individual layer deploys
+    "deploy_l1": lambda provider: core_deployer.deploy_l1(provider=provider),
+    "deploy_l2": lambda provider: core_deployer.deploy_l2(provider=provider),
+    "deploy_l3": lambda provider: core_deployer.deploy_l3(provider=provider),
+    "deploy_l4": lambda provider: core_deployer.deploy_l4(provider=provider),
+    "deploy_l5": lambda provider: core_deployer.deploy_l5(provider=provider),
+}
 
-# ==========================================
-# Command Handlers
-# ==========================================
+info_commands = {
+    "check": lambda provider: (
+      info.check(provider=provider),
+      hierarchy_deployer.info(provider=provider),
+      event_action_deployer.info(provider=provider)
+    ),
 
+    # Individual layer checks
+    "check_l1": lambda provider: info.check_l1(provider=provider),
+    "check_l2": lambda provider: info.check_l2(provider=provider),
+    "check_l3": lambda provider: info.check_l3(provider=provider),
+    "check_l4": lambda provider: info.check_l4(provider=provider),
+    "check_l5": lambda provider: info.check_l5(provider=provider),
+}    
+    
+    
 VALID_PROVIDERS = {"aws", "azure", "google"}
-
-
-def handle_deploy(provider: str, context: DeploymentContext) -> None:
-    """Handle full deployment.
     
-    Note: All AWS-specific operations (TwinMaker hierarchy, IoT registration,
-    Lambda code deployment) are now handled by TerraformDeployerStrategy via
-    aws_deployer.py functions after Terraform infrastructure creation.
-    """
-    deployer.deploy_all(context, provider)
-
-
-def handle_destroy(provider: str, context: DeploymentContext) -> None:
-    """Handle full destruction.
-    
-    Note: All destruction is handled by TerraformDeployerStrategy.
-    """
-    deployer.destroy_all(context, provider)
-
-
-def handle_info_config(context: DeploymentContext) -> None:
-    """Show configuration."""
-    print(f"Digital Twin Name: {context.config.digital_twin_name}")
-    print(f"Mode: {context.config.mode}")
-    print(f"Hot Storage Days: {context.config.hot_storage_size_in_days}")
-    print(f"Cold Storage Days: {context.config.cold_storage_size_in_days}")
-
-
-
-# ==========================================
-# Main Loop
-# ==========================================
-
 def main():
-    global _current_project, _current_context
+    globals.initialize_all()
+    globals_aws.initialize_aws_clients()
+    logger = globals.logger
+    
+    valid_providers = ("aws", "azure", "google")
     
     logger.info("Welcome to the Digital Twin Manager. Type 'help' for commands.")
-    
+
     while True:
-        try:
-            user_input = input(">>> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print("Goodbye!")
-            break
-        
-        if not user_input:
-            continue
-        
-        parts = user_input.split()
-        command = parts[0]
-        args = parts[1:]
-        
-        # Project management commands (no provider needed)
-        if command == "list_projects":
-            import file_manager
-            projects = file_manager.list_projects()
-            print(f"Available projects: {projects}")
-            print(f"Active project: {_current_project}")
-            continue
-        
-        elif command == "set_project":
+      try:
+        user_input = input(">>> ").strip()
+      except (EOFError, KeyboardInterrupt):
+        print("Goodbye!")
+        break
+
+      if not user_input:
+        continue
+
+      parts = user_input.split()
+      command = parts[0]
+      args = parts[1:]
+
+
+      # deployment commands
+      if command in deployment_commands:
             if not args:
-                print("Error: Project name required.")
+                valid_providers = VALID_PROVIDERS.copy()
+                logger.error(
+                    f"Error:\n"
+                    f"   provider argument required for '{command}'.\n"
+                    f"   Valid arguments are: '{', '.join(valid_providers)}'\n"
+                    f"   Example: '{command} {valid_providers.pop()}'"
+                )
                 continue
-            try:
-                set_active_project(args[0])
-                print(f"Active project set to: {_current_project}")
-            except ValueError as e:
-                print(f"Error: {e}")
-            continue
-        
-        elif command == "create_project":
-            if len(args) < 2:
-                print("Usage: create_project <zip_path> <project_name>")
-                continue
-            import file_manager
-            try:
-                file_manager.create_project_from_zip(args[1], args[0])
-                print(f"Project '{args[1]}' created successfully.")
-            except Exception as e:
-                print(f"Error creating project: {e}")
-            continue
-        
-        # Help and exit
-        elif command == "help":
-            help_menu()
-            continue
-        
-        elif command == "exit":
-            print("Goodbye!")
-            break
-        
-        # Info commands (no provider needed)
-        elif command == "info_config":
-            try:
-                ctx = get_context()
-                handle_info_config(ctx)
-            except Exception as e:
-                print(f"Error: {e}")
-            continue
-        
-        elif command == "info_config_iot_devices":
-            ctx = get_context()
-            print(json.dumps(ctx.config.iot_devices, indent=2))
-            continue
-        
-        elif command == "info_config_providers":
-            ctx = get_context()
-            print(json.dumps(ctx.config.providers, indent=2))
-            continue
-        
-        elif command == "info_config_hierarchy":
-            ctx = get_context()
-            print(json.dumps(ctx.config.hierarchy, indent=2))
-            continue
-        
-        elif command == "info_config_events":
-            ctx = get_context()
-            print(json.dumps(ctx.config.events, indent=2))
-            continue
-        
-        # Commands that need provider
-        deployment_commands = {
-            "deploy", "destroy", "recreate_updated_events",
-        }
-        
-        check_commands = {"check"}
-        
-        if command in deployment_commands or command in check_commands:
-            if not args:
-                print(f"Error: Provider argument required. Valid: {', '.join(VALID_PROVIDERS)}")
-                continue
-            
+
             provider = args[0].lower()
             if provider not in VALID_PROVIDERS:
-                print(f"Error: Invalid provider '{provider}'. Valid: {', '.join(VALID_PROVIDERS)}")
+                logger.error(f"Error: invalid provider '{provider}'. Valid providers: {', '.join(VALID_PROVIDERS)}")
                 continue
-            
+
             try:
-                context = get_context(provider)
-                logger.info(f"Executing '{command} {provider}' on project '{_current_project}'...")
-                
-                if command == "deploy":
-                    handle_deploy(provider, context)
-                elif command == "destroy":
-                    handle_destroy(provider, context)
-                elif command == "check":
-                    import info
-                    info.check(provider=provider, context=context)
-                    
+                logger.info(f"Executing '{command} {provider}'...")
+                deployment_commands[command](provider=provider)
             except Exception as e:
-                print_stack_trace()
+                globals.print_stack_trace()
                 logger.error(f"Error during '{command} {provider}': {e}")
             continue
-        
-        
-        elif command == "simulate":
-            if not args:
-                print("Usage: simulate <provider> [project_name]")
-                continue
-            
-            provider = args[0].lower()
-            project_name = args[1] if len(args) > 1 else _current_project
-            
-            if provider not in ("aws", "azure"):
-                print(f"Error: Provider '{provider}' not supported yet. Supported: aws, azure.")
-                continue
-            
-            config_path = f"upload/{project_name}/iot_device_simulator/{provider}/config_generated.json"
-            payload_path = f"upload/{project_name}/iot_device_simulator/{provider}/payloads.json"
-            
-            if not os.path.exists(config_path):
-                print(f"Error: Simulator config not found at '{config_path}'. Please deploy L1 first.")
-                continue
-            if not os.path.exists(payload_path):
-                print(f"Error: Payloads file not found at '{payload_path}'.")
-                continue
-            
-            import subprocess
-            sim_script = f"src/iot_device_simulator/{provider}/main.py"
-            try:
-                logger.info(f"Starting simulator for {provider} on {project_name}...")
-                subprocess.call([sys.executable, sim_script, "--project", project_name])
-            except KeyboardInterrupt:
-                print("\nSimulator stopped.")
-            except Exception as e:
-                print(f"Error running simulator: {e}")
+          
+      # info commands
+      elif command in info_commands:
+        if not args:
+            valid_providers = VALID_PROVIDERS.copy()
+            logger.error(
+                f"Error:\n"
+                f"   provider argument required for '{command}'.\n"
+                f"   Valid arguments are: '{', '.join(valid_providers)}'\n"
+                f"   Example: '{command} {valid_providers.pop()}'"
+            )
             continue
-        
-        elif command == "check_credentials":
-            if not args:
-                print("Usage: check_credentials <provider>")
-                print("  Supported providers: aws, azure")
-                continue
-            
-            provider = args[0].lower()
-            
-            if provider == "aws":
-                sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "api"))
-                from credentials_checker import check_aws_credentials_from_config
-                
-                logger.info(f"Checking AWS credentials for project '{_current_project}'...")
-                result = check_aws_credentials_from_config(_current_project)
-                
-                print(f"\n{'='*60}")
-                print(f"Status: {result['status'].upper()}")
-                print(f"Message: {result['message']}")
-                print(f"{'='*60}")
-                
-                if result.get('caller_identity'):
-                    print(f"\nCaller Identity:")
-                    print(f"  Account: {result['caller_identity']['account']}")
-                    print(f"  ARN: {result['caller_identity']['arn']}")
-                
-                if result.get('summary', {}).get('total_required', 0) > 0:
-                    summary = result['summary']
-                    print(f"\nSummary:")
-                    print(f"  Total Required: {summary['total_required']}")
-                    print(f"  ✅ Valid: {summary['valid']}")
-                    print(f"  ❌ Missing: {summary['missing']}")
-                print()
-                
-            elif provider == "azure":
-                from api.azure_credentials_checker import check_azure_credentials_from_config
-                
-                logger.info(f"Checking Azure credentials for project '{_current_project}'...")
-                result = check_azure_credentials_from_config(_current_project)
-                
-                print(f"\n{'='*60}")
-                print(f"Status: {result['status'].upper()}")
-                print(f"Message: {result['message']}")
-                print(f"{'='*60}")
-                
-                if result.get('caller_identity'):
-                    identity = result['caller_identity']
-                    print(f"\nSubscription Info:")
-                    print(f"  Subscription: {identity.get('subscription_name', 'N/A')}")
-                    print(f"  Subscription ID: {identity.get('subscription_id', 'N/A')}")
-                    print(f"  Tenant ID: {identity.get('tenant_id', 'N/A')}")
-                
-                summary = result.get('summary', {})
-                if summary.get('total_layers', 0) > 0:
-                    print(f"\nLayer Summary:")
-                    print(f"  Total Layers: {summary['total_layers']}")
-                    print(f"  ✅ Valid: {summary['valid_layers']}")
-                    print(f"  ⚠️  Partial: {summary['partial_layers']}")
-                    print(f"  ❌ Invalid: {summary['invalid_layers']}")
-                
-                # Show assigned roles
-                if result.get('assigned_roles'):
-                    print(f"\nAssigned Roles: {', '.join(set(result['assigned_roles']))}")
-                    print(f"Total Actions: {result.get('total_actions_count', 0)}")
-                
-                # Show layer details if partial or invalid
-                by_layer = result.get('by_layer', {})
-                missing_any = any(layer.get('missing_actions') for layer in by_layer.values())
-                if missing_any:
-                    print(f"\nMissing Permissions by Layer:")
-                    for layer_name, layer_info in by_layer.items():
-                        if layer_info.get('missing_actions'):
-                            print(f"  {layer_name}:")
-                            for action in layer_info['missing_actions'][:5]:  # Show max 5
-                                print(f"    - {action}")
-                            if len(layer_info['missing_actions']) > 5:
-                                print(f"    ... and {len(layer_info['missing_actions']) - 5} more")
-                
-                if result.get('recommended_roles'):
-                    rec = result['recommended_roles']
-                    print(f"\nRecommended:")
-                    if isinstance(rec, dict):
-                        if rec.get('custom'):
-                            print(f"  ★ {rec['custom']}")
-                        if rec.get('builtin'):
-                            print(f"  Alternative: {' + '.join(rec['builtin'])}")
-                    else:
-                        for role in rec:
-                            print(f"  • {role}")
-                print()
-                
-            else:
-                print(f"Error: Provider '{provider}' not supported. Supported: aws, azure.")
-            continue
-        
-        elif command == "cleanup_twinmaker":
-            # Force delete AWS TwinMaker workspace when Terraform destroy fails
-            try:
-                context = get_context("aws")
-                aws_provider = context.providers.get("aws")
-                
-                if not aws_provider:
-                    print("Error: AWS provider not initialized. Check your credentials.")
-                    continue
-                
-                workspace_id = aws_provider.naming.twinmaker_workspace()
-                
-                # User confirmation
-                print(f"\n⚠️  WARNING: This will permanently delete the TwinMaker workspace:")
-                print(f"   Workspace: {workspace_id}")
-                print(f"   Project: {_current_project}")
-                print(f"\nThis will delete ALL entities, component types, and the workspace itself.")
-                print("This action cannot be undone.\n")
-                
-                confirm = input("Are you sure you want to proceed? (yes/no): ").strip().lower()
-                
-                if confirm not in ("yes", "y"):
-                    print("Operation cancelled.")
-                    continue
-                
-                # Second confirmation for safety
-                confirm2 = input(f"Type '{workspace_id}' to confirm deletion: ").strip()
-                
-                if confirm2 != workspace_id:
-                    print("Workspace name mismatch. Operation cancelled.")
-                    continue
-                
-                # Proceed with deletion
-                print("\nDeleting TwinMaker workspace...")
-                from src.providers.aws.layers.layer_4_twinmaker import force_delete_twinmaker_workspace
-                
-                result = force_delete_twinmaker_workspace(aws_provider)
-                
-                print(f"\n{'='*60}")
-                print(f"Status: {result['status'].upper()}")
-                print(f"Workspace: {result['workspace_id']}")
-                print(f"Entities deleted: {result['entities_deleted']}")
-                print(f"Component types deleted: {result['component_types_deleted']}")
-                print(f"{'='*60}\n")
-                
-            except Exception as e:
-                print_stack_trace()
-                logger.error(f"Error during cleanup_twinmaker: {e}")
-            continue
-        
-        else:
-            print(f"Unknown command: {command}. Type 'help' for a list of commands.")
 
+        provider = args[0].lower()
+        if provider not in VALID_PROVIDERS:
+            logger.error(f"Error: invalid provider '{provider}'. Valid providers: {', '.join(VALID_PROVIDERS)}")
+            continue
+
+        try:
+            logger.info(f"Executing '{command} {provider}'...")
+            info_commands[command](provider=provider)
+        except Exception as e:
+            globals.print_stack_trace()
+            logger.error(f"Error during '{command} {provider}': {str(e)}")
+        continue
+
+      # other commands
+      elif command == "lambda_update":
+        if len(args) > 1:
+          lambda_manager.update_function(args[0], json.loads(args[1]))
+        else:
+          lambda_manager.update_function(args[0])
+      elif command == "lambda_logs":
+        if len(args) > 2:
+          print("".join(lambda_manager.fetch_logs(args[0], int(args[1]), args[2].lower() in ("true", "1", "yes", "y"))))
+        elif len(args) > 1:
+          print("".join(lambda_manager.fetch_logs(args[0], int(args[1]))))
+        else:
+          print("".join(lambda_manager.fetch_logs(args[0])))
+      elif command == "lambda_invoke":
+        if len(args) > 2:
+          lambda_manager.invoke_function(args[0], json.loads(args[1]), args[2].lower() in ("true", "1", "yes", "y"))
+        elif len(args) > 1:
+          lambda_manager.invoke_function(args[0], json.loads(args[1]))
+        else:
+          lambda_manager.invoke_function(args[0])
+
+      elif command == "help":
+        help_menu()
+      elif command == "exit":
+        print("Goodbye!")
+        break
+      else:
+        print(f"Unknown command: {command}. Type 'help' for a list of commands.")
 
 if __name__ == "__main__":
-    main()
+  main()
