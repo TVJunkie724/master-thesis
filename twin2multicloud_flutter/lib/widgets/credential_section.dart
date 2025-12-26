@@ -329,6 +329,21 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
     }
     widget.onCredentialsChanged(creds);
   }
+  void _clearCredentials() {
+    for (final controller in _controllers.values) {
+      controller.clear();
+    }
+    setState(() {
+      _optimizerValid = false;
+      _deployerValid = false;
+      _optimizerMessage = null;
+      _deployerMessage = null;
+    });
+    // Notify parent that validation is reset and credentials are empty
+    widget.onValidationChanged(false); 
+    _notifyCredentialsChanged();
+  }
+
   @override
   Widget build(BuildContext context) {
     // Use actual _isValid (getter that checks both optimizer AND deployer)
@@ -339,6 +354,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
     }
 
     final bool hasAnyValidation = _optimizerMessage != null || _deployerMessage != null;
+    final bool hasInput = _controllers.values.any((c) => c.text.isNotEmpty);
     
     return Card(
       // Use green border instead of light green background for dark mode compatibility
@@ -461,7 +477,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
             
             const SizedBox(height: 16),
             
-            // Action buttons row - Upload first, then View Format
+            // Action buttons row
             Row(
               children: [
                 // Upload credentials button (FIRST)
@@ -478,17 +494,32 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                   ),
                 if (widget.supportsCredentialsUpload)
                   const SizedBox(width: 12),
-                // Format info button (SECOND)
+                  
+                // Format info button
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _showSchemaDialog,
                     icon: const Icon(Icons.info_outline),
-                    label: const Text('View JSON Format'),
+                    label: const Text('Format'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
                 ),
+                
+                // Clear button (Only if there is input or validation)
+                if (hasInput || hasAnyValidation) ...[
+                  const SizedBox(width: 12),
+                  IconButton.filledTonal(
+                    onPressed: _clearCredentials,
+                    icon: const Icon(Icons.cleaning_services),
+                    tooltip: 'Clear Credentials',
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.red.withOpacity(0.1),
+                      foregroundColor: Colors.red,
+                    ),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 4),

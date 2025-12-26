@@ -134,10 +134,50 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
   
   Future<void> _saveConfig() async {
     if (_nameController.text.isEmpty) {
-      setState(() => _error = 'Please enter a name for your Digital Twin');
       return;
     }
     
+    // Strict Validation for Draft Save:
+    // If a provider has credentials (is configured or typed), it MUST be valid.
+    final hasAws = _awsCredentials.values.any((v) => v.isNotEmpty) || 
+                   (_awsCredentials['region'] != null && _awsCredentials.length > 1); // >1 means more than just default region
+    // Robust check for AWS: configured (valid=true) OR has typed data
+    // Simply checking _awsValid is enough because:
+    // 1. If configured (hidden), _awsValid is true.
+    // 2. If typed & validated, _awsValid is true.
+    // 3. If typed & invalid/not-validated, _awsValid is false.
+    // 4. If empty, we don't care.
+    
+    // We need to know if data is entered but NOT valid.
+    // Helper to check if provider has data but is invalid
+    bool isInvalid(Map<String, String> creds, bool isValidFlag) {
+       // Filter out default region if that's the only thing
+       final nonRegionKeys = creds.keys.where((k) => k != 'region');
+       final hasData = nonRegionKeys.any((k) => creds[k]?.isNotEmpty == true);
+       
+       if (hasData && !isValidFlag) {
+         return true;
+       }
+       return false;
+    }
+
+    if (isInvalid(_awsCredentials, _awsValid)) {
+      setState(() => _error = 'Please validate your AWS credentials before saving.');
+      return;
+    }
+    if (isInvalid(_azureCredentials, _azureValid)) {
+      setState(() => _error = 'Please validate your Azure credentials before saving.');
+      return;
+    }
+    // GCP is special (service account json)
+    bool gcpHasData = _gcpCredentials['project_id']?.isNotEmpty == true || 
+                      _gcpCredentials['billing_account']?.isNotEmpty == true ||
+                      _gcpServiceAccountJson != null;
+    if (gcpHasData && !_gcpValid) {
+       setState(() => _error = 'Please validate your GCP credentials before saving.');
+       return;
+    }
+
     setState(() {
       _isSaving = true;
       _error = null;
