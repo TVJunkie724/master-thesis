@@ -111,6 +111,9 @@ resource "azurerm_linux_function_app" "l0_glue" {
 
     # L2 Function App URL - required by ingestion to call processor
     FUNCTION_APP_BASE_URL = "https://${var.digital_twin_name}-user-functions.azurewebsites.net"
+
+    # ADT instance URL - required by adt-pusher for multi-cloud L4 updates
+    ADT_INSTANCE_URL = var.layer_4_provider == "azure" ? "https://${var.digital_twin_name}-adt.${var.azure_region}.digitaltwins.azure.net" : ""
   }
 
   # ZIP deployment will be handled by Python orchestrator post-Terraform
