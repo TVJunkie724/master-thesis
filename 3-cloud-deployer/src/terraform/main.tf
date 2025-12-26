@@ -32,6 +32,14 @@ provider "azurerm" {
   tenant_id       = var.azure_tenant_id
 }
 
+# Azure AD Provider (for Entra ID user management - Grafana admin users)
+# Uses same service principal credentials as azurerm
+provider "azuread" {
+  client_id     = var.azure_client_id
+  client_secret = var.azure_client_secret
+  tenant_id     = var.azure_tenant_id
+}
+
 # AWS Provider (for multi-cloud deployments)
 provider "aws" {
   region     = var.aws_region

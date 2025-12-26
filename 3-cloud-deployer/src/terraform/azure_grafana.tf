@@ -139,14 +139,25 @@ locals {
 }
 
 # Assign Grafana Admin role (with deterministic UUID for idempotency)
+# NOTE: Uses azure_grafana_enabled for count (known at plan time) to avoid
+# "count depends on apply" error when creating new users.
 resource "azurerm_role_assignment" "grafana_admin" {
-  count = local.grafana_admin_object_id != null ? 1 : 0
+  count = local.azure_grafana_enabled ? 1 : 0
   
   # Deterministic UUID prevents duplicate assignment errors on re-apply
   name                 = uuidv5("dns", "${var.grafana_admin_email}-grafana-admin")
   scope                = azurerm_dashboard_grafana.main[0].id
   role_definition_name = "Grafana Admin"
-  principal_id         = local.grafana_admin_object_id
+  
+  # Use coalesce to pick existing user OR newly created user's object_id
+  # At apply time, one of these will be available
+  principal_id = coalesce(
+    local.existing_user_object_id,
+    try(azuread_user.grafana_admin[0].object_id, null)
+  )
+  
+  # Ensure user is created before role assignment
+  depends_on = [azuread_user.grafana_admin]
 }
 
 # ==============================================================================

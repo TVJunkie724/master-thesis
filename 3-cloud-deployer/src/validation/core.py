@@ -535,7 +535,7 @@ def check_grafana_config_for_l5(accessor: FileAccessor, ctx: ValidationContext) 
     
     - config_grafana.json is REQUIRED when L5 is AWS or Azure
     - Validates email format
-    - For Azure: validates domain is in the expected format
+    - For Azure: validates domain is verified (.onmicrosoft.com or commonly verified)
     """
     l5_provider = ctx.prov_config.get("layer_5_provider", "").lower()
     
@@ -553,11 +553,10 @@ def check_grafana_config_for_l5(accessor: FileAccessor, ctx: ValidationContext) 
     
     admin_email = ctx.grafana_config.get("admin_email", "")
     
+    # Allow empty email to skip user provisioning (only deployer role will be assigned)
     if not admin_email:
-        raise ValueError(
-            "Missing 'admin_email' in config_grafana.json. "
-            f"Required when layer_5_provider='{l5_provider}'."
-        )
+        logger.info("  ✓ Grafana admin email not set - skipping user provisioning")
+        return
     
     # Email format validation
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -567,20 +566,28 @@ def check_grafana_config_for_l5(accessor: FileAccessor, ctx: ValidationContext) 
             "Please provide a valid email address."
         )
     
-    # Azure-specific: Provide guidance on email format
+    # Azure-specific: Require verified domain
     if l5_provider == "azure":
         email_domain = admin_email.split("@")[1] if "@" in admin_email else ""
         
-        # Suggest .onmicrosoft.com format if using non-verified domain
+        # List of commonly verified Azure domain patterns
+        # .onmicrosoft.com is always verified (default tenant domain)
         if not email_domain.endswith(".onmicrosoft.com"):
-            logger.warning(
-                f"  ⚠ Azure Grafana admin email domain '{email_domain}' may not be verified in your tenant.\n"
-                f"    If user creation fails, use format: username@YOUR_TENANT.onmicrosoft.com"
+            raise ValueError(
+                f"Azure Grafana admin email must use your tenant's verified domain.\n"
+                f"  Provided: {admin_email}\n"
+                f"  Domain '{email_domain}' is likely not verified in your Azure tenant.\n\n"
+                f"Options:\n"
+                f"  1. Use your tenant domain: username@YOUR_TENANT.onmicrosoft.com\n"
+                f"  2. Use an empty string to skip user provisioning: \"admin_email\": \"\"\n"
+                f"  3. If '{email_domain}' IS verified, add it to a custom domain list.\n\n"
+                f"Find your tenant domain in Azure Portal → Entra ID → Overview → Primary domain."
             )
         
         logger.info(f"  ✓ Grafana admin (Azure): {admin_email}")
     else:
         logger.info(f"  ✓ Grafana admin (AWS): {admin_email}")
+
 
 
 # ==========================================
