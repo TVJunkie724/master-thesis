@@ -160,22 +160,48 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       final jsonString = await readPickedFile(file);
       final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
       
-      // Auto-fill form fields from JSON
+      // Look for nested provider-specific data (e.g., jsonData["aws"]["aws_access_key_id"])
+      final providerData = jsonData[widget.provider] as Map<String, dynamic>?;
+      
+      if (providerData == null) {
+        // Show warning if provider section not found
+        setState(() {
+          _validationMessage = '⚠️ No "${widget.provider}" section found in JSON. '
+              'Expected format: { "${widget.provider}": { ... } }';
+          _isValid = false;
+        });
+        return;
+      }
+      
+      // Auto-fill form fields from nested provider data
+      int fieldsPopulated = 0;
       for (final field in widget.fields) {
         final jsonKey = '${widget.provider}_${field.name}';
-        if (jsonData.containsKey(jsonKey)) {
-          _controllers[field.name]?.text = jsonData[jsonKey].toString();
+        if (providerData.containsKey(jsonKey) && providerData[jsonKey] != null) {
+          final value = providerData[jsonKey].toString();
+          if (value.isNotEmpty) {
+            _controllers[field.name]?.text = value;
+            fieldsPopulated++;
+          }
         }
       }
       
-      setState(() {
-        _validationMessage = 'Credentials loaded from ${file.name}';
-      });
+      if (fieldsPopulated == 0) {
+        setState(() {
+          _validationMessage = '⚠️ No matching fields found in "${widget.provider}" section. '
+              'Check the expected format (ℹ️ button).';
+          _isValid = false;
+        });
+      } else {
+        setState(() {
+          _validationMessage = '✓ Loaded $fieldsPopulated field(s) from ${file.name}';
+        });
+      }
       
       _notifyCredentialsChanged();
     } catch (e) {
       setState(() {
-        _validationMessage = 'Failed to parse JSON: $e';
+        _validationMessage = '❌ Failed to parse JSON: $e';
         _isValid = false;
       });
     }
@@ -185,11 +211,11 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
   String _getSchemaExample() {
     switch (widget.provider) {
       case 'aws':
-        return '{\n  "aws_access_key_id": "XXXX...",\n  "aws_secret_access_key": "...",\n  "aws_session_token": "OPTIONAL",\n  "aws_region": "eu-central-1"\n}';
+        return '{\n  "aws": {\n    "aws_access_key_id": "XXXX...",\n    "aws_secret_access_key": "...",\n    "aws_session_token": "OPTIONAL",\n    "aws_region": "eu-central-1"\n  }\n}';
       case 'azure':
-        return '{\n  "azure_subscription_id": "...",\n  "azure_client_id": "...",\n  "azure_client_secret": "...",\n  "azure_tenant_id": "...",\n  "azure_region": "westeurope"\n}';
+        return '{\n  "azure": {\n    "azure_subscription_id": "...",\n    "azure_client_id": "...",\n    "azure_client_secret": "...",\n    "azure_tenant_id": "...",\n    "azure_region": "westeurope"\n  }\n}';
       case 'gcp':
-        return '{\n  "gcp_project_id": "...",\n  "gcp_billing_account": "XXXXXX-...",\n  "gcp_region": "europe-west1"\n}';
+        return '{\n  "gcp": {\n    "gcp_project_id": "...",\n    "gcp_billing_account": "XXXXXX-...",\n    "gcp_region": "europe-west1"\n  }\n}';
       default:
         return '{}';
     }
