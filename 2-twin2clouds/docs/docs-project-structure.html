@@ -152,10 +152,10 @@
                     <h3 class="mb-2"><code>rest_api.py</code> - FastAPI Backend</h3>
                     <p>Main application entry point. Defines the REST API endpoints:</p>
                     <ul>
-                        <li><code>PUT /api/calculate</code> - Calculate optimal cloud configuration</li>
-                        <li><code>POST /api/fetch_pricing/{provider}</code> - Fetch provider pricing</li>
-                        <li><code>GET /api/pricing_age/{provider}</code> - Check pricing file status</li>
-                        <li><code>GET /api/currency_age</code> - Check currency file status</li>
+                        <li><code>PUT /calculate</code> - Calculate optimal cloud configuration</li>
+                        <li><code>POST /pricing/fetch/{provider}</code> - Fetch provider pricing</li>
+                        <li><code>GET /file-status/pricing/{provider}</code> - Check pricing file status</li>
+                        <li><code>GET /file-status/currency</code> - Check currency file status</li>
                         <li><code>GET /ui</code> - Serve web interface</li>
                         <li><code>GET /docs</code> - Swagger API documentation</li>
                     </ul>
@@ -212,7 +212,7 @@
 
                     <h3 class="mt-4 mb-2">Pricing Fetch Flow</h3>
                     <ol>
-                        <li>User or system triggers pricing fetch → <code>POST /api/fetch_pricing/{provider}</code></li>
+                        <li>User or system triggers pricing fetch → <code>POST /pricing/fetch/{provider}</code></li>
                         <li>Check cache freshness → <code>backend/utils.py</code> <code>is_file_fresh()</code></li>
                         <li>If stale, fetch new pricing →
                             <code>backend/fetch_data/calculate_up_to_date_pricing.py</code>

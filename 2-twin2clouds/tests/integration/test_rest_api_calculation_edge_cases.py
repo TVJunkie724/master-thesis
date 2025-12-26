@@ -13,7 +13,7 @@ client = TestClient(app)
 def test_calculate_missing_fields():
     """Test that missing required fields returns 422 Unprocessable Entity."""
     # Sending empty body
-    response = client.put("/api/calculate", json={})
+    response = client.put("/calculate", json={})
     assert response.status_code == 422
     data = response.json()
     # Check that at least one field is missing (e.g., numberOfDevices)
@@ -36,7 +36,7 @@ def test_calculate_invalid_data_types():
         "dashboardRefreshesPerHour": 0,
         "dashboardActiveHoursPerDay": 0
     }
-    response = client.put("/api/calculate", json=payload)
+    response = client.put("/calculate", json=payload)
     assert response.status_code == 422
     # Check for type error message
     assert "valid integer" in response.text.lower() or "valid number" in response.text.lower()
@@ -57,7 +57,7 @@ def test_calculate_negative_values():
         "dashboardRefreshesPerHour": 0,
         "dashboardActiveHoursPerDay": 0
     }
-    response = client.put("/api/calculate", json=payload)
+    response = client.put("/calculate", json=payload)
     assert response.status_code == 422
 
 def test_calculate_storage_duration_logic_ordering():
@@ -76,7 +76,7 @@ def test_calculate_storage_duration_logic_ordering():
         "dashboardRefreshesPerHour": 0,
         "dashboardActiveHoursPerDay": 0
     }
-    response = client.put("/api/calculate", json=payload)
+    response = client.put("/calculate", json=payload)
     assert response.status_code == 422
     # Pydantic returns details in JSON
     # Msg: "Value error, Hot storage duration (4) must be <= Cool storage duration (3)"
@@ -106,7 +106,7 @@ def test_calculate_load_pricing_failure(mock_load_pricing):
         "dashboardActiveHoursPerDay": 0
     }
     
-    response = client.put("/api/calculate", json=payload)
+    response = client.put("/calculate", json=payload)
     assert response.status_code == 500
     data = response.json()
     assert "error" in data
@@ -136,7 +136,7 @@ def test_calculate_engine_internal_error(mock_load, mock_engine):
         "dashboardActiveHoursPerDay": 0
     }
     
-    response = client.put("/api/calculate", json=payload)
+    response = client.put("/calculate", json=payload)
     assert response.status_code == 500
     data = response.json()
     assert "error" in data
@@ -173,7 +173,7 @@ def test_feature_toggle_gcp_l4_disabled(mock_load_pricing):
             "allowGcpSelfHostedL5": False
         }
         
-        client.put("/api/calculate", json=payload)
+        client.put("/calculate", json=payload)
         
         # Verify call args
         args, _ = mock_calc.call_args
