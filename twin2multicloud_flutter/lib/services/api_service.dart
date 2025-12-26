@@ -70,6 +70,22 @@ class ApiService {
     return response.data;
   }
 
+  /// Validate credentials against BOTH Optimizer and Deployer APIs
+  /// Returns: { provider, valid, optimizer: {valid, message}, deployer: {valid, message} }
+  Future<Map<String, dynamic>> validateCredentialsDual(
+    String provider,
+    Map<String, dynamic> credentials
+  ) async {
+    final response = await _dio.post(
+      '/config/validate-dual',
+      data: {
+        'provider': provider,
+        provider: credentials,
+      },
+    );
+    return response.data;
+  }
+
   // ============================================================
   // Optimizer Endpoints (Step 2)
   // ============================================================
@@ -106,3 +122,4 @@ class ApiService {
     return response.data;
   }
 }
+

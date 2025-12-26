@@ -153,7 +153,10 @@ async def validate_credentials(
             "azure_client_id": decrypt(config.azure_client_id, current_user.id, twin_id),
             "azure_client_secret": decrypt(config.azure_client_secret, current_user.id, twin_id),
             "azure_tenant_id": decrypt(config.azure_tenant_id, current_user.id, twin_id),
-            "azure_region": config.azure_region
+            "azure_region": config.azure_region,
+            # Deployer requires these additional region fields
+            "azure_region_iothub": config.azure_region,  # Use same region for now
+            "azure_region_digital_twin": config.azure_region,  # Use same region for now
         }
     elif provider == "gcp":
         if not config.gcp_project_id and not config.gcp_billing_account:
@@ -164,14 +167,14 @@ async def validate_credentials(
             "gcp_project_id": config.gcp_project_id,
             "gcp_billing_account": decrypt(config.gcp_billing_account, current_user.id, twin_id) if config.gcp_billing_account else None,
             "gcp_region": config.gcp_region,
-            "gcp_service_account_json": decrypt(config.gcp_service_account_json, current_user.id, twin_id) if config.gcp_service_account_json else None
+            "gcp_credentials_file": decrypt(config.gcp_service_account_json, current_user.id, twin_id) if config.gcp_service_account_json else None,
         }
     
     # Call Deployer API
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{settings.DEPLOYER_URL}/api/credentials/validate/{provider}",
+                f"{settings.DEPLOYER_URL}/permissions/verify/{provider}",
                 json=credentials,
                 timeout=30.0
             )
@@ -246,14 +249,20 @@ async def validate_credentials_inline(
             "azure_client_id": request.azure.client_id,
             "azure_client_secret": request.azure.client_secret,
             "azure_tenant_id": request.azure.tenant_id,
-            "azure_region": request.azure.region
+            "azure_region": request.azure.region,
+            # Deployer requires these additional region fields
+            # TODO: Add separate UI fields for these in Step 1
+            "azure_region_iothub": request.azure.region,  # Use same region for now
+            "azure_region_digital_twin": request.azure.region,  # Use same region for now
         }
     elif provider == "gcp" and request.gcp:
         credentials = {
             "gcp_project_id": request.gcp.project_id,
             "gcp_billing_account": request.gcp.billing_account,
             "gcp_region": request.gcp.region,
-            "gcp_service_account_json": request.gcp.service_account_json
+            # Deployer expects gcp_credentials_file, but we pass the actual JSON content
+            # The checker will need to handle this - either parse the content or save to temp file
+            "gcp_credentials_file": request.gcp.service_account_json,
         }
     else:
         return CredentialValidationResult(
@@ -266,7 +275,7 @@ async def validate_credentials_inline(
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{settings.DEPLOYER_URL}/api/credentials/validate/{provider}",
+                f"{settings.DEPLOYER_URL}/permissions/verify/{provider}",
                 json=credentials,
                 timeout=30.0
             )
@@ -298,3 +307,130 @@ async def validate_credentials_inline(
             message=f"Request error: {str(e)}"
         )
 
+
+@inline_router.post("/validate-dual")
+async def validate_credentials_dual(
+    request: InlineValidationRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Validate credentials against BOTH Optimizer and Deployer APIs.
+    - Optimizer: Checks pricing API permissions
+    - Deployer: Checks infrastructure deployment permissions
+    Returns separate results for each.
+    """
+    import asyncio
+    
+    provider = request.provider
+    if provider not in ["aws", "azure", "gcp"]:
+        raise HTTPException(status_code=400, detail="Invalid provider. Use: aws, azure, gcp")
+    
+    # Build credentials payload from request
+    credentials = {}
+    if provider == "aws" and request.aws:
+        credentials = {
+            "aws_access_key_id": request.aws.access_key_id,
+            "aws_secret_access_key": request.aws.secret_access_key,
+            "aws_region": request.aws.region
+        }
+        if request.aws.session_token:
+            credentials["aws_session_token"] = request.aws.session_token
+    elif provider == "azure" and request.azure:
+        credentials = {
+            "azure_subscription_id": request.azure.subscription_id,
+            "azure_client_id": request.azure.client_id,
+            "azure_client_secret": request.azure.client_secret,
+            "azure_tenant_id": request.azure.tenant_id,
+            "azure_region": request.azure.region
+        }
+    elif provider == "gcp" and request.gcp:
+        credentials = {
+            "gcp_project_id": request.gcp.project_id,
+            "gcp_billing_account": request.gcp.billing_account,
+            "gcp_region": request.gcp.region,
+            "gcp_service_account_json": request.gcp.service_account_json
+        }
+    else:
+        return {
+            "provider": provider,
+            "valid": False,
+            "optimizer": {"valid": False, "message": f"No {provider} credentials provided"},
+            "deployer": {"valid": False, "message": f"No {provider} credentials provided"}
+        }
+    
+    async def call_optimizer():
+        """Call Optimizer API for pricing permissions."""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{settings.OPTIMIZER_URL}/permissions/verify/{provider}",
+                    json=credentials,
+                    timeout=30.0
+                )
+                if response.status_code == 200:
+                    result = response.json()
+                    return {
+                        "valid": result.get("valid", False),
+                        "message": result.get("message", "Validation complete")
+                    }
+                else:
+                    return {
+                        "valid": False,
+                        "message": f"Optimizer API error: {response.status_code}"
+                    }
+        except httpx.ConnectError:
+            return {
+                "valid": False,
+                "message": "Cannot connect to Optimizer API (port 5003)"
+            }
+        except Exception as e:
+            return {
+                "valid": False,
+                "message": f"Optimizer error: {str(e)}"
+            }
+    
+    async def call_deployer():
+        """Call Deployer API for deployment permissions."""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{settings.DEPLOYER_URL}/permissions/verify/{provider}",
+                    json=credentials,
+                    timeout=30.0
+                )
+                if response.status_code == 200:
+                    result = response.json()
+                    return {
+                        "valid": result.get("valid", False),
+                        "message": result.get("message", "Validation complete"),
+                        "permissions": result.get("missing_permissions")
+                    }
+                else:
+                    return {
+                        "valid": False,
+                        "message": f"Deployer API error: {response.status_code}"
+                    }
+        except httpx.ConnectError:
+            return {
+                "valid": False,
+                "message": "Cannot connect to Deployer API (port 5004)"
+            }
+        except Exception as e:
+            return {
+                "valid": False,
+                "message": f"Deployer error: {str(e)}"
+            }
+    
+    # Call both APIs in parallel
+    optimizer_result, deployer_result = await asyncio.gather(
+        call_optimizer(),
+        call_deployer()
+    )
+    
+    # Return combined result
+    return {
+        "provider": provider,
+        "valid": optimizer_result.get("valid", False) and deployer_result.get("valid", False),
+        "optimizer": optimizer_result,
+        "deployer": deployer_result
+    }
