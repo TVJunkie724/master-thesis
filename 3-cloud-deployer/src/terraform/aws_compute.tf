@@ -310,3 +310,50 @@ resource "aws_lambda_function" "user_processor" {
 
   tags = local.aws_common_tags
 }
+
+# ==============================================================================
+# AWS Event Feedback Wrapper Lambda (Calls user feedback and sends to IoT)
+# Only deployed if return_feedback_to_device is enabled
+# ==============================================================================
+
+resource "aws_lambda_function" "event_feedback_wrapper" {
+  count         = local.l2_aws_enabled && var.return_feedback_to_device ? 1 : 0
+  function_name = "${var.digital_twin_name}-event-feedback-wrapper"
+  role          = aws_iam_role.l2_lambda[0].arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.11"
+  timeout       = 30
+  memory_size   = 256
+
+  filename         = "${local.l2_lambda_build_dir}/event_feedback_wrapper.zip"
+  source_code_hash = filebase64sha256("${local.l2_lambda_build_dir}/event_feedback_wrapper.zip")
+
+  environment {
+    variables = {
+      DIGITAL_TWIN_INFO          = var.digital_twin_info_json
+      EVENT_FEEDBACK_LAMBDA_NAME = "${var.digital_twin_name}-event-feedback"
+    }
+  }
+
+  tags = local.aws_common_tags
+}
+
+# IAM policy for event_feedback_wrapper to publish to IoT
+resource "aws_iam_role_policy" "l2_iot_publish" {
+  count = local.l2_aws_enabled && var.return_feedback_to_device ? 1 : 0
+  name  = "${var.digital_twin_name}-l2-iot-publish-policy"
+  role  = aws_iam_role.l2_lambda[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "iot:Publish"
+        ]
+        Resource = "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:topic/*"
+      }
+    ]
+  })
+}

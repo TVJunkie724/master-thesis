@@ -108,6 +108,9 @@ resource "azurerm_linux_function_app" "l0_glue" {
 
     # Full Digital Twin configuration - required by ingestion for routing
     DIGITAL_TWIN_INFO = var.digital_twin_info_json
+
+    # L2 Function App URL - required by ingestion to call processor
+    FUNCTION_APP_BASE_URL = "https://${var.digital_twin_name}-user-functions.azurewebsites.net"
   }
 
   # ZIP deployment will be handled by Python orchestrator post-Terraform

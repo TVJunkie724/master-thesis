@@ -522,6 +522,11 @@ resource "google_cloudfunctions2_function" "event_feedback" {
       INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         try(random_password.inter_cloud_token[0].result, "")
       )
+      
+      # IoT Core vars - required for event_feedback_wrapper to send commands to devices
+      GCP_IOT_REGION              = var.gcp_region
+      GCP_IOT_REGISTRY_ID         = "${var.digital_twin_name}-registry"
+      EVENT_FEEDBACK_FUNCTION_URL = "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net/${var.digital_twin_name}-event-feedback"
     }
   }
 

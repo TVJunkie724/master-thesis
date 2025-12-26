@@ -55,10 +55,13 @@ resource "google_cloudfunctions2_function" "ingestion" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME = var.digital_twin_name
+      DIGITAL_TWIN_INFO = var.digital_twin_info_json
       EVENTS_TOPIC      = local.gcp_l1_enabled ? google_pubsub_topic.events[0].id : ""
       INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         try(random_password.inter_cloud_token[0].result, "")
       )
+      # Function base URL - required by ingestion to call processor
+      FUNCTION_BASE_URL = "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net"
     }
   }
 
@@ -112,6 +115,7 @@ resource "google_cloudfunctions2_function" "hot_writer" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
+      DIGITAL_TWIN_INFO    = var.digital_twin_info_json
       GCP_PROJECT_ID       = local.gcp_project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
       FIRESTORE_DATABASE   = var.digital_twin_name

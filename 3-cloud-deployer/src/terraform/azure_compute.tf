@@ -107,6 +107,12 @@ resource "azurerm_linux_function_app" "l2" {
 
     # Full Digital Twin configuration - required by persister for multi-cloud routing
     DIGITAL_TWIN_INFO = var.digital_twin_info_json
+
+    # Persister URL - required by processor_wrapper to call persister
+    PERSISTER_FUNCTION_URL = "https://${var.digital_twin_name}-l2-functions.azurewebsites.net/api/persister"
+
+    # IoT Hub connection - required by event_feedback_wrapper to send feedback to devices
+    IOT_HUB_CONNECTION_STRING = var.layer_1_provider == "azure" ? azurerm_iothub.main[0].event_hub_events_endpoint : ""
   }
 
   tags = local.common_tags
@@ -188,6 +194,9 @@ resource "azurerm_linux_function_app" "user" {
     EVENT_FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? "https://${var.digital_twin_name}-user-functions.azurewebsites.net/api/event-feedback" : ""
     
     PERSISTER_FUNCTION_URL = "https://${var.digital_twin_name}-l2-functions.azurewebsites.net/api/persister"
+
+    # IoT Hub connection - required by event_feedback_wrapper to send feedback to devices
+    IOT_HUB_CONNECTION_STRING = var.layer_1_provider == "azure" ? azurerm_iothub.main[0].event_hub_events_endpoint : ""
   }
 
   tags = local.common_tags

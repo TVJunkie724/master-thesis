@@ -123,6 +123,10 @@ resource "azurerm_linux_function_app" "l1" {
 
     # Full Digital Twin configuration - required by dispatcher for routing
     DIGITAL_TWIN_INFO = var.digital_twin_info_json
+
+    # L2 Function App URL - required by dispatcher to call processor
+    # Points to user-functions app where processor functions are deployed
+    FUNCTION_APP_BASE_URL = var.layer_2_provider == "azure" ? "https://${var.digital_twin_name}-user-functions.azurewebsites.net" : ""
   }
 
   tags = local.common_tags
