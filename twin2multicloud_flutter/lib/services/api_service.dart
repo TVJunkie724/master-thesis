@@ -25,17 +25,17 @@ class ApiService {
   void setToken(String token) => _token = token;
   
   Future<List<dynamic>> getTwins() async {
-    final response = await _dio.get('/twins');
+    final response = await _dio.get('/twins/');
     return response.data;
   }
   
   Future<Map<String, dynamic>> createTwin(String name) async {
-    final response = await _dio.post('/twins', data: {'name': name});
+    final response = await _dio.post('/twins/', data: {'name': name});
     return response.data;
   }
   
   Future<Map<String, dynamic>> getTwinConfig(String twinId) async {
-    final response = await _dio.get('/twins/$twinId/config');
+    final response = await _dio.get('/twins/$twinId/config/');
     return response.data;
   }
   
@@ -43,7 +43,7 @@ class ApiService {
     String twinId, 
     Map<String, dynamic> config
   ) async {
-    final response = await _dio.put('/twins/$twinId/config', data: config);
+    final response = await _dio.put('/twins/$twinId/config/', data: config);
     return response.data;
   }
   
@@ -69,5 +69,40 @@ class ApiService {
     );
     return response.data;
   }
-}
 
+  // ============================================================
+  // Optimizer Endpoints (Step 2)
+  // ============================================================
+
+  /// Get pricing data freshness status for all providers
+  Future<Map<String, dynamic>> getPricingStatus() async {
+    final response = await _dio.get('/optimizer/pricing-status');
+    return response.data;
+  }
+
+  /// Get regions data freshness status for all providers
+  Future<Map<String, dynamic>> getRegionsStatus() async {
+    final response = await _dio.get('/optimizer/regions-status');
+    return response.data;
+  }
+
+  /// Refresh pricing for a specific provider
+  /// Uses credentials from twin configuration
+  Future<Map<String, dynamic>> refreshPricing(String provider, String twinId) async {
+    final response = await _dio.post(
+      '/optimizer/refresh-pricing/$provider',
+      queryParameters: {'twin_id': twinId},
+    );
+    return response.data;
+  }
+
+  /// Calculate costs using Optimizer
+  /// Returns full result including costs, cheapest path, and overrides
+  Future<Map<String, dynamic>> calculateCosts(Map<String, dynamic> params) async {
+    final response = await _dio.put(
+      '/optimizer/calculate',
+      data: params,
+    );
+    return response.data;
+  }
+}
