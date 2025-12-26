@@ -205,6 +205,9 @@ resource "azurerm_linux_function_app" "l3" {
 
     # Full Digital Twin configuration - required by movers and readers
     DIGITAL_TWIN_INFO = var.digital_twin_info_json
+
+    # Azure ADT instance URL (for hot-reader to resolve device IDs)
+    ADT_INSTANCE_URL = var.layer_4_provider == "azure" ? "https://${var.digital_twin_name}.${var.azure_region}.digitaltwins.azure.net" : ""
   }
 
   tags = local.common_tags

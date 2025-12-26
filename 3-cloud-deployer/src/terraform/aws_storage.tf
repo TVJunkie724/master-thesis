@@ -159,6 +159,7 @@ resource "aws_lambda_function" "l3_hot_reader" {
     variables = {
       DIGITAL_TWIN_INFO   = var.digital_twin_info_json
       DYNAMODB_TABLE_NAME = aws_dynamodb_table.l3_hot[0].name
+      INTER_CLOUD_TOKEN   = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
     }
   }
 
