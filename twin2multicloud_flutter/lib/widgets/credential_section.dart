@@ -76,6 +76,19 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
     super.dispose();
   }
   
+  /// Check if all required fields have values
+  bool _areRequiredFieldsFilled() {
+    for (final field in widget.fields) {
+      if (field.required) {
+        final controller = _controllers[field.name];
+        if (controller == null || controller.text.trim().isEmpty) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+  
   Future<void> _validateCredentials() async {
     setState(() {
       _isValidating = true;
@@ -103,10 +116,25 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       
       widget.onValidationChanged(_isValid);
       
+    } on DioException catch (e) {
+      String errorMsg;
+      if (e.type == DioExceptionType.connectionError || 
+          e.type == DioExceptionType.connectionTimeout) {
+        errorMsg = '❌ Cannot connect to server. Please ensure the Management API is running (docker compose up -d management-api).';
+      } else if (e.type == DioExceptionType.receiveTimeout) {
+        errorMsg = '❌ Server timeout. Please try again.';
+      } else {
+        errorMsg = '❌ Connection error: ${e.message}';
+      }
+      setState(() {
+        _isValid = false;
+        _validationMessage = errorMsg;
+      });
+      widget.onValidationChanged(false);
     } catch (e) {
       setState(() {
         _isValid = false;
-        _validationMessage = 'Validation failed: $e';
+        _validationMessage = '❌ Validation failed: $e';
       });
       widget.onValidationChanged(false);
     } finally {
@@ -309,7 +337,10 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                         border: const OutlineInputBorder(),
                       ),
                       obscureText: field.obscure,
-                      onChanged: (_) => _notifyCredentialsChanged(),
+                      onChanged: (_) {
+                        _notifyCredentialsChanged();
+                        setState(() {});  // Refresh UI for button state
+                      },
                     ),
                   )),
                   
@@ -319,7 +350,9 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                     children: [
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: _isValidating ? null : _validateCredentials,
+                          onPressed: (_isValidating || !_areRequiredFieldsFilled()) 
+                              ? null 
+                              : _validateCredentials,
                           child: _isValidating
                             ? const SizedBox(
                                 width: 16, height: 16,
@@ -330,6 +363,17 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                       ),
                     ],
                   ),
+                  if (!_areRequiredFieldsFilled()) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Fill all required fields to enable validation',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.outline,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
                   
                   if (_validationMessage != null) ...[
                     const SizedBox(height: 8),
