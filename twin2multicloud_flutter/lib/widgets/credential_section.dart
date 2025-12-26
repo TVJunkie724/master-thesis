@@ -10,12 +10,14 @@ class CredentialField {
   final String label;
   final bool obscure;
   final String? defaultValue;
+  final bool required;  // NEW
   
   const CredentialField({
     required this.name,
     required this.label,
     this.obscure = false,
     this.defaultValue,
+    this.required = true,  // Default: required
   });
 }
 
@@ -27,6 +29,7 @@ class CredentialSection extends ConsumerStatefulWidget {
   final Color color;
   final List<CredentialField> fields;
   final bool supportsJsonUpload;
+  final bool supportsCredentialsUpload;  // NEW - for config_credentials.json style uploads
   final Function(bool) onValidationChanged;
   final Function(Map<String, String>) onCredentialsChanged;
   final Function(String)? onJsonUploaded;
@@ -43,6 +46,7 @@ class CredentialSection extends ConsumerStatefulWidget {
     required this.onCredentialsChanged,
     this.onJsonUploaded,
     this.supportsJsonUpload = false,
+    this.supportsCredentialsUpload = true,  // Default: allow credentials JSON upload for all
   });
   
   @override
@@ -142,6 +146,71 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
     }
   }
   
+  /// Upload credentials JSON and auto-fill form fields
+  Future<void> _uploadCredentialsJson() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+      
+      if (result == null || result.files.isEmpty) return;
+      
+      final file = result.files.single;
+      final jsonString = await readPickedFile(file);
+      final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
+      
+      // Auto-fill form fields from JSON
+      for (final field in widget.fields) {
+        final jsonKey = '${widget.provider}_${field.name}';
+        if (jsonData.containsKey(jsonKey)) {
+          _controllers[field.name]?.text = jsonData[jsonKey].toString();
+        }
+      }
+      
+      setState(() {
+        _validationMessage = 'Credentials loaded from ${file.name}';
+      });
+      
+      _notifyCredentialsChanged();
+    } catch (e) {
+      setState(() {
+        _validationMessage = 'Failed to parse JSON: $e';
+        _isValid = false;
+      });
+    }
+  }
+  
+  /// Get schema example for this provider
+  String _getSchemaExample() {
+    switch (widget.provider) {
+      case 'aws':
+        return '{\n  "aws_access_key_id": "XXXX...",\n  "aws_secret_access_key": "...",\n  "aws_session_token": "OPTIONAL",\n  "aws_region": "eu-central-1"\n}';
+      case 'azure':
+        return '{\n  "azure_subscription_id": "...",\n  "azure_client_id": "...",\n  "azure_client_secret": "...",\n  "azure_tenant_id": "...",\n  "azure_region": "westeurope"\n}';
+      case 'gcp':
+        return '{\n  "gcp_project_id": "...",\n  "gcp_billing_account": "XXXXXX-...",\n  "gcp_region": "europe-west1"\n}';
+      default:
+        return '{}';
+    }
+  }
+  
+  void _showSchemaDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${widget.title} JSON Format'),
+        content: SelectableText(_getSchemaExample()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+  
   void _notifyCredentialsChanged() {
     final creds = <String, String>{};
     for (final entry in _controllers.entries) {
@@ -161,6 +230,19 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Schema info button
+                IconButton(
+                  icon: const Icon(Icons.info_outline, size: 18),
+                  tooltip: 'Show expected JSON format',
+                  onPressed: _showSchemaDialog,
+                ),
+                // Upload credentials JSON button
+                if (widget.supportsCredentialsUpload)
+                  IconButton(
+                    icon: const Icon(Icons.upload_file, size: 20),
+                    tooltip: 'Upload credentials JSON',
+                    onPressed: _uploadCredentialsJson,
+                  ),
                 if (_isValid)
                   const Icon(Icons.check_circle, color: Colors.green, size: 20),
                 Icon(_isExpanded ? Icons.expand_less : Icons.expand_more),
@@ -176,7 +258,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // JSON Upload button (for GCP)
+                  // GCP Service Account JSON Upload button
                   if (widget.supportsJsonUpload) ...[
                     OutlinedButton.icon(
                       onPressed: _pickJsonFile,
@@ -195,7 +277,9 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                     child: TextField(
                       controller: _controllers[field.name],
                       decoration: InputDecoration(
-                        labelText: field.label,
+                        labelText: field.required 
+                          ? field.label 
+                          : '${field.label} (optional)',
                         border: const OutlineInputBorder(),
                       ),
                       obscureText: field.obscure,
@@ -203,31 +287,34 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                     ),
                   )),
                   
-                  const SizedBox(height: 8),
-                  
                   // Validation button and status
+                  const SizedBox(height: 8),
                   Row(
                     children: [
-                      FilledButton.icon(
-                        onPressed: _isValidating ? null : _validateCredentials,
-                        icon: _isValidating 
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.verified_user, size: 18),
-                        label: Text(_isValidating ? 'Validating...' : 'Validate'),
-                      ),
-                      const SizedBox(width: 12),
-                      if (_validationMessage != null)
-                        Expanded(
-                          child: Text(
-                            _validationMessage!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _isValid ? Colors.green : Colors.red,
-                            ),
-                          ),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isValidating ? null : _validateCredentials,
+                          child: _isValidating
+                            ? const SizedBox(
+                                width: 16, height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Validate Credentials'),
                         ),
+                      ),
                     ],
                   ),
+                  
+                  if (_validationMessage != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _validationMessage!,
+                      style: TextStyle(
+                        color: _isValid ? Colors.green : Colors.red,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

@@ -79,14 +79,18 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
           'client_id': _azureCredentials['client_id'],
           'client_secret': _azureCredentials['client_secret'],
           'tenant_id': _azureCredentials['tenant_id'],
+          'region': _azureCredentials['region'] ?? 'westeurope',
         };
       }
       
       if (_gcpCredentials['project_id']?.isNotEmpty == true || 
+          _gcpCredentials['billing_account']?.isNotEmpty == true ||
           _gcpServiceAccountJson != null) {
         configData['gcp'] = {
-          'project_id': _gcpCredentials['project_id'] ?? '',
-          'service_account_json': _gcpServiceAccountJson ?? '',
+          'project_id': _gcpCredentials['project_id'],
+          'billing_account': _gcpCredentials['billing_account'],
+          'region': _gcpCredentials['region'] ?? 'europe-west1',
+          'service_account_json': _gcpServiceAccountJson,
         };
       }
       
@@ -184,8 +188,8 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
             fields: const [
               CredentialField(name: 'access_key_id', label: 'Access Key ID'),
               CredentialField(name: 'secret_access_key', label: 'Secret Access Key', obscure: true),
-              CredentialField(name: 'region', label: 'Region', defaultValue: 'us-east-1'),
-              CredentialField(name: 'session_token', label: 'Session Token (optional)', obscure: true),
+              CredentialField(name: 'region', label: 'Region', defaultValue: 'eu-central-1'),
+              CredentialField(name: 'session_token', label: 'Session Token', obscure: true, required: false),
             ],
           ),
           
@@ -205,6 +209,7 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
               CredentialField(name: 'client_id', label: 'Client ID'),
               CredentialField(name: 'client_secret', label: 'Client Secret', obscure: true),
               CredentialField(name: 'tenant_id', label: 'Tenant ID'),
+              CredentialField(name: 'region', label: 'Region', defaultValue: 'westeurope'),
             ],
           ),
           
@@ -221,7 +226,9 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
             onCredentialsChanged: (creds) => _gcpCredentials = creds,
             onJsonUploaded: (json) => _gcpServiceAccountJson = json,
             fields: const [
-              CredentialField(name: 'project_id', label: 'Project ID'),
+              CredentialField(name: 'project_id', label: 'Project ID', required: false),
+              CredentialField(name: 'billing_account', label: 'Billing Account', required: false),
+              CredentialField(name: 'region', label: 'Region', defaultValue: 'europe-west1'),
             ],
             supportsJsonUpload: true,
           ),

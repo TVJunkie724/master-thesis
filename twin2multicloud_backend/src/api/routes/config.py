@@ -89,12 +89,19 @@ async def update_config(
         config.azure_client_id = encrypt(update.azure.client_id, current_user.id, twin_id)
         config.azure_client_secret = encrypt(update.azure.client_secret, current_user.id, twin_id)
         config.azure_tenant_id = encrypt(update.azure.tenant_id, current_user.id, twin_id)
+        config.azure_region = update.azure.region  # Not encrypted
         config.azure_validated = False
     
     # GCP - ENCRYPT with user+twin-specific key
     if update.gcp:
         config.gcp_project_id = update.gcp.project_id  # Not encrypted (public)
-        config.gcp_service_account_json = encrypt(update.gcp.service_account_json, current_user.id, twin_id)
+        if update.gcp.billing_account:
+            config.gcp_billing_account = encrypt(update.gcp.billing_account, current_user.id, twin_id)
+        else:
+            config.gcp_billing_account = None
+        config.gcp_region = update.gcp.region  # Not encrypted
+        if update.gcp.service_account_json:
+            config.gcp_service_account_json = encrypt(update.gcp.service_account_json, current_user.id, twin_id)
         config.gcp_validated = False
     
     db.commit()
@@ -145,16 +152,19 @@ async def validate_credentials(
             "azure_subscription_id": decrypt(config.azure_subscription_id, current_user.id, twin_id),
             "azure_client_id": decrypt(config.azure_client_id, current_user.id, twin_id),
             "azure_client_secret": decrypt(config.azure_client_secret, current_user.id, twin_id),
-            "azure_tenant_id": decrypt(config.azure_tenant_id, current_user.id, twin_id)
+            "azure_tenant_id": decrypt(config.azure_tenant_id, current_user.id, twin_id),
+            "azure_region": config.azure_region
         }
     elif provider == "gcp":
-        if not config.gcp_project_id:
+        if not config.gcp_project_id and not config.gcp_billing_account:
             return CredentialValidationResult(
-                provider="gcp", valid=False, message="GCP credentials not configured"
+                provider="gcp", valid=False, message="GCP credentials not configured (need project_id or billing_account)"
             )
         credentials = {
             "gcp_project_id": config.gcp_project_id,
-            "gcp_service_account_json": decrypt(config.gcp_service_account_json, current_user.id, twin_id)
+            "gcp_billing_account": decrypt(config.gcp_billing_account, current_user.id, twin_id) if config.gcp_billing_account else None,
+            "gcp_region": config.gcp_region,
+            "gcp_service_account_json": decrypt(config.gcp_service_account_json, current_user.id, twin_id) if config.gcp_service_account_json else None
         }
     
     # Call Deployer API
@@ -235,11 +245,14 @@ async def validate_credentials_inline(
             "azure_subscription_id": request.azure.subscription_id,
             "azure_client_id": request.azure.client_id,
             "azure_client_secret": request.azure.client_secret,
-            "azure_tenant_id": request.azure.tenant_id
+            "azure_tenant_id": request.azure.tenant_id,
+            "azure_region": request.azure.region
         }
     elif provider == "gcp" and request.gcp:
         credentials = {
             "gcp_project_id": request.gcp.project_id,
+            "gcp_billing_account": request.gcp.billing_account,
+            "gcp_region": request.gcp.region,
             "gcp_service_account_json": request.gcp.service_account_json
         }
     else:

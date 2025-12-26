@@ -32,10 +32,13 @@ class TwinConfiguration(Base):
     azure_client_id = Column(String, nullable=True)  # Encrypted
     azure_client_secret = Column(String, nullable=True)  # Encrypted
     azure_tenant_id = Column(String, nullable=True)  # Encrypted
+    azure_region = Column(String, default="westeurope")  # Not encrypted
     azure_validated = Column(Boolean, default=False)
     
     # GCP credentials (ENCRYPTED - full JSON)
     gcp_project_id = Column(String, nullable=True)  # Not encrypted (usually public)
+    gcp_billing_account = Column(String, nullable=True)  # Encrypted
+    gcp_region = Column(String, default="europe-west1")  # Not encrypted
     gcp_service_account_json = Column(Text, nullable=True)  # Encrypted (contains private key)
     gcp_validated = Column(Boolean, default=False)
     
