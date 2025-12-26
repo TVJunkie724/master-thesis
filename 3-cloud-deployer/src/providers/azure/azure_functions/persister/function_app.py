@@ -190,6 +190,24 @@ def _push_to_adt(event: dict) -> None:
         logging.warning(f"ADT push failed (non-fatal): {e}")
 
 
+# ==========================================
+# Configuration Validation
+# ==========================================
+
+def _validate_config():
+    """
+    Validate configuration at runtime based on active mode.
+    Raises ConfigurationError if invalid.
+    """
+    if not _is_multi_cloud_storage():
+        # Single-cloud mode requires Cosmos DB config
+        if not all([COSMOS_DB_ENDPOINT, COSMOS_DB_KEY, COSMOS_DB_DATABASE, COSMOS_DB_CONTAINER]):
+            raise ConfigurationError(
+                "Cosmos DB configuration (ENDPOINT, KEY, DATABASE, CONTAINER) "
+                "is required for single-cloud storage mode"
+            )
+
+
 @bp.function_name(name="persister")
 @bp.route(route="persister", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def persister(req: func.HttpRequest) -> func.HttpResponse:
@@ -200,6 +218,9 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
     based on multi-cloud configuration.
     """
     logging.info("Azure Persister: Received request")
+    
+    # Fail-fast validation
+    _validate_config()
     
     try:
         # Parse input data

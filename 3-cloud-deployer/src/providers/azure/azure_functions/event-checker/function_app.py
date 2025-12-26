@@ -31,6 +31,11 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
+class ConfigurationError(Exception):
+    """Raised when required configuration is missing."""
+    pass
+
+
 # DIGITAL_TWIN_INFO is lazy-loaded to allow Azure function discovery
 # (module-level require_env would fail during import if env var is missing)
 _digital_twin_info = None
@@ -169,6 +174,22 @@ def _send_feedback(feedback_payload: dict) -> None:
         raise
 
 
+# ==========================================
+# Configuration Validation
+# ==========================================
+
+def _validate_config():
+    """
+    Validate configuration for enabled features.
+    Raises ConfigurationError if dependencies are missing.
+    """
+    if USE_LOGIC_APPS and not LOGIC_APP_TRIGGER_URL:
+        raise ConfigurationError("LOGIC_APP_TRIGGER_URL is required when USE_LOGIC_APPS is enabled")
+    
+    if USE_FEEDBACK and not FEEDBACK_FUNCTION_URL:
+        raise ConfigurationError("FEEDBACK_FUNCTION_URL is required when USE_FEEDBACK is enabled")
+
+
 @bp.function_name(name="event-checker")
 @bp.route(route="event-checker", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def event_checker(req: func.HttpRequest) -> func.HttpResponse:
@@ -176,6 +197,9 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
     Evaluate data against configured event rules and trigger actions.
     """
     logging.info("Azure Event Checker: Checking events")
+    
+    # Fail-fast validation
+    _validate_config()
     
     try:
         event = req.get_json()
@@ -261,6 +285,14 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(
             json.dumps({"checked": len(config_events), "results": results}),
             status_code=200,
+            mimetype="application/json"
+        )
+        
+    except ConfigurationError as e:
+        logging.error(f"Configuration Error: {e}")
+        return func.HttpResponse(
+            json.dumps({"error": str(e)}),
+            status_code=500,
             mimetype="application/json"
         )
         

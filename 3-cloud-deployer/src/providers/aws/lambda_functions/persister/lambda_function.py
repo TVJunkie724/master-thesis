@@ -159,6 +159,21 @@ def _push_to_adt(event: dict) -> None:
 
 
 # ==========================================
+# Configuration Validation
+# ==========================================
+
+def _validate_config():
+    """
+    Validate configuration at runtime based on active mode.
+    Raises ConfigurationError if invalid.
+    """
+    # If NOT in multi-cloud storage mode, we MUST have local storage config
+    if not _is_multi_cloud_storage():
+        if not DYNAMODB_TABLE_NAME:
+            raise ConfigurationError("DYNAMODB_TABLE_NAME is required for single-cloud storage mode")
+
+
+# ==========================================
 # Handler
 # ==========================================
 
@@ -181,6 +196,9 @@ def lambda_handler(event, context):
     print("Event: " + json.dumps(event))
 
     try:
+        # Fail-fast validaton
+        _validate_config()
+
         if "time" not in event:
             raise ValueError("Missing 'time' in event, cannot persist.")
 

@@ -207,11 +207,13 @@ def hot_reader(req: func.HttpRequest) -> func.HttpResponse:
         headers = dict(req.headers)
         
         # Validate token for cross-cloud requests
-        if _is_http_request_with_token(headers):
-            logging.info("Cross-cloud request - validating token")
+        # CRITICAL: If token is configured, we MUST validate it for all requests.
+        # Do not allow requests to bypass validation by simply omitting the header.
+        if INTER_CLOUD_TOKEN:
+            logging.info("INTER_CLOUD_TOKEN configured - strictly enforcing authentication")
             if not validate_token(headers, INTER_CLOUD_TOKEN):
                 return func.HttpResponse(
-                    json.dumps({"error": "Unauthorized", "message": "Invalid X-Inter-Cloud-Token"}),
+                    json.dumps({"error": "Unauthorized", "message": "Invalid or missing X-Inter-Cloud-Token"}),
                     status_code=401,
                     mimetype="application/json"
                 )

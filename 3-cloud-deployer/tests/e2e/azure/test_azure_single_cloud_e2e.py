@@ -192,7 +192,8 @@ class TestAzureSingleCloudE2E:
                 print("!"*60)
         
         # Register cleanup to run ALWAYS (on success or failure)
-        request.addfinalizer(terraform_cleanup)
+        # TODO: TEMPORARILY DISABLED FOR DEBUGGING - uncomment when done:
+        # request.addfinalizer(terraform_cleanup)
         
         # ==========================================
         # PHASE 4: Terraform Deployment
