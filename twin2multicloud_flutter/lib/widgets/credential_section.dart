@@ -30,7 +30,8 @@ class CredentialSection extends ConsumerStatefulWidget {
   final Color color;
   final List<CredentialField> fields;
   final bool supportsJsonUpload;
-  final bool supportsCredentialsUpload;  // NEW - for config_credentials.json style uploads
+  final bool supportsCredentialsUpload;
+  final bool isConfigured; // NEW: Indicates backend has hidden credentials
   final Function(bool) onValidationChanged;
   final Function(Map<String, String>) onCredentialsChanged;
   final Function(String)? onJsonUploaded;
@@ -47,7 +48,8 @@ class CredentialSection extends ConsumerStatefulWidget {
     required this.onCredentialsChanged,
     this.onJsonUploaded,
     this.supportsJsonUpload = false,
-    this.supportsCredentialsUpload = true,  // Default: allow credentials JSON upload for all
+    this.supportsCredentialsUpload = true,
+    this.isConfigured = false,
   });
   
   @override
@@ -55,10 +57,17 @@ class CredentialSection extends ConsumerStatefulWidget {
 }
 
 class _CredentialSectionState extends ConsumerState<CredentialSection> {
-  bool _isExpanded = false;
   bool _isValidating = false;
-  bool _isValid = false;
-  String? _validationMessage;
+  
+  // Dual validation state
+  bool _optimizerValid = false;
+  bool _deployerValid = false;
+  String? _optimizerMessage;
+  String? _deployerMessage;
+  
+  // Overall valid only if BOTH pass
+  bool get _isValid => (_optimizerValid && _deployerValid) || (widget.isConfigured && _optimizerMessage == null && _deployerMessage == null);
+  
   final Map<String, TextEditingController> _controllers = {};
   
   @override
@@ -90,10 +99,12 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
     return true;
   }
   
+  /// Validate credentials against BOTH Optimizer and Deployer APIs
   Future<void> _validateCredentials() async {
     setState(() {
       _isValidating = true;
-      _validationMessage = null;
+      _optimizerMessage = null;
+      _deployerMessage = null;
     });
     
     try {
@@ -107,12 +118,44 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
         }
       }
       
-      // Use inline validation (no twin required)
-      final result = await api.validateCredentialsInline(widget.provider, credentials);
+      // Use DUAL validation (calls both Optimizer and Deployer)
+      Map<String, dynamic> result;
+      
+      // Determine validation mode: Stored vs New
+      if (widget.twinId != null && widget.isConfigured && !_areRequiredFieldsFilled()) {
+        // Mode 1: Validate Stored Credentials
+        debugPrint('Validating STORED credentials for ${widget.provider}');
+        result = await api.validateStoredCredentialsDual(widget.twinId!, widget.provider);
+        debugPrint('Stored validation result: $result');
+      } else {
+        // Mode 2: Validate New/Existing (Typed) Credentials
+        debugPrint('Validating TYPED credentials for ${widget.provider}');
+        result = await api.validateCredentialsDual(widget.provider, credentials);
+      }
+      
+      final optimizer = result['optimizer'] as Map<String, dynamic>? ?? {};
+      final deployer = result['deployer'] as Map<String, dynamic>? ?? {};
+      
+      // Helper to detect success from message
+      bool isSuccessMessage(String? msg) {
+        if (msg == null) return false;
+        final lower = msg.toLowerCase();
+        return lower.contains('all required permissions') ||
+               lower.contains('permissions are present') ||
+               lower.contains('valid') ||
+               lower.contains('success') ||
+               msg.startsWith('✓');
+      }
+      
+      // Parse valid flag OR detect from message
+      final optimizerMsg = optimizer['message']?.toString() ?? 'Validation complete';
+      final deployerMsg = deployer['message']?.toString() ?? 'Validation complete';
       
       setState(() {
-        _isValid = result['valid'] ?? false;
-        _validationMessage = result['message'] ?? 'Validation complete';
+        _optimizerValid = (optimizer['valid'] == true) || isSuccessMessage(optimizerMsg);
+        _optimizerMessage = optimizerMsg;
+        _deployerValid = (deployer['valid'] == true) || isSuccessMessage(deployerMsg);
+        _deployerMessage = deployerMsg;
       });
       
       widget.onValidationChanged(_isValid);
@@ -128,14 +171,18 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
         errorMsg = '❌ Connection error: ${e.message}';
       }
       setState(() {
-        _isValid = false;
-        _validationMessage = errorMsg;
+        _optimizerValid = false;
+        _deployerValid = false;
+        _optimizerMessage = errorMsg;
+        _deployerMessage = errorMsg;
       });
       widget.onValidationChanged(false);
     } catch (e) {
       setState(() {
-        _isValid = false;
-        _validationMessage = '❌ Validation failed: $e';
+        _optimizerValid = false;
+        _deployerValid = false;
+        _optimizerMessage = '❌ Validation failed: $e';
+        _deployerMessage = '❌ Validation failed: $e';
       });
       widget.onValidationChanged(false);
     } finally {
@@ -162,15 +209,16 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       
       widget.onJsonUploaded?.call(jsonString);
       
-      setState(() {
-        _validationMessage = 'JSON file loaded: ${file.name}';
-      });
-      
       _notifyCredentialsChanged();
+      
+      // Auto-trigger validation after GCP JSON upload
+      await _validateCredentials();
     } catch (e) {
       setState(() {
-        _validationMessage = 'Failed to load JSON: $e';
-        _isValid = false;
+        _optimizerMessage = 'Failed to load JSON: $e';
+        _deployerMessage = null;
+        _optimizerValid = false;
+        _deployerValid = false;
       });
     }
   }
@@ -195,9 +243,11 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       if (providerData == null) {
         // Show warning if provider section not found
         setState(() {
-          _validationMessage = '⚠️ No "${widget.provider}" section found in JSON. '
+          _optimizerMessage = '⚠️ No "${widget.provider}" section found in JSON. '
               'Expected format: { "${widget.provider}": { ... } }';
-          _isValid = false;
+          _deployerMessage = null;
+          _optimizerValid = false;
+          _deployerValid = false;
         });
         return;
       }
@@ -217,21 +267,27 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       
       if (fieldsPopulated == 0) {
         setState(() {
-          _validationMessage = '⚠️ No matching fields found in "${widget.provider}" section. '
+          _optimizerMessage = '⚠️ No matching fields found in "${widget.provider}" section. '
               'Check the expected format (ℹ️ button).';
-          _isValid = false;
+          _deployerMessage = null;
+          _optimizerValid = false;
+          _deployerValid = false;
         });
       } else {
-        setState(() {
-          _validationMessage = '✓ Loaded $fieldsPopulated field(s) from ${file.name}';
-        });
+        _notifyCredentialsChanged();
+        
+        // Auto-trigger dual validation after file upload
+        await _validateCredentials();
+        return;  // Validation sets all state
       }
       
       _notifyCredentialsChanged();
     } catch (e) {
       setState(() {
-        _validationMessage = '❌ Failed to parse JSON: $e';
-        _isValid = false;
+        _optimizerMessage = '❌ Failed to parse JSON: $e';
+        _deployerMessage = null;
+        _optimizerValid = false;
+        _deployerValid = false;
       });
     }
   }
@@ -273,125 +329,410 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
     }
     widget.onCredentialsChanged(creds);
   }
-  
   @override
   Widget build(BuildContext context) {
+    // Use actual _isValid (getter that checks both optimizer AND deployer)
+    final bool showAsValid = _isValid;
+    debugPrint('CredentialSection Build: provider=${widget.provider}, isConfigured=${widget.isConfigured}, showAsValid=$showAsValid');
+    for(final f in widget.fields) {
+       debugPrint('Field ${f.name}: text="${_controllers[f.name]?.text}", isEmpty=${_controllers[f.name]?.text.isEmpty}');
+    }
+
+    final bool hasAnyValidation = _optimizerMessage != null || _deployerMessage != null;
+    
     return Card(
-      child: Column(
-        children: [
-          ListTile(
-            leading: Icon(widget.icon, color: widget.color),
-            title: Text(widget.title),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
+      // Use green border instead of light green background for dark mode compatibility
+      shape: showAsValid 
+        ? RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.green.shade600, width: 2),
+          )
+        : null,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row with title and validation status
+            Row(
               children: [
-                // Schema info button
-                IconButton(
-                  icon: const Icon(Icons.info_outline, size: 18),
-                  tooltip: 'Show expected JSON format',
-                  onPressed: _showSchemaDialog,
-                ),
-                // Upload credentials JSON button
-                if (widget.supportsCredentialsUpload)
-                  IconButton(
-                    icon: const Icon(Icons.upload_file, size: 20),
-                    tooltip: 'Upload credentials JSON',
-                    onPressed: _uploadCredentialsJson,
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: showAsValid 
+                      ? Colors.green.shade600
+                      : widget.color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                if (_isValid)
-                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
-                Icon(_isExpanded ? Icons.expand_less : Icons.expand_more),
+                  child: Icon(
+                    showAsValid ? Icons.check : widget.icon, 
+                    color: showAsValid ? Colors.white : widget.color, 
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (showAsValid)
+                        Text(
+                          (widget.isConfigured && !_optimizerValid && !_deployerValid) 
+                              ? 'Credentials Configured (Hidden) ✓'
+                              : 'Credentials validated ✓',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.green.shade400,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (showAsValid)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade600,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.white, size: 16),
+                        SizedBox(width: 4),
+                        Text('Valid', style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        )),
+                      ],
+                    ),
+                  ),
               ],
             ),
-            onTap: () => setState(() => _isExpanded = !_isExpanded),
-          ),
-          
-          if (_isExpanded) ...[
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // GCP Service Account JSON Upload button
-                  if (widget.supportsJsonUpload) ...[
-                    OutlinedButton.icon(
-                      onPressed: _pickJsonFile,
-                      icon: const Icon(Icons.upload_file),
-                      label: const Text('Upload Service Account JSON'),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text('Or enter credentials manually:', 
-                      style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
-                    const SizedBox(height: 8),
-                  ],
-                  
-                  // Credential fields
-                  ...widget.fields.map((field) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: TextField(
-                      controller: _controllers[field.name],
-                      decoration: InputDecoration(
-                        labelText: field.required 
-                          ? field.label 
-                          : '${field.label} (optional)',
-                        border: const OutlineInputBorder(),
+            
+            // Prominent success banner when both validations pass
+            if (showAsValid) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade600,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.verified, color: Colors.white, size: 24),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Section Complete',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            'Both pricing and infrastructure permissions verified',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
-                      obscureText: field.obscure,
-                      onChanged: (_) {
-                        _notifyCredentialsChanged();
-                        setState(() {});  // Refresh UI for button state
-                      },
                     ),
-                  )),
-                  
-                  // Validation button and status
-                  const SizedBox(height: 8),
-                  Row(
+                    const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  ],
+                ),
+              ),
+            ],
+            
+            const SizedBox(height: 16),
+            
+            // Action buttons row - Upload first, then View Format
+            Row(
+              children: [
+                // Upload credentials button (FIRST)
+                if (widget.supportsCredentialsUpload)
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      onPressed: _uploadCredentialsJson,
+                      icon: const Icon(Icons.upload_file),
+                      label: const Text('Upload Credentials'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                if (widget.supportsCredentialsUpload)
+                  const SizedBox(width: 12),
+                // Format info button (SECOND)
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _showSchemaDialog,
+                    icon: const Icon(Icons.info_outline),
+                    label: const Text('View JSON Format'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Upload config_credentials.json to auto-fill fields below',
+              style: TextStyle(
+                fontSize: 11,
+                color: showAsValid 
+                  ? Colors.green.shade700 
+                  : Theme.of(context).colorScheme.outline,
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            Divider(color: showAsValid ? Colors.green.shade200 : null),
+            const SizedBox(height: 16),
+            
+            // GCP Service Account JSON Upload button (special case)
+            if (widget.supportsJsonUpload) ...[
+              FilledButton.icon(
+                onPressed: _pickJsonFile,
+                icon: const Icon(Icons.cloud_upload),
+                label: const Text('Upload Service Account JSON'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Upload your GCP service account key file (.json)',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: showAsValid 
+                    ? Colors.green.shade700 
+                    : Theme.of(context).colorScheme.outline,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(child: Divider(color: showAsValid ? Colors.green.shade600 : null)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('OR', style: TextStyle(
+                      fontSize: 12,
+                      color: showAsValid 
+                        ? Colors.green.shade400 
+                        : Theme.of(context).colorScheme.outline,
+                    )),
+                  ),
+                  Expanded(child: Divider(color: showAsValid ? Colors.green.shade600 : null)),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+            
+            // Credential fields
+            ...widget.fields.map((field) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: TextField(
+                controller: _controllers[field.name],
+                decoration: InputDecoration(
+                  labelText: field.required 
+                    ? field.label 
+                    : '${field.label} (optional)',
+                  hintText: (widget.isConfigured && _controllers[field.name]?.text.isEmpty == true)
+                      ? '•••••••••••••••• (Stored Securely)' 
+                      : null,
+                  hintStyle: TextStyle(
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.w500,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  floatingLabelBehavior: FloatingLabelBehavior.always, // Ensure hint is visible
+                  border: const OutlineInputBorder(),
+                  // Don't change field colors when valid - keep default theme colors
+                ),
+                obscureText: field.obscure && _controllers[field.name]?.text.isNotEmpty == true, // Hide typed text, show hint otherwise
+                onChanged: (_) {
+                  _notifyCredentialsChanged();
+                  setState(() {});  // Refresh UI for button state
+                },
+              ),
+            )),
+            
+            // Validation button and status
+            const SizedBox(height: 8),
+            // Validation button and status
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: showAsValid 
+                ? OutlinedButton.icon(
+                    onPressed: _isValidating ? null : _validateCredentials,
+                    icon: _isValidating 
+                      ? const SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh),
+                    label: const Text('Re-validate'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      foregroundColor: Colors.green.shade400,
+                      side: BorderSide(color: Colors.green.shade600),
+                    ),
+                  )
+                : ElevatedButton.icon(
+                    // Enable button if fields are filled OR if we can validate stored credentials
+                    onPressed: (_isValidating || (!_areRequiredFieldsFilled() && !widget.isConfigured)) 
+                        ? null 
+                        : _validateCredentials,
+                    icon: _isValidating
+                      ? const SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.verified_user),
+                    label: Text(
+                      (widget.isConfigured && !_areRequiredFieldsFilled())
+                          ? 'Validate Stored Credentials'
+                          : 'Validate Credentials'
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+            ),
+            if (!_areRequiredFieldsFilled() && !widget.isConfigured && !showAsValid) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Fill all required fields to enable validation',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.outline,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+            
+            // DUAL Validation Results - Two separate boxes
+            if (hasAnyValidation) ...[
+              const SizedBox(height: 12),
+              
+              // Optimizer result (Pricing permissions)
+              if (_optimizerMessage != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _optimizerValid 
+                      ? Colors.green.withOpacity(0.15) 
+                      : Colors.red.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _optimizerValid ? Colors.green.shade600 : Colors.red.shade400,
+                    ),
+                  ),
+                  child: Row(
                     children: [
+                      Icon(
+                        _optimizerValid ? Icons.check_circle : Icons.error,
+                        color: _optimizerValid ? Colors.green.shade400 : Colors.red.shade400,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
                       Expanded(
-                        child: ElevatedButton(
-                          onPressed: (_isValidating || !_areRequiredFieldsFilled()) 
-                              ? null 
-                              : _validateCredentials,
-                          child: _isValidating
-                            ? const SizedBox(
-                                width: 16, height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('Validate Credentials'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Optimizer (Pricing)',
+                              style: TextStyle(
+                                color: _optimizerValid ? Colors.green.shade400 : Colors.red.shade400,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              _optimizerMessage!,
+                              style: TextStyle(
+                                color: _optimizerValid ? Colors.green.shade300 : Colors.red.shade300,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  if (!_areRequiredFieldsFilled()) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Fill all required fields to enable validation',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.outline,
-                        fontStyle: FontStyle.italic,
-                      ),
+                ),
+              
+              const SizedBox(height: 8),
+              
+              // Deployer result (Infrastructure permissions)
+              if (_deployerMessage != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _deployerValid 
+                      ? Colors.green.withOpacity(0.15) 
+                      : Colors.red.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _deployerValid ? Colors.green.shade600 : Colors.red.shade400,
                     ),
-                  ],
-                  
-                  if (_validationMessage != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      _validationMessage!,
-                      style: TextStyle(
-                        color: _isValid ? Colors.green : Colors.red,
-                        fontSize: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _deployerValid ? Icons.check_circle : Icons.error,
+                        color: _deployerValid ? Colors.green.shade400 : Colors.red.shade400,
+                        size: 18,
                       ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Deployer (Infrastructure)',
+                              style: TextStyle(
+                                color: _deployerValid ? Colors.green.shade400 : Colors.red.shade400,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              _deployerMessage!,
+                              style: TextStyle(
+                                color: _deployerValid ? Colors.green.shade300 : Colors.red.shade300,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
 }
+

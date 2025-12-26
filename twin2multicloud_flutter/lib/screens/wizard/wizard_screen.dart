@@ -19,11 +19,80 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   int _currentStep = 0;
   String? _activeTwinId;
   bool _isCreatingTwin = false;
+  bool _isLoading = false;
   
   @override
   void initState() {
     super.initState();
     _activeTwinId = widget.twinId;
+    if (_activeTwinId != null) {
+      _loadTwinStatus();
+    }
+  }
+
+  Future<void> _loadTwinStatus() async {
+    setState(() => _isLoading = true);
+    try {
+      final api = ref.read(apiServiceProvider);
+      
+      // Fetch twin state and config in parallel
+      final results = await Future.wait([
+        api.getTwin(_activeTwinId!),
+        api.getTwinConfig(_activeTwinId!),
+      ]);
+      
+      final twin = results[0];
+      final config = results[1];
+      final state = twin['state'];
+      
+      if (mounted) {
+        setState(() {
+          if (state == 'deployed') {
+            _currentStep = 2; // Deployer
+          } else if (state == 'configured') {
+            _currentStep = 2; // Deployer (Ready to deploy)
+          } else {
+            // State is 'draft' (or error/inactive)
+            // Check if we have valid credentials to determine if we can skip Step 1
+            bool hasCredentials = false;
+            
+            // Check AWS
+            final aws = config['aws'] as Map<String, dynamic>?;
+            if (aws != null && aws['access_key_id']?.toString().isNotEmpty == true) {
+              hasCredentials = true;
+            }
+            
+            // Check Azure
+            final azure = config['azure'] as Map<String, dynamic>?;
+            if (!hasCredentials) {
+              if (azure != null && azure['subscription_id']?.toString().isNotEmpty == true) {
+                hasCredentials = true;
+              }
+            }
+            
+            // Check GCP
+            final gcp = config['gcp'] as Map<String, dynamic>?;
+            if (!hasCredentials) {
+              if (gcp != null && gcp['project_id']?.toString().isNotEmpty == true) {
+                hasCredentials = true;
+              }
+            }
+            
+            if (hasCredentials) {
+              _currentStep = 1; // Optimizer (Step 1 completed)
+            } else {
+              _currentStep = 0; // Configuration
+            }
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading twin status: $e');
+      // Default to Step 1 on error
+      if (mounted) setState(() => _currentStep = 0);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
   
   Future<String> _createTwinIfNeeded(String name) async {
@@ -83,7 +152,11 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           ),
           _buildStepIndicator(),
           const Divider(height: 1),
-          Expanded(child: _buildStepContent()),
+          Expanded(
+            child: _isLoading 
+              ? const Center(child: CircularProgressIndicator())
+              : _buildStepContent(),
+          ),
         ],
       ),
     );

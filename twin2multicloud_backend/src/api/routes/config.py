@@ -315,8 +315,8 @@ async def validate_credentials_dual(
 ):
     """
     Validate credentials against BOTH Optimizer and Deployer APIs.
-    - Optimizer: Checks pricing API permissions
-    - Deployer: Checks infrastructure deployment permissions
+    - Optimizer: Checks pricing API permissions (simpler schema)
+    - Deployer: Checks infrastructure deployment permissions (requires extra fields)
     Returns separate results for each.
     """
     import asyncio
@@ -325,30 +325,56 @@ async def validate_credentials_dual(
     if provider not in ["aws", "azure", "gcp"]:
         raise HTTPException(status_code=400, detail="Invalid provider. Use: aws, azure, gcp")
     
-    # Build credentials payload from request
-    credentials = {}
+    # Build SEPARATE credential payloads for Optimizer vs Deployer
+    # They have different schema requirements
+    optimizer_creds = {}
+    deployer_creds = {}
+    
     if provider == "aws" and request.aws:
-        credentials = {
+        # AWS: Same schema for both
+        base_creds = {
             "aws_access_key_id": request.aws.access_key_id,
             "aws_secret_access_key": request.aws.secret_access_key,
             "aws_region": request.aws.region
         }
         if request.aws.session_token:
-            credentials["aws_session_token"] = request.aws.session_token
+            base_creds["aws_session_token"] = request.aws.session_token
+        optimizer_creds = base_creds.copy()
+        deployer_creds = base_creds.copy()
+        
     elif provider == "azure" and request.azure:
-        credentials = {
+        # Optimizer: Simple schema (just subscription + region, optional SP creds)
+        optimizer_creds = {
+            "azure_subscription_id": request.azure.subscription_id,
+            "azure_region": request.azure.region,
+            "azure_client_id": request.azure.client_id,
+            "azure_client_secret": request.azure.client_secret,
+            "azure_tenant_id": request.azure.tenant_id,
+        }
+        # Deployer: Requires extra region fields
+        deployer_creds = {
             "azure_subscription_id": request.azure.subscription_id,
             "azure_client_id": request.azure.client_id,
             "azure_client_secret": request.azure.client_secret,
             "azure_tenant_id": request.azure.tenant_id,
-            "azure_region": request.azure.region
+            "azure_region": request.azure.region,
+            "azure_region_iothub": request.azure.region,  # Use same region for now
+            "azure_region_digital_twin": request.azure.region,  # Use same region for now
         }
+        
     elif provider == "gcp" and request.gcp:
-        credentials = {
+        # Optimizer: Requires gcp_project_id (not billing_account), gcp_credentials_file
+        optimizer_creds = {
+            "gcp_project_id": request.gcp.project_id or "placeholder-project",  # Required by Optimizer
+            "gcp_credentials_file": request.gcp.service_account_json,  # File content, not path
+            "gcp_region": request.gcp.region,
+        }
+        # Deployer: Uses billing_account, gcp_credentials_file
+        deployer_creds = {
             "gcp_project_id": request.gcp.project_id,
             "gcp_billing_account": request.gcp.billing_account,
             "gcp_region": request.gcp.region,
-            "gcp_service_account_json": request.gcp.service_account_json
+            "gcp_credentials_file": request.gcp.service_account_json,
         }
     else:
         return {
@@ -358,13 +384,125 @@ async def validate_credentials_dual(
             "deployer": {"valid": False, "message": f"No {provider} credentials provided"}
         }
     
+    
+    # Use shared helper
+    return await _perform_dual_validation(provider, optimizer_creds, deployer_creds)
+
+
+@router.post("/validate-stored/{provider}")
+async def validate_stored_credentials_dual(
+    twin_id: str,
+    provider: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Validate STORED credentials against BOTH Optimizer and Deployer APIs.
+    Used when frontend fields are empty (hidden secrets).
+    """
+    if provider not in ["aws", "azure", "gcp"]:
+        raise HTTPException(status_code=400, detail="Invalid provider. Use: aws, azure, gcp")
+    
+    twin = await get_user_twin(twin_id, current_user, db)
+    config = twin.configuration
+    
+    if not config:
+        raise HTTPException(status_code=400, detail="No configuration found.")
+    
+    optimizer_creds = {}
+    deployer_creds = {}
+    
+    if provider == "aws":
+        if not config.aws_access_key_id:
+             raise HTTPException(status_code=400, detail="AWS credentials not configured")
+        
+        # AWS: Same schema for both
+        base_creds = {
+            "aws_access_key_id": decrypt(config.aws_access_key_id, current_user.id, twin_id),
+            "aws_secret_access_key": decrypt(config.aws_secret_access_key, current_user.id, twin_id),
+            "aws_region": config.aws_region
+        }
+        if config.aws_session_token:
+            base_creds["aws_session_token"] = decrypt(config.aws_session_token, current_user.id, twin_id)
+            
+        optimizer_creds = base_creds.copy()
+        deployer_creds = base_creds.copy()
+        
+    elif provider == "azure":
+        if not config.azure_subscription_id:
+             raise HTTPException(status_code=400, detail="Azure credentials not configured")
+             
+        decrypted_sub = decrypt(config.azure_subscription_id, current_user.id, twin_id)
+        decrypted_client = decrypt(config.azure_client_id, current_user.id, twin_id)
+        decrypted_secret = decrypt(config.azure_client_secret, current_user.id, twin_id)
+        decrypted_tenant = decrypt(config.azure_tenant_id, current_user.id, twin_id)
+        
+        # Optimizer
+        optimizer_creds = {
+            "azure_subscription_id": decrypted_sub,
+            "azure_region": config.azure_region,
+            "azure_client_id": decrypted_client,
+            "azure_client_secret": decrypted_secret,
+            "azure_tenant_id": decrypted_tenant,
+        }
+        # Deployer
+        deployer_creds = {
+            "azure_subscription_id": decrypted_sub,
+            "azure_client_id": decrypted_client,
+            "azure_client_secret": decrypted_secret,
+            "azure_tenant_id": decrypted_tenant,
+            "azure_region": config.azure_region,
+            "azure_region_iothub": config.azure_region,
+            "azure_region_digital_twin": config.azure_region,
+        }
+        
+    elif provider == "gcp":
+        if not config.gcp_project_id and not config.gcp_billing_account:
+             raise HTTPException(status_code=400, detail="GCP credentials not configured")
+             
+        decrypted_json = decrypt(config.gcp_service_account_json, current_user.id, twin_id) if config.gcp_service_account_json else None
+        decrypted_billing = decrypt(config.gcp_billing_account, current_user.id, twin_id) if config.gcp_billing_account else None
+        
+        # Optimizer
+        optimizer_creds = {
+            "gcp_project_id": config.gcp_project_id or "placeholder-project",
+            "gcp_credentials_file": decrypted_json,
+            "gcp_region": config.gcp_region,
+        }
+        # Deployer
+        deployer_creds = {
+            "gcp_project_id": config.gcp_project_id,
+            "gcp_billing_account": decrypted_billing,
+            "gcp_region": config.gcp_region,
+            "gcp_credentials_file": decrypted_json,
+        }
+
+    # Use shared helper
+    result = await _perform_dual_validation(provider, optimizer_creds, deployer_creds)
+    
+    # Update validation status in DB
+    valid = result.get("valid", False)
+    if provider == "aws":
+        config.aws_validated = valid
+    elif provider == "azure":
+        config.azure_validated = valid
+    elif provider == "gcp":
+        config.gcp_validated = valid
+    db.commit()
+    
+    return result
+
+
+async def _perform_dual_validation(provider: str, optimizer_creds: dict, deployer_creds: dict) -> dict:
+    """Helper to call both APIs in parallel."""
+    import asyncio
+    
     async def call_optimizer():
-        """Call Optimizer API for pricing permissions."""
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{settings.OPTIMIZER_URL}/permissions/verify/{provider}",
-                    json=credentials,
+                    json=optimizer_creds,
                     timeout=30.0
                 )
                 if response.status_code == 200:
@@ -390,12 +528,11 @@ async def validate_credentials_dual(
             }
     
     async def call_deployer():
-        """Call Deployer API for deployment permissions."""
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{settings.DEPLOYER_URL}/permissions/verify/{provider}",
-                    json=credentials,
+                    json=deployer_creds,
                     timeout=30.0
                 )
                 if response.status_code == 200:
@@ -421,13 +558,11 @@ async def validate_credentials_dual(
                 "message": f"Deployer error: {str(e)}"
             }
     
-    # Call both APIs in parallel
     optimizer_result, deployer_result = await asyncio.gather(
         call_optimizer(),
         call_deployer()
     )
     
-    # Return combined result
     return {
         "provider": provider,
         "valid": optimizer_result.get("valid", False) and deployer_result.get("valid", False),

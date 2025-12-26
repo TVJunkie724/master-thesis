@@ -29,11 +29,28 @@ class ApiService {
     return response.data;
   }
   
+  Future<Map<String, dynamic>> getTwin(String twinId) async {
+    final response = await _dio.get('/twins/$twinId');
+    return response.data;
+  }
+  
   Future<Map<String, dynamic>> createTwin(String name) async {
     final response = await _dio.post('/twins/', data: {'name': name});
     return response.data;
   }
   
+  Future<Map<String, dynamic>> updateTwin(
+    String twinId, 
+    {String? name, String? state}
+  ) async {
+    final data = <String, dynamic>{};
+    if (name != null) data['name'] = name;
+    if (state != null) data['state'] = state;
+    
+    final response = await _dio.put('/twins/$twinId', data: data);
+    return response.data;
+  }
+
   Future<Map<String, dynamic>> getTwinConfig(String twinId) async {
     final response = await _dio.get('/twins/$twinId/config/');
     return response.data;
@@ -82,6 +99,18 @@ class ApiService {
         'provider': provider,
         provider: credentials,
       },
+    );
+    return response.data;
+  }
+
+  /// Validate STORED credentials against BOTH APIs
+  /// Used when fields are empty (hidden secrets)
+  Future<Map<String, dynamic>> validateStoredCredentialsDual(
+    String twinId,
+    String provider,
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/config/validate-stored/$provider',
     );
     return response.data;
   }
