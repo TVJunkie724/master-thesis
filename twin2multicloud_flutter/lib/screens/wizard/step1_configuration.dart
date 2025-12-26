@@ -64,7 +64,7 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
         final awsConfig = {
           'access_key_id': _awsCredentials['access_key_id'],
           'secret_access_key': _awsCredentials['secret_access_key'],
-          'region': _awsCredentials['region'] ?? 'us-east-1',
+          'region': _awsCredentials['region'] ?? 'eu-central-1',
         };
         if (_awsCredentials['session_token']?.isNotEmpty == true) {
           awsConfig['session_token'] = _awsCredentials['session_token']!;

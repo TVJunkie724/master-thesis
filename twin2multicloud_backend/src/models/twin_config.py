@@ -23,7 +23,7 @@ class TwinConfiguration(Base):
     # AWS credentials (ENCRYPTED)
     aws_access_key_id = Column(String, nullable=True)  # Encrypted
     aws_secret_access_key = Column(String, nullable=True)  # Encrypted
-    aws_region = Column(String, default="us-east-1")  # Not encrypted (not sensitive)
+    aws_region = Column(String, default="eu-central-1")  # Not encrypted (not sensitive)
     aws_session_token = Column(String, nullable=True)  # Encrypted (optional for STS/SSO)
     aws_validated = Column(Boolean, default=False)
     
