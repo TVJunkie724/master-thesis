@@ -152,6 +152,44 @@ def _check_project_access(project_id: str) -> dict:
         return {"status": "error", "error": str(e)}
 
 
+def _validate_gcp_region(project_id: str, region: str) -> dict:
+    """
+    Validate GCP region exists for the project.
+    
+    Args:
+        project_id: GCP project ID
+        region: Region to validate (e.g., 'europe-west1')
+    
+    Returns:
+        Dict with 'valid' bool and either 'region' or 'error'
+    """
+    try:
+        from google.cloud import compute_v1
+        
+        client = compute_v1.RegionsClient()
+        regions = list(client.list(project=project_id))
+        valid_region_names = {r.name for r in regions}
+        
+        if region in valid_region_names:
+            return {"valid": True, "region": region}
+        
+        sample_regions = sorted(list(valid_region_names))[:10]
+        return {
+            "valid": False,
+            "error": f"Region '{region}' is not valid. Available regions: {', '.join(sample_regions)}..."
+        }
+        
+    except ImportError:
+        # SDK not installed - skip validation but warn
+        return {
+            "valid": True,
+            "skipped": True,
+            "warning": "google-cloud-compute not installed, region validation skipped"
+        }
+    except Exception as e:
+        return {"valid": False, "error": f"Failed to validate region: {str(e)}"}  
+
+
 def _check_enabled_apis(project_id: str) -> dict:
     """
     Check which required APIs are enabled for the project.
@@ -226,6 +264,7 @@ def check_gcp_credentials(credentials: dict) -> dict:
         "status": "invalid",
         "message": "",
         "caller_identity": None,
+        "region_validation": None,
         "project_access": None,
         "api_status": None,
         "required_roles": REQUIRED_GCP_ROLES,
@@ -293,7 +332,18 @@ def check_gcp_credentials(credentials: dict) -> dict:
                 result["message"] = f"Cannot access project {project_id}: {project_access.get('error', 'Unknown error')}"
             return result
         
-        # Step 3: Check enabled APIs
+        # Step 3: Validate region
+        region = credentials.get("gcp_region", "")
+        if region:
+            region_result = _validate_gcp_region(project_id, region)
+            result["region_validation"] = {"gcp_region": region_result}
+            
+            if not region_result.get("valid") and not region_result.get("skipped"):
+                result["status"] = "invalid"
+                result["message"] = region_result.get("error", f"Invalid region: {region}")
+                return result
+        
+        # Step 4: Check enabled APIs
         api_status = _check_enabled_apis(project_id)
         result["api_status"] = api_status
         

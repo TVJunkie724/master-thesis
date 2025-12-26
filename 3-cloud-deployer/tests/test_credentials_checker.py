@@ -220,9 +220,17 @@ class TestCheckAWSCredentials:
             }
         }
         
-        def client_factory(service_name):
+        # Mock EC2 client for region validation
+        mock_ec2 = Mock()
+        mock_ec2.describe_regions.return_value = {
+            "Regions": [{"RegionName": "us-east-1", "Endpoint": "ec2.us-east-1.amazonaws.com"}]
+        }
+        
+        def client_factory(service_name, **kwargs):
             if service_name == "sts":
                 return mock_sts
+            elif service_name == "ec2":
+                return mock_ec2
             return mock_iam
         
         mock_session.return_value.client.side_effect = client_factory
@@ -258,9 +266,17 @@ class TestCheckAWSCredentials:
             "ListUserPolicies"
         )
         
-        def client_factory(service_name):
+        # Mock EC2 client for region validation
+        mock_ec2 = Mock()
+        mock_ec2.describe_regions.return_value = {
+            "Regions": [{"RegionName": "us-east-1", "Endpoint": "ec2.us-east-1.amazonaws.com"}]
+        }
+        
+        def client_factory(service_name, **kwargs):
             if service_name == "sts":
                 return mock_sts
+            elif service_name == "ec2":
+                return mock_ec2
             return mock_iam
         
         mock_session.return_value.client.side_effect = client_factory
@@ -298,9 +314,17 @@ class TestCheckAWSCredentials:
             "ListRolePolicies"
         )
         
-        def client_factory(service_name):
+        # Mock EC2 client for region validation
+        mock_ec2 = Mock()
+        mock_ec2.describe_regions.return_value = {
+            "Regions": [{"RegionName": "us-east-1", "Endpoint": "ec2.us-east-1.amazonaws.com"}]
+        }
+        
+        def client_factory(service_name, **kwargs):
             if service_name == "sts":
                 return mock_sts
+            elif service_name == "ec2":
+                return mock_ec2
             return mock_iam
         
         mock_session.return_value.client.side_effect = client_factory
@@ -347,9 +371,17 @@ class TestCheckAWSCredentials:
             }
         }
         
-        def client_factory(service_name):
+        # Mock EC2 client for region validation
+        mock_ec2 = Mock()
+        mock_ec2.describe_regions.return_value = {
+            "Regions": [{"RegionName": "us-east-1", "Endpoint": "ec2.us-east-1.amazonaws.com"}]
+        }
+        
+        def client_factory(service_name, **kwargs):
             if service_name == "sts":
                 return mock_sts
+            elif service_name == "ec2":
+                return mock_ec2
             return mock_iam
         
         mock_session.return_value.client.side_effect = client_factory

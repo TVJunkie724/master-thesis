@@ -266,6 +266,41 @@ def _get_caller_identity(sts_client) -> dict:
     }
 
 
+def _validate_aws_region(session, region: str) -> dict:
+    """
+    Validate AWS region exists and is enabled for the account.
+    
+    Args:
+        session: Authenticated boto3 session
+        region: Region to validate (e.g., 'eu-central-1')
+    
+    Returns:
+        Dict with 'valid' bool and either 'region' or 'error'
+    """
+    try:
+        # Use us-east-1 to make the API call (always available)
+        ec2 = session.client("ec2", region_name="us-east-1")
+        response = ec2.describe_regions(
+            Filters=[{"Name": "region-name", "Values": [region]}],
+            AllRegions=False  # Only enabled regions
+        )
+        
+        if response.get("Regions"):
+            return {"valid": True, "region": region}
+        
+        # Region not found - get list of valid regions for helpful error
+        all_regions = ec2.describe_regions(AllRegions=False)
+        valid_names = sorted([r["RegionName"] for r in all_regions.get("Regions", [])])
+        return {
+            "valid": False,
+            "error": f"Region '{region}' is not available or not enabled. Valid regions: {', '.join(valid_names[:10])}..."
+        }
+    except ClientError as e:
+        return {"valid": False, "error": f"Failed to validate region: {e.response['Error']['Message']}"}
+    except Exception as e:
+        return {"valid": False, "error": f"Region validation error: {str(e)}"}
+
+
 def _get_attached_permissions(iam_client, caller_identity: dict) -> tuple:
     """
     Get all permissions from attached policies.
@@ -531,6 +566,7 @@ def check_aws_credentials(credentials: dict) -> dict:
         "status": "invalid",
         "message": "",
         "caller_identity": None,
+        "region_validation": None,
         "can_list_policies": False,
         "missing_check_permission": None,
         "by_layer": {},
@@ -566,7 +602,17 @@ def check_aws_credentials(credentials: dict) -> dict:
             result["message"] = "No credentials provided"
             return result
         
-        # Step 2: Get permissions from attached policies
+        # Step 2: Validate region
+        region = credentials.get("aws_region", "us-east-1")
+        region_result = _validate_aws_region(session, region)
+        result["region_validation"] = {"aws_region": region_result}
+        
+        if not region_result.get("valid"):
+            result["status"] = "invalid"
+            result["message"] = region_result.get("error", f"Invalid region: {region}")
+            return result
+        
+        # Step 3: Get permissions from attached policies
         available_permissions, check_error = _get_attached_permissions(iam_client, caller_identity)
         
         if check_error:
