@@ -224,11 +224,32 @@ def _get_all_required_permissions() -> dict:
 
 
 def _create_session(credentials: dict) -> boto3.Session:
-    """Create boto3 session from credentials dict."""
+    """
+    Create boto3 session for credential validation.
+    
+    IMPORTANT: We ALWAYS use 'us-east-1' as the session region, regardless of
+    the user-provided region. This is intentional and necessary because:
+    
+    1. AWS STS endpoint URLs are region-based (e.g., sts.eu-central-1.amazonaws.com)
+    2. If the user provides an invalid region (e.g., "eu-central" instead of 
+       "eu-central-1"), boto3 constructs an invalid endpoint URL
+    3. This causes a connection error BEFORE we can validate credentials:
+       "Could not connect to endpoint URL: https://sts.eu-central.amazonaws.com/"
+    
+    Solution: Use a known-valid region (us-east-1) for authentication, then
+    validate the user's actual region in a separate step using EC2.describe_regions().
+    STS authentication is region-independent - the same credentials work globally.
+    
+    The user's actual region is validated later via _validate_aws_region().
+    
+    Note: This AWS-specific issue does NOT affect Azure or GCP, which use global
+    authentication endpoints (login.microsoftonline.com, oauth2.googleapis.com).
+    """
     session_kwargs = {
         "aws_access_key_id": credentials.get("aws_access_key_id"),
         "aws_secret_access_key": credentials.get("aws_secret_access_key"),
-        "region_name": credentials.get("aws_region", "us-east-1"),
+        # Always use us-east-1 for auth - user's region is validated separately
+        "region_name": "us-east-1",
     }
     
     # Optional session token for temporary credentials
