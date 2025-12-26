@@ -66,6 +66,10 @@ resource "google_cloudfunctions2_function" "persister" {
         var.layer_3_hot_provider == "aws" ? try(aws_lambda_function_url.l0_hot_writer[0].function_url, "") :
         var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/hot-writer" : ""
       ) : ""
+
+      # Event checker (optional)
+      EVENT_CHECKER_FUNCTION_URL = var.use_event_checking ? "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net/${var.digital_twin_name}-event-checker" : ""
+      USE_EVENT_CHECKING         = var.use_event_checking ? "true" : "false"
     }
   }
 
@@ -216,10 +220,15 @@ resource "google_cloudfunctions2_function" "event_checker" {
       INTER_CLOUD_TOKEN     = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         try(random_password.inter_cloud_token[0].result, "")
       )
+      # Workflow trigger URL (if enabled)
+      WORKFLOW_TRIGGER_URL  = var.trigger_notification_workflow ? (
+        "https://workflowexecutions.googleapis.com/v1/projects/${local.gcp_project_id}/locations/${var.gcp_region}/workflows/${var.digital_twin_name}-event-workflow/executions"
+      ) : ""
       # Feedback function URL (if enabled)
       FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? (
-        try(google_cloudfunctions2_function.processor[0].url, "")
+        "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net/${var.digital_twin_name}-event-feedback"
       ) : ""
+      USE_FEEDBACK          = var.return_feedback_to_device ? "true" : "false"
     }
   }
 

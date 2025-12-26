@@ -97,10 +97,22 @@ resource "azurerm_linux_function_app" "l2" {
       var.layer_3_hot_provider == "google" ? try(google_cloudfunctions2_function.hot_writer[0].url, "") : ""
     ) : ""
 
+    # Multi-cloud L2→L4: When Azure L2 sends to Azure ADT
+    REMOTE_ADT_PUSHER_URL = var.layer_4_provider == "azure" ? (
+      "https://${var.digital_twin_name}-l0-glue.azurewebsites.net/api/adt-pusher"
+    ) : ""
+    ADT_PUSHER_TOKEN = var.layer_4_provider == "azure" ? (
+      var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+    ) : ""
+
     # Logic App trigger URL for event checking workflow
     LOGIC_APP_TRIGGER_URL = var.trigger_notification_workflow && var.use_event_checking ? (
       try(azurerm_logic_app_trigger_http_request.event_trigger[0].callback_url, "")
     ) : ""
+
+    # Event checker URL for event checking (optional)
+    EVENT_CHECKER_FUNCTION_URL = var.use_event_checking ? "https://${var.digital_twin_name}-l2-functions.azurewebsites.net/api/event-checker" : ""
+    USE_EVENT_CHECKING         = var.use_event_checking ? "true" : "false"
 
     # NEW: Required for Wrapper to find User Functions
     FUNCTION_APP_BASE_URL = "https://${var.digital_twin_name}-user-functions.azurewebsites.net"

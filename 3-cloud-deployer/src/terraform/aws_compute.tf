@@ -157,6 +157,10 @@ resource "aws_lambda_function" "l2_persister" {
 
       # Inter-cloud token for cross-cloud authentication
       INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+
+      # Event checking (optional)
+      EVENT_CHECKER_LAMBDA_NAME = var.use_event_checking ? "${var.digital_twin_name}-l2-event-checker" : ""
+      USE_EVENT_CHECKING        = var.use_event_checking ? "true" : "false"
     }
   }
 
@@ -183,7 +187,9 @@ resource "aws_lambda_function" "l2_event_checker" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO = var.digital_twin_info_json
+      DIGITAL_TWIN_INFO                  = var.digital_twin_info_json
+      EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN = var.return_feedback_to_device ? aws_lambda_function.event_feedback_wrapper[0].arn : ""
+      USE_FEEDBACK                       = var.return_feedback_to_device ? "true" : "false"
     }
   }
 
