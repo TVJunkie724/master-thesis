@@ -16,7 +16,7 @@ router = APIRouter(tags=["Pricing"])
 # Pricing Fetching Endpoints
 # --------------------------------------------------
 
-@router.post("/api/fetch_pricing/aws", summary="Fetch AWS Pricing")
+@router.post("/fetch_pricing/aws", summary="Fetch AWS Pricing")
 def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False):
     """
     Fetches the latest AWS pricing data.
@@ -40,7 +40,7 @@ def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
-@router.post("/api/fetch_pricing/azure", summary="Fetch Azure Pricing")
+@router.post("/fetch_pricing/azure", summary="Fetch Azure Pricing")
 def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = False):
     """
     Fetches the latest Azure pricing data.
@@ -64,7 +64,7 @@ def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = Fals
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
-@router.post("/api/fetch_pricing/gcp", summary="Fetch GCP Pricing")
+@router.post("/fetch_pricing/gcp", summary="Fetch GCP Pricing")
 def fetch_pricing_gcp(additional_debug: bool = False, force_fetch: bool = False):
     """
     Fetches the latest Google Cloud Platform (GCP) pricing data.
@@ -92,7 +92,7 @@ def fetch_pricing_gcp(additional_debug: bool = False, force_fetch: bool = False)
 # Currency Endpoint
 # --------------------------------------------------
 
-@router.post("/api/fetch_currency", summary="Fetch Currency Rates")
+@router.post("/fetch_currency", summary="Fetch Currency Rates")
 def fetch_currency_rates():
     """
     Fetches up-to-date currency exchange rates (USD/EUR).
@@ -109,3 +109,71 @@ def fetch_currency_rates():
     except Exception as e:
         logger.error(f"Error fetching currency rates: {e}")
         return {"error": str(e)}
+
+
+# --------------------------------------------------
+# Credential-based Pricing Endpoint (for Management API)
+# --------------------------------------------------
+
+from fastapi import Body
+from pydantic import BaseModel
+from typing import Optional
+
+
+class CredentialRequest(BaseModel):
+    """Credentials for pricing fetch."""
+    # AWS
+    aws_access_key_id: Optional[str] = None
+    aws_secret_access_key: Optional[str] = None
+    aws_region: Optional[str] = "eu-central-1"
+    # GCP
+    gcp_service_account_json: Optional[str] = None
+    gcp_region: Optional[str] = "europe-west1"
+
+
+@router.post("/fetch_pricing_with_credentials/{provider}", summary="Fetch Pricing with Credentials")
+def fetch_pricing_with_credentials(
+    provider: str,
+    credentials: CredentialRequest = Body(...),
+    force_fetch: bool = True
+):
+    """
+    Fetch pricing using credentials from request body (for Management API integration).
+    
+    This endpoint is used by the Management API to refresh pricing data using
+    credentials stored in the twin configuration (from Step 1).
+    
+    - **provider**: aws, azure, or gcp
+    - **credentials**: Provider-specific credentials
+    - **force_fetch**: Always fetch fresh data (default: True)
+    
+    **Credential Requirements:**
+    - AWS: aws_access_key_id, aws_secret_access_key, aws_region
+    - Azure: None (public API)
+    - GCP: gcp_service_account_json, gcp_region
+    """
+    if provider not in ["aws", "azure", "gcp"]:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=400, content={"error": f"Invalid provider: {provider}"})
+    
+    try:
+        # Azure uses public API - no credentials needed
+        if provider == "azure":
+            if not force_fetch and is_file_fresh(CONSTANTS.AZURE_PRICING_FILE_PATH, max_age_days=7):
+                logger.info("✅ Using cached Azure pricing data")
+                return load_json_file(CONSTANTS.AZURE_PRICING_FILE_PATH)
+            logger.info("🔄 Fetching fresh Azure pricing...")
+            return calculate_up_to_date_pricing("azure", additional_debug=False)
+        
+        # AWS/GCP need credentials
+        from backend.fetch_data.calculate_up_to_date_pricing import (
+            calculate_up_to_date_pricing_with_credentials
+        )
+        
+        creds_dict = credentials.model_dump()
+        return calculate_up_to_date_pricing_with_credentials(provider, creds_dict)
+        
+    except Exception as e:
+        logger.error(f"Error fetching {provider} pricing with credentials: {e}")
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=500, content={"error": str(e)})

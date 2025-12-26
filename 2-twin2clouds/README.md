@@ -94,13 +94,13 @@ Before fetching pricing data, verify your credentials are correctly configured:
 
 ```bash
 # Check AWS credentials
-curl http://localhost:5003/api/credentials/check/aws
+curl http://localhost:5003/permissions/verify/aws
 
 # Check GCP credentials
-curl http://localhost:5003/api/credentials/check/gcp
+curl http://localhost:5003/permissions/verify/gcp
 
 # Check Azure configuration
-curl http://localhost:5003/api/credentials/check/azure
+curl http://localhost:5003/permissions/verify/azure
 ```
 
 
@@ -119,9 +119,9 @@ curl http://localhost:5003/api/credentials/check/azure
 **Update Pricing:**
 ```bash
 # Via API endpoint
-curl -X POST "http://localhost:5003/api/fetch_pricing/aws"
-curl -X POST "http://localhost:5003/api/fetch_pricing/azure"
-curl -X POST "http://localhost:5003/api/fetch_pricing/gcp"
+curl -X POST "http://localhost:5003/fetch_pricing/aws"
+curl -X POST "http://localhost:5003/fetch_pricing/azure"
+curl -X POST "http://localhost:5003/fetch_pricing/gcp"
 ```
 
 ### API Endpoints
@@ -129,10 +129,10 @@ curl -X POST "http://localhost:5003/api/fetch_pricing/gcp"
 | Category | Method | Endpoint | Description |
 |----------|--------|----------|-------------|
 | UI | GET | `/ui` | Web interface |
-| Calculation | PUT | `/api/calculate` | Calculate costs for given parameters |
-| Pricing | POST | `/api/fetch_pricing/{provider}` | Fetch latest cloud pricing |
-| Credentials | GET | `/api/credentials/check/{provider}` | Validate credentials from config |
-| Credentials | POST | `/api/credentials/check/{provider}` | Validate credentials from body |
+| Calculation | PUT | `/calculate` | Calculate costs for given parameters |
+| Pricing | POST | `/fetch_pricing/{provider}` | Fetch latest cloud pricing |
+| Permissions - Project | GET | `/permissions/verify/{provider}` | Validate credentials from project config |
+| Permissions - Upload | POST | `/permissions/verify/{provider}` | Validate credentials from request body |
 | Docs | GET | `/docs` | Interactive API documentation (Swagger UI) |
 
 ### Repository layout

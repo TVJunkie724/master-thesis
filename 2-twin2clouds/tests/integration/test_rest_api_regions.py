@@ -11,7 +11,7 @@ client = TestClient(app)
 
 def test_fetch_regions_aws_default():
     """
-    Test POST /api/fetch_regions/aws without params.
+    Test POST /fetch_regions/aws without params.
     Should default to force_fetch=False.
     If file is fresh, should use cache.
     """
@@ -23,7 +23,7 @@ def test_fetch_regions_aws_default():
         mock_is_fresh.return_value = True
         mock_load.return_value = {"cached": "aws"}
         
-        response = client.post("/api/fetch_regions/aws")
+        response = client.post("/fetch_regions/aws")
         
         assert response.status_code == 200
         assert response.json() == {"cached": "aws"}
@@ -31,7 +31,7 @@ def test_fetch_regions_aws_default():
 
 def test_fetch_regions_aws_force():
     """
-    Test POST /api/fetch_regions/aws with force_fetch=True.
+    Test POST /fetch_regions/aws with force_fetch=True.
     Should ignore cache and call fetch_region_map.
     """
     with patch("api.regions.is_file_fresh") as mock_is_fresh, \
@@ -41,7 +41,7 @@ def test_fetch_regions_aws_force():
         mock_is_fresh.return_value = True
         mock_fetch.return_value = {"fresh": "aws"}
         
-        response = client.post("/api/fetch_regions/aws?force_fetch=true")
+        response = client.post("/fetch_regions/aws?force_fetch=true")
         
         assert response.status_code == 200
         assert response.json() == {"fresh": "aws"}
@@ -49,7 +49,7 @@ def test_fetch_regions_aws_force():
 
 def test_fetch_regions_aws_stale():
     """
-    Test POST /api/fetch_regions/aws when file is stale.
+    Test POST /fetch_regions/aws when file is stale.
     Should call fetch_region_map even if force_fetch=False.
     """
     with patch("api.regions.is_file_fresh") as mock_is_fresh, \
@@ -59,7 +59,7 @@ def test_fetch_regions_aws_stale():
         mock_is_fresh.return_value = False
         mock_fetch.return_value = {"fresh": "aws"}
         
-        response = client.post("/api/fetch_regions/aws")
+        response = client.post("/fetch_regions/aws")
         
         assert response.status_code == 200
         assert response.json() == {"fresh": "aws"}
@@ -77,7 +77,7 @@ def test_fetch_regions_azure_default():
         mock_is_fresh.return_value = True
         mock_load.return_value = {"cached": "azure"}
         
-        response = client.post("/api/fetch_regions/azure")
+        response = client.post("/fetch_regions/azure")
         
         assert response.status_code == 200
         assert response.json() == {"cached": "azure"}
@@ -90,7 +90,7 @@ def test_fetch_regions_azure_force():
         mock_is_fresh.return_value = True
         mock_fetch.return_value = {"fresh": "azure"}
         
-        response = client.post("/api/fetch_regions/azure?force_fetch=true")
+        response = client.post("/fetch_regions/azure?force_fetch=true")
         
         assert response.status_code == 200
         assert response.json() == {"fresh": "azure"}
@@ -108,7 +108,7 @@ def test_fetch_regions_gcp_default():
         mock_is_fresh.return_value = True
         mock_load.return_value = {"cached": "gcp"}
         
-        response = client.post("/api/fetch_regions/gcp")
+        response = client.post("/fetch_regions/gcp")
         
         assert response.status_code == 200
         assert response.json() == {"cached": "gcp"}
@@ -121,7 +121,7 @@ def test_fetch_regions_gcp_force():
         mock_is_fresh.return_value = True
         mock_fetch.return_value = {"fresh": "gcp"}
         
-        response = client.post("/api/fetch_regions/gcp?force_fetch=true")
+        response = client.post("/fetch_regions/gcp?force_fetch=true")
         
         assert response.status_code == 200
         assert response.json() == {"fresh": "gcp"}

@@ -62,7 +62,8 @@ app = FastAPI(
         {"name": "Pricing", "description": "Endpoints for fetching cloud service pricing data."},
         {"name": "Regions", "description": "Endpoints for fetching cloud regions."},
         {"name": "File Status", "description": "Endpoints for checking the age of data files."},
-        {"name": "Credentials", "description": "Endpoints for validating cloud provider credentials."},
+        {"name": "Permissions - Upload", "description": "Verify cloud credentials from request body."},
+        {"name": "Permissions - Project", "description": "Verify cloud credentials from project config."},
     ],
     lifespan=lifespan
 )

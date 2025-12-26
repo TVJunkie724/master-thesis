@@ -17,10 +17,10 @@ client = TestClient(app)
 
 @patch("api.file_status.get_file_age_string")
 def test_get_regions_age_aws(mock_get_age):
-    """Test GET /api/regions_age/aws returns age string."""
+    """Test GET /regions_age/aws returns age string."""
     mock_get_age.return_value = "5 days"
     
-    response = client.get("/api/regions_age/aws")
+    response = client.get("/regions_age/aws")
     
     assert response.status_code == 200
     assert response.json() == {"age": "5 days"}
@@ -38,7 +38,7 @@ def test_get_pricing_age():
         mock_load.return_value = {"some": "data"}
         mock_validate.return_value = {"status": "valid", "missing_keys": []}
         
-        response = client.get("/api/pricing_age/aws")
+        response = client.get("/pricing_age/aws")
         assert response.status_code == 200
         assert response.json() == {
             "age": "2 days",
@@ -59,7 +59,7 @@ def test_get_pricing_age_incomplete():
         mock_load.return_value = {"some": "data"}
         mock_validate.return_value = {"status": "incomplete", "missing_keys": ["service.key"]}
         
-        response = client.get("/api/pricing_age/azure")
+        response = client.get("/pricing_age/azure")
         assert response.status_code == 200
         assert response.json() == {
             "age": "5 hours",
@@ -69,10 +69,10 @@ def test_get_pricing_age_incomplete():
 
 @patch("api.file_status.get_file_age_string")
 def test_get_currency_age(mock_get_age):
-    """Test GET /api/currency_age returns age string."""
+    """Test GET /currency_age returns age string."""
     mock_get_age.return_value = "1 day"
     
-    response = client.get("/api/currency_age")
+    response = client.get("/currency_age")
     
     assert response.status_code == 200
     assert response.json() == {"age": "1 day"}
@@ -83,7 +83,7 @@ def test_fetch_currency_rates(mock_get_rates):
     """Test POST /api/fetch_currency returns rates."""
     mock_get_rates.return_value = {"USD": 1.0, "EUR": 0.85}
     
-    response = client.post("/api/fetch_currency")
+    response = client.post("/fetch_currency")
     
     assert response.status_code == 200
     assert response.json() == {"USD": 1.0, "EUR": 0.85}

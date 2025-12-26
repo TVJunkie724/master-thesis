@@ -16,7 +16,7 @@ router = APIRouter(tags=["File Status"])
 # Pricing Age Endpoints
 # --------------------------------------------------
 
-@router.get("/api/pricing_age/aws", summary="Get AWS Pricing File Status")
+@router.get("/pricing_age/aws", summary="Get AWS Pricing File Status")
 def get_pricing_age_aws():
     """
     Checks the age and validity of the local AWS pricing data file.
@@ -48,7 +48,7 @@ def get_pricing_age_aws():
     }
 
 
-@router.get("/api/pricing_age/azure", summary="Get Azure Pricing File Status")
+@router.get("/pricing_age/azure", summary="Get Azure Pricing File Status")
 def get_pricing_age_azure():
     """
     Checks the age and validity of the local Azure pricing data file.
@@ -80,7 +80,7 @@ def get_pricing_age_azure():
     }
 
 
-@router.get("/api/pricing_age/gcp", summary="Get GCP Pricing File Status")
+@router.get("/pricing_age/gcp", summary="Get GCP Pricing File Status")
 def get_pricing_age_gcp():
     """
     Checks the age and validity of the local GCP pricing data file.
@@ -116,7 +116,7 @@ def get_pricing_age_gcp():
 # Regions Age Endpoints
 # --------------------------------------------------
 
-@router.get("/api/regions_age/aws", summary="Get AWS Regions File Age")
+@router.get("/regions_age/aws", summary="Get AWS Regions File Age")
 def get_regions_age_aws():
     """
     Returns the age of the local AWS regions data file.
@@ -126,7 +126,7 @@ def get_regions_age_aws():
     return {"age": get_file_age_string(CONSTANTS.AWS_REGIONS_FILE_PATH)}
 
 
-@router.get("/api/regions_age/azure", summary="Get Azure Regions File Age")
+@router.get("/regions_age/azure", summary="Get Azure Regions File Age")
 def get_regions_age_azure():
     """
     Returns the age of the local Azure regions data file.
@@ -136,7 +136,7 @@ def get_regions_age_azure():
     return {"age": get_file_age_string(CONSTANTS.AZURE_REGIONS_FILE_PATH)}
 
 
-@router.get("/api/regions_age/gcp", summary="Get GCP Regions File Age")
+@router.get("/regions_age/gcp", summary="Get GCP Regions File Age")
 def get_regions_age_gcp():
     """
     Returns the age of the local GCP regions data file.
@@ -150,7 +150,7 @@ def get_regions_age_gcp():
 # Currency Age Endpoint
 # --------------------------------------------------
 
-@router.get("/api/currency_age", summary="Get Currency File Age")
+@router.get("/currency_age", summary="Get Currency File Age")
 def get_currency_age():
     """
     Returns the age of the local currency conversion rates file.
