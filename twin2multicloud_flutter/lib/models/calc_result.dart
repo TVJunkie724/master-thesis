@@ -28,8 +28,8 @@ class CalcResult {
   final List<Map<String, dynamic>>? l2CoolCombinations;
   final List<Map<String, dynamic>>? l2ArchiveCombinations;
 
-  /// Cross-cloud transfer costs
-  final TransferCosts? transferCosts;
+  /// Cross-cloud transfer costs (key -> cost)
+  final Map<String, double>? transferCosts;
 
   CalcResult({
     required this.awsCosts,
@@ -51,6 +51,17 @@ class CalcResult {
   /// Parse from API response
   factory CalcResult.fromJson(Map<String, dynamic> json) {
     final result = json['result'] as Map<String, dynamic>;
+
+    Map<String, double>? parseTransferCosts(dynamic data) {
+      if (data == null) return null;
+      final map = <String, double>{};
+      (data as Map<String, dynamic>).forEach((key, value) {
+        if (value is num) {
+          map[key] = value.toDouble();
+        }
+      });
+      return map;
+    }
 
     return CalcResult(
       awsCosts: ProviderCosts.fromJson(result['awsCosts'] as Map<String, dynamic>),
@@ -84,9 +95,7 @@ class CalcResult {
       l2ArchiveCombinations: (result['l2_archive_combinations'] as List?)
           ?.map((e) => Map<String, dynamic>.from(e))
           .toList(),
-      transferCosts: result['transferCosts'] != null
-          ? TransferCosts.fromJson(result['transferCosts'])
-          : null,
+      transferCosts: parseTransferCosts(result['transferCosts']),
     );
   }
 
@@ -115,6 +124,14 @@ class CalcResult {
         }
       }
     }
+    
+    // Add transfer costs if any
+    if (transferCosts != null) {
+      for (final cost in transferCosts!.values) {
+        total += cost;
+      }
+    }
+    
     return total;
   }
 }
@@ -236,34 +253,5 @@ class OptimizationOverride {
           ?.map((e) => Map<String, dynamic>.from(e))
           .toList(),
     );
-  }
-}
-
-/// Cross-cloud transfer costs
-class TransferCosts {
-  final Map<String, double> l1ToL2;
-  final Map<String, double> l2ToL3;
-
-  TransferCosts({
-    required this.l1ToL2,
-    required this.l2ToL3,
-  });
-
-  factory TransferCosts.fromJson(Map<String, dynamic> json) {
-    return TransferCosts(
-      l1ToL2: _parseDoubleMap(json['L1_to_L2']),
-      l2ToL3: _parseDoubleMap(json['L2_to_L3']),
-    );
-  }
-
-  static Map<String, double> _parseDoubleMap(dynamic data) {
-    if (data == null) return {};
-    final map = <String, double>{};
-    (data as Map<String, dynamic>).forEach((key, value) {
-      if (value is num) {
-        map[key] = value.toDouble();
-      }
-    });
-    return map;
   }
 }
