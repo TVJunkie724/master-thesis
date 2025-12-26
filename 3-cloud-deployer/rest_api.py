@@ -21,6 +21,9 @@ from util import pretty_json
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
+# Import modular routers from src/api/
+from api.credentials import router as credentials_router
+
 logger = None
 
 # --------- Initialize FastAPI app ----------
@@ -45,6 +48,9 @@ app.mount("/js", StaticFiles(directory="js"), name="js")
 app.mount("/css", StaticFiles(directory="css"), name="css")
 app.mount("/docs", StaticFiles(directory="docs"), name="docs")
 app.mount("/references", StaticFiles(directory="references"), name="references")
+
+# Include modular API routers
+app.include_router(credentials_router)
 
 # --------- Initialize configuration once ----------
 @app.on_event("startup")
