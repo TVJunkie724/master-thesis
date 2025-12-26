@@ -137,8 +137,8 @@ resource "aws_lambda_function" "l2_persister" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO = var.digital_twin_info_json
-      DYNAMODB_TABLE    = "${var.digital_twin_name}-hot"
+      DIGITAL_TWIN_INFO   = var.digital_twin_info_json
+      DYNAMODB_TABLE_NAME = "${var.digital_twin_name}-hot"
 
       # Multi-cloud L2→L3: When AWS L2 sends to remote L3
       REMOTE_WRITER_URL = var.layer_2_provider == "aws" && var.layer_3_hot_provider != "aws" ? (
