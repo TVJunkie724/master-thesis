@@ -190,6 +190,9 @@ resource "aws_lambda_function" "l2_event_checker" {
       DIGITAL_TWIN_INFO                  = var.digital_twin_info_json
       EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN = var.return_feedback_to_device ? aws_lambda_function.event_feedback_wrapper[0].arn : ""
       USE_FEEDBACK                       = var.return_feedback_to_device ? "true" : "false"
+      LAMBDA_CHAIN_STEP_FUNCTION_ARN     = var.trigger_notification_workflow ? try(aws_sfn_state_machine.event_workflow[0].arn, "") : ""
+      USE_STEP_FUNCTIONS                 = var.trigger_notification_workflow ? "true" : "false"
+      TWINMAKER_WORKSPACE_NAME           = var.layer_4_provider == "aws" ? "${var.digital_twin_name}-workspace" : ""
     }
   }
 

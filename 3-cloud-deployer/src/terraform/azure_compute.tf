@@ -114,6 +114,14 @@ resource "azurerm_linux_function_app" "l2" {
     EVENT_CHECKER_FUNCTION_URL = var.use_event_checking ? "https://${var.digital_twin_name}-l2-functions.azurewebsites.net/api/event-checker" : ""
     USE_EVENT_CHECKING         = var.use_event_checking ? "true" : "false"
 
+    # Azure ADT instance URL (for event-checker)
+    ADT_INSTANCE_URL = var.layer_4_provider == "azure" ? "https://${var.digital_twin_name}.${var.azure_region}.digitaltwins.azure.net" : ""
+
+    # Feedback function URL (for event-checker)
+    FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? "https://${var.digital_twin_name}-user-functions.azurewebsites.net/api/event-feedback" : ""
+    USE_FEEDBACK          = var.return_feedback_to_device ? "true" : "false"
+    USE_LOGIC_APPS        = var.trigger_notification_workflow ? "true" : "false"
+
     # NEW: Required for Wrapper to find User Functions
     FUNCTION_APP_BASE_URL = "https://${var.digital_twin_name}-user-functions.azurewebsites.net"
 
