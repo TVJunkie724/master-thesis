@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -29,6 +29,8 @@ class CheapestPathResponse(BaseModel):
 
 
 class OptimizerConfigResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: str
     twin_id: str
     params: Optional[dict] = None
@@ -39,6 +41,3 @@ class OptimizerConfigResponse(BaseModel):
     pricing_azure_updated_at: Optional[datetime] = None
     pricing_gcp_updated_at: Optional[datetime] = None
     updated_at: datetime
-    
-    class Config:
-        from_attributes = True

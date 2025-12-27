@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional
 from src.models.twin import TwinState
@@ -11,11 +11,10 @@ class TwinUpdate(BaseModel):
     state: Optional[TwinState] = None
 
 class TwinResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: str
     name: str
     state: TwinState
     created_at: datetime
     updated_at: datetime
-    
-    class Config:
-        from_attributes = True

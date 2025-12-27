@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     
     # External APIs
     DEPLOYER_URL: str = "http://localhost:5004"
+    OPTIMIZER_URL: str = "http://master-thesis-2twin2clouds-1:8000"
     
     class Config:
         env_file = ".env"

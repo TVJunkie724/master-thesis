@@ -507,8 +507,10 @@ async def _perform_dual_validation(provider: str, optimizer_creds: dict, deploye
                 )
                 if response.status_code == 200:
                     result = response.json()
+                    # Translate status: "valid" → valid: true (schema compatibility)
+                    is_valid = result.get("valid", False) or result.get("status") == "valid"
                     return {
-                        "valid": result.get("valid", False),
+                        "valid": is_valid,
                         "message": result.get("message", "Validation complete")
                     }
                 else:
@@ -537,8 +539,10 @@ async def _perform_dual_validation(provider: str, optimizer_creds: dict, deploye
                 )
                 if response.status_code == 200:
                     result = response.json()
+                    # Translate status: "valid" → valid: true (schema compatibility)
+                    is_valid = result.get("valid", False) or result.get("status") == "valid"
                     return {
-                        "valid": result.get("valid", False),
+                        "valid": is_valid,
                         "message": result.get("message", "Validation complete"),
                         "permissions": result.get("missing_permissions")
                     }

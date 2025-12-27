@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing import Optional
 from datetime import datetime
 
@@ -47,6 +47,8 @@ class TwinConfigUpdate(BaseModel):
 
 class TwinConfigResponse(BaseModel):
     """Response model - NEVER returns actual credentials, only status."""
+    model_config = ConfigDict(from_attributes=True)
+    
     id: str
     twin_id: str
     debug_mode: bool
@@ -62,9 +64,6 @@ class TwinConfigResponse(BaseModel):
     gcp_billing_account_configured: bool = False  # NEW - never expose actual value
     gcp_region: Optional[str] = None  # NEW
     updated_at: datetime
-    
-    class Config:
-        from_attributes = True
     
     @classmethod
     def from_db(cls, config):
