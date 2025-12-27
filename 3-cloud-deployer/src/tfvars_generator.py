@@ -86,6 +86,12 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
     # Load existing inter-cloud token if available
     tfvars.update(_load_inter_cloud(project_dir))
     
+    # Generate DIGITAL_TWIN_INFO JSON (unified structure for all providers)
+    tfvars["digital_twin_info_json"] = _build_digital_twin_info_json(tfvars)
+    
+    # Load config_grafana.json for Grafana admin user
+    tfvars.update(_load_grafana_config(project_dir))
+    
     # Load optimization feature flags (for conditional resources)
     optimization_flags = load_optimization_flags(project_dir)
         
@@ -559,6 +565,67 @@ def _load_inter_cloud(project_dir: Path) -> dict:
         return {"inter_cloud_token": inter_cloud["inter_cloud_token"]}
     
     return {}
+
+
+def _build_digital_twin_info_json(tfvars: dict) -> str:
+    """
+    Build the unified DIGITAL_TWIN_INFO JSON for all cloud providers.
+    
+    This JSON is used by Lambda/Azure Functions/Cloud Functions at runtime
+    to access configuration data for routing, processing, and storage operations.
+    
+    Args:
+        tfvars: Dictionary of terraform variables (must contain providers, devices, events)
+    
+    Returns:
+        JSON string containing complete digital twin configuration
+    """
+    digital_twin_info = {
+        "config": {
+            "digital_twin_name": tfvars.get("digital_twin_name", ""),
+            "hot_storage_size_in_days": tfvars.get("layer_3_hot_to_cold_interval_days", 7),
+            "cold_storage_size_in_days": tfvars.get("layer_3_cold_to_archive_interval_days", 30),
+            "mode": tfvars.get("environment", "production"),
+        },
+        "config_iot_devices": tfvars.get("iot_devices", []),
+        "config_events": tfvars.get("events", []),
+        "config_providers": {
+            "layer_1_provider": tfvars.get("layer_1_provider", ""),
+            "layer_2_provider": tfvars.get("layer_2_provider", ""),
+            "layer_3_hot_provider": tfvars.get("layer_3_hot_provider", ""),
+            "layer_3_cold_provider": tfvars.get("layer_3_cold_provider", ""),
+            "layer_3_archive_provider": tfvars.get("layer_3_archive_provider", ""),
+            "layer_4_provider": tfvars.get("layer_4_provider", ""),
+            "layer_5_provider": tfvars.get("layer_5_provider", ""),
+        },
+    }
+    return json.dumps(digital_twin_info)
+
+
+def _load_grafana_config(project_dir: Path) -> dict:
+    """Load Grafana admin configuration from config_grafana.json."""
+    grafana_file = project_dir / "config_grafana.json"
+    
+    if not grafana_file.exists():
+        return {}
+    
+    with open(grafana_file) as f:
+        grafana = json.load(f)
+    
+    result = {}
+    
+    # Map config fields to Terraform variables
+    if grafana.get("admin_email"):
+        result["grafana_admin_email"] = grafana["admin_email"]
+        logger.info(f"  Grafana admin email: {grafana['admin_email']}")
+    
+    if grafana.get("admin_first_name"):
+        result["grafana_admin_first_name"] = grafana["admin_first_name"]
+    
+    if grafana.get("admin_last_name"):
+        result["grafana_admin_last_name"] = grafana["admin_last_name"]
+    
+    return result
 
 
 if __name__ == "__main__":

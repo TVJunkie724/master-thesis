@@ -188,36 +188,69 @@ async def update_config(twin_id: str, config: dict, description: str = None):
 > [!NOTE]
 > **Why `inactive` instead of hard delete?** Cloud services (e.g., Azure resource groups, AWS S3 buckets) often have a **5-10 minute cooldown** before a resource with the same name can be recreated. Keeping the twin in `inactive` state allows the backend to check for naming conflicts if the user immediately creates a new twin with the same name.
 
+> [!IMPORTANT]
+> **Wizard Workflow & State Transitions:**
+> 1. **Step 1 (Configuration) Filled** → State remains `draft`.
+> 2. **Step 2 (Optimizer) Filled** → State remains `draft`.
+> 3. **Step 3 (Deployer) Filled** → State transitions to `configured`.
+> 
+> The **Wizard** is responsible for getting the twin to the `configured` state (all files/configs ready).
+> The **Dashboard/Overview** is responsible for the actual deployment action (`configured` → `deployed`).
+
+```mermaid
+graph TD
+    Start((Start)) --> S1[Wizard Step 1:<br>Configuration]
+    S1 -->|Save| Draft1[State: Draft<br>(Has Credentials)]
+    Draft1 --> S2[Wizard Step 2:<br>Optimizer]
+    S2 -->|Save| Draft2[State: Draft<br>(Has Cost Model)]
+    Draft2 --> S3[Wizard Step 3:<br>Deployer Config]
+    S3 -->|Finish| Configured[State: Configured]
+    
+    Configured -->|User clicks Deploy<br>on Dashboard| Deployed[State: Deployed]
+    Deployed -->|User clicks Destroy| Destroyed[State: Destroyed]
+    Destroyed -->|Reset| Configured
+    
+    Deployed -->|Error| Error[State: Error]
+    Error -->|Retry| Configured
+    
+    subgraph Wizard
+    S1
+    S2
+    S3
+    end
+```
+
 ```
           ┌─────────────────────────────────────────┐
           │                                         │
           ▼                                         │
-       ┌──────┐    all files    ┌───────────┐      │
-       │draft │ ──────────────► │configured │      │
-       └──┬───┘   uploaded      └─────┬─────┘      │
-          │                           │            │
-          │                     deploy│            │
-          │                           ▼            │
-          │                     ┌──────────┐       │
-          │                     │ deployed │───────┤ destroy
-          │                     └────┬─────┘       │
-          │                          │             │
-          │              fail deploy │             │
-          │                          ▼             │
-          │                     ┌─────────┐        │
-          │          ┌──────────│  error  │◄───────┤ fail destroy
-          │          │          └─────────┘        │
-          │          │ retry         │             │
-          │          ▼               │             │
-          │    ┌───────────┐         │             │
-          │    │ configured│◄────────┘             │
-          │    └───────────┘                       │
-          │         ┌──────────────────────────────┘
-          │         │ soft delete (any state)
-          ▼         ▼
+       ┌──────┐    Wizard Step 3         ┌───────────┐      │
+       │draft │ ──────────────►          │configured │      │
+       └──┬───┘   (Deployer Config)      └─────┬─────┘      │
+          │                                    │            │
+          │                           User     │            │
+          │                           Deploy   │            │
+          │                           Action   ▼            │
+          │                           ┌──────────┐          │
+          │                           │ deployed │───────┤ destroy
+          │                           └────┬─────┘       │
+          │                                │             │
+          │                    fail deploy │             │
+          │                                ▼             │
+          │                           ┌─────────┐        │
+          │                ┌──────────│  error  │◄───────┤ fail destroy
+          │                │          └─────────┘        │
+          │                │ retry         │             │
+          │                ▼               │             │
+          │          ┌───────────┐         │             │
+          │          │ configured│◄────────┘             │
+          │          └───────────┘                       │
+          │               ┌──────────────────────────────┘
+          │               │ soft delete (any state)
+          ▼               ▼
        ┌───────────────────────────────────────────┐
-       │              inactive                      │
-       │  (kept for naming conflict detection)      │
+       │              inactive                     │
+       │  (kept for naming conflict detection)     │
        └───────────────────────────────────────────┘
 ```
 

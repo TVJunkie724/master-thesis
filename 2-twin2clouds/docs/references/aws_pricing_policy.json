@@ -1,0 +1,15 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PricingAPIAccess",
+            "Effect": "Allow",
+            "Action": [
+                "pricing:DescribeServices",
+                "pricing:GetProducts",
+                "pricing:GetAttributeValues"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

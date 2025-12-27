@@ -110,6 +110,121 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
         logger.warning(f"⚠️ No data fetched for {target_provider} or credentials missing.")
         return {}
 
+
+def calculate_up_to_date_pricing_with_credentials(target_provider: str, credentials: dict, additional_debug=False):
+    """
+    Fetches pricing using provided credentials instead of loading from file.
+    Used by Management API for credential-forward pricing refresh.
+    
+    Args:
+        target_provider: 'aws' or 'gcp' (Azure uses public API, no credentials needed)
+        credentials: Dict with provider-specific credentials
+        additional_debug: Enable verbose logging
+    
+    Returns:
+        dict: Pricing data for the provider
+    """
+    logger.info(f"🔄 Starting pricing update for provider: {target_provider} (with provided credentials)")
+
+    if target_provider not in ["aws", "gcp"]:
+        raise ValueError(f"This function only supports aws/gcp, not {target_provider}. Use regular endpoint for Azure.")
+
+    service_mapping = config_loader.load_service_mapping()
+    output_data = {}
+    target_file_path = None
+
+    if target_provider == "aws":
+        logger.info("========================================================")
+        logger.info("Fetching AWS pricing with provided credentials...")
+        logger.info("========================================================")
+        
+        # Load Region Map
+        try:
+            region_map = config_loader.load_json_file(CONSTANTS.AWS_REGIONS_FILE_PATH)
+        except Exception as e:
+            logger.error(f"Failed to load AWS region map: {e}")
+            raise e
+
+        # Build AWS credentials dict from request
+        aws_credentials = {
+            "aws_access_key_id": credentials.get("aws_access_key_id"),
+            "aws_secret_access_key": credentials.get("aws_secret_access_key"),
+            "aws_region": credentials.get("aws_region", "eu-central-1")
+        }
+        
+        # Create boto3 credentials for AWS fetcher
+        # IMPORTANT: Always use 'us-east-1' regardless of user's aws_region.
+        # The Pricing API is ONLY available in us-east-1, so user's region is
+        # irrelevant here. Using us-east-1 also prevents connection errors from
+        # invalid region names (AWS STS endpoint URLs are region-based).
+        import boto3
+        try:
+            session = boto3.Session(
+                aws_access_key_id=aws_credentials["aws_access_key_id"],
+                aws_secret_access_key=aws_credentials["aws_secret_access_key"],
+                region_name="us-east-1"  # Pricing API only in us-east-1
+            )
+            client_credentials = session.get_credentials()
+        except Exception as e:
+            logger.error(f"Failed to create AWS session: {e}")
+            client_credentials = None
+        
+        output_data = fetch_aws_data(aws_credentials, service_mapping, region_map, additional_debug)
+        target_file_path = CONSTANTS.AWS_PRICING_FILE_PATH
+
+    elif target_provider == "gcp":
+        logger.info("========================================================")
+        logger.info("Fetching GCP pricing with provided credentials...")
+        logger.info("========================================================")
+        
+        # Load Region Map
+        try:
+            region_map = config_loader.load_json_file(CONSTANTS.GCP_REGIONS_FILE_PATH)
+        except Exception as e:
+            logger.error(f"Failed to load GCP region map: {e}")
+            raise e
+
+        # Parse service account JSON and create credentials
+        from google.oauth2 import service_account as gcp_service_account
+        
+        sa_json = credentials.get("gcp_service_account_json", "{}")
+        if isinstance(sa_json, str):
+            try:
+                sa_info = json.loads(sa_json)
+            except json.JSONDecodeError:
+                raise ValueError("Invalid GCP service account JSON")
+        else:
+            sa_info = sa_json
+            
+        gcp_creds = gcp_service_account.Credentials.from_service_account_info(sa_info)
+        
+        # Create billing client with provided credentials
+        billing_client = billing_v1.CloudCatalogClient(credentials=gcp_creds)
+        
+        google_credentials = {
+            "gcp_region": credentials.get("gcp_region", "europe-west1")
+        }
+        
+        # Fetch with billing_client passed directly
+        output_data = fetch_google_data(
+            google_credentials, service_mapping, region_map, 
+            additional_debug, billing_client
+        )
+        target_file_path = CONSTANTS.GCP_PRICING_FILE_PATH
+
+    if target_file_path and output_data:
+        from backend.pricing_utils import validate_pricing_schema
+        validation = validate_pricing_schema(target_provider, output_data)
+        if validation["status"] != "valid":
+            logger.warning(f"⚠️ Pricing data incomplete. Missing: {validation['missing_keys']}")
+            
+        Path(target_file_path).write_text(json.dumps(output_data, indent=2))
+        logger.info(f"✅ Wrote {target_file_path.name} successfully!")
+        return output_data
+    else:
+        logger.warning(f"⚠️ No data fetched for {target_provider}")
+        return {}
+
 # ============================================================
 # HELPER FUNCTION
 # ============================================================
@@ -468,21 +583,29 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, region_map:
 # ============================================================
 # GOOGLE CLOUD DATA AND SCHEMA BUILD
 # ============================================================
-def fetch_google_data(google_credentials: dict, service_mapping: dict, region_map: dict, additional_debug=False) -> dict:
+def fetch_google_data(google_credentials: dict, service_mapping: dict, region_map: dict, additional_debug=False, billing_client=None) -> dict:
     """
     Fetches Google Cloud pricing using the Factory Pattern and builds the canonical structure.
+    
+    Args:
+        google_credentials: Dict with gcp_region
+        service_mapping: Service mapping config
+        region_map: Region mapping config
+        additional_debug: Enable verbose logging
+        billing_client: Optional pre-created billing client (for credential-based fetch)
     """
     region = google_credentials.get("gcp_region", "europe-west1")
     logger.info(f"🚀 Fetching Google Cloud pricing for region: {region}")
     
-    # Initialize Client ONCE
-    try:
-        credentials = load_gcp_credentials()
-        billing_client = billing_v1.CloudCatalogClient(credentials=credentials)
-    except Exception as e:
-        logger.error(f"⚠️ Failed to initialize GCP Billing Client: {e}")
-        # Fallback to empty fetched dict, defaults will be used
-        billing_client = None
+    # Initialize Client ONCE (unless provided)
+    if billing_client is None:
+        try:
+            credentials = load_gcp_credentials()
+            billing_client = billing_v1.CloudCatalogClient(credentials=credentials)
+        except Exception as e:
+            logger.error(f"⚠️ Failed to initialize GCP Billing Client: {e}")
+            # Fallback to empty fetched dict, defaults will be used
+            billing_client = None
 
     # Factory Pattern: Create GCP fetcher instance
     gcp_fetcher = PriceFetcherFactory.create("gcp")

@@ -141,8 +141,7 @@ def _is_multi_cloud_cold() -> bool:
         raise ConfigurationError(f"Missing provider mapping: hot={l3_hot}, cold={l3_cold}")
     
     if l3_hot == l3_cold:
-        logging.warning(f"REMOTE_COLD_WRITER_URL set but providers match ({l3_hot}). Using local Blob.")
-        return False
+        raise ConfigurationError(f"REMOTE_COLD_WRITER_URL set but providers match ({l3_hot}). Invalid multi-cloud config.")
     
     return True
 

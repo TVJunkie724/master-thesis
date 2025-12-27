@@ -85,10 +85,24 @@ resource "azurerm_linux_function_app" "l2" {
     # Inter-cloud token for cross-cloud L3 calls
     INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
 
+    # L3 Hot Storage - Cosmos DB connection for persister (single-cloud mode)
+    COSMOS_DB_ENDPOINT  = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_account.main[0].endpoint : ""
+    COSMOS_DB_KEY       = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_account.main[0].primary_key : ""
+    COSMOS_DB_DATABASE  = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_sql_database.main[0].name : ""
+    COSMOS_DB_CONTAINER = "hot"
+
     # Multi-cloud L2→L3: When Azure L2 sends to remote L3
     REMOTE_WRITER_URL = var.layer_2_provider == "azure" && var.layer_3_hot_provider != "azure" ? (
       var.layer_3_hot_provider == "aws" ? try(aws_lambda_function_url.l0_hot_writer[0].function_url, "") :
       var.layer_3_hot_provider == "google" ? try(google_cloudfunctions2_function.hot_writer[0].url, "") : ""
+    ) : ""
+
+    # Multi-cloud L2→L4: When Azure L2 sends to Azure ADT
+    REMOTE_ADT_PUSHER_URL = var.layer_4_provider == "azure" ? (
+      "https://${var.digital_twin_name}-l0-glue.azurewebsites.net/api/adt-pusher"
+    ) : ""
+    ADT_PUSHER_TOKEN = var.layer_4_provider == "azure" ? (
+      var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
     ) : ""
 
     # Logic App trigger URL for event checking workflow
@@ -96,8 +110,29 @@ resource "azurerm_linux_function_app" "l2" {
       try(azurerm_logic_app_trigger_http_request.event_trigger[0].callback_url, "")
     ) : ""
 
+    # Event checker URL for event checking (optional)
+    EVENT_CHECKER_FUNCTION_URL = var.use_event_checking ? "https://${var.digital_twin_name}-l2-functions.azurewebsites.net/api/event-checker" : ""
+    USE_EVENT_CHECKING         = var.use_event_checking ? "true" : "false"
+
+    # Azure ADT instance URL (for event-checker)
+    ADT_INSTANCE_URL = var.layer_4_provider == "azure" ? "https://${var.digital_twin_name}.${var.azure_region}.digitaltwins.azure.net" : ""
+
+    # Feedback function URL (for event-checker)
+    FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? "https://${var.digital_twin_name}-user-functions.azurewebsites.net/api/event-feedback" : ""
+    USE_FEEDBACK          = var.return_feedback_to_device ? "true" : "false"
+    USE_LOGIC_APPS        = var.trigger_notification_workflow ? "true" : "false"
+
     # NEW: Required for Wrapper to find User Functions
     FUNCTION_APP_BASE_URL = "https://${var.digital_twin_name}-user-functions.azurewebsites.net"
+
+    # Full Digital Twin configuration - required by persister for multi-cloud routing
+    DIGITAL_TWIN_INFO = var.digital_twin_info_json
+
+    # Persister URL - required by processor_wrapper to call persister
+    PERSISTER_FUNCTION_URL = "https://${var.digital_twin_name}-l2-functions.azurewebsites.net/api/persister"
+
+    # IoT Hub connection - required by event_feedback_wrapper to send feedback to devices
+    IOT_HUB_CONNECTION_STRING = var.layer_1_provider == "azure" ? azurerm_iothub.main[0].event_hub_events_endpoint : ""
   }
 
   tags = local.common_tags
@@ -179,6 +214,9 @@ resource "azurerm_linux_function_app" "user" {
     EVENT_FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? "https://${var.digital_twin_name}-user-functions.azurewebsites.net/api/event-feedback" : ""
     
     PERSISTER_FUNCTION_URL = "https://${var.digital_twin_name}-l2-functions.azurewebsites.net/api/persister"
+
+    # IoT Hub connection - required by event_feedback_wrapper to send feedback to devices
+    IOT_HUB_CONNECTION_STRING = var.layer_1_provider == "azure" ? azurerm_iothub.main[0].event_hub_events_endpoint : ""
   }
 
   tags = local.common_tags

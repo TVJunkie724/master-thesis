@@ -71,8 +71,8 @@ def main(request):
         try:
             url = _get_processor_url(device_id)
             if not url or not url.startswith("http"):
-                print(f"Cannot construct processor URL for device {device_id} - using passthrough")
-                processed_event = event
+                raise ValueError(f"Cannot construct valid processor URL for device {device_id} (Base URL: {os.environ.get('FUNCTION_APP_BASE_URL')})")
+
             else:
                 print(f"Calling user processor at {url}")
                 response = requests.post(url, json=event, headers={"Content-Type": "application/json"}, timeout=30)

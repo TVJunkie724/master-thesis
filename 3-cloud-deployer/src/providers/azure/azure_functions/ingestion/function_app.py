@@ -68,8 +68,7 @@ def _invoke_processor(processor_name: str, payload: dict) -> None:
         payload: Event data to send
     """
     if not FUNCTION_APP_BASE_URL:
-        logging.warning(f"FUNCTION_APP_BASE_URL not set - cannot invoke {processor_name}")
-        return
+        raise ValueError(f"FUNCTION_APP_BASE_URL not set - cannot invoke {processor_name}")
     
     url = f"{FUNCTION_APP_BASE_URL}/api/{processor_name}"
     data = json.dumps(payload).encode("utf-8")
@@ -136,9 +135,7 @@ def ingestion(req: func.HttpRequest) -> func.HttpResponse:
             )
         
         # 5. Determine target processor
-        twin_info = _get_digital_twin_info()
-        twin_name = twin_info["config"]["digital_twin_name"]
-        processor_name = f"{twin_name}-{device_id}-processor"
+        processor_name = f"{device_id}-processor"
         
         logging.info(f"Invoking processor: {processor_name}")
         

@@ -13,6 +13,11 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
+class ConfigurationError(Exception):
+    """Raised when configuration is invalid."""
+    pass
+
+
 # Required environment variables - fail fast if missing
 DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
 
@@ -102,7 +107,7 @@ def lambda_handler(event, context):
                 elif action_type == "step_function":
                     if USE_STEP_FUNCTIONS:
                         if not LAMBDA_CHAIN_STEP_FUNCTION_ARN:
-                            raise ValueError("LAMBDA_CHAIN_STEP_FUNCTION_ARN is required when USE_STEP_FUNCTIONS is enabled")
+                            raise ConfigurationError("LAMBDA_CHAIN_STEP_FUNCTION_ARN is required when USE_STEP_FUNCTIONS is enabled")
                         stepfunctions_client.start_execution(
                             stateMachineArn=LAMBDA_CHAIN_STEP_FUNCTION_ARN,
                             input=json.dumps(e)
@@ -116,7 +121,7 @@ def lambda_handler(event, context):
                 # Handle Feedback
                 if "feedback" in e["action"] and USE_FEEDBACK:
                     if not EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN:
-                        raise ValueError("EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN is required when USE_FEEDBACK is enabled")
+                        raise ConfigurationError("EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN is required when USE_FEEDBACK is enabled")
                     
                     # Enrich feedback payload with runtime context
                     feedback_payload = {

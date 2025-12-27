@@ -64,10 +64,10 @@ def _get_target_function_name(device_id: str) -> str:
     
     if TARGET_FUNCTION_SUFFIX == "-connector":
         # Multi-cloud: route to connector (no device-specific naming)
-        return f"{twin_name}-connector"
+        return "connector"
     else:
         # Single-cloud: route to processor wrapper (which then calls user processor)
-        return f"{twin_name}-processor"
+        return "processor"
 
 
 def _invoke_function(function_name: str, payload: dict) -> None:
@@ -81,8 +81,7 @@ def _invoke_function(function_name: str, payload: dict) -> None:
         payload: Event data to send
     """
     if not FUNCTION_APP_BASE_URL:
-        logging.warning(f"FUNCTION_APP_BASE_URL not set - cannot invoke {function_name}")
-        return
+        raise ValueError(f"FUNCTION_APP_BASE_URL not set - cannot invoke {function_name}")
     
     url = f"{FUNCTION_APP_BASE_URL}/api/{function_name}"
     data = json.dumps(payload).encode("utf-8")

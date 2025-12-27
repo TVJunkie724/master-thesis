@@ -32,6 +32,14 @@ provider "azurerm" {
   tenant_id       = var.azure_tenant_id
 }
 
+# Azure AD Provider (for Entra ID user management - Grafana admin users)
+# Uses same service principal credentials as azurerm
+provider "azuread" {
+  client_id     = var.azure_client_id
+  client_secret = var.azure_client_secret
+  tenant_id     = var.azure_tenant_id
+}
+
 # AWS Provider (for multi-cloud deployments)
 provider "aws" {
   region     = var.aws_region
@@ -104,26 +112,4 @@ locals {
   
   # Azure region to use for IoT Hub (may differ from main region)
   azure_iothub_region = var.azure_region_iothub != "" ? var.azure_region_iothub : var.azure_region
-  
-  # Shared DIGITAL_TWIN_INFO JSON for all AWS Lambda functions
-  # This complex object is expected by Lambda functions like dispatcher, persister, etc.
-  digital_twin_info_json = jsonencode({
-    config = {
-      digital_twin_name         = var.digital_twin_name
-      hot_storage_size_in_days  = var.layer_3_hot_to_cold_interval_days
-      cold_storage_size_in_days = var.layer_3_cold_to_archive_interval_days
-      mode                      = var.environment
-    }
-    config_iot_devices = var.iot_devices
-    config_events      = var.events
-    config_providers = {
-      layer_1_provider         = var.layer_1_provider
-      layer_2_provider         = var.layer_2_provider
-      layer_3_hot_provider     = var.layer_3_hot_provider
-      layer_3_cold_provider    = var.layer_3_cold_provider
-      layer_3_archive_provider = var.layer_3_archive_provider
-      layer_4_provider         = var.layer_4_provider
-      layer_5_provider         = var.layer_5_provider
-    }
-  })
 }

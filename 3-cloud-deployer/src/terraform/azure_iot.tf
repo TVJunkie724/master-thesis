@@ -120,6 +120,13 @@ resource "azurerm_linux_function_app" "l1" {
 
     # Inter-cloud token for cross-cloud L2 calls
     INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+
+    # Full Digital Twin configuration - required by dispatcher for routing
+    DIGITAL_TWIN_INFO = var.digital_twin_info_json
+
+    # L2 Function App URL - required by dispatcher to call processor
+    # Points to user-functions app where processor functions are deployed
+    FUNCTION_APP_BASE_URL = var.layer_2_provider == "azure" ? "https://${var.digital_twin_name}-user-functions.azurewebsites.net" : ""
   }
 
   tags = local.common_tags

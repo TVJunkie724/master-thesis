@@ -170,12 +170,15 @@ resource "azurerm_linux_function_app" "l3" {
     WEBSITE_CONTENTSHARE                     = "${var.digital_twin_name}-l3-content"
 
     # Cosmos DB connection
-    COSMOS_ENDPOINT = azurerm_cosmosdb_account.main[0].endpoint
-    COSMOS_KEY      = azurerm_cosmosdb_account.main[0].primary_key
-    COSMOS_DATABASE = azurerm_cosmosdb_sql_database.main[0].name
+    COSMOS_DB_ENDPOINT     = azurerm_cosmosdb_account.main[0].endpoint
+    COSMOS_DB_KEY          = azurerm_cosmosdb_account.main[0].primary_key
+    COSMOS_DB_DATABASE     = azurerm_cosmosdb_sql_database.main[0].name
+    COSMOS_DB_CONTAINER    = azurerm_cosmosdb_sql_container.hot[0].name
 
     # Storage account for cold/archive
-    STORAGE_CONNECTION_STRING = local.azure_storage_connection_string
+    BLOB_CONNECTION_STRING    = local.azure_storage_connection_string
+    COLD_STORAGE_CONTAINER    = azurerm_storage_container.cold[0].name
+    ARCHIVE_STORAGE_CONTAINER = var.layer_3_archive_provider == "azure" ? azurerm_storage_container.archive[0].name : ""
 
     # Mover intervals (in days)
     HOT_TO_COLD_DAYS     = var.layer_3_hot_to_cold_interval_days
@@ -199,6 +202,12 @@ resource "azurerm_linux_function_app" "l3" {
       var.layer_3_archive_provider == "aws" ? try(aws_lambda_function_url.l0_archive_writer[0].function_url, "") :
       var.layer_3_archive_provider == "google" ? try(google_cloudfunctions2_function.archive_writer[0].url, "") : ""
     ) : ""
+
+    # Full Digital Twin configuration - required by movers and readers
+    DIGITAL_TWIN_INFO = var.digital_twin_info_json
+
+    # Azure ADT instance URL (for hot-reader to resolve device IDs)
+    ADT_INSTANCE_URL = var.layer_4_provider == "azure" ? "https://${var.digital_twin_name}.${var.azure_region}.digitaltwins.azure.net" : ""
   }
 
   tags = local.common_tags

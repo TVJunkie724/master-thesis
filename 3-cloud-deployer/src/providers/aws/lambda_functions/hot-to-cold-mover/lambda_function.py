@@ -86,8 +86,7 @@ def _is_multi_cloud_cold() -> bool:
         )
     
     if l3_hot == l3_cold:
-        print(f"Warning: REMOTE_COLD_WRITER_URL set but providers match ({l3_hot}). Using local S3.")
-        return False
+        raise ConfigurationError(f"REMOTE_COLD_WRITER_URL set but providers match ({l3_hot}). Invalid multi-cloud config.")
     
     return True
 

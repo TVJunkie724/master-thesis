@@ -736,7 +736,194 @@ return {
 
 ---
 
+## 15. Azure Credentials Checker: Graph API Permissions Validation
+
+> [!CAUTION]
+> The current credentials checker cannot validate Microsoft Graph API permissions required for Azure Grafana L5.
+
+### Status: Not Implemented
+
+### Problem
+
+When deploying Azure L5 (Managed Grafana) with user provisioning enabled, the deployer requires:
+
+1. **Microsoft Graph API Permissions** (Application permissions):
+   - `User.ReadWrite.All` - Create/update Entra ID users
+   - `Directory.Read.All` - Read tenant domains, lookup users
+
+2. **Azure RBAC Permissions** (already checked):
+   - `Microsoft.Dashboard/grafana/write`
+   - `Microsoft.Dashboard/grafana/delete`
+
+The current `azure_credentials_checker.py` only validates Azure RBAC permissions via the `Microsoft.Authorization/permissions/read` action. It **cannot** verify Graph API permissions because:
+
+1. Graph API permissions are configured on the **App Registration**, not as RBAC roles
+2. Validating them requires calling the Microsoft Graph API (`/applications/{id}/requiredResourceAccess`)
+3. This requires the `Application.Read.All` Graph permission itself
+
+### Current Behavior
+
+```python
+# azure_credentials_checker.py lines 135-142
+"layer_5": {
+    "description": "Azure Managed Grafana",
+    "resource_providers": ["Microsoft.Dashboard"],
+    "required_actions": [
+        "Microsoft.Dashboard/grafana/write",
+        "Microsoft.Dashboard/grafana/delete",
+    ],
+    # ❌ Missing Graph API permission checks
+},
+```
+
+### Failure Mode
+
+When Graph permissions are missing, Terraform fails with:
+
+```
+Error: listing domains: Authorization_RequestDenied: Insufficient privileges to complete the operation.
+```
+
+This error only appears during `terraform apply`, not during credential validation.
+
+### Proposed Solution
+
+#### Option A: Add Graph SDK Validation (Full Implementation)
+
+```python
+# azure_credentials_checker.py - New function
+
+from msgraph import GraphServiceClient
+from azure.identity import ClientSecretCredential
+
+def check_graph_api_permissions(
+    client_id: str,
+    client_secret: str, 
+    tenant_id: str
+) -> dict:
+    """Check if service principal has required Graph API permissions."""
+    
+    required_permissions = {
+        "00000003-0000-0000-c000-000000000000": [  # Microsoft Graph
+            "User.ReadWrite.All",      # Create users
+            "Directory.Read.All",      # Read domains
+        ]
+    }
+    
+    credential = ClientSecretCredential(tenant_id, client_id, client_secret)
+    graph_client = GraphServiceClient(credentials=credential)
+    
+    # Get app's configured permissions
+    app = await graph_client.applications.by_application_id(client_id).get()
+    configured = app.required_resource_access
+    
+    # Compare with required
+    missing = []
+    for resource_id, permissions in required_permissions.items():
+        # ... permission comparison logic ...
+    
+    return {
+        "valid": len(missing) == 0,
+        "missing": missing,
+        "message": f"Missing Graph permissions: {missing}" if missing else "OK"
+    }
+```
+
+**Dependencies:**
+- `msgraph-sdk` package
+- `Application.Read.All` permission (to read own app registration)
+
+#### Option B: Warning Message (Minimal Implementation)
+
+Add a warning to the credential check output when L5=Azure:
+
+```python
+# In check_credentials() result
+if layer_5_provider == "azure":
+    result["warnings"].append({
+        "layer": "L5",
+        "message": (
+            "Azure L5 (Grafana) requires Microsoft Graph API permissions: "
+            "User.ReadWrite.All, Directory.Read.All. These cannot be "
+            "validated automatically. See docs for setup instructions."
+        )
+    })
+```
+
+### Recommendation
+
+Implement **Option B** (warning message) for now because:
+1. Lower complexity (~30 min vs ~4 hours)
+2. No new dependencies
+3. Documentation already covers the requirements
+4. Full Graph validation can be added later if needed
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/api/azure_credentials_checker.py` | Add warning for L5 Graph permissions |
+| `src/validation/core.py` | Add link to documentation in warning |
+
+### Complexity Assessment
+
+| Approach | Effort | Dependencies |
+|----------|--------|--------------|
+| Option A (Full) | ~4 hours | `msgraph-sdk`, new Graph permission |
+| Option B (Warning) | ~30 min | None |
+
+---
+
+## 16. Azure Grafana Role Assignment: Coalesce Fallback
+
+> [!NOTE]
+> Current fix works because validation blocks invalid domains. This is a defensive enhancement.
+
+### Status: Optional Enhancement
+
+### Context
+
+The `azure_grafana.tf` uses `coalesce()` to determine `principal_id` for role assignment:
+
+```hcl
+principal_id = coalesce(
+  local.existing_user_object_id,       # From data lookup
+  try(azuread_user.grafana_admin[0].object_id, null)  # From created user
+)
+```
+
+### Edge Case
+
+If user lookup fails AND user creation fails (e.g., transient Azure error), `coalesce(null, null)` returns `null`, causing `azurerm_role_assignment` to fail (required field).
+
+### Proposed Improvement
+
+Add fallback to deployer's own principal_id:
+
+```hcl
+principal_id = coalesce(
+  local.existing_user_object_id,
+  try(azuread_user.grafana_admin[0].object_id, null),
+  data.azurerm_client_config.current.object_id  # Fallback to deployer
+)
+```
+
+This ensures the role assignment always succeeds, even if user provisioning fails.
+
+### Why Not Implemented Yet
+
+1. Current validation blocks invalid domains, preventing the failure path
+2. Fallback would assign role to deployer SP instead of intended user (silent behavior change)
+3. May mask real issues that should be surfaced
+
+### When to Implement
+
+If E2E tests show intermittent failures in role assignment despite valid domains.
+
+---
+
 ## Notes
 
 - **Priority**: GCP Simulator > L0 Optimization > SDK validation > N-User Grafana > Security enhancements
 - **Timeline**: To be determined based on thesis requirements
+

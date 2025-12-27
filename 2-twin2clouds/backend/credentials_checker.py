@@ -85,10 +85,21 @@ def check_aws_credentials(credentials: Optional[Dict[str, Any]] = None) -> Dict[
         import boto3
         from botocore.exceptions import ClientError, NoCredentialsError
         
+        # IMPORTANT: Always use 'us-east-1' for the boto3 session, regardless of user's region.
+        # 
+        # Reason 1: AWS STS endpoint URLs are region-based (sts.{region}.amazonaws.com).
+        #           If user provides invalid region (e.g., "eu-central" instead of "eu-central-1"),
+        #           boto3 constructs an invalid URL, causing connection error before authentication.
+        #
+        # Reason 2: The AWS Pricing API is ONLY available in us-east-1 anyway.
+        #           So the user's region is irrelevant for credential validation in the Optimizer.
+        #           The Pricing client at line 122 already hardcodes region_name="us-east-1".
+        #
+        # Note: This AWS-specific issue does NOT affect Azure (public API) or GCP (global endpoint).
         session = boto3.Session(
             aws_access_key_id=credentials["aws_access_key_id"],
             aws_secret_access_key=credentials["aws_secret_access_key"],
-            region_name=credentials.get("aws_region", "us-east-1")
+            region_name="us-east-1"  # Always us-east-1 - see comment above
         )
         
         # Test STS GetCallerIdentity

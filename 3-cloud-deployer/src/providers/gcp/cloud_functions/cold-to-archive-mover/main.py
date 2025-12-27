@@ -84,7 +84,10 @@ def _is_multi_cloud_archive() -> bool:
     l3_cold = providers.get("layer_3_cold_provider")
     l3_archive = providers.get("layer_3_archive_provider")
     
-    return l3_cold != l3_archive
+    if l3_cold == l3_archive:
+        raise ConfigurationError(f"REMOTE_ARCHIVE_WRITER_URL set but providers match ({l3_cold}). Invalid multi-cloud config.")
+
+    return True
 
 
 @functions_framework.http
@@ -116,6 +119,9 @@ def main(request):
             if blob.time_created and blob.time_created < cutoff:
                 if _is_multi_cloud_archive():
                     # Multi-cloud: Download and POST to remote Archive Writer
+                    if not INTER_CLOUD_TOKEN:
+                        raise ConfigurationError("INTER_CLOUD_TOKEN is required for multi-cloud mode")
+
                     content = blob.download_as_text()
                     items = json.loads(content)
                     

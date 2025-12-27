@@ -4,12 +4,12 @@
 <head>
     <meta charset="utf-8" />
     <title>Architecture Overview — Deployer Documentation</title>
-    <link rel="icon" type="image/x-icon" href="references/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="../references/favicon.ico">
     <meta name="viewport" content="width=device-width,initial-scale=1" />
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="stylesheet" href="css/docs_styles.css" />
+    <link rel="stylesheet" href="../css/docs_styles.css" />
 </head>
 
 <body>
@@ -26,30 +26,8 @@
                 Understanding the 5-layer Digital Twin architecture and the modular deployer pattern.
             </p>
 
-            <!-- Table of Contents -->
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h2 class="mb-3"><i class="fa-solid fa-list me-2"></i>Table of Contents</h2>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <ul>
-                                <li><a href="#system-overview">System Overview</a></li>
-                                <li><a href="#architecture-layers">Architecture Layers</a></li>
-                                <li><a href="#deployer-pattern">Deployer Pattern</a></li>
-                            </ul>
-                        </div>
-                        <div class="col-md-6">
-                            <ul>
-                                <li><a href="#naming-convention">Naming Convention</a></li>
-                                <li><a href="#multi-cloud">Multi-Cloud Architecture</a></li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- System Overview -->
-            <div class="card mb-4" id="system-overview">
+            <div class="card mb-4">
                 <h2 class="mb-3"><i class="fa-solid fa-diagram-project me-2"></i>System Overview</h2>
                 <p>
                     The Multi-Cloud Digital Twin Deployer implements a <strong>5-layer architecture</strong> where each
@@ -71,7 +49,7 @@
             </div>
 
             <!--Architecture Layers -->
-            <div class="card mb-4" id="architecture-layers">
+            <div class="card mb-4">
                 <h2 class="mb-3"><i class="fa-solid fa-layer-group me-2"></i>Architecture Layers</h2>
 
                 <h3 class="mt-4 mb-2"><i class="fa-solid fa-1 me-2 text-primary"></i>Layer 1: Data Acquisition</h3>
@@ -82,7 +60,7 @@
                     <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> IoT Core <span
                             class="chip ok">Implemented</span></li>
                     <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> IoT Hub <span
-                            class="chip ok">Implemented</span></li>
+                            class="chip warn">Planned</span></li>
                     <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Cloud Pub/Sub <span
                             class="chip warn">Planned</span></li>
                 </ul>
@@ -101,7 +79,7 @@
                     <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> Lambda <span
                             class="chip ok">Implemented</span></li>
                     <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Azure Functions <span
-                            class="chip ok">Implemented</span></li>
+                            class="chip warn">Planned</span></li>
                     <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Cloud Functions <span
                             class="chip warn">Planned</span></li>
                 </ul>
@@ -125,7 +103,7 @@
                     <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> DynamoDB <span
                             class="chip ok">Implemented</span></li>
                     <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Cosmos DB <span
-                            class="chip ok">Implemented</span></li>
+                            class="chip warn">Planned</span></li>
                     <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Firestore <span
                             class="chip warn">Planned</span></li>
                 </ul>
@@ -138,7 +116,7 @@
                     <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> S3 Infrequent Access <span
                             class="chip ok">Implemented</span></li>
                     <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Blob Storage (Cool
-                        Tier) <span class="chip ok">Implemented</span></li>
+                        Tier) <span class="chip warn">Planned</span></li>
                     <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Cloud Storage (Nearline)
                         <span class="chip warn">Planned</span>
                     </li>
@@ -153,7 +131,7 @@
                         <span class="chip ok">Implemented</span>
                     </li>
                     <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Blob Storage (Archive
-                        Tier) <span class="chip ok">Implemented</span></li>
+                        Tier) <span class="chip warn">Planned</span></li>
                     <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Cloud Storage (Archive)
                         <span class="chip warn">Planned</span>
                     </li>
@@ -166,7 +144,7 @@
                     <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> Amazon API Gateway <span
                             class="chip ok">Implemented</span></li>
                     <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Azure API Management
-                        <span class="chip ok">Implemented</span>
+                        <span class="chip warn">Planned</span>
                     </li>
                     <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> API Gateway
                         <span class="chip warn">Planned</span>
@@ -185,7 +163,7 @@
                     <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> IoT TwinMaker <span
                             class="chip ok">Implemented</span></li>
                     <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Azure Digital Twins
-                        <span class="chip ok">Implemented</span>
+                        <span class="chip warn">Planned</span>
                     </li>
                     <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Self-hosted solution
                         <span class="chip warn">Planned</span>
@@ -207,7 +185,7 @@
                     <li><i class="fa-brands fa-aws text-warning"></i> <strong>AWS:</strong> Amazon Managed Grafana <span
                             class="chip ok">Implemented</span></li>
                     <li><i class="fa-brands fa-microsoft text-info"></i> <strong>Azure:</strong> Azure Managed Grafana
-                        <span class="chip ok">Implemented</span>
+                        <span class="chip warn">Planned</span>
                     </li>
                     <li><i class="fa-brands fa-google text-success"></i> <strong>GCP:</strong> Self-hosted Grafana <span
                             class="chip warn">Planned</span></li>
@@ -221,7 +199,7 @@
             </div>
 
             <!-- Deployer Pattern -->
-            <div class="card mb-4" id="deployer-pattern">
+            <div class="card mb-4">
                 <h2 class="mb-3"><i class="fa-solid fa-code-branch me-2"></i>Deployer Pattern</h2>
                 <p>The project follows a <strong>modular deployer pattern</strong> that promotes separation of concerns
                     and maintainability.</p>
@@ -292,7 +270,7 @@ def info(provider="aws"):
             </div>
 
             <!-- Naming Convention -->
-            <div class="card mb-4" id="naming-convention">
+            <div class="card mb-4">
                 <h2 class="mb-3"><i class="fa-solid fa-tag me-2"></i>Resource Naming Convention</h2>
                 <p>All cloud resources are prefixed with <code>digital_twin_name</code> to create a dedicated namespace.
                 </p>
@@ -343,7 +321,7 @@ def info(provider="aws"):
             </div>
 
             <!-- Multi-Cloud Considerations -->
-            <div class="card mb-4" id="multi-cloud">
+            <div class="card mb-4">
                 <h2 class="mb-3"><i class="fa-solid fa-globe me-2"></i>Multi-Cloud Architecture</h2>
                 <p>The deployer is designed to support mixed cloud providers per layer:</p>
 
@@ -355,7 +333,7 @@ def info(provider="aws"):
   "layer_3_cool_provider": "gcp",   // Cloud Storage Nearline (lowest cost)
   "layer_3_archive_provider": "azure", // Blob Archive (best pricing)
   "layer_4_provider": "aws",        // TwinMaker (native service)
-  "layer_5_provider": "azure"       // Managed Grafana
+  "layer_5 _provider": "azure"       // Managed Grafana
 }
 </code></pre>
 
@@ -382,7 +360,7 @@ def info(provider="aws"):
         style="display:none;">
         <i class="fa-solid fa-arrow-up"></i>
     </button>
-    <script src="js/docs-nav.js" defer></script>
+    <script src="../js/docs-nav.js" defer></script>
 </body>
 
 </html>

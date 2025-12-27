@@ -128,6 +128,7 @@ def lambda_handler(event, context):
                 "body": json.dumps({"error": str(e)})
             }
         # For direct invoke, return empty to avoid breaking dashboard
-        print("Returning empty propertyValues due to error.")
-        return { "propertyValues": [] }
+        # For direct invoke, return error to signal failure
+        print(f"CRITICAL: Hot Reader execution failed: {e}")
+        raise e
 

@@ -109,8 +109,7 @@ def _is_multi_cloud_archive() -> bool:
         raise ConfigurationError(f"Missing provider mapping: cold={l3_cold}, archive={l3_archive}")
     
     if l3_cold == l3_archive:
-        logging.warning(f"REMOTE_ARCHIVE_WRITER_URL set but providers match ({l3_cold}). Using local archive.")
-        return False
+        raise ConfigurationError(f"REMOTE_ARCHIVE_WRITER_URL set but providers match ({l3_cold}). Invalid multi-cloud config.")
     
     return True
 

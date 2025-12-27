@@ -230,8 +230,19 @@ resource "aws_lambda_function" "l4_connector" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO = local.digital_twin_info_json
+      DIGITAL_TWIN_INFO = var.digital_twin_info_json
       WORKSPACE_ID      = var.digital_twin_name
+
+      # Single-cloud mode: L3=AWS, invokes local Hot Reader Lambda
+      LOCAL_HOT_READER_NAME = var.layer_3_hot_provider == "aws" ? "${var.digital_twin_name}-l0-hot-reader" : ""
+
+      # Multi-cloud mode: L3≠AWS, calls remote Hot Reader via HTTP
+      REMOTE_READER_URL = var.layer_3_hot_provider != "aws" ? (
+        var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l3[0].default_hostname, "")}/api/hot-reader" :
+        var.layer_3_hot_provider == "google" ? try(google_cloudfunctions2_function.hot_reader[0].url, "") : ""
+      ) : ""
+
+      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
     }
   }
 

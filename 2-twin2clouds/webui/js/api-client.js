@@ -188,7 +188,7 @@ async function calculateCheapestCostsFromUI() {
     }
 
     try {
-        const response = await fetch('/api/calculate', {
+        const response = await fetch('/calculate', {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'

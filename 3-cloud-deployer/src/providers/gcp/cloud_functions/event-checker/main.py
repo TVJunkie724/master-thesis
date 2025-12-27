@@ -24,6 +24,11 @@ except ModuleNotFoundError:
     from _shared.env_utils import require_env
 
 
+class ConfigurationError(Exception):
+    """Raised when configuration is invalid."""
+    pass
+
+
 # Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
 _digital_twin_info = None
 
@@ -109,14 +114,16 @@ def _trigger_action(event: dict, action: dict, condition: dict = None) -> None:
     
     if action_type == "workflow":
         # Trigger Cloud Workflow
-        if WORKFLOW_TRIGGER_URL:
-            print(f"Triggering Cloud Workflow: {WORKFLOW_TRIGGER_URL}")
-            requests.post(
-                WORKFLOW_TRIGGER_URL,
-                json={"event": event, "action": action},
-                headers={"Content-Type": "application/json"},
-                timeout=30
-            )
+        if not WORKFLOW_TRIGGER_URL:
+            raise ConfigurationError("WORKFLOW_TRIGGER_URL is required for 'workflow' actions")
+            
+        print(f"Triggering Cloud Workflow: {WORKFLOW_TRIGGER_URL}")
+        requests.post(
+            WORKFLOW_TRIGGER_URL,
+            json={"event": event, "action": action},
+            headers={"Content-Type": "application/json"},
+            timeout=30
+        )
     
     elif action_type == "function":
         # Invoke another Cloud Function
@@ -131,30 +138,32 @@ def _trigger_action(event: dict, action: dict, condition: dict = None) -> None:
             )
     
     elif action_type == "feedback":
+        if not FEEDBACK_FUNCTION_URL:
+            raise ConfigurationError("FEEDBACK_FUNCTION_URL is required for 'feedback' actions")
+
         # Extract context for enriched feedback
         context = _extract_condition_context(event, condition) if condition else {}
         
         # Send feedback to device
-        if FEEDBACK_FUNCTION_URL:
-            feedback_payload = {
-                "detail": {
-                    "digitalTwinName": _get_digital_twin_info()["config"]["digital_twin_name"],
-                    "iotDeviceId": event.get("iotDeviceId"),
-                    "payload": {
-                        "message": action.get("payload", {}),
-                        "actual_value": context.get("actual_value"),
-                        "threshold": context.get("threshold"),
-                        "condition": context.get("condition")
-                    }
+        feedback_payload = {
+            "detail": {
+                "digitalTwinName": _get_digital_twin_info()["config"]["digital_twin_name"],
+                "iotDeviceId": event.get("iotDeviceId"),
+                "payload": {
+                    "message": action.get("payload", {}),
+                    "actual_value": context.get("actual_value"),
+                    "threshold": context.get("threshold"),
+                    "condition": context.get("condition")
                 }
             }
-            print(f"Sending feedback via: {FEEDBACK_FUNCTION_URL}")
-            requests.post(
-                FEEDBACK_FUNCTION_URL,
-                json=feedback_payload,
-                headers={"Content-Type": "application/json"},
-                timeout=30
-            )
+        }
+        print(f"Sending feedback via: {FEEDBACK_FUNCTION_URL}")
+        requests.post(
+            FEEDBACK_FUNCTION_URL,
+            json=feedback_payload,
+            headers={"Content-Type": "application/json"},
+            timeout=30
+        )
 
 
 @functions_framework.http

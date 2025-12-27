@@ -114,7 +114,7 @@ class CalcParams(BaseModel):
 # Calculation endpoint
 # --------------------------------------------------
 @router.put(
-    "/api/calculate",
+    "/calculate",
     summary="Calculate Cloud Costs and Determine Cheapest Provider Setup",
     description=(
         "This endpoint receives a complete set of **Digital Twin scenario parameters**, "

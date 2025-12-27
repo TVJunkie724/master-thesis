@@ -20,6 +20,9 @@ locals {
   
   # Pre-built Lambda packages directory
   l2_lambda_build_dir = "${var.project_path}/.build/aws"
+  
+  # Step Function name (single source of truth to avoid cycle)
+  l2_event_workflow_name = "${var.digital_twin_name}-l2-event-workflow"
 }
 
 # ==============================================================================
@@ -137,8 +140,8 @@ resource "aws_lambda_function" "l2_persister" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO = local.digital_twin_info_json
-      DYNAMODB_TABLE    = "${var.digital_twin_name}-hot"
+      DIGITAL_TWIN_INFO   = var.digital_twin_info_json
+      DYNAMODB_TABLE_NAME = "${var.digital_twin_name}-hot"
 
       # Multi-cloud L2→L3: When AWS L2 sends to remote L3
       REMOTE_WRITER_URL = var.layer_2_provider == "aws" && var.layer_3_hot_provider != "aws" ? (
@@ -157,6 +160,10 @@ resource "aws_lambda_function" "l2_persister" {
 
       # Inter-cloud token for cross-cloud authentication
       INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+
+      # Event checking (optional)
+      EVENT_CHECKER_LAMBDA_NAME = var.use_event_checking ? "${var.digital_twin_name}-l2-event-checker" : ""
+      USE_EVENT_CHECKING        = var.use_event_checking ? "true" : "false"
     }
   }
 
@@ -183,7 +190,12 @@ resource "aws_lambda_function" "l2_event_checker" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO = local.digital_twin_info_json
+      DIGITAL_TWIN_INFO                  = var.digital_twin_info_json
+      EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN = var.return_feedback_to_device ? aws_lambda_function.event_feedback_wrapper[0].arn : ""
+      USE_FEEDBACK                       = var.return_feedback_to_device ? "true" : "false"
+      LAMBDA_CHAIN_STEP_FUNCTION_ARN     = var.trigger_notification_workflow && var.use_event_checking ? "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.l2_event_workflow_name}" : ""
+      USE_STEP_FUNCTIONS                 = var.trigger_notification_workflow ? "true" : "false"
+      TWINMAKER_WORKSPACE_NAME           = var.layer_4_provider == "aws" ? "${var.digital_twin_name}-workspace" : ""
     }
   }
 
@@ -241,7 +253,7 @@ resource "aws_iam_role_policy" "l2_sfn_lambda" {
 resource "aws_sfn_state_machine" "l2_event_workflow" {
   # Requires both flags since workflow invokes event_checker
   count    = local.l2_aws_enabled && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
-  name     = "${var.digital_twin_name}-l2-event-workflow"
+  name     = local.l2_event_workflow_name
   role_arn = aws_iam_role.l2_step_functions[0].arn
 
   definition = jsonencode({
@@ -277,7 +289,7 @@ resource "aws_lambda_function" "processor_wrapper" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO     = local.digital_twin_info_json
+      DIGITAL_TWIN_INFO     = var.digital_twin_info_json
       PERSISTER_LAMBDA_NAME = aws_lambda_function.l2_persister[0].function_name
     }
   }
@@ -304,9 +316,56 @@ resource "aws_lambda_function" "user_processor" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO = local.digital_twin_info_json
+      DIGITAL_TWIN_INFO = var.digital_twin_info_json
     }
   }
 
   tags = local.aws_common_tags
+}
+
+# ==============================================================================
+# AWS Event Feedback Wrapper Lambda (Calls user feedback and sends to IoT)
+# Only deployed if return_feedback_to_device is enabled
+# ==============================================================================
+
+resource "aws_lambda_function" "event_feedback_wrapper" {
+  count         = local.l2_aws_enabled && var.return_feedback_to_device ? 1 : 0
+  function_name = "${var.digital_twin_name}-event-feedback-wrapper"
+  role          = aws_iam_role.l2_lambda[0].arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.11"
+  timeout       = 30
+  memory_size   = 256
+
+  filename         = "${local.l2_lambda_build_dir}/event_feedback_wrapper.zip"
+  source_code_hash = filebase64sha256("${local.l2_lambda_build_dir}/event_feedback_wrapper.zip")
+
+  environment {
+    variables = {
+      DIGITAL_TWIN_INFO          = var.digital_twin_info_json
+      EVENT_FEEDBACK_LAMBDA_NAME = "${var.digital_twin_name}-event-feedback"
+    }
+  }
+
+  tags = local.aws_common_tags
+}
+
+# IAM policy for event_feedback_wrapper to publish to IoT
+resource "aws_iam_role_policy" "l2_iot_publish" {
+  count = local.l2_aws_enabled && var.return_feedback_to_device ? 1 : 0
+  name  = "${var.digital_twin_name}-l2-iot-publish-policy"
+  role  = aws_iam_role.l2_lambda[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "iot:Publish"
+        ]
+        Resource = "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:topic/*"
+      }
+    ]
+  })
 }

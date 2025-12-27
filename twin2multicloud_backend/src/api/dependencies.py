@@ -3,8 +3,9 @@ from sqlalchemy.orm import Session
 from src.models.database import get_db
 from src.models.user import User
 from src.auth.jwt import verify_token
+from src.config import settings
 
-async def get_current_user(
+async def _get_current_user_real(
     authorization: str = Header(...),
     db: Session = Depends(get_db)
 ) -> User:
@@ -25,15 +26,12 @@ async def get_current_user(
     return user
 
 
-# DEV BYPASS: For testing without OAuth (DEBUG mode only)
-async def get_current_user_dev(
+async def _get_current_user_dev(
     authorization: str = Header(None),
     db: Session = Depends(get_db)
 ) -> User:
     """Development-only auth bypass. Uses 'Bearer dev-token' to get first user."""
-    from src.config import settings
-    
-    if settings.DEBUG and authorization == "Bearer dev-token":
+    if authorization == "Bearer dev-token":
         user = db.query(User).first()
         if user:
             return user
@@ -45,4 +43,9 @@ async def get_current_user_dev(
         return user
     
     # Fall back to real auth
-    return await get_current_user(authorization, db)
+    return await _get_current_user_real(authorization, db)
+
+
+# Export the correct dependency based on DEBUG mode
+get_current_user = _get_current_user_dev if settings.DEBUG else _get_current_user_real
+

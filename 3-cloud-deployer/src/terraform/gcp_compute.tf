@@ -53,7 +53,7 @@ resource "google_cloudfunctions2_function" "persister" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME      = var.digital_twin_name
-      DIGITAL_TWIN_INFO      = local.gcp_digital_twin_info
+      DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
       FIRESTORE_DATABASE     = var.digital_twin_name
@@ -66,6 +66,10 @@ resource "google_cloudfunctions2_function" "persister" {
         var.layer_3_hot_provider == "aws" ? try(aws_lambda_function_url.l0_hot_writer[0].function_url, "") :
         var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/hot-writer" : ""
       ) : ""
+
+      # Event checker (optional)
+      EVENT_CHECKER_FUNCTION_URL = var.use_event_checking ? "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net/${var.digital_twin_name}-event-checker" : ""
+      USE_EVENT_CHECKING         = var.use_event_checking ? "true" : "false"
     }
   }
 
@@ -133,7 +137,7 @@ resource "google_cloudfunctions2_function" "connector" {
     service_account_email = google_service_account.functions[0].email
     
     environment_variables = {
-      DIGITAL_TWIN_INFO = local.gcp_digital_twin_info
+      DIGITAL_TWIN_INFO = var.digital_twin_info_json
       INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         try(random_password.inter_cloud_token[0].result, "")
       )
@@ -211,15 +215,20 @@ resource "google_cloudfunctions2_function" "event_checker" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME     = var.digital_twin_name
-      DIGITAL_TWIN_INFO     = local.digital_twin_info_json
+      DIGITAL_TWIN_INFO     = var.digital_twin_info_json
       GCP_PROJECT_ID        = local.gcp_project_id
       INTER_CLOUD_TOKEN     = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         try(random_password.inter_cloud_token[0].result, "")
       )
+      # Workflow trigger URL (if enabled)
+      WORKFLOW_TRIGGER_URL  = var.trigger_notification_workflow ? (
+        "https://workflowexecutions.googleapis.com/v1/projects/${local.gcp_project_id}/locations/${var.gcp_region}/workflows/${var.digital_twin_name}-event-workflow/executions"
+      ) : ""
       # Feedback function URL (if enabled)
       FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? (
-        try(google_cloudfunctions2_function.processor[0].url, "")
+        "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net/${var.digital_twin_name}-event-feedback"
       ) : ""
+      USE_FEEDBACK          = var.return_feedback_to_device ? "true" : "false"
     }
   }
 
@@ -323,7 +332,7 @@ resource "google_cloudfunctions2_function" "processor_wrapper" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME      = var.digital_twin_name
-      DIGITAL_TWIN_INFO      = local.gcp_digital_twin_info
+      DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       GCP_PROJECT_ID         = local.gcp_project_id
       FUNCTION_BASE_URL      = "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net"
       PERSISTER_FUNCTION_URL = local.gcp_l3_hot_enabled ? google_cloudfunctions2_function.persister[0].url : ""
@@ -376,7 +385,7 @@ resource "google_cloudfunctions2_function" "processor" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME      = var.digital_twin_name
-      DIGITAL_TWIN_INFO      = local.gcp_digital_twin_info
+      DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
       FIRESTORE_DATABASE     = var.digital_twin_name
@@ -446,7 +455,7 @@ resource "google_cloudfunctions2_function" "event_action" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME      = var.digital_twin_name
-      DIGITAL_TWIN_INFO      = local.gcp_digital_twin_info
+      DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
       FIRESTORE_DATABASE     = var.digital_twin_name
@@ -515,13 +524,18 @@ resource "google_cloudfunctions2_function" "event_feedback" {
     
     environment_variables = {
       DIGITAL_TWIN_NAME      = var.digital_twin_name
-      DIGITAL_TWIN_INFO      = local.gcp_digital_twin_info
+      DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
       FIRESTORE_DATABASE     = var.digital_twin_name
       INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
         try(random_password.inter_cloud_token[0].result, "")
       )
+      
+      # IoT Core vars - required for event_feedback_wrapper to send commands to devices
+      GCP_IOT_REGION              = var.gcp_region
+      GCP_IOT_REGISTRY_ID         = "${var.digital_twin_name}-registry"
+      EVENT_FEEDBACK_FUNCTION_URL = "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net/${var.digital_twin_name}-event-feedback"
     }
   }
 

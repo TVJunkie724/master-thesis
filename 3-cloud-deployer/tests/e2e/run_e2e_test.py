@@ -52,6 +52,12 @@ def main():
         "--tb=long",
         "-s",  # Don't capture stdout (show in real-time too)
     ]
+
+    # Add any extra arguments passed to the script
+    if len(sys.argv) > 2:
+        extra_args = sys.argv[2:]
+        print(f"Adding extra arguments: {extra_args}")
+        cmd.extend(extra_args)
     
     print(f"Command: {' '.join(cmd)}")
     print(f"\n{'=' * 60}\n")

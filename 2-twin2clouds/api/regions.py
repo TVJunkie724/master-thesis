@@ -16,7 +16,7 @@ router = APIRouter(tags=["Regions"])
 # Region Fetching Endpoints
 # --------------------------------------------------
 
-@router.post("/api/fetch_regions/aws", summary="Fetch AWS Regions")
+@router.post("/fetch_regions/aws", summary="Fetch AWS Regions")
 def fetch_regions_aws(force_fetch: bool = False):
     """
     Fetches the latest list of available AWS regions.
@@ -39,7 +39,7 @@ def fetch_regions_aws(force_fetch: bool = False):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
-@router.post("/api/fetch_regions/azure", summary="Fetch Azure Regions")
+@router.post("/fetch_regions/azure", summary="Fetch Azure Regions")
 def fetch_regions_azure(force_fetch: bool = False):
     """
     Fetches the latest list of available Azure regions.
@@ -62,7 +62,7 @@ def fetch_regions_azure(force_fetch: bool = False):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
-@router.post("/api/fetch_regions/gcp", summary="Fetch GCP Regions")
+@router.post("/fetch_regions/gcp", summary="Fetch GCP Regions")
 def fetch_regions_gcp(force_fetch: bool = False):
     """
     Fetches the latest list of available Google Cloud regions.

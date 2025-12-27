@@ -28,9 +28,16 @@ variable "project_path" {
   type        = string
 }
 
+variable "digital_twin_info_json" {
+  description = "JSON string containing full Digital Twin configuration (config, config_iot_devices, config_providers, config_events)"
+  type        = string
+  default     = "{}"
+}
+
 # ==============================================================================
 # Layer Provider Mapping (from config_providers.json)
 # ==============================================================================
+
 
 variable "layer_1_provider" {
   description = "Cloud provider for L1 (IoT/Data Acquisition)"
@@ -148,11 +155,11 @@ variable "aws_region" {
 }
 
 # ==============================================================================
-# L5 Grafana User (Required when layer_5_provider=aws)
+# L5 Grafana User (Required when layer_5_provider=aws or azure)
 # ==============================================================================
 
 variable "grafana_admin_email" {
-  description = "Email for Grafana admin user. Required if layer_5_provider=aws."
+  description = "Email for Grafana admin user. Required when layer_5_provider is 'aws' or 'azure'. For Azure: use format 'user@TENANT.onmicrosoft.com'"
   type        = string
   default     = ""
 }

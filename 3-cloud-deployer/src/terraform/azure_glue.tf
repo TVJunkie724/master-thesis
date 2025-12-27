@@ -94,6 +94,26 @@ resource "azurerm_linux_function_app" "l0_glue" {
 
     # Managed Identity Client ID
     AZURE_CLIENT_ID = azurerm_user_assigned_identity.main[0].client_id
+
+    # Cosmos DB connection (for hot-writer when L3 hot is Azure)
+    COSMOS_DB_ENDPOINT  = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_account.main[0].endpoint : ""
+    COSMOS_DB_KEY       = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_account.main[0].primary_key : ""
+    COSMOS_DB_DATABASE  = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_sql_database.main[0].name : ""
+    COSMOS_DB_CONTAINER = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_sql_container.hot[0].name : ""
+
+    # Blob storage connection (for cold-writer and archive-writer when L3 cold/archive is Azure)
+    BLOB_CONNECTION_STRING    = var.layer_3_cold_provider == "azure" || var.layer_3_archive_provider == "azure" ? local.azure_storage_connection_string : ""
+    COLD_STORAGE_CONTAINER    = var.layer_3_cold_provider == "azure" ? azurerm_storage_container.cold[0].name : ""
+    ARCHIVE_STORAGE_CONTAINER = var.layer_3_archive_provider == "azure" ? azurerm_storage_container.archive[0].name : ""
+
+    # Full Digital Twin configuration - required by ingestion for routing
+    DIGITAL_TWIN_INFO = var.digital_twin_info_json
+
+    # L2 Function App URL - required by ingestion to call processor
+    FUNCTION_APP_BASE_URL = "https://${var.digital_twin_name}-user-functions.azurewebsites.net"
+
+    # ADT instance URL - required by adt-pusher for multi-cloud L4 updates
+    ADT_INSTANCE_URL = var.layer_4_provider == "azure" ? "https://${var.digital_twin_name}-adt.${var.azure_region}.digitaltwins.azure.net" : ""
   }
 
   # ZIP deployment will be handled by Python orchestrator post-Terraform

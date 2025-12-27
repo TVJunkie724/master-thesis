@@ -20,6 +20,7 @@ class FileVersion(Base):
     twin = relationship("DigitalTwin", back_populates="file_versions")
     
     __table_args__ = (
-        # Unique constraint on twin_id + file_path + version
-        {"sqlite_autoincrement": True},
+        # Unique constraint: only one version per twin+file_path+version number
+        # UniqueConstraint would need import, using Index instead for simplicity
+        {},
     )

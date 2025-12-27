@@ -157,8 +157,9 @@ resource "aws_lambda_function" "l3_hot_reader" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO = local.digital_twin_info_json
-      DYNAMODB_TABLE    = aws_dynamodb_table.l3_hot[0].name
+      DIGITAL_TWIN_INFO   = var.digital_twin_info_json
+      DYNAMODB_TABLE_NAME = aws_dynamodb_table.l3_hot[0].name
+      INTER_CLOUD_TOKEN   = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
     }
   }
 
@@ -218,9 +219,9 @@ resource "aws_lambda_function" "l3_hot_to_cold_mover" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO      = local.digital_twin_info_json
-      SOURCE_TABLE           = aws_dynamodb_table.l3_hot[0].name
-      DESTINATION_BUCKET     = aws_s3_bucket.l3_cold[0].bucket
+      DIGITAL_TWIN_INFO      = var.digital_twin_info_json
+      DYNAMODB_TABLE_NAME    = aws_dynamodb_table.l3_hot[0].name
+      COLD_S3_BUCKET_NAME    = aws_s3_bucket.l3_cold[0].bucket
 
       # Multi-cloud Hot→Cold: When AWS L3 Hot sends to remote Cold
       REMOTE_COLD_WRITER_URL = var.layer_3_hot_provider == "aws" && var.layer_3_cold_provider != "aws" ? (
@@ -309,9 +310,9 @@ resource "aws_lambda_function" "l3_cold_to_archive_mover" {
 
   environment {
     variables = {
-      DIGITAL_TWIN_INFO      = local.digital_twin_info_json
-      SOURCE_BUCKET          = aws_s3_bucket.l3_cold[0].bucket
-      DESTINATION_BUCKET     = aws_s3_bucket.l3_archive[0].bucket
+      DIGITAL_TWIN_INFO         = var.digital_twin_info_json
+      COLD_S3_BUCKET_NAME       = aws_s3_bucket.l3_cold[0].bucket
+      ARCHIVE_S3_BUCKET_NAME    = aws_s3_bucket.l3_archive[0].bucket
 
       # Multi-cloud Cold→Archive: When AWS L3 Cold sends to remote Archive
       REMOTE_ARCHIVE_WRITER_URL = var.layer_3_cold_provider == "aws" && var.layer_3_archive_provider != "aws" ? (

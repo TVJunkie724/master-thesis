@@ -61,10 +61,125 @@ resource "azurerm_dashboard_grafana" "main" {
 # }
 
 # ==============================================================================
-# RBAC: User Access to Grafana
-# Note: Users need "Grafana Admin" or "Grafana Editor" role to access dashboards.
-# This is typically configured via Azure AD groups.
+# RBAC: Grafana Admin User Provisioning
+# 
+# This implements a "create-if-not-exists" pattern:
+# - If user exists in Entra ID: Only assign Grafana Admin role
+# - If user doesn't exist: Create user with temp password, then assign role
 # ==============================================================================
 
-# Note: Grafana role assignments for end users are managed separately
-# through Azure AD or the Grafana API, not via Terraform.
+# Query tenant's verified domains
+data "azuread_domains" "tenant" {
+  count = var.layer_5_provider == "azure" ? 1 : 0
+}
+
+locals {
+  # Config available and valid
+  azure_grafana_enabled = var.layer_5_provider == "azure" && var.grafana_admin_email != ""
+  
+  # Extract domain from email
+  email_domain = local.azure_grafana_enabled ? split("@", var.grafana_admin_email)[1] : ""
+  
+  # Get verified domains from tenant
+  verified_domains = try([for d in data.azuread_domains.tenant[0].domains : d.domain_name if d.verified], [])
+  
+  # Check if email domain is verified in tenant
+  domain_is_verified = contains(local.verified_domains, local.email_domain)
+}
+
+# Check if user already exists in Entra ID (lookup by email)
+data "azuread_users" "check_existing" {
+  count          = local.azure_grafana_enabled ? 1 : 0
+  mails          = [var.grafana_admin_email]
+  ignore_missing = true
+}
+
+locals {
+  # User exists if we found any matching users
+  user_found = local.azure_grafana_enabled && length(
+    try(data.azuread_users.check_existing[0].users, [])
+  ) > 0
+  
+  # Existing user's object_id (if found)
+  existing_user_object_id = local.user_found ? data.azuread_users.check_existing[0].users[0].object_id : null
+  
+  # Create user only if: not found AND domain is verified in tenant
+  should_create_user = local.azure_grafana_enabled && !local.user_found && local.domain_is_verified
+}
+
+# Generate secure password for new user
+resource "random_password" "grafana_admin" {
+  count            = local.should_create_user ? 1 : 0
+  length           = 16
+  special          = true
+  override_special = "!@#$%^&*()-_=+"
+  min_lower        = 2
+  min_upper        = 2
+  min_numeric      = 2
+  min_special      = 2
+}
+
+# Create user in Entra ID if they don't exist AND domain is verified
+resource "azuread_user" "grafana_admin" {
+  count = local.should_create_user ? 1 : 0
+  
+  user_principal_name   = var.grafana_admin_email
+  display_name          = "${var.grafana_admin_first_name} ${var.grafana_admin_last_name}"
+  mail                  = var.grafana_admin_email
+  password              = random_password.grafana_admin[0].result
+  force_password_change = true
+}
+
+locals {
+  # Final object_id: from existing user OR newly created
+  grafana_admin_object_id = coalesce(
+    local.existing_user_object_id,
+    try(azuread_user.grafana_admin[0].object_id, null)
+  )
+}
+
+# Assign Grafana Admin role (with deterministic UUID for idempotency)
+# NOTE: Uses azure_grafana_enabled for count (known at plan time) to avoid
+# "count depends on apply" error when creating new users.
+resource "azurerm_role_assignment" "grafana_admin" {
+  count = local.azure_grafana_enabled ? 1 : 0
+  
+  # Deterministic UUID prevents duplicate assignment errors on re-apply
+  name                 = uuidv5("dns", "${var.grafana_admin_email}-grafana-admin")
+  scope                = azurerm_dashboard_grafana.main[0].id
+  role_definition_name = "Grafana Admin"
+  
+  # Use coalesce to pick existing user OR newly created user's object_id
+  # At apply time, one of these will be available
+  principal_id = coalesce(
+    local.existing_user_object_id,
+    try(azuread_user.grafana_admin[0].object_id, null)
+  )
+  
+  # Ensure user is created before role assignment
+  depends_on = [azuread_user.grafana_admin]
+}
+
+# ==============================================================================
+# RBAC: Deploying Service Principal → Grafana Admin
+# Required for E2E tests to query Grafana API immediately after deployment.
+# Manual users don't need this - they have time for propagation naturally.
+# ==============================================================================
+
+data "azurerm_client_config" "current" {}
+
+resource "azurerm_role_assignment" "grafana_deployer" {
+  count                            = var.layer_5_provider == "azure" ? 1 : 0
+  scope                            = azurerm_dashboard_grafana.main[0].id
+  role_definition_name             = "Grafana Admin"
+  principal_id                     = data.azurerm_client_config.current.object_id
+  skip_service_principal_aad_check = true
+}
+
+# Wait for Azure RBAC propagation (typically 5-10 min, using 180s + test retry logic)
+resource "time_sleep" "wait_for_grafana_role" {
+  count           = var.layer_5_provider == "azure" ? 1 : 0
+  create_duration = "180s"
+  depends_on      = [azurerm_role_assignment.grafana_deployer]
+}
+

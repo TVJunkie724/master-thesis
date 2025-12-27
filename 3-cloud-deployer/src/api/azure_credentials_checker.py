@@ -192,6 +192,55 @@ def _get_caller_identity(credential, subscription_id: str) -> dict:
         raise
 
 
+def _validate_azure_regions(credential, subscription_id: str, regions: dict) -> dict:
+    """
+    Validate Azure regions are available for the subscription.
+    
+    Args:
+        credential: Authenticated Azure credential
+        subscription_id: Azure subscription ID
+        regions: Dict of region keys to validate, e.g. {"azure_region": "westeurope", ...}
+    
+    Returns:
+        Dict with validation results per region key
+    """
+    from azure.mgmt.resource import SubscriptionClient
+    
+    result = {}
+    try:
+        sub_client = SubscriptionClient(credential)
+        locations = list(sub_client.subscriptions.list_locations(subscription_id))
+        valid_region_names = {loc.name for loc in locations}
+        valid_display_names = {loc.display_name.lower(): loc.name for loc in locations}
+        
+        for key, region in regions.items():
+            if not region or not region.strip():
+                result[key] = {"valid": False, "error": f"Region not specified for {key}"}
+                continue
+            
+            region_lower = region.lower().strip()
+            
+            # Check both short name (e.g., "westeurope") and display name (e.g., "West Europe")
+            if region_lower in valid_region_names:
+                result[key] = {"valid": True, "region": region_lower}
+            elif region_lower in valid_display_names:
+                result[key] = {"valid": True, "region": valid_display_names[region_lower]}
+            else:
+                sample_regions = sorted(list(valid_region_names))[:10]
+                result[key] = {
+                    "valid": False,
+                    "error": f"Region '{region}' is not available. Valid regions: {', '.join(sample_regions)}..."
+                }
+        
+        return result
+        
+    except Exception as e:
+        # Return error for all regions if list_locations fails
+        for key in regions:
+            result[key] = {"valid": False, "error": f"Failed to validate region: {str(e)}"}
+        return result
+
+
 def _get_role_assignments_with_permissions(credential, subscription_id: str) -> dict:
     """
     List role assignments AND their permissions for the authenticated principal.
@@ -414,6 +463,7 @@ def check_azure_credentials(credentials: dict) -> dict:
         "status": "invalid",
         "message": "",
         "caller_identity": None,
+        "region_validation": None,
         "can_list_roles": False,
         "by_layer": {},
         "summary": {"total_layers": 0, "valid_layers": 0, "partial_layers": 0, "invalid_layers": 0},
@@ -449,7 +499,28 @@ def check_azure_credentials(credentials: dict) -> dict:
             result["message"] = str(e)
             return result
         
-        # Step 3: Get role assignments with permissions
+        # Step 3: Validate regions
+        regions_to_validate = {
+            "azure_region": credentials.get("azure_region", ""),
+            "azure_region_iothub": credentials.get("azure_region_iothub", ""),
+            "azure_region_digital_twin": credentials.get("azure_region_digital_twin", ""),
+        }
+        # Filter out empty regions
+        regions_to_validate = {k: v for k, v in regions_to_validate.items() if v and v.strip()}
+        
+        if regions_to_validate:
+            region_results = _validate_azure_regions(credential, subscription_id, regions_to_validate)
+            result["region_validation"] = region_results
+            
+            # Check if any region is invalid
+            invalid_regions = [k for k, v in region_results.items() if not v.get("valid")]
+            if invalid_regions:
+                errors = [region_results[k].get("error", f"Invalid region") for k in invalid_regions]
+                result["status"] = "invalid"
+                result["message"] = f"Invalid region(s): {'; '.join(errors)}"
+                return result
+        
+        # Step 4: Get role assignments with permissions
         role_info = _get_role_assignments_with_permissions(credential, subscription_id)
         
         if role_info is None:

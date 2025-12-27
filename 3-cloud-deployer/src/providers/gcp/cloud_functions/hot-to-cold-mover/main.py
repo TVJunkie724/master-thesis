@@ -101,7 +101,10 @@ def _is_multi_cloud_cold() -> bool:
     l3_hot = providers.get("layer_3_hot_provider")
     l3_cold = providers.get("layer_3_cold_provider")
     
-    return l3_hot != l3_cold
+    if l3_hot == l3_cold:
+        raise ConfigurationError(f"REMOTE_COLD_WRITER_URL set but providers match ({l3_hot}). Invalid multi-cloud config.")
+
+    return True
 
 
 def _chunk_items(items: list, max_bytes: int = MAX_CHUNK_SIZE_BYTES) -> list:
@@ -204,6 +207,9 @@ def main(request):
             for idx, chunk in enumerate(chunks):
                 if _is_multi_cloud_cold():
                     # Multi-cloud: POST to remote Cold Writer
+                    if not INTER_CLOUD_TOKEN:
+                        raise ConfigurationError("INTER_CLOUD_TOKEN is required for multi-cloud mode")
+                        
                     payload = {
                         "iotDeviceId": device_id,
                         "items": chunk,

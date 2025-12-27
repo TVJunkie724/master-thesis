@@ -123,20 +123,6 @@ cd src
 python main.py
 ```
 
-### Verify Your Credentials (Recommended)
-
-Before deploying, verify your credentials have the required permissions:
-
-```bash
-# Via CLI
->>> check_credentials aws
-
-# Via API
-curl "http://localhost:8000/credentials/check/aws"
-```
-
-This will check if your AWS credentials have all necessary permissions for the full deployment and report any missing permissions.
-
 ---
 
 ## Documentation
@@ -413,20 +399,18 @@ Welcome to the Digital Twin Manager. Type 'help' for commands.
 | POST | `/lambda_update` | Update Lambda function code |
 | GET | `/lambda_logs` | Fetch Lambda logs |
 
-### Credential Validation
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/credentials/check/aws` | Validate AWS credentials from request body |
-| GET | `/credentials/check/aws` | Validate AWS credentials from project config |
-
 ---
-
 
 ## Project Structure
 
 ```
 3-cloud-deployer/
+├── Dockerfile                       # Docker container definition
+├── rest_api.py                      # FastAPI REST API
+├── config.json                      # Main configuration
+├── config_credentials.json          # Cloud credentials (not in git)
+├── config_providers.json            # Multi-cloud provider mapping
+├── config_iot_devices.json          # IoT device definitions
 ├── config_hierarchy.json            # TwinMaker hierarchy
 ├── config_events.json               # Event rules
 ├── src/
@@ -439,12 +423,10 @@ Welcome to the Digital Twin Manager. Type 'help' for commands.
 │   │   ├── iot_deployer.py          # IoT devices deployer
 │   │   ├── additional_deployer.py   # Hierarchy deployer
 │   │   └── event_action_deployer.py # Event actions deployer
-│   ├── aws/
-│   │   ├── globals_aws.py           # AWS-specific globals
-│   │   ├── lambda_manager.py        # Lambda update/management
-│   │   └── api_lambda_schemas.py    # API request schemas
-│   ├── iot_device_simulator/        # IoT device simulator
-│   └── state_machines/              # Step Functions definitions
+│   └── aws/
+│       ├── globals_aws.py           # AWS-specific globals
+│       ├── lambda_manager.py        # Lambda update/management
+│       └── api_lambda_schemas.py    # API request schemas
 ├── lambda_functions/
 │   ├── core/
 │   │   ├── dispatcher/              # Routes incoming IoT data
@@ -452,7 +434,9 @@ Welcome to the Digital Twin Manager. Type 'help' for commands.
 │   │   ├── default-processor/       # Default data processor
 │   │   ├── hot-to-cold-mover/       # Hot → Cold data mover
 │   │   └── cold-to-archive-mover/   # Cold → Archive data mover
-│   └── event_actions/               # Custom event handlers (inside lambda_functions)
+│   └── event_actions/               # Custom event handlers
+├── iot_device_simulator/            # IoT device simulator
+├── state_machines/                  # Step Functions definitions
 └── README.md                        # This file
 ```
 
@@ -498,162 +482,6 @@ def destroy(provider):
 ```
 
 ### 3. Resource Naming Convention
-
-All resources are prefixed with `digital_twin_name` to:
-- Create a dedicated namespace
-- Distinguish twin resources from other cloud resources
-- Enable easy identification and cleanup
-
-Example: If `digital_twin_name = "dt"`:
-- Lambda: `dt-dispatcher`
-- DynamoDB: `dt-hot-iot-data`
-- S3 Bucket: `dt-cold-iot-data`
-- IoT Thing: `dt-temperature-sensor-1`
-
-### 4. Data Processing Pipeline
-
-1. **IoT Device** publishes to IoT service topic
-2. **IoT Rule** triggers **Dispatcher Function**
-3. **Dispatcher** invokes device-specific **Processor Function**
-4. **Processor** transforms data and invokes **Persister Function**
-5. **Persister** writes to **Hot Storage**
-6. **Hot-to-Cold Mover** (scheduled) archives to **Cool Storage**
-7. **Cold-to-Archive Mover** (scheduled) moves to **Archive Storage**
-
----
-
-## Deployed Services
-
-### AWS Services
-
-| Service | Purpose | Resources |
-|---------|---------|-----------|
-| **AWS IoT Core** | Device connectivity | Things, Policies, Certificates, Rules |
-| **AWS Lambda** | Data processing | dispatcher, persister, processors, movers |
-| **IAM** | Access control | Roles and policies for each Lambda |
-| **DynamoDB** | Hot storage | `{twin_name}-hot-iot-data` |
-| **S3** | Cool & Archive storage | `{twin_name}-cold-iot-data`, archive bucket |
-| **EventBridge** | Scheduled movers | hot-to-cold rule, cold-to-archive rule |
-| **Step Functions** | Orchestration | Event action workflows |
-| **IoT TwinMaker** | 3D twin management | Workspace, entities, components |
-| **Managed Grafana** | Visualization | Workspace |
-| **CloudWatch Logs** | Logging | Log groups for each function |
-
-### Azure Services (In Development)
-
-- Azure IoT Hub
-- Azure Functions
-- Azure Cosmos DB
-- Azure Blob Storage (Cool, Archive tiers)
-- Azure Digital Twins
-- Azure Managed Grafana
-
-### GCP Services (In Development)
-
-- Cloud Pub/Sub
-- Cloud Functions
-- Firestore
-- Cloud Storage (Nearline, Archive classes)
-- Self-hosted Digital Twin solution
-- Self-hosted Grafana on GKE/Compute Engine
-
----
-
-## Data Flow
-
-### Ingestion Flow
-
-```
-IoT Device (MQTT/HTTPS) 
-  → IoT Service Topic
-    → Trigger Rule
-      → Dispatcher Function
-        → Processor Function
-          → Persister Function
-            → Hot Storage
-```
-
-### Storage Lifecycle
-
-```
-Hot Storage (DynamoDB/Cosmos DB/Firestore)
-  ↓ (after layer_3_hot_to_cold_interval_days)
-Cool Storage (S3 IA/Blob Cool/Cloud Storage Nearline)
-  ↓ (after layer_3_cold_to_archive_interval_days)
-Archive Storage (S3 Glacier/Blob Archive/Cloud Storage Archive)
-```
-
----
-
-## Integration with 2-twin2clouds
-
-This deployer is designed to work with the [2-twin2clouds](../2-twin2clouds) cost optimizer, which:
-- Analyzes digital twin scenarios (devices, data volume, storage duration, etc.)
-- Computes monthly costs for AWS, Azure, and GCP per layer
-- Suggests the most cost-efficient multi-cloud deployment path
-
-**Workflow**:
-1. User defines scenario in 2-twin2clouds web UI
-2. Cost optimizer determines optimal provider per layer
-3. User updates `config_providers.json` with recommended path
-4. This deployer executes the multi-cloud deployment
-
-**Example**: Cost optimizer suggests:
-- L1 (IoT): GCP Pub/Sub (cheapest)
-- L2 (Processing): AWS Lambda
-- L3-Hot: AWS DynamoDB
-- L3-Cool: GCP Cloud Storage Nearline
-- L3-Archive: Azure Blob Archive
-- L4: AWS TwinMaker
-- L5: AWS Managed Grafana
-
-The deployer handles all cross-cloud data transfers and integration automatically.
-
----
-
-## Future Roadmap
-
-- [x] **REST API**: FastAPI-based deployment API
-- [x] **Docker Support**: Containerized deployment
-- [x] **Multi-Cloud Foundation**: Layer-based provider selection
-- [ ] **Azure Full Implementation**: Complete Azure deployers
-- [ ] **GCP Full Implementation**: Complete GCP deployers
-- [ ] **Cross-Cloud Data Transfer**: Automated egress handling
-- [ ] **Object-Oriented Refactor**: Create `Deployer` base class
-- [ ] **Recovery Mechanism**: Resume failed deployments from checkpoint
-- [ ] **Unit Tests**: Add comprehensive test coverage
-- [ ] **Terraform Export**: Generate Terraform/ARM/Deployment Manager templates
-- [ ] **Cost Monitoring**: Real-time cost tracking per layer
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-**1. IAM/RBAC Propagation Delays**
-
-Cloud providers take time to propagate permissions. The deployer includes automatic waits, but if you see permission errors, wait 30-60 seconds and retry.
-
-**2. Resource Already Exists**
-
-If deployment fails midway, run `/destroy` endpoint or CLI `destroy` command to clean up, then redeploy.
-
-**3. Docker Volume Issues**
-
-Ensure configuration files are mounted correctly:
-```bash
-docker run -p 8000:8000 -v $(pwd):/app digital-twin-deployer
-```
-
-**4. API Returns 500 Errors**
-
-Check logs in Docker container:
-```bash
-docker logs <container-id>
-```
-
-Or check the API logs at `/lambda_logs` endpoint for Lambda-specific issues.
 
 All resources are prefixed with `digital_twin_name` to:
 - Create a dedicated namespace
