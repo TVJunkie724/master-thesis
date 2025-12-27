@@ -6,7 +6,6 @@ import '../../widgets/data_freshness_card.dart';
 import '../../widgets/calc_form/calc_form.dart';
 import '../../widgets/results/layer_cost_card.dart';
 import '../../widgets/results/optimization_warning.dart';
-import '../../widgets/results/service_breakdown.dart';
 
 /// Step 2: Optimizer - Cost calculation and optimization
 /// 
@@ -382,27 +381,6 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                 ),
 
                 const SizedBox(height: 32),
-
-                // Service Breakdown
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Service Cost Breakdown',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ServiceBreakdown(result: _result!),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 48),
                 Center(
                   child: Text(
                      'Prices are estimates based on public pricing APIs and may vary.',

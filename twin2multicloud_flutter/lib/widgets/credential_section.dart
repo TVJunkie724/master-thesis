@@ -342,16 +342,16 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
     
     final Map<String, Map<String, String>> docUrls = {
       'aws': {
-        'optimizer': '${optimizerBase}user-guides/aws-deployment.html',
-        'deployer': '${deployerBase}user-guides/aws-deployment.html',
+        'optimizer': '${optimizerBase}docs-credentials-aws.html',
+        'deployer': '${deployerBase}docs-credentials-aws.html',
       },
       'azure': {
-        'optimizer': '${optimizerBase}user-guides/azure-deployment.html',
-        'deployer': '${deployerBase}user-guides/azure-deployment.html',
+        'optimizer': '${optimizerBase}docs-credentials-azure.html',
+        'deployer': '${deployerBase}docs-credentials-azure.html',
       },
       'gcp': {
-        'optimizer': '${optimizerBase}user-guides/gcp-deployment.html',
-        'deployer': '${deployerBase}user-guides/gcp-deployment.html',
+        'optimizer': '${optimizerBase}docs-credentials-gcp.html',
+        'deployer': '${deployerBase}docs-credentials-gcp.html',
       },
     };
     
