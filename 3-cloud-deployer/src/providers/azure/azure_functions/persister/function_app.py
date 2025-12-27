@@ -262,17 +262,22 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
         event = req.get_json()
         logging.info(f"Event: {json.dumps(event)}")
         
-        # Validate required field
-        if "time" not in event:
-            return func.HttpResponse(
-                json.dumps({"error": "Missing 'time' in event"}),
-                status_code=400,
-                mimetype="application/json"
-            )
-        
         # Build storage item (Cosmos DB requires 'id' as primary key)
         item = event.copy()
-        item["id"] = str(item.pop("time"))
+        
+        # Use 'time' as the document ID if provided and non-empty,
+        # otherwise generate a unique ID using timestamp + UUID
+        time_value = item.pop("time", None)
+        if time_value:
+            item["id"] = str(time_value)
+        else:
+            # Generate a unique ID: ISO timestamp + short UUID for uniqueness
+            import uuid
+            from datetime import datetime
+            timestamp = datetime.utcnow().isoformat() + "Z"
+            item["id"] = f"{timestamp}_{uuid.uuid4().hex[:8]}"
+            item["time"] = timestamp  # Preserve time field for queries
+            logging.info(f"Generated document ID: {item['id']}")
         
         # Route based on multi-cloud config
         if _is_multi_cloud_storage():
