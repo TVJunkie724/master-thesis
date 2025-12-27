@@ -243,6 +243,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
     // If no unsaved changes, just exit
     if (!_cache.hasUnsavedChanges) {
       _cache.clear();
+      ref.invalidate(twinsProvider); // Refresh twins list on dashboard
       context.go('/dashboard');
       return;
     }
@@ -276,12 +277,14 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
     switch (result) {
       case 'discard':
         _cache.clear();
+        ref.invalidate(twinsProvider); // Refresh twins list on dashboard
         context.go('/dashboard');
         break;
       case 'save':
         final saved = await _saveDraftToDatabase();
         if (saved && context.mounted) {
           _cache.clear();
+          ref.invalidate(twinsProvider); // Refresh twins list on dashboard
           context.go('/dashboard');
         }
         break;
