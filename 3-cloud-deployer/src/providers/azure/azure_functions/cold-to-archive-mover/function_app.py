@@ -207,7 +207,7 @@ def cold_to_archive_mover(timer: func.TimerRequest) -> None:
         raise
         
     except Exception as e:
-        logging.error(f"Cold-to-Archive Mover Error: {e}")
+        logging.exception(f"Cold-to-Archive Mover Error: {e}")
         raise
     
     logging.info("Azure Cold-to-Archive Mover: Complete")

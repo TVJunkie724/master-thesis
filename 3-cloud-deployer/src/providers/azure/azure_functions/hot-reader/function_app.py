@@ -244,7 +244,7 @@ def hot_reader(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
-        logging.error(f"Hot Reader Error: {e}")
+        logging.exception(f"Hot Reader Error: {e}")
         return func.HttpResponse(
             json.dumps({"error": "Internal Server Error", "message": str(e)}),
             status_code=500,

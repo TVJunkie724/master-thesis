@@ -177,7 +177,7 @@ def hot_reader_last_entry(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
-        logging.error(f"Hot Reader Last Entry Error: {e}")
+        logging.exception(f"Hot Reader Last Entry Error: {e}")
         return func.HttpResponse(
             json.dumps({"propertyValues": {}}),
             status_code=200,

@@ -5,6 +5,11 @@ Calls user-defined event-feedback function via HTTP and sends result to IoT devi
 
 Architecture:
     Event-Checker → Event-Feedback Wrapper → HTTP → User Function → Wrapper → IoT Device
+
+Configuration Patterns:
+    1. Passthrough Mode: If EVENT_FEEDBACK_FUNCTION_URL is empty, payload passes through directly
+    2. User Function Mode: If EVENT_FEEDBACK_FUNCTION_URL is set, wrapper calls that URL
+       (URL typically points to a user-defined event-feedback function in the same app)
 """
 import json
 import logging
@@ -52,6 +57,26 @@ def _get_event_feedback_function_url():
     return _event_feedback_function_url
 
 
+# USER Function Key - lazy loaded for Azure→user-functions authentication
+_user_function_key = None
+
+def _get_user_function_key():
+    """Lazy-load USER_FUNCTION_KEY for Azure→user-functions HTTP authentication."""
+    global _user_function_key
+    if _user_function_key is None:
+        # Import require_env here to avoid import issues
+        import sys
+        try:
+            from _shared.env_utils import require_env
+        except ModuleNotFoundError:
+            _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if _func_dir not in sys.path:
+                sys.path.insert(0, _func_dir)
+            from _shared.env_utils import require_env
+        _user_function_key = require_env("USER_FUNCTION_KEY")
+    return _user_function_key
+
+
 bp = func.Blueprint()
 
 
@@ -77,9 +102,14 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         else:
             try:
                 logger.info(f"Calling user event-feedback function at {url}")
+                # Add function key for Azure→user-functions authentication
+                user_key = _get_user_function_key()
+                separator = "&" if "?" in url else "?"
+                url_with_key = f"{url}{separator}code={user_key}"
+                
                 data = json.dumps(payload).encode("utf-8")
                 headers = {"Content-Type": "application/json"}
-                req_feedback = urllib.request.Request(url, data=data, headers=headers, method="POST")
+                req_feedback = urllib.request.Request(url_with_key, data=data, headers=headers, method="POST")
                 with urllib.request.urlopen(req_feedback, timeout=30) as response:
                     processed_payload = json.loads(response.read().decode("utf-8"))
                 logger.info(f"User Logic Complete. Result: {json.dumps(processed_payload)}")
@@ -105,7 +135,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
-        logger.error(f"Event Feedback Failed: {e}")
+        logger.exception(f"Event Feedback Failed: {e}")
         return func.HttpResponse(
             json.dumps({"statusCode": 500, "body": f"Error: {str(e)}"}),
             status_code=500,

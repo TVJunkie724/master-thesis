@@ -123,7 +123,7 @@ def connector(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
-        logging.error(f"Connector Error: {e}")
+        logging.exception(f"Connector Error: {e}")
         return func.HttpResponse(
             json.dumps({"error": str(e)}),
             status_code=500,

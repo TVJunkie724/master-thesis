@@ -331,7 +331,7 @@ def hot_to_cold_mover(timer: func.TimerRequest) -> None:
         raise
         
     except Exception as e:
-        logging.error(f"Hot-to-Cold Mover Error: {e}")
+        logging.exception(f"Hot-to-Cold Mover Error: {e}")
         raise
     
     logging.info("Azure Hot-to-Cold Mover: Complete")

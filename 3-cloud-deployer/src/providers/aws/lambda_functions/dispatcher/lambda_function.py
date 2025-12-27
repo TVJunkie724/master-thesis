@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import traceback
 import boto3
 
 # Handle import path for shared module
@@ -58,5 +59,6 @@ def lambda_handler(event, context):
 
     except Exception as e:
         print(f"Dispatcher Error: {e}")
+        traceback.print_exc()
         # Optionally: Sending to DLQ or Error SNS topic could happen here.
         raise e # Re-raise to trigger Lambda retry behavior.

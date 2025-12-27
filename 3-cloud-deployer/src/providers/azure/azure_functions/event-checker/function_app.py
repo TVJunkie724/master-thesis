@@ -343,7 +343,7 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
-        logging.error(f"Event Checker Error: {e}")
+        logging.exception(f"Event Checker Error: {e}")
         return func.HttpResponse(
             json.dumps({"error": str(e)}),
             status_code=500,

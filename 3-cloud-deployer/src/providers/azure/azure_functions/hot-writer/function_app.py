@@ -153,7 +153,7 @@ def hot_writer(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
-        logging.error(f"Hot Writer Error: {e}")
+        logging.exception(f"Hot Writer Error: {e}")
         return func.HttpResponse(
             json.dumps({"error": str(e)}),
             status_code=500,
