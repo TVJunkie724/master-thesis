@@ -34,7 +34,7 @@ app = FastAPI(
         "API for deploying, destroying, and inspecting Digital Twin environment resources."
         "<h3>🔗 Useful Links</h3>"
         "<h4>📘 Documentation</h4>"
-        "<ul><li><a href=\"/documentation/overview\" target=\"_blank\"><strong>Documentation Overview</strong></a></li></ul>"
+        "<ul><li><a href=\"/documentation/docs-overview.html\" target=\"_blank\"><strong>Documentation Overview</strong></a></li></ul>"
         ),
     openapi_tags=[
         {"name": "Info", "description": "Endpoints to check system status and configurations."},
@@ -46,7 +46,7 @@ app = FastAPI(
 
 app.mount("/js", StaticFiles(directory="js"), name="js")
 app.mount("/css", StaticFiles(directory="css"), name="css")
-app.mount("/docs", StaticFiles(directory="docs"), name="docs")
+app.mount("/documentation", StaticFiles(directory="docs"), name="docs")
 app.mount("/references", StaticFiles(directory="references"), name="references")
 
 # Include modular API routers
@@ -608,11 +608,9 @@ def get_lambda_logs(req: LambdaLogsRequest = Depends()) -> List[str]:
     tags=["WebUI"],
     summary="Documentation Overview", include_in_schema=False,
     description=(
-        "Serves the **Twin2Clouds Documentation Overview** page.<br><br>"
-        "📘 <a href='/documentation/overview' target='_blank'>Open Documentation Overview in a new tab</a><br><br>"
-        "Provides navigation to AWS, Azure, and Google Cloud pricing schema documentation "
-        "as well as cost formula definitions."
+        "Redirects to the documentation overview page."
     ),
 )
 def serve_docs_overview():
-    return FileResponse("docs/docs-overview.html")
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/documentation/docs-overview.html")
