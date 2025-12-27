@@ -16,7 +16,7 @@ from src.main import app
 from src.models.database import Base, get_db
 
 
-# Test database (in-memory SQLite)
+# Test database (separate from production)
 TEST_DATABASE_URL = "sqlite:///./test.db"
 test_engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
@@ -31,10 +31,6 @@ def override_get_db():
         db.close()
 
 
-# Override the database dependency
-app.dependency_overrides[get_db] = override_get_db
-
-
 @pytest.fixture(scope="function")
 def db_session():
     """Create fresh database for each test."""
@@ -47,10 +43,16 @@ def db_session():
 
 @pytest.fixture(scope="function")
 def client(db_session):
-    """Test client with fresh database."""
+    """Test client with fresh database and isolated dependency override."""
+    # Override only for this test
+    app.dependency_overrides[get_db] = override_get_db
     Base.metadata.create_all(bind=test_engine)
+    
     yield TestClient(app)
+    
+    # CRITICAL: Clean up override after test to not affect production
     Base.metadata.drop_all(bind=test_engine)
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
