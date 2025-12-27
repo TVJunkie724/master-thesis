@@ -5,6 +5,7 @@ import 'step1_configuration.dart';
 import 'step2_optimizer.dart';
 import '../../providers/twins_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../models/wizard_cache.dart';
 
 class WizardScreen extends ConsumerStatefulWidget {
   final String? twinId; // null for new, set for edit
@@ -18,25 +19,28 @@ class WizardScreen extends ConsumerStatefulWidget {
 class _WizardScreenState extends ConsumerState<WizardScreen> {
   int _currentStep = 0;
   String? _activeTwinId;
-  bool _isCreatingTwin = false;
   bool _isLoading = false;
-  Set<String> _configuredProviders = {};
+  bool _isSaving = false;
+  
+  // In-memory cache for all wizard data
+  final WizardCache _cache = WizardCache();
   
   @override
   void initState() {
     super.initState();
     _activeTwinId = widget.twinId;
     if (_activeTwinId != null) {
-      _loadTwinStatus();
+      _loadExistingTwinData();
     }
   }
 
-  Future<void> _loadTwinStatus() async {
+  /// Load existing twin data from database into cache (for editing)
+  Future<void> _loadExistingTwinData() async {
     setState(() => _isLoading = true);
     try {
       final api = ref.read(apiServiceProvider);
       
-      // Fetch twin state and config in parallel
+      // Fetch twin details and config in parallel
       final results = await Future.wait([
         api.getTwin(_activeTwinId!),
         api.getTwinConfig(_activeTwinId!),
@@ -48,77 +52,243 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       
       if (mounted) {
         setState(() {
-          if (state == 'deployed') {
+          // Populate cache from database
+          _cache.twinName = twin['name'];
+          _cache.debugMode = config['debug_mode'] ?? false;
+          
+          // Parse AWS - mark as valid AND inherited if configured
+          if (config['aws_configured'] == true) {
+            _cache.awsCredentials = {
+              'region': config['aws_region']?.toString() ?? 'eu-central-1',
+              'access_key_id': '', // Secrets hidden by backend
+              'secret_access_key': '',
+              'session_token': '',
+            };
+            _cache.markAwsInherited(); // Mark as inherited from DB
+          }
+          
+          // Parse Azure - mark as valid AND inherited if configured
+          if (config['azure_configured'] == true) {
+            _cache.azureCredentials = {
+              'region': config['azure_region']?.toString() ?? 'westeurope',
+              'subscription_id': '',
+              'client_id': '',
+              'client_secret': '',
+              'tenant_id': '',
+            };
+            _cache.markAzureInherited(); // Mark as inherited from DB
+          }
+          
+          // Parse GCP - mark as valid AND inherited if configured
+          if (config['gcp_configured'] == true) {
+            _cache.gcpCredentials = {
+              'project_id': config['gcp_project_id']?.toString() ?? '',
+              'region': config['gcp_region']?.toString() ?? 'europe-west1',
+              'billing_account': '',
+            };
+            _cache.markGcpInherited(); // Mark as inherited from DB
+          }
+          
+          // Determine starting step based on state
+          if (state == 'deployed' || state == 'configured') {
             _currentStep = 2; // Deployer
-          } else if (state == 'configured') {
-            _currentStep = 2; // Deployer (Ready to deploy)
+          } else if (_cache.canProceedToStep2) {
+            _currentStep = 1; // Optimizer
           } else {
-            // State is 'draft' (or error/inactive)
-            // Check if we have valid credentials to determine if we can skip Step 1
-            bool hasCredentials = false;
-            
-            // Check AWS
-            final aws = config['aws'] as Map<String, dynamic>?;
-            if (aws != null && aws['access_key_id']?.toString().isNotEmpty == true) {
-              hasCredentials = true;
-            }
-            
-            // Check Azure
-            final azure = config['azure'] as Map<String, dynamic>?;
-            if (!hasCredentials) {
-              if (azure != null && azure['subscription_id']?.toString().isNotEmpty == true) {
-                hasCredentials = true;
-              }
-            }
-            
-            // Check GCP
-            final gcp = config['gcp'] as Map<String, dynamic>?;
-            if (!hasCredentials) {
-              if (gcp != null && gcp['project_id']?.toString().isNotEmpty == true) {
-                hasCredentials = true;
-              }
-            }
-            
-            if (hasCredentials) {
-              _currentStep = 1; // Optimizer (Step 1 completed)
-            } else {
-              _currentStep = 0; // Configuration
-            }
-            
-            // Track which providers are configured (using xxx_configured flags from backend)
-            _configuredProviders = {};
-            if (config['aws_configured'] == true) {
-              _configuredProviders.add('AWS');
-            }
-            if (config['azure_configured'] == true) {
-              _configuredProviders.add('AZURE');
-            }
-            if (config['gcp_configured'] == true) {
-              _configuredProviders.add('GCP');
-            }
+            _currentStep = 0; // Configuration
           }
         });
       }
     } catch (e) {
-      debugPrint('Error loading twin status: $e');
-      // Default to Step 1 on error
+      debugPrint('Error loading twin data: $e');
       if (mounted) setState(() => _currentStep = 0);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-  
-  Future<String> _createTwinIfNeeded(String name) async {
-    if (_activeTwinId != null) return _activeTwinId!;
+
+  /// Save all cached data to database
+  Future<bool> _saveDraftToDatabase() async {
+    if (_cache.twinName?.isEmpty ?? true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a name for your Digital Twin'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
     
-    setState(() => _isCreatingTwin = true);
+    setState(() => _isSaving = true);
+    
     try {
       final api = ref.read(apiServiceProvider);
-      final result = await api.createTwin(name);
-      _activeTwinId = result['id'];
-      return _activeTwinId!;
+      
+      // Step 1: Create twin if it doesn't exist, or update name if changed
+      if (_activeTwinId == null) {
+        final result = await api.createTwin(_cache.twinName!);
+        _activeTwinId = result['id'];
+      } else {
+        // Update twin name if it has changed
+        await api.updateTwin(_activeTwinId!, name: _cache.twinName);
+      }
+      
+      // Step 2: Save Step 1 config (credentials)
+      // IMPORTANT: Only send credentials if they were NEWLY ENTERED
+      // Inherited credentials are already encrypted in DB - don't overwrite with empty values
+      final configData = <String, dynamic>{'debug_mode': _cache.debugMode};
+      
+      // AWS credentials - only if newly entered
+      if (_cache.hasNewAwsCredentials && 
+          _cache.awsCredentials['access_key_id']?.isNotEmpty == true) {
+        final awsConfig = {
+          'access_key_id': _cache.awsCredentials['access_key_id'],
+          'secret_access_key': _cache.awsCredentials['secret_access_key'],
+          'region': _cache.awsCredentials['region'] ?? 'eu-central-1',
+        };
+        if (_cache.awsCredentials['session_token']?.isNotEmpty == true) {
+          awsConfig['session_token'] = _cache.awsCredentials['session_token']!;
+        }
+        configData['aws'] = awsConfig;
+      }
+      
+      // Azure credentials - only if newly entered
+      if (_cache.hasNewAzureCredentials &&
+          _cache.azureCredentials['subscription_id']?.isNotEmpty == true) {
+        configData['azure'] = {
+          'subscription_id': _cache.azureCredentials['subscription_id'],
+          'client_id': _cache.azureCredentials['client_id'],
+          'client_secret': _cache.azureCredentials['client_secret'],
+          'tenant_id': _cache.azureCredentials['tenant_id'],
+          'region': _cache.azureCredentials['region'] ?? 'westeurope',
+        };
+      }
+      
+      // GCP credentials - only if newly entered
+      if (_cache.hasNewGcpCredentials && (
+          _cache.gcpCredentials['project_id']?.isNotEmpty == true || 
+          _cache.gcpCredentials['billing_account']?.isNotEmpty == true ||
+          _cache.gcpServiceAccountJson != null)) {
+        configData['gcp'] = {
+          'project_id': _cache.gcpCredentials['project_id'],
+          'billing_account': _cache.gcpCredentials['billing_account'],
+          'region': _cache.gcpCredentials['region'] ?? 'europe-west1',
+          'service_account_json': _cache.gcpServiceAccountJson,
+        };
+      }
+      
+      await api.updateTwinConfig(_activeTwinId!, configData);
+      
+      // Step 3: Save Step 2 optimizer data (if exists)
+      if (_cache.calcResult != null && _cache.calcResultRaw != null) {
+        await api.saveOptimizerResult(
+          _activeTwinId!,
+          params: _cache.calcParams?.toJson() ?? {},
+          result: _cache.calcResultRaw!['result'],
+          cheapestPath: _parseCheapestPath(_cache.calcResult!.cheapestPath),
+          pricingSnapshots: _cache.pricingSnapshots ?? {},
+          pricingTimestamps: _cache.pricingTimestamps ?? {},
+        );
+      }
+      
+      // Mark cache as clean after successful save
+      _cache.markClean();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Draft saved!')),
+        );
+      }
+      
+      return true;
+    } catch (e) {
+      debugPrint('Failed to save draft: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return false;
     } finally {
-      setState(() => _isCreatingTwin = false);
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+  
+  /// Parse cheapest path array to dict format for API
+  Map<String, String?> _parseCheapestPath(List<String> path) {
+    final result = <String, String?>{
+      'l1': null, 'l2': null, 'l3_hot': null, 
+      'l3_cool': null, 'l3_archive': null, 'l4': null, 'l5': null,
+    };
+    for (final segment in path) {
+      final parts = segment.split('_');
+      if (parts.isEmpty) continue;
+      
+      final layer = parts[0].toUpperCase();
+      
+      if (layer == 'L3' && parts.length >= 3) {
+        final tier = parts[1].toLowerCase();
+        result['l3_$tier'] = parts[2].toUpperCase();
+      } else if (parts.length >= 2) {
+        result[layer.toLowerCase()] = parts[1].toUpperCase();
+      }
+    }
+    return result;
+  }
+
+  Future<void> _showExitConfirmation(BuildContext context) async {
+    // If no unsaved changes, just exit
+    if (!_cache.hasUnsavedChanges) {
+      _cache.clear();
+      context.go('/dashboard');
+      return;
+    }
+    
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Leave Wizard?'),
+        content: const Text(
+          'You have unsaved changes. What would you like to do?'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'cancel'),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'discard'),
+            child: const Text('Discard Changes'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, 'save'),
+            child: const Text('Save Draft'),
+          ),
+        ],
+      ),
+    );
+
+    if (!context.mounted) return;
+
+    switch (result) {
+      case 'discard':
+        _cache.clear();
+        context.go('/dashboard');
+        break;
+      case 'save':
+        final saved = await _saveDraftToDatabase();
+        if (saved && context.mounted) {
+          _cache.clear();
+          context.go('/dashboard');
+        }
+        break;
+      case 'cancel':
+      default:
+        // Do nothing, stay on page
+        break;
     }
   }
   
@@ -152,7 +322,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.close),
-                  onPressed: () => context.go('/dashboard'),
+                  onPressed: () => _showExitConfirmation(context),
                   tooltip: 'Close',
                 ),
                 const SizedBox(width: 8),
@@ -241,31 +411,22 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       case 0:
         return Step1Configuration(
           twinId: _activeTwinId,
-          isCreatingTwin: _isCreatingTwin,
-          onCreateTwin: _createTwinIfNeeded,
+          cache: _cache,
+          isSaving: _isSaving,
           onNext: () => setState(() => _currentStep = 1),
-          onSaveDraft: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Draft saved!')),
-            );
-          },
+          onBack: () => _showExitConfirmation(context),
+          onSaveDraft: _saveDraftToDatabase,
+          onCacheChanged: () => setState(() {}),  // Trigger rebuild to update UI
         );
       case 1:
-        if (_activeTwinId == null) {
-          return const Center(
-            child: Text('Please complete Step 1 first to create a twin'),
-          );
-        }
         return Step2Optimizer(
-          twinId: _activeTwinId!,
-          configuredProviders: _configuredProviders,
+          twinId: _activeTwinId,
+          cache: _cache,
+          isSaving: _isSaving,
           onNext: () => setState(() => _currentStep = 2),
           onBack: () => setState(() => _currentStep = 0),
-          onSaveDraft: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Draft saved!')),
-            );
-          },
+          onSaveDraft: _saveDraftToDatabase,
+          onCacheChanged: () => setState(() {}),
         );
       case 2:
         return const Center(child: Text('Step 3: Deployer (Sprint 4)'));

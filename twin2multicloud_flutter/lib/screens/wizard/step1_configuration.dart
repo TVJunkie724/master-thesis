@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../widgets/credential_section.dart';
-import '../../providers/twins_provider.dart';
+import '../../models/wizard_cache.dart';
 
 class Step1Configuration extends ConsumerStatefulWidget {
   final String? twinId;
-  final bool isCreatingTwin;
-  final Future<String> Function(String name) onCreateTwin;
+  final WizardCache cache;
+  final bool isSaving;
   final VoidCallback onNext;
-  final VoidCallback onSaveDraft;
+  final VoidCallback onBack;
+  final Future<bool> Function() onSaveDraft;
+  final VoidCallback onCacheChanged;
   
   const Step1Configuration({
     super.key,
     required this.twinId,
-    required this.isCreatingTwin,
-    required this.onCreateTwin,
+    required this.cache,
+    required this.isSaving,
     required this.onNext,
+    required this.onBack,
     required this.onSaveDraft,
+    required this.onCacheChanged,
   });
   
   @override
@@ -25,212 +29,19 @@ class Step1Configuration extends ConsumerStatefulWidget {
 
 class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
   final _nameController = TextEditingController();
-  bool _debugMode = false;
-  bool _isSaving = false;
   String? _error;
-  
-  bool _awsValid = false;
-  bool _azureValid = false;
-  bool _gcpValid = false;
-  
-  Map<String, String> _awsCredentials = {};
-  Map<String, String> _azureCredentials = {};
-  Map<String, String> _gcpCredentials = {};
-  String? _gcpServiceAccountJson;
-  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    if (widget.twinId != null) {
-      _isLoading = true;
-      _loadTwinData();
-    }
-  }
-
-  Future<void> _loadTwinData() async {
-    // setState(() => _isLoading = true); // Already set in initState
-    try {
-      final api = ref.read(apiServiceProvider);
-      
-      // Fetch twin details (name) and config (credentials)
-      final results = await Future.wait([
-        api.getTwin(widget.twinId!),
-        api.getTwinConfig(widget.twinId!),
-      ]);
-      
-      final twinData = results[0];
-      final configData = results[1];
-      
-      debugPrint('LOADED TWIN DATA: $twinData');
-      debugPrint('LOADED CONFIG DATA: $configData');
-      
-      _nameController.text = twinData['name'] ?? '';
-      _debugMode = configData['debug_mode'] ?? false;
-      
-      // Parse AWS credentials
-      if (configData['aws_configured'] == true) {
-        _awsCredentials = {
-          'region': configData['aws_region']?.toString() ?? 'eu-central-1',
-          'access_key_id': '', // Secrets hidden by backend
-          'secret_access_key': '',
-          'session_token': '',
-        };
-        _awsValid = true; // Mark as valid to allow proceeding
-        debugPrint('PARSED AWS (Configured): $_awsCredentials');
-      } else {
-        // Fallback or explicit region if present but not configured
-         if (configData['aws_region'] != null) {
-            _awsCredentials['region'] = configData['aws_region'].toString();
-         }
-      }
-      
-      // Parse Azure credentials
-      if (configData['azure_configured'] == true) {
-        _azureCredentials = {
-          'region': configData['azure_region']?.toString() ?? 'westeurope',
-          'subscription_id': '', // Secrets hidden
-          'client_id': '',
-          'client_secret': '',
-          'tenant_id': '',
-        };
-        _azureValid = true;
-      } else {
-         if (configData['azure_region'] != null) {
-            _azureCredentials['region'] = configData['azure_region'].toString();
-         }
-      }
-      
-      // Parse GCP credentials
-      if (configData['gcp_configured'] == true) {
-        _gcpCredentials = {
-          'project_id': configData['gcp_project_id']?.toString() ?? '',
-          'region': configData['gcp_region']?.toString() ?? 'europe-west1',
-          'billing_account': '', // Hidden
-        };
-        if (_gcpCredentials['project_id']?.isNotEmpty == true) {
-           _gcpValid = true;
-        }
-      } else {
-         if (configData['gcp_region'] != null) {
-            _gcpCredentials['region'] = configData['gcp_region'].toString();
-         }
-         if (configData['gcp_project_id'] != null) {
-            _gcpCredentials['project_id'] = configData['gcp_project_id'].toString();
-         }
-      }
-      
-    } catch (e) {
-      setState(() => _error = 'Failed to load twin data: $e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    // Initialize form from cache (already populated by WizardScreen)
+    _nameController.text = widget.cache.twinName ?? '';
   }
   
-  bool get _canProceed {
-    return _nameController.text.isNotEmpty && 
-           (_awsValid || _azureValid || _gcpValid);
-  }
-  
-  Future<void> _saveConfig() async {
-    if (_nameController.text.isEmpty) {
-      return;
-    }
-    
-    // Strict Validation for Draft Save:
-    // If a provider has credentials (is configured or typed), it MUST be valid.
-    final hasAws = _awsCredentials.values.any((v) => v.isNotEmpty) || 
-                   (_awsCredentials['region'] != null && _awsCredentials.length > 1); // >1 means more than just default region
-    // Robust check for AWS: configured (valid=true) OR has typed data
-    // Simply checking _awsValid is enough because:
-    // 1. If configured (hidden), _awsValid is true.
-    // 2. If typed & validated, _awsValid is true.
-    // 3. If typed & invalid/not-validated, _awsValid is false.
-    // 4. If empty, we don't care.
-    
-    // We need to know if data is entered but NOT valid.
-    // Helper to check if provider has data but is invalid
-    bool isInvalid(Map<String, String> creds, bool isValidFlag) {
-       // Filter out default region if that's the only thing
-       final nonRegionKeys = creds.keys.where((k) => k != 'region');
-       final hasData = nonRegionKeys.any((k) => creds[k]?.isNotEmpty == true);
-       
-       if (hasData && !isValidFlag) {
-         return true;
-       }
-       return false;
-    }
-
-    if (isInvalid(_awsCredentials, _awsValid)) {
-      setState(() => _error = 'Please validate your AWS credentials before saving.');
-      return;
-    }
-    if (isInvalid(_azureCredentials, _azureValid)) {
-      setState(() => _error = 'Please validate your Azure credentials before saving.');
-      return;
-    }
-    // GCP is special (service account json)
-    bool gcpHasData = _gcpCredentials['project_id']?.isNotEmpty == true || 
-                      _gcpCredentials['billing_account']?.isNotEmpty == true ||
-                      _gcpServiceAccountJson != null;
-    if (gcpHasData && !_gcpValid) {
-       setState(() => _error = 'Please validate your GCP credentials before saving.');
-       return;
-    }
-
-    setState(() {
-      _isSaving = true;
-      _error = null;
-    });
-    
-    try {
-      final twinId = await widget.onCreateTwin(_nameController.text);
-      final api = ref.read(apiServiceProvider);
-      final configData = <String, dynamic>{'debug_mode': _debugMode};
-      
-      if (_awsCredentials.isNotEmpty && 
-          _awsCredentials['access_key_id']?.isNotEmpty == true) {
-        final awsConfig = {
-          'access_key_id': _awsCredentials['access_key_id'],
-          'secret_access_key': _awsCredentials['secret_access_key'],
-          'region': _awsCredentials['region'] ?? 'eu-central-1',
-        };
-        if (_awsCredentials['session_token']?.isNotEmpty == true) {
-          awsConfig['session_token'] = _awsCredentials['session_token']!;
-        }
-        configData['aws'] = awsConfig;
-      }
-      
-      if (_azureCredentials.isNotEmpty &&
-          _azureCredentials['subscription_id']?.isNotEmpty == true) {
-        configData['azure'] = {
-          'subscription_id': _azureCredentials['subscription_id'],
-          'client_id': _azureCredentials['client_id'],
-          'client_secret': _azureCredentials['client_secret'],
-          'tenant_id': _azureCredentials['tenant_id'],
-          'region': _azureCredentials['region'] ?? 'westeurope',
-        };
-      }
-      
-      if (_gcpCredentials['project_id']?.isNotEmpty == true || 
-          _gcpCredentials['billing_account']?.isNotEmpty == true ||
-          _gcpServiceAccountJson != null) {
-        configData['gcp'] = {
-          'project_id': _gcpCredentials['project_id'],
-          'billing_account': _gcpCredentials['billing_account'],
-          'region': _gcpCredentials['region'] ?? 'europe-west1',
-          'service_account_json': _gcpServiceAccountJson,
-        };
-      }
-      
-      await api.updateTwinConfig(twinId, configData);
-      widget.onSaveDraft();
-      
-    } catch (e) {
-      setState(() => _error = 'Failed to save: $e');
-    } finally {
-      setState(() => _isSaving = false);
-    }
+  void _updateCache() {
+    widget.cache.twinName = _nameController.text;
+    widget.cache.markDirty();
+    widget.onCacheChanged();
   }
   
   @override
@@ -241,10 +52,6 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
   
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Center(
@@ -275,6 +82,12 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
                   ),
                 ),
               
+              // Top Navigation Buttons
+              _buildNavigationButtons(),
+              const SizedBox(height: 24),
+              const Divider(),
+              const SizedBox(height: 16),
+              
               // Twin Name
               Text('Digital Twin Name', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
@@ -284,7 +97,10 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
                   hintText: 'e.g., Smart Home IoT',
                   border: OutlineInputBorder(),
                 ),
-                onChanged: (_) => setState(() {}),
+                onChanged: (_) {
+                  _updateCache();
+                  setState(() {});
+                },
               ),
               
               const SizedBox(height: 24),
@@ -296,14 +112,22 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
                   const SizedBox(width: 16),
                   ChoiceChip(
                     label: const Text('Production'),
-                    selected: !_debugMode,
-                    onSelected: (selected) => setState(() => _debugMode = false),
+                    selected: !widget.cache.debugMode,
+                    onSelected: (selected) {
+                      setState(() => widget.cache.debugMode = false);
+                      widget.cache.markDirty();
+                      widget.onCacheChanged();
+                    },
                   ),
                   const SizedBox(width: 8),
                   ChoiceChip(
                     label: const Text('Debug'),
-                    selected: _debugMode,
-                    onSelected: (selected) => setState(() => _debugMode = true),
+                    selected: widget.cache.debugMode,
+                    onSelected: (selected) {
+                      setState(() => widget.cache.debugMode = true);
+                      widget.cache.markDirty();
+                      widget.onCacheChanged();
+                    },
                   ),
                 ],
               ),
@@ -319,32 +143,42 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
                 twinId: widget.twinId,
                 icon: Icons.cloud,
                 color: Colors.orange,
-                isConfigured: _awsValid, // Pass configured status
-                onValidationChanged: (valid) => setState(() => _awsValid = valid),
-                onCredentialsChanged: (creds) => _awsCredentials = creds,
+                isConfigured: widget.cache.awsValid,
+                onValidationChanged: (valid) {
+                  setState(() => widget.cache.awsValid = valid);
+                  if (valid) widget.cache.markAwsNewlyEntered(); // Ensure marked as new
+                  widget.cache.markDirty();
+                  widget.onCacheChanged();
+                },
+                onCredentialsChanged: (creds) {
+                  widget.cache.awsCredentials = creds;
+                  widget.cache.markAwsNewlyEntered(); // Mark as newly entered
+                  widget.cache.markDirty();
+                  widget.onCacheChanged();
+                },
                 fields: [
                   CredentialField(
                     name: 'access_key_id', 
                     label: 'Access Key ID', 
-                    defaultValue: _awsCredentials['access_key_id'],
+                    defaultValue: widget.cache.awsCredentials['access_key_id'],
                   ),
                   CredentialField(
                     name: 'secret_access_key', 
                     label: 'Secret Access Key', 
                     obscure: true,
-                    defaultValue: _awsCredentials['secret_access_key'],
+                    defaultValue: widget.cache.awsCredentials['secret_access_key'],
                   ),
                   CredentialField(
                     name: 'region', 
                     label: 'Region', 
-                    defaultValue: _awsCredentials['region'] ?? 'eu-central-1',
+                    defaultValue: widget.cache.awsCredentials['region'] ?? 'eu-central-1',
                   ),
                   CredentialField(
                     name: 'session_token', 
                     label: 'Session Token', 
                     obscure: true, 
                     required: false,
-                    defaultValue: _awsCredentials['session_token'],
+                    defaultValue: widget.cache.awsCredentials['session_token'],
                   ),
                 ],
               ),
@@ -358,35 +192,45 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
                 twinId: widget.twinId,
                 icon: Icons.cloud_circle,
                 color: Colors.blue,
-                isConfigured: _azureValid,
-                onValidationChanged: (valid) => setState(() => _azureValid = valid),
-                onCredentialsChanged: (creds) => _azureCredentials = creds,
+                isConfigured: widget.cache.azureValid,
+                onValidationChanged: (valid) {
+                  setState(() => widget.cache.azureValid = valid);
+                  if (valid) widget.cache.markAzureNewlyEntered(); // Ensure marked as new
+                  widget.cache.markDirty();
+                  widget.onCacheChanged();
+                },
+                onCredentialsChanged: (creds) {
+                  widget.cache.azureCredentials = creds;
+                  widget.cache.markAzureNewlyEntered(); // Mark as newly entered
+                  widget.cache.markDirty();
+                  widget.onCacheChanged();
+                },
                 fields: [
                   CredentialField(
                     name: 'subscription_id', 
                     label: 'Subscription ID',
-                    defaultValue: _azureCredentials['subscription_id'],
+                    defaultValue: widget.cache.azureCredentials['subscription_id'],
                   ),
                   CredentialField(
                     name: 'client_id', 
                     label: 'Client ID',
-                    defaultValue: _azureCredentials['client_id'],
+                    defaultValue: widget.cache.azureCredentials['client_id'],
                   ),
                   CredentialField(
                     name: 'client_secret', 
                     label: 'Client Secret', 
                     obscure: true,
-                    defaultValue: _azureCredentials['client_secret'],
+                    defaultValue: widget.cache.azureCredentials['client_secret'],
                   ),
                   CredentialField(
                     name: 'tenant_id', 
                     label: 'Tenant ID',
-                    defaultValue: _azureCredentials['tenant_id'],
+                    defaultValue: widget.cache.azureCredentials['tenant_id'],
                   ),
                   CredentialField(
                     name: 'region', 
                     label: 'Region', 
-                    defaultValue: _azureCredentials['region'] ?? 'westeurope',
+                    defaultValue: widget.cache.azureCredentials['region'] ?? 'westeurope',
                   ),
                 ],
               ),
@@ -399,28 +243,43 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
                 provider: 'gcp',
                 twinId: widget.twinId,
                 icon: Icons.cloud_queue,
-                color: Colors.red,
-                isConfigured: _gcpValid,
-                onValidationChanged: (valid) => setState(() => _gcpValid = valid),
-                onCredentialsChanged: (creds) => _gcpCredentials = creds,
-                onJsonUploaded: (json) => _gcpServiceAccountJson = json,
+                color: Colors.green,
+                isConfigured: widget.cache.gcpValid,
+                onValidationChanged: (valid) {
+                  setState(() => widget.cache.gcpValid = valid);
+                  if (valid) widget.cache.markGcpNewlyEntered(); // Ensure marked as new
+                  widget.cache.markDirty();
+                  widget.onCacheChanged();
+                },
+                onCredentialsChanged: (creds) {
+                  widget.cache.gcpCredentials = creds;
+                  widget.cache.markGcpNewlyEntered(); // Mark as newly entered
+                  widget.cache.markDirty();
+                  widget.onCacheChanged();
+                },
+                onJsonUploaded: (json) {
+                  widget.cache.gcpServiceAccountJson = json;
+                  widget.cache.markGcpNewlyEntered(); // Mark as newly entered
+                  widget.cache.markDirty();
+                  widget.onCacheChanged();
+                },
                 fields: [
                   CredentialField(
                     name: 'project_id', 
                     label: 'Project ID', 
                     required: false,
-                    defaultValue: _gcpCredentials['project_id'],
+                    defaultValue: widget.cache.gcpCredentials['project_id'],
                   ),
                   CredentialField(
                     name: 'billing_account', 
                     label: 'Billing Account', 
                     required: false,
-                    defaultValue: _gcpCredentials['billing_account'],
+                    defaultValue: widget.cache.gcpCredentials['billing_account'],
                   ),
                   CredentialField(
                     name: 'region', 
                     label: 'Region', 
-                    defaultValue: _gcpCredentials['region'] ?? 'europe-west1',
+                    defaultValue: widget.cache.gcpCredentials['region'] ?? 'europe-west1',
                   ),
                 ],
                 supportsJsonUpload: true,
@@ -431,27 +290,9 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
               const SizedBox(height: 16),
               
               // Action buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OutlinedButton(
-                    onPressed: (_isSaving || widget.isCreatingTwin) ? null : _saveConfig,
-                    child: _isSaving 
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Save Draft'),
-                  ),
-                  const SizedBox(width: 16),
-                  FilledButton(
-                    onPressed: _canProceed ? () async {
-                      await _saveConfig();
-                      widget.onNext();
-                    } : null,
-                    child: const Text('Next Step →'),
-                  ),
-                ],
-              ),
+              _buildNavigationButtons(),
               
-              if (!_canProceed) ...[
+              if (!widget.cache.canProceedToStep2) ...[
                 const SizedBox(height: 8),
                 Text(
                   'To proceed: Give your twin a name and validate at least one provider\'s credentials.',
@@ -464,6 +305,56 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildNavigationButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        OutlinedButton.icon(
+          onPressed: widget.onBack,
+          icon: const Icon(Icons.arrow_back),
+          label: const Text('Back'),
+        ),
+        Row(
+          children: [
+            // Save Draft button with unsaved changes indicator
+            OutlinedButton.icon(
+              onPressed: widget.isSaving ? null : () async {
+                await widget.onSaveDraft();
+              },
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  widget.isSaving 
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.save),
+                  if (widget.cache.hasUnsavedChanges && !widget.isSaving)
+                    Positioned(
+                      right: -4,
+                      top: -4,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: Colors.orange,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              label: const Text('Save Draft'),
+            ),
+            const SizedBox(width: 16),
+            FilledButton(
+              onPressed: widget.cache.canProceedToStep2 ? widget.onNext : null,
+              child: const Text('Next Step →'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
