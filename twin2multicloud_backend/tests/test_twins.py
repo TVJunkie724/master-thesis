@@ -176,4 +176,59 @@ class TestTwinsRoutes:
         
         assert response.status_code == 404
 
+    def test_create_twin_duplicate_name(self, authenticated_client):
+        """POST /twins/ returns 409 for duplicate name."""
+        client, headers = authenticated_client
+        
+        # Create first twin
+        client.post("/twins/", json={"name": "My Twin"}, headers=headers)
+        
+        # Try to create another with same name
+        response = client.post("/twins/", json={"name": "My Twin"}, headers=headers)
+        
+        assert response.status_code == 409
+        assert "already exists" in response.json()["detail"].lower()
+
+    def test_create_twin_duplicate_name_case_insensitive(self, authenticated_client):
+        """Duplicate check should be case-insensitive."""
+        client, headers = authenticated_client
+        
+        client.post("/twins/", json={"name": "My Twin"}, headers=headers)
+        
+        response = client.post("/twins/", json={"name": "my twin"}, headers=headers)
+        
+        assert response.status_code == 409
+
+    def test_update_twin_to_duplicate_name(self, authenticated_client):
+        """PUT /twins/{id} returns 409 when renaming to existing name."""
+        client, headers = authenticated_client
+        
+        # Create two twins
+        r1 = client.post("/twins/", json={"name": "Twin One"}, headers=headers)
+        r2 = client.post("/twins/", json={"name": "Twin Two"}, headers=headers)
+        twin2_id = r2.json()["id"]
+        
+        # Try to rename Twin Two to Twin One
+        response = client.put(
+            f"/twins/{twin2_id}",
+            json={"name": "Twin One"},
+            headers=headers
+        )
+        
+        assert response.status_code == 409
+
+    def test_can_reuse_deleted_twin_name(self, authenticated_client):
+        """After deleting a twin, its name can be reused."""
+        client, headers = authenticated_client
+        
+        # Create and delete
+        r = client.post("/twins/", json={"name": "Reusable Name"}, headers=headers)
+        twin_id = r.json()["id"]
+        client.delete(f"/twins/{twin_id}", headers=headers)
+        
+        # Create with same name should work
+        response = client.post("/twins/", json={"name": "Reusable Name"}, headers=headers)
+        
+        assert response.status_code == 200
+
     # Note: Auth test removed due to test isolation issues with dependency overrides

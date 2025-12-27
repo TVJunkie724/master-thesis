@@ -29,6 +29,18 @@ async def create_twin(
     current_user: User = Depends(get_current_user)
 ):
     """Create a new digital twin."""
+    # Check for duplicate name (case-insensitive, excluding inactive twins)
+    existing = db.query(DigitalTwin).filter(
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.name.ilike(twin.name),
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=409, 
+            detail=f"A twin with the name '{twin.name}' already exists"
+        )
+    
     new_twin = DigitalTwin(
         name=twin.name,
         user_id=current_user.id,
@@ -69,8 +81,21 @@ async def update_twin(
     if not twin:
         raise HTTPException(status_code=404, detail="Twin not found")
     
-    if update.name is not None:
+    if update.name is not None and update.name != twin.name:
+        # Check for duplicate name (case-insensitive, excluding this twin and inactive twins)
+        existing = db.query(DigitalTwin).filter(
+            DigitalTwin.user_id == current_user.id,
+            DigitalTwin.name.ilike(update.name),
+            DigitalTwin.id != twin_id,
+            DigitalTwin.state != TwinState.INACTIVE
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=409, 
+                detail=f"A twin with the name '{update.name}' already exists"
+            )
         twin.name = update.name
+        
     if update.state is not None:
         twin.state = update.state
         

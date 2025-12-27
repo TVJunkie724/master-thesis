@@ -5,6 +5,7 @@ class Twin {
   final List<String> providers;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final DateTime? lastDeployedAt;
 
   Twin({
     required this.id,
@@ -13,16 +14,18 @@ class Twin {
     required this.providers,
     this.createdAt,
     this.updatedAt,
+    this.lastDeployedAt,
   });
 
   factory Twin.fromJson(Map<String, dynamic> json) {
     return Twin(
       id: json['id'],
       name: json['name'],
-      state: json['state'],
-      providers: [], // Populated later from config
+      state: json['state'] ?? 'draft',
+      providers: List<String>.from(json['providers'] ?? []),
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+      lastDeployedAt: json['last_deployed_at'] != null ? DateTime.parse(json['last_deployed_at']) : null,
     );
   }
 

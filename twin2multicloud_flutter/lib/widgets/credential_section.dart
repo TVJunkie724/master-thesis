@@ -338,7 +338,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
   void _openDocLink(String target) async {
     // Documentation URLs per provider
     const optimizerBase = 'http://localhost:5003/documentation/';
-    const deployerBase = 'http://localhost:5004/docs/';
+    const deployerBase = 'http://localhost:5004/documentation/';
     
     final Map<String, Map<String, String>> docUrls = {
       'aws': {

@@ -465,6 +465,7 @@ class _CalcFormState extends State<CalcForm> {
   }
 
   Widget _buildSectionHeader(String title, {String? description, IconData? icon}) {
+    final headerColor = Theme.of(context).colorScheme.primary;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16, top: 8),
       child: Column(
@@ -473,14 +474,14 @@ class _CalcFormState extends State<CalcForm> {
           Row(
             children: [
               if (icon != null) ...[
-                Icon(icon, color: Theme.of(context).primaryColor, size: 22),
+                Icon(icon, color: headerColor, size: 22),
                 const SizedBox(width: 8),
               ],
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Theme.of(context).primaryColor,
+                  color: headerColor,
                 ),
               ),
             ],

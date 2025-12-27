@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
 import 'step1_configuration.dart';
 import 'step2_optimizer.dart';
 import '../../providers/twins_provider.dart';
@@ -21,6 +22,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   String? _activeTwinId;
   bool _isLoading = false;
   bool _isSaving = false;
+  String? _nameError; // Error message for duplicate name
   
   // In-memory cache for all wizard data
   final WizardCache _cache = WizardCache();
@@ -201,6 +203,38 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       }
       
       return true;
+    } on DioException catch (e) {
+      debugPrint('Failed to save draft: $e');
+      if (mounted) {
+        // Handle 409 Conflict (duplicate name)
+        if (e.response?.statusCode == 409) {
+          final detail = e.response?.data['detail'] ?? 'A twin with this name already exists';
+          setState(() => _nameError = detail);
+          await showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              icon: Icon(Icons.error_outline, color: Colors.red.shade400, size: 48),
+              title: const Text('Duplicate Name'),
+              content: Text(detail),
+              actions: [
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        } else {
+          // Other errors - show snackbar
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to save: ${e.message}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+      return false;
     } catch (e) {
       debugPrint('Failed to save draft: $e');
       if (mounted) {
@@ -416,10 +450,12 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           twinId: _activeTwinId,
           cache: _cache,
           isSaving: _isSaving,
+          nameError: _nameError,
           onNext: () => setState(() => _currentStep = 1),
           onBack: () => _showExitConfirmation(context),
           onSaveDraft: _saveDraftToDatabase,
           onCacheChanged: () => setState(() {}),  // Trigger rebuild to update UI
+          onNameErrorClear: () => setState(() => _nameError = null),
         );
       case 1:
         return Step2Optimizer(

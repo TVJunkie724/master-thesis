@@ -7,20 +7,24 @@ class Step1Configuration extends ConsumerStatefulWidget {
   final String? twinId;
   final WizardCache cache;
   final bool isSaving;
+  final String? nameError; // Error message for duplicate name
   final VoidCallback onNext;
   final VoidCallback onBack;
   final Future<bool> Function() onSaveDraft;
   final VoidCallback onCacheChanged;
+  final VoidCallback? onNameErrorClear; // Clear error when user edits name
   
   const Step1Configuration({
     super.key,
     required this.twinId,
     required this.cache,
     required this.isSaving,
+    this.nameError,
     required this.onNext,
     required this.onBack,
     required this.onSaveDraft,
     required this.onCacheChanged,
+    this.onNameErrorClear,
   });
   
   @override
@@ -93,12 +97,20 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
               const SizedBox(height: 8),
               TextField(
                 controller: _nameController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'e.g., Smart Home IoT',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
+                  errorText: widget.nameError,
+                  errorBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.red.shade400, width: 2),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.red.shade400, width: 2),
+                  ),
                 ),
                 onChanged: (_) {
                   _updateCache();
+                  widget.onNameErrorClear?.call(); // Clear error on edit
                   setState(() {});
                 },
               ),
