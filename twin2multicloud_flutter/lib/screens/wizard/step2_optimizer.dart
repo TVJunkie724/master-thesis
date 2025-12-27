@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
+import '../../models/wizard_cache.dart';
 import '../../services/api_service.dart';
 import '../../services/sse_service.dart';
 import '../../widgets/data_freshness_card.dart';
@@ -14,19 +15,23 @@ import '../../widgets/results/optimization_warning.dart';
 /// This step allows users to configure calculation parameters and
 /// view cost optimization results across AWS, Azure, and GCP.
 class Step2Optimizer extends StatefulWidget {
-  final String twinId;
-  final Set<String> configuredProviders;
+  final String? twinId;  // May be null if twin not yet created
+  final WizardCache cache;
+  final bool isSaving;
   final VoidCallback onNext;
   final VoidCallback onBack;
-  final VoidCallback onSaveDraft;
+  final Future<bool> Function() onSaveDraft;
+  final VoidCallback onCacheChanged;
 
   const Step2Optimizer({
     super.key,
     required this.twinId,
-    required this.configuredProviders,
+    required this.cache,
+    required this.isSaving,
     required this.onNext,
     required this.onBack,
     required this.onSaveDraft,
+    required this.onCacheChanged,
   });
 
   @override
@@ -37,13 +42,11 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
   final ApiService _apiService = ApiService();
   
   CalcParams? _params;
-  CalcResult? _result;
   bool _isCalculating = false;
   Map<String, dynamic>? _pricingStatus;
   bool _loadingStatus = true;
   
-  // Saved config state
-  CalcParams? _savedParams;
+  // Loading state for optimizer config
   bool _loadingConfig = true;
   
   // SSE Refresh State
@@ -55,13 +58,26 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
   // Provider Colors
   static const Color awsColor = Colors.orange;
   static const Color azureColor = Colors.blue;
-  static const Color gcpColor = Colors.green; // Changed to Green
+  static const Color gcpColor = Colors.green;
+
+  /// Get result from cache
+  CalcResult? get _result => widget.cache.calcResult;
 
   @override
   void initState() {
     super.initState();
     _loadPricingStatus();
-    _loadOptimizerConfig();
+    
+    // Load from cache first, then from DB if needed
+    if (widget.cache.calcParams != null) {
+      _params = widget.cache.calcParams;
+      _loadingConfig = false;
+    } else if (widget.twinId != null) {
+      _loadOptimizerConfig();
+    } else {
+      // New twin, no config to load
+      _loadingConfig = false;
+    }
   }
 
   @override
@@ -70,46 +86,29 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     super.dispose();
   }
 
-  /// Load saved optimizer config from backend
+  /// Load saved optimizer config from backend (only if twinId exists)
   Future<void> _loadOptimizerConfig() async {
+    if (widget.twinId == null) {
+      setState(() => _loadingConfig = false);
+      return;
+    }
+    
     try {
-      final config = await _apiService.getOptimizerConfig(widget.twinId);
+      final config = await _apiService.getOptimizerConfig(widget.twinId!);
       if (config['params'] != null) {
-        _savedParams = CalcParams.fromJson(config['params']);
+        _params = CalcParams.fromJson(config['params']);
+        widget.cache.calcParams = _params;
       }
       if (config['result'] != null) {
-        // Wrap result in expected format for CalcResult.fromJson
-        _result = CalcResult.fromJson({'result': config['result']});
+        // Load result into cache
+        widget.cache.calcResult = CalcResult.fromJson({'result': config['result']});
+        widget.cache.calcResultRaw = {'result': config['result']};
       }
     } catch (e) {
       debugPrint('Failed to load optimizer config: $e');
     } finally {
       if (mounted) setState(() => _loadingConfig = false);
     }
-  }
-
-  /// Parse cheapest path array to dict format for API
-  Map<String, String?> _parseCheapestPath(List<String> path) {
-    final result = <String, String?>{
-      'l1': null, 'l2': null, 'l3_hot': null, 
-      'l3_cool': null, 'l3_archive': null, 'l4': null, 'l5': null,
-    };
-    for (final segment in path) {
-      final parts = segment.split('_');
-      if (parts.isEmpty) continue;
-      
-      final layer = parts[0].toUpperCase();  // "L1", "L2", "L3"
-      
-      if (layer == 'L3' && parts.length >= 3) {
-        // L3_hot_GCP, L3_cool_AWS, L3_archive_AZURE
-        final tier = parts[1].toLowerCase();  // "hot", "cool", "archive"
-        result['l3_$tier'] = parts[2].toUpperCase();
-      } else if (parts.length >= 2) {
-        // L1_AWS, L2_AZURE, L4_AWS, L5_AZURE
-        result[layer.toLowerCase()] = parts[1].toUpperCase();
-      }
-    }
-    return result;
   }
 
   Future<void> _loadPricingStatus() async {
@@ -172,7 +171,7 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     );
 
     _sseSubscription = sseService
-        .streamRefreshPricing(provider, widget.twinId)
+        .streamRefreshPricing(provider, widget.twinId ?? '')
         .listen(
       (event) {
         if (!mounted) return;  // Check mounted before setState
@@ -232,10 +231,19 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     try {
       final response = await _apiService.calculateCosts(_params!.toJson());
       final result = CalcResult.fromJson(response);
-      setState(() => _result = result);
       
-      // Save result with pricing snapshots
-      await _saveOptimizerResult(response);
+      // Store in cache (not DB - only on Save Draft)
+      widget.cache.calcParams = _params;
+      widget.cache.calcResult = result;
+      widget.cache.calcResultRaw = response;
+      
+      // Fetch pricing snapshots and store in cache
+      await _cachePricingSnapshots();
+      
+      widget.cache.markDirty();
+      widget.onCacheChanged();
+      
+      setState(() {}); // Trigger rebuild
       
     } catch (e) {
       if (mounted) {
@@ -247,50 +255,29 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
       setState(() => _isCalculating = false);
     }
   }
-
-  /// Save optimizer result with pricing snapshots
-  Future<void> _saveOptimizerResult(Map<String, dynamic> apiResponse) async {
-    if (_params == null || _result == null) return;
+  
+  /// Fetch pricing snapshots and store in cache (for later persistence)
+  Future<void> _cachePricingSnapshots() async {
+    final pricingSnapshots = <String, dynamic>{};
+    final pricingTimestamps = <String, String?>{};
     
-    try {
-      // Fetch pricing snapshots for each provider in parallel
-      final pricingSnapshots = <String, dynamic>{};
-      final pricingTimestamps = <String, String?>{};
-      
-      final providers = ['aws', 'azure', 'gcp'];
-      final exports = await Future.wait(
-        providers.map((p) => _apiService.exportPricing(p).catchError((e) {
-          debugPrint('Failed to export $p pricing: $e');
-          return <String, dynamic>{};
-        })),
-      );
-      
-      for (var i = 0; i < providers.length; i++) {
-        if (exports[i].isNotEmpty) {
-          pricingSnapshots[providers[i]] = exports[i]['pricing'];
-          pricingTimestamps[providers[i]] = exports[i]['updated_at'];
-        }
-      }
-      
-      await _apiService.saveOptimizerResult(
-        widget.twinId,
-        params: _params!.toJson(),
-        result: apiResponse['result'],
-        cheapestPath: _parseCheapestPath(_result!.cheapestPath),
-        pricingSnapshots: pricingSnapshots,
-        pricingTimestamps: pricingTimestamps,
-      );
-    } catch (e) {
-      debugPrint('Failed to save optimizer result: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Warning: Could not save result. Your calculation may not persist.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+    final providers = ['aws', 'azure', 'gcp'];
+    final exports = await Future.wait(
+      providers.map((p) => _apiService.exportPricing(p).catchError((e) {
+        debugPrint('Failed to export $p pricing: $e');
+        return <String, dynamic>{};
+      })),
+    );
+    
+    for (var i = 0; i < providers.length; i++) {
+      if (exports[i].isNotEmpty) {
+        pricingSnapshots[providers[i]] = exports[i]['pricing'];
+        pricingTimestamps[providers[i]] = exports[i]['updated_at'];
       }
     }
+    
+    widget.cache.pricingSnapshots = pricingSnapshots;
+    widget.cache.pricingTimestamps = pricingTimestamps;
   }
 
   @override
@@ -303,6 +290,12 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Top Navigation Buttons
+              _buildNavigationButtons(),
+              const SizedBox(height: 24),
+              const Divider(),
+              const SizedBox(height: 24),
+              
               // ============================================================
               // SECTION 1: DATA FRESHNESS
               // ============================================================
@@ -373,8 +366,14 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                 const Center(child: CircularProgressIndicator())
               else
                 CalcForm(
-                  initialParams: _savedParams,
-                  onChanged: (params) => setState(() => _params = params),
+                  initialParams: _params ?? widget.cache.calcParams,
+                  onChanged: (params) {
+                    setState(() => _params = params);
+                    // Sync to cache so changes persist when navigating
+                    widget.cache.calcParams = params;
+                    widget.cache.markDirty();
+                    widget.onCacheChanged();
+                  },
                 ),
 
               const SizedBox(height: 48),
@@ -620,34 +619,63 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
               const SizedBox(height: 64),
 
               // Navigation
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: widget.onBack,
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text('Back'),
-                  ),
-                  Row(
-                    children: [
-                      OutlinedButton(
-                        onPressed: widget.onSaveDraft,
-                        child: const Text('Save Draft'),
-                      ),
-                      const SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        onPressed: _result != null ? widget.onNext : null,
-                        icon: const Icon(Icons.arrow_forward),
-                        label: const Text('Next Step'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+              _buildNavigationButtons(),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  /// Navigation buttons - displayed at top and bottom
+  Widget _buildNavigationButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        OutlinedButton.icon(
+          onPressed: widget.onBack,
+          icon: const Icon(Icons.arrow_back),
+          label: const Text('Back'),
+        ),
+        Row(
+          children: [
+            // Save Draft button with unsaved changes indicator
+            OutlinedButton.icon(
+              onPressed: widget.isSaving ? null : () async {
+                await widget.onSaveDraft();
+              },
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  widget.isSaving 
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.save),
+                  if (widget.cache.hasUnsavedChanges && !widget.isSaving)
+                    Positioned(
+                      right: -4,
+                      top: -4,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: Colors.orange,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              label: const Text('Save Draft'),
+            ),
+            const SizedBox(width: 16),
+            ElevatedButton.icon(
+              onPressed: _result != null ? widget.onNext : null,
+              icon: const Icon(Icons.arrow_forward),
+              label: const Text('Next Step'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -664,7 +692,7 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
         resultProviders.add(parts[1].toUpperCase());
       }
     }
-    return resultProviders.difference(widget.configuredProviders);
+    return resultProviders.difference(widget.cache.configuredProviders);
   }
 
   Widget _buildDataFreshnessCards() {
