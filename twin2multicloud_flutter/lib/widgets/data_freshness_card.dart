@@ -3,22 +3,25 @@ import 'package:flutter/material.dart';
 /// Card showing data freshness status for a cloud provider
 class DataFreshnessCard extends StatelessWidget {
   final String provider;
+  final String label; // e.g., 'Pricing', 'Regions'
   final Map<String, dynamic>? status;
   final VoidCallback? onRefresh;
 
   const DataFreshnessCard({
     super.key,
     required this.provider,
+    this.label = 'Pricing',
     this.status,
     this.onRefresh,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isFresh = status?['is_fresh'] ?? false;
-    final ageHours = status?['age_hours'] as num? ?? 0;
-    final lastUpdate = status?['last_update'] as String?;
-    final hasError = status?['error'] != null;
+    // Optimizer API returns: age (string), status (schema validity), is_fresh (bool), threshold_days (int)
+    final hasError = status?['error'] != null || status?['status'] == 'error' || status?['status'] == 'missing';
+    final ageString = status?['age'] as String? ?? 'Unknown';
+    final isFresh = status?['is_fresh'] as bool? ?? false;
+    final thresholdDays = status?['threshold_days'] as int? ?? 7;
 
     Color providerColor;
     IconData providerIcon;
@@ -32,7 +35,7 @@ class DataFreshnessCard extends StatelessWidget {
         providerIcon = Icons.cloud_queue;
         break;
       case 'gcp':
-        providerColor = Colors.red;
+        providerColor = Colors.green;
         providerIcon = Icons.cloud_circle;
         break;
       default:
@@ -47,13 +50,13 @@ class DataFreshnessCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Header with provider + label (e.g., "AWS PRICING")
             Row(
               children: [
                 Icon(providerIcon, color: providerColor),
                 const SizedBox(width: 8),
                 Text(
-                  provider.toUpperCase(),
+                  '${provider.toUpperCase()} ${label.toUpperCase()}',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: providerColor,
@@ -73,14 +76,14 @@ class DataFreshnessCard extends StatelessWidget {
               )
             else ...[
               Text(
-                'Age: ${_formatAge(ageHours)}',
+                'Age: $ageString',
                 style: TextStyle(color: Colors.grey[600], fontSize: 12),
               ),
-              if (lastUpdate != null)
-                Text(
-                  'Updated: ${_formatDate(lastUpdate)}',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
-                ),
+              const SizedBox(height: 4),
+              Text(
+                'Max age: $thresholdDays days',
+                style: TextStyle(color: Colors.grey[500], fontSize: 11),
+              ),
             ],
 
             const SizedBox(height: 12),
@@ -133,25 +136,5 @@ class DataFreshnessCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _formatAge(num hours) {
-    if (hours < 1) {
-      return 'Less than 1 hour';
-    } else if (hours < 24) {
-      return '${hours.toInt()} hours';
-    } else {
-      final days = (hours / 24).floor();
-      return '$days day${days > 1 ? 's' : ''}';
-    }
-  }
-
-  String _formatDate(String isoDate) {
-    try {
-      final date = DateTime.parse(isoDate);
-      return '${date.day}/${date.month}/${date.year}';
-    } catch (_) {
-      return isoDate;
-    }
   }
 }

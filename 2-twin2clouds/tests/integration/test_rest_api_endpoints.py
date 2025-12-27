@@ -15,15 +15,17 @@ client = TestClient(app)
 # File Age Tests
 # ----------------------------------------------------------------
 
+@patch("api.file_status.is_file_fresh")
 @patch("api.file_status.get_file_age_string")
-def test_get_regions_age_aws(mock_get_age):
-    """Test GET /regions_age/aws returns age string."""
+def test_get_regions_age_aws(mock_get_age, mock_is_fresh):
+    """Test GET /regions_age/aws returns age string, is_fresh, threshold."""
     mock_get_age.return_value = "5 days"
+    mock_is_fresh.return_value = True
     
     response = client.get("/regions_age/aws")
     
     assert response.status_code == 200
-    assert response.json() == {"age": "5 days"}
+    assert response.json() == {"age": "5 days", "is_fresh": True, "threshold_days": 7}
     # Verify called with correct path
     mock_get_age.assert_called_with(CONSTANTS.AWS_REGIONS_FILE_PATH)
 
@@ -31,19 +33,23 @@ def test_get_pricing_age():
     with patch("api.file_status.get_file_age_string") as mock_age, \
          patch("api.file_status.load_json_file") as mock_load, \
          patch("backend.pricing_utils.validate_pricing_schema") as mock_validate, \
+         patch("api.file_status.is_file_fresh") as mock_is_fresh, \
          patch("os.path.isfile") as mock_isfile:
         
         mock_age.return_value = "2 days"
         mock_isfile.return_value = True
         mock_load.return_value = {"some": "data"}
         mock_validate.return_value = {"status": "valid", "missing_keys": []}
+        mock_is_fresh.return_value = True
         
         response = client.get("/pricing_age/aws")
         assert response.status_code == 200
         assert response.json() == {
             "age": "2 days",
             "status": "valid",
-            "missing_keys": []
+            "missing_keys": [],
+            "is_fresh": True,
+            "threshold_days": 7
         }
         mock_age.assert_called_with(CONSTANTS.AWS_PRICING_FILE_PATH)
         mock_validate.assert_called_with("aws", {"some": "data"})
@@ -52,19 +58,23 @@ def test_get_pricing_age_incomplete():
     with patch("api.file_status.get_file_age_string") as mock_age, \
          patch("api.file_status.load_json_file") as mock_load, \
          patch("backend.pricing_utils.validate_pricing_schema") as mock_validate, \
+         patch("api.file_status.is_file_fresh") as mock_is_fresh, \
          patch("os.path.isfile") as mock_isfile:
         
         mock_age.return_value = "5 hours"
         mock_isfile.return_value = True
         mock_load.return_value = {"some": "data"}
         mock_validate.return_value = {"status": "incomplete", "missing_keys": ["service.key"]}
+        mock_is_fresh.return_value = True
         
         response = client.get("/pricing_age/azure")
         assert response.status_code == 200
         assert response.json() == {
             "age": "5 hours",
             "status": "incomplete",
-            "missing_keys": ["service.key"]
+            "missing_keys": ["service.key"],
+            "is_fresh": True,
+            "threshold_days": 7
         }
 
 @patch("api.file_status.get_file_age_string")

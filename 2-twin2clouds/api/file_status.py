@@ -5,11 +5,17 @@ import os
 from fastapi import APIRouter
 
 from backend.logger import logger
-from backend.utils import get_file_age_string
+from backend.utils import get_file_age_string, is_file_fresh
 from backend.config_loader import load_json_file
 import backend.constants as CONSTANTS
 
 router = APIRouter(tags=["File Status"])
+
+# Freshness thresholds (days) - must match values used in pricing.py and regions.py
+PRICING_THRESHOLD_DAYS = 7
+REGIONS_THRESHOLD_AWS = 7
+REGIONS_THRESHOLD_AZURE = 7
+REGIONS_THRESHOLD_GCP = 30
 
 
 # --------------------------------------------------
@@ -44,7 +50,9 @@ def get_pricing_age_aws():
     return {
         "age": age,
         "status": status,
-        "missing_keys": missing_keys
+        "missing_keys": missing_keys,
+        "is_fresh": is_file_fresh(CONSTANTS.AWS_PRICING_FILE_PATH, PRICING_THRESHOLD_DAYS),
+        "threshold_days": PRICING_THRESHOLD_DAYS
     }
 
 
@@ -76,7 +84,9 @@ def get_pricing_age_azure():
     return {
         "age": age,
         "status": status,
-        "missing_keys": missing_keys
+        "missing_keys": missing_keys,
+        "is_fresh": is_file_fresh(CONSTANTS.AZURE_PRICING_FILE_PATH, PRICING_THRESHOLD_DAYS),
+        "threshold_days": PRICING_THRESHOLD_DAYS
     }
 
 
@@ -108,7 +118,9 @@ def get_pricing_age_gcp():
     return {
         "age": age,
         "status": status,
-        "missing_keys": missing_keys
+        "missing_keys": missing_keys,
+        "is_fresh": is_file_fresh(CONSTANTS.GCP_PRICING_FILE_PATH, PRICING_THRESHOLD_DAYS),
+        "threshold_days": PRICING_THRESHOLD_DAYS
     }
 
 
@@ -119,31 +131,43 @@ def get_pricing_age_gcp():
 @router.get("/regions_age/aws", summary="Get AWS Regions File Age")
 def get_regions_age_aws():
     """
-    Returns the age of the local AWS regions data file.
+    Returns the age and freshness of the local AWS regions data file.
     
-    **Returns**: A JSON object with the `age` string (e.g., "2 days", "5 hours").
+    **Returns**: age, is_fresh (bool), threshold_days (int).
     """
-    return {"age": get_file_age_string(CONSTANTS.AWS_REGIONS_FILE_PATH)}
+    return {
+        "age": get_file_age_string(CONSTANTS.AWS_REGIONS_FILE_PATH),
+        "is_fresh": is_file_fresh(CONSTANTS.AWS_REGIONS_FILE_PATH, REGIONS_THRESHOLD_AWS),
+        "threshold_days": REGIONS_THRESHOLD_AWS
+    }
 
 
 @router.get("/regions_age/azure", summary="Get Azure Regions File Age")
 def get_regions_age_azure():
     """
-    Returns the age of the local Azure regions data file.
+    Returns the age and freshness of the local Azure regions data file.
     
-    **Returns**: A JSON object with the `age` string.
+    **Returns**: age, is_fresh (bool), threshold_days (int).
     """
-    return {"age": get_file_age_string(CONSTANTS.AZURE_REGIONS_FILE_PATH)}
+    return {
+        "age": get_file_age_string(CONSTANTS.AZURE_REGIONS_FILE_PATH),
+        "is_fresh": is_file_fresh(CONSTANTS.AZURE_REGIONS_FILE_PATH, REGIONS_THRESHOLD_AZURE),
+        "threshold_days": REGIONS_THRESHOLD_AZURE
+    }
 
 
 @router.get("/regions_age/gcp", summary="Get GCP Regions File Age")
 def get_regions_age_gcp():
     """
-    Returns the age of the local GCP regions data file.
+    Returns the age and freshness of the local GCP regions data file.
     
-    **Returns**: A JSON object with the `age` string.
+    **Returns**: age, is_fresh (bool), threshold_days (int=30).
     """
-    return {"age": get_file_age_string(CONSTANTS.GCP_REGIONS_FILE_PATH)}
+    return {
+        "age": get_file_age_string(CONSTANTS.GCP_REGIONS_FILE_PATH),
+        "is_fresh": is_file_fresh(CONSTANTS.GCP_REGIONS_FILE_PATH, REGIONS_THRESHOLD_GCP),
+        "threshold_days": REGIONS_THRESHOLD_GCP
+    }
 
 
 # --------------------------------------------------
