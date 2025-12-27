@@ -315,17 +315,17 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except ConfigurationError as e:
-        logging.error(f"Persister Configuration Error: {e}")
+        logging.exception(f"Persister Configuration Error: {e}")
         return func.HttpResponse(
-            json.dumps({"error": str(e)}),
+            json.dumps({"error": "Configuration error", "message": str(e)}),
             status_code=500,
             mimetype="application/json"
         )
         
     except Exception as e:
-        logging.error(f"Persister Error: {e}")
+        logging.exception(f"Persister Error: {e}")
         return func.HttpResponse(
-            json.dumps({"error": str(e)}),
+            json.dumps({"error": "Persister error", "message": str(e)}),
             status_code=500,
             mimetype="application/json"
         )

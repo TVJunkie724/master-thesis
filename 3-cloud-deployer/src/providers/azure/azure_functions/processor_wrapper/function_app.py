@@ -89,7 +89,15 @@ def _invoke_persister(payload: dict) -> None:
         with urllib.request.urlopen(req, timeout=30) as response:
             logging.info(f"Persister invoked successfully: {response.getcode()}")
     except urllib.error.HTTPError as e:
+        # Read the error response body to get the actual error message
+        error_body = ""
+        try:
+            error_body = e.read().decode("utf-8")
+        except Exception:
+            pass
         logging.error(f"Failed to invoke Persister: {e.code} {e.reason}")
+        if error_body:
+            logging.error(f"Error response from Persister: {error_body}")
         raise
     except urllib.error.URLError as e:
         logging.error(f"Network error invoking Persister: {e.reason}")
@@ -126,7 +134,7 @@ def processor(req: func.HttpRequest) -> func.HttpResponse:
                     processed_event = json.loads(response.read().decode("utf-8"))
                 logging.info(f"User Logic Complete. Result: {json.dumps(processed_event)}")
         except Exception as e:
-            logging.error(f"[USER_LOGIC_ERROR] Processing failed: {e}")
+            logging.exception(f"[USER_LOGIC_ERROR] Processing failed: {e}")
             return func.HttpResponse(
                 json.dumps({"error": "User logic error", "message": str(e)}),
                 status_code=500,
@@ -143,7 +151,7 @@ def processor(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
-        logging.error(f"[SYSTEM_ERROR] Processor error: {e}")
+        logging.exception(f"[SYSTEM_ERROR] Processor error: {e}")
         return func.HttpResponse(
             json.dumps({"error": "System error", "message": str(e)}),
             status_code=500,

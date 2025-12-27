@@ -107,7 +107,15 @@ def _invoke_function(function_name: str, payload: dict) -> None:
         with urllib.request.urlopen(req, timeout=30) as response:
             logging.info(f"Successfully invoked {function_name}: {response.getcode()}")
     except urllib.error.HTTPError as e:
+        # Read the error response body to get the actual error message
+        error_body = ""
+        try:
+            error_body = e.read().decode("utf-8")
+        except Exception:
+            pass
         logging.error(f"Failed to invoke {function_name}: {e.code} {e.reason}")
+        if error_body:
+            logging.error(f"Error response from {function_name}: {error_body}")
         raise
     except urllib.error.URLError as e:
         logging.error(f"Network error invoking {function_name}: {e.reason}")
