@@ -67,7 +67,7 @@ def _get_target_function_name(device_id: str) -> str:
         return f"{twin_name}-connector"
     else:
         # Single-cloud: route to processor wrapper (which then calls user processor)
-        return f"{twin_name}-processor"
+        return "processor"
 
 
 def _invoke_function(function_name: str, payload: dict) -> None:

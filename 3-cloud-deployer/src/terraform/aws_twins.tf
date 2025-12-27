@@ -238,7 +238,7 @@ resource "aws_lambda_function" "l4_connector" {
 
       # Multi-cloud mode: L3≠AWS, calls remote Hot Reader via HTTP
       REMOTE_READER_URL = var.layer_3_hot_provider != "aws" ? (
-        var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l3_storage[0].default_hostname, "")}/api/hot-reader" :
+        var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l3[0].default_hostname, "")}/api/hot-reader" :
         var.layer_3_hot_provider == "google" ? try(google_cloudfunctions2_function.hot_reader[0].url, "") : ""
       ) : ""
 

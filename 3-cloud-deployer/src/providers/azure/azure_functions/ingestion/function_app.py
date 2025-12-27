@@ -135,9 +135,7 @@ def ingestion(req: func.HttpRequest) -> func.HttpResponse:
             )
         
         # 5. Determine target processor
-        twin_info = _get_digital_twin_info()
-        twin_name = twin_info["config"]["digital_twin_name"]
-        processor_name = f"{twin_name}-{device_id}-processor"
+        processor_name = f"{device_id}-processor"
         
         logging.info(f"Invoking processor: {processor_name}")
         

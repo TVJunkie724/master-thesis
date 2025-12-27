@@ -20,6 +20,9 @@ locals {
   
   # Pre-built Lambda packages directory
   l2_lambda_build_dir = "${var.project_path}/.build/aws"
+  
+  # Step Function name (single source of truth to avoid cycle)
+  l2_event_workflow_name = "${var.digital_twin_name}-l2-event-workflow"
 }
 
 # ==============================================================================
@@ -190,7 +193,7 @@ resource "aws_lambda_function" "l2_event_checker" {
       DIGITAL_TWIN_INFO                  = var.digital_twin_info_json
       EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN = var.return_feedback_to_device ? aws_lambda_function.event_feedback_wrapper[0].arn : ""
       USE_FEEDBACK                       = var.return_feedback_to_device ? "true" : "false"
-      LAMBDA_CHAIN_STEP_FUNCTION_ARN     = var.trigger_notification_workflow ? try(aws_sfn_state_machine.event_workflow[0].arn, "") : ""
+      LAMBDA_CHAIN_STEP_FUNCTION_ARN     = var.trigger_notification_workflow && var.use_event_checking ? "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.l2_event_workflow_name}" : ""
       USE_STEP_FUNCTIONS                 = var.trigger_notification_workflow ? "true" : "false"
       TWINMAKER_WORKSPACE_NAME           = var.layer_4_provider == "aws" ? "${var.digital_twin_name}-workspace" : ""
     }
@@ -250,7 +253,7 @@ resource "aws_iam_role_policy" "l2_sfn_lambda" {
 resource "aws_sfn_state_machine" "l2_event_workflow" {
   # Requires both flags since workflow invokes event_checker
   count    = local.l2_aws_enabled && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
-  name     = "${var.digital_twin_name}-l2-event-workflow"
+  name     = local.l2_event_workflow_name
   role_arn = aws_iam_role.l2_step_functions[0].arn
 
   definition = jsonencode({
