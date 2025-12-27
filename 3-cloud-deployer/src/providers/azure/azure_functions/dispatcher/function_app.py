@@ -64,7 +64,7 @@ def _get_target_function_name(device_id: str) -> str:
     
     if TARGET_FUNCTION_SUFFIX == "-connector":
         # Multi-cloud: route to connector (no device-specific naming)
-        return f"{twin_name}-connector"
+        return "connector"
     else:
         # Single-cloud: route to processor wrapper (which then calls user processor)
         return "processor"
