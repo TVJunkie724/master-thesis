@@ -20,6 +20,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   String? _activeTwinId;
   bool _isCreatingTwin = false;
   bool _isLoading = false;
+  Set<String> _configuredProviders = {};
   
   @override
   void initState() {
@@ -82,6 +83,18 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
               _currentStep = 1; // Optimizer (Step 1 completed)
             } else {
               _currentStep = 0; // Configuration
+            }
+            
+            // Track which providers are configured (using xxx_configured flags from backend)
+            _configuredProviders = {};
+            if (config['aws_configured'] == true) {
+              _configuredProviders.add('AWS');
+            }
+            if (config['azure_configured'] == true) {
+              _configuredProviders.add('AZURE');
+            }
+            if (config['gcp_configured'] == true) {
+              _configuredProviders.add('GCP');
             }
           }
         });
@@ -245,8 +258,14 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
         }
         return Step2Optimizer(
           twinId: _activeTwinId!,
+          configuredProviders: _configuredProviders,
           onNext: () => setState(() => _currentStep = 2),
           onBack: () => setState(() => _currentStep = 0),
+          onSaveDraft: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Draft saved!')),
+            );
+          },
         );
       case 2:
         return const Center(child: Text('Step 3: Deployer (Sprint 4)'));

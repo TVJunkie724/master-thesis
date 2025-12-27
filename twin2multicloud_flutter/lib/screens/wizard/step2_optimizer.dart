@@ -13,14 +13,18 @@ import '../../widgets/results/optimization_warning.dart';
 /// view cost optimization results across AWS, Azure, and GCP.
 class Step2Optimizer extends StatefulWidget {
   final String twinId;
+  final Set<String> configuredProviders;
   final VoidCallback onNext;
   final VoidCallback onBack;
+  final VoidCallback onSaveDraft;
 
   const Step2Optimizer({
     super.key,
     required this.twinId,
+    required this.configuredProviders,
     required this.onNext,
     required this.onBack,
+    required this.onSaveDraft,
   });
 
   @override
@@ -257,6 +261,45 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                 // Total Cost Banner
                 _buildTotalCost(_result!),
                 
+                // Warning for unconfigured providers
+                if (_getUnconfiguredProviders().isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 28),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Unconfigured Provider(s) in Optimal Path',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange.shade800,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'The optimal path includes ${_getUnconfiguredProviders().join(", ")} which are not configured. '
+                                'Return to Step 1 to add credentials before deploying.',
+                                style: TextStyle(color: Colors.orange.shade900, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                
                 const SizedBox(height: 32),
 
                 // Cheapest Path
@@ -400,10 +443,19 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                     icon: const Icon(Icons.arrow_back),
                     label: const Text('Back'),
                   ),
-                  ElevatedButton.icon(
-                    onPressed: _result != null ? widget.onNext : null,
-                    icon: const Icon(Icons.arrow_forward),
-                    label: const Text('Next Step'),
+                  Row(
+                    children: [
+                      OutlinedButton(
+                        onPressed: widget.onSaveDraft,
+                        child: const Text('Save Draft'),
+                      ),
+                      const SizedBox(width: 16),
+                      ElevatedButton.icon(
+                        onPressed: _result != null ? widget.onNext : null,
+                        icon: const Icon(Icons.arrow_forward),
+                        label: const Text('Next Step'),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -412,6 +464,22 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
         ),
       ),
     );
+  }
+
+  /// Find providers in cheapest path that are not configured
+  Set<String> _getUnconfiguredProviders() {
+    if (_result == null) return {};
+    final resultProviders = <String>{};
+    for (final segment in _result!.cheapestPath) {
+      final parts = segment.split('_');
+      // L3_hot_GCP -> GCP, L1_AWS -> AWS
+      if (parts.length >= 3 && segment.startsWith('L3')) {
+        resultProviders.add(parts[2].toUpperCase());
+      } else if (parts.length >= 2) {
+        resultProviders.add(parts[1].toUpperCase());
+      }
+    }
+    return resultProviders.difference(widget.configuredProviders);
   }
 
   Widget _buildDataFreshnessCards() {
