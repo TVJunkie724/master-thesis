@@ -28,4 +28,10 @@ class DigitalTwin(Base):
     file_versions = relationship("FileVersion", back_populates="twin")
     deployments = relationship("Deployment", back_populates="twin")
     configuration = relationship("TwinConfiguration", back_populates="twin", uselist=False)
+    optimizer_config = relationship(
+        "OptimizerConfiguration", 
+        back_populates="twin", 
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
 

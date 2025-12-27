@@ -4,6 +4,8 @@ from src.config import settings
 from src.models.database import engine, Base
 from src.api.routes import auth, twins, health
 from src.api.routes.config import router as config_router, inline_router as config_inline_router
+from src.api.routes.optimizer import router as optimizer_router
+from src.api.routes.optimizer_config import router as optimizer_config_router
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -29,6 +31,8 @@ app.include_router(twins.router)
 app.include_router(health.router)
 app.include_router(config_router)
 app.include_router(config_inline_router)
+app.include_router(optimizer_router)
+app.include_router(optimizer_config_router)
 
 @app.get("/")
 async def root():

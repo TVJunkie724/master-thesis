@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
 import '../../services/api_service.dart';
+import '../../services/sse_service.dart';
 import '../../widgets/data_freshness_card.dart';
 import '../../widgets/calc_form/calc_form.dart';
 import '../../widgets/results/layer_cost_card.dart';
@@ -39,6 +41,16 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
   bool _isCalculating = false;
   Map<String, dynamic>? _pricingStatus;
   bool _loadingStatus = true;
+  
+  // Saved config state
+  CalcParams? _savedParams;
+  bool _loadingConfig = true;
+  
+  // SSE Refresh State
+  bool _isRefreshing = false;
+  String? _refreshingProvider;
+  List<String> _refreshLogs = [];
+  StreamSubscription? _sseSubscription;
 
   // Provider Colors
   static const Color awsColor = Colors.orange;
@@ -49,6 +61,55 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
   void initState() {
     super.initState();
     _loadPricingStatus();
+    _loadOptimizerConfig();
+  }
+
+  @override
+  void dispose() {
+    _sseSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Load saved optimizer config from backend
+  Future<void> _loadOptimizerConfig() async {
+    try {
+      final config = await _apiService.getOptimizerConfig(widget.twinId);
+      if (config['params'] != null) {
+        _savedParams = CalcParams.fromJson(config['params']);
+      }
+      if (config['result'] != null) {
+        // Wrap result in expected format for CalcResult.fromJson
+        _result = CalcResult.fromJson({'result': config['result']});
+      }
+    } catch (e) {
+      debugPrint('Failed to load optimizer config: $e');
+    } finally {
+      if (mounted) setState(() => _loadingConfig = false);
+    }
+  }
+
+  /// Parse cheapest path array to dict format for API
+  Map<String, String?> _parseCheapestPath(List<String> path) {
+    final result = <String, String?>{
+      'l1': null, 'l2': null, 'l3_hot': null, 
+      'l3_cool': null, 'l3_archive': null, 'l4': null, 'l5': null,
+    };
+    for (final segment in path) {
+      final parts = segment.split('_');
+      if (parts.isEmpty) continue;
+      
+      final layer = parts[0].toUpperCase();  // "L1", "L2", "L3"
+      
+      if (layer == 'L3' && parts.length >= 3) {
+        // L3_hot_GCP, L3_cool_AWS, L3_archive_AZURE
+        final tier = parts[1].toLowerCase();  // "hot", "cool", "archive"
+        result['l3_$tier'] = parts[2].toUpperCase();
+      } else if (parts.length >= 2) {
+        // L1_AWS, L2_AZURE, L4_AWS, L5_AZURE
+        result[layer.toLowerCase()] = parts[1].toUpperCase();
+      }
+    }
+    return result;
   }
 
   Future<void> _loadPricingStatus() async {
@@ -68,23 +129,89 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     }
   }
 
-  Future<void> _refreshPricing(String provider) async {
-    try {
-      await _apiService.refreshPricing(provider, widget.twinId);
-      await _loadPricingStatus();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$provider pricing refreshed successfully')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to refresh $provider pricing: $e')),
-        );
-      }
+  /// Shows confirmation dialog before starting pricing refresh
+  Future<void> _confirmRefresh(String provider) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Refresh ${provider.toUpperCase()} Pricing?'),
+        content: const Text(
+          'Fetching cloud pricing data may take 30-60 seconds.\n\n'
+          'You will see real-time progress in the log window below.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Refresh'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _startStreamingRefresh(provider);
     }
   }
+
+  /// Starts SSE-based pricing refresh with real-time log streaming
+  Future<void> _startStreamingRefresh(String provider) async {
+    setState(() {
+      _isRefreshing = true;
+      _refreshingProvider = provider;
+      _refreshLogs = [];
+    });
+
+    final authToken = await _apiService.getAuthToken();
+    final sseService = SseService(
+      baseUrl: ApiService.baseUrl,  // Use same baseUrl as ApiService
+      authToken: authToken,
+    );
+
+    _sseSubscription = sseService
+        .streamRefreshPricing(provider, widget.twinId)
+        .listen(
+      (event) {
+        if (!mounted) return;  // Check mounted before setState
+        setState(() {
+          _refreshLogs.add('${_formatTime()} ${event.message}');
+        });
+
+        if (event.isComplete) {
+          _loadPricingStatus();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('${provider.toUpperCase()} pricing refreshed successfully')),
+            );
+          }
+        } else if (event.isError) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to refresh ${provider.toUpperCase()} pricing')),
+            );
+          }
+        }
+      },
+      onDone: () {
+        if (mounted) setState(() => _isRefreshing = false);
+      },
+      onError: (e) {
+        if (!mounted) return;
+        setState(() {
+          _refreshLogs.add('${_formatTime()} ❌ Connection error: $e');
+          _isRefreshing = false;
+        });
+      },
+    );
+  }
+
+  String _formatTime() => TimeOfDay.now().format(context);
+
+  // Keep legacy method for compatibility (redirects to confirmation)
+  Future<void> _refreshPricing(String provider) => _confirmRefresh(provider);
 
   Future<void> _calculate() async {
     if (_params == null) return;
@@ -104,7 +231,12 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
 
     try {
       final response = await _apiService.calculateCosts(_params!.toJson());
-      setState(() => _result = CalcResult.fromJson(response));
+      final result = CalcResult.fromJson(response);
+      setState(() => _result = result);
+      
+      // Save result with pricing snapshots
+      await _saveOptimizerResult(response);
+      
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -113,6 +245,51 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
       }
     } finally {
       setState(() => _isCalculating = false);
+    }
+  }
+
+  /// Save optimizer result with pricing snapshots
+  Future<void> _saveOptimizerResult(Map<String, dynamic> apiResponse) async {
+    if (_params == null || _result == null) return;
+    
+    try {
+      // Fetch pricing snapshots for each provider in parallel
+      final pricingSnapshots = <String, dynamic>{};
+      final pricingTimestamps = <String, String?>{};
+      
+      final providers = ['aws', 'azure', 'gcp'];
+      final exports = await Future.wait(
+        providers.map((p) => _apiService.exportPricing(p).catchError((e) {
+          debugPrint('Failed to export $p pricing: $e');
+          return <String, dynamic>{};
+        })),
+      );
+      
+      for (var i = 0; i < providers.length; i++) {
+        if (exports[i].isNotEmpty) {
+          pricingSnapshots[providers[i]] = exports[i]['pricing'];
+          pricingTimestamps[providers[i]] = exports[i]['updated_at'];
+        }
+      }
+      
+      await _apiService.saveOptimizerResult(
+        widget.twinId,
+        params: _params!.toJson(),
+        result: apiResponse['result'],
+        cheapestPath: _parseCheapestPath(_result!.cheapestPath),
+        pricingSnapshots: pricingSnapshots,
+        pricingTimestamps: pricingTimestamps,
+      );
+    } catch (e) {
+      debugPrint('Failed to save optimizer result: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Warning: Could not save result. Your calculation may not persist.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
   }
 
@@ -156,6 +333,10 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
               // Data Freshness Cards
               _buildDataFreshnessCards(),
 
+              // Log Window (appears during/after refresh)
+              if (_isRefreshing || _refreshLogs.isNotEmpty)
+                _buildLogWindow(),
+
               const SizedBox(height: 32),
               const Divider(),
               const SizedBox(height: 32),
@@ -188,9 +369,13 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
               const SizedBox(height: 24),
 
               // Calculation Form
-              CalcForm(
-                onChanged: (params) => setState(() => _params = params),
-              ),
+              if (_loadingConfig)
+                const Center(child: CircularProgressIndicator())
+              else
+                CalcForm(
+                  initialParams: _savedParams,
+                  onChanged: (params) => setState(() => _params = params),
+                ),
 
               const SizedBox(height: 48),
 
@@ -510,6 +695,61 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
             provider: 'gcp',
             status: _pricingStatus?['gcp'],
             onRefresh: () => _refreshPricing('gcp'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Terminal-style log window for SSE refresh messages
+  Widget _buildLogWindow() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Icon(Icons.terminal, color: Colors.grey[700]),
+            const SizedBox(width: 8),
+            Text(
+              'Refresh Log${_refreshingProvider != null ? " (${_refreshingProvider!.toUpperCase()})" : ""}',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[700]),
+            ),
+            const Spacer(),
+            if (!_isRefreshing)
+              TextButton(
+                onPressed: () => setState(() => _refreshLogs.clear()),
+                child: const Text('Clear'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          height: 150,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.grey[900],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: ListView.builder(
+            itemCount: _refreshLogs.length + (_isRefreshing ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index < _refreshLogs.length) {
+                return Text(
+                  _refreshLogs[index],
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    color: Colors.green,
+                  ),
+                );
+              } else {
+                return const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: LinearProgressIndicator(),
+                );
+              }
+            },
           ),
         ),
       ],

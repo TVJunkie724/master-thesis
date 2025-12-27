@@ -4,8 +4,9 @@ import '../../models/calc_params.dart';
 /// Main calculation form with all 26 input fields organized by layer
 class CalcForm extends StatefulWidget {
   final void Function(CalcParams params)? onChanged;
+  final CalcParams? initialParams;  // Load from saved config
 
-  const CalcForm({super.key, this.onChanged});
+  const CalcForm({super.key, this.onChanged, this.initialParams});
 
   @override
   State<CalcForm> createState() => _CalcFormState();
@@ -83,33 +84,70 @@ class _CalcFormState extends State<CalcForm> {
   @override
   void initState() {
     super.initState();
-    // Select Preset 1 (Smart Home) by default on first load
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fillPreset(
-        presetNumber: 1,
-        devices: 100,
-        interval: 2.0,
-        messageSize: 0.25,
-        deviceTypes: 3,
-        hotMonths: 1,
-        coolMonths: 3,
-        archiveMonths: 12,
-        needs3D: false,
-        entities: 0,
-        modelSize: 100.0,
-        refreshesPerHour: 2,
-        editors: 0,
-        viewers: 2,
-        activeHours: 12,
-        eventChecking: true,
-        eventsPerMsg: 1,
-        notification: true,
-        orchestrationActions: 1,
-        feedback: true,
-        eventActions: 3,
-        errorHandling: false,
-      );
+      if (widget.initialParams != null) {
+        // Load from saved params
+        _loadFromParams(widget.initialParams!);
+      } else {
+        // Select Preset 1 (Smart Home) by default on first load
+        _fillPreset(
+          presetNumber: 1,
+          devices: 100,
+          interval: 2.0,
+          messageSize: 0.25,
+          deviceTypes: 3,
+          hotMonths: 1,
+          coolMonths: 3,
+          archiveMonths: 12,
+          needs3D: false,
+          entities: 0,
+          modelSize: 100.0,
+          refreshesPerHour: 2,
+          editors: 0,
+          viewers: 2,
+          activeHours: 12,
+          eventChecking: true,
+          eventsPerMsg: 1,
+          notification: true,
+          orchestrationActions: 1,
+          feedback: true,
+          eventActions: 3,
+          errorHandling: false,
+        );
+      }
     });
+  }
+
+  /// Load form from saved CalcParams
+  void _loadFromParams(CalcParams p) {
+    setState(() {
+      _numberOfDevices = p.numberOfDevices;
+      _deviceSendingIntervalInMinutes = p.deviceSendingIntervalInMinutes;
+      _averageSizeOfMessageInKb = p.averageSizeOfMessageInKb;
+      _numberOfDeviceTypes = p.numberOfDeviceTypes;
+      _useEventChecking = p.useEventChecking;
+      _eventsPerMessage = p.eventsPerMessage;
+      _triggerNotificationWorkflow = p.triggerNotificationWorkflow;
+      _orchestrationActionsPerMessage = p.orchestrationActionsPerMessage;
+      _returnFeedbackToDevice = p.returnFeedbackToDevice;
+      _numberOfEventActions = p.numberOfEventActions;
+      _integrateErrorHandling = p.integrateErrorHandling;
+      _hotStorageDurationInMonths = p.hotStorageDurationInMonths;
+      _coolStorageDurationInMonths = p.coolStorageDurationInMonths;
+      _archiveStorageDurationInMonths = p.archiveStorageDurationInMonths;
+      _needs3DModel = p.needs3DModel;
+      _entityCount = p.entityCount;
+      _average3DModelSizeInMB = p.average3DModelSizeInMB;
+      _dashboardRefreshesPerHour = p.dashboardRefreshesPerHour;
+      _apiCallsPerDashboardRefresh = p.apiCallsPerDashboardRefresh;
+      _dashboardActiveHoursPerDay = p.dashboardActiveHoursPerDay;
+      _amountOfActiveEditors = p.amountOfActiveEditors;
+      _amountOfActiveViewers = p.amountOfActiveViewers;
+      _currency = p.currency;
+      _selectedPreset = null;  // No preset when loading saved
+      _rebuildKey++;
+    });
+    _updateParams();
   }
 
   /// Fill form with preset scenario values

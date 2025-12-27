@@ -6,6 +6,9 @@ class ApiService {
   // TODO: Make configurable via environment variable or auth provider
   String? _token = 'dev-token';
   
+  /// Expose base URL for other services (e.g., SSE)
+  static String get baseUrl => ApiConfig.baseUrl;
+  
   ApiService() {
     _dio = Dio(BaseOptions(
       baseUrl: ApiConfig.baseUrl,
@@ -23,6 +26,9 @@ class ApiService {
   }
   
   void setToken(String token) => _token = token;
+  
+  /// Get current auth token for SSE connections
+  Future<String?> getAuthToken() async => _token;
   
   Future<List<dynamic>> getTwins() async {
     final response = await _dio.get('/twins/');
@@ -148,6 +154,44 @@ class ApiService {
       '/optimizer/calculate',
       data: params,
     );
+    return response.data;
+  }
+
+  // ============================================================
+  // Optimizer Config Persistence (Step 2)
+  // ============================================================
+
+  /// Get optimizer config (params + result + cheapest path)
+  Future<Map<String, dynamic>> getOptimizerConfig(String twinId) async {
+    final response = await _dio.get('/twins/$twinId/optimizer-config');
+    return response.data;
+  }
+
+  /// Save params only (before calculation)
+  Future<void> saveOptimizerParams(String twinId, Map<String, dynamic> params) async {
+    await _dio.put('/twins/$twinId/optimizer-config/params', data: {'params': params});
+  }
+
+  /// Save full result with pricing snapshots (after calculation)
+  Future<void> saveOptimizerResult(String twinId, {
+    required Map<String, dynamic> params,
+    required Map<String, dynamic> result,
+    required Map<String, String?> cheapestPath,
+    required Map<String, dynamic> pricingSnapshots,
+    required Map<String, String?> pricingTimestamps,
+  }) async {
+    await _dio.put('/twins/$twinId/optimizer-config/result', data: {
+      'params': params,
+      'result': result,
+      'cheapest_path': cheapestPath,
+      'pricing_snapshots': pricingSnapshots,
+      'pricing_timestamps': pricingTimestamps,
+    });
+  }
+
+  /// Export pricing data from Optimizer (for snapshotting)
+  Future<Map<String, dynamic>> exportPricing(String provider) async {
+    final response = await _dio.get('/optimizer/pricing/export/$provider');
     return response.data;
   }
 }

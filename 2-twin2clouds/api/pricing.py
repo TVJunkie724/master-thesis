@@ -112,6 +112,49 @@ def fetch_currency_rates():
 
 
 # --------------------------------------------------
+# Pricing Export (for snapshotting)
+# --------------------------------------------------
+
+import os
+from datetime import datetime, timezone
+
+@router.get("/pricing/export/{provider}", summary="Export Pricing for Snapshot")
+def export_pricing(provider: str):
+    """
+    Export full pricing JSON for a provider (for snapshotting).
+    
+    Used by Management API to capture the exact pricing data used
+    during a calculation for audit trail purposes.
+    
+    **Returns**: Provider name, last update timestamp, and full pricing data.
+    """
+    if provider not in ["aws", "azure", "gcp"]:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=f"Invalid provider: {provider}")
+    
+    file_map = {
+        "aws": CONSTANTS.AWS_PRICING_FILE_PATH,
+        "azure": CONSTANTS.AZURE_PRICING_FILE_PATH,
+        "gcp": CONSTANTS.GCP_PRICING_FILE_PATH,
+    }
+    
+    cache_file = file_map[provider]
+    if not os.path.exists(cache_file):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"No cached pricing for {provider}")
+    
+    data = load_json_file(cache_file)
+    mtime = os.path.getmtime(cache_file)
+    updated_at = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
+    
+    return {
+        "provider": provider,
+        "updated_at": updated_at,
+        "pricing": data
+    }
+
+
+# --------------------------------------------------
 # Credential-based Pricing Endpoint (for Management API)
 # --------------------------------------------------
 

@@ -188,4 +188,31 @@ class CalcParams {
         amountOfActiveEditors: 0,
         amountOfActiveViewers: 0,
       );
+
+  /// Create from JSON (for loading saved params)
+  factory CalcParams.fromJson(Map<String, dynamic> json) => CalcParams(
+        numberOfDevices: json['numberOfDevices'] ?? 100,
+        deviceSendingIntervalInMinutes: (json['deviceSendingIntervalInMinutes'] ?? 2.0).toDouble(),
+        averageSizeOfMessageInKb: (json['averageSizeOfMessageInKb'] ?? 0.25).toDouble(),
+        numberOfDeviceTypes: json['numberOfDeviceTypes'] ?? 1,
+        useEventChecking: json['useEventChecking'] ?? false,
+        eventsPerMessage: json['eventsPerMessage'] ?? 1,
+        triggerNotificationWorkflow: json['triggerNotificationWorkflow'] ?? false,
+        orchestrationActionsPerMessage: json['orchestrationActionsPerMessage'] ?? 3,
+        returnFeedbackToDevice: json['returnFeedbackToDevice'] ?? false,
+        numberOfEventActions: json['numberOfEventActions'] ?? 0,
+        integrateErrorHandling: json['integrateErrorHandling'] ?? false,
+        hotStorageDurationInMonths: json['hotStorageDurationInMonths'] ?? 1,
+        coolStorageDurationInMonths: json['coolStorageDurationInMonths'] ?? 3,
+        archiveStorageDurationInMonths: json['archiveStorageDurationInMonths'] ?? 12,
+        needs3DModel: json['needs3DModel'] ?? false,
+        entityCount: json['entityCount'] ?? 0,
+        average3DModelSizeInMB: (json['average3DModelSizeInMB'] ?? 100.0).toDouble(),
+        dashboardRefreshesPerHour: json['dashboardRefreshesPerHour'] ?? 2,
+        apiCallsPerDashboardRefresh: json['apiCallsPerDashboardRefresh'] ?? 1,
+        dashboardActiveHoursPerDay: json['dashboardActiveHoursPerDay'] ?? 8,
+        amountOfActiveEditors: json['amountOfActiveEditors'] ?? 0,
+        amountOfActiveViewers: json['amountOfActiveViewers'] ?? 5,
+        currency: json['currency'] ?? 'USD',
+      );
 }
