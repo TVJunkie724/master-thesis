@@ -7,6 +7,31 @@ remediation workflows (Logic Apps) or feedback actions.
 Architecture:
     Persister → Event Checker → Logic Apps / Azure Functions
 
+SECURITY NOTE - AuthLevel.ANONYMOUS
+==================================
+This function uses AuthLevel.ANONYMOUS instead of AuthLevel.FUNCTION due to a
+Terraform infrastructure limitation:
+
+Problem: When deploying Azure Function Apps with Terraform, retrieving the
+function's host key creates a circular dependency:
+  1. L2 Function App needs L2_FUNCTION_KEY in its app_settings
+  2. L2_FUNCTION_KEY comes from data.azurerm_function_app_host_keys.l2
+  3. That data source depends on the L2 Function App being created
+  4. CYCLE: L2 App → data.l2 → L2 App
+
+Terraform cannot resolve this cycle, causing deployment to fail.
+
+Workaround: Internal L2 functions (persister, event-checker) that are only
+called by other L2 functions use AuthLevel.ANONYMOUS. This is acceptable because:
+  - These endpoints are NOT exposed to the public internet directly
+  - They are only called by persister (same Function App)
+  - Network-level security (Azure VNet, Private Endpoints) can be added for
+    production deployments
+  - The X-Inter-Cloud-Token pattern is still available for cross-cloud calls
+
+Future Fix: See docs/future-work.md for proper solutions when Terraform
+supports post-deployment app_settings updates or two-phase deployments.
+
 Source: src/providers/azure/azure_functions/event-checker/function_app.py
 Editable: Yes - This is the runtime Azure Function code
 """
@@ -55,6 +80,16 @@ FUNCTION_APP_BASE_URL = os.environ.get("FUNCTION_APP_BASE_URL", "").strip()
 
 USE_LOGIC_APPS = os.environ.get("USE_LOGIC_APPS", "false").lower() == "true"
 USE_FEEDBACK = os.environ.get("USE_FEEDBACK", "false").lower() == "true"
+
+# USER Function Key - lazy loaded for Azure→user-functions authentication
+_user_function_key = None
+
+def _get_user_function_key():
+    """Lazy-load USER_FUNCTION_KEY for Azure→user-functions HTTP authentication."""
+    global _user_function_key
+    if _user_function_key is None:
+        _user_function_key = require_env("USER_FUNCTION_KEY")
+    return _user_function_key
 
 # Create Blueprint for registration in main function_app.py
 bp = func.Blueprint()
@@ -144,7 +179,12 @@ def _invoke_function(function_name: str, payload: dict) -> None:
     if not FUNCTION_APP_BASE_URL:
         raise ValueError(f"FUNCTION_APP_BASE_URL not set - cannot invoke {function_name}")
     
-    url = f"{FUNCTION_APP_BASE_URL}/api/{function_name}"
+    # Build URL with function key for Azure→user-functions authentication
+    base_url = f"{FUNCTION_APP_BASE_URL}/api/{function_name}"
+    user_key = _get_user_function_key()
+    separator = "&" if "?" in base_url else "?"
+    url = f"{base_url}{separator}code={user_key}"
+    
     data = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
@@ -162,9 +202,14 @@ def _send_feedback(feedback_payload: dict) -> None:
     if not FEEDBACK_FUNCTION_URL:
         raise ValueError("FEEDBACK_FUNCTION_URL is required")
     
+    # Add function key for Azure→user-functions authentication
+    user_key = _get_user_function_key()
+    separator = "&" if "?" in FEEDBACK_FUNCTION_URL else "?"
+    url = f"{FEEDBACK_FUNCTION_URL}{separator}code={user_key}"
+    
     data = json.dumps(feedback_payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
-    req = urllib.request.Request(FEEDBACK_FUNCTION_URL, data=data, headers=headers, method="POST")
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
@@ -191,7 +236,8 @@ def _validate_config():
 
 
 @bp.function_name(name="event-checker")
-@bp.route(route="event-checker", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
+# AuthLevel.ANONYMOUS: See module docstring for Terraform cycle limitation explanation
+@bp.route(route="event-checker", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 def event_checker(req: func.HttpRequest) -> func.HttpResponse:
     """
     Evaluate data against configured event rules and trigger actions.

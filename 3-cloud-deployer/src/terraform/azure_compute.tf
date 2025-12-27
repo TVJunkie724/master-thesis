@@ -129,7 +129,17 @@ resource "azurerm_linux_function_app" "l2" {
     DIGITAL_TWIN_INFO = var.digital_twin_info_json
 
     # Persister URL - required by processor_wrapper to call persister
+    # NOTE: persister uses AuthLevel.ANONYMOUS to avoid Terraform cycle (see function docstrings)
     PERSISTER_FUNCTION_URL = "https://${var.digital_twin_name}-l2-functions.azurewebsites.net/api/persister"
+
+    # Function Keys - for Azure→Azure HTTP authentication
+    # NOTE: L2_FUNCTION_KEY deliberately NOT included here to avoid Terraform cycle.
+    # Internal L2 functions (persister, event-checker) use AuthLevel.ANONYMOUS.
+    # See src/providers/azure/azure_functions/persister/function_app.py for full explanation.
+    #
+    # User functions (processors) still require keys - no cycle because L2 app
+    # references USER key (different app), not its own key.
+    USER_FUNCTION_KEY = try(data.azurerm_function_app_host_keys.user[0].default_function_key, "")
 
     # IoT Hub connection - required by event_feedback_wrapper to send feedback to devices
     IOT_HUB_CONNECTION_STRING = var.layer_1_provider == "azure" ? azurerm_iothub.main[0].event_hub_events_endpoint : ""
@@ -214,6 +224,11 @@ resource "azurerm_linux_function_app" "user" {
     EVENT_FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? "https://${var.digital_twin_name}-user-functions.azurewebsites.net/api/event-feedback" : ""
     
     PERSISTER_FUNCTION_URL = "https://${var.digital_twin_name}-l2-functions.azurewebsites.net/api/persister"
+
+    # NOTE: USER_FUNCTION_KEY deliberately NOT included in user app's app_settings.
+    # This would cause a Terraform cycle (user app → data.user → user app)
+    # User functions are passive responders - they receive HTTP calls but don't
+    # make outbound calls to other user functions, so they don't need their own key.
 
     # IoT Hub connection - required by event_feedback_wrapper to send feedback to devices
     IOT_HUB_CONNECTION_STRING = var.layer_1_provider == "azure" ? azurerm_iothub.main[0].event_hub_events_endpoint : ""

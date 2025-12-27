@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
+import '../core/result.dart';
+import '../models/calc_result.dart';
 
 class ApiService {
   late final Dio _dio;
@@ -194,5 +196,48 @@ class ApiService {
     final response = await _dio.get('/optimizer/pricing/export/$provider');
     return response.data;
   }
-}
 
+  // ============================================================
+  // Result-Returning Methods (Type-Safe Error Handling)
+  // ============================================================
+  
+  /// Calculate costs with structured error handling.
+  /// 
+  /// Returns [Success] with [CalcResult] on success,
+  /// or [Failure] with [AppException] on error.
+  Future<Result<CalcResult>> calculateCostsResult(Map<String, dynamic> params) async {
+    try {
+      final response = await calculateCosts(params);
+      final result = CalcResult.fromJson(response);
+      return Success(result);
+    } on DioException catch (e) {
+      return Failure(AppException.fromDioError(e));
+    } catch (e) {
+      return Failure(AppException('Calculation failed: $e'));
+    }
+  }
+  
+  /// Get pricing status with structured error handling.
+  Future<Result<Map<String, dynamic>>> getPricingStatusResult() async {
+    try {
+      final data = await getPricingStatus();
+      return Success(data);
+    } on DioException catch (e) {
+      return Failure(AppException.fromDioError(e));
+    } catch (e) {
+      return Failure(AppException('Failed to load pricing status: $e'));
+    }
+  }
+  
+  /// Get twin config with structured error handling.
+  Future<Result<Map<String, dynamic>>> getTwinConfigResult(String twinId) async {
+    try {
+      final data = await getTwinConfig(twinId);
+      return Success(data);
+    } on DioException catch (e) {
+      return Failure(AppException.fromDioError(e));
+    } catch (e) {
+      return Failure(AppException('Failed to load twin config: $e'));
+    }
+  }
+}
