@@ -37,6 +37,11 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
   Map<String, dynamic>? _pricingStatus;
   bool _loadingStatus = true;
 
+  // Provider Colors
+  static const Color awsColor = Colors.orange;
+  static const Color azureColor = Colors.blue;
+  static const Color gcpColor = Colors.green; // Changed to Green
+
   @override
   void initState() {
     super.initState();
@@ -112,7 +117,7 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
   Widget build(BuildContext context) {
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900),
+        constraints: const BoxConstraints(maxWidth: 1000), // Increased width slightly
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -184,30 +189,40 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                 onChanged: (params) => setState(() => _params = params),
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 48),
 
-              // Calculate Button
+              // Calculate Button - Enhanced
               Center(
                 child: SizedBox(
-                  width: 220,
-                  height: 52,
+                  width: 300, // Wider button
+                  height: 60, // Taller button
                   child: ElevatedButton.icon(
                     onPressed: _params != null && !_isCalculating ? _calculate : null,
                     icon: _isCalculating
                         ? const SizedBox(
-                            width: 20,
-                            height: 20,
+                            width: 24,
+                            height: 24,
                             child: CircularProgressIndicator(
-                              strokeWidth: 2,
+                              strokeWidth: 3,
                               color: Colors.white,
                             ),
                           )
-                        : const Icon(Icons.calculate),
-                    label: Text(_isCalculating ? 'Calculating...' : 'Calculate Cost'),
+                        : const Icon(Icons.calculate, size: 28),
+                    label: Text(
+                      _isCalculating ? 'CALCULATING...' : 'CALCULATE OPTIMAL COST',
+                      style: const TextStyle(
+                        fontSize: 18, 
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).primaryColor,
                       foregroundColor: Colors.white,
-                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
@@ -215,13 +230,188 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
 
               // Results Section
               if (_result != null) ...[
-                const SizedBox(height: 48),
-                const Divider(),
+                const SizedBox(height: 64),
+                
+                // Header with Total Cost Summary on the right
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.analytics, size: 32, color: gcpColor),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Optimization Results',
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 8),
+                const Divider(thickness: 2),
                 const SizedBox(height: 24),
-                _buildResultsSection(),
+                
+                // Total Cost Banner
+                _buildTotalCost(_result!),
+                
+                const SizedBox(height: 32),
+
+                // Cheapest Path
+                Text(
+                  'Cheapest Path',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Center(child: _buildCheapestPath(_result!.cheapestPath)),
+                const SizedBox(height: 32),
+
+                // Optimization Warnings (if any)
+                if (_result!.l1OptimizationOverride != null) ...[
+                  OptimizationWarning(layer: 'L1', optimizationOverride: _result!.l1OptimizationOverride!),
+                  const SizedBox(height: 8),
+                ],
+                if (_result!.l2OptimizationOverride != null) ...[
+                  OptimizationWarning(layer: 'L2', optimizationOverride: _result!.l2OptimizationOverride!),
+                  const SizedBox(height: 8),
+                ],
+                if (_result!.l3OptimizationOverride != null) ...[
+                  OptimizationWarning(layer: 'L3', optimizationOverride: _result!.l3OptimizationOverride!),
+                  const SizedBox(height: 8),
+                ],
+                 if (_result!.l4OptimizationOverride != null) ...[
+                  OptimizationWarning(layer: 'L4', optimizationOverride: _result!.l4OptimizationOverride!),
+                  const SizedBox(height: 8),
+                ],
+                const SizedBox(height: 24),
+
+                // Layer Cost Cards
+                Text(
+                  'Cost Breakdown by Layer',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                Center(
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 16,
+                    runSpacing: 24,
+                    children: [
+                    SizedBox(
+                      width: 300,
+                      child: LayerCostCard(
+                        layer: 'L1 - IoT Ingestion',
+                        awsLayer: _result!.awsCosts.l1,
+                        azureLayer: _result!.azureCosts.l1,
+                        gcpLayer: _result!.gcpCosts.l1,
+                        cheapestPath: _result!.cheapestPath,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 300,
+                      child: LayerCostCard(
+                        layer: 'L2 - Processing',
+                        awsLayer: _result!.awsCosts.l2,
+                        azureLayer: _result!.azureCosts.l2,
+                        gcpLayer: _result!.gcpCosts.l2,
+                        cheapestPath: _result!.cheapestPath,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 300,
+                      child: LayerCostCard(
+                        layer: 'L3 - Hot Storage',
+                        awsLayer: _result!.awsCosts.l3Hot,
+                        azureLayer: _result!.azureCosts.l3Hot,
+                        gcpLayer: _result!.gcpCosts.l3Hot,
+                        cheapestPath: _result!.cheapestPath,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 300,
+                      child: LayerCostCard(
+                        layer: 'L3 - Cool Storage',
+                        awsLayer: _result!.awsCosts.l3Cool,
+                        azureLayer: _result!.azureCosts.l3Cool,
+                        gcpLayer: _result!.gcpCosts.l3Cool,
+                        cheapestPath: _result!.cheapestPath,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 300,
+                      child: LayerCostCard(
+                        layer: 'L3 - Archive Storage',
+                        awsLayer: _result!.awsCosts.l3Archive,
+                        azureLayer: _result!.azureCosts.l3Archive,
+                        gcpLayer: _result!.gcpCosts.l3Archive,
+                        cheapestPath: _result!.cheapestPath,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 300,
+                      child: LayerCostCard(
+                        layer: 'L4 - Twin Management',
+                        awsLayer: _result!.awsCosts.l4,
+                        azureLayer: _result!.azureCosts.l4,
+                        gcpLayer: _result!.gcpCosts.l4, // GCP often null here
+                        cheapestPath: _result!.cheapestPath,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 300,
+                      child: LayerCostCard(
+                        layer: 'L5 - Visualization',
+                        awsLayer: _result!.awsCosts.l5,
+                        azureLayer: _result!.azureCosts.l5,
+                        gcpLayer: _result!.gcpCosts.l5,
+                        cheapestPath: _result!.cheapestPath,
+                      ),
+                    ),
+                  ],
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+
+                // Service Breakdown
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Service Cost Breakdown',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ServiceBreakdown(result: _result!),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 48),
+                Center(
+                  child: Text(
+                     'Prices are estimates based on public pricing APIs and may vary.',
+                     style: TextStyle(color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+                  ),
+                ),
               ],
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 64),
 
               // Navigation
               Row(
@@ -280,191 +470,113 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     );
   }
 
-  Widget _buildResultsSection() {
-    final result = _result!;
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildCheapestPath(List<String> path) {
+    if (path.isEmpty) return const SizedBox();
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 16,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        // Results Header
-        Row(
-          children: [
-            const Icon(Icons.analytics, size: 24, color: Colors.green),
-            const SizedBox(width: 8),
-            Text(
-              'Optimization Results',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-
-        // Cheapest Path Badges
-        _buildCheapestPath(result.cheapestPath),
-        const SizedBox(height: 24),
-
-        // Optimization Warnings (if any)
-        if (result.l1OptimizationOverride != null)
-          OptimizationWarning(
-            layer: 'L1',
-            optimizationOverride: result.l1OptimizationOverride!,
-          ),
-        if (result.l2OptimizationOverride != null)
-          OptimizationWarning(
-            layer: 'L2',
-            optimizationOverride: result.l2OptimizationOverride!,
-          ),
-        if (result.l3OptimizationOverride != null)
-          OptimizationWarning(
-            layer: 'L3',
-            optimizationOverride: result.l3OptimizationOverride!,
-          ),
-        if (result.l4OptimizationOverride != null)
-          OptimizationWarning(
-            layer: 'L4',
-            optimizationOverride: result.l4OptimizationOverride!,
-          ),
-
-        const SizedBox(height: 24),
-
-        // Layer Cost Cards
-        Text(
-          'Cost Breakdown by Layer',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 16),
-        
-        Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          children: [
-            SizedBox(
-              width: 300,
-              child: LayerCostCard(
-                layer: 'L1 - IoT Ingestion',
-                awsCost: result.awsCosts.l1?.cost,
-                azureCost: result.azureCosts.l1?.cost,
-                gcpCost: result.gcpCosts.l1?.cost,
-                cheapestPath: result.cheapestPath,
-              ),
-            ),
-            SizedBox(
-              width: 300,
-              child: LayerCostCard(
-                layer: 'L2 - Processing',
-                awsCost: result.awsCosts.l2?.cost,
-                azureCost: result.azureCosts.l2?.cost,
-                gcpCost: result.gcpCosts.l2?.cost,
-                cheapestPath: result.cheapestPath,
-              ),
-            ),
-            SizedBox(
-              width: 300,
-              child: LayerCostCard(
-                layer: 'L3 - Hot Storage',
-                awsCost: result.awsCosts.l3Hot?.cost,
-                azureCost: result.azureCosts.l3Hot?.cost,
-                gcpCost: result.gcpCosts.l3Hot?.cost,
-                cheapestPath: result.cheapestPath,
-              ),
-            ),
-            SizedBox(
-              width: 300,
-              child: LayerCostCard(
-                layer: 'L4 - Twin Management',
-                awsCost: result.awsCosts.l4?.cost,
-                azureCost: result.azureCosts.l4?.cost,
-                gcpCost: result.gcpCosts.l4?.cost,
-                cheapestPath: result.cheapestPath,
-              ),
-            ),
-            SizedBox(
-              width: 300,
-              child: LayerCostCard(
-                layer: 'L5 - Visualization',
-                awsCost: result.awsCosts.l5?.cost,
-                azureCost: result.azureCosts.l5?.cost,
-                gcpCost: result.gcpCosts.l5?.cost,
-                cheapestPath: result.cheapestPath,
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 24),
-
-        // Service Breakdown
-        Text(
-          'Service Breakdown',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 16),
-        ServiceBreakdown(result: result),
-
-        const SizedBox(height: 24),
-
-        // Total Cost
-        _buildTotalCost(result),
+        for (int i = 0; i < path.length; i++) ...[
+          _buildPathSegment(path[i]),
+          if (i < path.length - 1)
+            const Icon(Icons.arrow_forward, color: Colors.grey, size: 20),
+        ],
       ],
     );
   }
 
-  Widget _buildCheapestPath(List<String> path) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: path.map((segment) {
-        final parts = segment.split('_');
-        final layer = parts.isNotEmpty ? parts[0] : '';
-        final provider = parts.length > 1 ? parts[1] : '';
-        
-        Color chipColor;
-        switch (provider.toUpperCase()) {
-          case 'AWS':
-            chipColor = Colors.orange;
-            break;
-          case 'AZURE':
-            chipColor = Colors.blue;
-            break;
-          case 'GCP':
-            chipColor = Colors.red;
-            break;
-          default:
-            chipColor = Colors.grey;
-        }
-        
-        return Chip(
-          label: Text(
-            '$layer: $provider',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+  Widget _buildPathSegment(String segment) {
+    final parts = segment.split('_');
+    String layer = '';
+    String provider = '';
+    
+    // Parse segment
+    if (segment.startsWith('L3')) {
+      // e.g. L3_hot_GCP, L3_cool_Azure
+      if (parts.length >= 3) {
+        layer = 'L3 ${parts[1]}'; // L3 hot
+        provider = parts[2];      // GCP
+      } else {
+        layer = parts[0];
+        provider = parts.length > 1 ? parts[1] : '?';
+      }
+    } else {
+      // e.g. L1_AWS
+      layer = parts[0];
+      provider = parts.length > 1 ? parts[1] : '?';
+    }
+
+    Color bgColor;
+    switch (provider.toUpperCase()) {
+      case 'AWS':
+        bgColor = awsColor;
+        break;
+      case 'AZURE':
+        bgColor = azureColor;
+        break;
+      case 'GCP':
+        bgColor = gcpColor;
+        break;
+      default:
+        bgColor = Colors.grey;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: bgColor.withAlpha(100),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
-          backgroundColor: chipColor,
-        );
-      }).toList(),
+        ],
+      ),
+      child: Text(
+        '$layer $provider'.toUpperCase(),
+        style: const TextStyle(
+          color: Colors.white, 
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+      ),
     );
   }
 
   Widget _buildTotalCost(CalcResult result) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.green.withAlpha(38),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.green.shade600),
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green.shade300, width: 2),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
           Text(
-            'Total Monthly Cost (Optimal Path)',
-            style: Theme.of(context).textTheme.titleMedium,
+            'TOTAL OPTIMIZED MONTHLY COST',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.green.shade800,
+              letterSpacing: 1.1,
+            ),
           ),
+          const SizedBox(height: 8),
           Text(
-            '\$${result.totalCost.toStringAsFixed(2)}/month',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: Colors.green.shade400,
+            '\$${result.totalCost.toStringAsFixed(2)}',
+            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+              color: Colors.green.shade700,
               fontWeight: FontWeight.bold,
             ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+             'Includes cloud infrastructure, transaction, and data transfer costs',
+             style: TextStyle(fontSize: 12, color: Colors.green.shade800),
           ),
         ],
       ),

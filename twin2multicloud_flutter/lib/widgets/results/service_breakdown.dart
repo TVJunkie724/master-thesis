@@ -78,87 +78,169 @@ class ServiceBreakdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _buildProviderSection(context, 'AWS', result.awsCosts, Colors.orange),
-        const SizedBox(height: 8),
-        _buildProviderSection(context, 'Azure', result.azureCosts, Colors.blue),
-        const SizedBox(height: 8),
-        _buildProviderSection(context, 'GCP', result.gcpCosts, Colors.red),
+        _buildLayerAccordion(context, 'Layer 1: Data Acquisition',
+          result.awsCosts.l1, result.azureCosts.l1, result.gcpCosts.l1),
+        _buildLayerAccordion(context, 'Layer 2: Data Processing',
+          result.awsCosts.l2, result.azureCosts.l2, result.gcpCosts.l2),
+        _buildLayerAccordion(context, 'Layer 3: Hot Storage',
+          result.awsCosts.l3Hot, result.azureCosts.l3Hot, result.gcpCosts.l3Hot),
+        _buildLayerAccordion(context, 'Layer 3: Cool Storage',
+          result.awsCosts.l3Cool, result.azureCosts.l3Cool, result.gcpCosts.l3Cool),
+        _buildLayerAccordion(context, 'Layer 3: Archive Storage',
+          result.awsCosts.l3Archive, result.azureCosts.l3Archive, result.gcpCosts.l3Archive),
+        _buildLayerAccordion(context, 'Layer 4: Twin Management',
+          result.awsCosts.l4, result.azureCosts.l4, result.gcpCosts.l4),
+        _buildLayerAccordion(context, 'Layer 5: Visualization',
+          result.awsCosts.l5, result.azureCosts.l5, result.gcpCosts.l5),
       ],
     );
   }
 
-  Widget _buildProviderSection(
-    BuildContext context,
-    String provider,
-    ProviderCosts costs,
-    Color color,
+  Widget _buildLayerAccordion(
+    BuildContext context, 
+    String title,
+    LayerCost? aws,
+    LayerCost? azure,
+    LayerCost? gcp,
   ) {
-    final layers = <String, LayerCost?>{
-      'L1': costs.l1,
-      'L2': costs.l2,
-      'L3 Hot': costs.l3Hot,
-      'L3 Cool': costs.l3Cool,
-      'L3 Archive': costs.l3Archive,
-      'L4': costs.l4,
-      'L5': costs.l5,
-    };
+    // If no data for any provider, skip
+    bool hasData = (aws?.components.isNotEmpty ?? false) || 
+                   (azure?.components.isNotEmpty ?? false) || 
+                   (gcp?.components.isNotEmpty ?? false);
+    
+    if (!hasData) return const SizedBox.shrink();
 
-    return ExpansionTile(
-      leading: Container(
-        width: 24,
-        height: 24,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
+    return Card(
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(50),
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ExpansionTile(
+        title: Text(
+          title,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        child: const Icon(Icons.cloud, color: Colors.white, size: 16),
+        subtitle: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildMiniTotal('AWS', aws?.cost, Colors.orange),
+            const SizedBox(width: 12),
+            _buildMiniTotal('Azure', azure?.cost, Colors.blue),
+            const SizedBox(width: 12),
+            _buildMiniTotal('GCP', gcp?.cost, Colors.green),
+          ],
+        ),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8.0),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildProviderColumn(context, 'AWS', aws, Colors.orange),
+                const SizedBox(width: 8),
+                _buildProviderColumn(context, 'Azure', azure, Colors.blue),
+                const SizedBox(width: 8),
+                _buildProviderColumn(context, 'GCP', gcp, Colors.green),
+              ],
+            ),
+          ),
+        ],
       ),
-      title: Text(
-        provider,
-        style: TextStyle(fontWeight: FontWeight.bold, color: color),
-      ),
-      children: layers.entries
-          .where((e) => e.value != null && e.value!.components.isNotEmpty)
-          .map((entry) => _buildLayerBreakdown(context, entry.key, entry.value!))
-          .toList(),
     );
   }
 
-  Widget _buildLayerBreakdown(
+  Widget _buildMiniTotal(String label, double? cost, Color color) {
+    if (cost == null) return const SizedBox();
+    return Text(
+      //'$label: \$${cost.toStringAsFixed(2)}',
+      '\$${cost.toStringAsFixed(2)}',
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+        color: color,
+      ),
+    );
+  }
+
+  Widget _buildProviderColumn(
     BuildContext context,
-    String layerName,
-    LayerCost layerCost,
+    String providerName,
+    LayerCost? cost,
+    Color color,
   ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            layerName,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          ...layerCost.components.entries.map((entry) => Padding(
-            padding: const EdgeInsets.only(left: 16, top: 2),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _getDisplayName(entry.key),
-                  style: Theme.of(context).textTheme.bodySmall,
+    return Expanded(
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: color.withAlpha(50)),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+              ),
+              child: Text(
+                providerName,
+                style: const TextStyle(
+                  color: Colors.white, 
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
                 ),
-                Text(
-                  '\$${entry.value.toStringAsFixed(4)}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+              ),
             ),
-          )),
-          const Divider(),
-        ],
+            
+            // Content
+            if (cost != null && cost.components.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  children: [
+                    ...cost.components.entries.map((e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _getDisplayName(e.key), 
+                              style: const TextStyle(fontSize: 11),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            '\$${e.value.toStringAsFixed(2)}',
+                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    )),
+                    const Divider(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Total', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                        Text('\$${cost.cost.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: color)),
+                      ],
+                    )
+                  ],
+                ),
+              )
+            else
+               const Padding(
+                 padding: EdgeInsets.all(16.0),
+                 child: Text('-', style: TextStyle(color: Colors.grey)),
+               ),
+          ],
+        ),
       ),
     );
   }

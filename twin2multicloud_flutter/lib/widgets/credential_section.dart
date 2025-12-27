@@ -3,6 +3,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:io' show Platform, Process;
 import '../providers/twins_provider.dart';
 import '../utils/file_reader.dart';
 
@@ -124,37 +126,26 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       // Determine validation mode: Stored vs New
       if (widget.twinId != null && widget.isConfigured && !_areRequiredFieldsFilled()) {
         // Mode 1: Validate Stored Credentials
-        debugPrint('Validating STORED credentials for ${widget.provider}');
         result = await api.validateStoredCredentialsDual(widget.twinId!, widget.provider);
-        debugPrint('Stored validation result: $result');
       } else {
         // Mode 2: Validate New/Existing (Typed) Credentials
-        debugPrint('Validating TYPED credentials for ${widget.provider}');
         result = await api.validateCredentialsDual(widget.provider, credentials);
       }
       
       final optimizer = result['optimizer'] as Map<String, dynamic>? ?? {};
       final deployer = result['deployer'] as Map<String, dynamic>? ?? {};
       
-      // Helper to detect success from message
-      bool isSuccessMessage(String? msg) {
-        if (msg == null) return false;
-        final lower = msg.toLowerCase();
-        return lower.contains('all required permissions') ||
-               lower.contains('permissions are present') ||
-               lower.contains('valid') ||
-               lower.contains('success') ||
-               msg.startsWith('✓');
-      }
+      // Parse valid flag first (primary source of truth)
+      final optimizerValidFlag = optimizer['valid'] == true;
+      final deployerValidFlag = deployer['valid'] == true;
       
-      // Parse valid flag OR detect from message
       final optimizerMsg = optimizer['message']?.toString() ?? 'Validation complete';
       final deployerMsg = deployer['message']?.toString() ?? 'Validation complete';
       
       setState(() {
-        _optimizerValid = (optimizer['valid'] == true) || isSuccessMessage(optimizerMsg);
+        _optimizerValid = optimizerValidFlag;
         _optimizerMessage = optimizerMsg;
-        _deployerValid = (deployer['valid'] == true) || isSuccessMessage(deployerMsg);
+        _deployerValid = deployerValidFlag;
         _deployerMessage = deployerMsg;
       });
       
@@ -343,15 +334,57 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
     widget.onValidationChanged(false); 
     _notifyCredentialsChanged();
   }
-
+  
+  void _openDocLink(String target) async {
+    // Documentation URLs per provider
+    const optimizerBase = 'http://localhost:5003/documentation/';
+    const deployerBase = 'http://localhost:5004/docs/';
+    
+    final Map<String, Map<String, String>> docUrls = {
+      'aws': {
+        'optimizer': '${optimizerBase}user-guides/aws-deployment.html',
+        'deployer': '${deployerBase}user-guides/aws-deployment.html',
+      },
+      'azure': {
+        'optimizer': '${optimizerBase}user-guides/azure-deployment.html',
+        'deployer': '${deployerBase}user-guides/azure-deployment.html',
+      },
+      'gcp': {
+        'optimizer': '${optimizerBase}user-guides/gcp-deployment.html',
+        'deployer': '${deployerBase}user-guides/gcp-deployment.html',
+      },
+    };
+    
+    final url = docUrls[widget.provider]?[target];
+    if (url != null) {
+      // On Windows desktop, use Process.run as fallback
+      if (Platform.isWindows) {
+        await Process.run('cmd', ['/c', 'start', '', url]);
+      } else {
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      }
+    }
+  }
+  
+  String _getProviderDescription() {
+    switch (widget.provider) {
+      case 'aws':
+        return 'Enter your AWS IAM credentials. Required for both pricing calculations (Optimizer) and infrastructure deployment (Deployer).';
+      case 'azure':
+        return 'Enter your Azure Service Principal credentials. Required for subscription access and resource deployment.';
+      case 'gcp':
+        return 'Enter your GCP credentials. Upload a service account JSON or fill in project details for pricing and deployment.';
+      default:
+        return 'Fill all required fields to enable validation.';
+    }
+  }
   @override
   Widget build(BuildContext context) {
     // Use actual _isValid (getter that checks both optimizer AND deployer)
     final bool showAsValid = _isValid;
-    debugPrint('CredentialSection Build: provider=${widget.provider}, isConfigured=${widget.isConfigured}, showAsValid=$showAsValid');
-    for(final f in widget.fields) {
-       debugPrint('Field ${f.name}: text="${_controllers[f.name]?.text}", isEmpty=${_controllers[f.name]?.text.isEmpty}');
-    }
 
     final bool hasAnyValidation = _optimizerMessage != null || _deployerMessage != null;
     final bool hasInput = _controllers.values.any((c) => c.text.isNotEmpty);
@@ -377,7 +410,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                   decoration: BoxDecoration(
                     color: showAsValid 
                       ? Colors.green.shade600
-                      : widget.color.withOpacity(0.2),
+                      : widget.color.withAlpha(50),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -411,254 +444,254 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                     ],
                   ),
                 ),
-                if (showAsValid)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade600,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.check_circle, color: Colors.white, size: 16),
-                        SizedBox(width: 4),
-                        Text('Valid', style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        )),
-                      ],
+                // Clear button in header (where Valid badge was)
+                if (hasInput || hasAnyValidation)
+                  TextButton.icon(
+                    onPressed: _clearCredentials,
+                    icon: const Icon(Icons.cleaning_services, size: 16),
+                    label: const Text('Clear'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red.shade400,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     ),
                   ),
               ],
             ),
             
-            // Prominent success banner when both validations pass
-            if (showAsValid) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade600,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.verified, color: Colors.white, size: 24),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Section Complete',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            'Both pricing and infrastructure permissions verified',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                  ],
+            // Provider-specific description below header
+            if (!showAsValid) ...[
+              const SizedBox(height: 8),
+              Text(
+                _getProviderDescription(),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.outline,
                 ),
               ),
+              const SizedBox(height: 8),
             ],
             
             const SizedBox(height: 16),
             
-            // Action buttons row
+            // MAIN CONTENT: Vertical split - Left (inputs) | Right (buttons)
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Upload credentials button (FIRST)
-                if (widget.supportsCredentialsUpload)
-                  Expanded(
-                    child: FilledButton.tonalIcon(
-                      onPressed: _uploadCredentialsJson,
-                      icon: const Icon(Icons.upload_file),
-                      label: const Text('Upload Credentials'),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                if (widget.supportsCredentialsUpload)
-                  const SizedBox(width: 12),
-                  
-                // Format info button
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _showSchemaDialog,
-                    icon: const Icon(Icons.info_outline),
-                    label: const Text('Format'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
+                // LEFT SIDE (2/3) - Input fields
+                Flexible(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // GCP Service Account JSON Upload button (special case)
+                      if (widget.supportsJsonUpload) ...[
+                        FilledButton.icon(
+                          onPressed: _pickJsonFile,
+                          icon: const Icon(Icons.cloud_upload),
+                          label: const Text('Upload Service Account JSON'),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Upload your GCP service account key file (.json)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: showAsValid 
+                              ? Colors.green.shade700 
+                              : Theme.of(context).colorScheme.outline,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: showAsValid ? Colors.green.shade600 : null)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('OR', style: TextStyle(
+                                fontSize: 12,
+                                color: showAsValid 
+                                  ? Colors.green.shade400 
+                                  : Theme.of(context).colorScheme.outline,
+                              )),
+                            ),
+                            Expanded(child: Divider(color: showAsValid ? Colors.green.shade600 : null)),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      
+                      // Credential fields
+                      ...widget.fields.map((field) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: TextField(
+                          controller: _controllers[field.name],
+                          decoration: InputDecoration(
+                            labelText: field.required 
+                              ? field.label 
+                              : '${field.label} (optional)',
+                            hintText: (widget.isConfigured && _controllers[field.name]?.text.isEmpty == true)
+                                ? '•••••••••••••••• (Stored Securely)' 
+                                : null,
+                            hintStyle: TextStyle(
+                              color: Colors.green.shade700,
+                              fontWeight: FontWeight.w500,
+                              fontStyle: FontStyle.italic,
+                            ),
+                            floatingLabelBehavior: FloatingLabelBehavior.always,
+                            border: const OutlineInputBorder(),
+                          ),
+                          obscureText: field.obscure && _controllers[field.name]?.text.isNotEmpty == true,
+                          onChanged: (_) {
+                            _notifyCredentialsChanged();
+                            setState(() {});
+                          },
+                        ),
+                      )),
+                    ],
                   ),
                 ),
                 
-                // Clear button (Only if there is input or validation)
-                if (hasInput || hasAnyValidation) ...[
-                  const SizedBox(width: 12),
-                  IconButton.filledTonal(
-                    onPressed: _clearCredentials,
-                    icon: const Icon(Icons.cleaning_services),
-                    tooltip: 'Clear Credentials',
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.red.withOpacity(0.1),
-                      foregroundColor: Colors.red,
-                    ),
+                const SizedBox(width: 16),
+                
+                // RIGHT SIDE (1/3) - Buttons
+                Flexible(
+                  flex: 1,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Upload credentials button
+                      if (widget.supportsCredentialsUpload) ...[
+                        FilledButton.tonalIcon(
+                          onPressed: _uploadCredentialsJson,
+                          icon: const Icon(Icons.upload_file),
+                          label: const Text('Upload Credentials'),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Auto-fill from JSON file',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      
+                      // GCP specific: Service Account JSON upload in right column too
+                      if (widget.supportsJsonUpload) ...[
+                        OutlinedButton.icon(
+                          onPressed: _pickJsonFile,
+                          icon: const Icon(Icons.key),
+                          label: const Text('Service Account'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      
+                      // Example File button (above separator)
+                      OutlinedButton.icon(
+                        onPressed: _showSchemaDialog,
+                        icon: const Icon(Icons.description_outlined, size: 18),
+                        label: const Text('Example File'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      
+                      const Divider(height: 24),
+                      
+                      // Setup Guides label
+                      Text(
+                        'Credentials Setup Guides',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context).colorScheme.outline,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      
+                      // Guide buttons (shortened names)
+                      OutlinedButton.icon(
+                        onPressed: () => _openDocLink('optimizer'),
+                        icon: const Icon(Icons.library_books_outlined, size: 18),
+                        label: Text('${widget.title.split(' ')[0]} (Pricing)'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => _openDocLink('deployer'),
+                        icon: const Icon(Icons.library_books_outlined, size: 18),
+                        label: Text('${widget.title.split(' ')[0]} (Infra)'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Upload config_credentials.json to auto-fill fields below',
-              style: TextStyle(
-                fontSize: 11,
-                color: showAsValid 
-                  ? Colors.green.shade700 
-                  : Theme.of(context).colorScheme.outline,
-              ),
-            ),
-            
-            const SizedBox(height: 16),
-            Divider(color: showAsValid ? Colors.green.shade200 : null),
-            const SizedBox(height: 16),
-            
-            // GCP Service Account JSON Upload button (special case)
-            if (widget.supportsJsonUpload) ...[
-              FilledButton.icon(
-                onPressed: _pickJsonFile,
-                icon: const Icon(Icons.cloud_upload),
-                label: const Text('Upload Service Account JSON'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 48),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Upload your GCP service account key file (.json)',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: showAsValid 
-                    ? Colors.green.shade700 
-                    : Theme.of(context).colorScheme.outline,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(child: Divider(color: showAsValid ? Colors.green.shade600 : null)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('OR', style: TextStyle(
-                      fontSize: 12,
-                      color: showAsValid 
-                        ? Colors.green.shade400 
-                        : Theme.of(context).colorScheme.outline,
-                    )),
-                  ),
-                  Expanded(child: Divider(color: showAsValid ? Colors.green.shade600 : null)),
-                ],
-              ),
-              const SizedBox(height: 16),
-            ],
-            
-            // Credential fields
-            ...widget.fields.map((field) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: TextField(
-                controller: _controllers[field.name],
-                decoration: InputDecoration(
-                  labelText: field.required 
-                    ? field.label 
-                    : '${field.label} (optional)',
-                  hintText: (widget.isConfigured && _controllers[field.name]?.text.isEmpty == true)
-                      ? '•••••••••••••••• (Stored Securely)' 
-                      : null,
-                  hintStyle: TextStyle(
-                    color: Colors.green.shade700,
-                    fontWeight: FontWeight.w500,
-                    fontStyle: FontStyle.italic,
-                  ),
-                  floatingLabelBehavior: FloatingLabelBehavior.always, // Ensure hint is visible
-                  border: const OutlineInputBorder(),
-                  // Don't change field colors when valid - keep default theme colors
-                ),
-                obscureText: field.obscure && _controllers[field.name]?.text.isNotEmpty == true, // Hide typed text, show hint otherwise
-                onChanged: (_) {
-                  _notifyCredentialsChanged();
-                  setState(() {});  // Refresh UI for button state
-                },
-              ),
-            )),
             
             // Validation button and status
-            const SizedBox(height: 8),
-            // Validation button and status
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: showAsValid 
-                ? OutlinedButton.icon(
-                    onPressed: _isValidating ? null : _validateCredentials,
-                    icon: _isValidating 
-                      ? const SizedBox(
-                          width: 16, height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.refresh),
-                    label: const Text('Re-validate'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      foregroundColor: Colors.green.shade400,
-                      side: BorderSide(color: Colors.green.shade600),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                showAsValid 
+                  ? OutlinedButton.icon(
+                      onPressed: _isValidating ? null : _validateCredentials,
+                      icon: _isValidating 
+                        ? const SizedBox(
+                            width: 16, height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh),
+                      label: const Text('Re-validate'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                        foregroundColor: Colors.green.shade400,
+                        side: BorderSide(color: Colors.green.shade600, width: 2),
+                      ),
+                    )
+                  : FilledButton.icon(
+                      // Enable button if fields are filled OR if we can validate stored credentials
+                      onPressed: (_isValidating || (!_areRequiredFieldsFilled() && !widget.isConfigured)) 
+                          ? null 
+                          : _validateCredentials,
+                      icon: _isValidating
+                        ? const SizedBox(
+                            width: 16, height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.verified_user),
+                      label: Text(
+                        (widget.isConfigured && !_areRequiredFieldsFilled())
+                            ? 'Validate Stored Credentials'
+                            : 'Validate Credentials'
+                      ),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                        backgroundColor: widget.color,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
-                  )
-                : ElevatedButton.icon(
-                    // Enable button if fields are filled OR if we can validate stored credentials
-                    onPressed: (_isValidating || (!_areRequiredFieldsFilled() && !widget.isConfigured)) 
-                        ? null 
-                        : _validateCredentials,
-                    icon: _isValidating
-                      ? const SizedBox(
-                          width: 16, height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.verified_user),
-                    label: Text(
-                      (widget.isConfigured && !_areRequiredFieldsFilled())
-                          ? 'Validate Stored Credentials'
-                          : 'Validate Credentials'
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
+              ],
             ),
-            if (!_areRequiredFieldsFilled() && !widget.isConfigured && !showAsValid) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Fill all required fields to enable validation',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Theme.of(context).colorScheme.outline,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
             
             // DUAL Validation Results - Two separate boxes
             if (hasAnyValidation) ...[
@@ -670,8 +703,8 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: _optimizerValid 
-                      ? Colors.green.withOpacity(0.15) 
-                      : Colors.red.withOpacity(0.15),
+                      ? Colors.green.withAlpha(38) 
+                      : Colors.red.withAlpha(38),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: _optimizerValid ? Colors.green.shade600 : Colors.red.shade400,
@@ -719,8 +752,8 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: _deployerValid 
-                      ? Colors.green.withOpacity(0.15) 
-                      : Colors.red.withOpacity(0.15),
+                      ? Colors.green.withAlpha(38) 
+                      : Colors.red.withAlpha(38),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: _deployerValid ? Colors.green.shade600 : Colors.red.shade400,
