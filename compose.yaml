@@ -55,6 +55,7 @@ services:
     volumes:
       - ./twin2multicloud_backend:/app
       - management-data:/app/data
+      - ./twin2multicloud_backend/data:/app/data
     environment:
       - DATABASE_URL=sqlite:///./data/app.db
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key}
