@@ -68,7 +68,7 @@ class DashboardScreen extends ConsumerWidget {
                 // Twins table
                 Expanded(
                   child: twinsAsync.when(
-                    data: (twins) => _buildTwinsTable(context, twins),
+                    data: (twins) => _buildTwinsTable(context, ref, twins),
                     loading: () => const Center(child: CircularProgressIndicator()),
                     error: (err, stack) => Center(
                       child: Column(
@@ -100,7 +100,7 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  void _handleDelete(BuildContext context, Twin twin) {
+  Future<void> _handleDelete(BuildContext context, WidgetRef ref, Twin twin) async {
     if (twin.isDeployed) {
       // Show warning - can't delete deployed twins
       showDialog(
@@ -122,7 +122,7 @@ class DashboardScreen extends ConsumerWidget {
       );
     } else {
       // Show confirmation dialog
-      showDialog(
+      final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           icon: Icon(Icons.delete_forever, color: Colors.red.shade400, size: 48),
@@ -133,27 +133,43 @@ class DashboardScreen extends ConsumerWidget {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancel'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () {
-                Navigator.pop(ctx);
-                // TODO: Call API to delete twin
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Deleted "${twin.name}"')),
-                );
-              },
+              onPressed: () => Navigator.pop(ctx, true),
               child: const Text('Delete'),
             ),
           ],
         ),
       );
+      
+      if (confirmed == true) {
+        try {
+          final api = ref.read(apiServiceProvider);
+          await api.deleteTwin(twin.id);
+          ref.invalidate(twinsProvider); // Refresh list
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Deleted "${twin.name}"')),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to delete: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      }
     }
   }
 
-  Widget _buildTwinsTable(BuildContext context, List<Twin> twins) {
+  Widget _buildTwinsTable(BuildContext context, WidgetRef ref, List<Twin> twins) {
     if (twins.isEmpty) {
       return Center(
         child: Column(
@@ -192,14 +208,14 @@ class DashboardScreen extends ConsumerWidget {
               DataColumn(label: Text('Last Deploy')),
               DataColumn(label: Text('Actions')),
             ],
-            rows: twins.map((twin) => _buildTwinRow(context, twin)).toList(),
+            rows: twins.map((twin) => _buildTwinRow(context, ref, twin)).toList(),
           ),
         ),
       ),
     );
   }
 
-  DataRow _buildTwinRow(BuildContext context, Twin twin) {
+  DataRow _buildTwinRow(BuildContext context, WidgetRef ref, Twin twin) {
     return DataRow(
       cells: [
         // Name
@@ -245,7 +261,7 @@ class DashboardScreen extends ConsumerWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 20),
-                onPressed: () => _handleDelete(context, twin),
+                onPressed: () => _handleDelete(context, ref, twin),
                 tooltip: twin.isDeployed ? 'Destroy resources first' : 'Delete',
                 color: twin.isDeployed ? Colors.grey.shade500 : Colors.red.shade400,
               ),

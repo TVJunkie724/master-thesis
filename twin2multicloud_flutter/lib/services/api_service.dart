@@ -58,6 +58,10 @@ class ApiService {
     final response = await _dio.put('/twins/$twinId', data: data);
     return response.data;
   }
+  
+  Future<void> deleteTwin(String twinId) async {
+    await _dio.delete('/twins/$twinId');
+  }
 
   Future<Map<String, dynamic>> getTwinConfig(String twinId) async {
     final response = await _dio.get('/twins/$twinId/config/');
