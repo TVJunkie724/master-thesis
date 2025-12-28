@@ -287,27 +287,29 @@ class ArchitectureLayerBuilder {
   Widget buildArrow({bool small = false}) => _buildArrow(small: small);
 
   /// Legend
-  Widget buildLegend() {
+  Widget buildLegend(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(8),
+        border: isDark ? Border.all(color: Colors.grey.shade700) : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Legend', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+          Text('Legend', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? Colors.grey.shade300 : Colors.grey.shade700)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 16,
             runSpacing: 8,
             children: [
-              _legendItem('AWS', AppColors.aws),
-              _legendItem('Azure', AppColors.azure),
-              _legendItem('GCP', AppColors.gcp),
-              _legendItem('Editable', editableColor),
-              _legendItem('System', systemColor),
+              _legendItem('AWS', AppColors.aws, isDark),
+              _legendItem('Azure', AppColors.azure, isDark),
+              _legendItem('GCP', AppColors.gcp, isDark),
+              _legendItem('Editable', editableColor, isDark),
+              _legendItem('System', systemColor, isDark),
             ],
           ),
         ],
@@ -558,13 +560,13 @@ class ArchitectureLayerBuilder {
     );
   }
 
-  Widget _legendItem(String label, Color color) {
+  Widget _legendItem(String label, Color color, bool isDark) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(width: 10, height: 10, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+        Text(label, style: TextStyle(fontSize: 10, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600)),
       ],
     );
   }

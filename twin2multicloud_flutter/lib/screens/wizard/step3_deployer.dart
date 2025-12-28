@@ -162,34 +162,39 @@ class _Step3DeployerState extends State<Step3Deployer> {
                 showFlowchart: showFlowchart,
                 flowchart: layerBuilder.buildL3Layer(context),
                 editors: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.check_circle, color: Colors.green.shade600, size: 22),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Auto-configured',
-                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                              ),
-                              Text(
-                                'Storage tiers are automatically provisioned based on the selected providers.',
-                                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                              ),
-                            ],
-                          ),
+                  Builder(
+                    builder: (context) {
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
                         ),
-                      ],
-                    ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.green.shade500, size: 22),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Auto-configured',
+                                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: isDark ? Colors.white : Colors.black87),
+                                  ),
+                                  Text(
+                                    'Storage tiers are automatically provisioned based on the selected providers.',
+                                    style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade600, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -345,7 +350,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
       children: [
         SizedBox(
           width: _flowchartWidth,
-          child: layerBuilder.buildLegend(),
+          child: layerBuilder.buildLegend(context),
         ),
         const SizedBox(width: 32),
         Expanded(child: infoBox),
