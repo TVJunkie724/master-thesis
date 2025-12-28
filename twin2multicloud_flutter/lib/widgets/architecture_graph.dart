@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:graphview/GraphView.dart';
 import '../models/calc_result.dart';
 import '../models/calc_params.dart';
 import '../theme/colors.dart';
@@ -120,7 +119,7 @@ class _ArchitectureGraphState extends State<ArchitectureGraph> {
     );
   }
 
-  /// L2 Processing layer with graphview for internal branching
+  /// L2 Processing layer with branching from Persister
   Widget _buildL2LayerWithGraphview(Map<String, String> layers) {
     final provider = layers['L2'];
     final color = _getProviderColor(provider);
@@ -166,157 +165,152 @@ class _ArchitectureGraphState extends State<ArchitectureGraph> {
             _buildArrow(small: true),
           ],
           
-          // Processor Wrapper (entry point before branching)
+          // Linear flow: Processor Wrapper → User Processors → Persister
           _buildComponentBox('Processor Wrapper', provider, Icons.hub),
           _buildArrow(small: true),
+          _buildEditableComponentBox('User Processors', Icons.code),
+          _buildArrow(small: true),
+          _buildComponentBox('Persister', provider, Icons.save),
           
-          // === BRANCHING SECTION using graphview ===
-          if (hasEventBranch)
-            _buildL2BranchingGraph(provider, hasFeedback, hasWorkflow)
-          else ...[
-            // Simple linear flow
-            _buildEditableComponentBox('User Processors', Icons.code),
-            _buildArrow(small: true),
-            _buildComponentBox('Persister', provider, Icons.save),
-          ],
-          
-          // Hot Writer glue when sending to another cloud
-          if (_hasCrossCloudBoundary('L2', 'L3_hot')) ...[
-            _buildArrow(small: true),
-            _buildGlueComponentBox('Hot Writer', provider),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// Use graphview for L2 internal branching
-  Widget _buildL2BranchingGraph(String? provider, bool hasFeedback, bool hasWorkflow) {
-    final graph = Graph()..isTree = true;
-    
-    // Nodes
-    final userProc = Node.Id('user_processors');
-    final persister = Node.Id('persister');
-    final eventChecker = Node.Id('event_checker');
-    
-    // Main flow
-    graph.addEdge(userProc, persister, paint: _edgePaint());
-    
-    // Event flow  
-    graph.addEdge(eventChecker, Node.Id('feedback_placeholder'), paint: _edgePaint());
-    
-    if (hasFeedback) {
-      final feedback = Node.Id('feedback');
-      graph.addEdge(eventChecker, feedback, paint: _edgePaint());
-    }
-    
-    if (hasWorkflow) {
-      final workflow = Node.Id('workflow');
-      final eventActions = Node.Id('event_actions');
-      graph.addEdge(eventChecker, workflow, paint: _edgePaint());
-      graph.addEdge(workflow, eventActions, paint: _edgePaint());
-    }
-    
-    // Simpler approach: use Row with two columns for branching
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // LEFT: Main processing flow
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              margin: const EdgeInsets.only(right: 4),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  Text('Main Flow', style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 8),
-                  _buildEditableComponentBox('User Processors', Icons.code),
-                  _buildArrow(small: true),
-                  _buildComponentBox('Persister', provider, Icons.save),
-                ],
-              ),
+          // === BRANCHING FROM PERSISTER: Split View ===
+          if (hasEventBranch) ...[
+            // Two arrows showing the split
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.arrow_downward, size: 16, color: Colors.grey.shade500),
+                const SizedBox(width: 60),
+                Icon(Icons.arrow_downward, size: 16, color: Colors.grey.shade500),
+              ],
             ),
-          ),
-          // RIGHT: Event checking flow
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              margin: const EdgeInsets.only(left: 4),
-              decoration: BoxDecoration(
-                border: Border.all(color: editableColor.withAlpha(100)),
-                borderRadius: BorderRadius.circular(8),
-                color: editableColor.withAlpha(8),
-              ),
-              child: Column(
+            const SizedBox(height: 8),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Event Branch', style: TextStyle(fontSize: 10, color: editableColor, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 8),
-                  _buildEditableComponentBox('Event Checker', Icons.notification_important),
-                  if (hasFeedback || hasWorkflow) ...[
-                    _buildArrow(small: true),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  // LEFT SIDE: Arrows continuing to L3
+                  Expanded(
+                    flex: 1,
+                    child: Column(
                       children: [
-                        if (hasFeedback) ...[
-                          Flexible(
-                            child: Column(
-                              children: [
-                                _buildEditableComponentBoxSmall('Feedback', Icons.replay),
-                                const SizedBox(height: 4),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.arrow_upward, size: 12, color: Colors.orange),
-                                    Text(' IoT', style: TextStyle(fontSize: 9, color: Colors.orange)),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
+                        if (_hasCrossCloudBoundary('L2', 'L3_hot')) ...[
+                          _buildGlueComponentBox('Hot Writer', provider),
+                          _buildArrow(small: true),
                         ],
-                        if (hasFeedback && hasWorkflow) const SizedBox(width: 8),
-                        if (hasWorkflow) ...[
-                          Flexible(
-                            child: Column(
-                              children: [
-                                _buildEditableComponentBoxSmall('Workflow', Icons.account_tree),
-                                _buildArrow(small: true),
-                                _buildEditableComponentBoxSmall('Event Actions', Icons.flash_on),
-                              ],
-                            ),
+                        // Continuation line - expands to fill height
+                        Expanded(
+                          child: Container(
+                            width: 2,
+                            color: Colors.grey.shade400,
                           ),
-                        ],
+                        ),
+                        Icon(Icons.arrow_downward, size: 16, color: Colors.grey.shade500),
+                        const SizedBox(height: 4),
+                        Text('to L3', style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
                       ],
                     ),
-                  ],
+                  ),
+                  const SizedBox(width: 12),
+                  // RIGHT SIDE: Event Branch block
+                  Expanded(
+                    flex: 1,
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: editableColor.withAlpha(100)),
+                        borderRadius: BorderRadius.circular(8),
+                        color: editableColor.withAlpha(8),
+                      ),
+                      child: Column(
+                        children: [
+                          Text('Event Branch', style: TextStyle(fontSize: 10, color: editableColor, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 8),
+                          _buildEditableComponentBox('Event Checker', Icons.notification_important),
+                          
+                          // Branching arrows from Event Checker (grey)
+                          if (hasFeedback || hasWorkflow) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (hasFeedback) Icon(Icons.arrow_downward, size: 14, color: Colors.grey.shade500),
+                                if (hasFeedback && hasWorkflow) const SizedBox(width: 40),
+                                if (hasWorkflow) Icon(Icons.arrow_downward, size: 14, color: Colors.grey.shade500),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            
+                            // Feedback and Workflow on same row with CrossAxisAlignment.start
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (hasFeedback) ...[
+                                  Column(
+                                    children: [
+                                      _buildEditableComponentBoxSmall('Feedback', Icons.replay),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.arrow_upward, size: 14, color: Colors.orange),
+                                          const SizedBox(width: 4),
+                                          Text('IoT Device', style: TextStyle(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.w500)),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                if (hasFeedback && hasWorkflow) const SizedBox(width: 16),
+                                if (hasWorkflow) ...[
+                                  Column(
+                                    children: [
+                                      _buildEditableComponentBoxSmall('Workflow', Icons.account_tree),
+                                      _buildArrow(small: true),
+                                      _buildEditableComponentBoxSmall('Event Actions', Icons.flash_on),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
+          ] else ...[
+            // No branching - show Hot Writer directly if needed
+            if (_hasCrossCloudBoundary('L2', 'L3_hot')) ...[
+              _buildArrow(small: true),
+              _buildGlueComponentBox('Hot Writer', provider),
+            ],
+          ],
         ],
       ),
     );
   }
 
-  /// L3 Storage layer with Hot → Cool → Archive and Hot Reader branch
+  /// L3 Storage layer: Left column (Hot Writer → Hot → Cool → Archive), Right: Hot Reader
   Widget _buildL3StorageLayer(Map<String, String> layers) {
+    final hasCrossFromL2 = _hasCrossCloudBoundary('L2', 'L3_hot');
+    final hasCrossToL4 = _hasCrossCloudBoundary('L3_hot', 'L4');
+    
     return _buildLayerCard('L3', 'Storage', null, [
-      // Hot Writer glue (if coming from different cloud)
-      if (_hasCrossCloudBoundary('L2', 'L3_hot')) ...[
-        _buildGlueComponentBox('Hot Writer', layers['L3_hot']),
-        _buildArrow(small: true),
-      ],
-      // Hot storage with Hot Reader branch
       Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // LEFT: Storage stack (Hot Writer → Hot → Cool → Archive)
           Column(
             children: [
+              if (hasCrossFromL2) ...[
+                _buildGlueComponentBox('Hot Writer', layers['L3_hot']),
+                _buildArrow(small: true),
+              ],
               _buildStorageBox('Hot', _getL3HotService(layers['L3_hot']), layers['L3_hot']),
               _buildArrow(small: true),
               _buildStorageBox('Cool', _getL3CoolService(layers['L3_cool']), layers['L3_cool']),
@@ -324,16 +318,26 @@ class _ArchitectureGraphState extends State<ArchitectureGraph> {
               _buildStorageBox('Archive', _getL3ArchiveService(layers['L3_archive']), layers['L3_archive']),
             ],
           ),
-          if (_hasCrossCloudBoundary('L3_hot', 'L4')) ...[
-            const SizedBox(width: 16),
+          // RIGHT: Hot Reader branch (aligned with Hot Storage)
+          if (hasCrossToL4) ...[
+            const SizedBox(width: 12),
             Column(
               children: [
-                const SizedBox(height: 4),
-                Icon(Icons.arrow_forward, size: 16, color: glueColor),
-                const SizedBox(height: 4),
-                _buildGlueComponentBox('Hot Reader', layers['L3_hot']),
-                const SizedBox(height: 4),
-                Text('→ L4/L5', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                // Spacer to align with Hot Storage position
+                if (hasCrossFromL2) const SizedBox(height: 60), // Height of Hot Writer + arrow
+                Row(
+                  children: [
+                    Icon(Icons.arrow_forward, size: 16, color: Colors.grey.shade500),
+                    const SizedBox(width: 8),
+                    Column(
+                      children: [
+                        _buildGlueComponentBox('Hot Reader', layers['L3_hot']),
+                        const SizedBox(height: 4),
+                        Text('to L4/L5', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                      ],
+                    ),
+                  ],
+                ),
               ],
             ),
           ],
@@ -342,10 +346,6 @@ class _ArchitectureGraphState extends State<ArchitectureGraph> {
     ], isStorage: true);
   }
 
-  Paint _edgePaint() => Paint()
-    ..color = Colors.grey.shade500
-    ..strokeWidth = 2
-    ..style = PaintingStyle.stroke;
 
   // ===== UI BUILDING BLOCKS =====
 

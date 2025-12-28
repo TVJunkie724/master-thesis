@@ -55,6 +55,11 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
   List<String> _refreshLogs = [];
   StreamSubscription? _sseSubscription;
 
+  // Dirty State - tracks if inputs changed since last calculation
+  // When true: Calculate button enabled, results greyed out
+  // When false: Calculate button disabled (if results exist), results at full opacity
+  bool _isDirty = true;  // Start dirty so first calculation is allowed
+
   // Provider Colors
   static const Color awsColor = Colors.orange;
   static const Color azureColor = Colors.blue;
@@ -243,7 +248,9 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
       widget.cache.markDirty();
       widget.onCacheChanged();
       
-      setState(() {}); // Trigger rebuild
+      setState(() {
+        _isDirty = false;  // Results now match inputs - disable button
+      });
       
     } catch (e) {
       if (mounted) {
@@ -368,7 +375,10 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                 CalcForm(
                   initialParams: _params ?? widget.cache.calcParams,
                   onChanged: (params) {
-                    setState(() => _params = params);
+                    setState(() {
+                      _params = params;
+                      _isDirty = true;  // Inputs changed - enable button, grey out results
+                    });
                     // Sync to cache so changes persist when navigating
                     widget.cache.calcParams = params;
                     widget.cache.markDirty();
@@ -378,13 +388,19 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
 
               const SizedBox(height: 48),
 
-              // Calculate Button - Enhanced
+              // Calculate Button - Enhanced with Dirty State Logic
+              // Button is disabled when:
+              // - Calculating in progress
+              // - No params set
+              // - NOT dirty (results are current) AND results exist
               Center(
                 child: SizedBox(
                   width: 300, // Wider button
                   height: 60, // Taller button
                   child: ElevatedButton.icon(
-                    onPressed: _params != null && !_isCalculating ? _calculate : null,
+                    onPressed: _params != null && !_isCalculating && _isDirty 
+                        ? _calculate 
+                        : null,
                     icon: _isCalculating
                         ? const SizedBox(
                             width: 24,
@@ -396,7 +412,9 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                           )
                         : const Icon(Icons.calculate, size: 28),
                     label: Text(
-                      _isCalculating ? 'CALCULATING...' : 'CALCULATE OPTIMAL COST',
+                      _isCalculating 
+                          ? 'CALCULATING...' 
+                          : (_isDirty ? 'CALCULATE OPTIMAL COST' : 'RESULTS UP TO DATE'),
                       style: const TextStyle(
                         fontSize: 18, 
                         fontWeight: FontWeight.w900,
@@ -404,9 +422,11 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
+                      backgroundColor: _isDirty 
+                          ? Theme.of(context).primaryColor 
+                          : Colors.grey,
                       foregroundColor: Colors.white,
-                      elevation: 4,
+                      elevation: _isDirty ? 4 : 1,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -419,6 +439,38 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
               if (_result != null) ...[
                 const SizedBox(height: 64),
                 
+                // Dirty State Banner - shown when inputs changed since last calculation
+                if (_isDirty) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.amber.shade700),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Inputs have changed since the last calculation. Click "Calculate" to update results.',
+                            style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                
+                // Results content with opacity (dimmed when dirty)
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: _isDirty ? 0.5 : 1.0,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                 // Header with Total Cost Summary on the right
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
