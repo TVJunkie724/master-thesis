@@ -113,14 +113,42 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
         "scene_assets_path": scene_assets_path,
     })
     
-    # Logic App definition file path (for Azure notification workflows)
-    logic_app_path = project_dir / "state_machines" / "azure_logic_app.json"
-    if logic_app_path.exists():
-        tfvars["logic_app_definition_file"] = str(logic_app_path)
-        logger.info(f"  Logic App definition: {logic_app_path}")
+    # Workflow definition file paths (conditional based on L2 provider)
+    # Only set paths when the corresponding provider is used for L2
+    l2_provider = providers["layer_2_provider"].lower()  # Fail explicitly if missing
+    
+    # Azure Logic App definition (only if L2 is Azure)
+    if l2_provider == "azure":
+        logic_app_path = project_dir / "state_machines" / "azure_logic_app.json"
+        if logic_app_path.exists():
+            tfvars["logic_app_definition_file"] = str(logic_app_path)
+            logger.info(f"  Logic App definition: {logic_app_path}")
+        else:
+            tfvars["logic_app_definition_file"] = ""
     else:
-        # Fall back to empty string - terraform will use default or skip if not needed
         tfvars["logic_app_definition_file"] = ""
+    
+    # AWS Step Functions definition (only if L2 is AWS)
+    if l2_provider == "aws":
+        step_function_path = project_dir / "state_machines" / "aws_step_function.json"
+        if step_function_path.exists():
+            tfvars["step_function_definition_file"] = str(step_function_path)
+            logger.info(f"  Step Function definition: {step_function_path}")
+        else:
+            tfvars["step_function_definition_file"] = ""
+    else:
+        tfvars["step_function_definition_file"] = ""
+    
+    # GCP Workflows definition (only if L2 is GCP)
+    if l2_provider == "google":
+        gcp_workflow_path = project_dir / "state_machines" / "google_cloud_workflow.yaml"
+        if gcp_workflow_path.exists():
+            tfvars["gcp_workflow_definition_file"] = str(gcp_workflow_path)
+            logger.info(f"  GCP Workflow definition: {gcp_workflow_path}")
+        else:
+            tfvars["gcp_workflow_definition_file"] = ""
+    else:
+        tfvars["gcp_workflow_definition_file"] = ""
     
     # Build Azure function ZIPs if Azure is used as a provider
     tfvars.update(_build_azure_function_zips(project_dir, providers, optimization_flags))

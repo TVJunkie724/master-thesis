@@ -249,6 +249,18 @@ variable "logic_app_definition_file" {
   default     = ""  # Set dynamically based on project path
 }
 
+variable "step_function_definition_file" {
+  description = "Path to the AWS Step Functions definition JSON file (set by tfvars_generator.py)"
+  type        = string
+  default     = ""  # Set dynamically based on project path
+}
+
+variable "gcp_workflow_definition_file" {
+  description = "Path to the GCP Workflows definition YAML file (set by tfvars_generator.py)"
+  type        = string
+  default     = ""  # Set dynamically based on project path
+}
+
 variable "use_event_checking" {
   description = "Enable event checking and user event actions"
   type        = bool

@@ -1,1 +1,12 @@
-{"StartAt": "x", "States": {}}
+{
+    "Comment": "Event processing workflow for ${digital_twin_name}",
+    "StartAt": "CheckEvent",
+    "States": {
+        "CheckEvent": {
+            "Type": "Task",
+            "Resource": "${event_checker_arn}",
+            "Comment": "Invoke the event checker Lambda function",
+            "End": true
+        }
+    }
+}

@@ -1,0 +1,22 @@
+# Event processing workflow for ${digital_twin_name}
+# This file is loaded by Terraform using templatefile()
+# Available variables: ${digital_twin_name}, ${event_checker_url}
+
+main:
+  params: [args]
+  steps:
+    - log_event:
+        call: sys.log
+        args:
+          text: "Event received for ${digital_twin_name}"
+          severity: INFO
+    - process_event:
+        call: http.post
+        args:
+          url: ${event_checker_url}
+          body: $${args}
+          auth:
+            type: OIDC
+        result: process_result
+    - return_result:
+        return: $${process_result}

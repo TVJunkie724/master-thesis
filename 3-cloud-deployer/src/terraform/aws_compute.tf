@@ -256,7 +256,12 @@ resource "aws_sfn_state_machine" "l2_event_workflow" {
   name     = local.l2_event_workflow_name
   role_arn = aws_iam_role.l2_step_functions[0].arn
 
-  definition = jsonencode({
+  # Load definition from file if provided, otherwise use default inline definition
+  # The file can use ${event_checker_arn} placeholder for dynamic Lambda ARN
+  definition = var.step_function_definition_file != "" ? templatefile(var.step_function_definition_file, {
+    digital_twin_name  = var.digital_twin_name
+    event_checker_arn  = aws_lambda_function.l2_event_checker[0].arn
+  }) : jsonencode({
     Comment = "Event processing workflow for ${var.digital_twin_name}"
     StartAt = "CheckEvent"
     States = {

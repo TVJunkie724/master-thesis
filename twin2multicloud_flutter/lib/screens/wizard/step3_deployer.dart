@@ -141,10 +141,13 @@ class _Step3DeployerState extends State<Step3Deployer> {
 
   Widget _buildArchitectureView() {
     final layers = _layerProviders;
+    final hasEventBranch = widget.cache.calcParams?.useEventChecking == true;
+    // Wider when branching is needed
+    final maxWidth = hasEventBranch ? 450.0 : 320.0;
     
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 320),
+        constraints: BoxConstraints(maxWidth: maxWidth),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -171,24 +174,8 @@ class _Step3DeployerState extends State<Step3Deployer> {
             ]),
             _buildArrow(),
             
-            // L2 Layer Card (EDITABLE)
-            _buildLayerCard('L2', 'Processing', layers['L2'], [
-              // Ingestion glue is deployed in L2 when receiving from another cloud
-              if (_hasCrossCloudBoundary('L1', 'L2')) ...[
-                _buildGlueComponentBox('Ingestion', layers['L2']),
-                _buildArrow(small: true),
-              ],
-              _buildComponentBox('Persister', layers['L2'], Icons.save),
-              _buildArrow(small: true),
-              _buildComponentBox('Processor Wrapper', layers['L2'], Icons.hub),
-              _buildArrow(small: true),
-              _buildEditableComponentBox('User Processors', Icons.code),
-              // Hot Writer glue is deployed in L2 when sending to another cloud for L3
-              if (_hasCrossCloudBoundary('L2', 'L3_hot')) ...[
-                _buildArrow(small: true),
-                _buildGlueComponentBox('Hot Writer', layers['L2']),
-              ],
-            ], isEditable: true),
+            // L2 Layer Card (EDITABLE - with branching flow)
+            _buildL2LayerWithBranching(layers),
             _buildArrow(),
             
             // L3 Layer Card (Storage)
@@ -235,6 +222,172 @@ class _Step3DeployerState extends State<Step3Deployer> {
             _buildLegend(),
           ],
         ),
+      ),
+    );
+  }
+
+  /// L2 Processing layer with visual branching
+  /// Main flow: Dispatcher → Processor Wrapper → User Processors → Persister
+  /// Branch: Event Checker → Feedback / Workflow (when enabled)
+  Widget _buildL2LayerWithBranching(Map<String, String> layers) {
+    final provider = layers['L2'];
+    final color = _getProviderColor(provider);
+    final hasEventBranch = widget.cache.calcParams?.useEventChecking == true;
+    final hasFeedback = widget.cache.calcParams?.returnFeedbackToDevice == true;
+    final hasWorkflow = widget.cache.calcParams?.triggerNotificationWorkflow == true;
+    
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withAlpha(12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withAlpha(100), width: 1),
+      ),
+      child: Column(
+        children: [
+          // Layer header
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
+                child: const Text('L2', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 10),
+              Text('Processing', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: color)),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(color: editableColor, borderRadius: BorderRadius.circular(3)),
+                child: const Text('EDIT', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 10),
+              _buildProviderChip(provider),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          // Ingestion glue when receiving from another cloud
+          if (_hasCrossCloudBoundary('L1', 'L2')) ...[
+            _buildGlueComponentBox('Ingestion', provider),
+            _buildArrow(small: true),
+          ],
+          
+          // Processor Wrapper (entry point)
+          _buildComponentBox('Processor Wrapper', provider, Icons.hub),
+          _buildArrow(small: true),
+          
+          // === BRANCHING SECTION ===
+          if (hasEventBranch) ...[
+            // Show branching with two columns
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // LEFT BRANCH: Main processing flow
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        children: [
+                          Text('Main Flow', style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 8),
+                          _buildEditableComponentBox('User Processors', Icons.code),
+                          _buildArrow(small: true),
+                          _buildComponentBox('Persister', provider, Icons.save),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // RIGHT BRANCH: Event checking flow
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: editableColor.withAlpha(100)),
+                        borderRadius: BorderRadius.circular(8),
+                        color: editableColor.withAlpha(8),
+                      ),
+                      child: Column(
+                        children: [
+                          Text('Event Branch', style: TextStyle(fontSize: 10, color: editableColor, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 8),
+                          _buildEditableComponentBox('Event Checker', Icons.notification_important),
+                          if (hasFeedback || hasWorkflow) ...[
+                            _buildArrow(small: true),
+                            // Sub-branches for Feedback and Workflow
+                            Row(
+                              children: [
+                                if (hasFeedback)
+                                  Expanded(
+                                    child: Column(
+                                      children: [
+                                        _buildEditableComponentBoxSmall('Feedback', Icons.replay),
+                                        const SizedBox(height: 4),
+                                        Icon(Icons.block, size: 12, color: Colors.grey.shade400),
+                                      ],
+                                    ),
+                                  ),
+                                if (hasFeedback && hasWorkflow) const SizedBox(width: 4),
+                                if (hasWorkflow)
+                                  Expanded(
+                                    child: Column(
+                                      children: [
+                                        _buildEditableComponentBoxSmall('Workflow', Icons.account_tree),
+                                        const SizedBox(height: 4),
+                                        Icon(Icons.block, size: 12, color: Colors.grey.shade400),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            // No branching - simple linear flow
+            _buildEditableComponentBox('User Processors', Icons.code),
+            _buildArrow(small: true),
+            _buildComponentBox('Persister', provider, Icons.save),
+          ],
+          
+          // Hot Writer glue when sending to another cloud
+          if (_hasCrossCloudBoundary('L2', 'L3_hot')) ...[
+            _buildArrow(small: true),
+            _buildGlueComponentBox('Hot Writer', provider),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Smaller editable component box for sub-branches
+  Widget _buildEditableComponentBoxSmall(String name, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: editableColor.withAlpha(25),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: editableColor, width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: editableColor),
+          const SizedBox(width: 6),
+          Flexible(child: Text(name, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: editableColor), overflow: TextOverflow.ellipsis)),
+        ],
       ),
     );
   }

@@ -9,7 +9,7 @@
                 "assets": [
                     {
                         "type": "3DAsset",
-                        "url": "digital_twin_scene.glb"
+                        "url": "scene.glb"
                     }
                 ],
                 "elements": [

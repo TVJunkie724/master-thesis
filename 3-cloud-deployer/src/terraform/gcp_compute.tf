@@ -265,7 +265,12 @@ resource "google_workflows_workflow" "event_workflow" {
   
   service_account = google_service_account.functions[0].email
   
-  source_contents = <<-EOT
+  # Load definition from file if provided, otherwise use default inline definition
+  # The file can use ${event_checker_url} and ${digital_twin_name} placeholders
+  source_contents = var.gcp_workflow_definition_file != "" ? templatefile(var.gcp_workflow_definition_file, {
+    digital_twin_name  = var.digital_twin_name
+    event_checker_url  = google_cloudfunctions2_function.event_checker[0].url
+  }) : <<-EOT
     main:
       params: [args]
       steps:
