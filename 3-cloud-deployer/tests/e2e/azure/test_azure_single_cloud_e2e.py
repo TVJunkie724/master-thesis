@@ -425,16 +425,32 @@ class TestAzureSingleCloudE2E:
     def test_09_verify_grafana_access(self, deployed_environment):
         """Verify Grafana endpoint is accessible."""
         outputs = deployed_environment["terraform_outputs"]
+        credentials = deployed_environment["credentials"]
         
         grafana_endpoint = outputs.get("azure_grafana_endpoint")
         if not grafana_endpoint:
             pytest.skip("Grafana endpoint not available")
         
-        # Get Azure AD token for Grafana API
+        # Get Azure credentials for Grafana API authentication
+        azure_creds = credentials.get("azure", {})
+        tenant_id = azure_creds.get("azure_tenant_id")
+        client_id = azure_creds.get("azure_client_id")
+        client_secret = azure_creds.get("azure_client_secret")
+        
+        if not all([tenant_id, client_id, client_secret]):
+            pytest.skip("Azure service principal credentials not available for Grafana API access")
+        
         try:
-            from azure.identity import DefaultAzureCredential
+            from azure.identity import ClientSecretCredential
             
-            credential = DefaultAzureCredential()
+            # Use ClientSecretCredential with explicit credentials from config
+            # (DefaultAzureCredential doesn't work in Docker without env vars)
+            credential = ClientSecretCredential(
+                tenant_id=tenant_id,
+                client_id=client_id,
+                client_secret=client_secret
+            )
+            
             # Grafana uses its own scope
             token = credential.get_token("https://grafana.azure.com/.default")
             
@@ -471,6 +487,7 @@ class TestAzureSingleCloudE2E:
                 break
             
             print(f"[GRAFANA] API returned: {response.status_code}")
+            print(f"[GRAFANA] Response body: {response.text[:500]}")
             pytest.skip(f"Grafana API returned {response.status_code} after {max_retries} retries")
                 
         except ImportError:

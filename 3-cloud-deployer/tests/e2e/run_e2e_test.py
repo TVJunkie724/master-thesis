@@ -23,9 +23,14 @@ def main():
     
     test_map = {
         "aws": "tests/e2e/aws/test_aws_terraform_e2e.py",
+        "aws-grafana": "tests/e2e/aws/test_aws_grafana_e2e.py",
+        "aws-stepfunctions": "tests/e2e/aws/test_aws_stepfunctions_e2e.py",
         "gcp": "tests/e2e/gcp/test_gcp_terraform_e2e.py",
         "azure": "tests/e2e/azure/test_azure_single_cloud_e2e.py",
+        "azure-grafana": "tests/e2e/azure/test_azure_grafana_e2e.py",
+        "azure-logicapp": "tests/e2e/azure/test_azure_logicapp_e2e.py",
         "azure-zip": "tests/e2e/test_azure_functions_only.py",
+        "multicloud": "tests/e2e/multicloud/test_multicloud_e2e.py",
     }
     
     if provider not in test_map:
