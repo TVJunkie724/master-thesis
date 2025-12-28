@@ -29,6 +29,11 @@ resource "azurerm_digital_twins_instance" "main" {
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
 
+  # SystemAssigned identity required for RBAC to access storage for 3D Scenes
+  identity {
+    type = "SystemAssigned"
+  }
+
   tags = local.common_tags
 }
 
@@ -80,7 +85,7 @@ locals {
 resource "azurerm_storage_container" "scenes" {
   count                 = local.l4_azure_scene_enabled ? 1 : 0
   name                  = "3dscenes"
-  storage_account_name  = azurerm_storage_account.main[0].name
+  storage_account_id    = azurerm_storage_account.main[0].id
   container_access_type = "private"
 }
 
@@ -106,5 +111,19 @@ resource "azurerm_storage_blob" "scene_config" {
   source                 = "${local.scene_assets_azure}/3DScenesConfiguration.json"
   content_md5            = filemd5("${local.scene_assets_azure}/3DScenesConfiguration.json")
   content_type           = "application/json"
+}
+
+# ==============================================================================
+# RBAC: ADT Identity → Storage Blob Data Reader
+# (Required for ADT to read 3D scene files from storage for 3D Scenes Studio)
+# ==============================================================================
+
+resource "azurerm_role_assignment" "adt_storage_reader" {
+  count                = local.l4_azure_scene_enabled ? 1 : 0
+  scope                = azurerm_storage_account.main[0].id
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = azurerm_digital_twins_instance.main[0].identity[0].principal_id
+
+  depends_on = [azurerm_digital_twins_instance.main]
 }
 
