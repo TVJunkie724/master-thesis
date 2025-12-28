@@ -1,22 +1,28 @@
-# Event processing workflow for ${digital_twin_name}
-# This file is loaded by Terraform using templatefile()
-# Available variables: ${digital_twin_name}, ${event_checker_url}
+# GCP Cloud Workflow - Event Processing
+# User provides this file, deployed as-is
 
 main:
   params: [args]
   steps:
-    - log_event:
-        call: sys.log
-        args:
-          text: "Event received for ${digital_twin_name}"
-          severity: INFO
-    - process_event:
+    - init:
+        assign:
+          - inputData: ${args.InputData}
+          - funcA_url: ${args.FunctionA_URL}
+          - funcB_url: ${args.FunctionB_URL}
+    - callFunctionA:
         call: http.post
         args:
-          url: ${event_checker_url}
-          body: $${args}
-          auth:
-            type: OIDC
-        result: process_result
-    - return_result:
-        return: $${process_result}
+          url: ${funcA_url}
+          body:
+            input: ${inputData}
+        result: resultA
+    - callFunctionB:
+        call: http.post
+        args:
+          url: ${funcB_url}
+          body:
+            fromA: ${resultA.body}
+            event: ${inputData}
+        result: resultB
+    - returnResult:
+        return: ${resultB.body}

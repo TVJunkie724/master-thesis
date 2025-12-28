@@ -58,6 +58,9 @@ dependencies:
   
   # SSE (Server-Sent Events) for real-time logs
   flutter_client_sse: ^2.0.1
+  
+  # Graph visualization for architecture flowchart
+  graphview: ^1.5.1
 
 dev_dependencies:
   flutter_test:

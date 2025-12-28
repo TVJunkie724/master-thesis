@@ -1,11 +1,28 @@
 {
-    "Comment": "Event processing workflow for ${digital_twin_name}",
-    "StartAt": "CheckEvent",
+    "Comment": "Executing two lambda functions consecutively",
+    "StartAt": "LambdaA",
     "States": {
-        "CheckEvent": {
+        "LambdaA": {
             "Type": "Task",
-            "Resource": "${event_checker_arn}",
-            "Comment": "Invoke the event checker Lambda function",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+                "FunctionName.$": "$.LambdaAArn",
+                "Payload.$": "$.InputData"
+            },
+            "ResultPath": "$.LambdaAResult",
+            "Next": "LambdaB"
+        },
+        "LambdaB": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+                "FunctionName.$": "$.LambdaBArn",
+                "Payload": {
+                    "fromA.$": "$.LambdaAResult.Payload",
+                    "event.$": "$.InputData"
+                }
+            },
+            "OutputPath": "$.Payload",
             "End": true
         }
     }

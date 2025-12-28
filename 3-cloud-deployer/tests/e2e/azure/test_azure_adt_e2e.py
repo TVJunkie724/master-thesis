@@ -19,8 +19,8 @@ from pathlib import Path
 # Directory containing the focused Terraform config
 TERRAFORM_DIR = Path(__file__).parent.parent / "azure_adt_test"
 
-# Path to scene assets (template)
-SCENE_ASSETS_PATH = Path(__file__).parent.parent.parent / "upload" / "template" / "scene_assets"
+# Path to scene assets (template) - go up 4 levels: azure/ -> e2e/ -> tests/ -> deployer/
+SCENE_ASSETS_PATH = Path(__file__).parent.parent.parent.parent / "upload" / "template" / "scene_assets"
 
 
 class TestAzureAdtE2E:
@@ -41,19 +41,30 @@ class TestAzureAdtE2E:
         """
         Load Azure credentials and generate tfvars.
         
-        Reads from config_credentials.json and creates test.tfvars.json
-        in the azure_adt_test directory.
+        Reads from config_credentials.json (searches multiple paths) and creates
+        test.tfvars.json in the azure_adt_test directory.
         """
-        # Load credentials from config_credentials.json
-        creds_path = Path(__file__).parent.parent.parent / "config_credentials.json"
+        # Search multiple paths for credentials (same pattern as Grafana test)
+        deployer_root = Path(__file__).parent.parent.parent
+        creds_paths = [
+            deployer_root / "config_credentials.json",
+            Path("/app/config_credentials.json"),
+            Path("/app/upload/template/config_credentials.json"),
+        ]
         
-        if not creds_path.exists():
-            pytest.skip("config_credentials.json not found")
+        azure_creds = None
+        for creds_path in creds_paths:
+            if creds_path.exists():
+                with open(creds_path) as f:
+                    creds = json.load(f)
+                
+                azure = creds.get("azure", {})
+                if azure.get("azure_subscription_id"):
+                    azure_creds = azure
+                    break
         
-        with open(creds_path) as f:
-            creds = json.load(f)
-        
-        azure_creds = creds.get("azure", {})
+        if not azure_creds:
+            pytest.skip("Azure credentials not found in config_credentials.json")
         
         required_fields = [
             "azure_subscription_id",
