@@ -48,7 +48,7 @@
     }
   },
   "functions": {
-    "requestPrice": 0.19999999999999998,
+    "requestPrice": 2e-07,
     "durationPrice": 1.6e-05,
     "freeRequests": 1000000,
     "freeComputeTime": 400000

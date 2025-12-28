@@ -228,12 +228,29 @@ def _find_best_match(rows: List[Dict[str, Any]], meter_kw: str, unit_kw: str, in
 # -----------------------------------------------------------------------------
 
 def _normalize_price(price: float, unit_text: str, neutral_service: str) -> float:
-    """Normalize price to a standard unit (usually per 1 or per 1M)."""
+    """Normalize price to a standard unit (usually per 1 or per 1M).
+    
+    CRITICAL: Azure Functions has special handling because we need per-execution
+    prices, not per-million. The API may return various units (10, 1M, etc.)
+    depending on the meter, so we must handle each case explicitly.
+    """
     unit_text = unit_text.lower()
     
-    # Special Case: Functions - API returns per million, we want per execution
-    if neutral_service == "functions" and ("1 million" in unit_text or "1m" in unit_text):
-        return price / 1_000_000  # Convert to per-execution
+    # Special Case: Functions - we want per-execution price
+    # Azure API returns different units for different function meters:
+    # - "10" means per 10 executions -> divide by 10
+    # - "1 million" or "1m" means per 1M executions -> divide by 1M
+    # - "1" means per execution -> return as-is
+    if neutral_service == "functions":
+        if "1 million" in unit_text or "1m" in unit_text:
+            return price / 1_000_000  # Convert to per-execution
+        elif unit_text.strip() == "10":
+            return price / 10  # Per 10 executions -> per execution
+        elif unit_text.strip() == "1":
+            return price  # Already per-execution
+        # For compute time units (GB Second), return as-is
+        if "gb" in unit_text or "second" in unit_text:
+            return price
     
     # Special Case: Logic Apps (Actions are per 1, we want per 1k)
     if neutral_service == "orchestration" and "1" in unit_text:
