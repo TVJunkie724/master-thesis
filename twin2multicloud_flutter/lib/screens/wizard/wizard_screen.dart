@@ -19,6 +19,7 @@ class WizardScreen extends ConsumerStatefulWidget {
 
 class _WizardScreenState extends ConsumerState<WizardScreen> {
   int _currentStep = 0;
+  int _highestStepReached = 0; // Tracks maximum step visited for navigation
   String? _activeTwinId;
   bool _isLoading = false;
   bool _isSaving = false;
@@ -94,10 +95,13 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           // Determine starting step based on state
           if (state == 'deployed' || state == 'configured') {
             _currentStep = 2; // Deployer
+            _highestStepReached = 2;
           } else if (_cache.canProceedToStep2) {
             _currentStep = 1; // Optimizer
+            _highestStepReached = 1;
           } else {
             _currentStep = 0; // Configuration
+            _highestStepReached = 0;
           }
         });
       }
@@ -400,41 +404,58 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   
   Widget _buildStep(int index, String label, IconData icon) {
     final isActive = _currentStep == index;
-    final isCompleted = _currentStep > index;
+    final isCompleted = _highestStepReached > index;
     
-    return Column(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isCompleted 
-              ? Colors.green 
-              : isActive 
-                ? Theme.of(context).colorScheme.primary 
-                : Colors.grey.shade300,
-          ),
-          child: Icon(
-            isCompleted ? Icons.check : icon,
-            color: Colors.white,
-            size: 20,
-          ),
+    return InkWell(
+      onTap: () {
+        // Only allow navigation to previously reached steps or the current step
+        if (index <= _highestStepReached) {
+          setState(() => _currentStep = index);
+        }
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isCompleted 
+                  ? Colors.green 
+                  : isActive 
+                    ? Theme.of(context).colorScheme.primary 
+                    : (index <= _highestStepReached)
+                      ? Theme.of(context).colorScheme.primary.withAlpha(150)
+                      : Colors.grey.shade300,
+              ),
+              child: Icon(
+                isCompleted ? Icons.check : icon,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                color: index <= _highestStepReached 
+                  ? null 
+                  : Colors.grey.shade500,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ],
+      ),
     );
   }
   
   Widget _buildConnector(int afterIndex) {
-    final isActive = _currentStep > afterIndex;
+    final isActive = _highestStepReached > afterIndex;
     return Container(
       width: 60,
       height: 2,
@@ -451,7 +472,10 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           cache: _cache,
           isSaving: _isSaving,
           nameError: _nameError,
-          onNext: () => setState(() => _currentStep = 1),
+          onNext: () => setState(() {
+            _currentStep = 1;
+            if (_highestStepReached < 1) _highestStepReached = 1;
+          }),
           onBack: () => _showExitConfirmation(context),
           onSaveDraft: _saveDraftToDatabase,
           onCacheChanged: () => setState(() {}),  // Trigger rebuild to update UI
@@ -462,7 +486,10 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           twinId: _activeTwinId,
           cache: _cache,
           isSaving: _isSaving,
-          onNext: () => setState(() => _currentStep = 2),
+          onNext: () => setState(() {
+            _currentStep = 2;
+            if (_highestStepReached < 2) _highestStepReached = 2;
+          }),
           onBack: () => setState(() => _currentStep = 0),
           onSaveDraft: _saveDraftToDatabase,
           onCacheChanged: () => setState(() {}),
