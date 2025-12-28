@@ -7,11 +7,40 @@ import '../providers/theme_provider.dart';
 import '../widgets/stat_card.dart';
 import '../models/twin.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  int _sortColumnIndex = 0;
+  bool _sortAscending = true;
+
+  List<Twin> _sortTwins(List<Twin> twins) {
+    final sorted = List<Twin>.from(twins);
+    sorted.sort((a, b) {
+      int cmp;
+      switch (_sortColumnIndex) {
+        case 0: // Name
+          cmp = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          break;
+        case 2: // Last Updated
+          final aDate = a.updatedAt ?? DateTime(1970);
+          final bDate = b.updatedAt ?? DateTime(1970);
+          cmp = aDate.compareTo(bDate);
+          break;
+        default:
+          cmp = 0;
+      }
+      return _sortAscending ? cmp : -cmp;
+    });
+    return sorted;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final twinsAsync = ref.watch(twinsProvider);
     
     return Scaffold(
@@ -250,19 +279,36 @@ class DashboardScreen extends ConsumerWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: DataTable(
+            sortColumnIndex: _sortColumnIndex,
+            sortAscending: _sortAscending,
             headingRowColor: WidgetStateProperty.all(
               Theme.of(context).colorScheme.surfaceContainerHighest,
             ),
             columnSpacing: 24,
-            columns: const [
-              DataColumn(label: Text('Name')),
-              DataColumn(label: Text('State')),
-              DataColumn(label: Text('Providers')),
-              DataColumn(label: Text('Last Updated')),
-              DataColumn(label: Text('Last Deploy')),
-              DataColumn(label: Text('Actions')),
+            columns: [
+              DataColumn(
+                label: const Text('Name'),
+                onSort: (columnIndex, ascending) {
+                  setState(() {
+                    _sortColumnIndex = columnIndex;
+                    _sortAscending = ascending;
+                  });
+                },
+              ),
+              const DataColumn(label: Text('State')),
+              DataColumn(
+                label: const Text('Last Updated'),
+                onSort: (columnIndex, ascending) {
+                  setState(() {
+                    _sortColumnIndex = columnIndex;
+                    _sortAscending = ascending;
+                  });
+                },
+              ),
+              const DataColumn(label: Text('Last Deploy')),
+              const DataColumn(label: Text('Actions')),
             ],
-            rows: twins.map((twin) => _buildTwinRow(context, ref, twin)).toList(),
+            rows: _sortTwins(twins).map((twin) => _buildTwinRow(context, ref, twin)).toList(),
           ),
         ),
       ),
@@ -285,15 +331,6 @@ class DashboardScreen extends ConsumerWidget {
         ),
         // State
         DataCell(_buildStateBadge(twin.state)),
-        // Providers
-        DataCell(
-          twin.providers.isEmpty
-            ? Text('—', style: TextStyle(color: Colors.grey.shade600))
-            : Wrap(
-                spacing: 4,
-                children: twin.providers.map((p) => _buildProviderChip(p)).toList(),
-              ),
-        ),
         // Last Updated
         DataCell(Text(_formatDate(twin.updatedAt))),
         // Last Deploy
