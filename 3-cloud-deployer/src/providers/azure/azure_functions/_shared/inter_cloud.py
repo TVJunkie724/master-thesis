@@ -121,18 +121,25 @@ def post_to_remote(
                 }
         
         except urllib.error.HTTPError as e:
+            # Read error body for better debugging
+            error_body = ""
+            try:
+                error_body = e.read().decode('utf-8')
+            except Exception:
+                pass
+            
             # Client error (4xx): Do not retry - fail fast
             if 400 <= e.code < 500:
-                print(f"Client Error ({e.code}): {e.reason}. Not retrying.")
+                print(f"Client Error ({e.code}): {e.reason}. Body: {error_body}. Not retrying.")
                 raise e
             
             # Server error (5xx): Retry with backoff
             if attempt < max_retries:
-                print(f"Server Error ({e.code}): {e.reason}. Retrying in {retry_delay}s...")
+                print(f"Server Error ({e.code}): {e.reason}. Body: {error_body}. Retrying in {retry_delay}s...")
                 time.sleep(retry_delay)
                 retry_delay *= 2
             else:
-                print(f"Max retries exceeded. Last error: {e.code} {e.reason}")
+                print(f"Max retries exceeded. Last error: {e.code} {e.reason}. Body: {error_body}")
                 raise e
         
         except urllib.error.URLError as e:
@@ -207,16 +214,23 @@ def post_raw(
                 }
         
         except urllib.error.HTTPError as e:
+            # Read error body for better debugging
+            error_body = ""
+            try:
+                error_body = e.read().decode('utf-8')
+            except Exception:
+                pass
+            
             if 400 <= e.code < 500:
-                print(f"Client Error ({e.code}): {e.reason}. Not retrying.")
+                print(f"Client Error ({e.code}): {e.reason}. Body: {error_body}. Not retrying.")
                 raise e
             
             if attempt < max_retries:
-                print(f"Server Error ({e.code}): {e.reason}. Retrying in {retry_delay}s...")
+                print(f"Server Error ({e.code}): {e.reason}. Body: {error_body}. Retrying in {retry_delay}s...")
                 time.sleep(retry_delay)
                 retry_delay *= 2
             else:
-                print(f"Max retries exceeded. Last error: {e.code} {e.reason}")
+                print(f"Max retries exceeded. Last error: {e.code} {e.reason}. Body: {error_body}")
                 raise e
         
         except urllib.error.URLError as e:

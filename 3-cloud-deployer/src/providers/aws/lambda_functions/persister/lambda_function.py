@@ -10,6 +10,7 @@ Editable: Yes - This is the runtime Lambda code
 import os
 import sys
 import json
+import traceback
 import boto3
 
 # Handle import path for both Lambda (deployed with _shared) and test (local development) contexts
@@ -245,4 +246,5 @@ def lambda_handler(event, context):
 
     except Exception as e:
         print(f"Persister Error: {e}")
+        traceback.print_exc()
         raise e

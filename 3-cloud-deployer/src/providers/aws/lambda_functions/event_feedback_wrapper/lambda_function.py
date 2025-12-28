@@ -76,7 +76,7 @@ def lambda_handler(event, context):
                 processed_payload = json.loads(response['Payload'].read().decode("utf-8"))
                 logger.info(f"User Logic Complete. Result: {json.dumps(processed_payload)}")
             except Exception as e:
-                logger.error(f"[USER_LOGIC_ERROR] Processing failed: {e}")
+                logger.exception(f"[USER_LOGIC_ERROR] Processing failed: {e}")
                 raise e
         
         # 2. Build topic and send to IoT Device
@@ -96,7 +96,7 @@ def lambda_handler(event, context):
         }
         
     except Exception as e:
-        logger.error(f"Event Feedback Failed: {e}")
+        logger.exception(f"Event Feedback Failed: {e}")
         return {
             "statusCode": 500,
             "body": json.dumps(f"Error: {str(e)}")

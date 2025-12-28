@@ -332,7 +332,7 @@ class TestGCPPermissionsFromConfig:
 class TestCredentialResponseFormats:
     """Tests for consistent response formats across providers."""
 
-    @patch("api.credentials.check_aws_credentials")
+    @patch("api.credentials_checker.check_aws_credentials")
     def test_aws_response_has_summary(self, mock_check):
         """Happy: AWS response includes summary."""
         mock_check.return_value = {

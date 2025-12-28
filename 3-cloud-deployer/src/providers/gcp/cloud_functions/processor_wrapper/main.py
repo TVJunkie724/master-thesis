@@ -13,6 +13,7 @@ Editable: Yes - This is the runtime Cloud Function code
 import json
 import os
 import sys
+import traceback
 import requests
 import functions_framework
 
@@ -81,6 +82,7 @@ def main(request):
                 print(f"User Logic Complete. Result: {json.dumps(processed_event)}")
         except Exception as e:
             print(f"[USER_LOGIC_ERROR] Processing failed: {e}")
+            traceback.print_exc()
             return (json.dumps({"error": "User logic error", "message": str(e)}), 500, {"Content-Type": "application/json"})
         
         # 2. Invoke Persister
@@ -96,5 +98,6 @@ def main(request):
         
     except Exception as e:
         print(f"[SYSTEM_ERROR] Processor error: {e}")
+        traceback.print_exc()
         return (json.dumps({"error": "System error", "message": str(e)}), 500, {"Content-Type": "application/json"})
 

@@ -11,6 +11,7 @@ import boto3
 import os
 import sys
 import json
+import traceback
 import datetime
 from boto3.dynamodb.conditions import Key
 
@@ -284,6 +285,7 @@ def lambda_handler(event, context):
                     
     except Exception as e:
         print(f"Hot-to-Cold Mover Error: {e}")
+        traceback.print_exc()
         raise e
     
     print("Hot-to-Cold Mover: Complete")

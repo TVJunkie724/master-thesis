@@ -325,7 +325,7 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
                         results.append({"event": condition, "feedback": "sent"})
                 
             except Exception as ex:
-                logging.error(f"Event check failed for {e}: {ex}")
+                logging.exception(f"Event check failed for {e}: {ex}")
                 results.append({"event": str(e), "error": str(ex)})
         
         return func.HttpResponse(

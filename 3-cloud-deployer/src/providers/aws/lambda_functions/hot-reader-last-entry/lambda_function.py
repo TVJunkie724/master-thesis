@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import traceback
 import boto3
 from boto3.dynamodb.conditions import Key
 
@@ -125,5 +126,6 @@ def lambda_handler(event, context):
                 "body": json.dumps({"error": str(e)})
             }
         print("Returning empty propertyValues due to error.")
+        traceback.print_exc()
         return { "propertyValues": {} }
 

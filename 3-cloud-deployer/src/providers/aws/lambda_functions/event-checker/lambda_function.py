@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import traceback
 import boto3
 
 # Handle import path for shared module
@@ -142,5 +143,6 @@ def lambda_handler(event, context):
 
         except Exception as ex:
             print(f"Event Check Failed for event {e}: {ex}")
+            traceback.print_exc()
             # Continue checking other events despite one failure
             continue

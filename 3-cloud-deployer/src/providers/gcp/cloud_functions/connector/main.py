@@ -10,6 +10,7 @@ Editable: Yes - This is the runtime Cloud Function code
 import json
 import os
 import sys
+import traceback
 import functions_framework
 
 # Handle import path for both Cloud Functions (deployed with _shared) and test contexts
@@ -78,5 +79,6 @@ def main(request):
         
     except Exception as e:
         print(f"Connector Error: {e}")
+        traceback.print_exc()
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})
 

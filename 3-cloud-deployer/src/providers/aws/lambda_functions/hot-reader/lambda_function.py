@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import traceback
 import boto3
 from boto3.dynamodb.conditions import Key
 
@@ -130,5 +131,6 @@ def lambda_handler(event, context):
         # For direct invoke, return empty to avoid breaking dashboard
         # For direct invoke, return error to signal failure
         print(f"CRITICAL: Hot Reader execution failed: {e}")
+        traceback.print_exc()
         raise e
 

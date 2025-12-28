@@ -165,5 +165,5 @@ def dispatcher(event: func.EventGridEvent) -> None:
         logging.info("Dispatch successful.")
         
     except Exception as e:
-        logging.error(f"Dispatcher Error: {e}")
+        logging.exception(f"Dispatcher Error: {e}")
         raise e

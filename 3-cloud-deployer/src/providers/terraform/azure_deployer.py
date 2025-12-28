@@ -48,10 +48,7 @@ def _deploy_user_functions(
     load_credentials_fn
 ) -> None:
     """Deploy user-customizable functions (event actions, processors) via Kudu."""
-    from src.providers.terraform.package_builder import (
-        build_combined_user_package,
-        get_combined_user_package_path,
-    )
+    from src.providers.terraform.package_builder import build_azure_user_bundle
     
     app_name = terraform_outputs.get("azure_user_functions_app_name")
     
@@ -63,7 +60,7 @@ def _deploy_user_functions(
     
     try:
         # Build combined user package (all event actions, processors, feedback)
-        combined_zip_path = build_combined_user_package(project_path, providers_config)
+        combined_zip_path = build_azure_user_bundle(project_path, providers_config)
         
         if not combined_zip_path or not combined_zip_path.exists():
             logger.info("  No user functions to deploy")

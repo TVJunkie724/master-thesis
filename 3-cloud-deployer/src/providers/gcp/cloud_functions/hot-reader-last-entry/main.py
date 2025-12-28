@@ -16,6 +16,7 @@ Editable: Yes - This is the runtime Cloud Function code
 import json
 import os
 import sys
+import traceback
 import functions_framework
 from google.cloud import firestore
 
@@ -90,4 +91,5 @@ def main(request):
         
     except Exception as e:
         print(f"Hot Reader Last Entry Error: {e}")
+        traceback.print_exc()
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})

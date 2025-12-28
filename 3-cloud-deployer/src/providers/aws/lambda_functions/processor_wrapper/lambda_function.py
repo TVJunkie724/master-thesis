@@ -10,6 +10,7 @@ Architecture:
 import json
 import os
 import sys
+import traceback
 import boto3
 
 # Handle import path for shared module
@@ -70,6 +71,7 @@ def lambda_handler(event, context):
         print("User Processor Complete. Result: " + json.dumps(processed_event))
     except Exception as e:
         print(f"[USER_LOGIC_ERROR] Processor invocation failed: {e}")
+        traceback.print_exc()
         raise e
 
     # 2. Invoke Persister (System Pipeline)
@@ -81,6 +83,7 @@ def lambda_handler(event, context):
         )
     except Exception as e:
         print(f"[SYSTEM_ERROR] Persister Invocation failed: {e}")
+        traceback.print_exc()
         raise e
         
     return processed_event

@@ -9,6 +9,7 @@ Routes TwinMaker getPropertyValueHistory requests for last entry to:
 import json
 import os
 import sys
+import traceback
 import boto3
 import urllib.request
 import urllib.error
@@ -102,5 +103,6 @@ def lambda_handler(event, context):
         
     except Exception as e:
         print(f"Digital Twin Data Connector Last Entry Error: {e}")
+        traceback.print_exc()
         print(f"CRITICAL: Last Entry Connector execution failed: {e}")
         raise e

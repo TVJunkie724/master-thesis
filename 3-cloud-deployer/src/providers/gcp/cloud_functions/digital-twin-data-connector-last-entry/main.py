@@ -10,6 +10,7 @@ Editable: Yes - This is the runtime Cloud Function code
 import json
 import os
 import sys
+import traceback
 import requests
 import functions_framework
 
@@ -108,4 +109,5 @@ def main(request):
         
     except Exception as e:
         print(f"Digital Twin Data Connector Last Entry Error: {e}")
+        traceback.print_exc()
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})

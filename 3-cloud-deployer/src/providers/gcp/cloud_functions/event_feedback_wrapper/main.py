@@ -100,7 +100,7 @@ def main(request):
                 processed_payload = response.json()
                 logger.info(f"User Logic Complete. Result: {json.dumps(processed_payload)}")
             except Exception as e:
-                logger.error(f"[USER_LOGIC_ERROR] Processing failed: {e}")
+                logger.exception(f"[USER_LOGIC_ERROR] Processing failed: {e}")
                 raise e
         
         # 2. Build topic and send to IoT Device via IoT Core
@@ -131,7 +131,7 @@ def main(request):
         )
         
     except Exception as e:
-        logger.error(f"Event Feedback Failed: {e}")
+        logger.exception(f"Event Feedback Failed: {e}")
         return (
             json.dumps({"statusCode": 500, "body": f"Error: {str(e)}"}), 
             500, 
