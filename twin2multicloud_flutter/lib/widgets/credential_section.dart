@@ -313,6 +313,34 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
     );
   }
   
+  void _showServiceAccountExampleDialog() {
+    const serviceAccountExample = '''{
+  "type": "service_account",
+  "project_id": "your-project-id",
+  "private_key_id": "...",
+  "private_key": "-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n",
+  "client_email": "your-sa@your-project-id.iam.gserviceaccount.com",
+  "client_id": "...",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/..."
+}''';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('GCP Service Account JSON Format'),
+        content: const SelectableText(serviceAccountExample),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+  
   void _notifyCredentialsChanged() {
     final creds = <String, String>{};
     for (final entry in _controllers.entries) {
@@ -483,44 +511,8 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // GCP Service Account JSON Upload button (special case)
-                      if (widget.supportsJsonUpload) ...[
-                        FilledButton.icon(
-                          onPressed: _pickJsonFile,
-                          icon: const Icon(Icons.cloud_upload),
-                          label: const Text('Upload Service Account JSON'),
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 48),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Upload your GCP service account key file (.json)',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: showAsValid 
-                              ? Colors.green.shade700 
-                              : Theme.of(context).colorScheme.outline,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(child: Divider(color: showAsValid ? Colors.green.shade600 : null)),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text('OR', style: TextStyle(
-                                fontSize: 12,
-                                color: showAsValid 
-                                  ? Colors.green.shade400 
-                                  : Theme.of(context).colorScheme.outline,
-                              )),
-                            ),
-                            Expanded(child: Divider(color: showAsValid ? Colors.green.shade600 : null)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                      ],
+                      // GCP: Removed from left side - now only in right side
+
                       
                       // Credential fields
                       ...widget.fields.map((field) => Padding(
@@ -555,13 +547,12 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                 
                 const SizedBox(width: 16),
                 
-                // RIGHT SIDE (1/3) - Buttons
                 Flexible(
                   flex: 1,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Upload credentials button
+                      // SECTION 1: Credentials Upload
                       if (widget.supportsCredentialsUpload) ...[
                         FilledButton.tonalIcon(
                           onPressed: _uploadCredentialsJson,
@@ -580,32 +571,51 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
+                        // Example File for credentials
+                        OutlinedButton.icon(
+                          onPressed: _showSchemaDialog,
+                          icon: const Icon(Icons.description_outlined, size: 16),
+                          label: const Text('Example File'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ],
                       
-                      // GCP specific: Service Account JSON upload in right column too
+                      // SECTION 2: Service Account (GCP only)
                       if (widget.supportsJsonUpload) ...[
-                        OutlinedButton.icon(
+                        const Divider(height: 24),
+                        FilledButton.tonalIcon(
                           onPressed: _pickJsonFile,
                           icon: const Icon(Icons.key),
                           label: const Text('Service Account'),
-                          style: OutlinedButton.styleFrom(
+                          style: FilledButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                      ],
-                      
-                      // Example File button (above separator)
-                      OutlinedButton.icon(
-                        onPressed: _showSchemaDialog,
-                        icon: const Icon(Icons.description_outlined, size: 18),
-                        label: const Text('Example File'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                        const SizedBox(height: 4),
+                        Text(
+                          'Upload GCP service account key',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                      ),
+                        const SizedBox(height: 4),
+                        // Example File for service account
+                        OutlinedButton.icon(
+                          onPressed: _showServiceAccountExampleDialog,
+                          icon: const Icon(Icons.description_outlined, size: 16),
+                          label: const Text('Example File'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                       
                       const Divider(height: 24),
                       
