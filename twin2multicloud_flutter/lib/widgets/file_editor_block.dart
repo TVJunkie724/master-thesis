@@ -41,7 +41,6 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
   String? _validationMessage;
   double _editorHeight = 200; // Initial height, resizable
   static const double _minEditorHeight = 120;
-  static const double _maxEditorHeight = 500;
   
   static const Color editableColor = Color(0xFFD81B60);
   
@@ -253,9 +252,10 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
                     // Resize handle
                     GestureDetector(
                       onVerticalDragUpdate: (details) {
+                        final maxHeight = MediaQuery.of(context).size.height * 0.7;
                         setState(() {
                           _editorHeight = (_editorHeight + details.delta.dy)
-                              .clamp(_minEditorHeight, _maxEditorHeight);
+                              .clamp(_minEditorHeight, maxHeight);
                         });
                       },
                       child: MouseRegion(
