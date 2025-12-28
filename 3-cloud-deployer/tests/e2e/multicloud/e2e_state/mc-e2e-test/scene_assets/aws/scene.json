@@ -1,0 +1,231 @@
+{
+  "specVersion": "1.0",
+  "version": "1",
+  "unit": "meters",
+  "properties": {
+    "environmentPreset": "neutral"
+  },
+  "nodes": [
+    {
+      "name": "room-1",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "children": [
+        1,
+        4
+      ],
+      "components": [
+        {
+          "type": "ModelRef",
+          "uri": "s3://YOUR_TWINMAKER_S3_BUCKET/scene_assets/digital_twin_scene.glb",
+          "modelType": "GLB"
+        }
+      ]
+    },
+    {
+      "name": "machine-1",
+      "transform": {
+        "position": [
+          3.0,
+          0.1,
+          2.5
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "children": [
+        2
+      ],
+      "components": [
+        {
+          "type": "Tag",
+          "offset": [
+            0,
+            2.0,
+            0
+          ],
+          "icon": "iottwinmaker.common.icon:Pump",
+          "valueDataBinding": {
+            "dataBindingContext": {
+              "entityId": "machine-1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "temperature-sensor-1",
+      "transform": {
+        "position": [
+          0,
+          1.6,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "components": [
+        {
+          "type": "Tag",
+          "offset": [
+            0,
+            0.5,
+            0
+          ],
+          "icon": "iottwinmaker.common.icon:Thermometer",
+          "valueDataBinding": {
+            "dataBindingContext": {
+              "entityId": "machine-1",
+              "componentName": "temperature-sensor-1",
+              "propertyName": "temperature"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "room-2",
+      "transform": {
+        "position": [
+          10.0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "children": [
+        5
+      ],
+      "components": []
+    },
+    {
+      "name": "temperature-sensor-2",
+      "transform": {
+        "position": [
+          6.0,
+          0.1,
+          4.0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "components": [
+        {
+          "type": "Tag",
+          "offset": [
+            0,
+            0.5,
+            0
+          ],
+          "icon": "iottwinmaker.common.icon:Thermometer",
+          "valueDataBinding": {
+            "dataBindingContext": {
+              "entityId": "room-1",
+              "componentName": "temperature-sensor-2",
+              "propertyName": "temperature"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "pressure-sensor-1",
+      "transform": {
+        "position": [
+          4.0,
+          0.1,
+          3.0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "components": [
+        {
+          "type": "Tag",
+          "offset": [
+            0,
+            0.5,
+            0
+          ],
+          "icon": "iottwinmaker.common.icon:Gauge",
+          "valueDataBinding": {
+            "dataBindingContext": {
+              "entityId": "room-2",
+              "componentName": "pressure-sensor-1",
+              "propertyName": "pressure"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "rootNodeIndexes": [
+    0,
+    3
+  ],
+  "cameras": [
+    {
+      "cameraType": "Perspective",
+      "fov": 53.13,
+      "near": 0.1,
+      "far": 1000
+    }
+  ],
+  "rules": {}
+}

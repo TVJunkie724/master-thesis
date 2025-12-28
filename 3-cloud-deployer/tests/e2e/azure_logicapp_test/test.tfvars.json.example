@@ -1,0 +1,9 @@
+{
+  "azure_subscription_id": "XXXXXXXXXXXXXXXXXXXX",
+  "azure_tenant_id": "XXXXXXXXXXXXXXXXXXXX",
+  "azure_client_id": "XXXXXXXXXXXXXXXXXXXX",
+  "azure_client_secret": "XXXXXXXXXXXXXXXXXXXX",
+  "azure_region": "westeurope",
+  "test_name_suffix": "e2e",
+  "workflow_definition_file": ""
+}

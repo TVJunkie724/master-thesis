@@ -59,6 +59,20 @@ provider "awscc" {
   secret_key = var.aws_secret_access_key
 }
 
+# AWS Provider for IAM Identity Center (SSO)
+# SSO is region-specific and may be enabled in a different region than main resources.
+# For example, SSO might be in us-east-1 while resources are in eu-central-1.
+provider "aws" {
+  alias      = "sso"
+  region     = var.aws_sso_region != "" ? var.aws_sso_region : var.aws_region
+  access_key = var.aws_access_key_id
+  secret_key = var.aws_secret_access_key
+
+  # Skip validation when AWS credentials are not provided
+  skip_credentials_validation = var.aws_access_key_id == "" ? true : false
+  skip_requesting_account_id  = var.aws_access_key_id == "" ? true : false
+}
+
 # Google Cloud Provider (for multi-cloud deployments)
 # TODO: project defaults to "placeholder" to avoid validation errors when GCP is not used
 provider "google" {

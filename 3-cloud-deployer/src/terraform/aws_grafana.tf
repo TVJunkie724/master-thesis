@@ -96,15 +96,22 @@ resource "aws_grafana_workspace_api_key" "admin" {
 # ==============================================================================
 
 # Get IAM Identity Center instance
+# Uses the SSO provider alias to query from the correct region (may differ from main region)
 data "aws_ssoadmin_instances" "main" {
-  count = local.l5_aws_enabled ? 1 : 0
+  provider = aws.sso
+  count    = local.l5_aws_enabled ? 1 : 0
 }
 
 locals {
-  identity_store_id = try(
-    tolist(data.aws_ssoadmin_instances.main[0].identity_store_ids)[0],
-    ""
+  # Check if SSO is available (identity_store_ids is not empty)
+  # Used for warning output, but admin user creation remains mandatory
+  sso_available = local.l5_aws_enabled && try(
+    length(tolist(data.aws_ssoadmin_instances.main[0].identity_store_ids)) > 0,
+    false
   )
+  identity_store_id = try(tolist(data.aws_ssoadmin_instances.main[0].identity_store_ids)[0], "")
+  # Admin user creation is MANDATORY when L5=AWS and email is provided
+  # If SSO is not detected, Terraform will fail with empty identity_store_id (as intended)
   grafana_admin_enabled = local.l5_aws_enabled && var.grafana_admin_email != ""
 }
 

@@ -246,8 +246,7 @@ resource "azurerm_linux_function_app" "user" {
 # Only deployed if trigger_notification_workflow is enabled
 # ==============================================================================
 
-# TODO: Test Logic App after EventGrid subscription works
-# Currently disabled (trigger_notification_workflow = false) for E2E testing
+# Logic App workflow resource (creates the container)
 resource "azurerm_logic_app_workflow" "event_notification" {
   count               = var.layer_2_provider == "azure" && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
   name                = "${var.digital_twin_name}-event-workflow"
@@ -255,6 +254,38 @@ resource "azurerm_logic_app_workflow" "event_notification" {
   resource_group_name = azurerm_resource_group.main[0].name
 
   tags = local.common_tags
+
+  # The workflow definition is set via ARM template below because
+  # azurerm_logic_app_workflow doesn't support complex definitions directly
+  lifecycle {
+    ignore_changes = [parameters]
+  }
+}
+
+# FIX: Apply workflow definition via ARM template deployment
+# Without this, the Logic App appears empty in the Azure Portal designer
+resource "azurerm_resource_group_template_deployment" "logic_app_definition" {
+  count               = var.layer_2_provider == "azure" && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
+  name                = "${var.digital_twin_name}-logic-app-definition"
+  resource_group_name = azurerm_resource_group.main[0].name
+  deployment_mode     = "Incremental"
+
+  template_content = jsonencode({
+    "$schema"      = "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#"
+    contentVersion = "1.0.0.0"
+    resources = [{
+      type       = "Microsoft.Logic/workflows"
+      apiVersion = "2019-05-01"
+      name       = azurerm_logic_app_workflow.event_notification[0].name
+      location   = azurerm_resource_group.main[0].location
+      properties = {
+        state      = "Enabled"
+        definition = jsondecode(file(var.logic_app_definition_file)).definition
+      }
+    }]
+  })
+
+  depends_on = [azurerm_logic_app_workflow.event_notification]
 }
 
 # Logic App trigger - HTTP Request
@@ -273,6 +304,8 @@ resource "azurerm_logic_app_trigger_http_request" "event_trigger" {
       action    = { type = "string" }
     }
   })
+
+  depends_on = [azurerm_resource_group_template_deployment.logic_app_definition]
 }
 
 # ==============================================================================

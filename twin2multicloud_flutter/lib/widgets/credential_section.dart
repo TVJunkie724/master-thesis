@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:io' show Platform, Process;
 import '../providers/twins_provider.dart';
 import '../utils/file_reader.dart';
+import '../config/docs_config.dart';
 
 class CredentialField {
   final String name;
@@ -287,7 +288,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
   String _getSchemaExample() {
     switch (widget.provider) {
       case 'aws':
-        return '{\n  "aws": {\n    "aws_access_key_id": "XXXX...",\n    "aws_secret_access_key": "...",\n    "aws_session_token": "OPTIONAL",\n    "aws_region": "eu-central-1"\n  }\n}';
+        return '{\n  "aws": {\n    "aws_access_key_id": "XXXX...",\n    "aws_secret_access_key": "...",\n    "aws_session_token": "OPTIONAL",\n    "aws_region": "eu-central-1",\n    "aws_sso_region": "us-east-1"\n  }\n}';
       case 'azure':
         return '{\n  "azure": {\n    "azure_subscription_id": "...",\n    "azure_client_id": "...",\n    "azure_client_secret": "...",\n    "azure_tenant_id": "...",\n    "azure_region": "westeurope"\n  }\n}';
       case 'gcp':
@@ -364,35 +365,18 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
   }
   
   void _openDocLink(String target) async {
-    // Documentation URLs per provider
-    const optimizerBase = 'http://localhost:5003/documentation/';
-    const deployerBase = 'http://localhost:5004/documentation/';
+    // Use centralized documentation URLs
+    final url = target == 'optimizer'
+        ? DocsConfig.getOptimizerDocsUrl(widget.provider)
+        : DocsConfig.getDeployerDocsUrl(widget.provider);
     
-    final Map<String, Map<String, String>> docUrls = {
-      'aws': {
-        'optimizer': '${optimizerBase}docs-credentials-aws.html',
-        'deployer': '${deployerBase}docs-credentials-aws.html',
-      },
-      'azure': {
-        'optimizer': '${optimizerBase}docs-credentials-azure.html',
-        'deployer': '${deployerBase}docs-credentials-azure.html',
-      },
-      'gcp': {
-        'optimizer': '${optimizerBase}docs-credentials-gcp.html',
-        'deployer': '${deployerBase}docs-credentials-gcp.html',
-      },
-    };
-    
-    final url = docUrls[widget.provider]?[target];
-    if (url != null) {
-      // On Windows desktop, use Process.run as fallback
-      if (Platform.isWindows) {
-        await Process.run('cmd', ['/c', 'start', '', url]);
-      } else {
-        final uri = Uri.parse(url);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
+    // On Windows desktop, use Process.run as fallback
+    if (Platform.isWindows) {
+      await Process.run('cmd', ['/c', 'start', '', url]);
+    } else {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
     }
   }

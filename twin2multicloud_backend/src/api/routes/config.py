@@ -77,6 +77,7 @@ async def update_config(
         config.aws_access_key_id = encrypt(update.aws.access_key_id, current_user.id, twin_id)
         config.aws_secret_access_key = encrypt(update.aws.secret_access_key, current_user.id, twin_id)
         config.aws_region = update.aws.region
+        config.aws_sso_region = update.aws.sso_region  # SSO may be in different region
         if update.aws.session_token:
             config.aws_session_token = encrypt(update.aws.session_token, current_user.id, twin_id)
         else:

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
 import 'step1_configuration.dart';
 import 'step2_optimizer.dart';
+import 'step3_deployer.dart';
 import '../../providers/twins_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../models/wizard_cache.dart';
@@ -63,6 +64,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           if (config['aws_configured'] == true) {
             _cache.awsCredentials = {
               'region': config['aws_region']?.toString() ?? 'eu-central-1',
+              'sso_region': config['aws_sso_region']?.toString() ?? '',
               'access_key_id': '', // Secrets hidden by backend
               'secret_access_key': '',
               'session_token': '',
@@ -151,6 +153,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           'access_key_id': _cache.awsCredentials['access_key_id'],
           'secret_access_key': _cache.awsCredentials['secret_access_key'],
           'region': _cache.awsCredentials['region'] ?? 'eu-central-1',
+          'sso_region': _cache.awsCredentials['sso_region'],
         };
         if (_cache.awsCredentials['session_token']?.isNotEmpty == true) {
           awsConfig['session_token'] = _cache.awsCredentials['session_token']!;
@@ -495,7 +498,24 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           onCacheChanged: () => setState(() {}),
         );
       case 2:
-        return const Center(child: Text('Step 3: Deployer (Sprint 4)'));
+        return Step3Deployer(
+          twinId: _activeTwinId,
+          cache: _cache,
+          isSaving: _isSaving,
+          onBack: () => setState(() => _currentStep = 1),
+          onSaveDraft: _saveDraftToDatabase,
+          onCacheChanged: () => setState(() {}),
+          onFinish: () async {
+            // Save and navigate to dashboard on finish
+            final saved = await _saveDraftToDatabase();
+            if (saved && mounted) {
+              _cache.step3Complete = true;
+              _cache.clear();
+              ref.invalidate(twinsProvider);
+              context.go('/dashboard');
+            }
+          },
+        );
       default:
         return const SizedBox();
     }

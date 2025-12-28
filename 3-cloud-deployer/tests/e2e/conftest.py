@@ -670,9 +670,11 @@ def multicloud_e2e_project_path(template_project_path, multicloud_e2e_test_id):
     """
     Create multi-cloud E2E test project in a FIXED directory.
     
-    Uses a fixed path (/tmp/multicloud-e2e/) instead of pytest temp directories
+    Uses a subdirectory next to the test file (tests/e2e/multicloud/e2e_state/)
     to ensure Terraform state persists across test runs. This is important because
     the digital_twin_name is hardcoded, so resources in the cloud stay the same.
+    
+    This path is within the Docker-mounted volume (/app/) so it survives container restarts.
     
     Provider configuration (ALL cross-cloud):
     - L1: google (Pub/Sub)
@@ -683,8 +685,9 @@ def multicloud_e2e_project_path(template_project_path, multicloud_e2e_test_id):
     - L4: azure (Digital Twins)
     - L5: aws (Grafana)
     """
-    # Use FIXED directory for consistent state across runs
-    fixed_base_dir = Path("/tmp/multicloud-e2e")
+    # Use FIXED directory next to test file for consistent state across runs
+    # This maps to /app/tests/e2e/multicloud/e2e_state/ in Docker
+    fixed_base_dir = Path(__file__).parent / "multicloud" / "e2e_state"
     project_path = fixed_base_dir / multicloud_e2e_test_id
     
     # Create or reuse directory

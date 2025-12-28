@@ -154,6 +154,12 @@ variable "aws_region" {
   default     = "eu-central-1"
 }
 
+variable "aws_sso_region" {
+  description = "AWS region where IAM Identity Center (SSO) is enabled. Defaults to aws_region if not specified. SSO is region-specific and may be in a different region (e.g., us-east-1)."
+  type        = string
+  default     = ""
+}
+
 # ==============================================================================
 # L5 Grafana User (Required when layer_5_provider=aws or azure)
 # ==============================================================================
@@ -235,6 +241,12 @@ variable "trigger_notification_workflow" {
   description = "Enable notification workflows (Logic Apps/Step Functions)"
   type        = bool
   default     = false  # Disabled by default for testing
+}
+
+variable "logic_app_definition_file" {
+  description = "Path to the Logic App workflow definition JSON file (set by tfvars_generator.py)"
+  type        = string
+  default     = ""  # Set dynamically based on project path
 }
 
 variable "use_event_checking" {

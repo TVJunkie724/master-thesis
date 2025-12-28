@@ -186,6 +186,12 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
                     defaultValue: widget.cache.awsCredentials['region'] ?? '',
                   ),
                   CredentialField(
+                    name: 'sso_region', 
+                    label: 'SSO Region (if different)', 
+                    required: false,
+                    defaultValue: widget.cache.awsCredentials['sso_region'] ?? '',
+                  ),
+                  CredentialField(
                     name: 'session_token', 
                     label: 'Session Token', 
                     obscure: true, 

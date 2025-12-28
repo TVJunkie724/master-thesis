@@ -736,7 +736,153 @@ return {
 
 ---
 
+## 15. Automated IAM Identity Center (SSO) Setup via SDK
+
+> [!NOTE]
+> Research completed December 2024. Implementation deferred pending priority assessment.
+
+### Status: Research Complete, Not Implemented
+
+### Background
+
+AWS Managed Grafana requires IAM Identity Center (SSO) to be enabled. Currently, users must enable this manually via the AWS Console before deploying L5 Grafana on AWS. However, the AWS SDK (`boto3`) supports programmatic instance creation via the `sso-admin` client.
+
+### Research Findings
+
+**SDK API Available:**
+
+```python
+import boto3
+
+# Create SSO-Admin client in desired region
+client = boto3.client('sso-admin', region_name='eu-central-1')
+
+# Create IAM Identity Center instance
+try:
+    response = client.create_instance(
+        Name='digital-twin-deployer',  # Optional friendly name
+        Tags=[
+            {'Key': 'ManagedBy', 'Value': 'terraform'},
+            {'Key': 'Application', 'Value': 'digital-twin-deployer'}
+        ]
+    )
+    instance_arn = response['InstanceArn']
+    print(f"Created SSO instance: {instance_arn}")
+except client.exceptions.ConflictException:
+    # Instance already exists - this is fine
+    print("IAM Identity Center already enabled")
+except client.exceptions.AccessDeniedException:
+    print("ERROR: Insufficient permissions to create SSO instance")
+```
+
+**Key Constraints:**
+- Only **ONE** instance allowed per AWS account
+- Instance is **region-specific** (cannot be moved, only deleted and recreated)
+- Terraform cannot create instances - only AWS SDK/CLI can
+- If instance exists in different region, SDK cannot detect or use it
+
+### Proposed Implementation
+
+#### 1. Pre-Deployment Check (Python)
+
+Add to `src/validation/aws_checks.py`:
+
+```python
+def ensure_sso_enabled(region: str, credentials: dict) -> tuple[bool, str]:
+    """
+    Ensure IAM Identity Center is enabled in the specified region.
+    
+    Returns:
+        tuple: (success, identity_store_id or error_message)
+    """
+    import boto3
+    
+    client = boto3.client(
+        'sso-admin',
+        region_name=region,
+        aws_access_key_id=credentials['aws_access_key_id'],
+        aws_secret_access_key=credentials['aws_secret_access_key']
+    )
+    
+    # Check if instance exists
+    response = client.list_instances()
+    if response['Instances']:
+        instance = response['Instances'][0]
+        return True, instance['IdentityStoreId']
+    
+    # Try to create instance
+    try:
+        response = client.create_instance(Name='digital-twin-sso')
+        # Wait for creation and get identity store ID
+        return True, response['IdentityStoreId']
+    except client.exceptions.AccessDeniedException:
+        return False, "Insufficient permissions to create IAM Identity Center"
+    except Exception as e:
+        return False, f"Failed to create SSO instance: {e}"
+```
+
+#### 2. Integration Point
+
+Call from `src/providers/aws/validator.py` before Terraform runs:
+
+```python
+if layer_5_provider == "aws":
+    success, result = ensure_sso_enabled(
+        region=credentials['aws_sso_region'] or credentials['aws_region'],
+        credentials=credentials
+    )
+    if not success:
+        raise ValidationError(f"Cannot enable AWS Grafana: {result}")
+```
+
+### Required IAM Permissions
+
+Add to the deployer IAM policy (`docs/references/aws_policy.json`):
+
+```json
+{
+    "Effect": "Allow",
+    "Action": [
+        "sso:CreateInstance",
+        "sso:ListInstances",
+        "sso:DescribeInstance"
+    ],
+    "Resource": "*"
+}
+```
+
+### Edge Cases
+
+| Scenario | Behavior |
+|----------|----------|
+| No instance exists | Create new instance in `aws_sso_region` |
+| Instance exists in same region | Use existing (return identity_store_id) |
+| Instance exists in different region | **Cannot detect** - SDK only sees current region |
+| Insufficient permissions | Clear error message, user must create manually |
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/validation/aws_checks.py` | Add `ensure_sso_enabled()` function |
+| `src/providers/aws/validator.py` | Call SSO check before Terraform |
+| `docs/references/aws_policy.json` | Add SSO permissions |
+| `docs/docs-credentials-aws.html` | Update to explain auto-creation |
+
+### Complexity Assessment
+
+| Aspect | Effort |
+|--------|--------|
+| SDK implementation | Low |
+| Integration with validator | Low |
+| IAM policy update | Low |
+| Documentation update | Low |
+| Error handling for region mismatch | Medium |
+| **Total** | **~0.5 day** |
+
+---
+
 ## Notes
 
-- **Priority**: GCP Simulator > L0 Optimization > SDK validation > N-User Grafana > Security enhancements
+- **Priority**: GCP Simulator > L0 Optimization > SDK validation > N-User Grafana > SSO Automation > Security enhancements
 - **Timeline**: To be determined based on thesis requirements

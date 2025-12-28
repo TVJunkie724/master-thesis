@@ -48,7 +48,7 @@
     }
   },
   "functions": {
-    "requestPrice": 0.0000002,
+    "requestPrice": 0.19999999999999998,
     "durationPrice": 1.6e-05,
     "freeRequests": 1000000,
     "freeComputeTime": 400000
@@ -74,9 +74,9 @@
     "dataRetrievalPrice": 0.024
   },
   "azureDigitalTwins": {
-    "messagePrice": 0.0013,
-    "operationPrice": 0.00325,
-    "queryPrice": 0.00065,
+    "messagePrice": 0.001,
+    "operationPrice": 0.0025,
+    "queryPrice": 0.0005,
     "queryUnitTiers": [
       {
         "lower": 1,

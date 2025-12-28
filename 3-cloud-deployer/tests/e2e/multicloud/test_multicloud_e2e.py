@@ -95,32 +95,62 @@ class TestMultiCloudE2E:
             pytest.fail(f"Credentials loading failed: {e}")
         
         # ==========================================
-        # PHASE 2: Validate All Cloud Credentials
+        # PHASE 0: Validate All Cloud Credentials (Fail-Fast)
         # ==========================================
-        print("\n[VALIDATION] Phase 2: Multi-Cloud Credentials")
+        print("\n[VALIDATION] Phase 0: Multi-Cloud Credential Handshake")
         
-        # Validate GCP
-        gcp_creds = credentials.get("gcp")
-        if not gcp_creds:
-            pytest.fail("No GCP credentials found")
-        print("  ✓ GCP credentials present")
+        # AWS check
+        try:
+            from api.credentials_checker import check_aws_credentials
+            aws_result = check_aws_credentials(credentials.get("aws", {}))
+            if aws_result["status"] == "error":
+                pytest.fail(f"AWS credentials validation failed: {aws_result['message']}")
+            elif aws_result["status"] == "invalid":
+                print(f"  ⚠ AWS warning: {aws_result['message']}")
+            else:
+                print(f"  ✓ AWS credentials validated (Account: {aws_result.get('caller_identity', {}).get('account_id', 'N/A')})")
+        except ImportError:
+            print("  ⚠ boto3 not installed, skipping AWS credential check")
         
-        # Validate Azure
-        azure_creds = credentials.get("azure")
-        if not azure_creds:
-            pytest.fail("No Azure credentials found")
-        print("  ✓ Azure credentials present")
+        # Azure check
+        try:
+            from azure.identity import ClientSecretCredential
+            from azure.mgmt.resource import ResourceManagementClient
+            
+            azure_creds_check = credentials.get("azure", {})
+            credential = ClientSecretCredential(
+                tenant_id=azure_creds_check.get("azure_tenant_id"),
+                client_id=azure_creds_check.get("azure_client_id"),
+                client_secret=azure_creds_check.get("azure_client_secret")
+            )
+            resource_client = ResourceManagementClient(
+                credential,
+                azure_creds_check.get("azure_subscription_id")
+            )
+            resource_client.providers.get("Microsoft.Resources")
+            print(f"  ✓ Azure credentials validated (Subscription: {azure_creds_check.get('azure_subscription_id', 'N/A')[:8]}...)")
+        except ImportError:
+            print("  ⚠ azure-mgmt-resource not installed, skipping Azure check")
+        except Exception as e:
+            pytest.fail(f"Azure credentials validation failed: {e}")
         
-        # Validate AWS
-        aws_creds = credentials.get("aws")
-        if not aws_creds:
-            pytest.fail("No AWS credentials found")
-        print("  ✓ AWS credentials present")
+        # GCP check
+        try:
+            from api.gcp_credentials_checker import check_gcp_credentials
+            gcp_result = check_gcp_credentials(credentials.get("gcp", {}))
+            if gcp_result["status"] == "error":
+                pytest.fail(f"GCP credentials validation failed: {gcp_result['message']}")
+            elif gcp_result["status"] == "invalid":
+                print(f"  ⚠ GCP warning: {gcp_result['message']}")
+            else:
+                print(f"  ✓ GCP credentials validated (Project: {gcp_result.get('caller_identity', {}).get('project_id', 'N/A')})")
+        except ImportError:
+            print("  ⚠ google-auth not installed, skipping GCP check")
         
         # ==========================================
-        # PHASE 3: Initialize Terraform Strategy
+        # PHASE 1: Initialize Terraform Strategy
         # ==========================================
-        print("\n[VALIDATION] Phase 3: Terraform Initialization")
+        print("\n[VALIDATION] Phase 1: Terraform Initialization")
         
         strategy = TerraformDeployerStrategy(
             terraform_dir=str(terraform_dir),
@@ -130,11 +160,12 @@ class TestMultiCloudE2E:
         print(f"    - Terraform dir: {terraform_dir}")
         print(f"    - Project path: {project_path}")
         
-        # Create context
+        # Create context with credentials for post-deployment SDK operations
         context = DeploymentContext(
             project_name=config.digital_twin_name,
             project_path=project_path,
-            config=config
+            config=config,
+            credentials=credentials,  # CRITICAL: Required for IoT device registration, etc.
         )
         
         # Track deployment status
@@ -166,7 +197,7 @@ class TestMultiCloudE2E:
         # request.addfinalizer(terraform_cleanup)
         
         # ==========================================
-        # PHASE 4: Terraform Deployment
+        # PHASE 2: Terraform Deployment
         # ==========================================
         print("\n" + "="*60)
         print("  TERRAFORM DEPLOYMENT (MULTI-CLOUD)")

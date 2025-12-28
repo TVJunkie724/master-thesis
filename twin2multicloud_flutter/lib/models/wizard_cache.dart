@@ -111,10 +111,14 @@ class WizardCache {
   Map<String, String?>? pricingTimestamps;
   
   // ============================================================
-  // Step 3: Deployer Data (Future)
+  // Step 3: Deployer Data
   // ============================================================
   
-  // Reserved for Sprint 4
+  /// Deployer configuration (will hold file contents in future)
+  Map<String, dynamic>? deployerConfig;
+  
+  /// True when Step 3 is complete (user clicked Finish Configuration)
+  bool step3Complete = false;
   
   // ============================================================
   // State Tracking
@@ -155,6 +159,10 @@ class WizardCache {
     calcResultRaw = null;
     pricingSnapshots = null;
     pricingTimestamps = null;
+    
+    // Step 3
+    deployerConfig = null;
+    step3Complete = false;
     
     // State
     hasUnsavedChanges = false;

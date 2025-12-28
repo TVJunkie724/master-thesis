@@ -7,6 +7,7 @@ class AWSCredentials(BaseModel):
     access_key_id: str = Field(..., min_length=16, max_length=128)
     secret_access_key: str = Field(..., min_length=16)
     region: str = Field(default="eu-central-1")
+    sso_region: Optional[str] = None  # If SSO is in different region than main resources
     session_token: Optional[str] = None  # OPTIONAL - for temporary credentials (STS/SSO)
 
 
@@ -55,6 +56,7 @@ class TwinConfigResponse(BaseModel):
     aws_configured: bool
     aws_validated: bool
     aws_region: Optional[str] = None
+    aws_sso_region: Optional[str] = None
     azure_configured: bool
     azure_validated: bool
     azure_region: Optional[str] = None  # NEW
@@ -75,6 +77,7 @@ class TwinConfigResponse(BaseModel):
             aws_configured=bool(config.aws_access_key_id),
             aws_validated=config.aws_validated,
             aws_region=config.aws_region,
+            aws_sso_region=getattr(config, 'aws_sso_region', None),
             azure_configured=bool(config.azure_subscription_id),
             azure_validated=config.azure_validated,
             azure_region=getattr(config, 'azure_region', None),  # NEW

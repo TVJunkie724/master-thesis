@@ -376,6 +376,25 @@ output "aws_grafana_login_instructions" {
   ]) : null
 }
 
+output "aws_sso_available" {
+  description = "Whether IAM Identity Center was detected in the SSO region"
+  value       = local.l5_aws_enabled ? local.sso_available : null
+}
+
+output "aws_grafana_sso_warning" {
+  description = "Warning if SSO not available and admin user couldn't be created"
+  value = local.l5_aws_enabled && var.grafana_admin_email != "" && !local.sso_available ? join("\n", [
+    "========== WARNING: AWS Grafana Admin Not Created ==========",
+    "IAM Identity Center not detected in region: ${var.aws_sso_region != "" ? var.aws_sso_region : var.aws_region}",
+    "",
+    "SOLUTION: Set aws_sso_region to the region where your SSO is enabled.",
+    "Check: Go to IAM Identity Center console and note the region in the info box.",
+    "",
+    "Grafana workspace was still created. Add yourself manually via AWS Console.",
+    "============================================================"
+  ]) : null
+}
+
 # ==============================================================================
 # GCP Setup Outputs
 # ==============================================================================

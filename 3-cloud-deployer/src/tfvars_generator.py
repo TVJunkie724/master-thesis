@@ -113,6 +113,15 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
         "scene_assets_path": scene_assets_path,
     })
     
+    # Logic App definition file path (for Azure notification workflows)
+    logic_app_path = project_dir / "state_machines" / "azure_logic_app.json"
+    if logic_app_path.exists():
+        tfvars["logic_app_definition_file"] = str(logic_app_path)
+        logger.info(f"  Logic App definition: {logic_app_path}")
+    else:
+        # Fall back to empty string - terraform will use default or skip if not needed
+        tfvars["logic_app_definition_file"] = ""
+    
     # Build Azure function ZIPs if Azure is used as a provider
     tfvars.update(_build_azure_function_zips(project_dir, providers, optimization_flags))
     
@@ -433,12 +442,8 @@ def _load_credentials(project_dir: Path) -> dict:
         tfvars["aws_access_key_id"] = aws["aws_access_key_id"]
         tfvars["aws_secret_access_key"] = aws["aws_secret_access_key"]
         tfvars["aws_region"] = aws["aws_region"]
-        
-        # Grafana admin user (validation done in validation/core.py)
-        if "grafana_admin_email" in aws:
-            tfvars["grafana_admin_email"] = aws["grafana_admin_email"]
-            tfvars["grafana_admin_first_name"] = aws.get("grafana_admin_first_name", "Grafana")
-            tfvars["grafana_admin_last_name"] = aws.get("grafana_admin_last_name", "Admin")
+        # SSO region - may be different from main region (e.g., us-east-1 while resources are in eu-central-1)
+        tfvars["aws_sso_region"] = aws.get("aws_sso_region", "")
     
     # GCP credentials - support dual-mode: project_id (private) OR billing_account (org)
     if "gcp" in creds:

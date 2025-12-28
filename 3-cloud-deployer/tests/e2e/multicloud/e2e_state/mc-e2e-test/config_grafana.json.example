@@ -1,0 +1,9 @@
+{
+  "_comment": "Grafana admin configuration. Required when layer_5_provider is 'aws' or 'azure'.",
+  "_comment_aws": "AWS: User will be created in IAM Identity Center. Check email for activation link.",
+  "_comment_azure": "Azure: Use format 'username@YOUR_TENANT.onmicrosoft.com'",
+  "_comment_azure_note": "Azure: User will be created if not exists. Existing users get role only.",
+  "admin_email": "grafana-admin@YOUR_TENANT.onmicrosoft.com",
+  "admin_first_name": "Grafana",
+  "admin_last_name": "Admin"
+}

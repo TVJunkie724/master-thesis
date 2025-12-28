@@ -1,0 +1,6 @@
+{
+  "connection_string": "HostName=my-iot-hub.azure-devices.net;DeviceId=temperature-sensor-1;SharedAccessKey=abc123xyz789...",
+  "device_id": "temperature-sensor-1",
+  "digital_twin_name": "my-digital-twin",
+  "payload_path": "../payloads.json"
+}

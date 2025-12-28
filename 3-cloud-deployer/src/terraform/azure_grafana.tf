@@ -80,8 +80,8 @@ locals {
   # Extract domain from email
   email_domain = local.azure_grafana_enabled ? split("@", var.grafana_admin_email)[1] : ""
   
-  # Get verified domains from tenant
-  verified_domains = try([for d in data.azuread_domains.tenant[0].domains : d.domain_name if d.verified], [])
+  # Get verified domains from tenant - MUST guard access when L5 != Azure (count=0)
+  verified_domains = var.layer_5_provider == "azure" ? try([for d in data.azuread_domains.tenant[0].domains : d.domain_name if d.verified], []) : []
   
   # Check if email domain is verified in tenant
   domain_is_verified = contains(local.verified_domains, local.email_domain)
@@ -132,10 +132,11 @@ resource "azuread_user" "grafana_admin" {
 
 locals {
   # Final object_id: from existing user OR newly created
-  grafana_admin_object_id = coalesce(
+  # IMPORTANT: Only compute when L5 is Azure, otherwise coalesce() fails with no non-null args
+  grafana_admin_object_id = local.azure_grafana_enabled ? coalesce(
     local.existing_user_object_id,
     try(azuread_user.grafana_admin[0].object_id, null)
-  )
+  ) : null
 }
 
 # Assign Grafana Admin role (with deterministic UUID for idempotency)
