@@ -365,21 +365,21 @@ class ArchitectureLayerBuilder {
     );
   }
 
+  /// System component box - grey style for non-editable components (Dispatcher, IoT Core, etc.)
   Widget _buildComponentBox(BuildContext context, String name, String? provider, IconData icon) {
-    final color = getProviderColor(provider);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: systemColor.withAlpha(15),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withAlpha(120)),
+        border: Border.all(color: systemColor.withAlpha(80)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: color),
+          Icon(icon, size: 16, color: systemColor),
           const SizedBox(width: 8),
-          Text(name, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: color)),
+          Text(name, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: systemColor)),
         ],
       ),
     );
@@ -476,36 +476,28 @@ class ArchitectureLayerBuilder {
           Icon(Icons.swap_horiz, size: 14, color: glueColor),
           const SizedBox(width: 6),
           Text(name, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: glueColor)),
-          const SizedBox(width: 6),
-          _buildProviderChipSmall(provider),
         ],
       ),
     );
   }
 
-  /// Compact glue box for tight layouts - just icon and provider chip
+  /// Compact glue box for tight layouts
   Widget _buildGlueComponentBoxCompact(String name, String? provider) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          decoration: BoxDecoration(
-            color: glueColor.withAlpha(20),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: glueColor.withAlpha(100)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.swap_horiz, size: 12, color: glueColor),
-              const SizedBox(width: 4),
-              _buildProviderChipSmall(provider),
-            ],
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(name, style: TextStyle(fontSize: 8, color: glueColor)),
-      ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: glueColor.withAlpha(20),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: glueColor.withAlpha(100)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.swap_horiz, size: 12, color: glueColor),
+          const SizedBox(width: 4),
+          Text(name, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w500, color: glueColor)),
+        ],
+      ),
     );
   }
 
