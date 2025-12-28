@@ -37,6 +37,11 @@ class ApiService {
     return response.data;
   }
   
+  Future<Map<String, dynamic>> getDashboardStats() async {
+    final response = await _dio.get('/dashboard/stats');
+    return response.data;
+  }
+  
   Future<Map<String, dynamic>> getTwin(String twinId) async {
     final response = await _dio.get('/twins/$twinId');
     return response.data;

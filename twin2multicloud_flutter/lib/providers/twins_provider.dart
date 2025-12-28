@@ -11,3 +11,9 @@ final twinsProvider = FutureProvider<List<Twin>>((ref) async {
   final data = await api.getTwins();
   return data.map((json) => Twin.fromJson(json as Map<String, dynamic>)).toList();
 });
+
+/// Dashboard statistics provider
+final dashboardStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final api = ref.read(apiServiceProvider);
+  return await api.getDashboardStats();
+});

@@ -41,14 +41,7 @@ class DashboardScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Stat cards row
-                Row(
-                  children: const [
-                    StatCard(title: 'Deployed', value: '3', icon: Icons.cloud_done),
-                    StatCard(title: 'Est. Cost', value: '\$142/mo', icon: Icons.attach_money),
-                    StatCard(title: 'Devices', value: '347', icon: Icons.devices),
-                    StatCard(title: 'Errors', value: '0', icon: Icons.error_outline),
-                  ],
-                ),
+                _buildStatsRow(ref),
                 const SizedBox(height: 32),
                 
                 // Twins list header
@@ -96,6 +89,67 @@ class DashboardScreen extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatsRow(WidgetRef ref) {
+    final statsAsync = ref.watch(dashboardStatsProvider);
+    
+    return statsAsync.when(
+      data: (stats) {
+        final deployed = stats['deployed_count'] ?? 0;
+        final draft = stats['draft_count'] ?? 0;
+        final total = stats['total_twins'] ?? 0;
+        final cost = stats['estimated_monthly_cost'] ?? 0.0;
+        
+        // Format cost
+        final costStr = cost > 0 ? '\$${cost.toStringAsFixed(0)}/mo' : '—';
+        
+        return Row(
+          children: [
+            StatCard(
+              title: 'Deployed',
+              value: deployed.toString(),
+              icon: Icons.cloud_done,
+              color: Colors.green,
+            ),
+            StatCard(
+              title: 'Est. Cost',
+              value: costStr,
+              icon: Icons.attach_money,
+              color: Colors.amber,
+              tooltip: 'Static estimate based on optimizer calculations.\nNot live cloud billing data.',
+            ),
+            StatCard(
+              title: 'Total Twins',
+              value: total.toString(),
+              icon: Icons.cloud_queue,
+            ),
+            StatCard(
+              title: 'Draft',
+              value: draft.toString(),
+              icon: Icons.edit_note,
+              color: Colors.orange,
+            ),
+          ],
+        );
+      },
+      loading: () => const Row(
+        children: [
+          StatCard(title: 'Deployed', value: '—', icon: Icons.cloud_done),
+          StatCard(title: 'Est. Cost', value: '—', icon: Icons.attach_money),
+          StatCard(title: 'Total Twins', value: '—', icon: Icons.cloud_queue),
+          StatCard(title: 'Draft', value: '—', icon: Icons.edit_note),
+        ],
+      ),
+      error: (_, __) => const Row(
+        children: [
+          StatCard(title: 'Deployed', value: '?', icon: Icons.cloud_done),
+          StatCard(title: 'Est. Cost', value: '?', icon: Icons.attach_money),
+          StatCard(title: 'Total Twins', value: '?', icon: Icons.cloud_queue),
+          StatCard(title: 'Draft', value: '?', icon: Icons.edit_note),
+        ],
       ),
     );
   }
@@ -249,11 +303,12 @@ class DashboardScreen extends ConsumerWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
-                icon: const Icon(Icons.visibility, size: 20),
-                onPressed: () {},
-                tooltip: 'View',
-              ),
+              if (twin.state != 'draft')
+                IconButton(
+                  icon: const Icon(Icons.visibility, size: 20),
+                  onPressed: () {},
+                  tooltip: 'View',
+                ),
               IconButton(
                 icon: const Icon(Icons.edit, size: 20),
                 onPressed: () => context.go('/wizard/${twin.id}'),
