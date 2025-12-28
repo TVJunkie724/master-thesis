@@ -32,7 +32,7 @@ class WizardCache {
   String? twinName;
   
   /// Debug mode flag
-  bool debugMode = false;
+  bool debugMode = true;
   
   /// AWS credentials (access_key_id, secret_access_key, region, session_token)
   Map<String, String> awsCredentials = {};
@@ -137,7 +137,7 @@ class WizardCache {
   void clear() {
     // Step 1
     twinName = null;
-    debugMode = false;
+    debugMode = true;
     awsCredentials = {};
     azureCredentials = {};
     gcpCredentials = {};

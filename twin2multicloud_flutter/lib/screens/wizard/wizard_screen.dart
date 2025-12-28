@@ -73,7 +73,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           // Parse Azure - mark as valid AND inherited if configured
           if (config['azure_configured'] == true) {
             _cache.azureCredentials = {
-              'region': config['azure_region']?.toString() ?? 'westeurope',
+              'region': config['azure_region']?.toString() ?? '',
               'subscription_id': '',
               'client_id': '',
               'client_secret': '',
@@ -86,7 +86,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           if (config['gcp_configured'] == true) {
             _cache.gcpCredentials = {
               'project_id': config['gcp_project_id']?.toString() ?? '',
-              'region': config['gcp_region']?.toString() ?? 'europe-west1',
+              'region': config['gcp_region']?.toString() ?? '',
               'billing_account': '',
             };
             _cache.markGcpInherited(); // Mark as inherited from DB
@@ -166,7 +166,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           'client_id': _cache.azureCredentials['client_id'],
           'client_secret': _cache.azureCredentials['client_secret'],
           'tenant_id': _cache.azureCredentials['tenant_id'],
-          'region': _cache.azureCredentials['region'] ?? 'westeurope',
+          'region': _cache.azureCredentials['region'] ?? '',
         };
       }
       
@@ -178,7 +178,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
         configData['gcp'] = {
           'project_id': _cache.gcpCredentials['project_id'],
           'billing_account': _cache.gcpCredentials['billing_account'],
-          'region': _cache.gcpCredentials['region'] ?? 'europe-west1',
+          'region': _cache.gcpCredentials['region'] ?? '',
           'service_account_json': _cache.gcpServiceAccountJson,
         };
       }

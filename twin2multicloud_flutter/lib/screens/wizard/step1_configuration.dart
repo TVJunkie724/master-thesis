@@ -183,7 +183,7 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
                   CredentialField(
                     name: 'region', 
                     label: 'Region', 
-                    defaultValue: widget.cache.awsCredentials['region'] ?? 'eu-central-1',
+                    defaultValue: widget.cache.awsCredentials['region'] ?? '',
                   ),
                   CredentialField(
                     name: 'session_token', 
@@ -242,7 +242,7 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
                   CredentialField(
                     name: 'region', 
                     label: 'Region', 
-                    defaultValue: widget.cache.azureCredentials['region'] ?? 'westeurope',
+                    defaultValue: widget.cache.azureCredentials['region'] ?? '',
                   ),
                 ],
               ),
@@ -291,7 +291,7 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
                   CredentialField(
                     name: 'region', 
                     label: 'Region', 
-                    defaultValue: widget.cache.gcpCredentials['region'] ?? 'europe-west1',
+                    defaultValue: widget.cache.gcpCredentials['region'] ?? '',
                   ),
                 ],
                 supportsJsonUpload: true,
