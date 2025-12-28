@@ -77,6 +77,10 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     if (widget.cache.calcParams != null) {
       _params = widget.cache.calcParams;
       _loadingConfig = false;
+      // If results already exist in cache, start with clean state
+      if (widget.cache.calcResult != null) {
+        _isDirty = false;
+      }
     } else if (widget.twinId != null) {
       _loadOptimizerConfig();
     } else {
@@ -112,7 +116,15 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     } catch (e) {
       debugPrint('Failed to load optimizer config: $e');
     } finally {
-      if (mounted) setState(() => _loadingConfig = false);
+      if (mounted) {
+        setState(() {
+          _loadingConfig = false;
+          // If we loaded results, start with clean state
+          if (widget.cache.calcResult != null) {
+            _isDirty = false;
+          }
+        });
+      }
     }
   }
 
@@ -668,6 +680,9 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                      style: TextStyle(color: Colors.grey.shade500, fontStyle: FontStyle.italic),
                   ),
                 ),
+                    ], // End of Column children
+                  ), // End of Column (inside AnimatedOpacity)
+                ), // End of AnimatedOpacity
               ],
 
               const SizedBox(height: 64),
