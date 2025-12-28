@@ -336,29 +336,25 @@ class ArchitectureLayerBuilder {
       ),
       child: Column(
         children: [
-          // Layer header
+          // Layer header: title left, provider right
           Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
-                child: Text(layer, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+              // Left: Layer badge + title
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
+                    child: Text(layer, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: color, fontSize: 14)),
+                ],
               ),
-              const SizedBox(width: 10),
-              Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: color, fontSize: 14)),
-              if (isEditable) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                  decoration: BoxDecoration(color: editableColor, borderRadius: BorderRadius.circular(3)),
-                  child: const Text('EDIT', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
-                ),
-              ],
-              if (!isStorage && provider != null) ...[
-                const SizedBox(width: 8),
-                _buildProviderChip(provider),
-              ],
+              // Right: Provider chip
+              if (!isStorage && provider != null) _buildProviderChip(provider),
             ],
           ),
           const SizedBox(height: 14),
