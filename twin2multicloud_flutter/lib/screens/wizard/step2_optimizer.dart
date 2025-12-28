@@ -389,10 +389,14 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                   onChanged: (params) {
                     setState(() {
                       _params = params;
-                      _isDirty = true;  // Inputs changed - enable button, grey out results
+                      _isDirty = true;  // Inputs changed - results are now invalid
                     });
-                    // Sync to cache so changes persist when navigating
+                    // Sync params to cache
                     widget.cache.calcParams = params;
+                    // Clear results since they no longer match inputs
+                    // This ensures Save Draft won't persist stale results
+                    widget.cache.calcResult = null;
+                    widget.cache.calcResultRaw = null;
                     widget.cache.markDirty();
                     widget.onCacheChanged();
                   },
@@ -447,42 +451,10 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                 ),
               ),
 
-              // Results Section
+              // Results Section - only shown when results exist and are current
               if (_result != null) ...[
                 const SizedBox(height: 64),
                 
-                // Dirty State Banner - shown when inputs changed since last calculation
-                if (_isDirty) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.amber.shade300),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.info_outline, color: Colors.amber.shade700),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Inputs have changed since the last calculation. Click "Calculate" to update results.',
-                            style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.w500),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                
-                // Results content with opacity (dimmed when dirty)
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 200),
-                  opacity: _isDirty ? 0.5 : 1.0,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
                 // Header with Total Cost Summary on the right
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -680,9 +652,6 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                      style: TextStyle(color: Colors.grey.shade500, fontStyle: FontStyle.italic),
                   ),
                 ),
-                    ], // End of Column children
-                  ), // End of Column (inside AnimatedOpacity)
-                ), // End of AnimatedOpacity
               ],
 
               const SizedBox(height: 64),
@@ -738,7 +707,8 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
             ),
             const SizedBox(width: 16),
             ElevatedButton.icon(
-              onPressed: _result != null ? widget.onNext : null,
+              // Only enable Next when results exist AND are current (not dirty)
+              onPressed: (_result != null && !_isDirty) ? widget.onNext : null,
               icon: const Icon(Icons.arrow_forward),
               label: const Text('Next Step'),
             ),
