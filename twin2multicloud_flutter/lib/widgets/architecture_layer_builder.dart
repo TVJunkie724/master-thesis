@@ -476,6 +476,12 @@ class ArchitectureLayerBuilder {
           Icon(Icons.swap_horiz, size: 14, color: glueColor),
           const SizedBox(width: 6),
           Text(name, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: glueColor)),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(color: glueColor, borderRadius: BorderRadius.circular(3)),
+            child: const Text('GLUE', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+          ),
         ],
       ),
     );
@@ -496,6 +502,12 @@ class ArchitectureLayerBuilder {
           Icon(Icons.swap_horiz, size: 12, color: glueColor),
           const SizedBox(width: 4),
           Text(name, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w500, color: glueColor)),
+          const SizedBox(width: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+            decoration: BoxDecoration(color: glueColor, borderRadius: BorderRadius.circular(2)),
+            child: const Text('GLUE', style: TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold)),
+          ),
         ],
       ),
     );
