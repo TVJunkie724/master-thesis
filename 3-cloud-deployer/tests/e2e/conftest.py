@@ -167,20 +167,38 @@ def azure_terraform_e2e_test_id():
 
 
 @pytest.fixture(scope="session")
-def azure_terraform_e2e_project_path(template_project_path, azure_terraform_e2e_test_id, tmp_path_factory):
+def azure_terraform_e2e_project_path(template_project_path, azure_terraform_e2e_test_id):
     """
-    Create a unique temporary E2E test project for Azure Terraform deployment.
+    Create or reuse Azure Terraform E2E test project in a FIXED directory.
+    
+    Uses e2e_persistence_temp directory to ensure Terraform state persists across
+    test runs. This is critical for:
+    - Cost savings: rerunning tests only updates changed resources
+    - State consistency: terraform can detect drift and apply incremental changes
+    - Faster iterations: no need to recreate all infrastructure
     
     Configures all layers to use Azure.
     """
-    # Create temp directory for E2E project
-    temp_dir = tmp_path_factory.mktemp("azure_terraform_e2e")
-    project_path = temp_dir / azure_terraform_e2e_test_id
+    # Use FIXED directory at repo root for consistent state across runs
+    # The state is at /app/e2e_persistence_temp (NOT /app/tests/e2e_persistence_temp)
+    fixed_base_dir = Path("/app/e2e_persistence_temp/azure_terraform_e2e")
+    fixed_base_dir.mkdir(parents=True, exist_ok=True)
     
-    # Copy template project
-    shutil.copytree(template_project_path, project_path)
+    # Check for existing project with same ID (pytest originally named it azure_terraform_e2e0)
+    test_id_dir = fixed_base_dir / "azure_terraform_e2e0"
+    project_path = test_id_dir / azure_terraform_e2e_test_id
     
-    # Modify config.json with unique twin name
+    if project_path.exists():
+        # Reuse existing directory (preserves terraform state)
+        print(f"\n[AZURE TERRAFORM E2E] Reusing existing project: {project_path}")
+        print(f"[AZURE TERRAFORM E2E] Terraform state will be preserved")
+    else:
+        # Fresh copy from template
+        test_id_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(template_project_path, project_path)
+        print(f"\n[AZURE TERRAFORM E2E] Created NEW test project: {project_path}")
+    
+    # Always update config.json with unique twin name
     config_path = project_path / "config.json"
     with open(config_path, "r") as f:
         config = json.load(f)
@@ -188,7 +206,7 @@ def azure_terraform_e2e_project_path(template_project_path, azure_terraform_e2e_
     with open(config_path, "w") as f:
         json.dump(config, f, indent=2)
     
-    # Modify config_providers.json to all-Azure
+    # Always update config_providers.json to all-Azure
     providers_path = project_path / "config_providers.json"
     providers = {
         "layer_1_provider": "azure",
@@ -202,13 +220,13 @@ def azure_terraform_e2e_project_path(template_project_path, azure_terraform_e2e_
     with open(providers_path, "w") as f:
         json.dump(providers, f, indent=2)
     
-    print(f"\n[AZURE TERRAFORM E2E] Created unique test project: {project_path}")
     print(f"[AZURE TERRAFORM E2E] Digital twin name: {azure_terraform_e2e_test_id}")
     
     yield str(project_path)
     
-    # Cleanup temp directory
-    print(f"\n[AZURE TERRAFORM E2E] Cleaning up temp project: {project_path}")
+    # NOTE: No cleanup - keep project for state persistence
+    print(f"\n[AZURE TERRAFORM E2E] Project retained at: {project_path}")
+
 
 @pytest.fixture(scope="session")
 def e2e_project_path(template_project_path, e2e_test_id, tmp_path_factory):
