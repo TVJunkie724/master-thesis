@@ -230,7 +230,7 @@ class ArchitectureLayerBuilder {
           Column(
             children: [
               if (hasCrossFromL2) ...[
-                _buildGlueComponentBox('Hot Writer', layers['L3_hot']),
+                _buildGlueComponentBox('Hot Writer', layers['L3_hot'], showProviderBadge: true),
                 _buildArrow(small: true),
               ],
               _buildStorageBox('Hot', _getL3HotService(layers['L3_hot']), layers['L3_hot']),
@@ -252,7 +252,7 @@ class ArchitectureLayerBuilder {
                     const SizedBox(width: 8),
                     Column(
                       children: [
-                        _buildGlueComponentBox('Hot Reader', layers['L3_hot']),
+                        _buildGlueComponentBox('Hot Reader', layers['L3_hot'], showProviderBadge: true),
                         const SizedBox(height: 4),
                         Text('to L4/L5', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
                       ],
@@ -462,7 +462,7 @@ class ArchitectureLayerBuilder {
     );
   }
 
-  Widget _buildGlueComponentBox(String name, String? provider) {
+  Widget _buildGlueComponentBox(String name, String? provider, {bool showProviderBadge = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -482,6 +482,10 @@ class ArchitectureLayerBuilder {
             decoration: BoxDecoration(color: glueColor, borderRadius: BorderRadius.circular(3)),
             child: const Text('GLUE', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
           ),
+          if (showProviderBadge && provider != null) ...[
+            const SizedBox(width: 4),
+            _buildProviderChipSmall(provider),
+          ],
         ],
       ),
     );
