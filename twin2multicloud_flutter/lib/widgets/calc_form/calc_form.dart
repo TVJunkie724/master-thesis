@@ -102,16 +102,16 @@ class _CalcFormState extends State<CalcForm> {
           needs3D: false,
           entities: 0,
           modelSize: 100.0,
-          refreshesPerHour: 2,
-          editors: 0,
-          viewers: 2,
-          activeHours: 12,
+          refreshesPerHour: 12,
+          editors: 2,
+          viewers: 0,
+          activeHours: 1,
           eventChecking: true,
           eventsPerMsg: 1,
           notification: true,
-          orchestrationActions: 1,
+          orchestrationActions: 3,
           feedback: true,
-          eventActions: 3,
+          eventActions: 1,
           errorHandling: false,
         );
       }
@@ -174,6 +174,7 @@ class _CalcFormState extends State<CalcForm> {
     required bool feedback,
     required int eventActions,
     required bool errorHandling,
+    int apiCallsPerRefresh = 1,
   }) {
     setState(() {
       _rebuildKey++; // Force form rebuild to update text fields
@@ -199,6 +200,7 @@ class _CalcFormState extends State<CalcForm> {
       _returnFeedbackToDevice = feedback;
       _numberOfEventActions = eventActions;
       _integrateErrorHandling = errorHandling;
+      _apiCallsPerDashboardRefresh = apiCallsPerRefresh;
     });
     _updateParams();
   }
@@ -318,16 +320,16 @@ class _CalcFormState extends State<CalcForm> {
                   needs3D: false,
                   entities: 0,
                   modelSize: 100.0,
-                  refreshesPerHour: 2,
-                  editors: 0,
-                  viewers: 2,
-                  activeHours: 12,
+                  refreshesPerHour: 12,
+                  editors: 2,
+                  viewers: 0,
+                  activeHours: 1,
                   eventChecking: true,
                   eventsPerMsg: 1,
                   notification: true,
-                  orchestrationActions: 1,
+                  orchestrationActions: 3,
                   feedback: true,
-                  eventActions: 3,
+                  eventActions: 1,
                   errorHandling: false,
                 ),
               ),
@@ -350,17 +352,18 @@ class _CalcFormState extends State<CalcForm> {
                   needs3D: false,
                   entities: 0,
                   modelSize: 100.0,
-                  refreshesPerHour: 25,
-                  editors: 10,
-                  viewers: 60,
-                  activeHours: 16,
+                  refreshesPerHour: 60,
+                  editors: 25,
+                  viewers: 10,
+                  activeHours: 4,
                   eventChecking: true,
                   eventsPerMsg: 1,
                   notification: true,
-                  orchestrationActions: 2,
+                  orchestrationActions: 5,
                   feedback: true,
-                  eventActions: 5,
+                  eventActions: 2,
                   errorHandling: true,
+                  apiCallsPerRefresh: 10,
                 ),
               ),
               _buildPresetCard(
@@ -382,17 +385,18 @@ class _CalcFormState extends State<CalcForm> {
                   needs3D: true,
                   entities: 1200,
                   modelSize: 100.0,
-                  refreshesPerHour: 100,
-                  editors: 50,
-                  viewers: 120,
-                  activeHours: 24,
+                  refreshesPerHour: 120,
+                  editors: 100,
+                  viewers: 300,
+                  activeHours: 8,
                   eventChecking: true,
                   eventsPerMsg: 5,
                   notification: true,
-                  orchestrationActions: 5,
+                  orchestrationActions: 10,
                   feedback: true,
-                  eventActions: 10,
+                  eventActions: 5,
                   errorHandling: true,
+                  apiCallsPerRefresh: 100,
                 ),
               ),
             ],
@@ -540,6 +544,7 @@ class _CalcFormState extends State<CalcForm> {
               label: 'Number of IoT Devices',
               value: _numberOfDevices,
               min: 1,
+              tooltip: 'The total number of IoT devices connecting to the system. Directly impacts ingestion and connection costs.',
               onChanged: (v) {
                 setState(() {
                   _numberOfDevices = v;
@@ -553,6 +558,7 @@ class _CalcFormState extends State<CalcForm> {
               label: 'Sending Interval (minutes)',
               value: _deviceSendingIntervalInMinutes,
               min: 0.1,
+              tooltip: 'How often each device sends a message (in minutes). Lower intervals mean more messages and higher processing costs.',
               onChanged: (v) {
                 setState(() {
                   _deviceSendingIntervalInMinutes = v;
@@ -566,6 +572,7 @@ class _CalcFormState extends State<CalcForm> {
               label: 'Average Message Size (KB)',
               value: _averageSizeOfMessageInKb,
               min: 0.01,
+              tooltip: 'The average size of each telemetry message in Kilobytes. Larger messages increase storage and transfer costs.',
               onChanged: (v) {
                 setState(() {
                   _averageSizeOfMessageInKb = v;
@@ -579,6 +586,7 @@ class _CalcFormState extends State<CalcForm> {
               label: 'Number of Device Types',
               value: _numberOfDeviceTypes,
               min: 1,
+              tooltip: 'Number of distinct device types. Each type requires a separate processor function for data transformation.',
               onChanged: (v) {
                 setState(() {
                   _numberOfDeviceTypes = v;
@@ -599,13 +607,20 @@ class _CalcFormState extends State<CalcForm> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Event Checking
-            SwitchListTile(
-              title: const Text('Enable Event Checking'),
+            // Event Checking - master toggle that controls dependent options
+            _buildSwitchWithTooltip(
+              title: 'Enable Event Checking',
+              tooltip: 'If enabled, incoming messages are checked against defined rules to trigger alerts. Adds processing cost.',
               value: _useEventChecking,
               onChanged: (v) {
                 setState(() {
                   _useEventChecking = v;
+                  // Reset dependent toggles when event checking is disabled
+                  // (matches original ui.js toggleEventsInput behavior)
+                  if (!v) {
+                    _triggerNotificationWorkflow = false;
+                    _returnFeedbackToDevice = false;
+                  }
                   _selectedPreset = null;
                 });
                 _updateParams();
@@ -618,6 +633,7 @@ class _CalcFormState extends State<CalcForm> {
                   label: 'Events per Message',
                   value: _eventsPerMessage,
                   min: 1,
+                  tooltip: 'The average number of event rules evaluated per message. More rules = higher compute cost.',
                   onChanged: (v) {
                     setState(() {
                       _eventsPerMessage = v;
@@ -628,81 +644,83 @@ class _CalcFormState extends State<CalcForm> {
                 ),
               ),
 
-            const Divider(),
+            // Only show dependent options when event checking is enabled
+            // (matches original ui.js - these are hidden, not just disabled)
+            if (_useEventChecking) ...[
+              const Divider(),
 
-            // Notification Workflow
-            SwitchListTile(
-              title: const Text('Trigger Notification Workflow'),
-              value: _triggerNotificationWorkflow,
-              onChanged: (v) {
-                setState(() {
-                  _triggerNotificationWorkflow = v;
-                  _selectedPreset = null;
-                });
-                _updateParams();
-              },
-            ),
-            if (_triggerNotificationWorkflow)
-              Padding(
-                padding: const EdgeInsets.only(left: 16),
-                child: _buildNumberInput(
-                  label: 'Orchestration Actions per Message',
-                  value: _orchestrationActionsPerMessage,
-                  min: 1,
-                  onChanged: (v) {
-                    setState(() {
-                      _orchestrationActionsPerMessage = v;
-                      _selectedPreset = null;
-                    });
-                    _updateParams();
-                  },
-                ),
+              // Notification Workflow - requires event checking
+              _buildSwitchWithTooltip(
+                title: 'Trigger Notification Workflow',
+                tooltip: 'If enabled, specific events trigger a multi-step workflow (e.g., sending an email, updating a ticket).',
+                value: _triggerNotificationWorkflow,
+                onChanged: (v) {
+                  setState(() {
+                    _triggerNotificationWorkflow = v;
+                    _selectedPreset = null;
+                  });
+                  _updateParams();
+                },
               ),
-
-            const Divider(),
-
-            // Feedback to Device
-            SwitchListTile(
-              title: const Text('Return Feedback to Device'),
-              value: _returnFeedbackToDevice,
-              onChanged: (v) {
-                setState(() {
-                  _returnFeedbackToDevice = v;
-                  _selectedPreset = null;
-                });
-                _updateParams();
-              },
-            ),
-            if (_returnFeedbackToDevice)
-              Padding(
-                padding: const EdgeInsets.only(left: 16),
-                child: _buildNumberInput(
-                  label: 'Number of Event Actions',
-                  value: _numberOfEventActions,
-                  min: 0,
-                  onChanged: (v) {
-                    setState(() {
-                      _numberOfEventActions = v;
-                      _selectedPreset = null;
-                    });
-                    _updateParams();
-                  },
+              if (_triggerNotificationWorkflow)
+                Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: _buildNumberInput(
+                    label: 'Orchestration Actions per Message',
+                    value: _orchestrationActionsPerMessage,
+                    min: 1,
+                    tooltip: 'The number of steps in the orchestration workflow. More steps increase orchestration costs.',
+                    onChanged: (v) {
+                      setState(() {
+                        _orchestrationActionsPerMessage = v;
+                        _selectedPreset = null;
+                      });
+                      _updateParams();
+                    },
+                  ),
                 ),
+
+              const Divider(),
+
+              // Feedback to Device - requires event checking
+              _buildSwitchWithTooltip(
+                title: 'Return Feedback to Device',
+                tooltip: 'If enabled, the system sends a confirmation or command back to the device after processing. Increases egress traffic.',
+                value: _returnFeedbackToDevice,
+                onChanged: (v) {
+                  setState(() {
+                    _returnFeedbackToDevice = v;
+                    _selectedPreset = null;
+                  });
+                  _updateParams();
+                },
               ),
+              if (_returnFeedbackToDevice)
+                Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: _buildNumberInput(
+                    label: 'Number of Event Actions',
+                    value: _numberOfEventActions,
+                    min: 0,
+                    tooltip: 'Number of custom event action handlers from config_events.json. Each action is a separate serverless function.',
+                    onChanged: (v) {
+                      setState(() {
+                        _numberOfEventActions = v;
+                        _selectedPreset = null;
+                      });
+                      _updateParams();
+                    },
+                  ),
+                ),
+            ],
 
             const Divider(),
 
-            // Error Handling
-            SwitchListTile(
-              title: const Text('Integrate Error Handling'),
-              value: _integrateErrorHandling,
-              onChanged: (v) {
-                setState(() {
-                  _integrateErrorHandling = v;
-                  _selectedPreset = null;
-                });
-                _updateParams();
-              },
+            // Error Handling - NOT IMPLEMENTED (matches original index.html TODO comment)
+            // Always disabled with "Not Implemented" badge (like GCP self-hosted options)
+            _buildDisabledSwitchWithBadge(
+              title: 'Integrate Error Handling',
+              tooltip: 'If enabled, adds robust error handling logic to workflows. Increases reliability but adds slight overhead.',
             ),
           ],
         ),
@@ -722,6 +740,7 @@ class _CalcFormState extends State<CalcForm> {
               min: 1,
               max: 12,
               suffix: 'months',
+              tooltip: 'How long data is kept in high-speed storage (e.g., DynamoDB). Expensive but fast access.',
               onChanged: (v) {
                 setState(() {
                   _hotStorageDurationInMonths = v;
@@ -737,6 +756,7 @@ class _CalcFormState extends State<CalcForm> {
               min: 1,
               max: 24,
               suffix: 'months',
+              tooltip: 'How long data is kept in cost-effective storage (e.g., S3 IA). Cheaper than hot storage.',
               onChanged: (v) {
                 setState(() {
                   _coolStorageDurationInMonths = v;
@@ -752,6 +772,7 @@ class _CalcFormState extends State<CalcForm> {
               min: 6,
               max: 36,
               suffix: 'months',
+              tooltip: 'How long data is kept in long-term archive storage (e.g., Glacier). Lowest cost, slow retrieval.',
               onChanged: (v) {
                 setState(() {
                   _archiveStorageDurationInMonths = v;
@@ -794,8 +815,9 @@ class _CalcFormState extends State<CalcForm> {
         child: Column(
           children: [
             // 3D Model Toggle
-            SwitchListTile(
-              title: const Text('Is a 3D Model Necessary?'),
+            _buildSwitchWithTooltip(
+              title: 'Is a 3D Model Necessary?',
+              tooltip: 'Does your use case require a 3D visual representation of the assets?',
               value: _needs3DModel,
               onChanged: (v) {
                 setState(() {
@@ -811,6 +833,7 @@ class _CalcFormState extends State<CalcForm> {
                 label: 'Number of 3D Entities',
                 value: _entityCount,
                 min: 0,
+                tooltip: 'The number of distinct 3D objects or components in your digital twin scene.',
                 onChanged: (v) {
                   setState(() {
                     _entityCount = v;
@@ -824,6 +847,7 @@ class _CalcFormState extends State<CalcForm> {
                 label: 'Average 3D Model Size (MB)',
                 value: _average3DModelSizeInMB,
                 min: 0.1,
+                tooltip: 'The average file size of each 3D model asset in Megabytes. Used to calculate storage costs.',
                 onChanged: (v) {
                   setState(() {
                     _average3DModelSizeInMB = v;
@@ -837,26 +861,9 @@ class _CalcFormState extends State<CalcForm> {
             const Divider(),
 
             // GCP Self-Hosted L4 (disabled)
-            ListTile(
-              title: const Text('Allow GCP Self-Hosted L4'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'Not Implemented',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Switch(value: false, onChanged: null),
-                ],
-              ),
+            _buildDisabledSwitchWithBadge(
+              title: 'Allow GCP Self-Hosted L4',
+              tooltip: 'GCP lacks a managed Twin service like AWS TwinMaker or Azure Digital Twins. Self-hosted Compute Engine option is not yet implemented.',
             ),
           ],
         ),
@@ -874,6 +881,7 @@ class _CalcFormState extends State<CalcForm> {
               label: 'Dashboard Refreshes per Hour',
               value: _dashboardRefreshesPerHour,
               min: 0,
+              tooltip: 'How many times per hour the dashboard data is updated. Frequent updates increase API costs.',
               onChanged: (v) {
                 setState(() {
                   _dashboardRefreshesPerHour = v;
@@ -887,6 +895,7 @@ class _CalcFormState extends State<CalcForm> {
               label: 'API Calls per Dashboard Refresh',
               value: _apiCallsPerDashboardRefresh,
               min: 1,
+              tooltip: 'Number of backend API calls made each time the dashboard refreshes. Depends on dashboard complexity.',
               onChanged: (v) {
                 setState(() {
                   _apiCallsPerDashboardRefresh = v;
@@ -902,6 +911,7 @@ class _CalcFormState extends State<CalcForm> {
               min: 0,
               max: 24,
               suffix: 'hours',
+              tooltip: 'The number of hours per day the dashboard is actively being viewed by operators.',
               onChanged: (v) {
                 setState(() {
                   _dashboardActiveHoursPerDay = v;
@@ -915,6 +925,7 @@ class _CalcFormState extends State<CalcForm> {
               label: 'Monthly Active Editors',
               value: _amountOfActiveEditors,
               min: 0,
+              tooltip: 'Number of users who can create or edit dashboards. Usually incurs a higher license fee.',
               onChanged: (v) {
                 setState(() {
                   _amountOfActiveEditors = v;
@@ -928,6 +939,7 @@ class _CalcFormState extends State<CalcForm> {
               label: 'Monthly Active Viewers',
               value: _amountOfActiveViewers,
               min: 0,
+              tooltip: 'Number of users who only view dashboards.',
               onChanged: (v) {
                 setState(() {
                   _amountOfActiveViewers = v;
@@ -940,29 +952,109 @@ class _CalcFormState extends State<CalcForm> {
             const Divider(),
 
             // GCP Self-Hosted L5 (disabled)
-            ListTile(
-              title: const Text('Allow GCP Self-Hosted L5'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'Not Implemented',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Switch(value: false, onChanged: null),
-                ],
-              ),
+            _buildDisabledSwitchWithBadge(
+              title: 'Allow GCP Self-Hosted L5',
+              tooltip: 'GCP lacks a managed Grafana service. Self-hosted Grafana on Compute Engine option is not yet implemented.',
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Helper to build a label with an optional info tooltip icon
+  Widget _buildLabelWithTooltip(String label, {String? tooltip}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(child: Text(label)),
+        if (tooltip != null) ...[
+          const SizedBox(width: 4),
+          Tooltip(
+            message: tooltip,
+            child: Icon(
+              Icons.info_outline,
+              size: 16,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Helper to build a SwitchListTile with an info tooltip icon
+  Widget _buildSwitchWithTooltip({
+    required String title,
+    required bool value,
+    required void Function(bool) onChanged,
+    String? tooltip,
+  }) {
+    return SwitchListTile(
+      title: Row(
+        children: [
+          Text(title),
+          if (tooltip != null) ...[
+            const SizedBox(width: 4),
+            Tooltip(
+              message: tooltip,
+              child: Icon(
+                Icons.info_outline,
+                size: 16,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ],
+        ],
+      ),
+      value: value,
+      onChanged: onChanged,
+    );
+  }
+
+  /// Helper to build a disabled switch with "Not Implemented" badge and tooltip
+  Widget _buildDisabledSwitchWithBadge({
+    required String title,
+    String? tooltip,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ListTile(
+      title: Row(
+        children: [
+          Text(title),
+          if (tooltip != null) ...[
+            const SizedBox(width: 4),
+            Tooltip(
+              message: tooltip,
+              child: Icon(
+                Icons.info_outline,
+                size: 16,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+            ),
+          ],
+        ],
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey[800] : Colors.grey[200],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              'Not Implemented',
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Switch(value: false, onChanged: null),
+        ],
       ),
     );
   }
@@ -972,12 +1064,13 @@ class _CalcFormState extends State<CalcForm> {
     required int value,
     required int min,
     required void Function(int) onChanged,
+    String? tooltip,
   }) {
     return Row(
       children: [
         Expanded(
           flex: 2,
-          child: Text(label),
+          child: _buildLabelWithTooltip(label, tooltip: tooltip),
         ),
         Expanded(
           child: TextFormField(
@@ -1004,12 +1097,13 @@ class _CalcFormState extends State<CalcForm> {
     required double value,
     required double min,
     required void Function(double) onChanged,
+    String? tooltip,
   }) {
     return Row(
       children: [
         Expanded(
           flex: 2,
-          child: Text(label),
+          child: _buildLabelWithTooltip(label, tooltip: tooltip),
         ),
         Expanded(
           child: TextFormField(
@@ -1038,6 +1132,7 @@ class _CalcFormState extends State<CalcForm> {
     required int max,
     required String suffix,
     required void Function(int) onChanged,
+    String? tooltip,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1045,7 +1140,7 @@ class _CalcFormState extends State<CalcForm> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label),
+            _buildLabelWithTooltip(label, tooltip: tooltip),
             Text(
               '$value $suffix',
               style: const TextStyle(fontWeight: FontWeight.bold),
