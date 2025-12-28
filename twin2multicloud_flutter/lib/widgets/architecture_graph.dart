@@ -75,12 +75,10 @@ class _ArchitectureGraphState extends State<ArchitectureGraph> {
               Text('Component architecture', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
               const SizedBox(height: 20),
               
-              // IoT Devices (source)
-              _buildSourceBox('IoT Devices', Icons.sensors),
-              _buildArrow(),
-              
-              // L1 - Data Acquisition
+              // L1 - Data Acquisition (includes IoT Devices)
               _buildLayerCard('L1', 'Data Acquisition', layers['L1'], [
+                _buildEditableSourceBox('IoT Devices', Icons.sensors),
+                _buildArrow(small: true),
                 _buildComponentBox(_getL1Service(layers['L1']), layers['L1'], Icons.router),
                 _buildArrow(small: true),
                 _buildComponentBox('Dispatcher', layers['L1'], Icons.call_split),
@@ -99,16 +97,16 @@ class _ArchitectureGraphState extends State<ArchitectureGraph> {
               _buildL3StorageLayer(layers),
               _buildArrow(),
               
-              // L4 - Twin
+              // L4 - Twin (editable - user uploads 3D scene files)
               _buildLayerCard('L4', 'Digital Twin', layers['L4'], [
-                _buildComponentBox(_getL4Service(layers['L4']), layers['L4'], Icons.hub),
-              ]),
+                _buildEditableComponentBox(_getL4Service(layers['L4']), Icons.hub),
+              ], isEditable: true),
               _buildArrow(),
               
-              // L5 - Visualization
+              // L5 - Visualization (editable - user configures dashboards)
               _buildLayerCard('L5', 'Visualization', layers['L5'], [
-                _buildComponentBox('Grafana', layers['L5'], Icons.dashboard),
-              ]),
+                _buildEditableComponentBox('Grafana', Icons.dashboard),
+              ], isEditable: true),
               
               const SizedBox(height: 16),
               _buildLegend(),
@@ -349,20 +347,33 @@ class _ArchitectureGraphState extends State<ArchitectureGraph> {
 
   // ===== UI BUILDING BLOCKS =====
 
-  Widget _buildSourceBox(String name, IconData icon) {
+  Widget _buildEditableSourceBox(String name, IconData icon) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: editableColor.withAlpha(25),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade400),
+        border: Border.all(color: editableColor, width: 2),
+        boxShadow: [BoxShadow(color: editableColor.withAlpha(30), blurRadius: 6, offset: const Offset(0, 2))],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 20, color: Colors.grey.shade700),
+          Icon(icon, size: 20, color: editableColor),
           const SizedBox(width: 10),
-          Text(name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey.shade800)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: editableColor)),
+              Text('Upload payload', style: TextStyle(fontSize: 10, color: editableColor.withAlpha(180))),
+            ],
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(color: editableColor, borderRadius: BorderRadius.circular(3)),
+            child: const Text('EDIT', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+          ),
         ],
       ),
     );
