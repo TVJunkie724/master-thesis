@@ -12,6 +12,8 @@ class LayerCostCard extends StatelessWidget {
   final List<String> cheapestPath;
   final String? infoTitle;
   final String? infoBody;
+  /// If true, hides the GCP row (used for L4/L5 where GCP is not implemented)
+  final bool hideGcp;
 
   const LayerCostCard({
     super.key,
@@ -22,6 +24,7 @@ class LayerCostCard extends StatelessWidget {
     required this.cheapestPath,
     this.infoTitle,
     this.infoBody,
+    this.hideGcp = false,
   });
 
   @override
@@ -136,14 +139,17 @@ class LayerCostCard extends StatelessWidget {
               AppColors.azure,
               selectedProvider?.toUpperCase() == 'AZURE',
             ),
-            const SizedBox(height: AppSpacing.sm),
-            _buildProviderRow(
-              context, 
-              'GCP', 
-              gcpLayer?.cost, 
-              AppColors.gcp,
-              selectedProvider?.toUpperCase() == 'GCP',
-            ),
+            // Only show GCP row if not hidden (L4/L5 has GCP not implemented)
+            if (!hideGcp) ...[
+              const SizedBox(height: AppSpacing.sm),
+              _buildProviderRow(
+                context, 
+                'GCP', 
+                gcpLayer?.cost, 
+                AppColors.gcp,
+                selectedProvider?.toUpperCase() == 'GCP',
+              ),
+            ],
           ],
         ),
       ),
@@ -190,8 +196,11 @@ class LayerCostCard extends StatelessWidget {
                 _buildInfoSection(ctx, 'AWS', awsLayer, AppColors.aws, selectedProvider?.toUpperCase() == 'AWS'),
                 const SizedBox(height: AppSpacing.md),
                 _buildInfoSection(ctx, 'Azure', azureLayer, AppColors.azure, selectedProvider?.toUpperCase() == 'AZURE'),
-                const SizedBox(height: AppSpacing.md),
-                _buildInfoSection(ctx, 'GCP', gcpLayer, AppColors.gcp, selectedProvider?.toUpperCase() == 'GCP'),
+                // Only show GCP section if not hidden
+                if (!hideGcp) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _buildInfoSection(ctx, 'GCP', gcpLayer, AppColors.gcp, selectedProvider?.toUpperCase() == 'GCP'),
+                ],
               ],
             ),
           ),

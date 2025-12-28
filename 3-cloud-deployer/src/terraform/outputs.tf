@@ -81,6 +81,11 @@ output "azure_user_functions_app_name" {
   value       = try(azurerm_linux_function_app.user[0].name, null)
 }
 
+output "azure_dispatcher_url" {
+  description = "URL of the Azure L2 dispatcher function"
+  value       = try("https://${azurerm_linux_function_app.l2[0].default_hostname}/api/dispatcher", null)
+}
+
 # ==============================================================================
 # Azure L3 Storage Outputs
 # ==============================================================================
@@ -103,6 +108,11 @@ output "azure_l3_function_app_name" {
 output "azure_l3_hot_reader_url" {
   description = "URL of the L3 Hot Reader function"
   value       = try("https://${azurerm_linux_function_app.l3[0].default_hostname}/api/hot-reader", null)
+}
+
+output "azure_archive_storage_account" {
+  description = "Name of the Azure archive storage account"
+  value       = try(azurerm_storage_account.main[0].name, null)
 }
 
 # ==============================================================================

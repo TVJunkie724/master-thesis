@@ -589,8 +589,9 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                         layer: 'L4 - Twin Management',
                         awsLayer: _result!.awsCosts.l4,
                         azureLayer: _result!.azureCosts.l4,
-                        gcpLayer: _result!.gcpCosts.l4, // GCP often null here
+                        gcpLayer: _result!.gcpCosts.l4,
                         cheapestPath: _result!.cheapestPath,
+                        hideGcp: true, // GCP self-hosted L4 not implemented
                       ),
                     ),
                     SizedBox(
@@ -601,6 +602,7 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                         azureLayer: _result!.azureCosts.l5,
                         gcpLayer: _result!.gcpCosts.l5,
                         cheapestPath: _result!.cheapestPath,
+                        hideGcp: true, // GCP self-hosted L5 not implemented
                       ),
                     ),
                   ],
