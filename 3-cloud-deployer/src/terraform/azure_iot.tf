@@ -124,9 +124,13 @@ resource "azurerm_linux_function_app" "l1" {
     # Full Digital Twin configuration - required by dispatcher for routing
     DIGITAL_TWIN_INFO = var.digital_twin_info_json
 
-    # L2 Function App URL - required by dispatcher to call processor
-    # Points to user-functions app where processor functions are deployed
-    FUNCTION_APP_BASE_URL = var.layer_2_provider == "azure" ? "https://${var.digital_twin_name}-user-functions.azurewebsites.net" : ""
+    # L2 Function App URL - required by dispatcher to call processor_wrapper
+    # Points to L2-functions app where processor_wrapper is deployed
+    FUNCTION_APP_BASE_URL = var.layer_2_provider == "azure" ? "https://${var.digital_twin_name}-l2-functions.azurewebsites.net" : ""
+
+    # L2 Function Key - required for Azure→Azure HTTP authentication
+    # processor_wrapper has AuthLevel.FUNCTION so requires this key
+    L2_FUNCTION_KEY = var.layer_2_provider == "azure" ? try(data.azurerm_function_app_host_keys.l2[0].default_function_key, "") : ""
   }
 
   tags = local.common_tags
