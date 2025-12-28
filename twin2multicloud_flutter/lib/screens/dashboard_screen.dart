@@ -17,6 +17,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _sortColumnIndex = 0;
   bool _sortAscending = true;
+  String? _selectedStateFilter; // null means "All"
 
   List<Twin> _sortTwins(List<Twin> twins) {
     final sorted = List<Twin>.from(twins);
@@ -37,6 +38,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       return _sortAscending ? cmp : -cmp;
     });
     return sorted;
+  }
+
+  List<Twin> _filterTwins(List<Twin> twins) {
+    if (_selectedStateFilter == null) return twins;
+    return twins.where((t) => t.state == _selectedStateFilter).toList();
   }
 
   @override
@@ -85,6 +91,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                
+                // State filter chips
+                _buildStateFilterChips(),
                 const SizedBox(height: 16),
                 
                 // Twins table
@@ -119,6 +129,59 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  // State color helper - single source of truth for state colors
+  Color _getStateColor(String? state) {
+    switch (state) {
+      case 'deployed':
+        return Colors.green;
+      case 'configured':
+        return Colors.orange;
+      case 'error':
+        return Colors.red;
+      case 'draft':
+        return Colors.grey;
+      default:
+        return Theme.of(context).colorScheme.primary;
+    }
+  }
+
+  Widget _buildStateFilterChips() {
+    final filters = [
+      (null, 'All'),
+      ('draft', 'Draft'),
+      ('configured', 'Configured'),
+      ('deployed', 'Deployed'),
+      ('error', 'Error'),
+    ];
+    
+    return Wrap(
+      spacing: 8,
+      children: filters.map((filter) {
+        final (value, label) = filter;
+        final isSelected = _selectedStateFilter == value;
+        final color = _getStateColor(value);
+        
+        return FilterChip(
+          label: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : color,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          selected: isSelected,
+          onSelected: (_) {
+            setState(() => _selectedStateFilter = value);
+          },
+          backgroundColor: color.withAlpha(25),
+          selectedColor: color,
+          showCheckmark: false,
+          side: BorderSide(color: color.withAlpha(100)),
+        );
+      }).toList(),
     );
   }
 
@@ -287,7 +350,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             columnSpacing: 24,
             columns: [
               DataColumn(
-                label: const Text('Name'),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Name'),
+                    const SizedBox(width: 4),
+                    Icon(Icons.swap_vert, size: 16, color: Colors.grey.shade500),
+                  ],
+                ),
                 onSort: (columnIndex, ascending) {
                   setState(() {
                     _sortColumnIndex = columnIndex;
@@ -297,7 +367,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               const DataColumn(label: Text('State')),
               DataColumn(
-                label: const Text('Last Updated'),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Last Updated'),
+                    const SizedBox(width: 4),
+                    Icon(Icons.swap_vert, size: 16, color: Colors.grey.shade500),
+                  ],
+                ),
                 onSort: (columnIndex, ascending) {
                   setState(() {
                     _sortColumnIndex = columnIndex;
@@ -308,7 +385,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const DataColumn(label: Text('Last Deploy')),
               const DataColumn(label: Text('Actions')),
             ],
-            rows: _sortTwins(twins).map((twin) => _buildTwinRow(context, ref, twin)).toList(),
+            rows: _sortTwins(_filterTwins(twins)).map((twin) => _buildTwinRow(context, ref, twin)).toList(),
           ),
         ),
       ),
