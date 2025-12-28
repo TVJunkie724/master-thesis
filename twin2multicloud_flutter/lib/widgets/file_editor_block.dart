@@ -39,6 +39,9 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
   bool _isValidating = false;
   bool? _isValid;
   String? _validationMessage;
+  double _editorHeight = 200; // Initial height, resizable
+  static const double _minEditorHeight = 120;
+  static const double _maxEditorHeight = 500;
   
   static const Color editableColor = Color(0xFFD81B60);
   
@@ -217,32 +220,66 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Code editor
+              // Code editor with resize handle
               Expanded(
                 flex: 2,
-                child: Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E1E),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: TextField(
-                    controller: _controller,
-                    maxLines: null,
-                    expands: true,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                      color: Colors.white,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      height: _editorHeight,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1E1E),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                      ),
+                      child: TextField(
+                        controller: _controller,
+                        maxLines: null,
+                        expands: true,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          color: Colors.white,
+                        ),
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.all(12),
+                          border: InputBorder.none,
+                          hintText: 'Paste or upload ${widget.filename}...',
+                          hintStyle: TextStyle(color: Colors.grey.shade500),
+                        ),
+                        onChanged: widget.onContentChanged,
+                      ),
                     ),
-                    decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.all(12),
-                      border: InputBorder.none,
-                      hintText: 'Paste or upload ${widget.filename}...',
-                      hintStyle: TextStyle(color: Colors.grey.shade500),
+                    // Resize handle
+                    GestureDetector(
+                      onVerticalDragUpdate: (details) {
+                        setState(() {
+                          _editorHeight = (_editorHeight + details.delta.dy)
+                              .clamp(_minEditorHeight, _maxEditorHeight);
+                        });
+                      },
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.resizeRow,
+                        child: Container(
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade800,
+                            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
+                          ),
+                          child: Center(
+                            child: Container(
+                              width: 40,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade500,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                    onChanged: widget.onContentChanged,
-                  ),
+                  ],
                 ),
               ),
               
