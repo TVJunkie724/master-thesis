@@ -48,6 +48,7 @@ google-*.json
 **/.terraform.lock.hcl
 **/*.tfstate
 **/*.tfstate.backup
+**/*.tfplan
 **/*.tfvars.json
 **/generated.tfvars.json
 **/.terraform_zips/
