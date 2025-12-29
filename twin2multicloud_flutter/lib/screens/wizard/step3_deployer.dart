@@ -551,14 +551,20 @@ class _Step3DeployerState extends State<Step3Deployer> {
 
   /// Builds a layer row with flowchart on left and editors on right
   Widget _buildLayerRow(BuildContext context, {required bool showFlowchart, required Widget flowchart, required List<Widget> editors}) {
-    // Without flowchart: just editors in a column
+    // Editors column with max width constraint
+    final editorsColumn = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 800),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: editors,
+      ),
+    );
+    
+    // Without flowchart: just editors in a column, centered
     if (!showFlowchart) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: editors,
-        ),
+        child: Center(child: editorsColumn),
       );
     }
     
@@ -572,12 +578,9 @@ class _Step3DeployerState extends State<Step3Deployer> {
           child: flowchart,
         ),
         const SizedBox(width: 32),
-        // Right: File editors
+        // Right: File editors with max width
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: editors,
-          ),
+          child: editorsColumn,
         ),
       ],
     );

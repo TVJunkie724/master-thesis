@@ -243,10 +243,11 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
                         controller: _controller,
                         maxLines: null,
                         expands: true,
-                        style: const TextStyle(
+                        // Don't set color for JSON files - let JsonEditingController handle highlighting
+                        style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 12,
-                          color: Colors.white,
+                          color: _isJsonFile ? null : Colors.white,
                         ),
                         decoration: InputDecoration(
                           contentPadding: const EdgeInsets.all(12),
