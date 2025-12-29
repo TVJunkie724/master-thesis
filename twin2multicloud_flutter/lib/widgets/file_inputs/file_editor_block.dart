@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../utils/file_reader.dart';
+import '../../utils/json_syntax_highlighter.dart';
 
 /// A file editor block for Step 3 configuration files.
 /// 
@@ -47,8 +48,15 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.initialContent ?? '');
+    // Use JSON highlighter for .json files
+    if (_isJsonFile) {
+      _controller = JsonEditingController(text: widget.initialContent ?? '');
+    } else {
+      _controller = TextEditingController(text: widget.initialContent ?? '');
+    }
   }
+  
+  bool get _isJsonFile => widget.filename.endsWith('.json');
   
   @override
   void dispose() {
