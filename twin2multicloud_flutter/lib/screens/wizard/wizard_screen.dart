@@ -468,7 +468,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                             label: const Text('Next Step'),
                           )
                         else
-                          FilledButton.icon(
+                          ElevatedButton.icon(
                             onPressed: () async {
                               final saved = await _saveDraftToDatabase();
                               if (saved && mounted) {
@@ -478,8 +478,12 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                                 context.go('/dashboard');
                               }
                             },
-                            icon: const Icon(Icons.check),
-                            label: const Text('Finish'),
+                            icon: const Icon(Icons.check_circle),
+                            label: const Text('Finish Configuration'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
                           ),
                       ],
                     ),
