@@ -65,6 +65,9 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     super.initState();
     _loadPricingStatus();
     
+    // Register calculate callback for header button
+    widget.cache.onCalculateRequested = _calculate;
+    
     // Load from cache first, then from DB if needed
     if (widget.cache.calcParams != null) {
       _params = widget.cache.calcParams;
@@ -72,6 +75,7 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
       // If results already exist in cache, start with clean state
       if (widget.cache.calcResult != null) {
         _isDirty = false;
+        widget.cache.isCalcDirty = false;
       }
     } else if (widget.twinId != null) {
       _loadOptimizerConfig();
@@ -84,6 +88,7 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
   @override
   void dispose() {
     _sseSubscription?.cancel();
+    widget.cache.onCalculateRequested = null;  // Unregister callback
     super.dispose();
   }
 
@@ -96,14 +101,20 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     
     try {
       final config = await _apiService.getOptimizerConfig(widget.twinId!);
+      debugPrint('[LoadConfig] API response keys: ${config.keys}');
+      debugPrint('[LoadConfig] params=${config['params'] != null}, result=${config['result'] != null}');
       if (config['params'] != null) {
         _params = CalcParams.fromJson(config['params']);
         widget.cache.calcParams = _params;
+        debugPrint('[LoadConfig] Loaded params successfully');
       }
       if (config['result'] != null) {
         // Load result into cache
         widget.cache.calcResult = CalcResult.fromJson({'result': config['result']});
         widget.cache.calcResultRaw = {'result': config['result']};
+        debugPrint('[LoadConfig] Loaded result successfully');
+      } else {
+        debugPrint('[LoadConfig] No result in API response');
       }
     } catch (e) {
       debugPrint('Failed to load optimizer config: $e');
@@ -236,6 +247,8 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     }
     
     setState(() => _isCalculating = true);
+    widget.cache.isCalculating = true;
+    widget.onCacheChanged();
 
     try {
       final response = await _apiService.calculateCosts(_params!.toJson());
@@ -250,11 +263,12 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
       await _cachePricingSnapshots();
       
       widget.cache.markDirty();
-      widget.onCacheChanged();
       
       setState(() {
         _isDirty = false;  // Results now match inputs - disable button
       });
+      widget.cache.isCalcDirty = false;
+      widget.onCacheChanged();
       
     } catch (e) {
       if (mounted) {
@@ -264,6 +278,8 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
       }
     } finally {
       setState(() => _isCalculating = false);
+      widget.cache.isCalculating = false;
+      widget.onCacheChanged();
     }
   }
   
@@ -379,63 +395,16 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                     });
                     // Sync params to cache
                     widget.cache.calcParams = params;
+                    widget.cache.isCalcDirty = true;  // Sync dirty state for header button
                     // Clear results since they no longer match inputs
                     // This ensures Save Draft won't persist stale results
                     widget.cache.calcResult = null;
                     widget.cache.calcResultRaw = null;
                     widget.cache.markDirty();
                     widget.onCacheChanged();
-                  },
                 ),
 
-              const SizedBox(height: 48),
-
-              // Calculate Button - Enhanced with Dirty State Logic
-              // Button is disabled when:
-              // - Calculating in progress
-              // - No params set
-              // - NOT dirty (results are current) AND results exist
-              Center(
-                child: SizedBox(
-                  width: 300, // Wider button
-                  height: 60, // Taller button
-                  child: ElevatedButton.icon(
-                    onPressed: _params != null && !_isCalculating && _isDirty 
-                        ? _calculate 
-                        : null,
-                    icon: _isCalculating
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.calculate, size: 28),
-                    label: Text(
-                      _isCalculating 
-                          ? 'CALCULATING...' 
-                          : (_isDirty ? 'CALCULATE OPTIMAL COST' : 'RESULTS UP TO DATE'),
-                      style: const TextStyle(
-                        fontSize: 18, 
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _isDirty 
-                          ? Theme.of(context).primaryColor 
-                          : Colors.grey,
-                      foregroundColor: Colors.white,
-                      elevation: _isDirty ? 4 : 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              const SizedBox(height: 24),
 
               // Results Section - only shown when results exist and are current
               if (_result != null) ...[

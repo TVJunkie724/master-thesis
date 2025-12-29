@@ -421,6 +421,44 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                       icon: const Icon(Icons.arrow_back),
                       label: Text(_currentStep == 0 ? 'Exit' : 'Back'),
                     ),
+                    // Center: Calculate button (only on Step 2)
+                    if (_currentStep == 1)
+                      ElevatedButton.icon(
+                        onPressed: (_cache.calcParams != null && 
+                                   !_cache.isCalculating && 
+                                   _cache.isCalcDirty &&
+                                   _cache.onCalculateRequested != null)
+                            ? () => _cache.onCalculateRequested?.call()
+                            : null,
+                        icon: _cache.isCalculating
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.calculate, size: 20),
+                        label: Text(
+                          _cache.isCalculating 
+                              ? 'CALCULATING...' 
+                              : (_cache.isCalcDirty ? 'CALCULATE' : 'UP TO DATE'),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _cache.isCalcDirty 
+                              ? Theme.of(context).primaryColor 
+                              : Colors.grey,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        ),
+                      )
+                    else
+                      const SizedBox.shrink(),  // Empty placeholder when not on step 2
                     // Right side buttons
                     Row(
                       children: [

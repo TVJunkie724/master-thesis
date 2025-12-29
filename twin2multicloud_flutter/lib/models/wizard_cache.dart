@@ -110,6 +110,15 @@ class WizardCache {
   /// Pricing timestamps at time of calculation
   Map<String, String?>? pricingTimestamps;
   
+  /// Callback to trigger calculation (set by Step2Optimizer)
+  Future<void> Function()? onCalculateRequested;
+  
+  /// Whether calculation is in progress
+  bool isCalculating = false;
+  
+  /// Whether inputs are dirty (changed since last calculation)
+  bool isCalcDirty = true;
+  
   // ============================================================
   // Step 3: Deployer Data
   // ============================================================
@@ -159,6 +168,9 @@ class WizardCache {
     calcResultRaw = null;
     pricingSnapshots = null;
     pricingTimestamps = null;
+    onCalculateRequested = null;
+    isCalculating = false;
+    isCalcDirty = true;
     
     // Step 3
     deployerConfig = null;
