@@ -1,13 +1,20 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../models/wizard_cache.dart';
 import '../../models/calc_result.dart';
 import '../../widgets/architecture_layer_builder.dart';
-import '../../widgets/file_editor_block.dart';
+import '../../widgets/file_inputs/file_editor_block.dart';
+import '../../widgets/file_inputs/collapsible_section.dart';
+import '../../widgets/file_inputs/zip_upload_block.dart';
+import '../../widgets/file_inputs/config_form_block.dart';
+import '../../widgets/file_inputs/readonly_json_block.dart';
 
 /// Step 3: Deployer Configuration
 /// 
-/// Layer-aligned layout: Each layer row contains the flowchart (left) and 
-/// corresponding file editors (right). Both sides scroll together.
+/// Three collapsible sections:
+/// 1. Quick Upload - Project zip file
+/// 2. Configuration Files - Core deployment config
+/// 3. User Functions & Assets - Layer-aligned file editors
 class Step3Deployer extends StatefulWidget {
   final String? twinId;
   final WizardCache cache;
@@ -33,7 +40,14 @@ class Step3Deployer extends StatefulWidget {
 }
 
 class _Step3DeployerState extends State<Step3Deployer> {
-  // File content state
+  // Section 1: Zip upload state
+  String? _selectedZipPath;
+  
+  // Section 2: Config file content state
+  String _configEventsContent = '';
+  String _configIotDevicesContent = '';
+  
+  // Section 3: User function file content state
   String _payloadsContent = '';
   String _processorsContent = '';
   String _stateMachineContent = '';
@@ -96,162 +110,327 @@ class _Step3DeployerState extends State<Step3Deployer> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
-              _buildHeader(context, showFlowchart),
-              const SizedBox(height: 24),
-
-              // L1 Row
-              _buildLayerRow(
-                context,
-                showFlowchart: showFlowchart,
-                flowchart: layerBuilder.buildL1Layer(context),
-                editors: [
-                  FileEditorBlock(
-                    filename: 'payloads.json',
-                    description: 'IoT device payload schemas',
-                    icon: Icons.data_object,
-                    isHighlighted: true,
-                    constraints: '• Must be valid JSON\n• Define device ID and payload structure',
-                    exampleContent: _payloadsExample,
-                    initialContent: _payloadsContent,
-                    onContentChanged: (content) => setState(() => _payloadsContent = content),
-                    onValidate: (content) => _validateFile('payloads', content),
-                  ),
-                ],
+              // ===== SECTION 1: Quick Upload =====
+              CollapsibleSection(
+                sectionNumber: 1,
+                title: 'Quick Upload',
+                description: 'Upload a complete project zip to auto-fill all fields',
+                icon: Icons.folder_zip,
+                initiallyExpanded: false,
+                child: ZipUploadBlock(
+                  onZipSelected: (path) => setState(() => _selectedZipPath = path),
+                ),
               ),
               
-              if (showFlowchart) _buildArrowRow(),
-
-              // L2 Row
-              _buildLayerRow(
-                context,
-                showFlowchart: showFlowchart,
-                flowchart: layerBuilder.buildL2Layer(context),
-                editors: [
-                  FileEditorBlock(
-                    filename: 'processors/',
-                    description: 'User processor functions',
-                    icon: Icons.code,
-                    isHighlighted: true,
-                    constraints: '• Python files with process() function\n• One file per device type',
-                    exampleContent: _processorsExample,
-                    initialContent: _processorsContent,
-                    onContentChanged: (content) => setState(() => _processorsContent = content),
-                    onValidate: (content) => _validateFile('processors', content),
-                  ),
-                  const SizedBox(height: 16),
-                  FileEditorBlock(
-                    filename: 'state_machine.json',
-                    description: 'State machine definition (for event workflows)',
-                    icon: Icons.account_tree,
-                    isHighlighted: true,
-                    constraints: '• AWS Step Functions / Azure Logic App / GCP Workflow format',
-                    exampleContent: _stateMachineExample,
-                    initialContent: _stateMachineContent,
-                    onContentChanged: (content) => setState(() => _stateMachineContent = content),
-                    onValidate: (content) => _validateFile('state_machine', content),
-                  ),
-                ],
+              // ===== SECTION 2: Configuration Files =====
+              CollapsibleSection(
+                sectionNumber: 2,
+                title: 'Configuration Files',
+                description: 'Core deployment settings and device definitions',
+                icon: Icons.settings,
+                initiallyExpanded: true,
+                child: _buildConfigSection(),
               ),
               
-              if (showFlowchart) _buildArrowRow(),
-
-              // L3 Row
-              _buildLayerRow(
-                context,
-                showFlowchart: showFlowchart,
-                flowchart: layerBuilder.buildL3Layer(context),
-                editors: [
-                  Builder(
-                    builder: (context) {
-                      final isDark = Theme.of(context).brightness == Brightness.dark;
-                      return Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.check_circle, color: Colors.green.shade500, size: 22),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Auto-configured',
-                                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: isDark ? Colors.white : Colors.black87),
-                                  ),
-                                  Text(
-                                    'Storage tiers are automatically provisioned based on the selected providers.',
-                                    style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade600, fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ],
+              // ===== SECTION 3: User Functions & Assets =====
+              CollapsibleSection(
+                sectionNumber: 3,
+                title: 'User Functions & Assets',
+                description: 'Custom processors, workflows, and visualization config',
+                icon: Icons.code,
+                initiallyExpanded: true,
+                child: _buildDataFlowSection(showFlowchart),
               ),
-              
-              if (showFlowchart) _buildArrowRow(),
-
-              // L4 Row
-              _buildLayerRow(
-                context,
-                showFlowchart: showFlowchart,
-                flowchart: layerBuilder.buildL4Layer(context),
-                editors: [
-                  FileEditorBlock(
-                    filename: 'scene_assets/',
-                    description: '3D scene configuration files',
-                    icon: Icons.view_in_ar,
-                    isHighlighted: true,
-                    constraints: '• 3DScenesConfiguration.json for Azure ADT\n• Scene definitions and models',
-                    exampleContent: _sceneAssetsExample,
-                    initialContent: _sceneAssetsContent,
-                    onContentChanged: (content) => setState(() => _sceneAssetsContent = content),
-                    onValidate: (content) => _validateFile('scene_assets', content),
-                  ),
-                ],
-              ),
-              
-              if (showFlowchart) _buildArrowRow(),
-
-              // L5 Row
-              _buildLayerRow(
-                context,
-                showFlowchart: showFlowchart,
-                flowchart: layerBuilder.buildL5Layer(context),
-                editors: [
-                  FileEditorBlock(
-                    filename: 'config_grafana.json',
-                    description: 'Grafana dashboard configuration',
-                    icon: Icons.dashboard,
-                    isHighlighted: true,
-                    constraints: '• Dashboard layout and panels\n• Data source connections',
-                    exampleContent: _grafanaConfigExample,
-                    initialContent: _grafanaConfigContent,
-                    onContentChanged: (content) => setState(() => _grafanaConfigContent = content),
-                    onValidate: (content) => _validateFile('grafana_config', content),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-
-              // Footer
-              _buildFooter(context, showFlowchart),
             ],
           ),
         );
       },
     );
+  }
+  
+  /// Section 2: Configuration files section
+  Widget _buildConfigSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // config.json - Form inputs
+        ConfigFormBlock(
+          onConfigChanged: (config) {
+            // TODO: Store config in cache
+          },
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // config_events.json - Editable
+        FileEditorBlock(
+          filename: 'config_events.json',
+          description: 'Event-driven automation rules',
+          icon: Icons.bolt,
+          isHighlighted: true,
+          constraints: '• JSON array of event conditions\n• Define actions for each condition',
+          exampleContent: _configEventsExample,
+          initialContent: _configEventsContent,
+          onContentChanged: (content) => setState(() => _configEventsContent = content),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // config_iot_devices.json - Editable
+        FileEditorBlock(
+          filename: 'config_iot_devices.json',
+          description: 'IoT device definitions',
+          icon: Icons.sensors,
+          isHighlighted: true,
+          constraints: '• JSON array of device configs\n• Define properties per device',
+          exampleContent: _configIotDevicesExample,
+          initialContent: _configIotDevicesContent,
+          onContentChanged: (content) => setState(() => _configIotDevicesContent = content),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // config_optimization.json - Read-only (from Step 2)
+        ReadOnlyJsonBlock(
+          filename: 'config_optimization.json',
+          description: 'Optimizer calculation results',
+          icon: Icons.calculate,
+          sourceLabel: 'From Step 2',
+          jsonContent: _buildConfigOptimizationJson(),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // config_providers.json - Read-only (from Step 2)  
+        ReadOnlyJsonBlock(
+          filename: 'config_providers.json',
+          description: 'Provider assignments per layer',
+          icon: Icons.cloud,
+          sourceLabel: 'From Step 2',
+          jsonContent: _buildConfigProvidersJson(),
+        ),
+      ],
+    );
+  }
+  
+  /// Section 3: Data flow with layer-aligned file editors
+  Widget _buildDataFlowSection(bool showFlowchart) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        _buildHeader(context, showFlowchart),
+        const SizedBox(height: 24),
+
+        // L1 Row
+        _buildLayerRow(
+          context,
+          showFlowchart: showFlowchart,
+          flowchart: layerBuilder.buildL1Layer(context),
+          editors: [
+            FileEditorBlock(
+              filename: 'payloads.json',
+              description: 'IoT device payload schemas',
+              icon: Icons.data_object,
+              isHighlighted: true,
+              constraints: '• Must be valid JSON\n• Define device ID and payload structure',
+              exampleContent: _payloadsExample,
+              initialContent: _payloadsContent,
+              onContentChanged: (content) => setState(() => _payloadsContent = content),
+              onValidate: (content) => _validateFile('payloads', content),
+            ),
+          ],
+        ),
+        
+        if (showFlowchart) _buildArrowRow(),
+
+        // L2 Row
+        _buildLayerRow(
+          context,
+          showFlowchart: showFlowchart,
+          flowchart: layerBuilder.buildL2Layer(context),
+          editors: [
+            FileEditorBlock(
+              filename: 'processors/',
+              description: 'User processor functions',
+              icon: Icons.code,
+              isHighlighted: true,
+              constraints: '• Python files with process() function\n• One file per device type',
+              exampleContent: _processorsExample,
+              initialContent: _processorsContent,
+              onContentChanged: (content) => setState(() => _processorsContent = content),
+              onValidate: (content) => _validateFile('processors', content),
+            ),
+            const SizedBox(height: 16),
+            FileEditorBlock(
+              filename: 'state_machine.json',
+              description: 'State machine definition (for event workflows)',
+              icon: Icons.account_tree,
+              isHighlighted: true,
+              constraints: '• AWS Step Functions / Azure Logic App / GCP Workflow format',
+              exampleContent: _stateMachineExample,
+              initialContent: _stateMachineContent,
+              onContentChanged: (content) => setState(() => _stateMachineContent = content),
+              onValidate: (content) => _validateFile('state_machine', content),
+            ),
+          ],
+        ),
+        
+        if (showFlowchart) _buildArrowRow(),
+
+        // L3 Row
+        _buildLayerRow(
+          context,
+          showFlowchart: showFlowchart,
+          flowchart: layerBuilder.buildL3Layer(context),
+          editors: [
+            Builder(
+              builder: (context) {
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green.shade500, size: 22),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Auto-configured',
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: isDark ? Colors.white : Colors.black87),
+                            ),
+                            Text(
+                              'Storage tiers are automatically provisioned based on the selected providers.',
+                              style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade600, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        
+        if (showFlowchart) _buildArrowRow(),
+
+        // L4 Row
+        _buildLayerRow(
+          context,
+          showFlowchart: showFlowchart,
+          flowchart: layerBuilder.buildL4Layer(context),
+          editors: [
+            FileEditorBlock(
+              filename: 'scene_assets/',
+              description: '3D scene configuration files',
+              icon: Icons.view_in_ar,
+              isHighlighted: true,
+              constraints: '• 3DScenesConfiguration.json for Azure ADT\n• Scene definitions and models',
+              exampleContent: _sceneAssetsExample,
+              initialContent: _sceneAssetsContent,
+              onContentChanged: (content) => setState(() => _sceneAssetsContent = content),
+              onValidate: (content) => _validateFile('scene_assets', content),
+            ),
+          ],
+        ),
+        
+        if (showFlowchart) _buildArrowRow(),
+
+        // L5 Row
+        _buildLayerRow(
+          context,
+          showFlowchart: showFlowchart,
+          flowchart: layerBuilder.buildL5Layer(context),
+          editors: [
+            FileEditorBlock(
+              filename: 'config_grafana.json',
+              description: 'Grafana dashboard configuration',
+              icon: Icons.dashboard,
+              isHighlighted: true,
+              constraints: '• Dashboard layout and panels\n• Data source connections',
+              exampleContent: _grafanaConfigExample,
+              initialContent: _grafanaConfigContent,
+              onContentChanged: (content) => setState(() => _grafanaConfigContent = content),
+              onValidate: (content) => _validateFile('grafana_config', content),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 24),
+
+        // Footer
+        _buildFooter(context, showFlowchart),
+      ],
+    );
+  }
+  
+  /// Generate config_optimization.json from Step 2 CalcResult
+  String _buildConfigOptimizationJson() {
+    final result = _result;
+    if (result == null) return '// No calculation result';
+    
+    final params = widget.cache.calcParams;
+    final layers = layerBuilder.layerProviders;
+    
+    return const JsonEncoder.withIndent('  ').convert({
+      'result': {
+        // 'calculationResult': {
+        //   'L1': layers['L1'],
+        //   'L2': {
+        //     'Hot': layers['L2'],
+        //     'Cool': layers['L3_cold'],
+        //     'Archive': layers['L3_archive'],
+        //   },
+        //   'L3': layers['L3_hot'],
+        //   'L4': layers['L4'],
+        //   'L5': layers['L5'],
+        // },
+        'inputParamsUsed': {
+          'useEventChecking': params?.useEventChecking ?? false,
+          'triggerNotificationWorkflow': params?.triggerNotificationWorkflow ?? false,
+          'returnFeedbackToDevice': params?.returnFeedbackToDevice ?? false,
+          'integrateErrorHandling': params?.integrateErrorHandling ?? false,
+          'needs3DModel': params?.needs3DModel ?? false,
+        },
+      },
+    });
+  }
+  
+  /// Generate config_providers.json from Step 2 CalcResult
+  String _buildConfigProvidersJson() {
+    final result = _result;
+    if (result == null) return '// No calculation result';
+    
+    final layers = layerBuilder.layerProviders;
+    
+    String providerToString(String? p) {
+      if (p == null) return 'unknown';
+      switch (p.toUpperCase()) {
+        case 'AWS': return 'aws';
+        case 'AZURE': return 'azure';
+        case 'GCP': return 'google';
+        default: return p.toLowerCase();
+      }
+    }
+    
+    return const JsonEncoder.withIndent('  ').convert({
+      'layer_1_provider': providerToString(layers['L1']),
+      'layer_2_provider': providerToString(layers['L2']),
+      'layer_3_hot_provider': providerToString(layers['L3_hot']),
+      'layer_3_cold_provider': providerToString(layers['L3_cold']),
+      'layer_3_archive_provider': providerToString(layers['L3_archive']),
+      'layer_4_provider': providerToString(layers['L4']),
+      'layer_5_provider': providerToString(layers['L5']),
+    });
   }
 
   Widget _buildHeader(BuildContext context, bool showFlowchart) {
@@ -559,4 +738,38 @@ def process(payload: dict) -> dict:
     ]
   }
 }''';
+
+  static const _configEventsExample = '''[
+  {
+    "condition": "entity.temperature-sensor-1.temperature >= 30",
+    "action": {
+      "type": "lambda",
+      "functionName": "high-temperature-callback",
+      "autoDeploy": true,
+      "feedback": {
+        "type": "mqtt",
+        "iotDeviceId": "temperature-sensor-1",
+        "payload": "High Temperature Warning"
+      }
+    }
+  }
+]''';
+
+  static const _configIotDevicesExample = '''[
+  {
+    "id": "temperature-sensor-1",
+    "properties": [
+      {"name": "temperature", "dataType": "DOUBLE", "initValue": 25.0}
+    ],
+    "constProperties": [
+      {"name": "serial-number", "dataType": "STRING", "value": "SN12345"}
+    ]
+  },
+  {
+    "id": "pressure-sensor-1",
+    "properties": [
+      {"name": "pressure", "dataType": "DOUBLE", "initValue": 1000.0}
+    ]
+  }
+]''';
 }
