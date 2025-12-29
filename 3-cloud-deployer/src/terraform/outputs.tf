@@ -391,6 +391,11 @@ output "aws_sso_available" {
   value       = local.l5_aws_enabled ? local.sso_available : null
 }
 
+output "aws_grafana_user_created" {
+  description = "Whether a new Identity Store user was created (true = cleanup should delete it)"
+  value       = local.l5_aws_enabled ? local.aws_should_create_user : null
+}
+
 output "aws_grafana_sso_warning" {
   description = "Warning if SSO not available and admin user couldn't be created"
   value = local.l5_aws_enabled && var.grafana_admin_email != "" && !local.sso_available ? join("\n", [
