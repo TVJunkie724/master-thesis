@@ -19,21 +19,13 @@ import '../../widgets/file_inputs/config_visualization_block.dart';
 class Step3Deployer extends StatefulWidget {
   final String? twinId;
   final WizardCache cache;
-  final bool isSaving;
-  final VoidCallback onBack;
-  final Future<bool> Function() onSaveDraft;
   final VoidCallback onCacheChanged;
-  final VoidCallback onFinish;
 
   const Step3Deployer({
     super.key,
     required this.twinId,
     required this.cache,
-    required this.isSaving,
-    required this.onBack,
-    required this.onSaveDraft,
     required this.onCacheChanged,
-    required this.onFinish,
   });
 
   @override
@@ -83,11 +75,6 @@ class _Step3DeployerState extends State<Step3Deployer> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: _buildNavigationButtons(),
-        ),
-        const Divider(height: 1),
         Expanded(
           child: _result == null
               ? _buildNoResultMessage()
@@ -673,42 +660,10 @@ class _Step3DeployerState extends State<Step3Deployer> {
           Text('No Optimization Result', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
           Text('Please complete Step 2 (Optimizer) first.', style: TextStyle(color: Colors.grey.shade600)),
-          const SizedBox(height: 24),
-          OutlinedButton.icon(onPressed: widget.onBack, icon: const Icon(Icons.arrow_back), label: const Text('Back')),
+          const SizedBox(height: 16),
+          Text('Use the Back button above to return.', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
         ],
       ),
-    );
-  }
-
-  Widget _buildNavigationButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        OutlinedButton.icon(onPressed: widget.onBack, icon: const Icon(Icons.arrow_back), label: const Text('Back')),
-        Row(
-          children: [
-            OutlinedButton.icon(
-              onPressed: widget.isSaving ? null : () async { await widget.onSaveDraft(); },
-              icon: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  widget.isSaving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save),
-                  if (widget.cache.hasUnsavedChanges && !widget.isSaving)
-                    Positioned(right: -4, top: -4, child: Container(width: 10, height: 10, decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle))),
-                ],
-              ),
-              label: const Text('Save Draft'),
-            ),
-            const SizedBox(width: 16),
-            ElevatedButton.icon(
-              onPressed: _result != null ? widget.onFinish : null,
-              icon: const Icon(Icons.check_circle),
-              label: const Text('Finish Configuration'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

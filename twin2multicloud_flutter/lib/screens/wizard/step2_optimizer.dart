@@ -17,20 +17,12 @@ import '../../widgets/results/optimization_warning.dart';
 class Step2Optimizer extends StatefulWidget {
   final String? twinId;  // May be null if twin not yet created
   final WizardCache cache;
-  final bool isSaving;
-  final VoidCallback onNext;
-  final VoidCallback onBack;
-  final Future<bool> Function() onSaveDraft;
   final VoidCallback onCacheChanged;
 
   const Step2Optimizer({
     super.key,
     required this.twinId,
     required this.cache,
-    required this.isSaving,
-    required this.onNext,
-    required this.onBack,
-    required this.onSaveDraft,
     required this.onCacheChanged,
   });
 
@@ -309,12 +301,6 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Top Navigation Buttons
-              _buildNavigationButtons(),
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 24),
-              
               // ============================================================
               // SECTION 1: DATA FRESHNESS
               // ============================================================
@@ -654,67 +640,11 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                 ),
               ],
 
-              const SizedBox(height: 64),
-
-              // Navigation
-              _buildNavigationButtons(),
+              const SizedBox(height: 32),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  /// Navigation buttons - displayed at top and bottom
-  Widget _buildNavigationButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        OutlinedButton.icon(
-          onPressed: widget.onBack,
-          icon: const Icon(Icons.arrow_back),
-          label: const Text('Back'),
-        ),
-        Row(
-          children: [
-            // Save Draft button with unsaved changes indicator
-            OutlinedButton.icon(
-              onPressed: widget.isSaving ? null : () async {
-                await widget.onSaveDraft();
-              },
-              icon: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  widget.isSaving 
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.save),
-                  if (widget.cache.hasUnsavedChanges && !widget.isSaving)
-                    Positioned(
-                      right: -4,
-                      top: -4,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: const BoxDecoration(
-                          color: Colors.orange,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              label: const Text('Save Draft'),
-            ),
-            const SizedBox(width: 16),
-            ElevatedButton.icon(
-              // Only enable Next when results exist AND are current (not dirty)
-              onPressed: (_result != null && !_isDirty) ? widget.onNext : null,
-              icon: const Icon(Icons.arrow_forward),
-              label: const Text('Next Step'),
-            ),
-          ],
-        ),
-      ],
     );
   }
 

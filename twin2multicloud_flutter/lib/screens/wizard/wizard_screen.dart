@@ -189,7 +189,12 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       await api.updateTwinConfig(_activeTwinId!, configData);
       
       // Step 3: Save Step 2 optimizer data (if exists)
+      debugPrint('[SaveDraft] Checking optimizer data: calcResult=${_cache.calcResult != null}, calcResultRaw=${_cache.calcResultRaw != null}');
+      if (_cache.calcResultRaw != null) {
+        debugPrint('[SaveDraft] calcResultRaw keys: ${_cache.calcResultRaw!.keys}');
+      }
       if (_cache.calcResult != null && _cache.calcResultRaw != null) {
+        debugPrint('[SaveDraft] Saving optimizer result...');
         await api.saveOptimizerResult(
           _activeTwinId!,
           params: _cache.calcParams?.toJson() ?? {},
@@ -198,6 +203,9 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           pricingSnapshots: _cache.pricingSnapshots ?? {},
           pricingTimestamps: _cache.pricingTimestamps ?? {},
         );
+        debugPrint('[SaveDraft] Optimizer result saved successfully');
+      } else {
+        debugPrint('[SaveDraft] Skipping optimizer save - no results');
       }
       
       // Mark cache as clean after successful save
@@ -378,6 +386,8 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
             ),
           ),
           _buildStepIndicator(),
+          // Sticky navigation bar
+          _buildNavigationBar(),
           const Divider(height: 1),
           Expanded(
             child: _isLoading 
@@ -387,6 +397,111 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
         ],
       ),
     );
+  }
+  
+  Widget _buildNavigationBar() {
+    return Column(
+      children: [
+        const Divider(height: 1),  // Separator above nav bar
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1000),  // Match content width
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Back button
+                    OutlinedButton.icon(
+                      onPressed: _currentStep == 0 
+                          ? () => _showExitConfirmation(context)
+                          : () => setState(() => _currentStep--),
+                      icon: const Icon(Icons.arrow_back),
+                      label: Text(_currentStep == 0 ? 'Exit' : 'Back'),
+                    ),
+                    // Right side buttons
+                    Row(
+                      children: [
+                        // Save Draft button
+                        OutlinedButton.icon(
+                          onPressed: _isSaving ? null : () async {
+                            await _saveDraftToDatabase();
+                          },
+                          icon: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              _isSaving 
+                                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(Icons.save),
+                              if (_cache.hasUnsavedChanges && !_isSaving)
+                                Positioned(
+                                  right: -4,
+                                  top: -4,
+                                  child: Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.orange,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          label: const Text('Save Draft'),
+                        ),
+                        const SizedBox(width: 16),
+                        // Next/Finish button
+                        if (_currentStep < 2)
+                          FilledButton.icon(
+                            onPressed: _canProceedToNextStep() 
+                                ? () => setState(() {
+                                    _currentStep++;
+                                    if (_highestStepReached < _currentStep) {
+                                      _highestStepReached = _currentStep;
+                                    }
+                                  })
+                                : null,
+                            icon: const Icon(Icons.arrow_forward),
+                            label: const Text('Next Step'),
+                          )
+                        else
+                          FilledButton.icon(
+                            onPressed: () async {
+                              final saved = await _saveDraftToDatabase();
+                              if (saved && mounted) {
+                                _cache.step3Complete = true;
+                                _cache.clear();
+                                ref.invalidate(twinsProvider);
+                                context.go('/dashboard');
+                              }
+                            },
+                            icon: const Icon(Icons.check),
+                            label: const Text('Finish'),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  bool _canProceedToNextStep() {
+    switch (_currentStep) {
+      case 0:
+        return _cache.canProceedToStep2;
+      case 1:
+        return _cache.calcResult != null;
+      default:
+        return true;
+    }
   }
   
   Widget _buildStepIndicator() {
@@ -494,14 +609,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
         return Step1Configuration(
           twinId: _activeTwinId,
           cache: _cache,
-          isSaving: _isSaving,
           nameError: _nameError,
-          onNext: () => setState(() {
-            _currentStep = 1;
-            if (_highestStepReached < 1) _highestStepReached = 1;
-          }),
-          onBack: () => _showExitConfirmation(context),
-          onSaveDraft: _saveDraftToDatabase,
           onCacheChanged: () => setState(() {}),  // Trigger rebuild to update UI
           onNameErrorClear: () => setState(() => _nameError = null),
         );
@@ -509,33 +617,13 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
         return Step2Optimizer(
           twinId: _activeTwinId,
           cache: _cache,
-          isSaving: _isSaving,
-          onNext: () => setState(() {
-            _currentStep = 2;
-            if (_highestStepReached < 2) _highestStepReached = 2;
-          }),
-          onBack: () => setState(() => _currentStep = 0),
-          onSaveDraft: _saveDraftToDatabase,
           onCacheChanged: () => setState(() {}),
         );
       case 2:
         return Step3Deployer(
           twinId: _activeTwinId,
           cache: _cache,
-          isSaving: _isSaving,
-          onBack: () => setState(() => _currentStep = 1),
-          onSaveDraft: _saveDraftToDatabase,
           onCacheChanged: () => setState(() {}),
-          onFinish: () async {
-            // Save and navigate to dashboard on finish
-            final saved = await _saveDraftToDatabase();
-            if (saved && mounted) {
-              _cache.step3Complete = true;
-              _cache.clear();
-              ref.invalidate(twinsProvider);
-              context.go('/dashboard');
-            }
-          },
         );
       default:
         return const SizedBox();

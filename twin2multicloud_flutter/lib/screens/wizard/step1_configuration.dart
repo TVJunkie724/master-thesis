@@ -6,11 +6,7 @@ import '../../models/wizard_cache.dart';
 class Step1Configuration extends ConsumerStatefulWidget {
   final String? twinId;
   final WizardCache cache;
-  final bool isSaving;
   final String? nameError; // Error message for duplicate name
-  final VoidCallback onNext;
-  final VoidCallback onBack;
-  final Future<bool> Function() onSaveDraft;
   final VoidCallback onCacheChanged;
   final VoidCallback? onNameErrorClear; // Clear error when user edits name
   
@@ -18,11 +14,7 @@ class Step1Configuration extends ConsumerStatefulWidget {
     super.key,
     required this.twinId,
     required this.cache,
-    required this.isSaving,
     this.nameError,
-    required this.onNext,
-    required this.onBack,
-    required this.onSaveDraft,
     required this.onCacheChanged,
     this.onNameErrorClear,
   });
@@ -86,11 +78,6 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
                   ),
                 ),
               
-              // Top Navigation Buttons
-              _buildNavigationButtons(),
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 16),
               
               // Twin Name
               Text('Digital Twin Name', style: Theme.of(context).textTheme.titleMedium),
@@ -307,9 +294,6 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
               const Divider(),
               const SizedBox(height: 16),
               
-              // Action buttons
-              _buildNavigationButtons(),
-              
               if (!widget.cache.canProceedToStep2) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -323,56 +307,6 @@ class _Step1ConfigurationState extends ConsumerState<Step1Configuration> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildNavigationButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        OutlinedButton.icon(
-          onPressed: widget.onBack,
-          icon: const Icon(Icons.arrow_back),
-          label: const Text('Back'),
-        ),
-        Row(
-          children: [
-            // Save Draft button with unsaved changes indicator
-            OutlinedButton.icon(
-              onPressed: widget.isSaving ? null : () async {
-                await widget.onSaveDraft();
-              },
-              icon: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  widget.isSaving 
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.save),
-                  if (widget.cache.hasUnsavedChanges && !widget.isSaving)
-                    Positioned(
-                      right: -4,
-                      top: -4,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: const BoxDecoration(
-                          color: Colors.orange,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              label: const Text('Save Draft'),
-            ),
-            const SizedBox(width: 16),
-            FilledButton(
-              onPressed: widget.cache.canProceedToStep2 ? widget.onNext : null,
-              child: const Text('Next Step →'),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }
