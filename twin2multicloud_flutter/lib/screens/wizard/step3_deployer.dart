@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../models/wizard_cache.dart';
 import '../../models/calc_result.dart';
+import '../../config/step3_examples.dart';
 import '../../widgets/architecture_layer_builder.dart';
 import '../../widgets/file_inputs/file_editor_block.dart';
 import '../../widgets/file_inputs/collapsible_section.dart';
@@ -111,25 +112,35 @@ class _Step3DeployerState extends State<Step3Deployer> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ===== SECTION 1: Quick Upload =====
-              CollapsibleSection(
-                sectionNumber: 1,
-                title: 'Quick Upload',
-                description: 'Upload a complete project zip to auto-fill all fields',
-                icon: Icons.folder_zip,
-                initiallyExpanded: false,
-                child: ZipUploadBlock(
-                  onZipSelected: (path) => setState(() => _selectedZipPath = path),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 800),
+                  child: CollapsibleSection(
+                    sectionNumber: 1,
+                    title: 'Quick Upload',
+                    description: 'Upload a complete project zip to auto-fill all fields',
+                    icon: Icons.folder_zip,
+                    initiallyExpanded: false,
+                    child: ZipUploadBlock(
+                      onZipSelected: (path) => setState(() => _selectedZipPath = path),
+                    ),
+                  ),
                 ),
               ),
               
               // ===== SECTION 2: Configuration Files =====
-              CollapsibleSection(
-                sectionNumber: 2,
-                title: 'Configuration Files',
-                description: 'Core deployment settings and device definitions',
-                icon: Icons.settings,
-                initiallyExpanded: true,
-                child: _buildConfigSection(),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 800),
+                  child: CollapsibleSection(
+                    sectionNumber: 2,
+                    title: 'Configuration Files',
+                    description: 'Core deployment settings and device definitions',
+                    icon: Icons.settings,
+                    initiallyExpanded: true,
+                    child: _buildConfigSection(),
+                  ),
+                ),
               ),
               
               // ===== SECTION 3: User Functions & Assets =====
@@ -139,6 +150,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
                 description: 'Custom processors, workflows, and visualization config',
                 icon: Icons.code,
                 initiallyExpanded: true,
+                collapsedMaxWidth: 800,
                 child: _buildDataFlowSection(showFlowchart),
               ),
             ],
@@ -169,7 +181,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           icon: Icons.bolt,
           isHighlighted: true,
           constraints: '• JSON array of event conditions\n• Define actions for each condition',
-          exampleContent: _configEventsExample,
+          exampleContent: Step3Examples.configEvents,
           initialContent: _configEventsContent,
           onContentChanged: (content) => setState(() => _configEventsContent = content),
         ),
@@ -183,7 +195,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           icon: Icons.sensors,
           isHighlighted: true,
           constraints: '• JSON array of device configs\n• Define properties per device',
-          exampleContent: _configIotDevicesExample,
+          exampleContent: Step3Examples.configIotDevices,
           initialContent: _configIotDevicesContent,
           onContentChanged: (content) => setState(() => _configIotDevicesContent = content),
         ),
@@ -234,7 +246,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
               icon: Icons.data_object,
               isHighlighted: true,
               constraints: '• Must be valid JSON\n• Define device ID and payload structure',
-              exampleContent: _payloadsExample,
+              exampleContent: Step3Examples.payloads,
               initialContent: _payloadsContent,
               onContentChanged: (content) => setState(() => _payloadsContent = content),
               onValidate: (content) => _validateFile('payloads', content),
@@ -256,7 +268,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
               icon: Icons.code,
               isHighlighted: true,
               constraints: '• Python files with process() function\n• One file per device type',
-              exampleContent: _processorsExample,
+              exampleContent: Step3Examples.processors,
               initialContent: _processorsContent,
               onContentChanged: (content) => setState(() => _processorsContent = content),
               onValidate: (content) => _validateFile('processors', content),
@@ -268,7 +280,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
               icon: Icons.account_tree,
               isHighlighted: true,
               constraints: '• AWS Step Functions / Azure Logic App / GCP Workflow format',
-              exampleContent: _stateMachineExample,
+              exampleContent: Step3Examples.stateMachine,
               initialContent: _stateMachineContent,
               onContentChanged: (content) => setState(() => _stateMachineContent = content),
               onValidate: (content) => _validateFile('state_machine', content),
@@ -335,7 +347,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
               icon: Icons.view_in_ar,
               isHighlighted: true,
               constraints: '• 3DScenesConfiguration.json for Azure ADT\n• Scene definitions and models',
-              exampleContent: _sceneAssetsExample,
+              exampleContent: Step3Examples.sceneAssets,
               initialContent: _sceneAssetsContent,
               onContentChanged: (content) => setState(() => _sceneAssetsContent = content),
               onValidate: (content) => _validateFile('scene_assets', content),
@@ -357,7 +369,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
               icon: Icons.dashboard,
               isHighlighted: true,
               constraints: '• Dashboard layout and panels\n• Data source connections',
-              exampleContent: _grafanaConfigExample,
+              exampleContent: Step3Examples.grafanaConfig,
               initialContent: _grafanaConfigContent,
               onContentChanged: (content) => setState(() => _grafanaConfigContent = content),
               onValidate: (content) => _validateFile('grafana_config', content),
@@ -649,127 +661,4 @@ class _Step3DeployerState extends State<Step3Deployer> {
       ],
     );
   }
-
-  // Example file contents
-  static const _payloadsExample = '''{
-  "devices": [
-    {
-      "device_id": "temp-sensor-01",
-      "payload_schema": {
-        "temperature": "float",
-        "humidity": "float",
-        "timestamp": "datetime"
-      }
-    }
-  ]
-}''';
-
-  static const _processorsExample = '''# processor_temp.py
-def process(payload: dict) -> dict:
-    """Process temperature sensor data."""
-    temp_c = payload.get("temperature", 0)
-    temp_f = (temp_c * 9/5) + 32
-    
-    return {
-        **payload,
-        "temperature_f": temp_f,
-        "status": "normal" if temp_c < 30 else "high"
-    }
-''';
-
-  static const _stateMachineExample = '''{
-  "Comment": "IoT Event Processing Workflow",
-  "StartAt": "CheckEvent",
-  "States": {
-    "CheckEvent": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "\$.eventType",
-          "StringEquals": "alert",
-          "Next": "SendNotification"
-        }
-      ],
-      "Default": "LogEvent"
-    },
-    "SendNotification": {
-      "Type": "Task",
-      "Resource": "arn:aws:sns:...",
-      "End": true
-    },
-    "LogEvent": {
-      "Type": "Pass",
-      "End": true
-    }
-  }
-}''';
-
-  static const _sceneAssetsExample = '''{
-  "scenes": [
-    {
-      "id": "factory-floor",
-      "displayName": "Factory Floor",
-      "elements": [
-        {
-          "type": "TemperatureSensor",
-          "twinId": "temp-sensor-01",
-          "position": {"x": 100, "y": 50}
-        }
-      ]
-    }
-  ]
-}''';
-
-  static const _grafanaConfigExample = '''{
-  "dashboard": {
-    "title": "IoT Monitoring",
-    "panels": [
-      {
-        "title": "Temperature",
-        "type": "timeseries",
-        "datasource": "InfluxDB",
-        "targets": [
-          {
-            "measurement": "temperature",
-            "field": "value"
-          }
-        ]
-      }
-    ]
-  }
-}''';
-
-  static const _configEventsExample = '''[
-  {
-    "condition": "entity.temperature-sensor-1.temperature >= 30",
-    "action": {
-      "type": "lambda",
-      "functionName": "high-temperature-callback",
-      "autoDeploy": true,
-      "feedback": {
-        "type": "mqtt",
-        "iotDeviceId": "temperature-sensor-1",
-        "payload": "High Temperature Warning"
-      }
-    }
-  }
-]''';
-
-  static const _configIotDevicesExample = '''[
-  {
-    "id": "temperature-sensor-1",
-    "properties": [
-      {"name": "temperature", "dataType": "DOUBLE", "initValue": 25.0}
-    ],
-    "constProperties": [
-      {"name": "serial-number", "dataType": "STRING", "value": "SN12345"}
-    ]
-  },
-  {
-    "id": "pressure-sensor-1",
-    "properties": [
-      {"name": "pressure", "dataType": "DOUBLE", "initValue": 1000.0}
-    ]
-  }
-]''';
 }

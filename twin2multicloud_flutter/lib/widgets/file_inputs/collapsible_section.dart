@@ -9,6 +9,8 @@ class CollapsibleSection extends StatefulWidget {
   final int sectionNumber;
   final bool initiallyExpanded;
   final Widget child;
+  /// If set, constrains header width when collapsed (centers the collapsed header)
+  final double? collapsedMaxWidth;
   
   const CollapsibleSection({
     super.key,
@@ -17,6 +19,7 @@ class CollapsibleSection extends StatefulWidget {
     required this.icon,
     required this.sectionNumber,
     this.initiallyExpanded = true,
+    this.collapsedMaxWidth,
     required this.child,
   });
   
@@ -68,7 +71,7 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).colorScheme.primary;
     
-    return Container(
+    final section = Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: isDark ? Colors.grey.shade900 : Colors.white,
@@ -168,5 +171,17 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
         ],
       ),
     );
+    
+    // When collapsed and maxWidth set, center and constrain
+    if (!_isExpanded && widget.collapsedMaxWidth != null) {
+      return Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: widget.collapsedMaxWidth!),
+          child: section,
+        ),
+      );
+    }
+    
+    return section;
   }
 }
