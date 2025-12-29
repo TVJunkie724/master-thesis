@@ -192,6 +192,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           exampleContent: Step3Examples.configEvents,
           initialContent: _configEventsContent,
           onContentChanged: (content) => setState(() => _configEventsContent = content),
+          onValidate: (content) => _validateFile('config_events', content),
         ),
         
         const SizedBox(height: 16),
@@ -206,6 +207,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           exampleContent: Step3Examples.configIotDevices,
           initialContent: _configIotDevicesContent,
           onContentChanged: (content) => setState(() => _configIotDevicesContent = content),
+          onValidate: (content) => _validateFile('config_iot_devices', content),
         ),
         
         const SizedBox(height: 16),
