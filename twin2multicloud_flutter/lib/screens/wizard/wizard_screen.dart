@@ -390,18 +390,39 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   }
   
   Widget _buildStepIndicator() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _buildStep(0, 'Configuration', Icons.settings),
-          _buildConnector(0),
-          _buildStep(1, 'Optimizer', Icons.analytics),
-          _buildConnector(1),
-          _buildStep(2, 'Deployer', Icons.cloud_upload),
-        ],
-      ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildStep(0, '1. Configuration', Icons.settings),
+              _buildConnector(0),
+              _buildStep(1, '2. Optimizer', Icons.analytics),
+              _buildConnector(1),
+              _buildStep(2, '3. Deployer', Icons.cloud_upload),
+            ],
+          ),
+        ),
+        // Current step indicator
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer.withAlpha(100),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            'Step ${_currentStep + 1} / 3',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
     );
   }
   
