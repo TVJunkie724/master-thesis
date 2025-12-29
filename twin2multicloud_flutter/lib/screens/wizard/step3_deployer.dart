@@ -552,10 +552,11 @@ class _Step3DeployerState extends State<Step3Deployer> {
   /// Builds a layer row with flowchart on left and editors on right
   Widget _buildLayerRow(BuildContext context, {required bool showFlowchart, required Widget flowchart, required List<Widget> editors}) {
     // Editors column with max width constraint
+    // Editors column with max width constraint
     final editorsColumn = ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 800),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: editors,
       ),
     );
@@ -568,7 +569,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
       );
     }
     
-    // With flowchart: row layout
+    // With flowchart: row layout - use Flexible instead of Expanded to respect maxWidth
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -578,9 +579,12 @@ class _Step3DeployerState extends State<Step3Deployer> {
           child: flowchart,
         ),
         const SizedBox(width: 32),
-        // Right: File editors with max width
-        Expanded(
-          child: editorsColumn,
+        // Right: File editors with max width, aligned to start of remaining space
+        Flexible(
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: editorsColumn,
+          ),
         ),
       ],
     );
