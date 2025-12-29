@@ -150,7 +150,7 @@ def destroy_all_terraform(context: 'DeploymentContext', terraform_dir: str = Non
         project_path=str(context.project_path)
     )
     
-    strategy.destroy_all()
+    strategy.destroy_all(context)
 
 # ==========================================
 # Specialized Operations

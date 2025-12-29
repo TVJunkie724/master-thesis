@@ -129,16 +129,17 @@ class TerraformDeployerStrategy:
         
         Steps:
         0. Validate cloud credentials (optional, default: enabled)
+        0.5. Initialize cloud providers for SDK operations
         1. Validate project structure
         2. Build function packages (Lambda ZIPs, Function ZIPs)
         3. Generate tfvars.json
         4. terraform init
         5. terraform apply (AWS uses pre-built ZIPs)
         6. Deploy Azure function code (Kudu)
-        7. Post-deployment SDK operations
+        7. Post-deployment SDK operations (IoT, DTDL, Grafana)
         
         Args:
-            context: Optional deployment context for SDK operations
+            context: DeploymentContext for SDK operations (REQUIRED)
             skip_credential_check: If True, skip pre-deployment credential validation.
                                    Default is False (validation enabled).
         
@@ -148,39 +149,49 @@ class TerraformDeployerStrategy:
         Raises:
             TerraformError: If Terraform fails
             ConfigurationError: If config is invalid
-            ValueError: If project validation fails or credentials are invalid
+            ValueError: If project validation fails, credentials are invalid, or context is None
         """
+        # FAIL-FAST: Context is required for SDK operations
+        if context is None:
+            raise ValueError(
+                "DeploymentContext is required. SDK operations (Kudu deployment, "
+                "IoT registration, DTDL upload, Grafana config) cannot run without context."
+            )
         logger.info("=" * 60)
         logger.info("  TERRAFORM DEPLOYMENT - STARTING")
         logger.info("=" * 60)
         
         # Step 0: Validate cloud credentials (optional)
         if not skip_credential_check:
-            logger.info("\n[STEP 0/8] Validating cloud credentials...")
+            logger.info("\n[STEP 0/9] Validating cloud credentials...")
             self._validate_credentials()
         else:
-            logger.info("\n[STEP 0/8] Skipping credential validation (skip_credential_check=True)")
+            logger.info("\n[STEP 0/9] Skipping credential validation (skip_credential_check=True)")
+        
+        # Step 0.5: Initialize providers for SDK operations (must happen before Kudu)
+        logger.info("\n[STEP 0.5/9] Initializing cloud providers for SDK operations...")
+        self._initialize_providers(context)
         
         # Step 1: Validate project structure
-        logger.info("\n[STEP 1/8] Validating project structure...")
+        logger.info("\n[STEP 1/9] Validating project structure...")
         from src.validation.directory_validator import validate_project_directory
         validate_project_directory(self.project_path)
         logger.info("✓ Project validation passed")
         
         # Step 2: Build function packages
-        logger.info("\n[STEP 2/8] Building function packages...")
+        logger.info("\n[STEP 2/9] Building function packages...")
         self._build_packages()
         
         # Step 3: Generate tfvars
-        logger.info("\n[STEP 3/8] Generating tfvars.json...")
+        logger.info("\n[STEP 3/9] Generating tfvars.json...")
         self._generate_tfvars()
         
         # Step 4: Terraform init
-        logger.info("\n[STEP 4/8] Terraform init...")
+        logger.info("\n[STEP 4/9] Terraform init...")
         self.runner.init()
         
         # Step 5: Terraform apply (AWS Lambda uses pre-built ZIPs)
-        logger.info("\n[STEP 5/8] Terraform apply...")
+        logger.info("\n[STEP 5/9] Terraform apply...")
         self.runner.apply(var_file=str(self.tfvars_path))
         
         # Get outputs
@@ -188,15 +199,12 @@ class TerraformDeployerStrategy:
         logger.info(f"✓ Terraform outputs: {list(self._terraform_outputs.keys())}")
         
         # Step 6: Deploy Azure function code (Kudu)
-        logger.info("\n[STEP 6/8] Deploying Azure function code...")
-        self._deploy_azure_function_code()
+        logger.info("\n[STEP 6/9] Deploying Azure function code...")
+        self._deploy_azure_function_code(context)
         
-        # Step 7: Post-deployment SDK operations
-        logger.info("\n[STEP 7/8] Running post-deployment operations...")
-        if context:
-            self._run_post_deployment(context)
-        else:
-            logger.info("  Skipping SDK operations (no context provided)")
+        # Step 7: Post-deployment SDK operations (IoT, DTDL, Grafana)
+        logger.info("\n[STEP 7/9] Running post-deployment operations...")
+        self._run_post_deployment(context)
         
         logger.info("\n" + "=" * 60)
         logger.info("  TERRAFORM DEPLOYMENT - COMPLETE")
@@ -340,7 +348,64 @@ class TerraformDeployerStrategy:
         providers = self._load_providers_config()
         build_all_packages(self.terraform_dir, self.project_path, providers)
     
-    def _deploy_azure_function_code(self) -> None:
+    def _initialize_providers(self, context: 'DeploymentContext') -> None:
+        """
+        Initialize cloud provider SDK clients for post-Terraform operations.
+        
+        This must run EARLY (before Kudu deployment) because:
+        - Azure Kudu deployment needs provider.clients["web"]
+        - AWS/GCP SDK operations need their respective clients
+        
+        Args:
+            context: DeploymentContext to populate with providers
+            
+        Raises:
+            ValueError: If required credentials are missing
+        """
+        providers = self._load_providers_config()
+        credentials = self._load_credentials()
+        
+        # Determine which clouds need SDK operations
+        sdk_layers = ["layer_1_provider", "layer_2_provider", "layer_4_provider", "layer_5_provider"]
+        used_clouds = set()
+        for layer in sdk_layers:
+            cloud = providers.get(layer)
+            if cloud:
+                used_clouds.add(cloud)
+        
+        logger.info(f"  Clouds requiring SDK initialization: {', '.join(sorted(used_clouds)) or 'none'}")
+        
+        # Initialize Azure provider
+        if "azure" in used_clouds and "azure" not in context.providers:
+            logger.info("  Initializing Azure provider...")
+            from src.providers.azure.provider import AzureProvider
+            azure_provider = AzureProvider()
+            azure_creds = credentials.get("azure", {})
+            azure_provider.initialize_clients(azure_creds, context.config.digital_twin_name)
+            context.providers["azure"] = azure_provider
+            logger.info("  ✓ Azure provider initialized")
+        
+        # Initialize AWS provider
+        if "aws" in used_clouds and "aws" not in context.providers:
+            logger.info("  Initializing AWS provider...")
+            from src.providers.aws.provider import AWSProvider
+            aws_provider = AWSProvider()
+            aws_creds = credentials.get("aws", {})
+            aws_provider.initialize_clients(aws_creds, context.config.digital_twin_name)
+            context.providers["aws"] = aws_provider
+            logger.info("  ✓ AWS provider initialized")
+        
+        # Initialize GCP provider (for future L4/L5 and consistency)
+        if "google" in used_clouds and "gcp" not in context.providers:
+            logger.info("  Initializing GCP provider...")
+            from src.providers.gcp.provider import GCPProvider
+            gcp_provider = GCPProvider()
+            gcp_creds = credentials.get("gcp", {})
+            gcp_provider.initialize_clients(gcp_creds, context.config.digital_twin_name)
+            context.providers["gcp"] = gcp_provider
+            logger.info("  ✓ GCP provider initialized")
+    
+    def _deploy_azure_function_code(self, context: 'DeploymentContext') -> None:
         """Deploy Azure Function code via Kudu (using pre-built ZIPs)."""
         providers = self._load_providers_config()
         
@@ -355,11 +420,16 @@ class TerraformDeployerStrategy:
         
         # Deploy Azure functions via Kudu
         deploy_azure_function_code(
-            self.project_path, providers, self._terraform_outputs, self._load_credentials
+            context, self.project_path, providers, self._terraform_outputs
         )
     
     def _run_post_deployment(self, context: 'DeploymentContext') -> None:
-        """Run post-Terraform SDK operations."""
+        """
+        Run post-Terraform SDK operations.
+        
+        Note: Providers are already initialized in _initialize_providers().
+        This method only calls the cloud-specific SDK functions.
+        """
         providers = self._load_providers_config()
         
         # Validate required provider keys
@@ -379,12 +449,10 @@ class TerraformDeployerStrategy:
         
         # ===== AWS Post-Deployment =====
         if providers["layer_4_provider"] == "aws":
-            create_twinmaker_entities(
-                self.project_path, self._terraform_outputs, self._load_credentials
-            )
+            create_twinmaker_entities(context, self.project_path, self._terraform_outputs)
         
         if providers["layer_1_provider"] == "aws":
-            register_aws_iot_devices(self.project_path, self._load_credentials)
+            register_aws_iot_devices(context, self.project_path)
         
         if providers["layer_5_provider"] == "aws":
-            configure_aws_grafana(self._terraform_outputs, self._load_credentials)
+            configure_aws_grafana(context, self._terraform_outputs)

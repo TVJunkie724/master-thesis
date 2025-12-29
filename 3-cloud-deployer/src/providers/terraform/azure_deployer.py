@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 def deploy_azure_function_code(
+    context: 'DeploymentContext',
     project_path: Path,
     providers_config: dict,
-    terraform_outputs: dict,
-    load_credentials_fn
+    terraform_outputs: dict
 ) -> None:
     """
     Deploy Azure Function code via Kudu ZIP deploy.
@@ -29,23 +29,21 @@ def deploy_azure_function_code(
     This function only deploys USER functions (event actions, processors, feedback).
     
     Args:
+        context: DeploymentContext with initialized Azure provider
         project_path: Path to project directory
         providers_config: Layer provider configuration
         terraform_outputs: Terraform output values
-        load_credentials_fn: Function to load credentials
     """
     # User functions deployment
     if providers_config.get("layer_2_provider") == "azure":
-        _deploy_user_functions(
-            project_path, providers_config, terraform_outputs, load_credentials_fn
-        )
+        _deploy_user_functions(context, project_path, providers_config, terraform_outputs)
 
 
 def _deploy_user_functions(
+    context: 'DeploymentContext',
     project_path: Path,
     providers_config: dict,
-    terraform_outputs: dict,
-    load_credentials_fn
+    terraform_outputs: dict
 ) -> None:
     """Deploy user-customizable functions (event actions, processors) via Kudu."""
     from src.providers.terraform.package_builder import build_azure_user_bundle
@@ -70,10 +68,7 @@ def _deploy_user_functions(
         with open(combined_zip_path, "rb") as f:
             zip_bytes = f.read()
         
-        _deploy_to_azure_app(
-            app_name, zip_bytes, "User Functions",
-            terraform_outputs, load_credentials_fn
-        )
+        _deploy_to_azure_app(context, app_name, zip_bytes, "User Functions", terraform_outputs)
         
         logger.info("  ✓ User functions deployed successfully")
         
@@ -83,15 +78,13 @@ def _deploy_user_functions(
 
 
 def _deploy_to_azure_app(
+    context: 'DeploymentContext',
     app_name: str,
     zip_bytes: bytes,
     label: str,
-    terraform_outputs: dict,
-    load_credentials_fn
+    terraform_outputs: dict
 ) -> None:
     """Deploy ZIP bytes to an Azure Function App via Kudu."""
-    from azure.identity import ClientSecretCredential
-    from azure.mgmt.web import WebSiteManagementClient
     from src.providers.azure.layers.deployment_helpers import (
         deploy_to_kudu,
         get_publishing_credentials_with_retry,
@@ -99,7 +92,12 @@ def _deploy_to_azure_app(
     
     logger.info(f"  Deploying {label} to {app_name}...")
     
-    azure_creds = load_credentials_fn().get("azure", {})
+    # Get provider from context (already initialized)
+    provider = context.providers.get("azure")
+    if provider is None:
+        logger.error("  ✗ Azure provider not initialized in context.providers")
+        raise RuntimeError("Azure provider not initialized - cannot deploy function code")
+    
     rg_name = terraform_outputs.get("azure_resource_group_name")
     
     if not rg_name:
@@ -107,16 +105,8 @@ def _deploy_to_azure_app(
         return
     
     try:
-        # Create Azure SDK client from credentials
-        credential = ClientSecretCredential(
-            tenant_id=azure_creds["azure_tenant_id"],
-            client_id=azure_creds["azure_client_id"],
-            client_secret=azure_creds["azure_client_secret"]
-        )
-        web_client = WebSiteManagementClient(
-            credential=credential,
-            subscription_id=azure_creds["azure_subscription_id"]
-        )
+        # Use pre-initialized client from provider
+        web_client = provider.clients["web"]
         
         creds = get_publishing_credentials_with_retry(
             web_client=web_client,

@@ -20,120 +20,15 @@ from src.function_registry import get_terraform_output_map
 # Dynamically generated from function registry
 # Maps Terraform output keys to Lambda function directory names
 LAMBDA_FUNCTION_MAP = get_terraform_output_map("aws")
-
-
-def deploy_aws_lambda_code(
-    project_path: Path,
-    providers_config: dict,
-    terraform_outputs: dict,
-    load_credentials_fn
-) -> None:
-    """
-    Deploy AWS Lambda code via boto3.
-    
-    Args:
-        project_path: Path to project directory
-        providers_config: Layer provider configuration
-        terraform_outputs: Terraform output values
-        load_credentials_fn: Function to load credentials
-    """
-    # Check if any layer uses AWS
-    aws_layers = ["layer_1_provider", "layer_2_provider", "layer_3_hot_provider", 
-                  "layer_4_provider", "layer_5_provider"]
-    has_aws = any(providers_config.get(layer) == "aws" for layer in aws_layers)
-    
-    if not has_aws:
-        logger.info("  No AWS layers configured, skipping Lambda deployment")
-        return
-    
-    try:
-        import boto3
-    except ImportError:
-        logger.warning("  boto3 not available, skipping AWS Lambda deployment")
-        return
-    
-    aws_creds = load_credentials_fn().get("aws", {})
-    if not aws_creds.get("aws_access_key_id"):
-        logger.warning("  AWS credentials not found, skipping Lambda deployment")
-        return
-    
-    lambda_client = boto3.client(
-        'lambda',
-        aws_access_key_id=aws_creds["aws_access_key_id"],
-        aws_secret_access_key=aws_creds["aws_secret_access_key"],
-        region_name=aws_creds.get("aws_region", "eu-central-1")
-    )
-    
-    # Deploy each AWS Lambda function found in outputs
-    for output_key, function_dir_name in LAMBDA_FUNCTION_MAP.items():
-        function_name = terraform_outputs.get(output_key)
-        if function_name:
-            _deploy_to_aws_lambda(
-                lambda_client, function_name, function_dir_name, project_path
-            )
-
-
-def _deploy_to_aws_lambda(
-    lambda_client,
-    function_name: str,
-    function_dir_name: str,
-    project_path: Path
-) -> None:
-    """Deploy ZIP code to an AWS Lambda function."""
-    logger.info(f"  Deploying {function_dir_name} to {function_name}...")
-    
-    try:
-        # Lambda functions are in providers/aws/lambda_functions/
-        lambda_functions_dir = Path(__file__).parent.parent / "aws" / "lambda_functions"
-        function_dir = lambda_functions_dir / function_dir_name
-        
-        if not function_dir.exists():
-            logger.warning(f"  Lambda function directory not found: {function_dir}")
-            return
-        
-        # Create deployment package
-        zip_bytes = _create_lambda_zip(function_dir, project_path)
-        
-        lambda_client.update_function_code(
-            FunctionName=function_name,
-            ZipFile=zip_bytes
-        )
-        logger.info(f"  ✓ {function_dir_name} deployed")
-        
-    except Exception as e:
-        logger.warning(f"  {function_dir_name} deployment failed: {e}")
-
-
-def _create_lambda_zip(function_dir: Path, project_path: Path) -> bytes:
-    """Create a ZIP deployment package for Lambda."""
-    import io
-    import zipfile
-    
-    buffer = io.BytesIO()
-    
-    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-        # Add all files from function directory
-        for file_path in function_dir.rglob('*'):
-            if file_path.is_file() and '__pycache__' not in str(file_path):
-                arcname = file_path.relative_to(function_dir)
-                zf.write(file_path, arcname)
-        
-        # Add shared modules from _shared directory
-        shared_dir = function_dir.parent / "_shared"
-        if shared_dir.exists():
-            for file_path in shared_dir.rglob('*'):
-                if file_path.is_file() and '__pycache__' not in str(file_path):
-                    arcname = file_path.relative_to(shared_dir)
-                    zf.write(file_path, arcname)
-    
-    buffer.seek(0)
-    return buffer.read()
+# NOTE: Lambda code is now deployed via Terraform's filename property.
+# ZIPs are built in Step 2 by package_builder.build_aws_lambda_packages()
+# and deployed in Step 5 via Terraform apply.
 
 
 def create_twinmaker_entities(
+    context: 'DeploymentContext',
     project_path: Path,
-    terraform_outputs: dict,
-    load_credentials_fn
+    terraform_outputs: dict
 ) -> None:
     """
     Create TwinMaker entities and component types via AWS SDK.
@@ -143,34 +38,33 @@ def create_twinmaker_entities(
     
     Component types are essential for data visualization - they define
     the data schema and link to Lambda connectors for fetching data.
+    
+    Args:
+        context: DeploymentContext with initialized AWS provider
+        project_path: Path to project directory
+        terraform_outputs: Terraform output values
     """
     logger.info("  Creating TwinMaker entities and component types...")
     
+    # Get provider from context (already initialized)
+    provider = context.providers.get("aws")
+    if provider is None:
+        logger.error("  ✗ AWS provider not initialized in context.providers")
+        raise RuntimeError("AWS provider not initialized - cannot create TwinMaker entities")
+    
     try:
-        import boto3
         import time
         
-        aws_creds = load_credentials_fn().get("aws", {})
-        region = aws_creds.get("aws_region", "eu-central-1")
         workspace_id = terraform_outputs.get("aws_twinmaker_workspace_id")
         
         if not workspace_id:
             logger.warning("  TwinMaker workspace not found, skipping entity creation")
             return
         
-        twinmaker = boto3.client(
-            'iottwinmaker',
-            aws_access_key_id=aws_creds["aws_access_key_id"],
-            aws_secret_access_key=aws_creds["aws_secret_access_key"],
-            region_name=region
-        )
-        
-        lambda_client = boto3.client(
-            'lambda',
-            aws_access_key_id=aws_creds["aws_access_key_id"],
-            aws_secret_access_key=aws_creds["aws_secret_access_key"],
-            region_name=region
-        )
+        # Use pre-initialized clients from provider
+        twinmaker = provider.clients["twinmaker"]
+        lambda_client = provider.clients["lambda"]
+        region = provider.region
         
         # Load config
         config_file = project_path / "config.json"
@@ -315,8 +209,8 @@ def create_twinmaker_entities(
 
 
 def register_aws_iot_devices(
+    context: 'DeploymentContext',
     project_path: Path,
-    load_credentials_fn,
     terraform_outputs: dict = None
 ) -> None:
     """
@@ -326,25 +220,23 @@ def register_aws_iot_devices(
     config_generated.json for the simulator.
     
     Args:
+        context: DeploymentContext with initialized AWS provider
         project_path: Path to project directory
-        load_credentials_fn: Function to load credentials
         terraform_outputs: Optional Terraform outputs (for IoT endpoint)
     """
     logger.info("  Registering AWS IoT devices...")
     
+    # Get provider from context (already initialized)
+    provider = context.providers.get("aws")
+    if provider is None:
+        logger.error("  ✗ AWS provider not initialized in context.providers")
+        raise RuntimeError("AWS provider not initialized - cannot register IoT devices")
+    
     try:
-        import boto3
         import os
         
-        aws_creds = load_credentials_fn().get("aws", {})
-        region = aws_creds.get("aws_region", "eu-central-1")
-        
-        iot = boto3.client(
-            'iot',
-            aws_access_key_id=aws_creds["aws_access_key_id"],
-            aws_secret_access_key=aws_creds["aws_secret_access_key"],
-            region_name=region
-        )
+        # Use pre-initialized client from provider
+        iot = provider.clients["iot"]
         
         # Load config
         config_file = project_path / "config.json"
@@ -528,11 +420,26 @@ def _generate_aws_simulator_config(
 
 
 def configure_aws_grafana(
-    terraform_outputs: dict,
-    load_credentials_fn
+    context: 'DeploymentContext',
+    terraform_outputs: dict
 ) -> None:
-    """Configure AWS Grafana datasources via Grafana API."""
+    """
+    Configure AWS Grafana datasources via Grafana API.
+    
+    Args:
+        context: DeploymentContext with initialized AWS provider
+        terraform_outputs: Terraform output values
+        
+    Note: This function uses the Grafana HTTP API (requests library),
+    not boto3 clients. The context is passed for consistency and
+    potential future use (e.g., accessing provider.region).
+    """
     logger.info("  Configuring AWS Grafana...")
+    
+    # Validate provider is initialized (consistent pattern)
+    if context.providers.get("aws") is None:
+        logger.error("  ✗ AWS provider not initialized in context.providers")
+        raise RuntimeError("AWS provider not initialized - cannot configure Grafana")
     
     try:
         import requests
