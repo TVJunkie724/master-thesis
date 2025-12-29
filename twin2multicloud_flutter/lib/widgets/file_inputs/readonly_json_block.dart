@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../utils/json_syntax_highlighter.dart';
 
 /// A read-only JSON display block for auto-generated config files.
-/// Shows JSON in a dark code editor style, selectable but not editable.
+/// Shows JSON in a dark code editor style with syntax highlighting, selectable but not editable.
 class ReadOnlyJsonBlock extends StatelessWidget {
   final String filename;
   final String description;
@@ -113,7 +114,7 @@ class ReadOnlyJsonBlock extends StatelessWidget {
           
           const SizedBox(height: 12),
           
-          // JSON content display
+          // JSON content display with syntax highlighting
           Container(
             height: 200,
             width: double.infinity,
@@ -123,13 +124,16 @@ class ReadOnlyJsonBlock extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
             child: SingleChildScrollView(
-              child: SelectableText(
-                jsonContent.isEmpty ? '// No content' : jsonContent,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                  color: Color(0xFF9CDCFE),  // VS Code-like JSON color
-                  height: 1.5,
+              child: SelectableText.rich(
+                TextSpan(
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    height: 1.5,
+                  ),
+                  children: jsonContent.isEmpty 
+                      ? [const TextSpan(text: '// No content', style: TextStyle(color: Colors.grey))]
+                      : JsonSyntaxHighlighter.highlight(jsonContent),
                 ),
               ),
             ),
@@ -139,3 +143,4 @@ class ReadOnlyJsonBlock extends StatelessWidget {
     );
   }
 }
+
