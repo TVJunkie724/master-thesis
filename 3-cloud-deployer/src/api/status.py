@@ -248,8 +248,22 @@ def check_sdk_managed(project_name: str, provider: str) -> Dict[str, Any]:
     }
     
     try:
-        # Create context to access provider strategies
+        # Create context and initialize required provider for SDK checks
         context = create_context(project_name, provider)
+        
+        # Initialize provider (create_context returns lightweight context without providers)
+        from core.config_loader import load_credentials
+        from core.registry import ProviderRegistry
+        
+        credentials = load_credentials(context.project_path)
+        prov_creds = credentials.get(provider, {})
+        
+        # AWS can use env vars even with empty dict
+        if prov_creds or provider == "aws":
+            prov_instance = ProviderRegistry.get(provider)
+            prov_instance.initialize_clients(prov_creds, context.config.digital_twin_name)
+            context.providers[provider] = prov_instance
+        
         strategy = deployer._get_strategy(context, provider)
         
         # Check L4 (TwinMaker/ADT) status
