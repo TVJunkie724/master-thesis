@@ -8,7 +8,7 @@ import '../../widgets/file_inputs/file_editor_block.dart';
 import '../../widgets/file_inputs/collapsible_section.dart';
 import '../../widgets/file_inputs/zip_upload_block.dart';
 import '../../widgets/file_inputs/config_form_block.dart';
-import '../../widgets/file_inputs/readonly_json_block.dart';
+import '../../widgets/file_inputs/config_visualization_block.dart';
 
 /// Step 3: Deployer Configuration
 /// 
@@ -212,24 +212,36 @@ class _Step3DeployerState extends State<Step3Deployer> {
         
         const SizedBox(height: 16),
         
-        // config_optimization.json - Read-only (from Step 2)
-        ReadOnlyJsonBlock(
+        // config_optimization.json - Read-only with visual summary
+        ConfigVisualizationBlock(
           filename: 'config_optimization.json',
           description: 'Optimizer calculation results',
           icon: Icons.calculate,
           sourceLabel: 'From Step 2',
           jsonContent: _buildConfigOptimizationJson(),
+          visualContent: ConfigVisualizationBlock.buildOptimizationVisual(
+            inputParams: {
+              'useEventChecking': widget.cache.calcParams?.useEventChecking ?? false,
+              'triggerNotificationWorkflow': widget.cache.calcParams?.triggerNotificationWorkflow ?? false,
+              'returnFeedbackToDevice': widget.cache.calcParams?.returnFeedbackToDevice ?? false,
+              // 'integrateErrorHandling': widget.cache.calcParams?.integrateErrorHandling ?? false,
+              'needs3DModel': widget.cache.calcParams?.needs3DModel ?? false,
+            },
+          ),
         ),
         
         const SizedBox(height: 16),
         
-        // config_providers.json - Read-only (from Step 2)  
-        ReadOnlyJsonBlock(
+        // config_providers.json - Read-only with visual summary
+        ConfigVisualizationBlock(
           filename: 'config_providers.json',
           description: 'Provider assignments per layer',
           icon: Icons.cloud,
           sourceLabel: 'From Step 2',
           jsonContent: _buildConfigProvidersJson(),
+          visualContent: ConfigVisualizationBlock.buildProvidersVisual(
+            _buildProviderMap(),
+          ),
         ),
       ],
     );
@@ -420,7 +432,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           'useEventChecking': params?.useEventChecking ?? false,
           'triggerNotificationWorkflow': params?.triggerNotificationWorkflow ?? false,
           'returnFeedbackToDevice': params?.returnFeedbackToDevice ?? false,
-          'integrateErrorHandling': params?.integrateErrorHandling ?? false,
+          // 'integrateErrorHandling': params?.integrateErrorHandling ?? false,
           'needs3DModel': params?.needs3DModel ?? false,
         },
       },
@@ -434,8 +446,8 @@ class _Step3DeployerState extends State<Step3Deployer> {
     
     final layers = layerBuilder.layerProviders;
     
-    String providerToString(String? p) {
-      if (p == null) return 'unknown';
+    String? providerToString(String? p) {
+      if (p == null) return null;  // Will be serialized as null in JSON
       switch (p.toUpperCase()) {
         case 'AWS': return 'aws';
         case 'AZURE': return 'azure';
@@ -444,6 +456,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
       }
     }
     
+    // Always include all layers - null for unconfigured
     return const JsonEncoder.withIndent('  ').convert({
       'layer_1_provider': providerToString(layers['L1']),
       'layer_2_provider': providerToString(layers['L2']),
@@ -453,6 +466,26 @@ class _Step3DeployerState extends State<Step3Deployer> {
       'layer_4_provider': providerToString(layers['L4']),
       'layer_5_provider': providerToString(layers['L5']),
     });
+  }
+
+  /// Build provider map for visualization widget
+  Map<String, String> _buildProviderMap() {
+    final layers = layerBuilder.layerProviders;
+    
+    String getProvider(String key) {
+      final value = layers[key];
+      return value?.toUpperCase() ?? 'N/A';
+    }
+    
+    return {
+      'layer_1_provider': getProvider('L1'),
+      'layer_2_provider': getProvider('L2'),
+      'layer_3_hot_provider': getProvider('L3_hot'),
+      'layer_3_cold_provider': getProvider('L3_cold'),
+      'layer_3_archive_provider': getProvider('L3_archive'),
+      'layer_4_provider': getProvider('L4'),
+      'layer_5_provider': getProvider('L5'),
+    };
   }
 
   Widget _buildHeader(BuildContext context, bool showFlowchart) {

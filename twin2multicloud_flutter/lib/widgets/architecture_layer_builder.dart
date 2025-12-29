@@ -29,9 +29,21 @@ class ArchitectureLayerBuilder {
       final parts = segment.split('_');
       if (parts.isEmpty) continue;
       final layer = parts[0].toUpperCase();
+      
+      // Handle L3_hot_GCP, L3_cool_AWS, L3_archive_Azure (storage layers)
       if (layer == 'L3' && parts.length >= 3) {
-        result['${layer}_${parts[1]}'] = parts[2].toUpperCase();
-      } else if (parts.length >= 2) {
+        final storageType = parts[1].toLowerCase();
+        final provider = parts[2].toUpperCase();
+        if (storageType == 'hot') {
+          result['L3_hot'] = provider;
+        } else if (storageType == 'cool') {
+          result['L3_cold'] = provider;  // Map 'cool' to 'cold' for consistency
+        } else if (storageType == 'archive') {
+          result['L3_archive'] = provider;
+        }
+      }
+      // Handle standard L1_AWS, L2_GCP, L4_AWS, L5_Azure format
+      else if (parts.length >= 2) {
         result[layer] = parts[1].toUpperCase();
       }
     }
