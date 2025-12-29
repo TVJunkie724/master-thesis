@@ -144,14 +144,22 @@ class _Step3DeployerState extends State<Step3Deployer> {
               ),
               
               // ===== SECTION 3: User Functions & Assets =====
-              CollapsibleSection(
-                sectionNumber: 3,
-                title: 'User Functions & Assets',
-                description: 'Custom processors, workflows, and visualization config',
-                icon: Icons.code,
-                initiallyExpanded: true,
-                collapsedMaxWidth: 800,
-                child: _buildDataFlowSection(showFlowchart),
+              // Max width = flowchart (450) + gap (32) + editors (800) + padding (32*2)
+              Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: showFlowchart ? _flowchartWidth + 32 + 800 + 32 : 800,
+                  ),
+                  child: CollapsibleSection(
+                    sectionNumber: 3,
+                    title: 'User Functions & Assets',
+                    description: 'Custom processors, workflows, and visualization config',
+                    icon: Icons.code,
+                    initiallyExpanded: true,
+                    collapsedMaxWidth: 800,
+                    child: _buildDataFlowSection(showFlowchart),
+                  ),
+                ),
               ),
             ],
           ),
