@@ -358,6 +358,9 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
           CalcForm(
             initialParams: state.calcParams,
             onChanged: _onCalcParamsChanged,
+            onValidChanged: (isValid) {
+              context.read<WizardBloc>().add(WizardCalcFormValidChanged(isValid));
+            },
           ),
       ],
     );

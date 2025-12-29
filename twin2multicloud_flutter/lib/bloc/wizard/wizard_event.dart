@@ -108,6 +108,14 @@ class WizardCalcParamsChanged extends WizardEvent {
   List<Object?> get props => [params];
 }
 
+/// Calculation form validity changed
+class WizardCalcFormValidChanged extends WizardEvent {
+  final bool isValid;
+  const WizardCalcFormValidChanged(this.isValid);
+  @override
+  List<Object?> get props => [isValid];
+}
+
 /// User requested calculation
 class WizardCalculateRequested extends WizardEvent {
   const WizardCalculateRequested();

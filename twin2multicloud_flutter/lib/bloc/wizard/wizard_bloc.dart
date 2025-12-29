@@ -39,6 +39,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     
     // === Step 2: Optimizer ===
     on<WizardCalcParamsChanged>(_onCalcParamsChanged);
+    on<WizardCalcFormValidChanged>(_onCalcFormValidChanged);
     on<WizardCalculateRequested>(_onCalculateRequested);
     
     // === Persistence ===
@@ -310,6 +311,10 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       calcParams: event.params,
       hasUnsavedChanges: true,
     ));
+  }
+  
+  void _onCalcFormValidChanged(WizardCalcFormValidChanged event, Emitter<WizardState> emit) {
+    emit(state.copyWith(isCalcFormValid: event.isValid));
   }
   
   Future<void> _onCalculateRequested(WizardCalculateRequested event, Emitter<WizardState> emit) async {

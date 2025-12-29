@@ -4,16 +4,19 @@ import '../../models/calc_params.dart';
 /// Main calculation form with all 26 input fields organized by layer
 class CalcForm extends StatefulWidget {
   final void Function(CalcParams params)? onChanged;
+  final void Function(bool isValid)? onValidChanged;  // Reports form validity
   final CalcParams? initialParams;  // Load from saved config
+  final GlobalKey<FormState>? formKey;  // Optional external form key for validation
 
-  const CalcForm({super.key, this.onChanged, this.initialParams});
+  const CalcForm({super.key, this.onChanged, this.onValidChanged, this.initialParams, this.formKey});
 
   @override
   State<CalcForm> createState() => _CalcFormState();
 }
 
 class _CalcFormState extends State<CalcForm> {
-  final _formKey = GlobalKey<FormState>();
+  final _internalFormKey = GlobalKey<FormState>();
+  GlobalKey<FormState> get _formKey => widget.formKey ?? _internalFormKey;
   int _rebuildKey = 0; // Forces form rebuild when presets are applied
   int? _selectedPreset; // 1, 2, 3, or null if input modified by user
 
@@ -1065,6 +1068,7 @@ class _CalcFormState extends State<CalcForm> {
     required int min,
     required void Function(int) onChanged,
     String? tooltip,
+    int? max,
   }) {
     return Row(
       children: [
@@ -1076,14 +1080,27 @@ class _CalcFormState extends State<CalcForm> {
           child: TextFormField(
             initialValue: value.toString(),
             keyboardType: TextInputType.number,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             decoration: const InputDecoration(
               isDense: true,
               border: OutlineInputBorder(),
             ),
+            validator: (text) {
+              if (text == null || text.isEmpty) return 'Required';
+              final parsed = int.tryParse(text);
+              if (parsed == null) return 'Invalid number';
+              if (parsed < min) return 'Min: $min';
+              if (max != null && parsed > max) return 'Max: $max';
+              return null;
+            },
             onChanged: (text) {
               final parsed = int.tryParse(text);
-              if (parsed != null && parsed >= min) {
-                onChanged(parsed);
+              if (parsed != null) {
+                // Clamp to valid range
+                final clamped = max != null 
+                    ? parsed.clamp(min, max) 
+                    : parsed < min ? min : parsed;
+                onChanged(clamped);
               }
             },
           ),
@@ -1098,6 +1115,7 @@ class _CalcFormState extends State<CalcForm> {
     required double min,
     required void Function(double) onChanged,
     String? tooltip,
+    double? max,
   }) {
     return Row(
       children: [
@@ -1109,14 +1127,27 @@ class _CalcFormState extends State<CalcForm> {
           child: TextFormField(
             initialValue: value.toString(),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             decoration: const InputDecoration(
               isDense: true,
               border: OutlineInputBorder(),
             ),
+            validator: (text) {
+              if (text == null || text.isEmpty) return 'Required';
+              final parsed = double.tryParse(text);
+              if (parsed == null) return 'Invalid number';
+              if (parsed < min) return 'Min: $min';
+              if (max != null && parsed > max) return 'Max: $max';
+              return null;
+            },
             onChanged: (text) {
               final parsed = double.tryParse(text);
-              if (parsed != null && parsed >= min) {
-                onChanged(parsed);
+              if (parsed != null) {
+                // Clamp to valid range
+                final clamped = max != null 
+                    ? parsed.clamp(min, max) 
+                    : parsed < min ? min : parsed;
+                onChanged(clamped);
               }
             },
           ),

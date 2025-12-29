@@ -88,6 +88,7 @@ class WizardState extends Equatable {
   
   // === Persistent Data: Step 2 ===
   final CalcParams? calcParams;
+  final bool isCalcFormValid;  // Whether the calculation form passes validation
   final CalcResult? calcResult;
   final Map<String, dynamic>? calcResultRaw;
   final Map<String, dynamic>? pricingSnapshots;
@@ -116,6 +117,7 @@ class WizardState extends Equatable {
     this.gcp = const ProviderCredentials(),
     this.gcpServiceAccountJson,
     this.calcParams,
+    this.isCalcFormValid = true,  // Default to valid
     this.calcResult,
     this.calcResultRaw,
     this.pricingSnapshots,
@@ -164,6 +166,7 @@ class WizardState extends Equatable {
     ProviderCredentials? gcp,
     String? gcpServiceAccountJson,
     CalcParams? calcParams,
+    bool? isCalcFormValid,
     CalcResult? calcResult,
     Map<String, dynamic>? calcResultRaw,
     Map<String, dynamic>? pricingSnapshots,
@@ -192,6 +195,7 @@ class WizardState extends Equatable {
       gcp: gcp ?? this.gcp,
       gcpServiceAccountJson: gcpServiceAccountJson ?? this.gcpServiceAccountJson,
       calcParams: calcParams ?? this.calcParams,
+      isCalcFormValid: isCalcFormValid ?? this.isCalcFormValid,
       calcResult: calcResult ?? this.calcResult,
       calcResultRaw: calcResultRaw ?? this.calcResultRaw,
       pricingSnapshots: pricingSnapshots ?? this.pricingSnapshots,
@@ -226,6 +230,7 @@ class WizardState extends Equatable {
     gcp,
     gcpServiceAccountJson,
     calcParams,
+    isCalcFormValid,
     calcResult,
     calcResultRaw,
     pricingSnapshots,
