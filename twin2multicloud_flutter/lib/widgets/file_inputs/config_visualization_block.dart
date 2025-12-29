@@ -122,15 +122,9 @@ class ConfigVisualizationBlock extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Left: Visual representation
+              // Left: JSON code view (2/3 width)
               Expanded(
-                flex: 1,
-                child: visualContent,
-              ),
-              const SizedBox(width: 16),
-              // Right: JSON code view
-              Expanded(
-                flex: 1,
+                flex: 2,
                 child: Container(
                   height: 200,
                   padding: const EdgeInsets.all(12),
@@ -153,6 +147,12 @@ class ConfigVisualizationBlock extends StatelessWidget {
                     ),
                   ),
                 ),
+              ),
+              const SizedBox(width: 16),
+              // Right: Visual representation (1/3 width)
+              Expanded(
+                flex: 1,
+                child: visualContent,
               ),
             ],
           ),
