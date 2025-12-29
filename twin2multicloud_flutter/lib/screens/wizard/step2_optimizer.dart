@@ -65,6 +65,9 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     super.initState();
     _loadPricingStatus();
     
+    // Debug: trace cache state on init
+    debugPrint('[Step2Init] calcParams=${widget.cache.calcParams != null}, calcResult=${widget.cache.calcResult != null}, calcResultRaw=${widget.cache.calcResultRaw != null}');
+    
     // Register calculate callback for header button
     widget.cache.onCalculateRequested = _calculate;
     
@@ -76,12 +79,17 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
       if (widget.cache.calcResult != null) {
         _isDirty = false;
         widget.cache.isCalcDirty = false;
+        debugPrint('[Step2Init] Using cached results, _isDirty=false');
+      } else {
+        debugPrint('[Step2Init] Params exist but NO results in cache!');
       }
     } else if (widget.twinId != null) {
+      debugPrint('[Step2Init] No params in cache, loading from DB...');
       _loadOptimizerConfig();
     } else {
       // New twin, no config to load
       _loadingConfig = false;
+      debugPrint('[Step2Init] New twin, no config to load');
     }
   }
 
@@ -389,19 +397,31 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
                 CalcForm(
                   initialParams: _params ?? widget.cache.calcParams,
                   onChanged: (params) {
+                    // Check if params actually changed (not just initial load)
+                    final cachedParams = widget.cache.calcParams;
+                    final paramsChanged = cachedParams == null || 
+                        params.toJson().toString() != cachedParams.toJson().toString();
+                    
                     setState(() {
                       _params = params;
-                      _isDirty = true;  // Inputs changed - results are now invalid
+                      if (paramsChanged) {
+                        _isDirty = true;  // Inputs changed - results are now invalid
+                      }
                     });
+                    
                     // Sync params to cache
                     widget.cache.calcParams = params;
-                    widget.cache.isCalcDirty = true;  // Sync dirty state for header button
-                    // Clear results since they no longer match inputs
-                    // This ensures Save Draft won't persist stale results
-                    widget.cache.calcResult = null;
-                    widget.cache.calcResultRaw = null;
-                    widget.cache.markDirty();
-                    widget.onCacheChanged();
+                    
+                    // Only clear results if params actually changed (not on initial form load)
+                    if (paramsChanged && widget.cache.calcResult != null) {
+                      debugPrint('[CalcForm] Params changed, clearing stale results');
+                      widget.cache.isCalcDirty = true;  // Sync dirty state for header button
+                      widget.cache.calcResult = null;
+                      widget.cache.calcResultRaw = null;
+                      widget.cache.markDirty();
+                      widget.onCacheChanged();
+                    }
+                  },
                 ),
 
               const SizedBox(height: 24),

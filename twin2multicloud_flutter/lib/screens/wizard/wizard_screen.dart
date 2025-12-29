@@ -411,15 +411,19 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Back button
-                    OutlinedButton.icon(
-                      onPressed: _currentStep == 0 
-                          ? () => _showExitConfirmation(context)
-                          : () => setState(() => _currentStep--),
-                      icon: const Icon(Icons.arrow_back),
-                      label: Text(_currentStep == 0 ? 'Exit' : 'Back'),
+                    // Left: Back button
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          onPressed: _currentStep == 0 
+                              ? () => _showExitConfirmation(context)
+                              : () => setState(() => _currentStep--),
+                          icon: const Icon(Icons.arrow_back),
+                          label: Text(_currentStep == 0 ? 'Exit' : 'Back'),
+                        ),
+                      ),
                     ),
                     // Center: Calculate button (only on Step 2)
                     if (_currentStep == 1)
@@ -432,98 +436,113 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                             : null,
                         icon: _cache.isCalculating
                             ? const SizedBox(
-                                width: 20,
-                                height: 20,
+                                width: 22,
+                                height: 22,
                                 child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                                  strokeWidth: 2.5,
                                   color: Colors.white,
                                 ),
                               )
-                            : const Icon(Icons.calculate, size: 20),
+                            : const Icon(Icons.calculate, size: 22),
                         label: Text(
                           _cache.isCalculating 
                               ? 'CALCULATING...' 
                               : (_cache.isCalcDirty ? 'CALCULATE' : 'UP TO DATE'),
                           style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.0,
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _cache.isCalcDirty 
-                              ? Theme.of(context).primaryColor 
-                              : Colors.grey,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              ? (Theme.of(context).brightness == Brightness.dark 
+                                  ? Colors.white 
+                                  : Colors.grey.shade900)
+                              : Colors.grey.shade500,
+                          foregroundColor: _cache.isCalcDirty
+                              ? (Theme.of(context).brightness == Brightness.dark 
+                                  ? Colors.grey.shade900 
+                                  : Colors.white)
+                              : Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+                          elevation: _cache.isCalcDirty ? 4 : 1,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
-                      )
-                    else
-                      const SizedBox.shrink(),  // Empty placeholder when not on step 2
-                    // Right side buttons
-                    Row(
-                      children: [
-                        // Save Draft button
-                        OutlinedButton.icon(
-                          onPressed: _isSaving ? null : () async {
-                            await _saveDraftToDatabase();
-                          },
-                          icon: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              _isSaving 
-                                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                                : const Icon(Icons.save),
-                              if (_cache.hasUnsavedChanges && !_isSaving)
-                                Positioned(
-                                  right: -4,
-                                  top: -4,
-                                  child: Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.orange,
-                                      shape: BoxShape.circle,
+                      ),
+                    // Right side buttons (Expanded to balance the layout)
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Save Draft button
+                            OutlinedButton.icon(
+                              onPressed: _isSaving ? null : () async {
+                                await _saveDraftToDatabase();
+                              },
+                              icon: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  _isSaving 
+                                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                                    : const Icon(Icons.save),
+                                  if (_cache.hasUnsavedChanges && !_isSaving)
+                                    Positioned(
+                                      right: -4,
+                                      top: -4,
+                                      child: Container(
+                                        width: 10,
+                                        height: 10,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.orange,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          label: const Text('Save Draft'),
-                        ),
-                        const SizedBox(width: 16),
-                        // Next/Finish button
-                        if (_currentStep < 2)
-                          FilledButton.icon(
-                            onPressed: _canProceedToNextStep() 
-                                ? () => setState(() {
-                                    _currentStep++;
-                                    if (_highestStepReached < _currentStep) {
-                                      _highestStepReached = _currentStep;
-                                    }
-                                  })
-                                : null,
-                            icon: const Icon(Icons.arrow_forward),
-                            label: const Text('Next Step'),
-                          )
-                        else
-                          ElevatedButton.icon(
-                            onPressed: () async {
-                              final saved = await _saveDraftToDatabase();
-                              if (saved && mounted) {
-                                _cache.step3Complete = true;
-                                _cache.clear();
-                                ref.invalidate(twinsProvider);
-                                context.go('/dashboard');
-                              }
-                            },
-                            icon: const Icon(Icons.check_circle),
-                            label: const Text('Finish Configuration'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              foregroundColor: Colors.white,
+                                ],
+                              ),
+                              label: const Text('Save Draft'),
                             ),
-                          ),
-                      ],
+                            const SizedBox(width: 16),
+                            // Next/Finish button
+                            if (_currentStep < 2)
+                              FilledButton.icon(
+                                onPressed: _canProceedToNextStep() 
+                                    ? () => setState(() {
+                                        _currentStep++;
+                                        if (_highestStepReached < _currentStep) {
+                                          _highestStepReached = _currentStep;
+                                        }
+                                      })
+                                    : null,
+                                icon: const Icon(Icons.arrow_forward),
+                                label: const Text('Next Step'),
+                              )
+                            else
+                              ElevatedButton.icon(
+                                onPressed: () async {
+                                  final saved = await _saveDraftToDatabase();
+                                  if (saved && mounted) {
+                                    _cache.step3Complete = true;
+                                    _cache.clear();
+                                    ref.invalidate(twinsProvider);
+                                    context.go('/dashboard');
+                                  }
+                                },
+                                icon: const Icon(Icons.check_circle),
+                                label: const Text('Finish Configuration'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
