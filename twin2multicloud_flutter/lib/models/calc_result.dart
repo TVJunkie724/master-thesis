@@ -49,8 +49,18 @@ class CalcResult {
   });
 
   /// Parse from API response
+  /// Handles both wrapped {'result': {...}} and unwrapped response formats
   factory CalcResult.fromJson(Map<String, dynamic> json) {
-    final result = json['result'] as Map<String, dynamic>;
+    // Handle both wrapped and unwrapped response formats
+    final Map<String, dynamic> result;
+    if (json.containsKey('result') && json['result'] is Map<String, dynamic>) {
+      result = json['result'] as Map<String, dynamic>;
+    } else if (json.containsKey('awsCosts')) {
+      // Direct format - the json IS the result
+      result = json;
+    } else {
+      throw FormatException('Invalid CalcResult format: missing result or awsCosts key. Keys: ${json.keys}');
+    }
 
     Map<String, double>? parseTransferCosts(dynamic data) {
       if (data == null) return null;

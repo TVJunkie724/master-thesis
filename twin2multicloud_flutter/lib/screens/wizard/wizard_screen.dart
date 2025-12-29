@@ -1,298 +1,479 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dio/dio.dart';
 import 'step1_configuration.dart';
 import 'step2_optimizer.dart';
 import 'step3_deployer.dart';
+import '../../bloc/wizard/wizard.dart';
 import '../../providers/twins_provider.dart';
 import '../../providers/theme_provider.dart';
-import '../../models/wizard_cache.dart';
 
-class WizardScreen extends ConsumerStatefulWidget {
+/// Wizard screen using BLoC pattern for state management
+/// 
+/// This widget provides the BlocProvider wrapper and delegates to WizardView.
+class WizardScreen extends ConsumerWidget {
   final String? twinId; // null for new, set for edit
   
   const WizardScreen({super.key, this.twinId});
   
   @override
-  ConsumerState<WizardScreen> createState() => _WizardScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final api = ref.read(apiServiceProvider);
+    
+    return BlocProvider(
+      create: (context) {
+        final bloc = WizardBloc(api: api);
+        // Initialize based on whether editing or creating
+        if (twinId != null) {
+          bloc.add(WizardInitEdit(twinId!));
+        } else {
+          bloc.add(const WizardInitCreate());
+        }
+        return bloc;
+      },
+      child: WizardView(twinId: twinId),
+    );
+  }
 }
 
-class _WizardScreenState extends ConsumerState<WizardScreen> {
-  int _currentStep = 0;
-  int _highestStepReached = 0; // Tracks maximum step visited for navigation
-  String? _activeTwinId;
-  bool _isLoading = false;
-  bool _isSaving = false;
-  String? _nameError; // Error message for duplicate name
+/// Main wizard view that consumes BLoC state
+class WizardView extends ConsumerStatefulWidget {
+  final String? twinId;
   
-  // In-memory cache for all wizard data
-  final WizardCache _cache = WizardCache();
+  const WizardView({super.key, this.twinId});
   
   @override
-  void initState() {
-    super.initState();
-    _activeTwinId = widget.twinId;
-    if (_activeTwinId != null) {
-      _loadExistingTwinData();
-    }
-  }
+  ConsumerState<WizardView> createState() => _WizardViewState();
+}
 
-  /// Load existing twin data from database into cache (for editing)
-  Future<void> _loadExistingTwinData() async {
-    setState(() => _isLoading = true);
-    try {
-      final api = ref.read(apiServiceProvider);
-      
-      // Fetch twin details and config in parallel
-      final results = await Future.wait([
-        api.getTwin(_activeTwinId!),
-        api.getTwinConfig(_activeTwinId!),
-      ]);
-      
-      final twin = results[0];
-      final config = results[1];
-      final state = twin['state'];
-      
-      if (mounted) {
-        setState(() {
-          // Populate cache from database
-          _cache.twinName = twin['name'];
-          _cache.debugMode = config['debug_mode'] ?? false;
-          
-          // Parse AWS - mark as valid AND inherited if configured
-          if (config['aws_configured'] == true) {
-            _cache.awsCredentials = {
-              'region': config['aws_region']?.toString() ?? 'eu-central-1',
-              'sso_region': config['aws_sso_region']?.toString() ?? '',
-              'access_key_id': '', // Secrets hidden by backend
-              'secret_access_key': '',
-              'session_token': '',
-            };
-            _cache.markAwsInherited(); // Mark as inherited from DB
-          }
-          
-          // Parse Azure - mark as valid AND inherited if configured
-          if (config['azure_configured'] == true) {
-            _cache.azureCredentials = {
-              'region': config['azure_region']?.toString() ?? '',
-              'subscription_id': '',
-              'client_id': '',
-              'client_secret': '',
-              'tenant_id': '',
-            };
-            _cache.markAzureInherited(); // Mark as inherited from DB
-          }
-          
-          // Parse GCP - mark as valid AND inherited if configured
-          if (config['gcp_configured'] == true) {
-            _cache.gcpCredentials = {
-              'project_id': config['gcp_project_id']?.toString() ?? '',
-              'region': config['gcp_region']?.toString() ?? '',
-              'billing_account': '',
-            };
-            _cache.markGcpInherited(); // Mark as inherited from DB
-          }
-          
-          // Determine starting step based on state
-          if (state == 'deployed' || state == 'configured') {
-            _currentStep = 2; // Deployer
-            _highestStepReached = 2;
-          } else if (_cache.canProceedToStep2) {
-            _currentStep = 1; // Optimizer
-            _highestStepReached = 1;
-          } else {
-            _currentStep = 0; // Configuration
-            _highestStepReached = 0;
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading twin data: $e');
-      if (mounted) setState(() => _currentStep = 0);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  /// Save all cached data to database
-  Future<bool> _saveDraftToDatabase() async {
-    if (_cache.twinName?.isEmpty ?? true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a name for your Digital Twin'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return false;
-    }
-    
-    setState(() => _isSaving = true);
-    
-    try {
-      final api = ref.read(apiServiceProvider);
-      
-      // Step 1: Create twin if it doesn't exist, or update name if changed
-      if (_activeTwinId == null) {
-        final result = await api.createTwin(_cache.twinName!);
-        _activeTwinId = result['id'];
-      } else {
-        // Update twin name if it has changed
-        await api.updateTwin(_activeTwinId!, name: _cache.twinName);
-      }
-      
-      // Step 2: Save Step 1 config (credentials)
-      // IMPORTANT: Only send credentials if they were NEWLY ENTERED
-      // Inherited credentials are already encrypted in DB - don't overwrite with empty values
-      final configData = <String, dynamic>{'debug_mode': _cache.debugMode};
-      
-      // AWS credentials - only if newly entered
-      if (_cache.hasNewAwsCredentials && 
-          _cache.awsCredentials['access_key_id']?.isNotEmpty == true) {
-        final awsConfig = {
-          'access_key_id': _cache.awsCredentials['access_key_id'],
-          'secret_access_key': _cache.awsCredentials['secret_access_key'],
-          'region': _cache.awsCredentials['region'] ?? 'eu-central-1',
-          'sso_region': _cache.awsCredentials['sso_region'],
-        };
-        if (_cache.awsCredentials['session_token']?.isNotEmpty == true) {
-          awsConfig['session_token'] = _cache.awsCredentials['session_token']!;
+class _WizardViewState extends ConsumerState<WizardView> {
+  // Note: Name error handling will be via BLoC state in future
+  
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<WizardBloc, WizardState>(
+      listenWhen: (prev, curr) => 
+        prev.status != curr.status ||
+        prev.successMessage != curr.successMessage,
+      listener: (context, state) {
+        // Handle navigation on finish
+        if (state.successMessage == 'Configuration complete!') {
+          ref.invalidate(twinsProvider);
+          context.go('/dashboard');
         }
-        configData['aws'] = awsConfig;
-      }
-      
-      // Azure credentials - only if newly entered
-      if (_cache.hasNewAzureCredentials &&
-          _cache.azureCredentials['subscription_id']?.isNotEmpty == true) {
-        configData['azure'] = {
-          'subscription_id': _cache.azureCredentials['subscription_id'],
-          'client_id': _cache.azureCredentials['client_id'],
-          'client_secret': _cache.azureCredentials['client_secret'],
-          'tenant_id': _cache.azureCredentials['tenant_id'],
-          'region': _cache.azureCredentials['region'] ?? '',
-        };
-      }
-      
-      // GCP credentials - only if newly entered
-      if (_cache.hasNewGcpCredentials && (
-          _cache.gcpCredentials['project_id']?.isNotEmpty == true || 
-          _cache.gcpCredentials['billing_account']?.isNotEmpty == true ||
-          _cache.gcpServiceAccountJson != null)) {
-        configData['gcp'] = {
-          'project_id': _cache.gcpCredentials['project_id'],
-          'billing_account': _cache.gcpCredentials['billing_account'],
-          'region': _cache.gcpCredentials['region'] ?? '',
-          'service_account_json': _cache.gcpServiceAccountJson,
-        };
-      }
-      
-      await api.updateTwinConfig(_activeTwinId!, configData);
-      
-      // Step 3: Save Step 2 optimizer data (if exists)
-      debugPrint('[SaveDraft] Checking optimizer data: calcResult=${_cache.calcResult != null}, calcResultRaw=${_cache.calcResultRaw != null}');
-      if (_cache.calcResultRaw != null) {
-        debugPrint('[SaveDraft] calcResultRaw keys: ${_cache.calcResultRaw!.keys}');
-      }
-      if (_cache.calcResult != null && _cache.calcResultRaw != null) {
-        debugPrint('[SaveDraft] Saving optimizer result...');
-        await api.saveOptimizerResult(
-          _activeTwinId!,
-          params: _cache.calcParams?.toJson() ?? {},
-          result: _cache.calcResultRaw!['result'],
-          cheapestPath: _parseCheapestPath(_cache.calcResult!.cheapestPath),
-          pricingSnapshots: _cache.pricingSnapshots ?? {},
-          pricingTimestamps: _cache.pricingTimestamps ?? {},
-        );
-        debugPrint('[SaveDraft] Optimizer result saved successfully');
-      } else {
-        debugPrint('[SaveDraft] Skipping optimizer save - no results');
-      }
-      
-      // Mark cache as clean after successful save
-      _cache.markClean();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Draft saved!')),
-        );
-      }
-      
-      return true;
-    } on DioException catch (e) {
-      debugPrint('Failed to save draft: $e');
-      if (mounted) {
-        // Handle 409 Conflict (duplicate name)
-        if (e.response?.statusCode == 409) {
-          final detail = e.response?.data['detail'] ?? 'A twin with this name already exists';
-          setState(() => _nameError = detail);
-          await showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              icon: Icon(Icons.error_outline, color: Colors.red.shade400, size: 48),
-              title: const Text('Duplicate Name'),
-              content: Text(detail),
-              actions: [
-                FilledButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
-        } else {
-          // Other errors - show snackbar
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to save: ${e.message}'),
-              backgroundColor: Colors.red,
-            ),
+        // Auto-dismiss success messages after 3 seconds
+        else if (state.successMessage == 'Draft saved!') {
+          Future.delayed(const Duration(seconds: 3), () {
+            if (context.mounted) {
+              context.read<WizardBloc>().add(const WizardClearNotifications());
+            }
+          });
+        }
+      },
+      builder: (context, state) {
+        if (state.status == WizardStatus.loading) {
+          return Scaffold(
+            appBar: _buildAppBar(context),
+            body: const Center(child: CircularProgressIndicator()),
           );
         }
-      }
-      return false;
-    } catch (e) {
-      debugPrint('Failed to save draft: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save: $e'),
-            backgroundColor: Colors.red,
+        
+        return Scaffold(
+          appBar: _buildAppBar(context),
+          body: Column(
+            children: [
+              // Screen header with title
+              _buildHeader(context, state),
+              // Step indicator
+              _buildStepIndicator(context, state),
+              // Navigation bar
+              _buildNavigationBar(context, state),
+              const Divider(height: 1),
+              // Alert banners
+              _buildAlertBanners(context, state),
+              // Step content
+              Expanded(child: _buildStepContent(context, state)),
+            ],
           ),
         );
-      }
-      return false;
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
+      },
+    );
+  }
+  
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    return AppBar(
+      title: const Text('Twin2MultiCloud'),
+      automaticallyImplyLeading: false,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+      actions: [
+        IconButton(
+          icon: Icon(
+            ref.watch(themeProvider) == ThemeMode.dark
+                ? Icons.light_mode
+                : Icons.dark_mode,
+          ),
+          onPressed: () => ref.read(themeProvider.notifier).toggle(),
+          tooltip: 'Toggle theme',
+        ),
+        const CircleAvatar(child: Icon(Icons.person)),
+        const SizedBox(width: 16),
+      ],
+    );
+  }
+  
+  Widget _buildHeader(BuildContext context, WizardState state) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => _showExitConfirmation(context, state),
+            tooltip: 'Close',
+          ),
+          const SizedBox(width: 8),
+          Text(
+            state.mode == WizardMode.create 
+                ? 'Create Digital Twin' 
+                : 'Edit Digital Twin',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildAlertBanners(BuildContext context, WizardState state) {
+    if (state.errorMessage != null) {
+      return _buildBanner(
+        context,
+        message: state.errorMessage!,
+        color: Colors.red,
+        icon: Icons.error,
+        onDismiss: () => context.read<WizardBloc>().add(const WizardDismissError()),
+      );
+    } else if (state.successMessage != null) {
+      return _buildBanner(
+        context,
+        message: state.successMessage!,
+        color: Colors.green,
+        icon: Icons.check_circle,
+        onDismiss: () => context.read<WizardBloc>().add(const WizardClearNotifications()),
+      );
+    } else if (state.warningMessage != null) {
+      return _buildBanner(
+        context,
+        message: state.warningMessage!,
+        color: Colors.orange,
+        icon: Icons.warning_amber_rounded,
+        onDismiss: () => context.read<WizardBloc>().add(const WizardClearNotifications()),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+  
+  Widget _buildBanner(
+    BuildContext context, {
+    required String message,
+    required MaterialColor color,
+    required IconData icon,
+    required VoidCallback onDismiss,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      color: color.shade50,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: Row(
+            children: [
+              Icon(icon, color: color.shade700),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    color: color.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.close, color: color.shade700, size: 20),
+                onPressed: onDismiss,
+                tooltip: 'Dismiss',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildNavigationBar(BuildContext context, WizardState state) {
+    final bloc = context.read<WizardBloc>();
+    final isSaving = state.status == WizardStatus.saving;
+    
+    return Column(
+      children: [
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1000),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  children: [
+                    // Left: Back button
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          onPressed: state.currentStep == 0 
+                              ? () => _showExitConfirmation(context, state)
+                              : () => bloc.add(const WizardPreviousStep()),
+                          icon: const Icon(Icons.arrow_back),
+                          label: Text(state.currentStep == 0 ? 'Exit' : 'Back'),
+                        ),
+                      ),
+                    ),
+                    // Center: Calculate button (only on Step 2)
+                    if (state.currentStep == 1)
+                      ElevatedButton.icon(
+                        onPressed: (state.calcParams != null && !state.isCalculating)
+                            ? () => bloc.add(const WizardCalculateRequested())
+                            : null,
+                        icon: state.isCalculating
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.calculate, size: 22),
+                        label: Text(
+                          state.isCalculating ? 'CALCULATING...' : 'CALCULATE',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).brightness == Brightness.dark 
+                              ? Colors.white 
+                              : Colors.grey.shade900,
+                          foregroundColor: Theme.of(context).brightness == Brightness.dark 
+                              ? Colors.grey.shade900 
+                              : Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    // Right side buttons
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Save Draft button
+                            OutlinedButton.icon(
+                              onPressed: isSaving 
+                                  ? null 
+                                  : () => bloc.add(const WizardSaveDraft()),
+                              icon: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  isSaving 
+                                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                                    : const Icon(Icons.save),
+                                  if (state.hasUnsavedChanges && !isSaving)
+                                    Positioned(
+                                      right: -4,
+                                      top: -4,
+                                      child: Container(
+                                        width: 10,
+                                        height: 10,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.orange,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              label: const Text('Save Draft'),
+                            ),
+                            const SizedBox(width: 16),
+                            // Next/Finish button
+                            if (state.currentStep < 2)
+                              FilledButton.icon(
+                                onPressed: _canProceedToNextStep(state) 
+                                    ? () => bloc.add(const WizardNextStep())
+                                    : null,
+                                icon: const Icon(Icons.arrow_forward),
+                                label: const Text('Next Step'),
+                              )
+                            else
+                              ElevatedButton.icon(
+                                onPressed: () => bloc.add(const WizardFinish()),
+                                icon: const Icon(Icons.check_circle),
+                                label: const Text('Finish Configuration'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  bool _canProceedToNextStep(WizardState state) {
+    switch (state.currentStep) {
+      case 0:
+        return state.canProceedToStep2;
+      case 1:
+        return state.canProceedToStep3;
+      default:
+        return true;
     }
   }
   
-  /// Parse cheapest path array to dict format for API
-  Map<String, String?> _parseCheapestPath(List<String> path) {
-    final result = <String, String?>{
-      'l1': null, 'l2': null, 'l3_hot': null, 
-      'l3_cool': null, 'l3_archive': null, 'l4': null, 'l5': null,
-    };
-    for (final segment in path) {
-      final parts = segment.split('_');
-      if (parts.isEmpty) continue;
-      
-      final layer = parts[0].toUpperCase();
-      
-      if (layer == 'L3' && parts.length >= 3) {
-        final tier = parts[1].toLowerCase();
-        result['l3_$tier'] = parts[2].toUpperCase();
-      } else if (parts.length >= 2) {
-        result[layer.toLowerCase()] = parts[1].toUpperCase();
-      }
-    }
-    return result;
+  Widget _buildStepIndicator(BuildContext context, WizardState state) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildStep(context, state, 0, '1. Configuration', Icons.settings),
+              _buildConnector(state, 0),
+              _buildStep(context, state, 1, '2. Optimizer', Icons.analytics),
+              _buildConnector(state, 1),
+              _buildStep(context, state, 2, '3. Deployer', Icons.cloud_upload),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer.withAlpha(100),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            'Step ${state.currentStep + 1} / 3',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
   }
-
-  Future<void> _showExitConfirmation(BuildContext context) async {
+  
+  Widget _buildStep(BuildContext context, WizardState state, int index, String label, IconData icon) {
+    final isActive = state.currentStep == index;
+    final isCompleted = state.highestStepReached > index;
+    final bloc = context.read<WizardBloc>();
+    
+    return InkWell(
+      onTap: () {
+        if (index <= state.highestStepReached) {
+          bloc.add(WizardGoToStep(index));
+        }
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isCompleted 
+                  ? Colors.green 
+                  : isActive 
+                    ? Theme.of(context).colorScheme.primary 
+                    : (index <= state.highestStepReached)
+                      ? Theme.of(context).colorScheme.primary.withAlpha(150)
+                      : Colors.grey.shade300,
+              ),
+              child: Icon(
+                isCompleted ? Icons.check : icon,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                color: index <= state.highestStepReached 
+                  ? null 
+                  : Colors.grey.shade500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildConnector(WizardState state, int afterIndex) {
+    final isActive = state.highestStepReached > afterIndex;
+    return Container(
+      width: 60,
+      height: 2,
+      margin: const EdgeInsets.only(bottom: 20),
+      color: isActive ? Colors.green : Colors.grey.shade300,
+    );
+  }
+  
+  Widget _buildStepContent(BuildContext context, WizardState state) {
+    switch (state.currentStep) {
+      case 0:
+        return const Step1Configuration();
+      case 1:
+        return const Step2Optimizer();
+      case 2:
+        return const Step3Deployer();
+      default:
+        return const SizedBox();
+    }
+  }
+  
+  Future<void> _showExitConfirmation(BuildContext context, WizardState state) async {
     // If no unsaved changes, just exit
-    if (!_cache.hasUnsavedChanges) {
-      _cache.clear();
-      ref.invalidate(twinsProvider); // Refresh twins list on dashboard
+    if (!state.hasUnsavedChanges) {
+      ref.invalidate(twinsProvider);
       context.go('/dashboard');
       return;
     }
@@ -325,369 +506,17 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
 
     switch (result) {
       case 'discard':
-        _cache.clear();
-        ref.invalidate(twinsProvider); // Refresh twins list on dashboard
+        ref.invalidate(twinsProvider);
         context.go('/dashboard');
         break;
       case 'save':
-        final saved = await _saveDraftToDatabase();
-        if (saved && context.mounted) {
-          _cache.clear();
-          ref.invalidate(twinsProvider); // Refresh twins list on dashboard
-          context.go('/dashboard');
-        }
+        context.read<WizardBloc>().add(const WizardSaveDraft());
+        // The BLoC will handle the save and show success message
+        // We could listen for success and then navigate, but for now keep it simple
         break;
       case 'cancel':
       default:
-        // Do nothing, stay on page
         break;
-    }
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Twin2MultiCloud'),
-        automaticallyImplyLeading: false,
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-        actions: [
-          IconButton(
-            icon: Icon(
-              ref.watch(themeProvider) == ThemeMode.dark
-                  ? Icons.light_mode
-                  : Icons.dark_mode,
-            ),
-            onPressed: () => ref.read(themeProvider.notifier).toggle(),
-            tooltip: 'Toggle theme',
-          ),
-          const CircleAvatar(child: Icon(Icons.person)),
-          const SizedBox(width: 16),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Screen-specific header with title and close button
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => _showExitConfirmation(context),
-                  tooltip: 'Close',
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _activeTwinId == null ? 'Create Digital Twin' : 'Edit Digital Twin',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-              ],
-            ),
-          ),
-          _buildStepIndicator(),
-          // Sticky navigation bar
-          _buildNavigationBar(),
-          const Divider(height: 1),
-          Expanded(
-            child: _isLoading 
-              ? const Center(child: CircularProgressIndicator())
-              : _buildStepContent(),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildNavigationBar() {
-    return Column(
-      children: [
-        const Divider(height: 1),  // Separator above nav bar
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1000),  // Match content width
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  children: [
-                    // Left: Back button
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: OutlinedButton.icon(
-                          onPressed: _currentStep == 0 
-                              ? () => _showExitConfirmation(context)
-                              : () => setState(() => _currentStep--),
-                          icon: const Icon(Icons.arrow_back),
-                          label: Text(_currentStep == 0 ? 'Exit' : 'Back'),
-                        ),
-                      ),
-                    ),
-                    // Center: Calculate button (only on Step 2)
-                    if (_currentStep == 1)
-                      ElevatedButton.icon(
-                        onPressed: (_cache.calcParams != null && 
-                                   !_cache.isCalculating && 
-                                   _cache.isCalcDirty &&
-                                   _cache.onCalculateRequested != null)
-                            ? () => _cache.onCalculateRequested?.call()
-                            : null,
-                        icon: _cache.isCalculating
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.calculate, size: 22),
-                        label: Text(
-                          _cache.isCalculating 
-                              ? 'CALCULATING...' 
-                              : (_cache.isCalcDirty ? 'CALCULATE' : 'UP TO DATE'),
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _cache.isCalcDirty 
-                              ? (Theme.of(context).brightness == Brightness.dark 
-                                  ? Colors.white 
-                                  : Colors.grey.shade900)
-                              : Colors.grey.shade500,
-                          foregroundColor: _cache.isCalcDirty
-                              ? (Theme.of(context).brightness == Brightness.dark 
-                                  ? Colors.grey.shade900 
-                                  : Colors.white)
-                              : Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
-                          elevation: _cache.isCalcDirty ? 4 : 1,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    // Right side buttons (Expanded to balance the layout)
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Save Draft button
-                            OutlinedButton.icon(
-                              onPressed: _isSaving ? null : () async {
-                                await _saveDraftToDatabase();
-                              },
-                              icon: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  _isSaving 
-                                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                                    : const Icon(Icons.save),
-                                  if (_cache.hasUnsavedChanges && !_isSaving)
-                                    Positioned(
-                                      right: -4,
-                                      top: -4,
-                                      child: Container(
-                                        width: 10,
-                                        height: 10,
-                                        decoration: const BoxDecoration(
-                                          color: Colors.orange,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              label: const Text('Save Draft'),
-                            ),
-                            const SizedBox(width: 16),
-                            // Next/Finish button
-                            if (_currentStep < 2)
-                              FilledButton.icon(
-                                onPressed: _canProceedToNextStep() 
-                                    ? () => setState(() {
-                                        _currentStep++;
-                                        if (_highestStepReached < _currentStep) {
-                                          _highestStepReached = _currentStep;
-                                        }
-                                      })
-                                    : null,
-                                icon: const Icon(Icons.arrow_forward),
-                                label: const Text('Next Step'),
-                              )
-                            else
-                              ElevatedButton.icon(
-                                onPressed: () async {
-                                  final saved = await _saveDraftToDatabase();
-                                  if (saved && mounted) {
-                                    _cache.step3Complete = true;
-                                    _cache.clear();
-                                    ref.invalidate(twinsProvider);
-                                    context.go('/dashboard');
-                                  }
-                                },
-                                icon: const Icon(Icons.check_circle),
-                                label: const Text('Finish Configuration'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  foregroundColor: Colors.white,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-  
-  bool _canProceedToNextStep() {
-    switch (_currentStep) {
-      case 0:
-        return _cache.canProceedToStep2;
-      case 1:
-        return _cache.calcResult != null;
-      default:
-        return true;
-    }
-  }
-  
-  Widget _buildStepIndicator() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildStep(0, '1. Configuration', Icons.settings),
-              _buildConnector(0),
-              _buildStep(1, '2. Optimizer', Icons.analytics),
-              _buildConnector(1),
-              _buildStep(2, '3. Deployer', Icons.cloud_upload),
-            ],
-          ),
-        ),
-        // Current step indicator
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer.withAlpha(100),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            'Step ${_currentStep + 1} / 3',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-      ],
-    );
-  }
-  
-  Widget _buildStep(int index, String label, IconData icon) {
-    final isActive = _currentStep == index;
-    final isCompleted = _highestStepReached > index;
-    
-    return InkWell(
-      onTap: () {
-        // Only allow navigation to previously reached steps or the current step
-        if (index <= _highestStepReached) {
-          setState(() => _currentStep = index);
-        }
-      },
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Column(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isCompleted 
-                  ? Colors.green 
-                  : isActive 
-                    ? Theme.of(context).colorScheme.primary 
-                    : (index <= _highestStepReached)
-                      ? Theme.of(context).colorScheme.primary.withAlpha(150)
-                      : Colors.grey.shade300,
-              ),
-              child: Icon(
-                isCompleted ? Icons.check : icon,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                color: index <= _highestStepReached 
-                  ? null 
-                  : Colors.grey.shade500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildConnector(int afterIndex) {
-    final isActive = _highestStepReached > afterIndex;
-    return Container(
-      width: 60,
-      height: 2,
-      margin: const EdgeInsets.only(bottom: 20),
-      color: isActive ? Colors.green : Colors.grey.shade300,
-    );
-  }
-  
-  Widget _buildStepContent() {
-    switch (_currentStep) {
-      case 0:
-        return Step1Configuration(
-          twinId: _activeTwinId,
-          cache: _cache,
-          nameError: _nameError,
-          onCacheChanged: () => setState(() {}),  // Trigger rebuild to update UI
-          onNameErrorClear: () => setState(() => _nameError = null),
-        );
-      case 1:
-        return Step2Optimizer(
-          twinId: _activeTwinId,
-          cache: _cache,
-          onCacheChanged: () => setState(() {}),
-        );
-      case 2:
-        return Step3Deployer(
-          twinId: _activeTwinId,
-          cache: _cache,
-          onCacheChanged: () => setState(() {}),
-        );
-      default:
-        return const SizedBox();
     }
   }
 }
