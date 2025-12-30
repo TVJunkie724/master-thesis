@@ -327,37 +327,54 @@ def validate_azure_hierarchy_content(content):
 def validate_state_machine_content(filename, content):
     """
     Validates that the state machine file content matches the expected provider format.
+    Supports both JSON (.json) and YAML (.yaml/.yml) files.
     """
-    # 1. Parse JSON
+    # 1. Parse content based on file extension
     if isinstance(content, str):
-        try:
-            json_content = json.loads(content)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON content for {filename}: {e}")
+        if filename.endswith(('.yaml', '.yml')):
+            # Parse YAML
+            try:
+                import yaml
+                parsed_content = yaml.safe_load(content)
+            except yaml.YAMLError as e:
+                raise ValueError(f"Invalid YAML content for {filename}: {e}")
+            except ImportError:
+                raise ValueError(f"PyYAML is required to parse {filename}. Install with: pip install pyyaml")
+        else:
+            # Parse JSON
+            try:
+                parsed_content = json.loads(content)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON content for {filename}: {e}")
     else:
-        json_content = content
+        parsed_content = content
 
     # 2. Check Signature
     if filename in CONSTANTS.STATE_MACHINE_SIGNATURES:
         required_keys = CONSTANTS.STATE_MACHINE_SIGNATURES[filename]
-        missing_keys = [k for k in required_keys if k not in json_content]
+        missing_keys = [k for k in required_keys if k not in parsed_content]
         
         # Special handling for Azure because $schema is sometimes inside definition
         if filename == CONSTANTS.AZURE_STATE_MACHINE_FILE:
-             if "definition" in json_content:
+             if "definition" in parsed_content:
                  pass
         
         # Special handling for GCP - 'steps' is nested inside 'main', not top-level
         if filename == CONSTANTS.GOOGLE_STATE_MACHINE_FILE:
-            if "main" not in json_content:
+            if "main" not in parsed_content:
                 raise ValueError(f"GCP Workflow missing required 'main' block")
-            main_block = json_content.get("main", {})
-            if "steps" not in main_block:
+            main_block = parsed_content.get("main", {})
+            # For YAML, main_block is a list of step dicts
+            if isinstance(main_block, list):
+                # Valid YAML workflow format: main is a list of steps
+                return
+            # For JSON, main_block is a dict with 'steps' key
+            if isinstance(main_block, dict) and "steps" not in main_block:
                 raise ValueError(f"GCP Workflow 'main' block missing required 'steps' array")
             return  # Valid GCP workflow
         
         if missing_keys:
-             if filename == CONSTANTS.AZURE_STATE_MACHINE_FILE and "definition" in json_content:
+             if filename == CONSTANTS.AZURE_STATE_MACHINE_FILE and "definition" in parsed_content:
                  pass 
              else:
                  raise ValueError(f"Invalid State Machine format for {filename}. Missing required keys: {missing_keys}")

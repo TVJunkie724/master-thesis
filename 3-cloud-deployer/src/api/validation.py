@@ -44,7 +44,7 @@ async def validate_zip(file: UploadFile = File(..., description="Project zip fil
     ├── state_machines/                (optional - required if triggerNotificationWorkflow=true)
     │   ├── aws_step_function.json     (if layer_2_provider=aws)
     │   ├── azure_logic_app.json       (if layer_2_provider=azure)
-    │   └── google_cloud_workflow.json (if layer_2_provider=google)
+    │   └── google_cloud_workflow.yaml (if layer_2_provider=google)
     │
     ├── lambda_functions/              (if layer_2_provider=aws)
     │   ├── processors/
@@ -231,15 +231,19 @@ async def validate_state_machine(
     {"definition": {"$schema": "...", "triggers": {}, "actions": {}}}
     ```
     
-    `google` → `state_machines/google_cloud_workflow.json`:
-    ```json
-    {"main": {"steps": [{"init": {"assign": [{"result": "ok"}]}}]}}
+    `google` → `state_machines/google_cloud_workflow.yaml`:
+    ```yaml
+    main:
+      steps:
+        - init:
+            assign:
+              - result: "ok"
     ```
     """
     filename_map = {
         "aws": "aws_step_function.json",
         "azure": "azure_logic_app.json",
-        "google": "google_cloud_workflow.json"
+        "google": "google_cloud_workflow.yaml"
     }
     
     target_filename = filename_map[provider]

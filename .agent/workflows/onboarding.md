@@ -14,9 +14,14 @@ Follow these steps **in order** when starting work on any project in this reposi
 
 ### 0.1 Switch to AI Working Branch
 
+> ⚠️ **CRITICAL:** All git commands must run from the **workspace root** (`d:\Git\master-thesis`), NOT from subdirectories like `3-cloud-deployer` or `twin2multicloud_flutter`.
+
 AI agents always work on a dedicated `ai/dev` branch (not per-task feature branches):
 
 ```bash
+# 0. IMPORTANT: Run from workspace root!
+cd d:\Git\master-thesis
+
 # 1. Check current git status
 git status
 

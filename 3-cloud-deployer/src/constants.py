@@ -104,7 +104,7 @@ AWS_CORE_LAMBDA_DIR_NAME = "src/providers/aws/lambda_functions"
 # ==========================================
 AWS_STATE_MACHINE_FILE = "aws_step_function.json"
 AZURE_STATE_MACHINE_FILE = "azure_logic_app.json"
-GOOGLE_STATE_MACHINE_FILE = "google_cloud_workflow.json"
+GOOGLE_STATE_MACHINE_FILE = "google_cloud_workflow.yaml"
 
 STATE_MACHINE_SIGNATURES = {
     AWS_STATE_MACHINE_FILE: ["StartAt", "States"],
