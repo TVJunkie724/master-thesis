@@ -102,23 +102,33 @@ class _WizardViewState extends ConsumerState<WizardView> {
   }
   
   PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return AppBar(
-      title: const Text('Twin2MultiCloud'),
-      automaticallyImplyLeading: false,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-      actions: [
-        IconButton(
-          icon: Icon(
-            ref.watch(themeProvider) == ThemeMode.dark
-                ? Icons.light_mode
-                : Icons.dark_mode,
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight),
+      child: BlocBuilder<WizardBloc, WizardState>(
+        builder: (context, state) => AppBar(
+          title: const Text('Twin2MultiCloud'),
+          automaticallyImplyLeading: false,
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => _showExitConfirmation(context, state),
+            tooltip: 'Close wizard',
           ),
-          onPressed: () => ref.read(themeProvider.notifier).toggle(),
-          tooltip: 'Toggle theme',
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+          actions: [
+            IconButton(
+              icon: Icon(
+                ref.watch(themeProvider) == ThemeMode.dark
+                    ? Icons.light_mode
+                    : Icons.dark_mode,
+              ),
+              onPressed: () => ref.read(themeProvider.notifier).toggle(),
+              tooltip: 'Toggle theme',
+            ),
+            const CircleAvatar(child: Icon(Icons.person)),
+            const SizedBox(width: 16),
+          ],
         ),
-        const CircleAvatar(child: Icon(Icons.person)),
-        const SizedBox(width: 16),
-      ],
+      ),
     );
   }
   
@@ -233,9 +243,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: OutlinedButton.icon(
-                          onPressed: state.currentStep == 0 
-                              ? () => _showExitConfirmation(context, state)
-                              : () => bloc.add(const WizardPreviousStep()),
+                          onPressed: () => _handleBack(context, state),
                           icon: const Icon(Icons.arrow_back),
                           label: Text(state.currentStep == 0 ? 'Exit' : 'Back'),
                         ),
@@ -243,39 +251,46 @@ class _WizardViewState extends ConsumerState<WizardView> {
                     ),
                     // Center: Calculate button (only on Step 2)
                     if (state.currentStep == 1)
-                      ElevatedButton.icon(
-                        onPressed: (state.calcParams != null && !state.isCalculating)
-                            ? () => bloc.add(const WizardCalculateRequested())
-                            : null,
-                        icon: state.isCalculating
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.calculate, size: 22),
-                        label: Text(
-                          state.isCalculating ? 'CALCULATING...' : 'CALCULATE',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.0,
+                      Tooltip(
+                        message: !state.isCalcFormValid 
+                            ? 'Fix form errors before calculating'
+                            : state.calcParams == null 
+                                ? 'Configure parameters first'
+                                : '',
+                        child: ElevatedButton.icon(
+                          onPressed: (state.calcParams != null && state.isCalcFormValid && !state.isCalculating)
+                              ? () => bloc.add(const WizardCalculateRequested())
+                              : null,
+                          icon: state.isCalculating
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.calculate, size: 22),
+                          label: Text(
+                            state.isCalculating ? 'CALCULATING...' : 'CALCULATE',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.0,
+                            ),
                           ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).brightness == Brightness.dark 
-                              ? Colors.white 
-                              : Colors.grey.shade900,
-                          foregroundColor: Theme.of(context).brightness == Brightness.dark 
-                              ? Colors.grey.shade900 
-                              : Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
-                          elevation: 4,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).brightness == Brightness.dark 
+                                ? Colors.white 
+                                : Colors.grey.shade900,
+                            foregroundColor: Theme.of(context).brightness == Brightness.dark 
+                                ? Colors.grey.shade900 
+                                : Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                         ),
                       ),
@@ -290,7 +305,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
                             OutlinedButton.icon(
                               onPressed: isSaving 
                                   ? null 
-                                  : () => bloc.add(const WizardSaveDraft()),
+                                  : () => _handleSaveDraft(context, state),
                               icon: Stack(
                                 clipBehavior: Clip.none,
                                 children: [
@@ -319,7 +334,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
                             if (state.currentStep < 2)
                               FilledButton.icon(
                                 onPressed: _canProceedToNextStep(state) 
-                                    ? () => bloc.add(const WizardNextStep())
+                                    ? () => _handleNextStep(context, state)
                                     : null,
                                 icon: const Icon(Icons.arrow_forward),
                                 label: const Text('Next Step'),
@@ -398,14 +413,9 @@ class _WizardViewState extends ConsumerState<WizardView> {
   Widget _buildStep(BuildContext context, WizardState state, int index, String label, IconData icon) {
     final isActive = state.currentStep == index;
     final isCompleted = state.highestStepReached > index;
-    final bloc = context.read<WizardBloc>();
     
     return InkWell(
-      onTap: () {
-        if (index <= state.highestStepReached) {
-          bloc.add(WizardGoToStep(index));
-        }
-      },
+      onTap: () => _handleStepClick(context, state, index),
       borderRadius: BorderRadius.circular(20),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -471,13 +481,76 @@ class _WizardViewState extends ConsumerState<WizardView> {
   }
   
   Future<void> _showExitConfirmation(BuildContext context, WizardState state) async {
-    // If no unsaved changes, just exit
-    if (!state.hasUnsavedChanges) {
+    // If no unsaved changes and no invalidation, just exit
+    if (!state.hasUnsavedChanges && !state.step3Invalidated) {
       ref.invalidate(twinsProvider);
       context.go('/dashboard');
       return;
     }
     
+    // Different dialog for invalidation case
+    if (state.step3Invalidated) {
+      final result = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+              SizedBox(width: 12),
+              Text('Configuration Changed'),
+            ],
+          ),
+          content: const Text(
+            'Your new calculation affects Step 3.\n\n'
+            'If you save now, Step 3 configuration will be reset to match the new calculation.'
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'discard'),
+              child: const Text('Leave Without Saving'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, 'save'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Save & Leave'),
+            ),
+          ],
+        ),
+      );
+
+      if (!context.mounted) return;
+
+      switch (result) {
+        case 'discard':
+          ref.invalidate(twinsProvider);
+          context.go('/dashboard');
+          break;
+        case 'save':
+          // Clear invalidation, save, then navigate
+          context.read<WizardBloc>().add(const WizardProceedAndSave());
+          // Wait for save then navigate
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (context.mounted) {
+              ref.invalidate(twinsProvider);
+              context.go('/dashboard');
+            }
+          });
+          break;
+        case 'cancel':
+        default:
+          break;
+      }
+      return;
+    }
+    
+    // Normal unsaved changes dialog
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -511,12 +584,159 @@ class _WizardViewState extends ConsumerState<WizardView> {
         break;
       case 'save':
         context.read<WizardBloc>().add(const WizardSaveDraft());
-        // The BLoC will handle the save and show success message
-        // We could listen for success and then navigate, but for now keep it simple
         break;
       case 'cancel':
       default:
         break;
+    }
+  }
+  
+  /// Show confirmation dialog when Step 3 will be invalidated
+  /// Returns: 'proceed' (keep new results), 'restore' (keep old data), or null (cancel)
+  Future<String?> _showInvalidationConfirmation(BuildContext context, WizardState state) async {
+    final canDiscard = state.savedCalcResult != null;
+    
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+            SizedBox(width: 12),
+            Text('Configuration Changed'),
+          ],
+        ),
+        content: Text(
+          'Your new calculation has different parameters that may affect Step 3 configuration.\n\n'
+          'What would you like to do?'
+          '${!canDiscard ? '\n\n(Discard not available - no saved version exists)' : ''}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null), // Cancel
+            child: const Text('Cancel'),
+          ),
+          OutlinedButton(
+            onPressed: canDiscard ? () => Navigator.pop(ctx, 'restore') : null,
+            child: const Text('Discard Changes'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, 'proceed'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Keep New Results'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// Handle Save Draft with potential invalidation confirmation
+  Future<void> _handleSaveDraft(BuildContext context, WizardState state) async {
+    if (state.step3Invalidated) {
+      final result = await _showInvalidationConfirmation(context, state);
+      if (!context.mounted) return;
+      
+      switch (result) {
+        case 'proceed':
+          context.read<WizardBloc>().add(const WizardProceedAndSave());
+          break;
+        case 'restore':
+          context.read<WizardBloc>().add(const WizardRestoreOldResults());
+          break;
+        default:
+          // Cancel - do nothing
+          break;
+      }
+    } else {
+      context.read<WizardBloc>().add(const WizardSaveDraft());
+    }
+  }
+  
+  /// Handle Next Step with potential invalidation confirmation
+  Future<void> _handleNextStep(BuildContext context, WizardState state) async {
+    if (state.step3Invalidated) {
+      final result = await _showInvalidationConfirmation(context, state);
+      if (!context.mounted) return;
+      
+      switch (result) {
+        case 'proceed':
+          context.read<WizardBloc>().add(const WizardProceedAndNext());
+          break;
+        case 'restore':
+          context.read<WizardBloc>().add(const WizardRestoreOldResults());
+          break;
+        default:
+          // Cancel - do nothing
+          break;
+      }
+    } else {
+      context.read<WizardBloc>().add(const WizardNextStep());
+    }
+  }
+  
+  /// Handle Back button with potential invalidation confirmation
+  Future<void> _handleBack(BuildContext context, WizardState state) async {
+    if (state.currentStep == 0) {
+      await _showExitConfirmation(context, state);
+      return;
+    }
+    
+    // Show invalidation confirmation if step3 is invalidated
+    if (state.step3Invalidated) {
+      final result = await _showInvalidationConfirmation(context, state);
+      if (!context.mounted) return;
+      
+      switch (result) {
+        case 'proceed':
+          // Clear invalidation and go back
+          context.read<WizardBloc>().add(const WizardClearInvalidation());
+          context.read<WizardBloc>().add(const WizardPreviousStep());
+          break;
+        case 'restore':
+          context.read<WizardBloc>().add(const WizardRestoreOldResults());
+          context.read<WizardBloc>().add(const WizardPreviousStep());
+          break;
+        default:
+          // Cancel - do nothing
+          break;
+      }
+    } else {
+      context.read<WizardBloc>().add(const WizardPreviousStep());
+    }
+  }
+  
+  /// Handle step indicator click with potential invalidation confirmation
+  Future<void> _handleStepClick(BuildContext context, WizardState state, int targetStep) async {
+    // Ignore if step not reachable
+    if (targetStep > state.highestStepReached) return;
+    
+    // Ignore if already on this step
+    if (targetStep == state.currentStep) return;
+    
+    // Show invalidation confirmation if step3 is invalidated
+    if (state.step3Invalidated) {
+      final result = await _showInvalidationConfirmation(context, state);
+      if (!context.mounted) return;
+      
+      switch (result) {
+        case 'proceed':
+          // Clear invalidation and navigate
+          context.read<WizardBloc>().add(const WizardClearInvalidation());
+          context.read<WizardBloc>().add(WizardGoToStep(targetStep));
+          break;
+        case 'restore':
+          context.read<WizardBloc>().add(const WizardRestoreOldResults());
+          context.read<WizardBloc>().add(WizardGoToStep(targetStep));
+          break;
+        default:
+          // Cancel - do nothing
+          break;
+      }
+    } else {
+      context.read<WizardBloc>().add(WizardGoToStep(targetStep));
     }
   }
 }

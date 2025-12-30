@@ -40,9 +40,42 @@ class _Step3DeployerState extends State<Step3Deployer> {
 
   ArchitectureLayerBuilder? _layerBuilder;
   
+  // Track last hasData state to avoid spamming BLoC events
+  bool _lastHasSection3Data = false;
+  
   // Breakpoint for showing flowchart column
   static const double _flowchartBreakpoint = 900;
   static const double _flowchartWidth = 450;
+  
+  /// Update Section 3 content and notify BLoC about data presence
+  void _updateSection3Content({
+    String? payloads,
+    String? processors,
+    String? stateMachine,
+    String? sceneAssets,
+    String? grafanaConfig,
+  }) {
+    setState(() {
+      if (payloads != null) _payloadsContent = payloads;
+      if (processors != null) _processorsContent = processors;
+      if (stateMachine != null) _stateMachineContent = stateMachine;
+      if (sceneAssets != null) _sceneAssetsContent = sceneAssets;
+      if (grafanaConfig != null) _grafanaConfigContent = grafanaConfig;
+    });
+    
+    // Notify BLoC about whether Section 3 has any data
+    final hasData = _payloadsContent.isNotEmpty ||
+        _processorsContent.isNotEmpty ||
+        _stateMachineContent.isNotEmpty ||
+        _sceneAssetsContent.isNotEmpty ||
+        _grafanaConfigContent.isNotEmpty;
+    
+    // Only dispatch if state actually changed (debounce)
+    if (hasData != _lastHasSection3Data) {
+      _lastHasSection3Data = hasData;
+      context.read<WizardBloc>().add(WizardSection3DataChanged(hasData));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -214,7 +247,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
             constraints: '• Must be valid JSON\n• Define device ID and payload structure',
             exampleContent: Step3Examples.payloads,
             initialContent: _payloadsContent,
-            onContentChanged: (content) => setState(() => _payloadsContent = content),
+            onContentChanged: (content) => _updateSection3Content(payloads: content),
             onValidate: (content) => _validateFile('payloads', content),
           ),
         ]),
@@ -231,7 +264,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
             constraints: '• Python files with process() function\n• One file per device type',
             exampleContent: Step3Examples.processors,
             initialContent: _processorsContent,
-            onContentChanged: (content) => setState(() => _processorsContent = content),
+            onContentChanged: (content) => _updateSection3Content(processors: content),
             onValidate: (content) => _validateFile('processors', content),
           ),
           const SizedBox(height: 16),
@@ -243,7 +276,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
             constraints: '• AWS Step Functions / Azure Logic App / GCP Workflow',
             exampleContent: Step3Examples.stateMachine,
             initialContent: _stateMachineContent,
-            onContentChanged: (content) => setState(() => _stateMachineContent = content),
+            onContentChanged: (content) => _updateSection3Content(stateMachine: content),
             onValidate: (content) => _validateFile('state_machine', content),
           ),
         ]),
@@ -267,7 +300,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
             constraints: '• 3DScenesConfiguration.json for Azure ADT',
             exampleContent: Step3Examples.sceneAssets,
             initialContent: _sceneAssetsContent,
-            onContentChanged: (content) => setState(() => _sceneAssetsContent = content),
+            onContentChanged: (content) => _updateSection3Content(sceneAssets: content),
             onValidate: (content) => _validateFile('scene_assets', content),
           ),
         ]),
@@ -284,7 +317,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
             constraints: '• Dashboard layout and panels',
             exampleContent: Step3Examples.grafanaConfig,
             initialContent: _grafanaConfigContent,
-            onContentChanged: (content) => setState(() => _grafanaConfigContent = content),
+            onContentChanged: (content) => _updateSection3Content(grafanaConfig: content),
             onValidate: (content) => _validateFile('grafana_config', content),
           ),
         ]),

@@ -2,6 +2,7 @@
 // BLoC for wizard state machine
 
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
 import '../../services/api_service.dart';
 import 'wizard_event.dart';
@@ -49,6 +50,14 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     // === UI Feedback ===
     on<WizardClearNotifications>(_onClearNotifications);
     on<WizardDismissError>(_onDismissError);
+    
+    // === Step 3 Invalidation ===
+    on<WizardSection3DataChanged>(_onSection3DataChanged);
+    on<WizardProceedWithNewResults>(_onProceedWithNewResults);
+    on<WizardRestoreOldResults>(_onRestoreOldResults);
+    on<WizardProceedAndSave>(_onProceedAndSave);
+    on<WizardProceedAndNext>(_onProceedAndNext);
+    on<WizardClearInvalidation>(_onClearInvalidation);
   }
   
   // ============================================================
@@ -96,16 +105,29 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         );
       }
       
-      // Determine starting step based on data completeness
-      int startStep = 0;
-      if (awsCreds.isValid || azureCreds.isValid || gcpCreds.isValid) {
-        startStep = 1;
+      // Determine starting step: use persisted value, fallback to data-based detection
+      int startStep = config['highest_step_reached'] as int? ?? 0;
+      print('[WizardBloc] _onInitEdit: config[highest_step_reached]=${config['highest_step_reached']}, startStep=$startStep');
+      
+      // Validate startStep against actual data (can't go to step without prerequisites)
+      if (startStep >= 1 && !(awsCreds.isValid || azureCreds.isValid || gcpCreds.isValid)) {
+        startStep = 0; // Need at least one provider for Step 2
       }
-      // Check for optimizer result to jump to step 2
+      
+      // Load optimizer result if available
       CalcResult? loadedResult;
+      Map<String, dynamic>? loadedResultRaw;
       if (config['optimizer_result'] != null) {
-        loadedResult = CalcResult.fromJson({'result': config['optimizer_result']});
-        startStep = 2;
+        loadedResultRaw = {'result': config['optimizer_result']};
+        loadedResult = CalcResult.fromJson(loadedResultRaw);
+      } else if (startStep >= 2) {
+        startStep = 1; // Can't be on Step 3 without calc result
+      }
+      
+      // Load optimizer params if available
+      CalcParams? loadedParams;
+      if (config['optimizer_params'] != null) {
+        loadedParams = CalcParams.fromJson(config['optimizer_params']);
       }
       
       emit(WizardState(
@@ -119,7 +141,11 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         aws: awsCreds,
         azure: azureCreds,
         gcp: gcpCreds,
+        calcParams: loadedParams,
         calcResult: loadedResult,
+        savedCalcResult: loadedResult,  // Store for revert capability
+        calcResultRaw: loadedResultRaw,
+        savedCalcResultRaw: loadedResultRaw,  // Store raw for revert
       ));
     } catch (e) {
       emit(state.copyWith(
@@ -173,11 +199,23 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     
     // Advance step
     final nextStep = state.currentStep + 1;
+    
+    // Issue 3 fix: When advancing from Step 2 to Step 3 for first time,
+    // snapshot current calcResult as savedCalcResult for revert capability
+    CalcResult? snapshotCalcResult;
+    Map<String, dynamic>? snapshotCalcResultRaw;
+    if (state.currentStep == 1 && nextStep == 2 && state.savedCalcResult == null) {
+      snapshotCalcResult = state.calcResult;
+      snapshotCalcResultRaw = state.calcResultRaw;
+    }
+    
     emit(newState.copyWith(
       currentStep: nextStep,
       highestStepReached: nextStep > state.highestStepReached 
         ? nextStep 
         : state.highestStepReached,
+      savedCalcResult: snapshotCalcResult,
+      savedCalcResultRaw: snapshotCalcResultRaw,
     ));
   }
   
@@ -332,14 +370,33 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       // Check for unconfigured providers in optimal path
       final unconfigured = _getUnconfiguredProviders(result.cheapestPath);
       
+      // Check if new result invalidates Step 3 config
+      // Invalidation occurs when: hasSection3Data AND inputParamsUsed changed
+      bool invalidatesStep3 = false;
+      
+      // Debug: log conditions for invalidation detection
+      print('[WizardBloc] Invalidation check: hasSection3Data=${state.hasSection3Data}, highestStepReached=${state.highestStepReached}');
+      
+      if (state.hasSection3Data && state.highestStepReached >= 2) {
+        invalidatesStep3 = _calculationInvalidatesStep3(state.calcResult, result);
+      }
+      
+      // Build warning message - prioritize invalidation warning, then unconfigured providers
+      String? warning;
+      if (invalidatesStep3) {
+        warning = 'Calculation Changed: Step 3 configuration may need review. Proceeding will require confirmation.';
+      } else if (unconfigured.isNotEmpty) {
+        warning = 'Unconfigured provider(s) in optimal path: ${unconfigured.join(", ")}. Return to Step 1 to add credentials.';
+      }
+      
       emit(state.copyWith(
         isCalculating: false,
         calcResult: result,
         calcResultRaw: response,
         hasUnsavedChanges: true,
-        warningMessage: unconfigured.isNotEmpty 
-          ? 'Unconfigured provider(s) in optimal path: ${unconfigured.join(", ")}. Return to Step 1 to add credentials.'
-          : null,
+        step3Invalidated: invalidatesStep3,
+        warningMessage: warning,
+        clearSuccess: invalidatesStep3,  // Clear success message when warning appears
       ));
     } catch (e) {
       emit(state.copyWith(
@@ -347,6 +404,38 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         errorMessage: 'Calculation failed: $e',
       ));
     }
+  }
+  
+  /// Check if calculation result differs in ways that affect Step 3
+  /// Invalidates if inputParamsUsed changed OR cheapestPath changed
+  bool _calculationInvalidatesStep3(CalcResult? oldResult, CalcResult newResult) {
+    if (oldResult == null) return false;
+    
+    // Check inputParamsUsed
+    final oldParams = oldResult.inputParamsUsed;
+    final newParams = newResult.inputParamsUsed;
+    
+    final paramsChanged = 
+           oldParams.useEventChecking != newParams.useEventChecking ||
+           oldParams.triggerNotificationWorkflow != newParams.triggerNotificationWorkflow ||
+           oldParams.returnFeedbackToDevice != newParams.returnFeedbackToDevice ||
+           oldParams.integrateErrorHandling != newParams.integrateErrorHandling ||
+           oldParams.needs3DModel != newParams.needs3DModel;
+    
+    // Check cheapestPath
+    final pathChanged = !_listEquals(oldResult.cheapestPath, newResult.cheapestPath);
+    
+    print('[WizardBloc] paramsChanged=$paramsChanged, pathChanged=$pathChanged');
+    
+    return paramsChanged || pathChanged;
+  }
+  
+  bool _listEquals<T>(List<T> a, List<T> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
   
   Set<String> _getUnconfiguredProviders(List<String> path) {
@@ -414,12 +503,18 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         config['optimizer_result'] = state.calcResultRaw!['result'];
       }
       
+      // Persist current step position for resume on edit
+      config['highest_step_reached'] = state.highestStepReached;
+      
       await _api.updateTwinConfig(twinId!, config);
       
       emit(state.copyWith(
         status: WizardStatus.ready,
         twinId: twinId,
         hasUnsavedChanges: false,
+        savedCalcResult: state.calcResult,  // Update saved result on successful save
+        savedCalcResultRaw: state.calcResultRaw,  // Update saved raw result
+        step3Invalidated: false,  // Clear invalidation after save
         successMessage: 'Draft saved!',
       ));
     } catch (e) {
@@ -453,6 +548,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       if (state.gcp.source == CredentialSource.newlyEntered) config['gcp'] = state.gcp.values;
       if (state.calcParams != null) config['optimizer_params'] = state.calcParams!.toJson();
       if (state.calcResultRaw != null) config['optimizer_result'] = state.calcResultRaw!['result'];
+      config['highest_step_reached'] = state.highestStepReached;  // Issue 4 fix
       
       await _api.updateTwinConfig(twinId!, config);
       
@@ -477,5 +573,61 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   
   void _onDismissError(WizardDismissError event, Emitter<WizardState> emit) {
     emit(state.copyWith(clearError: true));
+  }
+  
+  // ============================================================
+  // STEP 3 INVALIDATION HANDLERS
+  // ============================================================
+  
+  void _onSection3DataChanged(WizardSection3DataChanged event, Emitter<WizardState> emit) {
+    emit(state.copyWith(hasSection3Data: event.hasData));
+  }
+  
+  void _onProceedWithNewResults(WizardProceedWithNewResults event, Emitter<WizardState> emit) {
+    // User chose to keep new calculation - clear invalidation flag
+    // Section 3 data will be cleared by UI
+    emit(state.copyWith(
+      step3Invalidated: false,
+      hasSection3Data: false,
+    ));
+  }
+  
+  void _onRestoreOldResults(WizardRestoreOldResults event, Emitter<WizardState> emit) {
+    // User chose to discard changes - revert to last saved calc result
+    emit(state.copyWith(
+      step3Invalidated: false,
+      calcResult: state.savedCalcResult,  // Visually revert to saved result
+      calcResultRaw: state.savedCalcResultRaw,  // Revert raw data for persistence
+      hasUnsavedChanges: false,
+      successMessage: 'Changes discarded',
+    ));
+  }
+  
+  // Combined handlers to avoid race condition
+  Future<void> _onProceedAndSave(WizardProceedAndSave event, Emitter<WizardState> emit) async {
+    // Atomically: clear invalidation + save
+    emit(state.copyWith(
+      step3Invalidated: false,
+      hasSection3Data: false,
+    ));
+    await _onSaveDraft(const WizardSaveDraft(), emit);
+  }
+  
+  void _onProceedAndNext(WizardProceedAndNext event, Emitter<WizardState> emit) {
+    // Atomically: clear invalidation + next
+    emit(state.copyWith(
+      step3Invalidated: false,
+      hasSection3Data: false,
+    ));
+    _onNextStep(const WizardNextStep(), emit);
+  }
+  
+  void _onClearInvalidation(WizardClearInvalidation event, Emitter<WizardState> emit) {
+    // Just clear the invalidation flag (user chose to proceed with new results)
+    emit(state.copyWith(
+      step3Invalidated: false,
+      hasSection3Data: false,
+      clearWarning: true,
+    ));
   }
 }

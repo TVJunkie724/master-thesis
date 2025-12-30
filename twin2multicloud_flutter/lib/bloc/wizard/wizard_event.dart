@@ -148,3 +148,40 @@ class WizardClearNotifications extends WizardEvent {
 class WizardDismissError extends WizardEvent {
   const WizardDismissError();
 }
+
+// ============================================================
+// STEP 3 INVALIDATION EVENTS
+// ============================================================
+
+/// Section 3 data status changed (any field has content)
+class WizardSection3DataChanged extends WizardEvent {
+  final bool hasData;
+  const WizardSection3DataChanged(this.hasData);
+  @override
+  List<Object?> get props => [hasData];
+}
+
+/// User confirmed to proceed with new calculation results (clears Section 3)
+class WizardProceedWithNewResults extends WizardEvent {
+  const WizardProceedWithNewResults();
+}
+
+/// User chose to restore old calculation results (discard unsaved calc)
+class WizardRestoreOldResults extends WizardEvent {
+  const WizardRestoreOldResults();
+}
+
+/// Combined: Proceed with new results AND save draft (atomic operation)
+class WizardProceedAndSave extends WizardEvent {
+  const WizardProceedAndSave();
+}
+
+/// Combined: Proceed with new results AND go to next step (atomic operation)
+class WizardProceedAndNext extends WizardEvent {
+  const WizardProceedAndNext();
+}
+
+/// Clear step3 invalidation flag (user chose to proceed)
+class WizardClearInvalidation extends WizardEvent {
+  const WizardClearInvalidation();
+}

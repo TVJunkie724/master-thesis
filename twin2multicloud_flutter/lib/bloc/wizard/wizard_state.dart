@@ -90,15 +90,19 @@ class WizardState extends Equatable {
   final CalcParams? calcParams;
   final bool isCalcFormValid;  // Whether the calculation form passes validation
   final CalcResult? calcResult;
+  final CalcResult? savedCalcResult;  // Last saved result from DB (for revert)
   final Map<String, dynamic>? calcResultRaw;
+  final Map<String, dynamic>? savedCalcResultRaw;  // Last saved raw result (for revert)
   final Map<String, dynamic>? pricingSnapshots;
   final Map<String, String?>? pricingTimestamps;
   
   // === Persistent Data: Step 3 ===
   final Map<String, dynamic>? deployerConfig;
+  final bool hasSection3Data;  // True if any Section 3 fields have content
   
   // === State Tracking ===
   final bool hasUnsavedChanges;
+  final bool step3Invalidated;  // True when new calc invalidates Section 3 data
   
   const WizardState({
     this.mode = WizardMode.create,
@@ -119,11 +123,15 @@ class WizardState extends Equatable {
     this.calcParams,
     this.isCalcFormValid = true,  // Default to valid
     this.calcResult,
+    this.savedCalcResult,
     this.calcResultRaw,
+    this.savedCalcResultRaw,
     this.pricingSnapshots,
     this.pricingTimestamps,
     this.deployerConfig,
+    this.hasSection3Data = false,
     this.hasUnsavedChanges = false,
+    this.step3Invalidated = false,
   });
   
   // ============================================================
@@ -168,11 +176,15 @@ class WizardState extends Equatable {
     CalcParams? calcParams,
     bool? isCalcFormValid,
     CalcResult? calcResult,
+    CalcResult? savedCalcResult,
     Map<String, dynamic>? calcResultRaw,
+    Map<String, dynamic>? savedCalcResultRaw,
     Map<String, dynamic>? pricingSnapshots,
     Map<String, String?>? pricingTimestamps,
     Map<String, dynamic>? deployerConfig,
+    bool? hasSection3Data,
     bool? hasUnsavedChanges,
+    bool? step3Invalidated,
     // Special flags to explicitly clear nullable fields
     bool clearError = false,
     bool clearSuccess = false,
@@ -197,11 +209,15 @@ class WizardState extends Equatable {
       calcParams: calcParams ?? this.calcParams,
       isCalcFormValid: isCalcFormValid ?? this.isCalcFormValid,
       calcResult: calcResult ?? this.calcResult,
+      savedCalcResult: savedCalcResult ?? this.savedCalcResult,
       calcResultRaw: calcResultRaw ?? this.calcResultRaw,
+      savedCalcResultRaw: savedCalcResultRaw ?? this.savedCalcResultRaw,
       pricingSnapshots: pricingSnapshots ?? this.pricingSnapshots,
       pricingTimestamps: pricingTimestamps ?? this.pricingTimestamps,
       deployerConfig: deployerConfig ?? this.deployerConfig,
+      hasSection3Data: hasSection3Data ?? this.hasSection3Data,
       hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
+      step3Invalidated: step3Invalidated ?? this.step3Invalidated,
     );
   }
   
@@ -232,10 +248,14 @@ class WizardState extends Equatable {
     calcParams,
     isCalcFormValid,
     calcResult,
+    savedCalcResult,
     calcResultRaw,
+    savedCalcResultRaw,
     pricingSnapshots,
     pricingTimestamps,
     deployerConfig,
+    hasSection3Data,
     hasUnsavedChanges,
+    step3Invalidated,
   ];
 }

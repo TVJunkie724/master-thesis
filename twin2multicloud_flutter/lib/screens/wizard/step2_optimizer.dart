@@ -36,6 +36,9 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
   String? _refreshingProvider;
   List<String> _refreshLogs = [];
   StreamSubscription? _sseSubscription;
+  
+  // Scroll keys for navigation
+  final _resultsKey = GlobalKey();
 
   // Provider Colors
   static const Color awsColor = Colors.orange;
@@ -180,40 +183,60 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<WizardBloc, WizardState>(
-      builder: (context, state) {
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1000),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Section 1: Data Freshness
-                  _buildPricingStatusSection(context),
-                  
-                  if (_isRefreshing || _refreshLogs.isNotEmpty)
-                    _buildLogWindow(),
-                  
-                  const SizedBox(height: 32),
-                  const Divider(),
-                  const SizedBox(height: 32),
-                  
-                  // Section 2: Calculation Inputs
-                  _buildCalculationSection(context, state),
-                  
-                  // Section 3: Results (if available)
-                  if (state.calcResult != null) ...[
-                    const SizedBox(height: 64),
-                    _buildResultsSection(context, state),
+    return BlocListener<WizardBloc, WizardState>(
+      // Scroll to results when any calculation completes (not just first)
+      listenWhen: (prev, curr) => prev.isCalculating && !curr.isCalculating && curr.calcResult != null,
+      listener: (context, state) {
+        // Scroll to results when calculation completes
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_resultsKey.currentContext != null) {
+            Scrollable.ensureVisible(
+              _resultsKey.currentContext!,
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOut,
+            );
+          }
+        });
+      },
+      child: BlocBuilder<WizardBloc, WizardState>(
+        builder: (context, state) {
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1000),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Section 1: Data Freshness
+                    _buildPricingStatusSection(context),
+                    
+                    if (_isRefreshing || _refreshLogs.isNotEmpty)
+                      _buildLogWindow(),
+                    
+                    const SizedBox(height: 32),
+                    const Divider(),
+                    const SizedBox(height: 32),
+                    
+                    // Note: Step 3 invalidation warning now shown in header alert via warningMessage
+                    // Section 2: Calculation Inputs
+                    _buildCalculationSection(context, state),
+                    
+                    // Section 3: Results (if available)
+                    if (state.calcResult != null) ...[
+                      const SizedBox(height: 64),
+                      Container(
+                        key: _resultsKey,
+                        child: _buildResultsSection(context, state),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
