@@ -82,6 +82,12 @@ class _CalcFormState extends State<CalcForm> {
       currency: _currency,
     );
     widget.onChanged?.call(params);
+    
+    // Report form validity after a frame to allow validators to run
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final isValid = _formKey.currentState?.validate() ?? true;
+      widget.onValidChanged?.call(isValid);
+    });
   }
 
   @override

@@ -30,6 +30,9 @@ class CalcResult {
 
   /// Cross-cloud transfer costs (key -> cost)
   final Map<String, double>? transferCosts;
+  
+  /// Input params used for the calculation (for invalidation detection)
+  final InputParamsUsed inputParamsUsed;
 
   CalcResult({
     required this.awsCosts,
@@ -46,6 +49,7 @@ class CalcResult {
     this.l2CoolCombinations,
     this.l2ArchiveCombinations,
     this.transferCosts,
+    required this.inputParamsUsed,
   });
 
   /// Parse from API response
@@ -106,6 +110,9 @@ class CalcResult {
           ?.map((e) => Map<String, dynamic>.from(e))
           .toList(),
       transferCosts: parseTransferCosts(result['transferCosts']),
+      inputParamsUsed: InputParamsUsed.fromJson(
+        result['inputParamsUsed'] as Map<String, dynamic>? ?? {},
+      ),
     );
   }
 
@@ -262,6 +269,34 @@ class OptimizationOverride {
       candidates: (json['candidates'] as List?)
           ?.map((e) => Map<String, dynamic>.from(e))
           .toList(),
+    );
+  }
+}
+
+/// Input parameters that affect Step 3 configuration
+/// Changes to these trigger Step 3 invalidation
+class InputParamsUsed {
+  final bool useEventChecking;
+  final bool triggerNotificationWorkflow;
+  final bool returnFeedbackToDevice;
+  final bool integrateErrorHandling;
+  final bool needs3DModel;
+
+  const InputParamsUsed({
+    this.useEventChecking = false,
+    this.triggerNotificationWorkflow = false,
+    this.returnFeedbackToDevice = false,
+    this.integrateErrorHandling = false,
+    this.needs3DModel = false,
+  });
+
+  factory InputParamsUsed.fromJson(Map<String, dynamic> json) {
+    return InputParamsUsed(
+      useEventChecking: json['useEventChecking'] as bool? ?? false,
+      triggerNotificationWorkflow: json['triggerNotificationWorkflow'] as bool? ?? false,
+      returnFeedbackToDevice: json['returnFeedbackToDevice'] as bool? ?? false,
+      integrateErrorHandling: json['integrateErrorHandling'] as bool? ?? false,
+      needs3DModel: json['needs3DModel'] as bool? ?? false,
     );
   }
 }
