@@ -26,6 +26,260 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 
+def _cleanup_azure_resources_sdk(credentials: dict, prefix: str, cleanup_entra_user: bool = False, grafana_email: str = "") -> None:
+    """
+    Comprehensive Azure SDK cleanup of resources by name pattern.
+    
+    This is a fallback cleanup that runs after terraform destroy to catch
+    any orphaned resources that weren't tracked in Terraform state.
+    
+    Order of operations:
+    1. Check for individual orphaned high-value resources (escaped Terraform)
+    2. Delete matching Resource Groups (nuclear option - deletes everything in RG)
+    3. Conditionally delete Entra ID user if created during deployment
+    
+    Args:
+        credentials: Dict with azure credentials
+        prefix: Resource name prefix to match (e.g., 'tf-e2e-az')
+        cleanup_entra_user: If True, also delete Entra ID user (only if Terraform created it)
+        grafana_email: The grafana admin email to match for Entra ID user deletion
+    """
+    from azure.identity import ClientSecretCredential
+    from azure.mgmt.resource import ResourceManagementClient
+    
+    azure_creds = credentials.get("azure", {})
+    tenant_id = azure_creds["azure_tenant_id"]
+    
+    # Create credential
+    credential = ClientSecretCredential(
+        tenant_id=tenant_id,
+        client_id=azure_creds["azure_client_id"],
+        client_secret=azure_creds["azure_client_secret"]
+    )
+    
+    subscription_id = azure_creds["azure_subscription_id"]
+    resource_client = ResourceManagementClient(credential, subscription_id)
+    
+    print(f"    [Azure SDK] Fallback cleanup for prefix: {prefix}")
+    
+    # ========================================
+    # PHASE 1: Check for orphaned resources that may have escaped RG deletion
+    # These are checked BEFORE RG deletion in case they exist in different RGs
+    # ========================================
+    
+    # 1. Check for orphaned CosmosDB accounts
+    print(f"    [CosmosDB] Checking for orphans...")
+    try:
+        from azure.mgmt.cosmosdb import CosmosDBManagementClient
+        cosmos_client = CosmosDBManagementClient(credential, subscription_id)
+        for account in cosmos_client.database_accounts.list():
+            if prefix in account.name:
+                print(f"      Found orphan: {account.name}")
+                try:
+                    rg_name = account.id.split('/')[4]  # Extract RG from resource ID
+                    poller = cosmos_client.database_accounts.begin_delete(rg_name, account.name)
+                    poller.result(timeout=600)
+                    print(f"        ✓ Deleted")
+                except Exception as e:
+                    print(f"        ✗ Error: {e}")
+    except Exception as e:
+        print(f"      Error: {e}")
+    
+    # 2. Check for orphaned Grafana workspaces
+    print(f"    [Grafana] Checking for orphans...")
+    try:
+        from azure.mgmt.dashboard import DashboardManagementClient
+        dashboard_client = DashboardManagementClient(credential, subscription_id)
+        for workspace in dashboard_client.grafana.list():
+            if prefix in workspace.name:
+                print(f"      Found orphan: {workspace.name}")
+                try:
+                    rg_name = workspace.id.split('/')[4]
+                    poller = dashboard_client.grafana.begin_delete(rg_name, workspace.name)
+                    poller.result(timeout=600)
+                    print(f"        ✓ Deleted")
+                except Exception as e:
+                    print(f"        ✗ Error: {e}")
+    except Exception as e:
+        print(f"      Error: {e}")
+    
+    # 3. Check for orphaned IoT Hubs
+    print(f"    [IoT Hub] Checking for orphans...")
+    try:
+        from azure.mgmt.iothub import IotHubClient
+        iothub_client = IotHubClient(credential, subscription_id)
+        for hub in iothub_client.iot_hub_resource.list_by_subscription():
+            if prefix in hub.name:
+                print(f"      Found orphan: {hub.name}")
+                try:
+                    rg_name = hub.id.split('/')[4]
+                    poller = iothub_client.iot_hub_resource.begin_delete(rg_name, hub.name)
+                    poller.result(timeout=600)
+                    print(f"        ✓ Deleted")
+                except Exception as e:
+                    print(f"        ✗ Error: {e}")
+    except Exception as e:
+        print(f"      Error: {e}")
+    
+    # 4. Check for orphaned Digital Twins instances
+    print(f"    [Digital Twins] Checking for orphans...")
+    try:
+        from azure.mgmt.digitaltwins import AzureDigitalTwinsManagementClient
+        dt_client = AzureDigitalTwinsManagementClient(credential, subscription_id)
+        for instance in dt_client.digital_twins.list():
+            if prefix in instance.name:
+                print(f"      Found orphan: {instance.name}")
+                try:
+                    rg_name = instance.id.split('/')[4]
+                    poller = dt_client.digital_twins.begin_delete(rg_name, instance.name)
+                    poller.result(timeout=600)
+                    print(f"        ✓ Deleted")
+                except Exception as e:
+                    print(f"        ✗ Error: {e}")
+    except Exception as e:
+        print(f"      Error: {e}")
+    
+    # 5. Check for orphaned Function Apps
+    print(f"    [Function Apps] Checking for orphans...")
+    try:
+        from azure.mgmt.web import WebSiteManagementClient
+        web_client = WebSiteManagementClient(credential, subscription_id)
+        for app in web_client.web_apps.list():
+            if prefix in app.name:
+                print(f"      Found orphan: {app.name}")
+                try:
+                    rg_name = app.id.split('/')[4]
+                    web_client.web_apps.delete(rg_name, app.name)
+                    print(f"        ✓ Deleted")
+                except Exception as e:
+                    print(f"        ✗ Error: {e}")
+    except Exception as e:
+        print(f"      Error: {e}")
+    
+    # 6. Check for orphaned Storage Accounts
+    print(f"    [Storage Accounts] Checking for orphans...")
+    try:
+        from azure.mgmt.storage import StorageManagementClient
+        storage_client = StorageManagementClient(credential, subscription_id)
+        # Storage account names don't have hyphens, so also check underscore-free prefix
+        prefix_nohyphen = prefix.replace("-", "")
+        for account in storage_client.storage_accounts.list():
+            if prefix in account.name or prefix_nohyphen in account.name:
+                print(f"      Found orphan: {account.name}")
+                try:
+                    rg_name = account.id.split('/')[4]
+                    storage_client.storage_accounts.delete(rg_name, account.name)
+                    print(f"        ✓ Deleted")
+                except Exception as e:
+                    print(f"        ✗ Error: {e}")
+    except Exception as e:
+        print(f"      Error: {e}")
+    
+    # 7. Check for orphaned Logic Apps (Azure equivalent of AWS Step Functions)
+    print(f"    [Logic Apps] Checking for orphans...")
+    try:
+        from azure.mgmt.logic import LogicManagementClient
+        logic_client = LogicManagementClient(credential, subscription_id)
+        for workflow in logic_client.workflows.list_by_subscription():
+            if prefix in workflow.name:
+                print(f"      Found orphan: {workflow.name}")
+                try:
+                    rg_name = workflow.id.split('/')[4]
+                    logic_client.workflows.delete(rg_name, workflow.name)
+                    print(f"        ✓ Deleted")
+                except Exception as e:
+                    print(f"        ✗ Error: {e}")
+    except Exception as e:
+        print(f"      Error: {e}")
+    
+    # 8. Check for orphaned App Service Plans (may remain after Function App deletion)
+    print(f"    [App Service Plans] Checking for orphans...")
+    try:
+        from azure.mgmt.web import WebSiteManagementClient
+        web_client = WebSiteManagementClient(credential, subscription_id)
+        for plan in web_client.app_service_plans.list():
+            if prefix in plan.name:
+                print(f"      Found orphan: {plan.name}")
+                try:
+                    rg_name = plan.id.split('/')[4]
+                    web_client.app_service_plans.delete(rg_name, plan.name)
+                    print(f"        ✓ Deleted")
+                except Exception as e:
+                    print(f"        ✗ Error: {e}")
+    except Exception as e:
+        print(f"      Error: {e}")
+    
+    # ========================================
+    # PHASE 2: Delete Resource Groups (nuclear option)
+    # This deletes ALL resources in matching RGs
+    # ========================================
+    print(f"    [Resource Groups] Cleaning up (nuclear option)...")
+    try:
+        for rg in resource_client.resource_groups.list():
+            if prefix in rg.name:
+                print(f"      Deleting RG: {rg.name}")
+                try:
+                    poller = resource_client.resource_groups.begin_delete(rg.name)
+                    poller.result(timeout=600)  # 10 min timeout
+                    print(f"        ✓ Deleted")
+                except Exception as e:
+                    print(f"        ✗ Error: {e}")
+    except Exception as e:
+        print(f"      Error listing RGs: {e}")
+    
+    # ========================================
+    # PHASE 3: Entra ID User Cleanup (conditional)
+    # Only deletes if Terraform created the user during deployment
+    # ========================================
+    if cleanup_entra_user:
+        print(f"    [Entra ID] Cleaning up user...")
+        try:
+            from msgraph import GraphServiceClient
+            from azure.identity import ClientSecretCredential as GraphCredential
+            
+            # Create Graph credential
+            graph_credential = GraphCredential(
+                tenant_id=tenant_id,
+                client_id=azure_creds["azure_client_id"],
+                client_secret=azure_creds["azure_client_secret"]
+            )
+            
+            graph_client = GraphServiceClient(credentials=graph_credential)
+            
+            if not grafana_email:
+                print(f"      No grafana_email provided, skipping")
+            else:
+                # Search for user by email/UPN
+                # The UPN format in Azure is typically: username@domain
+                print(f"      Looking for user: {grafana_email}")
+                try:
+                    # List users and filter by matching email
+                    users = graph_client.users.get()
+                    if users and users.value:
+                        for user in users.value:
+                            # Match by UPN or mail
+                            if (user.user_principal_name and 
+                                user.user_principal_name.lower() == grafana_email.lower()):
+                                print(f"      Found user: {user.user_principal_name} (ID: {user.id})")
+                                try:
+                                    graph_client.users.by_user_id(user.id).delete()
+                                    print(f"        ✓ Deleted")
+                                except Exception as e:
+                                    print(f"        ✗ Error deleting: {e}")
+                                break
+                        else:
+                            print(f"      User not found (may already be deleted)")
+                except Exception as e:
+                    print(f"      Error searching users: {e}")
+        except ImportError:
+            print(f"      msgraph SDK not installed, skipping Entra ID cleanup")
+        except Exception as e:
+            print(f"      Error: {e}")
+    else:
+        print(f"    [Entra ID] Skipping (user was pre-existing)")
+    
+    print(f"    [Azure SDK] Fallback cleanup complete")
+
 @pytest.mark.live
 class TestAzureSingleCloudE2E:
     """
@@ -170,8 +424,13 @@ class TestAzureSingleCloudE2E:
         # Track deployment status
         terraform_outputs = {}
         
+        # Track whether to cleanup Entra ID user (same pattern as AWS Identity Store)
+        cleanup_entra_user = False
+        grafana_email = ""  # Will be set from config_grafana.json
+        
         def terraform_cleanup():
-            """Cleanup function - always runs terraform destroy."""
+            """Cleanup function - always runs terraform destroy + SDK fallback."""
+            nonlocal cleanup_entra_user, grafana_email
             print("\n" + "="*60)
             print("  CLEANUP: TERRAFORM DESTROY")
             print("="*60)
@@ -190,6 +449,16 @@ class TestAzureSingleCloudE2E:
                 print("")
                 print("  Portal: https://portal.azure.com")
                 print("!"*60)
+            
+            # FALLBACK: Also run Azure SDK cleanup to catch any orphaned resources
+            print("\n" + "="*60)
+            print("  FALLBACK CLEANUP: Azure SDK resource cleanup")
+            print("="*60)
+            try:
+                _cleanup_azure_resources_sdk(credentials, config.digital_twin_name, cleanup_entra_user, grafana_email)
+                print("  ✓ Azure SDK cleanup completed")
+            except Exception as e:
+                print(f"  ✗ Azure SDK cleanup failed: {e}")
         
         # Register cleanup to run ALWAYS (on success or failure)
         request.addfinalizer(terraform_cleanup)
@@ -204,6 +473,24 @@ class TestAzureSingleCloudE2E:
         try:
             terraform_outputs = strategy.deploy_all(context)
             print("\n[DEPLOY] ✓ Terraform deployment complete")
+            
+            # Check if Terraform created a new Entra ID user (for cleanup)
+            # Same pattern as AWS Identity Store cleanup
+            if terraform_outputs.get("azure_grafana_user_created"):
+                cleanup_entra_user = True
+                print("  ℹ Entra ID user was CREATED by Terraform (will delete on cleanup)")
+            else:
+                print("  ℹ Entra ID user was PRE-EXISTING (will NOT delete on cleanup)")
+            
+            # Get grafana_email from config_grafana.json for cleanup
+            grafana_config_path = project_path / "config_grafana.json"
+            if grafana_config_path.exists():
+                with open(grafana_config_path) as f:
+                    grafana_config = json.load(f)
+                    # Note: config_grafana.json uses "admin_email" key
+                    grafana_email = grafana_config.get("admin_email", "")
+                    if grafana_email:
+                        print(f"  ℹ Grafana admin email for cleanup: {grafana_email}")
             
         except Exception as e:
             print(f"\n[DEPLOY] ✗ DEPLOYMENT FAILED: {type(e).__name__}: {e}")
