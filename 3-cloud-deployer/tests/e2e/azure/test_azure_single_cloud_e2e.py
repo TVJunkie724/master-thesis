@@ -451,8 +451,14 @@ class TestAzureSingleCloudE2E:
                 client_secret=client_secret
             )
             
-            # Grafana uses its own scope
-            token = credential.get_token("https://grafana.azure.com/.default")
+            # Azure Managed Grafana uses a well-known Application ID for OAuth2 tokens.
+            # The GUID ce34e7e5-485f-4d76-964f-b3d2b16d1e4f is Microsoft's official
+            # Azure Managed Grafana service principal ID, used globally across all tenants.
+            # Using "https://grafana.azure.com/.default" returns 401 because the token
+            # audience doesn't match what Grafana expects.
+            # Reference: https://stackoverflow.com/questions/74534683/azure-managed-grafana-api-authentication
+            GRAFANA_APP_ID = "ce34e7e5-485f-4d76-964f-b3d2b16d1e4f"
+            token = credential.get_token(f"{GRAFANA_APP_ID}/.default")
             
             headers = {
                 "Authorization": f"Bearer {token.token}",
