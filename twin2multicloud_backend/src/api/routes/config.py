@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import httpx
+import json
 
 from src.models.database import get_db
 from src.models.twin import DigitalTwin
 from src.models.twin_config import TwinConfiguration
+from src.models.optimizer_config import OptimizerConfiguration
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.schemas.twin_config import (
@@ -46,7 +48,7 @@ async def get_config(
     else:
         config = twin.configuration
     
-    return TwinConfigResponse.from_db(config)
+    return TwinConfigResponse.from_db(config, twin.optimizer_config)
 
 
 @router.put("/", response_model=TwinConfigResponse)
@@ -105,9 +107,27 @@ async def update_config(
             config.gcp_service_account_json = encrypt(update.gcp.service_account_json, current_user.id, twin_id)
         config.gcp_validated = False
     
+    # Wizard progress tracking
+    if update.highest_step_reached is not None:
+        config.highest_step_reached = update.highest_step_reached
+    
+    # Optimizer data - save to OptimizerConfiguration table
+    if update.optimizer_params is not None or update.optimizer_result is not None:
+        opt_config = twin.optimizer_config
+        if not opt_config:
+            opt_config = OptimizerConfiguration(twin_id=twin_id)
+            db.add(opt_config)
+        
+        if update.optimizer_params is not None:
+            opt_config.params = json.dumps(update.optimizer_params)
+        if update.optimizer_result is not None:
+            opt_config.result_json = json.dumps(update.optimizer_result)
+    
     db.commit()
     db.refresh(config)
-    return TwinConfigResponse.from_db(config)
+    # Refresh to get updated optimizer_config
+    db.refresh(twin)
+    return TwinConfigResponse.from_db(config, twin.optimizer_config)
 
 
 @router.post("/validate/{provider}", response_model=CredentialValidationResult)

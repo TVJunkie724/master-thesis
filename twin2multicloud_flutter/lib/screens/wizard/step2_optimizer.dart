@@ -59,6 +59,21 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
     } else {
       _loadingConfig = false;
     }
+    
+    // Auto-scroll to results if they're already present (edit mode resume)
+    if (state.calcResult != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (_resultsKey.currentContext != null && mounted) {
+            Scrollable.ensureVisible(
+              _resultsKey.currentContext!,
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOut,
+            );
+          }
+        });
+      });
+    }
   }
 
   @override

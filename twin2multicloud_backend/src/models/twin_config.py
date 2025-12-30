@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, Text
+from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, Text, Integer
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
@@ -19,6 +19,9 @@ class TwinConfiguration(Base):
     
     # Basic settings
     debug_mode = Column(Boolean, default=False)
+    
+    # Wizard progress tracking
+    highest_step_reached = Column(Integer, default=0)
     
     # AWS credentials (ENCRYPTED)
     aws_access_key_id = Column(String, nullable=True)  # Encrypted

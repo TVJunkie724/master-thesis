@@ -108,6 +108,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       // Determine starting step: use persisted value, fallback to data-based detection
       int startStep = config['highest_step_reached'] as int? ?? 0;
       print('[WizardBloc] _onInitEdit: config[highest_step_reached]=${config['highest_step_reached']}, startStep=$startStep');
+      print('[WizardBloc] _onInitEdit: optimizer_result=${config['optimizer_result']}, optimizer_params=${config['optimizer_params'] != null}');
       
       // Validate startStep against actual data (can't go to step without prerequisites)
       if (startStep >= 1 && !(awsCreds.isValid || azureCreds.isValid || gcpCreds.isValid)) {
@@ -130,6 +131,29 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         loadedParams = CalcParams.fromJson(config['optimizer_params']);
       }
       
+      // Generate warning for unconfigured providers in loaded result
+      String? warningMessage;
+      if (loadedResult != null) {
+        final configuredProviders = <String>{};
+        if (awsCreds.isValid) configuredProviders.add('AWS');
+        if (azureCreds.isValid) configuredProviders.add('AZURE');
+        if (gcpCreds.isValid) configuredProviders.add('GCP');
+        
+        final resultProviders = <String>{};
+        for (final segment in loadedResult.cheapestPath) {
+          final parts = segment.split('_');
+          if (parts.length >= 3 && segment.startsWith('L3')) {
+            resultProviders.add(parts[2].toUpperCase());
+          } else if (parts.length >= 2) {
+            resultProviders.add(parts[1].toUpperCase());
+          }
+        }
+        final unconfigured = resultProviders.difference(configuredProviders);
+        if (unconfigured.isNotEmpty) {
+          warningMessage = 'Unconfigured provider(s) in optimal path: ${unconfigured.join(", ")}. Return to Step 1 to add credentials.';
+        }
+      }
+      
       emit(WizardState(
         mode: WizardMode.edit,
         status: WizardStatus.ready,
@@ -146,6 +170,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         savedCalcResult: loadedResult,  // Store for revert capability
         calcResultRaw: loadedResultRaw,
         savedCalcResultRaw: loadedResultRaw,  // Store raw for revert
+        warningMessage: warningMessage,
       ));
     } catch (e) {
       emit(state.copyWith(
