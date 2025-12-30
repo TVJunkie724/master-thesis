@@ -107,8 +107,6 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       
       // Determine starting step: use persisted value, fallback to data-based detection
       int startStep = config['highest_step_reached'] as int? ?? 0;
-      print('[WizardBloc] _onInitEdit: config[highest_step_reached]=${config['highest_step_reached']}, startStep=$startStep');
-      print('[WizardBloc] _onInitEdit: optimizer_result=${config['optimizer_result']}, optimizer_params=${config['optimizer_params'] != null}');
       
       // Validate startStep against actual data (can't go to step without prerequisites)
       if (startStep >= 1 && !(awsCreds.isValid || azureCreds.isValid || gcpCreds.isValid)) {
@@ -399,8 +397,6 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       // Invalidation occurs when: hasSection3Data AND inputParamsUsed changed
       bool invalidatesStep3 = false;
       
-      // Debug: log conditions for invalidation detection
-      print('[WizardBloc] Invalidation check: hasSection3Data=${state.hasSection3Data}, highestStepReached=${state.highestStepReached}');
       
       if (state.hasSection3Data && state.highestStepReached >= 2) {
         invalidatesStep3 = _calculationInvalidatesStep3(state.calcResult, result);
@@ -450,7 +446,6 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     // Check cheapestPath
     final pathChanged = !_listEquals(oldResult.cheapestPath, newResult.cheapestPath);
     
-    print('[WizardBloc] paramsChanged=$paramsChanged, pathChanged=$pathChanged');
     
     return paramsChanged || pathChanged;
   }
