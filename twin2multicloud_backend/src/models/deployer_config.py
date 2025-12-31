@@ -21,10 +21,12 @@ class DeployerConfiguration(Base):
     twin_id = Column(String, ForeignKey("digital_twins.id", ondelete="CASCADE"), unique=True, nullable=False)
     
     # ===== SECTION 2: Configuration Files =====
+    deployer_digital_twin_name = Column(String, nullable=True)  # config.json digital_twin_name
     config_events_json = Column(Text, nullable=True)        # config_events.json content
     config_iot_devices_json = Column(Text, nullable=True)   # config_iot_devices.json content
     
     # ===== SECTION 2: Validation State (gates save) =====
+    config_json_validated = Column(Boolean, default=False)       # config.json validation
     config_events_validated = Column(Boolean, default=False)
     config_iot_devices_validated = Column(Boolean, default=False)
     

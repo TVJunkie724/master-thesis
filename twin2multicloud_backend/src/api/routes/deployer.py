@@ -69,10 +69,14 @@ async def update_deployer_config(
         config = twin.deployer_config
     
     # Update fields
+    if update.deployer_digital_twin_name is not None:
+        config.deployer_digital_twin_name = update.deployer_digital_twin_name
     if update.config_events_json is not None:
         config.config_events_json = update.config_events_json
     if update.config_iot_devices_json is not None:
         config.config_iot_devices_json = update.config_iot_devices_json
+    if update.config_json_validated is not None:
+        config.config_json_validated = update.config_json_validated
     if update.config_events_validated is not None:
         config.config_events_validated = update.config_events_validated
     if update.config_iot_devices_validated is not None:
@@ -140,7 +144,9 @@ async def validate_config(
                     config = DeployerConfiguration(twin_id=twin_id)
                     db.add(config)
                 
-                if config_type == "events":
+                if config_type == "config":
+                    config.config_json_validated = True
+                elif config_type == "events":
                     config.config_events_validated = True
                 elif config_type == "iot":
                     config.config_iot_devices_validated = True

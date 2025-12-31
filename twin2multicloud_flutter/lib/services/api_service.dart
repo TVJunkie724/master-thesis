@@ -228,7 +228,7 @@ class ApiService {
   /// Validate deployer config via Management API (proxies to Deployer)
   Future<Map<String, dynamic>> validateDeployerConfig(
     String twinId,
-    String configType,  // 'events' or 'iot'
+    String configType,  // 'config', 'events', or 'iot'
     String content,
   ) async {
     final response = await _dio.post(

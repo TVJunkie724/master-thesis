@@ -136,6 +136,26 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         loadedParams = CalcParams.fromJson(config['optimizer_params']);
       }
       
+      // Load deployer config (Section 2 data) if available
+      String? deployerDigitalTwinName;
+      String? configEventsJson;
+      String? configIotDevicesJson;
+      bool configJsonValidated = false;
+      bool configEventsValidated = false;
+      bool configIotDevicesValidated = false;
+      
+      try {
+        final deployerConfig = await _api.getDeployerConfig(event.twinId);
+        deployerDigitalTwinName = deployerConfig['deployer_digital_twin_name'] as String?;
+        configEventsJson = deployerConfig['config_events_json'] as String?;
+        configIotDevicesJson = deployerConfig['config_iot_devices_json'] as String?;
+        configJsonValidated = deployerConfig['config_json_validated'] as bool? ?? false;
+        configEventsValidated = deployerConfig['config_events_validated'] as bool? ?? false;
+        configIotDevicesValidated = deployerConfig['config_iot_devices_validated'] as bool? ?? false;
+      } catch (e) {
+        // No deployer config yet, that's fine
+      }
+      
       // Generate warning for unconfigured providers in loaded result
       String? warningMessage;
       if (loadedResult != null) {
@@ -175,6 +195,13 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         savedCalcResult: loadedResult,  // Store for revert capability
         calcResultRaw: loadedResultRaw,
         savedCalcResultRaw: loadedResultRaw,  // Store raw for revert
+        // Section 2: Deployer config (hydrated from backend)
+        deployerDigitalTwinName: deployerDigitalTwinName,
+        configEventsJson: configEventsJson,
+        configIotDevicesJson: configIotDevicesJson,
+        configJsonValidated: configJsonValidated,
+        configEventsValidated: configEventsValidated,
+        configIotDevicesValidated: configIotDevicesValidated,
         warningMessage: warningMessage,
       ));
     } catch (e) {
@@ -681,6 +708,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   void _onDeployerTwinNameChanged(WizardDeployerTwinNameChanged event, Emitter<WizardState> emit) {
     emit(state.copyWith(
       deployerDigitalTwinName: event.name,
+      configJsonValidated: false, // Reset validation when name changes (name is part of config.json)
       hasUnsavedChanges: true,
     ));
   }
@@ -727,7 +755,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
 
   /// Handle validation result from widget (direct API call)
   void _onConfigValidationCompleted(WizardConfigValidationCompleted event, Emitter<WizardState> emit) {
-    if (event.configType == 'events') {
+    if (event.configType == 'config') {
+      emit(state.copyWith(configJsonValidated: event.valid));
+    } else if (event.configType == 'events') {
       emit(state.copyWith(configEventsValidated: event.valid));
     } else {
       emit(state.copyWith(configIotDevicesValidated: event.valid));

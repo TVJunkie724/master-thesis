@@ -16,6 +16,7 @@ class ConfigJsonVisualizationBlock extends StatefulWidget {
   final int coldStorageDays;  // From Step 2
   final Function(String) onTwinNameChanged;
   final Future<Map<String, dynamic>> Function(Map<String, dynamic>)? onValidate;
+  final VoidCallback? onValidationSuccess;  // Called when validation succeeds (to update BLoC)
   
   const ConfigJsonVisualizationBlock({
     super.key,
@@ -25,6 +26,7 @@ class ConfigJsonVisualizationBlock extends StatefulWidget {
     required this.coldStorageDays,
     required this.onTwinNameChanged,
     this.onValidate,
+    this.onValidationSuccess,
   });
 
   @override
@@ -63,7 +65,7 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
   Map<String, dynamic> _buildConfigJson() {
     return {
       'digital_twin_name': _twinNameController.text.trim(),
-      'mode': widget.mode ?? 'production',
+      'mode': (widget.mode ?? 'production').toUpperCase(),  // Deployer expects uppercase
       'hot_storage_size_in_days': widget.hotStorageDays,
       'cold_storage_size_in_days': widget.coldStorageDays,
     };
@@ -99,11 +101,16 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
 
     try {
       final result = await widget.onValidate!(_buildConfigJson());
+      final isValid = result['valid'] == true;
       setState(() {
-        _isValid = result['valid'] == true;
+        _isValid = isValid;
         _validationMessage = result['message']?.toString() ??
-            (_isValid! ? 'Valid ✓' : 'Validation failed');
+            (isValid ? 'Valid ✓' : 'Validation failed');
       });
+      // Notify parent/BLoC of validation success
+      if (isValid && widget.onValidationSuccess != null) {
+        widget.onValidationSuccess!();
+      }
     } catch (e) {
       setState(() {
         _isValid = false;

@@ -26,14 +26,7 @@ class Step3Deployer extends StatefulWidget {
 }
 
 class _Step3DeployerState extends State<Step3Deployer> {
-  // Section 1: Zip upload state
-  String? _selectedZipPath;
-  
-  // Section 2: Config file content state
-  String _configEventsContent = '';
-  String _configIotDevicesContent = '';
-  
-  // Section 3: User function file content state
+  // Section 3: User function file content state (local, for now)
   String _payloadsContent = '';
   String _processorsContent = '';
   String _stateMachineContent = '';
@@ -48,12 +41,6 @@ class _Step3DeployerState extends State<Step3Deployer> {
   // Breakpoint for showing flowchart column
   static const double _flowchartBreakpoint = 900;
   static const double _flowchartWidth = 450;
-  
-  /// Check if Section 2 is complete (both required config files have content)
-  /// Now uses BLoC state instead of local state
-  bool _isSection2Complete(WizardState state) =>
-      state.configEventsJson?.trim().isNotEmpty == true &&
-      state.configIotDevicesJson?.trim().isNotEmpty == true;
   
   /// Update Section 3 content and notify BLoC about data presence
   void _updateSection3Content({
@@ -168,7 +155,9 @@ class _Step3DeployerState extends State<Step3Deployer> {
                     icon: Icons.folder_zip,
                     initiallyExpanded: state.mode == WizardMode.create,
                     child: ZipUploadBlock(
-                      onZipSelected: (path) => setState(() => _selectedZipPath = path),
+                      onZipSelected: (path) {
+                        // ZIP upload functionality - TODO: implement extraction
+                      },
                     ),
                   ),
                 ),
@@ -237,6 +226,10 @@ class _Step3DeployerState extends State<Step3Deployer> {
             final content = const JsonEncoder.withIndent('  ').convert(config);
             return await _validateConfigFile('config', content, state);
           },
+          onValidationSuccess: () {
+            // Persist validation success to BLoC state (gates save)
+            context.read<WizardBloc>().add(const WizardConfigValidationCompleted('config', true));
+          },
         ),
         const SizedBox(height: 16),
         
@@ -249,7 +242,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           exampleContent: Step3Examples.configEvents,
           initialContent: state.configEventsJson ?? '',
           onContentChanged: (content) {
-            setState(() => _configEventsContent = content);
+            // State is managed by BLoC
             context.read<WizardBloc>().add(WizardConfigEventsChanged(content));
           },
           onValidate: (content) async {
@@ -270,7 +263,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           exampleContent: Step3Examples.configIotDevices,
           initialContent: state.configIotDevicesJson ?? '',
           onContentChanged: (content) {
-            setState(() => _configIotDevicesContent = content);
+            // State is managed by BLoC
             context.read<WizardBloc>().add(WizardConfigIotDevicesChanged(content));
           },
           onValidate: (content) async {

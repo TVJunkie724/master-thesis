@@ -100,6 +100,7 @@ class WizardState extends Equatable {
   final String? deployerDigitalTwinName;  // config.json digital_twin_name (separate from Step 1 name)
   final String? configEventsJson;         // config_events.json content
   final String? configIotDevicesJson;     // config_iot_devices.json content
+  final bool configJsonValidated;         // config.json validation state
   final bool configEventsValidated;       // Validation state (gates save)
   final bool configIotDevicesValidated;   // Validation state (gates save)
   
@@ -138,6 +139,7 @@ class WizardState extends Equatable {
     this.deployerDigitalTwinName,
     this.configEventsJson,
     this.configIotDevicesJson,
+    this.configJsonValidated = false,
     this.configEventsValidated = false,
     this.configIotDevicesValidated = false,
     this.deployerConfig,
@@ -165,9 +167,9 @@ class WizardState extends Equatable {
     if (gcp.isValid) 'GCP',
   };
   
-  /// Is Section 2 validated? (gates Section 3 unlock and save)
+  /// Is Section 2 validated? (gates save)
   bool get isSection2Valid =>
-      configEventsValidated && configIotDevicesValidated;
+      configJsonValidated && configEventsValidated && configIotDevicesValidated;
   
   // ============================================================
   // COPY WITH
@@ -200,6 +202,7 @@ class WizardState extends Equatable {
     String? deployerDigitalTwinName,
     String? configEventsJson,
     String? configIotDevicesJson,
+    bool? configJsonValidated,
     bool? configEventsValidated,
     bool? configIotDevicesValidated,
     Map<String, dynamic>? deployerConfig,
@@ -238,6 +241,7 @@ class WizardState extends Equatable {
       deployerDigitalTwinName: deployerDigitalTwinName ?? this.deployerDigitalTwinName,
       configEventsJson: configEventsJson ?? this.configEventsJson,
       configIotDevicesJson: configIotDevicesJson ?? this.configIotDevicesJson,
+      configJsonValidated: configJsonValidated ?? this.configJsonValidated,
       configEventsValidated: configEventsValidated ?? this.configEventsValidated,
       configIotDevicesValidated: configIotDevicesValidated ?? this.configIotDevicesValidated,
       deployerConfig: deployerConfig ?? this.deployerConfig,

@@ -5,8 +5,10 @@ from datetime import datetime
 
 class DeployerConfigUpdate(BaseModel):
     """Request model for updating deployer configuration."""
+    deployer_digital_twin_name: Optional[str] = None
     config_events_json: Optional[str] = None
     config_iot_devices_json: Optional[str] = None
+    config_json_validated: Optional[bool] = None
     config_events_validated: Optional[bool] = None
     config_iot_devices_validated: Optional[bool] = None
 
@@ -14,8 +16,10 @@ class DeployerConfigUpdate(BaseModel):
 class DeployerConfigResponse(BaseModel):
     """Response model for deployer configuration."""
     twin_id: str
+    deployer_digital_twin_name: Optional[str] = None
     config_events_json: Optional[str] = None
     config_iot_devices_json: Optional[str] = None
+    config_json_validated: bool = False
     config_events_validated: bool = False
     config_iot_devices_validated: bool = False
     updated_at: Optional[datetime] = None
@@ -27,8 +31,10 @@ class DeployerConfigResponse(BaseModel):
             return None
         return cls(
             twin_id=config.twin_id,
+            deployer_digital_twin_name=config.deployer_digital_twin_name,
             config_events_json=config.config_events_json,
             config_iot_devices_json=config.config_iot_devices_json,
+            config_json_validated=config.config_json_validated,
             config_events_validated=config.config_events_validated,
             config_iot_devices_validated=config.config_iot_devices_validated,
             updated_at=config.updated_at,
