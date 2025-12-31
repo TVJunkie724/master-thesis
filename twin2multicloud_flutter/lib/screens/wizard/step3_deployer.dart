@@ -1,13 +1,15 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../bloc/wizard/wizard.dart';
 import '../../config/step3_examples.dart';
+import '../../providers/twins_provider.dart';
 import '../../widgets/architecture_layer_builder.dart';
 import '../../widgets/file_inputs/file_editor_block.dart';
 import '../../widgets/file_inputs/collapsible_section.dart';
 import '../../widgets/file_inputs/zip_upload_block.dart';
-import '../../widgets/file_inputs/config_form_block.dart';
+import '../../widgets/file_inputs/config_json_visualization_block.dart';
 import '../../widgets/file_inputs/config_visualization_block.dart';
 
 /// Step 3: Deployer Configuration - BLoC version
@@ -47,6 +49,12 @@ class _Step3DeployerState extends State<Step3Deployer> {
   static const double _flowchartBreakpoint = 900;
   static const double _flowchartWidth = 450;
   
+  /// Check if Section 2 is complete (both required config files have content)
+  /// Now uses BLoC state instead of local state
+  bool _isSection2Complete(WizardState state) =>
+      state.configEventsJson?.trim().isNotEmpty == true &&
+      state.configIotDevicesJson?.trim().isNotEmpty == true;
+  
   /// Update Section 3 content and notify BLoC about data presence
   void _updateSection3Content({
     String? payloads,
@@ -74,6 +82,43 @@ class _Step3DeployerState extends State<Step3Deployer> {
     if (hasData != _lastHasSection3Data) {
       _lastHasSection3Data = hasData;
       context.read<WizardBloc>().add(WizardSection3DataChanged(hasData));
+    }
+  }
+
+  /// Validate config file via API (direct call, not via BLoC)
+  /// This matches the CredentialSection pattern for inline validation feedback
+  Future<Map<String, dynamic>> _validateConfigFile(
+    String configType,
+    String content,
+    WizardState state,
+  ) async {
+    final twinId = state.twinId;
+    if (twinId == null) {
+      return {'valid': false, 'message': 'Save draft first to enable validation'};
+    }
+
+    if (content.trim().isEmpty) {
+      return {'valid': false, 'message': 'No content to validate'};
+    }
+
+    try {
+      // Direct API call for immediate feedback
+      final container = ProviderScope.containerOf(context);
+      final api = container.read(apiServiceProvider);
+      final result = await api.validateDeployerConfig(twinId, configType, content);
+      
+      final valid = result['valid'] == true;
+      final message = result['message']?.toString() ?? (valid ? 'Valid ✓' : 'Validation failed');
+      
+      // Update BLoC state for persistence via event (not emit which is protected)
+      // Guard with mounted check since we crossed an async gap
+      if (mounted) {
+        context.read<WizardBloc>().add(WizardConfigValidationCompleted(configType, valid));
+      }
+      
+      return {'valid': valid, 'message': message};
+    } catch (e) {
+      return {'valid': false, 'message': 'Validation failed: $e'};
     }
   }
 
@@ -111,6 +156,8 @@ class _Step3DeployerState extends State<Step3Deployer> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Section 1: Quick Upload
+              // For new twins, expand this section to guide users to upload a zip first
+              // For existing twins, keep collapsed since they likely have config already
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 800),
@@ -119,7 +166,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
                     title: 'Quick Upload',
                     description: 'Upload a complete project zip to auto-fill all fields',
                     icon: Icons.folder_zip,
-                    initiallyExpanded: false,
+                    initiallyExpanded: state.mode == WizardMode.create,
                     child: ZipUploadBlock(
                       onZipSelected: (path) => setState(() => _selectedZipPath = path),
                     ),
@@ -128,6 +175,8 @@ class _Step3DeployerState extends State<Step3Deployer> {
               ),
               
               // Section 2: Configuration Files
+              // For new twins, keep collapsed until they upload or choose manual entry
+              // For existing twins, expand to show current config
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 800),
@@ -136,13 +185,14 @@ class _Step3DeployerState extends State<Step3Deployer> {
                     title: 'Configuration Files',
                     description: 'Core deployment settings and device definitions',
                     icon: Icons.settings,
-                    initiallyExpanded: true,
+                    initiallyExpanded: state.mode == WizardMode.edit,
                     child: _buildConfigSection(context, state),
                   ),
                 ),
               ),
               
               // Section 3: User Functions & Assets
+              // No longer locked - validation will handle dependencies
               Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
@@ -153,8 +203,10 @@ class _Step3DeployerState extends State<Step3Deployer> {
                     title: 'User Functions & Assets',
                     description: 'Custom processors, workflows, and visualization config',
                     icon: Icons.code,
-                    initiallyExpanded: true,
+                    initiallyExpanded: state.mode == WizardMode.edit,
                     collapsedMaxWidth: 800,
+                    // Info message about dependency (non-blocking)
+                    infoHint: 'Inputs here depend on Section 2 configuration files (config_events.json, config_iot_devices.json)',
                     child: _buildDataFlowSection(context, state, showFlowchart),
                   ),
                 ),
@@ -170,7 +222,22 @@ class _Step3DeployerState extends State<Step3Deployer> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ConfigFormBlock(onConfigChanged: (config) {}),
+        ConfigJsonVisualizationBlock(
+          twinName: state.deployerDigitalTwinName,  // Separate from Step 1 project name
+          mode: state.debugMode == true ? 'debug' : 'production',
+          // Convert months to days for display (CalcParams uses months)
+          hotStorageDays: (state.calcParams?.hotStorageDurationInMonths ?? 1) * 30,
+          coldStorageDays: (state.calcParams?.coolStorageDurationInMonths ?? 3) * 30,
+          onTwinNameChanged: (name) {
+            // Update deployer digital twin name in BLoC state (separate from Step 1 project name)
+            context.read<WizardBloc>().add(WizardDeployerTwinNameChanged(name));
+          },
+          onValidate: (config) async {
+            // Convert config map to JSON string for API validation
+            final content = const JsonEncoder.withIndent('  ').convert(config);
+            return await _validateConfigFile('config', content, state);
+          },
+        ),
         const SizedBox(height: 16),
         
         FileEditorBlock(
@@ -180,9 +247,17 @@ class _Step3DeployerState extends State<Step3Deployer> {
           isHighlighted: true,
           constraints: '• JSON array of event conditions\n• Define actions for each condition',
           exampleContent: Step3Examples.configEvents,
-          initialContent: _configEventsContent,
-          onContentChanged: (content) => setState(() => _configEventsContent = content),
-          onValidate: (content) => _validateFile('config_events', content),
+          initialContent: state.configEventsJson ?? '',
+          onContentChanged: (content) {
+            setState(() => _configEventsContent = content);
+            context.read<WizardBloc>().add(WizardConfigEventsChanged(content));
+          },
+          onValidate: (content) async {
+            // Direct API call - do NOT use BLoC for validation UI
+            // BLoC is only for content persistence
+            return await _validateConfigFile('events', content, state);
+          },
+          autoValidateOnUpload: true,
         ),
         const SizedBox(height: 16),
         
@@ -193,9 +268,16 @@ class _Step3DeployerState extends State<Step3Deployer> {
           isHighlighted: true,
           constraints: '• JSON array of device configs\n• Define properties per device',
           exampleContent: Step3Examples.configIotDevices,
-          initialContent: _configIotDevicesContent,
-          onContentChanged: (content) => setState(() => _configIotDevicesContent = content),
-          onValidate: (content) => _validateFile('config_iot_devices', content),
+          initialContent: state.configIotDevicesJson ?? '',
+          onContentChanged: (content) {
+            setState(() => _configIotDevicesContent = content);
+            context.read<WizardBloc>().add(WizardConfigIotDevicesChanged(content));
+          },
+          onValidate: (content) async {
+            // Direct API call - do NOT use BLoC for validation UI
+            return await _validateConfigFile('iot', content, state);
+          },
+          autoValidateOnUpload: true,
         ),
         const SizedBox(height: 16),
         

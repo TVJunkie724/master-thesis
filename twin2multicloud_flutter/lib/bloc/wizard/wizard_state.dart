@@ -96,7 +96,14 @@ class WizardState extends Equatable {
   final Map<String, dynamic>? pricingSnapshots;
   final Map<String, String?>? pricingTimestamps;
   
-  // === Persistent Data: Step 3 ===
+  // === Persistent Data: Step 3 Section 2 ===
+  final String? deployerDigitalTwinName;  // config.json digital_twin_name (separate from Step 1 name)
+  final String? configEventsJson;         // config_events.json content
+  final String? configIotDevicesJson;     // config_iot_devices.json content
+  final bool configEventsValidated;       // Validation state (gates save)
+  final bool configIotDevicesValidated;   // Validation state (gates save)
+  
+  // === Persistent Data: Step 3 Section 3 ===
   final Map<String, dynamic>? deployerConfig;
   final bool hasSection3Data;  // True if any Section 3 fields have content
   
@@ -128,6 +135,11 @@ class WizardState extends Equatable {
     this.savedCalcResultRaw,
     this.pricingSnapshots,
     this.pricingTimestamps,
+    this.deployerDigitalTwinName,
+    this.configEventsJson,
+    this.configIotDevicesJson,
+    this.configEventsValidated = false,
+    this.configIotDevicesValidated = false,
     this.deployerConfig,
     this.hasSection3Data = false,
     this.hasUnsavedChanges = false,
@@ -152,6 +164,10 @@ class WizardState extends Equatable {
     if (azure.isValid) 'AZURE',
     if (gcp.isValid) 'GCP',
   };
+  
+  /// Is Section 2 validated? (gates Section 3 unlock and save)
+  bool get isSection2Valid =>
+      configEventsValidated && configIotDevicesValidated;
   
   // ============================================================
   // COPY WITH
@@ -181,6 +197,11 @@ class WizardState extends Equatable {
     Map<String, dynamic>? savedCalcResultRaw,
     Map<String, dynamic>? pricingSnapshots,
     Map<String, String?>? pricingTimestamps,
+    String? deployerDigitalTwinName,
+    String? configEventsJson,
+    String? configIotDevicesJson,
+    bool? configEventsValidated,
+    bool? configIotDevicesValidated,
     Map<String, dynamic>? deployerConfig,
     bool? hasSection3Data,
     bool? hasUnsavedChanges,
@@ -214,6 +235,11 @@ class WizardState extends Equatable {
       savedCalcResultRaw: savedCalcResultRaw ?? this.savedCalcResultRaw,
       pricingSnapshots: pricingSnapshots ?? this.pricingSnapshots,
       pricingTimestamps: pricingTimestamps ?? this.pricingTimestamps,
+      deployerDigitalTwinName: deployerDigitalTwinName ?? this.deployerDigitalTwinName,
+      configEventsJson: configEventsJson ?? this.configEventsJson,
+      configIotDevicesJson: configIotDevicesJson ?? this.configIotDevicesJson,
+      configEventsValidated: configEventsValidated ?? this.configEventsValidated,
+      configIotDevicesValidated: configIotDevicesValidated ?? this.configIotDevicesValidated,
       deployerConfig: deployerConfig ?? this.deployerConfig,
       hasSection3Data: hasSection3Data ?? this.hasSection3Data,
       hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
@@ -253,6 +279,10 @@ class WizardState extends Equatable {
     savedCalcResultRaw,
     pricingSnapshots,
     pricingTimestamps,
+    configEventsJson,
+    configIotDevicesJson,
+    configEventsValidated,
+    configIotDevicesValidated,
     deployerConfig,
     hasSection3Data,
     hasUnsavedChanges,

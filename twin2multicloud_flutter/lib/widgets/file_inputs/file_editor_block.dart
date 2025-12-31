@@ -17,6 +17,7 @@ class FileEditorBlock extends StatefulWidget {
   final String? initialContent;
   final Function(String)? onContentChanged;
   final Future<Map<String, dynamic>> Function(String)? onValidate;
+  final bool autoValidateOnUpload;  // NEW: Auto-validate after file upload
   
   const FileEditorBlock({
     super.key,
@@ -29,6 +30,7 @@ class FileEditorBlock extends StatefulWidget {
     this.initialContent,
     this.onContentChanged,
     this.onValidate,
+    this.autoValidateOnUpload = false,  // Default: false for backward compat
   });
   
   @override
@@ -83,6 +85,11 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
       });
       
       widget.onContentChanged?.call(content);
+      
+      // Auto-validate if enabled (matches CredentialSection pattern)
+      if (widget.autoValidateOnUpload && widget.onValidate != null) {
+        await _validate();
+      }
     } catch (e) {
       setState(() {
         _isValid = false;

@@ -58,6 +58,13 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     on<WizardProceedAndSave>(_onProceedAndSave);
     on<WizardProceedAndNext>(_onProceedAndNext);
     on<WizardClearInvalidation>(_onClearInvalidation);
+    
+    // === Step 3 Section 2: Config Files ===
+    on<WizardDeployerTwinNameChanged>(_onDeployerTwinNameChanged);
+    on<WizardConfigEventsChanged>(_onConfigEventsChanged);
+    on<WizardConfigIotDevicesChanged>(_onConfigIotDevicesChanged);
+    on<WizardValidateDeployerConfig>(_onValidateDeployerConfig);
+    on<WizardConfigValidationCompleted>(_onConfigValidationCompleted);
   }
   
   // ============================================================
@@ -649,5 +656,81 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       hasSection3Data: false,
       clearWarning: true,
     ));
+  }
+
+  // ============================================================
+  // STEP 3 SECTION 2: CONFIG FILE HANDLERS
+  // ============================================================
+
+  void _onConfigEventsChanged(WizardConfigEventsChanged event, Emitter<WizardState> emit) {
+    emit(state.copyWith(
+      configEventsJson: event.content,
+      configEventsValidated: false, // Reset validation on content change
+      hasUnsavedChanges: true,
+    ));
+  }
+
+  void _onConfigIotDevicesChanged(WizardConfigIotDevicesChanged event, Emitter<WizardState> emit) {
+    emit(state.copyWith(
+      configIotDevicesJson: event.content,
+      configIotDevicesValidated: false, // Reset validation on content change
+      hasUnsavedChanges: true,
+    ));
+  }
+
+  void _onDeployerTwinNameChanged(WizardDeployerTwinNameChanged event, Emitter<WizardState> emit) {
+    emit(state.copyWith(
+      deployerDigitalTwinName: event.name,
+      hasUnsavedChanges: true,
+    ));
+  }
+
+  Future<void> _onValidateDeployerConfig(WizardValidateDeployerConfig event, Emitter<WizardState> emit) async {
+    final twinId = state.twinId;
+    if (twinId == null) {
+      emit(state.copyWith(errorMessage: 'No twin ID. Save draft first.'));
+      return;
+    }
+
+    final configType = event.configType;
+    final content = configType == 'events' 
+        ? state.configEventsJson 
+        : state.configIotDevicesJson;
+
+    if (content == null || content.trim().isEmpty) {
+      emit(state.copyWith(errorMessage: 'No content to validate.'));
+      return;
+    }
+
+    try {
+      final result = await _api.validateDeployerConfig(twinId, configType, content);
+      final valid = result['valid'] == true;
+      final message = result['message']?.toString() ?? (valid ? 'Valid' : 'Invalid');
+
+      if (configType == 'events') {
+        emit(state.copyWith(
+          configEventsValidated: valid,
+          successMessage: valid ? message : null,
+          errorMessage: valid ? null : message,
+        ));
+      } else {
+        emit(state.copyWith(
+          configIotDevicesValidated: valid,
+          successMessage: valid ? message : null,
+          errorMessage: valid ? null : message,
+        ));
+      }
+    } catch (e) {
+      emit(state.copyWith(errorMessage: 'Validation failed: $e'));
+    }
+  }
+
+  /// Handle validation result from widget (direct API call)
+  void _onConfigValidationCompleted(WizardConfigValidationCompleted event, Emitter<WizardState> emit) {
+    if (event.configType == 'events') {
+      emit(state.copyWith(configEventsValidated: event.valid));
+    } else {
+      emit(state.copyWith(configIotDevicesValidated: event.valid));
+    }
   }
 }

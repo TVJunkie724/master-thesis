@@ -207,6 +207,38 @@ class ApiService {
   }
 
   // ============================================================
+  // Deployer Config Endpoints (Step 3 Section 2)
+  // ============================================================
+
+  /// Get deployer config for a twin
+  Future<Map<String, dynamic>> getDeployerConfig(String twinId) async {
+    final response = await _dio.get('/twins/$twinId/deployer/config');
+    return response.data;
+  }
+
+  /// Update deployer config for a twin
+  Future<Map<String, dynamic>> updateDeployerConfig(
+    String twinId,
+    Map<String, dynamic> config,
+  ) async {
+    final response = await _dio.put('/twins/$twinId/deployer/config', data: config);
+    return response.data;
+  }
+
+  /// Validate deployer config via Management API (proxies to Deployer)
+  Future<Map<String, dynamic>> validateDeployerConfig(
+    String twinId,
+    String configType,  // 'events' or 'iot'
+    String content,
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/deployer/validate/$configType',
+      data: {'content': content},
+    );
+    return response.data;
+  }
+
+  // ============================================================
   // Result-Returning Methods (Type-Safe Error Handling)
   // ============================================================
   

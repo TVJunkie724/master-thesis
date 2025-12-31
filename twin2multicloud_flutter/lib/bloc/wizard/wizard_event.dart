@@ -185,3 +185,48 @@ class WizardProceedAndNext extends WizardEvent {
 class WizardClearInvalidation extends WizardEvent {
   const WizardClearInvalidation();
 }
+
+// ============================================================
+// STEP 3 SECTION 2: CONFIG FILE EVENTS
+// ============================================================
+
+/// config_events.json content changed
+class WizardConfigEventsChanged extends WizardEvent {
+  final String content;
+  const WizardConfigEventsChanged(this.content);
+  @override
+  List<Object?> get props => [content];
+}
+
+/// config.json digital_twin_name changed (separate from Step 1 project name)
+class WizardDeployerTwinNameChanged extends WizardEvent {
+  final String name;
+  const WizardDeployerTwinNameChanged(this.name);
+  @override
+  List<Object?> get props => [name];
+}
+
+/// config_iot_devices.json content changed
+class WizardConfigIotDevicesChanged extends WizardEvent {
+  final String content;
+  const WizardConfigIotDevicesChanged(this.content);
+  @override
+  List<Object?> get props => [content];
+}
+
+/// Request validation of a deployer config file
+class WizardValidateDeployerConfig extends WizardEvent {
+  final String configType; // 'events' or 'iot'
+  const WizardValidateDeployerConfig(this.configType);
+  @override
+  List<Object?> get props => [configType];
+}
+
+/// Validation completed (called from widget after direct API call)
+class WizardConfigValidationCompleted extends WizardEvent {
+  final String configType; // 'events' or 'iot'
+  final bool valid;
+  const WizardConfigValidationCompleted(this.configType, this.valid);
+  @override
+  List<Object?> get props => [configType, valid];
+}

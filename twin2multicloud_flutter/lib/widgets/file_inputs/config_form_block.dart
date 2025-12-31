@@ -15,11 +15,13 @@ import '../../utils/file_reader.dart';
 class ConfigFormBlock extends StatefulWidget {
   final Function(Map<String, dynamic>)? onConfigChanged;
   final Future<Map<String, dynamic>> Function(Map<String, dynamic>)? onValidate;
+  final bool autoValidateOnUpload;  // NEW: Auto-validate after file upload
   
   const ConfigFormBlock({
     super.key,
     this.onConfigChanged,
     this.onValidate,
+    this.autoValidateOnUpload = false,  // Default: false for backward compat
   });
   
   @override
@@ -91,7 +93,13 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
       });
       
       _notifyChange();
+      
+      // Auto-validate if enabled (matches CredentialSection pattern)
+      if (widget.autoValidateOnUpload) {
+        await _validate();
+      }
     } catch (e) {
+      if (!mounted) return;  // Guard against async context use
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to parse JSON: $e'),

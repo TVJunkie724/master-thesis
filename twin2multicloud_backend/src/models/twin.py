@@ -37,4 +37,10 @@ class DigitalTwin(Base):
         uselist=False,
         cascade="all, delete-orphan"
     )
+    deployer_config = relationship(
+        "DeployerConfiguration",
+        back_populates="twin",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
 
