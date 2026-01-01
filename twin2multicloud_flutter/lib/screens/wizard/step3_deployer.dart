@@ -173,6 +173,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
                     icon: Icons.settings,
                     // Auto-collapse if all Section 2 configs are valid (on edit)
                     initiallyExpanded: state.mode == WizardMode.edit && !state.isSection2Valid,
+                    isValid: state.isSection2Valid,  // Show check icon when complete
                     child: _buildConfigSection(context, state),
                   ),
                 ),

@@ -20,6 +20,8 @@ class CollapsibleSection extends StatefulWidget {
   final String? lockedHint;
   /// Optional info/warning message shown in header (non-blocking, e.g., dependency warning)
   final String? infoHint;
+  /// If true, show a check icon indicating the section is complete/valid
+  final bool isValid;
   
   const CollapsibleSection({
     super.key,
@@ -32,6 +34,7 @@ class CollapsibleSection extends StatefulWidget {
     this.isLocked = false,
     this.lockedHint,
     this.infoHint,
+    this.isValid = false,
     required this.child,
   });
   
@@ -195,7 +198,7 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                             ],
                           ),
                         ),
-                        // Show lock icon or expand chevron
+                        // Show lock icon, check icon, or expand chevron
                         if (isLocked)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -223,7 +226,37 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                               ],
                             ),
                           )
-                        else
+                        else ...[
+                          // Check icon when valid
+                          if (widget.isValid)
+                            Container(
+                              margin: const EdgeInsets.only(right: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.green.shade300),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.check_circle,
+                                    size: 14,
+                                    color: Colors.green.shade700,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Complete',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.green.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           RotationTransition(
                             turns: _iconTurns,
                             child: Icon(
@@ -231,6 +264,7 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                               color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                             ),
                           ),
+                        ],
                       ],
                     ),
                     // Locked hint message
