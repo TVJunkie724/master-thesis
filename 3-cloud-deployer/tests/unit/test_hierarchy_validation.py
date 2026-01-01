@@ -132,6 +132,40 @@ class TestAWSHierarchyValidation(unittest.TestCase):
         ]
         validator.validate_aws_hierarchy_content(content)
 
+    def test_aws_child_with_invalid_type_fails(self):
+        """Error: nested child with invalid type raises ValueError."""
+        content = [
+            {
+                "type": "entity",
+                "id": "room-1",
+                "children": [{"type": "invalid_type", "id": "child-1"}]
+            }
+        ]
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_aws_hierarchy_content(content)
+        self.assertIn("invalid type", str(cm.exception))
+
+    def test_aws_component_missing_name_fails(self):
+        """Error: component without 'name' field raises ValueError."""
+        content = [{"type": "component", "iotDeviceId": "dev-1"}]  # Missing 'name'
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_aws_hierarchy_content(content)
+        self.assertIn("missing required 'name'", str(cm.exception))
+
+    def test_aws_multiple_root_entities_valid(self):
+        """Edge case: multiple root-level entities are valid."""
+        content = [
+            {"type": "entity", "id": "room-1"},
+            {"type": "entity", "id": "room-2"},
+            {"type": "entity", "id": "room-3"}
+        ]
+        validator.validate_aws_hierarchy_content(content)
+
+    def test_aws_entity_with_empty_children_valid(self):
+        """Edge case: entity with empty children array is valid."""
+        content = [{"type": "entity", "id": "room-1", "children": []}]
+        validator.validate_aws_hierarchy_content(content)
+
 
 class TestConfigLoaderHierarchy(unittest.TestCase):
     """Tests for config_loader _load_hierarchy_for_provider function."""
@@ -298,8 +332,242 @@ class TestAzureHierarchyValidation(unittest.TestCase):
         }
         validator.validate_azure_hierarchy_content(content)
 
+    def test_azure_twin_missing_metadata_fails(self):
+        """Error: twin without $metadata raises ValueError."""
+        content = {
+            "models": [],
+            "twins": [{"$dtId": "room-1"}],  # Missing $metadata
+            "relationships": []
+        }
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_azure_hierarchy_content(content)
+        self.assertIn("$metadata", str(cm.exception))
+
+    def test_azure_model_missing_type_fails(self):
+        """Error: model without @type raises ValueError."""
+        content = {
+            "models": [{"@id": "dtmi:test:Model;1", "@context": "dtmi:dtdl:context;3"}],  # Missing @type
+            "twins": [],
+            "relationships": []
+        }
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_azure_hierarchy_content(content)
+        self.assertIn("@type", str(cm.exception))
+
+    def test_azure_relationship_missing_relationshipname_fails(self):
+        """Error: relationship without $relationshipName raises ValueError."""
+        content = {
+            "models": [],
+            "twins": [],
+            "relationships": [{"$dtId": "room-1", "$targetId": "sensor-1"}]  # Missing $relationshipName
+        }
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_azure_hierarchy_content(content)
+        self.assertIn("$relationshipName", str(cm.exception))
+
+    def test_azure_multiple_models_valid(self):
+        """Edge case: multiple models in hierarchy are valid."""
+        content = {
+            "models": [
+                {"@id": "dtmi:test:Room;1", "@type": "Interface", "@context": "dtmi:dtdl:context;3"},
+                {"@id": "dtmi:test:Sensor;1", "@type": "Interface", "@context": "dtmi:dtdl:context;3"},
+                {"@id": "dtmi:test:Building;1", "@type": "Interface", "@context": "dtmi:dtdl:context;3"}
+            ],
+            "twins": [],
+            "relationships": []
+        }
+        validator.validate_azure_hierarchy_content(content)
+
+    def test_azure_header_invalid_structure_fails(self):
+        """Error: header that's not an object raises ValueError."""
+        content = {
+            "header": "invalid_string",  # Should be object
+            "models": [],
+            "twins": [],
+            "relationships": []
+        }
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_azure_hierarchy_content(content)
+        self.assertIn("header", str(cm.exception).lower())
+
+class TestCheckHierarchyProviderMatchInZip(unittest.TestCase):
+    """
+    Tests for check_hierarchy_provider_match() in core.py.
+    
+    This validates that ZIP upload properly validates hierarchy CONTENT 
+    (not just file existence) based on layer_4_provider.
+    """
+
+    def setUp(self):
+        """Create a mock accessor for testing."""
+        from dataclasses import dataclass, field
+        from typing import Dict, List
+        
+        @dataclass
+        class MockAccessor:
+            files: Dict[str, str] = field(default_factory=dict)
+            project_root: str = ""
+            
+            def list_files(self) -> List[str]:
+                return list(self.files.keys())
+            
+            def file_exists(self, path: str) -> bool:
+                return path in self.files
+            
+            def read_text(self, path: str) -> str:
+                if path not in self.files:
+                    raise FileNotFoundError(f"File not found: {path}")
+                return self.files[path]
+            
+            def get_project_root(self) -> str:
+                return self.project_root
+        
+        self.MockAccessor = MockAccessor
+
+    # ==========================================
+    # AWS HIERARCHY VALIDATION IN ZIP
+    # ==========================================
+    def test_aws_valid_hierarchy_passes_zip_validation(self):
+        """AWS: valid hierarchy content passes during zip validation."""
+        from src.validation.core import check_hierarchy_provider_match, ValidationContext
+        
+        valid_aws = json.dumps([{"type": "entity", "id": "room-1"}])
+        accessor = self.MockAccessor(files={"twin_hierarchy/aws_hierarchy.json": valid_aws})
+        ctx = ValidationContext()
+        ctx.prov_config = {"layer_4_provider": "aws"}
+        
+        # Should not raise
+        check_hierarchy_provider_match(accessor, ctx)
+
+    def test_aws_malformed_json_fails_zip_validation(self):
+        """AWS: malformed JSON fails during zip validation."""
+        from src.validation.core import check_hierarchy_provider_match, ValidationContext
+        
+        accessor = self.MockAccessor(files={"twin_hierarchy/aws_hierarchy.json": "{invalid json"})
+        ctx = ValidationContext()
+        ctx.prov_config = {"layer_4_provider": "aws"}
+        
+        with self.assertRaises(ValueError) as cm:
+            check_hierarchy_provider_match(accessor, ctx)
+        self.assertIn("Invalid JSON", str(cm.exception))
+
+    def test_aws_wrong_structure_fails_zip_validation(self):
+        """AWS: hierarchy that's not an array fails during zip validation."""
+        from src.validation.core import check_hierarchy_provider_match, ValidationContext
+        
+        wrong_structure = json.dumps({"type": "entity", "id": "room-1"})  # Object, not array
+        accessor = self.MockAccessor(files={"twin_hierarchy/aws_hierarchy.json": wrong_structure})
+        ctx = ValidationContext()
+        ctx.prov_config = {"layer_4_provider": "aws"}
+        
+        with self.assertRaises(ValueError) as cm:
+            check_hierarchy_provider_match(accessor, ctx)
+        self.assertIn("must be a JSON array", str(cm.exception))
+
+    def test_aws_component_missing_identifiers_fails_zip_validation(self):
+        """AWS: component without componentTypeId/iotDeviceId fails during zip."""
+        from src.validation.core import check_hierarchy_provider_match, ValidationContext
+        
+        invalid_component = json.dumps([{"type": "component", "name": "sensor-1"}])
+        accessor = self.MockAccessor(files={"twin_hierarchy/aws_hierarchy.json": invalid_component})
+        ctx = ValidationContext()
+        ctx.prov_config = {"layer_4_provider": "aws"}
+        
+        with self.assertRaises(ValueError) as cm:
+            check_hierarchy_provider_match(accessor, ctx)
+        self.assertIn("componentTypeId", str(cm.exception))
+
+    # ==========================================
+    # AZURE HIERARCHY VALIDATION IN ZIP
+    # ==========================================
+    def test_azure_valid_hierarchy_passes_zip_validation(self):
+        """Azure: valid DTDL hierarchy content passes during zip validation."""
+        from src.validation.core import check_hierarchy_provider_match, ValidationContext
+        
+        valid_azure = json.dumps({
+            "models": [{"@id": "dtmi:test:Model;1", "@type": "Interface", "@context": "dtmi:dtdl:context;3"}],
+            "twins": [],
+            "relationships": []
+        })
+        accessor = self.MockAccessor(files={"twin_hierarchy/azure_hierarchy.json": valid_azure})
+        ctx = ValidationContext()
+        ctx.prov_config = {"layer_4_provider": "azure"}
+        
+        # Should not raise
+        check_hierarchy_provider_match(accessor, ctx)
+
+    def test_azure_model_missing_context_fails_zip_validation(self):
+        """Azure: model missing @context fails during zip validation."""
+        from src.validation.core import check_hierarchy_provider_match, ValidationContext
+        
+        missing_context = json.dumps({
+            "models": [{"@id": "dtmi:test:Model;1", "@type": "Interface"}],  # Missing @context
+            "twins": [],
+            "relationships": []
+        })
+        accessor = self.MockAccessor(files={"twin_hierarchy/azure_hierarchy.json": missing_context})
+        ctx = ValidationContext()
+        ctx.prov_config = {"layer_4_provider": "azure"}
+        
+        with self.assertRaises(ValueError) as cm:
+            check_hierarchy_provider_match(accessor, ctx)
+        self.assertIn("@context", str(cm.exception))
+
+    def test_azure_relationship_missing_target_fails_zip_validation(self):
+        """Azure: relationship missing $targetId fails during zip validation."""
+        from src.validation.core import check_hierarchy_provider_match, ValidationContext
+        
+        missing_target = json.dumps({
+            "models": [],
+            "twins": [],
+            "relationships": [{"$dtId": "room-1", "$relationshipName": "contains"}]  # Missing $targetId
+        })
+        accessor = self.MockAccessor(files={"twin_hierarchy/azure_hierarchy.json": missing_target})
+        ctx = ValidationContext()
+        ctx.prov_config = {"layer_4_provider": "azure"}
+        
+        with self.assertRaises(ValueError) as cm:
+            check_hierarchy_provider_match(accessor, ctx)
+        self.assertIn("$targetId", str(cm.exception))
+
+    # ==========================================
+    # GENERAL / EDGE CASES
+    # ==========================================
+    def test_missing_hierarchy_file_fails(self):
+        """General: missing hierarchy file raises ValueError."""
+        from src.validation.core import check_hierarchy_provider_match, ValidationContext
+        
+        accessor = self.MockAccessor(files={})  # No files
+        ctx = ValidationContext()
+        ctx.prov_config = {"layer_4_provider": "aws"}
+        
+        with self.assertRaises(ValueError) as cm:
+            check_hierarchy_provider_match(accessor, ctx)
+        self.assertIn("Missing hierarchy file", str(cm.exception))
+
+    def test_google_provider_skips_validation(self):
+        """Google: layer_4_provider=google skips hierarchy validation (no L4 service)."""
+        from src.validation.core import check_hierarchy_provider_match, ValidationContext
+        
+        accessor = self.MockAccessor(files={})  # No files needed
+        ctx = ValidationContext()
+        ctx.prov_config = {"layer_4_provider": "google"}
+        
+        # Should not raise (Google doesn't have hierarchy file)
+        check_hierarchy_provider_match(accessor, ctx)
+
+    def test_no_l4_provider_skips_validation(self):
+        """No L4: missing layer_4_provider skips hierarchy validation."""
+        from src.validation.core import check_hierarchy_provider_match, ValidationContext
+        
+        accessor = self.MockAccessor(files={})
+        ctx = ValidationContext()
+        ctx.prov_config = {}  # No L4 provider
+        
+        # Should not raise
+        check_hierarchy_provider_match(accessor, ctx)
+
 
 
 if __name__ == "__main__":
     unittest.main()
-
