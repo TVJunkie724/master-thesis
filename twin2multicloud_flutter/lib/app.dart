@@ -78,6 +78,7 @@ class Twin2MultiCloudApp extends ConsumerWidget {
     // Light Theme - Clean & Professional
     final lightTheme = ThemeData(
       useMaterial3: true,
+      scaffoldBackgroundColor: const Color(0xFFF5F5F5),  // Slightly darker than white for card contrast
       colorScheme: ColorScheme.fromSeed(
         seedColor: deepAzure,
         brightness: Brightness.light,

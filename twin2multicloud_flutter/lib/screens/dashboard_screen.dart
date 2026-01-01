@@ -114,64 +114,106 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Stat cards row
-                _buildStatsRow(ref),
-                const SizedBox(height: 32),
-                
-                // Twins list header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('My Digital Twins', style: Theme.of(context).textTheme.headlineSmall),
-                    FilledButton.icon(
-                      onPressed: () => _showCredentialSetupDialog(context),
-                      icon: const Icon(Icons.add),
-                      label: const Text('New Twin'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                
-                // State filter chips
-                _buildStateFilterChips(),
-                const SizedBox(height: 16),
-                
-                // Twins table
-                Expanded(
-                  child: twinsAsync.when(
-                    data: (twins) => _buildTwinsTable(context, ref, twins),
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, stack) => Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.cloud_off, size: 64, color: Colors.grey.shade600),
-                          const SizedBox(height: 16),
-                          Text('Failed to load twins', 
-                            style: Theme.of(context).textTheme.titleMedium),
-                          const SizedBox(height: 8),
-                          Text(ApiErrorHandler.extractMessage(err), 
-                            style: TextStyle(color: Colors.grey.shade600)),
-                          const SizedBox(height: 16),
-                          OutlinedButton.icon(
-                            onPressed: () => ref.invalidate(twinsProvider),
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Retry'),
+      body: SingleChildScrollView(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Stat cards row
+                  _buildStatsRow(ref),
+                  const SizedBox(height: 24),
+                  // Twins section - wrapped in Card
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(
+                            Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.06
                           ),
-                        ],
+                          blurRadius: 12,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 0),
+                        ),
+                      ],
+                    ),
+                    child: Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: Theme.of(context).brightness == Brightness.dark 
+                            ? Colors.white.withOpacity(0.1) 
+                            : Colors.black.withOpacity(0.05),
+                          width: 1,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Twins list header
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('My Digital Twins', style: Theme.of(context).textTheme.headlineSmall),
+                                FilledButton.icon(
+                                  onPressed: () => _showCredentialSetupDialog(context),
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('New Twin'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            
+                            // State filter chips
+                            _buildStateFilterChips(),
+                            const SizedBox(height: 16),
+                            
+                            // Twins table
+                            twinsAsync.when(
+                              data: (twins) => _buildTwinsTable(context, ref, twins),
+                              loading: () => const Padding(
+                                padding: EdgeInsets.all(48),
+                                child: Center(child: CircularProgressIndicator()),
+                              ),
+                              error: (err, stack) => Padding(
+                                padding: const EdgeInsets.all(48),
+                                child: Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.cloud_off, size: 64, color: Colors.grey.shade600),
+                                      const SizedBox(height: 16),
+                                      Text('Failed to load twins', 
+                                        style: Theme.of(context).textTheme.titleMedium),
+                                      const SizedBox(height: 8),
+                                      Text(ApiErrorHandler.extractMessage(err), 
+                                        style: TextStyle(color: Colors.grey.shade600)),
+                                      const SizedBox(height: 16),
+                                      OutlinedButton.icon(
+                                        onPressed: () => ref.invalidate(twinsProvider),
+                                        icon: const Icon(Icons.refresh),
+                                        label: const Text('Retry'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -380,60 +422,58 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       );
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return SingleChildScrollView(
       child: SizedBox(
         width: double.infinity,
-        child: Card(
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+        child: DataTable(
+          sortColumnIndex: _sortColumnIndex,
+          sortAscending: _sortAscending,
+          headingRowColor: WidgetStateProperty.all(
+            isDark 
+              ? Colors.white.withOpacity(0.05)
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
           ),
-          child: DataTable(
-            sortColumnIndex: _sortColumnIndex,
-            sortAscending: _sortAscending,
-            headingRowColor: WidgetStateProperty.all(
-              Theme.of(context).colorScheme.surfaceContainerHighest,
+          columnSpacing: 24,
+          columns: [
+            DataColumn(
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Name'),
+                  const SizedBox(width: 4),
+                  Icon(Icons.swap_vert, size: 16, color: Colors.grey.shade500),
+                ],
+              ),
+              onSort: (columnIndex, ascending) {
+                setState(() {
+                  _sortColumnIndex = columnIndex;
+                  _sortAscending = ascending;
+                });
+              },
             ),
-            columnSpacing: 24,
-            columns: [
-              DataColumn(
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('Name'),
-                    const SizedBox(width: 4),
-                    Icon(Icons.swap_vert, size: 16, color: Colors.grey.shade500),
-                  ],
-                ),
-                onSort: (columnIndex, ascending) {
-                  setState(() {
-                    _sortColumnIndex = columnIndex;
-                    _sortAscending = ascending;
-                  });
-                },
+            const DataColumn(label: Text('State')),
+            DataColumn(
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Last Updated'),
+                  const SizedBox(width: 4),
+                  Icon(Icons.swap_vert, size: 16, color: Colors.grey.shade500),
+                ],
               ),
-              const DataColumn(label: Text('State')),
-              DataColumn(
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('Last Updated'),
-                    const SizedBox(width: 4),
-                    Icon(Icons.swap_vert, size: 16, color: Colors.grey.shade500),
-                  ],
-                ),
-                onSort: (columnIndex, ascending) {
-                  setState(() {
-                    _sortColumnIndex = columnIndex;
-                    _sortAscending = ascending;
-                  });
-                },
-              ),
-              const DataColumn(label: Text('Last Deploy')),
-              const DataColumn(label: Text('Actions')),
-            ],
-            rows: _sortTwins(_filterTwins(twins)).map((twin) => _buildTwinRow(context, ref, twin)).toList(),
-          ),
+              onSort: (columnIndex, ascending) {
+                setState(() {
+                  _sortColumnIndex = columnIndex;
+                  _sortAscending = ascending;
+                });
+              },
+            ),
+            const DataColumn(label: Text('Last Deploy')),
+            const DataColumn(label: Text('Actions')),
+          ],
+          rows: _sortTwins(_filterTwins(twins)).map((twin) => _buildTwinRow(context, ref, twin)).toList(),
         ),
       ),
     );

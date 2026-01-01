@@ -85,13 +85,29 @@ class _WizardViewState extends ConsumerState<WizardView> {
           appBar: _buildAppBar(context, state),
           body: Column(
             children: [
-              // Screen header with title
-              _buildHeader(context, state),
-              // Step indicator
-              _buildStepIndicator(context, state),
-              // Navigation bar
-              _buildNavigationBar(context, state),
-              const Divider(height: 1),
+              // Header area with subtle shadow for visual separation
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // Screen header with title
+                    _buildHeader(context, state),
+                    // Step indicator
+                    _buildStepIndicator(context, state),
+                    // Navigation bar
+                    _buildNavigationBar(context, state),
+                  ],
+                ),
+              ),
               // Alert banners
               _buildAlertBanners(context, state),
               // Step content
@@ -225,7 +241,16 @@ class _WizardViewState extends ConsumerState<WizardView> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      color: color.shade50,
+      decoration: BoxDecoration(
+        color: color.shade50,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
