@@ -57,9 +57,9 @@ def migrate():
         
         migrations_applied = []
         
-        # Add uibk_id column
+        # Add uibk_id column (SQLite doesn't support UNIQUE in ALTER TABLE, so add column first, index later)
         if 'uibk_id' not in columns:
-            cursor.execute("ALTER TABLE users ADD COLUMN uibk_id TEXT UNIQUE")
+            cursor.execute("ALTER TABLE users ADD COLUMN uibk_id TEXT")
             migrations_applied.append("uibk_id")
             print("  ✓ Added column: uibk_id")
         else:
