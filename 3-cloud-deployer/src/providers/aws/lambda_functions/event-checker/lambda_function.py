@@ -125,10 +125,11 @@ def lambda_handler(event, context):
                         raise ConfigurationError("EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN is required when USE_FEEDBACK is enabled")
                     
                     # Enrich feedback payload with runtime context
+                    feedback_config = e["action"]["feedback"]
                     feedback_payload = {
                         "detail": {
                             "digitalTwinName": DIGITAL_TWIN_INFO["config"]["digital_twin_name"],
-                            "iotDeviceId": e["action"]["feedback"]["iotDeviceId"],
+                            "iotDeviceId": feedback_config.get("device_id") or feedback_config.get("iotDeviceId"),
                             "payload": {
                                 "message": e["action"]["feedback"]["payload"],
                                 "actual_value": param1_value,
