@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../bloc/wizard/wizard.dart';
 import '../../config/step3_examples.dart';
 import '../../providers/twins_provider.dart';
+import '../../utils/api_error_handler.dart';
 import '../../widgets/architecture_layer_builder.dart';
 import '../../widgets/file_inputs/file_editor_block.dart';
 import '../../widgets/file_inputs/collapsible_section.dart';
@@ -105,7 +106,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
       
       return {'valid': valid, 'message': message};
     } catch (e) {
-      return {'valid': false, 'message': 'Validation failed: $e'};
+      return {'valid': false, 'message': 'Validation failed: ${ApiErrorHandler.extractMessage(e)}'};
     }
   }
 
@@ -165,7 +166,8 @@ class _Step3DeployerState extends State<Step3Deployer> {
               
               // Section 2: Configuration Files
               // For new twins, keep collapsed until they upload or choose manual entry
-              // For existing twins, expand to show current config
+              // For existing twins with all valid configs, collapse to reduce noise
+              // For existing twins with missing/invalid configs, expand to show what needs work
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 800),
@@ -174,7 +176,8 @@ class _Step3DeployerState extends State<Step3Deployer> {
                     title: 'Configuration Files',
                     description: 'Core deployment settings and device definitions',
                     icon: Icons.settings,
-                    initiallyExpanded: state.mode == WizardMode.edit,
+                    // Auto-collapse if all Section 2 configs are valid (on edit)
+                    initiallyExpanded: state.mode == WizardMode.edit && !state.isSection2Valid,
                     child: _buildConfigSection(context, state),
                   ),
                 ),
@@ -217,6 +220,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           // Convert months to days for display (CalcParams uses months)
           hotStorageDays: (state.calcParams?.hotStorageDurationInMonths ?? 1) * 30,
           coldStorageDays: (state.calcParams?.coolStorageDurationInMonths ?? 3) * 30,
+          isValidated: state.configJsonValidated,  // Persist validation across navigation
           onTwinNameChanged: (name) {
             // Update deployer digital twin name in BLoC state (separate from Step 1 project name)
             context.read<WizardBloc>().add(WizardDeployerTwinNameChanged(name));
@@ -241,6 +245,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           constraints: '• JSON array of event conditions\n• Define actions for each condition',
           exampleContent: Step3Examples.configEvents,
           initialContent: state.configEventsJson ?? '',
+          isValidated: state.configEventsValidated,  // Persist validation across navigation
           onContentChanged: (content) {
             // State is managed by BLoC
             context.read<WizardBloc>().add(WizardConfigEventsChanged(content));
@@ -262,6 +267,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           constraints: '• JSON array of device configs\n• Define properties per device',
           exampleContent: Step3Examples.configIotDevices,
           initialContent: state.configIotDevicesJson ?? '',
+          isValidated: state.configIotDevicesValidated,  // Persist validation across navigation
           onContentChanged: (content) {
             // State is managed by BLoC
             context.read<WizardBloc>().add(WizardConfigIotDevicesChanged(content));

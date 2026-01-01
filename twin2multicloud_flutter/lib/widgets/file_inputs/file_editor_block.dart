@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../utils/api_error_handler.dart';
 import '../../utils/file_reader.dart';
 import '../../utils/json_syntax_highlighter.dart';
 
@@ -15,6 +16,7 @@ class FileEditorBlock extends StatefulWidget {
   final IconData icon;
   final bool isHighlighted;
   final String? initialContent;
+  final bool isValidated;  // From BLoC - persisted validation state
   final Function(String)? onContentChanged;
   final Future<Map<String, dynamic>> Function(String)? onValidate;
   final bool autoValidateOnUpload;  // NEW: Auto-validate after file upload
@@ -28,6 +30,7 @@ class FileEditorBlock extends StatefulWidget {
     this.icon = Icons.description,
     this.isHighlighted = false,
     this.initialContent,
+    this.isValidated = false,
     this.onContentChanged,
     this.onValidate,
     this.autoValidateOnUpload = false,  // Default: false for backward compat
@@ -55,6 +58,11 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
       _controller = JsonEditingController(text: widget.initialContent ?? '');
     } else {
       _controller = TextEditingController(text: widget.initialContent ?? '');
+    }
+    // Initialize validation state from BLoC (persists across navigation)
+    if (widget.isValidated) {
+      _isValid = true;
+      _validationMessage = 'Valid ✓';
     }
   }
   
@@ -93,7 +101,7 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
     } catch (e) {
       setState(() {
         _isValid = false;
-        _validationMessage = 'Failed to read file: $e';
+        _validationMessage = 'Failed to read file: ${ApiErrorHandler.extractMessage(e)}';
       });
     }
   }
@@ -157,7 +165,7 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
     } catch (e) {
       setState(() {
         _isValid = false;
-        _validationMessage = 'Validation error: $e';
+        _validationMessage = 'Validation error: ${ApiErrorHandler.extractMessage(e)}';
       });
     } finally {
       setState(() => _isValidating = false);

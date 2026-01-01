@@ -283,8 +283,10 @@ class WizardState extends Equatable {
     savedCalcResultRaw,
     pricingSnapshots,
     pricingTimestamps,
+    deployerDigitalTwinName,  // FIXED: was missing
     configEventsJson,
     configIotDevicesJson,
+    configJsonValidated,      // FIXED: was missing
     configEventsValidated,
     configIotDevicesValidated,
     deployerConfig,

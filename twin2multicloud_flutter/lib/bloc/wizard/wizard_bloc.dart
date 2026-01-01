@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
 import '../../services/api_service.dart';
+import '../../utils/api_error_handler.dart';
 import 'wizard_event.dart';
 import 'wizard_state.dart';
 
@@ -207,7 +208,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     } catch (e) {
       emit(state.copyWith(
         status: WizardStatus.error,
-        errorMessage: 'Failed to load twin: $e',
+        errorMessage: 'Failed to load twin: ${ApiErrorHandler.extractMessage(e)}',
       ));
     }
   }
@@ -456,7 +457,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     } catch (e) {
       emit(state.copyWith(
         isCalculating: false,
-        errorMessage: 'Calculation failed: $e',
+        errorMessage: 'Calculation failed: ${ApiErrorHandler.extractMessage(e)}',
       ));
     }
   }
@@ -562,6 +563,20 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       
       await _api.updateTwinConfig(twinId!, config);
       
+      // Save deployer config (Step 3 Section 2 data)
+      if (state.deployerDigitalTwinName != null ||
+          state.configEventsJson != null ||
+          state.configIotDevicesJson != null) {
+        await _api.updateDeployerConfig(twinId, {
+          'deployer_digital_twin_name': state.deployerDigitalTwinName,
+          'config_events_json': state.configEventsJson,
+          'config_iot_devices_json': state.configIotDevicesJson,
+          'config_json_validated': state.configJsonValidated,
+          'config_events_validated': state.configEventsValidated,
+          'config_iot_devices_validated': state.configIotDevicesValidated,
+        });
+      }
+      
       emit(state.copyWith(
         status: WizardStatus.ready,
         twinId: twinId,
@@ -574,7 +589,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     } catch (e) {
       emit(state.copyWith(
         status: WizardStatus.ready,
-        errorMessage: 'Save failed: $e',
+        errorMessage: 'Save failed: ${ApiErrorHandler.extractMessage(e)}',
       ));
     }
   }
@@ -613,7 +628,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         successMessage: 'Configuration complete!',
       ));
     } catch (e) {
-      emit(state.copyWith(status: WizardStatus.ready, errorMessage: 'Failed to finish: $e'));
+      emit(state.copyWith(status: WizardStatus.ready, errorMessage: 'Failed to finish: ${ApiErrorHandler.extractMessage(e)}'));
     }
   }
   
@@ -749,7 +764,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         ));
       }
     } catch (e) {
-      emit(state.copyWith(errorMessage: 'Validation failed: $e'));
+      emit(state.copyWith(errorMessage: 'Validation failed: ${ApiErrorHandler.extractMessage(e)}'));
     }
   }
 

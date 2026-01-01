@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../utils/api_error_handler.dart';
 import '../../utils/json_syntax_highlighter.dart';
 
 /// Split-view config block for config.json with:
@@ -14,6 +15,7 @@ class ConfigJsonVisualizationBlock extends StatefulWidget {
   final String? mode;  // From Step 1
   final int hotStorageDays;   // From Step 2
   final int coldStorageDays;  // From Step 2
+  final bool isValidated;     // From BLoC - persisted validation state
   final Function(String) onTwinNameChanged;
   final Future<Map<String, dynamic>> Function(Map<String, dynamic>)? onValidate;
   final VoidCallback? onValidationSuccess;  // Called when validation succeeds (to update BLoC)
@@ -24,6 +26,7 @@ class ConfigJsonVisualizationBlock extends StatefulWidget {
     required this.mode,
     required this.hotStorageDays,
     required this.coldStorageDays,
+    this.isValidated = false,
     required this.onTwinNameChanged,
     this.onValidate,
     this.onValidationSuccess,
@@ -45,6 +48,11 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
   void initState() {
     super.initState();
     _twinNameController = TextEditingController(text: widget.twinName ?? '');
+    // Initialize validation state from BLoC (persists across navigation)
+    if (widget.isValidated) {
+      _isValid = true;
+      _validationMessage = 'Configuration is valid ✓';
+    }
   }
 
   @override
@@ -114,7 +122,7 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
     } catch (e) {
       setState(() {
         _isValid = false;
-        _validationMessage = 'Validation error: $e';
+        _validationMessage = 'Validation error: ${ApiErrorHandler.extractMessage(e)}';
       });
     } finally {
       setState(() => _isValidating = false);
@@ -230,13 +238,11 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
             controller: _twinNameController,
             onChanged: (value) {
               widget.onTwinNameChanged(value);
-              // Reset validation on change
-              if (_isValid != null) {
-                setState(() {
-                  _isValid = null;
-                  _validationMessage = null;
-                });
-              }
+              // Reset validation on change AND trigger rebuild for button state
+              setState(() {
+                _isValid = null;
+                _validationMessage = null;
+              });
             },
             decoration: InputDecoration(
               hintText: 'e.g., my_digital_twin',
