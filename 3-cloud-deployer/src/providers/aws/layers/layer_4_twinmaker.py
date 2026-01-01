@@ -49,14 +49,23 @@ def info_l4(context: 'DeploymentContext', provider: 'AWSProvider') -> dict:
     Check status of SDK-managed L4 resources.
     
     Note: Infrastructure (workspace, IAM, S3) is checked via Terraform state.
-    This checks TwinMaker entities created via SDK.
+    This checks TwinMaker entities created via SDK from hierarchy.
     """
     logger.info(f"[L4] Checking SDK-managed resources for {context.config.digital_twin_name}")
     
+    def get_entity_ids(nodes: list) -> list:
+        """Recursively extract entity IDs from hierarchy."""
+        ids = []
+        for node in nodes:
+            if node.get("type") == "entity":
+                ids.append(node.get("id", "unknown"))
+                ids.extend(get_entity_ids(node.get("children", [])))
+        return ids
+    
     entities_status = {}
-    if context.config.iot_devices:
-        for device in context.config.iot_devices:
-            entity_id = device.get('id', device.get('name', 'unknown'))
+    hierarchy = context.config.hierarchy
+    if hierarchy and isinstance(hierarchy, list):
+        for entity_id in get_entity_ids(hierarchy):
             entities_status[entity_id] = check_twinmaker_entity(entity_id, provider)
     
     return {

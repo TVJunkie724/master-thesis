@@ -214,7 +214,7 @@ def load_project_config(project_path: Path) -> ProjectConfig:
         mode=core_config["mode"],
         iot_devices=iot_devices if isinstance(iot_devices, list) else iot_devices.get("devices", []),
         events=events if isinstance(events, list) else events.get("events", []),
-        hierarchy=hierarchy if isinstance(hierarchy, list) else hierarchy.get("hierarchy", []),
+        hierarchy=hierarchy,  # Preserve raw structure (dict for Azure, list for AWS)
         providers=providers,
         optimization=optimization,
         inter_cloud=inter_cloud,

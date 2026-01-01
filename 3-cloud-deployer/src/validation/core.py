@@ -409,7 +409,9 @@ def check_credentials_per_provider(ctx: ValidationContext) -> None:
 
 
 def check_hierarchy_provider_match(accessor: FileAccessor, ctx: ValidationContext) -> None:
-    """Validate that hierarchy file exists for layer_4_provider."""
+    """Validate that hierarchy file exists AND is valid for layer_4_provider."""
+    from src.validator import validate_aws_hierarchy_content, validate_azure_hierarchy_content
+    
     if not ctx.prov_config:
         return
     
@@ -430,10 +432,23 @@ def check_hierarchy_provider_match(accessor: FileAccessor, ctx: ValidationContex
     expected_file = hierarchy_file_map[layer_4_provider]
     full_path = ctx.project_root + expected_file
     
+    # Check file exists
     if not accessor.file_exists(full_path):
         raise ValueError(
             f"Missing hierarchy file '{expected_file}' for layer_4_provider='{layer_4_provider}'."
         )
+    
+    # Validate content based on provider
+    try:
+        content = accessor.read_text(full_path)
+        if layer_4_provider == "aws":
+            validate_aws_hierarchy_content(content)
+        elif layer_4_provider == "azure":
+            validate_azure_hierarchy_content(content)
+    except ValueError:
+        raise  # Re-raise with original message
+    except Exception as e:
+        raise ValueError(f"Hierarchy validation failed for {expected_file}: {e}")
 
 
 def check_scene_assets(accessor: FileAccessor, ctx: ValidationContext) -> None:

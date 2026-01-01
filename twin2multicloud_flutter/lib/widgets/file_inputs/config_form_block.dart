@@ -217,11 +217,12 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _accentColor.withAlpha(12),
+        // Use neutral colors - no pink tint
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _isValid == true ? Colors.green.shade600 : 
-                 _isValid == false ? Colors.red.shade400 : _accentColor.withAlpha(120),
+                 _isValid == false ? Colors.red.shade400 : Colors.grey.shade300,
           width: _isValid != null ? 2 : 1,
         ),
       ),
@@ -376,8 +377,7 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
               label: const Text('Validate'),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                backgroundColor: _accentColor,
-                foregroundColor: Colors.white,
+                // Use theme primary instead of pink for consistency with Step 1
               ),
             ),
           ),

@@ -34,24 +34,25 @@ def create_twinmaker_entities(
     Create TwinMaker entities and component types via AWS SDK.
     
     The workspace is created by Terraform, but entities and component types
-    are created here because they depend on IoT device configuration.
+    are created here using the hierarchy from aws_hierarchy.json.
     
     Component types are essential for data visualization - they define
     the data schema and link to Lambda connectors for fetching data.
     
     Args:
         context: DeploymentContext with initialized AWS provider
-        project_path: Path to project directory
+        project_path: Path to project directory (unused, kept for API consistency)
         terraform_outputs: Terraform output values
     """
     logger.info("  Creating TwinMaker entities and component types...")
     
-    # Get provider from context (already initialized)
+    # PRESERVED: Provider validation
     provider = context.providers.get("aws")
     if provider is None:
         logger.error("  ✗ AWS provider not initialized in context.providers")
         raise RuntimeError("AWS provider not initialized - cannot create TwinMaker entities")
     
+    # PRESERVED: boto3 ImportError and general exception handling
     try:
         import time
         
@@ -64,47 +65,31 @@ def create_twinmaker_entities(
         # Use pre-initialized clients from provider
         twinmaker = provider.clients["twinmaker"]
         lambda_client = provider.clients["lambda"]
-        region = provider.region
         
-        # Load config
-        config_file = project_path / "config.json"
-        devices_file = project_path / "config_iot_devices.json"
+        # Use pre-loaded config from context (not file I/O)
+        digital_twin_name = context.config.digital_twin_name
+        hierarchy = context.config.hierarchy
         
-        if not config_file.exists():
-            logger.warning("  config.json not found, skipping entity creation")
-            return
-            
-        with open(config_file) as f:
-            config = json.load(f)
-        digital_twin_name = config.get("digital_twin_name")
-        
-        if not devices_file.exists():
-            logger.info("  No config_iot_devices.json, skipping entity creation")
-            return
-            
-        with open(devices_file) as f:
-            devices = json.load(f)
-        
-        # Handle both array format and {devices: [...]} format
-        if isinstance(devices, dict):
-            devices = devices.get("devices", [])
-        
-        if not devices:
-            logger.info("  No devices configured, skipping entity creation")
+        if not hierarchy:
+            logger.info("  No hierarchy configured, skipping entity creation")
             return
         
-        # Get Lambda connector ARNs from Terraform outputs
+        if not isinstance(hierarchy, list):
+            logger.warning("  AWS hierarchy must be a list, skipping entity creation")
+            return
+        
+        # PRESERVED: Get Lambda connector ARNs from Terraform outputs
         connector_arn = terraform_outputs.get("aws_l4_connector_function_arn")
         connector_last_entry_arn = terraform_outputs.get("aws_l4_connector_last_entry_function_arn")
         
-        # Fall back to Lambda lookup if not in outputs
+        # PRESERVED: Fall back to Lambda lookup if not in outputs
         if not connector_arn:
             connector_name = f"{digital_twin_name}-l4-connector"
             try:
                 resp = lambda_client.get_function(FunctionName=connector_name)
                 connector_arn = resp["Configuration"]["FunctionArn"]
             except Exception:
-                logger.info(f"  L4 connector Lambda not found, skipping component types")
+                logger.info("  L4 connector Lambda not found, skipping component types")
         
         if not connector_last_entry_arn:
             connector_last_entry_name = f"{digital_twin_name}-l4-connector-last-entry"
@@ -116,34 +101,45 @@ def create_twinmaker_entities(
                 if connector_arn:
                     connector_last_entry_arn = connector_arn
         
-        for device in devices:
-            device_id = device.get("id")
-            if not device_id:
-                continue
+        def create_recursive(node: dict, parent_id: str = None):
+            """Recursively create entities with parent-child relationships."""
+            if node.get("type") == "entity":
+                entity_id = node.get("id")
+                if not entity_id:
+                    return
+                
+                # Create entity with optional parentEntityId
+                try:
+                    params = {
+                        "workspaceId": workspace_id,
+                        "entityId": entity_id,
+                        "entityName": entity_id,
+                        "description": f"Twin entity for {entity_id}"
+                    }
+                    if parent_id:
+                        params["parentEntityId"] = parent_id
+                    
+                    twinmaker.create_entity(**params)
+                    logger.info(f"  ✓ Entity: {entity_id}" + (f" (parent: {parent_id})" if parent_id else ""))
+                except twinmaker.exceptions.ConflictException:
+                    logger.info(f"  Entity already exists: {entity_id}")
+                except Exception as e:
+                    logger.warning(f"  Entity creation failed for {entity_id}: {e}")
+                
+                # Recursively create children
+                for child in node.get("children", []):
+                    create_recursive(child, entity_id)
             
-            # 1. Create entity
-            try:
-                twinmaker.create_entity(
-                    workspaceId=workspace_id,
-                    entityId=device_id,
-                    entityName=device.get("name", device_id),
-                    description=f"Twin entity for {device_id}"
-                )
-                logger.info(f"  ✓ Entity created: {device_id}")
-            except twinmaker.exceptions.ConflictException:
-                logger.info(f"  Entity already exists: {device_id}")
-            except Exception as e:
-                logger.warning(f"  Entity creation failed for {device_id}: {e}")
-            
-            # 2. Create component type (if Lambda connectors exist)
-            if connector_arn:
-                component_type_id = f"{digital_twin_name}-{device_id}"
+            elif node.get("type") == "component" and connector_arn:
+                # PRESERVED: Component type creation with Lambda wiring
+                component_name = node.get("name", node.get("componentTypeId", "unknown"))
+                component_type_id = f"{digital_twin_name}-{component_name}"
                 
                 try:
-                    # Build property definitions from device config
+                    # Build property definitions from node
                     property_definitions = {}
                     
-                    for prop in device.get("properties", []):
+                    for prop in node.get("properties", []):
                         property_definitions[prop["name"]] = {
                             "dataType": {"type": prop.get("dataType", "STRING")},
                             "isTimeSeries": True,
@@ -151,7 +147,7 @@ def create_twinmaker_entities(
                         }
                     
                     # Add const properties if present
-                    for const_prop in device.get("constProperties", []):
+                    for const_prop in node.get("constProperties", []):
                         data_type = const_prop.get("dataType", "STRING")
                         property_definitions[const_prop["name"]] = {
                             "dataType": {"type": data_type},
@@ -185,9 +181,9 @@ def create_twinmaker_entities(
                         propertyDefinitions=property_definitions,
                         functions=functions
                     )
-                    logger.info(f"  ✓ Component type created: {component_type_id}")
+                    logger.info(f"  ✓ Component type: {component_type_id}")
                     
-                    # Wait for component type to become active
+                    # PRESERVED: Wait for component type to become active
                     for _ in range(30):
                         resp = twinmaker.get_component_type(
                             workspaceId=workspace_id,
@@ -200,7 +196,30 @@ def create_twinmaker_entities(
                 except twinmaker.exceptions.ConflictException:
                     logger.info(f"  Component type already exists: {component_type_id}")
                 except Exception as e:
-                    logger.warning(f"  Component type creation failed for {device_id}: {e}")
+                    logger.warning(f"  Component type creation failed for {component_name}: {e}")
+                    return  # Don't try to attach if creation failed
+                
+                # Attach component to parent entity
+                if parent_id:
+                    try:
+                        twinmaker.update_entity(
+                            workspaceId=workspace_id,
+                            entityId=parent_id,
+                            componentUpdates={
+                                component_name: {
+                                    "componentTypeId": component_type_id
+                                }
+                            }
+                        )
+                        logger.info(f"  ✓ Component attached: {component_name} → {parent_id}")
+                    except twinmaker.exceptions.ConflictException:
+                        logger.info(f"  Component already attached: {component_name}")
+                    except Exception as e:
+                        logger.warning(f"  Component attachment failed: {e}")
+        
+        # Process all root nodes in hierarchy
+        for root_node in hierarchy:
+            create_recursive(root_node)
                     
     except ImportError:
         logger.warning("  boto3 not available, skipping TwinMaker entity creation")

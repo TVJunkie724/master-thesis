@@ -175,12 +175,9 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
   @override
   Widget build(BuildContext context) {
     final color = widget.isHighlighted ? editableColor : Colors.grey.shade600;
-    final bgColor = widget.isHighlighted 
-        ? editableColor.withAlpha(12) 
-        : Theme.of(context).colorScheme.surfaceContainerHighest;
-    final borderColor = widget.isHighlighted 
-        ? editableColor.withAlpha(120) 
-        : Colors.grey.shade300;
+    // Use neutral colors for background/border - no pink tint (less flashy)
+    final bgColor = Theme.of(context).colorScheme.surfaceContainerHighest;
+    final borderColor = Colors.grey.shade300;
     
     return Container(
       padding: const EdgeInsets.all(16),
@@ -377,8 +374,7 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
                   label: const Text('Validate'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                    backgroundColor: color,
-                    foregroundColor: Colors.white,
+                    // Use theme primary instead of pink for consistency with Step 1
                   ),
                 ),
               ],

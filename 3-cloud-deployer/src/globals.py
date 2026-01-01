@@ -37,7 +37,6 @@ config_credentials_aws = None
 config_credentials_azure = None
 config_credentials_google = None
 config_providers = {}
-config_hierarchy = []
 config_events = []
 
 def project_path():
@@ -58,10 +57,7 @@ def initialize_config_events():
   with open(f"{project_path()}/config_events.json", "r") as file:
     config_events = json.load(file)
 
-def initialize_config_hierarchy():
-  global config_hierarchy
-  with open(f"{project_path()}/config_hierarchy.json", "r") as file:
-    config_hierarchy = json.load(file)
+# Legacy initialize_config_hierarchy removed - use provider-specific files via config_loader.py
 
 def initialize_config_credentials():
   global config_credentials
@@ -147,7 +143,7 @@ def initialize_all():
   initialize_config()
   initialize_config_iot_devices()
   initialize_config_events()
-  initialize_config_hierarchy()
+  # initialize_config_hierarchy() removed - use config_loader.py
   initialize_config_credentials()
   initialize_config_providers()
   

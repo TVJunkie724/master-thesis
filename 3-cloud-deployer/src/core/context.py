@@ -58,8 +58,10 @@ class ProjectConfig:
     # From config_events.json
     events: list[dict] = field(default_factory=list)
     
-    # From config_hierarchy.json
-    hierarchy: list[dict] = field(default_factory=list)
+    # From twin hierarchy files (aws_hierarchy.json or azure_hierarchy.json)
+    # Azure: dict with {models, twins, relationships}
+    # AWS: list with [{type, id, children}]
+    hierarchy: dict | list = field(default_factory=dict)
     
     # From config_providers.json
     # Maps layer keys to provider names
