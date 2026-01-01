@@ -17,6 +17,7 @@ class User(Base):
     auth_provider = Column(String, nullable=False, default="google")  # "google" | "uibk"
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login_at = Column(DateTime, nullable=True)
+    theme_preference = Column(String, nullable=True, default="dark")  # "light" | "dark"
     
     # Relationships
     twins = relationship("DigitalTwin", back_populates="owner")

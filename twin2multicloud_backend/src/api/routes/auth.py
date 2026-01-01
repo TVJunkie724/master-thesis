@@ -207,14 +207,39 @@ async def get_me(
     current_user: User = Depends(get_current_user)
 ):
     """Get current authenticated user."""
+    return _build_user_response(current_user)
+
+@router.patch("/me", response_model=dict)
+async def update_me(
+    updates: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update current user's preferences (e.g., theme_preference)."""
+    # Validate theme_preference value
+    if "theme_preference" in updates:
+        theme = updates["theme_preference"]
+        if theme not in ("light", "dark"):
+            raise HTTPException(status_code=400, detail=f"Invalid theme_preference: {theme}. Must be 'light' or 'dark'.")
+        current_user.theme_preference = theme
+    
+    db.commit()
+    db.refresh(current_user)
+    
+    return _build_user_response(current_user)
+
+
+def _build_user_response(user: User) -> dict:
+    """Build consistent user response dict."""
     return {
-        "id": current_user.id,
-        "email": current_user.email,
-        "name": current_user.name,
-        "picture_url": current_user.picture_url,
-        "auth_provider": current_user.auth_provider,
-        "uibk_linked": current_user.uibk_id is not None,
-        "google_linked": current_user.google_id is not None,
+        "id": user.id,
+        "email": user.email,
+        "name": user.name,
+        "picture_url": user.picture_url,
+        "auth_provider": user.auth_provider,
+        "theme_preference": user.theme_preference or "dark",
+        "uibk_linked": user.uibk_id is not None,
+        "google_linked": user.google_id is not None,
     }
 
 @router.get("/providers")

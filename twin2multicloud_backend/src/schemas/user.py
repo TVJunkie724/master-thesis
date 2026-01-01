@@ -12,3 +12,7 @@ class UserResponse(UserBase):
     id: str
     picture_url: Optional[str] = None
     created_at: datetime
+    auth_provider: str = "google"
+    theme_preference: Optional[str] = "dark"
+    google_linked: bool = False
+    uibk_linked: bool = False

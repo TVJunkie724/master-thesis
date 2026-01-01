@@ -44,6 +44,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onPressed: () => ref.read(themeProvider.notifier).toggle(),
             tooltip: 'Toggle theme',
           ),
+          const SizedBox(width: 8),
           PopupMenuButton<String>(
             offset: const Offset(0, 56),
             tooltip: 'Profile menu',

@@ -6,6 +6,7 @@ class User {
   final String authProvider;  // "google" | "uibk"
   final bool uibkLinked;
   final bool googleLinked;
+  final String themePreference;  // "light" | "dark"
 
   User({
     required this.id,
@@ -15,6 +16,7 @@ class User {
     this.authProvider = "google",
     this.uibkLinked = false,
     this.googleLinked = false,
+    this.themePreference = "dark",
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class User {
       authProvider: json['auth_provider'] ?? 'google',
       uibkLinked: json['uibk_linked'] ?? false,
       googleLinked: json['google_linked'] ?? false,
+      themePreference: json['theme_preference'] ?? 'dark',
     );
   }
 }

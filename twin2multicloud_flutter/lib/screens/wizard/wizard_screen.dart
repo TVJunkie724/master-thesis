@@ -8,6 +8,7 @@ import 'step3_deployer.dart';
 import '../../bloc/wizard/wizard.dart';
 import '../../providers/twins_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../widgets/branded_app_bar.dart';
 
 /// Wizard screen using BLoC pattern for state management
@@ -115,8 +116,50 @@ class _WizardViewState extends ConsumerState<WizardView> {
           onPressed: () => ref.read(themeProvider.notifier).toggle(),
           tooltip: 'Toggle theme',
         ),
-        const CircleAvatar(child: Icon(Icons.person)),
-        const SizedBox(width: 16),
+        const SizedBox(width: 8),
+        PopupMenuButton<String>(
+          offset: const Offset(0, 56),
+          tooltip: 'Profile menu',
+          onSelected: (value) {
+            switch (value) {
+              case 'settings':
+                context.go('/settings');
+                break;
+              case 'logout':
+                ref.read(authProvider.notifier).logout();
+                context.go('/login');
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'settings',
+              child: Row(
+                children: [
+                  Icon(Icons.settings, size: 20),
+                  SizedBox(width: 12),
+                  Text('Settings'),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem(
+              value: 'logout',
+              child: Row(
+                children: [
+                  Icon(Icons.logout, size: 20, color: Colors.red),
+                  const SizedBox(width: 12),
+                  Text('Logout', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          ],
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: CircleAvatar(child: Icon(Icons.person)),
+          ),
+        ),
+        const SizedBox(width: 8),
       ],
     );
   }

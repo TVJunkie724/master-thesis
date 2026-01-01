@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import '../core/result.dart';
 import '../models/calc_result.dart';
+import '../utils/api_error_handler.dart';
 
 class ApiService {
   late final Dio _dio;
@@ -31,6 +32,14 @@ class ApiService {
   
   /// Get current auth token for SSE connections
   Future<String?> getAuthToken() async => _token;
+  
+  /// Update current user's preferences (e.g., theme)
+  Future<Map<String, dynamic>> updateUserPreferences({String? themePreference}) async {
+    final data = <String, dynamic>{};
+    if (themePreference != null) data['theme_preference'] = themePreference;
+    final response = await _dio.patch('/auth/me', data: data);
+    return response.data;
+  }
   
   Future<List<dynamic>> getTwins() async {
     final response = await _dio.get('/twins/');
@@ -254,7 +263,7 @@ class ApiService {
     } on DioException catch (e) {
       return Failure(AppException.fromDioError(e));
     } catch (e) {
-      return Failure(AppException('Calculation failed: $e'));
+      return Failure(AppException('Calculation failed: ${ApiErrorHandler.extractMessage(e)}'));
     }
   }
   
@@ -266,7 +275,7 @@ class ApiService {
     } on DioException catch (e) {
       return Failure(AppException.fromDioError(e));
     } catch (e) {
-      return Failure(AppException('Failed to load pricing status: $e'));
+      return Failure(AppException('Failed to load pricing status: ${ApiErrorHandler.extractMessage(e)}'));
     }
   }
   
@@ -278,7 +287,7 @@ class ApiService {
     } on DioException catch (e) {
       return Failure(AppException.fromDioError(e));
     } catch (e) {
-      return Failure(AppException('Failed to load twin config: $e'));
+      return Failure(AppException('Failed to load twin config: ${ApiErrorHandler.extractMessage(e)}'));
     }
   }
 }
