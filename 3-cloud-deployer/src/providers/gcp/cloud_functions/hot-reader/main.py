@@ -67,7 +67,7 @@ def main(request):
     try:
         # Get query parameters
         args = request.args
-        device_id = args.get("iotDeviceId")
+        device_id = args.get("device_id") or args.get("iotDeviceId")
         start_time = args.get("startTime")
         end_time = args.get("endTime")
         limit = int(args.get("limit", 100))

@@ -78,11 +78,11 @@ def main(request):
             return build_auth_error_response()
     
     try:
-        # Get device ID from query params
-        device_id = request.args.get("iotDeviceId")
+        # Get device ID from query params (accept both canonical and legacy field names)
+        device_id = request.args.get("device_id") or request.args.get("iotDeviceId")
         
         if not device_id:
-            return (json.dumps({"error": "Missing iotDeviceId parameter"}), 400, {"Content-Type": "application/json"})
+            return (json.dumps({"error": "Missing device_id or iotDeviceId parameter"}), 400, {"Content-Type": "application/json"})
         
         if _is_multi_cloud_reader():
             # Multi-cloud: Query remote reader
@@ -99,7 +99,7 @@ def main(request):
         
         response = requests.get(
             target_url,
-            params={"iotDeviceId": device_id},
+            params={"device_id": device_id},
             headers=headers,
             timeout=30
         )
