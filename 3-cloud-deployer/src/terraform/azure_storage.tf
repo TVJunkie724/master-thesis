@@ -71,7 +71,7 @@ resource "azurerm_cosmosdb_sql_container" "hot" {
   resource_group_name = azurerm_resource_group.main[0].name
   account_name        = azurerm_cosmosdb_account.main[0].name
   database_name       = azurerm_cosmosdb_sql_database.main[0].name
-  partition_key_paths = ["/deviceId"]
+  partition_key_paths = ["/device_id"]
 
   # TTL disabled - data moves to cold storage via mover function
   default_ttl = -1

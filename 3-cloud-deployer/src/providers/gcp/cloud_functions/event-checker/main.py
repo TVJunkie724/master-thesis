@@ -149,7 +149,7 @@ def _trigger_action(event: dict, action: dict, condition: dict = None) -> None:
         feedback_payload = {
             "detail": {
                 "digitalTwinName": _get_digital_twin_info()["config"]["digital_twin_name"],
-                "iotDeviceId": event.get("iotDeviceId"),
+                "iotDeviceId": event.get("device_id") or event.get("iotDeviceId"),
                 "payload": {
                     "message": action.get("payload", {}),
                     "actual_value": context.get("actual_value"),

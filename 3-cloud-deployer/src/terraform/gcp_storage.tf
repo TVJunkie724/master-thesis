@@ -49,12 +49,12 @@ resource "google_firestore_index" "hot_data_device_id" {
   collection = "${var.digital_twin_name}-hot-data"
 
   fields {
-    field_path = "iotDeviceId"
+    field_path = "device_id"
     order      = "ASCENDING"
   }
 
   fields {
-    field_path = "id"
+    field_path = "timestamp"
     order      = "DESCENDING"
   }
 

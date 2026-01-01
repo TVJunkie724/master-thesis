@@ -120,7 +120,7 @@ def processor(req: func.HttpRequest) -> func.HttpResponse:
         event = req.get_json()
         
         # 1. Call User Processor via HTTP
-        device_id = event.get("iotDeviceId", "default")
+        device_id = event.get("device_id") or event.get("iotDeviceId", "default")
         try:
             url = _get_processor_url(device_id)
             if not url or not url.startswith("http"):

@@ -312,7 +312,7 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
                         feedback_payload = {
                             "detail": {
                                 "digitalTwinName": _get_digital_twin_info()["config"]["digital_twin_name"],
-                                "iotDeviceId": feedback_config.get("iotDeviceId"),
+                                "iotDeviceId": feedback_config.get("device_id") or feedback_config.get("iotDeviceId"),
                                 "payload": {
                                     "message": feedback_config.get("payload"),
                                     "actual_value": param1_value,

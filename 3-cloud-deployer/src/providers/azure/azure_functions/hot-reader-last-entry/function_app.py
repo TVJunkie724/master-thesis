@@ -112,7 +112,7 @@ def _query_last_entry(query_params: dict) -> dict:
     # Query for the most recent item
     query = """
         SELECT TOP 1 * FROM c 
-        WHERE c.iotDeviceId = @device_id 
+        WHERE c.device_id = @device_id 
         ORDER BY c.id DESC
     """
     

@@ -4,14 +4,15 @@ import sys
 import traceback
 import boto3
 
-# Handle import path for shared module
 try:
     from _shared.env_utils import require_env
+    from _shared.normalize import normalize_telemetry
 except ModuleNotFoundError:
     _lambda_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _lambda_funcs_dir not in sys.path:
         sys.path.insert(0, _lambda_funcs_dir)
     from _shared.env_utils import require_env
+    from _shared.normalize import normalize_telemetry
 
 
 # Required environment variables - fail fast if missing
@@ -27,10 +28,13 @@ def lambda_handler(event, context):
     print("Event: " + json.dumps(event))
 
     try:
-        # Extract ID
-        device_id = event.get("iotDeviceId")
+        # Normalize event to canonical format (device_id, timestamp)
+        event = normalize_telemetry(event)
+        
+        # Extract ID (now using canonical device_id)
+        device_id = event.get("device_id")
         if not device_id:
-             raise ValueError("Error: 'iotDeviceId' missing in event.")
+             raise ValueError("Error: 'device_id' missing in event.")
 
         target_suffix = os.environ.get("TARGET_FUNCTION_SUFFIX", "-processor")
         

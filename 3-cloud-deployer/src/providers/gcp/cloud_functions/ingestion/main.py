@@ -14,16 +14,17 @@ import traceback
 import requests
 import functions_framework
 
-# Handle import path for both Cloud Functions and test contexts
 try:
     from _shared.inter_cloud import validate_token, build_auth_error_response
     from _shared.env_utils import require_env
+    from _shared.normalize import normalize_telemetry
 except ModuleNotFoundError:
     _cloud_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _cloud_funcs_dir not in sys.path:
         sys.path.insert(0, _cloud_funcs_dir)
     from _shared.inter_cloud import validate_token, build_auth_error_response
     from _shared.env_utils import require_env
+    from _shared.normalize import normalize_telemetry
 
 
 # Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
@@ -70,10 +71,14 @@ def main(request):
         # Extract payload from envelope
         payload = envelope.get("payload", envelope)
         
+        # Normalize payload to canonical format (device_id, timestamp)
+        payload = normalize_telemetry(payload)
+        print("Normalized payload: " + json.dumps(payload))
+        
         # Get device ID to route to correct processor
-        device_id = payload.get("iotDeviceId")
+        device_id = payload.get("device_id")
         if not device_id:
-            return (json.dumps({"error": "Missing iotDeviceId in payload"}), 400, {"Content-Type": "application/json"})
+            return (json.dumps({"error": "Missing device_id in payload"}), 400, {"Content-Type": "application/json"})
         
         # Invoke local processor
         twin_name = _get_digital_twin_info()["config"]["digital_twin_name"]

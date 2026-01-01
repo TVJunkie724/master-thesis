@@ -19,14 +19,15 @@ import urllib.error
 
 import azure.functions as func
 
-# Handle import path for shared module
 try:
     from _shared.env_utils import require_env
+    from _shared.normalize import normalize_telemetry
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
     from _shared.env_utils import require_env
+    from _shared.normalize import normalize_telemetry
 
 
 # DIGITAL_TWIN_INFO is lazy-loaded to allow Azure function discovery
@@ -139,7 +140,7 @@ def dispatcher(event: func.EventGridEvent) -> None:
         logging.info(f"Event data: {json.dumps(event_data)}")
         
         # Extract device ID from event
-        device_id = event_data.get("iotDeviceId")
+        device_id = event_data.get("device_id") or event_data.get("iotDeviceId")
         
         if not device_id:
             # Try alternative locations (IoT Hub Event Grid schema)
@@ -157,9 +158,12 @@ def dispatcher(event: func.EventGridEvent) -> None:
         # EventGrid wraps IoT Hub messages: {"properties": {}, "systemProperties": {...}, "body": {...}}
         # The processor expects just the body content, not the full envelope
         telemetry_body = event_data.get("body", event_data)
-        logging.info(f"Telemetry body: {json.dumps(telemetry_body)}")
         
-        # Invoke target function with telemetry body (not full envelope)
+        # Normalize telemetry to canonical format (device_id, timestamp)
+        telemetry_body = normalize_telemetry(telemetry_body)
+        logging.info(f"Normalized telemetry: {json.dumps(telemetry_body)}")
+        
+        # Invoke target function with normalized telemetry
         _invoke_function(target_function, telemetry_body)
         
         logging.info("Dispatch successful.")

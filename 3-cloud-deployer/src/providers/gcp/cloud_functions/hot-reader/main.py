@@ -77,16 +77,16 @@ def main(request):
         
         # Apply filters
         if device_id:
-            query = query.where("iotDeviceId", "==", device_id)
+            query = query.where("device_id", "==", device_id)
         
         if start_time:
-            query = query.where("id", ">=", start_time)
+            query = query.where("timestamp", ">=", start_time)
         
         if end_time:
-            query = query.where("id", "<=", end_time)
+            query = query.where("timestamp", "<=", end_time)
         
         # Order and limit
-        query = query.order_by("id", direction=firestore.Query.DESCENDING).limit(limit)
+        query = query.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(limit)
         
         # Execute query
         docs = query.stream()

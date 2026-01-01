@@ -57,7 +57,7 @@ def lambda_handler(event, context):
     print("Wrapper Invoked. Calling User Processor...")
     
     # 1. Call User Processor Lambda
-    device_id = event.get("iotDeviceId", "default")
+    device_id = event.get("device_id") or event.get("iotDeviceId", "default")
     processor_name = _get_processor_lambda_name(device_id)
     
     try:

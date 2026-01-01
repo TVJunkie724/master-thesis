@@ -20,16 +20,17 @@ import urllib.error
 
 import azure.functions as func
 
-# Handle import path for shared module
 try:
     from _shared.inter_cloud import validate_token
     from _shared.env_utils import require_env
+    from _shared.normalize import normalize_telemetry
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
     from _shared.inter_cloud import validate_token
     from _shared.env_utils import require_env
+    from _shared.normalize import normalize_telemetry
 
 
 # Lazy loading for environment variables to allow Azure function discovery
@@ -138,12 +139,16 @@ def ingestion(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json"
             )
         
-        # 4. Validate required fields
-        device_id = payload.get("iotDeviceId")
+        # 4. Normalize payload to canonical format (device_id, timestamp)
+        payload = normalize_telemetry(payload)
+        logging.info(f"Normalized payload: {json.dumps(payload)}")
+        
+        # 5. Validate required fields
+        device_id = payload.get("device_id")
         if not device_id:
-            logging.error("No iotDeviceId in payload")
+            logging.error("No device_id in payload")
             return func.HttpResponse(
-                json.dumps({"error": "Bad Request", "message": "Missing 'iotDeviceId' in payload"}),
+                json.dumps({"error": "Bad Request", "message": "Missing 'device_id' in payload"}),
                 status_code=400,
                 mimetype="application/json"
             )

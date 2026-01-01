@@ -151,7 +151,7 @@ def _query_cosmos_db(query_params: dict) -> dict:
     # Query Cosmos DB
     query = f"""
         SELECT * FROM c 
-        WHERE c.iotDeviceId = @device_id 
+        WHERE c.device_id = @device_id 
         AND c.id >= @start_time 
         AND c.id <= @end_time
         ORDER BY c.id ASC

@@ -64,18 +64,18 @@ def main(request):
     
     try:
         # Get device ID from query params
-        device_id = request.args.get("iotDeviceId")
+        device_id = request.args.get("device_id") or request.args.get("iotDeviceId")
         
         if not device_id:
-            return (json.dumps({"error": "Missing iotDeviceId parameter"}), 400, {"Content-Type": "application/json"})
+            return (json.dumps({"error": "Missing device_id parameter"}), 400, {"Content-Type": "application/json"})
         
         db = _get_firestore_client()
         
         # Query for last entry (ordered by id/time descending, limit 1)
         query = (
             db.collection(FIRESTORE_COLLECTION)
-            .where("iotDeviceId", "==", device_id)
-            .order_by("id", direction=firestore.Query.DESCENDING)
+            .where("device_id", "==", device_id)
+            .order_by("timestamp", direction=firestore.Query.DESCENDING)
             .limit(1)
         )
         

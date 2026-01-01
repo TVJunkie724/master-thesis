@@ -65,7 +65,7 @@ def _query_last_entry(query_event: dict) -> dict:
     iot_device_id = component_type_id.removeprefix(DIGITAL_TWIN_INFO["config"]["digital_twin_name"] + "-")
 
     response = dynamodb_table.query(
-        KeyConditionExpression=Key("iotDeviceId").eq(iot_device_id),
+        KeyConditionExpression=Key("device_id").eq(iot_device_id),
         ScanIndexForward=False,
         Limit=1
     )

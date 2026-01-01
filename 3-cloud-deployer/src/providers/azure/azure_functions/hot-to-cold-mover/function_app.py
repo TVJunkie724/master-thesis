@@ -237,7 +237,7 @@ def _delete_from_cosmos(container, items: list) -> None:
     for item in items:
         container.delete_item(
             item=item["id"],
-            partition_key=item["iotDeviceId"]
+            partition_key=item.get("device_id") or item.get("iotDeviceId")
         )
     logging.info(f"Deleted {len(items)} items from Cosmos DB")
 
@@ -280,7 +280,7 @@ def hot_to_cold_mover(timer: func.TimerRequest) -> None:
             # Query items older than cutoff
             query = """
                 SELECT * FROM c 
-                WHERE c.iotDeviceId = @device_id 
+                WHERE c.device_id = @device_id 
                 AND c.id < @cutoff
                 ORDER BY c.id ASC
             """

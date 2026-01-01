@@ -67,8 +67,8 @@ def _query_dynamodb(query_event: dict) -> dict:
     iot_device_id = component_type_id.removeprefix(DIGITAL_TWIN_INFO["config"]["digital_twin_name"] + "-")
 
     response = dynamodb_table.query(
-        KeyConditionExpression=Key("iotDeviceId").eq(iot_device_id) &
-                               Key("id").between(query_event["startTime"], query_event["endTime"])
+        KeyConditionExpression=Key("device_id").eq(iot_device_id) &
+                               Key("timestamp").between(query_event["startTime"], query_event["endTime"])
     )
     items = response["Items"]
 
