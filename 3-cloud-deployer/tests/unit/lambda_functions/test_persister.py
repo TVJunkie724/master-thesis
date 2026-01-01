@@ -50,7 +50,7 @@ class TestPersisterLambda(unittest.TestCase):
         """Test that Event Checker is NOT invoked when disabled."""
         os.environ["USE_EVENT_CHECKING"] = "false"
         
-        event = {"iotDeviceId": "device1", "payload": {"temp": 20}, "time": "2023-01-01T00:00:00Z"}
+        event = {"device_id": "device1", "payload": {"temp": 20}, "timestamp": "2023-01-01T00:00:00Z"}
         self.lambda_module.lambda_handler(event, None)
         
         # Verify call to DynamoDB (Persister logic)
@@ -64,7 +64,7 @@ class TestPersisterLambda(unittest.TestCase):
         """Test that Event Checker IS invoked when enabled."""
         os.environ["USE_EVENT_CHECKING"] = "true"
         
-        event = {"iotDeviceId": "device1", "payload": {"temp": 20}, "time": "2023-01-01T00:00:00Z"}
+        event = {"device_id": "device1", "payload": {"temp": 20}, "timestamp": "2023-01-01T00:00:00Z"}
         self.lambda_module.lambda_handler(event, None)
         
         # Verify invoke
