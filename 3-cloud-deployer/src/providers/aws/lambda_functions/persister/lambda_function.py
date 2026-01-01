@@ -144,7 +144,7 @@ def _push_to_adt(event: dict) -> None:
             "device_id": event.get("device_id"),
             "device_type": event.get("device_type"),
             "telemetry": event.get("telemetry", {}),
-            "timestamp": event.get("time")
+            "timestamp": event.get("timestamp") or event.get("time")
         }
         
         result = post_to_remote(
