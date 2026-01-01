@@ -34,10 +34,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       appBar: BrandedAppBar(
         title: 'Settings',
         showLogo: false,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/dashboard'),
-        ),
         actions: [
           IconButton(
             icon: Icon(

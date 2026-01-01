@@ -8,6 +8,7 @@ import 'step3_deployer.dart';
 import '../../bloc/wizard/wizard.dart';
 import '../../providers/twins_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../widgets/branded_app_bar.dart';
 
 /// Wizard screen using BLoC pattern for state management
 /// 
@@ -74,13 +75,13 @@ class _WizardViewState extends ConsumerState<WizardView> {
       builder: (context, state) {
         if (state.status == WizardStatus.loading) {
           return Scaffold(
-            appBar: _buildAppBar(context),
+            appBar: _buildAppBar(context, state),
             body: const Center(child: CircularProgressIndicator()),
           );
         }
         
         return Scaffold(
-          appBar: _buildAppBar(context),
+          appBar: _buildAppBar(context, state),
           body: Column(
             children: [
               // Screen header with title
@@ -101,34 +102,22 @@ class _WizardViewState extends ConsumerState<WizardView> {
     );
   }
   
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(kToolbarHeight),
-      child: BlocBuilder<WizardBloc, WizardState>(
-        builder: (context, state) => AppBar(
-          title: const Text('Twin2MultiCloud'),
-          automaticallyImplyLeading: false,
-          leading: IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: () => _showExitConfirmation(context, state),
-            tooltip: 'Close wizard',
+  PreferredSizeWidget _buildAppBar(BuildContext context, WizardState state) {
+    return BrandedAppBar(
+      title: 'Twin2MultiCloud',
+      actions: [
+        IconButton(
+          icon: Icon(
+            ref.watch(themeProvider) == ThemeMode.dark
+                ? Icons.light_mode
+                : Icons.dark_mode,
           ),
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-          actions: [
-            IconButton(
-              icon: Icon(
-                ref.watch(themeProvider) == ThemeMode.dark
-                    ? Icons.light_mode
-                    : Icons.dark_mode,
-              ),
-              onPressed: () => ref.read(themeProvider.notifier).toggle(),
-              tooltip: 'Toggle theme',
-            ),
-            const CircleAvatar(child: Icon(Icons.person)),
-            const SizedBox(width: 16),
-          ],
+          onPressed: () => ref.read(themeProvider.notifier).toggle(),
+          tooltip: 'Toggle theme',
         ),
-      ),
+        const CircleAvatar(child: Icon(Icons.person)),
+        const SizedBox(width: 16),
+      ],
     );
   }
   
