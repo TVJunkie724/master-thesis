@@ -6,6 +6,7 @@ import '../../bloc/wizard/wizard.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
 import '../../providers/twins_provider.dart';
+import '../../utils/api_error_handler.dart';
 import '../../widgets/data_freshness_card.dart';
 import '../../widgets/calc_form/calc_form.dart';
 import '../../widgets/results/layer_cost_card.dart';
@@ -187,7 +188,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
       onError: (e) {
         if (!mounted) return;
         setState(() {
-          _refreshLogs.add('${_formatTime()} ❌ Connection error: $e');
+          _refreshLogs.add('${_formatTime()} ❌ Connection error: ${ApiErrorHandler.extractMessage(e)}');
           _isRefreshing = false;
         });
       },
@@ -215,11 +216,11 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
       },
       child: BlocBuilder<WizardBloc, WizardState>(
         builder: (context, state) {
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1000),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1000),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

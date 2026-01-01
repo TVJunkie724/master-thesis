@@ -9,8 +9,9 @@ Status: STUB - Minimal implementation for pattern validation.
 
 from src.core.registry import ProviderRegistry
 from .provider import GCPProvider
+from .cleanup import cleanup_gcp_resources
 
 # Auto-register this provider
 ProviderRegistry.register("gcp", GCPProvider)
 
-__all__ = ["GCPProvider"]
+__all__ = ["GCPProvider", "cleanup_gcp_resources"]

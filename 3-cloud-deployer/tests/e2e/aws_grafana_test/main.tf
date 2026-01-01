@@ -214,6 +214,22 @@ output "identity_store_id" {
   value       = local.identity_store_id
 }
 
+# DEBUG: Raw values from SSO data source
+output "debug_sso_raw_identity_store_ids" {
+  description = "[DEBUG] Raw identity_store_ids list from aws_ssoadmin_instances"
+  value       = try(tolist(data.aws_ssoadmin_instances.main.identity_store_ids), ["<empty or error>"])
+}
+
+output "debug_sso_raw_arns" {
+  description = "[DEBUG] Raw ARNs list from aws_ssoadmin_instances"
+  value       = try(tolist(data.aws_ssoadmin_instances.main.arns), ["<empty or error>"])
+}
+
+output "debug_sso_instance_count" {
+  description = "[DEBUG] Number of SSO instances found"
+  value       = try(length(data.aws_ssoadmin_instances.main.identity_store_ids), 0)
+}
+
 output "grafana_workspace_id" {
   description = "Grafana workspace ID"
   value       = aws_grafana_workspace.test.id

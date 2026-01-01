@@ -27,10 +27,11 @@ class LoginScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Logo
-                Icon(
-                  Icons.cloud_sync,
-                  size: 64,
-                  color: Theme.of(context).colorScheme.primary,
+                Image.asset(
+                  'assets/images/logo_transparent_attempt.png',
+                  width: 96,
+                  height: 96,
+                  fit: BoxFit.contain,
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -49,6 +50,34 @@ class LoginScreen extends ConsumerWidget {
                 if (authState.isLoading)
                   const CircularProgressIndicator()
                 else ...[
+                  
+                  // ============================================================
+                  // UIBK SAML Login Button - COMMENTED OUT until SAML is configured
+                  // Uncomment when ACOnet registration is complete and SAML_ENABLED=true
+                  // ============================================================
+                  FilledButton.icon(
+                    onPressed: () async {
+                      // In dev mode, use mock login
+                      // if (kDebugMode) {
+                      //   await ref.read(authProvider.notifier).mockLogin();
+                      //   if (context.mounted) {
+                      //     context.go('/dashboard');
+                      //   }
+                      //   return;
+                      // }
+                      // TODO: Production SAML flow via /auth/uibk/login
+                    },
+                    icon: const Icon(Icons.school),
+                    label: const Text('Sign in with UIBK'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366), // UIBK brand color
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 48),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+
                   // Google OAuth button
                   FilledButton.icon(
                     onPressed: () async {
@@ -68,32 +97,6 @@ class LoginScreen extends ConsumerWidget {
                       minimumSize: const Size(double.infinity, 48),
                     ),
                   ),
-                  
-                  // ============================================================
-                  // UIBK SAML Login Button - COMMENTED OUT until SAML is configured
-                  // Uncomment when ACOnet registration is complete and SAML_ENABLED=true
-                  // ============================================================
-                  // const SizedBox(height: 12),
-                  // FilledButton.icon(
-                  //   onPressed: () async {
-                  //     // In dev mode, use mock login
-                  //     if (kDebugMode) {
-                  //       await ref.read(authProvider.notifier).mockLogin();
-                  //       if (context.mounted) {
-                  //         context.go('/dashboard');
-                  //       }
-                  //       return;
-                  //     }
-                  //     // TODO: Production SAML flow via /auth/uibk/login
-                  //   },
-                  //   icon: const Icon(Icons.school),
-                  //   label: const Text('Sign in with UIBK'),
-                  //   style: FilledButton.styleFrom(
-                  //     backgroundColor: const Color(0xFF003366), // UIBK brand color
-                  //     foregroundColor: Colors.white,
-                  //     minimumSize: const Size(double.infinity, 48),
-                  //   ),
-                  // ),
                 ],
                 
                 const SizedBox(height: 16),

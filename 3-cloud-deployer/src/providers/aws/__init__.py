@@ -34,8 +34,9 @@ Usage:
 
 from src.core.registry import ProviderRegistry
 from .provider import AWSProvider
+from .cleanup import cleanup_aws_resources
 
 # Auto-register this provider when the module is imported
 ProviderRegistry.register("aws", AWSProvider)
 
-__all__ = ["AWSProvider"]
+__all__ = ["AWSProvider", "cleanup_aws_resources"]

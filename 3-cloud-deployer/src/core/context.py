@@ -76,6 +76,12 @@ class ProjectConfig:
     # e.g., {"connections": {"aws_l1_to_azure_l2": {"url": "...", "token": "..."}}}
     inter_cloud: Dict[str, Any] = field(default_factory=dict)
     
+    # From config_grafana.json
+    # Grafana admin configuration
+    # e.g., {"admin_email": "admin@example.com"}
+    grafana: Dict[str, Any] = field(default_factory=dict)
+
+    
     def get_provider_for_layer(self, layer: int | str) -> str:
         """
         Get the provider name for a specific layer.

@@ -14,14 +14,15 @@ import traceback
 import requests
 import functions_framework
 
-# Handle import path for shared module
 try:
     from _shared.env_utils import require_env
+    from _shared.normalize import normalize_telemetry
 except ModuleNotFoundError:
     _cloud_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _cloud_funcs_dir not in sys.path:
         sys.path.insert(0, _cloud_funcs_dir)
     from _shared.env_utils import require_env
+    from _shared.normalize import normalize_telemetry
 
 
 # Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
@@ -59,11 +60,15 @@ def main(request):
         event = request.get_json()
         print("Event: " + json.dumps(event))
         
-        # Extract ID
-        device_id = event.get("iotDeviceId")
+        # Normalize event to canonical format (device_id, timestamp)
+        event = normalize_telemetry(event)
+        print("Normalized event: " + json.dumps(event))
+        
+        # Extract ID (now using canonical device_id)
+        device_id = event.get("device_id")
         if not device_id:
-            print("Error: 'iotDeviceId' missing in event.")
-            return (json.dumps({"error": "Missing iotDeviceId"}), 400, {"Content-Type": "application/json"})
+            print("Error: 'device_id' missing in event.")
+            return (json.dumps({"error": "Missing device_id"}), 400, {"Content-Type": "application/json"})
         
         # Construct target function name
         # For multi-cloud connector: {twin_name}-connector (no device_id)

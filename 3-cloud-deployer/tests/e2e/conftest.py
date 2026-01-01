@@ -179,14 +179,10 @@ def azure_terraform_e2e_project_path(template_project_path, azure_terraform_e2e_
     
     Configures all layers to use Azure.
     """
-    # Use FIXED directory at repo root for consistent state across runs
-    # The state is at /app/e2e_persistence_temp (NOT /app/tests/e2e_persistence_temp)
-    fixed_base_dir = Path("/app/e2e_persistence_temp/azure_terraform_e2e")
-    fixed_base_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Check for existing project with same ID (pytest originally named it azure_terraform_e2e0)
-    test_id_dir = fixed_base_dir / "azure_terraform_e2e0"
-    project_path = test_id_dir / azure_terraform_e2e_test_id
+    # Use FIXED directory next to test file for consistent state across runs
+    # This maps to /app/tests/e2e/azure/e2e_state/ in Docker
+    fixed_base_dir = Path(__file__).parent / "azure" / "e2e_state"
+    project_path = fixed_base_dir / azure_terraform_e2e_test_id
     
     if project_path.exists():
         # Reuse existing directory (preserves terraform state)
@@ -194,7 +190,7 @@ def azure_terraform_e2e_project_path(template_project_path, azure_terraform_e2e_
         print(f"[AZURE TERRAFORM E2E] Terraform state will be preserved")
     else:
         # Fresh copy from template
-        test_id_dir.mkdir(parents=True, exist_ok=True)
+        fixed_base_dir.mkdir(parents=True, exist_ok=True)
         shutil.copytree(template_project_path, project_path)
         print(f"\n[AZURE TERRAFORM E2E] Created NEW test project: {project_path}")
     
@@ -420,20 +416,29 @@ def gcp_terraform_e2e_test_id():
 
 
 @pytest.fixture(scope="session")
-def gcp_terraform_e2e_project_path(template_project_path, gcp_terraform_e2e_test_id, tmp_path_factory):
+def gcp_terraform_e2e_project_path(template_project_path, gcp_terraform_e2e_test_id):
     """
-    Create a unique temporary E2E test project for GCP Terraform deployment.
+    Create or reuse GCP Terraform E2E test project in a FIXED directory.
     
+    Uses e2e_state subdirectory next to the test file for consistent state.
     Configures all layers to use GCP (except L4/L5 which are disabled).
     """
-    # Create temp directory for E2E project
-    temp_dir = tmp_path_factory.mktemp("gcp_terraform_e2e")
-    project_path = temp_dir / gcp_terraform_e2e_test_id
+    # Use FIXED directory next to test file for consistent state across runs
+    # This maps to /app/tests/e2e/gcp/e2e_state/ in Docker
+    fixed_base_dir = Path(__file__).parent / "gcp" / "e2e_state"
+    project_path = fixed_base_dir / gcp_terraform_e2e_test_id
     
-    # Copy template project
-    shutil.copytree(template_project_path, project_path)
+    if project_path.exists():
+        # Reuse existing directory (preserves terraform state)
+        print(f"\n[GCP TERRAFORM E2E] Reusing existing project: {project_path}")
+        print(f"[GCP TERRAFORM E2E] Terraform state will be preserved")
+    else:
+        # Fresh copy from template
+        fixed_base_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(template_project_path, project_path)
+        print(f"\n[GCP TERRAFORM E2E] Created NEW test project: {project_path}")
     
-    # Modify config.json with unique twin name
+    # Always update config.json with unique twin name
     config_path = project_path / "config.json"
     with open(config_path, "r") as f:
         config = json.load(f)
@@ -441,7 +446,7 @@ def gcp_terraform_e2e_project_path(template_project_path, gcp_terraform_e2e_test
     with open(config_path, "w") as f:
         json.dump(config, f, indent=2)
     
-    # Modify config_providers.json to all-GCP (L1-L3 only)
+    # Always update config_providers.json to all-GCP (L1-L3 only)
     providers_path = project_path / "config_providers.json"
     providers = {
         "layer_1_provider": "google",
@@ -456,14 +461,13 @@ def gcp_terraform_e2e_project_path(template_project_path, gcp_terraform_e2e_test
         json.dump(providers, f, indent=2)
     
     # TODO(GCP-L4L5): Update this message when GCP L4/L5 is implemented
-    print(f"\n[GCP TERRAFORM E2E] Created unique test project: {project_path}")
     print(f"[GCP TERRAFORM E2E] Digital twin name: {gcp_terraform_e2e_test_id}")
     print(f"[GCP TERRAFORM E2E] L4/L5 disabled (no GCP managed services)")
     
     yield str(project_path)
     
-    # Cleanup temp directory
-    print(f"\n[GCP TERRAFORM E2E] Cleaning up temp project: {project_path}")
+    # NOTE: No cleanup - keep project for state persistence
+    print(f"\n[GCP TERRAFORM E2E] Project retained at: {project_path}")
 
 
 @pytest.fixture(scope="session")
@@ -606,20 +610,29 @@ def aws_terraform_e2e_test_id():
 
 
 @pytest.fixture(scope="session")
-def aws_terraform_e2e_project_path(template_project_path, aws_terraform_e2e_test_id, tmp_path_factory):
+def aws_terraform_e2e_project_path(template_project_path, aws_terraform_e2e_test_id):
     """
-    Create a unique temporary E2E test project for AWS Terraform deployment.
+    Create or reuse AWS Terraform E2E test project in a FIXED directory.
     
+    Uses e2e_state subdirectory next to the test file for consistent state.
     Configures all layers to use AWS.
     """
-    # Create temp directory for E2E project
-    temp_dir = tmp_path_factory.mktemp("aws_terraform_e2e")
-    project_path = temp_dir / aws_terraform_e2e_test_id
+    # Use FIXED directory next to test file for consistent state across runs
+    # This maps to /app/tests/e2e/aws/e2e_state/ in Docker
+    fixed_base_dir = Path(__file__).parent / "aws" / "e2e_state"
+    project_path = fixed_base_dir / aws_terraform_e2e_test_id
     
-    # Copy template project
-    shutil.copytree(template_project_path, project_path)
+    if project_path.exists():
+        # Reuse existing directory (preserves terraform state)
+        print(f"\n[AWS TERRAFORM E2E] Reusing existing project: {project_path}")
+        print(f"[AWS TERRAFORM E2E] Terraform state will be preserved")
+    else:
+        # Fresh copy from template
+        fixed_base_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(template_project_path, project_path)
+        print(f"\n[AWS TERRAFORM E2E] Created NEW test project: {project_path}")
     
-    # Modify config.json with unique twin name
+    # Always update config.json with unique twin name
     config_path = project_path / "config.json"
     with open(config_path, "r") as f:
         config = json.load(f)
@@ -627,7 +640,7 @@ def aws_terraform_e2e_project_path(template_project_path, aws_terraform_e2e_test
     with open(config_path, "w") as f:
         json.dump(config, f, indent=2)
     
-    # Modify config_providers.json to all-AWS
+    # Always update config_providers.json to all-AWS
     providers_path = project_path / "config_providers.json"
     providers = {
         "layer_1_provider": "aws",
@@ -641,13 +654,12 @@ def aws_terraform_e2e_project_path(template_project_path, aws_terraform_e2e_test
     with open(providers_path, "w") as f:
         json.dump(providers, f, indent=2)
     
-    print(f"\n[AWS TERRAFORM E2E] Created unique test project: {project_path}")
     print(f"[AWS TERRAFORM E2E] Digital twin name: {aws_terraform_e2e_test_id}")
     
     yield str(project_path)
     
-    # Cleanup temp directory
-    print(f"\n[AWS TERRAFORM E2E] Cleaning up temp project: {project_path}")
+    # NOTE: No cleanup - keep project for state persistence
+    print(f"\n[AWS TERRAFORM E2E] Project retained at: {project_path}")
 
 
 # ==============================================================================
@@ -688,12 +700,12 @@ def multicloud_e2e_project_path(template_project_path, multicloud_e2e_test_id):
     # Use FIXED directory next to test file for consistent state across runs
     # This maps to /app/tests/e2e/multicloud/e2e_state/ in Docker
     fixed_base_dir = Path(__file__).parent / "multicloud" / "e2e_state"
+    os.makedirs(str(fixed_base_dir), exist_ok=True)  # Use os.makedirs for robustness
     project_path = fixed_base_dir / multicloud_e2e_test_id
     
     # Create or reuse directory
     if not project_path.exists():
         # Fresh copy from template
-        fixed_base_dir.mkdir(parents=True, exist_ok=True)
         shutil.copytree(template_project_path, project_path)
         print(f"\n[MULTICLOUD E2E] Created NEW test project: {project_path}")
     else:

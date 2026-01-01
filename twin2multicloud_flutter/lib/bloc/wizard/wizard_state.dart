@@ -106,7 +106,12 @@ class WizardState extends Equatable {
   
   // === Persistent Data: Step 3 Section 3 ===
   final Map<String, dynamic>? deployerConfig;
-  final bool hasSection3Data;  // True if any Section 3 fields have content
+  final String? payloadsJson;       // L1: payloads.json content
+  final bool payloadsValidated;     // L1: validation state
+  
+  /// Computed: true if any Section 3 L1 field has content
+  /// Future: add processors, stateMachine, etc.
+  bool get hasSection3Data => payloadsJson?.isNotEmpty ?? false;
   
   // === State Tracking ===
   final bool hasUnsavedChanges;
@@ -143,7 +148,8 @@ class WizardState extends Equatable {
     this.configEventsValidated = false,
     this.configIotDevicesValidated = false,
     this.deployerConfig,
-    this.hasSection3Data = false,
+    this.payloadsJson,
+    this.payloadsValidated = false,
     this.hasUnsavedChanges = false,
     this.step3Invalidated = false,
   });
@@ -206,7 +212,8 @@ class WizardState extends Equatable {
     bool? configEventsValidated,
     bool? configIotDevicesValidated,
     Map<String, dynamic>? deployerConfig,
-    bool? hasSection3Data,
+    String? payloadsJson,
+    bool? payloadsValidated,
     bool? hasUnsavedChanges,
     bool? step3Invalidated,
     // Special flags to explicitly clear nullable fields
@@ -245,7 +252,8 @@ class WizardState extends Equatable {
       configEventsValidated: configEventsValidated ?? this.configEventsValidated,
       configIotDevicesValidated: configIotDevicesValidated ?? this.configIotDevicesValidated,
       deployerConfig: deployerConfig ?? this.deployerConfig,
-      hasSection3Data: hasSection3Data ?? this.hasSection3Data,
+      payloadsJson: payloadsJson ?? this.payloadsJson,
+      payloadsValidated: payloadsValidated ?? this.payloadsValidated,
       hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
       step3Invalidated: step3Invalidated ?? this.step3Invalidated,
     );
@@ -290,7 +298,8 @@ class WizardState extends Equatable {
     configEventsValidated,
     configIotDevicesValidated,
     deployerConfig,
-    hasSection3Data,
+    payloadsJson,
+    payloadsValidated,
     hasUnsavedChanges,
     step3Invalidated,
   ];

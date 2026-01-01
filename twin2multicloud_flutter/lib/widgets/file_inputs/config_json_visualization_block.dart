@@ -268,28 +268,60 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Left: JSON preview (2/3 width)
+              // Left: JSON preview (2/3 width) - READ-ONLY
               Expanded(
                 flex: 2,
-                child: Container(
-                  height: 140,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E1E),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: SingleChildScrollView(
-                    child: SelectableText.rich(
-                      TextSpan(
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          height: 1.4,
+                child: Stack(
+                  children: [
+                    Container(
+                      height: 140,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2A2A2A), // Slightly grey-tinted dark
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.grey.shade700,
+                          width: 1,
                         ),
-                        children: JsonSyntaxHighlighter.highlight(_jsonContent),
+                      ),
+                      child: SingleChildScrollView(
+                        child: SelectableText.rich(
+                          TextSpan(
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                              height: 1.4,
+                              color: Colors.grey.shade400, // Dimmed text
+                            ),
+                            children: JsonSyntaxHighlighter.highlight(_jsonContent),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    // Read-only indicator
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade800,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.lock, size: 10, color: Colors.grey.shade400),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Read-only',
+                              style: TextStyle(fontSize: 9, color: Colors.grey.shade400),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 

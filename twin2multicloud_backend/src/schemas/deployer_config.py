@@ -11,6 +11,9 @@ class DeployerConfigUpdate(BaseModel):
     config_json_validated: Optional[bool] = None
     config_events_validated: Optional[bool] = None
     config_iot_devices_validated: Optional[bool] = None
+    # Section 3: L1 Payloads
+    payloads_json: Optional[str] = None
+    payloads_validated: Optional[bool] = None
 
 
 class DeployerConfigResponse(BaseModel):
@@ -22,6 +25,9 @@ class DeployerConfigResponse(BaseModel):
     config_json_validated: bool = False
     config_events_validated: bool = False
     config_iot_devices_validated: bool = False
+    # Section 3: L1 Payloads
+    payloads_json: Optional[str] = None
+    payloads_validated: bool = False
     updated_at: Optional[datetime] = None
     
     @classmethod
@@ -37,6 +43,8 @@ class DeployerConfigResponse(BaseModel):
             config_json_validated=config.config_json_validated,
             config_events_validated=config.config_events_validated,
             config_iot_devices_validated=config.config_iot_devices_validated,
+            payloads_json=config.payloads_json,
+            payloads_validated=config.payloads_validated,
             updated_at=config.updated_at,
         )
 

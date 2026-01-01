@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_client_sse/flutter_client_sse.dart';
 import 'package:flutter_client_sse/constants/sse_request_type_enum.dart';
+import '../utils/api_error_handler.dart';
 
 /// Service for handling Server-Sent Events (SSE) streams
 /// Reusable for pricing refresh, deployment logs, etc.
@@ -46,7 +47,7 @@ class SseService {
             controller.close();
           }
         } catch (e) {
-          controller.addError('Failed to parse event: $e');
+          controller.addError('Failed to parse event: ${ApiErrorHandler.extractMessage(e)}');
         }
       },
       onError: (e) {

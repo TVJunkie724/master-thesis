@@ -882,7 +882,97 @@ Add to the deployer IAM policy (`docs/references/aws_policy.json`):
 
 ---
 
+## 16. Legacy `globals.py` Cleanup
+
+> [!WARNING]
+> `src/globals.py` contains deprecated config loading patterns that bypass the centralized `config_loader.py`.
+
+### Status: Pending
+
+### Problem
+
+The legacy `globals.py` file loads configs directly from files:
+
+```python
+# src/globals.py (lines 48-73) - DEPRECATED PATTERN
+with open(f"{project_path()}/config.json", "r") as file:
+with open(f"{project_path()}/config_iot_devices.json", "r") as file:
+with open(f"{project_path()}/config_events.json", "r") as file:
+with open(f"{project_path()}/config_hierarchy.json", "r") as file:
+with open(f"{project_path()}/config_credentials.json", "r") as file:
+with open(f"{project_path()}/config_providers.json", "r") as file:
+```
+
+This creates a **global mutable state anti-pattern** that bypasses the modern `ProjectConfig` / `DeploymentContext` pattern.
+
+### Risk
+
+- Multiple sources of truth for configuration
+- Global state makes testing difficult
+- State can be inadvertently mutated between calls
+
+### Tasks
+
+- [ ] Audit all usages of `globals.py` functions
+- [ ] Migrate callers to use `DeploymentContext`
+- [ ] Deprecate and remove `globals.py`
+
+---
+
+## 17. Unified Config Loading via Context
+
+> [!NOTE]
+> Multiple subsystems load configs independently. Consider unifying to single source of truth.
+
+### Status: Architectural Improvement
+
+### Current State
+
+| Component | Loading Pattern | Context Available? |
+|-----------|-----------------|-------------------|
+| `config_loader.py` → `ProjectConfig` | Centralized | ✅ Source of truth |
+| `tfvars_generator.py` | File-based | ❌ Standalone CLI tool |
+| `deployer_strategy._load_providers_config()` | File-based | Pre-context |
+| `deployer_strategy._load_credentials()` | File-based | Pre-context |
+| `validation/core.py` → `ValidationContext` | File-based | Separate validation |
+| `globals.py` | File-based | Legacy |
+
+### Ideal Architecture
+
+```
+                    ┌─────────────────┐
+                    │ config_loader.py │
+                    │ (Single Source) │
+                    └────────┬────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+    ┌──────────────┐  ┌────────────┐  ┌──────────────┐
+    │ Validation   │  │ tfvars     │  │ Deployment   │
+    │ Pipeline     │  │ Generator  │  │ Context      │
+    └──────────────┘  └────────────┘  └──────────────┘
+```
+
+### Tasks
+
+- [ ] Refactor `tfvars_generator.py` to accept `ProjectConfig` instead of loading files
+- [ ] Remove `_load_providers_config()` and `_load_credentials()` from `deployer_strategy.py`
+- [ ] Unify `ValidationContext` with `ProjectConfig` or document separation clearly
+- [ ] Update all callers to use centralized loading
+
+### Complexity Assessment
+
+| Aspect | Effort |
+|--------|--------|
+| tfvars_generator refactor | Medium |
+| deployer_strategy cleanup | Low |
+| ValidationContext unification | High |
+| Test updates | Medium |
+| **Total** | **~3-4 days** |
+
+---
+
 ## Notes
 
-- **Priority**: GCP Simulator > L0 Optimization > SDK validation > N-User Grafana > SSO Automation > Security enhancements
+- **Priority**: GCP Simulator > L0 Optimization > SDK validation > N-User Grafana > SSO Automation > Config Unification > Legacy Cleanup > Security enhancements
 - **Timeline**: To be determined based on thesis requirements

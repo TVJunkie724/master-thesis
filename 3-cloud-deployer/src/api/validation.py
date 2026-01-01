@@ -96,8 +96,8 @@ async def validate_zip(file: UploadFile = File(..., description="Project zip fil
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
 
 # ==========================================
 # 2. Config Validation
@@ -195,8 +195,8 @@ async def validate_config(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Config validation error: {e}")
+        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
 
 # ==========================================
 # 3. State Machine Validation
@@ -258,8 +258,8 @@ async def validate_state_machine(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"State machine validation error: {e}")
+        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
 
 # ==========================================
 # 4. Function Code Validation
@@ -327,8 +327,8 @@ async def validate_function_code(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Code validation error: {e}")
+        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
 
 # ==========================================
 # 4b. Processor Code Validation - DEPRECATED
@@ -399,8 +399,8 @@ async def validate_simulator_payloads(
             "warnings": warnings
         }
     except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Payload validation error: {e}")
+        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
 
 @router.post(
     "/validate/payloads-with-devices",
@@ -488,5 +488,5 @@ async def validate_payloads_with_devices(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Cross-validation error: {e}")
+        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")

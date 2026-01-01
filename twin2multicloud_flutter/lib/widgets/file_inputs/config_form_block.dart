@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../utils/api_error_handler.dart';
 import '../../utils/file_reader.dart';
 
 /// Form-style input block for config.json.
@@ -102,7 +103,7 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
       if (!mounted) return;  // Guard against async context use
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to parse JSON: $e'),
+          content: Text('Failed to parse JSON: ${ApiErrorHandler.extractMessage(e)}'),
           backgroundColor: Colors.red.shade700,
         ),
       );
@@ -202,7 +203,7 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
     } catch (e) {
       setState(() {
         _isValid = false;
-        _validationMessage = 'Validation error: $e';
+        _validationMessage = 'Validation error: ${ApiErrorHandler.extractMessage(e)}';
       });
     } finally {
       setState(() => _isValidating = false);

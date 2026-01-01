@@ -56,7 +56,7 @@ def main(request):
         payload = request.get_json()
         print("Payload received")
         
-        device_id = payload.get("iotDeviceId", "unknown")
+        device_id = payload.get("iot_device_id") or payload.get("iotDeviceId", "unknown")
         items = payload.get("items", [])
         start_time = payload.get("startTimestamp", "")
         end_time = payload.get("endTimestamp", "")

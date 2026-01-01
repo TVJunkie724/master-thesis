@@ -27,8 +27,7 @@ class Step3Deployer extends StatefulWidget {
 }
 
 class _Step3DeployerState extends State<Step3Deployer> {
-  // Section 3: User function file content state (local, for now)
-  String _payloadsContent = '';
+  // Section 3: User function file content state (local, for now - payloads migrated to BLoC)
   String _processorsContent = '';
   String _stateMachineContent = '';
   String _sceneAssetsContent = '';
@@ -36,41 +35,35 @@ class _Step3DeployerState extends State<Step3Deployer> {
 
   ArchitectureLayerBuilder? _layerBuilder;
   
-  // Track last hasData state to avoid spamming BLoC events
-  bool _lastHasSection3Data = false;
+  // Track last hasData state for LOCAL fields to avoid spamming updates
+  // (payloads is now in BLoC state, checked via hasSection3Data getter)
+  bool _lastLocalSection3HasData = false;
   
   // Breakpoint for showing flowchart column
   static const double _flowchartBreakpoint = 900;
   static const double _flowchartWidth = 450;
   
-  /// Update Section 3 content and notify BLoC about data presence
+  /// Update Section 3 local content (payloads is in BLoC, not here)
   void _updateSection3Content({
-    String? payloads,
     String? processors,
     String? stateMachine,
     String? sceneAssets,
     String? grafanaConfig,
   }) {
     setState(() {
-      if (payloads != null) _payloadsContent = payloads;
       if (processors != null) _processorsContent = processors;
       if (stateMachine != null) _stateMachineContent = stateMachine;
       if (sceneAssets != null) _sceneAssetsContent = sceneAssets;
       if (grafanaConfig != null) _grafanaConfigContent = grafanaConfig;
     });
     
-    // Notify BLoC about whether Section 3 has any data
-    final hasData = _payloadsContent.isNotEmpty ||
-        _processorsContent.isNotEmpty ||
+    // Track local data presence (payloads is tracked via BLoC getter)
+    final hasLocalData = _processorsContent.isNotEmpty ||
         _stateMachineContent.isNotEmpty ||
         _sceneAssetsContent.isNotEmpty ||
         _grafanaConfigContent.isNotEmpty;
     
-    // Only dispatch if state actually changed (debounce)
-    if (hasData != _lastHasSection3Data) {
-      _lastHasSection3Data = hasData;
-      context.read<WizardBloc>().add(WizardSection3DataChanged(hasData));
-    }
+    _lastLocalSection3HasData = hasLocalData;
   }
 
   /// Validate config file via API (direct call, not via BLoC)
@@ -327,9 +320,11 @@ class _Step3DeployerState extends State<Step3Deployer> {
             isHighlighted: true,
             constraints: '• Must be valid JSON\n• Define device ID and payload structure',
             exampleContent: Step3Examples.payloads,
-            initialContent: _payloadsContent,
-            onContentChanged: (content) => _updateSection3Content(payloads: content),
-            onValidate: (content) => _validateFile('payloads', content),
+            initialContent: state.payloadsJson ?? '',
+            isValidated: state.payloadsValidated,
+            onContentChanged: (content) => context.read<WizardBloc>().add(WizardPayloadsChanged(content)),
+            onValidate: (content) => _validateConfigFile('payloads', content, state),
+            autoValidateOnUpload: true,
           ),
         ]),
         

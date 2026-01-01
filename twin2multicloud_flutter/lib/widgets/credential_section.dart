@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:io' show Platform, Process;
 import '../providers/twins_provider.dart';
+import '../utils/api_error_handler.dart';
 import '../utils/file_reader.dart';
 import '../config/docs_config.dart';
 
@@ -173,8 +174,8 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       setState(() {
         _optimizerValid = false;
         _deployerValid = false;
-        _optimizerMessage = '❌ Validation failed: $e';
-        _deployerMessage = '❌ Validation failed: $e';
+        _optimizerMessage = '❌ Validation failed: ${ApiErrorHandler.extractMessage(e)}';
+        _deployerMessage = '❌ Validation failed: ${ApiErrorHandler.extractMessage(e)}';
       });
       widget.onValidationChanged(false);
     } finally {
@@ -207,7 +208,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       await _validateCredentials();
     } catch (e) {
       setState(() {
-        _optimizerMessage = 'Failed to load JSON: $e';
+        _optimizerMessage = 'Failed to load JSON: ${ApiErrorHandler.extractMessage(e)}';
         _deployerMessage = null;
         _optimizerValid = false;
         _deployerValid = false;
@@ -276,7 +277,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       _notifyCredentialsChanged();
     } catch (e) {
       setState(() {
-        _optimizerMessage = '❌ Failed to parse JSON: $e';
+        _optimizerMessage = '❌ Failed to parse JSON: ${ApiErrorHandler.extractMessage(e)}';
         _deployerMessage = null;
         _optimizerValid = false;
         _deployerValid = false;

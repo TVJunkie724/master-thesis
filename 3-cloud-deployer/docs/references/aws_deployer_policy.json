@@ -164,9 +164,53 @@
                 "grafana:CreateWorkspace",
                 "grafana:DeleteWorkspace",
                 "grafana:DescribeWorkspace",
-                "grafana:ListWorkspaces"
+                "grafana:ListWorkspaces",
+                "grafana:CreateWorkspaceApiKey",
+                "grafana:DeleteWorkspaceApiKey",
+                "grafana:UpdateWorkspaceAuthentication",
+                "grafana:AssociateRole",
+                "grafana:DisassociateRole"
             ],
             "Resource": "*"
+        },
+        {
+            "Sid": "Layer5GrafanaSSO",
+            "Effect": "Allow",
+            "Action": [
+                "sso:DescribeRegisteredRegions",
+                "sso:GetSharedSsoConfiguration",
+                "sso:ListDirectoryAssociations",
+                "sso:GetManagedApplicationInstance",
+                "sso:ListApplicationInstances",
+                "sso:GetApplicationInstance",
+                "sso-directory:SearchUsers"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "Layer5IdentityStore",
+            "Effect": "Allow",
+            "Action": [
+                "identitystore:CreateUser",
+                "identitystore:DeleteUser",
+                "identitystore:DescribeUser",
+                "identitystore:GetUserId",
+                "identitystore:ListUsers"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "PassRoleToLambda",
+            "Effect": "Allow",
+            "Action": [
+                "iam:PassRole"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "iam:PassedToService": "lambda.amazonaws.com"
+                }
+            }
         },
         {
             "Sid": "CredentialChecker",

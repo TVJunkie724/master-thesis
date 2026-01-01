@@ -81,6 +81,11 @@ async def update_deployer_config(
         config.config_events_validated = update.config_events_validated
     if update.config_iot_devices_validated is not None:
         config.config_iot_devices_validated = update.config_iot_devices_validated
+    # Section 3: L1 Payloads
+    if update.payloads_json is not None:
+        config.payloads_json = update.payloads_json
+    if update.payloads_validated is not None:
+        config.payloads_validated = update.payloads_validated
     
     db.commit()
     db.refresh(config)
@@ -103,11 +108,12 @@ async def validate_config(
     Proxies to Deployer API: POST /validate/config/{config_type}
     Updates validation state in DB on success.
     """
-    # Map Flutter config types to Deployer config types
+    # Map Flutter config types to Deployer endpoint paths
     config_type_map = {
-        "events": "events",
-        "iot": "iot",
-        "config": "config",  # Core deployment config (config.json)
+        "events": "config/events",
+        "iot": "config/iot",
+        "config": "config/config",
+        "payloads": "simulator/payloads",  # Section 3 L1
     }
     
     if config_type not in config_type_map:
@@ -128,7 +134,7 @@ async def validate_config(
                 "file": (f"config_{config_type}.json", request.content.encode(), "application/json")
             }
             response = await client.post(
-                f"{settings.DEPLOYER_URL}/validate/config/{deployer_config_type}",
+                f"{settings.DEPLOYER_URL}/validate/{deployer_config_type}",
                 files=files,
                 timeout=30.0
             )
@@ -150,6 +156,8 @@ async def validate_config(
                     config.config_events_validated = True
                 elif config_type == "iot":
                     config.config_iot_devices_validated = True
+                elif config_type == "payloads":
+                    config.payloads_validated = True
                 
                 db.commit()
                 

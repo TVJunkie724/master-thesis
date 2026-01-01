@@ -30,6 +30,10 @@ class DeployerConfiguration(Base):
     config_events_validated = Column(Boolean, default=False)
     config_iot_devices_validated = Column(Boolean, default=False)
     
+    # ===== SECTION 3: L1 Payloads =====
+    payloads_json = Column(Text, nullable=True)
+    payloads_validated = Column(Boolean, default=False)
+    
     # ===== TIMESTAMPS =====
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

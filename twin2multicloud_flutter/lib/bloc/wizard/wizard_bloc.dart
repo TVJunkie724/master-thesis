@@ -53,7 +53,6 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     on<WizardDismissError>(_onDismissError);
     
     // === Step 3 Invalidation ===
-    on<WizardSection3DataChanged>(_onSection3DataChanged);
     on<WizardProceedWithNewResults>(_onProceedWithNewResults);
     on<WizardRestoreOldResults>(_onRestoreOldResults);
     on<WizardProceedAndSave>(_onProceedAndSave);
@@ -66,6 +65,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     on<WizardConfigIotDevicesChanged>(_onConfigIotDevicesChanged);
     on<WizardValidateDeployerConfig>(_onValidateDeployerConfig);
     on<WizardConfigValidationCompleted>(_onConfigValidationCompleted);
+    
+    // === Step 3 Section 3: L1 Payloads ===
+    on<WizardPayloadsChanged>(_onPayloadsChanged);
   }
   
   // ============================================================
@@ -144,6 +146,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       bool configJsonValidated = false;
       bool configEventsValidated = false;
       bool configIotDevicesValidated = false;
+      // Section 3 L1
+      String? payloadsJson;
+      bool payloadsValidated = false;
       
       try {
         final deployerConfig = await _api.getDeployerConfig(event.twinId);
@@ -153,6 +158,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         configJsonValidated = deployerConfig['config_json_validated'] as bool? ?? false;
         configEventsValidated = deployerConfig['config_events_validated'] as bool? ?? false;
         configIotDevicesValidated = deployerConfig['config_iot_devices_validated'] as bool? ?? false;
+        // Section 3 L1
+        payloadsJson = deployerConfig['payloads_json'] as String?;
+        payloadsValidated = deployerConfig['payloads_validated'] as bool? ?? false;
       } catch (e) {
         // No deployer config yet, that's fine
       }
@@ -203,6 +211,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         configJsonValidated: configJsonValidated,
         configEventsValidated: configEventsValidated,
         configIotDevicesValidated: configIotDevicesValidated,
+        // Section 3 L1 (hydrated)
+        payloadsJson: payloadsJson,
+        payloadsValidated: payloadsValidated,
         warningMessage: warningMessage,
       ));
     } catch (e) {
@@ -574,6 +585,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
           'config_json_validated': state.configJsonValidated,
           'config_events_validated': state.configEventsValidated,
           'config_iot_devices_validated': state.configIotDevicesValidated,
+          // Section 3 L1
+          'payloads_json': state.payloadsJson,
+          'payloads_validated': state.payloadsValidated,
         });
       }
       
@@ -648,16 +662,12 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   // STEP 3 INVALIDATION HANDLERS
   // ============================================================
   
-  void _onSection3DataChanged(WizardSection3DataChanged event, Emitter<WizardState> emit) {
-    emit(state.copyWith(hasSection3Data: event.hasData));
-  }
-  
   void _onProceedWithNewResults(WizardProceedWithNewResults event, Emitter<WizardState> emit) {
-    // User chose to keep new calculation - clear invalidation flag
-    // Section 3 data will be cleared by UI
+    // User chose to keep new calculation - clear Section 3 data explicitly
     emit(state.copyWith(
       step3Invalidated: false,
-      hasSection3Data: false,
+      payloadsJson: null,
+      payloadsValidated: false,
     ));
   }
   
@@ -674,28 +684,31 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   
   // Combined handlers to avoid race condition
   Future<void> _onProceedAndSave(WizardProceedAndSave event, Emitter<WizardState> emit) async {
-    // Atomically: clear invalidation + save
+    // Atomically: clear invalidation + clear Section 3 data + save
     emit(state.copyWith(
       step3Invalidated: false,
-      hasSection3Data: false,
+      payloadsJson: null,
+      payloadsValidated: false,
     ));
     await _onSaveDraft(const WizardSaveDraft(), emit);
   }
   
   void _onProceedAndNext(WizardProceedAndNext event, Emitter<WizardState> emit) {
-    // Atomically: clear invalidation + next
+    // Atomically: clear invalidation + clear Section 3 data + next
     emit(state.copyWith(
       step3Invalidated: false,
-      hasSection3Data: false,
+      payloadsJson: null,
+      payloadsValidated: false,
     ));
     _onNextStep(const WizardNextStep(), emit);
   }
   
   void _onClearInvalidation(WizardClearInvalidation event, Emitter<WizardState> emit) {
-    // Just clear the invalidation flag (user chose to proceed with new results)
+    // Clear invalidation and Section 3 data
     emit(state.copyWith(
       step3Invalidated: false,
-      hasSection3Data: false,
+      payloadsJson: null,
+      payloadsValidated: false,
       clearWarning: true,
     ));
   }
@@ -774,8 +787,22 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       emit(state.copyWith(configJsonValidated: event.valid));
     } else if (event.configType == 'events') {
       emit(state.copyWith(configEventsValidated: event.valid));
-    } else {
+    } else if (event.configType == 'iot') {
       emit(state.copyWith(configIotDevicesValidated: event.valid));
+    } else if (event.configType == 'payloads') {
+      emit(state.copyWith(payloadsValidated: event.valid));
     }
+  }
+  
+  // ============================================================
+  // STEP 3 SECTION 3: L1 PAYLOADS HANDLERS
+  // ============================================================
+
+  void _onPayloadsChanged(WizardPayloadsChanged event, Emitter<WizardState> emit) {
+    emit(state.copyWith(
+      payloadsJson: event.content,
+      payloadsValidated: false,  // Reset validation on content change
+      hasUnsavedChanges: true,
+    ));
   }
 }

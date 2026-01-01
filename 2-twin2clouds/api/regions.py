@@ -1,7 +1,7 @@
 """
 Regions API endpoints for fetching cloud provider region lists.
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from backend.logger import logger
 from backend.utils import is_file_fresh
@@ -33,10 +33,12 @@ def fetch_regions_aws(force_fetch: bool = False):
 
         logger.info("🔄 Fetching fresh AWS regions...")
         return initial_fetch_aws.fetch_region_map(force_update=True)
+    except FileNotFoundError as e:
+        logger.error(f"Regions file not found: {e}")
+        raise HTTPException(status_code=404, detail="AWS regions data not available. Run refresh first.")
     except Exception as e:
         logger.error(f"Error fetching AWS regions: {e}")
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to fetch AWS regions. Check server logs.")
 
 
 @router.post("/fetch_regions/azure", summary="Fetch Azure Regions")
@@ -56,10 +58,12 @@ def fetch_regions_azure(force_fetch: bool = False):
 
         logger.info("🔄 Fetching fresh Azure regions...")
         return initial_fetch_azure.fetch_region_map(force_update=True)
+    except FileNotFoundError as e:
+        logger.error(f"Regions file not found: {e}")
+        raise HTTPException(status_code=404, detail="Azure regions data not available. Run refresh first.")
     except Exception as e:
         logger.error(f"Error fetching Azure regions: {e}")
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to fetch Azure regions. Check server logs.")
 
 
 @router.post("/fetch_regions/gcp", summary="Fetch GCP Regions")
@@ -83,7 +87,9 @@ def fetch_regions_gcp(force_fetch: bool = False):
 
         logger.info("🔄 Fetching fresh GCP regions...")
         return initial_fetch_google.fetch_region_map(force_update=True)
+    except FileNotFoundError as e:
+        logger.error(f"Regions file not found: {e}")
+        raise HTTPException(status_code=404, detail="GCP regions data not available. Run refresh first.")
     except Exception as e:
         logger.error(f"Error fetching GCP regions: {e}")
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to fetch GCP regions. Check server logs.")

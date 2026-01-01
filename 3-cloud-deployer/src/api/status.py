@@ -458,5 +458,5 @@ def check_endpoint(
     except Exception as e:
         print_stack_trace()
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Status operation failed. Check logs.")
 

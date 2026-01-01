@@ -150,16 +150,8 @@ class WizardDismissError extends WizardEvent {
 }
 
 // ============================================================
-// STEP 3 INVALIDATION EVENTS
+// STEP 3 INVALIDATION EVENTS  
 // ============================================================
-
-/// Section 3 data status changed (any field has content)
-class WizardSection3DataChanged extends WizardEvent {
-  final bool hasData;
-  const WizardSection3DataChanged(this.hasData);
-  @override
-  List<Object?> get props => [hasData];
-}
 
 /// User confirmed to proceed with new calculation results (clears Section 3)
 class WizardProceedWithNewResults extends WizardEvent {
@@ -210,6 +202,14 @@ class WizardDeployerTwinNameChanged extends WizardEvent {
 class WizardConfigIotDevicesChanged extends WizardEvent {
   final String content;
   const WizardConfigIotDevicesChanged(this.content);
+  @override
+  List<Object?> get props => [content];
+}
+
+/// payloads.json content changed (L1)
+class WizardPayloadsChanged extends WizardEvent {
+  final String content;
+  const WizardPayloadsChanged(this.content);
   @override
   List<Object?> get props => [content];
 }

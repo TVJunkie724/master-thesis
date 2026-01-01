@@ -12,3 +12,13 @@ lambda_functions/hot-reader-last-entry/zipped.zip
 lambda_functions/event-checker/zipped.zip
 event_actions/high-temperature-callback/zipped.zip
 **/__pycache__/
+
+# E2E Test State (persisted terraform state for rerunning tests)
+**/e2e_state/
+**/e2e_persistence_temp/
+
+# Terraform artifacts
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl

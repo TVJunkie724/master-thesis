@@ -25,6 +25,7 @@ Usage:
 
 import json
 import logging
+from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Optional, Dict, Any, TYPE_CHECKING
 
@@ -48,6 +49,25 @@ if TYPE_CHECKING:
     from src.core.context import DeploymentContext
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DestroyResult:
+    """Result of destroy operation (JSON-serializable)."""
+    terraform_success: bool = False
+    terraform_error: Optional[str] = None
+    sdk_fallback_ran: bool = False
+    sdk_fallback_results: Dict[str, bool] = field(default_factory=dict)
+    dry_run: bool = False
+
+    @property
+    def sdk_fallback_success(self) -> bool:
+        """True if all SDK cleanups succeeded (or none ran)."""
+        return all(self.sdk_fallback_results.values()) if self.sdk_fallback_results else True
+    
+    def to_dict(self) -> dict:
+        """Convert to JSON-serializable dict."""
+        return {**asdict(self), "sdk_fallback_success": self.sdk_fallback_success}
 
 
 class TerraformDeployerStrategy:
@@ -212,25 +232,70 @@ class TerraformDeployerStrategy:
         
         return self._terraform_outputs
     
-    def destroy_all(self, context: Optional['DeploymentContext'] = None) -> None:
+    def destroy_all(
+        self, 
+        context: Optional['DeploymentContext'] = None,
+        sdk_fallback: str = "on_failure",
+        dry_run: bool = False,
+        sdk_timeout_seconds: int = 300,
+        sdk_max_retries: int = 2
+    ) -> 'DestroyResult':
         """
-        Destroy all Terraform-managed resources.
+        Destroy all resources with optional SDK fallback cleanup.
         
-        Raises:
-            TerraformError: If destroy fails
+        Args:
+            context: DeploymentContext with credentials (REQUIRED for SDK cleanup)
+            sdk_fallback: "never" | "on_failure" | "always"
+            dry_run: If True, log what would be deleted without deleting
+            sdk_timeout_seconds: Timeout per provider per attempt (default 5 min)
+            sdk_max_retries: Retry count for failed SDK cleanup (default 2)
+        
+        Returns:
+            DestroyResult with terraform_success, sdk_fallback_ran, etc.
         """
+        result = DestroyResult(dry_run=dry_run)
+        
         logger.info("=" * 60)
         logger.info("  TERRAFORM DESTROY - STARTING")
         logger.info("=" * 60)
         
-        if not self.tfvars_path.exists():
-            logger.warning("tfvars.json not found, generating...")
-            self._generate_tfvars()
+        if dry_run:
+            logger.info("[DRY RUN] Would run terraform destroy")
+            result.terraform_success = True
+        else:
+            try:
+                if not self.tfvars_path.exists():
+                    logger.warning("tfvars.json not found, generating...")
+                    self._generate_tfvars()
+                
+                self.runner.init()
+                self.runner.destroy(var_file=str(self.tfvars_path))
+                result.terraform_success = True
+                logger.info("✓ Terraform destroy succeeded")
+            except TerraformError as e:
+                result.terraform_error = str(e)
+                logger.error(f"✗ Terraform destroy failed: {e}")
         
-        self.runner.init()
-        self.runner.destroy(var_file=str(self.tfvars_path))
+        # SDK fallback (conditional)
+        should_run_sdk = (
+            sdk_fallback == "always" or 
+            (sdk_fallback == "on_failure" and not result.terraform_success)
+        )
         
-        logger.info("✓ All resources destroyed")
+        if should_run_sdk:
+            if not context:
+                logger.error("SDK fallback requested but no context provided")
+            else:
+                result.sdk_fallback_ran = True
+                result.sdk_fallback_results = self._run_sdk_fallback_cleanup(
+                    context, dry_run, sdk_timeout_seconds, sdk_max_retries
+                )
+        
+        logger.info("=" * 60)
+        logger.info("  TERRAFORM DESTROY - COMPLETE")
+        logger.info("=" * 60)
+        
+        return result
     
     def get_outputs(self) -> dict:
         """Get Terraform outputs (run after deploy)."""
@@ -456,3 +521,180 @@ class TerraformDeployerStrategy:
         
         if providers["layer_5_provider"] == "aws":
             configure_aws_grafana(context, self._terraform_outputs)
+    
+    # =========================================================================
+    # SDK Fallback Cleanup Methods
+    # =========================================================================
+    
+    def has_deployed_resources(self) -> bool:
+        """Check if there are deployed resources in Terraform state."""
+        try:
+            state = self.runner.show_state()
+            resources = state.get("values", {}).get("root_module", {}).get("resources", [])
+            return len(resources) > 0
+        except Exception as e:
+            logger.warning(f"Could not check state: {e}")
+            return False
+    
+    def _run_sdk_fallback_cleanup(
+        self, 
+        context: 'DeploymentContext',
+        dry_run: bool,
+        timeout_seconds: int,
+        max_retries: int
+    ) -> Dict[str, bool]:
+        """Run provider-specific SDK cleanup IN PARALLEL."""
+        import time
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+        from typing import Callable
+        
+        credentials = context.credentials
+        providers_config = context.config.providers  # Use context, not file loading
+        prefix = context.project_name
+        
+        outputs = self._get_terraform_outputs_safe()
+        grafana_email = self._get_grafana_email(context)
+        
+        # Build tasks with CAPTURED values (avoid lambda closure bug)
+        cleanup_tasks: list = []
+        
+        if self._uses_provider(providers_config, "aws"):
+            def aws_task(
+                creds=credentials, pfx=prefix,
+                cleanup_user=outputs.get("aws_grafana_user_created", False),
+                email=grafana_email, dr=dry_run
+            ):
+                return self._cleanup_provider("aws", creds, pfx, cleanup_user, email, dr)
+            cleanup_tasks.append(("aws", aws_task))
+        
+        if self._uses_provider(providers_config, "azure"):
+            def azure_task(
+                creds=credentials, pfx=prefix,
+                cleanup_user=outputs.get("azure_grafana_user_created", False),
+                email=grafana_email, dr=dry_run
+            ):
+                return self._cleanup_provider("azure", creds, pfx, cleanup_user, email, dr)
+            cleanup_tasks.append(("azure", azure_task))
+        
+        if self._uses_provider(providers_config, "gcp"):
+            def gcp_task(creds=credentials, pfx=prefix, dr=dry_run):
+                return self._cleanup_provider("gcp", creds, pfx, False, "", dr)
+            cleanup_tasks.append(("gcp", gcp_task))
+        
+        if not cleanup_tasks:
+            logger.info("No providers to clean up")
+            return {}
+        
+        # Run IN PARALLEL
+        results = {}
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = {
+                executor.submit(
+                    self._run_with_retry_and_timeout, 
+                    task_fn, max_retries, timeout_seconds
+                ): name
+                for name, task_fn in cleanup_tasks
+            }
+            
+            for future in futures:
+                provider = futures[future]
+                try:
+                    results[provider] = future.result(timeout=timeout_seconds * (max_retries + 1) + 60)
+                except Exception as e:
+                    logger.error(f"[{provider.upper()}] Cleanup failed: {e}")
+                    results[provider] = False
+        
+        return results
+    
+    def _run_with_retry_and_timeout(
+        self, 
+        task_fn,
+        max_retries: int, 
+        timeout_seconds: int
+    ) -> bool:
+        """Run task with per-attempt timeout and retry logic."""
+        import time
+        import threading
+        
+        for attempt in range(max_retries + 1):
+            try:
+                logger.info(f"  Attempt {attempt + 1}/{max_retries + 1}...")
+                
+                # Per-attempt timeout using threading
+                result = [None]
+                exception = [None]
+                
+                def run_task():
+                    try:
+                        task_fn()
+                        result[0] = True
+                    except Exception as e:
+                        exception[0] = e
+                
+                thread = threading.Thread(target=run_task, daemon=True)
+                thread.start()
+                thread.join(timeout=timeout_seconds)
+                
+                if thread.is_alive():
+                    raise TimeoutError(f"Task timed out after {timeout_seconds}s")
+                
+                if exception[0]:
+                    raise exception[0]
+                
+                return True
+                
+            except Exception as e:
+                logger.warning(f"  Attempt {attempt + 1} failed: {e}")
+                if attempt < max_retries:
+                    wait_time = 5 * (attempt + 1)  # Backoff: 5s, 10s
+                    logger.info(f"  Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+        
+        return False
+    
+    def _cleanup_provider(
+        self, 
+        provider: str, 
+        credentials: dict, 
+        prefix: str,
+        cleanup_user: bool,
+        grafana_email: str,
+        dry_run: bool
+    ) -> None:
+        """Unified cleanup dispatcher with logging."""
+        logger.info(f"[{provider.upper()}] Starting SDK cleanup...")
+        
+        if provider == "aws":
+            from src.providers.aws.cleanup import cleanup_aws_resources
+            cleanup_aws_resources(credentials, prefix, cleanup_user, grafana_email, dry_run=dry_run)
+        elif provider == "azure":
+            from src.providers.azure.cleanup import cleanup_azure_resources
+            cleanup_azure_resources(credentials, prefix, cleanup_user, grafana_email, dry_run=dry_run)
+        elif provider == "gcp":
+            from src.providers.gcp.cleanup import cleanup_gcp_resources
+            cleanup_gcp_resources(credentials, prefix, dry_run=dry_run)
+        
+        logger.info(f"[{provider.upper()}] ✓ Cleanup complete")
+    
+    def _uses_provider(self, providers_config: dict, cloud: str) -> bool:
+        """Check if any layer uses the specified cloud provider."""
+        # Check all possible layer keys including L3 sublayers
+        layer_keys = [
+            "layer_1_provider", "layer_2_provider", 
+            "layer_3_provider", "layer_3_hot_provider", "layer_3_cold_provider", "layer_3_archive_provider",
+            "layer_4_provider", "layer_5_provider"
+        ]
+        return any(providers_config.get(key) == cloud for key in layer_keys)
+    
+    def _get_grafana_email(self, context: 'DeploymentContext') -> str:
+        """Get Grafana admin email from context.config.grafana."""
+        return context.config.grafana.get("admin_email", "")
+    
+    def _get_terraform_outputs_safe(self) -> dict:
+        """Get Terraform outputs, returning empty dict on failure."""
+        try:
+            return self.runner.output()
+        except Exception as e:
+            logger.warning(f"Could not get Terraform outputs: {e}")
+            return {}

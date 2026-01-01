@@ -68,7 +68,7 @@ def deploy_all(
     except Exception as e:
         print_stack_trace()
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Deployment operation failed. Check logs.")
 
 
 @router.post(
@@ -109,4 +109,4 @@ def destroy_all(
     except Exception as e:
         print_stack_trace()
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Deployment operation failed. Check logs.")

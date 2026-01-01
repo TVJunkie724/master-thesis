@@ -3,11 +3,13 @@
         "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
         "actions": {
             "Call_Azure_Function_A": {
-                "type": "Function",
+                "type": "Http",
                 "inputs": {
+                    "method": "POST",
+                    "uri": "@triggerBody()['FunctionA_URL']",
                     "body": "@triggerBody()['InputData']",
-                    "function": {
-                        "id": "@triggerBody()['FunctionA_ResourceID']"
+                    "headers": {
+                        "Content-Type": "application/json"
                     }
                 },
                 "runAfter": {},
@@ -16,14 +18,16 @@
                 }
             },
             "Call_Azure_Function_B": {
-                "type": "Function",
+                "type": "Http",
                 "inputs": {
+                    "method": "POST",
+                    "uri": "@triggerBody()['FunctionB_URL']",
                     "body": {
-                        "fromA": "@body('Call_Azure_Function_A')['Payload']",
+                        "fromA": "@body('Call_Azure_Function_A')",
                         "event": "@triggerBody()['InputData']"
                     },
-                    "function": {
-                        "id": "@triggerBody()['FunctionB_ResourceID']"
+                    "headers": {
+                        "Content-Type": "application/json"
                     }
                 },
                 "runAfter": {
@@ -59,16 +63,24 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "FunctionA_ResourceID": {
-                                "type": "string"
+                            "FunctionA_URL": {
+                                "type": "string",
+                                "description": "Full HTTP URL of the first Azure Function to call"
                             },
-                            "FunctionB_ResourceID": {
-                                "type": "string"
+                            "FunctionB_URL": {
+                                "type": "string",
+                                "description": "Full HTTP URL of the second Azure Function to call"
                             },
                             "InputData": {
-                                "type": "object"
+                                "type": "object",
+                                "description": "Input data to pass to the functions"
                             }
-                        }
+                        },
+                        "required": [
+                            "FunctionA_URL",
+                            "FunctionB_URL",
+                            "InputData"
+                        ]
                     }
                 }
             }

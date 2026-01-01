@@ -92,6 +92,8 @@ ALL commits must include the session ID:
 ```
 
 > ⚠️ **CRITICAL:** Never work directly on `main` branch. Always use `ai/dev`.
+> 
+> ⚠️ **CRITICAL:** AI agents **NEVER push** to remote. The user will run `git push` themselves.
 
 ---
 

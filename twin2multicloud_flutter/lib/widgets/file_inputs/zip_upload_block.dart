@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../utils/api_error_handler.dart';
 
 /// Zip file upload block with drop zone UI.
 /// Shows example project structure in a bash-style popup.
@@ -81,7 +82,7 @@ project.zip
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to select file: $e'),
+          content: Text('Failed to select file: ${ApiErrorHandler.extractMessage(e)}'),
           backgroundColor: Colors.red.shade700,
         ),
       );
