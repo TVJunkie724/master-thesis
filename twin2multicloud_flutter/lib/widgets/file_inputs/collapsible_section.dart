@@ -108,9 +108,10 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
     final badgeColor = isLocked 
         ? (isDark ? Colors.grey.shade600 : Colors.grey.shade400)
         : primaryColor;
+    // Use neutral grey for section icon (matching static box pattern)
     final iconColor = isLocked
         ? (isDark ? Colors.grey.shade600 : Colors.grey.shade400)
-        : primaryColor;
+        : Colors.grey.shade500;
     final titleColor = isLocked
         ? (isDark ? Colors.grey.shade500 : Colors.grey.shade500)
         : (isDark ? Colors.white : Colors.black87);

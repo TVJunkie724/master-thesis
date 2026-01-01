@@ -42,7 +42,7 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
   bool? _isValid;
   String? _validationMessage;
   
-  static const Color _accentColor = Color(0xFFD81B60);
+  // Neutral color for icons (pink removed)
 
   @override
   void initState() {
@@ -147,15 +147,15 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        // Use neutral colors - no pink tint
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        // Use standard card-like background
+        color: isDark ? const Color(0xFF2D2D2D) : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _isValid == true
               ? Colors.green.shade600
               : _isValid == false
                   ? Colors.red.shade400
-                  : Colors.grey.shade300,
+                  : isDark ? Colors.grey.shade700 : Colors.grey.shade300,
           width: _isValid != null ? 2 : 1,
         ),
       ),
@@ -165,7 +165,7 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
           // Header row
           Row(
             children: [
-              Icon(Icons.settings, color: _accentColor, size: 22),
+              Icon(Icons.settings, color: Colors.grey.shade500, size: 22),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -177,7 +177,7 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
                         fontWeight: FontWeight.w600,
                         fontFamily: 'monospace',
                         fontSize: 14,
-                        color: _accentColor,
+                        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
                       ),
                     ),
                     Text(
@@ -187,6 +187,19 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
                   ],
                 ),
               ),
+              // EDIT badge (same as FileEditorBlock)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD81B60),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'EDIT',
+                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 8),
               // Auto badge for static fields
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -249,15 +262,14 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
               hintText: 'e.g., my_digital_twin',
               helperText: 'Lowercase alphanumeric with hyphens or underscores (e.g., factory_sensor_01)',
               helperStyle: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-              prefixIcon: Icon(Icons.edit, color: _accentColor, size: 20),
+              prefixIcon: Icon(Icons.edit, color: Theme.of(context).colorScheme.primary, size: 20),
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: _accentColor),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: _accentColor, width: 2),
+                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
               ),
             ),
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),

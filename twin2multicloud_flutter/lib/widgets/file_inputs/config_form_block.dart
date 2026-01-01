@@ -38,7 +38,7 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
   bool? _isValid;
   String? _validationMessage;
   
-  static const Color _accentColor = Color(0xFFD81B60);  // Same as editable color
+  // Pink accent removed - using neutral colors
   
   // Example JSON content
   static const String _exampleJson = '''{
@@ -217,12 +217,13 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        // Use neutral colors - no pink tint
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        // Use standard card-like background
+        color: isDark ? const Color(0xFF2D2D2D) : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _isValid == true ? Colors.green.shade600 : 
-                 _isValid == false ? Colors.red.shade400 : Colors.grey.shade300,
+                 _isValid == false ? Colors.red.shade400 : 
+                 isDark ? Colors.grey.shade700 : Colors.grey.shade300,
           width: _isValid != null ? 2 : 1,
         ),
       ),
@@ -232,7 +233,7 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
           // Header
           Row(
             children: [
-              Icon(Icons.settings, color: _accentColor, size: 22),
+              Icon(Icons.settings, color: Colors.grey.shade500, size: 22),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -244,7 +245,7 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
                         fontWeight: FontWeight.w600,
                         fontFamily: 'monospace',
                         fontSize: 14,
-                        color: _accentColor,
+                        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
                       ),
                     ),
                     Text(
@@ -257,7 +258,7 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _accentColor,
+                  color: Theme.of(context).colorScheme.primary,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Text(

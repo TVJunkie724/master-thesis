@@ -484,7 +484,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
       children: [
         Row(
           children: [
-            Icon(Icons.edit_document, size: 24, color: Theme.of(context).primaryColor),
+            Icon(Icons.edit_document, size: 24, color: Colors.grey.shade500),
             const SizedBox(width: 12),
             Text('Configuration Files', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
           ],

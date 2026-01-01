@@ -64,159 +64,24 @@ class Twin2MultiCloudApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     
-    // ═══════════════════════════════════════════════════════════════════════════
-    // TWIN2MULTICLOUD PREMIUM THEME
-    // A cohesive design system inspired by multi-cloud (AWS/Azure/GCP)
-    // Primary: Deep Azure Blue | Accent: Warm Cloud Orange | Surface: Rich Dark
-    // ═══════════════════════════════════════════════════════════════════════════
+    // Simple Material theme - uses Material 3 defaults with blue primary
+    const Color primaryBlue = Color(0xFF1976D2);
     
-    // Brand palette
-    const Color cloudOrange = Color(0xFFFF9900);    // AWS-inspired warm accent
-    const Color deepAzure = Color(0xFF1565C0);       // Rich azure blue (primary)
-    const Color techGreen = Color(0xFF2E7D32);       // Muted tech green
-    
-    // Light Theme - Clean & Professional
+    // Light Theme - Standard Material defaults
     final lightTheme = ThemeData(
       useMaterial3: true,
-      scaffoldBackgroundColor: const Color(0xFFF5F5F5),  // Slightly darker than white for card contrast
       colorScheme: ColorScheme.fromSeed(
-        seedColor: deepAzure,
+        seedColor: primaryBlue,
         brightness: Brightness.light,
-        primary: deepAzure,
-        secondary: cloudOrange,
-        tertiary: techGreen,
-      ),
-      appBarTheme: AppBarTheme(
-        elevation: 0,
-        scrolledUnderElevation: 2,
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1a1a2e),
-        surfaceTintColor: deepAzure.withAlpha(20),
-      ),
-      cardTheme: CardThemeData(
-        elevation: 2,
-        shadowColor: deepAzure.withAlpha(30),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          backgroundColor: deepAzure,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: deepAzure,
-          side: BorderSide(color: deepAzure.withAlpha(150)),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: deepAzure, width: 2),
-        ),
-      ),
-      chipTheme: ChipThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-      ),
-      dividerTheme: DividerThemeData(
-        color: deepAzure.withAlpha(20),
       ),
     );
     
-    // Dark Theme - Premium & Rich
+    // Dark Theme - Standard Material defaults
     final darkTheme = ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: deepAzure,
+        seedColor: primaryBlue,
         brightness: Brightness.dark,
-        primary: const Color(0xFF64B5F6),       // Lighter blue for dark mode
-        secondary: cloudOrange,
-        tertiary: const Color(0xFF81C784),       // Lighter green for dark mode
-        surface: const Color(0xFF1a1a2e),        // Deep navy surface
-        surfaceContainerHighest: const Color(0xFF252540), // Elevated surfaces
-      ),
-      scaffoldBackgroundColor: const Color(0xFF12121f),  // Deep dark background
-      appBarTheme: const AppBarTheme(
-        elevation: 0,
-        scrolledUnderElevation: 2,
-        backgroundColor: Color(0xFF1a1a2e),
-        surfaceTintColor: Color(0xFF64B5F6),
-      ),
-      cardTheme: CardThemeData(
-        elevation: 4,
-        color: const Color(0xFF1e1e35),
-        shadowColor: Colors.black45,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF1976D2),
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFF64B5F6),
-          side: const BorderSide(color: Color(0xFF64B5F6)),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF64B5F6), width: 2),
-        ),
-        filled: true,
-        fillColor: const Color(0xFF252540),
-      ),
-      chipTheme: ChipThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-      ),
-      dividerTheme: const DividerThemeData(
-        color: Color(0xFF303050),
-      ),
-      dialogTheme: DialogThemeData(
-        backgroundColor: const Color(0xFF1e1e35),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-      ),
-      snackBarTheme: SnackBarThemeData(
-        backgroundColor: const Color(0xFF303050),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
       ),
     );
     

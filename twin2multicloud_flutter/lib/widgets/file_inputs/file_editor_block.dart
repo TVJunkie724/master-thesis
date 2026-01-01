@@ -174,10 +174,10 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
   
   @override
   Widget build(BuildContext context) {
-    final color = widget.isHighlighted ? editableColor : Colors.grey.shade600;
-    // Use neutral colors for background/border - no pink tint (less flashy)
-    final bgColor = Theme.of(context).colorScheme.surfaceContainerHighest;
-    final borderColor = Colors.grey.shade300;
+    // Use same colors as static boxes (ConfigVisualizationBlock pattern)
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF2D2D2D) : Colors.grey.shade50;
+    final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
     
     return Container(
       padding: const EdgeInsets.all(16),
@@ -196,7 +196,7 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
           // Header
           Row(
             children: [
-              Icon(widget.icon, color: color, size: 22),
+              Icon(widget.icon, color: Colors.grey.shade500, size: 22),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -208,7 +208,7 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
                         fontWeight: FontWeight.w600, 
                         fontFamily: 'monospace', 
                         fontSize: 14, 
-                        color: color,
+                        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
                       ),
                     ),
                     Text(
