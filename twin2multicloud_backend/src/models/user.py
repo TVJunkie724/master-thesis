@@ -12,7 +12,12 @@ class User(Base):
     name = Column(String, nullable=True)
     picture_url = Column(String, nullable=True)
     google_id = Column(String, unique=True, nullable=True)
+    # UIBK Shibboleth SAML integration
+    uibk_id = Column(String, unique=True, nullable=True)  # eduPersonPrincipalName from SAML
+    auth_provider = Column(String, nullable=False, default="google")  # "google" | "uibk"
     created_at = Column(DateTime, default=datetime.utcnow)
+    last_login_at = Column(DateTime, nullable=True)
     
     # Relationships
     twins = relationship("DigitalTwin", back_populates="owner")
+
