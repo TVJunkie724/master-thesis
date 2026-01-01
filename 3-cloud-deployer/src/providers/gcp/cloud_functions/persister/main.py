@@ -107,11 +107,15 @@ def main(request):
         event = request.get_json()
         print("Event: " + json.dumps(event))
         
-        if "time" not in event:
-            return (json.dumps({"error": "Missing 'time' in event"}), 400, {"Content-Type": "application/json"})
+        # After normalization, event has 'timestamp' field (canonical)
+        if "timestamp" not in event:
+            return (json.dumps({"error": "Missing 'timestamp' in event. Did normalization run?"}), 400, {"Content-Type": "application/json"})
         
         item = event.copy()
-        item["id"] = str(item.pop("time"))  # Firestore document ID is 'id' (time)
+        # Use timestamp as Firestore document ID for consistency
+        item["id"] = str(item["timestamp"])
+        # Remove 'time' to avoid duplicate data
+        item.pop("time", None)
         
         # Multi-cloud: Check if we should write to remote Writer
         if _is_multi_cloud_storage():

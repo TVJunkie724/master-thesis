@@ -30,11 +30,11 @@ def normalize_telemetry(event: dict) -> dict:
                 normalized["device_id"] = normalized.pop(source)
                 break
     
-    # timestamp normalization
+    # timestamp normalization (keep original field for backward compatibility)
     if "timestamp" not in normalized:
         for source in ["time", "ts"]:
             if source in normalized:
-                normalized["timestamp"] = str(normalized.pop(source))
+                normalized["timestamp"] = str(normalized[source])  # Copy, don't pop
                 break
     
     # Generate timestamp if still missing

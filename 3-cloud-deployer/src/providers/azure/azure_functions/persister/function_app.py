@@ -265,19 +265,22 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
         # Build storage item (Cosmos DB requires 'id' as primary key)
         item = event.copy()
         
-        # Use 'time' as the document ID if provided and non-empty,
-        # otherwise generate a unique ID using timestamp + UUID
-        time_value = item.pop("time", None)
-        if time_value:
-            item["id"] = str(time_value)
+        # After normalization, event has 'timestamp' field (canonical)
+        # Use 'timestamp' as the document ID for consistency with other clouds
+        timestamp_value = item.get("timestamp")
+        if timestamp_value:
+            item["id"] = str(timestamp_value)
         else:
-            # Generate a unique ID: ISO timestamp + short UUID for uniqueness
+            # Fallback: generate a unique ID using current timestamp + UUID
             import uuid
             from datetime import datetime
             timestamp = datetime.utcnow().isoformat() + "Z"
             item["id"] = f"{timestamp}_{uuid.uuid4().hex[:8]}"
-            item["time"] = timestamp  # Preserve time field for queries
+            item["timestamp"] = timestamp  # Ensure timestamp field exists
             logging.info(f"Generated document ID: {item['id']}")
+        
+        # Remove 'time' to avoid duplicate data (timestamp is canonical)
+        item.pop("time", None)
         
         # Route based on multi-cloud config
         if _is_multi_cloud_storage():

@@ -197,14 +197,17 @@ def lambda_handler(event, context):
     print("Event: " + json.dumps(event))
 
     try:
-        # Fail-fast validaton
+        # Fail-fast validation
         _validate_config()
 
-        if "time" not in event:
-            raise ValueError("Missing 'time' in event, cannot persist.")
+        # After normalization, event has both 'time' (original) and 'timestamp' (normalized)
+        # DynamoDB schema uses device_id (hash) + timestamp (range)
+        if "timestamp" not in event:
+            raise ValueError("Missing 'timestamp' in event, cannot persist. Did normalization run?")
 
         item = event.copy()
-        item["id"] = str(item.pop("time"))  # DynamoDB Primary SK is 'id' (time)
+        # Remove 'time' to avoid storing duplicate data (timestamp is the canonical sort key)
+        item.pop("time", None)
 
         # Multi-cloud: Check if we should write to remote Writer
         if _is_multi_cloud_storage():
