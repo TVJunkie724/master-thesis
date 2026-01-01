@@ -103,7 +103,7 @@ async def validate_config(
     """
     Validate config content via Deployer API.
     
-    config_type: 'events', 'iot', or 'config'
+    config_type: 'events', 'iot', 'config', or 'payloads'
     
     Proxies to Deployer API: POST /validate/config/{config_type}
     Updates validation state in DB on success.

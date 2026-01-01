@@ -250,9 +250,9 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
                   children: [
                     Container(
                       height: _editorHeight,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E1E),
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF2A2A2A),
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                       ),
                       child: TextField(
                         controller: _controller,
@@ -267,6 +267,8 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
                         decoration: InputDecoration(
                           contentPadding: const EdgeInsets.all(12),
                           border: InputBorder.none,
+                          filled: true,
+                          fillColor: const Color(0xFF2A2A2A),
                           hintText: 'Paste or upload ${widget.filename}...',
                           hintStyle: TextStyle(color: Colors.grey.shade500),
                         ),

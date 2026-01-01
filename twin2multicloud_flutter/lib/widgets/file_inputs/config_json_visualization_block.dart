@@ -285,15 +285,13 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
                         ),
                       ),
                       child: SingleChildScrollView(
-                        child: SelectableText.rich(
-                          TextSpan(
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 12,
-                              height: 1.4,
-                              color: Colors.grey.shade400, // Dimmed text
-                            ),
-                            children: JsonSyntaxHighlighter.highlight(_jsonContent),
+                        child: SelectableText(
+                          _jsonContent,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            height: 1.4,
+                            color: Colors.grey.shade500, // Greyed out text - no syntax highlighting
                           ),
                         ),
                       ),

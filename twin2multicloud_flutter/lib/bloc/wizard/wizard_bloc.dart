@@ -751,7 +751,11 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     final configType = event.configType;
     final content = configType == 'events' 
         ? state.configEventsJson 
-        : state.configIotDevicesJson;
+        : configType == 'iot' 
+            ? state.configIotDevicesJson
+            : configType == 'payloads'
+                ? state.payloadsJson
+                : null;
 
     if (content == null || content.trim().isEmpty) {
       emit(state.copyWith(errorMessage: 'No content to validate.'));

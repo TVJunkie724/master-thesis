@@ -37,6 +37,8 @@ class _Step3DeployerState extends State<Step3Deployer> {
   
   // Track last hasData state for LOCAL fields to avoid spamming updates
   // (payloads is now in BLoC state, checked via hasSection3Data getter)
+  // TODO: Remove when processors, stateMachine, etc. are migrated to BLoC
+  // ignore: unused_field
   bool _lastLocalSection3HasData = false;
   
   // Breakpoint for showing flowchart column
