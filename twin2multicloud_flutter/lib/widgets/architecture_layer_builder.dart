@@ -247,7 +247,7 @@ class ArchitectureLayerBuilder {
               ],
               _buildStorageBox('Hot', _getL3HotService(layers['L3_hot']), layers['L3_hot']),
               _buildArrow(small: true),
-              _buildStorageBox('Cool', _getL3CoolService(layers['L3_cool']), layers['L3_cool']),
+              _buildStorageBox('Cool', _getL3CoolService(layers['L3_cold']), layers['L3_cold']),
               _buildArrow(small: true),
               _buildStorageBox('Archive', _getL3ArchiveService(layers['L3_archive']), layers['L3_archive']),
             ],
@@ -339,14 +339,19 @@ class ArchitectureLayerBuilder {
   }
 
   Widget _buildLayerCard(BuildContext context, String layer, String title, String? provider, List<Widget> components, {bool isEditable = false, bool isStorage = false}) {
-    final color = isStorage ? systemColor : getProviderColor(provider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Use neutral grey for all layer cards (same as static input boxes)
+    final boxColor = isDark ? Colors.grey.shade700 : Colors.grey.shade400;
+    final bgColor = isDark ? const Color(0xFF2D2D2D) : Colors.grey.shade50;
+    final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
+    final titleTextColor = isDark ? Colors.grey.shade300 : Colors.grey.shade700;
     
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withAlpha(12),
+        color: bgColor,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withAlpha(60), width: 1.5),
+        border: Border.all(color: borderColor, width: 1.5),
       ),
       child: Column(
         children: [
@@ -354,20 +359,20 @@ class ArchitectureLayerBuilder {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Left: Layer badge + title
+              // Left: Layer badge + title (neutral grey)
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
+                    decoration: BoxDecoration(color: boxColor, borderRadius: BorderRadius.circular(4)),
                     child: Text(layer, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(width: 10),
-                  Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: color, fontSize: 14)),
+                  Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: titleTextColor, fontSize: 14)),
                 ],
               ),
-              // Right: Provider chip
+              // Right: Provider chip (colored)
               if (!isStorage && provider != null) _buildProviderChip(provider),
             ],
           ),

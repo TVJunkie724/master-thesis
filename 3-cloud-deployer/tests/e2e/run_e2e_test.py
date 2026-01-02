@@ -28,6 +28,7 @@ def main():
         "gcp": ("tests/e2e/gcp/test_gcp_terraform_e2e.py", "tests/e2e/gcp"),
         "azure": ("tests/e2e/azure/test_azure_single_cloud_e2e.py", "tests/e2e/azure"),
         "azure-adt": ("tests/e2e/azure/test_azure_adt_e2e.py", "tests/e2e/azure"),
+        "azure-adt-full": ("tests/e2e/azure/test_azure_adt_integrated_e2e.py", "tests/e2e/azure"),
         "azure-grafana": ("tests/e2e/azure/test_azure_grafana_e2e.py", "tests/e2e/azure"),
         "azure-logicapp": ("tests/e2e/azure/test_azure_logicapp_e2e.py", "tests/e2e/azure"),
         "azure-zip": ("tests/e2e/test_azure_functions_only.py", "tests/e2e"),
