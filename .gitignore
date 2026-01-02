@@ -42,15 +42,54 @@ google-*.json
 !**/google_credentials.json.example
 
 # -----------------------------------------------------------------------------
-# Terraform
+# Terraform (Based on GitHub official Terraform.gitignore)
+# Reference: https://github.com/github/gitignore/blob/main/Terraform.gitignore
 # -----------------------------------------------------------------------------
+# Local .terraform directories (provider plugins, modules)
 **/.terraform/
-**/.terraform.lock.hcl
+
+# Terraform state files - May contain sensitive data
 **/*.tfstate
-**/*.tfstate.backup
-**/*.tfplan
+**/*.tfstate.*
+
+# Crash log files
+**/crash.log
+**/crash.*.log
+
+# Variables files - Likely contain sensitive data (passwords, keys, secrets)
+**/*.tfvars
 **/*.tfvars.json
+**/*.auto.tfvars
+**/*.auto.tfvars.json
 **/generated.tfvars.json
+**/secrets.tfvars
+**/secrets.auto.tfvars
+
+# Override files - Used for local overrides, not version controlled
+**/override.tf
+**/override.tf.json
+**/*_override.tf
+**/*_override.tf.json
+
+# Terraform plan files - May contain sensitive values in binary format
+**/*.tfplan
+**/*tfplan*
+**/planout
+
+# Transient lock info files
+**/.terraform.tfstate.lock.info
+
+# Terraform lock file (optional - some teams commit this for version pinning)
+**/.terraform.lock.hcl
+
+# CLI configuration files
+**/.terraformrc
+**/terraform.rc
+
+# Graph output files
+**/*.dot
+
+# Provider zips
 **/.terraform_zips/
 
 # -----------------------------------------------------------------------------

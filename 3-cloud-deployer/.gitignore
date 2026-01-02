@@ -17,8 +17,54 @@ event_actions/high-temperature-callback/zipped.zip
 **/e2e_state/
 **/e2e_persistence_temp/
 
-# Terraform artifacts
-*.tfstate
-*.tfstate.backup
+# =============================================================================
+# Terraform Artifacts & Sensitive Files
+# =============================================================================
+# Based on GitHub official Terraform.gitignore and HashiCorp best practices
+# Reference: https://github.com/github/gitignore/blob/main/Terraform.gitignore
+
+# Local .terraform directories (provider plugins, modules)
 .terraform/
+
+# Terraform state files - May contain sensitive data (credentials, secrets)
+*.tfstate
+*.tfstate.*
+
+# Crash log files generated on Terraform crashes
+crash.log
+crash.*.log
+
+# Variables files - Likely contain sensitive data (passwords, keys, secrets)
+# These should never be committed to version control
+*.tfvars
+*.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+generated.tfvars.json
+secrets.tfvars
+secrets.auto.tfvars
+
+# Override files - Used for local overrides, not version controlled
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform plan files - May contain sensitive values in binary format
+*.tfplan
+*tfplan*
+planout
+
+# Transient lock info files created by terraform apply
+.terraform.tfstate.lock.info
+
+# Terraform lock file (optional - sometimes committed for version pinning)
+# Comment this out if you want to commit provider version locks
 .terraform.lock.hcl
+
+# CLI configuration files
+.terraformrc
+terraform.rc
+
+# Graph output files (optional - from terraform graph command)
+*.dot
