@@ -23,7 +23,7 @@ from typing import Dict, List, Any, Optional
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "src")))
 
 
-def _cleanup_aws_resources_boto3(credentials: dict, prefix: str, cleanup_identity_user: bool = False, grafana_email: str = "") -> None:
+def _cleanup_aws_resources_boto3(credentials: dict, prefix: str, cleanup_identity_user: bool = False, platform_user_email: str = "") -> None:
     """
     Comprehensive boto3 cleanup of AWS resources by name pattern.
     
@@ -34,7 +34,7 @@ def _cleanup_aws_resources_boto3(credentials: dict, prefix: str, cleanup_identit
         credentials: Dict with aws credentials
         prefix: Resource name prefix to match (e.g., 'tf-e2e-aws')
         cleanup_identity_user: If True, also delete Identity Store user (only if Terraform created it)
-        grafana_email: The grafana admin email to match for Identity Store user deletion
+        platform_user_email: The platform user email to match for Identity Store user deletion
     """
     import boto3
     import time
@@ -206,9 +206,9 @@ def _cleanup_aws_resources_boto3(credentials: dict, prefix: str, cleanup_identit
                 identity_store_id = instances[0]['IdentityStoreId']
                 identitystore = sso_session.client('identitystore')
                 
-                # Use provided grafana_email parameter
-                if not grafana_email:
-                    print(f"      No grafana_email provided, skipping")
+                # Use provided platform_user_email parameter
+                if not platform_user_email:
+                    print(f"      No platform_user_email provided, skipping")
                 else:
                     # Search for user with exact username match
                     paginator = identitystore.get_paginator('list_users')
@@ -216,8 +216,8 @@ def _cleanup_aws_resources_boto3(credentials: dict, prefix: str, cleanup_identit
                         for user in page['Users']:
                             username = user.get('UserName', '')
                             # Match EXACT username (case-insensitive)
-                            if username.lower() == grafana_email.lower():
-                                print(f"      Found grafana user: {username} (ID: {user['UserId']})")
+                            if username.lower() == platform_user_email.lower():
+                                print(f"      Found platform user: {username} (ID: {user['UserId']})")
                                 try:
                                     identitystore.delete_user(
                                         IdentityStoreId=identity_store_id,
@@ -353,11 +353,11 @@ class TestAWSTerraformE2E:
         
         # Track whether Terraform created a new Identity Store user (captured after deploy)
         cleanup_identity_user = False
-        grafana_email = ""  # Will be set from config_grafana.json
+        platform_user_email = ""  # Will be set from config_user.json
         
         # Register cleanup to ALWAYS run, even on failure
         def terraform_cleanup():
-            nonlocal cleanup_identity_user, grafana_email
+            nonlocal cleanup_identity_user, platform_user_email
             print("\n" + "="*60)
             print("  CLEANUP: Running terraform destroy")
             print("="*60)
@@ -372,7 +372,7 @@ class TestAWSTerraformE2E:
             print("  FALLBACK CLEANUP: boto3 resource cleanup")
             print("="*60)
             try:
-                _cleanup_aws_resources_boto3(credentials, config.digital_twin_name, cleanup_identity_user, grafana_email)
+                _cleanup_aws_resources_boto3(credentials, config.digital_twin_name, cleanup_identity_user, platform_user_email)
                 print("  ✓ boto3 cleanup completed")
             except Exception as e:
                 print(f"  ✗ boto3 cleanup failed: {e}")
@@ -393,21 +393,21 @@ class TestAWSTerraformE2E:
             print(f"  ✓ Got {len(outputs)} Terraform outputs")
             
             # Check if Terraform created a new Identity Store user (for cleanup)
-            if outputs.get("aws_grafana_user_created"):
+            if outputs.get("aws_platform_user_created"):
                 cleanup_identity_user = True
                 print("  ℹ Identity Store user was CREATED by Terraform (will delete on cleanup)")
             else:
                 print("  ℹ Identity Store user was PRE-EXISTING (will NOT delete on cleanup)")
             
-            # Get grafana_email from config_grafana.json for cleanup
-            grafana_config_path = Path(project_path) / "config_grafana.json"
-            if grafana_config_path.exists():
-                with open(grafana_config_path) as f:
-                    grafana_config = json.load(f)
-                    # Note: config_grafana.json uses "admin_email" key
-                    grafana_email = grafana_config.get("admin_email", "")
-                    if grafana_email:
-                        print(f"  ℹ Grafana admin email for cleanup: {grafana_email}")
+            # Get platform_user_email from config_user.json for cleanup
+            user_config_path = Path(project_path) / "config_user.json"
+            if user_config_path.exists():
+                with open(user_config_path) as f:
+                    user_config = json.load(f)
+                    # Note: config_user.json uses "admin_email" key
+                    platform_user_email = user_config.get("admin_email", "")
+                    if platform_user_email:
+                        print(f"  ℹ Platform user email for cleanup: {platform_user_email}")
         except Exception as e:
             pytest.fail(f"Failed to get Terraform outputs: {e}")
         

@@ -12,7 +12,7 @@ This test:
 Prerequisites:
 - AWS credentials in config_credentials.json
 - aws_sso_region configured (if SSO is in different region)
-- grafana_admin_email set for the admin user
+- platform_user_email set for the admin user
 
 Usage:
     # Run via the E2E helper script (saves full output)
@@ -66,31 +66,31 @@ def load_aws_credentials() -> dict:
     pytest.skip("AWS credentials not found in config_credentials.json")
 
 
-def load_grafana_config() -> dict:
-    """Load Grafana admin config from config_grafana.json."""
+def load_user_config() -> dict:
+    """Load platform user config from config_user.json."""
     config_paths = [
-        DEPLOYER_ROOT / "config_grafana.json",
-        Path("/app/config_grafana.json"),
-        Path("/app/upload/template/config_grafana.json"),
+        DEPLOYER_ROOT / "config_user.json",
+        Path("/app/config_user.json"),
+        Path("/app/upload/template/config_user.json"),
     ]
     
     for config_path in config_paths:
         if config_path.exists():
             with open(config_path) as f:
-                grafana = json.load(f)
+                user = json.load(f)
             
-            if grafana.get("admin_email"):
+            if user.get("admin_email"):
                 return {
-                    "grafana_admin_email": grafana.get("admin_email"),
-                    "grafana_admin_first_name": grafana.get("admin_first_name", "Grafana"),
-                    "grafana_admin_last_name": grafana.get("admin_last_name", "Admin"),
+                    "platform_user_email": user.get("admin_email"),
+                    "platform_user_first_name": user.get("admin_first_name", "Platform"),
+                    "platform_user_last_name": user.get("admin_last_name", "Admin"),
                 }
     
     # Use a test email if not configured
     return {
-        "grafana_admin_email": "grafana-e2e-test@example.com",
-        "grafana_admin_first_name": "E2E",
-        "grafana_admin_last_name": "Test",
+        "platform_user_email": "platform-e2e-test@example.com",
+        "platform_user_first_name": "E2E",
+        "platform_user_last_name": "Test",
     }
 
 
@@ -140,7 +140,7 @@ class TestAWSGrafanaE2E:
         import time
         
         aws_creds = load_aws_credentials()
-        grafana_config = load_grafana_config()
+        user_config = load_user_config()
         
         # Use timestamp for unique naming to avoid conflicts
         timestamp = int(time.time()) % 100000  # Last 5 digits for shorter name
@@ -148,7 +148,7 @@ class TestAWSGrafanaE2E:
         
         tfvars = {
             **aws_creds,
-            **grafana_config,
+            **user_config,
             "test_name_suffix": unique_suffix,
         }
         

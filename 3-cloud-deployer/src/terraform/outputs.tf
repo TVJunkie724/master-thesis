@@ -370,8 +370,8 @@ output "aws_grafana_api_key" {
   sensitive   = true
 }
 
-output "aws_grafana_admin_email" {
-  description = "Grafana admin email"
+output "aws_platform_user_email" {
+  description = "Platform user email"
   value       = var.platform_user_email != "" && local.l5_aws_enabled ? var.platform_user_email : null
 }
 
@@ -391,7 +391,7 @@ output "aws_sso_available" {
   value       = local.l5_aws_enabled ? local.sso_available : null
 }
 
-output "aws_grafana_user_created" {
+output "aws_platform_user_created" {
   description = "Whether a new Identity Store user was created (true = cleanup should delete it)"
   value       = local.l5_aws_enabled ? local.aws_should_create_user : null
 }

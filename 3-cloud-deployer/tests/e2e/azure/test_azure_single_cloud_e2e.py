@@ -26,7 +26,7 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 
-def _cleanup_azure_resources_sdk(credentials: dict, prefix: str, cleanup_entra_user: bool = False, grafana_email: str = "") -> None:
+def _cleanup_azure_resources_sdk(credentials: dict, prefix: str, cleanup_entra_user: bool = False, platform_user_email: str = "") -> None:
     """
     Comprehensive Azure SDK cleanup of resources by name pattern.
     
@@ -42,7 +42,7 @@ def _cleanup_azure_resources_sdk(credentials: dict, prefix: str, cleanup_entra_u
         credentials: Dict with azure credentials
         prefix: Resource name prefix to match (e.g., 'tf-e2e-az')
         cleanup_entra_user: If True, also delete Entra ID user (only if Terraform created it)
-        grafana_email: The grafana admin email to match for Entra ID user deletion
+        platform_user_email: The platform user email to match for Entra ID user deletion
     """
     from azure.identity import ClientSecretCredential
     from azure.mgmt.resource import ResourceManagementClient
@@ -246,12 +246,12 @@ def _cleanup_azure_resources_sdk(credentials: dict, prefix: str, cleanup_entra_u
             
             graph_client = GraphServiceClient(credentials=graph_credential)
             
-            if not grafana_email:
-                print(f"      No grafana_email provided, skipping")
+            if not platform_user_email:
+                print(f"      No platform_user_email provided, skipping")
             else:
                 # Search for user by email/UPN
                 # The UPN format in Azure is typically: username@domain
-                print(f"      Looking for user: {grafana_email}")
+                print(f"      Looking for user: {platform_user_email}")
                 try:
                     # List users and filter by matching email
                     users = graph_client.users.get()
@@ -259,7 +259,7 @@ def _cleanup_azure_resources_sdk(credentials: dict, prefix: str, cleanup_entra_u
                         for user in users.value:
                             # Match by UPN or mail
                             if (user.user_principal_name and 
-                                user.user_principal_name.lower() == grafana_email.lower()):
+                                user.user_principal_name.lower() == platform_user_email.lower()):
                                 print(f"      Found user: {user.user_principal_name} (ID: {user.id})")
                                 try:
                                     graph_client.users.by_user_id(user.id).delete()
@@ -426,11 +426,11 @@ class TestAzureSingleCloudE2E:
         
         # Track whether to cleanup Entra ID user (same pattern as AWS Identity Store)
         cleanup_entra_user = False
-        grafana_email = ""  # Will be set from config_grafana.json
+        platform_user_email = ""  # Will be set from config_user.json
         
         def terraform_cleanup():
             """Cleanup function - always runs terraform destroy + SDK fallback."""
-            nonlocal cleanup_entra_user, grafana_email
+            nonlocal cleanup_entra_user, platform_user_email
             print("\n" + "="*60)
             print("  CLEANUP: TERRAFORM DESTROY")
             print("="*60)
@@ -455,7 +455,7 @@ class TestAzureSingleCloudE2E:
             print("  FALLBACK CLEANUP: Azure SDK resource cleanup")
             print("="*60)
             try:
-                _cleanup_azure_resources_sdk(credentials, config.digital_twin_name, cleanup_entra_user, grafana_email)
+                _cleanup_azure_resources_sdk(credentials, config.digital_twin_name, cleanup_entra_user, platform_user_email)
                 print("  ✓ Azure SDK cleanup completed")
             except Exception as e:
                 print(f"  ✗ Azure SDK cleanup failed: {e}")
@@ -476,21 +476,21 @@ class TestAzureSingleCloudE2E:
             
             # Check if Terraform created a new Entra ID user (for cleanup)
             # Same pattern as AWS Identity Store cleanup
-            if terraform_outputs.get("azure_grafana_user_created"):
+            if terraform_outputs.get("azure_platform_user_created"):
                 cleanup_entra_user = True
                 print("  ℹ Entra ID user was CREATED by Terraform (will delete on cleanup)")
             else:
                 print("  ℹ Entra ID user was PRE-EXISTING (will NOT delete on cleanup)")
             
-            # Get grafana_email from config_grafana.json for cleanup
-            grafana_config_path = project_path / "config_grafana.json"
-            if grafana_config_path.exists():
-                with open(grafana_config_path) as f:
-                    grafana_config = json.load(f)
-                    # Note: config_grafana.json uses "admin_email" key
-                    grafana_email = grafana_config.get("admin_email", "")
-                    if grafana_email:
-                        print(f"  ℹ Grafana admin email for cleanup: {grafana_email}")
+            # Get platform_user_email from config_user.json for cleanup
+            user_config_path = project_path / "config_user.json"
+            if user_config_path.exists():
+                with open(user_config_path) as f:
+                    user_config = json.load(f)
+                    # Note: config_user.json uses "admin_email" key
+                    platform_user_email = user_config.get("admin_email", "")
+                    if platform_user_email:
+                        print(f"  ℹ Platform user email for cleanup: {platform_user_email}")
             
         except Exception as e:
             print(f"\n[DEPLOY] ✗ DEPLOYMENT FAILED: {type(e).__name__}: {e}")

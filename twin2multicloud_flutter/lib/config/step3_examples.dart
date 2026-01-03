@@ -114,7 +114,7 @@ def process(payload: dict) -> dict:
   ]
 }''';
 
-  static const grafanaConfig = '''{
+  static const userConfig = '''{
   "dashboard": {
     "title": "IoT Monitoring",
     "panels": [

@@ -554,7 +554,7 @@ class TerraformDeployerStrategy:
         prefix = context.project_name
         
         outputs = self._get_terraform_outputs_safe()
-        grafana_email = self._get_platform_user_email(context)
+        platform_user_email = self._get_platform_user_email(context)
         
         # Build tasks with CAPTURED values (avoid lambda closure bug)
         cleanup_tasks: list = []
@@ -562,8 +562,8 @@ class TerraformDeployerStrategy:
         if self._uses_provider(providers_config, "aws"):
             def aws_task(
                 creds=credentials, pfx=prefix,
-                cleanup_user=outputs.get("aws_grafana_user_created", False),
-                email=grafana_email, dr=dry_run
+                cleanup_user=outputs.get("aws_platform_user_created", False),
+                email=platform_user_email, dr=dry_run
             ):
                 return self._cleanup_provider("aws", creds, pfx, cleanup_user, email, dr)
             cleanup_tasks.append(("aws", aws_task))
@@ -571,8 +571,8 @@ class TerraformDeployerStrategy:
         if self._uses_provider(providers_config, "azure"):
             def azure_task(
                 creds=credentials, pfx=prefix,
-                cleanup_user=outputs.get("azure_grafana_user_created", False),
-                email=grafana_email, dr=dry_run
+                cleanup_user=outputs.get("azure_platform_user_created", False),
+                email=platform_user_email, dr=dry_run
             ):
                 return self._cleanup_provider("azure", creds, pfx, cleanup_user, email, dr)
             cleanup_tasks.append(("azure", azure_task))
@@ -659,7 +659,7 @@ class TerraformDeployerStrategy:
         credentials: dict, 
         prefix: str,
         cleanup_user: bool,
-        grafana_email: str,
+        platform_user_email: str,
         dry_run: bool
     ) -> None:
         """Unified cleanup dispatcher with logging."""
@@ -667,10 +667,10 @@ class TerraformDeployerStrategy:
         
         if provider == "aws":
             from src.providers.aws.cleanup import cleanup_aws_resources
-            cleanup_aws_resources(credentials, prefix, cleanup_user, grafana_email, dry_run=dry_run)
+            cleanup_aws_resources(credentials, prefix, cleanup_user, platform_user_email, dry_run=dry_run)
         elif provider == "azure":
             from src.providers.azure.cleanup import cleanup_azure_resources
-            cleanup_azure_resources(credentials, prefix, cleanup_user, grafana_email, dry_run=dry_run)
+            cleanup_azure_resources(credentials, prefix, cleanup_user, platform_user_email, dry_run=dry_run)
         elif provider == "gcp":
             from src.providers.gcp.cleanup import cleanup_gcp_resources
             cleanup_gcp_resources(credentials, prefix, dry_run=dry_run)

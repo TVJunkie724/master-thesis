@@ -14,7 +14,7 @@ def cleanup_azure_resources(
     credentials: dict, 
     prefix: str, 
     cleanup_entra_user: bool = False, 
-    grafana_email: str = "",
+    platform_user_email: str = "",
     dry_run: bool = False
 ) -> None:
     """
@@ -24,7 +24,7 @@ def cleanup_azure_resources(
         credentials: Dict with Azure credentials
         prefix: Resource name prefix (e.g., 'tf-e2e-az')
         cleanup_entra_user: Delete Entra ID user if True
-        grafana_email: Email for Entra ID user lookup
+        platform_user_email: Email for Entra ID user lookup
         dry_run: Log what would be deleted without deleting
         
     Resources cleaned:
@@ -264,16 +264,16 @@ def cleanup_azure_resources(
             
             graph_client = GraphServiceClient(credentials=graph_credential)
             
-            if not grafana_email:
-                logger.info("  No grafana_email provided, skipping")
+            if not platform_user_email:
+                logger.info("  No platform_user_email provided, skipping")
             else:
-                logger.info(f"  Looking for user: {grafana_email}")
+                logger.info(f"  Looking for user: {platform_user_email}")
                 try:
                     users = graph_client.users.get()
                     if users and users.value:
                         for user in users.value:
                             if (user.user_principal_name and 
-                                user.user_principal_name.lower() == grafana_email.lower()):
+                                user.user_principal_name.lower() == platform_user_email.lower()):
                                 logger.info(f"  Found user: {user.user_principal_name} (ID: {user.id})")
                                 if dry_run:
                                     logger.info(f"    [DRY RUN] Would delete")

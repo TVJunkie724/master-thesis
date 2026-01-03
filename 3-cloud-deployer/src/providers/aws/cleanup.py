@@ -15,7 +15,7 @@ def cleanup_aws_resources(
     credentials: dict, 
     prefix: str, 
     cleanup_identity_user: bool = False, 
-    grafana_email: str = "",
+    platform_user_email: str = "",
     dry_run: bool = False
 ) -> None:
     """
@@ -25,7 +25,7 @@ def cleanup_aws_resources(
         credentials: Dict with AWS credentials
         prefix: Resource name prefix (e.g., 'tf-e2e-aws')
         cleanup_identity_user: Delete Identity Store user if True
-        grafana_email: Email for Identity Store user lookup
+        platform_user_email: Email for Identity Store user lookup
         dry_run: Log what would be deleted without deleting
         
     Resources cleaned:
@@ -250,15 +250,15 @@ def cleanup_aws_resources(
                 identity_store_id = instances[0]['IdentityStoreId']
                 identitystore = sso_session.client('identitystore')
                 
-                if not grafana_email:
-                    logger.info("  No grafana_email provided, skipping")
+                if not platform_user_email:
+                    logger.info("  No platform_user_email provided, skipping")
                 else:
                     paginator = identitystore.get_paginator('list_users')
                     for page in paginator.paginate(IdentityStoreId=identity_store_id):
                         for user in page['Users']:
                             username = user.get('UserName', '')
-                            if username.lower() == grafana_email.lower():
-                                logger.info(f"  Found grafana user: {username} (ID: {user['UserId']})")
+                            if username.lower() == platform_user_email.lower():
+                                logger.info(f"  Found platform user: {username} (ID: {user['UserId']})")
                                 if dry_run:
                                     logger.info(f"    [DRY RUN] Would delete")
                                 else:

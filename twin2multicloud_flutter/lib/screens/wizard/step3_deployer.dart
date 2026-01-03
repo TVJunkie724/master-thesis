@@ -31,7 +31,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
   String _processorsContent = '';
   String _stateMachineContent = '';
   String _sceneAssetsContent = '';
-  String _grafanaConfigContent = '';
+  String _userConfigContent = '';
 
   ArchitectureLayerBuilder? _layerBuilder;
   
@@ -50,20 +50,20 @@ class _Step3DeployerState extends State<Step3Deployer> {
     String? processors,
     String? stateMachine,
     String? sceneAssets,
-    String? grafanaConfig,
+    String? userConfig,
   }) {
     setState(() {
       if (processors != null) _processorsContent = processors;
       if (stateMachine != null) _stateMachineContent = stateMachine;
       if (sceneAssets != null) _sceneAssetsContent = sceneAssets;
-      if (grafanaConfig != null) _grafanaConfigContent = grafanaConfig;
+      if (userConfig != null) _userConfigContent = userConfig;
     });
     
     // Track local data presence (payloads is tracked via BLoC getter)
     final hasLocalData = _processorsContent.isNotEmpty ||
         _stateMachineContent.isNotEmpty ||
         _sceneAssetsContent.isNotEmpty ||
-        _grafanaConfigContent.isNotEmpty;
+        _userConfigContent.isNotEmpty;
     
     _lastLocalSection3HasData = hasLocalData;
   }
@@ -389,15 +389,15 @@ class _Step3DeployerState extends State<Step3Deployer> {
         // L5 Row
         _buildLayerRow(context, showFlowchart: showFlowchart, flowchart: layerBuilder.buildL5Layer(context), editors: [
           FileEditorBlock(
-            filename: 'config_grafana.json',
-            description: 'Grafana dashboard configuration',
+            filename: 'config_user.json',
+            description: 'Platform user configuration',
             icon: Icons.dashboard,
             isHighlighted: true,
             constraints: '• Dashboard layout and panels',
-            exampleContent: Step3Examples.grafanaConfig,
-            initialContent: _grafanaConfigContent,
-            onContentChanged: (content) => _updateSection3Content(grafanaConfig: content),
-            onValidate: (content) => _validateFile('grafana_config', content),
+            exampleContent: Step3Examples.userConfig,
+            initialContent: _userConfigContent,
+            onContentChanged: (content) => _updateSection3Content(userConfig: content),
+            onValidate: (content) => _validateFile('user_config', content),
           ),
         ]),
 

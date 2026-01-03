@@ -63,18 +63,18 @@ variable "azure_region" {
   default     = "westeurope"
 }
 
-variable "grafana_admin_email" {
+variable "platform_user_email" {
   description = "Email for the Grafana admin user (created in Entra ID if not exists)"
   type        = string
 }
 
-variable "grafana_admin_first_name" {
+variable "platform_user_first_name" {
   description = "First name for the Grafana admin user"
   type        = string
   default     = "Grafana"
 }
 
-variable "grafana_admin_last_name" {
+variable "platform_user_last_name" {
   description = "Last name for the Grafana admin user"
   type        = string
   default     = "Admin"
@@ -157,7 +157,7 @@ data "azuread_domains" "tenant" {}
 
 locals {
   # Extract domain from email
-  email_domain = split("@", var.grafana_admin_email)[1]
+  email_domain = split("@", var.platform_user_email)[1]
 
   # Get verified domains from tenant
   verified_domains = [for d in data.azuread_domains.tenant.domains : d.domain_name if d.verified]
@@ -168,7 +168,7 @@ locals {
 
 # Check if user already exists in Entra ID (lookup by email)
 data "azuread_users" "check_existing" {
-  mails          = [var.grafana_admin_email]
+  mails          = [var.platform_user_email]
   ignore_missing = true
 }
 
@@ -199,9 +199,9 @@ resource "random_password" "grafana_admin" {
 resource "azuread_user" "grafana_admin" {
   count = local.should_create_user ? 1 : 0
 
-  user_principal_name   = var.grafana_admin_email
-  display_name          = "${var.grafana_admin_first_name} ${var.grafana_admin_last_name}"
-  mail                  = var.grafana_admin_email
+  user_principal_name   = var.platform_user_email
+  display_name          = "${var.platform_user_first_name} ${var.platform_user_last_name}"
+  mail                  = var.platform_user_email
   password              = random_password.grafana_admin[0].result
   force_password_change = true
 }
@@ -219,7 +219,7 @@ resource "azurerm_role_assignment" "grafana_admin" {
   count = local.grafana_admin_object_id != null ? 1 : 0
 
   # Deterministic UUID prevents duplicate assignment errors on re-apply
-  name                 = uuidv5("dns", "${var.grafana_admin_email}-grafana-admin")
+  name                 = uuidv5("dns", "${var.platform_user_email}-grafana-admin")
   scope                = azurerm_dashboard_grafana.test.id
   role_definition_name = "Grafana Admin"
   principal_id         = local.grafana_admin_object_id
@@ -287,7 +287,7 @@ output "test_summary" {
     ✅ Azure Grafana E2E Test Complete
     
     Grafana URL: ${azurerm_dashboard_grafana.test.endpoint}
-    Admin Email: ${var.grafana_admin_email}
+    Admin Email: ${var.platform_user_email}
     User Existed: ${local.user_found}
     User Created: ${local.should_create_user}
     Domain Verified: ${local.domain_is_verified}

@@ -30,7 +30,7 @@ project.zip
 ├── config_iot_devices.json        # IoT device definitions
 ├── config_optimization.json       # Optimizer output (layer providers)
 ├── config_providers.json          # Provider assignments per layer
-├── config_grafana.json            # Grafana dashboard config
+├── config_user.json               # Platform user config
 │
 ├── lambda_functions/              # AWS Lambda / Azure Functions / GCP Cloud Functions
 │   ├── processors/                # User processor functions (per device)

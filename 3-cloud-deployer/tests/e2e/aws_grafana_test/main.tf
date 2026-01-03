@@ -49,18 +49,18 @@ variable "aws_sso_region" {
   default     = ""
 }
 
-variable "grafana_admin_email" {
+variable "platform_user_email" {
   description = "Email for the Grafana admin user (created in IAM Identity Center)"
   type        = string
 }
 
-variable "grafana_admin_first_name" {
+variable "platform_user_first_name" {
   description = "First name for the Grafana admin user"
   type        = string
   default     = "Grafana"
 }
 
-variable "grafana_admin_last_name" {
+variable "platform_user_last_name" {
   description = "Last name for the Grafana admin user"
   type        = string
   default     = "Admin"
@@ -174,16 +174,16 @@ resource "aws_identitystore_user" "grafana_admin" {
   provider = aws.sso
   
   identity_store_id = local.identity_store_id
-  display_name      = "${var.grafana_admin_first_name} ${var.grafana_admin_last_name}"
-  user_name         = var.grafana_admin_email
+  display_name      = "${var.platform_user_first_name} ${var.platform_user_last_name}"
+  user_name         = var.platform_user_email
   
   name {
-    given_name  = var.grafana_admin_first_name
-    family_name = var.grafana_admin_last_name
+    given_name  = var.platform_user_first_name
+    family_name = var.platform_user_last_name
   }
   
   emails {
-    value   = var.grafana_admin_email
+    value   = var.platform_user_email
     primary = true
   }
 }
@@ -253,7 +253,7 @@ output "test_summary" {
     SSO Region: ${var.aws_sso_region != "" ? var.aws_sso_region : var.aws_region}
     SSO Detected: ${local.sso_available}
     Grafana URL: ${aws_grafana_workspace.test.endpoint}
-    Admin Email: ${var.grafana_admin_email}
+    Admin Email: ${var.platform_user_email}
     
     The Grafana admin user has been created in IAM Identity Center.
     They will receive an email to set up their SSO password.
