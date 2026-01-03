@@ -136,6 +136,12 @@ def create_twinmaker_entities(
                 component_type_id = f"{digital_twin_name}-{component_name}"
                 
                 try:
+                    # IMPORTANT: Component types require at least one static property to avoid being abstract.
+                    # Abstract component types (with only time series properties) cannot be instantiated.
+                    # - Time series properties: isTimeSeries=True, isStoredExternally=True (from "properties" array)
+                    # - Static properties: isTimeSeries=False, isStoredExternally=False (from "constProperties" array)
+                    # The constProperties field in the hierarchy JSON is what makes component types concrete.
+                    
                     # Build property definitions from node
                     property_definitions = {}
                     

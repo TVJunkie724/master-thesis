@@ -29,7 +29,7 @@ class TestAWSHierarchyValidation(unittest.TestCase):
                 "type": "entity",
                 "id": "room-1",
                 "children": [
-                    {"type": "component", "name": "sensor-1", "iotDeviceId": "dev-1"}
+                    {"type": "component", "name": "sensor-1", "componentTypeId": "sensor-type", "iotDeviceId": "dev-1"}
                 ]
             }
         ]
@@ -64,12 +64,12 @@ class TestAWSHierarchyValidation(unittest.TestCase):
             validator.validate_aws_hierarchy_content(content)
         self.assertIn("invalid type 'invalid'", str(cm.exception))
 
-    def test_aws_component_missing_identifiers_raises(self):
-        """Validation: component without componentTypeId or iotDeviceId raises."""
+    def test_aws_component_missing_componentTypeId_raises(self):
+        """Validation: component without componentTypeId raises (mandatory for 3D scenes)."""
         content = [{"type": "component", "name": "sensor-1"}]
         with self.assertRaises(ValueError) as cm:
             validator.validate_aws_hierarchy_content(content)
-        self.assertIn("must have 'componentTypeId' or 'iotDeviceId'", str(cm.exception))
+        self.assertIn("missing required 'componentTypeId'", str(cm.exception))
 
     def test_aws_entity_missing_id_raises(self):
         """Validation: entity without 'id' field raises ValueError."""
@@ -122,7 +122,7 @@ class TestAWSHierarchyValidation(unittest.TestCase):
                                 "type": "entity",
                                 "id": "level-3",
                                 "children": [
-                                    {"type": "component", "name": "deep", "iotDeviceId": "dev"}
+                                    {"type": "component", "name": "deep", "componentTypeId": "deep-sensor", "iotDeviceId": "dev"}
                                 ]
                             }
                         ]

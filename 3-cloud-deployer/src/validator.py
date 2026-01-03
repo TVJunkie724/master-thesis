@@ -215,8 +215,60 @@ def validate_aws_hierarchy_content(content):
         elif item_type == "component":
             if "name" not in item:
                 raise ValueError(f"Component at {path} missing required 'name' field")
-            if "componentTypeId" not in item and "iotDeviceId" not in item:
-                raise ValueError(f"Component '{item.get('name')}' at {path} must have 'componentTypeId' or 'iotDeviceId'")
+            
+            # componentTypeId is MANDATORY for full deployment (3D scenes, data binding)
+            # NOTE: fast fail on missing componentTypeId
+            if "componentTypeId" not in item:
+                raise ValueError(
+                    f"Component '{item.get('name')}' at {path} missing required 'componentTypeId'. "
+                    "This is required for TwinMaker 3D scene visualization and data binding."
+                )
+            
+            # Validate properties array if present
+            properties = item.get("properties", [])
+            if not isinstance(properties, list):
+                raise ValueError(f"Component '{item.get('name')}' at {path}: 'properties' must be an array")
+            
+            valid_types = ["STRING", "DOUBLE", "INTEGER", "BOOLEAN", "LONG"]
+            for i, prop in enumerate(properties):
+                if not isinstance(prop, dict):
+                    raise ValueError(f"Property at {path}.properties[{i}] must be an object")
+                if "name" not in prop:
+                    raise ValueError(f"Property at {path}.properties[{i}] missing 'name'")
+                if "dataType" not in prop:
+                    raise ValueError(f"Property at {path}.properties[{i}] missing 'dataType'")
+                if prop.get("dataType") not in valid_types:
+                    raise ValueError(
+                        f"Property '{prop.get('name')}' at {path}.properties[{i}] has invalid dataType "
+                        f"'{prop.get('dataType')}'. Must be one of: {valid_types}"
+                    )
+            
+            # Validate constProperties array if present
+            const_props = item.get("constProperties", [])
+            if not isinstance(const_props, list):
+                raise ValueError(f"Component '{item.get('name')}' at {path}: 'constProperties' must be an array")
+            
+            for i, cprop in enumerate(const_props):
+                if not isinstance(cprop, dict):
+                    raise ValueError(f"Const property at {path}.constProperties[{i}] must be an object")
+                if "name" not in cprop:
+                    raise ValueError(f"Const property at {path}.constProperties[{i}] missing 'name'")
+                if "value" not in cprop:
+                    raise ValueError(f"Const property at {path}.constProperties[{i}] missing 'value'")
+                if "dataType" not in cprop:
+                    raise ValueError(f"Const property at {path}.constProperties[{i}] missing 'dataType'")
+                if cprop.get("dataType") not in valid_types:
+                    raise ValueError(
+                        f"Const property '{cprop.get('name')}' at {path}.constProperties[{i}] has invalid dataType "
+                        f"'{cprop.get('dataType')}'. Must be one of: {valid_types}"
+                    )
+            
+            # Warning if no properties AND no constProperties (will be abstract)
+            if not properties and not const_props:
+                logger.warning(
+                    f"Component '{item.get('name')}' at {path} has no properties or constProperties - "
+                    "component type may be abstract and cannot be instantiated"
+                )
         
         # Validate children recursively
         children = item.get("children", [])
