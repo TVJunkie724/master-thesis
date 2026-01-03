@@ -106,8 +106,10 @@ resource "azurerm_linux_function_app" "l2" {
     ) : ""
 
     # Logic App trigger URL for event checking workflow
+    # FIX: Use workflow access_endpoint instead of separate trigger resource
+    # The trigger is defined in the azure_logic_app.json ARM template
     LOGIC_APP_TRIGGER_URL = var.trigger_notification_workflow && var.use_event_checking ? (
-      try(azurerm_logic_app_trigger_http_request.event_trigger[0].callback_url, "")
+      try(azurerm_logic_app_workflow.event_notification[0].access_endpoint, "")
     ) : ""
 
     # Event checker URL for event checking (optional)
@@ -288,25 +290,10 @@ resource "azurerm_resource_group_template_deployment" "logic_app_definition" {
   depends_on = [azurerm_logic_app_workflow.event_notification]
 }
 
-# Logic App trigger - HTTP Request
-# This allows the event-checker function to trigger the workflow
-resource "azurerm_logic_app_trigger_http_request" "event_trigger" {
-  count        = var.layer_2_provider == "azure" && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
-  name         = "event-trigger"
-  logic_app_id = azurerm_logic_app_workflow.event_notification[0].id
-
-  schema = jsonencode({
-    type = "object"
-    properties = {
-      eventType = { type = "string" }
-      deviceId  = { type = "string" }
-      payload   = { type = "object" }
-      action    = { type = "string" }
-    }
-  })
-
-  depends_on = [azurerm_resource_group_template_deployment.logic_app_definition]
-}
+# NOTE: The HTTP trigger is now defined directly in azure_logic_app.json
+# and deployed via the ARM template above. This eliminates the conflict that
+# caused the Logic App designer to appear empty in the Azure Portal.
+# See: https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/logic_app_trigger_http_request
 
 # ==============================================================================
 # RBAC: L2 Function App → Cosmos DB (via Managed Identity)

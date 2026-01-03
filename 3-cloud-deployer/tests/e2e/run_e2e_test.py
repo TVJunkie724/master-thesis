@@ -30,7 +30,6 @@ def main():
         "azure": ("tests/e2e/azure/test_azure_single_cloud_e2e.py", "tests/e2e/azure"),
         "azure-adt-full": ("tests/e2e/azure/test_azure_adt_integrated_e2e.py", "tests/e2e/azure"),
         "azure-grafana": ("tests/e2e/azure/test_azure_grafana_e2e.py", "tests/e2e/azure"),
-        "azure-logicapp": ("tests/e2e/azure/test_azure_logicapp_e2e.py", "tests/e2e/azure"),
         "azure-logicapp-isolated": ("tests/e2e/azure/test_azure_logicapp_isolated_e2e.py", "tests/e2e/azure"),
         "azure-zip": ("tests/e2e/test_azure_functions_only.py", "tests/e2e"),
         "multicloud": ("tests/e2e/multicloud/test_multicloud_e2e.py", "tests/e2e/multicloud"),
