@@ -101,15 +101,22 @@ resource "azurerm_storage_blob" "scene_glb" {
   content_type           = "model/gltf-binary"
 }
 
-# Upload 3D Scenes configuration
+# Upload 3D Scenes configuration with dynamic URL replacement
+# The template file contains {{STORAGE_URL}} placeholder which is replaced with actual storage URL
+locals {
+  scene_config_raw = local.l4_azure_scene_enabled ? file("${local.scene_assets_azure}/3DScenesConfiguration.json") : ""
+  scene_storage_url = local.l4_azure_scene_enabled ? "https://${azurerm_storage_account.main[0].name}.blob.core.windows.net/${azurerm_storage_container.scenes[0].name}" : ""
+  scene_config_content = replace(local.scene_config_raw, "{{STORAGE_URL}}", local.scene_storage_url)
+}
+
 resource "azurerm_storage_blob" "scene_config" {
   count                  = local.l4_azure_scene_enabled ? 1 : 0
   name                   = "3DScenesConfiguration.json"
   storage_account_name   = azurerm_storage_account.main[0].name
   storage_container_name = azurerm_storage_container.scenes[0].name
   type                   = "Block"
-  source                 = "${local.scene_assets_azure}/3DScenesConfiguration.json"
-  content_md5            = filemd5("${local.scene_assets_azure}/3DScenesConfiguration.json")
+  source_content         = local.scene_config_content
+  content_md5            = md5(local.scene_config_content)
   content_type           = "application/json"
 }
 
@@ -127,3 +134,41 @@ resource "azurerm_role_assignment" "adt_storage_reader" {
   depends_on = [azurerm_digital_twins_instance.main]
 }
 
+# ==============================================================================
+# RBAC: Platform User → Azure Digital Twins Data Owner
+# (Required for user to access ADT instance via 3D Scenes Studio)
+# ==============================================================================
+
+locals {
+  # Enable user ADT access when L4=Azure AND email is provided
+  l4_azure_user_enabled = var.layer_4_provider == "azure" && var.platform_user_email != ""
+}
+
+resource "azurerm_role_assignment" "adt_user_owner" {
+  count                = local.l4_azure_user_enabled ? 1 : 0
+  scope                = azurerm_digital_twins_instance.main[0].id
+  role_definition_name = "Azure Digital Twins Data Owner"
+  
+  # Use deterministic UUID for idempotency
+  name                 = uuidv5("dns", "${var.platform_user_email}-adt-owner")
+  principal_id         = local.platform_user_object_id
+
+  depends_on = [azuread_user.platform_user]
+}
+
+# ==============================================================================
+# RBAC: Platform User → Storage Blob Data Reader
+# (Required for user to view 3D scenes in 3D Scenes Studio)
+# ==============================================================================
+
+resource "azurerm_role_assignment" "scenes_user_reader" {
+  count                = local.l4_azure_user_enabled && local.l4_azure_scene_enabled ? 1 : 0
+  scope                = azurerm_storage_account.main[0].id
+  role_definition_name = "Storage Blob Data Reader"
+  
+  # Use deterministic UUID for idempotency
+  name                 = uuidv5("dns", "${var.platform_user_email}-scenes-reader")
+  principal_id         = local.platform_user_object_id
+
+  depends_on = [azuread_user.platform_user]
+}

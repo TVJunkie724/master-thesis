@@ -35,7 +35,7 @@ CONFIG_EVENTS_FILE = "config_events.json"
 CONFIG_PROVIDERS_FILE = "config_providers.json"
 CONFIG_OPTIMIZATION_FILE = "config_optimization.json"
 CONFIG_INTER_CLOUD_FILE = "config_inter_cloud.json"
-CONFIG_GRAFANA_FILE = "config_grafana.json"
+CONFIG_USER_FILE = "config_user.json"
 
 # Twin Hierarchy (provider-specific)
 TWIN_HIERARCHY_DIR_NAME = "twin_hierarchy"
@@ -194,7 +194,7 @@ def load_project_config(project_path: Path) -> ProjectConfig:
     providers = _load_json_file(project_path / CONFIG_PROVIDERS_FILE, required=True)
     optimization = _load_json_file(project_path / CONFIG_OPTIMIZATION_FILE, required=False)
     inter_cloud = _load_json_file(project_path / CONFIG_INTER_CLOUD_FILE, required=False)
-    grafana = _load_json_file(project_path / CONFIG_GRAFANA_FILE, required=False)
+    user = _load_json_file(project_path / CONFIG_USER_FILE, required=False)
     
     # Load hierarchy based on L4 provider
     # layer_4_provider is REQUIRED for hierarchy loading (fail-fast)
@@ -218,7 +218,7 @@ def load_project_config(project_path: Path) -> ProjectConfig:
         providers=providers,
         optimization=optimization,
         inter_cloud=inter_cloud,
-        grafana=grafana,
+        user=user,
     )
 
 

@@ -151,31 +151,31 @@ output "azure_grafana_endpoint" {
   value       = try(azurerm_dashboard_grafana.main[0].endpoint, null)
 }
 
-output "azure_grafana_admin_password" {
-  description = "Initial password for Azure Grafana admin (only if new user was created)"
-  value       = local.should_create_user ? random_password.grafana_admin[0].result : null
+output "azure_platform_user_password" {
+  description = "Initial password for Azure platform user (only if new user was created)"
+  value       = local.should_create_platform_user ? random_password.platform_user[0].result : null
   sensitive   = true
 }
 
-output "azure_grafana_user_created" {
-  description = "Whether a new Entra ID user was created for Grafana"
-  value       = local.should_create_user
+output "azure_platform_user_created" {
+  description = "Whether a new Entra ID user was created"
+  value       = local.should_create_platform_user
 }
 
 output "azure_grafana_access_instructions" {
   description = "How to access Azure Managed Grafana"
   value = local.azure_grafana_enabled ? join("\n", [
     "========== Azure Managed Grafana Access ==========",
-    "Admin: ${var.grafana_admin_email}",
+    "Admin: ${var.platform_user_email}",
     "",
-    local.user_found ? "User: Existing (Grafana Admin role assigned)" : (
-      local.should_create_user ? "User: NEW - retrieve password with: terraform output -raw azure_grafana_admin_password" :
+    local.platform_user_found ? "User: Existing (Grafana Admin role assigned)" : (
+      local.should_create_platform_user ? "User: NEW - retrieve password with: terraform output -raw azure_platform_user_password" :
       "ERROR: Cannot create user - email domain not verified in tenant"
     ),
     "",
     "URL: ${try(azurerm_dashboard_grafana.main[0].endpoint, "N/A")}",
     "Login: Use Microsoft/Entra ID credentials",
-    local.should_create_user ? "Note: Password must be changed on first login" : "",
+    local.should_create_platform_user ? "Note: Password must be changed on first login" : "",
     "==================================================="
   ]) : null
 }
@@ -372,14 +372,14 @@ output "aws_grafana_api_key" {
 
 output "aws_grafana_admin_email" {
   description = "Grafana admin email"
-  value       = var.grafana_admin_email != "" && local.l5_aws_enabled ? var.grafana_admin_email : null
+  value       = var.platform_user_email != "" && local.l5_aws_enabled ? var.platform_user_email : null
 }
 
 output "aws_grafana_login_instructions" {
   description = "How to access Grafana"
-  value = local.grafana_admin_enabled ? join("\n", [
+  value = local.platform_user_enabled ? join("\n", [
     "========== AWS Managed Grafana Access ==========",
-    "Email: ${var.grafana_admin_email}",
+    "Email: ${var.platform_user_email}",
     "Check email for AWS IAM Identity Center activation link",
     "URL: ${try(aws_grafana_workspace.main[0].endpoint, "Not available")}",
     "================================================"
@@ -398,7 +398,7 @@ output "aws_grafana_user_created" {
 
 output "aws_grafana_sso_warning" {
   description = "Warning if SSO not available and admin user couldn't be created"
-  value = local.l5_aws_enabled && var.grafana_admin_email != "" && !local.sso_available ? join("\n", [
+  value = local.l5_aws_enabled && var.platform_user_email != "" && !local.sso_available ? join("\n", [
     "========== WARNING: AWS Grafana Admin Not Created ==========",
     "IAM Identity Center not detected in region: ${var.aws_sso_region != "" ? var.aws_sso_region : var.aws_region}",
     "",

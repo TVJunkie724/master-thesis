@@ -78,10 +78,10 @@ class ProjectConfig:
     # e.g., {"connections": {"aws_l1_to_azure_l2": {"url": "...", "token": "..."}}}
     inter_cloud: Dict[str, Any] = field(default_factory=dict)
     
-    # From config_grafana.json
-    # Grafana admin configuration
+    # From config_user.json
+    # Platform user configuration (for L4 ADT and L5 Grafana access)
     # e.g., {"admin_email": "admin@example.com"}
-    grafana: Dict[str, Any] = field(default_factory=dict)
+    user: Dict[str, Any] = field(default_factory=dict)
 
     
     def get_provider_for_layer(self, layer: int | str) -> str:

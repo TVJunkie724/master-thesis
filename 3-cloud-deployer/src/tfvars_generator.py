@@ -89,8 +89,8 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
     # Generate DIGITAL_TWIN_INFO JSON (unified structure for all providers)
     tfvars["digital_twin_info_json"] = _build_digital_twin_info_json(tfvars)
     
-    # Load config_grafana.json for Grafana admin user
-    tfvars.update(_load_grafana_config(project_dir))
+    # Load config_user.json for platform user
+    tfvars.update(_load_platform_user_config(project_dir))
     
     # Load optimization feature flags (for conditional resources)
     optimization_flags = load_optimization_flags(project_dir)
@@ -635,28 +635,28 @@ def _build_digital_twin_info_json(tfvars: dict) -> str:
     return json.dumps(digital_twin_info)
 
 
-def _load_grafana_config(project_dir: Path) -> dict:
-    """Load Grafana admin configuration from config_grafana.json."""
-    grafana_file = project_dir / "config_grafana.json"
+def _load_platform_user_config(project_dir: Path) -> dict:
+    """Load platform user configuration from config_user.json."""
+    user_file = project_dir / "config_user.json"
     
-    if not grafana_file.exists():
+    if not user_file.exists():
         return {}
     
-    with open(grafana_file) as f:
-        grafana = json.load(f)
+    with open(user_file) as f:
+        user = json.load(f)
     
     result = {}
     
     # Map config fields to Terraform variables
-    if grafana.get("admin_email"):
-        result["grafana_admin_email"] = grafana["admin_email"]
-        logger.info(f"  Grafana admin email: {grafana['admin_email']}")
+    if user.get("admin_email"):
+        result["platform_user_email"] = user["admin_email"]
+        logger.info(f"  Platform user email: {user['admin_email']}")
     
-    if grafana.get("admin_first_name"):
-        result["grafana_admin_first_name"] = grafana["admin_first_name"]
+    if user.get("admin_first_name"):
+        result["platform_user_first_name"] = user["admin_first_name"]
     
-    if grafana.get("admin_last_name"):
-        result["grafana_admin_last_name"] = grafana["admin_last_name"]
+    if user.get("admin_last_name"):
+        result["platform_user_last_name"] = user["admin_last_name"]
     
     return result
 

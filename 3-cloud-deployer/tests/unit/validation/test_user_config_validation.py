@@ -1,10 +1,10 @@
 """
-Tests for Grafana admin email validation in check_grafana_config_for_l5().
+Tests for platform user config validation in check_user_config_for_l4_l5().
 """
 
 import pytest
 from unittest.mock import MagicMock
-from src.validation.core import check_grafana_config_for_l5, ValidationContext
+from src.validation.core import check_user_config_for_l4_l5, ValidationContext
 
 
 class MockAccessor:
@@ -26,15 +26,15 @@ class MockAccessor:
         return ""
 
 
-class TestGrafanaEmailValidation:
-    """Tests for Azure Grafana email validation."""
+class TestUserConfigValidation:
+    """Tests for Azure platform user email validation."""
     
     def _make_context(self, l5_provider: str, admin_email: str = None) -> ValidationContext:
-        """Helper to create a ValidationContext with grafana config."""
+        """Helper to create a ValidationContext with user config."""
         ctx = ValidationContext()
         ctx.prov_config = {"layer_5_provider": l5_provider}
         if admin_email is not None:
-            ctx.grafana_config = {
+            ctx.user_config = {
                 "admin_email": admin_email,
                 "admin_first_name": "Test",
                 "admin_last_name": "User"
@@ -47,7 +47,7 @@ class TestGrafanaEmailValidation:
         accessor = MockAccessor()
         
         # Should not raise
-        check_grafana_config_for_l5(accessor, ctx)
+        check_user_config_for_l4_l5(accessor, ctx)
     
     def test_azure_invalid_unverified_domain(self):
         """Non-.onmicrosoft.com domain should raise ValueError."""
@@ -55,7 +55,7 @@ class TestGrafanaEmailValidation:
         accessor = MockAccessor()
         
         with pytest.raises(ValueError) as exc_info:
-            check_grafana_config_for_l5(accessor, ctx)
+            check_user_config_for_l4_l5(accessor, ctx)
         
         assert "verified domain" in str(exc_info.value)
         assert "gmail.com" in str(exc_info.value)
@@ -67,7 +67,7 @@ class TestGrafanaEmailValidation:
         accessor = MockAccessor()
         
         with pytest.raises(ValueError) as exc_info:
-            check_grafana_config_for_l5(accessor, ctx)
+            check_user_config_for_l4_l5(accessor, ctx)
         
         assert "live.at" in str(exc_info.value)
     
@@ -77,19 +77,19 @@ class TestGrafanaEmailValidation:
         accessor = MockAccessor()
         
         # Should not raise - empty email skips user provisioning
-        check_grafana_config_for_l5(accessor, ctx)
+        check_user_config_for_l4_l5(accessor, ctx)
     
-    def test_azure_missing_grafana_config_raises(self):
-        """Missing config_grafana.json should raise ValueError."""
+    def test_azure_missing_user_config_raises(self):
+        """Missing config_user.json should raise ValueError."""
         ctx = ValidationContext()
         ctx.prov_config = {"layer_5_provider": "azure"}
-        ctx.grafana_config = {}  # Empty = missing
+        ctx.user_config = {}  # Empty = missing
         accessor = MockAccessor()
         
         with pytest.raises(ValueError) as exc_info:
-            check_grafana_config_for_l5(accessor, ctx)
+            check_user_config_for_l4_l5(accessor, ctx)
         
-        assert "Missing config_grafana.json" in str(exc_info.value)
+        assert "Missing config_user.json" in str(exc_info.value)
     
     def test_azure_invalid_email_format(self):
         """Invalid email format should raise ValueError."""
@@ -97,7 +97,7 @@ class TestGrafanaEmailValidation:
         accessor = MockAccessor()
         
         with pytest.raises(ValueError) as exc_info:
-            check_grafana_config_for_l5(accessor, ctx)
+            check_user_config_for_l4_l5(accessor, ctx)
         
         assert "Invalid email format" in str(exc_info.value)
     
@@ -107,24 +107,24 @@ class TestGrafanaEmailValidation:
         accessor = MockAccessor()
         
         # Should not raise - AWS has no domain restriction
-        check_grafana_config_for_l5(accessor, ctx)
+        check_user_config_for_l4_l5(accessor, ctx)
     
     def test_gcp_skipped(self):
         """GCP L5 should not require grafana config."""
         ctx = ValidationContext()
         ctx.prov_config = {"layer_5_provider": "google"}
-        ctx.grafana_config = {}  # Empty - OK for GCP
+        ctx.user_config = {}  # Empty - OK for GCP
         accessor = MockAccessor()
         
         # Should not raise - GCP doesn't use Grafana
-        check_grafana_config_for_l5(accessor, ctx)
+        check_user_config_for_l4_l5(accessor, ctx)
     
     def test_no_l5_provider_skipped(self):
         """No L5 provider should skip validation entirely."""
         ctx = ValidationContext()
         ctx.prov_config = {"layer_5_provider": ""}
-        ctx.grafana_config = {}
+        ctx.user_config = {}
         accessor = MockAccessor()
         
         # Should not raise
-        check_grafana_config_for_l5(accessor, ctx)
+        check_user_config_for_l4_l5(accessor, ctx)

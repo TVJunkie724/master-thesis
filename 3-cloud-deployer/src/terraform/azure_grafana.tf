@@ -61,104 +61,31 @@ resource "azurerm_dashboard_grafana" "main" {
 # }
 
 # ==============================================================================
-# RBAC: Grafana Admin User Provisioning
+# RBAC: Grafana Admin User Role Assignment
 # 
-# This implements a "create-if-not-exists" pattern:
-# - If user exists in Entra ID: Only assign Grafana Admin role
-# - If user doesn't exist: Create user with temp password, then assign role
+# User creation logic is now in azure_user.tf (shared with L4 ADT).
+# This section only assigns the Grafana Admin role to the platform user.
 # ==============================================================================
 
-# Query tenant's verified domains
-data "azuread_domains" "tenant" {
-  count = var.layer_5_provider == "azure" ? 1 : 0
-}
-
 locals {
-  # Config available and valid
-  azure_grafana_enabled = var.layer_5_provider == "azure" && var.grafana_admin_email != ""
-  
-  # Extract domain from email
-  email_domain = local.azure_grafana_enabled ? split("@", var.grafana_admin_email)[1] : ""
-  
-  # Get verified domains from tenant - MUST guard access when L5 != Azure (count=0)
-  verified_domains = var.layer_5_provider == "azure" ? try([for d in data.azuread_domains.tenant[0].domains : d.domain_name if d.verified], []) : []
-  
-  # Check if email domain is verified in tenant
-  domain_is_verified = contains(local.verified_domains, local.email_domain)
-}
-
-# Check if user already exists in Entra ID (lookup by email)
-data "azuread_users" "check_existing" {
-  count          = local.azure_grafana_enabled ? 1 : 0
-  mails          = [var.grafana_admin_email]
-  ignore_missing = true
-}
-
-locals {
-  # User exists if we found any matching users
-  user_found = local.azure_grafana_enabled && length(
-    try(data.azuread_users.check_existing[0].users, [])
-  ) > 0
-  
-  # Existing user's object_id (if found)
-  existing_user_object_id = local.user_found ? data.azuread_users.check_existing[0].users[0].object_id : null
-  
-  # Create user only if: not found AND domain is verified in tenant
-  should_create_user = local.azure_grafana_enabled && !local.user_found && local.domain_is_verified
-}
-
-# Generate secure password for new user
-resource "random_password" "grafana_admin" {
-  count            = local.should_create_user ? 1 : 0
-  length           = 16
-  special          = true
-  override_special = "!@#$%^&*()-_=+"
-  min_lower        = 2
-  min_upper        = 2
-  min_numeric      = 2
-  min_special      = 2
-}
-
-# Create user in Entra ID if they don't exist AND domain is verified
-resource "azuread_user" "grafana_admin" {
-  count = local.should_create_user ? 1 : 0
-  
-  user_principal_name   = var.grafana_admin_email
-  display_name          = "${var.grafana_admin_first_name} ${var.grafana_admin_last_name}"
-  mail                  = var.grafana_admin_email
-  password              = random_password.grafana_admin[0].result
-  force_password_change = true
-}
-
-locals {
-  # Final object_id: from existing user OR newly created
-  # IMPORTANT: Only compute when L5 is Azure, otherwise coalesce() fails with no non-null args
-  grafana_admin_object_id = local.azure_grafana_enabled ? coalesce(
-    local.existing_user_object_id,
-    try(azuread_user.grafana_admin[0].object_id, null)
-  ) : null
+  # L5 Azure Grafana enabled when provider is Azure AND email is provided
+  azure_grafana_enabled = var.layer_5_provider == "azure" && var.platform_user_email != ""
 }
 
 # Assign Grafana Admin role (with deterministic UUID for idempotency)
-# NOTE: Uses azure_grafana_enabled for count (known at plan time) to avoid
-# "count depends on apply" error when creating new users.
 resource "azurerm_role_assignment" "grafana_admin" {
   count = local.azure_grafana_enabled ? 1 : 0
   
   # Deterministic UUID prevents duplicate assignment errors on re-apply
-  name                 = uuidv5("dns", "${var.grafana_admin_email}-grafana-admin")
+  name                 = uuidv5("dns", "${var.platform_user_email}-grafana-admin")
   scope                = azurerm_dashboard_grafana.main[0].id
   role_definition_name = "Grafana Admin"
   
-  # Use coalesce to pick existing user OR newly created user's object_id
-  # At apply time, one of these will be available
-  principal_id = coalesce(
-    local.existing_user_object_id,
-    try(azuread_user.grafana_admin[0].object_id, null)
-  )
+  # Use shared platform_user_object_id from azure_user.tf
+  principal_id = local.platform_user_object_id
   
   # Ensure user is created before role assignment
-  depends_on = [azuread_user.grafana_admin]
+  depends_on = [azuread_user.platform_user]
 }
 
 # ==============================================================================

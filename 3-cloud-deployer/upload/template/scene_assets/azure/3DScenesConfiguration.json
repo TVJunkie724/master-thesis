@@ -9,7 +9,7 @@
                 "assets": [
                     {
                         "type": "3DAsset",
-                        "url": "scene.glb"
+                        "url": "{{STORAGE_URL}}/scene.glb"
                     }
                 ],
                 "elements": [
@@ -19,8 +19,7 @@
                         "displayName": "Room 1",
                         "primaryTwinID": "room-1",
                         "objectIDs": [
-                            "room-1-floor",
-                            "room-1-walls"
+                            "room-1"
                         ]
                     },
                     {
@@ -29,8 +28,7 @@
                         "displayName": "Room 2",
                         "primaryTwinID": "room-2",
                         "objectIDs": [
-                            "room-2-floor",
-                            "room-2-walls"
+                            "room-2"
                         ]
                     },
                     {
@@ -39,9 +37,7 @@
                         "displayName": "Machine 1",
                         "primaryTwinID": "machine-1",
                         "objectIDs": [
-                            "machine-1-body",
-                            "machine-1-panel",
-                            "machine-1-vent"
+                            "machine-1"
                         ]
                     },
                     {
@@ -102,17 +98,21 @@
                         "valueRanges": [
                             {
                                 "id": "temp-normal",
-                                "min": 0,
-                                "max": 30,
+                                "values": [
+                                    0,
+                                    30
+                                ],
                                 "visual": {
                                     "color": "#00FF00",
-                                    "iconName": "Thermometer"
+                                    "iconName": "Sunny"
                                 }
                             },
                             {
                                 "id": "temp-warning",
-                                "min": 30,
-                                "max": 50,
+                                "values": [
+                                    30,
+                                    50
+                                ],
                                 "visual": {
                                     "color": "#FFAA00",
                                     "iconName": "Warning"
@@ -120,8 +120,10 @@
                             },
                             {
                                 "id": "temp-critical",
-                                "min": 50,
-                                "max": "Infinity",
+                                "values": [
+                                    50,
+                                    100
+                                ],
                                 "visual": {
                                     "color": "#FF0000",
                                     "iconName": "Error"
@@ -153,29 +155,35 @@
                         "valueRanges": [
                             {
                                 "id": "pressure-low",
-                                "min": 0,
-                                "max": 800,
+                                "values": [
+                                    0,
+                                    800
+                                ],
                                 "visual": {
                                     "color": "#00AAFF",
-                                    "iconName": "SpeedLow"
+                                    "iconName": "Down"
                                 }
                             },
                             {
                                 "id": "pressure-normal",
-                                "min": 800,
-                                "max": 1200,
+                                "values": [
+                                    800,
+                                    1200
+                                ],
                                 "visual": {
                                     "color": "#00FF00",
-                                    "iconName": "SpeedMedium"
+                                    "iconName": "Accept"
                                 }
                             },
                             {
                                 "id": "pressure-high",
-                                "min": 1200,
-                                "max": "Infinity",
+                                "values": [
+                                    1200,
+                                    2000
+                                ],
                                 "visual": {
                                     "color": "#FF0000",
-                                    "iconName": "SpeedHigh"
+                                    "iconName": "Up"
                                 }
                             }
                         ]

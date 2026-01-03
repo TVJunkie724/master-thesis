@@ -161,23 +161,23 @@ variable "aws_sso_region" {
 }
 
 # ==============================================================================
-# L5 Grafana User (Required when layer_5_provider=aws or azure)
+# Platform User (Required when layer_4_provider=azure OR layer_5_provider=aws/azure)
 # ==============================================================================
 
-variable "grafana_admin_email" {
-  description = "Email for Grafana admin user. Required when layer_5_provider is 'aws' or 'azure'. For Azure: use format 'user@TENANT.onmicrosoft.com'"
+variable "platform_user_email" {
+  description = "Email for platform admin user. Required when L4=Azure (ADT access) or L5=AWS/Azure (Grafana access). For Azure: use format 'user@TENANT.onmicrosoft.com'"
   type        = string
   default     = ""
 }
 
-variable "grafana_admin_first_name" {
-  description = "First name for Grafana admin user"
+variable "platform_user_first_name" {
+  description = "First name for platform user"
   type        = string
-  default     = "Grafana"
+  default     = "Platform"
 }
 
-variable "grafana_admin_last_name" {
-  description = "Last name for Grafana admin user"
+variable "platform_user_last_name" {
+  description = "Last name for platform user"
   type        = string
   default     = "Admin"
 }

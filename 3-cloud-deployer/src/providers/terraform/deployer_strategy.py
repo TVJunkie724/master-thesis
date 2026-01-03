@@ -554,7 +554,7 @@ class TerraformDeployerStrategy:
         prefix = context.project_name
         
         outputs = self._get_terraform_outputs_safe()
-        grafana_email = self._get_grafana_email(context)
+        grafana_email = self._get_platform_user_email(context)
         
         # Build tasks with CAPTURED values (avoid lambda closure bug)
         cleanup_tasks: list = []
@@ -687,9 +687,9 @@ class TerraformDeployerStrategy:
         ]
         return any(providers_config.get(key) == cloud for key in layer_keys)
     
-    def _get_grafana_email(self, context: 'DeploymentContext') -> str:
-        """Get Grafana admin email from context.config.grafana."""
-        return context.config.grafana.get("admin_email", "")
+    def _get_platform_user_email(self, context: 'DeploymentContext') -> str:
+        """Get platform user email from context.config.user."""
+        return context.config.user.get("admin_email", "")
     
     def _get_terraform_outputs_safe(self) -> dict:
         """Get Terraform outputs, returning empty dict on failure."""

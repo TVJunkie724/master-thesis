@@ -84,7 +84,7 @@ class ValidationContext:
     events_config: List[Dict[str, Any]] = field(default_factory=list)
     iot_config: List[Dict[str, Any]] = field(default_factory=list)
     credentials_config: Dict[str, Any] = field(default_factory=dict)
-    grafana_config: Dict[str, Any] = field(default_factory=dict)  # NEW: config_grafana.json
+    user_config: Dict[str, Any] = field(default_factory=dict)  # From config_user.json
     
     # Tracked directories/files (populated during context build)
     seen_event_actions: Set[str] = field(default_factory=set)
@@ -182,14 +182,14 @@ def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None
             except Exception as e:
                 raise ValueError(f"Validation failed for {basename}: {e}")
     
-    # Load config_grafana.json if present (optional file, loaded separately)
-    grafana_path = ctx.project_root + "config_grafana.json"
-    if accessor.file_exists(grafana_path):
+    # Load config_user.json if present (optional file, loaded separately)
+    user_path = ctx.project_root + "config_user.json"
+    if accessor.file_exists(user_path):
         try:
-            content = accessor.read_text(grafana_path)
-            ctx.grafana_config = json.loads(content)
+            content = accessor.read_text(user_path)
+            ctx.user_config = json.loads(content)
         except Exception as e:
-            raise ValueError(f"Failed to parse config_grafana.json: {e}")
+            raise ValueError(f"Failed to parse config_user.json: {e}")
 
 
 
@@ -541,14 +541,14 @@ def check_processor_folders_match_devices(accessor: FileAccessor, ctx: Validatio
 
 
 # ==========================================
-# 5. Grafana Admin Validation (AWS + Azure)
+# 5. Platform User Validation (AWS + Azure)
 # ==========================================
 
-def check_grafana_config_for_l5(accessor: FileAccessor, ctx: ValidationContext) -> None:
+def check_user_config_for_l4_l5(accessor: FileAccessor, ctx: ValidationContext) -> None:
     """
-    Validate config_grafana.json when layer_5_provider is 'aws' or 'azure'.
+    Validate config_user.json when layer_5_provider is 'aws' or 'azure'.
     
-    - config_grafana.json is REQUIRED when L5 is AWS or Azure
+    - config_user.json is REQUIRED when L5 is AWS or Azure
     - Validates email format
     - For Azure: validates domain is verified (.onmicrosoft.com or commonly verified)
     """
@@ -558,19 +558,19 @@ def check_grafana_config_for_l5(accessor: FileAccessor, ctx: ValidationContext) 
     if l5_provider not in ["aws", "azure"]:
         return
     
-    # Check if config_grafana.json exists and has data
-    if not ctx.grafana_config:
+    # Check if config_user.json exists and has data
+    if not ctx.user_config:
         raise ValueError(
-            f"Missing config_grafana.json. Required when layer_5_provider='{l5_provider}'.\n"
+            f"Missing config_user.json. Required when layer_5_provider='{l5_provider}'.\n"
             "Create this file with: {\"admin_email\": \"your-email@domain.com\", "
-            "\"admin_first_name\": \"Grafana\", \"admin_last_name\": \"Admin\"}"
+            "\"admin_first_name\": \"Platform\", \"admin_last_name\": \"Admin\"}"
         )
     
-    admin_email = ctx.grafana_config.get("admin_email", "")
+    admin_email = ctx.user_config.get("admin_email", "")
     
     # Allow empty email to skip user provisioning (only deployer role will be assigned)
     if not admin_email:
-        logger.info("  ✓ Grafana admin email not set - skipping user provisioning")
+        logger.info("  ✓ Platform user email not set - skipping user provisioning")
         return
     
     # Email format validation
@@ -589,7 +589,7 @@ def check_grafana_config_for_l5(accessor: FileAccessor, ctx: ValidationContext) 
         # .onmicrosoft.com is always verified (default tenant domain)
         if not email_domain.endswith(".onmicrosoft.com"):
             raise ValueError(
-                f"Azure Grafana admin email must use your tenant's verified domain.\n"
+                f"Azure platform user email must use your tenant's verified domain.\n"
                 f"  Provided: {admin_email}\n"
                 f"  Domain '{email_domain}' is likely not verified in your Azure tenant.\n\n"
                 f"Options:\n"
@@ -599,9 +599,9 @@ def check_grafana_config_for_l5(accessor: FileAccessor, ctx: ValidationContext) 
                 f"Find your tenant domain in Azure Portal → Entra ID → Overview → Primary domain."
             )
         
-        logger.info(f"  ✓ Grafana admin (Azure): {admin_email}")
+        logger.info(f"  ✓ Platform user (Azure): {admin_email}")
     else:
-        logger.info(f"  ✓ Grafana admin (AWS): {admin_email}")
+        logger.info(f"  ✓ Platform user (AWS): {admin_email}")
 
 
 
@@ -648,6 +648,6 @@ def run_all_checks(accessor: FileAccessor) -> None:
     check_credentials_per_provider(ctx)
     check_hierarchy_provider_match(accessor, ctx)
     check_scene_assets(accessor, ctx)
-    check_grafana_config_for_l5(accessor, ctx)  # Updated: now uses config_grafana.json
+    check_user_config_for_l4_l5(accessor, ctx)  # Validates config_user.json
     
     logger.info("✓ All validation checks passed")
