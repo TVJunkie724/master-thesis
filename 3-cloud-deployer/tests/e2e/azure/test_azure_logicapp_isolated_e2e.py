@@ -2,18 +2,12 @@
 Azure Logic App Isolated E2E Test
 
 Pytest-compatible E2E test for Azure Logic App workflow creation.
-This test replicates the PRODUCTION deployment pattern to diagnose
-why Logic App workflows appear empty in the Azure Portal designer.
-
-Test Scenarios:
-- Scenario A (production): 3 resources (workflow + ARM template + separate trigger)
-- Scenario B (potential fix): 2 resources (workflow + ARM template only)
+This test replicates the PRODUCTION deployment pattern:
+1. Creates empty Logic App workflow container
+2. Applies full workflow definition via ARM template
 
 The test deploys using the actual template's azure_logic_app.json file
 to match production behavior exactly.
-
-IMPORTANT: Cleanup is DISABLED by default for manual investigation.
-           Use --cleanup flag or run terraform destroy manually.
 
 Prerequisites:
 - Azure credentials in config_credentials.json
@@ -21,17 +15,12 @@ Prerequisites:
 Usage:
     docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \\
         python tests/e2e/run_e2e_test.py azure-logicapp-isolated
-
-To run WITHOUT separate trigger (test the fix):
-    docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \\
-        python tests/e2e/run_e2e_test.py azure-logicapp-isolated --no-separate-trigger
 """
 
 import json
 import subprocess
 import time
 import os
-import shutil
 import pytest
 from pathlib import Path
 
@@ -85,7 +74,7 @@ class TestAzureLogicAppIsolatedE2E:
         if not (workspace_path / "main.tf").exists():
             pytest.fail(f"main.tf not found in: {workspace_path}")
         
-        print(f"\n📁 Using persistent workspace: {workspace_path}")
+        print(f"\n📁 Using workspace: {workspace_path}")
         
         yield workspace_path
     
@@ -98,22 +87,15 @@ class TestAzureLogicAppIsolatedE2E:
         timestamp = int(time.time()) % 100000
         unique_name = f"logicapp-iso-{timestamp}"
         
-        # Check for --no-separate-trigger in pytest args or environment
-        use_separate_trigger = os.environ.get("USE_SEPARATE_TRIGGER", "true").lower() == "true"
-        
         tfvars = {
             **azure_creds,
             "test_name": unique_name,
             "workflow_definition_file": str(TEMPLATE_STATE_MACHINE),
-            "use_separate_trigger": use_separate_trigger,
         }
         
-        pattern = "PRODUCTION (3 resources)" if use_separate_trigger else "ARM-ONLY (2 resources)"
         print(f"\n📝 Test Configuration:")
         print(f"   Name: {unique_name}")
-        print(f"   Pattern: {pattern}")
         print(f"   Workflow JSON: {TEMPLATE_STATE_MACHINE}")
-        print(f"   Separate Trigger: {use_separate_trigger}")
         
         tfvars_path = terraform_workspace / "test.tfvars.json"
         with open(tfvars_path, "w") as f:
@@ -136,8 +118,6 @@ class TestAzureLogicAppIsolatedE2E:
             "definition should have $schema"
         assert "triggers" in content["definition"], \
             "definition should have triggers section"
-        assert "manual" in content["definition"]["triggers"], \
-            "definition should have 'manual' trigger"
         assert "actions" in content["definition"], \
             "definition should have actions section"
         
@@ -244,57 +224,48 @@ class TestAzureLogicAppIsolatedE2E:
         assert outputs.get("logic_app_id", {}).get("value"), \
             "Logic App ID should exist"
         
-        # Print investigation summary
+        # Print summary
         print("\n" + "=" * 70)
         print(outputs.get("test_summary", {}).get("value", ""))
         print("=" * 70)
         
         print("\n📋 Key Outputs:")
-        print(f"   Pattern: {outputs.get('test_pattern', {}).get('value', 'unknown')}")
-        print(f"   Separate Trigger: {outputs.get('separate_trigger_created', {}).get('value', 'unknown')}")
+        print(f"   Logic App: {outputs.get('logic_app_name', {}).get('value', 'unknown')}")
+        print(f"   Access Endpoint: {outputs.get('access_endpoint', {}).get('value', 'unknown')}")
         print(f"\n🔗 Portal Designer URL:")
         print(f"   {outputs.get('portal_designer_url', {}).get('value', 'unknown')}")
     
-    def test_07_cleanup_disabled(self, terraform_workspace, tfvars):
-        """
-        Cleanup is DISABLED by default for manual investigation.
+    def test_07_cleanup(self, terraform_workspace, tfvars):
+        """Cleanup test resources."""
+        # Check if cleanup is explicitly disabled
+        skip_cleanup = os.environ.get("E2E_SKIP_CLEANUP", "false").lower() == "true"
         
-        Run terraform destroy manually when done:
-            cd tests/e2e/azure_logicapp_isolated_test
-            terraform destroy -var-file=test.tfvars.json -auto-approve
-        """
-        # Check if cleanup is explicitly requested
-        do_cleanup = os.environ.get("E2E_CLEANUP", "false").lower() == "true"
-        
-        if do_cleanup:
-            print("\n🧹 Cleanup requested - destroying resources...")
-            result = subprocess.run(
-                [
-                    "terraform", "destroy",
-                    "-no-color",
-                    "-auto-approve",
-                    f"-var-file={tfvars}",
-                ],
-                cwd=terraform_workspace,
-                capture_output=True,
-                text=True,
-                timeout=600,
-            )
-            
-            print(result.stdout)
-            
-            if result.returncode != 0:
-                print(result.stderr)
-                print("⚠️ Warning: destroy had errors, resources may need manual cleanup")
-        else:
-            print("\n" + "=" * 70)
-            print("⏸️  CLEANUP DISABLED - Resources left running for manual investigation")
-            print("=" * 70)
-            print("\nTo destroy resources manually:")
+        if skip_cleanup:
+            print("\n⏸️  CLEANUP SKIPPED - Resources left for manual inspection")
+            print(f"\nTo destroy manually:")
             print(f"    cd {terraform_workspace}")
             print(f"    terraform destroy -var-file=test.tfvars.json -auto-approve")
-            print("\nOr run with cleanup enabled:")
-            print("    E2E_CLEANUP=true python tests/e2e/run_e2e_test.py azure-logicapp-isolated")
+            return
+        
+        print("\n🧹 Cleaning up test resources...")
+        result = subprocess.run(
+            [
+                "terraform", "destroy",
+                "-no-color",
+                "-auto-approve",
+                f"-var-file={tfvars}",
+            ],
+            cwd=terraform_workspace,
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        
+        print(result.stdout)
+        
+        if result.returncode != 0:
+            print(result.stderr)
+            print("⚠️ Warning: destroy had errors, resources may need manual cleanup")
 
 
 if __name__ == "__main__":

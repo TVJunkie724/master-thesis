@@ -5,6 +5,5 @@
   "azure_client_secret": "YOUR_CLIENT_SECRET",
   "azure_region": "westeurope",
   "test_name": "logicapp-iso-e2e",
-  "workflow_definition_file": "/app/upload/template/state_machines/azure_logic_app.json",
-  "use_separate_trigger": true
+  "workflow_definition_file": "/app/upload/template/state_machines/azure_logic_app.json"
 }

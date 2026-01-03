@@ -1,13 +1,10 @@
 # Azure Logic App Isolated E2E Test
 #
-# This is a focused Terraform config that replicates the PRODUCTION deployment pattern:
+# This Terraform config replicates the PRODUCTION deployment pattern:
 # 1. Creates empty Logic App workflow container
-# 2. Applies full workflow definition via ARM template
-# 3. Optionally creates a separate HTTP trigger (controlled by use_separate_trigger)
+# 2. Applies full workflow definition via ARM template (includes trigger)
 #
-# PURPOSE: Diagnose why Logic App workflows appear empty in Azure Portal
-#
-# The test uses the actual template's azure_logic_app.json to match production.
+# This matches the fixed production code in azure_compute.tf
 #
 # Usage:
 #   cd tests/e2e/azure_logicapp_isolated_test
@@ -67,12 +64,6 @@ variable "workflow_definition_file" {
   type        = string
 }
 
-variable "use_separate_trigger" {
-  description = "If true, creates separate azurerm_logic_app_trigger (production pattern). If false, uses trigger from JSON only."
-  type        = bool
-  default     = true  # Default matches production to reproduce the bug
-}
-
 # =============================================================================
 # Provider
 # =============================================================================
@@ -94,14 +85,13 @@ resource "azurerm_resource_group" "test" {
   location = var.azure_region
 
   tags = {
-    Purpose     = "logic-app-isolated-e2e-test"
-    CreatedBy   = "terraform"
-    TestPattern = var.use_separate_trigger ? "production-3-resources" : "arm-only-2-resources"
+    Purpose   = "logic-app-isolated-e2e-test"
+    CreatedBy = "terraform"
   }
 }
 
 # =============================================================================
-# Logic App Workflow (Empty Container) - Step 1 of 3-resource pattern
+# Logic App Workflow (Empty Container)
 # =============================================================================
 
 resource "azurerm_logic_app_workflow" "test" {
@@ -110,8 +100,7 @@ resource "azurerm_logic_app_workflow" "test" {
   resource_group_name = azurerm_resource_group.test.name
 
   tags = {
-    Purpose     = "logic-app-isolated-e2e-test"
-    TestPattern = var.use_separate_trigger ? "production-3-resources" : "arm-only-2-resources"
+    Purpose = "logic-app-isolated-e2e-test"
   }
 
   # Definition is set via ARM template below
@@ -121,8 +110,9 @@ resource "azurerm_logic_app_workflow" "test" {
 }
 
 # =============================================================================
-# ARM Template Deployment - Step 2 of 3-resource pattern
+# ARM Template Deployment
 # Applies the full workflow definition from azure_logic_app.json
+# This is the same pattern used in production azure_compute.tf
 # =============================================================================
 
 resource "azurerm_resource_group_template_deployment" "logic_app_definition" {
@@ -140,7 +130,7 @@ resource "azurerm_resource_group_template_deployment" "logic_app_definition" {
       location   = var.azure_region
       properties = {
         state      = "Enabled"
-        # CRITICAL: Extract .definition from the JSON wrapper (matches production pattern)
+        # Extract .definition from the JSON wrapper (matches production pattern)
         definition = jsondecode(file(var.workflow_definition_file)).definition
       }
     }]
@@ -150,32 +140,7 @@ resource "azurerm_resource_group_template_deployment" "logic_app_definition" {
 }
 
 # =============================================================================
-# Separate HTTP Trigger - Step 3 of 3-resource pattern (OPTIONAL)
-# This is the suspected cause of the visualization bug!
-# When use_separate_trigger = true, this creates a SECOND trigger that may
-# conflict with the "manual" trigger already defined in azure_logic_app.json
-# =============================================================================
-
-resource "azurerm_logic_app_trigger_http_request" "event_trigger" {
-  count        = var.use_separate_trigger ? 1 : 0
-  name         = "event-trigger"
-  logic_app_id = azurerm_logic_app_workflow.test.id
-
-  schema = jsonencode({
-    type = "object"
-    properties = {
-      eventType = { type = "string" }
-      deviceId  = { type = "string" }
-      payload   = { type = "object" }
-      action    = { type = "string" }
-    }
-  })
-
-  depends_on = [azurerm_resource_group_template_deployment.logic_app_definition]
-}
-
-# =============================================================================
-# Outputs - For Manual Inspection
+# Outputs
 # =============================================================================
 
 output "resource_group_name" {
@@ -193,9 +158,9 @@ output "logic_app_id" {
   value       = azurerm_logic_app_workflow.test.id
 }
 
-output "test_pattern" {
-  description = "Which test pattern was used"
-  value       = var.use_separate_trigger ? "PRODUCTION (3-resources: workflow + ARM + separate trigger)" : "ARM-ONLY (2-resources: workflow + ARM)"
+output "access_endpoint" {
+  description = "Logic App access endpoint (trigger URL)"
+  value       = azurerm_logic_app_workflow.test.access_endpoint
 }
 
 output "portal_designer_url" {
@@ -208,40 +173,26 @@ output "portal_overview_url" {
   value       = "https://portal.azure.com/#@${var.azure_tenant_id}/resource${azurerm_logic_app_workflow.test.id}/overview"
 }
 
-output "callback_url" {
-  description = "HTTP trigger callback URL (from the trigger defined in JSON)"
-  value       = try(azurerm_logic_app_workflow.test.access_endpoint, "Check portal for trigger URL")
-}
-
-output "separate_trigger_created" {
-  description = "Whether the separate trigger resource was created"
-  value       = var.use_separate_trigger ? "YES - azurerm_logic_app_trigger_http_request created" : "NO - only using trigger from JSON definition"
-}
-
 output "test_summary" {
-  description = "Summary of the test for investigation"
+  description = "Summary of the test"
   value = <<-EOT
     
     ============================================================
     AZURE LOGIC APP ISOLATED E2E TEST COMPLETE
     ============================================================
     
-    Test Pattern: ${var.use_separate_trigger ? "PRODUCTION (3 resources)" : "ARM-ONLY (2 resources)"}
-    
     Logic App:    ${azurerm_logic_app_workflow.test.name}
     Resource Grp: ${azurerm_resource_group.test.name}
     Region:       ${var.azure_region}
     
-    ${var.use_separate_trigger ? "⚠️  SEPARATE TRIGGER CREATED - This may cause visualization issues!" : "✅ NO SEPARATE TRIGGER - Using trigger from JSON definition only"}
-    
-    MANUAL VERIFICATION:
+    VERIFICATION:
     1. Open the Portal URL below
     2. Click "Logic app designer" in the left menu
-    3. Check if the workflow shows:
-       - "manual" HTTP Request trigger
-       - "Call_Azure_Function_A" action
-       - "Call_Azure_Function_B" action
-       - "Response" action
+    3. Verify the workflow shows:
+       - HTTP Request trigger
+       - Call_Azure_Function_A action
+       - Call_Azure_Function_B action
+       - Response action
     
     Portal Designer URL:
     https://portal.azure.com/#@${var.azure_tenant_id}/resource${azurerm_logic_app_workflow.test.id}/designer
