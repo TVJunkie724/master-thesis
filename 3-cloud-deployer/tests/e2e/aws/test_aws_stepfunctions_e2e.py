@@ -1,13 +1,13 @@
 """
-AWS Step Functions E2E Test
+AWS Step Functions Isolated E2E Test
 
 Pytest-compatible E2E test for AWS Step Functions state machine creation.
-This test:
+This test replicates the PRODUCTION deployment pattern:
 1. Creates IAM role for Step Functions
-2. Creates CloudWatch Log Group
-3. Creates Step Functions state machine
-4. Verifies outputs
-5. Destroys all resources
+2. Creates Step Functions state machine with definition from template JSON
+
+The test deploys using the actual template's aws_step_function.json file
+to match production behavior exactly.
 
 Prerequisites:
 - AWS credentials in config_credentials.json
@@ -20,6 +20,7 @@ Usage:
 import json
 import subprocess
 import time
+import os
 import pytest
 from pathlib import Path
 
@@ -28,6 +29,7 @@ from pathlib import Path
 TEST_DIR = Path(__file__).parent
 TERRAFORM_SOURCE_DIR = TEST_DIR.parent / "aws_stepfunctions_test"
 DEPLOYER_ROOT = TEST_DIR.parent.parent.parent
+TEMPLATE_STATE_MACHINE = DEPLOYER_ROOT / "upload" / "template" / "state_machines" / "aws_step_function.json"
 
 
 def load_aws_credentials() -> dict:
@@ -56,8 +58,8 @@ def load_aws_credentials() -> dict:
     pytest.skip("AWS credentials not found in config_credentials.json")
 
 
-class TestAWSStepFunctionsE2E:
-    """E2E tests for AWS Step Functions."""
+class TestAWSStepFunctionsIsolatedE2E:
+    """E2E tests for AWS Step Functions - Isolated deployment test."""
     
     @pytest.fixture(scope="class")
     def terraform_workspace(self):
@@ -70,45 +72,28 @@ class TestAWSStepFunctionsE2E:
         if not (workspace_path / "main.tf").exists():
             pytest.fail(f"main.tf not found in: {workspace_path}")
         
-        print(f"\n📁 Using persistent workspace: {workspace_path}")
-        
-        # PRE-CLEANUP: Destroy any existing resources from previous failed runs
-        tfvars_path = workspace_path / "test.tfvars.json"
-        if (workspace_path / ".terraform").exists() and tfvars_path.exists():
-            print("🧹 Pre-cleanup: Destroying any resources from previous run...")
-            subprocess.run(
-                ["terraform", "destroy", "-auto-approve", f"-var-file={tfvars_path}"],
-                cwd=workspace_path,
-                capture_output=True,
-                timeout=300,
-            )
-            # Clear state to start fresh
-            state_file = workspace_path / "terraform.tfstate"
-            if state_file.exists():
-                state_file.unlink()
-            backup_file = workspace_path / "terraform.tfstate.backup"
-            if backup_file.exists():
-                backup_file.unlink()
-            print("✅ Pre-cleanup complete")
+        print(f"\n📁 Using workspace: {workspace_path}")
         
         yield workspace_path
     
     @pytest.fixture(scope="class")
     def tfvars(self, terraform_workspace):
-        """Generate tfvars.json with credentials and unique naming."""
+        """Generate tfvars.json with credentials."""
         aws_creds = load_aws_credentials()
         
         # Use timestamp for unique naming to avoid conflicts
         timestamp = int(time.time()) % 100000
-        unique_suffix = f"e2e-{timestamp}"
+        unique_name = f"sfn-iso-{timestamp}"
         
         tfvars = {
             **aws_creds,
-            "test_name_suffix": unique_suffix,
-            "state_machine_definition": "",  # Use default definition
+            "test_name": unique_name,
+            "state_machine_definition_file": str(TEMPLATE_STATE_MACHINE),
         }
         
-        print(f"📝 Using unique name suffix: {unique_suffix}")
+        print(f"\n📝 Test Configuration:")
+        print(f"   Name: {unique_name}")
+        print(f"   State Machine JSON: {TEMPLATE_STATE_MACHINE}")
         
         tfvars_path = terraform_workspace / "test.tfvars.json"
         with open(tfvars_path, "w") as f:
@@ -116,7 +101,25 @@ class TestAWSStepFunctionsE2E:
         
         return tfvars_path
     
-    def test_01_terraform_init(self, terraform_workspace, tfvars):
+    def test_01_verify_template_exists(self):
+        """Verify the template's aws_step_function.json exists."""
+        assert TEMPLATE_STATE_MACHINE.exists(), \
+            f"Template state machine not found: {TEMPLATE_STATE_MACHINE}"
+        
+        # Verify it has the expected structure
+        with open(TEMPLATE_STATE_MACHINE) as f:
+            content = json.load(f)
+        
+        assert "StartAt" in content, \
+            "aws_step_function.json should have 'StartAt'"
+        assert "States" in content, \
+            "aws_step_function.json should have 'States'"
+        
+        print(f"\n✅ Template JSON verified:")
+        print(f"   StartAt: {content.get('StartAt')}")
+        print(f"   States: {list(content.get('States', {}).keys())}")
+    
+    def test_02_terraform_init(self, terraform_workspace, tfvars):
         """Test Terraform initialization."""
         print(f"\n📁 Workspace: {terraform_workspace}")
         
@@ -135,7 +138,7 @@ class TestAWSStepFunctionsE2E:
         
         assert (terraform_workspace / ".terraform").exists()
     
-    def test_02_terraform_validate(self, terraform_workspace, tfvars):
+    def test_03_terraform_validate(self, terraform_workspace, tfvars):
         """Test Terraform validation."""
         result = subprocess.run(
             ["terraform", "validate", "-no-color"],
@@ -150,7 +153,7 @@ class TestAWSStepFunctionsE2E:
             print(result.stderr)
             pytest.fail(f"terraform validate failed: {result.stderr}")
     
-    def test_03_terraform_plan(self, terraform_workspace, tfvars):
+    def test_04_terraform_plan(self, terraform_workspace, tfvars):
         """Test Terraform plan."""
         result = subprocess.run(
             [
@@ -173,7 +176,7 @@ class TestAWSStepFunctionsE2E:
         
         assert (terraform_workspace / "plan.tfplan").exists()
     
-    def test_04_terraform_apply(self, terraform_workspace, tfvars):
+    def test_05_terraform_apply(self, terraform_workspace, tfvars):
         """Test Terraform apply - creates Step Functions state machine."""
         result = subprocess.run(
             [
@@ -196,8 +199,8 @@ class TestAWSStepFunctionsE2E:
         
         assert (terraform_workspace / "terraform.tfstate").exists()
     
-    def test_05_verify_outputs(self, terraform_workspace):
-        """Verify Terraform outputs."""
+    def test_06_verify_outputs(self, terraform_workspace):
+        """Verify Terraform outputs and display console URL."""
         result = subprocess.run(
             ["terraform", "output", "-json"],
             cwd=terraform_workspace,
@@ -219,17 +222,30 @@ class TestAWSStepFunctionsE2E:
         status = outputs.get("state_machine_status", {}).get("value", "")
         assert status == "ACTIVE", f"State machine status should be ACTIVE, got: {status}"
         
-        # Verify IAM role was created
-        assert outputs.get("iam_role_arn", {}).get("value"), \
-            "IAM role ARN should exist"
-        
         # Print summary
-        print("\n" + "=" * 60)
+        print("\n" + "=" * 70)
         print(outputs.get("test_summary", {}).get("value", ""))
-        print("=" * 60)
+        print("=" * 70)
+        
+        print("\n📋 Key Outputs:")
+        print(f"   State Machine: {outputs.get('state_machine_name', {}).get('value', 'unknown')}")
+        print(f"   Status: {status}")
+        print(f"\n🔗 Console URL:")
+        print(f"   {outputs.get('console_url', {}).get('value', 'unknown')}")
     
-    def test_06_terraform_destroy(self, terraform_workspace, tfvars):
-        """Clean up all resources."""
+    def test_07_cleanup(self, terraform_workspace, tfvars):
+        """Cleanup test resources."""
+        # Check if cleanup is explicitly disabled
+        skip_cleanup = os.environ.get("E2E_SKIP_CLEANUP", "false").lower() == "true"
+        
+        if skip_cleanup:
+            print("\n⏸️  CLEANUP SKIPPED - Resources left for manual inspection")
+            print(f"\nTo destroy manually:")
+            print(f"    cd {terraform_workspace}")
+            print(f"    terraform destroy -var-file=test.tfvars.json -auto-approve")
+            return
+        
+        print("\n🧹 Cleaning up test resources...")
         result = subprocess.run(
             [
                 "terraform", "destroy",

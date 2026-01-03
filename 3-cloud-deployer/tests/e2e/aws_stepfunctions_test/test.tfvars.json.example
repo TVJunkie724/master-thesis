@@ -1,7 +1,7 @@
 {
-  "aws_access_key_id": "XXXXXXXXXXXXXXXXXXXX",
-  "aws_secret_access_key": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+  "aws_access_key_id": "YOUR_AWS_ACCESS_KEY_ID",
+  "aws_secret_access_key": "YOUR_AWS_SECRET_ACCESS_KEY",
   "aws_region": "eu-central-1",
-  "test_name_suffix": "e2e",
-  "state_machine_definition": ""
+  "test_name": "sfn-iso-e2e",
+  "state_machine_definition_file": "/app/upload/template/state_machines/aws_step_function.json"
 }

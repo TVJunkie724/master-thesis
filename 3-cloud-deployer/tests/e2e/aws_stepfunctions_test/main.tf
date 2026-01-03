@@ -1,9 +1,10 @@
-# AWS Step Functions E2E Test
-# 
-# This is a focused Terraform config to test ONLY:
-# - AWS Step Functions state machine creation
-# - State machine definition file upload
-# - IAM role and policy for Step Functions
+# AWS Step Functions Isolated E2E Test
+#
+# This Terraform config replicates the PRODUCTION deployment pattern:
+# 1. Creates IAM role for Step Functions
+# 2. Creates Step Functions state machine with definition from JSON file
+#
+# This matches the production code in aws_compute.tf
 #
 # Usage:
 #   cd tests/e2e/aws_stepfunctions_test
@@ -43,14 +44,14 @@ variable "aws_region" {
   default     = "eu-central-1"
 }
 
-variable "test_name_suffix" {
-  description = "Suffix for resource names (for unique naming)"
+variable "test_name" {
+  description = "Name for the test resources (must be globally unique)"
   type        = string
-  default     = "e2e"
+  default     = "sfn-iso-e2e"
 }
 
-variable "state_machine_definition" {
-  description = "Path to state machine definition JSON file (optional, uses default if not provided)"
+variable "state_machine_definition_file" {
+  description = "Path to state machine definition JSON file (optional, uses default if empty)"
   type        = string
   default     = ""
 }
@@ -66,43 +67,11 @@ provider "aws" {
 }
 
 # =============================================================================
-# Locals
-# =============================================================================
-
-locals {
-  name_prefix = "sfn-${var.test_name_suffix}"
-  
-  # Default state machine definition if not provided via file
-  default_definition = {
-    Comment = "E2E Test State Machine"
-    StartAt = "WaitState"
-    States = {
-      WaitState = {
-        Type    = "Wait"
-        Seconds = 1
-        Next    = "PassState"
-      }
-      PassState = {
-        Type   = "Pass"
-        Result = {
-          message = "Hello from Step Functions E2E Test!"
-          timestamp = "$$.State.EnteredTime"
-        }
-        End = true
-      }
-    }
-  }
-  
-  # Load from file if provided, otherwise use default
-  state_machine_definition = var.state_machine_definition != "" ? file(var.state_machine_definition) : jsonencode(local.default_definition)
-}
-
-# =============================================================================
 # IAM Role for Step Functions
 # =============================================================================
 
 resource "aws_iam_role" "step_functions" {
-  name = "${local.name_prefix}-role"
+  name = "${var.test_name}-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -116,13 +85,13 @@ resource "aws_iam_role" "step_functions" {
   })
 
   tags = {
-    Purpose = "step-functions-e2e-test"
+    Purpose = "step-functions-isolated-e2e-test"
   }
 }
 
-# CloudWatch Logs policy for Step Functions
-resource "aws_iam_role_policy" "step_functions_logs" {
-  name = "${local.name_prefix}-logs-policy"
+# Lambda invoke policy (allows invoking functions for test workflows)
+resource "aws_iam_role_policy" "step_functions_lambda" {
+  name = "${var.test_name}-lambda-policy"
   role = aws_iam_role.step_functions.id
 
   policy = jsonencode({
@@ -130,14 +99,7 @@ resource "aws_iam_role_policy" "step_functions_logs" {
     Statement = [{
       Effect = "Allow"
       Action = [
-        "logs:CreateLogDelivery",
-        "logs:GetLogDelivery",
-        "logs:UpdateLogDelivery",
-        "logs:DeleteLogDelivery",
-        "logs:ListLogDeliveries",
-        "logs:PutResourcePolicy",
-        "logs:DescribeResourcePolicies",
-        "logs:DescribeLogGroups"
+        "lambda:InvokeFunction"
       ]
       Resource = "*"
     }]
@@ -145,37 +107,28 @@ resource "aws_iam_role_policy" "step_functions_logs" {
 }
 
 # =============================================================================
-# CloudWatch Log Group for Step Functions
-# =============================================================================
-
-resource "aws_cloudwatch_log_group" "step_functions" {
-  name              = "/aws/states/${local.name_prefix}"
-  retention_in_days = 1  # Minimal retention for test
-  
-  tags = {
-    Purpose = "step-functions-e2e-test"
-  }
-}
-
-# =============================================================================
 # Step Functions State Machine
 # =============================================================================
 
 resource "aws_sfn_state_machine" "test" {
-  name     = local.name_prefix
+  name     = var.test_name
   role_arn = aws_iam_role.step_functions.arn
-  type     = "STANDARD"  # or "EXPRESS" for short-duration workflows
 
-  definition = local.state_machine_definition
-
-  logging_configuration {
-    log_destination        = "${aws_cloudwatch_log_group.step_functions.arn}:*"
-    include_execution_data = true
-    level                  = "ALL"
-  }
+  # Load definition from file if provided, otherwise use default (matches production pattern)
+  definition = var.state_machine_definition_file != "" ? file(var.state_machine_definition_file) : jsonencode({
+    Comment = "Test Step Functions workflow"
+    StartAt = "PassState"
+    States = {
+      PassState = {
+        Type   = "Pass"
+        Result = { message = "Hello from Step Functions E2E Test!" }
+        End    = true
+      }
+    }
+  })
 
   tags = {
-    Purpose = "step-functions-e2e-test"
+    Purpose = "step-functions-isolated-e2e-test"
   }
 }
 
@@ -203,22 +156,35 @@ output "iam_role_arn" {
   value       = aws_iam_role.step_functions.arn
 }
 
-output "log_group_name" {
-  description = "CloudWatch Log Group for state machine logs"
-  value       = aws_cloudwatch_log_group.step_functions.name
+output "console_url" {
+  description = "AWS Console URL for the state machine"
+  value       = "https://${var.aws_region}.console.aws.amazon.com/states/home?region=${var.aws_region}#/statemachines/view/${aws_sfn_state_machine.test.arn}"
 }
 
 output "test_summary" {
   description = "Summary of the test"
   value = <<-EOT
-    ✅ AWS Step Functions E2E Test Complete
     
-    State Machine Name: ${aws_sfn_state_machine.test.name}
-    State Machine ARN: ${aws_sfn_state_machine.test.arn}
+    ============================================================
+    AWS STEP FUNCTIONS ISOLATED E2E TEST COMPLETE
+    ============================================================
+    
+    State Machine: ${aws_sfn_state_machine.test.name}
+    ARN: ${aws_sfn_state_machine.test.arn}
     Status: ${aws_sfn_state_machine.test.status}
     Region: ${var.aws_region}
     
-    You can execute the state machine from the AWS Console or CLI:
+    VERIFICATION:
+    1. Open the Console URL below
+    2. Verify the state machine shows the workflow
+    3. Optionally run an execution to test
+    
+    Console URL:
+    https://${var.aws_region}.console.aws.amazon.com/states/home?region=${var.aws_region}#/statemachines/view/${aws_sfn_state_machine.test.arn}
+    
+    CLI Execution:
     aws stepfunctions start-execution --state-machine-arn ${aws_sfn_state_machine.test.arn}
+    
+    ============================================================
   EOT
 }
