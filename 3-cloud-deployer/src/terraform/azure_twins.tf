@@ -157,17 +157,18 @@ resource "azurerm_role_assignment" "adt_user_owner" {
 }
 
 # ==============================================================================
-# RBAC: Platform User → Storage Blob Data Reader
-# (Required for user to view 3D scenes in 3D Scenes Studio)
+# RBAC: Platform User → Storage Blob Data Contributor
+# (Required for user to BUILD 3D scenes in 3D Scenes Studio)
+# Per Azure docs: "For building 3D scenes, you need Storage Blob Data Contributor"
 # ==============================================================================
 
-resource "azurerm_role_assignment" "scenes_user_reader" {
+resource "azurerm_role_assignment" "scenes_user_contributor" {
   count                = local.l4_azure_user_enabled && local.l4_azure_scene_enabled ? 1 : 0
   scope                = azurerm_storage_account.main[0].id
-  role_definition_name = "Storage Blob Data Reader"
+  role_definition_name = "Storage Blob Data Contributor"
   
   # Use deterministic UUID for idempotency
-  name                 = uuidv5("dns", "${var.platform_user_email}-scenes-reader")
+  name                 = uuidv5("dns", "${var.platform_user_email}-scenes-contributor")
   principal_id         = local.platform_user_object_id
 
   depends_on = [azuread_user.platform_user]

@@ -215,6 +215,27 @@ class TestAzureAdtIntegratedE2E:
         print(f"  ✓ Loaded hierarchy: {model_count} models, {twin_count} twins, {rel_count} relationships")
         
         # ==========================================
+        # PHASE 2.5: Load User Config
+        # ==========================================
+        print("\n[PHASE 2.5] Loading user config...")
+        
+        user_config_path = project_path / "config_user.json"
+        platform_user_email = ""
+        platform_user_first_name = "Platform"
+        platform_user_last_name = "Admin"
+        
+        if user_config_path.exists():
+            with open(user_config_path) as f:
+                user_config = json.load(f)
+            # Support both new (platform_user_*) and legacy (admin_*) field names
+            platform_user_email = user_config.get("platform_user_email") or user_config.get("admin_email", "")
+            platform_user_first_name = user_config.get("platform_user_first_name") or user_config.get("admin_first_name", "Platform")
+            platform_user_last_name = user_config.get("platform_user_last_name") or user_config.get("admin_last_name", "Admin")
+            print(f"  ✓ Loaded user config: {platform_user_email}")
+        else:
+            print(f"  ⚠ No config_user.json found, skipping user creation")
+        
+        # ==========================================
         # PHASE 3: Build Terraform tfvars
         # ==========================================
         print("\n[PHASE 3] Building Terraform tfvars...")
@@ -227,6 +248,9 @@ class TestAzureAdtIntegratedE2E:
             "azure_region": azure_creds.get("azure_region", "westeurope"),
             "test_name_suffix": "e2e-full",
             "scene_assets_path": str(SCENE_ASSETS_PATH),
+            "platform_user_email": platform_user_email,
+            "platform_user_first_name": platform_user_first_name,
+            "platform_user_last_name": platform_user_last_name,
         }
         
         tfvars_path = TERRAFORM_DIR / "test.tfvars.json"

@@ -33,6 +33,13 @@ def main():
         "azure-logicapp-isolated": ("tests/e2e/azure/test_azure_logicapp_isolated_e2e.py", "tests/e2e/azure"),
         "azure-zip": ("tests/e2e/test_azure_functions_only.py", "tests/e2e"),
         "multicloud": ("tests/e2e/multicloud/test_multicloud_e2e.py", "tests/e2e/multicloud"),
+        # Deployer scenario tests (one at a time)
+        "deployer-gcp-azure": ("tests/e2e/multicloud/test_scenario_gcp_azure.py", "tests/e2e/multicloud"),
+        "deployer-gcp-aws": ("tests/e2e/multicloud/test_scenario_gcp_aws.py", "tests/e2e/multicloud"),
+        "deployer-aws-azure": ("tests/e2e/multicloud/test_scenario_aws_azure.py", "tests/e2e/multicloud"),
+        "deployer-aws-gcp": ("tests/e2e/multicloud/test_scenario_aws_gcp.py", "tests/e2e/multicloud"),
+        "deployer-azure-aws": ("tests/e2e/multicloud/test_scenario_azure_aws.py", "tests/e2e/multicloud"),
+        "deployer-azure-gcp": ("tests/e2e/multicloud/test_scenario_azure_gcp.py", "tests/e2e/multicloud"),
     }
     
     if provider not in test_map:

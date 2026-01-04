@@ -733,6 +733,80 @@ def aws_terraform_e2e_project_path(template_project_path, aws_terraform_e2e_test
 
 
 # ==============================================================================
+# AWS TwinMaker (L4) Focused E2E Test Fixtures
+# ==============================================================================
+
+@pytest.fixture(scope="session")
+def aws_twinmaker_e2e_test_id():
+    """
+    Fixed, deterministic ID for AWS TwinMaker Integrated E2E test runs.
+    
+    This is specifically for the focused TwinMaker test that combines:
+    - Terraform deployment (aws_twinmaker_test/main.tf)
+    - SDK post-deployment operations (entities, component types)
+    
+    The ID is kept short to comply with AWS naming limits.
+    """
+    return "tf-e2e-tm"
+
+
+@pytest.fixture(scope="session")
+def aws_twinmaker_e2e_project_path(template_project_path, aws_twinmaker_e2e_test_id):
+    """
+    Create or reuse AWS TwinMaker Integrated E2E test project in a FIXED directory.
+    
+    Uses e2e_state directory to ensure Terraform state persists across runs.
+    Configures ONLY L4 provider to AWS (focused TwinMaker test).
+    
+    Copies template hierarchy and scene assets for entity creation.
+    """
+    # Use FIXED directory next to test file for consistent state across runs
+    fixed_base_dir = Path(__file__).parent / "aws" / "e2e_state"
+    project_path = fixed_base_dir / aws_twinmaker_e2e_test_id
+    
+    if project_path.exists():
+        # Reuse existing directory (preserves terraform state)
+        print(f"\n[AWS TWINMAKER E2E] Reusing existing project: {project_path}")
+        print(f"[AWS TWINMAKER E2E] Terraform state will be preserved")
+    else:
+        # Fresh copy from template
+        fixed_base_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(template_project_path, project_path)
+        print(f"\n[AWS TWINMAKER E2E] Created NEW test project: {project_path}")
+    
+    # Always update config.json with unique twin name
+    config_path = project_path / "config.json"
+    with open(config_path, "r") as f:
+        config = json.load(f)
+    config["digital_twin_name"] = aws_twinmaker_e2e_test_id
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=2)
+    
+    # Configure ONLY L4 to AWS (focused TwinMaker test)
+    # Other layers set to "none" to indicate they're not part of this test
+    providers_path = project_path / "config_providers.json"
+    providers = {
+        "layer_1_provider": "none",
+        "layer_2_provider": "none",
+        "layer_3_hot_provider": "none",
+        "layer_3_cold_provider": "none",
+        "layer_3_archive_provider": "none",
+        "layer_4_provider": "aws",
+        "layer_5_provider": "none"
+    }
+    with open(providers_path, "w") as f:
+        json.dump(providers, f, indent=2)
+    
+    print(f"[AWS TWINMAKER E2E] Digital twin name: {aws_twinmaker_e2e_test_id}")
+    print(f"[AWS TWINMAKER E2E] L4-only test (AWS TwinMaker)")
+    
+    yield str(project_path)
+    
+    # NOTE: No cleanup - keep project for state persistence and manual verification
+    print(f"\n[AWS TWINMAKER E2E] Project retained at: {project_path}")
+
+
+# ==============================================================================
 # Multi-Cloud E2E Test Fixtures
 # ==============================================================================
 

@@ -34,6 +34,23 @@ class DeployerConfiguration(Base):
     payloads_json = Column(Text, nullable=True)
     payloads_validated = Column(Boolean, default=False)
     
+    # ===== SECTION 3: L2 User Functions =====
+    # Processor content per device (JSON: {device_id: python_code})
+    processor_contents = Column(Text, nullable=True)  # JSON string
+    processor_validated = Column(Text, nullable=True)  # JSON string: {device_id: bool}
+    
+    # Event feedback function
+    event_feedback_content = Column(Text, nullable=True)
+    event_feedback_validated = Column(Boolean, default=False)
+    
+    # Event action functions per event (JSON: {functionName: python_code})
+    event_action_contents = Column(Text, nullable=True)  # JSON string
+    event_action_validated = Column(Text, nullable=True)  # JSON string: {functionName: bool}
+    
+    # State machine / workflow definition
+    state_machine_content = Column(Text, nullable=True)
+    state_machine_validated = Column(Boolean, default=False)
+    
     # ===== TIMESTAMPS =====
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

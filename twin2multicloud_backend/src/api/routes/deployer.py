@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import httpx
+import json
 
 from src.models.database import get_db
 from src.models.twin import DigitalTwin
@@ -86,6 +87,23 @@ async def update_deployer_config(
         config.payloads_json = update.payloads_json
     if update.payloads_validated is not None:
         config.payloads_validated = update.payloads_validated
+    # Section 3: L2 User Functions
+    if update.processor_contents is not None:
+        config.processor_contents = json.dumps(update.processor_contents)
+    if update.processor_validated is not None:
+        config.processor_validated = json.dumps(update.processor_validated)
+    if update.event_feedback_content is not None:
+        config.event_feedback_content = update.event_feedback_content
+    if update.event_feedback_validated is not None:
+        config.event_feedback_validated = update.event_feedback_validated
+    if update.event_action_contents is not None:
+        config.event_action_contents = json.dumps(update.event_action_contents)
+    if update.event_action_validated is not None:
+        config.event_action_validated = json.dumps(update.event_action_validated)
+    if update.state_machine_content is not None:
+        config.state_machine_content = update.state_machine_content
+    if update.state_machine_validated is not None:
+        config.state_machine_validated = update.state_machine_validated
     
     db.commit()
     db.refresh(config)

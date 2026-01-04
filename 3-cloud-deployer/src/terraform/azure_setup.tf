@@ -51,7 +51,8 @@ resource "azurerm_storage_account" "main" {
   blob_properties {
     cors_rule {
       allowed_origins    = ["https://explorer.digitaltwins.azure.net"]
-      allowed_methods    = ["GET", "HEAD", "OPTIONS"]
+      # Include write methods for 3D Scene building (PUT for saving configs)
+      allowed_methods    = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "DELETE"]
       allowed_headers    = ["*"]
       exposed_headers    = ["*"]
       max_age_in_seconds = 3600

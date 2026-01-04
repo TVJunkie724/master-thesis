@@ -62,7 +62,6 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
       language: _getLanguage(),
     );
     _controller.addListener(_onTextChanged);
-    debugPrint('FileEditorBlock initState: ${widget.filename} isValidated=${widget.isValidated}');
     if (widget.isValidated) {
       _isValid = true;
       _validationMessage = 'Valid ✓';
@@ -100,7 +99,6 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
     // Sync validation state when BLoC state changes
     // (important for edit mode hydration and cascade clearing)
     if (widget.isValidated != oldWidget.isValidated) {
-      debugPrint('FileEditorBlock didUpdateWidget: ${widget.filename} isValidated changed: ${oldWidget.isValidated} -> ${widget.isValidated}');
       if (widget.isValidated) {
         setState(() { _isValid = true; _validationMessage = 'Valid ✓'; });
       } else {

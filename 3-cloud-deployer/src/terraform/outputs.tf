@@ -137,6 +137,60 @@ output "azure_3d_scenes_container_url" {
   )
 }
 
+output "azure_3d_scenes_studio_url" {
+  description = "Direct link to Azure 3D Scenes Studio for this ADT instance"
+  value = local.l4_azure_scene_enabled ? join("", [
+    "https://explorer.digitaltwins.azure.net/3dscenes?",
+    "adt-url=https://${azurerm_digital_twins_instance.main[0].host_name}&",
+    "storage-url=https://${azurerm_storage_account.main[0].name}.blob.core.windows.net/${azurerm_storage_container.scenes[0].name}"
+  ]) : null
+}
+
+output "azure_adt_portal_url" {
+  description = "Azure Portal link to ADT instance"
+  sensitive   = true
+  value = var.layer_4_provider == "azure" ? join("", [
+    "https://portal.azure.com/#@/resource/subscriptions/",
+    var.azure_subscription_id,
+    "/resourceGroups/",
+    "${var.digital_twin_name}-rg",
+    "/providers/Microsoft.DigitalTwins/digitalTwinsInstances/",
+    "${var.digital_twin_name}-adt/overview"
+  ]) : null
+}
+
+output "azure_storage_portal_url" {
+  description = "Azure Portal link to Storage Account"
+  sensitive   = true
+  value = local.deploy_azure ? join("", [
+    "https://portal.azure.com/#@/resource/subscriptions/",
+    var.azure_subscription_id,
+    "/resourceGroups/",
+    "${var.digital_twin_name}-rg",
+    "/providers/Microsoft.Storage/storageAccounts/",
+    replace("${var.digital_twin_name}st", "-", ""),
+    "/overview"
+  ]) : null
+}
+
+output "azure_adt_access_instructions" {
+  description = "How to access Azure Digital Twins and 3D Scenes Studio"
+  value = var.layer_4_provider == "azure" ? join("\n", [
+    "========== Azure Digital Twins Access ==========",
+    "ADT Instance: ${var.digital_twin_name}-adt",
+    "ADT Endpoint: https://${azurerm_digital_twins_instance.main[0].host_name}",
+    "",
+    "3D Scenes Studio: https://explorer.digitaltwins.azure.net/3dscenes",
+    "Storage Container: ${azurerm_storage_account.main[0].name}/${azurerm_storage_container.scenes[0].name}",
+    "",
+    "Platform User: ${var.platform_user_email}",
+    local.should_create_platform_user ? "Password: Run 'terraform output -raw azure_platform_user_password'" : "User: Existing (ADT Data Owner role assigned)",
+    "",
+    "Azure Portal: https://portal.azure.com",
+    "================================================="
+  ]) : null
+}
+
 # ==============================================================================
 # Azure L5 Visualization Outputs
 # ==============================================================================
