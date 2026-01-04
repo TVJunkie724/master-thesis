@@ -235,7 +235,11 @@ class TerraformDeployerStrategy:
     def destroy_all(
         self, 
         context: Optional['DeploymentContext'] = None,
-        sdk_fallback: str = "on_failure",
+        # NOTE: Default is "always" because Terraform may return exit code 0 (success) even
+        # when some resources fail to delete. This happens with AWS CloudControl provider
+        # (AWSCC) for TwinMaker workspaces that contain SDK-created entities. The SDK cleanup
+        # ensures all resources are properly removed regardless of Terraform's partial success.
+        sdk_fallback: str = "always",
         dry_run: bool = False,
         sdk_timeout_seconds: int = 300,
         sdk_max_retries: int = 2

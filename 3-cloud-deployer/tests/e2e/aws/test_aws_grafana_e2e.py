@@ -137,14 +137,12 @@ class TestAWSGrafanaE2E:
     @pytest.fixture(scope="class")
     def tfvars(self, terraform_workspace):
         """Generate tfvars.json with credentials and unique naming."""
-        import time
         
         aws_creds = load_aws_credentials()
         user_config = load_user_config()
         
-        # Use timestamp for unique naming to avoid conflicts
-        timestamp = int(time.time()) % 100000  # Last 5 digits for shorter name
-        unique_suffix = f"e2e-{timestamp}"
+        # Use static name for idempotent test runs (allows cleanup script to find it)
+        unique_suffix = "e2e-grafana"
         
         tfvars = {
             **aws_creds,

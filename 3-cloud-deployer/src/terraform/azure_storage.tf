@@ -177,7 +177,7 @@ resource "azurerm_linux_function_app" "l3" {
 
     # Storage account for cold/archive
     BLOB_CONNECTION_STRING    = local.azure_storage_connection_string
-    COLD_STORAGE_CONTAINER    = azurerm_storage_container.cold[0].name
+    COLD_STORAGE_CONTAINER    = var.layer_3_cold_provider == "azure" ? azurerm_storage_container.cold[0].name : ""
     ARCHIVE_STORAGE_CONTAINER = var.layer_3_archive_provider == "azure" ? azurerm_storage_container.archive[0].name : ""
 
     # Mover intervals (in days)

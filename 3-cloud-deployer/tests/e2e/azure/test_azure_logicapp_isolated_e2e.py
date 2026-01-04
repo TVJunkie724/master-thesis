@@ -83,9 +83,8 @@ class TestAzureLogicAppIsolatedE2E:
         """Generate tfvars.json with credentials."""
         azure_creds = load_azure_credentials()
         
-        # Use timestamp for unique naming to avoid conflicts
-        timestamp = int(time.time()) % 100000
-        unique_name = f"logicapp-iso-{timestamp}"
+        # Use static name for idempotent test runs (allows cleanup script to find it)
+        unique_name = "iso-logicapp"
         
         tfvars = {
             **azure_creds,

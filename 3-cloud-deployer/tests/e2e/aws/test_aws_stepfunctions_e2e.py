@@ -81,9 +81,8 @@ class TestAWSStepFunctionsIsolatedE2E:
         """Generate tfvars.json with credentials."""
         aws_creds = load_aws_credentials()
         
-        # Use timestamp for unique naming to avoid conflicts
-        timestamp = int(time.time()) % 100000
-        unique_name = f"sfn-iso-{timestamp}"
+        # Use static name for idempotent test runs (allows cleanup script to find it)
+        unique_name = "iso-stepfunc"
         
         tfvars = {
             **aws_creds,

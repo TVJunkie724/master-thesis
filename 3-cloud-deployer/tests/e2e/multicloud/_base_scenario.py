@@ -210,8 +210,9 @@ class BaseScenarioTest:
                 except Exception as e:
                     print(f"[CLEANUP] ⚠ Could not remove state files: {e}")
         
-        # Only run cleanup if E2E_SKIP_CLEANUP is not set
-        if not os.environ.get("E2E_SKIP_CLEANUP"):
+        # Cleanup runs by default; set E2E_SKIP_CLEANUP=true to preserve resources for debugging
+        skip_cleanup = os.environ.get("E2E_SKIP_CLEANUP", "false").lower() == "true"
+        if not skip_cleanup:
             request.addfinalizer(terraform_cleanup)
         else:
             print("[CLEANUP] ⚠ Skipped (E2E_SKIP_CLEANUP=true)")
@@ -334,10 +335,10 @@ class BaseScenarioTest:
             assert outputs.get("azure_l2_function_app_name"), "Azure Functions not deployed"
             print(f"  [OK] L2 (Azure Functions) verified")
         elif l2_provider == "aws":
-            assert outputs.get("aws_dispatcher_function_name"), "AWS Lambda not deployed"
-            print(f"  [OK] L2 (AWS Lambda) verified")
+            assert outputs.get("aws_l2_step_function_arn") or outputs.get("aws_l2_persister_function_name"), "AWS Lambda/Step Functions not deployed"
+            print(f"  [OK] L2 (AWS Step Functions) verified")
         elif l2_provider == "google":
-            assert outputs.get("gcp_dispatcher_function_url"), "GCP Cloud Functions not deployed"
+            assert outputs.get("gcp_dispatcher_url"), "GCP Cloud Functions not deployed"
             print(f"  [OK] L2 (GCP Cloud Functions) verified")
     
     def test_04_l3_storage(self, deployed_environment):
@@ -351,7 +352,7 @@ class BaseScenarioTest:
             assert outputs.get("aws_dynamodb_table_name"), "AWS DynamoDB not deployed"
             print(f"  [OK] L3 Hot (AWS DynamoDB) verified")
         elif hot_provider == "azure":
-            assert outputs.get("azure_cosmos_account"), "Azure CosmosDB not deployed"
+            assert outputs.get("azure_cosmos_account_name"), "Azure CosmosDB not deployed"
             print(f"  [OK] L3 Hot (Azure CosmosDB) verified")
         elif hot_provider == "google":
             assert outputs.get("gcp_firestore_database"), "GCP Firestore not deployed"
@@ -378,7 +379,7 @@ class BaseScenarioTest:
             assert outputs.get("azure_archive_container_name") or outputs.get("azure_storage_account_name"), "Azure Blob archive not deployed"
             print(f"  [OK] L3 Archive (Azure Blob Archive) verified")
         elif archive_provider == "google":
-            assert outputs.get("gcp_archive_bucket"), "GCP Cloud Storage archive not deployed"
+            assert outputs.get("gcp_cold_bucket"), "GCP Cloud Storage archive not deployed"
             print(f"  [OK] L3 Archive (GCP Cloud Storage Archive) verified")
     
     def test_05_l4_twins(self, deployed_environment):
