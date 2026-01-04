@@ -322,7 +322,7 @@ class BaseScenarioTest:
             assert outputs.get("azure_iothub_name"), "Azure IoT Hub not deployed"
             print(f"  [OK] L1 (Azure IoT Hub) verified")
         elif l1_provider == "aws":
-            assert outputs.get("aws_iot_endpoint"), "AWS IoT Core not deployed"
+            assert outputs.get("aws_iot_topic_rule_name"), "AWS IoT Core not deployed"
             print(f"  [OK] L1 (AWS IoT Core) verified")
     
     def test_03_l2_processing(self, deployed_environment):
