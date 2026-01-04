@@ -27,46 +27,11 @@ class Step3Deployer extends StatefulWidget {
 }
 
 class _Step3DeployerState extends State<Step3Deployer> {
-  // Section 3: User function file content state (local, for now - payloads migrated to BLoC)
-  String _processorsContent = '';
-  String _stateMachineContent = '';
-  String _sceneAssetsContent = '';
-  String _userConfigContent = '';
-
   ArchitectureLayerBuilder? _layerBuilder;
-  
-  // Track last hasData state for LOCAL fields to avoid spamming updates
-  // (payloads is now in BLoC state, checked via hasSection3Data getter)
-  // TODO: Remove when processors, stateMachine, etc. are migrated to BLoC
-  // ignore: unused_field
-  bool _lastLocalSection3HasData = false;
   
   // Breakpoint for showing flowchart column
   static const double _flowchartBreakpoint = 900;
   static const double _flowchartWidth = 450;
-  
-  /// Update Section 3 local content (payloads is in BLoC, not here)
-  void _updateSection3Content({
-    String? processors,
-    String? stateMachine,
-    String? sceneAssets,
-    String? userConfig,
-  }) {
-    setState(() {
-      if (processors != null) _processorsContent = processors;
-      if (stateMachine != null) _stateMachineContent = stateMachine;
-      if (sceneAssets != null) _sceneAssetsContent = sceneAssets;
-      if (userConfig != null) _userConfigContent = userConfig;
-    });
-    
-    // Track local data presence (payloads is tracked via BLoC getter)
-    final hasLocalData = _processorsContent.isNotEmpty ||
-        _stateMachineContent.isNotEmpty ||
-        _sceneAssetsContent.isNotEmpty ||
-        _userConfigContent.isNotEmpty;
-    
-    _lastLocalSection3HasData = hasLocalData;
-  }
 
   /// Validate config file via API (direct call, not via BLoC)
   /// This matches the CredentialSection pattern for inline validation feedback
@@ -102,6 +67,175 @@ class _Step3DeployerState extends State<Step3Deployer> {
       return {'valid': valid, 'message': message};
     } catch (e) {
       return {'valid': false, 'message': 'Validation failed: ${ApiErrorHandler.extractMessage(e)}'};
+    }
+  }
+
+  /// Build amber info box for unmet dependencies
+  Widget _buildDependencyInfoBox(String message) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: Colors.amber.shade700, size: 24),
+          const SizedBox(width: 16),
+          Expanded(child: Text(message, style: TextStyle(color: Colors.amber.shade900, fontSize: 13))),
+        ],
+      ),
+    );
+  }
+
+  /// Build grey info box for empty state
+  Widget _buildEmptyStateBox(String message) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: Colors.grey.shade500, size: 24),
+          const SizedBox(width: 16),
+          Expanded(child: Text(message, style: TextStyle(color: Colors.grey.shade600, fontSize: 13))),
+        ],
+      ),
+    );
+  }
+
+  /// Build dynamic L2 inputs based on Section 2 validation state
+  List<Widget> _buildL2DynamicInputs(BuildContext context, WizardState state) {
+    final widgets = <Widget>[];
+    
+    // === PROCESSORS ===
+    // Show one processor input per device from validated config_iot_devices.json
+    if (!state.configIotDevicesValidated) {
+      widgets.add(_buildDependencyInfoBox(
+        'Validate config_iot_devices.json first to enable processor function inputs.'
+      ));
+    } else if (state.deviceIds.isEmpty) {
+      widgets.add(_buildEmptyStateBox('No devices found in config_iot_devices.json'));
+    } else {
+      for (final deviceId in state.deviceIds) {
+        widgets.add(FileEditorBlock(
+          filename: 'processors/$deviceId/lambda_function.py',
+          description: 'Processor Lambda for $deviceId',
+          icon: Icons.code,
+          isHighlighted: true,
+          constraints: '• AWS Lambda handler with lambda_handler()\n• Processes incoming IoT events',
+          exampleContent: Step3Examples.processors,
+          initialContent: state.processorContents[deviceId] ?? '',
+          isValidated: state.processorValidated[deviceId] ?? false,
+          onContentChanged: (content) => context.read<WizardBloc>().add(
+            WizardProcessorContentChanged(deviceId, content),
+          ),
+          onValidate: (content) async => {'valid': true, 'message': 'Python syntax check pending'},
+        ));
+        widgets.add(const SizedBox(height: 16));
+      }
+    }
+    
+    // === FEEDBACK FUNCTION ===
+    if (state.shouldShowFeedbackFunction) {
+      widgets.add(FileEditorBlock(
+        filename: 'event-feedback/lambda_function.py',
+        description: 'Event feedback Lambda',
+        icon: Icons.feedback,
+        isHighlighted: true,
+        constraints: '• AWS Lambda with MQTT feedback capability\n• Sends feedback to IoT devices',
+        exampleContent: Step3Examples.processors,
+        initialContent: state.eventFeedbackContent ?? '',
+        isValidated: state.eventFeedbackValidated,
+        onContentChanged: (content) => context.read<WizardBloc>().add(
+          WizardEventFeedbackContentChanged(content),
+        ),
+        onValidate: (content) async => {'valid': true, 'message': 'Python syntax check pending'},
+      ));
+      widgets.add(const SizedBox(height: 16));
+    }
+    
+    // === EVENT ACTION FUNCTIONS ===
+    if (state.calcParams?.useEventChecking == true) {
+      if (!state.configEventsValidated) {
+        widgets.add(_buildDependencyInfoBox(
+          'Validate config_events.json first to enable event action function inputs.'
+        ));
+      } else if (state.eventActionFunctionNames.isEmpty) {
+        widgets.add(_buildEmptyStateBox('No event actions with functionName defined.'));
+      } else {
+        for (final funcName in state.eventActionFunctionNames) {
+          widgets.add(FileEditorBlock(
+            filename: 'event_actions/$funcName/lambda_function.py',
+            description: 'Event action: $funcName',
+            icon: Icons.bolt,
+            isHighlighted: true,
+            constraints: '• AWS Lambda triggered by EventBridge rules\n• Handles $funcName events',
+            exampleContent: Step3Examples.processors,
+            initialContent: state.eventActionContents[funcName] ?? '',
+            isValidated: state.eventActionValidated[funcName] ?? false,
+            onContentChanged: (content) => context.read<WizardBloc>().add(
+              WizardEventActionContentChanged(funcName, content),
+            ),
+            onValidate: (content) async => {'valid': true, 'message': 'Python syntax check pending'},
+          ));
+          widgets.add(const SizedBox(height: 16));
+        }
+      }
+    }
+    
+    // === STATE MACHINE ===
+    if (state.shouldShowStateMachine) {
+      final filename = state.stateMachineFilename ?? 'state_machine.json';
+      widgets.add(FileEditorBlock(
+        filename: filename,
+        description: 'Workflow / state machine definition',
+        icon: Icons.account_tree,
+        isHighlighted: true,
+        constraints: _getStateMachineConstraints(state.layer2Provider),
+        exampleContent: _getStateMachineExample(state.layer2Provider),
+        initialContent: state.stateMachineContent ?? '',
+        isValidated: state.stateMachineValidated,
+        onContentChanged: (content) => context.read<WizardBloc>().add(
+          WizardStateMachineContentChanged(content),
+        ),
+        onValidate: (content) async => {'valid': true, 'message': 'Schema validation pending'},
+      ));
+    }
+    
+    // If nothing to show (all conditions false), show info
+    if (widgets.isEmpty) {
+      widgets.add(_buildEmptyStateBox(
+        'Enable triggerNotificationWorkflow or returnFeedbackToDevice in Step 2 for L2 inputs.'
+      ));
+    }
+    
+    return widgets;
+  }
+  
+  String _getStateMachineConstraints(String? provider) {
+    switch (provider?.toLowerCase()) {
+      case 'aws':
+        return '• AWS Step Functions JSON\n• Amazon States Language';
+      case 'azure':
+        return '• Azure Logic App JSON\n• Workflow definition';
+      case 'gcp':
+        return '• Google Workflows YAML\n• Workflow syntax';
+      default:
+        return '• Provider-specific workflow definition';
+    }
+  }
+  
+  String _getStateMachineExample(String? provider) {
+    switch (provider?.toLowerCase()) {
+      case 'aws': return Step3Examples.awsStateMachine;
+      case 'azure': return Step3Examples.azureStateMachine;
+      case 'gcp': return Step3Examples.gcpStateMachine;
+      default: return Step3Examples.stateMachine;
     }
   }
 
@@ -333,32 +467,10 @@ class _Step3DeployerState extends State<Step3Deployer> {
         
         if (showFlowchart) _buildArrowRow(),
 
-        // L2 Row
-        _buildLayerRow(context, showFlowchart: showFlowchart, flowchart: layerBuilder.buildL2Layer(context), editors: [
-          FileEditorBlock(
-            filename: 'processors/',
-            description: 'User processor functions',
-            icon: Icons.code,
-            isHighlighted: true,
-            constraints: '• Python files with process() function\n• One file per device type',
-            exampleContent: Step3Examples.processors,
-            initialContent: _processorsContent,
-            onContentChanged: (content) => _updateSection3Content(processors: content),
-            onValidate: (content) => _validateFile('processors', content),
-          ),
-          const SizedBox(height: 16),
-          FileEditorBlock(
-            filename: 'state_machine.json',
-            description: 'State machine definition',
-            icon: Icons.account_tree,
-            isHighlighted: true,
-            constraints: '• AWS Step Functions / Azure Logic App / GCP Workflow',
-            exampleContent: Step3Examples.stateMachine,
-            initialContent: _stateMachineContent,
-            onContentChanged: (content) => _updateSection3Content(stateMachine: content),
-            onValidate: (content) => _validateFile('state_machine', content),
-          ),
-        ]),
+        // L2 Row (Dynamic)
+        _buildLayerRow(context, showFlowchart: showFlowchart, flowchart: layerBuilder.buildL2Layer(context), editors: 
+          _buildL2DynamicInputs(context, state),
+        ),
         
         if (showFlowchart) _buildArrowRow(),
 
@@ -378,8 +490,8 @@ class _Step3DeployerState extends State<Step3Deployer> {
             isHighlighted: true,
             constraints: '• 3DScenesConfiguration.json for Azure ADT',
             exampleContent: Step3Examples.sceneAssets,
-            initialContent: _sceneAssetsContent,
-            onContentChanged: (content) => _updateSection3Content(sceneAssets: content),
+            initialContent: '',  // TODO: Migrate to BLoC
+            onContentChanged: (_) {},  // TODO: Migrate to BLoC
             onValidate: (content) => _validateFile('scene_assets', content),
           ),
         ]),
@@ -395,8 +507,8 @@ class _Step3DeployerState extends State<Step3Deployer> {
             isHighlighted: true,
             constraints: '• Dashboard layout and panels',
             exampleContent: Step3Examples.userConfig,
-            initialContent: _userConfigContent,
-            onContentChanged: (content) => _updateSection3Content(userConfig: content),
+            initialContent: '',  // TODO: Migrate to BLoC
+            onContentChanged: (_) {},  // TODO: Migrate to BLoC
             onValidate: (content) => _validateFile('user_config', content),
           ),
         ]),

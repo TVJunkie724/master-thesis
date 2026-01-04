@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/colors.dart';
-import '../../utils/json_syntax_highlighter.dart';
 
 
 /// Split-view config block with visual summary on left and JSON on right.
@@ -133,16 +132,13 @@ class ConfigVisualizationBlock extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: SingleChildScrollView(
-                    child: SelectableText.rich(
-                      TextSpan(
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 11,
-                          height: 1.4,
-                        ),
-                        children: jsonContent.isEmpty 
-                            ? [const TextSpan(text: '// No content', style: TextStyle(color: Colors.grey))]
-                            : JsonSyntaxHighlighter.highlight(jsonContent),
+                    child: SelectableText(
+                      jsonContent.isEmpty ? '// No content' : jsonContent,
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                        height: 1.4,
+                        color: jsonContent.isEmpty ? Colors.grey : Colors.grey.shade400,
                       ),
                     ),
                   ),

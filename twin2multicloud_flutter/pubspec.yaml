@@ -63,6 +63,11 @@ dependencies:
   
   # Graph visualization for architecture flowchart
   graphview: ^1.5.1
+  
+  # Code editor with line numbers and syntax highlighting
+  flutter_code_editor: 0.3.5
+  flutter_highlight: ^0.7.0
+  highlight: ^0.7.0
 
 dev_dependencies:
   flutter_test:

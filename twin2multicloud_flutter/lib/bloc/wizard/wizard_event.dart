@@ -230,3 +230,79 @@ class WizardConfigValidationCompleted extends WizardEvent {
   @override
   List<Object?> get props => [configType, valid];
 }
+
+// ============================================================
+// STEP 3 SECTION 3: L2 USER FUNCTION EVENTS
+// ============================================================
+
+/// Processor content changed for a specific device
+class WizardProcessorContentChanged extends WizardEvent {
+  final String deviceId;
+  final String content;
+  const WizardProcessorContentChanged(this.deviceId, this.content);
+  @override
+  List<Object?> get props => [deviceId, content];
+}
+
+/// Event feedback function content changed
+class WizardEventFeedbackContentChanged extends WizardEvent {
+  final String content;
+  const WizardEventFeedbackContentChanged(this.content);
+  @override
+  List<Object?> get props => [content];
+}
+
+/// Event action function content changed
+class WizardEventActionContentChanged extends WizardEvent {
+  final String functionName;
+  final String content;
+  const WizardEventActionContentChanged(this.functionName, this.content);
+  @override
+  List<Object?> get props => [functionName, content];
+}
+
+/// State machine content changed
+class WizardStateMachineContentChanged extends WizardEvent {
+  final String content;
+  const WizardStateMachineContentChanged(this.content);
+  @override
+  List<Object?> get props => [content];
+}
+
+// ============================================================
+// STEP 3 SECTION 3: L2 VALIDATION COMPLETED EVENTS
+// ============================================================
+
+/// Processor validation completed
+class WizardProcessorValidationCompleted extends WizardEvent {
+  final String deviceId;
+  final bool valid;
+  const WizardProcessorValidationCompleted(this.deviceId, this.valid);
+  @override
+  List<Object?> get props => [deviceId, valid];
+}
+
+/// Event feedback validation completed
+class WizardEventFeedbackValidationCompleted extends WizardEvent {
+  final bool valid;
+  const WizardEventFeedbackValidationCompleted(this.valid);
+  @override
+  List<Object?> get props => [valid];
+}
+
+/// Event action validation completed
+class WizardEventActionValidationCompleted extends WizardEvent {
+  final String functionName;
+  final bool valid;
+  const WizardEventActionValidationCompleted(this.functionName, this.valid);
+  @override
+  List<Object?> get props => [functionName, valid];
+}
+
+/// State machine validation completed
+class WizardStateMachineValidationCompleted extends WizardEvent {
+  final bool valid;
+  const WizardStateMachineValidationCompleted(this.valid);
+  @override
+  List<Object?> get props => [valid];
+}

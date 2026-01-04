@@ -98,6 +98,27 @@ def process(payload: dict) -> dict:
   }
 }''';
 
+  /// AWS Step Functions state machine example
+  static const awsStateMachine = '''{"Comment": "AWS Step Functions IoT Workflow", "StartAt": "CheckEvent", "States": {"CheckEvent": {"Type": "Choice", "Choices": [{"Variable": "\$.eventType", "StringEquals": "alert", "Next": "SendNotification"}], "Default": "LogEvent"}, "SendNotification": {"Type": "Task", "Resource": "arn:aws:lambda:::function:notify", "End": true}, "LogEvent": {"Type": "Pass", "End": true}}}''';
+
+  /// Azure Logic App workflow example
+  static const azureStateMachine = '''{"triggers": {"manual": {"type": "Request", "kind": "Http"}}, "actions": {"CheckEvent": {"type": "If", "expression": "@equals(triggerBody()?['eventType'], 'alert')", "actions": {"SendNotification": {"type": "Http", "method": "POST", "uri": "https://api.example.com/notify"}}, "else": {"actions": {"LogEvent": {"type": "Compose", "inputs": "@triggerBody()"}}}}}}''';
+
+  /// Google Cloud Workflows YAML example
+  static const gcpStateMachine = '''main:
+  steps:
+    - checkEvent:
+        switch:
+          - condition: eventType == "alert"
+            next: sendNotification
+        next: logEvent
+    - sendNotification:
+        call: http.post
+        args:
+          url: https://api.example.com/notify
+    - logEvent:
+        return: "Event logged"''';
+
   static const sceneAssets = '''{
   "scenes": [
     {

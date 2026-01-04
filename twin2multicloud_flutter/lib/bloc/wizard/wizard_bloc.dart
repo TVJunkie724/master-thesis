@@ -68,6 +68,18 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     
     // === Step 3 Section 3: L1 Payloads ===
     on<WizardPayloadsChanged>(_onPayloadsChanged);
+    
+    // === Step 3 Section 3: L2 User Functions ===
+    on<WizardProcessorContentChanged>(_onProcessorContentChanged);
+    on<WizardEventFeedbackContentChanged>(_onEventFeedbackContentChanged);
+    on<WizardEventActionContentChanged>(_onEventActionContentChanged);
+    on<WizardStateMachineContentChanged>(_onStateMachineContentChanged);
+    
+    // === Step 3 Section 3: L2 Validation ===
+    on<WizardProcessorValidationCompleted>(_onProcessorValidationCompleted);
+    on<WizardEventFeedbackValidationCompleted>(_onEventFeedbackValidationCompleted);
+    on<WizardEventActionValidationCompleted>(_onEventActionValidationCompleted);
+    on<WizardStateMachineValidationCompleted>(_onStateMachineValidationCompleted);
   }
   
   // ============================================================
@@ -149,6 +161,15 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       // Section 3 L1
       String? payloadsJson;
       bool payloadsValidated = false;
+      // Section 3 L2
+      Map<String, String> processorContents = {};
+      Map<String, bool> processorValidated = {};
+      String? eventFeedbackContent;
+      bool eventFeedbackValidated = false;
+      Map<String, String> eventActionContents = {};
+      Map<String, bool> eventActionValidated = {};
+      String? stateMachineContent;
+      bool stateMachineValidated = false;
       
       try {
         final deployerConfig = await _api.getDeployerConfig(event.twinId);
@@ -161,6 +182,23 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         // Section 3 L1
         payloadsJson = deployerConfig['payloads_json'] as String?;
         payloadsValidated = deployerConfig['payloads_validated'] as bool? ?? false;
+        // Section 3 L2
+        if (deployerConfig['processor_contents'] != null) {
+          processorContents = Map<String, String>.from(deployerConfig['processor_contents'] as Map);
+        }
+        if (deployerConfig['processor_validated'] != null) {
+          processorValidated = Map<String, bool>.from(deployerConfig['processor_validated'] as Map);
+        }
+        eventFeedbackContent = deployerConfig['event_feedback_content'] as String?;
+        eventFeedbackValidated = deployerConfig['event_feedback_validated'] as bool? ?? false;
+        if (deployerConfig['event_action_contents'] != null) {
+          eventActionContents = Map<String, String>.from(deployerConfig['event_action_contents'] as Map);
+        }
+        if (deployerConfig['event_action_validated'] != null) {
+          eventActionValidated = Map<String, bool>.from(deployerConfig['event_action_validated'] as Map);
+        }
+        stateMachineContent = deployerConfig['state_machine_content'] as String?;
+        stateMachineValidated = deployerConfig['state_machine_validated'] as bool? ?? false;
       } catch (e) {
         // No deployer config yet, that's fine
       }
@@ -214,6 +252,15 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         // Section 3 L1 (hydrated)
         payloadsJson: payloadsJson,
         payloadsValidated: payloadsValidated,
+        // Section 3 L2 (hydrated)
+        processorContents: processorContents,
+        processorValidated: processorValidated,
+        eventFeedbackContent: eventFeedbackContent,
+        eventFeedbackValidated: eventFeedbackValidated,
+        eventActionContents: eventActionContents,
+        eventActionValidated: eventActionValidated,
+        stateMachineContent: stateMachineContent,
+        stateMachineValidated: stateMachineValidated,
         warningMessage: warningMessage,
       ));
     } catch (e) {
@@ -588,6 +635,15 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
           // Section 3 L1
           'payloads_json': state.payloadsJson,
           'payloads_validated': state.payloadsValidated,
+          // Section 3 L2
+          'processor_contents': state.processorContents,
+          'processor_validated': state.processorValidated,
+          'event_feedback_content': state.eventFeedbackContent,
+          'event_feedback_validated': state.eventFeedbackValidated,
+          'event_action_contents': state.eventActionContents,
+          'event_action_validated': state.eventActionValidated,
+          'state_machine_content': state.stateMachineContent,
+          'state_machine_validated': state.stateMachineValidated,
         });
       }
       
@@ -666,8 +722,18 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     // User chose to keep new calculation - clear Section 3 data explicitly
     emit(state.copyWith(
       step3Invalidated: false,
+      // L1
       payloadsJson: null,
       payloadsValidated: false,
+      // L2
+      processorContents: const {},
+      processorValidated: const {},
+      eventFeedbackContent: null,
+      eventFeedbackValidated: false,
+      eventActionContents: const {},
+      eventActionValidated: const {},
+      stateMachineContent: null,
+      stateMachineValidated: false,
     ));
   }
   
@@ -684,31 +750,40 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   
   // Combined handlers to avoid race condition
   Future<void> _onProceedAndSave(WizardProceedAndSave event, Emitter<WizardState> emit) async {
-    // Atomically: clear invalidation + clear Section 3 data + save
+    // Atomically: clear invalidation + clear Section 3 data (L1+L2) + save
     emit(state.copyWith(
       step3Invalidated: false,
-      payloadsJson: null,
-      payloadsValidated: false,
+      payloadsJson: null, payloadsValidated: false,
+      processorContents: const {}, processorValidated: const {},
+      eventFeedbackContent: null, eventFeedbackValidated: false,
+      eventActionContents: const {}, eventActionValidated: const {},
+      stateMachineContent: null, stateMachineValidated: false,
     ));
     await _onSaveDraft(const WizardSaveDraft(), emit);
   }
   
   void _onProceedAndNext(WizardProceedAndNext event, Emitter<WizardState> emit) {
-    // Atomically: clear invalidation + clear Section 3 data + next
+    // Atomically: clear invalidation + clear Section 3 data (L1+L2) + next
     emit(state.copyWith(
       step3Invalidated: false,
-      payloadsJson: null,
-      payloadsValidated: false,
+      payloadsJson: null, payloadsValidated: false,
+      processorContents: const {}, processorValidated: const {},
+      eventFeedbackContent: null, eventFeedbackValidated: false,
+      eventActionContents: const {}, eventActionValidated: const {},
+      stateMachineContent: null, stateMachineValidated: false,
     ));
     _onNextStep(const WizardNextStep(), emit);
   }
   
   void _onClearInvalidation(WizardClearInvalidation event, Emitter<WizardState> emit) {
-    // Clear invalidation and Section 3 data
+    // Clear invalidation and Section 3 data (L1+L2)
     emit(state.copyWith(
       step3Invalidated: false,
-      payloadsJson: null,
-      payloadsValidated: false,
+      payloadsJson: null, payloadsValidated: false,
+      processorContents: const {}, processorValidated: const {},
+      eventFeedbackContent: null, eventFeedbackValidated: false,
+      eventActionContents: const {}, eventActionValidated: const {},
+      stateMachineContent: null, stateMachineValidated: false,
       clearWarning: true,
     ));
   }
@@ -721,6 +796,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     emit(state.copyWith(
       configEventsJson: event.content,
       configEventsValidated: false, // Reset validation on content change
+      // CASCADE: Clear event action content that depends on function names
+      eventActionContents: const {},
+      eventActionValidated: const {},
       hasUnsavedChanges: true,
     ));
   }
@@ -729,6 +807,11 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     emit(state.copyWith(
       configIotDevicesJson: event.content,
       configIotDevicesValidated: false, // Reset validation on content change
+      // CASCADE: Clear L2 content that depends on device IDs
+      processorContents: const {},
+      processorValidated: const {},
+      eventFeedbackContent: null,
+      eventFeedbackValidated: false,
       hasUnsavedChanges: true,
     ));
   }
@@ -808,5 +891,73 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       payloadsValidated: false,  // Reset validation on content change
       hasUnsavedChanges: true,
     ));
+  }
+  
+  // ============================================================
+  // STEP 3 SECTION 3: L2 USER FUNCTION HANDLERS
+  // ============================================================
+
+  void _onProcessorContentChanged(WizardProcessorContentChanged event, Emitter<WizardState> emit) {
+    final updated = Map<String, String>.from(state.processorContents);
+    updated[event.deviceId] = event.content;
+    final validationUpdated = Map<String, bool>.from(state.processorValidated);
+    validationUpdated[event.deviceId] = false; // Clear validation on change
+    emit(state.copyWith(
+      processorContents: updated,
+      processorValidated: validationUpdated,
+      hasUnsavedChanges: true,
+    ));
+  }
+
+  void _onEventFeedbackContentChanged(WizardEventFeedbackContentChanged event, Emitter<WizardState> emit) {
+    emit(state.copyWith(
+      eventFeedbackContent: event.content,
+      eventFeedbackValidated: false,
+      hasUnsavedChanges: true,
+    ));
+  }
+
+  void _onEventActionContentChanged(WizardEventActionContentChanged event, Emitter<WizardState> emit) {
+    final updated = Map<String, String>.from(state.eventActionContents);
+    updated[event.functionName] = event.content;
+    final validationUpdated = Map<String, bool>.from(state.eventActionValidated);
+    validationUpdated[event.functionName] = false;
+    emit(state.copyWith(
+      eventActionContents: updated,
+      eventActionValidated: validationUpdated,
+      hasUnsavedChanges: true,
+    ));
+  }
+
+  void _onStateMachineContentChanged(WizardStateMachineContentChanged event, Emitter<WizardState> emit) {
+    emit(state.copyWith(
+      stateMachineContent: event.content,
+      stateMachineValidated: false,
+      hasUnsavedChanges: true,
+    ));
+  }
+
+  // ============================================================
+  // STEP 3 SECTION 3: L2 VALIDATION HANDLERS
+  // ============================================================
+
+  void _onProcessorValidationCompleted(WizardProcessorValidationCompleted event, Emitter<WizardState> emit) {
+    final updated = Map<String, bool>.from(state.processorValidated);
+    updated[event.deviceId] = event.valid;
+    emit(state.copyWith(processorValidated: updated));
+  }
+
+  void _onEventFeedbackValidationCompleted(WizardEventFeedbackValidationCompleted event, Emitter<WizardState> emit) {
+    emit(state.copyWith(eventFeedbackValidated: event.valid));
+  }
+
+  void _onEventActionValidationCompleted(WizardEventActionValidationCompleted event, Emitter<WizardState> emit) {
+    final updated = Map<String, bool>.from(state.eventActionValidated);
+    updated[event.functionName] = event.valid;
+    emit(state.copyWith(eventActionValidated: updated));
+  }
+
+  void _onStateMachineValidationCompleted(WizardStateMachineValidationCompleted event, Emitter<WizardState> emit) {
+    emit(state.copyWith(stateMachineValidated: event.valid));
   }
 }

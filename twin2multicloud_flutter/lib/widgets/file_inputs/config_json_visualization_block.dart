@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../utils/api_error_handler.dart';
-import '../../utils/json_syntax_highlighter.dart';
 
 /// Split-view config block for config.json with:
 /// - Static fields from previous steps (mode, storage days)

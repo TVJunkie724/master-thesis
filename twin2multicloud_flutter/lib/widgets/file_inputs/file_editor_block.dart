@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_code_editor/flutter_code_editor.dart';
+import 'package:flutter_highlight/themes/monokai-sublime.dart';
+import 'package:highlight/highlight_core.dart' show Mode;
+import 'package:highlight/languages/json.dart';
+import 'package:highlight/languages/python.dart';
+import 'package:highlight/languages/yaml.dart';
 import '../../utils/api_error_handler.dart';
 import '../../utils/file_reader.dart';
-import '../../utils/json_syntax_highlighter.dart';
 
 /// A file editor block for Step 3 configuration files.
 /// 
 /// Layout: Code editor (2/3) | Buttons column (1/3)
-/// Similar to CredentialSection but for file editing.
+/// Uses flutter_code_editor for line numbers and syntax highlighting.
 class FileEditorBlock extends StatefulWidget {
   final String filename;
   final String description;
@@ -19,7 +24,7 @@ class FileEditorBlock extends StatefulWidget {
   final bool isValidated;  // From BLoC - persisted validation state
   final Function(String)? onContentChanged;
   final Future<Map<String, dynamic>> Function(String)? onValidate;
-  final bool autoValidateOnUpload;  // NEW: Auto-validate after file upload
+  final bool autoValidateOnUpload;
   
   const FileEditorBlock({
     super.key,
@@ -33,7 +38,7 @@ class FileEditorBlock extends StatefulWidget {
     this.isValidated = false,
     this.onContentChanged,
     this.onValidate,
-    this.autoValidateOnUpload = false,  // Default: false for backward compat
+    this.autoValidateOnUpload = false,
   });
   
   @override
@@ -41,37 +46,83 @@ class FileEditorBlock extends StatefulWidget {
 }
 
 class _FileEditorBlockState extends State<FileEditorBlock> {
-  late TextEditingController _controller;
+  late CodeController _controller;
   bool _isValidating = false;
   bool? _isValid;
   String? _validationMessage;
-  double _editorHeight = 200; // Initial height, resizable
+  double _editorHeight = 200;
   static const double _minEditorHeight = 120;
-  
   static const Color editableColor = Color(0xFFD81B60);
   
   @override
   void initState() {
     super.initState();
-    // Use JSON highlighter for .json files
-    if (_isJsonFile) {
-      _controller = JsonEditingController(text: widget.initialContent ?? '');
-    } else {
-      _controller = TextEditingController(text: widget.initialContent ?? '');
-    }
-    // Initialize validation state from BLoC (persists across navigation)
+    _controller = CodeController(
+      text: widget.initialContent ?? '',
+      language: _getLanguage(),
+    );
+    _controller.addListener(_onTextChanged);
+    debugPrint('FileEditorBlock initState: ${widget.filename} isValidated=${widget.isValidated}');
     if (widget.isValidated) {
       _isValid = true;
       _validationMessage = 'Valid ✓';
     }
   }
   
-  bool get _isJsonFile => widget.filename.endsWith('.json');
+  /// Handle text changes - reset validation and notify parent
+  void _onTextChanged() {
+    final currentText = _controller.fullText;
+    // Skip notification if content matches what BLoC already has (prevents reset during load)
+    if (currentText == widget.initialContent) return;
+    
+    if (_isValid != null) {
+      setState(() {
+        _isValid = null;
+        _validationMessage = null;
+      });
+    }
+    widget.onContentChanged?.call(currentText);
+  }
+  
+  /// Sync controller when widget.initialContent changes (BLoC hydration/clearing)
+  @override
+  void didUpdateWidget(FileEditorBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialContent != oldWidget.initialContent && 
+        widget.initialContent != _controller.fullText) {
+      _controller.removeListener(_onTextChanged);
+      _controller.text = widget.initialContent ?? '';
+      _controller.addListener(_onTextChanged);
+    }
+    if (widget.filename != oldWidget.filename) {
+      _controller.language = _getLanguage();
+    }
+    // Sync validation state when BLoC state changes
+    // (important for edit mode hydration and cascade clearing)
+    if (widget.isValidated != oldWidget.isValidated) {
+      debugPrint('FileEditorBlock didUpdateWidget: ${widget.filename} isValidated changed: ${oldWidget.isValidated} -> ${widget.isValidated}');
+      if (widget.isValidated) {
+        setState(() { _isValid = true; _validationMessage = 'Valid ✓'; });
+      } else {
+        setState(() { _isValid = null; _validationMessage = null; });
+      }
+    }
+  }
   
   @override
   void dispose() {
+    _controller.removeListener(_onTextChanged);
     _controller.dispose();
     super.dispose();
+  }
+  
+  /// Get language for syntax highlighting based on filename
+  Mode? _getLanguage() {
+    final filename = widget.filename.toLowerCase();
+    if (filename.endsWith('.json')) return json;
+    if (filename.endsWith('.py')) return python;
+    if (filename.endsWith('.yaml') || filename.endsWith('.yml')) return yaml;
+    return null;
   }
   
   Future<void> _pickFile() async {
@@ -86,15 +137,16 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
       final file = result.files.single;
       final content = await readPickedFile(file);
       
+      _controller.removeListener(_onTextChanged);
+      _controller.text = content;
+      _controller.addListener(_onTextChanged);
+      
       setState(() {
-        _controller.text = content;
-        _isValid = null; // Reset validation
+        _isValid = null;
         _validationMessage = null;
       });
-      
       widget.onContentChanged?.call(content);
       
-      // Auto-validate if enabled (matches CredentialSection pattern)
       if (widget.autoValidateOnUpload && widget.onValidate != null) {
         await _validate();
       }
@@ -134,8 +186,12 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
           if (widget.exampleContent != null)
             FilledButton(
               onPressed: () {
+                _controller.removeListener(_onTextChanged);
+                _controller.text = widget.exampleContent!;
+                _controller.addListener(_onTextChanged);
                 setState(() {
-                  _controller.text = widget.exampleContent!;
+                  _isValid = null;
+                  _validationMessage = null;
                 });
                 widget.onContentChanged?.call(widget.exampleContent!);
                 Navigator.pop(ctx);
@@ -156,7 +212,7 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
     });
     
     try {
-      final result = await widget.onValidate!(_controller.text);
+      final result = await widget.onValidate!(_controller.fullText);
       setState(() {
         _isValid = result['valid'] == true;
         _validationMessage = result['message']?.toString() ?? 
@@ -174,7 +230,6 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
   
   @override
   Widget build(BuildContext context) {
-    // Use same colors as static boxes (ConfigVisualizationBlock pattern)
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? const Color(0xFF2D2D2D) : Colors.grey.shade50;
     final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
@@ -251,25 +306,23 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
                         color: Color(0xFF2A2A2A),
                         borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                       ),
-                      child: TextField(
-                        controller: _controller,
-                        maxLines: null,
-                        expands: true,
-                        // Don't set color for JSON files - let JsonEditingController handle highlighting
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          color: _isJsonFile ? null : Colors.white,
+                      clipBehavior: Clip.antiAlias,
+                      child: SingleChildScrollView(
+                        child: CodeTheme(
+                          data: CodeThemeData(styles: monokaiSublimeTheme),
+                          child: CodeField(
+                            controller: _controller,
+                            minLines: 1,
+                            maxLines: null,
+                            wrap: true,
+                            gutterStyle: const GutterStyle(
+                              showLineNumbers: true,
+                              showErrors: false,
+                              showFoldingHandles: true,
+                            ),
+                            textStyle: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                          ),
                         ),
-                        decoration: InputDecoration(
-                          contentPadding: const EdgeInsets.all(12),
-                          border: InputBorder.none,
-                          filled: true,
-                          fillColor: const Color(0xFF2A2A2A),
-                          hintText: 'Paste or upload ${widget.filename}...',
-                          hintStyle: TextStyle(color: Colors.grey.shade500),
-                        ),
-                        onChanged: widget.onContentChanged,
                       ),
                     ),
                     // Resize handle
@@ -364,7 +417,7 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 FilledButton.icon(
-                  onPressed: _isValidating || _controller.text.isEmpty ? null : _validate,
+                  onPressed: _isValidating || _controller.fullText.isEmpty ? null : _validate,
                   icon: _isValidating
                       ? const SizedBox(
                           width: 16, height: 16,
@@ -374,7 +427,6 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
                   label: const Text('Validate'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                    // Use theme primary instead of pink for consistency with Step 1
                   ),
                 ),
               ],
