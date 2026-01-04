@@ -75,6 +75,11 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     on<WizardEventActionContentChanged>(_onEventActionContentChanged);
     on<WizardStateMachineContentChanged>(_onStateMachineContentChanged);
     
+    // === Step 3 Section 3: L2 Requirements ===
+    on<WizardProcessorRequirementsChanged>(_onProcessorRequirementsChanged);
+    on<WizardEventFeedbackRequirementsChanged>(_onEventFeedbackRequirementsChanged);
+    on<WizardEventActionRequirementsChanged>(_onEventActionRequirementsChanged);
+    
     // === Step 3 Section 3: L2 Validation ===
     on<WizardProcessorValidationCompleted>(_onProcessorValidationCompleted);
     on<WizardEventFeedbackValidationCompleted>(_onEventFeedbackValidationCompleted);
@@ -164,10 +169,13 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       // Section 3 L2
       Map<String, String> processorContents = {};
       Map<String, bool> processorValidated = {};
+      Map<String, String> processorRequirements = {};
       String? eventFeedbackContent;
       bool eventFeedbackValidated = false;
+      String? eventFeedbackRequirements;
       Map<String, String> eventActionContents = {};
       Map<String, bool> eventActionValidated = {};
+      Map<String, String> eventActionRequirements = {};
       String? stateMachineContent;
       bool stateMachineValidated = false;
       
@@ -189,13 +197,20 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         if (deployerConfig['processor_validated'] != null) {
           processorValidated = Map<String, bool>.from(deployerConfig['processor_validated'] as Map);
         }
+        if (deployerConfig['processor_requirements'] != null) {
+          processorRequirements = Map<String, String>.from(deployerConfig['processor_requirements'] as Map);
+        }
         eventFeedbackContent = deployerConfig['event_feedback_content'] as String?;
         eventFeedbackValidated = deployerConfig['event_feedback_validated'] as bool? ?? false;
+        eventFeedbackRequirements = deployerConfig['event_feedback_requirements'] as String?;
         if (deployerConfig['event_action_contents'] != null) {
           eventActionContents = Map<String, String>.from(deployerConfig['event_action_contents'] as Map);
         }
         if (deployerConfig['event_action_validated'] != null) {
           eventActionValidated = Map<String, bool>.from(deployerConfig['event_action_validated'] as Map);
+        }
+        if (deployerConfig['event_action_requirements'] != null) {
+          eventActionRequirements = Map<String, String>.from(deployerConfig['event_action_requirements'] as Map);
         }
         stateMachineContent = deployerConfig['state_machine_content'] as String?;
         stateMachineValidated = deployerConfig['state_machine_validated'] as bool? ?? false;
@@ -255,10 +270,13 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         // Section 3 L2 (hydrated)
         processorContents: processorContents,
         processorValidated: processorValidated,
+        processorRequirements: processorRequirements,
         eventFeedbackContent: eventFeedbackContent,
         eventFeedbackValidated: eventFeedbackValidated,
+        eventFeedbackRequirements: eventFeedbackRequirements,
         eventActionContents: eventActionContents,
         eventActionValidated: eventActionValidated,
+        eventActionRequirements: eventActionRequirements,
         stateMachineContent: stateMachineContent,
         stateMachineValidated: stateMachineValidated,
         warningMessage: warningMessage,
@@ -379,6 +397,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
           aws: state.aws.copyWith(
             values: event.credentials,
             source: CredentialSource.newlyEntered,
+            isValid: false,  // Reset validation when credentials change
           ),
         ));
         break;
@@ -387,6 +406,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
           azure: state.azure.copyWith(
             values: event.credentials,
             source: CredentialSource.newlyEntered,
+            isValid: false,  // Reset validation when credentials change
           ),
         ));
         break;
@@ -395,6 +415,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
           gcp: state.gcp.copyWith(
             values: event.credentials,
             source: CredentialSource.newlyEntered,
+            isValid: false,  // Reset validation when credentials change
           ),
         ));
         break;
@@ -638,10 +659,13 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
           // Section 3 L2
           'processor_contents': state.processorContents,
           'processor_validated': state.processorValidated,
+          'processor_requirements': state.processorRequirements,
           'event_feedback_content': state.eventFeedbackContent,
           'event_feedback_validated': state.eventFeedbackValidated,
+          'event_feedback_requirements': state.eventFeedbackRequirements,
           'event_action_contents': state.eventActionContents,
           'event_action_validated': state.eventActionValidated,
+          'event_action_requirements': state.eventActionRequirements,
           'state_machine_content': state.stateMachineContent,
           'state_machine_validated': state.stateMachineValidated,
         });
@@ -933,6 +957,43 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     emit(state.copyWith(
       stateMachineContent: event.content,
       stateMachineValidated: false,
+      hasUnsavedChanges: true,
+    ));
+  }
+
+  // ============================================================
+  // STEP 3 SECTION 3: L2 REQUIREMENTS HANDLERS
+  // ============================================================
+
+  void _onProcessorRequirementsChanged(WizardProcessorRequirementsChanged event, Emitter<WizardState> emit) {
+    final updated = Map<String, String>.from(state.processorRequirements);
+    if (event.content == null || event.content!.isEmpty) {
+      updated.remove(event.deviceId);  // Remove from DB on save
+    } else {
+      updated[event.deviceId] = event.content!;
+    }
+    emit(state.copyWith(
+      processorRequirements: updated,
+      hasUnsavedChanges: true,
+    ));
+  }
+
+  void _onEventFeedbackRequirementsChanged(WizardEventFeedbackRequirementsChanged event, Emitter<WizardState> emit) {
+    emit(state.copyWith(
+      eventFeedbackRequirements: event.content,
+      hasUnsavedChanges: true,
+    ));
+  }
+
+  void _onEventActionRequirementsChanged(WizardEventActionRequirementsChanged event, Emitter<WizardState> emit) {
+    final updated = Map<String, String>.from(state.eventActionRequirements);
+    if (event.content == null || event.content!.isEmpty) {
+      updated.remove(event.functionName);  // Remove from DB on save
+    } else {
+      updated[event.functionName] = event.content!;
+    }
+    emit(state.copyWith(
+      eventActionRequirements: updated,
       hasUnsavedChanges: true,
     ));
   }

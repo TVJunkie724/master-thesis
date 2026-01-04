@@ -7,6 +7,231 @@ This document tracks planned improvements and features for the Digital Twin Mult
 
 ---
 
+## 18. Requirements.txt Validation for User Functions
+
+> [!NOTE]
+> Deferred from Phase 1 implementation (Jan 2026). Currently requirements.txt is stored but not validated.
+
+### Status: Not Implemented
+
+### Background
+
+The Flutter UI allows users to optionally add `requirements.txt` files to Python function blocks (processors, event feedback, event actions). These files are stored in the database but **not validated** before deployment.
+
+### Current State
+
+- **Storage**: ✅ `*_requirements` columns in `deployer_configurations` table
+- **UI**: ✅ Toggle button to add/remove requirements in `FunctionPackageBlock`
+- **Validation**: ❌ Not implemented
+
+### Proposed Validation Endpoint
+
+```python
+# 3-cloud-deployer/src/api/validation.py
+
+@router.post("/validate/requirements")
+async def validate_requirements(
+    file: UploadFile = File(...),
+    provider: ProviderEnum = Query(..., description="Target cloud provider")
+):
+    """
+    Validate requirements.txt format and check package availability.
+    
+    Checks:
+    1. Valid pip format (package==version, package>=version, extras, URLs)
+    2. No conflicting versions
+    3. (Optional) Package exists on PyPI
+    """
+    content = (await file.read()).decode('utf-8')
+    
+    for line_num, line in enumerate(content.splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith('#') or line.startswith('-'):
+            continue
+        
+        # TODO: Proper pip specification parsing
+        # Current regex is too strict for: extras [crt], URLs, editable installs
+        # Consider using `packaging.requirements.Requirement` for parsing
+    
+    return {"message": "Valid requirements.txt"}
+```
+
+### Challenges
+
+| Challenge | Details |
+|-----------|---------|
+| **Pip format complexity** | URLs, editables (`-e`), extras (`[extra]`), environment markers |
+| **Version conflicts** | Detecting `boto3==1.28` vs `boto3>=1.30` in same file |
+| **PyPI availability** | Network check adds latency; may be optional |
+| **Provider-specific** | AWS Lambda layers have size limits affecting packages |
+
+### Recommended Approach
+
+1. Use Python `packaging` library for parsing (not regex)
+2. Validate format only (skip PyPI check for speed)
+3. Add provider-specific warnings (e.g., large packages for Lambda)
+
+### Files to Modify
+
+- `3-cloud-deployer/src/api/validation.py` - Add `/validate/requirements` endpoint
+- `twin2multicloud_backend/src/api/routes/deployer.py` - Proxy endpoint
+- `twin2multicloud_flutter/.../function_package_block.dart` - Call validation
+
+### TODO in Codebase
+
+```dart
+// FunctionPackageBlock - TODO marker
+// TODO(future-work-18): Add requirements.txt validation
+// See 3-cloud-deployer/docs/future-work.md#18
+```
+
+---
+
+## 19. Deployment File Generation from Database
+
+> [!NOTE]
+> Phase 2 of requirements.txt support. Enables generating complete deployable file structures from persisted UI content.
+
+### Status: Not Implemented
+
+### Background
+
+Currently, users must manually create the deployment file structure. The Flutter UI stores all L2 content (Python code, requirements.txt, state machines) in the database, but there's no mechanism to export this as a deployable project.
+
+### Goal
+
+Add an endpoint that generates a complete, deployment-ready file structure from the stored database content.
+
+### Proposed Architecture
+
+```
+┌─────────────────────┐         ┌─────────────────────────────────┐
+│   Flutter UI        │  POST   │   Management Backend            │
+│   "Export Project"  │ ──────▶ │   /twins/{id}/generate-deployment│
+└─────────────────────┘         └────────────────┬────────────────┘
+                                                 │
+                                                 ▼
+                                   ┌─────────────────────────────┐
+                                   │  Generated ZIP Structure    │
+                                   ├─────────────────────────────┤
+                                   │ lambda_functions/           │
+                                   │   processors/               │
+                                   │     {device_id}/            │
+                                   │       lambda_function.py    │
+                                   │       requirements.txt      │
+                                   │   event_feedback/           │
+                                   │     lambda_function.py      │
+                                   │     requirements.txt        │
+                                   │   event_actions/            │
+                                   │     {func_name}/            │
+                                   │       lambda_function.py    │
+                                   │       requirements.txt      │
+                                   │ state_machines/             │
+                                   │   aws_step_function.json    │
+                                   │ config.json                 │
+                                   │ config_events.json          │
+                                   │ config_iot_devices.json     │
+                                   └─────────────────────────────┘
+```
+
+### Implementation Details
+
+```python
+# twin2multicloud_backend/src/api/routes/deployer.py
+
+@router.post("/twins/{twin_id}/generate-deployment")
+async def generate_deployment_files(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Generate complete deployment file structure from DB content."""
+    
+    # 1. Load configuration
+    config = get_deployer_config(twin_id, db, current_user)
+    if not config:
+        raise HTTPException(404, "Deployer configuration not found")
+    
+    files = {}
+    
+    # 2. Default requirements.txt template
+    DEFAULT_REQUIREMENTS = "boto3>=1.28.0\naws-lambda-powertools>=2.0.0\n"
+    
+    # 3. Generate processors (per device)
+    processor_contents = json.loads(config.processor_contents or '{}')
+    processor_requirements = json.loads(config.processor_requirements or '{}')
+    for device_id, code in processor_contents.items():
+        files[f"lambda_functions/processors/{device_id}/lambda_function.py"] = code
+        files[f"lambda_functions/processors/{device_id}/requirements.txt"] = (
+            processor_requirements.get(device_id) or DEFAULT_REQUIREMENTS
+        )
+    
+    # 4. Generate event feedback
+    if config.event_feedback_content:
+        files["lambda_functions/event_feedback/lambda_function.py"] = config.event_feedback_content
+        files["lambda_functions/event_feedback/requirements.txt"] = (
+            config.event_feedback_requirements or DEFAULT_REQUIREMENTS
+        )
+    
+    # 5. Generate event actions (per function)
+    action_contents = json.loads(config.event_action_contents or '{}')
+    action_requirements = json.loads(config.event_action_requirements or '{}')
+    for func_name, code in action_contents.items():
+        files[f"lambda_functions/event_actions/{func_name}/lambda_function.py"] = code
+        files[f"lambda_functions/event_actions/{func_name}/requirements.txt"] = (
+            action_requirements.get(func_name) or DEFAULT_REQUIREMENTS
+        )
+    
+    # 6. Generate state machine
+    if config.state_machine_content:
+        # Determine provider from calculation result
+        files["state_machines/workflow.json"] = config.state_machine_content
+    
+    # 7. Generate config files
+    files["config.json"] = json.dumps({
+        "digital_twin_name": config.deployer_digital_twin_name
+    }, indent=2)
+    if config.config_events_json:
+        files["config_events.json"] = config.config_events_json
+    if config.config_iot_devices_json:
+        files["config_iot_devices.json"] = config.config_iot_devices_json
+    
+    # 8. Create ZIP
+    return create_zip_response(files, f"{twin_id}_deployment.zip")
+```
+
+### Default Requirements Template
+
+When user hasn't provided requirements.txt, inject a sensible default:
+
+```txt
+# Auto-generated by Twin2MultiCloud
+# Add your dependencies here
+
+boto3>=1.28.0
+aws-lambda-powertools>=2.0.0
+```
+
+### Files to Create/Modify
+
+| File | Changes |
+|------|---------|
+| `deployer.py` (routes) | Add `/generate-deployment` endpoint |
+| `api_service.dart` | Add `generateDeployment(twinId)` method |
+| `step3_deployer.dart` | Add "Export Project" button |
+
+### Complexity Assessment
+
+| Component | Effort |
+|-----------|--------|
+| Backend endpoint | Low (~2h) |
+| ZIP generation | Low (~1h) |
+| Flutter UI button | Low (~1h) |
+| Testing | Medium (~2h) |
+| **Total** | **~6 hours** |
+
+---
+
 ## 1. Deprecated Code Cleanup
 
 ### Status: Pending

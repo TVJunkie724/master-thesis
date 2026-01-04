@@ -38,14 +38,17 @@ class DeployerConfiguration(Base):
     # Processor content per device (JSON: {device_id: python_code})
     processor_contents = Column(Text, nullable=True)  # JSON string
     processor_validated = Column(Text, nullable=True)  # JSON string: {device_id: bool}
+    processor_requirements = Column(Text, nullable=True)  # JSON string: {device_id: requirements.txt}
     
     # Event feedback function
     event_feedback_content = Column(Text, nullable=True)
     event_feedback_validated = Column(Boolean, default=False)
+    event_feedback_requirements = Column(Text, nullable=True)  # requirements.txt content
     
     # Event action functions per event (JSON: {functionName: python_code})
     event_action_contents = Column(Text, nullable=True)  # JSON string
     event_action_validated = Column(Text, nullable=True)  # JSON string: {functionName: bool}
+    event_action_requirements = Column(Text, nullable=True)  # JSON string: {functionName: requirements.txt}
     
     # State machine / workflow definition
     state_machine_content = Column(Text, nullable=True)

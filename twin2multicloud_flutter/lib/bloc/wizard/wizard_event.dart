@@ -270,6 +270,37 @@ class WizardStateMachineContentChanged extends WizardEvent {
 }
 
 // ============================================================
+// STEP 3 SECTION 3: L2 REQUIREMENTS.TXT EVENTS
+// ============================================================
+
+/// Processor requirements.txt changed for a specific device
+/// Pass null to remove requirements (will be deleted on save)
+class WizardProcessorRequirementsChanged extends WizardEvent {
+  final String deviceId;
+  final String? content;  // null = remove
+  const WizardProcessorRequirementsChanged(this.deviceId, this.content);
+  @override
+  List<Object?> get props => [deviceId, content];
+}
+
+/// Event feedback requirements.txt changed
+class WizardEventFeedbackRequirementsChanged extends WizardEvent {
+  final String? content;  // null = remove
+  const WizardEventFeedbackRequirementsChanged(this.content);
+  @override
+  List<Object?> get props => [content];
+}
+
+/// Event action requirements.txt changed
+class WizardEventActionRequirementsChanged extends WizardEvent {
+  final String functionName;
+  final String? content;  // null = remove
+  const WizardEventActionRequirementsChanged(this.functionName, this.content);
+  @override
+  List<Object?> get props => [functionName, content];
+}
+
+// ============================================================
 // STEP 3 SECTION 3: L2 VALIDATION COMPLETED EVENTS
 // ============================================================
 

@@ -113,10 +113,13 @@ class WizardState extends Equatable {
   // === Persistent Data: Step 3 Section 3 (L2) ===
   final Map<String, String> processorContents;       // device_id -> process.py content
   final Map<String, bool> processorValidated;        // device_id -> validation state
+  final Map<String, String> processorRequirements;   // device_id -> requirements.txt content
   final String? eventFeedbackContent;                // event-feedback/process.py
   final bool eventFeedbackValidated;
+  final String? eventFeedbackRequirements;           // requirements.txt content
   final Map<String, String> eventActionContents;     // functionName -> code content
   final Map<String, bool> eventActionValidated;      // functionName -> validation state
+  final Map<String, String> eventActionRequirements; // functionName -> requirements.txt
   final String? stateMachineContent;                 // AWS/Azure/GCP workflow JSON/YAML
   final bool stateMachineValidated;
   
@@ -160,10 +163,13 @@ class WizardState extends Equatable {
     // L2 fields
     this.processorContents = const {},
     this.processorValidated = const {},
+    this.processorRequirements = const {},
     this.eventFeedbackContent,
     this.eventFeedbackValidated = false,
+    this.eventFeedbackRequirements,
     this.eventActionContents = const {},
     this.eventActionValidated = const {},
+    this.eventActionRequirements = const {},
     this.stateMachineContent,
     this.stateMachineValidated = false,
     this.hasUnsavedChanges = false,
@@ -351,10 +357,13 @@ class WizardState extends Equatable {
     // L2 fields
     Map<String, String>? processorContents,
     Map<String, bool>? processorValidated,
+    Map<String, String>? processorRequirements,
     String? eventFeedbackContent,
     bool? eventFeedbackValidated,
+    String? eventFeedbackRequirements,
     Map<String, String>? eventActionContents,
     Map<String, bool>? eventActionValidated,
+    Map<String, String>? eventActionRequirements,
     String? stateMachineContent,
     bool? stateMachineValidated,
     bool? hasUnsavedChanges,
@@ -400,10 +409,13 @@ class WizardState extends Equatable {
       // L2 fields
       processorContents: processorContents ?? this.processorContents,
       processorValidated: processorValidated ?? this.processorValidated,
+      processorRequirements: processorRequirements ?? this.processorRequirements,
       eventFeedbackContent: eventFeedbackContent ?? this.eventFeedbackContent,
       eventFeedbackValidated: eventFeedbackValidated ?? this.eventFeedbackValidated,
+      eventFeedbackRequirements: eventFeedbackRequirements ?? this.eventFeedbackRequirements,
       eventActionContents: eventActionContents ?? this.eventActionContents,
       eventActionValidated: eventActionValidated ?? this.eventActionValidated,
+      eventActionRequirements: eventActionRequirements ?? this.eventActionRequirements,
       stateMachineContent: stateMachineContent ?? this.stateMachineContent,
       stateMachineValidated: stateMachineValidated ?? this.stateMachineValidated,
       hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
@@ -455,10 +467,13 @@ class WizardState extends Equatable {
     // L2 fields
     processorContents,
     processorValidated,
+    processorRequirements,
     eventFeedbackContent,
     eventFeedbackValidated,
+    eventFeedbackRequirements,
     eventActionContents,
     eventActionValidated,
+    eventActionRequirements,
     stateMachineContent,
     stateMachineValidated,
     hasUnsavedChanges,

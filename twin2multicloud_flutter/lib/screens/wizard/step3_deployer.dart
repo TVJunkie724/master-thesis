@@ -8,6 +8,7 @@ import '../../providers/twins_provider.dart';
 import '../../utils/api_error_handler.dart';
 import '../../widgets/architecture_layer_builder.dart';
 import '../../widgets/file_inputs/file_editor_block.dart';
+import '../../widgets/file_inputs/function_package_block.dart';
 import '../../widgets/file_inputs/collapsible_section.dart';
 import '../../widgets/file_inputs/collapsible_block_wrapper.dart';
 import '../../widgets/file_inputs/zip_upload_block.dart';
@@ -186,27 +187,21 @@ class _Step3DeployerState extends State<Step3Deployer> {
       widgets.add(_buildEmptyStateBox('No devices found in config_iot_devices.json'));
     } else {
       for (final deviceId in state.deviceIds) {
-        widgets.add(CollapsibleBlockWrapper(
-          title: 'processors/$deviceId/lambda_function.py',
-          subtitle: 'Processor Lambda for $deviceId',
-          icon: Icons.code,
-          isValid: (state.processorValidated[deviceId] ?? false) ? true : null,
-          showEditBadge: true,
-          child: FileEditorBlock(
-            showHeader: false,
-            filename: 'processors/$deviceId/lambda_function.py',
-            description: 'Processor Lambda for $deviceId',
-            icon: Icons.code,
-            isHighlighted: true,
-            constraints: _getFunctionConstraints(state.layer2Provider),
-            exampleContent: Step3Examples.processors,
-            initialContent: state.processorContents[deviceId] ?? '',
-            isValidated: state.processorValidated[deviceId] ?? false,
-            onContentChanged: (content) => context.read<WizardBloc>().add(
-              WizardProcessorContentChanged(deviceId, content),
-            ),
-            onValidate: (content) => _validateL2Content('function-code', content, state, entityId: 'processor:$deviceId'),
+        widgets.add(FunctionPackageBlock(
+          codeFilename: 'processors/$deviceId/lambda_function.py',
+          description: 'Processor Lambda for $deviceId',
+          codeContent: state.processorContents[deviceId] ?? '',
+          isCodeValidated: state.processorValidated[deviceId] ?? false,
+          onCodeChanged: (content) => context.read<WizardBloc>().add(
+            WizardProcessorContentChanged(deviceId, content),
           ),
+          requirementsContent: state.processorRequirements[deviceId],
+          onRequirementsChanged: (content) => context.read<WizardBloc>().add(
+            WizardProcessorRequirementsChanged(deviceId, content),
+          ),
+          onValidate: (content) => _validateL2Content('function-code', content, state, entityId: 'processor:$deviceId'),
+          constraints: _getFunctionConstraints(state.layer2Provider),
+          exampleContent: Step3Examples.processors,
         ));
         widgets.add(const SizedBox(height: 16));
       }
@@ -214,27 +209,21 @@ class _Step3DeployerState extends State<Step3Deployer> {
     
     // === FEEDBACK FUNCTION ===
     if (state.shouldShowFeedbackFunction) {
-      widgets.add(CollapsibleBlockWrapper(
-        title: 'event-feedback/lambda_function.py',
-        subtitle: 'Event feedback Lambda',
-        icon: Icons.feedback,
-        isValid: state.eventFeedbackValidated ? true : null,
-        showEditBadge: true,
-        child: FileEditorBlock(
-          showHeader: false,
-          filename: 'event-feedback/lambda_function.py',
-          description: 'Event feedback Lambda',
-          icon: Icons.feedback,
-          isHighlighted: true,
-          constraints: _getFunctionConstraints(state.layer2Provider),
-          exampleContent: Step3Examples.processors,
-          initialContent: state.eventFeedbackContent ?? '',
-          isValidated: state.eventFeedbackValidated,
-          onContentChanged: (content) => context.read<WizardBloc>().add(
-            WizardEventFeedbackContentChanged(content),
-          ),
-          onValidate: (content) => _validateL2Content('function-code', content, state, entityId: 'feedback'),
+      widgets.add(FunctionPackageBlock(
+        codeFilename: 'event-feedback/lambda_function.py',
+        description: 'Event feedback Lambda',
+        codeContent: state.eventFeedbackContent ?? '',
+        isCodeValidated: state.eventFeedbackValidated,
+        onCodeChanged: (content) => context.read<WizardBloc>().add(
+          WizardEventFeedbackContentChanged(content),
         ),
+        requirementsContent: state.eventFeedbackRequirements,
+        onRequirementsChanged: (content) => context.read<WizardBloc>().add(
+          WizardEventFeedbackRequirementsChanged(content),
+        ),
+        onValidate: (content) => _validateL2Content('function-code', content, state, entityId: 'feedback'),
+        constraints: _getFunctionConstraints(state.layer2Provider),
+        exampleContent: Step3Examples.processors,
       ));
       widgets.add(const SizedBox(height: 16));
     }
@@ -249,27 +238,21 @@ class _Step3DeployerState extends State<Step3Deployer> {
         widgets.add(_buildEmptyStateBox('No event actions with functionName defined.'));
       } else {
         for (final funcName in state.eventActionFunctionNames) {
-          widgets.add(CollapsibleBlockWrapper(
-            title: 'event_actions/$funcName/lambda_function.py',
-            subtitle: 'Event action: $funcName',
-            icon: Icons.bolt,
-            isValid: (state.eventActionValidated[funcName] ?? false) ? true : null,
-            showEditBadge: true,
-            child: FileEditorBlock(
-              showHeader: false,
-              filename: 'event_actions/$funcName/lambda_function.py',
-              description: 'Event action: $funcName',
-              icon: Icons.bolt,
-              isHighlighted: true,
-              constraints: _getFunctionConstraints(state.layer2Provider),
-              exampleContent: Step3Examples.processors,
-              initialContent: state.eventActionContents[funcName] ?? '',
-              isValidated: state.eventActionValidated[funcName] ?? false,
-              onContentChanged: (content) => context.read<WizardBloc>().add(
-                WizardEventActionContentChanged(funcName, content),
-              ),
-              onValidate: (content) => _validateL2Content('function-code', content, state, entityId: 'event-action:$funcName'),
+          widgets.add(FunctionPackageBlock(
+            codeFilename: 'event_actions/$funcName/lambda_function.py',
+            description: 'Event action: $funcName',
+            codeContent: state.eventActionContents[funcName] ?? '',
+            isCodeValidated: state.eventActionValidated[funcName] ?? false,
+            onCodeChanged: (content) => context.read<WizardBloc>().add(
+              WizardEventActionContentChanged(funcName, content),
             ),
+            requirementsContent: state.eventActionRequirements[funcName],
+            onRequirementsChanged: (content) => context.read<WizardBloc>().add(
+              WizardEventActionRequirementsChanged(funcName, content),
+            ),
+            onValidate: (content) => _validateL2Content('function-code', content, state, entityId: 'event-action:$funcName'),
+            constraints: _getFunctionConstraints(state.layer2Provider),
+            exampleContent: Step3Examples.processors,
           ));
           widgets.add(const SizedBox(height: 16));
         }

@@ -18,10 +18,13 @@ class DeployerConfigUpdate(BaseModel):
     # Section 3: L2 User Functions
     processor_contents: Optional[dict[str, str]] = None
     processor_validated: Optional[dict[str, bool]] = None
+    processor_requirements: Optional[dict[str, str]] = None  # {deviceId: requirements.txt}
     event_feedback_content: Optional[str] = None
     event_feedback_validated: Optional[bool] = None
+    event_feedback_requirements: Optional[str] = None
     event_action_contents: Optional[dict[str, str]] = None
     event_action_validated: Optional[dict[str, bool]] = None
+    event_action_requirements: Optional[dict[str, str]] = None  # {funcName: requirements.txt}
     state_machine_content: Optional[str] = None
     state_machine_validated: Optional[bool] = None
 
@@ -41,10 +44,13 @@ class DeployerConfigResponse(BaseModel):
     # Section 3: L2 User Functions
     processor_contents: Optional[dict[str, str]] = None
     processor_validated: Optional[dict[str, bool]] = None
+    processor_requirements: Optional[dict[str, str]] = None
     event_feedback_content: Optional[str] = None
     event_feedback_validated: bool = False
+    event_feedback_requirements: Optional[str] = None
     event_action_contents: Optional[dict[str, str]] = None
     event_action_validated: Optional[dict[str, bool]] = None
+    event_action_requirements: Optional[dict[str, str]] = None
     state_machine_content: Optional[str] = None
     state_machine_validated: bool = False
     updated_at: Optional[datetime] = None
@@ -76,10 +82,13 @@ class DeployerConfigResponse(BaseModel):
             # L2 fields (parse JSON strings to dicts)
             processor_contents=parse_json_dict(config.processor_contents),
             processor_validated=parse_json_dict(config.processor_validated),
+            processor_requirements=parse_json_dict(config.processor_requirements),
             event_feedback_content=config.event_feedback_content,
             event_feedback_validated=config.event_feedback_validated or False,
+            event_feedback_requirements=config.event_feedback_requirements,
             event_action_contents=parse_json_dict(config.event_action_contents),
             event_action_validated=parse_json_dict(config.event_action_validated),
+            event_action_requirements=parse_json_dict(config.event_action_requirements),
             state_machine_content=config.state_machine_content,
             state_machine_validated=config.state_machine_validated or False,
             updated_at=config.updated_at,
@@ -89,6 +98,7 @@ class DeployerConfigResponse(BaseModel):
 class ConfigValidationRequest(BaseModel):
     """Request model for validating config content."""
     content: str
+    provider: Optional[str] = None  # Required for L2 types (aws, azure, google)
 
 
 class ConfigValidationResponse(BaseModel):
