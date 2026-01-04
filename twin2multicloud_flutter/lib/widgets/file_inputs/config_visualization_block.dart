@@ -13,6 +13,9 @@ class ConfigVisualizationBlock extends StatelessWidget {
   final String? sourceLabel;
   final Widget visualContent;
   
+  /// When false, skips header row and outer container (for use with CollapsibleBlockWrapper)
+  final bool showHeader;
+  
   const ConfigVisualizationBlock({
     super.key,
     required this.filename,
@@ -21,6 +24,7 @@ class ConfigVisualizationBlock extends StatelessWidget {
     required this.visualContent,
     this.icon = Icons.code,
     this.sourceLabel,
+    this.showHeader = true,
   });
   
   void _copyToClipboard(BuildContext context) {
@@ -37,20 +41,14 @@ class ConfigVisualizationBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
     
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.grey.shade800.withAlpha(100) : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header row
+    // Content column (shared between wrapped and standalone modes)
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header row (only when not wrapped)
+        if (showHeader) ...[
           Row(
             children: [
               Icon(icon, color: Colors.grey.shade500, size: 20),
@@ -114,46 +112,61 @@ class ConfigVisualizationBlock extends StatelessWidget {
               ),
             ],
           ),
-          
           const SizedBox(height: 12),
-          
-          // Split content: Visual on left, JSON on right
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Left: JSON code view (2/3 width)
-              Expanded(
-                flex: 2,
-                child: Container(
-                  height: 200,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E1E),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: SingleChildScrollView(
-                    child: SelectableText(
-                      jsonContent.isEmpty ? '// No content' : jsonContent,
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                        height: 1.4,
-                        color: jsonContent.isEmpty ? Colors.grey : Colors.grey.shade400,
-                      ),
+        ],
+        
+        // Split content: Visual on left, JSON on right
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Left: JSON code view (2/3 width)
+            Expanded(
+              flex: 2,
+              child: Container(
+                height: 200,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1E1E),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    jsonContent.isEmpty ? '// No content' : jsonContent,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      height: 1.4,
+                      color: jsonContent.isEmpty ? Colors.grey : Colors.grey.shade400,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
-              // Right: Visual representation (1/3 width)
-              Expanded(
-                flex: 1,
-                child: visualContent,
-              ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(width: 16),
+            // Right: Visual representation (1/3 width)
+            Expanded(
+              flex: 1,
+              child: visualContent,
+            ),
+          ],
+        ),
+      ],
+    );
+    
+    // When showHeader is false, return content directly (wrapper handles container)
+    if (!showHeader) {
+      return content;
+    }
+    
+    // Standalone mode - wrap in Container with border/background
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey.shade800.withAlpha(100) : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
       ),
+      child: content,
     );
   }
   

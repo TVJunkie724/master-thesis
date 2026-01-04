@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../utils/api_error_handler.dart';
 
 /// Split-view config block for config.json with:
@@ -19,6 +18,9 @@ class ConfigJsonVisualizationBlock extends StatefulWidget {
   final Future<Map<String, dynamic>> Function(Map<String, dynamic>)? onValidate;
   final VoidCallback? onValidationSuccess;  // Called when validation succeeds (to update BLoC)
   
+  /// When false, skips header row and outer container (for use with CollapsibleBlockWrapper)
+  final bool showHeader;
+  
   const ConfigJsonVisualizationBlock({
     super.key,
     required this.twinName,
@@ -29,6 +31,7 @@ class ConfigJsonVisualizationBlock extends StatefulWidget {
     required this.onTwinNameChanged,
     this.onValidate,
     this.onValidationSuccess,
+    this.showHeader = true,
   });
 
   @override
@@ -128,40 +131,17 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
     }
   }
 
-  void _copyToClipboard() {
-    Clipboard.setData(ClipboardData(text: _jsonContent));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('config.json copied to clipboard'),
-        duration: Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        // Use standard card-like background
-        color: isDark ? const Color(0xFF2D2D2D) : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _isValid == true
-              ? Colors.green.shade600
-              : _isValid == false
-                  ? Colors.red.shade400
-                  : isDark ? Colors.grey.shade700 : Colors.grey.shade300,
-          width: _isValid != null ? 2 : 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header row
+    // Content column (shared between wrapped and standalone modes)
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header row (only when not wrapped)
+        if (widget.showHeader) ...[
           Row(
             children: [
               Icon(Icons.settings, color: Colors.grey.shade500, size: 22),
@@ -223,19 +203,10 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              // Copy button
-              IconButton(
-                onPressed: _copyToClipboard,
-                icon: Icon(Icons.copy, size: 18, color: Colors.grey.shade500),
-                tooltip: 'Copy to clipboard',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              ),
             ],
           ),
-
           const SizedBox(height: 16),
+        ],
 
           // Prominent twin name input (ABOVE split view)
           Text(
@@ -439,7 +410,29 @@ class _ConfigJsonVisualizationBlockState extends State<ConfigJsonVisualizationBl
             ),
           ],
         ],
+      );
+    
+    // When showHeader is false, return content directly (wrapper handles container)
+    if (!widget.showHeader) {
+      return content;
+    }
+    
+    // Standalone mode - wrap in Container with border/background
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2D2D2D) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _isValid == true
+              ? Colors.green.shade600
+              : _isValid == false
+                  ? Colors.red.shade400
+                  : borderColor,
+          width: _isValid != null ? 2 : 1,
+        ),
       ),
+      child: content,
     );
   }
 

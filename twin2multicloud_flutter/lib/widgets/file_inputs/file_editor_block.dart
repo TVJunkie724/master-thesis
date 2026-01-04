@@ -26,6 +26,9 @@ class FileEditorBlock extends StatefulWidget {
   final Future<Map<String, dynamic>> Function(String)? onValidate;
   final bool autoValidateOnUpload;
   
+  /// When false, skips header row and outer container (for use with CollapsibleBlockWrapper)
+  final bool showHeader;
+  
   const FileEditorBlock({
     super.key,
     required this.filename,
@@ -39,6 +42,7 @@ class FileEditorBlock extends StatefulWidget {
     this.onContentChanged,
     this.onValidate,
     this.autoValidateOnUpload = false,
+    this.showHeader = true,
   });
   
   @override
@@ -232,21 +236,12 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
     final bgColor = isDark ? const Color(0xFF2D2D2D) : Colors.grey.shade50;
     final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
     
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _isValid == true ? Colors.green.shade600 : 
-                 _isValid == false ? Colors.red.shade400 : borderColor,
-          width: _isValid != null ? 2 : 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
+    // Content column (shared between wrapped and standalone modes)
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header (only when not wrapped)
+        if (widget.showHeader) ...[    
           Row(
             children: [
               Icon(widget.icon, color: Colors.grey.shade500, size: 22),
@@ -285,12 +280,13 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
                 ),
             ],
           ),
-          
           const SizedBox(height: 16),
+        ],
           
-          // Main content: Code editor (2/3) | Buttons (1/3)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        
+        // Main content: Code editor (2/3) | Buttons (1/3)
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Code editor with resize handle
               Expanded(
@@ -467,7 +463,27 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
             ),
           ],
         ],
+      );
+    
+    // When showHeader is false, return content directly (wrapper handles container)
+    if (!widget.showHeader) {
+      return content;
+    }
+    
+    // Standalone mode - wrap in Container with border/background
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _isValid == true ? Colors.green.shade600 : 
+                 _isValid == false ? Colors.red.shade400 : borderColor,
+          width: _isValid != null ? 2 : 1,
+        ),
       ),
+      child: content,
     );
   }
 }
+

@@ -162,70 +162,72 @@ class ArchitectureLayerBuilder {
   }
 
   Widget _buildEventBranchBox(BuildContext context, String? provider, bool hasFeedback, bool hasWorkflow) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        border: Border.all(color: editableColor.withAlpha(100)),
-        borderRadius: BorderRadius.circular(8),
-        color: editableColor.withAlpha(8),
-      ),
-      child: Column(
-        children: [
-          Text('Event Branch', style: TextStyle(fontSize: 10, color: editableColor, fontWeight: FontWeight.w500)),
+  return Container(
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      // Use grey/system styling like other non-editable blocks
+      border: Border.all(color: systemColor.withAlpha(80)),
+      borderRadius: BorderRadius.circular(8),
+      color: systemColor.withAlpha(10),
+    ),
+    child: Column(
+      children: [
+        Text('Event Branch', style: TextStyle(fontSize: 10, color: systemColor, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        // Event Checker is NOT editable - use grey system style
+        _buildComponentBox(context, 'Event Checker', provider, Icons.notification_important),
+        
+        // Branching arrows from Event Checker
+        if (hasFeedback || hasWorkflow) ...[
           const SizedBox(height: 8),
-          _buildEditableComponentBox('Event Checker', Icons.notification_important),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (hasFeedback) Icon(Icons.arrow_downward, size: 14, color: Colors.grey.shade500),
+              if (hasFeedback && hasWorkflow) const SizedBox(width: 40),
+              if (hasWorkflow) Icon(Icons.arrow_downward, size: 14, color: Colors.grey.shade500),
+            ],
+          ),
+          const SizedBox(height: 6),
           
-          // Branching arrows from Event Checker
-          if (hasFeedback || hasWorkflow) ...[
-            const SizedBox(height: 8),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (hasFeedback) Icon(Icons.arrow_downward, size: 14, color: Colors.grey.shade500),
-                if (hasFeedback && hasWorkflow) const SizedBox(width: 40),
-                if (hasWorkflow) Icon(Icons.arrow_downward, size: 14, color: Colors.grey.shade500),
+          // Feedback and Workflow on same row - these ARE editable
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (hasFeedback) ...[
+                Column(
+                  children: [
+                    _buildEditableComponentBoxSmallWithBadge('Feedback', Icons.replay),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.arrow_upward, size: 14, color: Colors.orange),
+                        const SizedBox(width: 4),
+                        Text('IoT Device', style: TextStyle(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  ],
+                ),
               ],
-            ),
-            const SizedBox(height: 6),
-            
-            // Feedback and Workflow on same row
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (hasFeedback) ...[
-                  Column(
-                    children: [
-                      _buildEditableComponentBoxSmall('Feedback', Icons.replay),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.arrow_upward, size: 14, color: Colors.orange),
-                          const SizedBox(width: 4),
-                          Text('IoT Device', style: TextStyle(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.w500)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-                if (hasFeedback && hasWorkflow) const SizedBox(width: 16),
-                if (hasWorkflow) ...[
-                  Column(
-                    children: [
-                      _buildEditableComponentBoxSmall('Workflow', Icons.account_tree),
-                      _buildArrow(small: true),
-                      _buildEditableComponentBoxSmall('Event Actions', Icons.flash_on),
-                    ],
-                  ),
-                ],
+              if (hasFeedback && hasWorkflow) const SizedBox(width: 16),
+              if (hasWorkflow) ...[
+                Column(
+                  children: [
+                    _buildEditableComponentBoxSmallWithBadge('Workflow', Icons.account_tree),
+                    _buildArrow(small: true),
+                    _buildEditableComponentBoxSmallWithBadge('Event Actions', Icons.flash_on),
+                  ],
+                ),
               ],
-            ),
-          ],
+            ],
+          ),
         ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
+}
 
   /// L3 Storage layer
   Widget buildL3Layer(BuildContext context) {
@@ -444,6 +446,32 @@ class ArchitectureLayerBuilder {
           Icon(icon, size: 14, color: editableColor),
           const SizedBox(width: 6),
           Text(name, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: editableColor)),
+        ],
+      ),
+    );
+  }
+
+  /// Small editable component box with EDIT badge - for compact layouts
+  Widget _buildEditableComponentBoxSmallWithBadge(String name, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: editableColor.withAlpha(20),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: editableColor.withAlpha(150)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: editableColor),
+          const SizedBox(width: 5),
+          Text(name, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: editableColor)),
+          const SizedBox(width: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+            decoration: BoxDecoration(color: editableColor, borderRadius: BorderRadius.circular(2)),
+            child: const Text('EDIT', style: TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold)),
+          ),
         ],
       ),
     );

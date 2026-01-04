@@ -9,6 +9,7 @@ import '../../utils/api_error_handler.dart';
 import '../../widgets/architecture_layer_builder.dart';
 import '../../widgets/file_inputs/file_editor_block.dart';
 import '../../widgets/file_inputs/collapsible_section.dart';
+import '../../widgets/file_inputs/collapsible_block_wrapper.dart';
 import '../../widgets/file_inputs/zip_upload_block.dart';
 import '../../widgets/file_inputs/config_json_visualization_block.dart';
 import '../../widgets/file_inputs/config_visualization_block.dart';
@@ -70,6 +71,69 @@ class _Step3DeployerState extends State<Step3Deployer> {
     }
   }
 
+  /// Validate L2 content (function-code or state-machine) and dispatch BLoC event
+  Future<Map<String, dynamic>> _validateL2Content(
+    String type,
+    String content,
+    WizardState state, {
+    String? entityId,  // deviceId or functionName for Map-based validation
+  }) async {
+    final twinId = state.twinId;
+    final provider = state.layer2Provider;
+    
+    if (twinId == null) return {'valid': false, 'message': 'Save draft first'};
+    if (provider == null) return {'valid': false, 'message': 'Complete Step 2 first'};
+    if (content.trim().isEmpty) return {'valid': false, 'message': 'No content'};
+
+    try {
+      final container = ProviderScope.containerOf(context);
+      final api = container.read(apiServiceProvider);
+      final result = await api.validateL2Content(twinId, type, content, provider);
+      final valid = result['valid'] == true;
+      final message = result['message']?.toString() ?? (valid ? 'Valid ✓' : 'Failed');
+      
+      // Dispatch BLoC event to persist validation state
+      if (mounted && valid) {
+        _dispatchL2ValidationEvent(type, entityId, valid);
+      }
+      
+      return {'valid': valid, 'message': message};
+    } catch (e) {
+      return {'valid': false, 'message': ApiErrorHandler.extractMessage(e)};
+    }
+  }
+
+  void _dispatchL2ValidationEvent(String type, String? entityId, bool valid) {
+    final bloc = context.read<WizardBloc>();
+    if (type == 'function-code') {
+      // Determine which L2 function type based on entityId pattern
+      if (entityId != null && entityId.startsWith('processor:')) {
+        bloc.add(WizardProcessorValidationCompleted(entityId.substring(10), valid));
+      } else if (entityId != null && entityId.startsWith('event-action:')) {
+        bloc.add(WizardEventActionValidationCompleted(entityId.substring(13), valid));
+      } else if (entityId == 'feedback') {
+        bloc.add(WizardEventFeedbackValidationCompleted(valid));
+      }
+    } else if (type == 'state-machine') {
+      bloc.add(WizardStateMachineValidationCompleted(valid));
+    }
+  }
+
+  /// Get provider-specific function constraints for UI
+  String _getFunctionConstraints(String? provider) {
+    switch (provider?.toLowerCase()) {
+      case 'aws':
+        return '• AWS Lambda with lambda_handler(event, context)\n• Returns dict with statusCode';
+      case 'azure':
+        return '• Azure Function with main(req)\n• Returns HttpResponse';
+      case 'gcp':
+      case 'google':
+        return '• Cloud Function with any entry point\n• HTTP request handler';
+      default:
+        return '• Provider-specific function entry point';
+    }
+  }
+
   /// Build amber info box for unmet dependencies
   Widget _buildDependencyInfoBox(String message) {
     return Container(
@@ -122,19 +186,27 @@ class _Step3DeployerState extends State<Step3Deployer> {
       widgets.add(_buildEmptyStateBox('No devices found in config_iot_devices.json'));
     } else {
       for (final deviceId in state.deviceIds) {
-        widgets.add(FileEditorBlock(
-          filename: 'processors/$deviceId/lambda_function.py',
-          description: 'Processor Lambda for $deviceId',
+        widgets.add(CollapsibleBlockWrapper(
+          title: 'processors/$deviceId/lambda_function.py',
+          subtitle: 'Processor Lambda for $deviceId',
           icon: Icons.code,
-          isHighlighted: true,
-          constraints: '• AWS Lambda handler with lambda_handler()\n• Processes incoming IoT events',
-          exampleContent: Step3Examples.processors,
-          initialContent: state.processorContents[deviceId] ?? '',
-          isValidated: state.processorValidated[deviceId] ?? false,
-          onContentChanged: (content) => context.read<WizardBloc>().add(
-            WizardProcessorContentChanged(deviceId, content),
+          isValid: (state.processorValidated[deviceId] ?? false) ? true : null,
+          showEditBadge: true,
+          child: FileEditorBlock(
+            showHeader: false,
+            filename: 'processors/$deviceId/lambda_function.py',
+            description: 'Processor Lambda for $deviceId',
+            icon: Icons.code,
+            isHighlighted: true,
+            constraints: _getFunctionConstraints(state.layer2Provider),
+            exampleContent: Step3Examples.processors,
+            initialContent: state.processorContents[deviceId] ?? '',
+            isValidated: state.processorValidated[deviceId] ?? false,
+            onContentChanged: (content) => context.read<WizardBloc>().add(
+              WizardProcessorContentChanged(deviceId, content),
+            ),
+            onValidate: (content) => _validateL2Content('function-code', content, state, entityId: 'processor:$deviceId'),
           ),
-          onValidate: (content) async => {'valid': true, 'message': 'Python syntax check pending'},
         ));
         widgets.add(const SizedBox(height: 16));
       }
@@ -142,19 +214,27 @@ class _Step3DeployerState extends State<Step3Deployer> {
     
     // === FEEDBACK FUNCTION ===
     if (state.shouldShowFeedbackFunction) {
-      widgets.add(FileEditorBlock(
-        filename: 'event-feedback/lambda_function.py',
-        description: 'Event feedback Lambda',
+      widgets.add(CollapsibleBlockWrapper(
+        title: 'event-feedback/lambda_function.py',
+        subtitle: 'Event feedback Lambda',
         icon: Icons.feedback,
-        isHighlighted: true,
-        constraints: '• AWS Lambda with MQTT feedback capability\n• Sends feedback to IoT devices',
-        exampleContent: Step3Examples.processors,
-        initialContent: state.eventFeedbackContent ?? '',
-        isValidated: state.eventFeedbackValidated,
-        onContentChanged: (content) => context.read<WizardBloc>().add(
-          WizardEventFeedbackContentChanged(content),
+        isValid: state.eventFeedbackValidated ? true : null,
+        showEditBadge: true,
+        child: FileEditorBlock(
+          showHeader: false,
+          filename: 'event-feedback/lambda_function.py',
+          description: 'Event feedback Lambda',
+          icon: Icons.feedback,
+          isHighlighted: true,
+          constraints: _getFunctionConstraints(state.layer2Provider),
+          exampleContent: Step3Examples.processors,
+          initialContent: state.eventFeedbackContent ?? '',
+          isValidated: state.eventFeedbackValidated,
+          onContentChanged: (content) => context.read<WizardBloc>().add(
+            WizardEventFeedbackContentChanged(content),
+          ),
+          onValidate: (content) => _validateL2Content('function-code', content, state, entityId: 'feedback'),
         ),
-        onValidate: (content) async => {'valid': true, 'message': 'Python syntax check pending'},
       ));
       widgets.add(const SizedBox(height: 16));
     }
@@ -169,19 +249,27 @@ class _Step3DeployerState extends State<Step3Deployer> {
         widgets.add(_buildEmptyStateBox('No event actions with functionName defined.'));
       } else {
         for (final funcName in state.eventActionFunctionNames) {
-          widgets.add(FileEditorBlock(
-            filename: 'event_actions/$funcName/lambda_function.py',
-            description: 'Event action: $funcName',
+          widgets.add(CollapsibleBlockWrapper(
+            title: 'event_actions/$funcName/lambda_function.py',
+            subtitle: 'Event action: $funcName',
             icon: Icons.bolt,
-            isHighlighted: true,
-            constraints: '• AWS Lambda triggered by EventBridge rules\n• Handles $funcName events',
-            exampleContent: Step3Examples.processors,
-            initialContent: state.eventActionContents[funcName] ?? '',
-            isValidated: state.eventActionValidated[funcName] ?? false,
-            onContentChanged: (content) => context.read<WizardBloc>().add(
-              WizardEventActionContentChanged(funcName, content),
+            isValid: (state.eventActionValidated[funcName] ?? false) ? true : null,
+            showEditBadge: true,
+            child: FileEditorBlock(
+              showHeader: false,
+              filename: 'event_actions/$funcName/lambda_function.py',
+              description: 'Event action: $funcName',
+              icon: Icons.bolt,
+              isHighlighted: true,
+              constraints: _getFunctionConstraints(state.layer2Provider),
+              exampleContent: Step3Examples.processors,
+              initialContent: state.eventActionContents[funcName] ?? '',
+              isValidated: state.eventActionValidated[funcName] ?? false,
+              onContentChanged: (content) => context.read<WizardBloc>().add(
+                WizardEventActionContentChanged(funcName, content),
+              ),
+              onValidate: (content) => _validateL2Content('function-code', content, state, entityId: 'event-action:$funcName'),
             ),
-            onValidate: (content) async => {'valid': true, 'message': 'Python syntax check pending'},
           ));
           widgets.add(const SizedBox(height: 16));
         }
@@ -191,19 +279,27 @@ class _Step3DeployerState extends State<Step3Deployer> {
     // === STATE MACHINE ===
     if (state.shouldShowStateMachine) {
       final filename = state.stateMachineFilename ?? 'state_machine.json';
-      widgets.add(FileEditorBlock(
-        filename: filename,
-        description: 'Workflow / state machine definition',
+      widgets.add(CollapsibleBlockWrapper(
+        title: filename,
+        subtitle: 'Workflow / state machine definition',
         icon: Icons.account_tree,
-        isHighlighted: true,
-        constraints: _getStateMachineConstraints(state.layer2Provider),
-        exampleContent: _getStateMachineExample(state.layer2Provider),
-        initialContent: state.stateMachineContent ?? '',
-        isValidated: state.stateMachineValidated,
-        onContentChanged: (content) => context.read<WizardBloc>().add(
-          WizardStateMachineContentChanged(content),
+        isValid: state.stateMachineValidated ? true : null,
+        showEditBadge: true,
+        child: FileEditorBlock(
+          showHeader: false,
+          filename: filename,
+          description: 'Workflow / state machine definition',
+          icon: Icons.account_tree,
+          isHighlighted: true,
+          constraints: _getStateMachineConstraints(state.layer2Provider),
+          exampleContent: _getStateMachineExample(state.layer2Provider),
+          initialContent: state.stateMachineContent ?? '',
+          isValidated: state.stateMachineValidated,
+          onContentChanged: (content) => context.read<WizardBloc>().add(
+            WizardStateMachineContentChanged(content),
+          ),
+          onValidate: (content) => _validateL2Content('state-machine', content, state),
         ),
-        onValidate: (content) async => {'valid': true, 'message': 'Schema validation pending'},
       ));
     }
     
@@ -344,96 +440,133 @@ class _Step3DeployerState extends State<Step3Deployer> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ConfigJsonVisualizationBlock(
-          twinName: state.deployerDigitalTwinName,  // Separate from Step 1 project name
-          mode: state.debugMode == true ? 'debug' : 'production',
-          // Convert months to days for display (CalcParams uses months)
-          hotStorageDays: (state.calcParams?.hotStorageDurationInMonths ?? 1) * 30,
-          coldStorageDays: (state.calcParams?.coolStorageDurationInMonths ?? 3) * 30,
-          isValidated: state.configJsonValidated,  // Persist validation across navigation
-          onTwinNameChanged: (name) {
-            // Update deployer digital twin name in BLoC state (separate from Step 1 project name)
-            context.read<WizardBloc>().add(WizardDeployerTwinNameChanged(name));
-          },
-          onValidate: (config) async {
-            // Convert config map to JSON string for API validation
-            final content = const JsonEncoder.withIndent('  ').convert(config);
-            return await _validateConfigFile('config', content, state);
-          },
-          onValidationSuccess: () {
-            // Persist validation success to BLoC state (gates save)
-            context.read<WizardBloc>().add(const WizardConfigValidationCompleted('config', true));
-          },
-        ),
-        const SizedBox(height: 16),
-        
-        FileEditorBlock(
-          filename: 'config_events.json',
-          description: 'Event-driven automation rules',
-          icon: Icons.bolt,
-          isHighlighted: true,
-          constraints: '• JSON array of event conditions\n• Define actions for each condition',
-          exampleContent: Step3Examples.configEvents,
-          initialContent: state.configEventsJson ?? '',
-          isValidated: state.configEventsValidated,  // Persist validation across navigation
-          onContentChanged: (content) {
-            // State is managed by BLoC
-            context.read<WizardBloc>().add(WizardConfigEventsChanged(content));
-          },
-          onValidate: (content) async {
-            // Direct API call - do NOT use BLoC for validation UI
-            // BLoC is only for content persistence
-            return await _validateConfigFile('events', content, state);
-          },
-          autoValidateOnUpload: true,
-        ),
-        const SizedBox(height: 16),
-        
-        FileEditorBlock(
-          filename: 'config_iot_devices.json',
-          description: 'IoT device definitions',
-          icon: Icons.sensors,
-          isHighlighted: true,
-          constraints: '• JSON array of device configs\n• Define properties per device',
-          exampleContent: Step3Examples.configIotDevices,
-          initialContent: state.configIotDevicesJson ?? '',
-          isValidated: state.configIotDevicesValidated,  // Persist validation across navigation
-          onContentChanged: (content) {
-            // State is managed by BLoC
-            context.read<WizardBloc>().add(WizardConfigIotDevicesChanged(content));
-          },
-          onValidate: (content) async {
-            // Direct API call - do NOT use BLoC for validation UI
-            return await _validateConfigFile('iot', content, state);
-          },
-          autoValidateOnUpload: true,
-        ),
-        const SizedBox(height: 16),
-        
-        ConfigVisualizationBlock(
-          filename: 'config_optimization.json',
-          description: 'Optimizer calculation results',
-          icon: Icons.calculate,
-          sourceLabel: 'From Step 2',
-          jsonContent: _buildConfigOptimizationJson(state),
-          visualContent: ConfigVisualizationBlock.buildOptimizationVisual(
-            inputParams: {
-              'useEventChecking': state.calcParams?.useEventChecking ?? false,
-              'triggerNotificationWorkflow': state.calcParams?.triggerNotificationWorkflow ?? false,
-              'returnFeedbackToDevice': state.calcParams?.returnFeedbackToDevice ?? false,
-              'needs3DModel': state.calcParams?.needs3DModel ?? false,
+        // config.json - editable with auto values
+        CollapsibleBlockWrapper(
+          title: 'config.json',
+          subtitle: 'Core deployment configuration',
+          icon: Icons.settings,
+          isValid: state.configJsonValidated ? true : null,
+          showEditBadge: true,
+          autoBadge: 'From Step 1 & 2',
+          child: ConfigJsonVisualizationBlock(
+            showHeader: false,
+            twinName: state.deployerDigitalTwinName,
+            mode: state.debugMode == true ? 'debug' : 'production',
+            hotStorageDays: (state.calcParams?.hotStorageDurationInMonths ?? 1) * 30,
+            coldStorageDays: (state.calcParams?.coolStorageDurationInMonths ?? 3) * 30,
+            isValidated: state.configJsonValidated,
+            onTwinNameChanged: (name) {
+              context.read<WizardBloc>().add(WizardDeployerTwinNameChanged(name));
+            },
+            onValidate: (config) async {
+              final content = const JsonEncoder.withIndent('  ').convert(config);
+              return await _validateConfigFile('config', content, state);
+            },
+            onValidationSuccess: () {
+              context.read<WizardBloc>().add(const WizardConfigValidationCompleted('config', true));
             },
           ),
         ),
         const SizedBox(height: 16),
         
-        ConfigVisualizationBlock(
-          filename: 'config_providers.json',
-          description: 'Provider assignments per layer',
+        // config_events.json - editable
+        CollapsibleBlockWrapper(
+          title: 'config_events.json',
+          subtitle: 'Event-driven automation rules',
+          icon: Icons.bolt,
+          isValid: state.configEventsValidated ? true : null,
+          showEditBadge: true,
+          child: FileEditorBlock(
+            showHeader: false,
+            filename: 'config_events.json',
+            description: 'Event-driven automation rules',
+            icon: Icons.bolt,
+            isHighlighted: true,
+            constraints: '• JSON array of event conditions\n• Define actions for each condition',
+            exampleContent: Step3Examples.configEvents,
+            initialContent: state.configEventsJson ?? '',
+            isValidated: state.configEventsValidated,
+            onContentChanged: (content) {
+              context.read<WizardBloc>().add(WizardConfigEventsChanged(content));
+            },
+            onValidate: (content) async {
+              return await _validateConfigFile('events', content, state);
+            },
+            autoValidateOnUpload: true,
+          ),
+        ),
+        const SizedBox(height: 16),
+        
+        // config_iot_devices.json - editable
+        CollapsibleBlockWrapper(
+          title: 'config_iot_devices.json',
+          subtitle: 'IoT device definitions',
+          icon: Icons.sensors,
+          isValid: state.configIotDevicesValidated ? true : null,
+          showEditBadge: true,
+          child: FileEditorBlock(
+            showHeader: false,
+            filename: 'config_iot_devices.json',
+            description: 'IoT device definitions',
+            icon: Icons.sensors,
+            isHighlighted: true,
+            constraints: '• JSON array of device configs\n• Define properties per device',
+            exampleContent: Step3Examples.configIotDevices,
+            initialContent: state.configIotDevicesJson ?? '',
+            isValidated: state.configIotDevicesValidated,
+            onContentChanged: (content) {
+              context.read<WizardBloc>().add(WizardConfigIotDevicesChanged(content));
+            },
+            onValidate: (content) async {
+              return await _validateConfigFile('iot', content, state);
+            },
+            autoValidateOnUpload: true,
+          ),
+        ),
+        const SizedBox(height: 16),
+        
+        // config_optimization.json - read-only
+        CollapsibleBlockWrapper(
+          title: 'config_optimization.json',
+          subtitle: 'Optimizer calculation results',
+          icon: Icons.calculate,
+          autoBadge: 'From Step 2',
+          copyContent: _buildConfigOptimizationJson(state),
+          child: ConfigVisualizationBlock(
+            showHeader: false,
+            filename: 'config_optimization.json',
+            description: 'Optimizer calculation results',
+            icon: Icons.calculate,
+            sourceLabel: 'From Step 2',
+            jsonContent: _buildConfigOptimizationJson(state),
+            visualContent: ConfigVisualizationBlock.buildOptimizationVisual(
+              inputParams: {
+                'useEventChecking': state.calcParams?.useEventChecking ?? false,
+                'triggerNotificationWorkflow': state.calcParams?.triggerNotificationWorkflow ?? false,
+                'returnFeedbackToDevice': state.calcParams?.returnFeedbackToDevice ?? false,
+                'needs3DModel': state.calcParams?.needs3DModel ?? false,
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        
+        // config_providers.json - read-only
+        CollapsibleBlockWrapper(
+          title: 'config_providers.json',
+          subtitle: 'Provider assignments per layer',
           icon: Icons.cloud,
-          sourceLabel: 'From Step 2',
-          jsonContent: _buildConfigProvidersJson(state),
-          visualContent: ConfigVisualizationBlock.buildProvidersVisual(_buildProviderMap()),
+          autoBadge: 'From Step 2',
+          copyContent: _buildConfigProvidersJson(state),
+          child: ConfigVisualizationBlock(
+            showHeader: false,
+            filename: 'config_providers.json',
+            description: 'Provider assignments per layer',
+            icon: Icons.cloud,
+            sourceLabel: 'From Step 2',
+            jsonContent: _buildConfigProvidersJson(state),
+            visualContent: ConfigVisualizationBlock.buildProvidersVisual(_buildProviderMap()),
+          ),
         ),
       ],
     );
@@ -450,18 +583,26 @@ class _Step3DeployerState extends State<Step3Deployer> {
 
         // L1 Row
         _buildLayerRow(context, showFlowchart: showFlowchart, flowchart: layerBuilder.buildL1Layer(context), editors: [
-          FileEditorBlock(
-            filename: 'payloads.json',
-            description: 'IoT device payload schemas',
+          CollapsibleBlockWrapper(
+            title: 'payloads.json',
+            subtitle: 'IoT device payload schemas',
             icon: Icons.data_object,
-            isHighlighted: true,
-            constraints: '• Must be valid JSON\n• Define device ID and payload structure',
-            exampleContent: Step3Examples.payloads,
-            initialContent: state.payloadsJson ?? '',
-            isValidated: state.payloadsValidated,
-            onContentChanged: (content) => context.read<WizardBloc>().add(WizardPayloadsChanged(content)),
-            onValidate: (content) => _validateConfigFile('payloads', content, state),
-            autoValidateOnUpload: true,
+            isValid: state.payloadsValidated ? true : null,
+            showEditBadge: true,
+            child: FileEditorBlock(
+              showHeader: false,
+              filename: 'payloads.json',
+              description: 'IoT device payload schemas',
+              icon: Icons.data_object,
+              isHighlighted: true,
+              constraints: '• Must be valid JSON\n• Define device ID and payload structure',
+              exampleContent: Step3Examples.payloads,
+              initialContent: state.payloadsJson ?? '',
+              isValidated: state.payloadsValidated,
+              onContentChanged: (content) => context.read<WizardBloc>().add(WizardPayloadsChanged(content)),
+              onValidate: (content) => _validateConfigFile('payloads', content, state),
+              autoValidateOnUpload: true,
+            ),
           ),
         ]),
         
@@ -483,16 +624,23 @@ class _Step3DeployerState extends State<Step3Deployer> {
 
         // L4 Row
         _buildLayerRow(context, showFlowchart: showFlowchart, flowchart: layerBuilder.buildL4Layer(context), editors: [
-          FileEditorBlock(
-            filename: 'scene_assets/',
-            description: '3D scene configuration files',
+          CollapsibleBlockWrapper(
+            title: 'scene_assets/',
+            subtitle: '3D scene configuration files',
             icon: Icons.view_in_ar,
-            isHighlighted: true,
-            constraints: '• 3DScenesConfiguration.json for Azure ADT',
-            exampleContent: Step3Examples.sceneAssets,
-            initialContent: '',  // TODO: Migrate to BLoC
-            onContentChanged: (_) {},  // TODO: Migrate to BLoC
-            onValidate: (content) => _validateFile('scene_assets', content),
+            showEditBadge: true,
+            child: FileEditorBlock(
+              showHeader: false,
+              filename: 'scene_assets/',
+              description: '3D scene configuration files',
+              icon: Icons.view_in_ar,
+              isHighlighted: true,
+              constraints: '• 3DScenesConfiguration.json for Azure ADT',
+              exampleContent: Step3Examples.sceneAssets,
+              initialContent: '',  // TODO: Migrate to BLoC
+              onContentChanged: (_) {},  // TODO: Migrate to BLoC
+              onValidate: (content) => _validateFile('scene_assets', content),
+            ),
           ),
         ]),
         
@@ -500,16 +648,23 @@ class _Step3DeployerState extends State<Step3Deployer> {
 
         // L5 Row
         _buildLayerRow(context, showFlowchart: showFlowchart, flowchart: layerBuilder.buildL5Layer(context), editors: [
-          FileEditorBlock(
-            filename: 'config_user.json',
-            description: 'Platform user configuration',
+          CollapsibleBlockWrapper(
+            title: 'config_user.json',
+            subtitle: 'Platform user configuration',
             icon: Icons.dashboard,
-            isHighlighted: true,
-            constraints: '• Dashboard layout and panels',
-            exampleContent: Step3Examples.userConfig,
-            initialContent: '',  // TODO: Migrate to BLoC
-            onContentChanged: (_) {},  // TODO: Migrate to BLoC
-            onValidate: (content) => _validateFile('user_config', content),
+            showEditBadge: true,
+            child: FileEditorBlock(
+              showHeader: false,
+              filename: 'config_user.json',
+              description: 'Platform user configuration',
+              icon: Icons.dashboard,
+              isHighlighted: true,
+              constraints: '• Dashboard layout and panels',
+              exampleContent: Step3Examples.userConfig,
+              initialContent: '',  // TODO: Migrate to BLoC
+              onContentChanged: (_) {},  // TODO: Migrate to BLoC
+              onValidate: (content) => _validateFile('user_config', content),
+            ),
           ),
         ]),
 
