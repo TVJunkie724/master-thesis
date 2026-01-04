@@ -103,16 +103,14 @@ def _get_grafana_service_account_token(provider: 'AzureProvider') -> Optional[st
         raise ValueError("provider is required")
     
     try:
-        from azure.identity import DefaultAzureCredential
-        
-        credential = DefaultAzureCredential()
+        # Use provider's credential (ClientSecretCredential or DefaultAzureCredential)
         # Azure Managed Grafana uses a well-known Application ID for OAuth2 tokens.
         # The GUID ce34e7e5-485f-4d76-964f-b3d2b16d1e4f is Microsoft's official
         # Azure Managed Grafana service principal ID, used globally across all tenants.
         # Using "https://grafana.azure.com/.default" returns 401 because the token
         # audience doesn't match what Grafana expects.
         GRAFANA_APP_ID = "ce34e7e5-485f-4d76-964f-b3d2b16d1e4f"
-        token = credential.get_token(f"{GRAFANA_APP_ID}/.default")
+        token = provider.credential.get_token(f"{GRAFANA_APP_ID}/.default")
         return token.token
     except Exception as e:
         logger.warning(f"Could not get Grafana API token: {e}")

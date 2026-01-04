@@ -114,14 +114,13 @@ def _get_adt_data_client(provider: 'AzureProvider'):
         raise ValueError("provider is required")
     
     from azure.digitaltwins.core import DigitalTwinsClient
-    from azure.identity import DefaultAzureCredential
     
     adt_url = get_adt_instance_url(provider)
     if not adt_url:
         return None
     
-    credential = DefaultAzureCredential()
-    return DigitalTwinsClient(adt_url, credential)
+    # Use provider's credential (ClientSecretCredential or DefaultAzureCredential)
+    return DigitalTwinsClient(adt_url, provider.credential)
 
 
 # ==========================================
