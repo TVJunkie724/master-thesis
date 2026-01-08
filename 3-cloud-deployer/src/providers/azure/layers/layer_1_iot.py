@@ -13,8 +13,9 @@ Note:
 
 from typing import TYPE_CHECKING
 import logging
+import time
 
-from azure.core.exceptions import ResourceNotFoundError
+from azure.core.exceptions import ResourceNotFoundError, ResourceExistsError
 
 if TYPE_CHECKING:
     from src.providers.azure.provider import AzureProvider
@@ -26,10 +27,66 @@ logger = logging.getLogger(__name__)
 # Helper Functions
 # ==========================================
 
+def _wait_for_iothub_active(provider: 'AzureProvider', timeout: int = 180, poll_interval: int = 10) -> None:
+    """
+    Wait for IoT Hub to reach Active state.
+    
+    Azure IoT Hub can take 1-2 minutes to transition from Creating to Active.
+    Terraform returns as soon as the resource is created, but SDK operations
+    (like list_keys) require the hub to be Active.
+    
+    Args:
+        provider: Initialized AzureProvider
+        timeout: Maximum seconds to wait (default 180 = 3 minutes)
+        poll_interval: Seconds between status checks (default 10)
+        
+    Raises:
+        TimeoutError: If IoT Hub doesn't reach Active state within timeout
+    """
+    rg_name = provider.naming.resource_group()
+    hub_name = provider.naming.iot_hub()
+    
+    start_time = time.time()
+    
+    while True:
+        try:
+            hub = provider.clients["iothub"].iot_hub_resource.get(
+                resource_group_name=rg_name,
+                resource_name=hub_name
+            )
+            
+            state = hub.properties.state if hub.properties else None
+            
+            if state == "Active":
+                logger.info(f"✓ IoT Hub {hub_name} is Active")
+                return
+            
+            elapsed = time.time() - start_time
+            if elapsed >= timeout:
+                raise TimeoutError(
+                    f"IoT Hub {hub_name} did not reach Active state within {timeout}s. "
+                    f"Current state: {state}"
+                )
+            
+            logger.info(f"  Waiting for IoT Hub {hub_name} to become Active (current: {state}, {int(elapsed)}s elapsed)...")
+            time.sleep(poll_interval)
+            
+        except ResourceNotFoundError:
+            elapsed = time.time() - start_time
+            if elapsed >= timeout:
+                raise TimeoutError(f"IoT Hub {hub_name} not found within {timeout}s")
+            logger.info(f"  Waiting for IoT Hub {hub_name} to be created...")
+            time.sleep(poll_interval)
+
+
 def _get_iot_hub_connection_string(provider: 'AzureProvider') -> str:
     """Get the IoT Hub connection string for management operations."""
     rg_name = provider.naming.resource_group()
     hub_name = provider.naming.iot_hub()
+    
+    # Wait for IoT Hub to reach Active state before querying keys
+    # This fixes race condition where Terraform returns before hub is fully ready
+    _wait_for_iothub_active(provider)
     
     try:
         keys = provider.clients["iothub"].iot_hub_resource.list_keys(
