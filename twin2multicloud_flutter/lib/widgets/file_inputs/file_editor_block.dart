@@ -26,6 +26,9 @@ class FileEditorBlock extends StatefulWidget {
   final Future<Map<String, dynamic>> Function(String)? onValidate;
   final bool autoValidateOnUpload;
   
+  /// When false, hides the validate button and result (for FunctionPackageBlock which manages its own)
+  final bool showValidateButton;
+  
   /// When false, skips header row and outer container (for use with CollapsibleBlockWrapper)
   final bool showHeader;
   
@@ -42,6 +45,7 @@ class FileEditorBlock extends StatefulWidget {
     this.onContentChanged,
     this.onValidate,
     this.autoValidateOnUpload = false,
+    this.showValidateButton = true,
     this.showHeader = true,
   });
   
@@ -150,7 +154,7 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
       widget.onContentChanged?.call(content);
       
       if (widget.autoValidateOnUpload && widget.onValidate != null) {
-        await _validate();
+        await _validate(contentOverride: content);
       }
     } catch (e) {
       setState(() {
@@ -205,7 +209,7 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
     );
   }
   
-  Future<void> _validate() async {
+  Future<void> _validate({String? contentOverride}) async {
     if (widget.onValidate == null) return;
     
     setState(() {
@@ -214,7 +218,9 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
     });
     
     try {
-      final result = await widget.onValidate!(_controller.fullText);
+      // Use contentOverride if provided (for file upload), otherwise read from controller
+      final contentToValidate = contentOverride ?? _controller.fullText;
+      final result = await widget.onValidate!(contentToValidate);
       setState(() {
         _isValid = result['valid'] == true;
         _validationMessage = result['message']?.toString() ?? 
@@ -404,8 +410,8 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
             ],
           ),
           
-          // Validation section
-          if (widget.onValidate != null) ...[
+          // Validation section (only show if showValidateButton is true)
+          if (widget.onValidate != null && widget.showValidateButton) ...[
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -427,8 +433,8 @@ class _FileEditorBlockState extends State<FileEditorBlock> {
             ),
           ],
           
-          // Validation result
-          if (_validationMessage != null) ...[
+          // Validation result (only show if showValidateButton is true)
+          if (_validationMessage != null && widget.showValidateButton) ...[
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),
