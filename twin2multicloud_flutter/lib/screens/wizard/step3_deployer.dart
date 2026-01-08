@@ -202,6 +202,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           onValidate: (content) => _validateL2Content('function-code', content, state, entityId: 'processor:$deviceId'),
           constraints: _getFunctionConstraints(state.layer2Provider),
           exampleContent: Step3Examples.processors,
+          initiallyExpanded: !(state.processorValidated[deviceId] ?? false),
         ));
         widgets.add(const SizedBox(height: 16));
       }
@@ -224,6 +225,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
         onValidate: (content) => _validateL2Content('function-code', content, state, entityId: 'feedback'),
         constraints: _getFunctionConstraints(state.layer2Provider),
         exampleContent: Step3Examples.processors,
+        initiallyExpanded: !state.eventFeedbackValidated,
       ));
       widgets.add(const SizedBox(height: 16));
     }
@@ -253,6 +255,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
             onValidate: (content) => _validateL2Content('function-code', content, state, entityId: 'event-action:$funcName'),
             constraints: _getFunctionConstraints(state.layer2Provider),
             exampleContent: Step3Examples.processors,
+            initiallyExpanded: !(state.eventActionValidated[funcName] ?? false),
           ));
           widgets.add(const SizedBox(height: 16));
         }
@@ -268,6 +271,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
         icon: Icons.account_tree,
         isValid: state.stateMachineValidated ? true : null,
         showEditBadge: true,
+        initiallyExpanded: !state.stateMachineValidated,
         child: FileEditorBlock(
           showHeader: false,
           filename: filename,
@@ -282,6 +286,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
             WizardStateMachineContentChanged(content),
           ),
           onValidate: (content) => _validateL2Content('state-machine', content, state),
+          autoValidateOnUpload: true,
         ),
       ));
     }
@@ -431,6 +436,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           isValid: state.configJsonValidated ? true : null,
           showEditBadge: true,
           autoBadge: 'From Step 1 & 2',
+          initiallyExpanded: !state.configJsonValidated,
           child: ConfigJsonVisualizationBlock(
             showHeader: false,
             twinName: state.deployerDigitalTwinName,
@@ -459,6 +465,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           icon: Icons.bolt,
           isValid: state.configEventsValidated ? true : null,
           showEditBadge: true,
+          initiallyExpanded: !state.configEventsValidated,
           child: FileEditorBlock(
             showHeader: false,
             filename: 'config_events.json',
@@ -487,6 +494,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
           icon: Icons.sensors,
           isValid: state.configIotDevicesValidated ? true : null,
           showEditBadge: true,
+          initiallyExpanded: !state.configIotDevicesValidated,
           child: FileEditorBlock(
             showHeader: false,
             filename: 'config_iot_devices.json',
@@ -572,6 +580,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
             icon: Icons.data_object,
             isValid: state.payloadsValidated ? true : null,
             showEditBadge: true,
+            initiallyExpanded: !state.payloadsValidated,
             child: FileEditorBlock(
               showHeader: false,
               filename: 'payloads.json',

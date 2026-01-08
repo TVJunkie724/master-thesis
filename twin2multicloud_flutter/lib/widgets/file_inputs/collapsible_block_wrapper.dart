@@ -30,6 +30,10 @@ class CollapsibleBlockWrapper extends StatefulWidget {
   /// Content to copy when copy button pressed
   final String? copyContent;
   
+  /// Whether to start expanded (defaults to true)
+  /// Set to false for valid blocks in edit mode
+  final bool initiallyExpanded;
+  
   /// The wrapped content
   final Widget child;
   
@@ -42,6 +46,7 @@ class CollapsibleBlockWrapper extends StatefulWidget {
     this.showEditBadge = false,
     this.autoBadge,
     this.copyContent,
+    this.initiallyExpanded = true,
     required this.child,
   });
   
@@ -50,7 +55,13 @@ class CollapsibleBlockWrapper extends StatefulWidget {
 }
 
 class _CollapsibleBlockWrapperState extends State<CollapsibleBlockWrapper> {
-  bool _isExpanded = true;
+  late bool _isExpanded;
+  
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = widget.initiallyExpanded;
+  }
   
   void _toggleExpanded() {
     setState(() => _isExpanded = !_isExpanded);

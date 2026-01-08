@@ -52,6 +52,10 @@ class FunctionPackageBlock extends StatefulWidget {
   /// Optional example content for the code editor
   final String? exampleContent;
   
+  /// Whether to start expanded (defaults to true)
+  /// Set to false for valid blocks in edit mode
+  final bool initiallyExpanded;
+  
   const FunctionPackageBlock({
     super.key,
     required this.codeFilename,
@@ -64,6 +68,7 @@ class FunctionPackageBlock extends StatefulWidget {
     this.isCodeValidated = false,
     this.constraints,
     this.exampleContent,
+    this.initiallyExpanded = true,
   });
   
   @override
@@ -199,6 +204,7 @@ class _FunctionPackageBlockState extends State<FunctionPackageBlock> {
       icon: Icons.code,
       isValid: widget.isCodeValidated ? true : null,
       showEditBadge: true,
+      initiallyExpanded: widget.initiallyExpanded,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
