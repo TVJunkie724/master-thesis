@@ -123,6 +123,19 @@ class WizardState extends Equatable {
   final String? stateMachineContent;                 // AWS/Azure/GCP workflow JSON/YAML
   final bool stateMachineValidated;
   
+  // === Persistent Data: Step 3 Section 2 (L4 Hierarchy) ===
+  final String? hierarchyContent;                    // aws_hierarchy.json or azure_hierarchy.json
+  final bool hierarchyValidated;
+  
+  // === Persistent Data: Step 3 Section 3 (L4 Scene) ===
+  final bool sceneGlbUploaded;                       // True if GLB file exists on server
+  final String? sceneConfigContent;                  // scene.json or 3DScenesConfiguration.json
+  final bool sceneConfigValidated;
+  
+  // === Persistent Data: Step 3 Section 3 (L4/L5 User Config) ===
+  final String? userConfigContent;                   // config_user.json content
+  final bool userConfigValidated;
+  
   // === State Tracking ===
   final bool hasUnsavedChanges;
   final bool step3Invalidated;  // True when new calc invalidates Section 3 data
@@ -172,6 +185,14 @@ class WizardState extends Equatable {
     this.eventActionRequirements = const {},
     this.stateMachineContent,
     this.stateMachineValidated = false,
+    // L4/L5 fields
+    this.hierarchyContent,
+    this.hierarchyValidated = false,
+    this.sceneGlbUploaded = false,
+    this.sceneConfigContent,
+    this.sceneConfigValidated = false,
+    this.userConfigContent,
+    this.userConfigValidated = false,
     this.hasUnsavedChanges = false,
     this.step3Invalidated = false,
   });
@@ -196,8 +217,19 @@ class WizardState extends Equatable {
   };
   
   /// Is Section 2 validated? (gates save)
-  bool get isSection2Valid =>
-      configJsonValidated && configEventsValidated && configIotDevicesValidated;
+  /// Includes hierarchy validation when L4 provider is AWS or Azure
+  bool get isSection2Valid {
+    // Core configs must always be validated
+    if (!configJsonValidated || !configEventsValidated || !configIotDevicesValidated) {
+      return false;
+    }
+    // Hierarchy is required for AWS/Azure L4
+    final l4 = layer4Provider?.toUpperCase();
+    if (l4 == 'AWS' || l4 == 'AZURE') {
+      return hierarchyValidated;
+    }
+    return true;
+  }
   
   // ============================================================
   // L2 DERIVED GETTERS
@@ -285,6 +317,12 @@ class WizardState extends Equatable {
   /// Get the L2 provider from calculation result
   String? get layer2Provider => layerProviders['L2'];
   
+  /// Get the L4 provider from calculation result
+  String? get layer4Provider => layerProviders['L4'];
+  
+  /// Get the L5 provider from calculation result  
+  String? get layer5Provider => layerProviders['L5'];
+  
   /// Get state machine filename based on L2 provider
   String? get stateMachineFilename {
     final l2 = layer2Provider?.toLowerCase();
@@ -366,12 +404,24 @@ class WizardState extends Equatable {
     Map<String, String>? eventActionRequirements,
     String? stateMachineContent,
     bool? stateMachineValidated,
+    // L4/L5 fields
+    String? hierarchyContent,
+    bool? hierarchyValidated,
+    bool? sceneGlbUploaded,
+    String? sceneConfigContent,
+    bool? sceneConfigValidated,
+    String? userConfigContent,
+    bool? userConfigValidated,
     bool? hasUnsavedChanges,
     bool? step3Invalidated,
     // Special flags to explicitly clear nullable fields
     bool clearError = false,
     bool clearSuccess = false,
     bool clearWarning = false,
+    // L4 content clear flags
+    bool clearHierarchyContent = false,
+    bool clearSceneConfigContent = false,
+    bool clearUserConfigContent = false,
   }) {
     return WizardState(
       mode: mode ?? this.mode,
@@ -418,6 +468,14 @@ class WizardState extends Equatable {
       eventActionRequirements: eventActionRequirements ?? this.eventActionRequirements,
       stateMachineContent: stateMachineContent ?? this.stateMachineContent,
       stateMachineValidated: stateMachineValidated ?? this.stateMachineValidated,
+      // L4/L5 fields
+      hierarchyContent: clearHierarchyContent ? null : (hierarchyContent ?? this.hierarchyContent),
+      hierarchyValidated: hierarchyValidated ?? this.hierarchyValidated,
+      sceneGlbUploaded: sceneGlbUploaded ?? this.sceneGlbUploaded,
+      sceneConfigContent: clearSceneConfigContent ? null : (sceneConfigContent ?? this.sceneConfigContent),
+      sceneConfigValidated: sceneConfigValidated ?? this.sceneConfigValidated,
+      userConfigContent: clearUserConfigContent ? null : (userConfigContent ?? this.userConfigContent),
+      userConfigValidated: userConfigValidated ?? this.userConfigValidated,
       hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
       step3Invalidated: step3Invalidated ?? this.step3Invalidated,
     );
@@ -476,6 +534,14 @@ class WizardState extends Equatable {
     eventActionRequirements,
     stateMachineContent,
     stateMachineValidated,
+    // L4/L5 fields
+    hierarchyContent,
+    hierarchyValidated,
+    sceneGlbUploaded,
+    sceneConfigContent,
+    sceneConfigValidated,
+    userConfigContent,
+    userConfigValidated,
     hasUnsavedChanges,
     step3Invalidated,
   ];
