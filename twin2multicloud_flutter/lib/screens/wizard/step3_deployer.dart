@@ -143,7 +143,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
     }
     
     try {
-      final api = context.read<ApiService>();
+      final container = ProviderScope.containerOf(context); final api = container.read(apiServiceProvider);
       final bloc = context.read<WizardBloc>();  // Capture before await
       final result = await api.validateL4Content(twinId, type, content, provider);
       
@@ -1058,7 +1058,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
               onPressed: () async {
                 final twinId = state.twinId;
                 if (twinId == null) return;
-                final api = context.read<ApiService>();
+                final container = ProviderScope.containerOf(context); final api = container.read(apiServiceProvider);
                 final bloc = context.read<WizardBloc>();
                 final messenger = ScaffoldMessenger.of(context);
                 try {
@@ -1079,7 +1079,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
                 final twinId = state.twinId;
                 // Capture references before any async operations
                 final messenger = ScaffoldMessenger.of(context);
-                final api = context.read<ApiService>();
+                final container = ProviderScope.containerOf(context); final api = container.read(apiServiceProvider);
                 final bloc = context.read<WizardBloc>();
                 
                 if (twinId == null) {
