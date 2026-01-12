@@ -719,8 +719,9 @@ class _Step3DeployerState extends State<Step3Deployer> {
         
         if (showFlowchart) _buildArrowRow(),
 
-        // L4 Row - Scene Config (only when needs3DModel && L4 provider is AWS/Azure)
+        // L4 Row - Scene Config (only when needs3DModel && L4 provider is AWS/Azure && hierarchy validated)
         if (state.calcParams?.needs3DModel == true && 
+            state.hierarchyValidated &&
             (state.layer4Provider?.toUpperCase() == 'AWS' || 
              state.layer4Provider?.toUpperCase() == 'AZURE')) ...[
           _buildLayerRow(context, showFlowchart: showFlowchart, flowchart: layerBuilder.buildL4Layer(context), editors: [

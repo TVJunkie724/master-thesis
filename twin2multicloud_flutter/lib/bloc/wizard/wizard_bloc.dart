@@ -85,6 +85,22 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     on<WizardEventFeedbackValidationCompleted>(_onEventFeedbackValidationCompleted);
     on<WizardEventActionValidationCompleted>(_onEventActionValidationCompleted);
     on<WizardStateMachineValidationCompleted>(_onStateMachineValidationCompleted);
+    
+    // === Step 3: L4 Hierarchy ===
+    on<WizardHierarchyContentChanged>(_onHierarchyContentChanged);
+    on<WizardHierarchyValidationCompleted>(_onHierarchyValidationCompleted);
+    
+    // === Step 3: L4 Scene ===
+    on<WizardSceneConfigContentChanged>(_onSceneConfigContentChanged);
+    on<WizardSceneConfigValidationCompleted>(_onSceneConfigValidationCompleted);
+    on<WizardSceneGlbUploadStatusChanged>(_onSceneGlbUploadStatusChanged);
+    
+    // === Step 3: L4/L5 User Config ===
+    on<WizardUserConfigContentChanged>(_onUserConfigContentChanged);
+    on<WizardUserConfigValidationCompleted>(_onUserConfigValidationCompleted);
+    
+    // === Step 3: L4 Cleanup ===
+    on<WizardL4CleanupRequested>(_onL4CleanupRequested);
   }
   
   // ============================================================
@@ -178,6 +194,14 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       Map<String, String> eventActionRequirements = {};
       String? stateMachineContent;
       bool stateMachineValidated = false;
+      // L4/L5 fields
+      String? hierarchyContent;
+      bool hierarchyValidated = false;
+      bool sceneGlbUploaded = false;
+      String? sceneConfigContent;
+      bool sceneConfigValidated = false;
+      String? userConfigContent;
+      bool userConfigValidated = false;
       
       try {
         final deployerConfig = await _api.getDeployerConfig(event.twinId);
@@ -214,6 +238,14 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         }
         stateMachineContent = deployerConfig['state_machine_content'] as String?;
         stateMachineValidated = deployerConfig['state_machine_validated'] as bool? ?? false;
+        // L4/L5 fields
+        hierarchyContent = deployerConfig['hierarchy_content'] as String?;
+        hierarchyValidated = deployerConfig['hierarchy_validated'] as bool? ?? false;
+        sceneGlbUploaded = deployerConfig['scene_glb_uploaded'] as bool? ?? false;
+        sceneConfigContent = deployerConfig['scene_config_content'] as String?;
+        sceneConfigValidated = deployerConfig['scene_config_validated'] as bool? ?? false;
+        userConfigContent = deployerConfig['user_config_content'] as String?;
+        userConfigValidated = deployerConfig['user_config_validated'] as bool? ?? false;
       } catch (e) {
         // No deployer config yet, that's fine
       }
@@ -279,6 +311,14 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         eventActionRequirements: eventActionRequirements,
         stateMachineContent: stateMachineContent,
         stateMachineValidated: stateMachineValidated,
+        // L4/L5 fields (hydrated)
+        hierarchyContent: hierarchyContent,
+        hierarchyValidated: hierarchyValidated,
+        sceneGlbUploaded: sceneGlbUploaded,
+        sceneConfigContent: sceneConfigContent,
+        sceneConfigValidated: sceneConfigValidated,
+        userConfigContent: userConfigContent,
+        userConfigValidated: userConfigValidated,
         warningMessage: warningMessage,
       ));
     } catch (e) {
@@ -668,6 +708,14 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
           'event_action_requirements': state.eventActionRequirements,
           'state_machine_content': state.stateMachineContent,
           'state_machine_validated': state.stateMachineValidated,
+          // L4/L5 fields
+          'hierarchy_content': state.hierarchyContent,
+          'hierarchy_validated': state.hierarchyValidated,
+          'scene_glb_uploaded': state.sceneGlbUploaded,
+          'scene_config_content': state.sceneConfigContent,
+          'scene_config_validated': state.sceneConfigValidated,
+          'user_config_content': state.userConfigContent,
+          'user_config_validated': state.userConfigValidated,
         });
       }
       
@@ -817,24 +865,27 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   // ============================================================
 
   void _onConfigEventsChanged(WizardConfigEventsChanged event, Emitter<WizardState> emit) {
+    // Reset all validation that depends on function names from config_events
+    // Content is preserved - user just needs to revalidate after config change
+    final resetEventActionValidated = state.eventActionValidated.map((k, v) => MapEntry(k, false));
     emit(state.copyWith(
       configEventsJson: event.content,
       configEventsValidated: false, // Reset validation on content change
-      // CASCADE: Clear event action content that depends on function names
-      eventActionContents: const {},
-      eventActionValidated: const {},
+      // CASCADE: Reset validation for dependent L2 content (keep content)
+      eventActionValidated: resetEventActionValidated,
       hasUnsavedChanges: true,
     ));
   }
 
   void _onConfigIotDevicesChanged(WizardConfigIotDevicesChanged event, Emitter<WizardState> emit) {
+    // Reset all validation that depends on device IDs from config_iot_devices
+    // Content is preserved - user just needs to revalidate after config change
+    final resetProcessorValidated = state.processorValidated.map((k, v) => MapEntry(k, false));
     emit(state.copyWith(
       configIotDevicesJson: event.content,
       configIotDevicesValidated: false, // Reset validation on content change
-      // CASCADE: Clear L2 content that depends on device IDs
-      processorContents: const {},
-      processorValidated: const {},
-      eventFeedbackContent: null,
+      // CASCADE: Reset validation for dependent L2 content (keep content)
+      processorValidated: resetProcessorValidated,
       eventFeedbackValidated: false,
       hasUnsavedChanges: true,
     ));
@@ -1020,5 +1071,96 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
 
   void _onStateMachineValidationCompleted(WizardStateMachineValidationCompleted event, Emitter<WizardState> emit) {
     emit(state.copyWith(stateMachineValidated: event.valid));
+  }
+
+  // ============================================================
+  // STEP 3: L4 HIERARCHY HANDLERS
+  // ============================================================
+
+  void _onHierarchyContentChanged(WizardHierarchyContentChanged event, Emitter<WizardState> emit) {
+    // Reset validation for dependent scene config (content preserved)
+    emit(state.copyWith(
+      hierarchyContent: event.content,
+      hierarchyValidated: false,  // Invalidate on content change
+      // CASCADE: Reset scene config validation (content preserved)
+      sceneConfigValidated: false,
+      hasUnsavedChanges: true,
+    ));
+  }
+
+  void _onHierarchyValidationCompleted(WizardHierarchyValidationCompleted event, Emitter<WizardState> emit) {
+    emit(state.copyWith(hierarchyValidated: event.valid));
+  }
+
+  // ============================================================
+  // STEP 3: L4 SCENE HANDLERS
+  // ============================================================
+
+  void _onSceneConfigContentChanged(WizardSceneConfigContentChanged event, Emitter<WizardState> emit) {
+    emit(state.copyWith(
+      sceneConfigContent: event.content,
+      sceneConfigValidated: false,  // Invalidate on content change
+      hasUnsavedChanges: true,
+    ));
+  }
+
+  void _onSceneConfigValidationCompleted(WizardSceneConfigValidationCompleted event, Emitter<WizardState> emit) {
+    emit(state.copyWith(sceneConfigValidated: event.valid));
+  }
+
+  void _onSceneGlbUploadStatusChanged(WizardSceneGlbUploadStatusChanged event, Emitter<WizardState> emit) {
+    emit(state.copyWith(
+      sceneGlbUploaded: event.uploaded,
+      hasUnsavedChanges: true,
+    ));
+  }
+
+  // ============================================================
+  // STEP 3: L4/L5 USER CONFIG HANDLERS
+  // ============================================================
+
+  void _onUserConfigContentChanged(WizardUserConfigContentChanged event, Emitter<WizardState> emit) {
+    emit(state.copyWith(
+      userConfigContent: event.content,
+      userConfigValidated: false,  // Invalidate on content change
+      hasUnsavedChanges: true,
+    ));
+  }
+
+  void _onUserConfigValidationCompleted(WizardUserConfigValidationCompleted event, Emitter<WizardState> emit) {
+    emit(state.copyWith(userConfigValidated: event.valid));
+  }
+
+  // ============================================================
+  // STEP 3: L4 CLEANUP HANDLER
+  // ============================================================
+
+  /// Handle L4 cleanup request - reset all L4 fields and delete GLB from server
+  Future<void> _onL4CleanupRequested(WizardL4CleanupRequested event, Emitter<WizardState> emit) async {
+    // Capture state BEFORE resetting (to avoid race condition)
+    final wasGlbUploaded = state.sceneGlbUploaded;
+    final twinId = state.twinId;
+    
+    // Reset all L4 state fields using clear flags for nullable content
+    emit(state.copyWith(
+      clearHierarchyContent: true,  // Use clear flag instead of null
+      hierarchyValidated: false,
+      clearSceneConfigContent: true,  // Use clear flag instead of null
+      sceneConfigValidated: false,
+      sceneGlbUploaded: false,
+      hasUnsavedChanges: true,
+    ));
+    
+    // Delete GLB from server if twin exists and GLB was uploaded
+    if (twinId != null && wasGlbUploaded) {
+      try {
+        await _api.deleteSceneGlb(twinId);
+      } catch (e) {
+        // Log error but don't fail - state is already reset
+        // The server cleanup is best-effort
+        // ignore: avoid_print
+        print('[WizardBloc] GLB cleanup failed (best-effort): $e');
+      }
+    }
   }
 }
