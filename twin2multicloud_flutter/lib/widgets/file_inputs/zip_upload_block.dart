@@ -24,42 +24,72 @@ class _ZipUploadBlockState extends State<ZipUploadBlock> {
   // Example project structure (bash tree-like format)
   static const String _exampleStructure = '''
 project.zip
-├── config.json                    # Main config (twin name, storage days)
-├── config_credentials.json        # Cloud provider credentials
-├── config_events.json             # Event-driven automation rules
-├── config_iot_devices.json        # IoT device definitions
-├── config_optimization.json       # Optimizer output (layer providers)
-├── config_providers.json          # Provider assignments per layer
-├── config_user.json               # Platform user config
+├── config.json                       # Main config (twin name, storage days)
+├── config_credentials.json           # Cloud provider credentials (not committed)
+├── config_events.json                # Event-driven automation rules
+├── config_iot_devices.json           # IoT device definitions
+├── config_optimization.json          # Optimizer output (layer providers)
+├── config_providers.json             # Provider assignments per layer
+├── config_user.json                  # Platform user config (Grafana admin)
 │
-├── lambda_functions/              # AWS Lambda / Azure Functions / GCP Cloud Functions
-│   ├── processors/                # User processor functions (per device)
+├── lambda_functions/                 # AWS Lambda functions (if layer_2=aws)
+│   ├── processors/                   # User processor functions (per device)
 │   │   ├── temperature-sensor-1/
-│   │   │   └── index.py
+│   │   │   └── process.py            # def lambda_handler(event, context)
 │   │   └── pressure-sensor-1/
-│   │       └── index.py
-│   ├── event_actions/             # Event callback functions
-│   │   └── high-temperature-callback/
-│   │       └── index.py
-│   └── feedback/                  # Feedback handler functions
-│       └── feedback-handler/
-│           └── index.py
+│   │       └── process.py
+│   ├── event_actions/                # Event callback functions
+│   │   └── alert-handler/
+│   │       └── lambda_function.py
+│   └── event-feedback/               # Feedback handler
+│       └── lambda_function.py
 │
-├── state_machines/                # Workflow definitions
-│   ├── aws_step_function.json     # AWS Step Functions
-│   ├── azure_logic_app.json       # Azure Logic Apps
-│   └── google_cloud_workflow.yaml # GCP Workflows
+├── azure_functions/                  # Azure Functions (if layer_2=azure)
+│   ├── processors/
+│   │   ├── temperature-sensor-1/
+│   │   │   ├── function_app.py       # def main(req: func.HttpRequest)
+│   │   │   └── function.json
+│   │   └── pressure-sensor-1/
+│   │       ├── function_app.py
+│   │       └── function.json
+│   ├── event_actions/
+│   │   └── alert-handler/
+│   │       ├── function_app.py
+│   │       └── function.json
+│   └── event-feedback/
+│       ├── function_app.py
+│       └── function.json
 │
-├── scene_assets/                  # 3D visualization assets
-│   ├── 3DScenesConfiguration.json # Azure Digital Twins 3D config
-│   └── models/                    # 3D model files
-│       └── factory.glb
+├── cloud_functions/                  # GCP Cloud Functions (if layer_2=google)
+│   ├── processors/
+│   │   ├── temperature-sensor-1/
+│   │   │   └── main.py               # def process(request)
+│   │   └── pressure-sensor-1/
+│   │       └── main.py
+│   ├── event_actions/
+│   │   └── alert-handler/
+│   │       └── main.py
+│   └── event-feedback/
+│       └── main.py
 │
-├── twin_hierarchy/                # Entity hierarchy definitions
-│   └── hierarchy.json
+├── state_machines/                   # Workflow definitions
+│   ├── aws_step_function.json        # AWS Step Functions (Amazon States Language)
+│   ├── azure_logic_app.json          # Azure Logic Apps (workflow definition)
+│   └── google_cloud_workflow.yaml    # GCP Workflows (YAML syntax)
 │
-└── iot_device_simulator/          # Test payload simulator
-    └── payloads.json
+├── twin_hierarchy/                   # Digital twin entity hierarchy
+│   ├── aws_hierarchy.json            # TwinMaker entities (if layer_4=aws)
+│   └── azure_hierarchy.json          # ADT twins/models (if layer_4=azure)
+│
+├── scene_assets/                     # 3D visualization assets
+│   ├── scene.json                    # TwinMaker scene config (if layer_4=aws)
+│   ├── 3DScenesConfiguration.json    # Azure 3D Scenes config (if layer_4=azure)
+│   └── scene.glb                     # 3D model file (GLTF binary)
+│
+├── iot_device_simulator/             # Test payload simulator
+│   └── payloads.json
+│
+└── gcp_credentials.json              # GCP service account (if using GCP)
 ''';
   
   Future<void> _pickZipFile() async {
