@@ -416,40 +416,104 @@ class _Step3DeployerState extends State<Step3Deployer> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Section 1: Quick Upload
-              // For new twins, expand this section to guide users to upload a zip first
-              // For existing twins, keep collapsed since they likely have config already
+              // ============================================================
+              // QUICK UPLOAD AREA (Always visible, not collapsible)
+              // ============================================================
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 800),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        children: [
+                          Icon(Icons.folder_zip, size: 28, color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Quick Upload',
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'Import an existing deployment project',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      // Description
+                      Text(
+                        'Upload a complete project ZIP file to automatically populate all configuration fields below. '
+                        'This is the fastest way to configure your deployment if you have an existing project structure. '
+                        'Alternatively, you can manually configure each section below.',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // ZIP Upload Block
+                      ZipUploadBlock(
+                        onZipSelected: (path) {
+                          // ZIP upload functionality - TODO: implement extraction
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 32),
+              
+              // Separator with "Or configure manually" text
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 800),
+                  child: Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.grey.shade400)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Or configure manually',
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: Colors.grey.shade400)),
+                    ],
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // ============================================================
+              // SECTION 1: Configuration Files (was Section 2)
+              // ============================================================
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 800),
                   child: CollapsibleSection(
                     sectionNumber: 1,
-                    title: 'Quick Upload',
-                    description: 'Upload a complete project zip to auto-fill all fields',
-                    icon: Icons.folder_zip,
-                    initiallyExpanded: state.mode == WizardMode.create,
-                    child: ZipUploadBlock(
-                      onZipSelected: (path) {
-                        // ZIP upload functionality - TODO: implement extraction
-                      },
-                    ),
-                  ),
-                ),
-              ),
-              
-              // Section 2: Configuration Files
-              // For new twins, keep collapsed until they upload or choose manual entry
-              // For existing twins with all valid configs, collapse to reduce noise
-              // For existing twins with missing/invalid configs, expand to show what needs work
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 800),
-                  child: CollapsibleSection(
-                    sectionNumber: 2,
                     title: 'Configuration Files',
                     description: 'Core deployment settings and device definitions',
                     icon: Icons.settings,
-                    // Auto-collapse if all Section 2 configs are valid (on edit)
+                    // Auto-collapse if all configs are valid (on edit)
                     initiallyExpanded: state.mode == WizardMode.edit && !state.isSection2Valid,
                     isValid: state.isSection2Valid,  // Show check icon when complete
                     child: _buildConfigSection(context, state),
@@ -457,22 +521,25 @@ class _Step3DeployerState extends State<Step3Deployer> {
                 ),
               ),
               
-              // Section 3: User Functions & Assets
-              // No longer locked - validation will handle dependencies
+              // ============================================================
+              // SECTION 2: User Functions & Assets (was Section 3)
+              // ============================================================
               Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
                     maxWidth: showFlowchart ? _flowchartWidth + 32 + 800 + 32 : 800,
                   ),
                   child: CollapsibleSection(
-                    sectionNumber: 3,
+                    sectionNumber: 2,
                     title: 'User Functions & Assets',
                     description: 'Custom processors, workflows, and visualization config',
                     icon: Icons.code,
-                    initiallyExpanded: state.mode == WizardMode.edit,
+                    // Auto-collapse if all configs are valid (on edit)
+                    initiallyExpanded: state.mode == WizardMode.edit && !state.isSection3Valid,
                     collapsedMaxWidth: 800,
+                    isValid: state.isSection3Valid,  // Show check icon when complete
                     // Info message about dependency (non-blocking)
-                    infoHint: 'Inputs here depend on Section 2 configuration files (config_events.json, config_iot_devices.json)',
+                    infoHint: 'Inputs here depend on Section 1 configuration files (config_events.json, config_iot_devices.json)',
                     child: _buildDataFlowSection(context, state, showFlowchart),
                   ),
                 ),
@@ -743,6 +810,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
                     title: filename,
                     subtitle: description,
                     icon: Icons.view_in_ar,
+                    isValid: state.sceneConfigValidated ? true : null,
                     showEditBadge: true,
                     initiallyExpanded: !state.sceneConfigValidated,
                     copyContent: state.sceneConfigContent,
@@ -793,6 +861,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
                 title: 'config_user.json',
                 subtitle: 'Grafana dashboard configuration',
                 icon: Icons.dashboard,
+                isValid: state.userConfigValidated ? true : null,
                 showEditBadge: true,
                 initiallyExpanded: !state.userConfigValidated,
                 copyContent: state.userConfigContent,

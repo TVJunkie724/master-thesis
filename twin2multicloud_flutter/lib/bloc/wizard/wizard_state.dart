@@ -231,6 +231,54 @@ class WizardState extends Equatable {
     return true;
   }
   
+  /// Is Section 3 validated? (all required L1-L5 fields complete)
+  bool get isSection3Valid {
+    // L1: Payloads always required
+    if (!payloadsValidated) return false;
+    
+    // L2: All device processors must be validated
+    final devices = deviceIds;
+    if (devices.isNotEmpty) {
+      for (final deviceId in devices) {
+        if (processorValidated[deviceId] != true) return false;
+      }
+    }
+    
+    // L2: Event feedback (if enabled)
+    if (calcParams?.returnFeedbackToDevice == true) {
+      if (!eventFeedbackValidated) return false;
+    }
+    
+    // L2: Event actions (if enabled)
+    if (calcParams?.useEventChecking == true) {
+      final actionNames = eventActionFunctionNames;
+      for (final name in actionNames) {
+        if (eventActionValidated[name] != true) return false;
+      }
+    }
+    
+    // L2: State machine (if enabled)
+    if (calcParams?.triggerNotificationWorkflow == true) {
+      if (!stateMachineValidated) return false;
+    }
+    
+    // L4: Scene config (if needs3DModel && hierarchy validated && AWS/Azure)
+    final l4 = layer4Provider?.toUpperCase();
+    if (calcParams?.needs3DModel == true && 
+        hierarchyValidated && 
+        (l4 == 'AWS' || l4 == 'AZURE')) {
+      if (!sceneConfigValidated) return false;
+    }
+    
+    // L5: User config (if AWS/Azure)
+    final l5 = layer5Provider?.toUpperCase();
+    if (l5 == 'AWS' || l5 == 'AZURE') {
+      if (!userConfigValidated) return false;
+    }
+    
+    return true;
+  }
+  
   // ============================================================
   // L2 DERIVED GETTERS
   // ============================================================
