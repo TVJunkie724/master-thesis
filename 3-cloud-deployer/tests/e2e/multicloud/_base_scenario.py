@@ -121,7 +121,13 @@ class BaseScenarioTest:
     
     @pytest.fixture(scope="class")
     def deployed_environment(self, request, template_project_path):
-        """Deploy infrastructure for this scenario."""
+        """Deploy infrastructure for this scenario.
+        
+        IMPORTANT: Cleanup is registered FIRST (before any deployment work) to ensure
+        resources are cleaned up even if deployment fails. This prevents orphaned
+        cloud resources from accumulating when tests are interrupted or fail early.
+        """
+        import shutil
         from src.core.config_loader import load_project_config, load_credentials
         from src.core.context import DeploymentContext
         from src.providers.terraform.deployer_strategy import TerraformDeployerStrategy
@@ -132,6 +138,91 @@ class BaseScenarioTest:
         print(f"  {scenario.description}")
         print("="*60)
         
+        # ================================================================
+        # FIX #1: REGISTER CLEANUP FIRST - before any deployment work
+        # ================================================================
+        # Use mutable dict to capture context/strategy after they're created
+        cleanup_state = {
+            "context": None,
+            "strategy": None,
+            "project_path": None,
+            "credentials": None,
+        }
+        
+        def terraform_cleanup():
+            """Cleanup finalizer that runs even if deployment fails."""
+            print("\n" + "="*60)
+            print(f"  CLEANUP: TERRAFORM DESTROY ({scenario.name})")
+            print("="*60)
+            
+            # Try Terraform destroy if we have context and strategy
+            if cleanup_state["strategy"] and cleanup_state["context"]:
+                try:
+                    cleanup_state["strategy"].destroy_all(
+                        context=cleanup_state["context"],
+                        sdk_fallback="always"  # Always run SDK cleanup for thorough cleanup
+                    )
+                    print("[CLEANUP] ✓ Resources destroyed via Terraform + SDK")
+                except Exception as e:
+                    print(f"[CLEANUP] ✗ Terraform destroy failed: {e}")
+                    # Even if Terraform fails, try SDK cleanup
+                    if cleanup_state["credentials"]:
+                        print("[CLEANUP] Attempting SDK-only cleanup as fallback...")
+                        try:
+                            from tests.e2e.pre_cleanup import cleanup_orphans_for_scenario
+                            cleanup_orphans_for_scenario(
+                                scenario.name,
+                                cleanup_state["credentials"],
+                                dry_run=False
+                            )
+                            print("[CLEANUP] ✓ SDK cleanup completed")
+                        except Exception as sdk_e:
+                            print(f"[CLEANUP] ✗ SDK cleanup also failed: {sdk_e}")
+            else:
+                # No context/strategy - deployment failed early, try SDK cleanup
+                print("[CLEANUP] No deployment context - attempting SDK-only cleanup...")
+                if cleanup_state["credentials"]:
+                    try:
+                        from tests.e2e.pre_cleanup import cleanup_orphans_for_scenario
+                        cleanup_orphans_for_scenario(
+                            scenario.name,
+                            cleanup_state["credentials"],
+                            dry_run=False
+                        )
+                        print("[CLEANUP] ✓ SDK cleanup completed")
+                    except Exception as e:
+                        print(f"[CLEANUP] ✗ SDK cleanup failed: {e}")
+            
+            # Remove state files for fresh next run
+            if cleanup_state["project_path"] and cleanup_state["project_path"].exists():
+                try:
+                    shutil.rmtree(cleanup_state["project_path"])
+                    print(f"[CLEANUP] ✓ State files removed: {cleanup_state['project_path']}")
+                except Exception as e:
+                    print(f"[CLEANUP] ⚠ Could not remove state files: {e}")
+        
+        # Register cleanup FIRST - before any work that might fail
+        skip_cleanup = os.environ.get("E2E_SKIP_CLEANUP", "false").lower() == "true"
+        if not skip_cleanup:
+            request.addfinalizer(terraform_cleanup)
+        else:
+            print("[CLEANUP] ⚠ Cleanup disabled (E2E_SKIP_CLEANUP=true)")
+        
+        # ================================================================
+        # FIX #2: PRE-CLEANUP - Remove orphaned resources from previous runs
+        # ================================================================
+        print("\n[PHASE -1] Pre-Test Orphan Cleanup")
+        try:
+            # Load credentials from template first (before project setup)
+            template_credentials = load_credentials(Path(template_project_path))
+            cleanup_state["credentials"] = template_credentials
+            
+            from tests.e2e.pre_cleanup import cleanup_orphans_for_scenario
+            cleanup_orphans_for_scenario(scenario.name, template_credentials, dry_run=False)
+            print("  [OK] Pre-cleanup completed")
+        except Exception as e:
+            print(f"  [WARN] Pre-cleanup error (continuing anyway): {e}")
+        
         # === SETUP: Create project with mocked providers ===
         base_dir = Path(__file__).parent / "e2e_state"
         project_path = create_scenario_project(
@@ -139,9 +230,11 @@ class BaseScenarioTest:
             Path(template_project_path), 
             base_dir
         )
+        cleanup_state["project_path"] = project_path
         
         # Load credentials
         credentials = load_credentials(project_path)
+        cleanup_state["credentials"] = credentials
         
         # === PHASE 0: Credential validation ===
         print("\n[PHASE 0] Credential Validation")
@@ -182,6 +275,7 @@ class BaseScenarioTest:
             terraform_dir=str(terraform_dir),
             project_path=str(project_path)
         )
+        cleanup_state["strategy"] = strategy
         
         context = DeploymentContext(
             project_name=config.digital_twin_name,
@@ -189,33 +283,7 @@ class BaseScenarioTest:
             config=config,
             credentials=credentials,
         )
-        
-        # === CLEANUP FINALIZER ===
-        def terraform_cleanup():
-            print("\n" + "="*60)
-            print(f"  CLEANUP: TERRAFORM DESTROY ({scenario.name})")
-            print("="*60)
-            try:
-                strategy.destroy_all(context=context)
-                print("[CLEANUP] ✓ Resources destroyed")
-            except Exception as e:
-                print(f"[CLEANUP] ✗ Destroy failed: {e}")
-            
-            # Remove state files for fresh next run
-            import shutil
-            if project_path.exists():
-                try:
-                    shutil.rmtree(project_path)
-                    print(f"[CLEANUP] ✓ State files removed: {project_path}")
-                except Exception as e:
-                    print(f"[CLEANUP] ⚠ Could not remove state files: {e}")
-        
-        # Cleanup runs by default; set E2E_SKIP_CLEANUP=true to preserve resources for debugging
-        skip_cleanup = os.environ.get("E2E_SKIP_CLEANUP", "false").lower() == "true"
-        if not skip_cleanup:
-            request.addfinalizer(terraform_cleanup)
-        else:
-            print("[CLEANUP] ⚠ Skipped (E2E_SKIP_CLEANUP=true)")
+        cleanup_state["context"] = context
         
         # Deploy (credential validation happens inside deploy_all Step 0)
         terraform_outputs = strategy.deploy_all(context)
@@ -283,9 +351,10 @@ class BaseScenarioTest:
                 if app:
                     glue_verified.append(f"L1\u2192L2 ingestion (Azure)")
             elif l2 == "google":
-                url = outputs.get("gcp_ingestion_function_url")
-                if url:
-                    glue_verified.append(f"L1\u2192L2 ingestion (GCP)")
+                url = outputs.get("gcp_ingestion_url")
+                if not url:
+                    pytest.fail(f"[FAIL-FAST] GCP L0 ingestion URL not found. Expected: gcp_ingestion_url")
+                glue_verified.append(f"L1→L2 ingestion (GCP)")
         
         # L2→L3-Hot boundary: hot-writer glue
         l3_hot = scenario.providers["layer_3_hot_provider"]
@@ -299,9 +368,10 @@ class BaseScenarioTest:
                 if app:
                     glue_verified.append(f"L2\u2192L3-Hot hot-writer (Azure)")
             elif l3_hot == "google":
-                url = outputs.get("gcp_hot_writer_function_url")
-                if url:
-                    glue_verified.append(f"L2\u2192L3-Hot hot-writer (GCP)")
+                url = outputs.get("gcp_hot_writer_url")
+                if not url:
+                    pytest.fail(f"[FAIL-FAST] GCP L0 hot-writer URL not found. Expected: gcp_hot_writer_url")
+                glue_verified.append(f"L2→L3-Hot hot-writer (GCP)")
         
         if glue_verified:
             print(f"  [OK] L0 glue verified: {', '.join(glue_verified)}")
@@ -335,10 +405,10 @@ class BaseScenarioTest:
             assert outputs.get("azure_l2_function_app_name"), "Azure Functions not deployed"
             print(f"  [OK] L2 (Azure Functions) verified")
         elif l2_provider == "aws":
-            assert outputs.get("aws_l2_step_function_arn") or outputs.get("aws_l2_persister_function_name"), "AWS Lambda/Step Functions not deployed"
+            assert outputs.get("aws_l2_persister_function_name"), "[FAIL-FAST] AWS L2 persister not deployed. Expected: aws_l2_persister_function_name"
             print(f"  [OK] L2 (AWS Step Functions) verified")
         elif l2_provider == "google":
-            assert outputs.get("gcp_processor_url") or outputs.get("gcp_persister_url"), "GCP Cloud Functions not deployed"
+            assert outputs.get("gcp_processor_url"), "[FAIL-FAST] GCP processor not deployed. Expected: gcp_processor_url"
             print(f"  [OK] L2 (GCP Cloud Functions) verified")
     
     def test_04_l3_storage(self, deployed_environment):
@@ -361,10 +431,10 @@ class BaseScenarioTest:
         # FIX #11: L3 Cold
         cold_provider = scenario.providers["layer_3_cold_provider"]
         if cold_provider == "aws":
-            assert outputs.get("aws_cold_bucket_name") or outputs.get("aws_s3_cold_bucket"), "AWS S3 cold not deployed"
+            assert outputs.get("aws_s3_cold_bucket"), "[FAIL-FAST] AWS S3 cold bucket not deployed. Expected: aws_s3_cold_bucket"
             print(f"  [OK] L3 Cold (AWS S3) verified")
         elif cold_provider == "azure":
-            assert outputs.get("azure_cold_container_name") or outputs.get("azure_storage_account_name"), "Azure Blob cold not deployed"
+            assert outputs.get("azure_storage_account_name"), "[FAIL-FAST] Azure storage account not deployed. Expected: azure_storage_account_name"
             print(f"  [OK] L3 Cold (Azure Blob) verified")
         elif cold_provider == "google":
             assert outputs.get("gcp_cold_bucket"), "GCP Cloud Storage cold not deployed"
@@ -373,13 +443,14 @@ class BaseScenarioTest:
         # FIX #11: L3 Archive
         archive_provider = scenario.providers["layer_3_archive_provider"]
         if archive_provider == "aws":
-            assert outputs.get("aws_archive_bucket_name") or outputs.get("aws_s3_archive_bucket"), "AWS S3 archive not deployed"
+            assert outputs.get("aws_s3_archive_bucket"), "[FAIL-FAST] AWS S3 archive bucket not deployed. Expected: aws_s3_archive_bucket"
             print(f"  [OK] L3 Archive (AWS S3 Glacier) verified")
         elif archive_provider == "azure":
-            assert outputs.get("azure_archive_container_name") or outputs.get("azure_storage_account_name"), "Azure Blob archive not deployed"
+            assert outputs.get("azure_storage_account_name"), "[FAIL-FAST] Azure storage account not deployed. Expected: azure_storage_account_name"
             print(f"  [OK] L3 Archive (Azure Blob Archive) verified")
         elif archive_provider == "google":
-            assert outputs.get("gcp_archive_writer_url") or outputs.get("gcp_cold_bucket"), "GCP Cloud Storage archive not deployed"
+            # GCP uses lifecycle policy on cold bucket for archive transition (no separate bucket)
+            assert outputs.get("gcp_cold_bucket"), "[FAIL-FAST] GCP cold bucket not deployed. Expected: gcp_cold_bucket (handles archive via lifecycle)"
             print(f"  [OK] L3 Archive (GCP Cloud Storage Archive) verified")
     
     def test_05_l4_twins(self, deployed_environment):
@@ -434,7 +505,7 @@ class BaseScenarioTest:
         if l1_provider == "google":
             topic = outputs.get("gcp_pubsub_telemetry_topic")
             if not topic:
-                pytest.skip("Pub/Sub topic not deployed")
+                pytest.fail("[DATAFLOW CRITICAL] GCP Pub/Sub topic not in Terraform outputs. Check gcp_pubsub_telemetry_topic output.")
             try:
                 from google.cloud import pubsub_v1
                 
@@ -464,13 +535,100 @@ class BaseScenarioTest:
                     elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
                         del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
             except ImportError:
-                pytest.skip("google-cloud-pubsub not installed")
+                pytest.fail("[DATAFLOW CRITICAL] google-cloud-pubsub not installed in container. Install with: pip install google-cloud-pubsub")
                 
         elif l1_provider == "azure":
-            pytest.skip("Azure IoT Hub message sending not implemented in base test")
+            # Azure IoT Hub: Send message via HTTP to IoT Hub's REST API
+            iothub_hostname = outputs.get("azure_iothub_hostname")
+            if not iothub_hostname:
+                pytest.fail("[DATAFLOW CRITICAL] Azure IoT Hub hostname not in Terraform outputs. Check azure_iothub_hostname output.")
+            
+            try:
+                from azure.iot.device import IoTHubDeviceClient, Message
+                
+                # Get device connection string from the generated simulator config
+                sim_config_path = project_path / "iot_device_simulator" / "azure" / "config_generated.json"
+                if not sim_config_path.exists():
+                    pytest.fail(f"[DATAFLOW CRITICAL] Azure device config not found at {sim_config_path}. IoT device registration may have failed.")
+                
+                with open(sim_config_path) as f:
+                    sim_config = json.load(f)
+                
+                device_conn_str = sim_config.get("connection_string")
+                if not device_conn_str:
+                    pytest.fail("[DATAFLOW CRITICAL] Device connection string not in simulator config. Check IoT device registration.")
+                
+                # Send telemetry message as the device
+                client = IoTHubDeviceClient.create_from_connection_string(device_conn_str)
+                client.connect()
+                try:
+                    message = Message(json.dumps(test_payload))
+                    message.content_type = "application/json"
+                    message.content_encoding = "utf-8"
+                    client.send_message(message)
+                    print(f"  [OK] Sent via Azure IoT Hub device client")
+                    
+                    test_state["test_payload"] = test_payload
+                    test_state["test_device_id"] = test_payload["iotDeviceId"]
+                finally:
+                    client.disconnect()
+                    
+            except ImportError:
+                pytest.fail("[DATAFLOW CRITICAL] azure-iot-device not installed in container. Install with: pip install azure-iot-device")
+            except Exception as e:
+                pytest.fail(f"[DATAFLOW CRITICAL] Azure IoT Hub send failed: {e}")
             
         elif l1_provider == "aws":
-            pytest.skip("AWS IoT Core message sending not implemented in base test")
+            # AWS IoT Core: Publish via MQTT using boto3 iot-data
+            # 
+            # IMPORTANT: This requires iot:Publish permission on the topic ARN.
+            # The Terraform deployment automatically grants this permission to the
+            # IAM user running terraform apply (via aws_iam_policy.e2e_iot_publish).
+            #
+            # LIMITATION: Only works with IAM User credentials (access key/secret).
+            # Assumed roles (SSO, CI/CD OIDC) require manual iot:Publish permission.
+            #
+            iot_topic = outputs.get("aws_iot_topic_rule_name")
+            iot_endpoint = outputs.get("aws_iot_endpoint")
+            
+            if not iot_endpoint:
+                # Get endpoint dynamically
+                try:
+                    import boto3
+                    iot_client = boto3.client('iot')
+                    endpoint_response = iot_client.describe_endpoint(endpointType='iot:Data-ATS')
+                    iot_endpoint = endpoint_response['endpointAddress']
+                except Exception as e:
+                    pytest.fail(f"[DATAFLOW CRITICAL] Could not get AWS IoT endpoint: {e}. Check AWS credentials and IAM permissions for iot:DescribeEndpoint.")
+            
+            try:
+                import boto3
+                
+                # Use iot-data client to publish to the ingestion topic
+                # The topic must match the IoT Topic Rule pattern: dt/{name}/+/telemetry
+                # The + is a wildcard for device_id, so we include it in the topic
+                device_id = test_payload["iotDeviceId"]
+                dt_name = outputs.get('digital_twin_name')
+                if not dt_name:
+                    pytest.fail("[FAIL-FAST] digital_twin_name output not found. This is required for AWS IoT topic construction.")
+                topic_name = f"dt/{dt_name}/{device_id}/telemetry"
+                
+                iot_data = boto3.client('iot-data', endpoint_url=f"https://{iot_endpoint}")
+                
+                response = iot_data.publish(
+                    topic=topic_name,
+                    qos=1,
+                    payload=json.dumps(test_payload)
+                )
+                print(f"  [OK] Sent via AWS IoT Core to topic: {topic_name}")
+                
+                test_state["test_payload"] = test_payload
+                test_state["test_device_id"] = test_payload["iotDeviceId"]
+                
+            except ImportError:
+                pytest.fail("[DATAFLOW CRITICAL] boto3 not installed in container.")
+            except Exception as e:
+                pytest.fail(f"[DATAFLOW CRITICAL] AWS IoT publish failed: {e}. Check AWS credentials and IoT Core permissions.")
     
     def test_08_verify_hot_storage(self, deployed_environment):
         """Verify data reached L3-Hot storage."""
@@ -481,41 +639,63 @@ class BaseScenarioTest:
         test_device_id = test_state.get("test_device_id")
         
         if not test_device_id:
-            pytest.skip("No test message sent - test_07 may have been skipped")
+            pytest.fail("[DATAFLOW CRITICAL] No test message was sent in test_07. Previous test must have failed.")
         
-        # Wait for propagation
-        print("  Waiting for data propagation (20s)...")
-        time.sleep(20)
+        # Wait for propagation through the pipeline
+        print("  Waiting for data propagation (30s)...")
+        time.sleep(30)
         
-        # Use hot reader URL (deployed on L3-Hot provider)
-        hot_reader_url = (
-            outputs.get("aws_l3_hot_reader_url") or
-            outputs.get("aws_l0_hot_reader_url") or
-            outputs.get("azure_hot_reader_url") or
-            outputs.get("gcp_hot_reader_url")
-        )
+        # Use hot reader URL based on L3-Hot provider (fail-fast, no fallbacks)
+        scenario = deployed_environment["scenario"]
+        l3_hot_provider = scenario.providers["layer_3_hot_provider"]
         
-        if not hot_reader_url:
-            pytest.skip("No hot reader URL found in outputs")
+        if l3_hot_provider == "aws":
+            hot_reader_url = outputs.get("aws_l3_hot_reader_url")
+            if not hot_reader_url:
+                pytest.fail("[FAIL-FAST] AWS L3 hot reader URL not found. Expected: aws_l3_hot_reader_url")
+        elif l3_hot_provider == "azure":
+            hot_reader_url = outputs.get("azure_l3_hot_reader_url")
+            if not hot_reader_url:
+                pytest.fail("[FAIL-FAST] Azure L3 hot reader URL not found. Expected: azure_l3_hot_reader_url")
+        elif l3_hot_provider == "google":
+            hot_reader_url = outputs.get("gcp_hot_reader_url")
+            if not hot_reader_url:
+                pytest.fail("[FAIL-FAST] GCP hot reader URL not found. Expected: gcp_hot_reader_url")
+        else:
+            pytest.fail(f"[FAIL-FAST] Unknown L3-Hot provider: {l3_hot_provider}")
+        
+        # Get the inter-cloud token for authentication
+        inter_cloud_token = outputs.get("inter_cloud_token")
+        headers = {}
+        if inter_cloud_token:
+            headers["Authorization"] = f"Bearer {inter_cloud_token}"
         
         try:
             response = requests.get(
                 hot_reader_url,
                 params={"device_id": test_device_id, "limit": "5"},
+                headers=headers,
                 timeout=30
             )
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, list) and len(data) > 0:
-                    print(f"  ✓ Found {len(data)} records in hot storage")
+                    print(f"  ✓ DATA FLOW VERIFIED: Found {len(data)} records in hot storage")
+                    # Store for later assertions if needed
+                    test_state["hot_storage_data"] = data
                 elif isinstance(data, dict) and data.get("items"):
-                    print(f"  ✓ Found {len(data['items'])} records in hot storage")
+                    print(f"  ✓ DATA FLOW VERIFIED: Found {len(data['items'])} records in hot storage")
+                    test_state["hot_storage_data"] = data["items"]
                 else:
-                    print(f"  ⚠ No data found yet (may need more time)")
+                    # Data not found - this is a real failure if message was sent successfully
+                    print(f"  ⚠ DATA FLOW INCOMPLETE: No data found in hot storage after 30s")
+                    print(f"    Response: {data}")
+            elif response.status_code == 401:
+                pytest.fail(f"Hot reader returned 401 Unauthorized - inter_cloud_token may be missing or invalid")
             elif response.status_code == 404:
-                print(f"  ⚠ No data found (expected for fresh deployment)")
+                print(f"  ⚠ No data found (status 404) - pipeline may need more time")
             else:
-                print(f"  ⚠ Hot reader returned {response.status_code}")
+                print(f"  ⚠ Hot reader returned {response.status_code}: {response.text[:200]}")
         except requests.exceptions.Timeout:
             print(f"  ⚠ Hot reader request timed out")
         except Exception as e:
@@ -558,22 +738,20 @@ class BaseScenarioTest:
                 iothub_name = outputs.get("azure_iothub_name")
                 
                 if not iothub_name:
-                    pytest.skip("IoT Hub not deployed")
+                    pytest.fail("[FAIL-FAST] Azure IoT Hub name not found. Expected: azure_iothub_name")
                 
                 conn_string = outputs.get("azure_iothub_connection_string")
-                if conn_string:
-                    registry = IoTHubRegistryManager(conn_string)
-                    devices = list(registry.get_devices(max_number_of_devices=10))
-                    if devices:
-                        print(f"  [OK] Azure IoT Hub: Found {len(devices)} devices")
-                    else:
-                        print(f"  [WARN] Azure IoT Hub: No devices found")
+                if not conn_string:
+                    pytest.fail("[FAIL-FAST] Azure IoT Hub connection string not found. Expected: azure_iothub_connection_string")
+                
+                registry = IoTHubRegistryManager(conn_string)
+                devices = list(registry.get_devices(max_number_of_devices=10))
+                if devices:
+                    print(f"  [OK] Azure IoT Hub: Found {len(devices)} devices")
                 else:
-                    print(f"  [WARN] No IoT Hub connection string in outputs")
+                    print(f"  [WARN] Azure IoT Hub: No devices found")
             except ImportError:
-                pytest.skip("azure-iot-hub SDK not installed")
-            except Exception as e:
-                print(f"  [WARN] Could not list Azure IoT devices: {e}")
+                pytest.fail("[FAIL-FAST] azure-iot-hub SDK not installed in container")
                 
         elif l1_provider == "google":
             pytest.skip("GCP IoT Core deprecated - no device verification")

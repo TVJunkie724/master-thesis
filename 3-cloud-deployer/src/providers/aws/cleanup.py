@@ -3,6 +3,11 @@ AWS SDK Cleanup Module.
 
 Provides fallback cleanup for AWS resources that may be orphaned after
 Terraform destroy fails or misses resources.
+
+Note: This includes cleanup of IAM policies created for E2E testing,
+specifically the {prefix}-e2e-iot-publish policy that grants iot:Publish
+permission to the IAM user running Terraform. This policy is only created
+when Terraform is run by an IAM User (not assumed roles).
 """
 import logging
 import time
@@ -38,6 +43,7 @@ def cleanup_aws_resources(
         - DynamoDB tables
         - CloudWatch log groups
         - IAM roles
+        - IAM policies
         - Identity Store users (conditional)
     """
     import boto3
@@ -234,7 +240,43 @@ def cleanup_aws_resources(
     except Exception as e:
         logger.warning(f"  Error: {e}")
     
-    # 10. Identity Store User (ONLY if we created it during this deployment)
+    # 10. IAM Policies (must detach from all entities before deletion)
+    logger.info("[IAM Policies] Checking for orphans...")
+    try:
+        for page in iam.get_paginator('list_policies').paginate(Scope='Local'):
+            for policy in page['Policies']:
+                if prefix in policy['PolicyName'] or prefix_underscore in policy['PolicyName']:
+                    logger.info(f"  Found orphan policy: {policy['PolicyName']}")
+                    if dry_run:
+                        logger.info(f"    [DRY RUN] Would delete")
+                    else:
+                        try:
+                            policy_arn = policy['Arn']
+                            # Detach from all users
+                            for user in iam.list_entities_for_policy(PolicyArn=policy_arn, EntityFilter='User').get('PolicyUsers', []):
+                                iam.detach_user_policy(UserName=user['UserName'], PolicyArn=policy_arn)
+                                logger.info(f"    Detached from user: {user['UserName']}")
+                            # Detach from all roles
+                            for role in iam.list_entities_for_policy(PolicyArn=policy_arn, EntityFilter='Role').get('PolicyRoles', []):
+                                iam.detach_role_policy(RoleName=role['RoleName'], PolicyArn=policy_arn)
+                                logger.info(f"    Detached from role: {role['RoleName']}")
+                            # Detach from all groups
+                            for group in iam.list_entities_for_policy(PolicyArn=policy_arn, EntityFilter='Group').get('PolicyGroups', []):
+                                iam.detach_group_policy(GroupName=group['GroupName'], PolicyArn=policy_arn)
+                                logger.info(f"    Detached from group: {group['GroupName']}")
+                            # Delete all non-default versions
+                            for version in iam.list_policy_versions(PolicyArn=policy_arn)['Versions']:
+                                if not version['IsDefaultVersion']:
+                                    iam.delete_policy_version(PolicyArn=policy_arn, VersionId=version['VersionId'])
+                            # Delete policy
+                            iam.delete_policy(PolicyArn=policy_arn)
+                            logger.info(f"    ✓ Deleted")
+                        except Exception as e:
+                            logger.warning(f"    ✗ Error: {e}")
+    except Exception as e:
+        logger.warning(f"  Error: {e}")
+    
+    # 11. Identity Store User (ONLY if we created it during this deployment)
     if cleanup_identity_user:
         logger.info("[Identity Store] Checking for user to clean up...")
         try:

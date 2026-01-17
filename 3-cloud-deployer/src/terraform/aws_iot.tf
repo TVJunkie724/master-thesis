@@ -23,6 +23,15 @@ locals {
 }
 
 # ==============================================================================
+# AWS IoT Endpoint Data Source (for E2E tests)
+# ==============================================================================
+
+data "aws_iot_endpoint" "main" {
+  count         = local.l1_aws_enabled ? 1 : 0
+  endpoint_type = "iot:Data-ATS"
+}
+
+# ==============================================================================
 # IAM Role for Dispatcher Lambda
 # ==============================================================================
 
@@ -242,4 +251,72 @@ resource "aws_iam_role_policy" "l1_iot_rule_lambda" {
       }
     ]
   })
+}
+
+# ==============================================================================
+# E2E Test IoT Publish Permission
+# ==============================================================================
+# This section grants the IAM user running Terraform permission to publish
+# to IoT Core topics. Required for E2E tests that simulate device telemetry.
+#
+# AWS IoT Core has a separate authorization layer from standard IAM.
+# Even admin IAM users need explicit iot:Publish permission on topic ARNs.
+#
+# LIMITATION: This permission is only granted when Terraform is run by an
+# IAM User (not an assumed role, SSO session, or federated identity).
+# 
+# Supported:
+#   - IAM User with static access keys (aws_access_key_id/aws_secret_access_key)
+#
+# NOT Supported (policy will not be created):
+#   - Assumed roles (AWS SSO, CI/CD pipelines with OIDC)
+#   - EC2 instance profiles
+#   - Lambda execution contexts
+#   - Federated/cross-account access
+#
+# For this thesis project, IAM User credentials are the expected access method.
+# If using assumed roles, manually add iot:Publish permission to the role.
+
+locals {
+  # Parse caller identity to determine if running as IAM user
+  caller_arn = try(data.aws_caller_identity.current[0].arn, "")
+  
+  # Check if caller is a user (not a role or assumed role)
+  # IAM User ARN format: arn:aws:iam::ACCOUNT:user/USERNAME
+  is_iam_user = local.l1_aws_enabled && can(regex(":user/", local.caller_arn))
+  
+  # Extract user name from ARN (only valid if is_iam_user is true)
+  iam_user_name = local.is_iam_user ? regex(":user/(.+)$", local.caller_arn)[0] : null
+}
+
+# IAM Policy for E2E test IoT publishing
+resource "aws_iam_policy" "e2e_iot_publish" {
+  count       = local.is_iam_user ? 1 : 0
+  name        = "${var.digital_twin_name}-e2e-iot-publish"
+  description = "Allows publishing to IoT Core topics for E2E testing"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowIoTPublish"
+        Effect = "Allow"
+        Action = [
+          "iot:Publish",
+          "iot:Receive"
+        ]
+        # Allow publishing to any topic under this digital twin's namespace
+        Resource = "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:topic/dt/${var.digital_twin_name}/*"
+      }
+    ]
+  })
+
+  tags = local.aws_common_tags
+}
+
+# Attach the IoT publish policy to the current IAM user
+resource "aws_iam_user_policy_attachment" "e2e_iot_publish" {
+  count      = local.is_iam_user ? 1 : 0
+  user       = local.iam_user_name
+  policy_arn = aws_iam_policy.e2e_iot_publish[0].arn
 }

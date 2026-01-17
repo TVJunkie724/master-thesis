@@ -47,12 +47,36 @@ def cleanup_gcp_resources(
     # Build credentials from service account info
     try:
         if "gcp_service_account_key" in gcp_creds:
+            # Inline key provided
             sa_key = gcp_creds["gcp_service_account_key"]
             if isinstance(sa_key, str):
                 sa_key = json.loads(sa_key)
             gcp_credentials = service_account.Credentials.from_service_account_info(sa_key)
+        elif "gcp_credentials_file" in gcp_creds:
+            # Path to credentials file provided
+            from pathlib import Path
+            creds_filename = gcp_creds["gcp_credentials_file"]
+            # Try multiple locations
+            possible_paths = [
+                Path(f"/app/{creds_filename}"),
+                Path(f"/app/upload/template/{creds_filename}"),
+                Path(creds_filename),  # Absolute path
+            ]
+            credentials_path = None
+            for path in possible_paths:
+                if path.exists():
+                    credentials_path = path
+                    break
+            
+            if credentials_path:
+                gcp_credentials = service_account.Credentials.from_service_account_file(str(credentials_path))
+                logger.info(f"[GCP SDK] Loaded credentials from {credentials_path}")
+            else:
+                logger.warning(f"[GCP SDK] Credentials file not found: {creds_filename}")
+                logger.warning(f"          Searched: {[str(p) for p in possible_paths]}")
+                return
         else:
-            logger.info("[GCP SDK] No service account key found, skipping cleanup")
+            logger.info("[GCP SDK] No service account key or credentials file found, skipping cleanup")
             return
     except Exception as e:
         logger.warning(f"[GCP SDK] Error creating credentials: {e}")
@@ -273,6 +297,52 @@ def cleanup_gcp_resources(
                     try:
                         iam_client.projects().serviceAccounts().delete(name=f"projects/{project_id}/serviceAccounts/{sa_email}").execute()
                         logger.info(f"    ✓ Deleted")
+                    except Exception as e:
+                        logger.warning(f"    ✗ Error: {e}")
+    except Exception as e:
+        logger.warning(f"  Error: {e}")
+    
+    # 8. Custom IAM Roles
+    logger.info("[Custom IAM Roles] Checking for orphans...")
+    try:
+        iam_client = discovery.build('iam', 'v1', credentials=gcp_credentials)
+        
+        result = iam_client.projects().roles().list(parent=f"projects/{project_id}").execute()
+        for role in result.get('roles', []):
+            role_id = role['name'].split('/')[-1]
+            if prefix in role_id or prefix_underscore in role_id:
+                logger.info(f"  Found orphan: {role_id}")
+                if dry_run:
+                    logger.info(f"    [DRY RUN] Would delete")
+                else:
+                    try:
+                        iam_client.projects().roles().delete(name=role['name']).execute()
+                        logger.info(f"    ✓ Deleted")
+                    except Exception as e:
+                        logger.warning(f"    ✗ Error: {e}")
+    except Exception as e:
+        logger.warning(f"  Error: {e}")
+    
+    # 9. Firestore Named Databases (not just collections)
+    logger.info("[Firestore Databases] Checking for orphan databases...")
+    try:
+        firestore_admin = discovery.build('firestore', 'v1', credentials=gcp_credentials)
+        parent = f"projects/{project_id}"
+        
+        result = firestore_admin.projects().databases().list(parent=parent).execute()
+        for db in result.get('databases', []):
+            db_name = db['name'].split('/')[-1]
+            # Skip default database
+            if db_name == "(default)":
+                continue
+            if prefix in db_name or prefix_underscore in db_name:
+                logger.info(f"  Found orphan database: {db_name}")
+                if dry_run:
+                    logger.info(f"    [DRY RUN] Would delete")
+                else:
+                    try:
+                        firestore_admin.projects().databases().delete(name=db['name']).execute()
+                        logger.info(f"    ✓ Deleted (may take a few minutes)")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
     except Exception as e:
