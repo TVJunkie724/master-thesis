@@ -11,6 +11,7 @@ import boto3
 import os
 import sys
 import json
+import traceback
 import datetime
 
 # Handle import path for both Lambda (deployed with _shared) and test (local development) contexts
@@ -175,6 +176,7 @@ def lambda_handler(event, context):
 
     except Exception as e:
         print(f"Cold-to-Archive Mover Error: {e}")
+        traceback.print_exc()
         raise e
     
     print("Cold-to-Archive Mover: Complete")

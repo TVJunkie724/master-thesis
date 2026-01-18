@@ -10,6 +10,7 @@ Editable: Yes - This is the runtime Cloud Function code
 import json
 import os
 import sys
+import traceback
 import functions_framework
 from google.cloud import firestore
 
@@ -66,7 +67,7 @@ def main(request):
     try:
         # Get query parameters
         args = request.args
-        device_id = args.get("iotDeviceId")
+        device_id = args.get("device_id") or args.get("iotDeviceId")
         start_time = args.get("startTime")
         end_time = args.get("endTime")
         limit = int(args.get("limit", 100))
@@ -76,16 +77,16 @@ def main(request):
         
         # Apply filters
         if device_id:
-            query = query.where("iotDeviceId", "==", device_id)
+            query = query.where("device_id", "==", device_id)
         
         if start_time:
-            query = query.where("id", ">=", start_time)
+            query = query.where("timestamp", ">=", start_time)
         
         if end_time:
-            query = query.where("id", "<=", end_time)
+            query = query.where("timestamp", "<=", end_time)
         
         # Order and limit
-        query = query.order_by("id", direction=firestore.Query.DESCENDING).limit(limit)
+        query = query.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(limit)
         
         # Execute query
         docs = query.stream()
@@ -97,4 +98,5 @@ def main(request):
         
     except Exception as e:
         print(f"Hot Reader Error: {e}")
+        traceback.print_exc()
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})

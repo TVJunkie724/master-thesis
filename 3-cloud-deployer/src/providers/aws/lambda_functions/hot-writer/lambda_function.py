@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import traceback
 import boto3
 
 # Handle import path for shared module
@@ -64,6 +65,7 @@ def lambda_handler(event, context):
         }
     except Exception as e:
         print(f"Error writing to DB: {e}")
+        traceback.print_exc()
         return {
             "statusCode": 500,
             "body": json.dumps(f"Internal Server Error: {str(e)}")

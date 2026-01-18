@@ -1,0 +1,7 @@
+{
+  "aws_access_key_id": "AKIA...",
+  "aws_secret_access_key": "your-secret-key",
+  "aws_region": "eu-west-1",
+  "test_name_suffix": "e2e",
+  "scene_assets_path": "/app/upload/template/scene_assets"
+}

@@ -89,8 +89,8 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
     # Generate DIGITAL_TWIN_INFO JSON (unified structure for all providers)
     tfvars["digital_twin_info_json"] = _build_digital_twin_info_json(tfvars)
     
-    # Load config_grafana.json for Grafana admin user
-    tfvars.update(_load_grafana_config(project_dir))
+    # Load config_user.json for platform user
+    tfvars.update(_load_platform_user_config(project_dir))
     
     # Load optimization feature flags (for conditional resources)
     optimization_flags = load_optimization_flags(project_dir)
@@ -112,6 +112,43 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
         "needs_3d_model": optimization_flags["needs3DModel"],
         "scene_assets_path": scene_assets_path,
     })
+    
+    # Workflow definition file paths (conditional based on L2 provider)
+    # Only set paths when the corresponding provider is used for L2
+    l2_provider = providers["layer_2_provider"].lower()  # Fail explicitly if missing
+    
+    # Azure Logic App definition (only if L2 is Azure)
+    if l2_provider == "azure":
+        logic_app_path = project_dir / "state_machines" / "azure_logic_app.json"
+        if logic_app_path.exists():
+            tfvars["logic_app_definition_file"] = str(logic_app_path)
+            logger.info(f"  Logic App definition: {logic_app_path}")
+        else:
+            tfvars["logic_app_definition_file"] = ""
+    else:
+        tfvars["logic_app_definition_file"] = ""
+    
+    # AWS Step Functions definition (only if L2 is AWS)
+    if l2_provider == "aws":
+        step_function_path = project_dir / "state_machines" / "aws_step_function.json"
+        if step_function_path.exists():
+            tfvars["step_function_definition_file"] = str(step_function_path)
+            logger.info(f"  Step Function definition: {step_function_path}")
+        else:
+            tfvars["step_function_definition_file"] = ""
+    else:
+        tfvars["step_function_definition_file"] = ""
+    
+    # GCP Workflows definition (only if L2 is GCP)
+    if l2_provider == "google":
+        gcp_workflow_path = project_dir / "state_machines" / "google_cloud_workflow.yaml"
+        if gcp_workflow_path.exists():
+            tfvars["gcp_workflow_definition_file"] = str(gcp_workflow_path)
+            logger.info(f"  GCP Workflow definition: {gcp_workflow_path}")
+        else:
+            tfvars["gcp_workflow_definition_file"] = ""
+    else:
+        tfvars["gcp_workflow_definition_file"] = ""
     
     # Build Azure function ZIPs if Azure is used as a provider
     tfvars.update(_build_azure_function_zips(project_dir, providers, optimization_flags))
@@ -433,12 +470,8 @@ def _load_credentials(project_dir: Path) -> dict:
         tfvars["aws_access_key_id"] = aws["aws_access_key_id"]
         tfvars["aws_secret_access_key"] = aws["aws_secret_access_key"]
         tfvars["aws_region"] = aws["aws_region"]
-        
-        # Grafana admin user (validation done in validation/core.py)
-        if "grafana_admin_email" in aws:
-            tfvars["grafana_admin_email"] = aws["grafana_admin_email"]
-            tfvars["grafana_admin_first_name"] = aws.get("grafana_admin_first_name", "Grafana")
-            tfvars["grafana_admin_last_name"] = aws.get("grafana_admin_last_name", "Admin")
+        # SSO region - may be different from main region (e.g., us-east-1 while resources are in eu-central-1)
+        tfvars["aws_sso_region"] = aws.get("aws_sso_region", "")
     
     # GCP credentials - support dual-mode: project_id (private) OR billing_account (org)
     if "gcp" in creds:
@@ -602,28 +635,28 @@ def _build_digital_twin_info_json(tfvars: dict) -> str:
     return json.dumps(digital_twin_info)
 
 
-def _load_grafana_config(project_dir: Path) -> dict:
-    """Load Grafana admin configuration from config_grafana.json."""
-    grafana_file = project_dir / "config_grafana.json"
+def _load_platform_user_config(project_dir: Path) -> dict:
+    """Load platform user configuration from config_user.json."""
+    user_file = project_dir / "config_user.json"
     
-    if not grafana_file.exists():
+    if not user_file.exists():
         return {}
     
-    with open(grafana_file) as f:
-        grafana = json.load(f)
+    with open(user_file) as f:
+        user = json.load(f)
     
     result = {}
     
     # Map config fields to Terraform variables
-    if grafana.get("admin_email"):
-        result["grafana_admin_email"] = grafana["admin_email"]
-        logger.info(f"  Grafana admin email: {grafana['admin_email']}")
+    if user.get("admin_email"):
+        result["platform_user_email"] = user["admin_email"]
+        logger.info(f"  Platform user email: {user['admin_email']}")
     
-    if grafana.get("admin_first_name"):
-        result["grafana_admin_first_name"] = grafana["admin_first_name"]
+    if user.get("admin_first_name"):
+        result["platform_user_first_name"] = user["admin_first_name"]
     
-    if grafana.get("admin_last_name"):
-        result["grafana_admin_last_name"] = grafana["admin_last_name"]
+    if user.get("admin_last_name"):
+        result["platform_user_last_name"] = user["admin_last_name"]
     
     return result
 

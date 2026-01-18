@@ -15,6 +15,7 @@ This function only exists in multi-cloud scenarios where L3 ≠ L4.
 import json
 import os
 import sys
+import traceback
 import boto3
 
 # Handle import path for both Lambda (deployed with _shared) and test (local development) contexts
@@ -107,6 +108,7 @@ def lambda_handler(event, context):
         
     except Exception as e:
         print(f"Digital Twin Data Connector Error: {e}")
+        traceback.print_exc()
         # Return empty to avoid breaking TwinMaker dashboard
         print(f"CRITICAL: Data Connector execution failed: {e}")
         raise e

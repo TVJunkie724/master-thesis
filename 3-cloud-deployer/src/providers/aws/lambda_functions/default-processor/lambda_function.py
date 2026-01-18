@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import traceback
 import boto3
 
 # Handle import path for shared module
@@ -35,4 +36,5 @@ def lambda_handler(event, context):
         lambda_client.invoke(FunctionName=PERSISTER_LAMBDA_NAME, InvocationType="Event", Payload=json.dumps(payload).encode("utf-8"))
     except Exception as e:
         print(f"Default Processor Error: {e}")
+        traceback.print_exc()
         raise e

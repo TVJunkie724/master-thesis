@@ -212,7 +212,7 @@ def adt_pusher(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json"
         )
     except Exception as e:
-        logging.error(f"ADT Pusher: Error updating ADT: {type(e).__name__}: {e}")
+        logging.exception(f"ADT Pusher: Error updating ADT: {type(e).__name__}: {e}")
         return func.HttpResponse(
             json.dumps({"error": f"ADT update failed: {str(e)}"}),
             status_code=500,

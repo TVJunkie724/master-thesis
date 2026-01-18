@@ -20,9 +20,10 @@ terraform {
 
 
     # AWS provider (for multi-cloud deployments)
+    # NOTE: v5.92+ required for aws_identitystore_users data source
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.31"
+      version = "~> 5.92"
     }
 
     # AWS Cloud Control provider (for TwinMaker entities/components)

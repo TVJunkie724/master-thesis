@@ -72,7 +72,7 @@ def list_projects():
         return {"projects": projects, "active_project": state.get_active_project()}
     except Exception as e:
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
 @router.post(
     "/projects", 
@@ -110,7 +110,7 @@ async def create_project(
         raise
     except Exception as e:
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
 @router.get(
     "/projects/{project_name}/validate", 
@@ -143,7 +143,7 @@ def validate_project_structure(project_name: str = Path(..., description="Name o
         raise
     except Exception as e:
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
 # ==========================================
 # 2. Config Reading (Stateless)
@@ -225,7 +225,7 @@ def get_project_config(
         raise
     except Exception as e:
         logger.error(f"Error reading config: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
 # ==========================================
 # 3. Config Updates
@@ -263,7 +263,7 @@ async def update_config(project_name: str, config_type: ConfigType, request: Req
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
 @router.post("/projects/{project_name}/import", tags=["Projects"])
 async def import_project(
@@ -305,7 +305,7 @@ async def import_project(
         raise
     except Exception as e:
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
 
 @router.get(
@@ -345,7 +345,7 @@ async def export_project(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
 
 @router.get(
@@ -425,7 +425,7 @@ def get_project_files(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
 
 @router.get(
@@ -449,7 +449,7 @@ def get_project_file_content_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
 
 @router.delete("/projects/{project_name}", tags=["Projects"])
@@ -471,7 +471,7 @@ def delete_project_endpoint(project_name: str):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
 
 @router.patch("/projects/{project_name}/info", tags=["Projects"])
@@ -498,7 +498,7 @@ async def update_project_info_endpoint(project_name: str, request: Request):
         raise
     except Exception as e:
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
 @router.put("/projects/{project_name}/state_machines/{provider}", tags=["Projects"])
 async def upload_state_machine(
@@ -549,7 +549,7 @@ async def upload_state_machine(
         raise
     except Exception as e:
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
 @router.put("/projects/{project_name}/simulator/payloads", tags=["Projects"])
 async def upload_simulator_payloads(project_name: str, request: Request):
@@ -585,7 +585,7 @@ async def upload_simulator_payloads(project_name: str, request: Request):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
 
 # ==========================================
@@ -640,4 +640,4 @@ def cleanup_aws_twinmaker(
     except Exception as e:
         print_stack_trace()
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. Check logs.")

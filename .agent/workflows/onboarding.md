@@ -14,9 +14,14 @@ Follow these steps **in order** when starting work on any project in this reposi
 
 ### 0.1 Switch to AI Working Branch
 
+> ⚠️ **CRITICAL:** All git commands must run from the **workspace root** (`d:\Git\master-thesis`), NOT from subdirectories like `3-cloud-deployer` or `twin2multicloud_flutter`.
+
 AI agents always work on a dedicated `ai/dev` branch (not per-task feature branches):
 
 ```bash
+# 0. IMPORTANT: Run from workspace root!
+cd d:\Git\master-thesis
+
 # 1. Check current git status
 git status
 
@@ -87,6 +92,8 @@ ALL commits must include the session ID:
 ```
 
 > ⚠️ **CRITICAL:** Never work directly on `main` branch. Always use `ai/dev`.
+> 
+> ⚠️ **CRITICAL:** AI agents **NEVER push** to remote. The user will run `git push` themselves.
 
 ---
 
@@ -125,6 +132,32 @@ view_file: d:\Git\master-thesis\integration_vision.md
 | `twin2multicloud-latex` | Thesis document | Documentation |
 
 > **Flutter Frontend Blueprint:** For the Flutter UI implementation, see [`FRONTEND_ARCHITECTURE.md`](file:///d:/Git/master-thesis/FRONTEND_ARCHITECTURE.md) in the repository root. This contains the complete architecture proposal, UI wireframes, and implementation plan.
+
+---
+
+## Step 3b: Understand Architecture Responsibilities
+
+The platform has clear separation of concerns:
+
+| Component | Responsibilities | Does NOT Do |
+|-----------|------------------|-------------|
+| **Flutter UI** | Visual display, basic UI visibility checks, user input | Business logic, validation, API calls to Deployer |
+| **Management API** | Persists twin config + state, proxies to other backends | Deployment logic, cloud restrictions |
+| **Deployer API** | ALL deployment knowledge: validation, restrictions, cooldowns | User state persistence |
+
+**Key Rule:** Flutter NEVER calls Deployer directly. Always: Flutter → Management API → Deployer API
+
+**Example - Deployment Cooldown Check:**
+```
+Flutter UI              Management API              Deployer API
+    │                        │                           │
+    │  GET /twins/{id}/      │   GET /cooldown-check?    │
+    │      can-redeploy      │   destroyed_at=...        │
+    │ ───────────────────────▶───────────────────────────▶
+    │                        │                           │
+    │  {ready, remaining_s}  │   {ready, remaining_s}    │
+    │◀───────────────────────│◀──────────────────────────│
+```
 
 ---
 

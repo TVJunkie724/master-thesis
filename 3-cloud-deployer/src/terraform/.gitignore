@@ -1,13 +1,51 @@
-# Terraform local files
-*.tfstate
-*.tfstate.backup
-*.tfplan
-.terraform/
-.terraform.lock.hcl
+# =============================================================================
+# Terraform Sensitive Files
+# Based on GitHub official Terraform.gitignore
+# =============================================================================
 
-# Generated variable files
+# Terraform state files - May contain sensitive data
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Terraform plan files - May contain sensitive values in binary format
+*.tfplan
+*tfplan*
+planout
+
+# Variables files - Likely contain sensitive data (passwords, keys, secrets)
+*.tfvars
+*.tfvars.json
+*.auto.tfvars
 *.auto.tfvars.json
 generated.tfvars.json
+secrets.tfvars
+secrets.auto.tfvars
+
+# Override files - Used for local overrides
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Local .terraform directory
+.terraform/
+
+# Terraform lock file
+.terraform.lock.hcl
+
+# Transient lock info files
+.terraform.tfstate.lock.info
+
+# CLI configuration files
+.terraformrc
+terraform.rc
+
+# Graph output files
+*.dot
 
 # Deployment artifacts
 dist/

@@ -1,0 +1,11 @@
+{
+  "azure_subscription_id": "00000000-0000-0000-0000-000000000000",
+  "azure_tenant_id": "00000000-0000-0000-0000-000000000000",
+  "azure_client_id": "00000000-0000-0000-0000-000000000000",
+  "azure_client_secret": "your-client-secret-here",
+  "azure_region": "westeurope",
+  "grafana_admin_email": "admin@example.com",
+  "grafana_admin_first_name": "Grafana",
+  "grafana_admin_last_name": "Admin",
+  "test_name_suffix": "e2e"
+}

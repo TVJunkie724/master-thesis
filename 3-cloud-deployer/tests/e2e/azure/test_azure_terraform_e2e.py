@@ -228,6 +228,35 @@ class TestAzureTerraformE2E:
         assert hub.name == iothub_name
         print(f"  ✓ IoT Hub exists: {iothub_name}")
     
+    def test_02b_l2_function_app_deployed(self, deployed_environment):
+        """Verify L2 Azure Function App is deployed."""
+        from azure.identity import ClientSecretCredential
+        from azure.mgmt.web import WebSiteManagementClient
+        
+        outputs = deployed_environment["outputs"]
+        context = deployed_environment["context"]
+        
+        azure_creds = context.credentials.get("azure", {})
+        
+        function_app_name = outputs.get("azure_l2_function_app_name")
+        if not function_app_name:
+            pytest.skip("Function App not deployed")
+        
+        credential = ClientSecretCredential(
+            tenant_id=azure_creds["azure_tenant_id"],
+            client_id=azure_creds["azure_client_id"],
+            client_secret=azure_creds["azure_client_secret"]
+        )
+        
+        web_client = WebSiteManagementClient(credential, azure_creds["azure_subscription_id"])
+        
+        rg_name = outputs.get("azure_resource_group_name")
+        app = web_client.web_apps.get(rg_name, function_app_name)
+        
+        assert app.name == function_app_name
+        assert app.state == "Running", f"Function App state is {app.state}, expected Running"
+        print(f"  ✓ Function App exists and running: {function_app_name}")
+    
     def test_03_l3_cosmos_deployed(self, deployed_environment):
         """Verify L3 Cosmos DB is deployed."""
         from azure.identity import ClientSecretCredential

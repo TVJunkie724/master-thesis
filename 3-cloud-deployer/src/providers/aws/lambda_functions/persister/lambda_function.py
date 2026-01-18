@@ -10,6 +10,7 @@ Editable: Yes - This is the runtime Lambda code
 import os
 import sys
 import json
+import traceback
 import boto3
 
 # Handle import path for both Lambda (deployed with _shared) and test (local development) contexts
@@ -143,7 +144,7 @@ def _push_to_adt(event: dict) -> None:
             "device_id": event.get("device_id"),
             "device_type": event.get("device_type"),
             "telemetry": event.get("telemetry", {}),
-            "timestamp": event.get("time")
+            "timestamp": event.get("timestamp") or event.get("time")
         }
         
         result = post_to_remote(
@@ -196,14 +197,17 @@ def lambda_handler(event, context):
     print("Event: " + json.dumps(event))
 
     try:
-        # Fail-fast validaton
+        # Fail-fast validation
         _validate_config()
 
-        if "time" not in event:
-            raise ValueError("Missing 'time' in event, cannot persist.")
+        # After normalization, event has both 'time' (original) and 'timestamp' (normalized)
+        # DynamoDB schema uses device_id (hash) + timestamp (range)
+        if "timestamp" not in event:
+            raise ValueError("Missing 'timestamp' in event, cannot persist. Did normalization run?")
 
         item = event.copy()
-        item["id"] = str(item.pop("time"))  # DynamoDB Primary SK is 'id' (time)
+        # Remove 'time' to avoid storing duplicate data (timestamp is the canonical sort key)
+        item.pop("time", None)
 
         # Multi-cloud: Check if we should write to remote Writer
         if _is_multi_cloud_storage():
@@ -245,4 +249,5 @@ def lambda_handler(event, context):
 
     except Exception as e:
         print(f"Persister Error: {e}")
+        traceback.print_exc()
         raise e

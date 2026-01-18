@@ -1,0 +1,6 @@
+{
+  "digital_twin_name": "mc-e2e-test",
+  "hot_storage_size_in_days": 30,
+  "cold_storage_size_in_days": 90,
+  "mode": "DEBUG"
+}

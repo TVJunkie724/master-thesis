@@ -1,0 +1,128 @@
+{
+    "header": {
+        "fileVersion": "1.0.0",
+        "author": "twin2clouds",
+        "organization": "twin2clouds"
+    },
+    "models": [
+        {
+            "@id": "dtmi:twin2clouds:Room;1",
+            "@type": "Interface",
+            "@context": "dtmi:dtdl:context;3",
+            "displayName": "Room",
+            "contents": [
+                {
+                    "@type": "Relationship",
+                    "name": "contains",
+                    "target": "dtmi:twin2clouds:Machine;1"
+                },
+                {
+                    "@type": "Relationship",
+                    "name": "hasSensor"
+                }
+            ]
+        },
+        {
+            "@id": "dtmi:twin2clouds:Machine;1",
+            "@type": "Interface",
+            "@context": "dtmi:dtdl:context;3",
+            "displayName": "Machine",
+            "contents": [
+                {
+                    "@type": "Relationship",
+                    "name": "hasSensor"
+                }
+            ]
+        },
+        {
+            "@id": "dtmi:twin2clouds:TemperatureSensor;1",
+            "@type": "Interface",
+            "@context": "dtmi:dtdl:context;3",
+            "displayName": "Temperature Sensor",
+            "contents": [
+                {
+                    "@type": "Telemetry",
+                    "name": "temperature",
+                    "schema": "double"
+                }
+            ]
+        },
+        {
+            "@id": "dtmi:twin2clouds:PressureSensor;1",
+            "@type": "Interface",
+            "@context": "dtmi:dtdl:context;3",
+            "displayName": "Pressure Sensor",
+            "contents": [
+                {
+                    "@type": "Telemetry",
+                    "name": "pressure",
+                    "schema": "double"
+                }
+            ]
+        }
+    ],
+    "twins": [
+        {
+            "$dtId": "room-1",
+            "$metadata": {
+                "$model": "dtmi:twin2clouds:Room;1"
+            }
+        },
+        {
+            "$dtId": "room-2",
+            "$metadata": {
+                "$model": "dtmi:twin2clouds:Room;1"
+            }
+        },
+        {
+            "$dtId": "machine-1",
+            "$metadata": {
+                "$model": "dtmi:twin2clouds:Machine;1"
+            }
+        },
+        {
+            "$dtId": "temperature-sensor-1",
+            "$metadata": {
+                "$model": "dtmi:twin2clouds:TemperatureSensor;1"
+            }
+        },
+        {
+            "$dtId": "temperature-sensor-2",
+            "$metadata": {
+                "$model": "dtmi:twin2clouds:TemperatureSensor;1"
+            }
+        },
+        {
+            "$dtId": "pressure-sensor-1",
+            "$metadata": {
+                "$model": "dtmi:twin2clouds:PressureSensor;1"
+            }
+        }
+    ],
+    "relationships": [
+        {
+            "$dtId": "room-1",
+            "$relationshipId": "room-1-contains-machine-1",
+            "$targetId": "machine-1",
+            "$relationshipName": "contains"
+        },
+        {
+            "$dtId": "machine-1",
+            "$relationshipId": "machine-1-hasSensor-temp-1",
+            "$targetId": "temperature-sensor-1",
+            "$relationshipName": "hasSensor"
+        },
+        {
+            "$dtId": "room-1",
+            "$relationshipId": "room-1-hasSensor-temp-2",
+            "$targetId": "temperature-sensor-2",
+            "$relationshipName": "hasSensor"
+        },
+        {
+            "$dtId": "room-2",
+            "$relationshipId": "room-2-hasSensor-pressure-1",
+            "$targetId": "pressure-sensor-1",
+            "$relationshipName": "hasSensor"
+        }
+    ]
+}

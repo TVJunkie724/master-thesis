@@ -265,7 +265,9 @@ resource "google_workflows_workflow" "event_workflow" {
   
   service_account = google_service_account.functions[0].email
   
-  source_contents = <<-EOT
+  # Load definition from file as raw YAML (no placeholder processing)
+  # User's workflow is deployed exactly as they uploaded it
+  source_contents = var.gcp_workflow_definition_file != "" ? file(var.gcp_workflow_definition_file) : <<-EOT
     main:
       params: [args]
       steps:

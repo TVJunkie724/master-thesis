@@ -192,6 +192,160 @@ def _get_caller_identity(credential, subscription_id: str) -> dict:
         raise
 
 
+def _check_sp_credential_expiration(tenant_id: str, client_id: str, client_secret: str) -> dict:
+    """
+    Check if Service Principal credentials are expired or expiring soon.
+    
+    Uses Microsoft Graph API to check passwordCredentials and keyCredentials
+    on the application registration.
+    
+    Args:
+        tenant_id: Azure AD tenant ID
+        client_id: Service Principal application (client) ID
+        client_secret: Client secret (used for auth to check itself)
+    
+    Returns:
+        Dict with:
+        - status: "valid", "expired", "expiring_soon", or "skipped"
+        - expiration_date: Date when credential expires (if found)
+        - days_until_expiration: Days remaining (if expiring_soon)
+        - message: Human-readable status
+    """
+    try:
+        from azure.identity import ClientSecretCredential
+        from datetime import datetime, timezone
+        import requests
+        
+        # Get Graph API token
+        credential = ClientSecretCredential(
+            tenant_id=tenant_id,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        
+        try:
+            # Get access token for Graph API
+            token = credential.get_token("https://graph.microsoft.com/.default")
+        except Exception as e:
+            # If we can't get a token, the credential is likely expired/invalid
+            if "expired" in str(e).lower() or "invalid" in str(e).lower():
+                return {
+                    "status": "expired",
+                    "message": (
+                        "Azure Service Principal credentials appear to be expired or invalid.\n"
+                        "  • Client secret may have expired\n"
+                        "  • Check Azure Portal → App registrations → Certificates & secrets"
+                    )
+                }
+            # For other errors, skip the check gracefully
+            return {
+                "status": "skipped",
+                "reason": f"Could not retrieve Graph token: {str(e)}"
+            }
+        
+        # Query Graph API for application's passwordCredentials
+        headers = {"Authorization": f"Bearer {token.token}"}
+        
+        try:
+            # Try to get the application by its client ID
+            url = f"https://graph.microsoft.com/v1.0/applications?$filter=appId eq '{client_id}'&$select=passwordCredentials,keyCredentials"
+            response = requests.get(url, headers=headers, timeout=10)
+            
+            if response.status_code == 403:
+                # No permission to read - skip gracefully
+                return {
+                    "status": "skipped",
+                    "reason": "Service Principal lacks permission to read its own application registration (Application.Read.All required)"
+                }
+            
+            if response.status_code != 200:
+                return {
+                    "status": "skipped",
+                    "reason": f"Graph API returned status {response.status_code}"
+                }
+            
+            data = response.json()
+            applications = data.get("value", [])
+            
+            if not applications:
+                return {
+                    "status": "skipped",
+                    "reason": "Application not found in Graph API"
+                }
+            
+            app = applications[0]
+            password_creds = app.get("passwordCredentials", [])
+            key_creds = app.get("keyCredentials", [])
+            
+            now = datetime.now(timezone.utc)
+            nearest_expiration = None
+            
+            # Check password credentials (secrets)
+            for cred in password_creds:
+                end_date_str = cred.get("endDateTime")
+                if end_date_str:
+                    end_date = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
+                    if nearest_expiration is None or end_date < nearest_expiration:
+                        nearest_expiration = end_date
+            
+            # Check key credentials (certificates)  
+            for cred in key_creds:
+                end_date_str = cred.get("endDateTime")
+                if end_date_str:
+                    end_date = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
+                    if nearest_expiration is None or end_date < nearest_expiration:
+                        nearest_expiration = end_date
+            
+            if nearest_expiration is None:
+                return {
+                    "status": "skipped",
+                    "reason": "No credential expiration dates found"
+                }
+            
+            days_until_expiration = (nearest_expiration - now).days
+            
+            if days_until_expiration < 0:
+                return {
+                    "status": "expired",
+                    "expiration_date": nearest_expiration.isoformat(),
+                    "message": (
+                        f"Azure Service Principal credentials expired {abs(days_until_expiration)} days ago.\n"
+                        "Generate new credentials in Azure Portal → App registrations → Certificates & secrets."
+                    )
+                }
+            elif days_until_expiration <= 30:
+                return {
+                    "status": "expiring_soon",
+                    "expiration_date": nearest_expiration.isoformat(),
+                    "days_until_expiration": days_until_expiration,
+                    "message": f"Azure Service Principal credentials expire in {days_until_expiration} days. Consider rotating soon."
+                }
+            else:
+                return {
+                    "status": "valid",
+                    "expiration_date": nearest_expiration.isoformat(),
+                    "days_until_expiration": days_until_expiration,
+                    "message": f"Credentials valid for {days_until_expiration} more days."
+                }
+                
+        except requests.exceptions.RequestException as e:
+            return {
+                "status": "skipped",
+                "reason": f"Graph API request failed: {str(e)}"
+            }
+            
+    except ImportError:
+        return {
+            "status": "skipped",
+            "reason": "requests library not installed"
+        }
+    except Exception as e:
+        return {
+            "status": "skipped",
+            "reason": f"Unexpected error: {str(e)}"
+        }
+
+
 def _validate_azure_regions(credential, subscription_id: str, regions: dict) -> dict:
     """
     Validate Azure regions are available for the subscription.
@@ -498,6 +652,31 @@ def check_azure_credentials(credentials: dict) -> dict:
         except ValueError as e:
             result["message"] = str(e)
             return result
+        
+        # Step 2.5: FAIL-FAST - Check subscription state (catches disabled/deleted subscriptions)
+        subscription_state = caller_identity.get("state")
+        if subscription_state and subscription_state != "Enabled":
+            result["status"] = "invalid"
+            result["message"] = (
+                f"Azure subscription is '{subscription_state}'. "
+                f"Subscription must be 'Enabled' for deployment. "
+                f"Check Azure billing status or contact your administrator to reactivate the subscription."
+            )
+            return result
+        
+        # Step 2.6: Check SP credential expiration (if Graph API accessible)
+        sp_expiration = _check_sp_credential_expiration(
+            tenant_id=credentials["azure_tenant_id"],
+            client_id=credentials["azure_client_id"],
+            client_secret=credentials["azure_client_secret"]
+        )
+        result["sp_credential_expiration"] = sp_expiration
+        
+        if sp_expiration.get("status") == "expired":
+            result["status"] = "invalid"
+            result["message"] = sp_expiration.get("message", "Service Principal credentials have expired")
+            return result
+        # Note: "expiring_soon" is a warning, not a failure - will be shown but deployment proceeds
         
         # Step 3: Validate regions
         regions_to_validate = {

@@ -20,197 +20,76 @@ from src.function_registry import get_terraform_output_map
 # Dynamically generated from function registry
 # Maps Terraform output keys to Lambda function directory names
 LAMBDA_FUNCTION_MAP = get_terraform_output_map("aws")
-
-
-def deploy_aws_lambda_code(
-    project_path: Path,
-    providers_config: dict,
-    terraform_outputs: dict,
-    load_credentials_fn
-) -> None:
-    """
-    Deploy AWS Lambda code via boto3.
-    
-    Args:
-        project_path: Path to project directory
-        providers_config: Layer provider configuration
-        terraform_outputs: Terraform output values
-        load_credentials_fn: Function to load credentials
-    """
-    # Check if any layer uses AWS
-    aws_layers = ["layer_1_provider", "layer_2_provider", "layer_3_hot_provider", 
-                  "layer_4_provider", "layer_5_provider"]
-    has_aws = any(providers_config.get(layer) == "aws" for layer in aws_layers)
-    
-    if not has_aws:
-        logger.info("  No AWS layers configured, skipping Lambda deployment")
-        return
-    
-    try:
-        import boto3
-    except ImportError:
-        logger.warning("  boto3 not available, skipping AWS Lambda deployment")
-        return
-    
-    aws_creds = load_credentials_fn().get("aws", {})
-    if not aws_creds.get("aws_access_key_id"):
-        logger.warning("  AWS credentials not found, skipping Lambda deployment")
-        return
-    
-    lambda_client = boto3.client(
-        'lambda',
-        aws_access_key_id=aws_creds["aws_access_key_id"],
-        aws_secret_access_key=aws_creds["aws_secret_access_key"],
-        region_name=aws_creds.get("aws_region", "eu-central-1")
-    )
-    
-    # Deploy each AWS Lambda function found in outputs
-    for output_key, function_dir_name in LAMBDA_FUNCTION_MAP.items():
-        function_name = terraform_outputs.get(output_key)
-        if function_name:
-            _deploy_to_aws_lambda(
-                lambda_client, function_name, function_dir_name, project_path
-            )
-
-
-def _deploy_to_aws_lambda(
-    lambda_client,
-    function_name: str,
-    function_dir_name: str,
-    project_path: Path
-) -> None:
-    """Deploy ZIP code to an AWS Lambda function."""
-    logger.info(f"  Deploying {function_dir_name} to {function_name}...")
-    
-    try:
-        # Lambda functions are in providers/aws/lambda_functions/
-        lambda_functions_dir = Path(__file__).parent.parent / "aws" / "lambda_functions"
-        function_dir = lambda_functions_dir / function_dir_name
-        
-        if not function_dir.exists():
-            logger.warning(f"  Lambda function directory not found: {function_dir}")
-            return
-        
-        # Create deployment package
-        zip_bytes = _create_lambda_zip(function_dir, project_path)
-        
-        lambda_client.update_function_code(
-            FunctionName=function_name,
-            ZipFile=zip_bytes
-        )
-        logger.info(f"  ✓ {function_dir_name} deployed")
-        
-    except Exception as e:
-        logger.warning(f"  {function_dir_name} deployment failed: {e}")
-
-
-def _create_lambda_zip(function_dir: Path, project_path: Path) -> bytes:
-    """Create a ZIP deployment package for Lambda."""
-    import io
-    import zipfile
-    
-    buffer = io.BytesIO()
-    
-    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-        # Add all files from function directory
-        for file_path in function_dir.rglob('*'):
-            if file_path.is_file() and '__pycache__' not in str(file_path):
-                arcname = file_path.relative_to(function_dir)
-                zf.write(file_path, arcname)
-        
-        # Add shared modules from _shared directory
-        shared_dir = function_dir.parent / "_shared"
-        if shared_dir.exists():
-            for file_path in shared_dir.rglob('*'):
-                if file_path.is_file() and '__pycache__' not in str(file_path):
-                    arcname = file_path.relative_to(shared_dir)
-                    zf.write(file_path, arcname)
-    
-    buffer.seek(0)
-    return buffer.read()
+# NOTE: Lambda code is now deployed via Terraform's filename property.
+# ZIPs are built in Step 2 by package_builder.build_aws_lambda_packages()
+# and deployed in Step 5 via Terraform apply.
 
 
 def create_twinmaker_entities(
+    context: 'DeploymentContext',
     project_path: Path,
-    terraform_outputs: dict,
-    load_credentials_fn
+    terraform_outputs: dict
 ) -> None:
     """
     Create TwinMaker entities and component types via AWS SDK.
     
     The workspace is created by Terraform, but entities and component types
-    are created here because they depend on IoT device configuration.
+    are created here using the hierarchy from aws_hierarchy.json.
     
     Component types are essential for data visualization - they define
     the data schema and link to Lambda connectors for fetching data.
+    
+    Args:
+        context: DeploymentContext with initialized AWS provider
+        project_path: Path to project directory (unused, kept for API consistency)
+        terraform_outputs: Terraform output values
     """
     logger.info("  Creating TwinMaker entities and component types...")
     
+    # PRESERVED: Provider validation
+    provider = context.providers.get("aws")
+    if provider is None:
+        logger.error("  ✗ AWS provider not initialized in context.providers")
+        raise RuntimeError("AWS provider not initialized - cannot create TwinMaker entities")
+    
+    # PRESERVED: boto3 ImportError and general exception handling
     try:
-        import boto3
         import time
         
-        aws_creds = load_credentials_fn().get("aws", {})
-        region = aws_creds.get("aws_region", "eu-central-1")
         workspace_id = terraform_outputs.get("aws_twinmaker_workspace_id")
         
         if not workspace_id:
             logger.warning("  TwinMaker workspace not found, skipping entity creation")
             return
         
-        twinmaker = boto3.client(
-            'iottwinmaker',
-            aws_access_key_id=aws_creds["aws_access_key_id"],
-            aws_secret_access_key=aws_creds["aws_secret_access_key"],
-            region_name=region
-        )
+        # Use pre-initialized clients from provider
+        twinmaker = provider.clients["twinmaker"]
+        lambda_client = provider.clients["lambda"]
         
-        lambda_client = boto3.client(
-            'lambda',
-            aws_access_key_id=aws_creds["aws_access_key_id"],
-            aws_secret_access_key=aws_creds["aws_secret_access_key"],
-            region_name=region
-        )
+        # Use pre-loaded config from context (not file I/O)
+        digital_twin_name = context.config.digital_twin_name
+        hierarchy = context.config.hierarchy
         
-        # Load config
-        config_file = project_path / "config.json"
-        devices_file = project_path / "config_iot_devices.json"
-        
-        if not config_file.exists():
-            logger.warning("  config.json not found, skipping entity creation")
-            return
-            
-        with open(config_file) as f:
-            config = json.load(f)
-        digital_twin_name = config.get("digital_twin_name")
-        
-        if not devices_file.exists():
-            logger.info("  No config_iot_devices.json, skipping entity creation")
-            return
-            
-        with open(devices_file) as f:
-            devices = json.load(f)
-        
-        # Handle both array format and {devices: [...]} format
-        if isinstance(devices, dict):
-            devices = devices.get("devices", [])
-        
-        if not devices:
-            logger.info("  No devices configured, skipping entity creation")
+        if not hierarchy:
+            logger.info("  No hierarchy configured, skipping entity creation")
             return
         
-        # Get Lambda connector ARNs from Terraform outputs
+        if not isinstance(hierarchy, list):
+            logger.warning("  AWS hierarchy must be a list, skipping entity creation")
+            return
+        
+        # PRESERVED: Get Lambda connector ARNs from Terraform outputs
         connector_arn = terraform_outputs.get("aws_l4_connector_function_arn")
         connector_last_entry_arn = terraform_outputs.get("aws_l4_connector_last_entry_function_arn")
         
-        # Fall back to Lambda lookup if not in outputs
+        # PRESERVED: Fall back to Lambda lookup if not in outputs
         if not connector_arn:
             connector_name = f"{digital_twin_name}-l4-connector"
             try:
                 resp = lambda_client.get_function(FunctionName=connector_name)
                 connector_arn = resp["Configuration"]["FunctionArn"]
             except Exception:
-                logger.info(f"  L4 connector Lambda not found, skipping component types")
+                logger.info("  L4 connector Lambda not found, skipping component types")
         
         if not connector_last_entry_arn:
             connector_last_entry_name = f"{digital_twin_name}-l4-connector-last-entry"
@@ -222,34 +101,51 @@ def create_twinmaker_entities(
                 if connector_arn:
                     connector_last_entry_arn = connector_arn
         
-        for device in devices:
-            device_id = device.get("id")
-            if not device_id:
-                continue
+        def create_recursive(node: dict, parent_id: str = None):
+            """Recursively create entities with parent-child relationships."""
+            if node.get("type") == "entity":
+                entity_id = node.get("id")
+                if not entity_id:
+                    return
+                
+                # Create entity with optional parentEntityId
+                try:
+                    params = {
+                        "workspaceId": workspace_id,
+                        "entityId": entity_id,
+                        "entityName": entity_id,
+                        "description": f"Twin entity for {entity_id}"
+                    }
+                    if parent_id:
+                        params["parentEntityId"] = parent_id
+                    
+                    twinmaker.create_entity(**params)
+                    logger.info(f"  ✓ Entity: {entity_id}" + (f" (parent: {parent_id})" if parent_id else ""))
+                except twinmaker.exceptions.ConflictException:
+                    logger.info(f"  Entity already exists: {entity_id}")
+                except Exception as e:
+                    logger.warning(f"  Entity creation failed for {entity_id}: {e}")
+                
+                # Recursively create children
+                for child in node.get("children", []):
+                    create_recursive(child, entity_id)
             
-            # 1. Create entity
-            try:
-                twinmaker.create_entity(
-                    workspaceId=workspace_id,
-                    entityId=device_id,
-                    entityName=device.get("name", device_id),
-                    description=f"Twin entity for {device_id}"
-                )
-                logger.info(f"  ✓ Entity created: {device_id}")
-            except twinmaker.exceptions.ConflictException:
-                logger.info(f"  Entity already exists: {device_id}")
-            except Exception as e:
-                logger.warning(f"  Entity creation failed for {device_id}: {e}")
-            
-            # 2. Create component type (if Lambda connectors exist)
-            if connector_arn:
-                component_type_id = f"{digital_twin_name}-{device_id}"
+            elif node.get("type") == "component" and connector_arn:
+                # PRESERVED: Component type creation with Lambda wiring
+                component_name = node.get("name", node.get("componentTypeId", "unknown"))
+                component_type_id = f"{digital_twin_name}-{component_name}"
                 
                 try:
-                    # Build property definitions from device config
+                    # IMPORTANT: Component types require at least one static property to avoid being abstract.
+                    # Abstract component types (with only time series properties) cannot be instantiated.
+                    # - Time series properties: isTimeSeries=True, isStoredExternally=True (from "properties" array)
+                    # - Static properties: isTimeSeries=False, isStoredExternally=False (from "constProperties" array)
+                    # The constProperties field in the hierarchy JSON is what makes component types concrete.
+                    
+                    # Build property definitions from node
                     property_definitions = {}
                     
-                    for prop in device.get("properties", []):
+                    for prop in node.get("properties", []):
                         property_definitions[prop["name"]] = {
                             "dataType": {"type": prop.get("dataType", "STRING")},
                             "isTimeSeries": True,
@@ -257,7 +153,7 @@ def create_twinmaker_entities(
                         }
                     
                     # Add const properties if present
-                    for const_prop in device.get("constProperties", []):
+                    for const_prop in node.get("constProperties", []):
                         data_type = const_prop.get("dataType", "STRING")
                         property_definitions[const_prop["name"]] = {
                             "dataType": {"type": data_type},
@@ -291,9 +187,9 @@ def create_twinmaker_entities(
                         propertyDefinitions=property_definitions,
                         functions=functions
                     )
-                    logger.info(f"  ✓ Component type created: {component_type_id}")
+                    logger.info(f"  ✓ Component type: {component_type_id}")
                     
-                    # Wait for component type to become active
+                    # PRESERVED: Wait for component type to become active
                     for _ in range(30):
                         resp = twinmaker.get_component_type(
                             workspaceId=workspace_id,
@@ -306,7 +202,30 @@ def create_twinmaker_entities(
                 except twinmaker.exceptions.ConflictException:
                     logger.info(f"  Component type already exists: {component_type_id}")
                 except Exception as e:
-                    logger.warning(f"  Component type creation failed for {device_id}: {e}")
+                    logger.warning(f"  Component type creation failed for {component_name}: {e}")
+                    return  # Don't try to attach if creation failed
+                
+                # Attach component to parent entity
+                if parent_id:
+                    try:
+                        twinmaker.update_entity(
+                            workspaceId=workspace_id,
+                            entityId=parent_id,
+                            componentUpdates={
+                                component_name: {
+                                    "componentTypeId": component_type_id
+                                }
+                            }
+                        )
+                        logger.info(f"  ✓ Component attached: {component_name} → {parent_id}")
+                    except twinmaker.exceptions.ConflictException:
+                        logger.info(f"  Component already attached: {component_name}")
+                    except Exception as e:
+                        logger.warning(f"  Component attachment failed: {e}")
+        
+        # Process all root nodes in hierarchy
+        for root_node in hierarchy:
+            create_recursive(root_node)
                     
     except ImportError:
         logger.warning("  boto3 not available, skipping TwinMaker entity creation")
@@ -315,8 +234,8 @@ def create_twinmaker_entities(
 
 
 def register_aws_iot_devices(
+    context: 'DeploymentContext',
     project_path: Path,
-    load_credentials_fn,
     terraform_outputs: dict = None
 ) -> None:
     """
@@ -326,25 +245,23 @@ def register_aws_iot_devices(
     config_generated.json for the simulator.
     
     Args:
+        context: DeploymentContext with initialized AWS provider
         project_path: Path to project directory
-        load_credentials_fn: Function to load credentials
         terraform_outputs: Optional Terraform outputs (for IoT endpoint)
     """
     logger.info("  Registering AWS IoT devices...")
     
+    # Get provider from context (already initialized)
+    provider = context.providers.get("aws")
+    if provider is None:
+        logger.error("  ✗ AWS provider not initialized in context.providers")
+        raise RuntimeError("AWS provider not initialized - cannot register IoT devices")
+    
     try:
-        import boto3
         import os
         
-        aws_creds = load_credentials_fn().get("aws", {})
-        region = aws_creds.get("aws_region", "eu-central-1")
-        
-        iot = boto3.client(
-            'iot',
-            aws_access_key_id=aws_creds["aws_access_key_id"],
-            aws_secret_access_key=aws_creds["aws_secret_access_key"],
-            region_name=region
-        )
+        # Use pre-initialized client from provider
+        iot = provider.clients["iot"]
         
         # Load config
         config_file = project_path / "config.json"
@@ -528,11 +445,26 @@ def _generate_aws_simulator_config(
 
 
 def configure_aws_grafana(
-    terraform_outputs: dict,
-    load_credentials_fn
+    context: 'DeploymentContext',
+    terraform_outputs: dict
 ) -> None:
-    """Configure AWS Grafana datasources via Grafana API."""
+    """
+    Configure AWS Grafana datasources via Grafana API.
+    
+    Args:
+        context: DeploymentContext with initialized AWS provider
+        terraform_outputs: Terraform output values
+        
+    Note: This function uses the Grafana HTTP API (requests library),
+    not boto3 clients. The context is passed for consistency and
+    potential future use (e.g., accessing provider.region).
+    """
     logger.info("  Configuring AWS Grafana...")
+    
+    # Validate provider is initialized (consistent pattern)
+    if context.providers.get("aws") is None:
+        logger.error("  ✗ AWS provider not initialized in context.providers")
+        raise RuntimeError("AWS provider not initialized - cannot configure Grafana")
     
     try:
         import requests

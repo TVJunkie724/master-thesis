@@ -1,7 +1,7 @@
 """
 Pricing API endpoints for fetching cloud provider pricing data.
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from backend.logger import logger
 from backend.utils import is_file_fresh
@@ -34,10 +34,12 @@ def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False)
         
         logger.info("🔄 Fetching fresh AWS pricing...")
         return calculate_up_to_date_pricing("aws", additional_debug)
+    except FileNotFoundError as e:
+        logger.error(f"Pricing file not found: {e}")
+        raise HTTPException(status_code=404, detail="AWS pricing data not available. Run refresh first.")
     except Exception as e:
         logger.error(f"Error fetching AWS pricing: {e}")
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to fetch AWS pricing. Check server logs.")
 
 
 @router.post("/fetch_pricing/azure", summary="Fetch Azure Pricing")
@@ -58,10 +60,12 @@ def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = Fals
         
         logger.info("🔄 Fetching fresh Azure pricing...")
         return calculate_up_to_date_pricing("azure", additional_debug)
+    except FileNotFoundError as e:
+        logger.error(f"Pricing file not found: {e}")
+        raise HTTPException(status_code=404, detail="Azure pricing data not available. Run refresh first.")
     except Exception as e:
         logger.error(f"Error fetching Azure pricing: {e}")
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to fetch Azure pricing. Check server logs.")
 
 
 @router.post("/fetch_pricing/gcp", summary="Fetch GCP Pricing")
@@ -82,10 +86,12 @@ def fetch_pricing_gcp(additional_debug: bool = False, force_fetch: bool = False)
         
         logger.info("🔄 Fetching fresh GCP pricing...")
         return calculate_up_to_date_pricing("gcp", additional_debug)
+    except FileNotFoundError as e:
+        logger.error(f"Pricing file not found: {e}")
+        raise HTTPException(status_code=404, detail="GCP pricing data not available. Run refresh first.")
     except Exception as e:
         logger.error(f"Error fetching GCP pricing: {e}")
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Failed to fetch GCP pricing. Check server logs.")
 
 
 # --------------------------------------------------
@@ -108,7 +114,7 @@ def fetch_currency_rates():
         return rates
     except Exception as e:
         logger.error(f"Error fetching currency rates: {e}")
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail="Failed to fetch currency rates. Check server logs.")
 
 
 # --------------------------------------------------
@@ -218,5 +224,4 @@ def fetch_pricing_with_credentials(
         
     except Exception as e:
         logger.error(f"Error fetching {provider} pricing with credentials: {e}")
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail=f"Failed to fetch {provider} pricing. Check server logs.")

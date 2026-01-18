@@ -25,6 +25,7 @@ Usage:
 
 import json
 import logging
+from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Optional, Dict, Any, TYPE_CHECKING
 
@@ -48,6 +49,25 @@ if TYPE_CHECKING:
     from src.core.context import DeploymentContext
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DestroyResult:
+    """Result of destroy operation (JSON-serializable)."""
+    terraform_success: bool = False
+    terraform_error: Optional[str] = None
+    sdk_fallback_ran: bool = False
+    sdk_fallback_results: Dict[str, bool] = field(default_factory=dict)
+    dry_run: bool = False
+
+    @property
+    def sdk_fallback_success(self) -> bool:
+        """True if all SDK cleanups succeeded (or none ran)."""
+        return all(self.sdk_fallback_results.values()) if self.sdk_fallback_results else True
+    
+    def to_dict(self) -> dict:
+        """Convert to JSON-serializable dict."""
+        return {**asdict(self), "sdk_fallback_success": self.sdk_fallback_success}
 
 
 class TerraformDeployerStrategy:
@@ -129,16 +149,17 @@ class TerraformDeployerStrategy:
         
         Steps:
         0. Validate cloud credentials (optional, default: enabled)
+        0.5. Initialize cloud providers for SDK operations
         1. Validate project structure
         2. Build function packages (Lambda ZIPs, Function ZIPs)
         3. Generate tfvars.json
         4. terraform init
         5. terraform apply (AWS uses pre-built ZIPs)
         6. Deploy Azure function code (Kudu)
-        7. Post-deployment SDK operations
+        7. Post-deployment SDK operations (IoT, DTDL, Grafana)
         
         Args:
-            context: Optional deployment context for SDK operations
+            context: DeploymentContext for SDK operations (REQUIRED)
             skip_credential_check: If True, skip pre-deployment credential validation.
                                    Default is False (validation enabled).
         
@@ -148,39 +169,49 @@ class TerraformDeployerStrategy:
         Raises:
             TerraformError: If Terraform fails
             ConfigurationError: If config is invalid
-            ValueError: If project validation fails or credentials are invalid
+            ValueError: If project validation fails, credentials are invalid, or context is None
         """
+        # FAIL-FAST: Context is required for SDK operations
+        if context is None:
+            raise ValueError(
+                "DeploymentContext is required. SDK operations (Kudu deployment, "
+                "IoT registration, DTDL upload, Grafana config) cannot run without context."
+            )
         logger.info("=" * 60)
         logger.info("  TERRAFORM DEPLOYMENT - STARTING")
         logger.info("=" * 60)
         
         # Step 0: Validate cloud credentials (optional)
         if not skip_credential_check:
-            logger.info("\n[STEP 0/8] Validating cloud credentials...")
+            logger.info("\n[STEP 0/9] Validating cloud credentials...")
             self._validate_credentials()
         else:
-            logger.info("\n[STEP 0/8] Skipping credential validation (skip_credential_check=True)")
+            logger.info("\n[STEP 0/9] Skipping credential validation (skip_credential_check=True)")
+        
+        # Step 0.5: Initialize providers for SDK operations (must happen before Kudu)
+        logger.info("\n[STEP 0.5/9] Initializing cloud providers for SDK operations...")
+        self._initialize_providers(context)
         
         # Step 1: Validate project structure
-        logger.info("\n[STEP 1/8] Validating project structure...")
+        logger.info("\n[STEP 1/9] Validating project structure...")
         from src.validation.directory_validator import validate_project_directory
         validate_project_directory(self.project_path)
         logger.info("✓ Project validation passed")
         
         # Step 2: Build function packages
-        logger.info("\n[STEP 2/8] Building function packages...")
+        logger.info("\n[STEP 2/9] Building function packages...")
         self._build_packages()
         
         # Step 3: Generate tfvars
-        logger.info("\n[STEP 3/8] Generating tfvars.json...")
+        logger.info("\n[STEP 3/9] Generating tfvars.json...")
         self._generate_tfvars()
         
         # Step 4: Terraform init
-        logger.info("\n[STEP 4/8] Terraform init...")
+        logger.info("\n[STEP 4/9] Terraform init...")
         self.runner.init()
         
         # Step 5: Terraform apply (AWS Lambda uses pre-built ZIPs)
-        logger.info("\n[STEP 5/8] Terraform apply...")
+        logger.info("\n[STEP 5/9] Terraform apply...")
         self.runner.apply(var_file=str(self.tfvars_path))
         
         # Get outputs
@@ -188,15 +219,12 @@ class TerraformDeployerStrategy:
         logger.info(f"✓ Terraform outputs: {list(self._terraform_outputs.keys())}")
         
         # Step 6: Deploy Azure function code (Kudu)
-        logger.info("\n[STEP 6/8] Deploying Azure function code...")
-        self._deploy_azure_function_code()
+        logger.info("\n[STEP 6/9] Deploying Azure function code...")
+        self._deploy_azure_function_code(context)
         
-        # Step 7: Post-deployment SDK operations
-        logger.info("\n[STEP 7/8] Running post-deployment operations...")
-        if context:
-            self._run_post_deployment(context)
-        else:
-            logger.info("  Skipping SDK operations (no context provided)")
+        # Step 7: Post-deployment SDK operations (IoT, DTDL, Grafana)
+        logger.info("\n[STEP 7/9] Running post-deployment operations...")
+        self._run_post_deployment(context)
         
         logger.info("\n" + "=" * 60)
         logger.info("  TERRAFORM DEPLOYMENT - COMPLETE")
@@ -204,25 +232,74 @@ class TerraformDeployerStrategy:
         
         return self._terraform_outputs
     
-    def destroy_all(self, context: Optional['DeploymentContext'] = None) -> None:
+    def destroy_all(
+        self, 
+        context: Optional['DeploymentContext'] = None,
+        # NOTE: Default is "always" because Terraform may return exit code 0 (success) even
+        # when some resources fail to delete. This happens with AWS CloudControl provider
+        # (AWSCC) for TwinMaker workspaces that contain SDK-created entities. The SDK cleanup
+        # ensures all resources are properly removed regardless of Terraform's partial success.
+        sdk_fallback: str = "always",
+        dry_run: bool = False,
+        sdk_timeout_seconds: int = 300,
+        sdk_max_retries: int = 2
+    ) -> 'DestroyResult':
         """
-        Destroy all Terraform-managed resources.
+        Destroy all resources with optional SDK fallback cleanup.
         
-        Raises:
-            TerraformError: If destroy fails
+        Args:
+            context: DeploymentContext with credentials (REQUIRED for SDK cleanup)
+            sdk_fallback: "never" | "on_failure" | "always"
+            dry_run: If True, log what would be deleted without deleting
+            sdk_timeout_seconds: Timeout per provider per attempt (default 5 min)
+            sdk_max_retries: Retry count for failed SDK cleanup (default 2)
+        
+        Returns:
+            DestroyResult with terraform_success, sdk_fallback_ran, etc.
         """
+        result = DestroyResult(dry_run=dry_run)
+        
         logger.info("=" * 60)
         logger.info("  TERRAFORM DESTROY - STARTING")
         logger.info("=" * 60)
         
-        if not self.tfvars_path.exists():
-            logger.warning("tfvars.json not found, generating...")
-            self._generate_tfvars()
+        if dry_run:
+            logger.info("[DRY RUN] Would run terraform destroy")
+            result.terraform_success = True
+        else:
+            try:
+                if not self.tfvars_path.exists():
+                    logger.warning("tfvars.json not found, generating...")
+                    self._generate_tfvars()
+                
+                self.runner.init()
+                self.runner.destroy(var_file=str(self.tfvars_path))
+                result.terraform_success = True
+                logger.info("✓ Terraform destroy succeeded")
+            except TerraformError as e:
+                result.terraform_error = str(e)
+                logger.error(f"✗ Terraform destroy failed: {e}")
         
-        self.runner.init()
-        self.runner.destroy(var_file=str(self.tfvars_path))
+        # SDK fallback (conditional)
+        should_run_sdk = (
+            sdk_fallback == "always" or 
+            (sdk_fallback == "on_failure" and not result.terraform_success)
+        )
         
-        logger.info("✓ All resources destroyed")
+        if should_run_sdk:
+            if not context:
+                logger.error("SDK fallback requested but no context provided")
+            else:
+                result.sdk_fallback_ran = True
+                result.sdk_fallback_results = self._run_sdk_fallback_cleanup(
+                    context, dry_run, sdk_timeout_seconds, sdk_max_retries
+                )
+        
+        logger.info("=" * 60)
+        logger.info("  TERRAFORM DESTROY - COMPLETE")
+        logger.info("=" * 60)
+        
+        return result
     
     def get_outputs(self) -> dict:
         """Get Terraform outputs (run after deploy)."""
@@ -340,7 +417,64 @@ class TerraformDeployerStrategy:
         providers = self._load_providers_config()
         build_all_packages(self.terraform_dir, self.project_path, providers)
     
-    def _deploy_azure_function_code(self) -> None:
+    def _initialize_providers(self, context: 'DeploymentContext') -> None:
+        """
+        Initialize cloud provider SDK clients for post-Terraform operations.
+        
+        This must run EARLY (before Kudu deployment) because:
+        - Azure Kudu deployment needs provider.clients["web"]
+        - AWS/GCP SDK operations need their respective clients
+        
+        Args:
+            context: DeploymentContext to populate with providers
+            
+        Raises:
+            ValueError: If required credentials are missing
+        """
+        providers = self._load_providers_config()
+        credentials = self._load_credentials()
+        
+        # Determine which clouds need SDK operations
+        sdk_layers = ["layer_1_provider", "layer_2_provider", "layer_4_provider", "layer_5_provider"]
+        used_clouds = set()
+        for layer in sdk_layers:
+            cloud = providers.get(layer)
+            if cloud:
+                used_clouds.add(cloud)
+        
+        logger.info(f"  Clouds requiring SDK initialization: {', '.join(sorted(used_clouds)) or 'none'}")
+        
+        # Initialize Azure provider
+        if "azure" in used_clouds and "azure" not in context.providers:
+            logger.info("  Initializing Azure provider...")
+            from src.providers.azure.provider import AzureProvider
+            azure_provider = AzureProvider()
+            azure_creds = credentials.get("azure", {})
+            azure_provider.initialize_clients(azure_creds, context.config.digital_twin_name)
+            context.providers["azure"] = azure_provider
+            logger.info("  ✓ Azure provider initialized")
+        
+        # Initialize AWS provider
+        if "aws" in used_clouds and "aws" not in context.providers:
+            logger.info("  Initializing AWS provider...")
+            from src.providers.aws.provider import AWSProvider
+            aws_provider = AWSProvider()
+            aws_creds = credentials.get("aws", {})
+            aws_provider.initialize_clients(aws_creds, context.config.digital_twin_name)
+            context.providers["aws"] = aws_provider
+            logger.info("  ✓ AWS provider initialized")
+        
+        # Initialize GCP provider (for future L4/L5 and consistency)
+        if "google" in used_clouds and "gcp" not in context.providers:
+            logger.info("  Initializing GCP provider...")
+            from src.providers.gcp.provider import GCPProvider
+            gcp_provider = GCPProvider()
+            gcp_creds = credentials.get("gcp", {})
+            gcp_provider.initialize_clients(gcp_creds, context.config.digital_twin_name)
+            context.providers["gcp"] = gcp_provider
+            logger.info("  ✓ GCP provider initialized")
+    
+    def _deploy_azure_function_code(self, context: 'DeploymentContext') -> None:
         """Deploy Azure Function code via Kudu (using pre-built ZIPs)."""
         providers = self._load_providers_config()
         
@@ -355,11 +489,16 @@ class TerraformDeployerStrategy:
         
         # Deploy Azure functions via Kudu
         deploy_azure_function_code(
-            self.project_path, providers, self._terraform_outputs, self._load_credentials
+            context, self.project_path, providers, self._terraform_outputs
         )
     
     def _run_post_deployment(self, context: 'DeploymentContext') -> None:
-        """Run post-Terraform SDK operations."""
+        """
+        Run post-Terraform SDK operations.
+        
+        Note: Providers are already initialized in _initialize_providers().
+        This method only calls the cloud-specific SDK functions.
+        """
         providers = self._load_providers_config()
         
         # Validate required provider keys
@@ -379,12 +518,187 @@ class TerraformDeployerStrategy:
         
         # ===== AWS Post-Deployment =====
         if providers["layer_4_provider"] == "aws":
-            create_twinmaker_entities(
-                self.project_path, self._terraform_outputs, self._load_credentials
-            )
+            create_twinmaker_entities(context, self.project_path, self._terraform_outputs)
         
         if providers["layer_1_provider"] == "aws":
-            register_aws_iot_devices(self.project_path, self._load_credentials)
+            register_aws_iot_devices(context, self.project_path)
         
         if providers["layer_5_provider"] == "aws":
-            configure_aws_grafana(self._terraform_outputs, self._load_credentials)
+            configure_aws_grafana(context, self._terraform_outputs)
+    
+    # =========================================================================
+    # SDK Fallback Cleanup Methods
+    # =========================================================================
+    
+    def has_deployed_resources(self) -> bool:
+        """Check if there are deployed resources in Terraform state."""
+        try:
+            state = self.runner.show_state()
+            resources = state.get("values", {}).get("root_module", {}).get("resources", [])
+            return len(resources) > 0
+        except Exception as e:
+            logger.warning(f"Could not check state: {e}")
+            return False
+    
+    def _run_sdk_fallback_cleanup(
+        self, 
+        context: 'DeploymentContext',
+        dry_run: bool,
+        timeout_seconds: int,
+        max_retries: int
+    ) -> Dict[str, bool]:
+        """Run provider-specific SDK cleanup IN PARALLEL."""
+        import time
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+        from typing import Callable
+        
+        credentials = context.credentials
+        providers_config = context.config.providers  # Use context, not file loading
+        prefix = context.project_name
+        
+        outputs = self._get_terraform_outputs_safe()
+        platform_user_email = self._get_platform_user_email(context)
+        
+        # Build tasks with CAPTURED values (avoid lambda closure bug)
+        cleanup_tasks: list = []
+        
+        if self._uses_provider(providers_config, "aws"):
+            def aws_task(
+                creds=credentials, pfx=prefix,
+                cleanup_user=outputs.get("aws_platform_user_created", False),
+                email=platform_user_email, dr=dry_run
+            ):
+                return self._cleanup_provider("aws", creds, pfx, cleanup_user, email, dr)
+            cleanup_tasks.append(("aws", aws_task))
+        
+        if self._uses_provider(providers_config, "azure"):
+            def azure_task(
+                creds=credentials, pfx=prefix,
+                cleanup_user=outputs.get("azure_platform_user_created", False),
+                email=platform_user_email, dr=dry_run
+            ):
+                return self._cleanup_provider("azure", creds, pfx, cleanup_user, email, dr)
+            cleanup_tasks.append(("azure", azure_task))
+        
+        if self._uses_provider(providers_config, "gcp"):
+            def gcp_task(creds=credentials, pfx=prefix, dr=dry_run):
+                return self._cleanup_provider("gcp", creds, pfx, False, "", dr)
+            cleanup_tasks.append(("gcp", gcp_task))
+        
+        if not cleanup_tasks:
+            logger.info("No providers to clean up")
+            return {}
+        
+        # Run IN PARALLEL
+        results = {}
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = {
+                executor.submit(
+                    self._run_with_retry_and_timeout, 
+                    task_fn, max_retries, timeout_seconds
+                ): name
+                for name, task_fn in cleanup_tasks
+            }
+            
+            for future in futures:
+                provider = futures[future]
+                try:
+                    results[provider] = future.result(timeout=timeout_seconds * (max_retries + 1) + 60)
+                except Exception as e:
+                    logger.error(f"[{provider.upper()}] Cleanup failed: {e}")
+                    results[provider] = False
+        
+        return results
+    
+    def _run_with_retry_and_timeout(
+        self, 
+        task_fn,
+        max_retries: int, 
+        timeout_seconds: int
+    ) -> bool:
+        """Run task with per-attempt timeout and retry logic."""
+        import time
+        import threading
+        
+        for attempt in range(max_retries + 1):
+            try:
+                logger.info(f"  Attempt {attempt + 1}/{max_retries + 1}...")
+                
+                # Per-attempt timeout using threading
+                result = [None]
+                exception = [None]
+                
+                def run_task():
+                    try:
+                        task_fn()
+                        result[0] = True
+                    except Exception as e:
+                        exception[0] = e
+                
+                thread = threading.Thread(target=run_task, daemon=True)
+                thread.start()
+                thread.join(timeout=timeout_seconds)
+                
+                if thread.is_alive():
+                    raise TimeoutError(f"Task timed out after {timeout_seconds}s")
+                
+                if exception[0]:
+                    raise exception[0]
+                
+                return True
+                
+            except Exception as e:
+                logger.warning(f"  Attempt {attempt + 1} failed: {e}")
+                if attempt < max_retries:
+                    wait_time = 5 * (attempt + 1)  # Backoff: 5s, 10s
+                    logger.info(f"  Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+        
+        return False
+    
+    def _cleanup_provider(
+        self, 
+        provider: str, 
+        credentials: dict, 
+        prefix: str,
+        cleanup_user: bool,
+        platform_user_email: str,
+        dry_run: bool
+    ) -> None:
+        """Unified cleanup dispatcher with logging."""
+        logger.info(f"[{provider.upper()}] Starting SDK cleanup...")
+        
+        if provider == "aws":
+            from src.providers.aws.cleanup import cleanup_aws_resources
+            cleanup_aws_resources(credentials, prefix, cleanup_user, platform_user_email, dry_run=dry_run)
+        elif provider == "azure":
+            from src.providers.azure.cleanup import cleanup_azure_resources
+            cleanup_azure_resources(credentials, prefix, cleanup_user, platform_user_email, dry_run=dry_run)
+        elif provider == "gcp":
+            from src.providers.gcp.cleanup import cleanup_gcp_resources
+            cleanup_gcp_resources(credentials, prefix, dry_run=dry_run)
+        
+        logger.info(f"[{provider.upper()}] ✓ Cleanup complete")
+    
+    def _uses_provider(self, providers_config: dict, cloud: str) -> bool:
+        """Check if any layer uses the specified cloud provider."""
+        # Check all possible layer keys including L3 sublayers
+        layer_keys = [
+            "layer_1_provider", "layer_2_provider", 
+            "layer_3_provider", "layer_3_hot_provider", "layer_3_cold_provider", "layer_3_archive_provider",
+            "layer_4_provider", "layer_5_provider"
+        ]
+        return any(providers_config.get(key) == cloud for key in layer_keys)
+    
+    def _get_platform_user_email(self, context: 'DeploymentContext') -> str:
+        """Get platform user email from context.config.user."""
+        return context.config.user.get("admin_email", "")
+    
+    def _get_terraform_outputs_safe(self) -> dict:
+        """Get Terraform outputs, returning empty dict on failure."""
+        try:
+            return self.runner.output()
+        except Exception as e:
+            logger.warning(f"Could not get Terraform outputs: {e}")
+            return {}

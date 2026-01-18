@@ -71,12 +71,13 @@ def _get_cosmos_db_container_name():
 
 
 def _get_inter_cloud_token():
-    try:
-        return require_env("INTER_CLOUD_TOKEN")
-    except Exception:
-        # If missing, we must fail secure (cannot authenticate)
-        logging.error("CRITICAL: INTER_CLOUD_TOKEN missing. Hot Reader requires authentication.")
-        raise ValueError("INTER_CLOUD_TOKEN configuration missing")
+    """
+    Get inter-cloud token for authentication.
+    
+    Returns empty string in single-cloud mode (token not configured).
+    In single-cloud, all communication is internal so auth is optional.
+    """
+    return os.environ.get("INTER_CLOUD_TOKEN", "").strip()
 
 # Optional: Azure Digital Twins instance URL
 ADT_INSTANCE_URL = os.environ.get("ADT_INSTANCE_URL", "").strip()
@@ -150,7 +151,7 @@ def _query_cosmos_db(query_params: dict) -> dict:
     # Query Cosmos DB
     query = f"""
         SELECT * FROM c 
-        WHERE c.iotDeviceId = @device_id 
+        WHERE c.device_id = @device_id 
         AND c.id >= @start_time 
         AND c.id <= @end_time
         ORDER BY c.id ASC
@@ -211,11 +212,11 @@ def hot_reader(req: func.HttpRequest) -> func.HttpResponse:
     try:
         headers = dict(req.headers)
         
-        # Validate token for cross-cloud requests
-        # CRITICAL: Security - Always enforce token validation.
-        # This prevents accidental public exposure if the variable is missing.
+        # Validate token for cross-cloud requests (skip in single-cloud mode)
+        # In single-cloud, INTER_CLOUD_TOKEN is not set - skip authentication.
+        # In multi-cloud, token is required for security.
         token = _get_inter_cloud_token()
-        if not validate_token(headers, token):
+        if token and not validate_token(headers, token):
             return func.HttpResponse(
                 json.dumps({"error": "Unauthorized", "message": "Invalid or missing X-Inter-Cloud-Token"}),
                 status_code=401,
@@ -244,7 +245,7 @@ def hot_reader(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
-        logging.error(f"Hot Reader Error: {e}")
+        logging.exception(f"Hot Reader Error: {e}")
         return func.HttpResponse(
             json.dumps({"error": "Internal Server Error", "message": str(e)}),
             status_code=500,

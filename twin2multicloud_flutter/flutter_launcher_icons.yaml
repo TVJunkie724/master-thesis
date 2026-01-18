@@ -1,0 +1,23 @@
+flutter_launcher_icons:
+  # Disable mobile platforms (no Android/iOS project files exist)
+  android: false
+  ios: false
+  
+  # Windows (current development platform)
+  windows:
+    generate: true
+    icon_size: 256  # Windows requires 256x256
+    
+  # macOS  
+  macos:
+    generate: true
+    
+  # Web
+  web:
+    generate: true
+    
+  # Source image
+  image_path: "assets/images/logo.png"
+  
+  # Background color for platforms that require solid backgrounds
+  background_color: "#1a1a2e"

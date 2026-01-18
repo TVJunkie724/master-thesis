@@ -66,7 +66,7 @@ class TestIngestionTokenValidation:
             assert "payload" in result["body"].lower()
 
     def test_ingestion_rejects_missing_device_id(self):
-        """Ingestion should return 400 when iotDeviceId is missing."""
+        """Ingestion should return 400 when device_id is missing after normalization."""
         import sys
         if "src.providers.aws.lambda_functions.ingestion.lambda_function" in sys.modules:
             del sys.modules["src.providers.aws.lambda_functions.ingestion.lambda_function"]
@@ -85,7 +85,7 @@ class TestIngestionTokenValidation:
             result = ingestion.lambda_handler(event, None)
             
             assert result["statusCode"] == 400
-            assert "iotDeviceId" in result["body"]
+            assert "device_id" in result["body"]
 
 
 # ==========================================

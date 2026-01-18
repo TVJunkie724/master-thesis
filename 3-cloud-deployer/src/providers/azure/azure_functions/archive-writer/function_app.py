@@ -135,7 +135,7 @@ def archive_writer(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
-        logging.error(f"Archive Writer Error: {e}")
+        logging.exception(f"Archive Writer Error: {e}")
         return func.HttpResponse(
             json.dumps({"error": str(e)}),
             status_code=500,

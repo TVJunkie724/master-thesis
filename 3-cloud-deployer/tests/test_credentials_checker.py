@@ -185,7 +185,7 @@ class TestCheckAWSCredentials:
         })
         
         assert result["status"] == "invalid"
-        assert "Invalid credentials" in result["message"]
+        assert "Invalid AWS credentials" in result["message"]
     
     @patch("src.api.credentials_checker.boto3.Session")
     def test_valid_credentials_full_access(self, mock_session):
@@ -529,3 +529,181 @@ class TestSessionTokenSupport:
             region_name="us-east-1",
             aws_session_token="token123"
         )
+
+
+class TestAWSAccountStatusCheck:
+    """Tests for AWS Organizations account status checking."""
+
+    @patch("src.api.credentials_checker.boto3.Session")
+    def test_suspended_account_detected(self, mock_session):
+        """Test that suspended accounts are detected and fail early."""
+        from botocore.exceptions import ClientError
+        
+        mock_sts = Mock()
+        mock_sts.get_caller_identity.return_value = {
+            "Account": "123456789012",
+            "Arn": "arn:aws:iam::123456789012:user/admin",
+            "UserId": "AIDAEXAMPLE"
+        }
+        
+        mock_ec2 = Mock()
+        mock_ec2.describe_regions.return_value = {
+            "Regions": [{"RegionName": "us-east-1"}]
+        }
+        
+        mock_orgs = Mock()
+        mock_orgs.describe_account.return_value = {
+            "Account": {
+                "Id": "123456789012",
+                "Name": "Test Account",
+                "Status": "SUSPENDED"  # Key: account is suspended
+            }
+        }
+        
+        def client_factory(service_name, **kwargs):
+            if service_name == "sts":
+                return mock_sts
+            elif service_name == "ec2":
+                return mock_ec2
+            elif service_name == "organizations":
+                return mock_orgs
+            return Mock()
+        
+        mock_session.return_value.client.side_effect = client_factory
+        
+        result = check_aws_credentials({
+            "aws_access_key_id": "key",
+            "aws_secret_access_key": "secret",
+            "aws_region": "us-east-1"
+        })
+        
+        # Should fail with clear message about account status
+        assert result["status"] == "invalid"
+        assert "SUSPENDED" in result["message"]
+        assert result["account_status"]["status"] == "suspended"
+        assert result["account_status"]["state"] == "SUSPENDED"
+
+    @patch("src.api.credentials_checker.boto3.Session")
+    def test_non_org_account_gracefully_skipped(self, mock_session):
+        """Test that standalone accounts (not in Organizations) skip the check gracefully."""
+        from botocore.exceptions import ClientError
+        
+        mock_sts = Mock()
+        mock_sts.get_caller_identity.return_value = {
+            "Account": "123456789012",
+            "Arn": "arn:aws:iam::123456789012:user/admin",
+            "UserId": "AIDAEXAMPLE"
+        }
+        
+        mock_iam = Mock()
+        mock_iam.list_user_policies.return_value = {"PolicyNames": []}
+        mock_iam.list_attached_user_policies.return_value = {
+            "AttachedPolicies": [{"PolicyName": "Admin", "PolicyArn": "arn:aws:iam::aws:policy/AdministratorAccess"}]
+        }
+        mock_iam.list_groups_for_user.return_value = {"Groups": []}
+        mock_iam.get_policy.return_value = {"Policy": {"DefaultVersionId": "v1"}}
+        mock_iam.get_policy_version.return_value = {
+            "PolicyVersion": {
+                "Document": {
+                    "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]
+                }
+            }
+        }
+        
+        mock_ec2 = Mock()
+        mock_ec2.describe_regions.return_value = {
+            "Regions": [{"RegionName": "us-east-1"}]
+        }
+        
+        mock_orgs = Mock()
+        mock_orgs.describe_account.side_effect = ClientError(
+            {"Error": {"Code": "AWSOrganizationsNotInUseException", "Message": "Not in org"}},
+            "DescribeAccount"
+        )
+        
+        def client_factory(service_name, **kwargs):
+            if service_name == "sts":
+                return mock_sts
+            elif service_name == "iam":
+                return mock_iam
+            elif service_name == "ec2":
+                return mock_ec2
+            elif service_name == "organizations":
+                return mock_orgs
+            return Mock()
+        
+        mock_session.return_value.client.side_effect = client_factory
+        
+        result = check_aws_credentials({
+            "aws_access_key_id": "key",
+            "aws_secret_access_key": "secret",
+            "aws_region": "us-east-1"
+        })
+        
+        # Should still succeed - org check is skipped gracefully
+        assert result["status"] == "valid"
+        assert result["account_status"]["status"] == "skipped"
+        assert "not part of an AWS Organization" in result["account_status"]["reason"]
+
+    @patch("src.api.credentials_checker.boto3.Session")
+    def test_access_denied_to_orgs_gracefully_skipped(self, mock_session):
+        """Test that lack of Organizations permission skips the check gracefully."""
+        from botocore.exceptions import ClientError
+        
+        mock_sts = Mock()
+        mock_sts.get_caller_identity.return_value = {
+            "Account": "123456789012",
+            "Arn": "arn:aws:iam::123456789012:user/admin",
+            "UserId": "AIDAEXAMPLE"
+        }
+        
+        mock_iam = Mock()
+        mock_iam.list_user_policies.return_value = {"PolicyNames": []}
+        mock_iam.list_attached_user_policies.return_value = {
+            "AttachedPolicies": [{"PolicyName": "Admin", "PolicyArn": "arn:aws:iam::aws:policy/AdministratorAccess"}]
+        }
+        mock_iam.list_groups_for_user.return_value = {"Groups": []}
+        mock_iam.get_policy.return_value = {"Policy": {"DefaultVersionId": "v1"}}
+        mock_iam.get_policy_version.return_value = {
+            "PolicyVersion": {
+                "Document": {
+                    "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]
+                }
+            }
+        }
+        
+        mock_ec2 = Mock()
+        mock_ec2.describe_regions.return_value = {
+            "Regions": [{"RegionName": "us-east-1"}]
+        }
+        
+        mock_orgs = Mock()
+        mock_orgs.describe_account.side_effect = ClientError(
+            {"Error": {"Code": "AccessDeniedException", "Message": "No permission"}},
+            "DescribeAccount"
+        )
+        
+        def client_factory(service_name, **kwargs):
+            if service_name == "sts":
+                return mock_sts
+            elif service_name == "iam":
+                return mock_iam
+            elif service_name == "ec2":
+                return mock_ec2
+            elif service_name == "organizations":
+                return mock_orgs
+            return Mock()
+        
+        mock_session.return_value.client.side_effect = client_factory
+        
+        result = check_aws_credentials({
+            "aws_access_key_id": "key",
+            "aws_secret_access_key": "secret",
+            "aws_region": "us-east-1"
+        })
+        
+        # Should still succeed - org check skipped due to no permission
+        assert result["status"] == "valid"
+        assert result["account_status"]["status"] == "skipped"
+        assert "No permission" in result["account_status"]["reason"]
+

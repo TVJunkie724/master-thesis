@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/calc_result.dart';
+import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
 
 /// Card showing cost comparison for a single layer across providers
 class LayerCostCard extends StatelessWidget {
@@ -10,6 +12,8 @@ class LayerCostCard extends StatelessWidget {
   final List<String> cheapestPath;
   final String? infoTitle;
   final String? infoBody;
+  /// If true, hides the GCP row (used for L4/L5 where GCP is not implemented)
+  final bool hideGcp;
 
   const LayerCostCard({
     super.key,
@@ -20,6 +24,7 @@ class LayerCostCard extends StatelessWidget {
     required this.cheapestPath,
     this.infoTitle,
     this.infoBody,
+    this.hideGcp = false,
   });
 
   @override
@@ -44,20 +49,9 @@ class LayerCostCard extends StatelessWidget {
       }
     }
 
-    Color borderColor = Colors.transparent;
-    if (selectedProvider != null) {
-      switch (selectedProvider.toUpperCase()) {
-        case 'AWS':
-          borderColor = Colors.orange;
-          break;
-        case 'AZURE':
-          borderColor = Colors.blue;
-          break;
-        case 'GCP':
-          borderColor = Colors.green;
-          break;
-      }
-    }
+    final Color borderColor = selectedProvider != null 
+        ? AppColors.getProviderColor(selectedProvider)
+        : Colors.transparent;
 
     // Check for glue code (heuristic: any component with 'dispatcher' or 'glue' or 'mover')
     bool includesGlueCode = _checkGlueCode(awsLayer) || 
@@ -65,13 +59,13 @@ class LayerCostCard extends StatelessWidget {
                           _checkGlueCode(gcpLayer);
 
     return Card(
-      elevation: 4,
+      elevation: AppSpacing.cardElevation,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.borderRadiusLg),
         side: BorderSide(color: borderColor.withAlpha(100), width: 2),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -134,25 +128,28 @@ class LayerCostCard extends StatelessWidget {
               context, 
               'AWS', 
               awsLayer?.cost, 
-              Colors.orange,
+              AppColors.aws,
               selectedProvider?.toUpperCase() == 'AWS',
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             _buildProviderRow(
               context, 
               'Azure', 
               azureLayer?.cost, 
-              Colors.blue,
+              AppColors.azure,
               selectedProvider?.toUpperCase() == 'AZURE',
             ),
-            const SizedBox(height: 12),
-            _buildProviderRow(
-              context, 
-              'GCP', 
-              gcpLayer?.cost, 
-              Colors.green,
-              selectedProvider?.toUpperCase() == 'GCP',
-            ),
+            // Only show GCP row if not hidden (L4/L5 has GCP not implemented)
+            if (!hideGcp) ...[
+              const SizedBox(height: AppSpacing.sm),
+              _buildProviderRow(
+                context, 
+                'GCP', 
+                gcpLayer?.cost, 
+                AppColors.gcp,
+                selectedProvider?.toUpperCase() == 'GCP',
+              ),
+            ],
           ],
         ),
       ),
@@ -196,11 +193,14 @@ class LayerCostCard extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildInfoSection(ctx, 'AWS', awsLayer, Colors.orange, selectedProvider?.toUpperCase() == 'AWS'),
-                const SizedBox(height: 16),
-                _buildInfoSection(ctx, 'Azure', azureLayer, Colors.blue, selectedProvider?.toUpperCase() == 'AZURE'),
-                const SizedBox(height: 16),
-                _buildInfoSection(ctx, 'GCP', gcpLayer, Colors.green, selectedProvider?.toUpperCase() == 'GCP'),
+                _buildInfoSection(ctx, 'AWS', awsLayer, AppColors.aws, selectedProvider?.toUpperCase() == 'AWS'),
+                const SizedBox(height: AppSpacing.md),
+                _buildInfoSection(ctx, 'Azure', azureLayer, AppColors.azure, selectedProvider?.toUpperCase() == 'AZURE'),
+                // Only show GCP section if not hidden
+                if (!hideGcp) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _buildInfoSection(ctx, 'GCP', gcpLayer, AppColors.gcp, selectedProvider?.toUpperCase() == 'GCP'),
+                ],
               ],
             ),
           ),

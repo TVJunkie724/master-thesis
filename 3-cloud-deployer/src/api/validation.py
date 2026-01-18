@@ -44,7 +44,7 @@ async def validate_zip(file: UploadFile = File(..., description="Project zip fil
     ├── state_machines/                (optional - required if triggerNotificationWorkflow=true)
     │   ├── aws_step_function.json     (if layer_2_provider=aws)
     │   ├── azure_logic_app.json       (if layer_2_provider=azure)
-    │   └── google_cloud_workflow.json (if layer_2_provider=google)
+    │   └── google_cloud_workflow.yaml (if layer_2_provider=google)
     │
     ├── lambda_functions/              (if layer_2_provider=aws)
     │   ├── processors/
@@ -96,8 +96,8 @@ async def validate_zip(file: UploadFile = File(..., description="Project zip fil
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
 
 # ==========================================
 # 2. Config Validation
@@ -195,8 +195,8 @@ async def validate_config(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Config validation error: {e}")
+        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
 
 # ==========================================
 # 3. State Machine Validation
@@ -231,15 +231,19 @@ async def validate_state_machine(
     {"definition": {"$schema": "...", "triggers": {}, "actions": {}}}
     ```
     
-    `google` → `state_machines/google_cloud_workflow.json`:
-    ```json
-    {"main": {"steps": [{"init": {"assign": [{"result": "ok"}]}}]}}
+    `google` → `state_machines/google_cloud_workflow.yaml`:
+    ```yaml
+    main:
+      steps:
+        - init:
+            assign:
+              - result: "ok"
     ```
     """
     filename_map = {
         "aws": "aws_step_function.json",
         "azure": "azure_logic_app.json",
-        "google": "google_cloud_workflow.json"
+        "google": "google_cloud_workflow.yaml"
     }
     
     target_filename = filename_map[provider]
@@ -254,8 +258,8 @@ async def validate_state_machine(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"State machine validation error: {e}")
+        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
 
 # ==========================================
 # 4. Function Code Validation
@@ -323,8 +327,8 @@ async def validate_function_code(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Code validation error: {e}")
+        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
 
 # ==========================================
 # 4b. Processor Code Validation - DEPRECATED
@@ -395,8 +399,8 @@ async def validate_simulator_payloads(
             "warnings": warnings
         }
     except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Payload validation error: {e}")
+        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
 
 @router.post(
     "/validate/payloads-with-devices",
@@ -484,5 +488,189 @@ async def validate_payloads_with_devices(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Cross-validation error: {e}")
+        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
+
+# ==========================================
+# 7. L4 Hierarchy Validation
+# ==========================================
+@router.post(
+    "/validate/hierarchy",
+    tags=["Validation"],
+    summary="Validate hierarchy JSON for L4 provider",
+    responses={
+        200: {"description": "Hierarchy is valid"},
+        400: {"description": "Validation failed with details"}
+    }
+)
+async def validate_hierarchy(
+    provider: ProviderEnum = Query(..., description="L4 provider (aws or azure)"),
+    file: UploadFile = File(..., description="Hierarchy JSON file")
+):
+    """
+    Validates hierarchy JSON for the specified L4 provider.
+    
+    **AWS** (`aws_hierarchy.json`):
+    ```json
+    [{"type": "entity", "id": "root", "children": [...]}]
+    ```
+    
+    **Azure** (`azure_hierarchy.json`):
+    ```json
+    {"header": {...}, "models": [...], "twins": [...], "relationships": [...]}
+    ```
+    """
+    try:
+        content = await file.read()
+        content_str = content.decode('utf-8')
+        
+        if provider == ProviderEnum.aws:
+            validator.validate_aws_hierarchy_content(content_str)
+        elif provider == ProviderEnum.azure:
+            validator.validate_azure_hierarchy_content(content_str)
+        else:
+            raise HTTPException(status_code=400, detail=f"Provider '{provider}' is not valid for L4. Use 'aws' or 'azure'.")
+        
+        return {"message": f"Hierarchy for {provider} is valid."}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Hierarchy validation error: {e}")
+        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
+
+# ==========================================
+# 8. L4 User Config Validation
+# ==========================================
+@router.post(
+    "/validate/user-config",
+    tags=["Validation"],
+    summary="Validate config_user.json for platform user",
+    responses={
+        200: {"description": "User config is valid"},
+        400: {"description": "Validation failed with details"}
+    }
+)
+async def validate_user_config(
+    provider: ProviderEnum = Query(..., description="L4 provider (aws or azure)"),
+    file: UploadFile = File(..., description="config_user.json file")
+):
+    """
+    Validates config_user.json for platform user provisioning.
+    
+    **Required format:**
+    ```json
+    {
+        "admin_email": "user@yourtenant.onmicrosoft.com",
+        "admin_first_name": "Platform",
+        "admin_last_name": "Admin"
+    }
+    ```
+    
+    **Validation:**
+    - Email format validation
+    - Azure: requires verified domain (*.onmicrosoft.com)
+    - Empty email allowed (skips user provisioning)
+    """
+    import re
+    
+    try:
+        content = await file.read()
+        content_str = content.decode('utf-8')
+        
+        try:
+            user_config = json.loads(content_str)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+        
+        if not isinstance(user_config, dict):
+            raise HTTPException(status_code=400, detail="config_user.json must be a JSON object")
+        
+        admin_email = user_config.get("admin_email", "")
+        
+        # Allow empty email (skips user provisioning)
+        if not admin_email:
+            return {"message": "User config valid. Empty email - user provisioning will be skipped."}
+        
+        # Email format validation
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(pattern, admin_email):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid email format: '{admin_email}'. Please provide a valid email address."
+            )
+        
+        # Azure-specific: Require verified domain
+        if provider == ProviderEnum.azure:
+            email_domain = admin_email.split("@")[1] if "@" in admin_email else ""
+            
+            if not email_domain.endswith(".onmicrosoft.com"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Azure platform user email must use your tenant's verified domain.\n"
+                        f"  Provided: {admin_email}\n"
+                        f"  Domain '{email_domain}' is likely not verified in your Azure tenant.\n\n"
+                        f"Options:\n"
+                        f"  1. Use your tenant domain: username@YOUR_TENANT.onmicrosoft.com\n"
+                        f"  2. Use an empty string to skip user provisioning\n"
+                        f"  3. If '{email_domain}' IS verified, proceed with deployment."
+                    )
+                )
+        
+        return {"message": f"User configuration is valid. Platform user: {admin_email}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"User config validation error: {e}")
+        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")
+
+# ==========================================
+# 9. L4 Scene Config Validation
+# ==========================================
+@router.post(
+    "/validate/scene-config",
+    tags=["Validation"],
+    summary="Validate scene configuration with hierarchy cross-reference",
+    responses={
+        200: {"description": "Scene config is valid"},
+        400: {"description": "Validation failed with details"}
+    }
+)
+async def validate_scene_config(
+    provider: ProviderEnum = Query(..., description="L4 provider (aws or azure)"),
+    scene_file: UploadFile = File(..., description="Scene config file (scene.json or 3DScenesConfiguration.json)"),
+    hierarchy_file: UploadFile = File(None, description="Hierarchy JSON for cross-reference (optional)")
+):
+    """
+    Validates scene configuration for 3D visualization.
+    
+    **AWS** (`scene.json`):
+    Basic JSON structure validation.
+    
+    **Azure** (`3DScenesConfiguration.json`):
+    - Valid JSON with $schema and configuration
+    - Allows {{STORAGE_URL}} placeholders in asset URLs
+    - Cross-references primaryTwinID against hierarchy twins
+    """
+    try:
+        scene_content = await scene_file.read()
+        scene_str = scene_content.decode('utf-8')
+        
+        hierarchy_str = None
+        if hierarchy_file:
+            hierarchy_content = await hierarchy_file.read()
+            hierarchy_str = hierarchy_content.decode('utf-8')
+        
+        # Delegate to validator function
+        validator.validate_scene_config_content(provider.value, scene_str, hierarchy_str)
+        
+        return {"message": f"Scene configuration is valid."}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Scene config validation error: {e}")
+        raise HTTPException(status_code=500, detail="Internal validation error. Check server logs.")

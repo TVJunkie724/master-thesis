@@ -93,43 +93,96 @@ resource "aws_grafana_workspace_api_key" "admin" {
 
 # ==============================================================================
 # IAM Identity Center User Management
+#
+# This implements a "create-if-not-exists" pattern (same as Azure):
+# - If user exists in Identity Store: Use existing user, DON'T create/delete
+# - If user doesn't exist: Create user, Terraform destroy will delete
+#
+# Uses aws_identitystore_users (plural) data source to list users without
+# failing when no match is found, then filters in Terraform.
 # ==============================================================================
 
 # Get IAM Identity Center instance
 data "aws_ssoadmin_instances" "main" {
-  count = local.l5_aws_enabled ? 1 : 0
+  provider = aws.sso
+  count    = local.l5_aws_enabled ? 1 : 0
 }
 
 locals {
-  identity_store_id = try(
-    tolist(data.aws_ssoadmin_instances.main[0].identity_store_ids)[0],
-    ""
+  # Check if SSO is available
+  sso_available = local.l5_aws_enabled && try(
+    length(tolist(data.aws_ssoadmin_instances.main[0].identity_store_ids)) > 0,
+    false
   )
-  grafana_admin_enabled = local.l5_aws_enabled && var.grafana_admin_email != ""
+  identity_store_id = try(tolist(data.aws_ssoadmin_instances.main[0].identity_store_ids)[0], "")
+  
+  # Admin user management is enabled when L5=AWS and email is provided
+  platform_user_enabled = local.l5_aws_enabled && var.platform_user_email != ""
 }
 
 # ==============================================================================
-# Create IAM Identity Center User
-# NOTE: If user already exists, Terraform will error with clear message.
-#       User can then use: terraform import aws_identitystore_user.grafana_admin[0] <store_id>/<user_id>
+# List all users in Identity Store (won't fail if empty!)
+# Then filter in Terraform to find matching user by email/username
 # ==============================================================================
 
-resource "aws_identitystore_user" "grafana_admin" {
-  count = local.grafana_admin_enabled ? 1 : 0
+data "aws_identitystore_users" "all" {
+  count             = local.platform_user_enabled ? 1 : 0
+  provider          = aws.sso
+  identity_store_id = local.identity_store_id
+}
+
+locals {
+  # The users attribute can be null, so we must coalesce it to an empty list
+  all_identity_users = local.platform_user_enabled ? coalesce(
+    try(data.aws_identitystore_users.all[0].users, []),
+    []
+  ) : []
+  
+  # Find user by matching username (email) from the list
+  aws_matching_users = [
+    for u in local.all_identity_users :
+    u if u.user_name == var.platform_user_email
+  ]
+  
+  # User exists if we found a match
+  aws_user_found = length(local.aws_matching_users) > 0
+  
+  # Existing user's ID (if found)
+  aws_existing_user_id = local.aws_user_found ? local.aws_matching_users[0].user_id : null
+  
+  # Create user only if not found (prefixed to avoid collision with Azure)
+  aws_should_create_user = local.platform_user_enabled && !local.aws_user_found
+}
+
+# ==============================================================================
+# Create IAM Identity Center User (only if doesn't exist)
+# ==============================================================================
+
+resource "aws_identitystore_user" "platform_user" {
+  count    = local.aws_should_create_user ? 1 : 0
+  provider = aws.sso  # CRITICAL: SSO resources must use SSO region
   
   identity_store_id = local.identity_store_id
-  display_name      = "${var.grafana_admin_first_name} ${var.grafana_admin_last_name}"
-  user_name         = var.grafana_admin_email
+  display_name      = "${var.platform_user_first_name} ${var.platform_user_last_name}"
+  user_name         = var.platform_user_email
   
   name {
-    given_name  = var.grafana_admin_first_name
-    family_name = var.grafana_admin_last_name
+    given_name  = var.platform_user_first_name
+    family_name = var.platform_user_last_name
   }
   
   emails {
-    value   = var.grafana_admin_email
+    value   = var.platform_user_email
     primary = true
   }
+}
+
+locals {
+  # Final user_id: from existing user OR newly created
+  platform_user_id = local.platform_user_enabled ? coalesce(
+    local.aws_existing_user_id,
+    try(aws_identitystore_user.platform_user[0].user_id, null)
+  ) : null
 }
 
 # ==============================================================================
@@ -137,9 +190,12 @@ resource "aws_identitystore_user" "grafana_admin" {
 # ==============================================================================
 
 resource "aws_grafana_role_association" "admin" {
-  count = local.grafana_admin_enabled ? 1 : 0
+  count = local.platform_user_enabled ? 1 : 0
   
   role         = "ADMIN"
-  user_ids     = [aws_identitystore_user.grafana_admin[0].user_id]
+  user_ids     = [local.platform_user_id]
   workspace_id = aws_grafana_workspace.main[0].id
+  
+  depends_on = [aws_identitystore_user.platform_user]
 }
+

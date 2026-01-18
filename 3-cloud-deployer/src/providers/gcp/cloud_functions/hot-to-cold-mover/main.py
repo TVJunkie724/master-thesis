@@ -10,6 +10,7 @@ Editable: Yes - This is the runtime Cloud Function code
 import json
 import os
 import sys
+import traceback
 from datetime import datetime, timedelta, timezone
 import functions_framework
 from google.cloud import firestore
@@ -170,8 +171,8 @@ def main(request):
         # Query old items
         query = (
             db.collection(_get_firestore_collection())
-            .where("id", "<", cutoff_str)
-            .order_by("id")
+            .where("timestamp", "<", cutoff_str)
+            .order_by("timestamp")
             .limit(1000)  # Process in batches
         )
         
@@ -185,7 +186,7 @@ def main(request):
         items_by_device = {}
         for doc in docs:
             item = doc.to_dict()
-            device_id = item.get("iotDeviceId", "unknown")
+            device_id = item.get("device_id") or item.get("iotDeviceId", "unknown")
             if device_id not in items_by_device:
                 items_by_device[device_id] = []
             items_by_device[device_id].append(item)
@@ -197,9 +198,9 @@ def main(request):
                 continue
             
             # Get time range
-            sorted_items = sorted(items, key=lambda x: x.get("id", ""))
-            start_time = sorted_items[0].get("id", "")
-            end_time = sorted_items[-1].get("id", "")
+            sorted_items = sorted(items, key=lambda x: x.get("timestamp", ""))
+            start_time = sorted_items[0].get("timestamp", "")
+            end_time = sorted_items[-1].get("timestamp", "")
             
             # Chunk and write
             chunks = _chunk_items(items)
@@ -211,7 +212,7 @@ def main(request):
                         raise ConfigurationError("INTER_CLOUD_TOKEN is required for multi-cloud mode")
                         
                     payload = {
-                        "iotDeviceId": device_id,
+                        "iot_device_id": device_id,
                         "items": chunk,
                         "startTimestamp": start_time,
                         "endTimestamp": end_time,
@@ -240,4 +241,5 @@ def main(request):
         
     except Exception as e:
         print(f"Hot-to-Cold Mover Error: {e}")
+        traceback.print_exc()
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})

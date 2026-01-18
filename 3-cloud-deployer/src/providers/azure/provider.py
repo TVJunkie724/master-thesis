@@ -55,6 +55,7 @@ class AzureProvider(BaseProvider):
         self._location_digital_twin: str = ""
         self._naming: Optional['AzureNaming'] = None
         self._clients: Dict[str, Any] = {}
+        self._credential: Any = None
     
     @property
     def subscription_id(self) -> str:
@@ -94,6 +95,13 @@ class AzureProvider(BaseProvider):
     def clients(self) -> Dict[str, Any]:
         """Get the dictionary of Azure SDK clients."""
         return self._clients
+    
+    @property
+    def credential(self) -> Any:
+        """Get the Azure credential used for SDK clients."""
+        if self._credential is None:
+            raise RuntimeError("Provider not initialized. Call initialize_clients first.")
+        return self._credential
     
     def initialize_clients(self, credentials: dict, twin_name: str) -> None:
         """
@@ -150,8 +158,8 @@ class AzureProvider(BaseProvider):
         self._naming = AzureNaming(twin_name)
         
         # Get credentials and initialize SDK clients
-        credential = self._get_credential(credentials)
-        self._initialize_sdk_clients(credential)
+        self._credential = self._get_credential(credentials)
+        self._initialize_sdk_clients(self._credential)
         
         self._initialized = True
     

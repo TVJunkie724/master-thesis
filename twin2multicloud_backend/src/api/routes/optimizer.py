@@ -68,6 +68,10 @@ async def get_pricing_status(current_user: User = Depends(get_current_user)):
         }
     except httpx.ConnectError:
         raise HTTPException(503, "Cannot connect to Optimizer service")
+    except httpx.TimeoutException:
+        raise HTTPException(504, "Optimizer service timed out")
+    except httpx.RequestError as e:
+        raise HTTPException(502, f"Request failed: {type(e).__name__}")
 
 
 @router.get("/regions-status")
@@ -90,6 +94,10 @@ async def get_regions_status(current_user: User = Depends(get_current_user)):
         }
     except httpx.ConnectError:
         raise HTTPException(503, "Cannot connect to Optimizer service")
+    except httpx.TimeoutException:
+        raise HTTPException(504, "Optimizer service timed out")
+    except httpx.RequestError as e:
+        raise HTTPException(502, f"Request failed: {type(e).__name__}")
 
 
 # ============================================================================
@@ -113,6 +121,10 @@ async def proxy_pricing_export(
         return response.json()
     except httpx.ConnectError:
         raise HTTPException(503, "Cannot connect to Optimizer service")
+    except httpx.TimeoutException:
+        raise HTTPException(504, "Optimizer service timed out")
+    except httpx.RequestError as e:
+        raise HTTPException(502, f"Request failed: {type(e).__name__}")
 
 
 # ============================================================================
@@ -187,6 +199,10 @@ async def refresh_pricing(
         
     except httpx.ConnectError:
         raise HTTPException(503, "Cannot connect to Optimizer service")
+    except httpx.TimeoutException:
+        raise HTTPException(504, "Optimizer service timed out")
+    except httpx.RequestError as e:
+        raise HTTPException(502, f"Request failed: {type(e).__name__}")
 
 
 @router.get("/stream/refresh-pricing/{provider}")
@@ -282,6 +298,8 @@ async def stream_refresh_pricing(
 
         except httpx.ConnectError:
             yield emit("❌ Error: Cannot connect to Optimizer service", "error")
+        except httpx.TimeoutException:
+            yield emit("❌ Error: Optimizer service timed out", "error")
         except Exception as e:
             yield emit(f"❌ Error: {str(e)}", "error")
 
@@ -377,3 +395,7 @@ async def calculate(
         
     except httpx.ConnectError:
         raise HTTPException(503, "Cannot connect to Optimizer service")
+    except httpx.TimeoutException:
+        raise HTTPException(504, "Optimizer service timed out")
+    except httpx.RequestError as e:
+        raise HTTPException(502, f"Request failed: {type(e).__name__}")

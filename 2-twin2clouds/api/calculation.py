@@ -1,7 +1,7 @@
 """
 Calculation API endpoints.
 """
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from backend.logger import logger
@@ -197,8 +197,10 @@ def calc(params: CalcParams = Body(
         result = calculate_cheapest_costs(params_dict, pricing=pricing_data)
         
         return {"result": result}
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error during calculation: {e}")
         print_stack_trace()
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Calculation failed. Check server logs.")

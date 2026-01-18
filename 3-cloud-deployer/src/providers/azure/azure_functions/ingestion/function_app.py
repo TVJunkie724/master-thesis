@@ -20,16 +20,17 @@ import urllib.error
 
 import azure.functions as func
 
-# Handle import path for shared module
 try:
     from _shared.inter_cloud import validate_token
     from _shared.env_utils import require_env
+    from _shared.normalize import normalize_telemetry
 except ModuleNotFoundError:
     _func_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _func_dir not in sys.path:
         sys.path.insert(0, _func_dir)
     from _shared.inter_cloud import validate_token
     from _shared.env_utils import require_env
+    from _shared.normalize import normalize_telemetry
 
 
 # Lazy loading for environment variables to allow Azure function discovery
@@ -55,6 +56,16 @@ def _get_inter_cloud_token():
 # Function base URL for invoking other functions
 FUNCTION_APP_BASE_URL = os.environ.get("FUNCTION_APP_BASE_URL", "").strip()
 
+# L2 Function Key - lazy loaded for Azure→Azure authentication
+_l2_function_key = None
+
+def _get_l2_function_key():
+    """Lazy-load L2_FUNCTION_KEY for Azure→Azure HTTP authentication."""
+    global _l2_function_key
+    if _l2_function_key is None:
+        _l2_function_key = require_env("L2_FUNCTION_KEY")
+    return _l2_function_key
+
 # Create Blueprint for registration by main function_app.py
 bp = func.Blueprint()
 
@@ -70,9 +81,13 @@ def _invoke_processor(processor_name: str, payload: dict) -> None:
     if not FUNCTION_APP_BASE_URL:
         raise ValueError(f"FUNCTION_APP_BASE_URL not set - cannot invoke {processor_name}")
     
-    url = f"{FUNCTION_APP_BASE_URL}/api/{processor_name}"
-    data = json.dumps(payload).encode("utf-8")
+    # Build URL with function key for Azure→Azure authentication
+    base_url = f"{FUNCTION_APP_BASE_URL}/api/{processor_name}"
+    l2_key = _get_l2_function_key()
+    separator = "&" if "?" in base_url else "?"
+    url = f"{base_url}{separator}code={l2_key}"
     
+    data = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     
@@ -124,12 +139,16 @@ def ingestion(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json"
             )
         
-        # 4. Validate required fields
-        device_id = payload.get("iotDeviceId")
+        # 4. Normalize payload to canonical format (device_id, timestamp)
+        payload = normalize_telemetry(payload)
+        logging.info(f"Normalized payload: {json.dumps(payload)}")
+        
+        # 5. Validate required fields
+        device_id = payload.get("device_id")
         if not device_id:
-            logging.error("No iotDeviceId in payload")
+            logging.error("No device_id in payload")
             return func.HttpResponse(
-                json.dumps({"error": "Bad Request", "message": "Missing 'iotDeviceId' in payload"}),
+                json.dumps({"error": "Bad Request", "message": "Missing 'device_id' in payload"}),
                 status_code=400,
                 mimetype="application/json"
             )
@@ -162,7 +181,7 @@ def ingestion(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
-        logging.error(f"Ingestion Error: {e}")
+        logging.exception(f"Ingestion Error: {e}")
         return func.HttpResponse(
             json.dumps({"error": "Internal Server Error", "message": str(e)}),
             status_code=500,

@@ -699,7 +699,7 @@ def get_updatable_functions(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error getting updatable functions: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Function operation failed. Check logs.")
 
 
 @router.post(
@@ -860,7 +860,7 @@ def update_function(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error updating function {function_name}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Function operation failed. Check logs.")
 
 
 # ==========================================
@@ -1091,4 +1091,4 @@ async def build_function_zip(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error building function ZIP: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Function operation failed. Check logs.")

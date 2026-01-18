@@ -5,6 +5,8 @@ All deployment is now handled by TerraformDeployerStrategy.
 This module provides REST API endpoints for infrastructure operations.
 """
 
+from datetime import datetime, timezone
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, Path
 import src.validator as validator
 from api.dependencies import validate_project_context, validate_provider, check_template_protection
@@ -15,6 +17,61 @@ from src.core.factory import create_context
 
 
 router = APIRouter(prefix="/infrastructure")
+
+
+# --------- Cooldown Check ----------
+@router.get(
+    "/cooldown-check",
+    tags=["Infrastructure"],
+    summary="Check GCP Firestore deployment cooldown",
+    responses={
+        200: {"description": "Cooldown status returned"}
+    }
+)
+def check_cooldown(
+    destroyed_at: Optional[str] = Query(None, description="ISO timestamp of last destroy"),
+    uses_gcp_firestore: bool = Query(True, description="Whether deployment uses GCP Firestore")
+):
+    """
+    Check if redeployment is allowed (GCP Firestore 5-min cooldown).
+    
+    **Zero cloud costs:** Pure calculation with hardcoded 5-min limit. No cloud API calls.
+    
+    Args:
+        destroyed_at: ISO timestamp from Management API
+        uses_gcp_firestore: Whether deployment uses GCP as L3-Hot provider
+    
+    Returns:
+        ready: True if deployment can proceed
+        remaining_seconds: Seconds until ready (0 if ready)
+    """
+    FIRESTORE_COOLDOWN = 300  # 5 minutes
+    
+    # No cooldown needed if not using GCP Firestore
+    if not uses_gcp_firestore:
+        return {"ready": True, "remaining_seconds": 0}
+    
+    # No prior destroy = first deployment
+    if not destroyed_at:
+        return {"ready": True, "remaining_seconds": 0}
+    
+    try:
+        # Parse ISO timestamp (handle Z suffix)
+        destroy_time = datetime.fromisoformat(destroyed_at.replace("Z", "+00:00"))
+        elapsed = (datetime.now(timezone.utc) - destroy_time).total_seconds()
+        
+        if elapsed >= FIRESTORE_COOLDOWN:
+            return {"ready": True, "remaining_seconds": 0}
+        else:
+            remaining = int(FIRESTORE_COOLDOWN - elapsed)
+            return {
+                "ready": False, 
+                "remaining_seconds": remaining,
+                "reason": f"GCP Firestore cooldown: {remaining}s remaining"
+            }
+    except (ValueError, TypeError):
+        # Malformed timestamp - safe fallback
+        return {"ready": True, "remaining_seconds": 0}
 
 
 # --------- Core Deploy/Destroy ----------
@@ -68,7 +125,7 @@ def deploy_all(
     except Exception as e:
         print_stack_trace()
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Deployment operation failed. Check logs.")
 
 
 @router.post(
@@ -109,4 +166,4 @@ def destroy_all(
     except Exception as e:
         print_stack_trace()
         logger.error(str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Deployment operation failed. Check logs.")

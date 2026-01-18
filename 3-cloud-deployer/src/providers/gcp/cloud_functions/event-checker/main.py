@@ -10,6 +10,7 @@ Editable: Yes - This is the runtime Cloud Function code
 import json
 import os
 import sys
+import traceback
 import requests
 import functions_framework
 from google.cloud import firestore
@@ -148,7 +149,7 @@ def _trigger_action(event: dict, action: dict, condition: dict = None) -> None:
         feedback_payload = {
             "detail": {
                 "digitalTwinName": _get_digital_twin_info()["config"]["digital_twin_name"],
-                "iotDeviceId": event.get("iotDeviceId"),
+                "iotDeviceId": event.get("device_id") or event.get("iotDeviceId"),
                 "payload": {
                     "message": action.get("payload", {}),
                     "actual_value": context.get("actual_value"),
@@ -194,5 +195,6 @@ def main(request):
         
     except Exception as e:
         print(f"Event Checker Error: {e}")
+        traceback.print_exc()
         return (json.dumps({"error": str(e)}), 500, {"Content-Type": "application/json"})
 

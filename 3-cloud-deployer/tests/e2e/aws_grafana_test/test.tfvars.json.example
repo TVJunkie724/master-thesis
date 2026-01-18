@@ -1,0 +1,10 @@
+{
+  "aws_access_key_id": "XXXXXXXXXXXXXXXXXXXX",
+  "aws_secret_access_key": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+  "aws_region": "eu-central-1",
+  "aws_sso_region": "",
+  "grafana_admin_email": "admin@example.com",
+  "grafana_admin_first_name": "Grafana",
+  "grafana_admin_last_name": "Admin",
+  "test_name_suffix": "e2e"
+}

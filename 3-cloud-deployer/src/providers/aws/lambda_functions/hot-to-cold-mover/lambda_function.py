@@ -11,6 +11,7 @@ import boto3
 import os
 import sys
 import json
+import traceback
 import datetime
 from boto3.dynamodb.conditions import Key
 
@@ -218,8 +219,8 @@ def lambda_handler(event, context):
                 
                 # Get end timestamp (most recent item to move)
                 response = dynamodb_table.query(
-                    KeyConditionExpression=Key("iotDeviceId").eq(device_id) &
-                                           Key("id").lt(cutoff_iso),
+                    KeyConditionExpression=Key("device_id").eq(device_id) &
+                                           Key("timestamp").lt(cutoff_iso),
                     ScanIndexForward=False,
                     Limit=1
                 )
@@ -228,12 +229,12 @@ def lambda_handler(event, context):
                 if not items:
                     continue
 
-                end_timestamp = items[0]["id"]
+                end_timestamp = items[0]["timestamp"]
 
                 # Get all items to move (ascending order)
                 response = dynamodb_table.query(
-                    KeyConditionExpression=Key("iotDeviceId").eq(device_id) &
-                                           Key("id").lt(cutoff_iso),
+                    KeyConditionExpression=Key("device_id").eq(device_id) &
+                                           Key("timestamp").lt(cutoff_iso),
                     ScanIndexForward=True
                 )
                 items = response.get("Items", [])
@@ -241,7 +242,7 @@ def lambda_handler(event, context):
                 if not items:
                     continue
 
-                start_timestamp = items[0]["id"]
+                start_timestamp = items[0]["timestamp"]
                 
                 # Process in chunks
                 chunk_index = 0
@@ -265,8 +266,8 @@ def lambda_handler(event, context):
                     for item in items:
                         batch.delete_item(
                             Key={
-                                "iotDeviceId": item["iotDeviceId"],
-                                "id": item["id"],
+                                "device_id": item["device_id"],
+                                "timestamp": item["timestamp"],
                             }
                         )
                     print(f"Deleted {len(items)} items from DynamoDB")
@@ -276,14 +277,15 @@ def lambda_handler(event, context):
                         break
 
                     response = dynamodb_table.query(
-                        KeyConditionExpression=Key("iotDeviceId").eq(device_id) &
-                                               Key("id").lt(cutoff_iso),
+                        KeyConditionExpression=Key("device_id").eq(device_id) &
+                                               Key("timestamp").lt(cutoff_iso),
                         ExclusiveStartKey=response["LastEvaluatedKey"]
                     )
                     items = response.get("Items", [])
                     
     except Exception as e:
         print(f"Hot-to-Cold Mover Error: {e}")
+        traceback.print_exc()
         raise e
     
     print("Hot-to-Cold Mover: Complete")

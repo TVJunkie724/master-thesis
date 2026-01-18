@@ -6,6 +6,15 @@
 # 3. CLI/API response data
 
 # ==============================================================================
+# Core Project Outputs
+# ==============================================================================
+
+output "digital_twin_name" {
+  description = "Name of the Digital Twin project (used for resource naming and IoT topics)"
+  value       = var.digital_twin_name
+}
+
+# ==============================================================================
 # Azure Setup Outputs
 # ==============================================================================
 
@@ -62,6 +71,12 @@ output "azure_iothub_hostname" {
   value       = try(azurerm_iothub.main[0].hostname, null)
 }
 
+output "azure_iothub_connection_string" {
+  description = "IoT Hub connection string for device registry access (E2E tests)"
+  value       = try(data.azurerm_iothub_shared_access_policy.iothubowner[0].primary_connection_string, null)
+  sensitive   = true
+}
+
 output "azure_l1_function_app_name" {
   description = "Name of the L1 Function App"
   value       = try(azurerm_linux_function_app.l1[0].name, null)
@@ -79,6 +94,11 @@ output "azure_l2_function_app_name" {
 output "azure_user_functions_app_name" {
   description = "Name of the User Functions App (event actions, processors)"
   value       = try(azurerm_linux_function_app.user[0].name, null)
+}
+
+output "azure_dispatcher_url" {
+  description = "URL of the Azure L2 dispatcher function"
+  value       = try("https://${azurerm_linux_function_app.l2[0].default_hostname}/api/dispatcher", null)
 }
 
 # ==============================================================================
@@ -105,6 +125,11 @@ output "azure_l3_hot_reader_url" {
   value       = try("https://${azurerm_linux_function_app.l3[0].default_hostname}/api/hot-reader", null)
 }
 
+output "azure_archive_storage_account" {
+  description = "Name of the Azure archive storage account"
+  value       = try(azurerm_storage_account.main[0].name, null)
+}
+
 # ==============================================================================
 # Azure L4 Digital Twins Outputs
 # ==============================================================================
@@ -127,6 +152,60 @@ output "azure_3d_scenes_container_url" {
   )
 }
 
+output "azure_3d_scenes_studio_url" {
+  description = "Direct link to Azure 3D Scenes Studio for this ADT instance"
+  value = local.l4_azure_scene_enabled ? join("", [
+    "https://explorer.digitaltwins.azure.net/3dscenes?",
+    "adt-url=https://${azurerm_digital_twins_instance.main[0].host_name}&",
+    "storage-url=https://${azurerm_storage_account.main[0].name}.blob.core.windows.net/${azurerm_storage_container.scenes[0].name}"
+  ]) : null
+}
+
+output "azure_adt_portal_url" {
+  description = "Azure Portal link to ADT instance"
+  sensitive   = true
+  value = var.layer_4_provider == "azure" ? join("", [
+    "https://portal.azure.com/#@/resource/subscriptions/",
+    var.azure_subscription_id,
+    "/resourceGroups/",
+    "${var.digital_twin_name}-rg",
+    "/providers/Microsoft.DigitalTwins/digitalTwinsInstances/",
+    "${var.digital_twin_name}-adt/overview"
+  ]) : null
+}
+
+output "azure_storage_portal_url" {
+  description = "Azure Portal link to Storage Account"
+  sensitive   = true
+  value = local.deploy_azure ? join("", [
+    "https://portal.azure.com/#@/resource/subscriptions/",
+    var.azure_subscription_id,
+    "/resourceGroups/",
+    "${var.digital_twin_name}-rg",
+    "/providers/Microsoft.Storage/storageAccounts/",
+    replace("${var.digital_twin_name}st", "-", ""),
+    "/overview"
+  ]) : null
+}
+
+output "azure_adt_access_instructions" {
+  description = "How to access Azure Digital Twins and 3D Scenes Studio"
+  value = var.layer_4_provider == "azure" ? join("\n", [
+    "========== Azure Digital Twins Access ==========",
+    "ADT Instance: ${var.digital_twin_name}-adt",
+    "ADT Endpoint: https://${azurerm_digital_twins_instance.main[0].host_name}",
+    "",
+    "3D Scenes Studio: https://explorer.digitaltwins.azure.net/3dscenes",
+    "Storage Container: ${azurerm_storage_account.main[0].name}/${azurerm_storage_container.scenes[0].name}",
+    "",
+    "Platform User: ${var.platform_user_email}",
+    local.should_create_platform_user ? "Password: Run 'terraform output -raw azure_platform_user_password'" : "User: Existing (ADT Data Owner role assigned)",
+    "",
+    "Azure Portal: https://portal.azure.com",
+    "================================================="
+  ]) : null
+}
+
 # ==============================================================================
 # Azure L5 Visualization Outputs
 # ==============================================================================
@@ -141,31 +220,31 @@ output "azure_grafana_endpoint" {
   value       = try(azurerm_dashboard_grafana.main[0].endpoint, null)
 }
 
-output "azure_grafana_admin_password" {
-  description = "Initial password for Azure Grafana admin (only if new user was created)"
-  value       = local.should_create_user ? random_password.grafana_admin[0].result : null
+output "azure_platform_user_password" {
+  description = "Initial password for Azure platform user (only if new user was created)"
+  value       = local.should_create_platform_user ? random_password.platform_user[0].result : null
   sensitive   = true
 }
 
-output "azure_grafana_user_created" {
-  description = "Whether a new Entra ID user was created for Grafana"
-  value       = local.should_create_user
+output "azure_platform_user_created" {
+  description = "Whether a new Entra ID user was created"
+  value       = local.should_create_platform_user
 }
 
 output "azure_grafana_access_instructions" {
   description = "How to access Azure Managed Grafana"
   value = local.azure_grafana_enabled ? join("\n", [
     "========== Azure Managed Grafana Access ==========",
-    "Admin: ${var.grafana_admin_email}",
+    "Admin: ${var.platform_user_email}",
     "",
-    local.user_found ? "User: Existing (Grafana Admin role assigned)" : (
-      local.should_create_user ? "User: NEW - retrieve password with: terraform output -raw azure_grafana_admin_password" :
+    local.platform_user_found ? "User: Existing (Grafana Admin role assigned)" : (
+      local.should_create_platform_user ? "User: NEW - retrieve password with: terraform output -raw azure_platform_user_password" :
       "ERROR: Cannot create user - email domain not verified in tenant"
     ),
     "",
     "URL: ${try(azurerm_dashboard_grafana.main[0].endpoint, "N/A")}",
     "Login: Use Microsoft/Entra ID credentials",
-    local.should_create_user ? "Note: Password must be changed on first login" : "",
+    local.should_create_platform_user ? "Note: Password must be changed on first login" : "",
     "==================================================="
   ]) : null
 }
@@ -268,6 +347,11 @@ output "aws_l1_connector_function_name" {
   value       = try(aws_lambda_function.l1_connector[0].function_name, null)
 }
 
+output "aws_iot_endpoint" {
+  description = "AWS IoT Core Data-ATS endpoint for publishing telemetry (used by E2E tests)"
+  value       = try(data.aws_iot_endpoint.main[0].endpoint_address, null)
+}
+
 # ==============================================================================
 # AWS L2 Compute Outputs
 # ==============================================================================
@@ -360,19 +444,43 @@ output "aws_grafana_api_key" {
   sensitive   = true
 }
 
-output "aws_grafana_admin_email" {
-  description = "Grafana admin email"
-  value       = var.grafana_admin_email != "" && local.l5_aws_enabled ? var.grafana_admin_email : null
+output "aws_platform_user_email" {
+  description = "Platform user email"
+  value       = var.platform_user_email != "" && local.l5_aws_enabled ? var.platform_user_email : null
 }
 
 output "aws_grafana_login_instructions" {
   description = "How to access Grafana"
-  value = local.grafana_admin_enabled ? join("\n", [
+  value = local.platform_user_enabled ? join("\n", [
     "========== AWS Managed Grafana Access ==========",
-    "Email: ${var.grafana_admin_email}",
+    "Email: ${var.platform_user_email}",
     "Check email for AWS IAM Identity Center activation link",
     "URL: ${try(aws_grafana_workspace.main[0].endpoint, "Not available")}",
     "================================================"
+  ]) : null
+}
+
+output "aws_sso_available" {
+  description = "Whether IAM Identity Center was detected in the SSO region"
+  value       = local.l5_aws_enabled ? local.sso_available : null
+}
+
+output "aws_platform_user_created" {
+  description = "Whether a new Identity Store user was created (true = cleanup should delete it)"
+  value       = local.l5_aws_enabled ? local.aws_should_create_user : null
+}
+
+output "aws_grafana_sso_warning" {
+  description = "Warning if SSO not available and admin user couldn't be created"
+  value = local.l5_aws_enabled && var.platform_user_email != "" && !local.sso_available ? join("\n", [
+    "========== WARNING: AWS Grafana Admin Not Created ==========",
+    "IAM Identity Center not detected in region: ${var.aws_sso_region != "" ? var.aws_sso_region : var.aws_region}",
+    "",
+    "SOLUTION: Set aws_sso_region to the region where your SSO is enabled.",
+    "Check: Go to IAM Identity Center console and note the region in the info box.",
+    "",
+    "Grafana workspace was still created. Add yourself manually via AWS Console.",
+    "============================================================"
   ]) : null
 }
 

@@ -189,9 +189,9 @@ class TestPayloadValidation:
     """Tests for payload validation logic."""
 
     def test_validates_required_device_id(self):
-        """Payload must contain iotDeviceId."""
+        """Payload must contain device_id after normalization."""
         payload = {"temperature": 25}
-        assert "iotDeviceId" not in payload
+        assert "device_id" not in payload
 
     def test_validates_payload_is_dict(self):
         """Payload must be a dictionary."""

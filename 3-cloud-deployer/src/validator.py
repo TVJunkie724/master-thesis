@@ -215,8 +215,60 @@ def validate_aws_hierarchy_content(content):
         elif item_type == "component":
             if "name" not in item:
                 raise ValueError(f"Component at {path} missing required 'name' field")
-            if "componentTypeId" not in item and "iotDeviceId" not in item:
-                raise ValueError(f"Component '{item.get('name')}' at {path} must have 'componentTypeId' or 'iotDeviceId'")
+            
+            # componentTypeId is MANDATORY for full deployment (3D scenes, data binding)
+            # NOTE: fast fail on missing componentTypeId
+            if "componentTypeId" not in item:
+                raise ValueError(
+                    f"Component '{item.get('name')}' at {path} missing required 'componentTypeId'. "
+                    "This is required for TwinMaker 3D scene visualization and data binding."
+                )
+            
+            # Validate properties array if present
+            properties = item.get("properties", [])
+            if not isinstance(properties, list):
+                raise ValueError(f"Component '{item.get('name')}' at {path}: 'properties' must be an array")
+            
+            valid_types = ["STRING", "DOUBLE", "INTEGER", "BOOLEAN", "LONG"]
+            for i, prop in enumerate(properties):
+                if not isinstance(prop, dict):
+                    raise ValueError(f"Property at {path}.properties[{i}] must be an object")
+                if "name" not in prop:
+                    raise ValueError(f"Property at {path}.properties[{i}] missing 'name'")
+                if "dataType" not in prop:
+                    raise ValueError(f"Property at {path}.properties[{i}] missing 'dataType'")
+                if prop.get("dataType") not in valid_types:
+                    raise ValueError(
+                        f"Property '{prop.get('name')}' at {path}.properties[{i}] has invalid dataType "
+                        f"'{prop.get('dataType')}'. Must be one of: {valid_types}"
+                    )
+            
+            # Validate constProperties array if present
+            const_props = item.get("constProperties", [])
+            if not isinstance(const_props, list):
+                raise ValueError(f"Component '{item.get('name')}' at {path}: 'constProperties' must be an array")
+            
+            for i, cprop in enumerate(const_props):
+                if not isinstance(cprop, dict):
+                    raise ValueError(f"Const property at {path}.constProperties[{i}] must be an object")
+                if "name" not in cprop:
+                    raise ValueError(f"Const property at {path}.constProperties[{i}] missing 'name'")
+                if "value" not in cprop:
+                    raise ValueError(f"Const property at {path}.constProperties[{i}] missing 'value'")
+                if "dataType" not in cprop:
+                    raise ValueError(f"Const property at {path}.constProperties[{i}] missing 'dataType'")
+                if cprop.get("dataType") not in valid_types:
+                    raise ValueError(
+                        f"Const property '{cprop.get('name')}' at {path}.constProperties[{i}] has invalid dataType "
+                        f"'{cprop.get('dataType')}'. Must be one of: {valid_types}"
+                    )
+            
+            # Warning if no properties AND no constProperties (will be abstract)
+            if not properties and not const_props:
+                logger.warning(
+                    f"Component '{item.get('name')}' at {path} has no properties or constProperties - "
+                    "component type may be abstract and cannot be instantiated"
+                )
         
         # Validate children recursively
         children = item.get("children", [])
@@ -322,42 +374,166 @@ def validate_azure_hierarchy_content(content):
 
 
 # ==========================================
+# 1.c. Scene Config Validation
+# ==========================================
+def validate_scene_config_content(provider: str, content: str, hierarchy_content: str = None):
+    """
+    Validates scene configuration JSON for 3D visualization.
+    
+    AWS (scene.json):
+      - Basic JSON structure validation (must be an object)
+    
+    Azure (3DScenesConfiguration.json):
+      - Valid JSON with configuration object
+      - Allows {{STORAGE_URL}} placeholders in asset URLs
+      - Cross-references primaryTwinID against hierarchy twins
+    
+    Args:
+        provider: 'aws' or 'azure'
+        content: Scene config JSON string
+        hierarchy_content: Optional hierarchy JSON for cross-reference
+        
+    Raises:
+        ValueError: If format is invalid
+    """
+    # Parse scene config
+    if isinstance(content, str):
+        try:
+            scene_config = json.loads(content)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in scene config: {e}")
+    else:
+        scene_config = content
+    
+    if not isinstance(scene_config, dict):
+        raise ValueError("Scene config must be a JSON object")
+    
+    provider_lower = provider.lower()
+    
+    if provider_lower == "aws":
+        # AWS scene.json: Basic structure validation
+        # AWS TwinMaker scenes are simpler - just need a valid JSON object
+        logger.info("✓ AWS scene.json validated: valid JSON object")
+        
+    elif provider_lower == "azure":
+        # Azure 3DScenesConfiguration.json validation
+        if "configuration" not in scene_config:
+            raise ValueError("Azure scene config missing 'configuration' field")
+        
+        configuration = scene_config.get("configuration", {})
+        
+        if not isinstance(configuration, dict):
+            raise ValueError("Azure scene config 'configuration' must be an object")
+        
+        # Check scenes array
+        scenes = configuration.get("scenes", [])
+        if not isinstance(scenes, list):
+            raise ValueError("Azure scene config 'configuration.scenes' must be an array")
+        
+        # Cross-reference validation if hierarchy provided
+        twin_ids_in_hierarchy = set()
+        if hierarchy_content:
+            try:
+                if isinstance(hierarchy_content, str):
+                    hierarchy = json.loads(hierarchy_content)
+                else:
+                    hierarchy = hierarchy_content
+                
+                # Extract twin IDs from hierarchy
+                twins = hierarchy.get("twins", [])
+                for twin in twins:
+                    if isinstance(twin, dict) and "$dtId" in twin:
+                        twin_ids_in_hierarchy.add(twin["$dtId"])
+            except (json.JSONDecodeError, TypeError):
+                # If hierarchy can't be parsed, skip cross-ref
+                pass
+        
+        # Validate elements in each scene
+        errors = []
+        for scene_idx, scene in enumerate(scenes):
+            if not isinstance(scene, dict):
+                continue
+            
+            elements = scene.get("elements", [])
+            for elem_idx, element in enumerate(elements):
+                if not isinstance(element, dict):
+                    continue
+                
+                twin_url = element.get("primaryTwinID")
+                if twin_url and twin_ids_in_hierarchy:
+                    # primaryTwinID can be a URL with twin ID at the end
+                    # e.g., "https://xxx.api.wcus.digitaltwins.azure.net/twins/room-1"
+                    twin_id = twin_url.split("/")[-1] if "/" in twin_url else twin_url
+                    
+                    if twin_id and twin_id not in twin_ids_in_hierarchy:
+                        elem_id = element.get("id", f"index-{elem_idx}")
+                        errors.append(
+                            f"Twin '{twin_id}' referenced in element '{elem_id}' (scene {scene_idx}) "
+                            f"not found in hierarchy. Available twins: {sorted(list(twin_ids_in_hierarchy)[:5])}"
+                        )
+        
+        if errors:
+            raise ValueError("Scene config cross-reference errors:\n" + "\n".join(errors))
+        
+        logger.info(f"✓ Azure scene config validated: {len(scenes)} scenes")
+    else:
+        raise ValueError(f"Provider '{provider}' is not valid for scene config. Use 'aws' or 'azure'.")
+
+
+# ==========================================
 # 2. State Machine Validation
 # ==========================================
 def validate_state_machine_content(filename, content):
     """
     Validates that the state machine file content matches the expected provider format.
+    Supports both JSON (.json) and YAML (.yaml/.yml) files.
     """
-    # 1. Parse JSON
+    # 1. Parse content based on file extension
     if isinstance(content, str):
-        try:
-            json_content = json.loads(content)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON content for {filename}: {e}")
+        if filename.endswith(('.yaml', '.yml')):
+            # Parse YAML
+            try:
+                import yaml
+                parsed_content = yaml.safe_load(content)
+            except yaml.YAMLError as e:
+                raise ValueError(f"Invalid YAML content for {filename}: {e}")
+            except ImportError:
+                raise ValueError(f"PyYAML is required to parse {filename}. Install with: pip install pyyaml")
+        else:
+            # Parse JSON
+            try:
+                parsed_content = json.loads(content)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON content for {filename}: {e}")
     else:
-        json_content = content
+        parsed_content = content
 
     # 2. Check Signature
     if filename in CONSTANTS.STATE_MACHINE_SIGNATURES:
         required_keys = CONSTANTS.STATE_MACHINE_SIGNATURES[filename]
-        missing_keys = [k for k in required_keys if k not in json_content]
+        missing_keys = [k for k in required_keys if k not in parsed_content]
         
         # Special handling for Azure because $schema is sometimes inside definition
         if filename == CONSTANTS.AZURE_STATE_MACHINE_FILE:
-             if "definition" in json_content:
+             if "definition" in parsed_content:
                  pass
         
         # Special handling for GCP - 'steps' is nested inside 'main', not top-level
         if filename == CONSTANTS.GOOGLE_STATE_MACHINE_FILE:
-            if "main" not in json_content:
+            if "main" not in parsed_content:
                 raise ValueError(f"GCP Workflow missing required 'main' block")
-            main_block = json_content.get("main", {})
-            if "steps" not in main_block:
+            main_block = parsed_content.get("main", {})
+            # For YAML, main_block is a list of step dicts
+            if isinstance(main_block, list):
+                # Valid YAML workflow format: main is a list of steps
+                return
+            # For JSON, main_block is a dict with 'steps' key
+            if isinstance(main_block, dict) and "steps" not in main_block:
                 raise ValueError(f"GCP Workflow 'main' block missing required 'steps' array")
             return  # Valid GCP workflow
         
         if missing_keys:
-             if filename == CONSTANTS.AZURE_STATE_MACHINE_FILE and "definition" in json_content:
+             if filename == CONSTANTS.AZURE_STATE_MACHINE_FILE and "definition" in parsed_content:
                  pass 
              else:
                  raise ValueError(f"Invalid State Machine format for {filename}. Missing required keys: {missing_keys}")

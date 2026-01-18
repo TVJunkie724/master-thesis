@@ -1,5 +1,8 @@
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
+import '../core/result.dart';
+import '../models/calc_result.dart';
+import '../utils/api_error_handler.dart';
 
 class ApiService {
   late final Dio _dio;
@@ -30,8 +33,21 @@ class ApiService {
   /// Get current auth token for SSE connections
   Future<String?> getAuthToken() async => _token;
   
+  /// Update current user's preferences (e.g., theme)
+  Future<Map<String, dynamic>> updateUserPreferences({String? themePreference}) async {
+    final data = <String, dynamic>{};
+    if (themePreference != null) data['theme_preference'] = themePreference;
+    final response = await _dio.patch('/auth/me', data: data);
+    return response.data;
+  }
+  
   Future<List<dynamic>> getTwins() async {
     final response = await _dio.get('/twins/');
+    return response.data;
+  }
+  
+  Future<Map<String, dynamic>> getDashboardStats() async {
+    final response = await _dio.get('/dashboard/stats');
     return response.data;
   }
   
@@ -55,6 +71,10 @@ class ApiService {
     
     final response = await _dio.put('/twins/$twinId', data: data);
     return response.data;
+  }
+  
+  Future<void> deleteTwin(String twinId) async {
+    await _dio.delete('/twins/$twinId');
   }
 
   Future<Map<String, dynamic>> getTwinConfig(String twinId) async {
@@ -194,5 +214,141 @@ class ApiService {
     final response = await _dio.get('/optimizer/pricing/export/$provider');
     return response.data;
   }
-}
 
+  // ============================================================
+  // Deployer Config Endpoints (Step 3 Section 2)
+  // ============================================================
+
+  /// Get deployer config for a twin
+  Future<Map<String, dynamic>> getDeployerConfig(String twinId) async {
+    final response = await _dio.get('/twins/$twinId/deployer/config');
+    return response.data;
+  }
+
+  /// Update deployer config for a twin
+  Future<Map<String, dynamic>> updateDeployerConfig(
+    String twinId,
+    Map<String, dynamic> config,
+  ) async {
+    final response = await _dio.put('/twins/$twinId/deployer/config', data: config);
+    return response.data;
+  }
+
+  /// Validate deployer config via Management API (proxies to Deployer)
+  Future<Map<String, dynamic>> validateDeployerConfig(
+    String twinId,
+    String configType,  // 'config', 'events', or 'iot'
+    String content,
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/deployer/validate/$configType',
+      data: {'content': content},
+    );
+    return response.data;
+  }
+
+  /// Validate L2 function code or state machine (proxies to Deployer)
+  /// Returns normalized {valid: bool, message: String}
+  Future<Map<String, dynamic>> validateL2Content(
+    String twinId,
+    String type,     // 'function-code' or 'state-machine'
+    String content,
+    String provider, // 'aws', 'azure', 'gcp'
+  ) async {
+    // Map Flutter provider names to Deployer enum values
+    final deployerProvider = provider.toLowerCase() == 'gcp' ? 'google' : provider.toLowerCase();
+    final response = await _dio.post(
+      '/twins/$twinId/deployer/validate/$type',
+      data: {'content': content, 'provider': deployerProvider},
+    );
+    return response.data;
+  }
+
+  /// Validate L4/L5 content (hierarchy, scene-config, user-config)
+  /// Returns normalized {valid: bool, message: String}
+  Future<Map<String, dynamic>> validateL4Content(
+    String twinId,
+    String type,     // 'hierarchy', 'scene-config', 'user-config'
+    String content,
+    String provider, // 'aws', 'azure'
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/deployer/validate/$type',
+      data: {'content': content, 'provider': provider.toLowerCase()},
+    );
+    return response.data;
+  }
+
+  // ============================================================
+  // GLB File Upload/Delete (L4 Scene)
+  // ============================================================
+
+  /// Upload scene.glb file for 3D visualization
+  /// Returns {message: String, size_mb: double}
+  Future<Map<String, dynamic>> uploadSceneGlb(
+    String twinId,
+    dynamic fileBytes,  // Uint8List or File
+    String filename,
+  ) async {
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        fileBytes,
+        filename: filename,
+      ),
+    });
+    final response = await _dio.post(
+      '/twins/$twinId/deployer/upload-glb',
+      data: formData,
+    );
+    return response.data;
+  }
+
+  /// Delete scene.glb file for a twin
+  Future<void> deleteSceneGlb(String twinId) async {
+    await _dio.delete('/twins/$twinId/deployer/upload-glb');
+  }
+
+  // ============================================================
+  // Result-Returning Methods (Type-Safe Error Handling)
+  // ============================================================
+  
+  /// Calculate costs with structured error handling.
+  /// 
+  /// Returns [Success] with [CalcResult] on success,
+  /// or [Failure] with [AppException] on error.
+  Future<Result<CalcResult>> calculateCostsResult(Map<String, dynamic> params) async {
+    try {
+      final response = await calculateCosts(params);
+      final result = CalcResult.fromJson(response);
+      return Success(result);
+    } on DioException catch (e) {
+      return Failure(AppException.fromDioError(e));
+    } catch (e) {
+      return Failure(AppException('Calculation failed: ${ApiErrorHandler.extractMessage(e)}'));
+    }
+  }
+  
+  /// Get pricing status with structured error handling.
+  Future<Result<Map<String, dynamic>>> getPricingStatusResult() async {
+    try {
+      final data = await getPricingStatus();
+      return Success(data);
+    } on DioException catch (e) {
+      return Failure(AppException.fromDioError(e));
+    } catch (e) {
+      return Failure(AppException('Failed to load pricing status: ${ApiErrorHandler.extractMessage(e)}'));
+    }
+  }
+  
+  /// Get twin config with structured error handling.
+  Future<Result<Map<String, dynamic>>> getTwinConfigResult(String twinId) async {
+    try {
+      final data = await getTwinConfig(twinId);
+      return Success(data);
+    } on DioException catch (e) {
+      return Failure(AppException.fromDioError(e));
+    } catch (e) {
+      return Failure(AppException('Failed to load twin config: ${ApiErrorHandler.extractMessage(e)}'));
+    }
+  }
+}

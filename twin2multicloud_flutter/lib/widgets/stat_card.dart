@@ -5,6 +5,7 @@ class StatCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color? color;
+  final String? tooltip;
 
   const StatCard({
     super.key,
@@ -12,12 +13,35 @@ class StatCard extends StatelessWidget {
     required this.value,
     required this.icon,
     this.color,
+    this.tooltip,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Wrap Card in Container with shadow (shadow applied OUTSIDE the card)
+    Widget cardContent = Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.06),
+            blurRadius: 12,
+            spreadRadius: 1,
+            offset: const Offset(0, 0),
+          ),
+        ],
+      ),
       child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+            width: 1,
+          ),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -31,6 +55,10 @@ class StatCard extends StatelessWidget {
                     title,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  if (tooltip != null) ...[
+                    const SizedBox(width: 4),
+                    Icon(Icons.info_outline, size: 14, color: Colors.grey.shade500),
+                  ],
                 ],
               ),
               const SizedBox(height: 8),
@@ -45,5 +73,14 @@ class StatCard extends StatelessWidget {
         ),
       ),
     );
+    
+    if (tooltip != null) {
+      cardContent = Tooltip(
+        message: tooltip!,
+        child: cardContent,
+      );
+    }
+    
+    return Expanded(child: cardContent);
   }
 }

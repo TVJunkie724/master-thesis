@@ -169,6 +169,14 @@ STATIC_FUNCTIONS: List[FunctionDefinition] = [
         # NOTE: Static wrapper that routes to device-specific user processors.
         # Dispatcher → processor_wrapper → {twin}-{device_id}-processor
     ),
+    FunctionDefinition(
+        name="event_feedback_wrapper",
+        layer=Layer.L2_PROCESSING,
+        dir_name="event_feedback_wrapper",
+        is_optional=True,
+        # NOTE: Static wrapper that handles event feedback flow.
+        # Event-checker → event_feedback_wrapper → user's event-feedback → IoT
+    ),
     
     # L3: Storage
     FunctionDefinition(
@@ -286,6 +294,8 @@ def get_functions_for_provider_build(
                     if f.name == "event-checker" and optimization_flags.get("useEventChecking"):
                         functions.append(f.get_dir_name())
                     elif f.name == "event-feedback" and optimization_flags.get("returnFeedbackToDevice"):
+                        functions.append(f.get_dir_name())
+                    elif f.name == "event_feedback_wrapper" and optimization_flags.get("returnFeedbackToDevice"):
                         functions.append(f.get_dir_name())
                 else:
                     functions.append(f.get_dir_name())

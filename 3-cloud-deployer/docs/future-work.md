@@ -7,6 +7,231 @@ This document tracks planned improvements and features for the Digital Twin Mult
 
 ---
 
+## 18. Requirements.txt Validation for User Functions
+
+> [!NOTE]
+> Deferred from Phase 1 implementation (Jan 2026). Currently requirements.txt is stored but not validated.
+
+### Status: Not Implemented
+
+### Background
+
+The Flutter UI allows users to optionally add `requirements.txt` files to Python function blocks (processors, event feedback, event actions). These files are stored in the database but **not validated** before deployment.
+
+### Current State
+
+- **Storage**: ✅ `*_requirements` columns in `deployer_configurations` table
+- **UI**: ✅ Toggle button to add/remove requirements in `FunctionPackageBlock`
+- **Validation**: ❌ Not implemented
+
+### Proposed Validation Endpoint
+
+```python
+# 3-cloud-deployer/src/api/validation.py
+
+@router.post("/validate/requirements")
+async def validate_requirements(
+    file: UploadFile = File(...),
+    provider: ProviderEnum = Query(..., description="Target cloud provider")
+):
+    """
+    Validate requirements.txt format and check package availability.
+    
+    Checks:
+    1. Valid pip format (package==version, package>=version, extras, URLs)
+    2. No conflicting versions
+    3. (Optional) Package exists on PyPI
+    """
+    content = (await file.read()).decode('utf-8')
+    
+    for line_num, line in enumerate(content.splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith('#') or line.startswith('-'):
+            continue
+        
+        # TODO: Proper pip specification parsing
+        # Current regex is too strict for: extras [crt], URLs, editable installs
+        # Consider using `packaging.requirements.Requirement` for parsing
+    
+    return {"message": "Valid requirements.txt"}
+```
+
+### Challenges
+
+| Challenge | Details |
+|-----------|---------|
+| **Pip format complexity** | URLs, editables (`-e`), extras (`[extra]`), environment markers |
+| **Version conflicts** | Detecting `boto3==1.28` vs `boto3>=1.30` in same file |
+| **PyPI availability** | Network check adds latency; may be optional |
+| **Provider-specific** | AWS Lambda layers have size limits affecting packages |
+
+### Recommended Approach
+
+1. Use Python `packaging` library for parsing (not regex)
+2. Validate format only (skip PyPI check for speed)
+3. Add provider-specific warnings (e.g., large packages for Lambda)
+
+### Files to Modify
+
+- `3-cloud-deployer/src/api/validation.py` - Add `/validate/requirements` endpoint
+- `twin2multicloud_backend/src/api/routes/deployer.py` - Proxy endpoint
+- `twin2multicloud_flutter/.../function_package_block.dart` - Call validation
+
+### TODO in Codebase
+
+```dart
+// FunctionPackageBlock - TODO marker
+// TODO(future-work-18): Add requirements.txt validation
+// See 3-cloud-deployer/docs/future-work.md#18
+```
+
+---
+
+## 19. Deployment File Generation from Database
+
+> [!NOTE]
+> Phase 2 of requirements.txt support. Enables generating complete deployable file structures from persisted UI content.
+
+### Status: Not Implemented
+
+### Background
+
+Currently, users must manually create the deployment file structure. The Flutter UI stores all L2 content (Python code, requirements.txt, state machines) in the database, but there's no mechanism to export this as a deployable project.
+
+### Goal
+
+Add an endpoint that generates a complete, deployment-ready file structure from the stored database content.
+
+### Proposed Architecture
+
+```
+┌─────────────────────┐         ┌─────────────────────────────────┐
+│   Flutter UI        │  POST   │   Management Backend            │
+│   "Export Project"  │ ──────▶ │   /twins/{id}/generate-deployment│
+└─────────────────────┘         └────────────────┬────────────────┘
+                                                 │
+                                                 ▼
+                                   ┌─────────────────────────────┐
+                                   │  Generated ZIP Structure    │
+                                   ├─────────────────────────────┤
+                                   │ lambda_functions/           │
+                                   │   processors/               │
+                                   │     {device_id}/            │
+                                   │       lambda_function.py    │
+                                   │       requirements.txt      │
+                                   │   event_feedback/           │
+                                   │     lambda_function.py      │
+                                   │     requirements.txt        │
+                                   │   event_actions/            │
+                                   │     {func_name}/            │
+                                   │       lambda_function.py    │
+                                   │       requirements.txt      │
+                                   │ state_machines/             │
+                                   │   aws_step_function.json    │
+                                   │ config.json                 │
+                                   │ config_events.json          │
+                                   │ config_iot_devices.json     │
+                                   └─────────────────────────────┘
+```
+
+### Implementation Details
+
+```python
+# twin2multicloud_backend/src/api/routes/deployer.py
+
+@router.post("/twins/{twin_id}/generate-deployment")
+async def generate_deployment_files(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Generate complete deployment file structure from DB content."""
+    
+    # 1. Load configuration
+    config = get_deployer_config(twin_id, db, current_user)
+    if not config:
+        raise HTTPException(404, "Deployer configuration not found")
+    
+    files = {}
+    
+    # 2. Default requirements.txt template
+    DEFAULT_REQUIREMENTS = "boto3>=1.28.0\naws-lambda-powertools>=2.0.0\n"
+    
+    # 3. Generate processors (per device)
+    processor_contents = json.loads(config.processor_contents or '{}')
+    processor_requirements = json.loads(config.processor_requirements or '{}')
+    for device_id, code in processor_contents.items():
+        files[f"lambda_functions/processors/{device_id}/lambda_function.py"] = code
+        files[f"lambda_functions/processors/{device_id}/requirements.txt"] = (
+            processor_requirements.get(device_id) or DEFAULT_REQUIREMENTS
+        )
+    
+    # 4. Generate event feedback
+    if config.event_feedback_content:
+        files["lambda_functions/event_feedback/lambda_function.py"] = config.event_feedback_content
+        files["lambda_functions/event_feedback/requirements.txt"] = (
+            config.event_feedback_requirements or DEFAULT_REQUIREMENTS
+        )
+    
+    # 5. Generate event actions (per function)
+    action_contents = json.loads(config.event_action_contents or '{}')
+    action_requirements = json.loads(config.event_action_requirements or '{}')
+    for func_name, code in action_contents.items():
+        files[f"lambda_functions/event_actions/{func_name}/lambda_function.py"] = code
+        files[f"lambda_functions/event_actions/{func_name}/requirements.txt"] = (
+            action_requirements.get(func_name) or DEFAULT_REQUIREMENTS
+        )
+    
+    # 6. Generate state machine
+    if config.state_machine_content:
+        # Determine provider from calculation result
+        files["state_machines/workflow.json"] = config.state_machine_content
+    
+    # 7. Generate config files
+    files["config.json"] = json.dumps({
+        "digital_twin_name": config.deployer_digital_twin_name
+    }, indent=2)
+    if config.config_events_json:
+        files["config_events.json"] = config.config_events_json
+    if config.config_iot_devices_json:
+        files["config_iot_devices.json"] = config.config_iot_devices_json
+    
+    # 8. Create ZIP
+    return create_zip_response(files, f"{twin_id}_deployment.zip")
+```
+
+### Default Requirements Template
+
+When user hasn't provided requirements.txt, inject a sensible default:
+
+```txt
+# Auto-generated by Twin2MultiCloud
+# Add your dependencies here
+
+boto3>=1.28.0
+aws-lambda-powertools>=2.0.0
+```
+
+### Files to Create/Modify
+
+| File | Changes |
+|------|---------|
+| `deployer.py` (routes) | Add `/generate-deployment` endpoint |
+| `api_service.dart` | Add `generateDeployment(twinId)` method |
+| `step3_deployer.dart` | Add "Export Project" button |
+
+### Complexity Assessment
+
+| Component | Effort |
+|-----------|--------|
+| Backend endpoint | Low (~2h) |
+| ZIP generation | Low (~1h) |
+| Flutter UI button | Low (~1h) |
+| Testing | Medium (~2h) |
+| **Total** | **~6 hours** |
+
+---
+
 ## 1. Deprecated Code Cleanup
 
 ### Status: Pending
@@ -736,194 +961,243 @@ return {
 
 ---
 
-## 15. Azure Credentials Checker: Graph API Permissions Validation
+## 15. Automated IAM Identity Center (SSO) Setup via SDK
 
-> [!CAUTION]
-> The current credentials checker cannot validate Microsoft Graph API permissions required for Azure Grafana L5.
+> [!NOTE]
+> Research completed December 2024. Implementation deferred pending priority assessment.
 
-### Status: Not Implemented
+### Status: Research Complete, Not Implemented
 
-### Problem
+### Background
 
-When deploying Azure L5 (Managed Grafana) with user provisioning enabled, the deployer requires:
+AWS Managed Grafana requires IAM Identity Center (SSO) to be enabled. Currently, users must enable this manually via the AWS Console before deploying L5 Grafana on AWS. However, the AWS SDK (`boto3`) supports programmatic instance creation via the `sso-admin` client.
 
-1. **Microsoft Graph API Permissions** (Application permissions):
-   - `User.ReadWrite.All` - Create/update Entra ID users
-   - `Directory.Read.All` - Read tenant domains, lookup users
+### Research Findings
 
-2. **Azure RBAC Permissions** (already checked):
-   - `Microsoft.Dashboard/grafana/write`
-   - `Microsoft.Dashboard/grafana/delete`
-
-The current `azure_credentials_checker.py` only validates Azure RBAC permissions via the `Microsoft.Authorization/permissions/read` action. It **cannot** verify Graph API permissions because:
-
-1. Graph API permissions are configured on the **App Registration**, not as RBAC roles
-2. Validating them requires calling the Microsoft Graph API (`/applications/{id}/requiredResourceAccess`)
-3. This requires the `Application.Read.All` Graph permission itself
-
-### Current Behavior
+**SDK API Available:**
 
 ```python
-# azure_credentials_checker.py lines 135-142
-"layer_5": {
-    "description": "Azure Managed Grafana",
-    "resource_providers": ["Microsoft.Dashboard"],
-    "required_actions": [
-        "Microsoft.Dashboard/grafana/write",
-        "Microsoft.Dashboard/grafana/delete",
-    ],
-    # ❌ Missing Graph API permission checks
-},
-```
+import boto3
 
-### Failure Mode
+# Create SSO-Admin client in desired region
+client = boto3.client('sso-admin', region_name='eu-central-1')
 
-When Graph permissions are missing, Terraform fails with:
-
-```
-Error: listing domains: Authorization_RequestDenied: Insufficient privileges to complete the operation.
-```
-
-This error only appears during `terraform apply`, not during credential validation.
-
-### Proposed Solution
-
-#### Option A: Add Graph SDK Validation (Full Implementation)
-
-```python
-# azure_credentials_checker.py - New function
-
-from msgraph import GraphServiceClient
-from azure.identity import ClientSecretCredential
-
-def check_graph_api_permissions(
-    client_id: str,
-    client_secret: str, 
-    tenant_id: str
-) -> dict:
-    """Check if service principal has required Graph API permissions."""
-    
-    required_permissions = {
-        "00000003-0000-0000-c000-000000000000": [  # Microsoft Graph
-            "User.ReadWrite.All",      # Create users
-            "Directory.Read.All",      # Read domains
+# Create IAM Identity Center instance
+try:
+    response = client.create_instance(
+        Name='digital-twin-deployer',  # Optional friendly name
+        Tags=[
+            {'Key': 'ManagedBy', 'Value': 'terraform'},
+            {'Key': 'Application', 'Value': 'digital-twin-deployer'}
         ]
-    }
-    
-    credential = ClientSecretCredential(tenant_id, client_id, client_secret)
-    graph_client = GraphServiceClient(credentials=credential)
-    
-    # Get app's configured permissions
-    app = await graph_client.applications.by_application_id(client_id).get()
-    configured = app.required_resource_access
-    
-    # Compare with required
-    missing = []
-    for resource_id, permissions in required_permissions.items():
-        # ... permission comparison logic ...
-    
-    return {
-        "valid": len(missing) == 0,
-        "missing": missing,
-        "message": f"Missing Graph permissions: {missing}" if missing else "OK"
-    }
+    )
+    instance_arn = response['InstanceArn']
+    print(f"Created SSO instance: {instance_arn}")
+except client.exceptions.ConflictException:
+    # Instance already exists - this is fine
+    print("IAM Identity Center already enabled")
+except client.exceptions.AccessDeniedException:
+    print("ERROR: Insufficient permissions to create SSO instance")
 ```
 
-**Dependencies:**
-- `msgraph-sdk` package
-- `Application.Read.All` permission (to read own app registration)
+**Key Constraints:**
+- Only **ONE** instance allowed per AWS account
+- Instance is **region-specific** (cannot be moved, only deleted and recreated)
+- Terraform cannot create instances - only AWS SDK/CLI can
+- If instance exists in different region, SDK cannot detect or use it
 
-#### Option B: Warning Message (Minimal Implementation)
+### Proposed Implementation
 
-Add a warning to the credential check output when L5=Azure:
+#### 1. Pre-Deployment Check (Python)
+
+Add to `src/validation/aws_checks.py`:
 
 ```python
-# In check_credentials() result
-if layer_5_provider == "azure":
-    result["warnings"].append({
-        "layer": "L5",
-        "message": (
-            "Azure L5 (Grafana) requires Microsoft Graph API permissions: "
-            "User.ReadWrite.All, Directory.Read.All. These cannot be "
-            "validated automatically. See docs for setup instructions."
-        )
-    })
+def ensure_sso_enabled(region: str, credentials: dict) -> tuple[bool, str]:
+    """
+    Ensure IAM Identity Center is enabled in the specified region.
+    
+    Returns:
+        tuple: (success, identity_store_id or error_message)
+    """
+    import boto3
+    
+    client = boto3.client(
+        'sso-admin',
+        region_name=region,
+        aws_access_key_id=credentials['aws_access_key_id'],
+        aws_secret_access_key=credentials['aws_secret_access_key']
+    )
+    
+    # Check if instance exists
+    response = client.list_instances()
+    if response['Instances']:
+        instance = response['Instances'][0]
+        return True, instance['IdentityStoreId']
+    
+    # Try to create instance
+    try:
+        response = client.create_instance(Name='digital-twin-sso')
+        # Wait for creation and get identity store ID
+        return True, response['IdentityStoreId']
+    except client.exceptions.AccessDeniedException:
+        return False, "Insufficient permissions to create IAM Identity Center"
+    except Exception as e:
+        return False, f"Failed to create SSO instance: {e}"
 ```
 
-### Recommendation
+#### 2. Integration Point
 
-Implement **Option B** (warning message) for now because:
-1. Lower complexity (~30 min vs ~4 hours)
-2. No new dependencies
-3. Documentation already covers the requirements
-4. Full Graph validation can be added later if needed
+Call from `src/providers/aws/validator.py` before Terraform runs:
+
+```python
+if layer_5_provider == "aws":
+    success, result = ensure_sso_enabled(
+        region=credentials['aws_sso_region'] or credentials['aws_region'],
+        credentials=credentials
+    )
+    if not success:
+        raise ValidationError(f"Cannot enable AWS Grafana: {result}")
+```
+
+### Required IAM Permissions
+
+Add to the deployer IAM policy (`docs/references/aws_policy.json`):
+
+```json
+{
+    "Effect": "Allow",
+    "Action": [
+        "sso:CreateInstance",
+        "sso:ListInstances",
+        "sso:DescribeInstance"
+    ],
+    "Resource": "*"
+}
+```
+
+### Edge Cases
+
+| Scenario | Behavior |
+|----------|----------|
+| No instance exists | Create new instance in `aws_sso_region` |
+| Instance exists in same region | Use existing (return identity_store_id) |
+| Instance exists in different region | **Cannot detect** - SDK only sees current region |
+| Insufficient permissions | Clear error message, user must create manually |
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/api/azure_credentials_checker.py` | Add warning for L5 Graph permissions |
-| `src/validation/core.py` | Add link to documentation in warning |
+| `src/validation/aws_checks.py` | Add `ensure_sso_enabled()` function |
+| `src/providers/aws/validator.py` | Call SSO check before Terraform |
+| `docs/references/aws_policy.json` | Add SSO permissions |
+| `docs/docs-credentials-aws.html` | Update to explain auto-creation |
 
 ### Complexity Assessment
 
-| Approach | Effort | Dependencies |
-|----------|--------|--------------|
-| Option A (Full) | ~4 hours | `msgraph-sdk`, new Graph permission |
-| Option B (Warning) | ~30 min | None |
+| Aspect | Effort |
+|--------|--------|
+| SDK implementation | Low |
+| Integration with validator | Low |
+| IAM policy update | Low |
+| Documentation update | Low |
+| Error handling for region mismatch | Medium |
+| **Total** | **~0.5 day** |
 
 ---
 
-## 16. Azure Grafana Role Assignment: Coalesce Fallback
+## 16. Legacy `globals.py` Cleanup
+
+> [!WARNING]
+> `src/globals.py` contains deprecated config loading patterns that bypass the centralized `config_loader.py`.
+
+### Status: Pending
+
+### Problem
+
+The legacy `globals.py` file loads configs directly from files:
+
+```python
+# src/globals.py (lines 48-73) - DEPRECATED PATTERN
+with open(f"{project_path()}/config.json", "r") as file:
+with open(f"{project_path()}/config_iot_devices.json", "r") as file:
+with open(f"{project_path()}/config_events.json", "r") as file:
+with open(f"{project_path()}/config_hierarchy.json", "r") as file:
+with open(f"{project_path()}/config_credentials.json", "r") as file:
+with open(f"{project_path()}/config_providers.json", "r") as file:
+```
+
+This creates a **global mutable state anti-pattern** that bypasses the modern `ProjectConfig` / `DeploymentContext` pattern.
+
+### Risk
+
+- Multiple sources of truth for configuration
+- Global state makes testing difficult
+- State can be inadvertently mutated between calls
+
+### Tasks
+
+- [ ] Audit all usages of `globals.py` functions
+- [ ] Migrate callers to use `DeploymentContext`
+- [ ] Deprecate and remove `globals.py`
+
+---
+
+## 17. Unified Config Loading via Context
 
 > [!NOTE]
-> Current fix works because validation blocks invalid domains. This is a defensive enhancement.
+> Multiple subsystems load configs independently. Consider unifying to single source of truth.
 
-### Status: Optional Enhancement
+### Status: Architectural Improvement
 
-### Context
+### Current State
 
-The `azure_grafana.tf` uses `coalesce()` to determine `principal_id` for role assignment:
+| Component | Loading Pattern | Context Available? |
+|-----------|-----------------|-------------------|
+| `config_loader.py` → `ProjectConfig` | Centralized | ✅ Source of truth |
+| `tfvars_generator.py` | File-based | ❌ Standalone CLI tool |
+| `deployer_strategy._load_providers_config()` | File-based | Pre-context |
+| `deployer_strategy._load_credentials()` | File-based | Pre-context |
+| `validation/core.py` → `ValidationContext` | File-based | Separate validation |
+| `globals.py` | File-based | Legacy |
 
-```hcl
-principal_id = coalesce(
-  local.existing_user_object_id,       # From data lookup
-  try(azuread_user.grafana_admin[0].object_id, null)  # From created user
-)
+### Ideal Architecture
+
+```
+                    ┌─────────────────┐
+                    │ config_loader.py │
+                    │ (Single Source) │
+                    └────────┬────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+    ┌──────────────┐  ┌────────────┐  ┌──────────────┐
+    │ Validation   │  │ tfvars     │  │ Deployment   │
+    │ Pipeline     │  │ Generator  │  │ Context      │
+    └──────────────┘  └────────────┘  └──────────────┘
 ```
 
-### Edge Case
+### Tasks
 
-If user lookup fails AND user creation fails (e.g., transient Azure error), `coalesce(null, null)` returns `null`, causing `azurerm_role_assignment` to fail (required field).
+- [ ] Refactor `tfvars_generator.py` to accept `ProjectConfig` instead of loading files
+- [ ] Remove `_load_providers_config()` and `_load_credentials()` from `deployer_strategy.py`
+- [ ] Unify `ValidationContext` with `ProjectConfig` or document separation clearly
+- [ ] Update all callers to use centralized loading
 
-### Proposed Improvement
+### Complexity Assessment
 
-Add fallback to deployer's own principal_id:
-
-```hcl
-principal_id = coalesce(
-  local.existing_user_object_id,
-  try(azuread_user.grafana_admin[0].object_id, null),
-  data.azurerm_client_config.current.object_id  # Fallback to deployer
-)
-```
-
-This ensures the role assignment always succeeds, even if user provisioning fails.
-
-### Why Not Implemented Yet
-
-1. Current validation blocks invalid domains, preventing the failure path
-2. Fallback would assign role to deployer SP instead of intended user (silent behavior change)
-3. May mask real issues that should be surfaced
-
-### When to Implement
-
-If E2E tests show intermittent failures in role assignment despite valid domains.
+| Aspect | Effort |
+|--------|--------|
+| tfvars_generator refactor | Medium |
+| deployer_strategy cleanup | Low |
+| ValidationContext unification | High |
+| Test updates | Medium |
+| **Total** | **~3-4 days** |
 
 ---
 
 ## Notes
 
-- **Priority**: GCP Simulator > L0 Optimization > SDK validation > N-User Grafana > Security enhancements
+- **Priority**: GCP Simulator > L0 Optimization > SDK validation > N-User Grafana > SSO Automation > Config Unification > Legacy Cleanup > Security enhancements
 - **Timeline**: To be determined based on thesis requirements
-

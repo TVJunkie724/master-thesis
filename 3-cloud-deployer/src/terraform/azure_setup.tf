@@ -46,6 +46,19 @@ resource "azurerm_storage_account" "main" {
   account_replication_type = "LRS"
   min_tls_version          = "TLS1_2"
 
+  # CORS configuration for Azure 3D Scenes Studio
+  # Required for the 3D visualization to access GLB assets from the storage account
+  blob_properties {
+    cors_rule {
+      allowed_origins    = ["https://explorer.digitaltwins.azure.net"]
+      # Include write methods for 3D Scene building (PUT for saving configs)
+      allowed_methods    = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "DELETE"]
+      allowed_headers    = ["*"]
+      exposed_headers    = ["*"]
+      max_age_in_seconds = 3600
+    }
+  }
+
   tags = local.common_tags
 }
 

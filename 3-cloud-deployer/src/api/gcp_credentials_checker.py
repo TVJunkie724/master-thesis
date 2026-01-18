@@ -140,10 +140,30 @@ def _check_project_access(project_id: str) -> dict:
                 "state": project.state.name,
             }
         except Exception as e:
-            if "403" in str(e):
-                return {"status": "access_denied", "error": str(e)}
-            elif "404" in str(e):
-                return {"status": "not_found", "error": str(e)}
+            error_str = str(e)
+            if "403" in error_str:
+                return {
+                    "status": "access_denied", 
+                    "error": (
+                        "Access denied to GCP project. This can happen if:\n"
+                        "  • Service account key has been disabled in IAM\n"
+                        "  • Service account has been deleted\n"
+                        "  • Service account lacks permission to access this project\n"
+                        "  • Project ID is incorrect\n"
+                        "Check: Google Cloud Console → IAM & Admin → Service Accounts"
+                    )
+                }
+            elif "404" in error_str:
+                return {
+                    "status": "not_found", 
+                    "error": (
+                        f"GCP project '{project_id}' not found. This can happen if:\n"
+                        "  • Project ID is incorrect (check for typos)\n"
+                        "  • Project has been deleted\n"
+                        "  • Service account belongs to a different project\n"
+                        "Verify your project ID in Google Cloud Console."
+                    )
+                }
             raise
             
     except ImportError:
@@ -249,6 +269,52 @@ def _check_enabled_apis(project_id: str) -> dict:
         return {"status": "error", "error": str(e)}
 
 
+def _check_billing_enabled(project_id: str) -> dict:
+    """
+    Check if billing is enabled for the GCP project.
+    
+    A project without billing cannot deploy any paid resources.
+    This catches billing issues early before Terraform fails.
+    
+    Args:
+        project_id: GCP project ID
+    
+    Returns:
+        Dict with billing_enabled status
+    """
+    try:
+        from google.cloud import billing_v1
+        
+        client = billing_v1.CloudBillingClient()
+        name = f"projects/{project_id}"
+        
+        try:
+            billing_info = client.get_project_billing_info(name=name)
+            return {
+                "status": "checked",
+                "billing_enabled": billing_info.billing_enabled,
+                "billing_account": billing_info.billing_account_name if billing_info.billing_enabled else None,
+            }
+        except Exception as e:
+            if "403" in str(e):
+                # Permission denied - can't check billing, skip gracefully
+                return {
+                    "status": "skipped",
+                    "reason": "Permission denied to check billing info",
+                    "billing_enabled": None,  # Unknown
+                }
+            raise
+            
+    except ImportError:
+        return {
+            "status": "skipped",
+            "reason": "google-cloud-billing not installed",
+            "billing_enabled": None,  # Unknown
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e), "billing_enabled": None}
+
+
 def check_gcp_credentials(credentials: dict) -> dict:
     """
     Main entry point. Validates GCP credentials against required permissions.
@@ -330,6 +396,29 @@ def check_gcp_credentials(credentials: dict) -> dict:
             else:
                 result["status"] = "access_denied"
                 result["message"] = f"Cannot access project {project_id}: {project_access.get('error', 'Unknown error')}"
+            return result
+        
+        # Step 2.5: FAIL-FAST - Check project state (catches deleted/pending deletion projects)
+        project_state = project_access.get("state")
+        if project_state and project_state not in ["ACTIVE", None]:
+            result["status"] = "invalid"
+            result["message"] = (
+                f"GCP project is '{project_state}'. "
+                f"Project must be 'ACTIVE' for deployment. "
+                f"Check Google Cloud Console for project status or create a new project."
+            )
+            return result
+        
+        # Step 2.6: Check billing is enabled
+        billing_status = _check_billing_enabled(project_id)
+        result["billing_status"] = billing_status
+        
+        if billing_status.get("status") == "checked" and not billing_status.get("billing_enabled"):
+            result["status"] = "invalid"
+            result["message"] = (
+                f"GCP project '{project_id}' does not have billing enabled. "
+                f"Enable billing in Google Cloud Console to deploy resources."
+            )
             return result
         
         # Step 3: Validate region

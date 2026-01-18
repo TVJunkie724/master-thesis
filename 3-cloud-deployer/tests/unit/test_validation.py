@@ -733,7 +733,7 @@ class TestStateMachineValidation(unittest.TestCase):
         mock_accessor.read_text.assert_called_once()
     
     def test_state_machine_google_validates_correct_file(self):
-        """Test Google provider validates google_cloud_workflow.json with nested steps."""
+        """Test Google provider validates google_cloud_workflow.yaml with nested steps."""
         from src.validation.core import check_state_machines, ValidationContext
         import constants as CONSTANTS
         
@@ -743,8 +743,8 @@ class TestStateMachineValidation(unittest.TestCase):
         ctx.all_files = [f"state_machines/{CONSTANTS.GOOGLE_STATE_MACHINE_FILE}"]
         
         mock_accessor = MagicMock()
-        # Valid GCP workflow - 'steps' is INSIDE 'main'
-        mock_accessor.read_text.return_value = json.dumps({"main": {"steps": []}})
+        # Valid GCP workflow - 'main' is a list of steps in YAML format
+        mock_accessor.read_text.return_value = "main:\n  - init:\n      assign:\n        - result: ok\n"
         
         check_state_machines(mock_accessor, ctx)
         mock_accessor.read_text.assert_called_once()
@@ -760,7 +760,7 @@ class TestStateMachineValidation(unittest.TestCase):
         ctx.all_files = [f"state_machines/{CONSTANTS.GOOGLE_STATE_MACHINE_FILE}"]
         
         mock_accessor = MagicMock()
-        # Invalid - 'main' exists but no 'steps' inside
+        # Invalid - 'main' exists but 'steps' is missing (JSON format for this edge case)
         mock_accessor.read_text.return_value = json.dumps({"main": {}})
         
         with self.assertRaises(ValueError) as cm:

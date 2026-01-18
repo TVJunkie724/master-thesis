@@ -6,7 +6,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:io' show Platform, Process;
 import '../providers/twins_provider.dart';
+import '../utils/api_error_handler.dart';
 import '../utils/file_reader.dart';
+import '../config/docs_config.dart';
 
 class CredentialField {
   final String name;
@@ -67,14 +69,19 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
   String? _optimizerMessage;
   String? _deployerMessage;
   
+  // Track if credentials were originally configured (before any edits)
+  // This survives BLoC state changes and allows restoration when clearing fields
+  late bool _wasOriginallyConfigured;
+  
   // Overall valid only if BOTH pass
-  bool get _isValid => (_optimizerValid && _deployerValid) || (widget.isConfigured && _optimizerMessage == null && _deployerMessage == null);
+  bool get _isValid => (_optimizerValid && _deployerValid) || (_wasOriginallyConfigured && _optimizerMessage == null && _deployerMessage == null);
   
   final Map<String, TextEditingController> _controllers = {};
   
   @override
   void initState() {
     super.initState();
+    _wasOriginallyConfigured = widget.isConfigured;  // Capture initial state
     for (final field in widget.fields) {
       _controllers[field.name] = TextEditingController(text: field.defaultValue);
     }
@@ -152,15 +159,8 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       widget.onValidationChanged(_isValid);
       
     } on DioException catch (e) {
-      String errorMsg;
-      if (e.type == DioExceptionType.connectionError || 
-          e.type == DioExceptionType.connectionTimeout) {
-        errorMsg = '❌ Cannot connect to server. Please ensure the Management API is running (docker compose up -d management-api).';
-      } else if (e.type == DioExceptionType.receiveTimeout) {
-        errorMsg = '❌ Server timeout. Please try again.';
-      } else {
-        errorMsg = '❌ Connection error: ${e.message}';
-      }
+      // Use ApiErrorHandler to extract user-friendly message from response
+      final errorMsg = '❌ ${ApiErrorHandler.extractMessage(e)}';
       setState(() {
         _optimizerValid = false;
         _deployerValid = false;
@@ -172,8 +172,8 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       setState(() {
         _optimizerValid = false;
         _deployerValid = false;
-        _optimizerMessage = '❌ Validation failed: $e';
-        _deployerMessage = '❌ Validation failed: $e';
+        _optimizerMessage = '❌ Validation failed: ${ApiErrorHandler.extractMessage(e)}';
+        _deployerMessage = '❌ Validation failed: ${ApiErrorHandler.extractMessage(e)}';
       });
       widget.onValidationChanged(false);
     } finally {
@@ -206,7 +206,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       await _validateCredentials();
     } catch (e) {
       setState(() {
-        _optimizerMessage = 'Failed to load JSON: $e';
+        _optimizerMessage = 'Failed to load JSON: ${ApiErrorHandler.extractMessage(e)}';
         _deployerMessage = null;
         _optimizerValid = false;
         _deployerValid = false;
@@ -275,7 +275,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       _notifyCredentialsChanged();
     } catch (e) {
       setState(() {
-        _optimizerMessage = '❌ Failed to parse JSON: $e';
+        _optimizerMessage = '❌ Failed to parse JSON: ${ApiErrorHandler.extractMessage(e)}';
         _deployerMessage = null;
         _optimizerValid = false;
         _deployerValid = false;
@@ -287,7 +287,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
   String _getSchemaExample() {
     switch (widget.provider) {
       case 'aws':
-        return '{\n  "aws": {\n    "aws_access_key_id": "XXXX...",\n    "aws_secret_access_key": "...",\n    "aws_session_token": "OPTIONAL",\n    "aws_region": "eu-central-1"\n  }\n}';
+        return '{\n  "aws": {\n    "aws_access_key_id": "XXXX...",\n    "aws_secret_access_key": "...",\n    "aws_session_token": "OPTIONAL",\n    "aws_region": "eu-central-1",\n    "aws_sso_region": "us-east-1"\n  }\n}';
       case 'azure':
         return '{\n  "azure": {\n    "azure_subscription_id": "...",\n    "azure_client_id": "...",\n    "azure_client_secret": "...",\n    "azure_tenant_id": "...",\n    "azure_region": "westeurope"\n  }\n}';
       case 'gcp':
@@ -313,12 +313,64 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
     );
   }
   
+  void _showServiceAccountExampleDialog() {
+    const serviceAccountExample = '''{
+  "type": "service_account",
+  "project_id": "your-project-id",
+  "private_key_id": "...",
+  "private_key": "-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n",
+  "client_email": "your-sa@your-project-id.iam.gserviceaccount.com",
+  "client_id": "...",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/..."
+}''';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('GCP Service Account JSON Format'),
+        content: const SelectableText(serviceAccountExample),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+  
   void _notifyCredentialsChanged() {
     final creds = <String, String>{};
     for (final entry in _controllers.entries) {
       creds[entry.key] = entry.value.text;
     }
-    widget.onCredentialsChanged(creds);
+    
+    // Smart validation clearing:
+    // - If user types new values → clear validation (needs re-validation)
+    // - If user clears all fields → restore stored credential validation
+    final allRequiredEmpty = widget.fields
+        .where((f) => f.required)
+        .every((f) => _controllers[f.name]?.text.isEmpty == true);
+    
+    if (allRequiredEmpty && _wasOriginallyConfigured) {
+      // User cleared all fields back to empty - stored credentials apply
+      // Restore validation state (no re-validation needed)
+      _optimizerValid = true;
+      _deployerValid = true;
+      _optimizerMessage = null;
+      _deployerMessage = null;
+      // Don't notify BLoC of change - credentials haven't actually changed
+      widget.onValidationChanged(true);
+    } else {
+      // User entered new values - clear validation
+      _optimizerValid = false;
+      _deployerValid = false;
+      _optimizerMessage = null;
+      _deployerMessage = null;
+      widget.onCredentialsChanged(creds);
+    }
   }
   void _clearCredentials() {
     for (final controller in _controllers.values) {
@@ -336,35 +388,18 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
   }
   
   void _openDocLink(String target) async {
-    // Documentation URLs per provider
-    const optimizerBase = 'http://localhost:5003/documentation/';
-    const deployerBase = 'http://localhost:5004/docs/';
+    // Use centralized documentation URLs
+    final url = target == 'optimizer'
+        ? DocsConfig.getOptimizerDocsUrl(widget.provider)
+        : DocsConfig.getDeployerDocsUrl(widget.provider);
     
-    final Map<String, Map<String, String>> docUrls = {
-      'aws': {
-        'optimizer': '${optimizerBase}docs-credentials-aws.html',
-        'deployer': '${deployerBase}docs-credentials-aws.html',
-      },
-      'azure': {
-        'optimizer': '${optimizerBase}docs-credentials-azure.html',
-        'deployer': '${deployerBase}docs-credentials-azure.html',
-      },
-      'gcp': {
-        'optimizer': '${optimizerBase}docs-credentials-gcp.html',
-        'deployer': '${deployerBase}docs-credentials-gcp.html',
-      },
-    };
-    
-    final url = docUrls[widget.provider]?[target];
-    if (url != null) {
-      // On Windows desktop, use Process.run as fallback
-      if (Platform.isWindows) {
-        await Process.run('cmd', ['/c', 'start', '', url]);
-      } else {
-        final uri = Uri.parse(url);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
+    // On Windows desktop, use Process.run as fallback
+    if (Platform.isWindows) {
+      await Process.run('cmd', ['/c', 'start', '', url]);
+    } else {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
     }
   }
@@ -432,7 +467,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                       ),
                       if (showAsValid)
                         Text(
-                          (widget.isConfigured && !_optimizerValid && !_deployerValid) 
+                          (_wasOriginallyConfigured && !_optimizerValid && !_deployerValid) 
                               ? 'Credentials Configured (Hidden) ✓'
                               : 'Credentials validated ✓',
                           style: TextStyle(
@@ -483,44 +518,8 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // GCP Service Account JSON Upload button (special case)
-                      if (widget.supportsJsonUpload) ...[
-                        FilledButton.icon(
-                          onPressed: _pickJsonFile,
-                          icon: const Icon(Icons.cloud_upload),
-                          label: const Text('Upload Service Account JSON'),
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 48),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Upload your GCP service account key file (.json)',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: showAsValid 
-                              ? Colors.green.shade700 
-                              : Theme.of(context).colorScheme.outline,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(child: Divider(color: showAsValid ? Colors.green.shade600 : null)),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text('OR', style: TextStyle(
-                                fontSize: 12,
-                                color: showAsValid 
-                                  ? Colors.green.shade400 
-                                  : Theme.of(context).colorScheme.outline,
-                              )),
-                            ),
-                            Expanded(child: Divider(color: showAsValid ? Colors.green.shade600 : null)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                      ],
+                      // GCP: Removed from left side - now only in right side
+
                       
                       // Credential fields
                       ...widget.fields.map((field) => Padding(
@@ -531,7 +530,9 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                             labelText: field.required 
                               ? field.label 
                               : '${field.label} (optional)',
-                            hintText: (widget.isConfigured && _controllers[field.name]?.text.isEmpty == true)
+                            // Only show "Stored Securely" for REQUIRED fields that are configured
+                            // Optional fields (like session_token) may genuinely be empty
+                            hintText: (_wasOriginallyConfigured && field.required && _controllers[field.name]?.text.isEmpty == true)
                                 ? '•••••••••••••••• (Stored Securely)' 
                                 : null,
                             hintStyle: TextStyle(
@@ -555,13 +556,12 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                 
                 const SizedBox(width: 16),
                 
-                // RIGHT SIDE (1/3) - Buttons
                 Flexible(
                   flex: 1,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Upload credentials button
+                      // SECTION 1: Credentials Upload
                       if (widget.supportsCredentialsUpload) ...[
                         FilledButton.tonalIcon(
                           onPressed: _uploadCredentialsJson,
@@ -580,32 +580,51 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
+                        // Example File for credentials
+                        OutlinedButton.icon(
+                          onPressed: _showSchemaDialog,
+                          icon: const Icon(Icons.description_outlined, size: 16),
+                          label: const Text('Example File'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ],
                       
-                      // GCP specific: Service Account JSON upload in right column too
+                      // SECTION 2: Service Account (GCP only)
                       if (widget.supportsJsonUpload) ...[
-                        OutlinedButton.icon(
+                        const Divider(height: 24),
+                        FilledButton.tonalIcon(
                           onPressed: _pickJsonFile,
                           icon: const Icon(Icons.key),
                           label: const Text('Service Account'),
-                          style: OutlinedButton.styleFrom(
+                          style: FilledButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                      ],
-                      
-                      // Example File button (above separator)
-                      OutlinedButton.icon(
-                        onPressed: _showSchemaDialog,
-                        icon: const Icon(Icons.description_outlined, size: 18),
-                        label: const Text('Example File'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                        const SizedBox(height: 4),
+                        Text(
+                          'Upload GCP service account key',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                      ),
+                        const SizedBox(height: 4),
+                        // Example File for service account
+                        OutlinedButton.icon(
+                          onPressed: _showServiceAccountExampleDialog,
+                          icon: const Icon(Icons.description_outlined, size: 16),
+                          label: const Text('Example File'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                       
                       const Divider(height: 24),
                       
@@ -670,7 +689,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                     )
                   : FilledButton.icon(
                       // Enable button if fields are filled OR if we can validate stored credentials
-                      onPressed: (_isValidating || (!_areRequiredFieldsFilled() && !widget.isConfigured)) 
+                      onPressed: (_isValidating || (!_areRequiredFieldsFilled() && !_wasOriginallyConfigured)) 
                           ? null 
                           : _validateCredentials,
                       icon: _isValidating
@@ -680,7 +699,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                           )
                         : const Icon(Icons.verified_user),
                       label: Text(
-                        (widget.isConfigured && !_areRequiredFieldsFilled())
+                        (_wasOriginallyConfigured && !_areRequiredFieldsFilled())
                             ? 'Validate Stored Credentials'
                             : 'Validate Credentials'
                       ),

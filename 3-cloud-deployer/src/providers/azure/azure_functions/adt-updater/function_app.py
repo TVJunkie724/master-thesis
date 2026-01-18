@@ -146,5 +146,5 @@ def adt_updater(event: func.EventGridEvent) -> None:
         logging.error(f"ADT Updater: Validation error: {e}")
         raise
     except Exception as e:
-        logging.error(f"ADT Updater: Unexpected error: {type(e).__name__}: {e}")
+        logging.exception(f"ADT Updater: Unexpected error: {type(e).__name__}: {e}")
         raise

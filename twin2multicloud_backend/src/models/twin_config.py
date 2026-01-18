@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, Text
+from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, Text, Integer
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
@@ -20,10 +20,14 @@ class TwinConfiguration(Base):
     # Basic settings
     debug_mode = Column(Boolean, default=False)
     
+    # Wizard progress tracking
+    highest_step_reached = Column(Integer, default=0)
+    
     # AWS credentials (ENCRYPTED)
     aws_access_key_id = Column(String, nullable=True)  # Encrypted
     aws_secret_access_key = Column(String, nullable=True)  # Encrypted
     aws_region = Column(String, default="eu-central-1")  # Not encrypted (not sensitive)
+    aws_sso_region = Column(String, nullable=True)  # Not encrypted (SSO may be in different region)
     aws_session_token = Column(String, nullable=True)  # Encrypted (optional for STS/SSO)
     aws_validated = Column(Boolean, default=False)
     

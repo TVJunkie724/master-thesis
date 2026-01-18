@@ -112,7 +112,7 @@ def _query_last_entry(query_params: dict) -> dict:
     # Query for the most recent item
     query = """
         SELECT TOP 1 * FROM c 
-        WHERE c.iotDeviceId = @device_id 
+        WHERE c.device_id = @device_id 
         ORDER BY c.id DESC
     """
     
@@ -177,7 +177,7 @@ def hot_reader_last_entry(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
-        logging.error(f"Hot Reader Last Entry Error: {e}")
+        logging.exception(f"Hot Reader Last Entry Error: {e}")
         return func.HttpResponse(
             json.dumps({"propertyValues": {}}),
             status_code=200,

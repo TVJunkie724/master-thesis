@@ -9,7 +9,7 @@ Tests cover:
 """
 import pytest
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, Mock
 
 
 class TestAzureCredentialValidation:
@@ -100,6 +100,107 @@ class TestAzureCredentialValidation:
         })
         
         assert result["status"] in ["partial", "invalid"]
+
+    @patch('api.azure_credentials_checker._create_credential')
+    @patch('api.azure_credentials_checker._get_caller_identity')
+    def test_check_azure_credentials_disabled_subscription(self, mock_identity, mock_cred):
+        """Test validation fails early for disabled subscriptions."""
+        from api.azure_credentials_checker import check_azure_credentials
+        
+        # Simulate disabled subscription (billing issue, quota exceeded, etc.)
+        mock_identity.return_value = {
+            "subscription_id": "sub-123",
+            "subscription_name": "Test Sub",
+            "tenant_id": "tenant-123",
+            "state": "Disabled"  # Key: subscription is disabled
+        }
+        
+        result = check_azure_credentials({
+            "azure_subscription_id": "sub-123",
+            "azure_tenant_id": "tenant-123",
+            "azure_client_id": "client-123",
+            "azure_client_secret": "secret-123"
+        })
+        
+        # Should fail with clear message about subscription state
+        assert result["status"] == "invalid"
+        assert "Disabled" in result["message"]
+        assert "subscription" in result["message"].lower()
+
+
+class TestAzureSPExpiration:
+    """Tests for Azure Service Principal credential expiration checking."""
+
+    @patch('api.azure_credentials_checker._check_sp_credential_expiration')
+    @patch('api.azure_credentials_checker._get_caller_identity')
+    @patch('api.azure_credentials_checker._create_credential')
+    def test_expired_sp_credentials_detected(self, mock_create_cred, mock_get_identity, mock_expiration):
+        """Test that expired SP credentials are detected and fail early."""
+        from api.azure_credentials_checker import check_azure_credentials
+        
+        mock_create_cred.return_value = Mock()
+        mock_get_identity.return_value = {
+            "subscription_id": "sub-123",
+            "subscription_name": "Test Subscription",
+            "tenant_id": "tenant-123",
+            "state": "Enabled",
+            "principal_type": "service_principal"
+        }
+        mock_expiration.return_value = {
+            "status": "expired",
+            "message": "Azure Service Principal credentials expired 10 days ago."
+        }
+        
+        result = check_azure_credentials({
+            "azure_subscription_id": "sub-123",
+            "azure_tenant_id": "tenant-123",
+            "azure_client_id": "client-123",
+            "azure_client_secret": "secret-123"
+        })
+        
+        assert result["status"] == "invalid"
+        assert "expired" in result["message"].lower()
+
+    @patch('api.azure_credentials_checker._check_sp_credential_expiration')
+    @patch('api.azure_credentials_checker._validate_azure_regions')
+    @patch('api.azure_credentials_checker._get_role_assignments_with_permissions')
+    @patch('api.azure_credentials_checker._get_caller_identity')
+    @patch('api.azure_credentials_checker._create_credential')
+    def test_expiring_soon_is_warning_not_failure(self, mock_create_cred, mock_get_identity, 
+                                                   mock_roles, mock_regions, mock_expiration):
+        """Test that credentials expiring soon produce warning but don't fail."""
+        from api.azure_credentials_checker import check_azure_credentials
+        
+        mock_create_cred.return_value = Mock()
+        mock_get_identity.return_value = {
+            "subscription_id": "sub-123",
+            "subscription_name": "Test Subscription",
+            "tenant_id": "tenant-123",
+            "state": "Enabled",
+            "principal_type": "service_principal"
+        }
+        mock_expiration.return_value = {
+            "status": "expiring_soon",
+            "days_until_expiration": 15,
+            "message": "Azure Service Principal credentials expire in 15 days."
+        }
+        mock_regions.return_value = {}
+        mock_roles.return_value = {
+            "assignments": [],
+            "all_actions": {"*"},
+            "all_data_actions": {"*"}
+        }
+        
+        result = check_azure_credentials({
+            "azure_subscription_id": "sub-123",
+            "azure_tenant_id": "tenant-123",
+            "azure_client_id": "client-123",
+            "azure_client_secret": "secret-123"
+        })
+        
+        # Should proceed despite expiring soon (warning only)
+        assert result["status"] in ["valid", "partial"]
+        assert result["sp_credential_expiration"]["status"] == "expiring_soon"
 
 
 class TestActionMatching:

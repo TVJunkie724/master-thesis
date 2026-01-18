@@ -58,8 +58,10 @@ class ProjectConfig:
     # From config_events.json
     events: list[dict] = field(default_factory=list)
     
-    # From config_hierarchy.json
-    hierarchy: list[dict] = field(default_factory=list)
+    # From twin hierarchy files (aws_hierarchy.json or azure_hierarchy.json)
+    # Azure: dict with {models, twins, relationships}
+    # AWS: list with [{type, id, children}]
+    hierarchy: dict | list = field(default_factory=dict)
     
     # From config_providers.json
     # Maps layer keys to provider names
@@ -75,6 +77,12 @@ class ProjectConfig:
     # Cross-cloud connection configuration
     # e.g., {"connections": {"aws_l1_to_azure_l2": {"url": "...", "token": "..."}}}
     inter_cloud: Dict[str, Any] = field(default_factory=dict)
+    
+    # From config_user.json
+    # Platform user configuration (for L4 ADT and L5 Grafana access)
+    # e.g., {"admin_email": "admin@example.com"}
+    user: Dict[str, Any] = field(default_factory=dict)
+
     
     def get_provider_for_layer(self, layer: int | str) -> str:
         """

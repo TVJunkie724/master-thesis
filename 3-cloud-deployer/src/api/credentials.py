@@ -24,6 +24,10 @@ class AWSCredentialsRequest(BaseModel):
     aws_access_key_id: str = Field(..., description="AWS Access Key ID")
     aws_secret_access_key: str = Field(..., description="AWS Secret Access Key")
     aws_region: str = Field(..., description="AWS Region (e.g., 'eu-central-1')")
+    aws_sso_region: Optional[str] = Field(
+        None,
+        description="AWS Region where IAM Identity Center (SSO) is enabled, if different from aws_region"
+    )
     aws_session_token: Optional[str] = Field(
         None, 
         description="Optional AWS Session Token for temporary credentials (from STS)"

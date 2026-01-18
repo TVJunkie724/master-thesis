@@ -1,16 +1,18 @@
 import json
 import os
 import sys
+import traceback
 import boto3
 
-# Handle import path for shared module
 try:
     from _shared.env_utils import require_env
+    from _shared.normalize import normalize_telemetry
 except ModuleNotFoundError:
     _lambda_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _lambda_funcs_dir not in sys.path:
         sys.path.insert(0, _lambda_funcs_dir)
     from _shared.env_utils import require_env
+    from _shared.normalize import normalize_telemetry
 
 
 lambda_client = boto3.client("lambda")
@@ -48,10 +50,13 @@ def lambda_handler(event, context):
         actual_event = body.get("payload")
         if not actual_event:
             raise ValueError("Missing 'payload' in wrapper.")
+        
+        # Normalize event to canonical format (device_id, timestamp)
+        actual_event = normalize_telemetry(actual_event)
              
-        device_id = actual_event.get("iotDeviceId")
+        device_id = actual_event.get("device_id")
         if not device_id:
-            raise ValueError("Missing 'iotDeviceId' in event.")
+            raise ValueError("Missing 'device_id' in event.")
              
     except Exception as e:
         return {
@@ -72,6 +77,7 @@ def lambda_handler(event, context):
         }
     except Exception as e:
         print(f"Ingestion Invocation Failed: {e}")
+        traceback.print_exc()
         return {
             "statusCode": 500,
             "body": json.dumps(f"Internal Server Error: Failed to invoke processor {str(e)}")

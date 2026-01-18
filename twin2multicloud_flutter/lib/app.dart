@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/settings_screen.dart';
 import 'screens/wizard/wizard_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
@@ -29,6 +30,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/dashboard',
         builder: (context, state) => const DashboardScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
       ),
       GoRoute(
         path: '/auth/callback',
@@ -59,23 +64,32 @@ class Twin2MultiCloudApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     
+    // Simple Material theme - uses Material 3 defaults with blue primary
+    const Color primaryBlue = Color(0xFF1976D2);
+    
+    // Light Theme - Standard Material defaults
+    final lightTheme = ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: primaryBlue,
+        brightness: Brightness.light,
+      ),
+    );
+    
+    // Dark Theme - Standard Material defaults
+    final darkTheme = ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: primaryBlue,
+        brightness: Brightness.dark,
+      ),
+    );
+    
     return MaterialApp.router(
       title: 'Twin2MultiCloud',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: lightTheme,
+      darkTheme: darkTheme,
       themeMode: ref.watch(themeProvider),
       routerConfig: router,
     );

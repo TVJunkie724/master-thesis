@@ -1,252 +1,613 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'step1_configuration.dart';
 import 'step2_optimizer.dart';
+import 'step3_deployer.dart';
+import '../../bloc/wizard/wizard.dart';
 import '../../providers/twins_provider.dart';
 import '../../providers/theme_provider.dart';
-import '../../models/wizard_cache.dart';
+import '../../providers/auth_provider.dart';
+import '../../widgets/branded_app_bar.dart';
 
-class WizardScreen extends ConsumerStatefulWidget {
+/// Wizard screen using BLoC pattern for state management
+/// 
+/// This widget provides the BlocProvider wrapper and delegates to WizardView.
+class WizardScreen extends ConsumerWidget {
   final String? twinId; // null for new, set for edit
   
   const WizardScreen({super.key, this.twinId});
   
   @override
-  ConsumerState<WizardScreen> createState() => _WizardScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final api = ref.read(apiServiceProvider);
+    
+    return BlocProvider(
+      create: (context) {
+        final bloc = WizardBloc(api: api);
+        // Initialize based on whether editing or creating
+        if (twinId != null) {
+          bloc.add(WizardInitEdit(twinId!));
+        } else {
+          bloc.add(const WizardInitCreate());
+        }
+        return bloc;
+      },
+      child: WizardView(twinId: twinId),
+    );
+  }
 }
 
-class _WizardScreenState extends ConsumerState<WizardScreen> {
-  int _currentStep = 0;
-  String? _activeTwinId;
-  bool _isLoading = false;
-  bool _isSaving = false;
+/// Main wizard view that consumes BLoC state
+class WizardView extends ConsumerStatefulWidget {
+  final String? twinId;
   
-  // In-memory cache for all wizard data
-  final WizardCache _cache = WizardCache();
+  const WizardView({super.key, this.twinId});
   
   @override
-  void initState() {
-    super.initState();
-    _activeTwinId = widget.twinId;
-    if (_activeTwinId != null) {
-      _loadExistingTwinData();
-    }
-  }
+  ConsumerState<WizardView> createState() => _WizardViewState();
+}
 
-  /// Load existing twin data from database into cache (for editing)
-  Future<void> _loadExistingTwinData() async {
-    setState(() => _isLoading = true);
-    try {
-      final api = ref.read(apiServiceProvider);
-      
-      // Fetch twin details and config in parallel
-      final results = await Future.wait([
-        api.getTwin(_activeTwinId!),
-        api.getTwinConfig(_activeTwinId!),
-      ]);
-      
-      final twin = results[0];
-      final config = results[1];
-      final state = twin['state'];
-      
-      if (mounted) {
-        setState(() {
-          // Populate cache from database
-          _cache.twinName = twin['name'];
-          _cache.debugMode = config['debug_mode'] ?? false;
-          
-          // Parse AWS - mark as valid AND inherited if configured
-          if (config['aws_configured'] == true) {
-            _cache.awsCredentials = {
-              'region': config['aws_region']?.toString() ?? 'eu-central-1',
-              'access_key_id': '', // Secrets hidden by backend
-              'secret_access_key': '',
-              'session_token': '',
-            };
-            _cache.markAwsInherited(); // Mark as inherited from DB
-          }
-          
-          // Parse Azure - mark as valid AND inherited if configured
-          if (config['azure_configured'] == true) {
-            _cache.azureCredentials = {
-              'region': config['azure_region']?.toString() ?? 'westeurope',
-              'subscription_id': '',
-              'client_id': '',
-              'client_secret': '',
-              'tenant_id': '',
-            };
-            _cache.markAzureInherited(); // Mark as inherited from DB
-          }
-          
-          // Parse GCP - mark as valid AND inherited if configured
-          if (config['gcp_configured'] == true) {
-            _cache.gcpCredentials = {
-              'project_id': config['gcp_project_id']?.toString() ?? '',
-              'region': config['gcp_region']?.toString() ?? 'europe-west1',
-              'billing_account': '',
-            };
-            _cache.markGcpInherited(); // Mark as inherited from DB
-          }
-          
-          // Determine starting step based on state
-          if (state == 'deployed' || state == 'configured') {
-            _currentStep = 2; // Deployer
-          } else if (_cache.canProceedToStep2) {
-            _currentStep = 1; // Optimizer
-          } else {
-            _currentStep = 0; // Configuration
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading twin data: $e');
-      if (mounted) setState(() => _currentStep = 0);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  /// Save all cached data to database
-  Future<bool> _saveDraftToDatabase() async {
-    if (_cache.twinName?.isEmpty ?? true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a name for your Digital Twin'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return false;
-    }
-    
-    setState(() => _isSaving = true);
-    
-    try {
-      final api = ref.read(apiServiceProvider);
-      
-      // Step 1: Create twin if it doesn't exist, or update name if changed
-      if (_activeTwinId == null) {
-        final result = await api.createTwin(_cache.twinName!);
-        _activeTwinId = result['id'];
-      } else {
-        // Update twin name if it has changed
-        await api.updateTwin(_activeTwinId!, name: _cache.twinName);
-      }
-      
-      // Step 2: Save Step 1 config (credentials)
-      // IMPORTANT: Only send credentials if they were NEWLY ENTERED
-      // Inherited credentials are already encrypted in DB - don't overwrite with empty values
-      final configData = <String, dynamic>{'debug_mode': _cache.debugMode};
-      
-      // AWS credentials - only if newly entered
-      if (_cache.hasNewAwsCredentials && 
-          _cache.awsCredentials['access_key_id']?.isNotEmpty == true) {
-        final awsConfig = {
-          'access_key_id': _cache.awsCredentials['access_key_id'],
-          'secret_access_key': _cache.awsCredentials['secret_access_key'],
-          'region': _cache.awsCredentials['region'] ?? 'eu-central-1',
-        };
-        if (_cache.awsCredentials['session_token']?.isNotEmpty == true) {
-          awsConfig['session_token'] = _cache.awsCredentials['session_token']!;
+class _WizardViewState extends ConsumerState<WizardView> {
+  // Note: Name error handling will be via BLoC state in future
+  
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<WizardBloc, WizardState>(
+      listenWhen: (prev, curr) => 
+        prev.status != curr.status ||
+        prev.successMessage != curr.successMessage,
+      listener: (context, state) {
+        // Handle navigation on finish
+        if (state.successMessage == 'Configuration complete!') {
+          ref.invalidate(twinsProvider);
+          context.go('/dashboard');
         }
-        configData['aws'] = awsConfig;
-      }
-      
-      // Azure credentials - only if newly entered
-      if (_cache.hasNewAzureCredentials &&
-          _cache.azureCredentials['subscription_id']?.isNotEmpty == true) {
-        configData['azure'] = {
-          'subscription_id': _cache.azureCredentials['subscription_id'],
-          'client_id': _cache.azureCredentials['client_id'],
-          'client_secret': _cache.azureCredentials['client_secret'],
-          'tenant_id': _cache.azureCredentials['tenant_id'],
-          'region': _cache.azureCredentials['region'] ?? 'westeurope',
-        };
-      }
-      
-      // GCP credentials - only if newly entered
-      if (_cache.hasNewGcpCredentials && (
-          _cache.gcpCredentials['project_id']?.isNotEmpty == true || 
-          _cache.gcpCredentials['billing_account']?.isNotEmpty == true ||
-          _cache.gcpServiceAccountJson != null)) {
-        configData['gcp'] = {
-          'project_id': _cache.gcpCredentials['project_id'],
-          'billing_account': _cache.gcpCredentials['billing_account'],
-          'region': _cache.gcpCredentials['region'] ?? 'europe-west1',
-          'service_account_json': _cache.gcpServiceAccountJson,
-        };
-      }
-      
-      await api.updateTwinConfig(_activeTwinId!, configData);
-      
-      // Step 3: Save Step 2 optimizer data (if exists)
-      if (_cache.calcResult != null && _cache.calcResultRaw != null) {
-        await api.saveOptimizerResult(
-          _activeTwinId!,
-          params: _cache.calcParams?.toJson() ?? {},
-          result: _cache.calcResultRaw!['result'],
-          cheapestPath: _parseCheapestPath(_cache.calcResult!.cheapestPath),
-          pricingSnapshots: _cache.pricingSnapshots ?? {},
-          pricingTimestamps: _cache.pricingTimestamps ?? {},
-        );
-      }
-      
-      // Mark cache as clean after successful save
-      _cache.markClean();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Draft saved!')),
-        );
-      }
-      
-      return true;
-    } catch (e) {
-      debugPrint('Failed to save draft: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save: $e'),
-            backgroundColor: Colors.red,
+        // Auto-dismiss success messages after 3 seconds
+        else if (state.successMessage == 'Draft saved!') {
+          Future.delayed(const Duration(seconds: 3), () {
+            if (context.mounted) {
+              context.read<WizardBloc>().add(const WizardClearNotifications());
+            }
+          });
+        }
+      },
+      builder: (context, state) {
+        if (state.status == WizardStatus.loading) {
+          return Scaffold(
+            appBar: _buildAppBar(context, state),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
+        
+        return Scaffold(
+          appBar: _buildAppBar(context, state),
+          body: Column(
+            children: [
+              // Header area with subtle shadow for visual separation
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // Screen header with title
+                    _buildHeader(context, state),
+                    // Step indicator
+                    _buildStepIndicator(context, state),
+                    // Navigation bar
+                    _buildNavigationBar(context, state),
+                  ],
+                ),
+              ),
+              // Alert banners
+              _buildAlertBanners(context, state),
+              // Step content
+              Expanded(child: _buildStepContent(context, state)),
+            ],
           ),
         );
-      }
-      return false;
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
+      },
+    );
+  }
+  
+  PreferredSizeWidget _buildAppBar(BuildContext context, WizardState state) {
+    return BrandedAppBar(
+      title: 'Twin2MultiCloud',
+      actions: [
+        IconButton(
+          icon: Icon(
+            ref.watch(themeProvider) == ThemeMode.dark
+                ? Icons.light_mode
+                : Icons.dark_mode,
+          ),
+          onPressed: () => ref.read(themeProvider.notifier).toggle(),
+          tooltip: 'Toggle theme',
+        ),
+        const SizedBox(width: 8),
+        PopupMenuButton<String>(
+          offset: const Offset(0, 56),
+          tooltip: 'Profile menu',
+          onSelected: (value) {
+            switch (value) {
+              case 'settings':
+                context.go('/settings');
+                break;
+              case 'logout':
+                ref.read(authProvider.notifier).logout();
+                context.go('/login');
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'settings',
+              child: Row(
+                children: [
+                  Icon(Icons.settings, size: 20),
+                  SizedBox(width: 12),
+                  Text('Settings'),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem(
+              value: 'logout',
+              child: Row(
+                children: [
+                  Icon(Icons.logout, size: 20, color: Colors.red),
+                  const SizedBox(width: 12),
+                  Text('Logout', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          ],
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: CircleAvatar(child: Icon(Icons.person)),
+          ),
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+  
+  Widget _buildHeader(BuildContext context, WizardState state) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => _showExitConfirmation(context, state),
+            tooltip: 'Close',
+          ),
+          const SizedBox(width: 8),
+          Text(
+            state.mode == WizardMode.create 
+                ? 'Create Digital Twin' 
+                : 'Edit Digital Twin',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildAlertBanners(BuildContext context, WizardState state) {
+    if (state.errorMessage != null) {
+      return _buildBanner(
+        context,
+        message: state.errorMessage!,
+        color: Colors.red,
+        icon: Icons.error,
+        onDismiss: () => context.read<WizardBloc>().add(const WizardDismissError()),
+      );
+    } else if (state.successMessage != null) {
+      return _buildBanner(
+        context,
+        message: state.successMessage!,
+        color: Colors.green,
+        icon: Icons.check_circle,
+        onDismiss: () => context.read<WizardBloc>().add(const WizardClearNotifications()),
+      );
+    } else if (state.warningMessage != null) {
+      return _buildBanner(
+        context,
+        message: state.warningMessage!,
+        color: Colors.orange,
+        icon: Icons.warning_amber_rounded,
+        onDismiss: () => context.read<WizardBloc>().add(const WizardClearNotifications()),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+  
+  Widget _buildBanner(
+    BuildContext context, {
+    required String message,
+    required MaterialColor color,
+    required IconData icon,
+    required VoidCallback onDismiss,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: Row(
+            children: [
+              Icon(icon, color: color.shade700),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    color: color.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.close, color: color.shade700, size: 20),
+                onPressed: onDismiss,
+                tooltip: 'Dismiss',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildNavigationBar(BuildContext context, WizardState state) {
+    final bloc = context.read<WizardBloc>();
+    final isSaving = state.status == WizardStatus.saving;
+    
+    return Column(
+      children: [
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1000),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  children: [
+                    // Left: Back button
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _handleBack(context, state),
+                          icon: const Icon(Icons.arrow_back),
+                          label: Text(state.currentStep == 0 ? 'Exit' : 'Back'),
+                        ),
+                      ),
+                    ),
+                    // Center: Calculate button (only on Step 2)
+                    if (state.currentStep == 1)
+                      Tooltip(
+                        message: !state.isCalcFormValid 
+                            ? 'Fix form errors before calculating'
+                            : state.calcParams == null 
+                                ? 'Configure parameters first'
+                                : '',
+                        child: ElevatedButton.icon(
+                          onPressed: (state.calcParams != null && state.isCalcFormValid && !state.isCalculating)
+                              ? () => bloc.add(const WizardCalculateRequested())
+                              : null,
+                          icon: state.isCalculating
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.calculate, size: 22),
+                          label: Text(
+                            state.isCalculating ? 'CALCULATING...' : 'CALCULATE',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).brightness == Brightness.dark 
+                                ? Colors.white 
+                                : Colors.grey.shade900,
+                            foregroundColor: Theme.of(context).brightness == Brightness.dark 
+                                ? Colors.grey.shade900 
+                                : Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    // Right side buttons
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Save Draft button
+                            OutlinedButton.icon(
+                              onPressed: isSaving 
+                                  ? null 
+                                  : () => _handleSaveDraft(context, state),
+                              icon: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  isSaving 
+                                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                                    : const Icon(Icons.save),
+                                  if (state.hasUnsavedChanges && !isSaving)
+                                    Positioned(
+                                      right: -4,
+                                      top: -4,
+                                      child: Container(
+                                        width: 10,
+                                        height: 10,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.orange,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              label: const Text('Save Draft'),
+                            ),
+                            const SizedBox(width: 16),
+                            // Next/Finish button
+                            if (state.currentStep < 2)
+                              FilledButton.icon(
+                                onPressed: _canProceedToNextStep(state) 
+                                    ? () => _handleNextStep(context, state)
+                                    : null,
+                                icon: const Icon(Icons.arrow_forward),
+                                label: const Text('Next Step'),
+                              )
+                            else
+                              ElevatedButton.icon(
+                                onPressed: () => bloc.add(const WizardFinish()),
+                                icon: const Icon(Icons.check_circle),
+                                label: const Text('Finish Configuration'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  bool _canProceedToNextStep(WizardState state) {
+    switch (state.currentStep) {
+      case 0:
+        return state.canProceedToStep2;
+      case 1:
+        return state.canProceedToStep3;
+      default:
+        return true;
     }
   }
   
-  /// Parse cheapest path array to dict format for API
-  Map<String, String?> _parseCheapestPath(List<String> path) {
-    final result = <String, String?>{
-      'l1': null, 'l2': null, 'l3_hot': null, 
-      'l3_cool': null, 'l3_archive': null, 'l4': null, 'l5': null,
-    };
-    for (final segment in path) {
-      final parts = segment.split('_');
-      if (parts.isEmpty) continue;
-      
-      final layer = parts[0].toUpperCase();
-      
-      if (layer == 'L3' && parts.length >= 3) {
-        final tier = parts[1].toLowerCase();
-        result['l3_$tier'] = parts[2].toUpperCase();
-      } else if (parts.length >= 2) {
-        result[layer.toLowerCase()] = parts[1].toUpperCase();
-      }
-    }
-    return result;
+  Widget _buildStepIndicator(BuildContext context, WizardState state) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildStep(context, state, 0, '1. Configuration', Icons.settings),
+              _buildConnector(state, 0),
+              _buildStep(context, state, 1, '2. Optimizer', Icons.analytics),
+              _buildConnector(state, 1),
+              _buildStep(context, state, 2, '3. Deployer', Icons.cloud_upload),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer.withAlpha(100),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            'Step ${state.currentStep + 1} / 3',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
   }
-
-  Future<void> _showExitConfirmation(BuildContext context) async {
-    // If no unsaved changes, just exit
-    if (!_cache.hasUnsavedChanges) {
-      _cache.clear();
+  
+  Widget _buildStep(BuildContext context, WizardState state, int index, String label, IconData icon) {
+    final isActive = state.currentStep == index;
+    final isCompleted = state.highestStepReached > index;
+    
+    return InkWell(
+      onTap: () => _handleStepClick(context, state, index),
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isCompleted 
+                  ? Colors.green 
+                  : isActive 
+                    ? Theme.of(context).colorScheme.primary 
+                    : (index <= state.highestStepReached)
+                      ? Theme.of(context).colorScheme.primary.withAlpha(150)
+                      : Colors.grey.shade300,
+              ),
+              child: Icon(
+                isCompleted ? Icons.check : icon,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                color: index <= state.highestStepReached 
+                  ? null 
+                  : Colors.grey.shade500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildConnector(WizardState state, int afterIndex) {
+    final isActive = state.highestStepReached > afterIndex;
+    return Container(
+      width: 60,
+      height: 2,
+      margin: const EdgeInsets.only(bottom: 20),
+      color: isActive ? Colors.green : Colors.grey.shade300,
+    );
+  }
+  
+  Widget _buildStepContent(BuildContext context, WizardState state) {
+    switch (state.currentStep) {
+      case 0:
+        return const Step1Configuration();
+      case 1:
+        return const Step2Optimizer();
+      case 2:
+        return const Step3Deployer();
+      default:
+        return const SizedBox();
+    }
+  }
+  
+  Future<void> _showExitConfirmation(BuildContext context, WizardState state) async {
+    // If no unsaved changes and no invalidation, just exit
+    if (!state.hasUnsavedChanges && !state.step3Invalidated) {
+      ref.invalidate(twinsProvider);
       context.go('/dashboard');
       return;
     }
     
+    // Different dialog for invalidation case
+    if (state.step3Invalidated) {
+      final result = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+              SizedBox(width: 12),
+              Text('Configuration Changed'),
+            ],
+          ),
+          content: const Text(
+            'Your new calculation affects Step 3.\n\n'
+            'If you save now, Step 3 configuration will be reset to match the new calculation.'
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'discard'),
+              child: const Text('Leave Without Saving'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, 'save'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Save & Leave'),
+            ),
+          ],
+        ),
+      );
+
+      if (!context.mounted) return;
+
+      switch (result) {
+        case 'discard':
+          ref.invalidate(twinsProvider);
+          context.go('/dashboard');
+          break;
+        case 'save':
+          // Clear invalidation, save, then navigate
+          context.read<WizardBloc>().add(const WizardProceedAndSave());
+          // Wait for save then navigate
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (context.mounted) {
+              ref.invalidate(twinsProvider);
+              context.go('/dashboard');
+            }
+          });
+          break;
+        case 'cancel':
+        default:
+          break;
+      }
+      return;
+    }
+    
+    // Normal unsaved changes dialog
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -275,163 +636,164 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
 
     switch (result) {
       case 'discard':
-        _cache.clear();
+        ref.invalidate(twinsProvider);
         context.go('/dashboard');
         break;
       case 'save':
-        final saved = await _saveDraftToDatabase();
-        if (saved && context.mounted) {
-          _cache.clear();
-          context.go('/dashboard');
-        }
+        context.read<WizardBloc>().add(const WizardSaveDraft());
         break;
       case 'cancel':
       default:
-        // Do nothing, stay on page
         break;
     }
   }
   
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Twin2MultiCloud'),
-        automaticallyImplyLeading: false,
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-        actions: [
-          IconButton(
-            icon: Icon(
-              ref.watch(themeProvider) == ThemeMode.dark
-                  ? Icons.light_mode
-                  : Icons.dark_mode,
-            ),
-            onPressed: () => ref.read(themeProvider.notifier).toggle(),
-            tooltip: 'Toggle theme',
-          ),
-          const CircleAvatar(child: Icon(Icons.person)),
-          const SizedBox(width: 16),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Screen-specific header with title and close button
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => _showExitConfirmation(context),
-                  tooltip: 'Close',
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _activeTwinId == null ? 'Create Digital Twin' : 'Edit Digital Twin',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-              ],
-            ),
-          ),
-          _buildStepIndicator(),
-          const Divider(height: 1),
-          Expanded(
-            child: _isLoading 
-              ? const Center(child: CircularProgressIndicator())
-              : _buildStepContent(),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildStepIndicator() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _buildStep(0, 'Configuration', Icons.settings),
-          _buildConnector(0),
-          _buildStep(1, 'Optimizer', Icons.analytics),
-          _buildConnector(1),
-          _buildStep(2, 'Deployer', Icons.cloud_upload),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildStep(int index, String label, IconData icon) {
-    final isActive = _currentStep == index;
-    final isCompleted = _currentStep > index;
+  /// Show confirmation dialog when Step 3 will be invalidated
+  /// Returns: 'proceed' (keep new results), 'restore' (keep old data), or null (cancel)
+  Future<String?> _showInvalidationConfirmation(BuildContext context, WizardState state) async {
+    final canDiscard = state.savedCalcResult != null;
     
-    return Column(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isCompleted 
-              ? Colors.green 
-              : isActive 
-                ? Theme.of(context).colorScheme.primary 
-                : Colors.grey.shade300,
-          ),
-          child: Icon(
-            isCompleted ? Icons.check : icon,
-            color: Colors.white,
-            size: 20,
-          ),
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+            SizedBox(width: 12),
+            Text('Configuration Changed'),
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-          ),
+        content: Text(
+          'Your new calculation has different parameters that may affect Step 3 configuration.\n\n'
+          'What would you like to do?'
+          '${!canDiscard ? '\n\n(Discard not available - no saved version exists)' : ''}',
         ),
-      ],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null), // Cancel
+            child: const Text('Cancel'),
+          ),
+          OutlinedButton(
+            onPressed: canDiscard ? () => Navigator.pop(ctx, 'restore') : null,
+            child: const Text('Discard Changes'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, 'proceed'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Keep New Results'),
+          ),
+        ],
+      ),
     );
   }
   
-  Widget _buildConnector(int afterIndex) {
-    final isActive = _currentStep > afterIndex;
-    return Container(
-      width: 60,
-      height: 2,
-      margin: const EdgeInsets.only(bottom: 20),
-      color: isActive ? Colors.green : Colors.grey.shade300,
-    );
+  /// Handle Save Draft with potential invalidation confirmation
+  Future<void> _handleSaveDraft(BuildContext context, WizardState state) async {
+    if (state.step3Invalidated) {
+      final result = await _showInvalidationConfirmation(context, state);
+      if (!context.mounted) return;
+      
+      switch (result) {
+        case 'proceed':
+          context.read<WizardBloc>().add(const WizardProceedAndSave());
+          break;
+        case 'restore':
+          context.read<WizardBloc>().add(const WizardRestoreOldResults());
+          break;
+        default:
+          // Cancel - do nothing
+          break;
+      }
+    } else {
+      context.read<WizardBloc>().add(const WizardSaveDraft());
+    }
   }
   
-  Widget _buildStepContent() {
-    switch (_currentStep) {
-      case 0:
-        return Step1Configuration(
-          twinId: _activeTwinId,
-          cache: _cache,
-          isSaving: _isSaving,
-          onNext: () => setState(() => _currentStep = 1),
-          onBack: () => _showExitConfirmation(context),
-          onSaveDraft: _saveDraftToDatabase,
-          onCacheChanged: () => setState(() {}),  // Trigger rebuild to update UI
-        );
-      case 1:
-        return Step2Optimizer(
-          twinId: _activeTwinId,
-          cache: _cache,
-          isSaving: _isSaving,
-          onNext: () => setState(() => _currentStep = 2),
-          onBack: () => setState(() => _currentStep = 0),
-          onSaveDraft: _saveDraftToDatabase,
-          onCacheChanged: () => setState(() {}),
-        );
-      case 2:
-        return const Center(child: Text('Step 3: Deployer (Sprint 4)'));
-      default:
-        return const SizedBox();
+  /// Handle Next Step with potential invalidation confirmation
+  Future<void> _handleNextStep(BuildContext context, WizardState state) async {
+    if (state.step3Invalidated) {
+      final result = await _showInvalidationConfirmation(context, state);
+      if (!context.mounted) return;
+      
+      switch (result) {
+        case 'proceed':
+          context.read<WizardBloc>().add(const WizardProceedAndNext());
+          break;
+        case 'restore':
+          context.read<WizardBloc>().add(const WizardRestoreOldResults());
+          break;
+        default:
+          // Cancel - do nothing
+          break;
+      }
+    } else {
+      context.read<WizardBloc>().add(const WizardNextStep());
+    }
+  }
+  
+  /// Handle Back button with potential invalidation confirmation
+  Future<void> _handleBack(BuildContext context, WizardState state) async {
+    if (state.currentStep == 0) {
+      await _showExitConfirmation(context, state);
+      return;
+    }
+    
+    // Show invalidation confirmation if step3 is invalidated
+    if (state.step3Invalidated) {
+      final result = await _showInvalidationConfirmation(context, state);
+      if (!context.mounted) return;
+      
+      switch (result) {
+        case 'proceed':
+          // Clear invalidation and go back
+          context.read<WizardBloc>().add(const WizardClearInvalidation());
+          context.read<WizardBloc>().add(const WizardPreviousStep());
+          break;
+        case 'restore':
+          context.read<WizardBloc>().add(const WizardRestoreOldResults());
+          context.read<WizardBloc>().add(const WizardPreviousStep());
+          break;
+        default:
+          // Cancel - do nothing
+          break;
+      }
+    } else {
+      context.read<WizardBloc>().add(const WizardPreviousStep());
+    }
+  }
+  
+  /// Handle step indicator click with potential invalidation confirmation
+  Future<void> _handleStepClick(BuildContext context, WizardState state, int targetStep) async {
+    // Ignore if step not reachable
+    if (targetStep > state.highestStepReached) return;
+    
+    // Ignore if already on this step
+    if (targetStep == state.currentStep) return;
+    
+    // Show invalidation confirmation if step3 is invalidated
+    if (state.step3Invalidated) {
+      final result = await _showInvalidationConfirmation(context, state);
+      if (!context.mounted) return;
+      
+      switch (result) {
+        case 'proceed':
+          // Clear invalidation and navigate
+          context.read<WizardBloc>().add(const WizardClearInvalidation());
+          context.read<WizardBloc>().add(WizardGoToStep(targetStep));
+          break;
+        case 'restore':
+          context.read<WizardBloc>().add(const WizardRestoreOldResults());
+          context.read<WizardBloc>().add(WizardGoToStep(targetStep));
+          break;
+        default:
+          // Cancel - do nothing
+          break;
+      }
+    } else {
+      context.read<WizardBloc>().add(WizardGoToStep(targetStep));
     }
   }
 }

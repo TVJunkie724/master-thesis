@@ -2,17 +2,15 @@
 Context Factory - Creates Deployment contexts.
 
 This module provides factory functions to create DeploymentContext objects,
-handling configuration loading, credential loading, and provider initialization.
-It serves as the entry point for both CLI and API to establish a session.
+handling configuration loading. Provider initialization is handled separately
+by TerraformDeployerStrategy._initialize_providers() at deployment time.
 
-Moves dependency injection logic out of main.py to be reusable.
+It serves as the entry point for both CLI and API to establish a session.
 """
 
 from pathlib import Path
-from logger import logger
-from core.config_loader import load_project_config, load_credentials, get_required_providers
+from core.config_loader import load_project_config
 from core.context import DeploymentContext
-from core.registry import ProviderRegistry
 import constants as CONSTANTS
 
 def get_project_path() -> Path:
@@ -26,46 +24,31 @@ def get_upload_path(project_name: str) -> Path:
 
 def create_context(project_name: str, provider_name: str = None) -> DeploymentContext:
     """
-    Create a DeploymentContext for a project.
+    Create a lightweight DeploymentContext for a project.
+    
+    Note: This creates a context WITHOUT initialized providers.
+    Provider initialization is handled by TerraformDeployerStrategy._initialize_providers()
+    at deployment time, which knows exactly which providers are needed based on
+    the actual layer configuration.
     
     Args:
         project_name: Name of the project
-        provider_name: Optional provider to initialize (e.g., "aws")
+        provider_name: Optional (unused, kept for API compatibility)
         
     Returns:
-        Initialized DeploymentContext
+        DeploymentContext with config loaded but providers not yet initialized
     """
     project_path = get_upload_path(project_name)
     
     # Load configuration
     config = load_project_config(project_path)
-    credentials = load_credentials(project_path)
     
-    # Create context
+    # Create lightweight context (providers initialized later by deployer strategy)
     context = DeploymentContext(
         project_name=project_name,
         project_path=project_path,
         config=config,
     )
     
-    # Initialize required providers
-    required = get_required_providers(config) if provider_name is None else {provider_name}
-    
-    for prov_name in required:
-        try:
-            # Skip if provider name is NONE or empty
-            if not prov_name or prov_name.upper() == "NONE":
-                continue
-                
-            provider = ProviderRegistry.get(prov_name)
-            creds = credentials.get(prov_name, {})
-            
-            # AWS can use env vars, so we initialize even if creds dict is empty
-            if creds or prov_name == "aws": 
-                provider.initialize_clients(creds, config.digital_twin_name)
-                context.providers[prov_name] = provider
-                
-        except Exception as e:
-            logger.warning(f"Could not initialize {prov_name} provider: {e}")
-    
     return context
+

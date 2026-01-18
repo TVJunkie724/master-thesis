@@ -53,3 +53,4 @@ google-cloud-resource-manager
 google-cloud-service-usage
 google-cloud-functions
 google-cloud-run
+google-cloud-billing

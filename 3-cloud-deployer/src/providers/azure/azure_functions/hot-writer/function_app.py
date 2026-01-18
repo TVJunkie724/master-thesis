@@ -123,12 +123,15 @@ def hot_writer(req: func.HttpRequest) -> func.HttpResponse:
             )
         
         # 4. Ensure required fields for Cosmos DB
-        if "id" not in payload and "time" in payload:
-            payload["id"] = str(payload.pop("time"))
+        if "id" not in payload:
+            if "timestamp" in payload:
+                payload["id"] = str(payload["timestamp"])
+            elif "time" in payload:
+                payload["id"] = str(payload.pop("time"))
         
-        if "iotDeviceId" not in payload:
+        if "device_id" not in payload and "iotDeviceId" not in payload:
             return func.HttpResponse(
-                json.dumps({"error": "Bad Request", "message": "Missing 'iotDeviceId'"}),
+                json.dumps({"error": "Bad Request", "message": "Missing 'device_id'"}),
                 status_code=400,
                 mimetype="application/json"
             )
@@ -153,7 +156,7 @@ def hot_writer(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
-        logging.error(f"Hot Writer Error: {e}")
+        logging.exception(f"Hot Writer Error: {e}")
         return func.HttpResponse(
             json.dumps({"error": str(e)}),
             status_code=500,

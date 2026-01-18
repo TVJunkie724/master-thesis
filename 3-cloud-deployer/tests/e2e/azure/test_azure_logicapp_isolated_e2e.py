@@ -1,0 +1,271 @@
+"""
+Azure Logic App Isolated E2E Test
+
+Pytest-compatible E2E test for Azure Logic App workflow creation.
+This test replicates the PRODUCTION deployment pattern:
+1. Creates empty Logic App workflow container
+2. Applies full workflow definition via ARM template
+
+The test deploys using the actual template's azure_logic_app.json file
+to match production behavior exactly.
+
+Prerequisites:
+- Azure credentials in config_credentials.json
+
+Usage:
+    docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \\
+        python tests/e2e/run_e2e_test.py azure-logicapp-isolated
+"""
+
+import json
+import subprocess
+import time
+import os
+import pytest
+from pathlib import Path
+
+
+# Directory where this test file lives
+TEST_DIR = Path(__file__).parent
+TERRAFORM_SOURCE_DIR = TEST_DIR.parent / "azure_logicapp_isolated_test"
+DEPLOYER_ROOT = TEST_DIR.parent.parent.parent
+TEMPLATE_STATE_MACHINE = DEPLOYER_ROOT / "upload" / "template" / "state_machines" / "azure_logic_app.json"
+
+
+def load_azure_credentials() -> dict:
+    """Load Azure credentials from config_credentials.json."""
+    creds_paths = [
+        DEPLOYER_ROOT / "config_credentials.json",
+        Path("/app/config_credentials.json"),
+        Path("/app/upload/template/config_credentials.json"),
+    ]
+    
+    for creds_path in creds_paths:
+        if creds_path.exists():
+            with open(creds_path) as f:
+                creds = json.load(f)
+            
+            azure = creds.get("azure", {})
+            if not azure.get("azure_subscription_id"):
+                continue
+            
+            return {
+                "azure_subscription_id": azure.get("azure_subscription_id"),
+                "azure_tenant_id": azure.get("azure_tenant_id"),
+                "azure_client_id": azure.get("azure_client_id"),
+                "azure_client_secret": azure.get("azure_client_secret"),
+                "azure_region": azure.get("azure_region", "westeurope"),
+            }
+    
+    pytest.skip("Azure credentials not found in config_credentials.json")
+
+
+class TestAzureLogicAppIsolatedE2E:
+    """E2E tests for Azure Logic App - Isolated deployment test."""
+    
+    @pytest.fixture(scope="class")
+    def terraform_workspace(self):
+        """Use the persistent azure_logicapp_isolated_test folder for Terraform state."""
+        workspace_path = TERRAFORM_SOURCE_DIR
+        
+        if not workspace_path.exists():
+            pytest.fail(f"Terraform source dir not found: {workspace_path}")
+        
+        if not (workspace_path / "main.tf").exists():
+            pytest.fail(f"main.tf not found in: {workspace_path}")
+        
+        print(f"\n📁 Using workspace: {workspace_path}")
+        
+        yield workspace_path
+    
+    @pytest.fixture(scope="class")
+    def tfvars(self, terraform_workspace):
+        """Generate tfvars.json with credentials."""
+        azure_creds = load_azure_credentials()
+        
+        # Use static name for idempotent test runs (allows cleanup script to find it)
+        unique_name = "iso-logicapp"
+        
+        tfvars = {
+            **azure_creds,
+            "test_name": unique_name,
+            "workflow_definition_file": str(TEMPLATE_STATE_MACHINE),
+        }
+        
+        print(f"\n📝 Test Configuration:")
+        print(f"   Name: {unique_name}")
+        print(f"   Workflow JSON: {TEMPLATE_STATE_MACHINE}")
+        
+        tfvars_path = terraform_workspace / "test.tfvars.json"
+        with open(tfvars_path, "w") as f:
+            json.dump(tfvars, f, indent=2)
+        
+        return tfvars_path
+    
+    def test_01_verify_template_exists(self):
+        """Verify the template's azure_logic_app.json exists."""
+        assert TEMPLATE_STATE_MACHINE.exists(), \
+            f"Template state machine not found: {TEMPLATE_STATE_MACHINE}"
+        
+        # Verify it has the expected structure
+        with open(TEMPLATE_STATE_MACHINE) as f:
+            content = json.load(f)
+        
+        assert "definition" in content, \
+            "azure_logic_app.json should have a 'definition' wrapper"
+        assert "$schema" in content["definition"], \
+            "definition should have $schema"
+        assert "triggers" in content["definition"], \
+            "definition should have triggers section"
+        assert "actions" in content["definition"], \
+            "definition should have actions section"
+        
+        print(f"\n✅ Template JSON verified:")
+        print(f"   Triggers: {list(content['definition']['triggers'].keys())}")
+        print(f"   Actions: {list(content['definition']['actions'].keys())}")
+    
+    def test_02_terraform_init(self, terraform_workspace, tfvars):
+        """Test Terraform initialization."""
+        print(f"\n📁 Workspace: {terraform_workspace}")
+        
+        result = subprocess.run(
+            ["terraform", "init", "-no-color"],
+            cwd=terraform_workspace,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        
+        print(result.stdout)
+        if result.returncode != 0:
+            print(result.stderr)
+            pytest.fail(f"terraform init failed: {result.stderr}")
+        
+        assert (terraform_workspace / ".terraform").exists()
+    
+    def test_03_terraform_validate(self, terraform_workspace, tfvars):
+        """Test Terraform validation."""
+        result = subprocess.run(
+            ["terraform", "validate", "-no-color"],
+            cwd=terraform_workspace,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        
+        print(result.stdout)
+        if result.returncode != 0:
+            print(result.stderr)
+            pytest.fail(f"terraform validate failed: {result.stderr}")
+    
+    def test_04_terraform_plan(self, terraform_workspace, tfvars):
+        """Test Terraform plan."""
+        result = subprocess.run(
+            [
+                "terraform", "plan",
+                "-no-color",
+                f"-var-file={tfvars}",
+                "-out=plan.tfplan",
+            ],
+            cwd=terraform_workspace,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        
+        print(result.stdout)
+        
+        if result.returncode != 0:
+            print(result.stderr)
+            pytest.fail(f"terraform plan failed: {result.stderr}")
+        
+        assert (terraform_workspace / "plan.tfplan").exists()
+    
+    def test_05_terraform_apply(self, terraform_workspace, tfvars):
+        """Test Terraform apply - creates Logic App with workflow definition."""
+        result = subprocess.run(
+            [
+                "terraform", "apply",
+                "-no-color",
+                "-auto-approve",
+                "plan.tfplan",
+            ],
+            cwd=terraform_workspace,
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        
+        print(result.stdout)
+        
+        if result.returncode != 0:
+            print(result.stderr)
+            pytest.fail(f"terraform apply failed: {result.stderr}")
+        
+        assert (terraform_workspace / "terraform.tfstate").exists()
+    
+    def test_06_verify_outputs(self, terraform_workspace):
+        """Verify Terraform outputs and display portal URLs."""
+        result = subprocess.run(
+            ["terraform", "output", "-json"],
+            cwd=terraform_workspace,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        
+        if result.returncode != 0:
+            pytest.fail(f"terraform output failed: {result.stderr}")
+        
+        outputs = json.loads(result.stdout)
+        
+        # Verify Logic App was created
+        assert outputs.get("logic_app_id", {}).get("value"), \
+            "Logic App ID should exist"
+        
+        # Print summary
+        print("\n" + "=" * 70)
+        print(outputs.get("test_summary", {}).get("value", ""))
+        print("=" * 70)
+        
+        print("\n📋 Key Outputs:")
+        print(f"   Logic App: {outputs.get('logic_app_name', {}).get('value', 'unknown')}")
+        print(f"   Access Endpoint: {outputs.get('access_endpoint', {}).get('value', 'unknown')}")
+        print(f"\n🔗 Portal Designer URL:")
+        print(f"   {outputs.get('portal_designer_url', {}).get('value', 'unknown')}")
+    
+    def test_07_cleanup(self, terraform_workspace, tfvars):
+        """Cleanup test resources."""
+        # Check if cleanup is explicitly disabled
+        skip_cleanup = os.environ.get("E2E_SKIP_CLEANUP", "false").lower() == "true"
+        
+        if skip_cleanup:
+            print("\n⏸️  CLEANUP SKIPPED - Resources left for manual inspection")
+            print(f"\nTo destroy manually:")
+            print(f"    cd {terraform_workspace}")
+            print(f"    terraform destroy -var-file=test.tfvars.json -auto-approve")
+            return
+        
+        print("\n🧹 Cleaning up test resources...")
+        result = subprocess.run(
+            [
+                "terraform", "destroy",
+                "-no-color",
+                "-auto-approve",
+                f"-var-file={tfvars}",
+            ],
+            cwd=terraform_workspace,
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        
+        print(result.stdout)
+        
+        if result.returncode != 0:
+            print(result.stderr)
+            print("⚠️ Warning: destroy had errors, resources may need manual cleanup")
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "-s"])

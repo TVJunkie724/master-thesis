@@ -71,7 +71,7 @@ resource "azurerm_cosmosdb_sql_container" "hot" {
   resource_group_name = azurerm_resource_group.main[0].name
   account_name        = azurerm_cosmosdb_account.main[0].name
   database_name       = azurerm_cosmosdb_sql_database.main[0].name
-  partition_key_paths = ["/deviceId"]
+  partition_key_paths = ["/device_id"]
 
   # TTL disabled - data moves to cold storage via mover function
   default_ttl = -1
@@ -177,7 +177,7 @@ resource "azurerm_linux_function_app" "l3" {
 
     # Storage account for cold/archive
     BLOB_CONNECTION_STRING    = local.azure_storage_connection_string
-    COLD_STORAGE_CONTAINER    = azurerm_storage_container.cold[0].name
+    COLD_STORAGE_CONTAINER    = var.layer_3_cold_provider == "azure" ? azurerm_storage_container.cold[0].name : ""
     ARCHIVE_STORAGE_CONTAINER = var.layer_3_archive_provider == "azure" ? azurerm_storage_container.archive[0].name : ""
 
     # Mover intervals (in days)
