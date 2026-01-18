@@ -47,6 +47,12 @@ class CalculationHelper {
     List<String> path, 
     Set<String> configuredProviders
   ) {
+    final resultProviders = extractProvidersFromPath(path);
+    return resultProviders.difference(configuredProviders);
+  }
+  
+  /// Extract all providers from a cheapest path
+  static Set<String> extractProvidersFromPath(List<String> path) {
     final resultProviders = <String>{};
     for (final segment in path) {
       final parts = segment.split('_');
@@ -56,7 +62,7 @@ class CalculationHelper {
         resultProviders.add(parts[1].toUpperCase());
       }
     }
-    return resultProviders.difference(configuredProviders);
+    return resultProviders;
   }
   
   /// Build warning message for calculation result

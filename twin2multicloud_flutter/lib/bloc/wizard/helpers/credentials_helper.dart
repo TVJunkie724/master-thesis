@@ -95,4 +95,36 @@ class CredentialsHelper {
       'gcp': gcpCreds,
     };
   }
+  
+  /// Check if a credentials map has stored values
+  static bool hasStoredCredentials(Map<String, String>? credentials) {
+    if (credentials == null) return false;
+    return credentials.isNotEmpty;
+  }
+  
+  /// Get required fields for a provider
+  static List<String> getRequiredFields(String provider) {
+    switch (provider.toLowerCase()) {
+      case 'aws':
+        return ['access_key_id', 'secret_access_key', 'region'];
+      case 'azure':
+        return ['subscription_id', 'client_id', 'client_secret', 'tenant_id'];
+      case 'gcp':
+        return ['project_id', 'service_account_json'];
+      default:
+        return [];
+    }
+  }
+  
+  /// Check if all required fields for a provider are filled
+  static bool areAllRequiredFieldsFilled(String provider, Map<String, String>? credentials) {
+    if (credentials == null) return false;
+    final required = getRequiredFields(provider);
+    for (final field in required) {
+      if (!credentials.containsKey(field) || credentials[field]?.isEmpty == true) {
+        return false;
+      }
+    }
+    return true;
+  }
 }
