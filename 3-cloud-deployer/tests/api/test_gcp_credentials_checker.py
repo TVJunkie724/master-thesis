@@ -9,6 +9,25 @@ import os
 from pathlib import Path
 
 
+# Helper to create mock SA parse return value (tuple format)
+def _make_mock_parse_return(project_id="test-project", client_email="sa@test.iam.gserviceaccount.com"):
+    """Create the (display_info, sa_info, credentials) tuple that _parse_service_account_json returns."""
+    display_info = {
+        "project_id": project_id,
+        "client_email": client_email,
+        "private_key_id": "abc123..."
+    }
+    sa_info = {
+        "type": "service_account",
+        "project_id": project_id,
+        "client_email": client_email,
+        "private_key_id": "abc123def456",
+        "private_key": "-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----\n"
+    }
+    mock_credentials = MagicMock()
+    return (display_info, sa_info, mock_credentials)
+
+
 class TestGCPProjectStateValidation:
     """Tests for GCP project state validation."""
 
@@ -20,11 +39,7 @@ class TestGCPProjectStateValidation:
         """Test validation fails for projects marked for deletion."""
         from api.gcp_credentials_checker import check_gcp_credentials
         
-        mock_parse.return_value = {
-            "project_id": "test-project",
-            "client_email": "sa@test.iam.gserviceaccount.com",
-            "private_key_id": "abc123..."
-        }
+        mock_parse.return_value = _make_mock_parse_return()
         mock_project_access.return_value = {
             "status": "accessible",
             "project_id": "test-project",
@@ -54,11 +69,7 @@ class TestGCPProjectStateValidation:
         """Test active projects proceed with validation."""
         from api.gcp_credentials_checker import check_gcp_credentials
         
-        mock_parse.return_value = {
-            "project_id": "test-project",
-            "client_email": "sa@test.iam.gserviceaccount.com",
-            "private_key_id": "abc123..."
-        }
+        mock_parse.return_value = _make_mock_parse_return()
         mock_project_access.return_value = {
             "status": "accessible",
             "project_id": "test-project",
@@ -97,11 +108,7 @@ class TestGCPBillingValidation:
         """Test validation fails when billing is not enabled."""
         from api.gcp_credentials_checker import check_gcp_credentials
         
-        mock_parse.return_value = {
-            "project_id": "test-project",
-            "client_email": "sa@test.iam.gserviceaccount.com",
-            "private_key_id": "abc123..."
-        }
+        mock_parse.return_value = _make_mock_parse_return()
         mock_project_access.return_value = {
             "status": "accessible",
             "project_id": "test-project",
@@ -135,11 +142,7 @@ class TestGCPBillingValidation:
         """Test that billing check is skipped gracefully if SDK not installed."""
         from api.gcp_credentials_checker import check_gcp_credentials
         
-        mock_parse.return_value = {
-            "project_id": "test-project",
-            "client_email": "sa@test.iam.gserviceaccount.com",
-            "private_key_id": "abc123..."
-        }
+        mock_parse.return_value = _make_mock_parse_return()
         mock_project_access.return_value = {
             "status": "accessible",
             "project_id": "test-project",

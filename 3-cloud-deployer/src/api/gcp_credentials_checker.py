@@ -74,53 +74,42 @@ REQUIRED_GCP_ROLES = [
 ]
 
 
-def _parse_service_account_json(credentials_path: str) -> dict:
+def _parse_service_account_json(credentials_input: str) -> tuple:
     """
-    Parse and validate service account JSON file.
+    Parse and validate service account JSON from file path OR raw JSON content.
+    
+    This is a thin wrapper around the shared parse_gcp_service_account() utility.
+    Maintains the same interface for backward compatibility with existing callers.
     
     Args:
-        credentials_path: Path to the service account JSON file
+        credentials_input: Either a file path to the service account JSON file
+                          OR the raw JSON content string (detected automatically)
     
     Returns:
-        Dict with parsed service account info
+        Tuple of (display_info, sa_info, credentials) where:
+        - display_info: Dict with project_id, client_email, and masked private_key_id
+        - sa_info: The complete SA info dict
+        - credentials: google.oauth2.service_account.Credentials for SDK clients
     
     Raises:
-        ValueError: If file doesn't exist or is invalid
+        ValueError: If input is invalid or missing required fields
     """
-    path = Path(credentials_path)
+    from src.utils.gcp_utils import parse_gcp_service_account
     
-    if not path.exists():
-        raise ValueError(f"Service account file not found: {credentials_path}")
-    
-    try:
-        with open(path) as f:
-            sa_info = json.load(f)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON in service account file: {e}")
-    
-    # Validate required fields
-    required_fields = ["type", "project_id", "client_email"]
-    missing = [f for f in required_fields if f not in sa_info]
-    
-    if missing:
-        raise ValueError(f"Service account JSON missing required fields: {missing}")
-    
-    if sa_info["type"] != "service_account":
-        raise ValueError(f"Invalid credential type: {sa_info['type']}. Expected 'service_account'.")
-    
-    return {
-        "project_id": sa_info["project_id"],
-        "client_email": sa_info["client_email"],
-        "private_key_id": sa_info.get("private_key_id", "")[:8] + "...",  # Masked
-    }
+    # Shared utility returns (sa_info, display_info, credentials)
+    # We reorder to (display_info, sa_info, credentials) for backward compatibility
+    sa_info, display_info, credentials = parse_gcp_service_account(credentials_input)
+    return display_info, sa_info, credentials
 
 
-def _check_project_access(project_id: str) -> dict:
+
+def _check_project_access(project_id: str, credentials=None) -> dict:
     """
     Check if credentials can access the project.
     
     Args:
         project_id: GCP project ID
+        credentials: Optional google.oauth2 credentials object. If None, uses default.
     
     Returns:
         Dict with project access status
@@ -128,7 +117,7 @@ def _check_project_access(project_id: str) -> dict:
     try:
         from google.cloud import resourcemanager_v3
         
-        client = resourcemanager_v3.ProjectsClient()
+        client = resourcemanager_v3.ProjectsClient(credentials=credentials)
         project_name = f"projects/{project_id}"
         
         try:
@@ -172,13 +161,15 @@ def _check_project_access(project_id: str) -> dict:
         return {"status": "error", "error": str(e)}
 
 
-def _validate_gcp_region(project_id: str, region: str) -> dict:
+
+def _validate_gcp_region(project_id: str, region: str, credentials=None) -> dict:
     """
     Validate GCP region exists for the project.
     
     Args:
         project_id: GCP project ID
         region: Region to validate (e.g., 'europe-west1')
+        credentials: Optional google.oauth2 credentials object. If None, uses default.
     
     Returns:
         Dict with 'valid' bool and either 'region' or 'error'
@@ -186,7 +177,7 @@ def _validate_gcp_region(project_id: str, region: str) -> dict:
     try:
         from google.cloud import compute_v1
         
-        client = compute_v1.RegionsClient()
+        client = compute_v1.RegionsClient(credentials=credentials)
         regions = list(client.list(project=project_id))
         valid_region_names = {r.name for r in regions}
         
@@ -210,12 +201,14 @@ def _validate_gcp_region(project_id: str, region: str) -> dict:
         return {"valid": False, "error": f"Failed to validate region: {str(e)}"}  
 
 
-def _check_enabled_apis(project_id: str) -> dict:
+
+def _check_enabled_apis(project_id: str, credentials=None) -> dict:
     """
     Check which required APIs are enabled for the project.
     
     Args:
         project_id: GCP project ID
+        credentials: Optional google.oauth2 credentials object. If None, uses default.
     
     Returns:
         Dict with API status by layer
@@ -223,7 +216,7 @@ def _check_enabled_apis(project_id: str) -> dict:
     try:
         from google.cloud import service_usage_v1
         
-        client = service_usage_v1.ServiceUsageClient()
+        client = service_usage_v1.ServiceUsageClient(credentials=credentials)
         parent = f"projects/{project_id}"
         
         # Get list of enabled services
@@ -269,7 +262,8 @@ def _check_enabled_apis(project_id: str) -> dict:
         return {"status": "error", "error": str(e)}
 
 
-def _check_billing_enabled(project_id: str) -> dict:
+
+def _check_billing_enabled(project_id: str, credentials=None) -> dict:
     """
     Check if billing is enabled for the GCP project.
     
@@ -278,6 +272,7 @@ def _check_billing_enabled(project_id: str) -> dict:
     
     Args:
         project_id: GCP project ID
+        credentials: Optional google.oauth2 credentials object. If None, uses default.
     
     Returns:
         Dict with billing_enabled status
@@ -285,7 +280,7 @@ def _check_billing_enabled(project_id: str) -> dict:
     try:
         from google.cloud import billing_v1
         
-        client = billing_v1.CloudBillingClient()
+        client = billing_v1.CloudBillingClient(credentials=credentials)
         name = f"projects/{project_id}"
         
         try:
@@ -315,6 +310,7 @@ def _check_billing_enabled(project_id: str) -> dict:
         return {"status": "error", "error": str(e), "billing_enabled": None}
 
 
+
 def check_gcp_credentials(credentials: dict) -> dict:
     """
     Main entry point. Validates GCP credentials against required permissions.
@@ -341,22 +337,15 @@ def check_gcp_credentials(credentials: dict) -> dict:
         result["message"] = "Missing required credential: gcp_credentials_file"
         return result
     
-    # Early check: verify credentials file exists
-    creds_file_path = Path(credentials["gcp_credentials_file"])
-    if not creds_file_path.exists():
-        result["message"] = (
-            f"GCP credentials file not found: {credentials['gcp_credentials_file']}. "
-            f"Please verify the path in config_credentials.json points to a valid service account JSON file."
-        )
-        return result
+    # Note: Early file existence check removed - _parse_service_account_json handles both file paths AND JSON content
     
     if "gcp_region" not in credentials:
         result["message"] = "Missing required credential: gcp_region"
         return result
     
     # Dual-mode validation: either gcp_project_id OR gcp_billing_account required
-    has_project_id = credentials.get("gcp_project_id", "").strip()
-    has_billing_account = credentials.get("gcp_billing_account", "").strip()
+    has_project_id = credentials.get("gcp_project_id", "").strip() if credentials.get("gcp_project_id") else ""
+    has_billing_account = credentials.get("gcp_billing_account", "").strip() if credentials.get("gcp_billing_account") else ""
     
     if not has_project_id and not has_billing_account:
         result["message"] = (
@@ -367,9 +356,10 @@ def check_gcp_credentials(credentials: dict) -> dict:
         return result
     
     try:
-        # Step 1: Parse and validate service account JSON
+        # Step 1: Parse and validate service account JSON (handles both file path and JSON content)
+        # Returns credentials object for thread-safe SDK usage
         try:
-            sa_info = _parse_service_account_json(credentials["gcp_credentials_file"])
+            sa_info, full_sa_info, gcp_credentials = _parse_service_account_json(credentials["gcp_credentials_file"])
             result["caller_identity"] = {
                 "project_id": sa_info["project_id"],
                 "service_account": sa_info["client_email"],
@@ -382,11 +372,13 @@ def check_gcp_credentials(credentials: dict) -> dict:
         # Use service account's project for permission checks
         project_id = sa_info["project_id"]
         
-        # Set GOOGLE_APPLICATION_CREDENTIALS for SDK
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials["gcp_credentials_file"]
+        # NOTE: We pass explicit credentials to all SDK clients instead of using
+        # GOOGLE_APPLICATION_CREDENTIALS environment variable. This is:
+        # - Thread-safe (no race conditions with concurrent requests)
+        # - Production-ready (no temp files, no global state mutations)
         
         # Step 2: Check project access
-        project_access = _check_project_access(project_id)
+        project_access = _check_project_access(project_id, credentials=gcp_credentials)
         result["project_access"] = project_access
         
         if project_access["status"] != "accessible":
@@ -410,7 +402,7 @@ def check_gcp_credentials(credentials: dict) -> dict:
             return result
         
         # Step 2.6: Check billing is enabled
-        billing_status = _check_billing_enabled(project_id)
+        billing_status = _check_billing_enabled(project_id, credentials=gcp_credentials)
         result["billing_status"] = billing_status
         
         if billing_status.get("status") == "checked" and not billing_status.get("billing_enabled"):
@@ -424,7 +416,7 @@ def check_gcp_credentials(credentials: dict) -> dict:
         # Step 3: Validate region
         region = credentials.get("gcp_region", "")
         if region:
-            region_result = _validate_gcp_region(project_id, region)
+            region_result = _validate_gcp_region(project_id, region, credentials=gcp_credentials)
             result["region_validation"] = {"gcp_region": region_result}
             
             if not region_result.get("valid") and not region_result.get("skipped"):
@@ -433,7 +425,7 @@ def check_gcp_credentials(credentials: dict) -> dict:
                 return result
         
         # Step 4: Check enabled APIs
-        api_status = _check_enabled_apis(project_id)
+        api_status = _check_enabled_apis(project_id, credentials=gcp_credentials)
         result["api_status"] = api_status
         
         if api_status["status"] == "sdk_not_installed":
@@ -474,6 +466,7 @@ def check_gcp_credentials(credentials: dict) -> dict:
         result["status"] = "error"
         result["message"] = f"Unexpected error: {str(e)}"
         return result
+
 
 
 def check_gcp_credentials_from_config(project_name: Optional[str] = None) -> dict:

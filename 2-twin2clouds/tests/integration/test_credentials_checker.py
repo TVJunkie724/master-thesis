@@ -162,20 +162,20 @@ class TestGCPCredentials:
         
         assert result["status"] == "invalid"
         assert "not found" in result["message"].lower()
-        assert result["config_present"] == False
+        # Note: config_present is True because we received input (just not a valid file)
+        assert result["config_present"] == True
     
-    @patch("os.path.isfile")
-    @patch("google.oauth2.service_account.Credentials.from_service_account_file")
+    @patch("backend.gcp_utils.parse_gcp_service_account")
     @patch("google.cloud.billing_v1.CloudCatalogClient")
-    def test_check_gcp_credentials_valid(self, mock_client_class, mock_from_file, mock_isfile):
+    def test_check_gcp_credentials_valid(self, mock_client_class, mock_parse):
         """Test valid GCP credentials."""
-        mock_isfile.return_value = True
-        
-        # Mock credentials
+        # Mock the shared utility
         mock_creds = MagicMock()
-        mock_creds.project_id = "my-project"
-        mock_creds.service_account_email = "sa@my-project.iam.gserviceaccount.com"
-        mock_from_file.return_value = mock_creds
+        mock_parse.return_value = (
+            {"type": "service_account", "project_id": "my-project", "client_email": "sa@my-project.iam.gserviceaccount.com"},
+            {"project_id": "my-project", "client_email": "sa@my-project.iam.gserviceaccount.com", "private_key_id": "abc123..."},
+            mock_creds
+        )
         
         # Mock billing client
         mock_client = MagicMock()
@@ -192,17 +192,16 @@ class TestGCPCredentials:
         assert result["can_fetch_pricing"] == True
         assert result["identity"]["project_id"] == "my-project"
     
-    @patch("os.path.isfile")
-    @patch("google.oauth2.service_account.Credentials.from_service_account_file")
-    def test_check_gcp_credentials_invalid_file(self, mock_from_file, mock_isfile):
+    @patch("backend.gcp_utils.parse_gcp_service_account")
+    def test_check_gcp_credentials_invalid_file(self, mock_parse):
         """Test invalid GCP credentials file."""
-        mock_isfile.return_value = True
-        mock_from_file.side_effect = Exception("Invalid JSON")
+        mock_parse.side_effect = ValueError("Invalid JSON in service account file")
         
         result = credentials_checker.check_gcp_credentials("/config/bad_credentials.json")
         
         assert result["status"] == "invalid"
         assert "Invalid JSON" in result["message"]
+
 
 
 # =============================================================================

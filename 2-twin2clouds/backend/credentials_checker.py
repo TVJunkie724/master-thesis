@@ -182,21 +182,23 @@ def check_aws_credentials_from_config() -> Dict[str, Any]:
 # GCP Credential Validation
 # =============================================================================
 
-def check_gcp_credentials(credentials_file: Optional[str] = None) -> Dict[str, Any]:
+def check_gcp_credentials(credentials_input: Optional[str] = None) -> Dict[str, Any]:
     """
     Validate GCP credentials.
     
     Steps:
-    1. Check service account file exists
-    2. Load credentials from file
-    3. Create CloudCatalogClient and test list_services()
+    1. Load credentials from file path OR JSON content (using shared utility)
+    2. Create CloudCatalogClient and test list_services()
     
     Args:
-        credentials_file: Path to GCP service account JSON file
+        credentials_input: Either a file path to GCP service account JSON 
+                          OR the raw JSON content string (detected automatically)
         
     Returns:
         Dictionary with validation results
     """
+    from backend.gcp_utils import parse_gcp_service_account
+    
     result = {
         "provider": "gcp",
         "status": "error",
@@ -207,37 +209,35 @@ def check_gcp_credentials(credentials_file: Optional[str] = None) -> Dict[str, A
         "identity": None
     }
     
-    # Step 1: Check credentials file provided
-    if credentials_file is None:
+    # Step 1: Check credentials provided
+    if credentials_input is None:
         result["status"] = "missing"
-        result["message"] = "No GCP credentials file path provided"
-        return result
-    
-    # Check file exists
-    if not os.path.isfile(credentials_file):
-        result["status"] = "invalid"
-        result["message"] = f"GCP credentials file not found: {credentials_file}"
+        result["message"] = "No GCP credentials provided"
         return result
     
     result["config_present"] = True
     
-    # Step 2: Try to load credentials
+    # Step 2: Parse and validate credentials using shared utility
     try:
-        from google.oauth2 import service_account
         from google.cloud import billing_v1
         
-        credentials = service_account.Credentials.from_service_account_file(credentials_file)
+        sa_info, display_info, credentials = parse_gcp_service_account(credentials_input)
         
         result["credentials_valid"] = True
         result["identity"] = {
-            "project_id": credentials.project_id,
-            "service_account_email": credentials.service_account_email
+            "project_id": display_info["project_id"],
+            "service_account_email": display_info["client_email"]
         }
         
+    except ValueError as e:
+        result["status"] = "invalid"
+        result["message"] = str(e)
+        return result
     except Exception as e:
         result["status"] = "invalid"
         result["message"] = f"Error loading GCP credentials: {str(e)}"
         return result
+
     
     # Step 3: Test Cloud Billing Catalog API access
     try:
@@ -262,6 +262,7 @@ def check_gcp_credentials(credentials_file: Optional[str] = None) -> Dict[str, A
         result["message"] = f"Error accessing Cloud Billing Catalog API: {str(e)}"
     
     return result
+
 
 
 def check_gcp_credentials_from_config() -> Dict[str, Any]:
