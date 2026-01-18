@@ -33,6 +33,15 @@ resource "azurerm_iothub" "main" {
   tags = local.common_tags
 }
 
+# Data source to get the built-in iothubowner shared access policy connection string
+# Used by E2E tests to verify device registration
+data "azurerm_iothub_shared_access_policy" "iothubowner" {
+  count               = var.layer_1_provider == "azure" ? 1 : 0
+  name                = "iothubowner"
+  resource_group_name = azurerm_resource_group.main[0].name
+  iothub_name         = azurerm_iothub.main[0].name
+}
+
 # ==============================================================================
 # RBAC: Managed Identity → IoT Hub Data Contributor
 # ==============================================================================

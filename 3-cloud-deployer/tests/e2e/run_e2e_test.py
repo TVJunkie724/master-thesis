@@ -147,6 +147,40 @@ def main():
     sys.exit(result.returncode)
 
 
+def run_with_error_handling():
+    """Wrapper to capture any errors during test execution and write to output file."""
+    import traceback
+    
+    try:
+        main()
+    except Exception as e:
+        # If main() fails before writing output, capture the error
+        error_msg = f"E2E Test Runner FAILED during initialization:\n\n"
+        error_msg += f"Error: {type(e).__name__}: {e}\n\n"
+        error_msg += "Traceback:\n"
+        error_msg += traceback.format_exc()
+        
+        print(f"\n{'!' * 60}")
+        print("  CRITICAL: Test runner failed during initialization!")
+        print(f"{'!' * 60}")
+        print(error_msg)
+        
+        # Try to write error to a file for debugging
+        try:
+            from pathlib import Path
+            error_file = Path("/app/tests/e2e/multicloud/.build/e2e_runner_error.txt")
+            error_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(error_file, "w") as f:
+                f.write(f"E2E Test Runner Error - {datetime.now().isoformat()}\n")
+                f.write("=" * 60 + "\n\n")
+                f.write(error_msg)
+            print(f"\nError details saved to: {error_file}")
+        except Exception as write_error:
+            print(f"Could not write error file: {write_error}")
+        
+        sys.exit(1)
+
+
 if __name__ == "__main__":
-    main()
+    run_with_error_handling()
 

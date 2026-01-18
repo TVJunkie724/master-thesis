@@ -6,6 +6,15 @@
 # 3. CLI/API response data
 
 # ==============================================================================
+# Core Project Outputs
+# ==============================================================================
+
+output "digital_twin_name" {
+  description = "Name of the Digital Twin project (used for resource naming and IoT topics)"
+  value       = var.digital_twin_name
+}
+
+# ==============================================================================
 # Azure Setup Outputs
 # ==============================================================================
 
@@ -60,6 +69,12 @@ output "azure_iothub_name" {
 output "azure_iothub_hostname" {
   description = "Hostname of the Azure IoT Hub"
   value       = try(azurerm_iothub.main[0].hostname, null)
+}
+
+output "azure_iothub_connection_string" {
+  description = "IoT Hub connection string for device registry access (E2E tests)"
+  value       = try(data.azurerm_iothub_shared_access_policy.iothubowner[0].primary_connection_string, null)
+  sensitive   = true
 }
 
 output "azure_l1_function_app_name" {
@@ -330,6 +345,11 @@ output "aws_iot_role_arn" {
 output "aws_l1_connector_function_name" {
   description = "Name of the AWS L1 connector Lambda (multi-cloud)"
   value       = try(aws_lambda_function.l1_connector[0].function_name, null)
+}
+
+output "aws_iot_endpoint" {
+  description = "AWS IoT Core Data-ATS endpoint for publishing telemetry (used by E2E tests)"
+  value       = try(data.aws_iot_endpoint.main[0].endpoint_address, null)
 }
 
 # ==============================================================================

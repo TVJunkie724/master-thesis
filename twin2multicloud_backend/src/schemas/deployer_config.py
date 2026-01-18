@@ -27,6 +27,16 @@ class DeployerConfigUpdate(BaseModel):
     event_action_requirements: Optional[dict[str, str]] = None  # {funcName: requirements.txt}
     state_machine_content: Optional[str] = None
     state_machine_validated: Optional[bool] = None
+    # Section 2: L4 Hierarchy
+    hierarchy_content: Optional[str] = None
+    hierarchy_validated: Optional[bool] = None
+    # Section 3: L4 Scene
+    scene_glb_uploaded: Optional[bool] = None
+    scene_config_content: Optional[str] = None
+    scene_config_validated: Optional[bool] = None
+    # Section 3: L4/L5 User Config
+    user_config_content: Optional[str] = None
+    user_config_validated: Optional[bool] = None
 
 
 class DeployerConfigResponse(BaseModel):
@@ -53,6 +63,16 @@ class DeployerConfigResponse(BaseModel):
     event_action_requirements: Optional[dict[str, str]] = None
     state_machine_content: Optional[str] = None
     state_machine_validated: bool = False
+    # Section 2: L4 Hierarchy
+    hierarchy_content: Optional[str] = None
+    hierarchy_validated: bool = False
+    # Section 3: L4 Scene
+    scene_glb_uploaded: bool = False
+    scene_config_content: Optional[str] = None
+    scene_config_validated: bool = False
+    # Section 3: L4/L5 User Config
+    user_config_content: Optional[str] = None
+    user_config_validated: bool = False
     updated_at: Optional[datetime] = None
     
     @classmethod
@@ -91,6 +111,16 @@ class DeployerConfigResponse(BaseModel):
             event_action_requirements=parse_json_dict(config.event_action_requirements),
             state_machine_content=config.state_machine_content,
             state_machine_validated=config.state_machine_validated or False,
+            # L4 Hierarchy
+            hierarchy_content=config.hierarchy_content,
+            hierarchy_validated=config.hierarchy_validated or False,
+            # L4 Scene
+            scene_glb_uploaded=config.scene_glb_uploaded or False,
+            scene_config_content=config.scene_config_content,
+            scene_config_validated=config.scene_config_validated or False,
+            # L4/L5 User Config
+            user_config_content=config.user_config_content,
+            user_config_validated=config.user_config_validated or False,
             updated_at=config.updated_at,
         )
 

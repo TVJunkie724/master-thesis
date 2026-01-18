@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     DEPLOYER_URL: str = "http://localhost:5004"
     OPTIMIZER_URL: str = "http://master-thesis-2twin2clouds-1:8000"
     
+    # GLB File Storage (for scene.glb uploads)
+    UPLOAD_DIR: str = "./uploads"
+    MAX_GLB_SIZE_MB: int = 100
+    
     class Config:
         env_file = ".env"
         extra = "ignore"

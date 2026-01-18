@@ -247,6 +247,67 @@ class ApiService {
     return response.data;
   }
 
+  /// Validate L2 function code or state machine (proxies to Deployer)
+  /// Returns normalized {valid: bool, message: String}
+  Future<Map<String, dynamic>> validateL2Content(
+    String twinId,
+    String type,     // 'function-code' or 'state-machine'
+    String content,
+    String provider, // 'aws', 'azure', 'gcp'
+  ) async {
+    // Map Flutter provider names to Deployer enum values
+    final deployerProvider = provider.toLowerCase() == 'gcp' ? 'google' : provider.toLowerCase();
+    final response = await _dio.post(
+      '/twins/$twinId/deployer/validate/$type',
+      data: {'content': content, 'provider': deployerProvider},
+    );
+    return response.data;
+  }
+
+  /// Validate L4/L5 content (hierarchy, scene-config, user-config)
+  /// Returns normalized {valid: bool, message: String}
+  Future<Map<String, dynamic>> validateL4Content(
+    String twinId,
+    String type,     // 'hierarchy', 'scene-config', 'user-config'
+    String content,
+    String provider, // 'aws', 'azure'
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/deployer/validate/$type',
+      data: {'content': content, 'provider': provider.toLowerCase()},
+    );
+    return response.data;
+  }
+
+  // ============================================================
+  // GLB File Upload/Delete (L4 Scene)
+  // ============================================================
+
+  /// Upload scene.glb file for 3D visualization
+  /// Returns {message: String, size_mb: double}
+  Future<Map<String, dynamic>> uploadSceneGlb(
+    String twinId,
+    dynamic fileBytes,  // Uint8List or File
+    String filename,
+  ) async {
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        fileBytes,
+        filename: filename,
+      ),
+    });
+    final response = await _dio.post(
+      '/twins/$twinId/deployer/upload-glb',
+      data: formData,
+    );
+    return response.data;
+  }
+
+  /// Delete scene.glb file for a twin
+  Future<void> deleteSceneGlb(String twinId) async {
+    await _dio.delete('/twins/$twinId/deployer/upload-glb');
+  }
+
   // ============================================================
   // Result-Returning Methods (Type-Safe Error Handling)
   // ============================================================

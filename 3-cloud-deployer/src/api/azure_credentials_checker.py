@@ -499,6 +499,17 @@ def check_azure_credentials(credentials: dict) -> dict:
             result["message"] = str(e)
             return result
         
+        # Step 2.5: FAIL-FAST - Check subscription state (catches disabled/deleted subscriptions)
+        subscription_state = caller_identity.get("state")
+        if subscription_state and subscription_state != "Enabled":
+            result["status"] = "invalid"
+            result["message"] = (
+                f"Azure subscription is '{subscription_state}'. "
+                f"Subscription must be 'Enabled' for deployment. "
+                f"Check Azure billing status or contact your administrator to reactivate the subscription."
+            )
+            return result
+        
         # Step 3: Validate regions
         regions_to_validate = {
             "azure_region": credentials.get("azure_region", ""),

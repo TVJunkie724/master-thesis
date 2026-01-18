@@ -144,13 +144,21 @@ locals {
   l4_azure_user_enabled = var.layer_4_provider == "azure" && var.platform_user_email != ""
 }
 
+# Random suffix to avoid role assignment conflicts on re-deploy
+# Stable across applies (only changes if email changes)
+resource "random_id" "role_suffix" {
+  count       = local.l4_azure_user_enabled ? 1 : 0
+  byte_length = 4
+  keepers     = { email = var.platform_user_email }
+}
+
 resource "azurerm_role_assignment" "adt_user_owner" {
   count                = local.l4_azure_user_enabled ? 1 : 0
   scope                = azurerm_digital_twins_instance.main[0].id
   role_definition_name = "Azure Digital Twins Data Owner"
   
-  # Use deterministic UUID for idempotency
-  name                 = uuidv5("dns", "${var.platform_user_email}-adt-owner")
+  # Descriptive prefix + random suffix to avoid conflicts on re-deploy
+  name                 = uuidv5("dns", "${var.platform_user_email}-adt-owner-${random_id.role_suffix[0].hex}")
   principal_id         = local.platform_user_object_id
 
   depends_on = [azuread_user.platform_user]
@@ -167,9 +175,10 @@ resource "azurerm_role_assignment" "scenes_user_contributor" {
   scope                = azurerm_storage_account.main[0].id
   role_definition_name = "Storage Blob Data Contributor"
   
-  # Use deterministic UUID for idempotency
-  name                 = uuidv5("dns", "${var.platform_user_email}-scenes-contributor")
+  # Descriptive prefix + random suffix to avoid conflicts on re-deploy
+  name                 = uuidv5("dns", "${var.platform_user_email}-scenes-contributor-${random_id.role_suffix[0].hex}")
   principal_id         = local.platform_user_object_id
 
   depends_on = [azuread_user.platform_user]
 }
+

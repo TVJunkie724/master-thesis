@@ -54,6 +54,19 @@ class DeployerConfiguration(Base):
     state_machine_content = Column(Text, nullable=True)
     state_machine_validated = Column(Boolean, default=False)
     
+    # ===== SECTION 2: L4 Config (Hierarchy) =====
+    hierarchy_content = Column(Text, nullable=True)  # aws_hierarchy.json or azure_hierarchy.json
+    hierarchy_validated = Column(Boolean, default=False)
+    
+    # ===== SECTION 3: L4 (Digital Twin / Visualization) =====
+    scene_glb_uploaded = Column(Boolean, default=False)  # True if GLB file exists on disk
+    scene_config_content = Column(Text, nullable=True)  # 3DScenesConfiguration.json content
+    scene_config_validated = Column(Boolean, default=False)
+    
+    # ===== SECTION 3: L4/L5 Shared (Platform User) =====
+    user_config_content = Column(Text, nullable=True)  # config_user.json content
+    user_config_validated = Column(Boolean, default=False)
+    
     # ===== TIMESTAMPS =====
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

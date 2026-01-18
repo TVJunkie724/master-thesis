@@ -337,3 +337,83 @@ class WizardStateMachineValidationCompleted extends WizardEvent {
   @override
   List<Object?> get props => [valid];
 }
+
+// ============================================================
+// STEP 3 SECTION 2: L4 HIERARCHY EVENTS
+// ============================================================
+
+/// Hierarchy JSON content changed
+class WizardHierarchyContentChanged extends WizardEvent {
+  final String content;
+  const WizardHierarchyContentChanged(this.content);
+  @override
+  List<Object?> get props => [content];
+}
+
+/// Hierarchy validation completed
+class WizardHierarchyValidationCompleted extends WizardEvent {
+  final bool valid;
+  const WizardHierarchyValidationCompleted(this.valid);
+  @override
+  List<Object?> get props => [valid];
+}
+
+// ============================================================
+// STEP 3 SECTION 3: L4 SCENE EVENTS
+// ============================================================
+
+/// Scene config JSON content changed
+class WizardSceneConfigContentChanged extends WizardEvent {
+  final String content;
+  const WizardSceneConfigContentChanged(this.content);
+  @override
+  List<Object?> get props => [content];
+}
+
+/// Scene config validation completed
+class WizardSceneConfigValidationCompleted extends WizardEvent {
+  final bool valid;
+  const WizardSceneConfigValidationCompleted(this.valid);
+  @override
+  List<Object?> get props => [valid];
+}
+
+/// GLB file upload status changed
+class WizardSceneGlbUploadStatusChanged extends WizardEvent {
+  final bool uploaded;
+  const WizardSceneGlbUploadStatusChanged(this.uploaded);
+  @override
+  List<Object?> get props => [uploaded];
+}
+
+// ============================================================
+// STEP 3 SECTION 3: L4/L5 USER CONFIG EVENTS
+// ============================================================
+
+/// User config JSON content changed
+class WizardUserConfigContentChanged extends WizardEvent {
+  final String content;
+  const WizardUserConfigContentChanged(this.content);
+  @override
+  List<Object?> get props => [content];
+}
+
+/// User config validation completed
+class WizardUserConfigValidationCompleted extends WizardEvent {
+  final bool valid;
+  const WizardUserConfigValidationCompleted(this.valid);
+  @override
+  List<Object?> get props => [valid];
+}
+
+// ============================================================
+// STEP 3: L4 CLEANUP EVENT
+// ============================================================
+
+/// Request cleanup of L4 assets when L4 provider changes
+/// This triggers async GLB deletion on the server
+class WizardL4CleanupRequested extends WizardEvent {
+  const WizardL4CleanupRequested();
+  @override
+  List<Object?> get props => [];
+}

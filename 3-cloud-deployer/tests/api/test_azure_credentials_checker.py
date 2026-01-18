@@ -101,6 +101,35 @@ class TestAzureCredentialValidation:
         
         assert result["status"] in ["partial", "invalid"]
 
+    @patch('api.azure_credentials_checker._create_credential')
+    @patch('api.azure_credentials_checker._get_caller_identity')
+    def test_check_azure_credentials_disabled_subscription(self, mock_identity, mock_cred):
+        """Test validation fails early for disabled subscriptions."""
+        from api.azure_credentials_checker import check_azure_credentials
+        
+        # Simulate disabled subscription (billing issue, quota exceeded, etc.)
+        mock_identity.return_value = {
+            "subscription_id": "sub-123",
+            "subscription_name": "Test Sub",
+            "tenant_id": "tenant-123",
+            "state": "Disabled"  # Key: subscription is disabled
+        }
+        
+        result = check_azure_credentials({
+            "azure_subscription_id": "sub-123",
+            "azure_tenant_id": "tenant-123",
+            "azure_client_id": "client-123",
+            "azure_client_secret": "secret-123"
+        })
+        
+        # Should fail with clear message about subscription state
+        assert result["status"] == "invalid"
+        assert "Disabled" in result["message"]
+        assert "subscription" in result["message"].lower()
+        # Should return caller_identity for debugging
+        assert result["caller_identity"] is not None
+        assert result["caller_identity"]["state"] == "Disabled"
+
 
 class TestActionMatching:
     """Tests for action matching logic."""

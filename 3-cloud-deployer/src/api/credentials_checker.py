@@ -322,6 +322,85 @@ def _validate_aws_region(session, region: str) -> dict:
         return {"valid": False, "error": f"Region validation error: {str(e)}"}
 
 
+def _check_aws_account_status(session, account_id: str) -> dict:
+    """
+    Check AWS account status via Organizations API (if available).
+    
+    AWS Account States:
+        - ACTIVE: Account is fully operational (can deploy)
+        - SUSPENDED: Account is unusable (billing issues, abuse, etc.)
+        - PENDING_CLOSURE: Account closure in progress
+        - CLOSED: Account is permanently closed
+    
+    IMPORTANT LIMITATION:
+        This check only works for accounts that are part of an AWS Organization,
+        AND only if the caller has `organizations:DescribeAccount` permission.
+        For standalone accounts or accounts without this permission, the check
+        is gracefully skipped. Suspended standalone accounts will fail on first
+        resource creation with an appropriate error message.
+    
+    Args:
+        session: Authenticated boto3 session
+        account_id: AWS account ID from caller identity
+    
+    Returns:
+        Dict with:
+        - status: "active", "suspended", "skipped", or "error"
+        - state: AWS account state if available
+        - reason: Reason for skipping (if applicable)
+    """
+    try:
+        orgs_client = session.client("organizations", region_name="us-east-1")
+        
+        try:
+            response = orgs_client.describe_account(AccountId=account_id)
+            account_status = response["Account"]["Status"]
+            account_name = response["Account"].get("Name", "Unknown")
+            
+            if account_status == "ACTIVE":
+                return {
+                    "status": "active",
+                    "state": account_status,
+                    "account_name": account_name,
+                }
+            else:
+                return {
+                    "status": "suspended",
+                    "state": account_status,
+                    "account_name": account_name,
+                }
+                
+        except ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            
+            # Expected cases - gracefully skip
+            if error_code == "AWSOrganizationsNotInUseException":
+                return {
+                    "status": "skipped",
+                    "reason": "Account is not part of an AWS Organization",
+                }
+            elif error_code == "AccessDeniedException":
+                return {
+                    "status": "skipped",
+                    "reason": "No permission to check organization account status",
+                }
+            elif error_code == "AccountNotFoundException":
+                # Should not happen since we're checking our own account
+                return {
+                    "status": "skipped",
+                    "reason": "Account not found in organization",
+                }
+            else:
+                # Unexpected error - log and skip
+                return {
+                    "status": "skipped",
+                    "reason": f"Organizations API error: {error_code}",
+                }
+                
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
 def _get_attached_permissions(iam_client, caller_identity: dict) -> tuple:
     """
     Get all permissions from attached policies.
@@ -632,6 +711,21 @@ def check_aws_credentials(credentials: dict) -> dict:
             result["status"] = "invalid"
             result["message"] = region_result.get("error", f"Invalid region: {region}")
             return result
+        
+        # Step 2.5: Check AWS account status (Organizations API - graceful skip if unavailable)
+        # This catches suspended/closed accounts early before Terraform deployment
+        account_status = _check_aws_account_status(session, caller_identity["account"])
+        result["account_status"] = account_status
+        
+        if account_status.get("status") == "suspended":
+            result["status"] = "invalid"
+            result["message"] = (
+                f"AWS account is '{account_status.get('state', 'SUSPENDED')}'. "
+                f"Account must be 'ACTIVE' for deployment. "
+                f"Check AWS billing or contact AWS Support to resolve account issues."
+            )
+            return result
+        # Note: "skipped" and "active" statuses proceed normally
         
         # Step 3: Get permissions from attached policies
         available_permissions, check_error = _get_attached_permissions(iam_client, caller_identity)

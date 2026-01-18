@@ -69,14 +69,19 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
   String? _optimizerMessage;
   String? _deployerMessage;
   
+  // Track if credentials were originally configured (before any edits)
+  // This survives BLoC state changes and allows restoration when clearing fields
+  late bool _wasOriginallyConfigured;
+  
   // Overall valid only if BOTH pass
-  bool get _isValid => (_optimizerValid && _deployerValid) || (widget.isConfigured && _optimizerMessage == null && _deployerMessage == null);
+  bool get _isValid => (_optimizerValid && _deployerValid) || (_wasOriginallyConfigured && _optimizerMessage == null && _deployerMessage == null);
   
   final Map<String, TextEditingController> _controllers = {};
   
   @override
   void initState() {
     super.initState();
+    _wasOriginallyConfigured = widget.isConfigured;  // Capture initial state
     for (final field in widget.fields) {
       _controllers[field.name] = TextEditingController(text: field.defaultValue);
     }
@@ -154,15 +159,8 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       widget.onValidationChanged(_isValid);
       
     } on DioException catch (e) {
-      String errorMsg;
-      if (e.type == DioExceptionType.connectionError || 
-          e.type == DioExceptionType.connectionTimeout) {
-        errorMsg = '❌ Cannot connect to server. Please ensure the Management API is running (docker compose up -d management-api).';
-      } else if (e.type == DioExceptionType.receiveTimeout) {
-        errorMsg = '❌ Server timeout. Please try again.';
-      } else {
-        errorMsg = '❌ Connection error: ${e.message}';
-      }
+      // Use ApiErrorHandler to extract user-friendly message from response
+      final errorMsg = '❌ ${ApiErrorHandler.extractMessage(e)}';
       setState(() {
         _optimizerValid = false;
         _deployerValid = false;
@@ -348,7 +346,31 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
     for (final entry in _controllers.entries) {
       creds[entry.key] = entry.value.text;
     }
-    widget.onCredentialsChanged(creds);
+    
+    // Smart validation clearing:
+    // - If user types new values → clear validation (needs re-validation)
+    // - If user clears all fields → restore stored credential validation
+    final allRequiredEmpty = widget.fields
+        .where((f) => f.required)
+        .every((f) => _controllers[f.name]?.text.isEmpty == true);
+    
+    if (allRequiredEmpty && _wasOriginallyConfigured) {
+      // User cleared all fields back to empty - stored credentials apply
+      // Restore validation state (no re-validation needed)
+      _optimizerValid = true;
+      _deployerValid = true;
+      _optimizerMessage = null;
+      _deployerMessage = null;
+      // Don't notify BLoC of change - credentials haven't actually changed
+      widget.onValidationChanged(true);
+    } else {
+      // User entered new values - clear validation
+      _optimizerValid = false;
+      _deployerValid = false;
+      _optimizerMessage = null;
+      _deployerMessage = null;
+      widget.onCredentialsChanged(creds);
+    }
   }
   void _clearCredentials() {
     for (final controller in _controllers.values) {
@@ -445,7 +467,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                       ),
                       if (showAsValid)
                         Text(
-                          (widget.isConfigured && !_optimizerValid && !_deployerValid) 
+                          (_wasOriginallyConfigured && !_optimizerValid && !_deployerValid) 
                               ? 'Credentials Configured (Hidden) ✓'
                               : 'Credentials validated ✓',
                           style: TextStyle(
@@ -508,7 +530,9 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                             labelText: field.required 
                               ? field.label 
                               : '${field.label} (optional)',
-                            hintText: (widget.isConfigured && _controllers[field.name]?.text.isEmpty == true)
+                            // Only show "Stored Securely" for REQUIRED fields that are configured
+                            // Optional fields (like session_token) may genuinely be empty
+                            hintText: (_wasOriginallyConfigured && field.required && _controllers[field.name]?.text.isEmpty == true)
                                 ? '•••••••••••••••• (Stored Securely)' 
                                 : null,
                             hintStyle: TextStyle(
@@ -665,7 +689,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                     )
                   : FilledButton.icon(
                       // Enable button if fields are filled OR if we can validate stored credentials
-                      onPressed: (_isValidating || (!_areRequiredFieldsFilled() && !widget.isConfigured)) 
+                      onPressed: (_isValidating || (!_areRequiredFieldsFilled() && !_wasOriginallyConfigured)) 
                           ? null 
                           : _validateCredentials,
                       icon: _isValidating
@@ -675,7 +699,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                           )
                         : const Icon(Icons.verified_user),
                       label: Text(
-                        (widget.isConfigured && !_areRequiredFieldsFilled())
+                        (_wasOriginallyConfigured && !_areRequiredFieldsFilled())
                             ? 'Validate Stored Credentials'
                             : 'Validate Credentials'
                       ),

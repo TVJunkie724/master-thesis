@@ -374,6 +374,113 @@ def validate_azure_hierarchy_content(content):
 
 
 # ==========================================
+# 1.c. Scene Config Validation
+# ==========================================
+def validate_scene_config_content(provider: str, content: str, hierarchy_content: str = None):
+    """
+    Validates scene configuration JSON for 3D visualization.
+    
+    AWS (scene.json):
+      - Basic JSON structure validation (must be an object)
+    
+    Azure (3DScenesConfiguration.json):
+      - Valid JSON with configuration object
+      - Allows {{STORAGE_URL}} placeholders in asset URLs
+      - Cross-references primaryTwinID against hierarchy twins
+    
+    Args:
+        provider: 'aws' or 'azure'
+        content: Scene config JSON string
+        hierarchy_content: Optional hierarchy JSON for cross-reference
+        
+    Raises:
+        ValueError: If format is invalid
+    """
+    # Parse scene config
+    if isinstance(content, str):
+        try:
+            scene_config = json.loads(content)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in scene config: {e}")
+    else:
+        scene_config = content
+    
+    if not isinstance(scene_config, dict):
+        raise ValueError("Scene config must be a JSON object")
+    
+    provider_lower = provider.lower()
+    
+    if provider_lower == "aws":
+        # AWS scene.json: Basic structure validation
+        # AWS TwinMaker scenes are simpler - just need a valid JSON object
+        logger.info("✓ AWS scene.json validated: valid JSON object")
+        
+    elif provider_lower == "azure":
+        # Azure 3DScenesConfiguration.json validation
+        if "configuration" not in scene_config:
+            raise ValueError("Azure scene config missing 'configuration' field")
+        
+        configuration = scene_config.get("configuration", {})
+        
+        if not isinstance(configuration, dict):
+            raise ValueError("Azure scene config 'configuration' must be an object")
+        
+        # Check scenes array
+        scenes = configuration.get("scenes", [])
+        if not isinstance(scenes, list):
+            raise ValueError("Azure scene config 'configuration.scenes' must be an array")
+        
+        # Cross-reference validation if hierarchy provided
+        twin_ids_in_hierarchy = set()
+        if hierarchy_content:
+            try:
+                if isinstance(hierarchy_content, str):
+                    hierarchy = json.loads(hierarchy_content)
+                else:
+                    hierarchy = hierarchy_content
+                
+                # Extract twin IDs from hierarchy
+                twins = hierarchy.get("twins", [])
+                for twin in twins:
+                    if isinstance(twin, dict) and "$dtId" in twin:
+                        twin_ids_in_hierarchy.add(twin["$dtId"])
+            except (json.JSONDecodeError, TypeError):
+                # If hierarchy can't be parsed, skip cross-ref
+                pass
+        
+        # Validate elements in each scene
+        errors = []
+        for scene_idx, scene in enumerate(scenes):
+            if not isinstance(scene, dict):
+                continue
+            
+            elements = scene.get("elements", [])
+            for elem_idx, element in enumerate(elements):
+                if not isinstance(element, dict):
+                    continue
+                
+                twin_url = element.get("primaryTwinID")
+                if twin_url and twin_ids_in_hierarchy:
+                    # primaryTwinID can be a URL with twin ID at the end
+                    # e.g., "https://xxx.api.wcus.digitaltwins.azure.net/twins/room-1"
+                    twin_id = twin_url.split("/")[-1] if "/" in twin_url else twin_url
+                    
+                    if twin_id and twin_id not in twin_ids_in_hierarchy:
+                        elem_id = element.get("id", f"index-{elem_idx}")
+                        errors.append(
+                            f"Twin '{twin_id}' referenced in element '{elem_id}' (scene {scene_idx}) "
+                            f"not found in hierarchy. Available twins: {sorted(list(twin_ids_in_hierarchy)[:5])}"
+                        )
+        
+        if errors:
+            raise ValueError("Scene config cross-reference errors:\n" + "\n".join(errors))
+        
+        logger.info(f"✓ Azure scene config validated: {len(scenes)} scenes")
+    else:
+        raise ValueError(f"Provider '{provider}' is not valid for scene config. Use 'aws' or 'azure'.")
+
+
+# ==========================================
 # 2. State Machine Validation
 # ==========================================
 def validate_state_machine_content(filename, content):

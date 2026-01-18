@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 import httpx
 import json
+import shutil
+from pathlib import Path
 
 from src.models.database import get_db
 from src.models.twin import DigitalTwin
@@ -110,6 +112,23 @@ async def update_deployer_config(
         config.state_machine_content = update.state_machine_content
     if update.state_machine_validated is not None:
         config.state_machine_validated = update.state_machine_validated
+    # Section 2: L4 Hierarchy
+    if update.hierarchy_content is not None:
+        config.hierarchy_content = update.hierarchy_content
+    if update.hierarchy_validated is not None:
+        config.hierarchy_validated = update.hierarchy_validated
+    # Section 3: L4 Scene
+    if update.scene_glb_uploaded is not None:
+        config.scene_glb_uploaded = update.scene_glb_uploaded
+    if update.scene_config_content is not None:
+        config.scene_config_content = update.scene_config_content
+    if update.scene_config_validated is not None:
+        config.scene_config_validated = update.scene_config_validated
+    # Section 3: L4/L5 User Config
+    if update.user_config_content is not None:
+        config.user_config_content = update.user_config_content
+    if update.user_config_validated is not None:
+        config.user_config_validated = update.user_config_validated
     
     db.commit()
     db.refresh(config)
@@ -139,14 +158,21 @@ async def validate_config(
         "events": "config/events",
         "iot": "config/iot",
         "config": "config/config",
+        # Section 2: L4 Hierarchy
+        "hierarchy": "hierarchy",
         # Section 3 L1
         "payloads": "simulator/payloads",
         # Section 3 L2
         "function-code": "function-code",
         "state-machine": "state-machine",
+        # Section 3 L4
+        "scene-config": "scene-config",
+        "user-config": "user-config",
     }
     
     l2_types = {"function-code", "state-machine"}
+    # L4 types require provider parameter
+    l4_types = {"hierarchy", "scene-config", "user-config"}
     
     if config_type not in config_type_map:
         raise HTTPException(
@@ -159,6 +185,13 @@ async def validate_config(
         raise HTTPException(
             status_code=400,
             detail=f"provider is required for {config_type} validation (aws, azure, google)"
+        )
+    
+    # L4 types require provider parameter
+    if config_type in l4_types and not request.provider:
+        raise HTTPException(
+            status_code=400,
+            detail=f"provider is required for {config_type} validation (aws or azure)"
         )
     
     twin = await get_user_twin(twin_id, current_user, db)
@@ -180,6 +213,25 @@ async def validate_config(
                     files=files,
                     timeout=30.0
                 )
+            elif config_type in l4_types:
+                # L4: File upload with provider query param
+                if config_type == "scene-config":
+                    # Scene config needs hierarchy for cross-reference
+                    config = twin.deployer_config
+                    hierarchy_content = config.hierarchy_content if config else ""
+                    files = {
+                        "scene_file": ("scene.json", request.content.encode(), "application/json"),
+                        "hierarchy_file": ("hierarchy.json", (hierarchy_content or "").encode(), "application/json"),
+                    }
+                else:
+                    # hierarchy or user-config: simple file upload
+                    files = {"file": (f"{config_type}.json", request.content.encode(), "application/json")}
+                
+                response = await client.post(
+                    f"{settings.DEPLOYER_URL}/validate/{deployer_endpoint}?provider={request.provider}",
+                    files=files,
+                    timeout=30.0
+                )
             else:
                 # Section 2 / L1: JSON file upload
                 files = {
@@ -196,7 +248,7 @@ async def validate_config(
                 valid = True
                 message = result.get("message", "Valid")
                 
-                # Only persist validation for Section 2/L1 types, NOT L2
+                # Only persist validation for Section 2/L1/L4 types, NOT L2
                 # L2 per-entity validation is handled by Flutter BLoC
                 if config_type not in l2_types:
                     config = twin.deployer_config
@@ -212,6 +264,13 @@ async def validate_config(
                         config.config_iot_devices_validated = True
                     elif config_type == "payloads":
                         config.payloads_validated = True
+                    # L4 types
+                    elif config_type == "hierarchy":
+                        config.hierarchy_validated = True
+                    elif config_type == "scene-config":
+                        config.scene_config_validated = True
+                    elif config_type == "user-config":
+                        config.user_config_validated = True
                     
                     db.commit()
                 
@@ -239,3 +298,88 @@ async def validate_config(
             message=f"Request error: {str(e)}"
         )
 
+
+# ==========================================
+# GLB File Upload/Delete for L4 Scene
+# ==========================================
+@router.post("/upload-glb")
+async def upload_scene_glb(
+    twin_id: str,
+    file: UploadFile = File(..., description="Scene GLB file (max 100MB)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Upload scene.glb file for 3D visualization.
+    
+    Saves to: UPLOAD_DIR/<twin_id>/scene.glb
+    File size limit: MAX_GLB_SIZE_MB (default 100MB)
+    """
+    twin = await get_user_twin(twin_id, current_user, db)
+    
+    # Check file size
+    max_size = settings.MAX_GLB_SIZE_MB * 1024 * 1024
+    contents = await file.read()
+    if len(contents) > max_size:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File exceeds {settings.MAX_GLB_SIZE_MB}MB limit"
+        )
+    
+    # Save to disk
+    upload_path = Path(settings.UPLOAD_DIR) / twin_id
+    glb_path = upload_path / "scene.glb"
+    
+    try:
+        upload_path.mkdir(parents=True, exist_ok=True)
+        with open(glb_path, "wb") as f:
+            f.write(contents)
+        
+        # Update DB flag
+        config = twin.deployer_config
+        if not config:
+            config = DeployerConfiguration(twin_id=twin_id)
+            db.add(config)
+        config.scene_glb_uploaded = True
+        db.commit()
+        
+        return {"message": "GLB file uploaded successfully", "size_mb": round(len(contents) / 1024 / 1024, 2)}
+    except Exception as e:
+        # Cleanup on failure
+        glb_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=f"Failed to save GLB file: {str(e)}")
+
+
+@router.delete("/upload-glb")
+async def delete_scene_glb(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete scene.glb file for a twin.
+    
+    Called when:
+    - needs3DModel is toggled off
+    - L4 provider changes (invalidation)
+    - Twin is deleted
+    """
+    twin = await get_user_twin(twin_id, current_user, db)
+    
+    # Delete from disk
+    glb_path = Path(settings.UPLOAD_DIR) / twin_id / "scene.glb"
+    glb_path.unlink(missing_ok=True)
+    
+    # Try to remove empty directory
+    try:
+        (Path(settings.UPLOAD_DIR) / twin_id).rmdir()
+    except OSError:
+        pass  # Directory not empty or doesn't exist
+    
+    # Update DB flag
+    config = twin.deployer_config
+    if config:
+        config.scene_glb_uploaded = False
+        db.commit()
+    
+    return {"message": "GLB file deleted"}

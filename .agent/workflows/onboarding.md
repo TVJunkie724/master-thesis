@@ -135,6 +135,32 @@ view_file: d:\Git\master-thesis\integration_vision.md
 
 ---
 
+## Step 3b: Understand Architecture Responsibilities
+
+The platform has clear separation of concerns:
+
+| Component | Responsibilities | Does NOT Do |
+|-----------|------------------|-------------|
+| **Flutter UI** | Visual display, basic UI visibility checks, user input | Business logic, validation, API calls to Deployer |
+| **Management API** | Persists twin config + state, proxies to other backends | Deployment logic, cloud restrictions |
+| **Deployer API** | ALL deployment knowledge: validation, restrictions, cooldowns | User state persistence |
+
+**Key Rule:** Flutter NEVER calls Deployer directly. Always: Flutter → Management API → Deployer API
+
+**Example - Deployment Cooldown Check:**
+```
+Flutter UI              Management API              Deployer API
+    │                        │                           │
+    │  GET /twins/{id}/      │   GET /cooldown-check?    │
+    │      can-redeploy      │   destroyed_at=...        │
+    │ ───────────────────────▶───────────────────────────▶
+    │                        │                           │
+    │  {ready, remaining_s}  │   {ready, remaining_s}    │
+    │◀───────────────────────│◀──────────────────────────│
+```
+
+---
+
 ## Step 4: Read the Project's Development Guide
 
 Each project has its own development guide with Docker commands and standards:

@@ -8,13 +8,16 @@ Usage:
     python tests/e2e/cleanup_e2e_test.py aws
     python tests/e2e/cleanup_e2e_test.py deployer-gcp-aws
     python tests/e2e/cleanup_e2e_test.py azure --dry-run
+    python tests/e2e/cleanup_e2e_test.py deployer-aws-azure --verify
 
 Options:
     --dry-run    Show what would be deleted without actually deleting
     --force      Skip confirmation prompt (required for Docker/non-interactive)
+    --verify     After cleanup, verify no orphaned resources remain
 """
 import sys
 import shutil
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -38,6 +41,7 @@ def main():
     test_name = sys.argv[1].lower()
     dry_run = "--dry-run" in sys.argv
     force = "--force" in sys.argv
+    verify = "--verify" in sys.argv
     
     if test_name not in TEST_MAP:
         print(f"Unknown test: {test_name}")
@@ -161,6 +165,14 @@ def main():
                 
                 if result.terraform_success:
                     print("  ✓ Terraform destroy succeeded")
+                    
+                    # GCP Firestore cooldown: wait 5 minutes before allowing recreate
+                    # This prevents "Database ID not available" errors on re-deploy
+                    if test_name.startswith("deployer-"):
+                        print("\n  Waiting 5 minutes for GCP Firestore cooldown...")
+                        print("  (This prevents 'Database ID not available' errors on re-deploy)")
+                        time.sleep(300)  # 5 minutes
+                        print("  ✓ Cooldown complete")
                 else:
                     print(f"  ⚠ Terraform destroy had errors: {result.terraform_error}")
                 
@@ -206,8 +218,47 @@ def main():
     else:
         print(f"Mode: LIVE (resources destroyed)")
     
+    # Optional verification step
+    verification_success = True
+    if verify and not dry_run:
+        print(f"\n{'=' * 60}")
+        print(f"  POST-CLEANUP VERIFICATION")
+        print(f"{'=' * 60}")
+        try:
+            from tests.e2e.verify_all_scenarios import check_aws, check_azure, check_gcp, load_credentials
+            creds = load_credentials()
+            
+            print("\nChecking for remaining resources...")
+            remaining = []
+            
+            # Check each provider
+            aws_found = check_aws(creds)
+            if aws_found:
+                remaining.extend(aws_found)
+            
+            azure_found = check_azure(creds)
+            if azure_found:
+                remaining.extend(azure_found)
+            
+            gcp_found = check_gcp(creds)
+            if gcp_found:
+                remaining.extend(gcp_found)
+            
+            if remaining:
+                print(f"\n⚠ VERIFICATION WARNING: {len(remaining)} resources still exist:")
+                for category, name in remaining:
+                    print(f"  [{category}] {name}")
+                verification_success = False
+            else:
+                print("\n✓ VERIFICATION PASSED: No orphaned resources found")
+        except ImportError as e:
+            print(f"\n⚠ Verification skipped: {e}")
+        except Exception as e:
+            print(f"\n⚠ Verification error: {e}")
+            verification_success = False
+    
     # Exit with appropriate code
-    sys.exit(0 if destroy_success else 1)
+    sys.exit(0 if (destroy_success and verification_success) else 1)
 
 
 # Map test names to (project_name, state_base_directory)

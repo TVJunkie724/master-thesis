@@ -26,6 +26,10 @@ class DigitalTwin(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Deployment lifecycle timestamps (for cooldown tracking)
+    deployed_at = Column(DateTime, nullable=True)
+    destroyed_at = Column(DateTime, nullable=True)
+    
     # Relationships
     owner = relationship("User", back_populates="twins")
     file_versions = relationship("FileVersion", back_populates="twin")
