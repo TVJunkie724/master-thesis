@@ -8,6 +8,7 @@ import '../../services/api_service.dart';
 import '../../utils/api_error_handler.dart';
 import 'wizard_event.dart';
 import 'wizard_state.dart';
+import 'helpers/helpers.dart';
 
 /// WizardBloc - State machine for the multi-step wizard
 /// 
@@ -330,15 +331,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   }
   
   Map<String, String> _extractMaskedCredentials(dynamic config) {
-    if (config == null || config is! Map) return {};
-    final result = <String, String>{};
-    for (final entry in config.entries) {
-      if (entry.value != null) {
-        result[entry.key.toString()] = '••••••••'; // Masked
-      }
-    }
-    return result;
+    return CredentialsHelper.extractMaskedCredentials(config);
   }
+
   
   // ============================================================
   // NAVIGATION HANDLERS
@@ -582,47 +577,17 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   }
   
   /// Check if calculation result differs in ways that affect Step 3
-  /// Invalidates if inputParamsUsed changed OR cheapestPath changed
+  /// Delegates to CalculationHelper for invalidation logic
   bool _calculationInvalidatesStep3(CalcResult? oldResult, CalcResult newResult) {
-    if (oldResult == null) return false;
-    
-    // Check inputParamsUsed
-    final oldParams = oldResult.inputParamsUsed;
-    final newParams = newResult.inputParamsUsed;
-    
-    final paramsChanged = 
-           oldParams.useEventChecking != newParams.useEventChecking ||
-           oldParams.triggerNotificationWorkflow != newParams.triggerNotificationWorkflow ||
-           oldParams.returnFeedbackToDevice != newParams.returnFeedbackToDevice ||
-           oldParams.integrateErrorHandling != newParams.integrateErrorHandling ||
-           oldParams.needs3DModel != newParams.needs3DModel;
-    
-    // Check cheapestPath
-    final pathChanged = !_listEquals(oldResult.cheapestPath, newResult.cheapestPath);
-    
-    
-    return paramsChanged || pathChanged;
+    return CalculationHelper.calculationInvalidatesStep3(oldResult, newResult);
   }
   
   bool _listEquals<T>(List<T> a, List<T> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
+    return CalculationHelper.listEquals(a, b);
   }
   
   Set<String> _getUnconfiguredProviders(List<String> path) {
-    final resultProviders = <String>{};
-    for (final segment in path) {
-      final parts = segment.split('_');
-      if (parts.length >= 3 && segment.startsWith('L3')) {
-        resultProviders.add(parts[2].toUpperCase());
-      } else if (parts.length >= 2) {
-        resultProviders.add(parts[1].toUpperCase());
-      }
-    }
-    return resultProviders.difference(state.configuredProviders);
+    return CalculationHelper.getUnconfiguredProviders(path, state.configuredProviders);
   }
   
   // ============================================================
