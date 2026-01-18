@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../bloc/wizard/wizard.dart';
 import '../../config/step3_examples.dart';
+import '../../config/step3_constraints.dart';
 import '../../providers/twins_provider.dart';
 import '../../utils/api_error_handler.dart';
 import '../../services/api_service.dart';
@@ -16,6 +17,8 @@ import '../../widgets/file_inputs/collapsible_block_wrapper.dart';
 import '../../widgets/file_inputs/zip_upload_block.dart';
 import '../../widgets/file_inputs/config_json_visualization_block.dart';
 import '../../widgets/file_inputs/config_visualization_block.dart';
+import '../../widgets/step3/info_cards.dart';
+import 'helpers/step3_validation_helper.dart';
 
 /// Step 3: Deployer Configuration - BLoC version
 /// 
@@ -37,201 +40,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
   static const double _flowchartBreakpoint = 900;
   static const double _flowchartWidth = 450;
 
-  /// Validate config file via API (direct call, not via BLoC)
-  /// This matches the CredentialSection pattern for inline validation feedback
-  Future<Map<String, dynamic>> _validateConfigFile(
-    String configType,
-    String content,
-    WizardState state,
-  ) async {
-    final twinId = state.twinId;
-    if (twinId == null) {
-      return {'valid': false, 'message': 'Save draft first to enable validation'};
-    }
 
-    if (content.trim().isEmpty) {
-      return {'valid': false, 'message': 'No content to validate'};
-    }
-
-    try {
-      // Direct API call for immediate feedback
-      final container = ProviderScope.containerOf(context);
-      final api = container.read(apiServiceProvider);
-      final result = await api.validateDeployerConfig(twinId, configType, content);
-      
-      final valid = result['valid'] == true;
-      final message = result['message']?.toString() ?? (valid ? 'Valid ✓' : 'Validation failed');
-      
-      // Update BLoC state for persistence via event (not emit which is protected)
-      // Guard with mounted check since we crossed an async gap
-      if (mounted) {
-        context.read<WizardBloc>().add(WizardConfigValidationCompleted(configType, valid));
-      }
-      
-      return {'valid': valid, 'message': message};
-    } catch (e) {
-      return {'valid': false, 'message': 'Validation failed: ${ApiErrorHandler.extractMessage(e)}'};
-    }
-  }
-
-  /// Validate L2 content (function-code or state-machine) and dispatch BLoC event
-  Future<Map<String, dynamic>> _validateL2Content(
-    String type,
-    String content,
-    WizardState state, {
-    String? entityId,  // deviceId or functionName for Map-based validation
-  }) async {
-    final twinId = state.twinId;
-    final provider = state.layer2Provider;
-    
-    if (twinId == null) return {'valid': false, 'message': 'Save draft first'};
-    if (provider == null) return {'valid': false, 'message': 'Complete Step 2 first'};
-    if (content.trim().isEmpty) return {'valid': false, 'message': 'No content'};
-
-    try {
-      final container = ProviderScope.containerOf(context);
-      final api = container.read(apiServiceProvider);
-      final result = await api.validateL2Content(twinId, type, content, provider);
-      final valid = result['valid'] == true;
-      final message = result['message']?.toString() ?? (valid ? 'Valid ✓' : 'Failed');
-      
-      // Dispatch BLoC event to persist validation state
-      if (mounted && valid) {
-        _dispatchL2ValidationEvent(type, entityId, valid);
-      }
-      
-      return {'valid': valid, 'message': message};
-    } catch (e) {
-      return {'valid': false, 'message': ApiErrorHandler.extractMessage(e)};
-    }
-  }
-
-  void _dispatchL2ValidationEvent(String type, String? entityId, bool valid) {
-    final bloc = context.read<WizardBloc>();
-    if (type == 'function-code') {
-      // Determine which L2 function type based on entityId pattern
-      if (entityId != null && entityId.startsWith('processor:')) {
-        bloc.add(WizardProcessorValidationCompleted(entityId.substring(10), valid));
-      } else if (entityId != null && entityId.startsWith('event-action:')) {
-        bloc.add(WizardEventActionValidationCompleted(entityId.substring(13), valid));
-      } else if (entityId == 'feedback') {
-        bloc.add(WizardEventFeedbackValidationCompleted(valid));
-      }
-    } else if (type == 'state-machine') {
-      bloc.add(WizardStateMachineValidationCompleted(valid));
-    }
-  }
-
-  /// Validate L4/L5 content and dispatch BLoC event
-  /// [providerOverride] - Use specific provider (for L5 user-config which uses layer5Provider)
-  Future<Map<String, dynamic>> _validateL4Content(
-    String type,  // 'hierarchy', 'scene-config', 'user-config'
-    String content,
-    WizardState state, {
-    String? providerOverride,
-  }) async {
-    final twinId = state.twinId;
-    if (twinId == null) {
-      return {'valid': false, 'message': 'Save draft first'};
-    }
-    
-    // Use override if provided, otherwise default to L4 provider
-    final provider = (providerOverride ?? state.layer4Provider)?.toLowerCase();
-    if (provider == null) {
-      final layer = type == 'user-config' ? 'L5' : 'L4';
-      return {'valid': false, 'message': 'No $layer provider selected (Step 2)'};
-    }
-    
-    try {
-      final container = ProviderScope.containerOf(context); final api = container.read(apiServiceProvider);
-      final bloc = context.read<WizardBloc>();  // Capture before await
-      final result = await api.validateL4Content(twinId, type, content, provider);
-      
-      final valid = result['valid'] == true;
-      final message = result['message']?.toString() ?? (valid ? 'Valid' : 'Validation failed');
-      
-      // Dispatch appropriate BLoC event
-      switch (type) {
-        case 'hierarchy':
-          bloc.add(WizardHierarchyValidationCompleted(valid));
-          break;
-        case 'scene-config':
-          bloc.add(WizardSceneConfigValidationCompleted(valid));
-          break;
-        case 'user-config':
-          bloc.add(WizardUserConfigValidationCompleted(valid));
-          break;
-      }
-      
-      return {'valid': valid, 'message': message};
-    } catch (e) {
-      return {'valid': false, 'message': ApiErrorHandler.extractMessage(e)};
-    }
-  }
-
-  /// Get provider-specific function constraints for UI
-  String _getFunctionConstraints(String? provider) {
-    switch (provider?.toLowerCase()) {
-      case 'aws':
-        return '• AWS Lambda with lambda_handler(event, context)\n• Returns dict with statusCode';
-      case 'azure':
-        return '• Azure Function with main(req)\n• Returns HttpResponse';
-      case 'gcp':
-      case 'google':
-        return '• Cloud Function with any entry point\n• HTTP request handler';
-      default:
-        return '• Provider-specific function entry point';
-    }
-  }
-
-  /// Get provider-specific processor example
-  String _getProcessorExample(String? provider) {
-    switch (provider?.toLowerCase()) {
-      case 'aws': return Step3Examples.processors;
-      case 'azure': return Step3Examples.azureProcessors;
-      case 'gcp':
-      case 'google': return Step3Examples.gcpProcessors;
-      default: return Step3Examples.processors;
-    }
-  }
-
-  /// Build amber info box for unmet dependencies
-  Widget _buildDependencyInfoBox(String message) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.amber.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.shade200),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.info_outline, color: Colors.amber.shade700, size: 24),
-          const SizedBox(width: 16),
-          Expanded(child: Text(message, style: TextStyle(color: Colors.amber.shade900, fontSize: 13))),
-        ],
-      ),
-    );
-  }
-
-  /// Build grey info box for empty state
-  Widget _buildEmptyStateBox(String message) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.info_outline, color: Colors.grey.shade500, size: 24),
-          const SizedBox(width: 16),
-          Expanded(child: Text(message, style: TextStyle(color: Colors.grey.shade600, fontSize: 13))),
-        ],
-      ),
-    );
-  }
 
   /// Build dynamic L2 inputs based on Section 2 validation state
   List<Widget> _buildL2DynamicInputs(BuildContext context, WizardState state) {
@@ -240,11 +49,11 @@ class _Step3DeployerState extends State<Step3Deployer> {
     // === PROCESSORS ===
     // Show one processor input per device from validated config_iot_devices.json
     if (!state.configIotDevicesValidated) {
-      widgets.add(_buildDependencyInfoBox(
+      widgets.add(Step3InfoCards.dependencyInfo(context,
         'Validate config_iot_devices.json first to enable processor function inputs.'
       ));
     } else if (state.deviceIds.isEmpty) {
-      widgets.add(_buildEmptyStateBox('No devices found in config_iot_devices.json'));
+      widgets.add(Step3InfoCards.emptyState(context, 'No devices found in config_iot_devices.json'));
     } else {
       for (final deviceId in state.deviceIds) {
         widgets.add(FunctionPackageBlock(
@@ -259,9 +68,9 @@ class _Step3DeployerState extends State<Step3Deployer> {
           onRequirementsChanged: (content) => context.read<WizardBloc>().add(
             WizardProcessorRequirementsChanged(deviceId, content),
           ),
-          onValidate: (content) => _validateL2Content('function-code', content, state, entityId: 'processor:$deviceId'),
-          constraints: _getFunctionConstraints(state.layer2Provider),
-          exampleContent: _getProcessorExample(state.layer2Provider),
+          onValidate: (content) => Step3ValidationHelper.validateL2Content(context, 'function-code', content, state, entityId: 'processor:$deviceId'),
+          constraints: Step3Constraints.getFunctionConstraints(state.layer2Provider),
+          exampleContent: Step3Constraints.getProcessorExample(state.layer2Provider),
           initiallyExpanded: !(state.processorValidated[deviceId] ?? false),
         ));
         widgets.add(const SizedBox(height: 16));
@@ -282,9 +91,9 @@ class _Step3DeployerState extends State<Step3Deployer> {
         onRequirementsChanged: (content) => context.read<WizardBloc>().add(
           WizardEventFeedbackRequirementsChanged(content),
         ),
-        onValidate: (content) => _validateL2Content('function-code', content, state, entityId: 'feedback'),
-        constraints: _getFunctionConstraints(state.layer2Provider),
-        exampleContent: _getProcessorExample(state.layer2Provider),
+        onValidate: (content) => Step3ValidationHelper.validateL2Content(context, 'function-code', content, state, entityId: 'feedback'),
+        constraints: Step3Constraints.getFunctionConstraints(state.layer2Provider),
+        exampleContent: Step3Constraints.getProcessorExample(state.layer2Provider),
         initiallyExpanded: !state.eventFeedbackValidated,
       ));
       widgets.add(const SizedBox(height: 16));
@@ -293,11 +102,11 @@ class _Step3DeployerState extends State<Step3Deployer> {
     // === EVENT ACTION FUNCTIONS ===
     if (state.calcParams?.useEventChecking == true) {
       if (!state.configEventsValidated) {
-        widgets.add(_buildDependencyInfoBox(
+        widgets.add(Step3InfoCards.dependencyInfo(context,
           'Validate config_events.json first to enable event action function inputs.'
         ));
       } else if (state.eventActionFunctionNames.isEmpty) {
-        widgets.add(_buildEmptyStateBox('No event actions with functionName defined.'));
+        widgets.add(Step3InfoCards.emptyState(context, 'No event actions with functionName defined.'));
       } else {
         for (final funcName in state.eventActionFunctionNames) {
           widgets.add(FunctionPackageBlock(
@@ -312,9 +121,9 @@ class _Step3DeployerState extends State<Step3Deployer> {
             onRequirementsChanged: (content) => context.read<WizardBloc>().add(
               WizardEventActionRequirementsChanged(funcName, content),
             ),
-            onValidate: (content) => _validateL2Content('function-code', content, state, entityId: 'event-action:$funcName'),
-            constraints: _getFunctionConstraints(state.layer2Provider),
-            exampleContent: _getProcessorExample(state.layer2Provider),
+            onValidate: (content) => Step3ValidationHelper.validateL2Content(context, 'function-code', content, state, entityId: 'event-action:$funcName'),
+            constraints: Step3Constraints.getFunctionConstraints(state.layer2Provider),
+            exampleContent: Step3Constraints.getProcessorExample(state.layer2Provider),
             initiallyExpanded: !(state.eventActionValidated[funcName] ?? false),
           ));
           widgets.add(const SizedBox(height: 16));
@@ -338,14 +147,14 @@ class _Step3DeployerState extends State<Step3Deployer> {
           description: 'Workflow / state machine definition',
           icon: Icons.account_tree,
           isHighlighted: true,
-          constraints: _getStateMachineConstraints(state.layer2Provider),
-          exampleContent: _getStateMachineExample(state.layer2Provider),
+          constraints: Step3Constraints.getStateMachineConstraints(state.layer2Provider),
+          exampleContent: Step3Constraints.getStateMachineExample(state.layer2Provider),
           initialContent: state.stateMachineContent ?? '',
           isValidated: state.stateMachineValidated,
           onContentChanged: (content) => context.read<WizardBloc>().add(
             WizardStateMachineContentChanged(content),
           ),
-          onValidate: (content) => _validateL2Content('state-machine', content, state),
+          onValidate: (content) => Step3ValidationHelper.validateL2Content(context, 'state-machine', content, state),
           autoValidateOnUpload: true,
         ),
       ));
@@ -353,35 +162,14 @@ class _Step3DeployerState extends State<Step3Deployer> {
     
     // If nothing to show (all conditions false), show info
     if (widgets.isEmpty) {
-      widgets.add(_buildEmptyStateBox(
+      widgets.add(Step3InfoCards.emptyState(context,
         'Enable triggerNotificationWorkflow or returnFeedbackToDevice in Step 2 for L2 inputs.'
       ));
     }
     
     return widgets;
   }
-  
-  String _getStateMachineConstraints(String? provider) {
-    switch (provider?.toLowerCase()) {
-      case 'aws':
-        return '• AWS Step Functions JSON\n• Amazon States Language';
-      case 'azure':
-        return '• Azure Logic App JSON\n• Workflow definition';
-      case 'gcp':
-        return '• Google Workflows YAML\n• Workflow syntax';
-      default:
-        return '• Provider-specific workflow definition';
-    }
-  }
-  
-  String _getStateMachineExample(String? provider) {
-    switch (provider?.toLowerCase()) {
-      case 'aws': return Step3Examples.awsStateMachine;
-      case 'azure': return Step3Examples.azureStateMachine;
-      case 'gcp': return Step3Examples.gcpStateMachine;
-      default: return Step3Examples.stateMachine;
-    }
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -576,7 +364,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
             },
             onValidate: (config) async {
               final content = const JsonEncoder.withIndent('  ').convert(config);
-              return await _validateConfigFile('config', content, state);
+              return await Step3ValidationHelper.validateConfigFile(context, 'config', content, state);
             },
             onValidationSuccess: () {
               context.read<WizardBloc>().add(const WizardConfigValidationCompleted('config', true));
@@ -607,7 +395,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
               context.read<WizardBloc>().add(WizardConfigEventsChanged(content));
             },
             onValidate: (content) async {
-              return await _validateConfigFile('events', content, state);
+              return await Step3ValidationHelper.validateConfigFile(context, 'events', content, state);
             },
             autoValidateOnUpload: true,
           ),
@@ -636,7 +424,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
               context.read<WizardBloc>().add(WizardConfigIotDevicesChanged(content));
             },
             onValidate: (content) async {
-              return await _validateConfigFile('iot', content, state);
+              return await Step3ValidationHelper.validateConfigFile(context, 'iot', content, state);
             },
             autoValidateOnUpload: true,
           ),
@@ -679,7 +467,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
                   context.read<WizardBloc>().add(WizardHierarchyContentChanged(content));
                 },
                 onValidate: (content) async {
-                  return await _validateL4Content('hierarchy', content, state);
+                  return await Step3ValidationHelper.validateL4Content(context, 'hierarchy', content, state);
                 },
                 autoValidateOnUpload: true,
               ),
@@ -764,7 +552,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
               initialContent: state.payloadsJson ?? '',
               isValidated: state.payloadsValidated,
               onContentChanged: (content) => context.read<WizardBloc>().add(WizardPayloadsChanged(content)),
-              onValidate: (content) => _validateConfigFile('payloads', content, state),
+              onValidate: (content) => Step3ValidationHelper.validateConfigFile(context, 'payloads', content, state),
               autoValidateOnUpload: true,
             ),
           ),
@@ -781,7 +569,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
 
         // L3 Row
         _buildLayerRow(context, showFlowchart: showFlowchart, flowchart: layerBuilder.buildL3Layer(context), editors: [
-          _buildAutoConfiguredCard(context),
+          Step3InfoCards.autoConfigured(context),
         ]),
         
         if (showFlowchart) _buildArrowRow(),
@@ -830,7 +618,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
                         context.read<WizardBloc>().add(WizardSceneConfigContentChanged(content));
                       },
                       onValidate: (content) async {
-                        return await _validateL4Content('scene-config', content, state);
+                        return await Step3ValidationHelper.validateL4Content(context, 'scene-config', content, state);
                       },
                       autoValidateOnUpload: true,
                     ),
@@ -846,7 +634,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
         ] else ...[
           // No L4 Scene needed - show info card
           _buildLayerRow(context, showFlowchart: showFlowchart, flowchart: layerBuilder.buildL4Layer(context), editors: [
-            _buildL4InfoCard(context, state),
+            Step3InfoCards.l4Info(context, needs3DModel: state.calcParams?.needs3DModel ?? false, l4Provider: state.layer4Provider),
           ]),
           if (showFlowchart) _buildArrowRow(),
         ],
@@ -880,8 +668,8 @@ class _Step3DeployerState extends State<Step3Deployer> {
                   },
                   onValidate: (content) async {
                     // User config is L5 - use layer5Provider instead of layer4Provider
-                    return await _validateL4Content(
-                      'user-config', content, state,
+                    return await Step3ValidationHelper.validateL4Content(
+                      context, 'user-config', content, state,
                       providerOverride: state.layer5Provider,
                     );
                   },
@@ -890,7 +678,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
               );
             }),
           ] else ...[
-            _buildL5InfoCard(context, state),
+            Step3InfoCards.l5Info(context, l5Provider: state.layer5Provider),
           ],
         ]),
 
@@ -900,32 +688,6 @@ class _Step3DeployerState extends State<Step3Deployer> {
     );
   }
 
-  Widget _buildAutoConfiguredCard(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.check_circle, color: Colors.green.shade500, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Auto-configured', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: isDark ? Colors.white : Colors.black87)),
-                Text('Storage tiers are automatically provisioned.', style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade600, fontSize: 12)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   String _buildConfigOptimizationJson(WizardState state) {
     if (state.calcResult == null) return '// No calculation result';
@@ -1211,86 +973,6 @@ class _Step3DeployerState extends State<Step3Deployer> {
               },
             ),
           ],
-        ],
-      ),
-    );
-  }
-
-  /// L4 info card when needs3DModel is false or L4 provider is not AWS/Azure
-  Widget _buildL4InfoCard(BuildContext context, WizardState state) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final needs3D = state.calcParams?.needs3DModel == true;
-    final l4Provider = state.layer4Provider?.toUpperCase();
-    
-    String message;
-    IconData icon;
-    Color color;
-    
-    if (!needs3D) {
-      message = 'L4 visualization not needed (needs3DModel = false in Step 2)';
-      icon = Icons.info_outline;
-      color = Colors.blue;
-    } else if (l4Provider == 'GCP') {
-      message = 'GCP does not support 3D visualization in this thesis scope';
-      icon = Icons.block;
-      color = Colors.orange;
-    } else if (l4Provider == null) {
-      message = 'No L4 provider selected in Step 2';
-      icon = Icons.warning_amber;
-      color = Colors.amber;
-    } else {
-      message = 'L4 configuration not required';
-      icon = Icons.check_circle_outline;
-      color = Colors.green;
-    }
-    
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(message, style: TextStyle(color: Colors.grey.shade600)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// L5 info card when L5 provider is not AWS/Azure
-  Widget _buildL5InfoCard(BuildContext context, WizardState state) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final l5Provider = state.layer5Provider?.toUpperCase();
-    
-    String message;
-    if (l5Provider == 'GCP') {
-      message = 'GCP Grafana configuration not supported in this thesis scope';
-    } else if (l5Provider == null) {
-      message = 'No L5 provider selected in Step 2';
-    } else {
-      message = 'L5 config not required for $l5Provider';
-    }
-    
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.info_outline, color: Colors.blue, size: 28),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(message, style: TextStyle(color: Colors.grey.shade600)),
-          ),
         ],
       ),
     );

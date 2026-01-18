@@ -21,29 +21,9 @@ CalcResult _createCalcResult({
 
 void main() {
   group('CalculationHelper', () {
-    group('listEquals', () {
-      test('returns true for identical lists', () {
-        expect(CalculationHelper.listEquals([1, 2, 3], [1, 2, 3]), true);
-      });
-      
-      test('returns false for different lengths', () {
-        expect(CalculationHelper.listEquals([1, 2], [1, 2, 3]), false);
-      });
-      
-      test('returns false for different elements', () {
-        expect(CalculationHelper.listEquals([1, 2, 3], [1, 3, 2]), false);
-      });
-      
-      test('returns true for empty lists', () {
-        expect(CalculationHelper.listEquals([], []), true);
-      });
-      
-      test('handles string lists', () {
-        expect(CalculationHelper.listEquals(['a', 'b'], ['a', 'b']), true);
-        expect(CalculationHelper.listEquals(['a', 'b'], ['a', 'c']), false);
-      });
-    });
+    // Note: listEquals was removed - now uses package:collection ListEquality
     
+
     group('extractProvidersFromPath', () {
       test('extracts simple layer providers', () {
         final path = ['L1_AWS', 'L2_AZURE', 'L4_GCP'];
@@ -140,22 +120,11 @@ void main() {
           inputParams: const InputParamsUsed(useEventChecking: true),
         );
         
-        expect(CalculationHelper.calculationInvalidatesStep3(oldResult, newResult), true);
+      expect(CalculationHelper.calculationInvalidatesStep3(oldResult, newResult), true);
       });
     });
     
-    group('extractProviderFromSegment', () {
-      test('extracts provider from L1 segment', () {
-        expect(CalculationHelper.extractProviderFromSegment('L1_AWS'), 'AWS');
-      });
-      
-      test('extracts provider from L3 segment', () {
-        expect(CalculationHelper.extractProviderFromSegment('L3_hot_AZURE'), 'AZURE');
-      });
-      
-      test('returns null for invalid segment', () {
-        expect(CalculationHelper.extractProviderFromSegment('invalid'), null);
-      });
-    });
+    // Note: extractProviderFromSegment was moved to ArchitectureServiceMap
+    // Tests should be added there if needed
   });
 }

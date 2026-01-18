@@ -132,9 +132,9 @@ class ArchitectureServiceMap {
   
   static Color getProviderColor(String? provider, {bool isDark = false}) {
     switch (provider?.toUpperCase()) {
-      case 'AWS': return AppColors.awsOrange;
-      case 'AZURE': return AppColors.azureBlue;
-      case 'GCP': return AppColors.gcpRed;
+      case 'AWS': return AppColors.aws;
+      case 'AZURE': return AppColors.azure;
+      case 'GCP': return AppColors.gcp;
       default: return isDark ? Colors.grey.shade400 : Colors.grey.shade600;
     }
   }

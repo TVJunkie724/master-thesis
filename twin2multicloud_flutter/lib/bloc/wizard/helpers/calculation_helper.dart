@@ -1,8 +1,9 @@
 // lib/bloc/wizard/helpers/calculation_helper.dart
 // Extracted calculation/optimizer logic
 
+import 'package:collection/collection.dart';
 import '../../../models/calc_result.dart';
-import '../wizard_state.dart';
+import '../../../widgets/architecture/architecture_service_map.dart';
 
 /// Helper class for calculation-related operations
 /// Extracts logic from WizardBloc to improve maintainability
@@ -27,19 +28,11 @@ class CalculationHelper {
            oldParams.integrateErrorHandling != newParams.integrateErrorHandling ||
            oldParams.needs3DModel != newParams.needs3DModel;
     
-    // Check cheapestPath
-    final pathChanged = !listEquals(oldResult.cheapestPath, newResult.cheapestPath);
+    // Check cheapestPath - use package:collection for proper list equality
+    final listEquality = const ListEquality<String>();
+    final pathChanged = !listEquality.equals(oldResult.cheapestPath, newResult.cheapestPath);
     
     return paramsChanged || pathChanged;
-  }
-  
-  /// Check list equality
-  static bool listEquals<T>(List<T> a, List<T> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
   }
   
   /// Get unconfigured providers from optimal path
@@ -52,14 +45,13 @@ class CalculationHelper {
   }
   
   /// Extract all providers from a cheapest path
+  /// Delegates to ArchitectureServiceMap to avoid code duplication
   static Set<String> extractProvidersFromPath(List<String> path) {
     final resultProviders = <String>{};
     for (final segment in path) {
-      final parts = segment.split('_');
-      if (parts.length >= 3 && segment.startsWith('L3')) {
-        resultProviders.add(parts[2].toUpperCase());
-      } else if (parts.length >= 2) {
-        resultProviders.add(parts[1].toUpperCase());
+      final provider = ArchitectureServiceMap.extractProviderFromSegment(segment);
+      if (provider != null) {
+        resultProviders.add(provider);
       }
     }
     return resultProviders;
@@ -79,23 +71,12 @@ class CalculationHelper {
     return null;
   }
   
-  /// Extract provider from path segment
-  static String? extractProviderFromSegment(String segment) {
-    final parts = segment.split('_');
-    if (parts.length >= 3 && segment.startsWith('L3')) {
-      return parts[2].toUpperCase();
-    } else if (parts.length >= 2) {
-      return parts[1].toUpperCase();
-    }
-    return null;
-  }
-  
   /// Get L4 provider from cheapest path
   static String? getL4Provider(CalcResult? result) {
     if (result == null) return null;
     for (final segment in result.cheapestPath) {
       if (segment.startsWith('L4_')) {
-        return extractProviderFromSegment(segment);
+        return ArchitectureServiceMap.extractProviderFromSegment(segment);
       }
     }
     return null;
@@ -106,7 +87,7 @@ class CalculationHelper {
     if (result == null) return null;
     for (final segment in result.cheapestPath) {
       if (segment.startsWith('L5_')) {
-        return extractProviderFromSegment(segment);
+        return ArchitectureServiceMap.extractProviderFromSegment(segment);
       }
     }
     return null;

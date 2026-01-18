@@ -582,10 +582,8 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     return CalculationHelper.calculationInvalidatesStep3(oldResult, newResult);
   }
   
-  bool _listEquals<T>(List<T> a, List<T> b) {
-    return CalculationHelper.listEquals(a, b);
-  }
-  
+
+
   Set<String> _getUnconfiguredProviders(List<String> path) {
     return CalculationHelper.getUnconfiguredProviders(path, state.configuredProviders);
   }
