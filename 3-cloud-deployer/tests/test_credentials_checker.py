@@ -185,7 +185,7 @@ class TestCheckAWSCredentials:
         })
         
         assert result["status"] == "invalid"
-        assert "Invalid credentials" in result["message"]
+        assert "Invalid AWS credentials" in result["message"]
     
     @patch("src.api.credentials_checker.boto3.Session")
     def test_valid_credentials_full_access(self, mock_session):

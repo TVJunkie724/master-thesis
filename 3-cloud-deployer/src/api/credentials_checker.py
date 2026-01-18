@@ -692,11 +692,20 @@ def check_aws_credentials(credentials: dict) -> dict:
         except ClientError as e:
             error_code = e.response["Error"]["Code"]
             if error_code in ("InvalidClientTokenId", "SignatureDoesNotMatch"):
-                result["message"] = "Invalid credentials: access key or secret key is incorrect"
+                result["message"] = (
+                    "Invalid AWS credentials. This can happen if:\n"
+                    "  • Access key ID or secret access key is incorrect\n"
+                    "  • Access key has been deactivated (Status: Inactive) in IAM\n"
+                    "  • Access key has been deleted or rotated\n"
+                    "Check your credentials in AWS Console → IAM → Users → Security credentials."
+                )
             elif error_code == "ExpiredToken":
-                result["message"] = "Credentials have expired (session token may be expired)"
+                result["message"] = (
+                    "AWS session token has expired. This happens with temporary credentials.\n"
+                    "Generate new temporary credentials using 'aws sts get-session-token' or re-assume your role."
+                )
             else:
-                result["message"] = f"Failed to validate credentials: {error_code}"
+                result["message"] = f"Failed to validate AWS credentials: {error_code}"
             return result
         except NoCredentialsError:
             result["message"] = "No credentials provided"

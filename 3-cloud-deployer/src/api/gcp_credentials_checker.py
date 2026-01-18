@@ -140,10 +140,30 @@ def _check_project_access(project_id: str) -> dict:
                 "state": project.state.name,
             }
         except Exception as e:
-            if "403" in str(e):
-                return {"status": "access_denied", "error": str(e)}
-            elif "404" in str(e):
-                return {"status": "not_found", "error": str(e)}
+            error_str = str(e)
+            if "403" in error_str:
+                return {
+                    "status": "access_denied", 
+                    "error": (
+                        "Access denied to GCP project. This can happen if:\n"
+                        "  • Service account key has been disabled in IAM\n"
+                        "  • Service account has been deleted\n"
+                        "  • Service account lacks permission to access this project\n"
+                        "  • Project ID is incorrect\n"
+                        "Check: Google Cloud Console → IAM & Admin → Service Accounts"
+                    )
+                }
+            elif "404" in error_str:
+                return {
+                    "status": "not_found", 
+                    "error": (
+                        f"GCP project '{project_id}' not found. This can happen if:\n"
+                        "  • Project ID is incorrect (check for typos)\n"
+                        "  • Project has been deleted\n"
+                        "  • Service account belongs to a different project\n"
+                        "Verify your project ID in Google Cloud Console."
+                    )
+                }
             raise
             
     except ImportError:
