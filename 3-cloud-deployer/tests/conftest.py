@@ -9,8 +9,15 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "s
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 @pytest.fixture(scope="function", autouse=True)
-def mock_env_vars():
-    """Set mock environment variables to prevent accidental cloud calls."""
+def mock_env_vars(request):
+    """Set mock environment variables to prevent accidental cloud calls.
+    
+    Note: This fixture is skipped for E2E tests which need real credentials.
+    """
+    # Skip for E2E tests - they need real credentials for actual cloud operations
+    if "e2e" in str(request.fspath):
+        return
+    
     os.environ["AWS_ACCESS_KEY_ID"] = "testing"
     os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
     os.environ["AWS_SECURITY_TOKEN"] = "testing"
@@ -47,6 +54,14 @@ def mock_project_config():
     )
 
 @pytest.fixture(autouse=True)
-def mock_sleep(monkeypatch):
-    """Skip time.sleep calls to speed up tests."""
+def mock_sleep(request, monkeypatch):
+    """Skip time.sleep calls to speed up unit tests.
+    
+    Note: This fixture is skipped for E2E tests which need real timing.
+    """
+    # Skip for E2E tests - they need real sleep for cloud propagation
+    if "e2e" in str(request.fspath):
+        return
+    
     monkeypatch.setattr("time.sleep", lambda x: None)
+

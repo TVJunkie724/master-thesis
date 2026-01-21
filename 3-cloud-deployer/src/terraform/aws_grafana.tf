@@ -63,10 +63,19 @@ resource "aws_iam_role_policy_attachment" "l5_grafana_cloudwatch" {
 # Amazon Managed Grafana Workspace
 # ==============================================================================
 
+# Random ID to work around AWS Managed Grafana API bug
+# The API sometimes returns "Duplicate request for workspace" even when no
+# workspace exists. Adding a unique ID to the description makes each request
+# appear unique to the API.
+resource "random_id" "grafana_suffix" {
+  count       = local.l5_aws_enabled ? 1 : 0
+  byte_length = 4
+}
+
 resource "aws_grafana_workspace" "main" {
   count                     = local.l5_aws_enabled ? 1 : 0
   name                      = "${var.digital_twin_name}-grafana"
-  description               = "Grafana workspace for ${var.digital_twin_name} Digital Twin"
+  description               = "Grafana workspace for ${var.digital_twin_name} Digital Twin (${random_id.grafana_suffix[0].hex})"
   account_access_type       = "CURRENT_ACCOUNT"
   authentication_providers  = ["AWS_SSO"]
   permission_type           = "SERVICE_MANAGED"

@@ -17,11 +17,13 @@ from google.cloud import firestore
 # Handle import path for both Cloud Functions and test contexts
 try:
     from _shared.inter_cloud import validate_token, build_auth_error_response
+    from _shared.env_utils import require_env
 except ModuleNotFoundError:
     _cloud_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _cloud_funcs_dir not in sys.path:
         sys.path.insert(0, _cloud_funcs_dir)
     from _shared.inter_cloud import validate_token, build_auth_error_response
+    from _shared.env_utils import require_env
 
 
 def _get_inter_cloud_token():

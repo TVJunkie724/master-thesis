@@ -646,6 +646,7 @@ def aws_credentials(template_project_path):
             os.environ["AWS_ACCESS_KEY_ID"] = aws_creds["aws_access_key_id"]
             os.environ["AWS_SECRET_ACCESS_KEY"] = aws_creds["aws_secret_access_key"]
             os.environ["AWS_REGION"] = aws_creds.get("aws_region", "eu-west-1")
+            os.environ["AWS_DEFAULT_REGION"] = aws_creds.get("aws_region", "eu-west-1")  # boto3 uses this
             
             return {
                 "auth_type": "access_key",

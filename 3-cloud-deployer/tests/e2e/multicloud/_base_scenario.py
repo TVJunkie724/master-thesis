@@ -236,6 +236,17 @@ class BaseScenarioTest:
         credentials = load_credentials(project_path)
         cleanup_state["credentials"] = credentials
         
+        # Set AWS environment variables for boto3 (needed for test_07 dataflow)
+        if "aws" in credentials:
+            aws_creds = credentials["aws"]
+            if aws_creds.get("aws_access_key_id"):
+                os.environ["AWS_ACCESS_KEY_ID"] = aws_creds["aws_access_key_id"]
+            if aws_creds.get("aws_secret_access_key"):
+                os.environ["AWS_SECRET_ACCESS_KEY"] = aws_creds["aws_secret_access_key"]
+            if aws_creds.get("aws_region"):
+                os.environ["AWS_REGION"] = aws_creds["aws_region"]
+                os.environ["AWS_DEFAULT_REGION"] = aws_creds["aws_region"]  # boto3 uses this
+        
         # === PHASE 0: Credential validation ===
         print("\n[PHASE 0] Credential Validation")
         cred_error = check_required_credentials(scenario, credentials)
@@ -668,7 +679,7 @@ class BaseScenarioTest:
         inter_cloud_token = outputs.get("inter_cloud_token")
         headers = {}
         if inter_cloud_token:
-            headers["Authorization"] = f"Bearer {inter_cloud_token}"
+            headers["X-Inter-Cloud-Token"] = inter_cloud_token  # Match function's expected header
         
         try:
             response = requests.get(
