@@ -190,8 +190,8 @@ def azure_terraform_e2e_project_path(template_project_path, azure_terraform_e2e_
     Configures all layers to use Azure.
     """
     # Use FIXED directory next to test file for consistent state across runs
-    # This maps to /app/tests/e2e/azure/e2e_state/ in Docker
-    fixed_base_dir = Path(__file__).parent / "azure" / "e2e_state"
+    # This maps to /app/tests/e2e/azure_tests/e2e_state/ in Docker
+    fixed_base_dir = Path(__file__).parent / "azure_tests" / "e2e_state"
     project_path = fixed_base_dir / azure_terraform_e2e_test_id
     
     if project_path.exists():
@@ -259,7 +259,7 @@ def azure_adt_e2e_project_path(template_project_path, azure_adt_e2e_test_id):
     Copies template hierarchy and scene assets for DTDL/twin creation.
     """
     # Use FIXED directory next to test file for consistent state across runs
-    fixed_base_dir = Path(__file__).parent / "azure" / "e2e_state"
+    fixed_base_dir = Path(__file__).parent / "azure_tests" / "e2e_state"
     project_path = fixed_base_dir / azure_adt_e2e_test_id
     
     if project_path.exists():
