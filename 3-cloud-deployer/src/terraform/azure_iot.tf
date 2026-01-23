@@ -133,6 +133,10 @@ resource "azurerm_linux_function_app" "l1" {
     # Full Digital Twin configuration - required by dispatcher for routing
     DIGITAL_TWIN_INFO = var.digital_twin_info_json
 
+    # Target function suffix: connector for multi-cloud, processor for single-cloud
+    # This tells the dispatcher whether to route to connector (cross-cloud) or processor (same-cloud)
+    TARGET_FUNCTION_SUFFIX = var.layer_2_provider != "azure" ? "-connector" : "-processor"
+
     # L2 Function App URL - required by dispatcher to call processor_wrapper
     # Points to L2-functions app where processor_wrapper is deployed
     FUNCTION_APP_BASE_URL = var.layer_2_provider == "azure" ? "https://${var.digital_twin_name}-l2-functions.azurewebsites.net" : ""
