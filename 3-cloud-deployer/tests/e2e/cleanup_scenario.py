@@ -1,20 +1,32 @@
 """
-Cleanup a single scenario - works even when Terraform state is lost.
+Cleanup E2E test scenarios - works even when Terraform state is lost.
 
-This script uses SDK calls to delete all resources matching the scenario prefix.
+Runs AWS, Azure, and GCP cleanup in PARALLEL to speed up the process.
 No Terraform state required.
 
 Usage:
+    # Clean a specific scenario:
     docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
-        python tests/e2e/cleanup_scenario.py sc-aws-azure
+        python tests/e2e/cleanup_scenario.py sc-azure-aws
+
+    # Clean ALL known scenarios:
+    docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
+        python tests/e2e/cleanup_scenario.py --all
 
     # Dry run (show what would be deleted):
     docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
-        python tests/e2e/cleanup_scenario.py sc-aws-azure --dry-run
+        python tests/e2e/cleanup_scenario.py sc-azure-aws --dry-run
+
+    # Dry run for all:
+    docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
+        python tests/e2e/cleanup_scenario.py --all --dry-run
 """
 import sys
 import json
 import logging
+import os
+import shutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from datetime import datetime
 
@@ -28,12 +40,22 @@ logger = logging.getLogger(__name__)
 
 # CRITICAL: Remove tests/e2e from sys.path to prevent the local 'azure' folder
 # from shadowing the azure Python package
-import os
 sys.path = [p for p in sys.path if 'tests/e2e' not in p and 'tests\\e2e' not in p]
 
 # Add src to path
 sys.path.insert(0, '/app')
 sys.path.insert(0, '/app/src')
+
+# All known scenario prefixes
+ALL_PREFIXES = [
+    "sc-aws-azure", "sc-aws-gcp", 
+    "sc-azure-aws", "sc-azure-gcp",
+    "sc-gcp-aws", "sc-gcp-azure",
+    "mc-e2e", "tf-e2e",
+]
+
+# E2E state directory
+E2E_STATE_DIR = Path("/app/tests/e2e/multicloud/e2e_state")
 
 
 def load_credentials():
@@ -49,40 +71,8 @@ def load_credentials():
     raise FileNotFoundError("config_credentials.json not found")
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python cleanup_scenario.py <prefix> [--dry-run]")
-        print()
-        print("Examples:")
-        print("  python cleanup_scenario.py sc-aws-azure")
-        print("  python cleanup_scenario.py sc-gcp-aws --dry-run")
-        print()
-        print("Common prefixes:")
-        print("  sc-aws-azure, sc-aws-gcp, sc-azure-aws,")
-        print("  sc-azure-gcp, sc-gcp-aws, sc-gcp-azure")
-        sys.exit(1)
-    
-    prefix = sys.argv[1]
-    dry_run = "--dry-run" in sys.argv
-    
-    start_time = datetime.now()
-    
-    print("=" * 70)
-    print(f"  SCENARIO CLEANUP: {prefix}")
-    print("=" * 70)
-    print(f"Started: {start_time.isoformat()}")
-    print(f"Dry run: {dry_run}")
-    print()
-    
-    creds = load_credentials()
-    
-    # Track cleanup results
-    results = {"aws": None, "azure": None, "gcp": None}
-    
-    # AWS Cleanup
-    print("-" * 70)
-    print("[AWS] Starting cleanup...")
-    print("-" * 70)
+def cleanup_aws(creds: dict, prefix: str, dry_run: bool) -> str:
+    """Clean up AWS resources for a prefix. Returns status message."""
     try:
         from src.providers.aws.cleanup import cleanup_aws_resources
         cleanup_aws_resources(
@@ -91,23 +81,17 @@ def main():
             platform_user_email="",
             dry_run=dry_run
         )
-        results["aws"] = "✓ Complete"
+        return "✓ Complete"
     except ImportError as e:
-        results["aws"] = f"✗ Import Error: {e}"
-        print(f"[AWS] Import Error: {e}")
+        return f"✗ Import Error: {e}"
     except Exception as e:
-        results["aws"] = f"✗ Error: {e}"
-        print(f"[AWS] Error: {e}")
-    
-    print()
-    
-    # Azure Cleanup
-    print("-" * 70)
-    print("[Azure] Starting cleanup...")
-    print("-" * 70)
+        return f"✗ Error: {e}"
+
+
+def cleanup_azure(creds: dict, prefix: str, dry_run: bool) -> str:
+    """Clean up Azure resources for a prefix. Returns status message."""
     try:
-        # Pre-import azure.identity to ensure it's available
-        import azure.identity
+        import azure.identity  # Pre-import to ensure it's available
         from src.providers.azure.cleanup import cleanup_azure_resources
         cleanup_azure_resources(
             creds, prefix,
@@ -115,75 +99,158 @@ def main():
             platform_user_email="",
             dry_run=dry_run
         )
-        results["azure"] = "✓ Complete"
+        return "✓ Complete"
     except ImportError as e:
-        import traceback
-        results["azure"] = f"✗ Import Error: {e}"
-        print(f"[Azure] Import Error: {e}")
-        traceback.print_exc()
+        return f"✗ Import Error: {e}"
     except Exception as e:
-        import traceback
-        results["azure"] = f"✗ Error: {e}"
-        print(f"[Azure] Error: {e}")
-        traceback.print_exc()
-    
-    print()
-    
-    # GCP Cleanup
-    print("-" * 70)
-    print("[GCP] Starting cleanup...")
-    print("-" * 70)
+        return f"✗ Error: {e}"
+
+
+def cleanup_gcp(creds: dict, prefix: str, dry_run: bool) -> str:
+    """Clean up GCP resources for a prefix. Returns status message."""
     try:
         from src.providers.gcp.cleanup import cleanup_gcp_resources
         cleanup_gcp_resources(creds, prefix, dry_run=dry_run)
-        results["gcp"] = "✓ Complete"
+        return "✓ Complete"
     except ImportError as e:
-        results["gcp"] = f"✗ Import Error: {e}"
-        print(f"[GCP] Import Error: {e}")
+        return f"✗ Import Error: {e}"
     except Exception as e:
-        results["gcp"] = f"✗ Error: {e}"
-        print(f"[GCP] Error: {e}")
+        return f"✗ Error: {e}"
+
+
+def cleanup_local_state(prefix: str, dry_run: bool) -> str:
+    """Clean up local state files for a prefix. Returns status message."""
+    state_dir = E2E_STATE_DIR / prefix
+    if not state_dir.exists():
+        return "✓ Already clean"
     
-    print()
+    if dry_run:
+        return f"[DRY RUN] Would remove: {state_dir}"
     
-    # Clean up local state files
-    print("-" * 70)
-    print("[Local] Cleaning up state files...")
-    print("-" * 70)
-    state_dir = Path(f"/app/tests/e2e/multicloud/e2e_state/{prefix}")
-    if state_dir.exists():
-        if dry_run:
-            print(f"  [DRY RUN] Would remove: {state_dir}")
-        else:
-            import shutil
+    try:
+        shutil.rmtree(state_dir)
+        return f"✓ Removed: {state_dir}"
+    except Exception as e:
+        return f"✗ Error: {e}"
+
+
+def cleanup_single_prefix(creds: dict, prefix: str, dry_run: bool) -> dict:
+    """
+    Clean up a single prefix with AWS, Azure, GCP running in parallel.
+    Returns dict with results for each provider.
+    """
+    results = {}
+    
+    # Run cloud provider cleanups in parallel
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {
+            executor.submit(cleanup_aws, creds, prefix, dry_run): "AWS",
+            executor.submit(cleanup_azure, creds, prefix, dry_run): "Azure",
+            executor.submit(cleanup_gcp, creds, prefix, dry_run): "GCP",
+        }
+        
+        for future in as_completed(futures):
+            provider = futures[future]
             try:
-                shutil.rmtree(state_dir)
-                print(f"  ✓ Removed: {state_dir}")
+                results[provider] = future.result()
             except Exception as e:
-                print(f"  ✗ Error: {e}")
-    else:
-        print(f"  ✓ No state directory found (already clean)")
+                results[provider] = f"✗ Unexpected Error: {e}"
     
+    # Clean up local state (after cloud cleanup)
+    results["Local"] = cleanup_local_state(prefix, dry_run)
+    
+    return results
+
+
+def print_usage():
+    """Print usage information."""
+    print("Usage: python cleanup_scenario.py <prefix|--all> [--dry-run]")
     print()
+    print("Examples:")
+    print("  python cleanup_scenario.py sc-aws-azure")
+    print("  python cleanup_scenario.py sc-azure-aws --dry-run")
+    print("  python cleanup_scenario.py --all")
+    print("  python cleanup_scenario.py --all --dry-run")
+    print()
+    print("Available prefixes:")
+    for prefix in ALL_PREFIXES:
+        print(f"  {prefix}")
+
+
+def main():
+    if len(sys.argv) < 2:
+        print_usage()
+        sys.exit(1)
+    
+    # Parse arguments
+    args = sys.argv[1:]
+    dry_run = "--dry-run" in args
+    clean_all = "--all" in args
+    
+    # Determine prefixes to clean
+    if clean_all:
+        prefixes = ALL_PREFIXES
+    else:
+        prefix = [a for a in args if not a.startswith("--")]
+        if not prefix:
+            print("Error: No prefix specified")
+            print_usage()
+            sys.exit(1)
+        prefixes = [prefix[0]]
+    
+    start_time = datetime.now()
+    
+    print("=" * 70)
+    if clean_all:
+        print("  CLEANUP ALL SCENARIOS (PARALLEL)")
+    else:
+        print(f"  SCENARIO CLEANUP: {prefixes[0]} (PARALLEL)")
+    print("=" * 70)
+    print(f"Started: {start_time.isoformat()}")
+    print(f"Dry run: {dry_run}")
+    print(f"Prefixes: {len(prefixes)}")
+    print()
+    
+    creds = load_credentials()
+    all_results = {}
+    
+    for prefix in prefixes:
+        print("-" * 70)
+        print(f"[{prefix}] Starting parallel cleanup (AWS/Azure/GCP)...")
+        print("-" * 70)
+        
+        results = cleanup_single_prefix(creds, prefix, dry_run)
+        all_results[prefix] = results
+        
+        for provider, status in sorted(results.items()):
+            print(f"  [{provider}] {status}")
+        print()
     
     # Summary
     duration = datetime.now() - start_time
     duration_str = str(duration).split('.')[0]
     
     print("=" * 70)
-    print(f"  CLEANUP SUMMARY: {prefix}")
+    print("  CLEANUP SUMMARY")
     print("=" * 70)
     print(f"Duration: {duration_str}")
     print(f"Mode: {'DRY RUN' if dry_run else 'LIVE'}")
     print()
+    
     print("Results:")
-    for provider, status in results.items():
-        print(f"  [{provider.upper()}] {status}")
+    for prefix, results in all_results.items():
+        has_errors = any("✗" in str(s) for s in results.values())
+        status = "❌ ERRORS" if has_errors else "✅ OK"
+        print(f"  {prefix}: {status}")
+    
     print()
     
     # Exit with error if any provider failed
-    has_errors = any("✗" in str(s) for s in results.values() if s)
-    sys.exit(1 if has_errors else 0)
+    total_errors = sum(
+        1 for results in all_results.values() 
+        for s in results.values() if "✗" in str(s)
+    )
+    sys.exit(1 if total_errors > 0 else 0)
 
 
 if __name__ == "__main__":

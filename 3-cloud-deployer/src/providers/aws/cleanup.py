@@ -276,7 +276,27 @@ def cleanup_aws_resources(
     except Exception as e:
         logger.warning(f"  Error: {e}")
     
-    # 11. Identity Store User (ONLY if we created it during this deployment)
+    # 11. AWS Resource Groups (used for tagging/organizing resources)
+    logger.info("[Resource Groups] Checking for orphans...")
+    try:
+        rg = session.client('resource-groups')
+        for page in rg.get_paginator('list_groups').paginate():
+            for group in page['Groups']:
+                group_name = group['Name']
+                if prefix in group_name or prefix_underscore in group_name:
+                    logger.info(f"  Found orphan: {group_name}")
+                    if dry_run:
+                        logger.info(f"    [DRY RUN] Would delete")
+                    else:
+                        try:
+                            rg.delete_group(Group=group_name)
+                            logger.info(f"    ✓ Deleted")
+                        except Exception as e:
+                            logger.warning(f"    ✗ Error: {e}")
+    except Exception as e:
+        logger.warning(f"  Error: {e}")
+    
+    # 12. Identity Store User (ONLY if we created it during this deployment)
     if cleanup_identity_user:
         logger.info("[Identity Store] Checking for user to clean up...")
         try:

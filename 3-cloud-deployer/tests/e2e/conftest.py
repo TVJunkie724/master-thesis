@@ -40,31 +40,41 @@ def pytest_runtest_logreport(report):
     if report.when == "call" or (report.when == "setup" and report.outcome == "error"):
         # Determine output file based on test location
         test_file = report.fspath
+        
+        # Try provider-specific directories, fall back to base e2e dir
         if "gcp" in str(test_file):
             output_dir = Path(__file__).parent / "gcp"
         elif "azure" in str(test_file):
-            output_dir = Path(__file__).parent / "azure"
+            output_dir = Path(__file__).parent / "azure_tests"  # Updated path
         elif "aws" in str(test_file):
             output_dir = Path(__file__).parent / "aws"
+        elif "multicloud" in str(test_file):
+            output_dir = Path(__file__).parent / "multicloud" / ".build"
         else:
             output_dir = Path(__file__).parent
         
+        # Create directory if it doesn't exist
+        output_dir.mkdir(parents=True, exist_ok=True)
         output_file = output_dir / "test_results.txt"
         
         # Write test result
-        with open(output_file, "a") as f:
-            status = report.outcome.upper()
-            f.write(f"{report.nodeid}: {status}\n")
-            
-            # Write captured stdout if any
-            if hasattr(report, "capstdout") and report.capstdout:
-                f.write(f"  STDOUT:\n{report.capstdout}\n")
-            
-            # Write failure details
-            if report.failed and hasattr(report, "longrepr") and report.longrepr:
-                f.write(f"  FAILURE:\n{report.longrepr}\n")
-            
-            f.write("\n")
+        try:
+            with open(output_file, "a") as f:
+                status = report.outcome.upper()
+                f.write(f"{report.nodeid}: {status}\n")
+                
+                # Write captured stdout if any
+                if hasattr(report, "capstdout") and report.capstdout:
+                    f.write(f"  STDOUT:\n{report.capstdout}\n")
+                
+                # Write failure details
+                if report.failed and hasattr(report, "longrepr") and report.longrepr:
+                    f.write(f"  FAILURE:\n{report.longrepr}\n")
+                
+                f.write("\n")
+        except Exception as e:
+            # Don't crash the test run if logging fails
+            pass
 
 
 @pytest.fixture(scope="session")
