@@ -41,7 +41,30 @@ description: Onboarding workflow for AI agents working on any project in this re
 
 8. Before making changes, check if a feature branch is needed
 9. Only commit changes that YOU made, not existing uncommitted changes
-10. Use descriptive commit messages
+10. Use the required commit message format (see below)
+
+### Commit Message Format
+
+**Required format:**
+```
+[AI-MMDD-XXXX] type(scope): description
+```
+
+| Component | Description | Example |
+|-----------|-------------|---------|
+| `AI-MMDD` | Date (month + day) | `AI-0124` for Jan 24 |
+| `XXXX` | Random 4-character ID | `8756`, `0f67` |
+| `type` | Conventional commit type | `feat`, `fix`, `refactor`, `docs` |
+| `scope` | Area of change | `validation`, `terraform`, `e2e` |
+
+**Examples from this repo:**
+```
+[AI-0124-8756] feat(validation): aggregate multiple errors instead of fail-fast
+[AI-0121-0f67] fix(terraform): add missing TARGET_FUNCTION_SUFFIX for Azure L1
+[AI-0121-0f67] feat(e2e): add real-time streaming output to test runner
+```
+
+> **Check existing commits first:** Run `git log --oneline -5` to see the format used in recent commits.
 
 ## Testing
 

@@ -86,7 +86,7 @@ def validate_config_content(filename, content):
                                 errors.append(str(e))
             
             if errors:
-                raise ValueError(f"Config validation errors in {filename}:\n• " + "\n• ".join(errors))
+                raise ValueError(f"Config validation errors in {filename}:\n  ◦ " + "\n  ◦ ".join(errors))
             return
 
         
@@ -118,7 +118,7 @@ def validate_config_content(filename, content):
                                  errors.append(f"Event at index {index}: feedback missing 'payload'")
              
              if errors:
-                 raise ValueError(f"Config validation errors in {filename}:\n• " + "\n• ".join(errors))
+                 raise ValueError(f"Config validation errors in {filename}:\n  ◦ " + "\n  ◦ ".join(errors))
              return
         
         # General Case: Single Object (CONFIG, OPTIMIZATION)
@@ -148,7 +148,7 @@ def validate_config_content(filename, content):
                              errors.append(f"Connection '{conn_id}': missing fields {missing_conn_fields}")
              
              if errors:
-                 raise ValueError(f"Config validation errors in {filename}:\n• " + "\n• ".join(errors))
+                 raise ValueError(f"Config validation errors in {filename}:\n  ◦ " + "\n  ◦ ".join(errors))
 
 
 # ==========================================
@@ -311,7 +311,7 @@ def validate_aws_hierarchy_content(content):
         _validate_item(item, f"[{i}]")
     
     if errors:
-        raise ValueError(f"AWS hierarchy validation errors:\n• " + "\n• ".join(errors))
+        raise ValueError(f"AWS hierarchy validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
     
     logger.info(f"✓ AWS hierarchy validated: {len(content)} top-level items")
 
@@ -413,7 +413,7 @@ def validate_azure_hierarchy_content(content):
                 errors.append(f"Relationship at index {i}: missing '$relationshipName'")
     
     if errors:
-        raise ValueError(f"Azure hierarchy validation errors:\n• " + "\n• ".join(errors))
+        raise ValueError(f"Azure hierarchy validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
     
     logger.info(f"✓ Azure hierarchy validated: {len(models)} models, {len(twins)} twins, {len(relationships)} relationships")
 
@@ -600,7 +600,7 @@ def validate_state_machine_content(filename, content):
                     )
             
             if errors:
-                raise ValueError(f"Azure Logic App validation errors:\n• " + "\n• ".join(errors))
+                raise ValueError(f"Azure Logic App validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
             return  # Azure validation complete
         
         # 2b. GCP Workflow: Special handling for 'main' structure
@@ -640,7 +640,7 @@ def validate_state_machine_content(filename, content):
                         errors.append(f"Duplicate step names: {duplicates}")
             
             if errors:
-                raise ValueError(f"GCP Workflow validation errors:\n• " + "\n• ".join(errors))
+                raise ValueError(f"GCP Workflow validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
             return  # Valid GCP workflow
         
         # 2c. AWS Step Function: Validate StartAt references existing state
@@ -664,7 +664,7 @@ def validate_state_machine_content(filename, content):
                     )
             
             if errors:
-                raise ValueError(f"AWS Step Function validation errors:\n• " + "\n• ".join(errors))
+                raise ValueError(f"AWS Step Function validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
             return  # AWS validation complete
         
         # 2d. Other providers (fallback)

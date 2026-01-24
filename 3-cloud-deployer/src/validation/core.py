@@ -189,7 +189,7 @@ def check_required_files(accessor: FileAccessor, ctx: ValidationContext) -> None
             missing_files.append(required_file)
     
     if missing_files:
-        raise ValueError(f"Missing required configuration files:\n• " + "\n• ".join(missing_files))
+        raise ValueError(f"Missing required configuration files:\n  ◦ " + "\n  ◦ ".join(missing_files))
 
 
 def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None:
@@ -198,6 +198,16 @@ def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None
     Also populates ctx with parsed config data for later checks.
     """
     from src.validator import validate_config_content
+    
+    # Load config_user.json FIRST (optional file, needed for L5 checks later)
+    # This must run even if other validations fail
+    user_path = ctx.project_root + "config_user.json"
+    if accessor.file_exists(user_path):
+        try:
+            content = accessor.read_text(user_path)
+            ctx.user_config = json.loads(content)
+        except Exception as e:
+            raise ValueError(f"Failed to parse config_user.json: {e}")
     
     for filepath in ctx.all_files:
         basename = os.path.basename(filepath)
@@ -223,15 +233,6 @@ def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None
                 raise
             except Exception as e:
                 raise ValueError(f"Validation failed for {basename}: {e}")
-    
-    # Load config_user.json if present (optional file, loaded separately)
-    user_path = ctx.project_root + "config_user.json"
-    if accessor.file_exists(user_path):
-        try:
-            content = accessor.read_text(user_path)
-            ctx.user_config = json.loads(content)
-        except Exception as e:
-            raise ValueError(f"Failed to parse config_user.json: {e}")
 
 
 
@@ -459,7 +460,7 @@ def check_payloads_vs_devices(accessor: FileAccessor, ctx: ValidationContext) ->
     
     if unknown_devices:
         raise ValueError(
-            f"Payload validation errors:\n• " + "\n• ".join(unknown_devices) +
+            f"Payload validation errors:\n  ◦ " + "\n  ◦ ".join(unknown_devices) +
             f"\n\nValid devices: {sorted(valid_device_ids)}"
         )
 

@@ -281,8 +281,8 @@ class TestValidation(unittest.TestCase):
         error_msg = str(cm.exception)
         self.assertIn("$schema", error_msg)
         self.assertIn("triggers", error_msg)
-        # Verify we have multiple bullet points
-        self.assertGreaterEqual(error_msg.count("•"), 2)
+        # Verify we have multiple sub-bullets
+        self.assertGreaterEqual(error_msg.count("◦"), 2)
     
     def test_state_machine_azure_all_three_errors(self):
         """Test Azure returns all 3 missing key errors together."""
@@ -294,7 +294,7 @@ class TestValidation(unittest.TestCase):
         self.assertIn("$schema", error_msg)
         self.assertIn("triggers", error_msg)
         self.assertIn("actions", error_msg)
-        self.assertGreaterEqual(error_msg.count("•"), 3)
+        self.assertGreaterEqual(error_msg.count("◦"), 3)
     
     def test_state_machine_aws_multiple_errors(self):
         """Test AWS Step Function returns multiple errors together."""
@@ -304,7 +304,7 @@ class TestValidation(unittest.TestCase):
         error_msg = str(cm.exception)
         self.assertIn("StartAt", error_msg)
         self.assertIn("States", error_msg)
-        self.assertGreaterEqual(error_msg.count("•"), 2)
+        self.assertGreaterEqual(error_msg.count("◦"), 2)
     
     def test_state_machine_gcp_missing_main_and_steps_edge_case(self):
         """Test GCP returns error for missing main block (edge case - can't check steps without main)."""
