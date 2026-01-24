@@ -55,6 +55,10 @@ locals {
   
   # Base URL for GCP Cloud Functions
   gcp_function_base_url = "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net"
+  
+  # Firestore database name with random suffix (used by Cloud Functions)
+  # This must match the actual database ID created in gcp_storage.tf
+  gcp_firestore_database_name = local.gcp_l3_hot_enabled ? google_firestore_database.main[0].name : ""
 }
 
 # ==============================================================================
@@ -182,10 +186,17 @@ resource "google_service_account" "functions" {
 # Custom IAM Role for Cloud Functions (Least Privilege)
 # ==============================================================================
 
+# Random suffix to avoid "marked for deletion" conflicts
+# GCP IAM roles are soft-deleted for 7 days, causing recreation failures
+resource "random_id" "functions_role_suffix" {
+  count       = local.deploy_gcp ? 1 : 0
+  byte_length = 4
+}
+
 resource "google_project_iam_custom_role" "functions_role" {
   count       = local.deploy_gcp ? 1 : 0
   project     = local.gcp_project_id
-  role_id     = "${replace(var.digital_twin_name, "-", "_")}_functions_role"
+  role_id     = "${replace(var.digital_twin_name, "-", "_")}_functions_role_${random_id.functions_role_suffix[0].hex}"
   title       = "${var.digital_twin_name} Functions Role"
   description = "Custom role for Digital Twin Cloud Functions with least-privilege permissions"
   stage       = "GA"

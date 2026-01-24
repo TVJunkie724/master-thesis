@@ -56,15 +56,13 @@ resource "google_cloudfunctions2_function" "persister" {
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
-      FIRESTORE_DATABASE     = var.digital_twin_name
-      INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      FIRESTORE_DATABASE     = local.gcp_firestore_database_name
+      INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
 
       # Multi-cloud L2→L3: When GCP L2 sends to remote L3
       REMOTE_WRITER_URL = var.layer_2_provider == "google" && var.layer_3_hot_provider != "google" ? (
         var.layer_3_hot_provider == "aws" ? try(aws_lambda_function_url.l0_hot_writer[0].function_url, "") :
-        var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/hot-writer" : ""
+        var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.hot_writer}" : ""
       ) : ""
 
       # Event checker (optional)
@@ -138,11 +136,9 @@ resource "google_cloudfunctions2_function" "connector" {
     
     environment_variables = {
       DIGITAL_TWIN_INFO = var.digital_twin_info_json
-      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
       # Multi-cloud L1→L2: Remote ingestion endpoint
-      REMOTE_INGESTION_URL = var.layer_2_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/ingestion" : (
+      REMOTE_INGESTION_URL = var.layer_2_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.ingestion}" : (
         var.layer_2_provider == "aws" ? try(aws_lambda_function_url.l0_ingestion[0].function_url, "") : ""
       )
     }
@@ -179,7 +175,8 @@ resource "google_cloud_run_service_iam_member" "connector_invoker" {
 
 resource "google_storage_bucket_object" "event_checker_source" {
   count  = local.gcp_l2_enabled && var.use_event_checking ? 1 : 0
-  name   = "event-checker-${filemd5("${var.project_path}/.build/gcp/event-checker.zip")}.zip"
+  # Use try() to gracefully fallback when file doesn't exist (count=0 case)
+  name   = "event-checker-${try(filemd5("${var.project_path}/.build/gcp/event-checker.zip"), "disabled")}.zip"
   bucket = google_storage_bucket.function_source[0].name
   source = "${var.project_path}/.build/gcp/event-checker.zip"
 }
@@ -217,9 +214,7 @@ resource "google_cloudfunctions2_function" "event_checker" {
       DIGITAL_TWIN_NAME     = var.digital_twin_name
       DIGITAL_TWIN_INFO     = var.digital_twin_info_json
       GCP_PROJECT_ID        = local.gcp_project_id
-      INTER_CLOUD_TOKEN     = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      INTER_CLOUD_TOKEN     = local.inter_cloud_token_value
       # Workflow trigger URL (if enabled)
       WORKFLOW_TRIGGER_URL  = var.trigger_notification_workflow ? (
         "https://workflowexecutions.googleapis.com/v1/projects/${local.gcp_project_id}/locations/${var.gcp_region}/workflows/${var.digital_twin_name}-event-workflow/executions"
@@ -338,9 +333,7 @@ resource "google_cloudfunctions2_function" "processor_wrapper" {
       GCP_PROJECT_ID         = local.gcp_project_id
       FUNCTION_BASE_URL      = "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net"
       PERSISTER_FUNCTION_URL = local.gcp_l3_hot_enabled ? google_cloudfunctions2_function.persister[0].url : ""
-      INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
     }
   }
 
@@ -390,11 +383,9 @@ resource "google_cloudfunctions2_function" "processor" {
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
-      FIRESTORE_DATABASE     = var.digital_twin_name
+      FIRESTORE_DATABASE     = local.gcp_firestore_database_name
       PERSISTER_FUNCTION_URL = local.gcp_l3_hot_enabled ? google_cloudfunctions2_function.persister[0].url : ""
-      INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
     }
   }
 
@@ -460,10 +451,8 @@ resource "google_cloudfunctions2_function" "event_action" {
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
-      FIRESTORE_DATABASE     = var.digital_twin_name
-      INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      FIRESTORE_DATABASE     = local.gcp_firestore_database_name
+      INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
     }
   }
 
@@ -529,10 +518,8 @@ resource "google_cloudfunctions2_function" "event_feedback" {
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
-      FIRESTORE_DATABASE     = var.digital_twin_name
-      INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      FIRESTORE_DATABASE     = local.gcp_firestore_database_name
+      INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
       
       # IoT Core vars - required for event_feedback_wrapper to send commands to devices
       GCP_IOT_REGION              = var.gcp_region

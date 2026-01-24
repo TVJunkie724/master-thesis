@@ -173,7 +173,7 @@ resource "google_cloudfunctions2_function" "hot_reader" {
       DIGITAL_TWIN_INFO    = var.digital_twin_info_json
       GCP_PROJECT_ID       = local.gcp_project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
-      FIRESTORE_DATABASE   = var.digital_twin_name
+      FIRESTORE_DATABASE   = local.gcp_firestore_database_name
       INTER_CLOUD_TOKEN    = local.inter_cloud_token_value
     }
   }
@@ -222,7 +222,7 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
       DIGITAL_TWIN_INFO    = var.digital_twin_info_json
       GCP_PROJECT_ID       = local.gcp_project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
-      FIRESTORE_DATABASE   = var.digital_twin_name
+      FIRESTORE_DATABASE   = local.gcp_firestore_database_name
       COLD_BUCKET_NAME     = google_storage_bucket.cold[0].name
       HOT_RETENTION_DAYS   = var.layer_3_hot_to_cold_interval_days
 
