@@ -844,26 +844,68 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
 
       // Build config payload
       final config = <String, dynamic>{'debug_mode': state.debugMode};
-      if (state.aws.source == CredentialSource.newlyEntered)
+      if (state.aws.source == CredentialSource.newlyEntered) {
         config['aws'] = state.aws.values;
-      if (state.azure.source == CredentialSource.newlyEntered)
+      }
+      if (state.azure.source == CredentialSource.newlyEntered) {
         config['azure'] = state.azure.values;
-      if (state.gcp.source == CredentialSource.newlyEntered)
+      }
+      if (state.gcp.source == CredentialSource.newlyEntered) {
         config['gcp'] = state.gcp.values;
-      if (state.calcParams != null)
+      }
+      if (state.calcParams != null) {
         config['optimizer_params'] = state.calcParams!.toJson();
-      if (state.calcResultRaw != null)
+      }
+      if (state.calcResultRaw != null) {
         config['optimizer_result'] = state.calcResultRaw!['result'];
-      config['highest_step_reached'] = state.highestStepReached; // Issue 4 fix
+      }
+      config['highest_step_reached'] = state.highestStepReached;
 
       await _api.updateTwinConfig(twinId!, config);
+
+      // Save deployer config (Step 3 data) - mirrors _onSaveDraft logic
+      await _api.updateDeployerConfig(twinId, {
+        'deployer_digital_twin_name': state.deployerDigitalTwinName,
+        'config_events_json': state.configEventsJson,
+        'config_iot_devices_json': state.configIotDevicesJson,
+        'config_json_validated': state.configJsonValidated,
+        'config_events_validated': state.configEventsValidated,
+        'config_iot_devices_validated': state.configIotDevicesValidated,
+        // Section 3 L1
+        'payloads_json': state.payloadsJson,
+        'payloads_validated': state.payloadsValidated,
+        // Section 3 L2
+        'processor_contents': state.processorContents,
+        'processor_validated': state.processorValidated,
+        'processor_requirements': state.processorRequirements,
+        'event_feedback_content': state.eventFeedbackContent,
+        'event_feedback_validated': state.eventFeedbackValidated,
+        'event_feedback_requirements': state.eventFeedbackRequirements,
+        'event_action_contents': state.eventActionContents,
+        'event_action_validated': state.eventActionValidated,
+        'event_action_requirements': state.eventActionRequirements,
+        'state_machine_content': state.stateMachineContent,
+        'state_machine_validated': state.stateMachineValidated,
+        // L4/L5 fields
+        'hierarchy_content': state.hierarchyContent,
+        'hierarchy_validated': state.hierarchyValidated,
+        'scene_glb_uploaded': state.sceneGlbUploaded,
+        'scene_config_content': state.sceneConfigContent,
+        'scene_config_validated': state.sceneConfigValidated,
+        'user_config_content': state.userConfigContent,
+        'user_config_validated': state.userConfigValidated,
+      });
+
+      // Update twin state to 'configured' (Phase 1 requirement)
+      await _api.updateTwin(twinId, state: 'configured');
 
       emit(
         state.copyWith(
           status: WizardStatus.ready,
           twinId: twinId,
           hasUnsavedChanges: false,
-          successMessage: 'Configuration complete!',
+          // Return 'configured' to trigger navigation to overview page
+          successMessage: 'configured',
         ),
       );
     } catch (e) {

@@ -1,0 +1,190 @@
+// lib/bloc/twin_overview/twin_overview_state.dart
+// State classes for the twin overview BLoC
+
+import 'package:equatable/equatable.dart';
+
+abstract class TwinOverviewState extends Equatable {
+  const TwinOverviewState();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// Initial loading state
+class TwinOverviewLoading extends TwinOverviewState {
+  const TwinOverviewLoading();
+}
+
+/// Error state when loading fails
+class TwinOverviewError extends TwinOverviewState {
+  final String message;
+
+  const TwinOverviewError(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
+/// Loaded state with all twin data
+class TwinOverviewLoaded extends TwinOverviewState {
+  final String twinId;
+  final String projectName;
+  final String? cloudResourceName;
+  final String twinState;
+
+  // Calculated permissions based on state
+  final bool canDeploy;
+  final bool canDestroy;
+  final bool canEdit;
+  final bool canDelete;
+
+  // Transient states
+  final bool isDeploying;
+  final bool isDestroying;
+
+  // Error handling
+  final String? lastError;
+  final String? lastDeploymentLogs;
+
+  // Terminal logs (for ongoing operations)
+  final List<String> terminalLogs;
+
+  // Optimization data
+  final Map<String, dynamic>? optimizerResult;
+  final Map<String, dynamic>? optimizerParams;
+  final String? calculatedAt;
+
+  // Pricing snapshots
+  final Map<String, dynamic>? pricingAws;
+  final String? pricingAwsUpdatedAt;
+  final Map<String, dynamic>? pricingAzure;
+  final String? pricingAzureUpdatedAt;
+  final Map<String, dynamic>? pricingGcp;
+  final String? pricingGcpUpdatedAt;
+
+  // Deployer config for display
+  final Map<String, dynamic>? deployerConfig;
+
+  // Success/error messages
+  final String? successMessage;
+  final String? errorMessage;
+
+  const TwinOverviewLoaded({
+    required this.twinId,
+    required this.projectName,
+    this.cloudResourceName,
+    required this.twinState,
+    required this.canDeploy,
+    required this.canDestroy,
+    required this.canEdit,
+    required this.canDelete,
+    this.isDeploying = false,
+    this.isDestroying = false,
+    this.lastError,
+    this.lastDeploymentLogs,
+    this.terminalLogs = const [],
+    this.optimizerResult,
+    this.optimizerParams,
+    this.calculatedAt,
+    this.pricingAws,
+    this.pricingAwsUpdatedAt,
+    this.pricingAzure,
+    this.pricingAzureUpdatedAt,
+    this.pricingGcp,
+    this.pricingGcpUpdatedAt,
+    this.deployerConfig,
+    this.successMessage,
+    this.errorMessage,
+  });
+
+  /// Create copy with updated fields
+  TwinOverviewLoaded copyWith({
+    String? twinId,
+    String? projectName,
+    String? cloudResourceName,
+    String? twinState,
+    bool? canDeploy,
+    bool? canDestroy,
+    bool? canEdit,
+    bool? canDelete,
+    bool? isDeploying,
+    bool? isDestroying,
+    String? lastError,
+    String? lastDeploymentLogs,
+    List<String>? terminalLogs,
+    Map<String, dynamic>? optimizerResult,
+    Map<String, dynamic>? optimizerParams,
+    String? calculatedAt,
+    Map<String, dynamic>? pricingAws,
+    String? pricingAwsUpdatedAt,
+    Map<String, dynamic>? pricingAzure,
+    String? pricingAzureUpdatedAt,
+    Map<String, dynamic>? pricingGcp,
+    String? pricingGcpUpdatedAt,
+    Map<String, dynamic>? deployerConfig,
+    String? successMessage,
+    String? errorMessage,
+    bool clearSuccess = false,
+    bool clearError = false,
+  }) {
+    return TwinOverviewLoaded(
+      twinId: twinId ?? this.twinId,
+      projectName: projectName ?? this.projectName,
+      cloudResourceName: cloudResourceName ?? this.cloudResourceName,
+      twinState: twinState ?? this.twinState,
+      canDeploy: canDeploy ?? this.canDeploy,
+      canDestroy: canDestroy ?? this.canDestroy,
+      canEdit: canEdit ?? this.canEdit,
+      canDelete: canDelete ?? this.canDelete,
+      isDeploying: isDeploying ?? this.isDeploying,
+      isDestroying: isDestroying ?? this.isDestroying,
+      lastError: lastError ?? this.lastError,
+      lastDeploymentLogs: lastDeploymentLogs ?? this.lastDeploymentLogs,
+      terminalLogs: terminalLogs ?? this.terminalLogs,
+      optimizerResult: optimizerResult ?? this.optimizerResult,
+      optimizerParams: optimizerParams ?? this.optimizerParams,
+      calculatedAt: calculatedAt ?? this.calculatedAt,
+      pricingAws: pricingAws ?? this.pricingAws,
+      pricingAwsUpdatedAt: pricingAwsUpdatedAt ?? this.pricingAwsUpdatedAt,
+      pricingAzure: pricingAzure ?? this.pricingAzure,
+      pricingAzureUpdatedAt:
+          pricingAzureUpdatedAt ?? this.pricingAzureUpdatedAt,
+      pricingGcp: pricingGcp ?? this.pricingGcp,
+      pricingGcpUpdatedAt: pricingGcpUpdatedAt ?? this.pricingGcpUpdatedAt,
+      deployerConfig: deployerConfig ?? this.deployerConfig,
+      successMessage: clearSuccess
+          ? null
+          : (successMessage ?? this.successMessage),
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    twinId,
+    projectName,
+    cloudResourceName,
+    twinState,
+    canDeploy,
+    canDestroy,
+    canEdit,
+    canDelete,
+    isDeploying,
+    isDestroying,
+    lastError,
+    lastDeploymentLogs,
+    terminalLogs,
+    optimizerResult,
+    optimizerParams,
+    calculatedAt,
+    pricingAws,
+    pricingAwsUpdatedAt,
+    pricingAzure,
+    pricingAzureUpdatedAt,
+    pricingGcp,
+    pricingGcpUpdatedAt,
+    deployerConfig,
+    successMessage,
+    errorMessage,
+  ];
+}

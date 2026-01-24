@@ -188,3 +188,281 @@ async def can_redeploy(
     except httpx.RequestError:
         raise HTTPException(status_code=503, detail="Deployer API unavailable")
 
+
+# ============================================================
+# Deployment Operations
+# ============================================================
+
+@router.post("/{twin_id}/deploy")
+async def deploy_twin(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Deploy a twin's infrastructure to cloud providers.
+    
+    Prerequisites:
+    - Twin must be in 'configured', 'destroyed', or 'error' state
+    - All configurations must be saved
+    
+    Returns:
+    - deployment_id: unique deployment session ID
+    - sse_url: URL for SSE streaming of logs
+    """
+    from datetime import datetime
+    
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    
+    # Validate state allows deployment
+    allowed_states = [TwinState.CONFIGURED, TwinState.DESTROYED, TwinState.ERROR]
+    if twin.state not in allowed_states:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot deploy twin in '{twin.state}' state. Must be configured, destroyed, or error."
+        )
+    
+    # Check for concurrent deployment
+    if twin.state == TwinState.DEPLOYING:
+        raise HTTPException(
+            status_code=409,
+            detail="Deployment already in progress"
+        )
+    
+    # Get resource name and provider from config
+    resource_name = twin.name.lower().replace(" ", "-")
+    if twin.deployer_config and twin.deployer_config.resource_name:
+        resource_name = twin.deployer_config.resource_name
+    
+    # Determine provider - use L1 provider as the main deployment target
+    provider = "aws"  # default
+    if twin.optimizer_config and twin.optimizer_config.layer_1_provider:
+        provider = twin.optimizer_config.layer_1_provider.lower()
+    
+    # Update state to deploying
+    twin.state = TwinState.DEPLOYING
+    twin.last_error = None
+    db.commit()
+    
+    # Call Deployer API to start deployment
+    # NOTE: Deployer expects project context to already exist with config files
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{DEPLOYER_API_URL}/infrastructure/deploy",
+                params={
+                    "provider": provider,
+                    "project_name": resource_name,
+                },
+                timeout=300.0  # Deployment can take several minutes
+            )
+            response.raise_for_status()
+            result = response.json()
+            
+            # Update deployed_at timestamp on success
+            from datetime import datetime
+            twin.state = TwinState.DEPLOYED
+            twin.deployed_at = datetime.utcnow()
+            db.commit()
+            
+            return {
+                "deployment_id": twin_id,
+                "status": "deployed",
+                "message": result.get("message", "Deployment successful")
+            }
+    except httpx.HTTPStatusError as e:
+        # Rollback state on failure
+        twin.state = TwinState.ERROR
+        twin.last_error = f"Deployment failed: {e.response.text}"
+        db.commit()
+        raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+    except httpx.RequestError as e:
+        twin.state = TwinState.ERROR
+        twin.last_error = f"Deployer API unavailable: {str(e)}"
+        db.commit()
+        raise HTTPException(status_code=503, detail="Deployer API unavailable")
+
+
+@router.post("/{twin_id}/destroy")
+async def destroy_twin_infrastructure(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Destroy a twin's deployed infrastructure.
+    
+    Prerequisites:
+    - Twin must be in 'deployed' or 'error' state
+    
+    Returns:
+    - sse_url: URL for SSE streaming of logs
+    """
+    from datetime import datetime
+    
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    
+    # Validate state allows destruction
+    allowed_states = [TwinState.DEPLOYED, TwinState.ERROR]
+    if twin.state not in allowed_states:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot destroy twin in '{twin.state}' state. Must be deployed or error."
+        )
+    
+    # Check for concurrent operation
+    if twin.state == TwinState.DESTROYING:
+        raise HTTPException(
+            status_code=409,
+            detail="Destroy operation already in progress"
+        )
+    
+    # Get resource name from deployer config
+    resource_name = twin.name.lower().replace(" ", "-")
+    if twin.deployer_config and twin.deployer_config.resource_name:
+        resource_name = twin.deployer_config.resource_name
+    
+    # Determine provider - use L1 provider as the main deployment target
+    provider = "aws"  # default
+    if twin.optimizer_config and twin.optimizer_config.layer_1_provider:
+        provider = twin.optimizer_config.layer_1_provider.lower()
+    
+    # Update state to destroying
+    twin.state = TwinState.DESTROYING
+    twin.last_error = None
+    db.commit()
+    
+    # Call Deployer API to start destruction
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{DEPLOYER_API_URL}/infrastructure/destroy",
+                params={
+                    "provider": provider,
+                    "project_name": resource_name,
+                },
+                timeout=300.0  # Destruction can take several minutes
+            )
+            response.raise_for_status()
+            result = response.json()
+            
+            # Update destroyed_at timestamp on success
+            twin.state = TwinState.DESTROYED
+            twin.destroyed_at = datetime.utcnow()
+            db.commit()
+            
+            return {
+                "status": "destroyed",
+                "message": result.get("message", "Destruction successful")
+            }
+    except httpx.HTTPStatusError as e:
+        twin.state = TwinState.ERROR
+        twin.last_error = f"Destroy failed: {e.response.text}"
+        db.commit()
+        raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+    except httpx.RequestError as e:
+        twin.state = TwinState.ERROR
+        twin.last_error = f"Deployer API unavailable: {str(e)}"
+        db.commit()
+        raise HTTPException(status_code=503, detail="Deployer API unavailable")
+
+
+@router.get("/{twin_id}/deployment-status")
+async def get_deployment_status(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get current deployment status and recent logs.
+    
+    Used for polling fallback when SSE is unavailable.
+    """
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    
+    return {
+        "state": twin.state,
+        "last_error": twin.last_error,
+        "deployed_at": twin.deployed_at.isoformat() if twin.deployed_at else None,
+        "destroyed_at": twin.destroyed_at.isoformat() if twin.destroyed_at else None,
+    }
+
+
+def _build_deploy_config(twin: DigitalTwin) -> dict:
+    """
+    Build the config.json payload from saved configurations.
+    
+    Combines:
+    - OptimizerConfiguration (layer providers, parameters)
+    - DeployerConfiguration (config files, user functions)
+    """
+    import json
+    
+    config = {
+        "resource_name": twin.name.lower().replace(" ", "-"),
+        "twin_id": twin.id,
+    }
+    
+    # Add from deployer config
+    if twin.deployer_config:
+        dc = twin.deployer_config
+        config["resource_name"] = dc.resource_name or config["resource_name"]
+        
+        # Parse JSON fields
+        if dc.config_events_json:
+            config["config_events"] = json.loads(dc.config_events_json)
+        if dc.config_iot_devices_json:
+            config["config_iot_devices"] = json.loads(dc.config_iot_devices_json)
+        if dc.payloads_json:
+            config["payloads"] = json.loads(dc.payloads_json)
+        if dc.state_machine_content:
+            config["state_machine"] = dc.state_machine_content
+        if dc.hierarchy_json:
+            config["hierarchy"] = json.loads(dc.hierarchy_json)
+        if dc.scenes_3d_json:
+            config["3d_scenes"] = json.loads(dc.scenes_3d_json)
+        if dc.config_user_json:
+            config["config_user"] = json.loads(dc.config_user_json)
+        
+        # User functions
+        if dc.processor_contents:
+            config["processors"] = json.loads(dc.processor_contents)
+        if dc.event_feedback_content:
+            config["event_feedback"] = dc.event_feedback_content
+        if dc.event_action_contents:
+            config["event_actions"] = json.loads(dc.event_action_contents)
+    
+    # Add from optimizer config
+    if twin.optimizer_config:
+        oc = twin.optimizer_config
+        config["layers"] = {
+            "l1": oc.layer_1_provider,
+            "l2": oc.layer_2_provider,
+            "l3_hot": oc.layer_3_hot_provider,
+            "l3_cool": oc.layer_3_cool_provider,
+            "l3_archive": oc.layer_3_archive_provider,
+            "l4": oc.layer_4_provider,
+            "l5": oc.layer_5_provider,
+        }
+        if oc.optimizer_result:
+            config["optimizer_result"] = json.loads(oc.optimizer_result)
+    
+    return config

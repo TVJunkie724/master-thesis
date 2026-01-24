@@ -54,7 +54,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final twinsAsync = ref.watch(twinsProvider);
-    
+
     return Scaffold(
       appBar: BrandedAppBar(
         title: 'Twin2MultiCloud',
@@ -133,7 +133,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(
-                            Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.06
+                            Theme.of(context).brightness == Brightness.dark
+                                ? 0.2
+                                : 0.06,
                           ),
                           blurRadius: 12,
                           spreadRadius: 1,
@@ -146,9 +148,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(
-                          color: Theme.of(context).brightness == Brightness.dark 
-                            ? Colors.white.withOpacity(0.1) 
-                            : Colors.black.withOpacity(0.05),
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white.withOpacity(0.1)
+                              : Colors.black.withOpacity(0.05),
                           width: 1,
                         ),
                       ),
@@ -162,26 +164,35 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('My Digital Twins', style: Theme.of(context).textTheme.headlineSmall),
+                                Text(
+                                  'My Digital Twins',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineSmall,
+                                ),
                                 FilledButton.icon(
-                                  onPressed: () => _showCredentialSetupDialog(context),
+                                  onPressed: () =>
+                                      _showCredentialSetupDialog(context),
                                   icon: const Icon(Icons.add),
                                   label: const Text('New Twin'),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 12),
-                            
+
                             // State filter chips
                             _buildStateFilterChips(),
                             const SizedBox(height: 16),
-                            
+
                             // Twins table
                             twinsAsync.when(
-                              data: (twins) => _buildTwinsTable(context, ref, twins),
+                              data: (twins) =>
+                                  _buildTwinsTable(context, ref, twins),
                               loading: () => const Padding(
                                 padding: EdgeInsets.all(48),
-                                child: Center(child: CircularProgressIndicator()),
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
                               ),
                               error: (err, stack) => Padding(
                                 padding: const EdgeInsets.all(48),
@@ -189,16 +200,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.cloud_off, size: 64, color: Colors.grey.shade600),
+                                      Icon(
+                                        Icons.cloud_off,
+                                        size: 64,
+                                        color: Colors.grey.shade600,
+                                      ),
                                       const SizedBox(height: 16),
-                                      Text('Failed to load twins', 
-                                        style: Theme.of(context).textTheme.titleMedium),
+                                      Text(
+                                        'Failed to load twins',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium,
+                                      ),
                                       const SizedBox(height: 8),
-                                      Text(ApiErrorHandler.extractMessage(err), 
-                                        style: TextStyle(color: Colors.grey.shade600)),
+                                      Text(
+                                        ApiErrorHandler.extractMessage(err),
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
                                       const SizedBox(height: 16),
                                       OutlinedButton.icon(
-                                        onPressed: () => ref.invalidate(twinsProvider),
+                                        onPressed: () =>
+                                            ref.invalidate(twinsProvider),
                                         icon: const Icon(Icons.refresh),
                                         label: const Text('Retry'),
                                       ),
@@ -245,14 +269,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ('deployed', 'Deployed'),
       ('error', 'Error'),
     ];
-    
+
     return Wrap(
       spacing: 8,
       children: filters.map((filter) {
         final (value, label) = filter;
         final isSelected = _selectedStateFilter == value;
         final color = _getStateColor(value);
-        
+
         return FilterChip(
           label: Text(
             label,
@@ -276,17 +300,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildStatsRow(WidgetRef ref) {
     final statsAsync = ref.watch(dashboardStatsProvider);
-    
+
     return statsAsync.when(
       data: (stats) {
         final deployed = stats['deployed_count'] ?? 0;
         final draft = stats['draft_count'] ?? 0;
         final total = stats['total_twins'] ?? 0;
         final cost = stats['estimated_monthly_cost'] ?? 0.0;
-        
+
         // Format cost
         final costStr = cost > 0 ? '\$${cost.toStringAsFixed(0)}/mo' : '—';
-        
+
         return Row(
           children: [
             StatCard(
@@ -300,7 +324,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               value: costStr,
               icon: Icons.attach_money,
               color: Colors.amber,
-              tooltip: 'Static estimate based on optimizer calculations.\nNot live cloud billing data.',
+              tooltip:
+                  'Static estimate based on optimizer calculations.\nNot live cloud billing data.',
             ),
             StatCard(
               title: 'Total Twins',
@@ -335,13 +360,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Future<void> _handleDelete(BuildContext context, WidgetRef ref, Twin twin) async {
+  Future<void> _handleDelete(
+    BuildContext context,
+    WidgetRef ref,
+    Twin twin,
+  ) async {
     if (twin.isDeployed) {
       // Show warning - can't delete deployed twins
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          icon: Icon(Icons.warning_amber_rounded, color: Colors.orange.shade400, size: 48),
+          icon: Icon(
+            Icons.warning_amber_rounded,
+            color: Colors.orange.shade400,
+            size: 48,
+          ),
           title: const Text('Cannot Delete'),
           content: const Text(
             'This digital twin is currently deployed. You must destroy all cloud resources before deleting.\n\n'
@@ -360,7 +393,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          icon: Icon(Icons.delete_forever, color: Colors.red.shade400, size: 48),
+          icon: Icon(
+            Icons.delete_forever,
+            color: Colors.red.shade400,
+            size: 48,
+          ),
           title: const Text('Delete Twin?'),
           content: Text(
             'Are you sure you want to delete "${twin.name}"?\n\n'
@@ -379,22 +416,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ],
         ),
       );
-      
+
       if (confirmed == true) {
         try {
           final api = ref.read(apiServiceProvider);
           await api.deleteTwin(twin.id);
           ref.invalidate(twinsProvider); // Refresh list
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Deleted "${twin.name}"')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Deleted "${twin.name}"')));
           }
         } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Failed to delete: ${ApiErrorHandler.extractMessage(e)}'),
+                content: Text(
+                  'Failed to delete: ${ApiErrorHandler.extractMessage(e)}',
+                ),
                 backgroundColor: Colors.red,
               ),
             );
@@ -404,7 +443,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-  Widget _buildTwinsTable(BuildContext context, WidgetRef ref, List<Twin> twins) {
+  Widget _buildTwinsTable(
+    BuildContext context,
+    WidgetRef ref,
+    List<Twin> twins,
+  ) {
     if (twins.isEmpty) {
       return Center(
         child: Column(
@@ -412,18 +455,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           children: [
             Icon(Icons.cloud_queue, size: 64, color: Colors.grey.shade600),
             const SizedBox(height: 16),
-            Text('No digital twins yet', 
-              style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'No digital twins yet',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
-            Text('Create your first twin to get started',
-              style: TextStyle(color: Colors.grey.shade600)),
+            Text(
+              'Create your first twin to get started',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
           ],
         ),
       );
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return SingleChildScrollView(
       child: SizedBox(
         width: double.infinity,
@@ -431,9 +478,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           sortColumnIndex: _sortColumnIndex,
           sortAscending: _sortAscending,
           headingRowColor: WidgetStateProperty.all(
-            isDark 
-              ? Colors.white.withOpacity(0.05)
-              : Theme.of(context).colorScheme.surfaceContainerHighest,
+            isDark
+                ? Colors.white.withOpacity(0.05)
+                : Theme.of(context).colorScheme.surfaceContainerHighest,
           ),
           columnSpacing: 24,
           columns: [
@@ -473,7 +520,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             const DataColumn(label: Text('Last Deploy')),
             const DataColumn(label: Text('Actions')),
           ],
-          rows: _sortTwins(_filterTwins(twins)).map((twin) => _buildTwinRow(context, ref, twin)).toList(),
+          rows: _sortTwins(
+            _filterTwins(twins),
+          ).map((twin) => _buildTwinRow(context, ref, twin)).toList(),
         ),
       ),
     );
@@ -489,7 +538,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             children: [
               _buildStateIcon(twin.state),
               const SizedBox(width: 8),
-              Text(twin.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+              Text(
+                twin.name,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
             ],
           ),
         ),
@@ -507,7 +559,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               if (twin.state != 'draft')
                 IconButton(
                   icon: const Icon(Icons.visibility, size: 20),
-                  onPressed: () {},
+                  onPressed: () => context.go('/twins/${twin.id}/overview'),
                   tooltip: 'View',
                 ),
               IconButton(
@@ -519,7 +571,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 icon: const Icon(Icons.delete_outline, size: 20),
                 onPressed: () => _handleDelete(context, ref, twin),
                 tooltip: twin.isDeployed ? 'Destroy resources first' : 'Delete',
-                color: twin.isDeployed ? Colors.grey.shade500 : Colors.red.shade400,
+                color: twin.isDeployed
+                    ? Colors.grey.shade500
+                    : Colors.red.shade400,
               ),
             ],
           ),
@@ -531,7 +585,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildStateIcon(String state) {
     IconData iconData;
     Color color;
-    
+
     switch (state) {
       case 'deployed':
         iconData = Icons.cloud_done;
@@ -550,7 +604,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         iconData = Icons.cloud_queue;
         color = Colors.grey;
     }
-    
+
     return Icon(iconData, color: color, size: 20);
   }
 
@@ -558,7 +612,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     Color bgColor;
     Color textColor;
     String label;
-    
+
     switch (state) {
       case 'deployed':
         bgColor = Colors.green.withAlpha(38);
@@ -581,18 +635,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         textColor = Colors.grey.shade400;
         label = 'Draft';
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(label, style: TextStyle(
-        color: textColor,
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-      )),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 
@@ -620,9 +677,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   children: [
                     Text(
                       'Set Up Cloud Credentials',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
@@ -634,42 +690,51 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Need help configuring your cloud credentials? Follow the setup guides below before creating your first twin.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Provider cards
                 Row(
                   children: [
-                    Expanded(child: _buildProviderCard(
-                      context: context,
-                      provider: 'AWS',
-                      description: 'Configure IAM user with programmatic access',
-                      color: AppColors.aws,
-                      icon: Icons.cloud_queue,
-                    )),
+                    Expanded(
+                      child: _buildProviderCard(
+                        context: context,
+                        provider: 'AWS',
+                        description:
+                            'Configure IAM user with programmatic access',
+                        color: AppColors.aws,
+                        icon: Icons.cloud_queue,
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildProviderCard(
-                      context: context,
-                      provider: 'Azure',
-                      description: 'Set up Service Principal with contributor role',
-                      color: AppColors.azure,
-                      icon: Icons.cloud_outlined,
-                    )),
+                    Expanded(
+                      child: _buildProviderCard(
+                        context: context,
+                        provider: 'Azure',
+                        description:
+                            'Set up Service Principal with contributor role',
+                        color: AppColors.azure,
+                        icon: Icons.cloud_outlined,
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildProviderCard(
-                      context: context,
-                      provider: 'GCP',
-                      description: 'Create service account with JSON key file',
-                      color: AppColors.gcp,
-                      icon: Icons.cloud_done,
-                    )),
+                    Expanded(
+                      child: _buildProviderCard(
+                        context: context,
+                        provider: 'GCP',
+                        description:
+                            'Create service account with JSON key file',
+                        color: AppColors.gcp,
+                        icon: Icons.cloud_done,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Action buttons
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -705,7 +770,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }) {
     final optimizerUrl = DocsConfig.getOptimizerDocsUrl(provider);
     final deployerUrl = DocsConfig.getDeployerDocsUrl(provider);
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -733,9 +798,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const SizedBox(height: 8),
           Text(
             description,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.grey.shade600,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
           ),
           const SizedBox(height: 12),
           // Buttons

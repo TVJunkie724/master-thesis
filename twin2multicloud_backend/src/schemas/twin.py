@@ -18,3 +18,6 @@ class TwinResponse(BaseModel):
     state: TwinState
     created_at: datetime
     updated_at: datetime
+    deployed_at: Optional[datetime] = None
+    destroyed_at: Optional[datetime] = None
+    last_error: Optional[str] = None

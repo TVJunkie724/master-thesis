@@ -8,7 +8,9 @@ from src.models.database import Base
 class TwinState(str, enum.Enum):
     DRAFT = "draft"
     CONFIGURED = "configured"
+    DEPLOYING = "deploying"      # Transient: deployment in progress
     DEPLOYED = "deployed"
+    DESTROYING = "destroying"    # Transient: destruction in progress
     DESTROYED = "destroyed"
     ERROR = "error"
     INACTIVE = "inactive"
@@ -29,6 +31,9 @@ class DigitalTwin(Base):
     # Deployment lifecycle timestamps (for cooldown tracking)
     deployed_at = Column(DateTime, nullable=True)
     destroyed_at = Column(DateTime, nullable=True)
+    
+    # Error tracking
+    last_error = Column(String, nullable=True)
     
     # Relationships
     owner = relationship("User", back_populates="twins")

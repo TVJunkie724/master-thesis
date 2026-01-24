@@ -1,0 +1,73 @@
+// lib/bloc/twin_overview/twin_overview_event.dart
+// Events for the twin overview BLoC
+
+import 'package:equatable/equatable.dart';
+
+abstract class TwinOverviewEvent extends Equatable {
+  const TwinOverviewEvent();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// Load twin data for overview display
+class TwinOverviewLoad extends TwinOverviewEvent {
+  final String twinId;
+
+  const TwinOverviewLoad(this.twinId);
+
+  @override
+  List<Object?> get props => [twinId];
+}
+
+/// Refresh twin data (e.g., after state change)
+class TwinOverviewRefresh extends TwinOverviewEvent {
+  const TwinOverviewRefresh();
+}
+
+/// Trigger deployment
+class TwinOverviewDeploy extends TwinOverviewEvent {
+  const TwinOverviewDeploy();
+}
+
+/// Trigger destroy
+class TwinOverviewDestroy extends TwinOverviewEvent {
+  const TwinOverviewDestroy();
+}
+
+/// Delete the twin
+class TwinOverviewDelete extends TwinOverviewEvent {
+  const TwinOverviewDelete();
+}
+
+/// SSE log event received
+class TwinOverviewLogReceived extends TwinOverviewEvent {
+  final String log;
+  final String? timestamp;
+
+  const TwinOverviewLogReceived(this.log, {this.timestamp});
+
+  @override
+  List<Object?> get props => [log, timestamp];
+}
+
+/// SSE deployment complete
+class TwinOverviewDeploymentComplete extends TwinOverviewEvent {
+  final bool success;
+  final String? newState;
+  final String? message;
+
+  const TwinOverviewDeploymentComplete({
+    required this.success,
+    this.newState,
+    this.message,
+  });
+
+  @override
+  List<Object?> get props => [success, newState, message];
+}
+
+/// Clear success/error messages
+class TwinOverviewClearMessages extends TwinOverviewEvent {
+  const TwinOverviewClearMessages();
+}
