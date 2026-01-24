@@ -128,6 +128,18 @@ resource "aws_s3_bucket_cors_configuration" "l4_twinmaker" {
 }
 
 # ==============================================================================
+# Random Suffix for TwinMaker Workspace
+# ==============================================================================
+# AWS TwinMaker workspaces remain "locked" for several minutes after deletion.
+# A random suffix ensures fresh workspace IDs on each deployment, avoiding
+# "AlreadyExists" errors on rapid redeploy cycles.
+
+resource "random_id" "twinmaker_suffix" {
+  count       = local.l4_aws_enabled ? 1 : 0
+  byte_length = 4
+}
+
+# ==============================================================================
 # IAM Propagation Delay
 # ==============================================================================
 # AWS IAM role propagation can take 10-30 seconds across all regions.
@@ -152,7 +164,7 @@ resource "time_sleep" "l4_iam_propagation" {
 
 resource "awscc_iottwinmaker_workspace" "main" {
   count        = local.l4_aws_enabled ? 1 : 0
-  workspace_id = var.digital_twin_name
+  workspace_id = "${var.digital_twin_name}-${random_id.twinmaker_suffix[0].hex}"
   description  = "Digital Twin workspace for ${var.digital_twin_name}"
   role         = aws_iam_role.l4_twinmaker[0].arn
   s3_location  = "arn:aws:s3:::${aws_s3_bucket.l4_twinmaker[0].bucket}"
@@ -238,11 +250,11 @@ resource "aws_lambda_function" "l4_connector" {
 
       # Multi-cloud mode: L3≠AWS, calls remote Hot Reader via HTTP
       REMOTE_READER_URL = var.layer_3_hot_provider != "aws" ? (
-        var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l3[0].default_hostname, "")}/api/hot-reader" :
+        var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l3[0].default_hostname, "")}/${local.api_paths.hot_reader}" :
         var.layer_3_hot_provider == "google" ? try(google_cloudfunctions2_function.hot_reader[0].url, "") : ""
       ) : ""
 
-      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
     }
   }
 

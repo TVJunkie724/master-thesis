@@ -68,16 +68,28 @@ def deploy_all(context: 'DeploymentContext', provider: str) -> None:
 
 def destroy_all(context: 'DeploymentContext', provider: str) -> None:
     """
-    Destroy all layers using Terraform.
+    Destroy all layers using Terraform, then run SDK cleanup as fallback.
+    
+    This two-phase approach ensures resources are cleaned up even when:
+    - Terraform state is corrupted or lost
+    - Terraform destroy fails partially
+    - Resources were created via SDK (not in Terraform state)
     
     Args:
         context: Deployment context with config and credentials
         provider: Cloud provider name
     """
-    logger.info(f"Destroying all layers via Terraform for provider: {provider}")
-    
     from pathlib import Path
     from src.providers.terraform.deployer_strategy import TerraformDeployerStrategy
+    
+    # ==========================================
+    # PHASE 1: TERRAFORM DESTROY
+    # ==========================================
+    logger.info("")
+    logger.info("=" * 60)
+    logger.info("  PHASE 1: TERRAFORM DESTROY")
+    logger.info("=" * 60)
+    logger.info(f"Destroying all layers via Terraform for provider: {provider}")
     
     terraform_dir = str(Path(__file__).parent.parent / "terraform")
     
@@ -86,7 +98,97 @@ def destroy_all(context: 'DeploymentContext', provider: str) -> None:
         project_path=str(context.project_path)
     )
     
-    strategy.destroy_all(context)
+    terraform_error = None
+    try:
+        strategy.destroy_all(context)
+    except Exception as e:
+        terraform_error = e
+        logger.warning(f"Terraform destroy failed/partial: {e}")
+        # Continue to SDK cleanup regardless
+    
+    # ==========================================
+    # PHASE 2: SDK FALLBACK CLEANUP
+    # ==========================================
+    logger.info("")
+    logger.info("=" * 60)
+    logger.info("  PHASE 2: SDK FALLBACK CLEANUP")
+    logger.info("=" * 60)
+    
+    _run_sdk_cleanup(context)
+    
+    if terraform_error:
+        logger.info("Destroy completed with Terraform errors (SDK cleanup ran as fallback)")
+
+
+def _run_sdk_cleanup(context: 'DeploymentContext') -> None:
+    """
+    Run SDK cleanup for all providers as fallback after terraform destroy.
+    
+    This catches orphaned resources that Terraform may have missed due to:
+    - State corruption
+    - Partial destroy failures
+    - Resources created via SDK (not in Terraform state)
+    - Control-plane timing issues (TwinMaker, Firestore)
+    """
+    # Get prefix from config
+    prefix = context.config.get("digital_twin_name", "")
+    
+    # CRITICAL: Fail-safe guard against empty prefix
+    # An empty prefix would match ALL resources in the account!
+    if not prefix or len(prefix) < 3:
+        logger.error(f"Invalid prefix '{prefix}' for cleanup - skipping SDK cleanup to prevent accidental deletion")
+        return
+    
+    credentials = context.credentials
+    
+    logger.info(f"[SDK Cleanup] Running fallback cleanup for prefix: {prefix}")
+    
+    # Import cleanup functions
+    from src.providers.aws.cleanup import cleanup_aws_resources
+    from src.providers.azure.cleanup import cleanup_azure_resources
+    from src.providers.gcp.cleanup import cleanup_gcp_resources
+    
+    # AWS cleanup (best-effort)
+    if credentials.get("aws"):
+        logger.info("[SDK Cleanup] AWS...")
+        try:
+            cleanup_aws_resources(
+                credentials, prefix,
+                cleanup_identity_user=False,
+                platform_user_email="",
+                dry_run=False
+            )
+        except Exception as e:
+            logger.warning(f"[SDK Cleanup] AWS cleanup failed: {e}")
+    else:
+        logger.info("[SDK Cleanup] AWS - skipped (no credentials)")
+    
+    # Azure cleanup (best-effort)
+    if credentials.get("azure"):
+        logger.info("[SDK Cleanup] Azure...")
+        try:
+            cleanup_azure_resources(
+                credentials, prefix,
+                cleanup_entra_user=False,
+                platform_user_email="",
+                dry_run=False
+            )
+        except Exception as e:
+            logger.warning(f"[SDK Cleanup] Azure cleanup failed: {e}")
+    else:
+        logger.info("[SDK Cleanup] Azure - skipped (no credentials)")
+    
+    # GCP cleanup (best-effort)
+    if credentials.get("gcp"):
+        logger.info("[SDK Cleanup] GCP...")
+        try:
+            cleanup_gcp_resources(credentials, prefix, dry_run=False)
+        except Exception as e:
+            logger.warning(f"[SDK Cleanup] GCP cleanup failed: {e}")
+    else:
+        logger.info("[SDK Cleanup] GCP - skipped (no credentials)")
+    
+    logger.info("[SDK Cleanup] Fallback cleanup complete")
 
 
 # ==========================================

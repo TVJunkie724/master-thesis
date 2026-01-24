@@ -21,12 +21,19 @@
 # Firestore Database (Hot Storage)
 # ==============================================================================
 
+# Random suffix to avoid "Database ID not available" errors on rapid redeploy.
+# GCP Firestore database IDs remain "locked" for ~5 minutes after deletion.
+resource "random_id" "firestore_suffix" {
+  count       = local.gcp_l3_hot_enabled ? 1 : 0
+  byte_length = 4
+}
+
 resource "google_firestore_database" "main" {
   count      = local.gcp_l3_hot_enabled ? 1 : 0
   project    = local.gcp_project_id
-  # Use unique database ID per digital twin (allows parallel E2E tests)
+  # Use unique database ID per digital twin with random suffix
   # Note: Database IDs must be 1-63 chars, lowercase letters, numbers, hyphens
-  name       = var.digital_twin_name
+  name       = "${var.digital_twin_name}-${random_id.firestore_suffix[0].hex}"
   location_id = var.gcp_region
   type       = "FIRESTORE_NATIVE"
   
@@ -167,9 +174,7 @@ resource "google_cloudfunctions2_function" "hot_reader" {
       GCP_PROJECT_ID       = local.gcp_project_id
       FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
       FIRESTORE_DATABASE   = var.digital_twin_name
-      INTER_CLOUD_TOKEN    = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      INTER_CLOUD_TOKEN    = local.inter_cloud_token_value
     }
   }
 
@@ -224,11 +229,11 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
       # Multi-cloud Hot→Cold: When GCP L3 Hot sends to remote Cold
       REMOTE_COLD_WRITER_URL = var.layer_3_hot_provider == "google" && var.layer_3_cold_provider != "google" ? (
         var.layer_3_cold_provider == "aws" ? try(aws_lambda_function_url.l0_cold_writer[0].function_url, "") :
-        var.layer_3_cold_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/cold-writer" : ""
+        var.layer_3_cold_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.cold_writer}" : ""
       ) : ""
 
       # Inter-cloud token
-      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
     }
   }
 
@@ -276,7 +281,7 @@ resource "google_cloud_run_service_iam_member" "hot_reader_invoker" {
   location = var.gcp_region
   service  = google_cloudfunctions2_function.hot_reader[0].name
   role     = "roles/run.invoker"
-  member   = "serviceAccount:${google_service_account.functions[0].email}"
+  member   = "allUsers" # Publicly accessible, protected by inter-cloud-token in application logic
 }
 
 resource "google_cloud_run_service_iam_member" "hot_to_cold_mover_invoker" {
@@ -341,11 +346,11 @@ resource "google_cloudfunctions2_function" "cold_to_archive_mover" {
       # Multi-cloud Cold→Archive: When GCP L3 Cold sends to remote Archive
       REMOTE_ARCHIVE_WRITER_URL = var.layer_3_cold_provider == "google" && var.layer_3_archive_provider != "google" ? (
         var.layer_3_archive_provider == "aws" ? try(aws_lambda_function_url.l0_archive_writer[0].function_url, "") :
-        var.layer_3_archive_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/archive-writer" : ""
+        var.layer_3_archive_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.archive_writer}" : ""
       ) : ""
 
       # Inter-cloud token
-      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
     }
   }
 
