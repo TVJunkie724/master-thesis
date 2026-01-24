@@ -196,6 +196,9 @@ def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None
     """
     Validate config file contents against schemas.
     Also populates ctx with parsed config data for later checks.
+    
+    Collects errors from ALL config files before raising, so users see
+    all issues at once rather than one file at a time.
     """
     from src.validator import validate_config_content
     
@@ -209,30 +212,68 @@ def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None
         except Exception as e:
             raise ValueError(f"Failed to parse config_user.json: {e}")
     
+    # Collect all validation errors across all config files
+    all_errors = []
+    
     for filepath in ctx.all_files:
         basename = os.path.basename(filepath)
         
         if basename in CONSTANTS.CONFIG_SCHEMAS:
             try:
                 content = accessor.read_text(filepath)
+                
+                # Try to parse JSON first (for context population)
+                try:
+                    parsed = json.loads(content)
+                except json.JSONDecodeError:
+                    parsed = None
+                
+                # Validate content
                 validate_config_content(basename, content)
                 
-                # Capture parsed configs for dependency checks
-                if basename == CONSTANTS.CONFIG_OPTIMIZATION_FILE:
-                    ctx.opt_config = json.loads(content)
-                elif basename == CONSTANTS.CONFIG_PROVIDERS_FILE:
-                    ctx.prov_config = json.loads(content)
-                elif basename == CONSTANTS.CONFIG_EVENTS_FILE:
-                    ctx.events_config = json.loads(content)
-                elif basename == CONSTANTS.CONFIG_IOT_DEVICES_FILE:
-                    ctx.iot_config = json.loads(content)
-                elif basename == CONSTANTS.CONFIG_CREDENTIALS_FILE:
-                    ctx.credentials_config = json.loads(content)
+                # If validation passed, capture parsed configs for dependency checks
+                if parsed is not None:
+                    if basename == CONSTANTS.CONFIG_OPTIMIZATION_FILE:
+                        ctx.opt_config = parsed
+                    elif basename == CONSTANTS.CONFIG_PROVIDERS_FILE:
+                        ctx.prov_config = parsed
+                    elif basename == CONSTANTS.CONFIG_EVENTS_FILE:
+                        ctx.events_config = parsed
+                    elif basename == CONSTANTS.CONFIG_IOT_DEVICES_FILE:
+                        ctx.iot_config = parsed
+                    elif basename == CONSTANTS.CONFIG_CREDENTIALS_FILE:
+                        ctx.credentials_config = parsed
+                        
+            except ValueError as e:
+                # Collect error and continue to next file
+                all_errors.append(str(e))
+                
+                # Still try to populate context with parsed data (even if invalid)
+                # This helps downstream checks have partial data
+                try:
+                    parsed = json.loads(content)
+                    if basename == CONSTANTS.CONFIG_OPTIMIZATION_FILE:
+                        ctx.opt_config = parsed
+                    elif basename == CONSTANTS.CONFIG_PROVIDERS_FILE:
+                        ctx.prov_config = parsed
+                    elif basename == CONSTANTS.CONFIG_EVENTS_FILE:
+                        ctx.events_config = parsed
+                    elif basename == CONSTANTS.CONFIG_IOT_DEVICES_FILE:
+                        ctx.iot_config = parsed
+                    elif basename == CONSTANTS.CONFIG_CREDENTIALS_FILE:
+                        ctx.credentials_config = parsed
+                except:
+                    pass  # JSON parse failed, can't populate context
                     
-            except ValueError:
-                raise
             except Exception as e:
-                raise ValueError(f"Validation failed for {basename}: {e}")
+                all_errors.append(f"Validation failed for {basename}: {e}")
+    
+    # Raise all collected errors together
+    if all_errors:
+        if len(all_errors) == 1:
+            raise ValueError(all_errors[0])
+        else:
+            raise ValueError("Config file validation errors:\n  ◦ " + "\n  ◦ ".join(all_errors))
 
 
 
