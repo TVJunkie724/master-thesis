@@ -59,6 +59,10 @@ class FileAccessor(Protocol):
         """Read file contents as text. Raises FileNotFoundError if missing."""
         ...
     
+    def read_binary(self, path: str) -> bytes:
+        """Read file contents as bytes. Raises FileNotFoundError if missing."""
+        ...
+    
     def get_project_root(self) -> str:
         """Return the project root prefix (empty for directories, nested path for ZIPs)."""
         ...
@@ -67,6 +71,28 @@ class FileAccessor(Protocol):
 # ==========================================
 # 2. Validation Context
 # ==========================================
+
+@dataclass
+class ValidationResult:
+    """
+    Result of validation with error aggregation.
+    
+    When aggregate_errors=True is used in run_all_checks(), all validation
+    errors are collected rather than failing on the first error.
+    """
+    is_valid: bool = True
+    errors: List[str] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
+    
+    def add_error(self, error: str) -> None:
+        """Add an error and mark result as invalid."""
+        self.errors.append(error)
+        self.is_valid = False
+    
+    def add_warning(self, warning: str) -> None:
+        """Add a warning (does not affect validity)."""
+        self.warnings.append(warning)
+
 
 @dataclass
 class ValidationContext:
@@ -90,6 +116,10 @@ class ValidationContext:
     seen_event_actions: Set[str] = field(default_factory=set)
     seen_state_machines: Set[str] = field(default_factory=set)
     seen_feedback_func: bool = False
+    
+    # Context injection for Mode A (Wizard Step 3)
+    skip_config_files: List[str] = field(default_factory=list)  # Files to skip checking
+    skip_credentials: bool = False  # Skip credential validation
 
 
 # ==========================================
@@ -143,11 +173,23 @@ def build_context(accessor: FileAccessor) -> ValidationContext:
 # ==========================================
 
 def check_required_files(accessor: FileAccessor, ctx: ValidationContext) -> None:
-    """Check that all required configuration files are present."""
+    """Check that all required configuration files are present.
+    Returns all missing files, not just the first one.
+    
+    Respects ctx.skip_config_files for context-aware validation (Mode A).
+    """
+    missing_files = []
     for required_file in CONSTANTS.REQUIRED_CONFIG_FILES:
+        # Skip files marked in context (Mode A: already in wizard state)
+        if required_file in ctx.skip_config_files:
+            continue
+        
         expected_path = ctx.project_root + required_file
         if not accessor.file_exists(expected_path):
-            raise ValueError(f"Missing required configuration file: {required_file}")
+            missing_files.append(required_file)
+    
+    if missing_files:
+        raise ValueError(f"Missing required configuration files:\n• " + "\n• ".join(missing_files))
 
 
 def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None:
@@ -234,69 +276,105 @@ def check_state_machines(accessor: FileAccessor, ctx: ValidationContext) -> None
             return  # Found and validated
 
 
+# Provider-specific user code file patterns
+PROVIDER_USER_CODE_FILES = {
+    "aws": "lambda_function.py",
+    "azure": "function_app.py",
+    "google": "main.py",
+    "gcp": "main.py",
+}
+
+
 def check_processor_syntax(accessor: FileAccessor, ctx: ValidationContext, l2_provider: str = None) -> None:
-    """Validate Python syntax and signatures for user code files (filtered by provider)."""
+    """
+    Validate Python syntax and entry point signatures for user code files.
+    
+    Expected file per provider:
+    - AWS: lambda_function.py with lambda_handler(event, context)
+    - Azure: function_app.py with main(req) 
+    - GCP: main.py with process(request)
+    """
     # Build patterns based on configured provider
     if l2_provider:
         func_dir = PROVIDER_FUNCTION_DIRS.get(l2_provider.lower(), "")
         if not func_dir:
             raise ValueError(f"Unknown layer_2_provider '{l2_provider}'. Expected: aws, azure, or google.")
-        PROCESSOR_PATTERNS = [rf".*{func_dir}/processors/[^/]+/process\.py$"]
-        EVENT_FEEDBACK_PATTERNS = [rf".*{func_dir}/event-feedback/process\.py$"]
+        
+        user_file = PROVIDER_USER_CODE_FILES.get(l2_provider.lower(), "main.py")
+        escaped_file = re.escape(user_file)
+        
+        PROCESSOR_PATTERNS = [(rf".*{func_dir}/processors/[^/]+/{escaped_file}$", l2_provider.lower())]
+        EVENT_FEEDBACK_PATTERNS = [(rf".*{func_dir}/event-feedback/{escaped_file}$", l2_provider.lower())]
+        EVENT_ACTION_PATTERNS = [(rf".*{func_dir}/event_actions/[^/]+/{escaped_file}$", l2_provider.lower())]
     else:
         # No provider specified - check all providers
         PROCESSOR_PATTERNS = [
-            rf".*{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/processors/[^/]+/process\.py$",
-            r".*azure_functions/processors/[^/]+/process\.py$",
-            r".*cloud_functions/processors/[^/]+/process\.py$",
+            (rf".*{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/processors/[^/]+/lambda_function\.py$", "aws"),
+            (r".*azure_functions/processors/[^/]+/function_app\.py$", "azure"),
+            (r".*cloud_functions/processors/[^/]+/main\.py$", "gcp"),
         ]
         EVENT_FEEDBACK_PATTERNS = [
-            rf".*{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event-feedback/process\.py$",
-            r".*azure_functions/event-feedback/process\.py$",
-            r".*cloud_functions/event-feedback/process\.py$",
+            (rf".*{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event-feedback/lambda_function\.py$", "aws"),
+            (r".*azure_functions/event-feedback/function_app\.py$", "azure"),
+            (r".*cloud_functions/event-feedback/main\.py$", "gcp"),
+        ]
+        EVENT_ACTION_PATTERNS = [
+            (rf".*{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event_actions/[^/]+/lambda_function\.py$", "aws"),
+            (r".*azure_functions/event_actions/[^/]+/function_app\.py$", "azure"),
+            (r".*cloud_functions/event_actions/[^/]+/main\.py$", "gcp"),
         ]
     
-    ALL_PATTERNS = PROCESSOR_PATTERNS + EVENT_FEEDBACK_PATTERNS
+    ALL_PATTERNS = PROCESSOR_PATTERNS + EVENT_FEEDBACK_PATTERNS + EVENT_ACTION_PATTERNS
     
     for filepath in ctx.all_files:
-        is_user_code = any(re.match(pattern, filepath) for pattern in ALL_PATTERNS)
+        matched_provider = None
+        for pattern, provider in ALL_PATTERNS:
+            if re.match(pattern, filepath):
+                matched_provider = provider
+                break
         
-        if is_user_code:
+        if matched_provider:
             try:
                 content = accessor.read_text(filepath)
                 ast.parse(content)  # Syntax check
-                _validate_process_signature(content, filepath)  # Signature check
+                _validate_entry_point_signature(content, filepath, matched_provider)
             except SyntaxError as e:
                 raise ValueError(f"Syntax error in {filepath}: {e.msg} at line {e.lineno}")
             except Exception as e:
                 raise ValueError(f"Validation failed for {filepath}: {e}")
 
 
-def _validate_process_signature(content: str, filename: str) -> None:
-    """Validate process() function has correct signature with type hints."""
+def _validate_entry_point_signature(content: str, filename: str, provider: str) -> None:
+    """
+    Validate entry point function exists with correct signature per provider.
+    
+    - AWS: lambda_handler(event, context) - 2 params, no strict type hints
+    - Azure: main(req) - 1 param, flexible
+    - GCP: process(request) or any function - 1 param, flexible
+    """
     tree = ast.parse(content)
     
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == "process":
-            if len(node.args.args) != 1:
-                raise ValueError(f"{filename}: process() must have exactly 1 parameter")
-            
-            arg = node.args.args[0]
-            if arg.annotation is None:
-                raise ValueError(f"{filename}: process() parameter must have type hint 'dict'")
-            
-            if not (isinstance(arg.annotation, ast.Name) and arg.annotation.id == "dict"):
-                raise ValueError(f"{filename}: process() parameter type must be 'dict'")
-            
-            if node.returns is None:
-                raise ValueError(f"{filename}: process() must have return type hint '-> dict'")
-            
-            if not (isinstance(node.returns, ast.Name) and node.returns.id == "dict"):
-                raise ValueError(f"{filename}: process() return type must be 'dict'")
-            
-            return  # Found valid process function
+    # Define expected entry points per provider
+    entry_points = {
+        "aws": ("lambda_handler", 2),      # lambda_handler(event, context)
+        "azure": ("main", 1),              # main(req)
+        "google": ("process", 1),          # process(request)
+        "gcp": ("process", 1),             # process(request)
+    }
     
-    raise ValueError(f"{filename}: Missing required process() function")
+    expected_func, expected_params = entry_points.get(provider, ("process", 1))
+    
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == expected_func:
+            actual_params = len(node.args.args)
+            if actual_params < expected_params:
+                raise ValueError(
+                    f"{filename}: {expected_func}() requires at least {expected_params} parameter(s), "
+                    f"found {actual_params}"
+                )
+            return  # Found valid entry point function
+    
+    raise ValueError(f"{filename}: Missing required {expected_func}() function for {provider}")
 
 
 def check_event_actions(ctx: ValidationContext) -> None:
@@ -353,7 +431,8 @@ def check_state_machine_presence(ctx: ValidationContext) -> None:
 
 
 def check_payloads_vs_devices(accessor: FileAccessor, ctx: ValidationContext) -> None:
-    """Validate that iotDeviceId in payloads.json matches config_iot_devices.json."""
+    """Validate that iotDeviceId in payloads.json matches config_iot_devices.json.
+    Returns all unknown device references, not just the first one."""
     payloads_path = ctx.project_root + CONSTANTS.PAYLOADS_FILE
     
     if not accessor.file_exists(payloads_path):
@@ -371,13 +450,18 @@ def check_payloads_vs_devices(accessor: FileAccessor, ctx: ValidationContext) ->
     
     valid_device_ids = {device.get("id") for device in ctx.iot_config if device.get("id")}
     
-    for payload in payloads_content:
+    # Collect all unknown device references
+    unknown_devices = []
+    for i, payload in enumerate(payloads_content):
         device_id = payload.get("iotDeviceId")
         if device_id and device_id not in valid_device_ids:
-            raise ValueError(
-                f"Payload references unknown device '{device_id}'. "
-                f"Valid devices: {sorted(valid_device_ids)}"
-            )
+            unknown_devices.append(f"Payload at index {i}: unknown device '{device_id}'")
+    
+    if unknown_devices:
+        raise ValueError(
+            f"Payload validation errors:\n• " + "\n• ".join(unknown_devices) +
+            f"\n\nValid devices: {sorted(valid_device_ids)}"
+        )
 
 
 def check_credentials_per_provider(ctx: ValidationContext) -> None:
@@ -651,3 +735,94 @@ def run_all_checks(accessor: FileAccessor) -> None:
     check_user_config_for_l4_l5(accessor, ctx)  # Validates config_user.json
     
     logger.info("✓ All validation checks passed")
+
+
+def run_all_checks_aggregated(
+    accessor: FileAccessor,
+    ctx: ValidationContext = None
+) -> ValidationResult:
+    """
+    Run all validation checks, aggregating errors instead of failing fast.
+    
+    This mode collects ALL validation errors to provide maximum feedback
+    to users on their first upload attempt.
+    
+    Args:
+        accessor: FileAccessor implementation (ZIP or Directory)
+        ctx: Optional pre-built ValidationContext with skip settings
+        
+    Returns:
+        ValidationResult with is_valid status and all errors/warnings
+    """
+    result = ValidationResult()
+    
+    # Phase 1: Build context if not provided
+    if ctx is None:
+        ctx = build_context(accessor)
+    else:
+        # Merge file list into provided context
+        ctx.all_files = accessor.list_files()
+        ctx.project_root = accessor.get_project_root()
+        # Re-scan for tracked items
+        temp_ctx = build_context(accessor)
+        ctx.seen_event_actions = temp_ctx.seen_event_actions
+        ctx.seen_state_machines = temp_ctx.seen_state_machines
+        ctx.seen_feedback_func = temp_ctx.seen_feedback_func
+    
+    # Phase 2: Required files and schema validation
+    try:
+        check_required_files(accessor, ctx)
+    except ValueError as e:
+        result.add_error(str(e))
+    
+    try:
+        check_config_schemas(accessor, ctx)
+    except ValueError as e:
+        result.add_error(str(e))
+    
+    # Phase 3: Get provider (need this for later checks)
+    l2_provider = ctx.prov_config.get("layer_2_provider", "").lower()
+    if not l2_provider and not ctx.prov_config:
+        result.add_error("Missing config_providers.json or layer_2_provider not set")
+        # Return early - can't do provider-specific checks without this
+        return result
+    
+    # Phase 4: Provider-specific validations (each collected separately)
+    for check_fn, args in [
+        (check_provider_function_directory, (accessor, ctx, l2_provider)),
+        (check_state_machines, (accessor, ctx)),
+        (check_processor_syntax, (accessor, ctx, l2_provider)),
+        (check_event_actions, (ctx,)),
+        (check_feedback_function, (ctx,)),
+        (check_processor_folders_match_devices, (accessor, ctx, l2_provider)),
+        (check_state_machine_presence, (ctx,)),
+    ]:
+        try:
+            check_fn(*args)
+        except ValueError as e:
+            result.add_error(str(e))
+    
+    # Phase 5: Cross-cutting validations
+    cross_checks = [
+        (check_payloads_vs_devices, (accessor, ctx)),
+        (check_hierarchy_provider_match, (accessor, ctx)),
+        (check_scene_assets, (accessor, ctx)),
+        (check_user_config_for_l4_l5, (accessor, ctx)),
+    ]
+    
+    # Optionally skip credential check in Mode A
+    if not ctx.skip_credentials:
+        cross_checks.insert(1, (check_credentials_per_provider, (ctx,)))
+    
+    for check_fn, args in cross_checks:
+        try:
+            check_fn(*args)
+        except ValueError as e:
+            result.add_error(str(e))
+    
+    if result.is_valid:
+        logger.info("✓ All validation checks passed")
+    else:
+        logger.warning(f"Validation found {len(result.errors)} error(s)")
+    
+    return result
