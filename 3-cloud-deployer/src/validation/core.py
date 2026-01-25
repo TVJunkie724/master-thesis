@@ -392,19 +392,20 @@ def _validate_entry_point_signature(content: str, filename: str, provider: str) 
     
     - AWS: lambda_handler(event, context) - 2 params, no strict type hints
     - Azure: main(req) - 1 param, flexible
-    - GCP: process(request) or any function - 1 param, flexible
+    - GCP: main(request) - 1 param (functions_framework convention)
     """
     tree = ast.parse(content)
     
     # Define expected entry points per provider
+    # NOTE: GCP uses main() with @functions_framework.http decorator, not process()
     entry_points = {
         "aws": ("lambda_handler", 2),      # lambda_handler(event, context)
         "azure": ("main", 1),              # main(req)
-        "google": ("process", 1),          # process(request)
-        "gcp": ("process", 1),             # process(request)
+        "google": ("main", 1),             # main(request) - functions_framework convention
+        "gcp": ("main", 1),                # main(request) - functions_framework convention
     }
     
-    expected_func, expected_params = entry_points.get(provider, ("process", 1))
+    expected_func, expected_params = entry_points.get(provider, ("main", 1))
     
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name == expected_func:
