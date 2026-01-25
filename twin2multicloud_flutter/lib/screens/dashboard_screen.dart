@@ -7,6 +7,7 @@ import '../providers/twins_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/api_error_handler.dart';
+import '../utils/twin_state_utils.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/branded_app_bar.dart';
 import '../models/twin.dart';
@@ -245,21 +246,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // State color helper - single source of truth for state colors
-  Color _getStateColor(String? state) {
-    switch (state) {
-      case 'deployed':
-        return Colors.green;
-      case 'configured':
-        return Colors.orange;
-      case 'error':
-        return Colors.red;
-      case 'draft':
-        return Colors.grey;
-      default:
-        return Theme.of(context).colorScheme.primary;
-    }
-  }
+  // Use TwinStateUtils for consistent state colors across screens
+  Color _getStateColor(String? state) => TwinStateUtils.getColor(state);
 
   Widget _buildStateFilterChips() {
     final filters = [
@@ -583,58 +571,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildStateIcon(String state) {
-    IconData iconData;
-    Color color;
-
-    switch (state) {
-      case 'deployed':
-        iconData = Icons.cloud_done;
-        color = Colors.green;
-        break;
-      case 'configured':
-        iconData = Icons.cloud_outlined;
-        color = Colors.orange;
-        break;
-      case 'error':
-        iconData = Icons.cloud_off;
-        color = Colors.red;
-        break;
-      case 'draft':
-      default:
-        iconData = Icons.cloud_queue;
-        color = Colors.grey;
-    }
-
-    return Icon(iconData, color: color, size: 20);
+    final config = TwinStateUtils.getConfig(state);
+    return Icon(config.icon, color: config.color, size: 20);
   }
 
   Widget _buildStateBadge(String state) {
-    Color bgColor;
-    Color textColor;
-    String label;
-
-    switch (state) {
-      case 'deployed':
-        bgColor = Colors.green.withAlpha(38);
-        textColor = Colors.green.shade400;
-        label = 'Deployed';
-        break;
-      case 'configured':
-        bgColor = Colors.orange.withAlpha(38);
-        textColor = Colors.orange.shade400;
-        label = 'Configured';
-        break;
-      case 'error':
-        bgColor = Colors.red.withAlpha(38);
-        textColor = Colors.red.shade400;
-        label = 'Error';
-        break;
-      case 'draft':
-      default:
-        bgColor = Colors.grey.withAlpha(38);
-        textColor = Colors.grey.shade400;
-        label = 'Draft';
-    }
+    final config = TwinStateUtils.getConfig(state);
+    final bgColor = config.color.withAlpha(38);
+    final textColor = config.color;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -643,7 +587,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        label,
+        config.label.substring(0, 1) + config.label.substring(1).toLowerCase(),
         style: TextStyle(
           color: textColor,
           fontSize: 12,

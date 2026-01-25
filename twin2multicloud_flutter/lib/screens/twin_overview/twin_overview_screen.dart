@@ -1115,6 +1115,12 @@ class TwinOverviewView extends ConsumerWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.teal[600],
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey[400],
+                        disabledForegroundColor: Colors.grey[700],
+                      ),
                     ),
                   ),
                 ),
@@ -1145,7 +1151,9 @@ class TwinOverviewView extends ConsumerWidget {
                       ),
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.red[700],
-                        disabledBackgroundColor: Colors.grey[300],
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey[400],
+                        disabledForegroundColor: Colors.grey[700],
                       ),
                     ),
                   ),
