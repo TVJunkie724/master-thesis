@@ -24,6 +24,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     on<TwinOverviewLogReceived>(_onLogReceived);
     on<TwinOverviewDeploymentComplete>(_onDeploymentComplete);
     on<TwinOverviewClearMessages>(_onClearMessages);
+    on<TwinOverviewShowMessage>(_onShowMessage);
   }
 
   Future<void> _onLoad(
@@ -240,7 +241,51 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
 
-    emit(currentState.copyWith(clearSuccess: true, clearError: true));
+    emit(
+      currentState.copyWith(
+        clearSuccess: true,
+        clearError: true,
+        clearInfo: true,
+      ),
+    );
+  }
+
+  void _onShowMessage(
+    TwinOverviewShowMessage event,
+    Emitter<TwinOverviewState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded) return;
+
+    switch (event.type) {
+      case MessageType.success:
+        emit(
+          currentState.copyWith(
+            successMessage: event.message,
+            clearError: true,
+            clearInfo: true,
+          ),
+        );
+        break;
+      case MessageType.error:
+        emit(
+          currentState.copyWith(
+            errorMessage: event.message,
+            clearSuccess: true,
+            clearInfo: true,
+          ),
+        );
+        break;
+      case MessageType.info:
+        emit(
+          currentState.copyWith(
+            infoMessage: event.message,
+            clearSuccess: true,
+            clearError: true,
+          ),
+        );
+        break;
+    }
   }
 
   /// Start polling for deployment status updates

@@ -66,9 +66,10 @@ class TwinOverviewLoaded extends TwinOverviewState {
   // Deployer config for display
   final Map<String, dynamic>? deployerConfig;
 
-  // Success/error messages
+  // Success/error/info messages
   final String? successMessage;
   final String? errorMessage;
+  final String? infoMessage;
 
   const TwinOverviewLoaded({
     required this.twinId,
@@ -97,6 +98,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     this.deployerConfig,
     this.successMessage,
     this.errorMessage,
+    this.infoMessage,
   });
 
   /// Create copy with updated fields
@@ -127,8 +129,10 @@ class TwinOverviewLoaded extends TwinOverviewState {
     Map<String, dynamic>? deployerConfig,
     String? successMessage,
     String? errorMessage,
+    String? infoMessage,
     bool clearSuccess = false,
     bool clearError = false,
+    bool clearInfo = false,
   }) {
     return TwinOverviewLoaded(
       twinId: twinId ?? this.twinId,
@@ -160,6 +164,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
           ? null
           : (successMessage ?? this.successMessage),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      infoMessage: clearInfo ? null : (infoMessage ?? this.infoMessage),
     );
   }
 
@@ -191,5 +196,6 @@ class TwinOverviewLoaded extends TwinOverviewState {
     deployerConfig,
     successMessage,
     errorMessage,
+    infoMessage,
   ];
 }

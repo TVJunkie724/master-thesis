@@ -10,7 +10,10 @@ import '../../bloc/twin_overview/twin_overview_bloc.dart';
 import '../../bloc/twin_overview/twin_overview_event.dart';
 import '../../bloc/twin_overview/twin_overview_state.dart';
 import '../../providers/twins_provider.dart';
+import '../../providers/theme_provider.dart';
+import '../../utils/twin_state_utils.dart';
 import '../../widgets/branded_app_bar.dart';
+import '../../widgets/code_viewer_dialog.dart';
 import '../../widgets/deployment_terminal.dart';
 import '../../widgets/results/cheapest_path_visualization.dart';
 
@@ -33,13 +36,13 @@ class TwinOverviewScreen extends ConsumerWidget {
 }
 
 /// Main view consuming BLoC state
-class TwinOverviewView extends StatelessWidget {
+class TwinOverviewView extends ConsumerWidget {
   final String twinId;
 
   const TwinOverviewView({super.key, required this.twinId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return BlocListener<TwinOverviewBloc, TwinOverviewState>(
       listenWhen: (prev, curr) =>
           curr is TwinOverviewLoaded && curr.successMessage == 'deleted',
@@ -50,19 +53,163 @@ class TwinOverviewView extends StatelessWidget {
       child: BlocBuilder<TwinOverviewBloc, TwinOverviewState>(
         builder: (context, state) {
           return Scaffold(
-            appBar: BrandedAppBar(
-              title: state is TwinOverviewLoaded
-                  ? state.projectName
-                  : 'Digital Twin Overview',
-              leading: IconButton(
+            appBar: _buildAppBar(context, ref),
+            body: Column(
+              children: [
+                // Header section with back button and twin name
+                _buildHeader(context, state),
+                // Alert banners for messages
+                _buildAlertBanners(context, state),
+                // Main content
+                Expanded(child: _buildBody(context, state)),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(BuildContext context, WidgetRef ref) {
+    return BrandedAppBar(
+      title: 'Twin2MultiCloud',
+      actions: [
+        IconButton(
+          icon: Icon(
+            ref.watch(themeProvider) == ThemeMode.dark
+                ? Icons.light_mode
+                : Icons.dark_mode,
+          ),
+          onPressed: () => ref.read(themeProvider.notifier).toggle(),
+          tooltip: 'Toggle theme',
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, TwinOverviewState state) {
+    final projectName = state is TwinOverviewLoaded
+        ? state.projectName
+        : 'Loading...';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: BoxDecoration(
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).dividerColor.withOpacity(0.5),
+          ),
+        ),
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Row(
+            children: [
+              IconButton(
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () => context.go('/dashboard'),
                 tooltip: 'Back to Dashboard',
               ),
-            ),
-            body: _buildBody(context, state),
-          );
-        },
+              const SizedBox(width: 8),
+              Text(
+                projectName,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAlertBanners(BuildContext context, TwinOverviewState state) {
+    if (state is! TwinOverviewLoaded) return const SizedBox.shrink();
+
+    if (state.errorMessage != null) {
+      return _buildBanner(
+        context,
+        message: state.errorMessage!,
+        color: Colors.red,
+        icon: Icons.error,
+        onDismiss: () => context.read<TwinOverviewBloc>().add(
+          const TwinOverviewClearMessages(),
+        ),
+      );
+    } else if (state.successMessage != null &&
+        state.successMessage != 'deleted') {
+      return _buildBanner(
+        context,
+        message: state.successMessage!,
+        color: Colors.green,
+        icon: Icons.check_circle,
+        onDismiss: () => context.read<TwinOverviewBloc>().add(
+          const TwinOverviewClearMessages(),
+        ),
+      );
+    } else if (state.infoMessage != null) {
+      return _buildBanner(
+        context,
+        message: state.infoMessage!,
+        color: Colors.blue,
+        icon: Icons.info,
+        onDismiss: () => context.read<TwinOverviewBloc>().add(
+          const TwinOverviewClearMessages(),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildBanner(
+    BuildContext context, {
+    required String message,
+    required MaterialColor color,
+    required IconData icon,
+    required VoidCallback onDismiss,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Row(
+            children: [
+              Icon(icon, color: color.shade700),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    color: color.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.close, color: color.shade700, size: 20),
+                onPressed: onDismiss,
+                tooltip: 'Dismiss',
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -427,23 +574,50 @@ class TwinOverviewView extends StatelessWidget {
               ],
             ),
           ),
-          if (pricing != null) ...[
-            OutlinedButton.icon(
-              onPressed: () =>
-                  _showJsonDialog(context, '$provider Pricing', pricing),
-              icon: const Icon(Icons.visibility, size: 16),
-              label: const Text('View'),
-            ),
-            const SizedBox(width: 8),
+          if (updatedAt != null) ...[
             IconButton(
-              icon: const Icon(Icons.copy, size: 18),
-              onPressed: () {
-                // TODO: Copy to clipboard
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Copied to clipboard')),
-                );
-              },
-              tooltip: 'Copy JSON',
+              onPressed: pricing != null
+                  ? () {
+                      final content = _prettyPrintJson(pricing);
+                      showCodeViewerDialog(
+                        context,
+                        title: '$provider Pricing',
+                        code: content,
+                        filename: '${provider.toLowerCase()}_pricing.json',
+                      );
+                    }
+                  : null,
+              icon: const Icon(Icons.visibility_outlined),
+              tooltip: 'View',
+            ),
+            IconButton(
+              onPressed: pricing != null
+                  ? () async {
+                      final content = _prettyPrintJson(pricing);
+                      final result = await downloadCodeFile(
+                        content: content,
+                        filename: '${provider.toLowerCase()}_pricing.json',
+                      );
+                      if (!context.mounted) return;
+                      if (result.success) {
+                        context.read<TwinOverviewBloc>().add(
+                          TwinOverviewShowMessage(
+                            result.message!,
+                            MessageType.success,
+                          ),
+                        );
+                      } else if (!result.cancelled && result.error != null) {
+                        context.read<TwinOverviewBloc>().add(
+                          TwinOverviewShowMessage(
+                            result.error!,
+                            MessageType.error,
+                          ),
+                        );
+                      }
+                    }
+                  : null,
+              icon: const Icon(Icons.download_outlined),
+              tooltip: 'Download',
             ),
           ],
         ],
@@ -456,6 +630,20 @@ class TwinOverviewView extends StatelessWidget {
     TwinOverviewLoaded state,
   ) {
     final config = state.deployerConfig;
+    // Get L2 provider for state machine naming (provider-specific files)
+    final l2Provider =
+        state.cheapestPath?['l2']?.toString().toLowerCase() ?? 'aws';
+    final stateMachineFilename = _getStateMachineFilename(l2Provider);
+
+    // Get L4 provider for hierarchy and scene config naming
+    final l4Provider =
+        state.cheapestPath?['l4']?.toString().toLowerCase() ?? 'aws';
+    final hierarchyFilename = l4Provider == 'azure'
+        ? 'azure_hierarchy.json'
+        : 'aws_hierarchy.json';
+    final sceneFilename = l4Provider == 'azure'
+        ? '3DScenesConfiguration.json'
+        : 'scene.json';
 
     return Card(
       child: ExpansionTile(
@@ -490,8 +678,28 @@ class TwinOverviewView extends StatelessWidget {
                       if (config['state_machine_content'] != null)
                         _buildConfigFileRow(
                           context,
-                          'state_machine.json',
+                          stateMachineFilename,
                           config['state_machine_content'] as String,
+                        ),
+                      // L4 configuration files (provider-specific naming)
+                      if (config['hierarchy_content'] != null)
+                        _buildConfigFileRow(
+                          context,
+                          hierarchyFilename,
+                          config['hierarchy_content'] as String,
+                        ),
+                      if (config['scene_config_content'] != null)
+                        _buildConfigFileRow(
+                          context,
+                          sceneFilename,
+                          config['scene_config_content'] as String,
+                        ),
+                      // L5 user config
+                      if (config['user_config_content'] != null)
+                        _buildConfigFileRow(
+                          context,
+                          'config_user.json',
+                          config['user_config_content'] as String,
                         ),
                     ],
                   ),
@@ -513,20 +721,35 @@ class TwinOverviewView extends StatelessWidget {
           const Icon(Icons.insert_drive_file_outlined, size: 20),
           const SizedBox(width: 8),
           Expanded(child: Text(filename)),
-          OutlinedButton.icon(
-            onPressed: () => _showCodeDialog(context, filename, content),
-            icon: const Icon(Icons.visibility, size: 16),
-            label: const Text('View'),
-          ),
-          const SizedBox(width: 8),
           IconButton(
-            icon: const Icon(Icons.copy, size: 18),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Copied $filename to clipboard')),
+            onPressed: () => showCodeViewerDialog(
+              context,
+              title: filename,
+              code: content,
+              filename: filename,
+            ),
+            icon: const Icon(Icons.visibility_outlined),
+            tooltip: 'View',
+          ),
+          IconButton(
+            onPressed: () async {
+              final result = await downloadCodeFile(
+                content: content,
+                filename: filename,
               );
+              if (!context.mounted) return;
+              if (result.success) {
+                context.read<TwinOverviewBloc>().add(
+                  TwinOverviewShowMessage(result.message!, MessageType.success),
+                );
+              } else if (!result.cancelled && result.error != null) {
+                context.read<TwinOverviewBloc>().add(
+                  TwinOverviewShowMessage(result.error!, MessageType.error),
+                );
+              }
             },
-            tooltip: 'Copy',
+            icon: const Icon(Icons.download_outlined),
+            tooltip: 'Download',
           ),
         ],
       ),
@@ -538,6 +761,9 @@ class TwinOverviewView extends StatelessWidget {
     TwinOverviewLoaded state,
   ) {
     final config = state.deployerConfig;
+    // Get L2 provider for function filename
+    final l2Provider =
+        state.cheapestPath?['l2']?.toString().toLowerCase() ?? 'aws';
 
     return Card(
       child: ExpansionTile(
@@ -564,6 +790,7 @@ class TwinOverviewView extends StatelessWidget {
                           context,
                           config['processor_contents'] as Map<String, dynamic>,
                           'processor',
+                          l2Provider,
                         ),
                         const SizedBox(height: 16),
                       ],
@@ -579,6 +806,7 @@ class TwinOverviewView extends StatelessWidget {
                           context,
                           'event-feedback',
                           config['event_feedback_content'] as String,
+                          l2Provider,
                         ),
                         const SizedBox(height: 16),
                       ],
@@ -597,6 +825,7 @@ class TwinOverviewView extends StatelessWidget {
                           config['event_action_contents']
                               as Map<String, dynamic>,
                           'event_action',
+                          l2Provider,
                         ),
                       ],
                     ],
@@ -611,13 +840,54 @@ class TwinOverviewView extends StatelessWidget {
     BuildContext context,
     Map<String, dynamic> functions,
     String prefix,
+    String l2Provider,
   ) {
     return functions.entries.map((entry) {
-      return _buildFunctionRow(context, entry.key, entry.value as String);
+      return _buildFunctionRow(
+        context,
+        entry.key,
+        entry.value as String,
+        l2Provider,
+      );
     }).toList();
   }
 
-  Widget _buildFunctionRow(BuildContext context, String name, String content) {
+  /// Get function filename based on provider convention.
+  /// See ZIP example: AWS=lambda_function.py, GCP=main.py, Azure=function_app.py
+  String _getFunctionFilename(String provider) {
+    switch (provider.toLowerCase()) {
+      case 'gcp':
+        return 'main.py';
+      case 'azure':
+        return 'function_app.py';
+      case 'aws':
+      default:
+        return 'lambda_function.py';
+    }
+  }
+
+  /// Get state machine filename based on provider convention.
+  /// AWS=aws_step_function.json, Azure=azure_logic_app.json, GCP=google_cloud_workflow.yaml
+  String _getStateMachineFilename(String provider) {
+    switch (provider.toLowerCase()) {
+      case 'gcp':
+        return 'google_cloud_workflow.yaml';
+      case 'azure':
+        return 'azure_logic_app.json';
+      case 'aws':
+      default:
+        return 'aws_step_function.json';
+    }
+  }
+
+  Widget _buildFunctionRow(
+    BuildContext context,
+    String name,
+    String content,
+    String l2Provider,
+  ) {
+    final funcFile = _getFunctionFilename(l2Provider);
+    final filename = '$name/$funcFile';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -626,83 +896,39 @@ class TwinOverviewView extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '$name/lambda_function.py',
+              filename,
               style: const TextStyle(fontFamily: 'monospace'),
             ),
           ),
-          OutlinedButton.icon(
-            onPressed: () =>
-                _showCodeDialog(context, '$name/lambda_function.py', content),
-            icon: const Icon(Icons.visibility, size: 16),
-            label: const Text('View'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showJsonDialog(
-    BuildContext context,
-    String title,
-    Map<String, dynamic> json,
-  ) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Container(
-          width: 600,
-          height: 400,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: SelectableText(
-            _prettyPrintJson(json),
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 12,
-              color: Colors.greenAccent,
+          IconButton(
+            onPressed: () => showCodeViewerDialog(
+              context,
+              title: filename,
+              code: content,
+              filename: filename,
             ),
+            icon: const Icon(Icons.visibility_outlined),
+            tooltip: 'View',
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showCodeDialog(BuildContext context, String title, String code) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Container(
-          width: 600,
-          height: 400,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: SelectableText(
-            code,
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 12,
-              color: Colors.greenAccent,
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
+          IconButton(
+            onPressed: () async {
+              final result = await downloadCodeFile(
+                content: content,
+                filename: filename,
+              );
+              if (!context.mounted) return;
+              if (result.success) {
+                context.read<TwinOverviewBloc>().add(
+                  TwinOverviewShowMessage(result.message!, MessageType.success),
+                );
+              } else if (!result.cancelled && result.error != null) {
+                context.read<TwinOverviewBloc>().add(
+                  TwinOverviewShowMessage(result.error!, MessageType.error),
+                );
+              }
+            },
+            icon: const Icon(Icons.download_outlined),
+            tooltip: 'Download',
           ),
         ],
       ),
@@ -819,7 +1045,7 @@ class TwinOverviewView extends StatelessWidget {
             // Header row with state badge and action buttons
             Row(
               children: [
-                _buildStateBadge(context, state.twinState),
+                TwinStateUtils.buildBadge(context, state.twinState),
                 const Spacer(),
                 // Edit button
                 Tooltip(
@@ -855,7 +1081,7 @@ class TwinOverviewView extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              _getStateDescription(state.twinState),
+              TwinStateUtils.getDescription(state.twinState),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: Colors.grey[600],
               ),
@@ -989,111 +1215,6 @@ class TwinOverviewView extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Widget _buildStateBadge(BuildContext context, String twinState) {
-    Color badgeColor;
-    IconData icon;
-    String label;
-    bool animated = false;
-
-    switch (twinState) {
-      case 'draft':
-        badgeColor = Colors.grey;
-        icon = Icons.edit_note;
-        label = 'DRAFT';
-        break;
-      case 'configured':
-        badgeColor = Colors.blue;
-        icon = Icons.check_circle_outline;
-        label = 'CONFIGURED';
-        break;
-      case 'deploying':
-        badgeColor = Colors.amber;
-        icon = Icons.sync;
-        label = 'DEPLOYING...';
-        animated = true;
-        break;
-      case 'deployed':
-        badgeColor = Colors.green;
-        icon = Icons.cloud_done;
-        label = 'DEPLOYED';
-        break;
-      case 'destroying':
-        badgeColor = Colors.orange;
-        icon = Icons.sync;
-        label = 'DESTROYING...';
-        animated = true;
-        break;
-      case 'destroyed':
-        badgeColor = Colors.grey;
-        icon = Icons.cloud_off;
-        label = 'DESTROYED';
-        break;
-      case 'error':
-        badgeColor = Colors.red;
-        icon = Icons.error;
-        label = 'ERROR';
-        break;
-      default:
-        badgeColor = Colors.grey;
-        icon = Icons.help_outline;
-        label = twinState.toUpperCase();
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: badgeColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: badgeColor.withOpacity(0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          animated
-              ? SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(badgeColor),
-                  ),
-                )
-              : Icon(icon, color: badgeColor, size: 20),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: badgeColor,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _getStateDescription(String twinState) {
-    switch (twinState) {
-      case 'draft':
-        return 'Configuration incomplete';
-      case 'configured':
-        return 'Ready to deploy';
-      case 'deploying':
-        return 'Provisioning cloud resources...';
-      case 'deployed':
-        return 'Live on cloud providers';
-      case 'destroying':
-        return 'Removing cloud resources...';
-      case 'destroyed':
-        return 'Resources removed, ready to redeploy';
-      case 'error':
-        return 'Deployment failed - see error details below';
-      default:
-        return 'Unknown state';
-    }
   }
 
   void _showDeployConfirmation(BuildContext context, TwinOverviewLoaded state) {

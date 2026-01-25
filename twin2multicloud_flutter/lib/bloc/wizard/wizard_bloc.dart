@@ -1,6 +1,7 @@
 // lib/bloc/wizard/wizard_bloc.dart
 // BLoC for wizard state machine
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
@@ -700,6 +701,16 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     );
   }
 
+  /// Extract provider name from cheapest path for a given layer prefix
+  String? _extractProvider(List<String> path, String prefix) {
+    for (final segment in path) {
+      if (segment.startsWith(prefix)) {
+        return segment.replaceFirst(prefix, '').toLowerCase();
+      }
+    }
+    return null;
+  }
+
   // ============================================================
   // PERSISTENCE HANDLERS
   // ============================================================
@@ -761,6 +772,61 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       config['highest_step_reached'] = state.highestStepReached;
 
       await _api.updateTwinConfig(twinId!, config);
+
+      // Save optimizer result with pricing snapshots (if calc result exists)
+      if (state.calcParams != null &&
+          state.calcResultRaw != null &&
+          state.calcResult != null) {
+        try {
+          // Fetch current pricing snapshots from Optimizer service
+          final awsPricing = await _api.exportPricing('aws');
+          final azurePricing = await _api.exportPricing('azure');
+          final gcpPricing = await _api.exportPricing('gcp');
+
+          // Build cheapest path map from CalcResult
+          final cheapestPath = <String, String?>{
+            'l1': _extractProvider(state.calcResult!.cheapestPath, 'L1_'),
+            'l2': _extractProvider(state.calcResult!.cheapestPath, 'L2_'),
+            'l3_hot': _extractProvider(
+              state.calcResult!.cheapestPath,
+              'L3_hot_',
+            ),
+            'l3_cool': _extractProvider(
+              state.calcResult!.cheapestPath,
+              'L3_cool_',
+            ),
+            'l3_archive': _extractProvider(
+              state.calcResult!.cheapestPath,
+              'L3_archive_',
+            ),
+            'l4': _extractProvider(state.calcResult!.cheapestPath, 'L4_'),
+            'l5': _extractProvider(state.calcResult!.cheapestPath, 'L5_'),
+          };
+
+          // Build pricing timestamps
+          final pricingTimestamps = <String, String?>{
+            'aws': awsPricing['updated_at'] as String?,
+            'azure': azurePricing['updated_at'] as String?,
+            'gcp': gcpPricing['updated_at'] as String?,
+          };
+
+          await _api.saveOptimizerResult(
+            twinId,
+            params: state.calcParams!.toJson(),
+            result: state.calcResultRaw!['result'] as Map<String, dynamic>,
+            cheapestPath: cheapestPath,
+            pricingSnapshots: {
+              'aws': awsPricing['pricing'],
+              'azure': azurePricing['pricing'],
+              'gcp': gcpPricing['pricing'],
+            },
+            pricingTimestamps: pricingTimestamps,
+          );
+        } catch (e) {
+          // Non-fatal: pricing snapshots are optional
+          debugPrint('Failed to save pricing snapshots: $e');
+        }
+      }
 
       // Save deployer config (Step 3 Section 2 data)
       if (state.deployerDigitalTwinName != null ||
@@ -1586,14 +1652,15 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         hierarchy = files['twin_hierarchy/azure_hierarchy.json']['content'];
       }
 
-      // Scene config
-      if (_fileHasContent(files['scene_assets/scene.json'])) {
-        sceneConfig = files['scene_assets/scene.json']['content'];
+      // Scene config (provider-specific subdirectories)
+      // AWS: scene_assets/aws/scene.json, Azure: scene_assets/azure/3DScenesConfiguration.json
+      if (_fileHasContent(files['scene_assets/aws/scene.json'])) {
+        sceneConfig = files['scene_assets/aws/scene.json']['content'];
       } else if (_fileHasContent(
-        files['scene_assets/3DScenesConfiguration.json'],
+        files['scene_assets/azure/3DScenesConfiguration.json'],
       )) {
         sceneConfig =
-            files['scene_assets/3DScenesConfiguration.json']['content'];
+            files['scene_assets/azure/3DScenesConfiguration.json']['content'];
       }
 
       // User config
@@ -1669,6 +1736,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       }
 
       // Compute validation flags for the individual files
+      final configJsonValid = isFileValid(files['config.json']);
       final eventsValid = isFileValid(files['config_events.json']);
       final iotDevicesValid = isFileValid(files['config_iot_devices.json']);
       final payloadsValid = isFileValid(
@@ -1678,8 +1746,8 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
           isFileValid(files['twin_hierarchy/aws_hierarchy.json']) ||
           isFileValid(files['twin_hierarchy/azure_hierarchy.json']);
       final sceneConfigValid =
-          isFileValid(files['scene_assets/scene.json']) ||
-          isFileValid(files['scene_assets/3DScenesConfiguration.json']);
+          isFileValid(files['scene_assets/aws/scene.json']) ||
+          isFileValid(files['scene_assets/azure/3DScenesConfiguration.json']);
       final userConfigValid = isFileValid(files['config_user.json']);
       final stateMachineValid =
           isFileValid(files['state_machines/aws_step_function.json']) ||
@@ -1710,6 +1778,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
             'Zip extracted! ${_countExtracted(files, functions, assets)} items populated.',
         warningMessage: warnings.isNotEmpty ? warnings.join('\n') : null,
         // Set validation based on backend validation status
+        configJsonValidated: configJsonValid,
         configEventsValidated: eventsValid,
         configIotDevicesValidated: iotDevicesValid,
         payloadsValidated: payloadsValid,
@@ -1732,6 +1801,47 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       final allSectionsValid =
           newState.isSection2Valid && newState.isSection3Valid;
 
+      // DEBUG: Log validation state to understand why collapse might not trigger
+      debugPrint('=== ZIP UPLOAD VALIDATION DEBUG ===');
+      debugPrint('Section 2 Valid: ${newState.isSection2Valid}');
+      debugPrint('  - configJsonValidated: ${newState.configJsonValidated}');
+      debugPrint(
+        '  - configEventsValidated: ${newState.configEventsValidated}',
+      );
+      debugPrint(
+        '  - configIotDevicesValidated: ${newState.configIotDevicesValidated}',
+      );
+      debugPrint('  - hierarchyValidated: ${newState.hierarchyValidated}');
+      debugPrint('  - L4 provider: ${newState.layer4Provider}');
+      debugPrint('Section 3 Valid: ${newState.isSection3Valid}');
+      debugPrint('  - payloadsValidated: ${newState.payloadsValidated}');
+      debugPrint('  - processorValidated: ${newState.processorValidated}');
+      debugPrint('  - deviceIds: ${newState.deviceIds}');
+      debugPrint(
+        '  - calcParams.returnFeedbackToDevice: ${newState.calcParams?.returnFeedbackToDevice}',
+      );
+      debugPrint(
+        '  - eventFeedbackValidated: ${newState.eventFeedbackValidated}',
+      );
+      debugPrint(
+        '  - calcParams.useEventChecking: ${newState.calcParams?.useEventChecking}',
+      );
+      debugPrint('  - eventActionValidated: ${newState.eventActionValidated}');
+      debugPrint(
+        '  - calcParams.triggerNotificationWorkflow: ${newState.calcParams?.triggerNotificationWorkflow}',
+      );
+      debugPrint(
+        '  - stateMachineValidated: ${newState.stateMachineValidated}',
+      );
+      debugPrint(
+        '  - calcParams.needs3DModel: ${newState.calcParams?.needs3DModel}',
+      );
+      debugPrint('  - sceneConfigValidated: ${newState.sceneConfigValidated}');
+      debugPrint('  - L5 provider: ${newState.layer5Provider}');
+      debugPrint('  - userConfigValidated: ${newState.userConfigValidated}');
+      debugPrint('All sections valid: $allSectionsValid');
+      debugPrint('===================================');
+
       // P2-1 Fix: If all valid, trigger collapse then immediately reset
       // This ensures the flag transitions from false→true→false, allowing
       // the UI widgets to detect the change and collapse
@@ -1739,7 +1849,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         // P3-1: Brief delay so users see validation checkmarks before collapse
         await Future.delayed(const Duration(milliseconds: 400));
         emit(newState.copyWith(forceCollapseSections: true));
-        // Immediately reset so subsequent uploads can trigger again
+        // Wait one frame so the UI widget's didUpdateWidget sees the true state
+        await Future.delayed(const Duration(milliseconds: 50));
+        // Reset so subsequent uploads can trigger again
         emit(newState.copyWith(forceCollapseSections: false));
       }
     } catch (e) {

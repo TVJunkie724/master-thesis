@@ -71,3 +71,17 @@ class TwinOverviewDeploymentComplete extends TwinOverviewEvent {
 class TwinOverviewClearMessages extends TwinOverviewEvent {
   const TwinOverviewClearMessages();
 }
+
+/// Message type for alert banners
+enum MessageType { info, success, error }
+
+/// Show a message in the alert banner
+class TwinOverviewShowMessage extends TwinOverviewEvent {
+  final String message;
+  final MessageType type;
+
+  const TwinOverviewShowMessage(this.message, this.type);
+
+  @override
+  List<Object?> get props => [message, type];
+}
