@@ -327,9 +327,12 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       canDelete: canDelete,
       lastError: twin['last_error'] as String?,
       lastDeploymentLogs: twin['last_deployment_logs'] as String?,
+      // Optimizer result and params
       optimizerResult: optimizerConfig?['result'] as Map<String, dynamic>?,
       optimizerParams: optimizerConfig?['params'] as Map<String, dynamic>?,
+      cheapestPath: optimizerConfig?['cheapest_path'] as Map<String, dynamic>?,
       calculatedAt: optimizerConfig?['calculated_at'] as String?,
+      // Pricing snapshots - match API field names
       pricingAws:
           optimizerConfig?['pricing_aws_snapshot'] as Map<String, dynamic>?,
       pricingAwsUpdatedAt:

@@ -37,6 +37,11 @@ class OptimizerConfigResponse(BaseModel):
     result: Optional[dict] = None
     cheapest_path: Optional[CheapestPathResponse] = None
     calculated_at: Optional[datetime] = None
+    # Pricing snapshots
+    pricing_aws_snapshot: Optional[dict] = None
+    pricing_azure_snapshot: Optional[dict] = None
+    pricing_gcp_snapshot: Optional[dict] = None
+    # Pricing timestamps
     pricing_aws_updated_at: Optional[datetime] = None
     pricing_azure_updated_at: Optional[datetime] = None
     pricing_gcp_updated_at: Optional[datetime] = None

@@ -52,6 +52,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
   // Optimization data
   final Map<String, dynamic>? optimizerResult;
   final Map<String, dynamic>? optimizerParams;
+  final Map<String, dynamic>? cheapestPath; // {l1: 'aws', l2: 'azure', ...}
   final String? calculatedAt;
 
   // Pricing snapshots
@@ -85,6 +86,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     this.terminalLogs = const [],
     this.optimizerResult,
     this.optimizerParams,
+    this.cheapestPath,
     this.calculatedAt,
     this.pricingAws,
     this.pricingAwsUpdatedAt,
@@ -114,6 +116,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     List<String>? terminalLogs,
     Map<String, dynamic>? optimizerResult,
     Map<String, dynamic>? optimizerParams,
+    Map<String, dynamic>? cheapestPath,
     String? calculatedAt,
     Map<String, dynamic>? pricingAws,
     String? pricingAwsUpdatedAt,
@@ -143,6 +146,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
       terminalLogs: terminalLogs ?? this.terminalLogs,
       optimizerResult: optimizerResult ?? this.optimizerResult,
       optimizerParams: optimizerParams ?? this.optimizerParams,
+      cheapestPath: cheapestPath ?? this.cheapestPath,
       calculatedAt: calculatedAt ?? this.calculatedAt,
       pricingAws: pricingAws ?? this.pricingAws,
       pricingAwsUpdatedAt: pricingAwsUpdatedAt ?? this.pricingAwsUpdatedAt,
@@ -176,6 +180,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     terminalLogs,
     optimizerResult,
     optimizerParams,
+    cheapestPath,
     calculatedAt,
     pricingAws,
     pricingAwsUpdatedAt,

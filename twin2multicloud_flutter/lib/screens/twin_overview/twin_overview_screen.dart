@@ -12,6 +12,7 @@ import '../../bloc/twin_overview/twin_overview_state.dart';
 import '../../providers/twins_provider.dart';
 import '../../widgets/branded_app_bar.dart';
 import '../../widgets/deployment_terminal.dart';
+import '../../widgets/results/cheapest_path_visualization.dart';
 
 /// Twin Overview Screen - Entry point with BlocProvider
 class TwinOverviewScreen extends ConsumerWidget {
@@ -181,222 +182,35 @@ class TwinOverviewView extends StatelessWidget {
     BuildContext context,
     TwinOverviewLoaded state,
   ) {
-    final theme = Theme.of(context);
     final result = state.optimizerResult;
 
-    // Extract cheapest path from optimizer result
+    // Extract cheapest path from optimizer result (camelCase key, List format)
     List<String> cheapestPath = [];
-    if (result != null && result['cheapest_path'] != null) {
-      cheapestPath = List<String>.from(result['cheapest_path'] as List);
-    }
-
-    // Parse layer providers from cheapest path
-    String? l1Provider, l2Provider, l4Provider, l5Provider;
-    String? l3Hot, l3Cool, l3Archive;
-
-    for (final segment in cheapestPath) {
-      if (segment.startsWith('L1_')) {
-        l1Provider = segment.replaceFirst('L1_', '').toUpperCase();
-      } else if (segment.startsWith('L2_')) {
-        l2Provider = segment.replaceFirst('L2_', '').toUpperCase();
-      } else if (segment.startsWith('L3_hot_')) {
-        l3Hot = segment.replaceFirst('L3_hot_', '').toUpperCase();
-      } else if (segment.startsWith('L3_cool_')) {
-        l3Cool = segment.replaceFirst('L3_cool_', '').toUpperCase();
-      } else if (segment.startsWith('L3_archive_')) {
-        l3Archive = segment.replaceFirst('L3_archive_', '').toUpperCase();
-      } else if (segment.startsWith('L4_')) {
-        l4Provider = segment.replaceFirst('L4_', '').toUpperCase();
-      } else if (segment.startsWith('L5_')) {
-        l5Provider = segment.replaceFirst('L5_', '').toUpperCase();
-      }
+    if (result != null && result['cheapestPath'] != null) {
+      cheapestPath = List<String>.from(result['cheapestPath'] as List);
     }
 
     return Card(
-      child: ExpansionTile(
-        leading: const Icon(Icons.architecture),
-        title: const Text('Provider Architecture'),
-        initiallyExpanded: true,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: cheapestPath.isEmpty
-                ? Text(
-                    'No optimization result available',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Layer flow visualization
-                      _buildLayerRow(
-                        'L1 - IoT Ingestion',
-                        l1Provider,
-                        Colors.orange,
-                      ),
-                      _buildLayerArrow(),
-                      _buildLayerRow(
-                        'L2 - Processing',
-                        l2Provider,
-                        Colors.blue,
-                      ),
-                      _buildLayerArrow(),
-                      _buildStorageLayerRow(l3Hot, l3Cool, l3Archive),
-                      _buildLayerArrow(),
-                      _buildLayerRow(
-                        'L4 - Digital Twin',
-                        l4Provider,
-                        Colors.purple,
-                      ),
-                      _buildLayerArrow(),
-                      _buildLayerRow(
-                        'L5 - Visualization',
-                        l5Provider,
-                        Colors.green,
-                      ),
-                    ],
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLayerRow(String label, String? provider, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
+                const Icon(Icons.architecture),
+                const SizedBox(width: 12),
                 Text(
-                  label,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-                Text(
-                  provider ?? 'Not configured',
-                  style: TextStyle(
-                    color: provider != null ? null : Colors.grey[500],
-                    fontFamily: 'monospace',
+                  'Provider Architecture',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
-          ),
-          if (provider != null) _buildProviderBadge(provider),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStorageLayerRow(String? hot, String? cool, String? archive) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.teal,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'L3 - Storage',
-                  style: TextStyle(fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    _buildStorageTierChip('Hot', hot, Colors.red[400]!),
-                    const SizedBox(width: 8),
-                    _buildStorageTierChip('Cool', cool, Colors.blue[400]!),
-                    const SizedBox(width: 8),
-                    _buildStorageTierChip(
-                      'Archive',
-                      archive,
-                      Colors.grey[600]!,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStorageTierChip(String tier, String? provider, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        '$tier: ${provider ?? 'N/A'}',
-        style: TextStyle(fontSize: 11, color: color),
-      ),
-    );
-  }
-
-  Widget _buildLayerArrow() {
-    return Padding(
-      padding: const EdgeInsets.only(left: 12),
-      child: Icon(Icons.arrow_downward, size: 16, color: Colors.grey[400]),
-    );
-  }
-
-  Widget _buildProviderBadge(String provider) {
-    Color color;
-    switch (provider.toUpperCase()) {
-      case 'AWS':
-        color = const Color(0xFFFF9900);
-        break;
-      case 'AZURE':
-        color = const Color(0xFF0078D4);
-        break;
-      case 'GCP':
-      case 'GOOGLE':
-        color = const Color(0xFF34A853);
-        break;
-      default:
-        color = Colors.grey;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color),
-      ),
-      child: Text(
-        provider,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.bold,
-          fontSize: 11,
+            const SizedBox(height: 16),
+            Center(child: CheapestPathVisualization(path: cheapestPath)),
+          ],
         ),
       ),
     );
@@ -438,7 +252,7 @@ class TwinOverviewView extends StatelessWidget {
                             style: theme.textTheme.titleMedium,
                           ),
                           Text(
-                            '\$${(result['total_cost'] ?? 0).toStringAsFixed(2)}/month',
+                            '\$${(result['totalCost'] ?? 0).toStringAsFixed(2)}/month',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: Colors.green[700],
@@ -452,16 +266,13 @@ class TwinOverviewView extends StatelessWidget {
                       if (params != null) ...[
                         _buildParamRow(
                           'Devices',
-                          '${params['num_devices'] ?? 'N/A'}',
+                          '${params['numberOfDevices'] ?? 'N/A'}',
                         ),
                         _buildParamRow(
                           'Messages/hour',
-                          '${params['messages_per_hour'] ?? 'N/A'}',
+                          _formatMessagesPerHour(params),
                         ),
-                        _buildParamRow(
-                          'Retention',
-                          '${params['retention_days'] ?? 'N/A'} days',
-                        ),
+                        _buildParamRow('Retention', _formatRetention(params)),
                         const SizedBox(height: 12),
                       ],
 
@@ -510,6 +321,24 @@ class TwinOverviewView extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Calculate messages per hour from device sending interval
+  String _formatMessagesPerHour(Map<String, dynamic> params) {
+    final interval = params['deviceSendingIntervalInMinutes'];
+    if (interval == null) return 'N/A';
+    final messagesPerHour = 60.0 / (interval as num);
+    return messagesPerHour.toStringAsFixed(1);
+  }
+
+  /// Format retention from storage durations
+  String _formatRetention(Map<String, dynamic> params) {
+    final hot = params['hotStorageDurationInMonths'] as num? ?? 0;
+    final cool = params['coolStorageDurationInMonths'] as num? ?? 0;
+    final archive = params['archiveStorageDurationInMonths'] as num? ?? 0;
+    final totalMonths = hot + cool + archive;
+    if (totalMonths == 0) return 'N/A';
+    return '${totalMonths.toStringAsFixed(0)} months';
   }
 
   Widget _buildPricingDataSection(
