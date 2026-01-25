@@ -80,12 +80,12 @@ def main(request):
         if not device_id:
             return (json.dumps({"error": "Missing device_id in payload"}), 400, {"Content-Type": "application/json"})
         
-        # Invoke local processor
+        # Invoke processor wrapper (orchestrates: user processor → persister)
         twin_name = _get_digital_twin_info()["config"]["digital_twin_name"]
-        processor_name = f"{twin_name}-{device_id}-processor"
-        processor_url = f"{_get_function_base_url()}/{processor_name}"
+        processor_wrapper_name = f"{twin_name}-processor"
+        processor_url = f"{_get_function_base_url()}/{processor_wrapper_name}"
         
-        print(f"Invoking local processor: {processor_url}")
+        print(f"Invoking processor wrapper: {processor_url}")
         
         response = requests.post(
             processor_url,

@@ -64,10 +64,10 @@ def lambda_handler(event, context):
             "body": json.dumps(f"Bad Request: {str(e)}")
         }
 
-    # 3. Invoke Local Processor
+    # 3. Invoke Processor Wrapper (orchestrates: user processor → persister)
     try:
         twin_name = DIGITAL_TWIN_INFO.get("config", {}).get("digital_twin_name")
-        processor_name = f"{twin_name}-{device_id}-processor" # Always invokes the local processor
+        processor_name = f"{twin_name}-processor"  # Invoke wrapper which calls persister
         
         lambda_client.invoke(FunctionName=processor_name, InvocationType="Event", Payload=json.dumps(actual_event).encode("utf-8"))
     
