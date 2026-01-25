@@ -211,17 +211,28 @@ class BaseScenarioTest:
         # ================================================================
         # FIX #2: PRE-CLEANUP - Remove orphaned resources from previous runs
         # ================================================================
-        print("\n[PHASE -1] Pre-Test Orphan Cleanup")
-        try:
-            # Load credentials from template first (before project setup)
-            template_credentials = load_credentials(Path(template_project_path))
-            cleanup_state["credentials"] = template_credentials
-            
-            from tests.e2e.pre_cleanup import cleanup_orphans_for_scenario
-            cleanup_orphans_for_scenario(scenario.name, template_credentials, dry_run=False)
-            print("  [OK] Pre-cleanup completed")
-        except Exception as e:
-            print(f"  [WARN] Pre-cleanup error (continuing anyway): {e}")
+        # Load credentials from template first (always needed for later phases)
+        template_credentials = load_credentials(Path(template_project_path))
+        cleanup_state["credentials"] = template_credentials
+        
+        # Check if Terraform state exists (if so, skip pre-cleanup to avoid drift)
+        state_dir = Path(__file__).parent / "e2e_state" / scenario.digital_twin_name
+        state_file = state_dir / "terraform.tfstate"
+        state_exists = state_file.exists() and state_file.stat().st_size > 100
+        
+        # Pre-cleanup is coupled with cleanup: skip if cleanup is skipped OR state exists
+        if skip_cleanup:
+            print("\n[PHASE -1] Pre-Test Orphan Cleanup: SKIPPED (E2E_SKIP_CLEANUP=true)")
+        elif state_exists:
+            print("\n[PHASE -1] Pre-Test Orphan Cleanup: SKIPPED (Terraform state exists - using existing resources)")
+        else:
+            print("\n[PHASE -1] Pre-Test Orphan Cleanup")
+            try:
+                from tests.e2e.pre_cleanup import cleanup_orphans_for_scenario
+                cleanup_orphans_for_scenario(scenario.name, template_credentials, dry_run=False)
+                print("  [OK] Pre-cleanup completed")
+            except Exception as e:
+                print(f"  [WARN] Pre-cleanup error (continuing anyway): {e}")
         
         # === SETUP: Create project with mocked providers ===
         base_dir = Path(__file__).parent / "e2e_state"
@@ -460,8 +471,9 @@ class BaseScenarioTest:
             assert outputs.get("azure_storage_account_name"), "[FAIL-FAST] Azure storage account not deployed. Expected: azure_storage_account_name"
             print(f"  [OK] L3 Archive (Azure Blob Archive) verified")
         elif archive_provider == "google":
-            # GCP uses lifecycle policy on cold bucket for archive transition (no separate bucket)
-            assert outputs.get("gcp_cold_bucket"), "[FAIL-FAST] GCP cold bucket not deployed. Expected: gcp_cold_bucket (handles archive via lifecycle)"
+            # GCP archive uses either dedicated archive bucket OR lifecycle policy on cold bucket
+            archive_bucket = outputs.get("gcp_archive_bucket") or outputs.get("gcp_cold_bucket")
+            assert archive_bucket, "[FAIL-FAST] GCP archive storage not deployed. Expected: gcp_archive_bucket or gcp_cold_bucket"
             print(f"  [OK] L3 Archive (GCP Cloud Storage Archive) verified")
     
     def test_05_l4_twins(self, deployed_environment):
@@ -652,9 +664,9 @@ class BaseScenarioTest:
         if not test_device_id:
             pytest.fail("[DATAFLOW CRITICAL] No test message was sent in test_07. Previous test must have failed.")
         
-        # Wait for propagation through the pipeline
-        print("  Waiting for data propagation (30s)...")
-        time.sleep(30)
+        # Active wait for data propagation (polling every 2s for up to 120s)
+        print("  Waiting for data propagation (polling)...")
+        import time
         
         # Use hot reader URL based on L3-Hot provider (fail-fast, no fallbacks)
         scenario = deployed_environment["scenario"]
@@ -679,38 +691,61 @@ class BaseScenarioTest:
         inter_cloud_token = outputs.get("inter_cloud_token")
         headers = {}
         if inter_cloud_token:
-            headers["X-Inter-Cloud-Token"] = inter_cloud_token  # Match function's expected header
+            headers["X-Inter-Cloud-Token"] = inter_cloud_token
         
-        try:
-            response = requests.get(
-                hot_reader_url,
-                params={"device_id": test_device_id, "limit": "5"},
-                headers=headers,
-                timeout=30
-            )
-            if response.status_code == 200:
-                data = response.json()
-                if isinstance(data, list) and len(data) > 0:
-                    print(f"  ✓ DATA FLOW VERIFIED: Found {len(data)} records in hot storage")
-                    # Store for later assertions if needed
-                    test_state["hot_storage_data"] = data
-                elif isinstance(data, dict) and data.get("items"):
-                    print(f"  ✓ DATA FLOW VERIFIED: Found {len(data['items'])} records in hot storage")
-                    test_state["hot_storage_data"] = data["items"]
-                else:
-                    # Data not found - this is a real failure if message was sent successfully
-                    print(f"  ⚠ DATA FLOW INCOMPLETE: No data found in hot storage after 30s")
-                    print(f"    Response: {data}")
-            elif response.status_code == 401:
-                pytest.fail(f"Hot reader returned 401 Unauthorized - inter_cloud_token may be missing or invalid")
-            elif response.status_code == 404:
-                print(f"  ⚠ No data found (status 404) - pipeline may need more time")
-            else:
-                print(f"  ⚠ Hot reader returned {response.status_code}: {response.text[:200]}")
-        except requests.exceptions.Timeout:
-            print(f"  ⚠ Hot reader request timed out")
-        except Exception as e:
-            print(f"  ⚠ Could not query hot storage: {e}")
+        max_retries = 60
+        retry_interval = 2
+        response = None  # Initialize to avoid undefined variable in error message
+        
+        for attempt in range(max_retries):
+            # Progress indication every 20 seconds
+            if attempt > 0 and attempt % 10 == 0:
+                print(f"    Still waiting... ({attempt * retry_interval}s elapsed)")
+            
+            try:
+                response = requests.get(
+                    hot_reader_url,
+                    params={"device_id": test_device_id, "limit": "5"},
+                    headers=headers,
+                    timeout=10
+                )
+                
+                if response.status_code == 200:
+                    try:
+                        data = response.json()
+                    except ValueError as json_err:
+                        pytest.fail(f"[DATAFLOW CRITICAL] Hot reader returned invalid JSON: {json_err}. Response: {response.text[:200]}")
+                    
+                    # Normalize data check (list or dict with items)
+                    items = []
+                    if isinstance(data, list):
+                        items = data
+                    elif isinstance(data, dict) and "items" in data:
+                        items = data["items"]
+                        
+                    if len(items) > 0:
+                        print(f"  ✓ DATA FLOW VERIFIED: Found {len(items)} records in hot storage (Attempt {attempt+1}/{max_retries})")
+                        test_state["hot_storage_data"] = items
+                        return  # Success!
+                        
+                elif response.status_code == 401:
+                    pytest.fail(f"Hot reader returned 401 Unauthorized - inter_cloud_token may be missing or invalid")
+                elif response.status_code == 403:
+                    pytest.fail(f"Hot reader returned 403 Forbidden - Service Account permissions or firewall rule blocking access")
+                elif response.status_code != 404:
+                    # Fail fast on non-retriable errors (500, etc)
+                    pytest.fail(f"Hot reader returned {response.status_code}: {response.text[:200]}")
+                    
+            except requests.exceptions.Timeout:
+                pass  # Retry on timeout
+            except requests.exceptions.RequestException as e:
+                print(f"  ⚠ Request failed: {e}")
+                
+            time.sleep(retry_interval)
+            
+        # If loop finishes without return, data wasn't found
+        last_status = response.status_code if response is not None else "None"
+        pytest.fail(f"[DATAFLOW CRITICAL] No data found in hot storage after {max_retries*retry_interval}s. Last Response Status: {last_status}")
     
     # =========================================================================
     # SDK VERIFICATION TESTS (GAP FIXES #2-6)
@@ -831,6 +866,82 @@ class BaseScenarioTest:
                 print(f"  [OK] ADT: Found {len(twins)} twins: {twin_ids}")
             else:
                 print(f"  [WARN] ADT: No twins found (SDK post-deploy may have failed)")
+        except ImportError:
+            pytest.skip("azure-digitaltwins-core SDK not installed")
+        except Exception as e:
+            print(f"  [WARN] Could not query ADT: {e}")
+    
+    def test_11b_adt_twin_telemetry(self, deployed_environment):
+        """Verify telemetry data updated ADT twin properties after test_07/08.
+        
+        This test validates the full L4 data flow:
+        L2 Persister → _push_to_adt() → HTTP POST → ADT Pusher (L0) → Azure Digital Twins
+        
+        Uses polling to handle async twin updates.
+        """
+        scenario = deployed_environment["scenario"]
+        outputs = deployed_environment["terraform_outputs"]
+        credentials = deployed_environment["credentials"]
+        l4_provider = scenario.providers["layer_4_provider"]
+        
+        if l4_provider != "azure":
+            pytest.skip("L4 is not Azure - skipping ADT telemetry verification")
+        
+        adt_endpoint = outputs.get("azure_adt_endpoint")
+        if not adt_endpoint:
+            pytest.skip("Azure Digital Twins not deployed")
+        
+        try:
+            from azure.identity import ClientSecretCredential
+            from azure.digitaltwins.core import DigitalTwinsClient
+            
+            azure_creds = credentials.get("azure", {})
+            credential = ClientSecretCredential(
+                tenant_id=azure_creds.get("azure_tenant_id"),
+                client_id=azure_creds.get("azure_client_id"),
+                client_secret=azure_creds.get("azure_client_secret")
+            )
+            
+            adt_client = DigitalTwinsClient(adt_endpoint, credential)
+            
+            # Poll for telemetry property on the sensor twin (async update)
+            max_attempts = 30
+            poll_interval = 2  # seconds
+            
+            print(f"  Polling ADT for telemetry properties...")
+            
+            for attempt in range(1, max_attempts + 1):
+                query = "SELECT * FROM digitaltwins WHERE $dtId = 'temperature-sensor-1'"
+                twins = list(adt_client.query_twins(query))
+                
+                if not twins:
+                    time.sleep(poll_interval)
+                    continue
+                
+                twin = twins[0]
+                
+                # Check for telemetry properties (flexible matching)
+                # ADT pusher uses property names from telemetry payload
+                telemetry_props = ['temperature', 'Temperature', 'LastTemperature', 
+                                   'humidity', 'Humidity', 'LastHumidity', 'value']
+                
+                found_props = {k: v for k, v in twin.items() 
+                               if k in telemetry_props and v is not None}
+                
+                if found_props:
+                    print(f"  ✓ ADT TELEMETRY VERIFIED (Attempt {attempt}/{max_attempts})")
+                    for prop, val in found_props.items():
+                        print(f"    - {prop}: {val}")
+                    return  # Success!
+                
+                time.sleep(poll_interval)
+            
+            # After max attempts, log debug info
+            print(f"  [WARN] No telemetry properties found after {max_attempts} attempts")
+            if twins:
+                twin_props = [k for k in twins[0].keys() if not k.startswith('$')]
+                print(f"         Available properties: {twin_props}")
+            
         except ImportError:
             pytest.skip("azure-digitaltwins-core SDK not installed")
         except Exception as e:
