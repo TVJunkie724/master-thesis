@@ -20,7 +20,7 @@
 
 resource "azurerm_service_plan" "l2" {
   count               = var.layer_2_provider == "azure" ? 1 : 0
-  name                = "${var.digital_twin_name}-l2-plan"
+  name                = local.azure_l2_plan_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   os_type             = "Linux"
@@ -35,7 +35,7 @@ resource "azurerm_service_plan" "l2" {
 
 resource "azurerm_linux_function_app" "l2" {
   count               = var.layer_2_provider == "azure" ? 1 : 0
-  name                = "${var.digital_twin_name}-l2-functions"
+  name                = local.azure_l2_functions_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   service_plan_id     = azurerm_service_plan.l2[0].id
@@ -73,7 +73,7 @@ resource "azurerm_linux_function_app" "l2" {
 
     # Required for Consumption Plan with zip deploy
     WEBSITE_CONTENTAZUREFILECONNECTIONSTRING = local.azure_storage_connection_string
-    WEBSITE_CONTENTSHARE                     = "${var.digital_twin_name}-l2-content"
+    WEBSITE_CONTENTSHARE                     = local.azure_l2_content_share
 
     # L3 Hot Storage connection (Cosmos DB - set after L3 deployment)
     # COSMOS_CONNECTION_STRING = "..." (populated by Python orchestrator)
@@ -83,13 +83,13 @@ resource "azurerm_linux_function_app" "l2" {
     AZURE_CLIENT_ID   = azurerm_user_assigned_identity.main[0].client_id
 
     # Inter-cloud token for cross-cloud L3 calls
-    INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+    INTER_CLOUD_TOKEN = local.inter_cloud_token_value
 
     # L3 Hot Storage - Cosmos DB connection for persister (single-cloud mode)
     COSMOS_DB_ENDPOINT  = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_account.main[0].endpoint : ""
     COSMOS_DB_KEY       = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_account.main[0].primary_key : ""
     COSMOS_DB_DATABASE  = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_sql_database.main[0].name : ""
-    COSMOS_DB_CONTAINER = "hot"
+    COSMOS_DB_CONTAINER = local.azure_cosmos_container_name
 
     # Multi-cloud L2→L3: When Azure L2 sends to remote L3
     REMOTE_WRITER_URL = var.layer_2_provider == "azure" && var.layer_3_hot_provider != "azure" ? (
@@ -99,10 +99,10 @@ resource "azurerm_linux_function_app" "l2" {
 
     # Multi-cloud L2→L4: When Azure L2 sends to Azure ADT
     REMOTE_ADT_PUSHER_URL = var.layer_4_provider == "azure" ? (
-      "https://${var.digital_twin_name}-l0-glue.azurewebsites.net/api/adt-pusher"
+      "${local.azure_l0_glue_url}/${local.api_paths.adt_pusher}"
     ) : ""
     ADT_PUSHER_TOKEN = var.layer_4_provider == "azure" ? (
-      var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      local.inter_cloud_token_value
     ) : ""
 
     # Logic App trigger URL for event checking workflow
@@ -113,26 +113,26 @@ resource "azurerm_linux_function_app" "l2" {
     ) : ""
 
     # Event checker URL for event checking (optional)
-    EVENT_CHECKER_FUNCTION_URL = var.use_event_checking ? "https://${var.digital_twin_name}-l2-functions.azurewebsites.net/api/event-checker" : ""
+    EVENT_CHECKER_FUNCTION_URL = var.use_event_checking ? "${local.azure_l2_functions_url}/${local.api_paths.event_checker}" : ""
     USE_EVENT_CHECKING         = var.use_event_checking ? "true" : "false"
 
     # Azure ADT instance URL (for event-checker)
-    ADT_INSTANCE_URL = var.layer_4_provider == "azure" ? "https://${var.digital_twin_name}.${var.azure_region}.digitaltwins.azure.net" : ""
+    ADT_INSTANCE_URL = var.layer_4_provider == "azure" ? local.azure_adt_url : ""
 
     # Feedback function URL (for event-checker)
-    FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? "https://${var.digital_twin_name}-user-functions.azurewebsites.net/api/event-feedback" : ""
+    FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? "${local.azure_user_functions_url}/${local.api_paths.event_feedback}" : ""
     USE_FEEDBACK          = var.return_feedback_to_device ? "true" : "false"
     USE_LOGIC_APPS        = var.trigger_notification_workflow ? "true" : "false"
 
     # NEW: Required for Wrapper to find User Functions
-    FUNCTION_APP_BASE_URL = "https://${var.digital_twin_name}-user-functions.azurewebsites.net"
+    FUNCTION_APP_BASE_URL = local.azure_user_functions_url
 
     # Full Digital Twin configuration - required by persister for multi-cloud routing
     DIGITAL_TWIN_INFO = var.digital_twin_info_json
 
     # Persister URL - required by processor_wrapper to call persister
     # NOTE: persister uses AuthLevel.ANONYMOUS to avoid Terraform cycle (see function docstrings)
-    PERSISTER_FUNCTION_URL = "https://${var.digital_twin_name}-l2-functions.azurewebsites.net/api/persister"
+    PERSISTER_FUNCTION_URL = "${local.azure_l2_functions_url}/${local.api_paths.persister}"
 
     # Function Keys - for Azure→Azure HTTP authentication
     # NOTE: L2_FUNCTION_KEY deliberately NOT included here to avoid Terraform cycle.
@@ -165,7 +165,7 @@ resource "azurerm_linux_function_app" "l2" {
 # to enable incremental updates with hash comparison.
 resource "azurerm_linux_function_app" "user" {
   count               = var.layer_2_provider == "azure" ? 1 : 0
-  name                = "${var.digital_twin_name}-user-functions"
+  name                = local.azure_user_functions_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   service_plan_id     = azurerm_service_plan.l2[0].id  # Share plan with L2
@@ -187,7 +187,7 @@ resource "azurerm_linux_function_app" "user" {
 
   site_config {
     application_stack {
-      python_version = "3.11"
+      python_version = local.python_runtime_azure
     }
   }
 
@@ -202,20 +202,20 @@ resource "azurerm_linux_function_app" "user" {
 
     # Required for Consumption Plan with zip deploy
     WEBSITE_CONTENTAZUREFILECONNECTIONSTRING = local.azure_storage_connection_string
-    WEBSITE_CONTENTSHARE                     = "${var.digital_twin_name}-user-content"
+    WEBSITE_CONTENTSHARE                     = local.azure_user_content_share
 
     # Digital Twin info
     DIGITAL_TWIN_NAME = var.digital_twin_name
     AZURE_CLIENT_ID   = azurerm_user_assigned_identity.main[0].client_id
 
     # Inter-cloud token for cross-cloud calls
-    INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+    INTER_CLOUD_TOKEN = local.inter_cloud_token_value
 
     # Cosmos DB connection for user functions to access hot storage
     COSMOS_ENDPOINT = var.layer_3_hot_provider == "azure" ? azurerm_cosmosdb_account.main[0].endpoint : ""
 
     # NEW: Required for HTTP call pattern (wrappers call user functions via HTTP)
-    FUNCTION_APP_BASE_URL = "https://${var.digital_twin_name}-user-functions.azurewebsites.net"
+    FUNCTION_APP_BASE_URL = local.azure_user_functions_url
     
     DIGITAL_TWIN_INFO = jsonencode({
       config = {
@@ -223,9 +223,9 @@ resource "azurerm_linux_function_app" "user" {
       }
     })
     
-    EVENT_FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? "https://${var.digital_twin_name}-user-functions.azurewebsites.net/api/event-feedback" : ""
+    EVENT_FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? "${local.azure_user_functions_url}/${local.api_paths.event_feedback}" : ""
     
-    PERSISTER_FUNCTION_URL = "https://${var.digital_twin_name}-l2-functions.azurewebsites.net/api/persister"
+    PERSISTER_FUNCTION_URL = "${local.azure_l2_functions_url}/${local.api_paths.persister}"
 
     # NOTE: USER_FUNCTION_KEY deliberately NOT included in user app's app_settings.
     # This would cause a Terraform cycle (user app → data.user → user app)
@@ -251,7 +251,7 @@ resource "azurerm_linux_function_app" "user" {
 # Logic App workflow resource (creates the container)
 resource "azurerm_logic_app_workflow" "event_notification" {
   count               = var.layer_2_provider == "azure" && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
-  name                = "${var.digital_twin_name}-event-workflow"
+  name                = local.azure_event_workflow_name
   location            = azurerm_resource_group.main[0].location
   resource_group_name = azurerm_resource_group.main[0].name
 
@@ -268,7 +268,7 @@ resource "azurerm_logic_app_workflow" "event_notification" {
 # Without this, the Logic App appears empty in the Azure Portal designer
 resource "azurerm_resource_group_template_deployment" "logic_app_definition" {
   count               = var.layer_2_provider == "azure" && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
-  name                = "${var.digital_twin_name}-logic-app-definition"
+  name                = local.azure_logic_app_name
   resource_group_name = azurerm_resource_group.main[0].name
   deployment_mode     = "Incremental"
 

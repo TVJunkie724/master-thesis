@@ -74,7 +74,8 @@ provider "aws" {
 }
 
 # Google Cloud Provider (for multi-cloud deployments)
-# TODO: project defaults to "placeholder" to avoid validation errors when GCP is not used
+# Note: Project reference uses var.digital_twin_name directly here since
+# locals.gcp_project_name isn't resolved yet during provider configuration
 provider "google" {
   project     = local.deploy_gcp ? "${var.digital_twin_name}-project" : "placeholder-not-used"
   region      = var.gcp_region != "" ? var.gcp_region : "us-central1"
@@ -85,7 +86,20 @@ provider "google" {
 # Local Values
 # ==============================================================================
 
+# ==============================================================================
+# Shared Deployment Suffix
+# ==============================================================================
+# Single random suffix for all resources that need uniqueness on rapid redeploy.
+# Replaces separate random_ids for TwinMaker, Firestore, Grafana, IAM roles.
+
+resource "random_id" "deployment_suffix" {
+  byte_length = 4
+}
+
 locals {
+  # Shared deployment suffix - used by resources that need unique names
+  deployment_suffix = random_id.deployment_suffix.hex
+
   # Common tags for all resources
   common_tags = {
     ManagedBy   = "terraform"

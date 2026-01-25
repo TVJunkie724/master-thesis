@@ -21,7 +21,7 @@
 resource "google_pubsub_topic" "telemetry" {
   count   = local.gcp_l1_enabled ? 1 : 0
   project = local.gcp_project_id
-  name    = "${var.digital_twin_name}-telemetry"
+  name    = local.gcp_l1_telemetry_topic
   
   labels = local.gcp_common_labels
   
@@ -35,7 +35,7 @@ resource "google_pubsub_topic" "telemetry" {
 resource "google_pubsub_topic" "events" {
   count   = local.gcp_l1_enabled ? 1 : 0
   project = local.gcp_project_id
-  name    = "${var.digital_twin_name}-events"
+  name    = local.gcp_l1_events_topic
   
   labels = local.gcp_common_labels
   
@@ -61,12 +61,12 @@ resource "google_storage_bucket_object" "dispatcher_source" {
 
 resource "google_cloudfunctions2_function" "dispatcher" {
   count    = local.gcp_l1_enabled ? 1 : 0
-  name     = "${var.digital_twin_name}-dispatcher"
+  name     = local.gcp_l1_dispatcher_name
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -89,11 +89,9 @@ resource "google_cloudfunctions2_function" "dispatcher" {
       DIGITAL_TWIN_INFO = var.digital_twin_info_json
       EVENTS_TOPIC      = google_pubsub_topic.events[0].id
       FUNCTION_BASE_URL = local.gcp_function_base_url
-      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
       # Multi-cloud L1→L2: Route to connector when L2 is on a different cloud
-      TARGET_FUNCTION_SUFFIX = var.layer_2_provider != "google" ? "-connector" : "-processor"
+      TARGET_FUNCTION_SUFFIX = local.target_function_suffix
     }
   }
 
@@ -147,7 +145,7 @@ resource "local_file" "gcp_simulator_config" {
   
   content = jsonencode({
     project_id              = local.gcp_project_id
-    topic_name              = "dt/${var.digital_twin_name}/telemetry"
+    topic_name              = local.gcp_l1_mqtt_topic_path
     device_id               = each.key
     digital_twin_name       = var.digital_twin_name
     payload_path            = "../payloads.json"

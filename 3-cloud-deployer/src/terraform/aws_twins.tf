@@ -31,7 +31,7 @@ locals {
 
 resource "aws_iam_role" "l4_twinmaker" {
   count = local.l4_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l4-twinmaker-role"
+  name  = local.aws_l4_twinmaker_role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -54,7 +54,7 @@ resource "aws_iam_role" "l4_twinmaker" {
 # https://docs.aws.amazon.com/iot-twinmaker/latest/guide/twinmaker-gs-service-role.html
 resource "aws_iam_role_policy" "l4_twinmaker_s3" {
   count = local.l4_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l4-twinmaker-s3-policy"
+  name  = local.aws_l4_twinmaker_s3_policy
   role  = aws_iam_role.l4_twinmaker[0].id
 
   # AWS TwinMaker requires access to S3 for workspace resources
@@ -84,7 +84,7 @@ resource "aws_iam_role_policy" "l4_twinmaker_s3" {
 # Lambda invocation for data connectors
 resource "aws_iam_role_policy" "l4_twinmaker_lambda" {
   count = local.l4_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l4-twinmaker-lambda-policy"
+  name  = local.aws_l4_twinmaker_lambda_policy
   role  = aws_iam_role.l4_twinmaker[0].id
 
   policy = jsonencode({
@@ -107,7 +107,7 @@ resource "aws_iam_role_policy" "l4_twinmaker_lambda" {
 
 resource "aws_s3_bucket" "l4_twinmaker" {
   count  = local.l4_aws_enabled ? 1 : 0
-  bucket = "${var.digital_twin_name}-twinmaker"
+  bucket = local.aws_l4_twinmaker_bucket_name
 
   tags = local.aws_common_tags
 }
@@ -125,18 +125,6 @@ resource "aws_s3_bucket_cors_configuration" "l4_twinmaker" {
     expose_headers  = ["ETag"]
     max_age_seconds = 3000
   }
-}
-
-# ==============================================================================
-# Random Suffix for TwinMaker Workspace
-# ==============================================================================
-# AWS TwinMaker workspaces remain "locked" for several minutes after deletion.
-# A random suffix ensures fresh workspace IDs on each deployment, avoiding
-# "AlreadyExists" errors on rapid redeploy cycles.
-
-resource "random_id" "twinmaker_suffix" {
-  count       = local.l4_aws_enabled ? 1 : 0
-  byte_length = 4
 }
 
 # ==============================================================================
@@ -164,7 +152,7 @@ resource "time_sleep" "l4_iam_propagation" {
 
 resource "awscc_iottwinmaker_workspace" "main" {
   count        = local.l4_aws_enabled ? 1 : 0
-  workspace_id = "${var.digital_twin_name}-${random_id.twinmaker_suffix[0].hex}"
+  workspace_id = local.aws_l4_twinmaker_workspace_id
   description  = "Digital Twin workspace for ${var.digital_twin_name}"
   role         = aws_iam_role.l4_twinmaker[0].arn
   s3_location  = "arn:aws:s3:::${aws_s3_bucket.l4_twinmaker[0].bucket}"
@@ -182,7 +170,7 @@ resource "awscc_iottwinmaker_workspace" "main" {
 
 resource "aws_iam_role" "l4_connector_lambda" {
   count = local.l4_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l4-connector-role"
+  name  = local.aws_l4_connector_role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -209,7 +197,7 @@ resource "aws_iam_role_policy_attachment" "l4_connector_logs" {
 # DynamoDB access for connector
 resource "aws_iam_role_policy" "l4_connector_dynamodb" {
   count = local.l4_aws_enabled && local.l3_hot_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l4-connector-dynamodb-policy"
+  name  = local.aws_l4_connector_policy_name
   role  = aws_iam_role.l4_connector_lambda[0].id
 
   policy = jsonencode({
@@ -229,10 +217,10 @@ resource "aws_iam_role_policy" "l4_connector_dynamodb" {
 
 resource "aws_lambda_function" "l4_connector" {
   count         = local.l4_aws_enabled ? 1 : 0
-  function_name = "${var.digital_twin_name}-l4-connector"
+  function_name = local.aws_l4_connector_function_name
   role          = aws_iam_role.l4_connector_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 256
 
@@ -246,7 +234,7 @@ resource "aws_lambda_function" "l4_connector" {
       WORKSPACE_ID      = var.digital_twin_name
 
       # Single-cloud mode: L3=AWS, invokes local Hot Reader Lambda
-      LOCAL_HOT_READER_NAME = var.layer_3_hot_provider == "aws" ? "${var.digital_twin_name}-l0-hot-reader" : ""
+      LOCAL_HOT_READER_NAME = var.layer_3_hot_provider == "aws" ? local.aws_l0_hot_reader_function_name : ""
 
       # Multi-cloud mode: L3≠AWS, calls remote Hot Reader via HTTP
       REMOTE_READER_URL = var.layer_3_hot_provider != "aws" ? (
@@ -304,7 +292,7 @@ resource "aws_s3_object" "scene_json" {
 resource "awscc_iottwinmaker_scene" "main" {
   count            = local.l4_scene_enabled ? 1 : 0
   workspace_id     = awscc_iottwinmaker_workspace.main[0].workspace_id
-  scene_id         = "main-scene"
+  scene_id         = local.aws_l4_scene_id
   content_location = "s3://${aws_s3_bucket.l4_twinmaker[0].bucket}/scene_assets/scene.json"
   
   tags = {

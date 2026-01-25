@@ -26,7 +26,7 @@
 
 resource "azurerm_service_plan" "l0" {
   count               = local.deploy_azure ? 1 : 0
-  name                = "${var.digital_twin_name}-l0-plan"
+  name                = local.azure_l0_plan_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   os_type             = "Linux"
@@ -41,7 +41,7 @@ resource "azurerm_service_plan" "l0" {
 
 resource "azurerm_linux_function_app" "l0_glue" {
   count               = local.deploy_azure ? 1 : 0
-  name                = "${var.digital_twin_name}-l0-glue"
+  name                = local.azure_l0_glue_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   service_plan_id     = azurerm_service_plan.l0[0].id
@@ -64,7 +64,7 @@ resource "azurerm_linux_function_app" "l0_glue" {
 
   site_config {
     application_stack {
-      python_version = "3.11"
+      python_version = local.python_runtime_azure
     }
 
     # CORS configuration for cross-cloud calls
@@ -84,10 +84,10 @@ resource "azurerm_linux_function_app" "l0_glue" {
 
     # Required for Consumption Plan with zip deploy
     WEBSITE_CONTENTAZUREFILECONNECTIONSTRING = local.azure_storage_connection_string
-    WEBSITE_CONTENTSHARE                     = "${var.digital_twin_name}-l0-content"
+    WEBSITE_CONTENTSHARE                     = local.azure_l0_content_share
 
     # Cross-cloud authentication
-    INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+    INTER_CLOUD_TOKEN = local.inter_cloud_token_value
 
     # Digital Twin info (populated by Python orchestrator)
     DIGITAL_TWIN_NAME = var.digital_twin_name
@@ -111,7 +111,7 @@ resource "azurerm_linux_function_app" "l0_glue" {
 
     # L2 Function App URL - required by ingestion to call processor_wrapper
     # Points to L2-functions app where processor_wrapper is deployed
-    FUNCTION_APP_BASE_URL = "https://${var.digital_twin_name}-l2-functions.azurewebsites.net"
+    FUNCTION_APP_BASE_URL = local.azure_l2_functions_url
 
     # L2 Function Key - required for Azure→Azure HTTP authentication
     # processor_wrapper has AuthLevel.FUNCTION so requires this key
@@ -119,7 +119,7 @@ resource "azurerm_linux_function_app" "l0_glue" {
     L2_FUNCTION_KEY = var.layer_2_provider == "azure" ? try(data.azurerm_function_app_host_keys.l2[0].default_function_key, "") : ""
 
     # ADT instance URL - required by adt-pusher for multi-cloud L4 updates
-    ADT_INSTANCE_URL = var.layer_4_provider == "azure" ? "https://${var.digital_twin_name}-adt.${var.azure_region}.digitaltwins.azure.net" : ""
+    ADT_INSTANCE_URL = var.layer_4_provider == "azure" ? local.azure_adt_url : ""
   }
 
   # ZIP deployment will be handled by Python orchestrator post-Terraform

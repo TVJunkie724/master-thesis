@@ -21,19 +21,12 @@
 # Firestore Database (Hot Storage)
 # ==============================================================================
 
-# Random suffix to avoid "Database ID not available" errors on rapid redeploy.
-# GCP Firestore database IDs remain "locked" for ~5 minutes after deletion.
-resource "random_id" "firestore_suffix" {
-  count       = local.gcp_l3_hot_enabled ? 1 : 0
-  byte_length = 4
-}
-
 resource "google_firestore_database" "main" {
   count      = local.gcp_l3_hot_enabled ? 1 : 0
   project    = local.gcp_project_id
-  # Use unique database ID per digital twin with random suffix
+  # Use unique database ID per digital twin with shared deployment suffix
   # Note: Database IDs must be 1-63 chars, lowercase letters, numbers, hyphens
-  name       = "${var.digital_twin_name}-${random_id.firestore_suffix[0].hex}"
+  name       = local.gcp_l3_firestore_database
   location_id = var.gcp_region
   type       = "FIRESTORE_NATIVE"
   
@@ -53,7 +46,7 @@ resource "google_firestore_index" "hot_data_device_id" {
   count      = local.gcp_l3_hot_enabled ? 1 : 0
   project    = local.gcp_project_id
   database   = google_firestore_database.main[0].name
-  collection = "${var.digital_twin_name}-hot-data"
+  collection = local.gcp_l3_firestore_collection
 
   fields {
     field_path = "device_id"
@@ -75,7 +68,7 @@ resource "google_firestore_index" "hot_data_device_id" {
 resource "google_storage_bucket" "cold" {
   count         = local.gcp_l3_cold_enabled ? 1 : 0
   project       = local.gcp_project_id
-  name          = "${local.gcp_project_id}-${var.digital_twin_name}-cold"
+  name          = local.gcp_l3_cold_bucket
   location      = var.gcp_region
   storage_class = "NEARLINE"
   force_destroy = true
@@ -105,7 +98,7 @@ resource "google_storage_bucket" "cold" {
 resource "google_storage_bucket" "archive" {
   count         = local.gcp_l3_archive_enabled && !local.gcp_l3_cold_enabled ? 1 : 0
   project       = local.gcp_project_id
-  name          = "${local.gcp_project_id}-${var.digital_twin_name}-archive"
+  name          = local.gcp_l3_archive_bucket
   location      = var.gcp_region
   storage_class = "ARCHIVE"
   force_destroy = true
@@ -145,12 +138,12 @@ resource "google_storage_bucket_object" "hot_to_cold_mover_source" {
 
 resource "google_cloudfunctions2_function" "hot_reader" {
   count    = local.gcp_l3_hot_enabled ? 1 : 0
-  name     = "${var.digital_twin_name}-hot-reader"
+  name     = local.gcp_l3_hot_reader_name
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -172,7 +165,7 @@ resource "google_cloudfunctions2_function" "hot_reader" {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
       DIGITAL_TWIN_INFO    = var.digital_twin_info_json
       GCP_PROJECT_ID       = local.gcp_project_id
-      FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
+      FIRESTORE_COLLECTION = local.gcp_l3_firestore_collection
       FIRESTORE_DATABASE   = local.gcp_firestore_database_name
       INTER_CLOUD_TOKEN    = local.inter_cloud_token_value
     }
@@ -194,12 +187,12 @@ resource "google_cloudfunctions2_function" "hot_reader" {
 
 resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
   count    = local.gcp_l3_hot_enabled && local.gcp_l3_cold_enabled ? 1 : 0
-  name     = "${var.digital_twin_name}-hot-to-cold-mover"
+  name     = local.gcp_l3_hot_to_cold_mover
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -221,7 +214,7 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
       DIGITAL_TWIN_INFO    = var.digital_twin_info_json
       GCP_PROJECT_ID       = local.gcp_project_id
-      FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
+      FIRESTORE_COLLECTION = local.gcp_l3_firestore_collection
       FIRESTORE_DATABASE   = local.gcp_firestore_database_name
       COLD_BUCKET_NAME     = google_storage_bucket.cold[0].name
       HOT_RETENTION_DAYS   = var.layer_3_hot_to_cold_interval_days
@@ -254,7 +247,7 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
 
 resource "google_cloud_scheduler_job" "hot_to_cold" {
   count    = local.gcp_l3_hot_enabled && local.gcp_l3_cold_enabled ? 1 : 0
-  name     = "${var.digital_twin_name}-hot-to-cold-schedule"
+  name     = local.gcp_l3_hot_to_cold_schedule
   project  = local.gcp_project_id
   region   = var.gcp_region
   schedule = "0 2 * * *"  # Run daily at 2 AM
@@ -310,12 +303,12 @@ resource "google_storage_bucket_object" "cold_to_archive_mover_source" {
 
 resource "google_cloudfunctions2_function" "cold_to_archive_mover" {
   count    = local.gcp_l3_cold_enabled && local.gcp_l3_archive_enabled ? 1 : 0
-  name     = "${var.digital_twin_name}-cold-to-archive-mover"
+  name     = local.gcp_l3_cold_to_archive_mover
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -370,7 +363,7 @@ resource "google_cloudfunctions2_function" "cold_to_archive_mover" {
 
 resource "google_cloud_scheduler_job" "cold_to_archive" {
   count    = local.gcp_l3_cold_enabled && local.gcp_l3_archive_enabled ? 1 : 0
-  name     = "${var.digital_twin_name}-cold-to-archive-schedule"
+  name     = local.gcp_l3_cold_to_archive_schedule
   project  = local.gcp_project_id
   region   = var.gcp_region
   schedule = "0 3 * * 0"  # Run weekly on Sunday at 3 AM

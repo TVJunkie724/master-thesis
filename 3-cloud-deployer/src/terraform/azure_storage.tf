@@ -27,7 +27,7 @@
 
 resource "azurerm_cosmosdb_account" "main" {
   count               = var.layer_3_hot_provider == "azure" ? 1 : 0
-  name                = "${var.digital_twin_name}-cosmos"
+  name                = local.azure_cosmos_account_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   offer_type          = "Standard"
@@ -56,7 +56,7 @@ resource "azurerm_cosmosdb_account" "main" {
 
 resource "azurerm_cosmosdb_sql_database" "main" {
   count               = var.layer_3_hot_provider == "azure" ? 1 : 0
-  name                = "${var.digital_twin_name}-db"
+  name                = local.azure_cosmos_db_name
   resource_group_name = azurerm_resource_group.main[0].name
   account_name        = azurerm_cosmosdb_account.main[0].name
 }
@@ -67,11 +67,11 @@ resource "azurerm_cosmosdb_sql_database" "main" {
 
 resource "azurerm_cosmosdb_sql_container" "hot" {
   count               = var.layer_3_hot_provider == "azure" ? 1 : 0
-  name                = "hot"
+  name                = local.azure_cosmos_container_name
   resource_group_name = azurerm_resource_group.main[0].name
   account_name        = azurerm_cosmosdb_account.main[0].name
   database_name       = azurerm_cosmosdb_sql_database.main[0].name
-  partition_key_paths = ["/device_id"]
+  partition_key_paths = ["/${local.schema_partition_key}"]
 
   # TTL disabled - data moves to cold storage via mover function
   default_ttl = -1
@@ -91,14 +91,14 @@ resource "azurerm_cosmosdb_sql_container" "hot" {
 
 resource "azurerm_storage_container" "cold" {
   count                 = var.layer_3_cold_provider == "azure" ? 1 : 0
-  name                  = "cold"
+  name                  = local.storage_tier_cold
   storage_account_id    = azurerm_storage_account.main[0].id
   container_access_type = "private"
 }
 
 resource "azurerm_storage_container" "archive" {
   count                 = var.layer_3_archive_provider == "azure" ? 1 : 0
-  name                  = "archive"
+  name                  = local.storage_tier_archive
   storage_account_id    = azurerm_storage_account.main[0].id
   container_access_type = "private"
 }
@@ -109,7 +109,7 @@ resource "azurerm_storage_container" "archive" {
 
 resource "azurerm_service_plan" "l3" {
   count               = var.layer_3_hot_provider == "azure" ? 1 : 0
-  name                = "${var.digital_twin_name}-l3-plan"
+  name                = local.azure_l3_plan_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   os_type             = "Linux"
@@ -124,7 +124,7 @@ resource "azurerm_service_plan" "l3" {
 
 resource "azurerm_linux_function_app" "l3" {
   count               = var.layer_3_hot_provider == "azure" ? 1 : 0
-  name                = "${var.digital_twin_name}-l3-functions"
+  name                = local.azure_l3_functions_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   service_plan_id     = azurerm_service_plan.l3[0].id
@@ -147,7 +147,7 @@ resource "azurerm_linux_function_app" "l3" {
 
   site_config {
     application_stack {
-      python_version = "3.11"
+      python_version = local.python_runtime_azure
     }
 
     # CORS for cross-cloud hot reader access
@@ -167,7 +167,7 @@ resource "azurerm_linux_function_app" "l3" {
 
     # Required for Consumption Plan with zip deploy
     WEBSITE_CONTENTAZUREFILECONNECTIONSTRING = local.azure_storage_connection_string
-    WEBSITE_CONTENTSHARE                     = "${var.digital_twin_name}-l3-content"
+    WEBSITE_CONTENTSHARE                     = local.azure_l3_content_share
 
     # Cosmos DB connection
     COSMOS_DB_ENDPOINT     = azurerm_cosmosdb_account.main[0].endpoint
@@ -189,7 +189,7 @@ resource "azurerm_linux_function_app" "l3" {
     AZURE_CLIENT_ID   = azurerm_user_assigned_identity.main[0].client_id
 
     # Cross-cloud authentication
-    INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+    INTER_CLOUD_TOKEN = local.inter_cloud_token_value
 
     # Multi-cloud Hot→Cold: When Azure L3 Hot sends to remote Cold
     REMOTE_COLD_WRITER_URL = var.layer_3_hot_provider == "azure" && var.layer_3_cold_provider != "azure" ? (
@@ -207,7 +207,7 @@ resource "azurerm_linux_function_app" "l3" {
     DIGITAL_TWIN_INFO = var.digital_twin_info_json
 
     # Azure ADT instance URL (for hot-reader to resolve device IDs)
-    ADT_INSTANCE_URL = var.layer_4_provider == "azure" ? "https://${var.digital_twin_name}.${var.azure_region}.digitaltwins.azure.net" : ""
+    ADT_INSTANCE_URL = var.layer_4_provider == "azure" ? local.azure_adt_url : ""
   }
 
   tags = local.common_tags

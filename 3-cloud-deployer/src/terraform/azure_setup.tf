@@ -9,12 +9,69 @@
 # - Storage Account: For Azure Function deployments and state storage
 
 # ==============================================================================
+# Azure Resource Names - Single Source of Truth
+# ==============================================================================
+
+locals {
+  # Setup
+  azure_resource_group_name  = "${var.digital_twin_name}-rg"
+  azure_identity_name        = "${var.digital_twin_name}-identity"
+  azure_storage_account_name = replace("${var.digital_twin_name}storage", "-", "")
+
+  # L0 Glue
+  azure_l0_plan_name     = "${var.digital_twin_name}-l0-plan"
+  azure_l0_glue_name     = "${var.digital_twin_name}-l0-glue"
+  azure_l0_content_share = "${var.digital_twin_name}-l0-content"
+
+  # L1 IoT
+  azure_iothub_name         = "${var.digital_twin_name}-iothub"
+  azure_l1_plan_name        = "${var.digital_twin_name}-l1-plan"
+  azure_l1_functions_name   = "${var.digital_twin_name}-l1-functions"
+  azure_l1_content_share    = "${var.digital_twin_name}-l1-content"
+  azure_iothub_events_name  = "${var.digital_twin_name}-iothub-events"
+  azure_iothub_subscription = "${var.digital_twin_name}-iothub-subscription"
+
+  # L2 Compute
+  azure_l2_plan_name        = "${var.digital_twin_name}-l2-plan"
+  azure_l2_functions_name   = "${var.digital_twin_name}-l2-functions"
+  azure_l2_content_share    = "${var.digital_twin_name}-l2-content"
+  azure_user_functions_name = "${var.digital_twin_name}-user-functions"
+  azure_user_content_share  = "${var.digital_twin_name}-user-content"
+  azure_event_workflow_name = "${var.digital_twin_name}-event-workflow"
+  azure_logic_app_name      = "${var.digital_twin_name}-logic-app-definition"
+
+  # L3 Storage
+  azure_cosmos_account_name   = "${var.digital_twin_name}-cosmos"
+  azure_cosmos_db_name        = "${var.digital_twin_name}-db"
+  azure_cosmos_container_name = local.storage_tier_hot  # Uses cross-provider constant
+  azure_l3_plan_name          = "${var.digital_twin_name}-l3-plan"
+  azure_l3_functions_name     = "${var.digital_twin_name}-l3-functions"
+  azure_l3_content_share      = "${var.digital_twin_name}-l3-content"
+
+  # L4 ADT
+  azure_adt_name = "${var.digital_twin_name}-adt"
+  # Note: uses local.scenes_container_name from cross_cloud.tf
+
+  # L5 Grafana
+  azure_grafana_name = "${var.digital_twin_name}-grafana"
+
+  # ===========================================================================
+  # Azure URLs - Centralized function app URLs
+  # ===========================================================================
+
+  azure_l0_glue_url        = "https://${local.azure_l0_glue_name}.azurewebsites.net"
+  azure_l2_functions_url   = "https://${local.azure_l2_functions_name}.azurewebsites.net"
+  azure_user_functions_url = "https://${local.azure_user_functions_name}.azurewebsites.net"
+  azure_adt_url            = "https://${local.azure_adt_name}.${var.azure_region}.digitaltwins.azure.net"
+}
+
+# ==============================================================================
 # Resource Group
 # ==============================================================================
 
 resource "azurerm_resource_group" "main" {
   count    = local.deploy_azure ? 1 : 0
-  name     = "${var.digital_twin_name}-rg"
+  name     = local.azure_resource_group_name
   location = var.azure_region
 
   tags = local.common_tags
@@ -26,7 +83,7 @@ resource "azurerm_resource_group" "main" {
 
 resource "azurerm_user_assigned_identity" "main" {
   count               = local.deploy_azure ? 1 : 0
-  name                = "${var.digital_twin_name}-identity"
+  name                = local.azure_identity_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
 
@@ -39,7 +96,7 @@ resource "azurerm_user_assigned_identity" "main" {
 
 resource "azurerm_storage_account" "main" {
   count                    = local.deploy_azure ? 1 : 0
-  name                     = replace("${var.digital_twin_name}storage", "-", "")
+  name                     = local.azure_storage_account_name
   resource_group_name      = azurerm_resource_group.main[0].name
   location                 = azurerm_resource_group.main[0].location
   account_tier             = "Standard"
@@ -72,3 +129,4 @@ locals {
     "DefaultEndpointsProtocol=https;AccountName=${azurerm_storage_account.main[0].name};AccountKey=${azurerm_storage_account.main[0].primary_access_key};EndpointSuffix=core.windows.net"
   ) : ""
 }
+

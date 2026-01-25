@@ -21,8 +21,6 @@ locals {
   # Pre-built Lambda packages directory
   l2_lambda_build_dir = "${var.project_path}/.build/aws"
   
-  # Step Function name (single source of truth to avoid cycle)
-  l2_event_workflow_name = "${var.digital_twin_name}-l2-event-workflow"
 }
 
 # ==============================================================================
@@ -31,7 +29,7 @@ locals {
 
 resource "aws_iam_role" "l2_lambda" {
   count = local.l2_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l2-lambda-role"
+  name  = local.aws_l2_role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -59,7 +57,7 @@ resource "aws_iam_role_policy_attachment" "l2_lambda_logs" {
 # DynamoDB access for Persister
 resource "aws_iam_role_policy" "l2_dynamodb" {
   count = local.l2_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l2-dynamodb-policy"
+  name  = local.aws_l2_dynamodb_policy_name
   role  = aws_iam_role.l2_lambda[0].id
 
   policy = jsonencode({
@@ -82,7 +80,7 @@ resource "aws_iam_role_policy" "l2_dynamodb" {
 # S3 access for Cold/Archive storage
 resource "aws_iam_role_policy" "l2_s3" {
   count = local.l2_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l2-s3-policy"
+  name  = local.aws_l2_s3_policy_name
   role  = aws_iam_role.l2_lambda[0].id
 
   policy = jsonencode({
@@ -103,7 +101,7 @@ resource "aws_iam_role_policy" "l2_s3" {
 # L2 Lambda Invocation (Wrapper calling User Processors)
 resource "aws_iam_role_policy" "l2_invoke_lambda" {
   count = local.l2_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l2-invoke-policy"
+  name  = local.aws_l2_invoke_policy_name
   role  = aws_iam_role.l2_lambda[0].id
 
   policy = jsonencode({
@@ -127,10 +125,10 @@ resource "aws_iam_role_policy" "l2_invoke_lambda" {
 
 resource "aws_lambda_function" "l2_persister" {
   count         = local.l2_aws_enabled ? 1 : 0
-  function_name = "${var.digital_twin_name}-l2-persister"
+  function_name = local.aws_l2_persister_function_name
   role          = aws_iam_role.l2_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 256
 
@@ -141,28 +139,28 @@ resource "aws_lambda_function" "l2_persister" {
   environment {
     variables = {
       DIGITAL_TWIN_INFO   = var.digital_twin_info_json
-      DYNAMODB_TABLE_NAME = "${var.digital_twin_name}-hot"
+      DYNAMODB_TABLE_NAME = local.aws_l3_dynamodb_table_name
 
       # Multi-cloud L2→L3: When AWS L2 sends to remote L3
       REMOTE_WRITER_URL = var.layer_2_provider == "aws" && var.layer_3_hot_provider != "aws" ? (
-        var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/hot-writer" :
+        var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.hot_writer}" :
         var.layer_3_hot_provider == "google" ? try(google_cloudfunctions2_function.hot_writer[0].url, "") : ""
       ) : ""
 
       # Multi-cloud L2→L4: When AWS L2 sends to Azure ADT (Azure-only feature)
       # ADT pusher is part of L0 Glue layer, like other cross-cloud receivers
       REMOTE_ADT_PUSHER_URL = var.layer_2_provider == "aws" && var.layer_4_provider == "azure" ? (
-        "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/adt-pusher"
+        "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.adt_pusher}"
       ) : ""
       ADT_PUSHER_TOKEN = var.layer_4_provider == "azure" ? (
-        var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+        local.inter_cloud_token_value
       ) : ""
 
       # Inter-cloud token for cross-cloud authentication
-      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
 
       # Event checking (optional)
-      EVENT_CHECKER_LAMBDA_NAME = var.use_event_checking ? "${var.digital_twin_name}-l2-event-checker" : ""
+      EVENT_CHECKER_LAMBDA_NAME = var.use_event_checking ? local.aws_l2_event_checker_name : ""
       USE_EVENT_CHECKING        = var.use_event_checking ? "true" : "false"
     }
   }
@@ -177,25 +175,26 @@ resource "aws_lambda_function" "l2_persister" {
 
 resource "aws_lambda_function" "l2_event_checker" {
   count         = local.l2_aws_enabled && var.use_event_checking ? 1 : 0
-  function_name = "${var.digital_twin_name}-l2-event-checker"
+  function_name = local.aws_l2_event_checker_name
   role          = aws_iam_role.l2_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 256
 
   # Pre-built by Python before terraform apply
+  # Use try() to gracefully fallback when file doesn't exist (count=0 case)
   filename         = "${local.l2_lambda_build_dir}/event-checker.zip"
-  source_code_hash = filebase64sha256("${local.l2_lambda_build_dir}/event-checker.zip")
+  source_code_hash = try(filebase64sha256("${local.l2_lambda_build_dir}/event-checker.zip"), "disabled")
 
   environment {
     variables = {
       DIGITAL_TWIN_INFO                  = var.digital_twin_info_json
       EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN = var.return_feedback_to_device ? aws_lambda_function.event_feedback_wrapper[0].arn : ""
       USE_FEEDBACK                       = var.return_feedback_to_device ? "true" : "false"
-      LAMBDA_CHAIN_STEP_FUNCTION_ARN     = var.trigger_notification_workflow && var.use_event_checking ? "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.l2_event_workflow_name}" : ""
+      LAMBDA_CHAIN_STEP_FUNCTION_ARN     = var.trigger_notification_workflow && var.use_event_checking ? "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.aws_l2_event_workflow_name}" : ""
       USE_STEP_FUNCTIONS                 = var.trigger_notification_workflow ? "true" : "false"
-      TWINMAKER_WORKSPACE_NAME           = var.layer_4_provider == "aws" ? "${var.digital_twin_name}-workspace" : ""
+      TWINMAKER_WORKSPACE_NAME           = var.layer_4_provider == "aws" ? local.aws_l4_twinmaker_workspace_id : ""
     }
   }
 
@@ -210,7 +209,7 @@ resource "aws_lambda_function" "l2_event_checker" {
 resource "aws_iam_role" "l2_step_functions" {
   # Requires both flags since Step Functions invokes event_checker
   count = local.l2_aws_enabled && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
-  name  = "${var.digital_twin_name}-l2-sfn-role"
+  name  = local.aws_l2_sfn_role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -231,7 +230,7 @@ resource "aws_iam_role" "l2_step_functions" {
 resource "aws_iam_role_policy" "l2_sfn_lambda" {
   # Requires both flags since Step Functions invokes event_checker
   count = local.l2_aws_enabled && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
-  name  = "${var.digital_twin_name}-l2-sfn-lambda-policy"
+  name  = local.aws_l2_sfn_policy_name
   role  = aws_iam_role.l2_step_functions[0].id
 
   policy = jsonencode({
@@ -253,7 +252,7 @@ resource "aws_iam_role_policy" "l2_sfn_lambda" {
 resource "aws_sfn_state_machine" "l2_event_workflow" {
   # Requires both flags since workflow invokes event_checker
   count    = local.l2_aws_enabled && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
-  name     = local.l2_event_workflow_name
+  name     = local.aws_l2_event_workflow_name
   role_arn = aws_iam_role.l2_step_functions[0].arn
 
   # Load definition from file as raw JSON (no placeholder processing)
@@ -279,10 +278,10 @@ resource "aws_sfn_state_machine" "l2_event_workflow" {
 
 resource "aws_lambda_function" "processor_wrapper" {
   count         = local.l2_aws_enabled ? 1 : 0
-  function_name = "${var.digital_twin_name}-processor"
+  function_name = local.aws_l2_processor_function_name
   role          = aws_iam_role.l2_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 256
 
@@ -306,10 +305,10 @@ resource "aws_lambda_function" "processor_wrapper" {
 resource "aws_lambda_function" "user_processor" {
   for_each = { for p in var.aws_processors : p.name => p }
   
-  function_name = "${var.digital_twin_name}-${each.value.name}-processor"
+  function_name = format(local.aws_l2_processor_name_pattern, each.value.name)
   role          = aws_iam_role.l2_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 256
 
@@ -332,10 +331,10 @@ resource "aws_lambda_function" "user_processor" {
 
 resource "aws_lambda_function" "event_feedback_wrapper" {
   count         = local.l2_aws_enabled && var.return_feedback_to_device ? 1 : 0
-  function_name = "${var.digital_twin_name}-event-feedback-wrapper"
+  function_name = local.aws_l2_feedback_wrapper_name
   role          = aws_iam_role.l2_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 256
 
@@ -345,7 +344,7 @@ resource "aws_lambda_function" "event_feedback_wrapper" {
   environment {
     variables = {
       DIGITAL_TWIN_INFO          = var.digital_twin_info_json
-      EVENT_FEEDBACK_LAMBDA_NAME = "${var.digital_twin_name}-event-feedback"
+      EVENT_FEEDBACK_LAMBDA_NAME = local.aws_l2_event_feedback_name
     }
   }
 
@@ -355,7 +354,7 @@ resource "aws_lambda_function" "event_feedback_wrapper" {
 # IAM policy for event_feedback_wrapper to publish to IoT
 resource "aws_iam_role_policy" "l2_iot_publish" {
   count = local.l2_aws_enabled && var.return_feedback_to_device ? 1 : 0
-  name  = "${var.digital_twin_name}-l2-iot-publish-policy"
+  name  = local.aws_l2_iot_publish_policy_name
   role  = aws_iam_role.l2_lambda[0].id
 
   policy = jsonencode({

@@ -30,12 +30,12 @@ resource "google_storage_bucket_object" "ingestion_source" {
 
 resource "google_cloudfunctions2_function" "ingestion" {
   count    = local.gcp_needs_ingestion ? 1 : 0
-  name     = "${var.digital_twin_name}-ingestion"
+  name     = local.gcp_l0_ingestion_name
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -59,7 +59,7 @@ resource "google_cloudfunctions2_function" "ingestion" {
       EVENTS_TOPIC      = local.gcp_l1_enabled ? google_pubsub_topic.events[0].id : ""
       INTER_CLOUD_TOKEN = local.inter_cloud_token_value
       # Function base URL - required by ingestion to call processor
-      FUNCTION_BASE_URL = "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net"
+      FUNCTION_BASE_URL = local.gcp_function_base_url
     }
   }
 
@@ -88,12 +88,12 @@ resource "google_storage_bucket_object" "hot_writer_source" {
 
 resource "google_cloudfunctions2_function" "hot_writer" {
   count    = local.gcp_needs_hot_writer ? 1 : 0
-  name     = "${var.digital_twin_name}-hot-writer"
+  name     = local.gcp_l0_hot_writer_name
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -115,7 +115,7 @@ resource "google_cloudfunctions2_function" "hot_writer" {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
       DIGITAL_TWIN_INFO    = var.digital_twin_info_json
       GCP_PROJECT_ID       = local.gcp_project_id
-      FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
+      FIRESTORE_COLLECTION = local.gcp_l3_firestore_collection
       FIRESTORE_DATABASE   = local.gcp_firestore_database_name
       INTER_CLOUD_TOKEN    = local.inter_cloud_token_value
     }
@@ -147,12 +147,12 @@ resource "google_storage_bucket_object" "cold_writer_source" {
 
 resource "google_cloudfunctions2_function" "cold_writer" {
   count    = local.gcp_needs_cold_writer ? 1 : 0
-  name     = "${var.digital_twin_name}-cold-writer"
+  name     = local.gcp_l0_cold_writer_name
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -203,12 +203,12 @@ resource "google_storage_bucket_object" "archive_writer_source" {
 
 resource "google_cloudfunctions2_function" "archive_writer" {
   count    = local.gcp_needs_archive_writer ? 1 : 0
-  name     = "${var.digital_twin_name}-archive-writer"
+  name     = local.gcp_l0_archive_writer_name
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
