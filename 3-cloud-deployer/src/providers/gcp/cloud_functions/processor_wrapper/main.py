@@ -49,8 +49,8 @@ def _get_processor_url(device_id: str) -> str:
     """Construct processor URL dynamically from device ID."""
     twin_name = _get_digital_twin_info()["config"]["digital_twin_name"]
     processor_name = f"{twin_name}-{device_id}-processor"
-    base_url = os.environ.get("FUNCTION_APP_BASE_URL", "")
-    return f"{base_url}/api/{processor_name}"
+    base_url = os.environ.get("FUNCTION_BASE_URL", "")
+    return f"{base_url}/{processor_name}"
 
 
 @functions_framework.http
