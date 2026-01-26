@@ -27,7 +27,7 @@ resource "google_storage_bucket_object" "persister_source" {
 # ==============================================================================
 
 resource "google_cloudfunctions2_function" "persister" {
-  count    = local.gcp_l2_enabled && local.gcp_l3_hot_enabled ? 1 : 0
+  count    = local.gcp_l2_enabled ? 1 : 0
   name     = local.gcp_l2_persister_name
   location = var.gcp_region
   project  = local.gcp_project_id
@@ -86,7 +86,7 @@ resource "google_cloudfunctions2_function" "persister" {
 # ==============================================================================
 
 resource "google_cloud_run_service_iam_member" "persister_invoker" {
-  count    = local.gcp_l2_enabled && local.gcp_l3_hot_enabled ? 1 : 0
+  count    = local.gcp_l2_enabled ? 1 : 0
   project  = local.gcp_project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.persister[0].name
@@ -332,7 +332,7 @@ resource "google_cloudfunctions2_function" "processor_wrapper" {
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       GCP_PROJECT_ID         = local.gcp_project_id
       FUNCTION_BASE_URL      = local.gcp_function_base_url
-      PERSISTER_FUNCTION_URL = local.gcp_l3_hot_enabled ? google_cloudfunctions2_function.persister[0].url : ""
+      PERSISTER_FUNCTION_URL = local.gcp_l2_enabled ? google_cloudfunctions2_function.persister[0].url : ""
       INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
     }
   }
@@ -384,7 +384,7 @@ resource "google_cloudfunctions2_function" "processor" {
       GCP_PROJECT_ID         = local.gcp_project_id
       FIRESTORE_COLLECTION   = local.gcp_l3_firestore_collection
       FIRESTORE_DATABASE     = local.gcp_firestore_database_name
-      PERSISTER_FUNCTION_URL = local.gcp_l3_hot_enabled ? google_cloudfunctions2_function.persister[0].url : ""
+      PERSISTER_FUNCTION_URL = local.gcp_l2_enabled ? google_cloudfunctions2_function.persister[0].url : ""
       INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
     }
   }

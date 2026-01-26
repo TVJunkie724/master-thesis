@@ -936,11 +936,12 @@ class BaseScenarioTest:
                 
                 time.sleep(poll_interval)
             
-            # After max attempts, log debug info
-            print(f"  [WARN] No telemetry properties found after {max_attempts} attempts")
-            if twins:
-                twin_props = [k for k in twins[0].keys() if not k.startswith('$')]
-                print(f"         Available properties: {twin_props}")
+            # After max attempts, FAIL - L4 data flow is critical
+            twin_props = [k for k in twins[0].keys() if not k.startswith('$')] if twins else []
+            pytest.fail(
+                f"[L4 DATAFLOW CRITICAL] No telemetry properties found in ADT twin "
+                f"after {max_attempts * poll_interval}s. Available properties: {twin_props}"
+            )
             
         except ImportError:
             pytest.skip("azure-digitaltwins-core SDK not installed")
