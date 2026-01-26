@@ -341,6 +341,19 @@ resource "google_cloudfunctions2_function" "processor_wrapper" {
 }
 
 # ==============================================================================
+# IAM: Allow authenticated invocations of processor_wrapper
+# ==============================================================================
+
+resource "google_cloud_run_service_iam_member" "processor_wrapper_invoker" {
+  count    = local.gcp_l2_enabled ? 1 : 0
+  project  = local.gcp_project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.processor_wrapper[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.functions[0].email}"
+}
+
+# ==============================================================================
 # GCP Processor Cloud Functions (Individual per processor)
 # ==============================================================================
 
