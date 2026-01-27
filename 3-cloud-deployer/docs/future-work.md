@@ -232,6 +232,54 @@ aws-lambda-powertools>=2.0.0
 
 ---
 
+## 20. Observability Variables API Wiring
+
+> [!NOTE]
+> Observability implementation (Jan 2026) added Terraform variables with hardcoded defaults.
+> Variables are NOT exposed via API or config.json yet.
+
+### Status: Not Implemented
+
+### Background
+
+The observability implementation added 4 Terraform variables:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `enable_aws_logging` | `true` | Toggle CloudWatch log groups |
+| `enable_azure_logging` | `true` | Toggle Log Analytics + App Insights |
+| `enable_gcp_logging` | `true` | Placeholder (GCP logs natively) |
+| `log_retention_days` | `7` | Log retention period |
+
+Currently these are always enabled with a 7-day retention. The config.json.example shows the planned schema:
+
+```json
+{
+  "observability": {
+    "aws_logging": true,
+    "gcp_logging": true,
+    "azure_logging": true,
+    "retention_days": 7
+  }
+}
+```
+
+### Implementation Tasks
+
+1. **tfvars_generator.py**: Read `observability` from config.json and write to terraform.tfvars
+2. **Deployer API**: Add optional `observability` field to deployment request schema
+3. **Flutter UI**: Add observability toggle section to Step 3 wizard (optional - could remain hidden default)
+
+### Estimated Effort
+
+| Component | Effort |
+|-----------|--------|
+| tfvars_generator.py | Low (~30min) |
+| API schema update | Low (~30min) |
+| Flutter UI (optional) | Medium (~2h) |
+
+---
+
 ## 1. Deprecated Code Cleanup
 
 ### Status: Pending
