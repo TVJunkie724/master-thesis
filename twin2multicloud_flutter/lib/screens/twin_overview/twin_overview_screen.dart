@@ -1206,16 +1206,36 @@ class TwinOverviewView extends ConsumerWidget {
               ),
             ],
 
-            // Deployment Terminal (appears during deploy/destroy)
-            if (state.isDeploying || state.isDestroying) ...[
+            // Deployment Terminal (appears when showTerminal is true)
+            if (state.showTerminal) ...[
               const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(
+                    Icons.terminal,
+                    size: 16,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text('Deployment Output', style: theme.textTheme.labelLarge),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => context.read<TwinOverviewBloc>().add(
+                      const TwinOverviewCloseTerminal(),
+                    ),
+                    tooltip: 'Close terminal',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
               SizedBox(
                 height: 300,
                 child: DeploymentTerminal(
                   logs: state.terminalLogs,
-                  isConnected: true,
+                  isConnected: state.isDeploying || state.isDestroying,
+                  isComplete: !state.isDeploying && !state.isDestroying,
                   isReconnecting: false,
-                  showTimestamps: false,
                 ),
               ),
             ],

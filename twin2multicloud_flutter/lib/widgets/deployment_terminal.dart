@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 class DeploymentTerminal extends StatefulWidget {
   final List<String> logs;
   final bool isConnected;
+  final bool isComplete;
   final bool isReconnecting;
   final bool showTimestamps;
   final VoidCallback? onRetryConnection;
@@ -17,6 +18,7 @@ class DeploymentTerminal extends StatefulWidget {
     super.key,
     required this.logs,
     this.isConnected = true,
+    this.isComplete = false,
     this.isReconnecting = false,
     this.showTimestamps = false,
     this.onRetryConnection,
@@ -170,6 +172,8 @@ class _DeploymentTerminalState extends State<DeploymentTerminal> {
               shape: BoxShape.circle,
               color: widget.isReconnecting
                   ? Colors.amber
+                  : widget.isComplete
+                  ? Colors.blue
                   : widget.isConnected
                   ? Colors.green
                   : Colors.red,
@@ -179,8 +183,10 @@ class _DeploymentTerminalState extends State<DeploymentTerminal> {
           Text(
             widget.isReconnecting
                 ? 'Reconnecting...'
+                : widget.isComplete
+                ? 'Completed'
                 : widget.isConnected
-                ? 'Connected'
+                ? 'Streaming...'
                 : 'Disconnected',
             style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
           ),

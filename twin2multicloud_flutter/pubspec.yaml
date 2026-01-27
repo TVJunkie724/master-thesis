@@ -76,6 +76,10 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   
+  # BLoC testing
+  bloc_test: ^9.1.7
+  mocktail: ^1.0.4
+  
   # Code generation
   riverpod_generator: ^2.3.9
   build_runner: ^2.4.7

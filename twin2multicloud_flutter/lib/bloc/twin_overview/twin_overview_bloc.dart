@@ -33,6 +33,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     on<TwinOverviewDeploymentComplete>(_onDeploymentComplete);
     on<TwinOverviewClearMessages>(_onClearMessages);
     on<TwinOverviewShowMessage>(_onShowMessage);
+    on<TwinOverviewCloseTerminal>(_onCloseTerminal);
   }
 
   Future<void> _onLoad(
@@ -87,10 +88,13 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     Emitter<TwinOverviewState> emit,
   ) async {
     final currentState = state;
-    // Preserve terminal logs during refresh
+    // Preserve terminal state during refresh
     final preservedLogs = currentState is TwinOverviewLoaded
         ? currentState.terminalLogs
         : <String>[];
+    final preservedShowTerminal = currentState is TwinOverviewLoaded
+        ? currentState.showTerminal
+        : false;
 
     if (_currentTwinId != null) {
       try {
@@ -118,8 +122,13 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
           deployerConfig: deployerConfig,
         );
 
-        // Emit fresh state but preserve terminal logs
-        emit(freshState.copyWith(terminalLogs: preservedLogs));
+        // Emit fresh state but preserve terminal state
+        emit(
+          freshState.copyWith(
+            terminalLogs: preservedLogs,
+            showTerminal: preservedShowTerminal,
+          ),
+        );
       } catch (e) {
         // On error, just keep the current state
       }
@@ -137,6 +146,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       currentState.copyWith(
         isDeploying: true,
         twinState: 'deploying',
+        showTerminal: true,
         terminalLogs: ['> Starting deployment...'],
       ),
     );
@@ -151,24 +161,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       final sessionId = result['session_id'] as String?;
 
       if (sseUrl == null) {
-        // Legacy response - deployment completed synchronously
-        final logs =
-            (result['logs'] as List<dynamic>?)
-                ?.map((e) => e.toString())
-                .toList() ??
-            ['✓ ${result['message'] ?? 'Deployment successful'}'];
-
-        emit(
-          currentState.copyWith(
-            isDeploying: false,
-            twinState: result['status'] as String? ?? 'deployed',
-            terminalLogs: logs,
-            successMessage: 'Deployment successful',
-          ),
+        throw Exception(
+          'Backend did not return SSE URL - SSE streaming is required',
         );
-
-        add(TwinOverviewLoad(currentState.twinId));
-        return;
       }
 
       // SSE streaming mode - subscribe to log stream
@@ -201,6 +196,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       currentState.copyWith(
         isDestroying: true,
         twinState: 'destroying',
+        showTerminal: true,
         terminalLogs: ['> Starting resource destruction...'],
       ),
     );
@@ -215,24 +211,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       final sessionId = result['session_id'] as String?;
 
       if (sseUrl == null) {
-        // Legacy response - destruction completed synchronously
-        final logs =
-            (result['logs'] as List<dynamic>?)
-                ?.map((e) => e.toString())
-                .toList() ??
-            ['✓ ${result['message'] ?? 'Destruction successful'}'];
-
-        emit(
-          currentState.copyWith(
-            isDestroying: false,
-            twinState: result['status'] as String? ?? 'destroyed',
-            terminalLogs: logs,
-            successMessage: 'Resources destroyed successfully',
-          ),
+        throw Exception(
+          'Backend did not return SSE URL - SSE streaming is required',
         );
-
-        add(TwinOverviewLoad(currentState.twinId));
-        return;
       }
 
       // SSE streaming mode - subscribe to log stream
@@ -367,6 +348,17 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     }
   }
 
+  /// Handle close terminal event - hide terminal and clear logs
+  void _onCloseTerminal(
+    TwinOverviewCloseTerminal event,
+    Emitter<TwinOverviewState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded) return;
+
+    emit(currentState.copyWith(showTerminal: false, terminalLogs: const []));
+  }
+
   // ==========================================================================
   // SSE Streaming
   // ==========================================================================
@@ -405,7 +397,6 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
                   message: event.message,
                 ),
               );
-              add(TwinOverviewLoad(twinId));
             } else if (event.isError) {
               // Error completion
               _cancelSseSubscription();

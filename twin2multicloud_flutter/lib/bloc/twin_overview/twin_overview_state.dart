@@ -46,7 +46,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final String? lastError;
   final String? lastDeploymentLogs;
 
-  // Terminal logs (for ongoing operations)
+  // Terminal visibility and logs
+  final bool showTerminal;
   final List<String> terminalLogs;
 
   // Optimization data
@@ -84,6 +85,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     this.isDestroying = false,
     this.lastError,
     this.lastDeploymentLogs,
+    this.showTerminal = false,
     this.terminalLogs = const [],
     this.optimizerResult,
     this.optimizerParams,
@@ -115,6 +117,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     bool? isDestroying,
     String? lastError,
     String? lastDeploymentLogs,
+    bool? showTerminal,
     List<String>? terminalLogs,
     Map<String, dynamic>? optimizerResult,
     Map<String, dynamic>? optimizerParams,
@@ -147,6 +150,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
       isDestroying: isDestroying ?? this.isDestroying,
       lastError: lastError ?? this.lastError,
       lastDeploymentLogs: lastDeploymentLogs ?? this.lastDeploymentLogs,
+      showTerminal: showTerminal ?? this.showTerminal,
       terminalLogs: terminalLogs ?? this.terminalLogs,
       optimizerResult: optimizerResult ?? this.optimizerResult,
       optimizerParams: optimizerParams ?? this.optimizerParams,
@@ -182,6 +186,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     isDestroying,
     lastError,
     lastDeploymentLogs,
+    showTerminal,
     terminalLogs,
     optimizerResult,
     optimizerParams,

@@ -85,3 +85,8 @@ class TwinOverviewShowMessage extends TwinOverviewEvent {
   @override
   List<Object?> get props => [message, type];
 }
+
+/// Close the deployment terminal panel
+class TwinOverviewCloseTerminal extends TwinOverviewEvent {
+  const TwinOverviewCloseTerminal();
+}
