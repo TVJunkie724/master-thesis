@@ -56,15 +56,17 @@ class TwinOverviewDeploymentComplete extends TwinOverviewEvent {
   final bool success;
   final String? newState;
   final String? message;
+  final Map<String, dynamic>? outputs; // Terraform outputs
 
   const TwinOverviewDeploymentComplete({
     required this.success,
     this.newState,
     this.message,
+    this.outputs,
   });
 
   @override
-  List<Object?> get props => [success, newState, message];
+  List<Object?> get props => [success, newState, message, outputs];
 }
 
 /// Clear success/error messages

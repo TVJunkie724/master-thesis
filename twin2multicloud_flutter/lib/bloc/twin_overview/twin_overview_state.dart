@@ -72,6 +72,11 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final String? errorMessage;
   final String? infoMessage;
 
+  // Terraform outputs from most recent successful deployment
+  final Map<String, dynamic>? deploymentOutputs;
+  final DateTime? outputsTimestamp;
+  final String? outputsError;
+
   const TwinOverviewLoaded({
     required this.twinId,
     required this.projectName,
@@ -101,6 +106,9 @@ class TwinOverviewLoaded extends TwinOverviewState {
     this.successMessage,
     this.errorMessage,
     this.infoMessage,
+    this.deploymentOutputs,
+    this.outputsTimestamp,
+    this.outputsError,
   });
 
   /// Create copy with updated fields
@@ -133,9 +141,13 @@ class TwinOverviewLoaded extends TwinOverviewState {
     String? successMessage,
     String? errorMessage,
     String? infoMessage,
+    Map<String, dynamic>? deploymentOutputs,
+    DateTime? outputsTimestamp,
+    String? outputsError,
     bool clearSuccess = false,
     bool clearError = false,
     bool clearInfo = false,
+    bool clearOutputsError = false,
   }) {
     return TwinOverviewLoaded(
       twinId: twinId ?? this.twinId,
@@ -169,6 +181,11 @@ class TwinOverviewLoaded extends TwinOverviewState {
           : (successMessage ?? this.successMessage),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       infoMessage: clearInfo ? null : (infoMessage ?? this.infoMessage),
+      deploymentOutputs: deploymentOutputs ?? this.deploymentOutputs,
+      outputsTimestamp: outputsTimestamp ?? this.outputsTimestamp,
+      outputsError: clearOutputsError
+          ? null
+          : (outputsError ?? this.outputsError),
     );
   }
 
@@ -202,5 +219,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
     successMessage,
     errorMessage,
     infoMessage,
+    deploymentOutputs,
+    outputsTimestamp,
+    outputsError,
   ];
 }

@@ -399,43 +399,37 @@ async def deploy_twin(
     twin.last_error = None
     db.commit()
     
-    # Call Deployer API to start deployment
-    # NOTE: Deployer expects project context to already exist with config files
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{DEPLOYER_API_URL}/infrastructure/deploy",
-                params={
-                    "provider": provider,
-                    "project_name": resource_name,
-                },
-                timeout=300.0  # Deployment can take several minutes
-            )
-            response.raise_for_status()
-            result = response.json()
-            
-            # Update deployed_at timestamp on success
-            from datetime import datetime
-            twin.state = TwinState.DEPLOYED
-            twin.deployed_at = datetime.utcnow()
-            db.commit()
-            
-            return {
-                "deployment_id": twin_id,
-                "status": "deployed",
-                "message": result.get("message", "Deployment successful")
-            }
-    except httpx.HTTPStatusError as e:
-        # Rollback state on failure
-        twin.state = TwinState.ERROR
-        twin.last_error = f"Deployment failed: {e.response.text}"
+    # Create SSE session and spawn background task
+    import asyncio
+    import uuid
+    from src.api.routes.sse import create_session, get_active_sessions_for_twin
+    
+    # Check for concurrent deployment
+    active_sessions = await get_active_sessions_for_twin(twin_id)
+    if active_sessions:
+        twin.state = TwinState.CONFIGURED  # Rollback
         db.commit()
-        raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
-    except httpx.RequestError as e:
-        twin.state = TwinState.ERROR
-        twin.last_error = f"Deployer API unavailable: {str(e)}"
-        db.commit()
-        raise HTTPException(status_code=503, detail="Deployer API unavailable")
+        raise HTTPException(
+            status_code=409,
+            detail="Deployment already in progress for this twin"
+        )
+    
+    # Create SSE session
+    session_id = str(uuid.uuid4())
+    await create_session(twin_id, session_id, operation_type="deploy")
+    
+    # Spawn background task for streaming logs from Deployer
+    asyncio.create_task(_run_real_deploy_stream(
+        session_id=session_id,
+        twin_id=twin_id,
+        resource_name=resource_name,
+        provider=provider
+    ))
+    
+    return {
+        "session_id": session_id,
+        "sse_url": f"/sse/deploy/{session_id}"
+    }
 
 
 @router.post("/{twin_id}/destroy")
@@ -493,39 +487,37 @@ async def destroy_twin_infrastructure(
     twin.last_error = None
     db.commit()
     
-    # Call Deployer API to start destruction
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{DEPLOYER_API_URL}/infrastructure/destroy",
-                params={
-                    "provider": provider,
-                    "project_name": resource_name,
-                },
-                timeout=300.0  # Destruction can take several minutes
-            )
-            response.raise_for_status()
-            result = response.json()
-            
-            # Update destroyed_at timestamp on success
-            twin.state = TwinState.DESTROYED
-            twin.destroyed_at = datetime.utcnow()
-            db.commit()
-            
-            return {
-                "status": "destroyed",
-                "message": result.get("message", "Destruction successful")
-            }
-    except httpx.HTTPStatusError as e:
-        twin.state = TwinState.ERROR
-        twin.last_error = f"Destroy failed: {e.response.text}"
+    # Create SSE session and spawn background task
+    import asyncio
+    import uuid
+    from src.api.routes.sse import create_session, get_active_sessions_for_twin
+    
+    # Check for concurrent operation
+    active_sessions = await get_active_sessions_for_twin(twin_id)
+    if active_sessions:
+        twin.state = TwinState.DEPLOYED  # Rollback
         db.commit()
-        raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
-    except httpx.RequestError as e:
-        twin.state = TwinState.ERROR
-        twin.last_error = f"Deployer API unavailable: {str(e)}"
-        db.commit()
-        raise HTTPException(status_code=503, detail="Deployer API unavailable")
+        raise HTTPException(
+            status_code=409,
+            detail="Destroy operation already in progress for this twin"
+        )
+    
+    # Create SSE session
+    session_id = str(uuid.uuid4())
+    await create_session(twin_id, session_id, operation_type="destroy")
+    
+    # Spawn background task
+    asyncio.create_task(_run_real_destroy_stream(
+        session_id=session_id,
+        twin_id=twin_id,
+        resource_name=resource_name,
+        provider=provider
+    ))
+    
+    return {
+        "session_id": session_id,
+        "sse_url": f"/sse/deploy/{session_id}"
+    }
 
 
 @router.get("/{twin_id}/deployment-status")
@@ -552,6 +544,87 @@ async def get_deployment_status(
         "last_error": twin.last_error,
         "deployed_at": twin.deployed_at.isoformat() if twin.deployed_at else None,
         "destroyed_at": twin.destroyed_at.isoformat() if twin.destroyed_at else None,
+    }
+
+@router.get("/{twin_id}/outputs")
+async def get_deployment_outputs(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get terraform outputs from most recent successful deployment.
+    
+    Returns the outputs stored in the Deployment table for this twin.
+    Used to display outputs after the terminal is closed or on page refresh.
+    """
+    from src.models.deployment import Deployment
+    
+    # Verify twin belongs to user
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    
+    # Get most recent successful deployment
+    deployment = db.query(Deployment).filter(
+        Deployment.twin_id == twin_id,
+        Deployment.status == "success",
+        Deployment.operation_type.in_(["deploy", "test"])  # Both real and test deploys
+    ).order_by(Deployment.completed_at.desc()).first()
+    
+    if not deployment:
+        return {"outputs": None, "deployed_at": None}
+    
+    return {
+        "outputs": deployment.terraform_outputs,
+        "deployed_at": deployment.completed_at.isoformat() if deployment.completed_at else None
+    }
+
+
+@router.get("/{twin_id}/deployments")
+async def get_deployment_history(
+    twin_id: str,
+    limit: int = Query(10, ge=1, le=50, description="Max number of deployments to return"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get deployment history for a twin.
+    
+    Returns a list of historical deployments ordered by most recent first.
+    """
+    from src.models.deployment import Deployment
+    
+    # Verify twin belongs to user
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    
+    deployments = db.query(Deployment).filter(
+        Deployment.twin_id == twin_id
+    ).order_by(Deployment.started_at.desc()).limit(limit).all()
+    
+    return {
+        "deployments": [
+            {
+                "id": d.id,
+                "session_id": d.session_id,
+                "operation_type": d.operation_type,
+                "status": d.status,
+                "started_at": d.started_at.isoformat() if d.started_at else None,
+                "completed_at": d.completed_at.isoformat() if d.completed_at else None,
+                "error_message": d.error_message,
+            }
+            for d in deployments
+        ]
     }
 
 
@@ -718,6 +791,20 @@ async def _run_test_deploy_stream(
     if not session:
         return
     
+    # Create Deployment record at start
+    from src.models.deployment import Deployment
+    db = SessionLocal()
+    deployment = Deployment(
+        twin_id=twin_id,
+        session_id=session_id,
+        operation_type="deploy",
+        status="running"
+    )
+    db.add(deployment)
+    db.commit()
+    deployment_id = deployment.id
+    db.close()
+    
     try:
         # Define deployment steps with relative timing
         steps = [
@@ -790,6 +877,15 @@ async def _run_test_deploy_stream(
                     twin.state = TwinState.ERROR
                     twin.last_error = error_msg
                     db.commit()
+                
+                # Update Deployment record with failure
+                from src.models.deployment import Deployment
+                deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+                if deployment:
+                    deployment.status = "failed"
+                    deployment.error_message = error_msg
+                    deployment.completed_at = datetime.utcnow()
+                    db.commit()
             finally:
                 db.close()
             
@@ -808,6 +904,19 @@ async def _run_test_deploy_stream(
             if twin:
                 twin.state = TwinState.DEPLOYED
                 twin.deployed_at = datetime.utcnow()
+                db.commit()
+            
+            # Update Deployment record with success and outputs
+            from src.models.deployment import Deployment
+            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            if deployment:
+                deployment.status = "success"
+                deployment.terraform_outputs = {
+                    "iot_endpoint": f"test-{twin_name}.iot.mock-region.amazonaws.com",
+                    "storage_table": f"{twin_name}-hot-storage",
+                    "lambda_arn": f"arn:aws:lambda:mock-region:123456789:function:{twin_name}-dispatcher"
+                }
+                deployment.completed_at = datetime.utcnow()
                 db.commit()
         finally:
             db.close()
@@ -830,6 +939,15 @@ async def _run_test_deploy_stream(
             if twin:
                 twin.state = TwinState.ERROR
                 twin.last_error = str(e)
+                db.commit()
+            
+            # Update Deployment record with failure
+            from src.models.deployment import Deployment
+            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            if deployment:
+                deployment.status = "failed"
+                deployment.error_message = str(e)
+                deployment.completed_at = datetime.utcnow()
                 db.commit()
             db.close()
         except Exception:
@@ -857,6 +975,19 @@ async def _run_test_destroy_stream(
     session = await get_session(session_id)
     if not session:
         return
+    
+    # Create Deployment record at start
+    from src.models.deployment import Deployment
+    db = SessionLocal()
+    deployment = Deployment(
+        twin_id=twin_id,
+        session_id=session_id,
+        operation_type="destroy",
+        status="running"
+    )
+    db.add(deployment)
+    db.commit()
+    db.close()
     
     try:
         steps = [
@@ -892,6 +1023,15 @@ async def _run_test_destroy_stream(
                     twin.state = TwinState.ERROR
                     twin.last_error = error_msg
                     db.commit()
+                
+                # Update Deployment record with failure
+                from src.models.deployment import Deployment
+                deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+                if deployment:
+                    deployment.status = "failed"
+                    deployment.error_message = error_msg
+                    deployment.completed_at = datetime.utcnow()
+                    db.commit()
             finally:
                 db.close()
             
@@ -910,6 +1050,14 @@ async def _run_test_destroy_stream(
                 twin.state = TwinState.DESTROYED
                 twin.destroyed_at = datetime.utcnow()
                 db.commit()
+            
+            # Update Deployment record with success
+            from src.models.deployment import Deployment
+            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            if deployment:
+                deployment.status = "success"
+                deployment.completed_at = datetime.utcnow()
+                db.commit()
         finally:
             db.close()
         
@@ -923,9 +1071,214 @@ async def _run_test_destroy_stream(
                 twin.state = TwinState.ERROR
                 twin.last_error = str(e)
                 db.commit()
+            
+            # Update Deployment record with failure
+            from src.models.deployment import Deployment
+            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            if deployment:
+                deployment.status = "failed"
+                deployment.error_message = str(e)
+                deployment.completed_at = datetime.utcnow()
+                db.commit()
             db.close()
         except Exception:
             pass
+        session.on_complete(success=False, message=str(e))
+
+
+# =============================================================================
+# Real Deployment/Destroy Stream Functions
+# =============================================================================
+
+async def _run_real_deploy_stream(
+    session_id: str,
+    twin_id: str,
+    resource_name: str,
+    provider: str
+):
+    """
+    Background task that subscribes to Deployer SSE and forwards logs.
+    Updates Deployment record on completion.
+    """
+    from datetime import datetime
+    from src.api.routes.sse import get_session
+    from src.models.database import SessionLocal
+    from src.models.twin import DigitalTwin, TwinState
+    from src.models.deployment import Deployment
+    
+    session = await get_session(session_id)
+    if not session:
+        return
+    
+    # Create Deployment record at start
+    db = SessionLocal()
+    deployment = Deployment(
+        twin_id=twin_id,
+        session_id=session_id,
+        operation_type="deploy",
+        status="running"
+    )
+    db.add(deployment)
+    db.commit()
+    db.close()
+    
+    terraform_outputs = {}
+    
+    try:
+        # Subscribe to Deployer SSE with long timeouts
+        timeout = httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            async with client.stream(
+                "POST",
+                f"{DEPLOYER_API_URL}/infrastructure/deploy/stream",
+                params={"provider": provider, "project_name": resource_name}
+            ) as response:
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        msg = line[6:]  # Remove "data: " prefix
+                        print(msg, flush=True)  # Container logs
+                        await session.push_log(msg)
+                    elif line.startswith("event: complete"):
+                        # Next line contains JSON
+                        pass
+                    elif line.startswith('{"success":'):
+                        # Parse completion event
+                        import json
+                        try:
+                            result = json.loads(line)
+                            if result.get("success"):
+                                terraform_outputs = result.get("outputs", {})
+                        except json.JSONDecodeError:
+                            pass
+        
+        # Success path
+        db = SessionLocal()
+        try:
+            twin = db.query(DigitalTwin).get(twin_id)
+            if twin:
+                twin.state = TwinState.DEPLOYED
+                twin.deployed_at = datetime.utcnow()
+                db.commit()
+            
+            # Update Deployment record
+            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            if deployment:
+                deployment.status = "success"
+                deployment.terraform_outputs = terraform_outputs
+                deployment.completed_at = datetime.utcnow()
+                db.commit()
+        finally:
+            db.close()
+        
+        session.on_complete(success=True, message="Deployment complete", outputs=terraform_outputs)
+        
+    except Exception as e:
+        # Error path
+        db = SessionLocal()
+        try:
+            twin = db.query(DigitalTwin).get(twin_id)
+            if twin:
+                twin.state = TwinState.ERROR
+                twin.last_error = str(e)
+                db.commit()
+            
+            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            if deployment:
+                deployment.status = "failed"
+                deployment.error_message = str(e)
+                deployment.completed_at = datetime.utcnow()
+                db.commit()
+        finally:
+            db.close()
+        
+        await session.push_log(f"✗ Deployment error: {e}", level="error")
+        session.on_complete(success=False, message=str(e))
+
+
+async def _run_real_destroy_stream(
+    session_id: str,
+    twin_id: str,
+    resource_name: str,
+    provider: str
+):
+    """
+    Background task that subscribes to Deployer destroy SSE and forwards logs.
+    """
+    from datetime import datetime
+    from src.api.routes.sse import get_session
+    from src.models.database import SessionLocal
+    from src.models.twin import DigitalTwin, TwinState
+    from src.models.deployment import Deployment
+    
+    session = await get_session(session_id)
+    if not session:
+        return
+    
+    # Create Deployment record at start
+    db = SessionLocal()
+    deployment = Deployment(
+        twin_id=twin_id,
+        session_id=session_id,
+        operation_type="destroy",
+        status="running"
+    )
+    db.add(deployment)
+    db.commit()
+    db.close()
+    
+    try:
+        # Subscribe to Deployer destroy SSE
+        timeout = httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            async with client.stream(
+                "POST",
+                f"{DEPLOYER_API_URL}/infrastructure/destroy/stream",
+                params={"provider": provider, "project_name": resource_name}
+            ) as response:
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        msg = line[6:]
+                        print(msg, flush=True)
+                        await session.push_log(msg)
+        
+        # Success path
+        db = SessionLocal()
+        try:
+            twin = db.query(DigitalTwin).get(twin_id)
+            if twin:
+                twin.state = TwinState.DESTROYED
+                twin.destroyed_at = datetime.utcnow()
+                db.commit()
+            
+            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            if deployment:
+                deployment.status = "success"
+                deployment.completed_at = datetime.utcnow()
+                db.commit()
+        finally:
+            db.close()
+        
+        session.on_complete(success=True, message="Destruction complete")
+        
+    except Exception as e:
+        db = SessionLocal()
+        try:
+            twin = db.query(DigitalTwin).get(twin_id)
+            if twin:
+                twin.state = TwinState.ERROR
+                twin.last_error = str(e)
+                db.commit()
+            
+            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            if deployment:
+                deployment.status = "failed"
+                deployment.error_message = str(e)
+                deployment.completed_at = datetime.utcnow()
+                db.commit()
+        finally:
+            db.close()
+        
+        await session.push_log(f"✗ Destroy error: {e}", level="error")
         session.on_complete(success=False, message=str(e))
 
 

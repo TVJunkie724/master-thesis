@@ -114,9 +114,12 @@ def deploy_all(
         context = create_context(project_name, provider)
         
         # TerraformDeployerStrategy handles validation + deployment
-        core_deployer.deploy_all(context, provider)
+        outputs = core_deployer.deploy_all(context, provider)
         
-        return {"message": "Core and IoT services deployed successfully"}
+        return {
+            "message": "Core and IoT services deployed successfully",
+            "terraform_outputs": outputs
+        }
     except HTTPException:
         raise
     except ValueError as e:
@@ -167,3 +170,128 @@ def destroy_all(
         print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail="Deployment operation failed. Check logs.")
+
+
+# --------- SSE Streaming Endpoints ----------
+from fastapi.responses import StreamingResponse
+
+
+@router.post(
+    "/deploy/stream", 
+    tags=["Infrastructure"],
+    summary="Deploy with SSE streaming logs",
+    responses={
+        200: {"description": "SSE stream of deployment logs"},
+        400: {"description": "Invalid project or provider"},
+        500: {"description": "Deployment failed"}
+    }
+)
+async def deploy_stream(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
+    """
+    Deploy with Server-Sent Events streaming.
+    
+    Returns an SSE stream with real-time deployment logs.
+    """
+    from src.providers.terraform.deployer_strategy import TerraformDeployerStrategy
+    from pathlib import Path
+    
+    check_template_protection(project_name, "deploy")
+    validate_project_context(project_name)
+    
+    try:
+        provider = validate_provider(provider)
+        context = create_context(project_name, provider)
+        
+        terraform_dir = Path(f"/app/upload/{project_name}/terraform")
+        project_path = Path(f"/app/upload/{project_name}")
+        strategy = TerraformDeployerStrategy(str(terraform_dir), str(project_path))
+        
+        async def generate():
+            try:
+                async for line in strategy.deploy_all_async(context):
+                    yield f"data: {line}\n\n"
+                # Final success event
+                outputs = strategy.get_outputs()
+                import json
+                yield f"event: complete\ndata: {json.dumps({'success': True, 'outputs': outputs})}\n\n"
+            except Exception as e:
+                yield f"event: error\ndata: {json.dumps({'success': False, 'error': str(e)})}\n\n"
+        
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Validation failed: {e}")
+    except Exception as e:
+        print_stack_trace()
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail="Deployment operation failed. Check logs.")
+
+
+@router.post(
+    "/destroy/stream", 
+    tags=["Infrastructure"],
+    summary="Destroy with SSE streaming logs",
+    responses={
+        200: {"description": "SSE stream of destruction logs"},
+        500: {"description": "Destruction failed"}
+    }
+)
+async def destroy_stream(
+    provider: str = Query("aws", description="Cloud provider: aws, azure, or google"),
+    project_name: str = Query("template", description="Name of the project context")
+):
+    """
+    Destroy with Server-Sent Events streaming.
+    
+    Returns an SSE stream with real-time destruction logs.
+    """
+    from src.providers.terraform.deployer_strategy import TerraformDeployerStrategy
+    from pathlib import Path
+    
+    check_template_protection(project_name, "destroy")
+    validate_project_context(project_name)
+    
+    try:
+        provider = provider.lower()
+        context = create_context(project_name, provider)
+        
+        terraform_dir = Path(f"/app/upload/{project_name}/terraform")
+        project_path = Path(f"/app/upload/{project_name}")
+        strategy = TerraformDeployerStrategy(str(terraform_dir), str(project_path))
+        
+        async def generate():
+            try:
+                async for line in strategy.destroy_all_async(context):
+                    yield f"data: {line}\n\n"
+                import json
+                yield f"event: complete\ndata: {json.dumps({'success': True})}\n\n"
+            except Exception as e:
+                import json
+                yield f"event: error\ndata: {json.dumps({'success': False, 'error': str(e)})}\n\n"
+        
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
+    except Exception as e:
+        print_stack_trace()
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail="Destruction operation failed. Check logs.")
+

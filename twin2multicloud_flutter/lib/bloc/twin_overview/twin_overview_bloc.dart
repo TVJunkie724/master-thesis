@@ -65,6 +65,26 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
 
       final twinState = twin['state'] as String? ?? 'draft';
 
+      // Fetch outputs for deployed twins (page refresh persistence)
+      Map<String, dynamic>? deploymentOutputs;
+      DateTime? outputsTimestamp;
+      String? outputsError;
+      if (twinState == 'deployed') {
+        try {
+          final outputsResponse = await _api.getDeploymentOutputs(event.twinId);
+          deploymentOutputs =
+              outputsResponse['outputs'] as Map<String, dynamic>?;
+          final deployedAtStr = outputsResponse['deployed_at'] as String?;
+          if (deployedAtStr != null) {
+            outputsTimestamp = DateTime.tryParse(deployedAtStr);
+          }
+        } catch (e) {
+          // Not silent - surface error to user
+          outputsError =
+              'Failed to load outputs: ${ApiErrorHandler.extractMessage(e)}';
+        }
+      }
+
       emit(
         _buildLoadedState(
           twinId: event.twinId,
@@ -72,6 +92,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
           twinState: twinState,
           optimizerConfig: optimizerConfig,
           deployerConfig: deployerConfig,
+          deploymentOutputs: deploymentOutputs,
+          outputsTimestamp: outputsTimestamp,
+          outputsError: outputsError,
         ),
       );
     } catch (e) {
@@ -95,6 +118,13 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     final preservedShowTerminal = currentState is TwinOverviewLoaded
         ? currentState.showTerminal
         : false;
+    // Preserve outputs during refresh (they may be from SSE, not yet in DB)
+    final preservedOutputs = currentState is TwinOverviewLoaded
+        ? currentState.deploymentOutputs
+        : null;
+    final preservedOutputsTimestamp = currentState is TwinOverviewLoaded
+        ? currentState.outputsTimestamp
+        : null;
 
     if (_currentTwinId != null) {
       try {
@@ -120,6 +150,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
           twinState: twinState,
           optimizerConfig: optimizerConfig,
           deployerConfig: deployerConfig,
+          // Preserve outputs - they'll be refreshed if needed on full load
+          deploymentOutputs: preservedOutputs,
+          outputsTimestamp: preservedOutputsTimestamp,
         );
 
         // Emit fresh state but preserve terminal state
@@ -273,6 +306,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
 
+    // Clear outputs on destroy, store on deploy
+    final isDestroy = event.newState == 'destroyed';
+
     // First emit state update that PRESERVES terminal logs so they stay visible
     emit(
       currentState.copyWith(
@@ -281,6 +317,12 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         twinState: event.newState ?? (event.success ? 'deployed' : 'error'),
         lastError: event.success ? null : event.message,
         successMessage: event.success ? event.message : null,
+        // Store outputs from SSE on successful deploy, clear on destroy
+        deploymentOutputs: isDestroy ? null : event.outputs,
+        outputsTimestamp: (event.outputs != null && !isDestroy)
+            ? DateTime.now()
+            : null,
+        clearOutputsError: true,
         // terminalLogs are preserved by copyWith's default behavior
       ),
     );
@@ -388,13 +430,14 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
               // Emit log event
               add(TwinOverviewLogReceived(event.message));
             } else if (event.isComplete) {
-              // Success completion
+              // Success completion - pass outputs from SSE
               _cancelSseSubscription();
               add(
                 TwinOverviewDeploymentComplete(
                   success: true,
                   newState: isDestroy ? 'destroyed' : 'deployed',
                   message: event.message,
+                  outputs: event.outputs, // Pass outputs from SSE event
                 ),
               );
             } else if (event.isError) {
@@ -451,6 +494,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     required String twinState,
     Map<String, dynamic>? optimizerConfig,
     Map<String, dynamic>? deployerConfig,
+    Map<String, dynamic>? deploymentOutputs,
+    DateTime? outputsTimestamp,
+    String? outputsError,
   }) {
     // State-based permission matrix (from implementation plan)
     final canDeploy = ['configured', 'destroyed', 'error'].contains(twinState);
@@ -497,6 +543,10 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       pricingGcpUpdatedAt:
           optimizerConfig?['pricing_gcp_updated_at'] as String?,
       deployerConfig: deployerConfig,
+      // Terraform outputs
+      deploymentOutputs: deploymentOutputs,
+      outputsTimestamp: outputsTimestamp,
+      outputsError: outputsError,
     );
   }
 }

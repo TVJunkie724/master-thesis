@@ -40,7 +40,7 @@ def _get_strategy(context: 'DeploymentContext', provider_name: str):
 # Full Deployment (Terraform)
 # ==========================================
 
-def deploy_all(context: 'DeploymentContext', provider: str) -> None:
+def deploy_all(context: 'DeploymentContext', provider: str) -> dict:
     """
     Deploy all layers using Terraform (primary approach).
     
@@ -50,6 +50,9 @@ def deploy_all(context: 'DeploymentContext', provider: str) -> None:
     Args:
         context: Deployment context with config and credentials
         provider: Cloud provider name (aws, azure, gcp)
+    
+    Returns:
+        Dictionary of Terraform outputs
     """
     logger.info(f"Deploying all layers via Terraform for provider: {provider}")
     
@@ -63,7 +66,7 @@ def deploy_all(context: 'DeploymentContext', provider: str) -> None:
         project_path=str(context.project_path)
     )
     
-    strategy.deploy_all(context)
+    return strategy.deploy_all(context)
 
 
 def destroy_all(context: 'DeploymentContext', provider: str) -> None:

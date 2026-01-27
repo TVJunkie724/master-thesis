@@ -15,6 +15,7 @@ import '../../utils/twin_state_utils.dart';
 import '../../widgets/branded_app_bar.dart';
 import '../../widgets/code_viewer_dialog.dart';
 import '../../widgets/deployment_terminal.dart';
+import '../../widgets/terraform_outputs_card.dart';
 import '../../widgets/results/cheapest_path_visualization.dart';
 
 /// Twin Overview Screen - Entry point with BlocProvider
@@ -1205,6 +1206,56 @@ class TwinOverviewView extends ConsumerWidget {
                 ),
               ),
             ],
+
+            // Terraform Outputs Card (persists independently of terminal)
+            if (state.deploymentOutputs != null &&
+                state.deploymentOutputs!.isNotEmpty &&
+                state.twinState == 'deployed') ...[
+              const SizedBox(height: 16),
+              TerraformOutputsCard(
+                outputs: state.deploymentOutputs!,
+                deployedAt: state.outputsTimestamp,
+                onCopyFeedback: (message) {
+                  context.read<TwinOverviewBloc>().add(
+                    TwinOverviewShowMessage(message, MessageType.success),
+                  );
+                },
+              ),
+            ],
+
+            // Outputs error banner (not silent)
+            if (state.outputsError != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.errorContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber,
+                        color: theme.colorScheme.error,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          state.outputsError!,
+                          style: TextStyle(
+                            color: theme.colorScheme.onErrorContainer,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
             // Deployment Terminal (appears when showTerminal is true)
             if (state.showTerminal) ...[

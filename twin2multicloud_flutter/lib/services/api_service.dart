@@ -472,6 +472,13 @@ class ApiService {
     return response.data as Map<String, dynamic>;
   }
 
+  /// Get terraform outputs from most recent successful deployment
+  /// Returns {outputs: Map?, deployed_at: String?}
+  Future<Map<String, dynamic>> getDeploymentOutputs(String twinId) async {
+    final response = await _dio.get('/twins/$twinId/outputs');
+    return response.data as Map<String, dynamic>;
+  }
+
   // ==========================================================================
   // SSE Streaming and Logs
   // ==========================================================================

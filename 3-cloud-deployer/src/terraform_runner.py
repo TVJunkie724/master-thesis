@@ -344,3 +344,120 @@ class TerraformRunner:
             return {}
         
         return json.loads(result.stdout)
+
+    # =========================================================================
+    # Async Streaming Methods (for SSE)
+    # =========================================================================
+    
+    async def _run_command_async(self, args: list[str]):
+        """
+        Run a Terraform command with async streaming. Yields output lines.
+        
+        Uses asyncio.subprocess for true async I/O without blocking the event loop.
+        
+        Args:
+            args: Command arguments (without 'terraform' prefix)
+            
+        Yields:
+            Output lines from the command
+            
+        Raises:
+            TerraformError: If command fails
+        """
+        import asyncio
+        
+        # Build base command (same logic as _run_command)
+        cmd = ["terraform", f"-chdir={self.terraform_dir}"]
+        stateful_commands = ["apply", "destroy", "plan", "output", "show", "import", "taint", "untaint"]
+        
+        if len(args) > 0:
+            subcommand = args[0]
+            cmd.append(subcommand)
+            
+            if self.state_path and subcommand in stateful_commands:
+                cmd.append(f"-state={self.state_path}")
+            
+            cmd.extend(args[1:])
+        
+        logger.info(f"Running (async): {' '.join(cmd)}")
+        
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT
+        )
+        
+        # Stream output line by line
+        async for line in process.stdout:
+            decoded = line.decode().rstrip()
+            yield decoded
+        
+        await process.wait()
+        
+        if process.returncode != 0:
+            raise TerraformError(args[0] if args else "terraform", process.returncode, "See streamed output")
+    
+    async def init_async(self, backend: bool = True, upgrade: bool = False):
+        """
+        Initialize Terraform with async streaming.
+        
+        Args:
+            backend: Whether to initialize backend
+            upgrade: Whether to upgrade providers
+            
+        Yields:
+            Output lines from terraform init
+        """
+        args = ["init", "-input=false"]
+        
+        if not backend:
+            args.append("-backend=false")
+        
+        if upgrade:
+            args.append("-upgrade")
+        
+        yield "Initializing Terraform..."
+        async for line in self._run_command_async(args):
+            yield line
+        yield "✓ Terraform initialized"
+    
+    async def apply_async(self, var_file: str):
+        """
+        Apply Terraform configuration with async streaming.
+        
+        Args:
+            var_file: Path to the tfvars.json file
+            
+        Yields:
+            Output lines from terraform apply
+        """
+        if not var_file:
+            raise ValueError("var_file is required")
+        
+        args = ["apply", "-auto-approve", f"-var-file={var_file}"]
+        
+        yield "Applying Terraform configuration..."
+        async for line in self._run_command_async(args):
+            yield line
+        yield "✓ Apply complete"
+    
+    async def destroy_async(self, var_file: str):
+        """
+        Destroy Terraform resources with async streaming.
+        
+        Args:
+            var_file: Path to the tfvars.json file
+            
+        Yields:
+            Output lines from terraform destroy
+        """
+        if not var_file:
+            raise ValueError("var_file is required")
+        
+        args = ["destroy", "-auto-approve", f"-var-file={var_file}"]
+        
+        yield "Destroying Terraform-managed resources..."
+        async for line in self._run_command_async(args):
+            yield line
+        yield "✓ Destroy complete"
+
