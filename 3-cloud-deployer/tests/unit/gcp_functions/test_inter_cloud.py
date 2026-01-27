@@ -1,7 +1,7 @@
 """Unit tests for GCP inter_cloud module - ID token authentication."""
 import time
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, create_autospec
 
 # Import the module under test
 import sys
@@ -76,6 +76,27 @@ class TestGetIdTokenHeaders:
         """Should raise RuntimeError if google-auth not installed."""
         with pytest.raises(RuntimeError, match="google-auth library not available"):
             get_id_token_headers("https://example.com")
+
+
+class TestGetIdTokenHeadersWithGoogleAuth:
+    """Tests that require mocking google-auth library.
+    
+    These tests are skipped if google-auth is not installed,
+    since mocking nested module paths requires the base module to exist.
+    """
+    
+    def setup_method(self):
+        """Clear token cache before each test."""
+        _token_cache.clear()
+    
+    @pytest.fixture(autouse=True)
+    def skip_if_no_google_auth(self):
+        """Skip tests if google-auth is not installed."""
+        try:
+            import google.auth.transport.requests
+            import google.oauth2.id_token
+        except ImportError:
+            pytest.skip("google-auth library not installed")
     
     @patch('_shared.inter_cloud._GOOGLE_AUTH_AVAILABLE', True)
     @patch('google.oauth2.id_token.fetch_id_token')
@@ -92,7 +113,6 @@ class TestGetIdTokenHeaders:
     @patch('google.auth.transport.requests.Request')
     def test_successful_token_returns_auth_header(self, mock_request, mock_fetch):
         """Should return Authorization header with token."""
-        # Create a mock token with exp claim
         mock_token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjk5OTk5OTk5OTl9.sig"
         mock_fetch.return_value = mock_token
         mock_request.return_value = MagicMock()
