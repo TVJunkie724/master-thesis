@@ -1,6 +1,6 @@
 import os
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pathlib import Path
@@ -99,13 +99,162 @@ async def update_twin(
                 detail=f"A twin with the name '{update.name}' already exists"
             )
         twin.name = update.name
-        
+    
+    # Validate before allowing state transition to CONFIGURED
+    if update.state is not None and update.state == TwinState.CONFIGURED:
+        await _validate_configured_transition(twin, db)
+    
     if update.state is not None:
         twin.state = update.state
         
     db.commit()
     db.refresh(twin)
     return twin
+
+
+OPTIMIZER_API_URL = os.getenv("OPTIMIZER_API_URL", "http://twin2clouds:5002")
+
+
+async def _validate_configured_transition(twin: DigitalTwin, db: Session):
+    """
+    Orchestrates distributed validation before allowing 'configured' state.
+    
+    Validates:
+    - Step 1: Twin name, credentials (local)
+    - Step 2: Optimizer params/result (calls Optimizer API)
+    - Step 3: Deployer config files (calls Deployer API)
+    
+    Raises HTTPException(400) with structured errors if validation fails.
+    """
+    import asyncio
+    import json
+    
+    errors = []
+    
+    # === STEP 1: Local validation (Management API domain) ===
+    if not twin.name or not twin.name.strip():
+        errors.append({
+            "step": 1, 
+            "code": "EMPTY_NAME", 
+            "field": "twin_name", 
+            "message": "Twin name is required"
+        })
+    
+    # Check at least one provider has credentials
+    config = twin.config if twin.config else None
+    has_creds = False
+    if config:
+        has_creds = any([
+            config.aws_access_key_id,
+            config.azure_subscription_id,
+            config.gcp_project_id or config.gcp_billing_account
+        ])
+    if not has_creds:
+        errors.append({
+            "step": 1,
+            "code": "MISSING_CREDENTIALS",
+            "field": "credentials",
+            "message": "At least one cloud provider credentials required"
+        })
+    
+    # === STEP 2 & 3: Call Optimizer and Deployer APIs in parallel ===
+    optimizer_config = twin.optimizer_config
+    deployer_config = twin.deployer_config
+    
+    # Build request payloads
+    optimizer_payload = {
+        "params": json.loads(optimizer_config.optimizer_params) if optimizer_config and optimizer_config.optimizer_params else None,
+        "result": json.loads(optimizer_config.optimizer_result) if optimizer_config and optimizer_config.optimizer_result else None
+    }
+    
+    # Parse cheapest path from result for deployer context
+    cheapest_path = {}
+    if optimizer_payload["result"]:
+        cheapest_path = optimizer_payload["result"].get("cheapest_path", {})
+    
+    deployer_payload = {
+        "deployer_digital_twin_name": deployer_config.resource_name if deployer_config else None,
+        "config_events": deployer_config.config_events_json if deployer_config else None,
+        "config_iot_devices": deployer_config.config_iot_devices_json if deployer_config else None,
+        "payloads": deployer_config.payloads_json if deployer_config else None,
+        "processors": json.loads(deployer_config.processor_contents) if deployer_config and deployer_config.processor_contents else None,
+        "event_feedback": deployer_config.event_feedback_content if deployer_config else None,
+        "event_actions": json.loads(deployer_config.event_action_contents) if deployer_config and deployer_config.event_action_contents else None,
+        "hierarchy": deployer_config.hierarchy_json if deployer_config else None,
+        "scene_config": deployer_config.scenes_3d_json if deployer_config else None,
+        "scene_glb_uploaded": bool(deployer_config.scene_glb_path) if deployer_config else False,
+        "state_machine": deployer_config.state_machine_content if deployer_config else None,
+        "user_config": deployer_config.config_user_json if deployer_config else None,
+        "optimizer_params": json.loads(optimizer_config.optimizer_params) if optimizer_config and optimizer_config.optimizer_params else None,
+        "cheapest_path": cheapest_path
+    }
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        # Call both APIs in parallel
+        optimizer_task = client.post(
+            f"{OPTIMIZER_API_URL}/validate/optimizer-config",
+            json=optimizer_payload
+        )
+        deployer_task = client.post(
+            f"{DEPLOYER_API_URL}/validate/deployer-complete",
+            json=deployer_payload
+        )
+        
+        results = await asyncio.gather(optimizer_task, deployer_task, return_exceptions=True)
+        
+        # Process Optimizer response
+        opt_result = results[0]
+        if isinstance(opt_result, Exception):
+            errors.append({
+                "step": 2,
+                "code": "OPTIMIZER_UNAVAILABLE",
+                "field": "optimizer",
+                "message": f"Optimizer API error: {str(opt_result)}"
+            })
+        elif opt_result.status_code == 200:
+            opt_data = opt_result.json()
+            if not opt_data.get("valid"):
+                for err in opt_data.get("errors", []):
+                    errors.append({"step": 2, **err})
+        else:
+            errors.append({
+                "step": 2,
+                "code": "OPTIMIZER_ERROR",
+                "field": "optimizer",
+                "message": f"Optimizer validation failed: {opt_result.text}"
+            })
+        
+        # Process Deployer response
+        dep_result = results[1]
+        if isinstance(dep_result, Exception):
+            errors.append({
+                "step": 3,
+                "code": "DEPLOYER_UNAVAILABLE",
+                "field": "deployer",
+                "message": f"Deployer API error: {str(dep_result)}"
+            })
+        elif dep_result.status_code == 200:
+            dep_data = dep_result.json()
+            if not dep_data.get("valid"):
+                for err in dep_data.get("errors", []):
+                    errors.append({"step": 3, **err})
+        else:
+            errors.append({
+                "step": 3,
+                "code": "DEPLOYER_ERROR",
+                "field": "deployer",
+                "message": f"Deployer validation failed: {dep_result.text}"
+            })
+    
+    if errors:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "VALIDATION_FAILED",
+                "message": f"Cannot mark as configured: {len(errors)} validation errors",
+                "errors": errors
+            }
+        )
 
 @router.delete("/{twin_id}")
 async def delete_twin(
@@ -404,6 +553,514 @@ async def get_deployment_status(
         "deployed_at": twin.deployed_at.isoformat() if twin.deployed_at else None,
         "destroyed_at": twin.destroyed_at.isoformat() if twin.destroyed_at else None,
     }
+
+
+# ============================================================
+# Test Deployment (UI Testing Only)
+# ============================================================
+
+TEST_ENDPOINTS_ENABLED = os.getenv("ENABLE_TEST_ENDPOINTS", "false").lower() == "true"
+
+
+@router.post("/{twin_id}/test-deploy")
+async def test_deploy_twin(
+    twin_id: str,
+    duration: int = Query(30, ge=5, le=120, description="Simulated duration in seconds"),
+    should_fail: bool = Query(False, description="Simulate failure at end"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Test deployment for UI testing - simulates realistic deployment with SSE logs.
+    
+    Requires ENABLE_TEST_ENDPOINTS=true environment variable.
+    No real cloud resources are created.
+    
+    Returns session_id for SSE connection to stream logs in real-time.
+    
+    Args:
+        duration: How long the simulated deployment takes (5-120 seconds)
+        should_fail: If true, simulate a deployment failure
+    """
+    if not TEST_ENDPOINTS_ENABLED:
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    from datetime import datetime
+    import asyncio
+    import uuid
+    from src.api.routes.sse import create_session, get_active_sessions_for_twin
+    
+    # Validate twin exists
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    
+    # Check for concurrent deployment
+    active_sessions = await get_active_sessions_for_twin(twin_id)
+    if active_sessions:
+        raise HTTPException(
+            status_code=409,
+            detail="Deployment already in progress for this twin"
+        )
+    
+    # Update state to deploying
+    twin.state = TwinState.DEPLOYING
+    twin.last_error = None
+    db.commit()
+    
+    # Create SSE session
+    session_id = str(uuid.uuid4())
+    session = await create_session(twin_id, session_id, operation_type="test")
+    
+    # Spawn background task for streaming logs
+    asyncio.create_task(_run_test_deploy_stream(
+        session_id=session_id,
+        twin_id=twin_id,
+        twin_name=twin.name,
+        duration=duration,
+        should_fail=should_fail
+    ))
+    
+    return {
+        "session_id": session_id,
+        "sse_url": f"/sse/deploy/{session_id}"
+    }
+
+
+@router.post("/{twin_id}/test-destroy")
+async def test_destroy_twin(
+    twin_id: str,
+    duration: int = Query(20, ge=5, le=60, description="Simulated duration in seconds"),
+    should_fail: bool = Query(False, description="Simulate failure at end"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Test destroy for UI testing - simulates realistic destruction with SSE logs.
+    
+    Requires ENABLE_TEST_ENDPOINTS=true environment variable.
+    Returns session_id for SSE connection to stream logs in real-time.
+    """
+    if not TEST_ENDPOINTS_ENABLED:
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    from datetime import datetime
+    import asyncio
+    import uuid
+    from src.api.routes.sse import create_session, get_active_sessions_for_twin
+    
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    
+    # Check for concurrent operation
+    active_sessions = await get_active_sessions_for_twin(twin_id)
+    if active_sessions:
+        raise HTTPException(
+            status_code=409,
+            detail="Operation already in progress for this twin"
+        )
+    
+    twin.state = TwinState.DESTROYING
+    twin.last_error = None
+    db.commit()
+    
+    # Create SSE session
+    session_id = str(uuid.uuid4())
+    session = await create_session(twin_id, session_id, operation_type="destroy")
+    
+    # Spawn background task for streaming logs
+    asyncio.create_task(_run_test_destroy_stream(
+        session_id=session_id,
+        twin_id=twin_id,
+        twin_name=twin.name,
+        duration=duration,
+        should_fail=should_fail
+    ))
+    
+    return {
+        "session_id": session_id,
+        "sse_url": f"/sse/deploy/{session_id}"
+    }
+
+
+# =============================================================================
+# SSE Streaming Background Tasks
+# =============================================================================
+
+async def _run_test_deploy_stream(
+    session_id: str,
+    twin_id: str,
+    twin_name: str,
+    duration: int,
+    should_fail: bool
+):
+    """
+    Background task that simulates Terraform deployment and streams logs via SSE.
+    Creates its own DB session to avoid session scoping issues.
+    """
+    import asyncio
+    import random
+    from datetime import datetime
+    from src.api.routes.sse import get_session
+    from src.models.database import SessionLocal
+    from src.models.twin import DigitalTwin, TwinState
+    
+    session = await get_session(session_id)
+    if not session:
+        return
+    
+    try:
+        # Define deployment steps with relative timing
+        steps = [
+            (0.02, "=" * 60),
+            (0.02, "  TERRAFORM DEPLOYMENT - STARTING (TEST MODE)"),
+            (0.02, "=" * 60),
+            (0.03, ""),
+            (0.04, f"[STEP 0/9] Validating cloud credentials for '{twin_name}'..."),
+            (0.02, "  Configured clouds: aws, azure"),
+            (0.02, "  ✓ AWS credentials validated"),
+            (0.02, "  ✓ Azure credentials validated"),
+            (0.03, ""),
+            (0.02, "[STEP 0.5/9] Initializing cloud providers for SDK operations..."),
+            (0.02, "  ✓ Providers initialized"),
+            (0.03, ""),
+            (0.02, "[STEP 1/9] Validating project structure..."),
+            (0.02, "✓ Project validation passed"),
+            (0.03, ""),
+            (0.02, "[STEP 2/9] Building function packages..."),
+            (0.03, "  Building dispatcher package..."),
+            (0.03, "  Building persister package..."),
+            (0.02, "✓ All packages built"),
+            (0.03, ""),
+            (0.02, "[STEP 3/9] Generating tfvars.json..."),
+            (0.02, f"✓ Generated: /app/upload/{twin_name}/terraform/generated.tfvars.json"),
+            (0.03, ""),
+            (0.02, "[STEP 4/9] Terraform init..."),
+            (0.03, "Initializing provider plugins..."),
+            (0.03, "- Finding hashicorp/aws versions matching ~> 5.0..."),
+            (0.03, "- Installing hashicorp/aws v5.31.0..."),
+            (0.02, "✓ Terraform initialized"),
+            (0.03, ""),
+            (0.02, "[STEP 5/9] Terraform apply..."),
+            (0.04, f"aws_iot_thing.{twin_name}_thing: Creating..."),
+            (0.05, f"aws_dynamodb_table.{twin_name}_hot_storage: Creating..."),
+            (0.03, f"aws_iot_thing.{twin_name}_thing: Creation complete after 2s"),
+            (0.05, f"aws_dynamodb_table.{twin_name}_hot_storage: Creation complete after 8s"),
+            (0.04, f"aws_lambda_function.{twin_name}_dispatcher: Creating..."),
+            (0.05, f"aws_lambda_function.{twin_name}_dispatcher: Creation complete after 12s"),
+            (0.02, ""),
+            (0.02, "Apply complete! Resources: 15 added, 0 changed, 0 destroyed."),
+            (0.02, "✓ Terraform outputs: ['iot_endpoint', 'dynamodb_table_name', 'lambda_arn']"),
+            (0.03, ""),
+            (0.02, "[STEP 6/9] Deploying Azure function code..."),
+            (0.02, "  No Azure layers configured, skipping Kudu deployment"),
+            (0.03, ""),
+            (0.02, "[STEP 7/9] Running post-deployment operations..."),
+            (0.03, "  Registering IoT devices..."),
+            (0.02, "  ✓ 3 devices registered"),
+            (0.03, ""),
+        ]
+        
+        total_fraction = sum(s[0] for s in steps)
+        for fraction, msg in steps:
+            if msg:  # Skip empty strings for logging but keep delay
+                print(msg, flush=True)  # Container logs
+                await session.push_log(msg)  # SSE stream
+            await asyncio.sleep(duration * fraction / total_fraction)
+        
+        if should_fail:
+            error_msg = "Simulated deployment failure: Terraform apply failed with exit code 1"
+            print(f"✗ {error_msg}", flush=True)
+            await session.push_log(f"✗ {error_msg}", level="error")
+            
+            # Update twin state to failed
+            db = SessionLocal()
+            try:
+                twin = db.query(DigitalTwin).get(twin_id)
+                if twin:
+                    twin.state = TwinState.ERROR
+                    twin.last_error = error_msg
+                    db.commit()
+            finally:
+                db.close()
+            
+            session.on_complete(success=False, message=error_msg)
+            return
+        
+        # Success path
+        for msg in ["=" * 60, "  TERRAFORM DEPLOYMENT - COMPLETE", "=" * 60]:
+            print(msg, flush=True)
+            await session.push_log(msg)
+        
+        # Update twin state in database
+        db = SessionLocal()
+        try:
+            twin = db.query(DigitalTwin).get(twin_id)
+            if twin:
+                twin.state = TwinState.DEPLOYED
+                twin.deployed_at = datetime.utcnow()
+                db.commit()
+        finally:
+            db.close()
+        
+        session.on_complete(
+            success=True,
+            message="Deployment complete (test mode)",
+            outputs={
+                "iot_endpoint": f"test-{twin_name}.iot.mock-region.amazonaws.com",
+                "storage_table": f"{twin_name}-hot-storage",
+                "lambda_arn": f"arn:aws:lambda:mock-region:123456789:function:{twin_name}-dispatcher"
+            }
+        )
+        
+    except Exception as e:
+        # Error path: update twin state to failed
+        try:
+            db = SessionLocal()
+            twin = db.query(DigitalTwin).get(twin_id)
+            if twin:
+                twin.state = TwinState.ERROR
+                twin.last_error = str(e)
+                db.commit()
+            db.close()
+        except Exception:
+            pass  # Best effort
+        session.on_complete(success=False, message=str(e))
+
+
+async def _run_test_destroy_stream(
+    session_id: str,
+    twin_id: str,
+    twin_name: str,
+    duration: int,
+    should_fail: bool
+):
+    """
+    Background task that simulates Terraform destruction and streams logs via SSE.
+    Creates its own DB session to avoid session scoping issues.
+    """
+    import asyncio
+    from datetime import datetime
+    from src.api.routes.sse import get_session
+    from src.models.database import SessionLocal
+    from src.models.twin import DigitalTwin, TwinState
+    
+    session = await get_session(session_id)
+    if not session:
+        return
+    
+    try:
+        steps = [
+            (0.05, "=" * 60),
+            (0.05, "  TERRAFORM DESTROY - STARTING (TEST MODE)"),
+            (0.05, "=" * 60),
+            (0.08, ""),
+            (0.08, "[STEP 1/2] Terraform destroy..."),
+            (0.12, f"aws_lambda_function.{twin_name}_dispatcher: Destroying..."),
+            (0.12, f"aws_lambda_function.{twin_name}_dispatcher: Destruction complete after 5s"),
+            (0.08, f"aws_dynamodb_table.{twin_name}_hot_storage: Destroying..."),
+            (0.12, f"aws_dynamodb_table.{twin_name}_hot_storage: Destruction complete after 10s"),
+            (0.05, ""),
+            (0.05, "Destroy complete! Resources: 15 destroyed."),
+        ]
+        
+        total_fraction = sum(s[0] for s in steps)
+        for fraction, msg in steps:
+            if msg:
+                print(msg, flush=True)  # Container logs
+                await session.push_log(msg)  # SSE stream
+            await asyncio.sleep(duration * fraction / total_fraction)
+        
+        if should_fail:
+            error_msg = "Simulated destroy failure: Resource still in use"
+            print(f"✗ {error_msg}", flush=True)
+            await session.push_log(f"✗ {error_msg}", level="error")
+            
+            db = SessionLocal()
+            try:
+                twin = db.query(DigitalTwin).get(twin_id)
+                if twin:
+                    twin.state = TwinState.ERROR
+                    twin.last_error = error_msg
+                    db.commit()
+            finally:
+                db.close()
+            
+            session.on_complete(success=False, message=error_msg)
+            return
+        
+        # Success path
+        for msg in ["=" * 60, "  TERRAFORM DESTROY - COMPLETE", "=" * 60]:
+            print(msg, flush=True)
+            await session.push_log(msg)
+        
+        db = SessionLocal()
+        try:
+            twin = db.query(DigitalTwin).get(twin_id)
+            if twin:
+                twin.state = TwinState.DESTROYED
+                twin.destroyed_at = datetime.utcnow()
+                db.commit()
+        finally:
+            db.close()
+        
+        session.on_complete(success=True, message="Destruction complete (test mode)")
+        
+    except Exception as e:
+        try:
+            db = SessionLocal()
+            twin = db.query(DigitalTwin).get(twin_id)
+            if twin:
+                twin.state = TwinState.ERROR
+                twin.last_error = str(e)
+                db.commit()
+            db.close()
+        except Exception:
+            pass
+        session.on_complete(success=False, message=str(e))
+
+
+# =============================================================================
+# Logs Query Endpoint
+# =============================================================================
+
+@router.get("/{twin_id}/logs")
+async def get_deployment_logs(
+    twin_id: str,
+    session_id: Optional[str] = Query(None, description="Filter by session ID"),
+    after_event_id: Optional[int] = Query(None, description="Return events after this ID"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum logs to return"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get persisted deployment logs for a twin.
+    
+    Used for reconnection catchup when SSE session has expired.
+    """
+    from src.models import DeploymentLog
+    
+    # Verify twin ownership
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    
+    # Build query
+    query = db.query(DeploymentLog).filter(DeploymentLog.twin_id == twin_id)
+    
+    if session_id:
+        query = query.filter(DeploymentLog.session_id == session_id)
+    
+    if after_event_id is not None:
+        query = query.filter(DeploymentLog.event_id > after_event_id)
+    
+    logs = query.order_by(DeploymentLog.event_id.asc()).limit(limit).all()
+    
+    return {
+        "twin_id": twin_id,
+        "logs": [
+            {
+                "id": log.event_id,
+                "session_id": log.session_id,
+                "message": log.message,
+                "level": log.level,
+                "timestamp": log.timestamp.isoformat() if log.timestamp else None,
+                "operation_type": log.operation_type
+            }
+            for log in logs
+        ]
+    }
+
+
+
+# =============================================================================
+# Legacy Simulation Functions (kept for backward compatibility)
+# =============================================================================
+
+async def _simulate_deployment(name: str, duration: int, should_fail: bool, logger) -> list:
+    """Print realistic terraform-style deployment logs. Returns collected logs."""
+    import asyncio
+    
+    collected_logs = []
+    
+    # Define steps with relative timing (fractions that sum to ~1.0)
+    steps = [
+        (0.02, "=" * 60),
+        (0.02, "  TERRAFORM DEPLOYMENT - STARTING (TEST MODE)"),
+        (0.02, "=" * 60),
+        (0.05, ""),
+        (0.05, f"[STEP 0/9] Validating cloud credentials for '{name}'..."),
+        (0.03, "  Configured clouds: aws, azure"),
+        (0.02, "✓ Deploy complete!"),
+    ]
+    
+    total_fraction = sum(s[0] for s in steps)
+    for fraction, msg in steps:
+        if msg:
+            logger.info(msg)
+            collected_logs.append(msg)
+        await asyncio.sleep(duration * fraction / total_fraction)
+    
+    if should_fail:
+        error_msg = "Simulated deployment failure: Terraform apply failed with exit code 1"
+        collected_logs.append(f"✗ {error_msg}")
+        raise Exception(error_msg)
+    
+    return collected_logs
+
+
+async def _simulate_destroy(name: str, duration: int, should_fail: bool, logger) -> list:
+    """Print realistic terraform-style destruction logs. Returns collected logs."""
+    import asyncio
+    
+    collected_logs = []
+    
+    steps = [
+        (0.05, "=" * 60),
+        (0.05, "  TERRAFORM DESTROY - STARTING (TEST MODE)"),
+        (0.05, "=" * 60),
+        (0.10, ""),
+        (0.10, "[STEP 1/2] Terraform destroy..."),
+        (0.15, f"aws_lambda_function.{name}_dispatcher: Destroying..."),
+        (0.15, f"aws_lambda_function.{name}_dispatcher: Destruction complete after 5s"),
+        (0.10, f"aws_dynamodb_table.{name}_hot_storage: Destroying..."),
+        (0.15, f"aws_dynamodb_table.{name}_hot_storage: Destruction complete after 10s"),
+        (0.05, ""),
+        (0.05, "Destroy complete! Resources: 15 destroyed."),
+        (0.05, "=" * 60),
+        (0.05, "  TERRAFORM DESTROY - COMPLETE"),
+        (0.05, "=" * 60),
+    ]
+    
+    total_fraction = sum(s[0] for s in steps)
+    for fraction, msg in steps:
+        if msg:
+            logger.info(msg)
+            print(msg, flush=True)
+            collected_logs.append(msg)
+        await asyncio.sleep(duration * fraction / total_fraction)
+    
+    if should_fail:
+        error_msg = "Simulated destroy failure: Resource still in use"
+        logger.error(f"✗ {error_msg}")
+        print(f"✗ {error_msg}", flush=True)
+        collected_logs.append(f"✗ {error_msg}")
+        raise Exception(error_msg)
+    
+    return collected_logs
 
 
 def _build_deploy_config(twin: DigitalTwin) -> dict:
