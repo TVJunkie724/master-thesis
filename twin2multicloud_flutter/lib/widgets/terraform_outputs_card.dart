@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
+import 'package:twin2multicloud_flutter/theme/colors.dart';
 
 /// Card that displays terraform outputs from a successful deployment.
 ///
@@ -104,16 +105,10 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
   }
 
   Color _getProviderColor(String provider, ThemeData theme) {
-    switch (provider) {
-      case 'AWS':
-        return Colors.orange.shade700;
-      case 'Azure':
-        return Colors.blue.shade600;
-      case 'GCP':
-        return Colors.red.shade600;
-      default:
-        return theme.colorScheme.primary;
+    if (provider == 'Cross-Cloud') {
+      return AppColors.glueCode;
     }
+    return AppColors.getProviderColor(provider);
   }
 
   @override

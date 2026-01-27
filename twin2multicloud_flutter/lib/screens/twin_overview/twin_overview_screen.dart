@@ -90,10 +90,6 @@ class TwinOverviewView extends ConsumerWidget {
   }
 
   Widget _buildHeader(BuildContext context, TwinOverviewState state) {
-    final projectName = state is TwinOverviewLoaded
-        ? state.projectName
-        : 'Loading...';
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -112,15 +108,10 @@ class TwinOverviewView extends ConsumerWidget {
           constraints: const BoxConstraints(maxWidth: 1200),
           child: Row(
             children: [
-              IconButton(
+              TextButton.icon(
                 icon: const Icon(Icons.arrow_back),
+                label: const Text('Back to Dashboard'),
                 onPressed: () => context.go('/dashboard'),
-                tooltip: 'Back to Dashboard',
-              ),
-              const SizedBox(width: 8),
-              Text(
-                projectName,
-                style: Theme.of(context).textTheme.headlineSmall,
               ),
             ],
           ),

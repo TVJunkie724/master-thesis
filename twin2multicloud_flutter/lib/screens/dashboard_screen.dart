@@ -25,6 +25,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _sortColumnIndex = 0;
   bool _sortAscending = true;
   String? _selectedStateFilter; // null means "All"
+  bool _needsRefresh = true; // Refresh on first build
 
   List<Twin> _sortTwins(List<Twin> twins) {
     final sorted = List<Twin>.from(twins);
@@ -54,6 +55,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Invalidate stale cache on first build to ensure fresh data when navigating
+    // This ensures state changes (e.g., from deployments) are reflected
+    if (_needsRefresh) {
+      _needsRefresh = false;
+      // Schedule for after this build frame to avoid rebuild loop
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.invalidate(twinsProvider);
+        ref.invalidate(dashboardStatsProvider);
+      });
+    }
+
     final twinsAsync = ref.watch(twinsProvider);
 
     return Scaffold(

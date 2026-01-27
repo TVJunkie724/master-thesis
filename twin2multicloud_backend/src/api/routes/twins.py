@@ -805,6 +805,131 @@ async def _run_test_deploy_stream(
     deployment_id = deployment.id
     db.close()
     
+    def _get_mock_terraform_outputs(name: str) -> dict:
+        """Generate comprehensive mock terraform outputs matching outputs.tf"""
+        return {
+            # Core
+            "digital_twin_name": name,
+            
+            # AWS Setup
+            "aws_resource_group_name": f"rg-{name}",
+            "aws_account_id": "123456789012",
+            "aws_region": "us-east-1",
+            
+            # AWS L0 Glue
+            "aws_l0_ingestion_function_name": f"{name}-l0-ingestion",
+            "aws_l0_ingestion_url": f"https://{name}-l0-ingestion.lambda-url.us-east-1.on.aws/",
+            "aws_l0_hot_writer_url": f"https://{name}-l0-hot-writer.lambda-url.us-east-1.on.aws/",
+            "aws_l0_hot_reader_url": f"https://{name}-l0-hot-reader.lambda-url.us-east-1.on.aws/",
+            "aws_l0_cold_writer_function_name": f"{name}-l0-cold-writer",
+            "aws_l0_cold_writer_url": f"https://{name}-l0-cold-writer.lambda-url.us-east-1.on.aws/",
+            "aws_l0_archive_writer_function_name": f"{name}-l0-archive-writer",
+            "aws_l0_archive_writer_url": f"https://{name}-l0-archive-writer.lambda-url.us-east-1.on.aws/",
+            
+            # AWS L1 IoT
+            "aws_l1_dispatcher_function_name": f"{name}-l1-dispatcher",
+            "aws_iot_topic_rule_name": f"{name}_telemetry_rule",
+            "aws_iot_role_arn": f"arn:aws:iam::123456789012:role/{name}-iot-rule",
+            "aws_l1_connector_function_name": f"{name}-l1-connector",
+            "aws_iot_endpoint": f"a1b2c3d4e5f6g7.iot.us-east-1.amazonaws.com",
+            
+            # AWS L2 Compute
+            "aws_l2_persister_function_name": f"{name}-l2-persister",
+            "aws_l2_event_checker_function_name": f"{name}-l2-event-checker",
+            "aws_l2_step_function_arn": f"arn:aws:states:us-east-1:123456789012:stateMachine:{name}-workflow",
+            
+            # AWS L3 Storage
+            "aws_dynamodb_table_name": f"{name}-hot-storage",
+            "aws_dynamodb_table_arn": f"arn:aws:dynamodb:us-east-1:123456789012:table/{name}-hot-storage",
+            "aws_l3_hot_reader_function_name": f"{name}-l3-hot-reader",
+            "aws_l3_hot_reader_url": f"https://{name}-l3-hot-reader.lambda-url.us-east-1.on.aws/",
+            "aws_s3_cold_bucket": f"{name}-cold-storage-abc123",
+            "aws_s3_archive_bucket": f"{name}-archive-storage-def456",
+            
+            # AWS L4 TwinMaker
+            "aws_twinmaker_workspace_id": f"{name}-workspace",
+            "aws_twinmaker_workspace_arn": f"arn:aws:iottwinmaker:us-east-1:123456789012:workspace/{name}-workspace",
+            "aws_twinmaker_scene_id": f"{name}-scene",
+            
+            # AWS L5 Grafana
+            "aws_grafana_workspace_id": "g-abc123def456",
+            "aws_grafana_endpoint": "https://g-abc123def456.grafana-workspace.us-east-1.amazonaws.com",
+            "aws_platform_user_email": "user@example.com",
+            "aws_sso_available": True,
+            "aws_platform_user_created": True,
+            
+            # Azure Setup
+            "azure_resource_group_name": f"rg-{name}-eastus",
+            "azure_resource_group_id": f"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-{name}-eastus",
+            "azure_managed_identity_id": f"/subscriptions/.../userAssignedIdentities/{name}-identity",
+            "azure_managed_identity_client_id": "11111111-1111-1111-1111-111111111111",
+            "azure_storage_account_name": f"{name.replace('-', '')}storage",
+            
+            # Azure L0 Glue
+            "azure_l0_function_app_name": f"{name}-l0-glue",
+            "azure_l0_function_app_url": f"https://{name}-l0-glue.azurewebsites.net",
+            
+            # Azure L1 IoT
+            "azure_iothub_name": f"{name}-iothub",
+            "azure_iothub_hostname": f"{name}-iothub.azure-devices.net",
+            "azure_l1_function_app_name": f"{name}-l1",
+            
+            # Azure L2 Compute
+            "azure_l2_function_app_name": f"{name}-l2",
+            "azure_user_functions_app_name": f"{name}-user",
+            "azure_dispatcher_url": f"https://{name}-l2.azurewebsites.net/api/dispatcher",
+            
+            # Azure L3 Storage
+            "azure_cosmos_account_name": f"{name}-cosmos",
+            "azure_cosmos_endpoint": f"https://{name}-cosmos.documents.azure.com:443/",
+            "azure_l3_function_app_name": f"{name}-l3",
+            "azure_l3_hot_reader_url": f"https://{name}-l3.azurewebsites.net/api/hot-reader",
+            "azure_archive_storage_account": f"{name.replace('-', '')}storage",
+            
+            # Azure L4 Digital Twins
+            "azure_adt_instance_name": f"{name}-adt",
+            "azure_adt_endpoint": f"https://{name}-adt.api.eus.digitaltwins.azure.net",
+            "azure_3d_scenes_container_url": f"https://{name.replace('-', '')}storage.blob.core.windows.net/scenes",
+            "azure_platform_user_created": False,
+            
+            # Azure L5 Grafana
+            "azure_grafana_name": f"{name}-grafana",
+            "azure_grafana_endpoint": f"https://{name}-grafana.eus.grafana.azure.com",
+            
+            # GCP Setup
+            "gcp_project_id": f"{name}-project-abc123",
+            "gcp_service_account_email": f"functions@{name}-project.iam.gserviceaccount.com",
+            "gcp_function_source_bucket": f"{name}-function-source",
+            
+            # GCP L1 IoT
+            "gcp_pubsub_telemetry_topic": f"projects/{name}-project/topics/telemetry",
+            "gcp_pubsub_events_topic": f"projects/{name}-project/topics/events",
+            "gcp_dispatcher_url": f"https://dispatcher-abc123-uc.a.run.app",
+            "gcp_connector_url": f"https://connector-def456-uc.a.run.app",
+            
+            # GCP L2 Compute
+            "gcp_processor_url": f"https://processor-ghi789-uc.a.run.app",
+            "gcp_persister_url": f"https://persister-jkl012-uc.a.run.app",
+            "gcp_event_checker_url": f"https://event-checker-mno345-uc.a.run.app",
+            "gcp_user_functions_url": f"https://user-functions-pqr678-uc.a.run.app",
+            "gcp_event_workflow_id": f"projects/{name}-project/locations/us-central1/workflows/event-workflow",
+            
+            # GCP L3 Storage
+            "gcp_firestore_database": "(default)",
+            "gcp_cold_bucket": f"{name}-cold-storage",
+            "gcp_archive_bucket": f"{name}-archive-storage",
+            "gcp_hot_reader_url": f"https://hot-reader-stu901-uc.a.run.app",
+            
+            # GCP L0 Glue
+            "gcp_ingestion_url": f"https://ingestion-vwx234-uc.a.run.app",
+            "gcp_hot_writer_url": f"https://hot-writer-yza567-uc.a.run.app",
+            "gcp_cold_writer_url": f"https://cold-writer-bcd890-uc.a.run.app",
+            "gcp_archive_writer_url": f"https://archive-writer-efg123-uc.a.run.app",
+            
+            # Cross-Cloud
+            "inter_cloud_token": "mock-inter-cloud-token-xyz789",
+        }
+    
     try:
         # Define deployment steps with relative timing
         steps = [
@@ -846,7 +971,7 @@ async def _run_test_deploy_stream(
             (0.05, f"aws_lambda_function.{twin_name}_dispatcher: Creation complete after 12s"),
             (0.02, ""),
             (0.02, "Apply complete! Resources: 15 added, 0 changed, 0 destroyed."),
-            (0.02, "✓ Terraform outputs: ['iot_endpoint', 'dynamodb_table_name', 'lambda_arn']"),
+            (0.02, "✓ Terraform outputs: ['aws_iot_endpoint', 'aws_dynamodb_table_name', 'aws_l1_dispatcher_function_name', ...]"),
             (0.03, ""),
             (0.02, "[STEP 6/9] Deploying Azure function code..."),
             (0.02, "  No Azure layers configured, skipping Kudu deployment"),
@@ -911,11 +1036,7 @@ async def _run_test_deploy_stream(
             deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
             if deployment:
                 deployment.status = "success"
-                deployment.terraform_outputs = {
-                    "iot_endpoint": f"test-{twin_name}.iot.mock-region.amazonaws.com",
-                    "storage_table": f"{twin_name}-hot-storage",
-                    "lambda_arn": f"arn:aws:lambda:mock-region:123456789:function:{twin_name}-dispatcher"
-                }
+                deployment.terraform_outputs = _get_mock_terraform_outputs(twin_name)
                 deployment.completed_at = datetime.utcnow()
                 db.commit()
         finally:
@@ -924,11 +1045,7 @@ async def _run_test_deploy_stream(
         session.on_complete(
             success=True,
             message="Deployment complete (test mode)",
-            outputs={
-                "iot_endpoint": f"test-{twin_name}.iot.mock-region.amazonaws.com",
-                "storage_table": f"{twin_name}-hot-storage",
-                "lambda_arn": f"arn:aws:lambda:mock-region:123456789:function:{twin_name}-dispatcher"
-            }
+            outputs=_get_mock_terraform_outputs(twin_name)
         )
         
     except Exception as e:
@@ -1476,3 +1593,123 @@ def _build_deploy_config(twin: DigitalTwin) -> dict:
             config["optimizer_result"] = json.loads(oc.optimizer_result)
     
     return config
+
+
+# ============================================================
+# Log Trace Endpoints (Proxy to Deployer API)
+# ============================================================
+
+@router.post("/{twin_id}/log-trace/start")
+async def start_log_trace(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Start a log trace by sending a test IoT message with a unique trace_id.
+    
+    Proxies to Deployer API /logs/trace/start endpoint.
+    Only works for deployed twins.
+    
+    Returns:
+        trace_id: Unique identifier to track in logs
+        providers: List of cloud providers that will be queried
+    """
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    
+    # Must be deployed to trace logs
+    if twin.state != TwinState.DEPLOYED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Twin must be deployed to trace logs (current state: {twin.state})"
+        )
+    
+    # Get resource name for Deployer API
+    resource_name = twin.name.lower().replace(" ", "-")
+    if twin.deployer_config and twin.deployer_config.resource_name:
+        resource_name = twin.deployer_config.resource_name
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{DEPLOYER_API_URL}/logs/trace/start",
+                params={"project_name": resource_name}
+            )
+            
+            if response.status_code == 429:
+                # Rate limited - pass through the message
+                raise HTTPException(status_code=429, detail=response.json().get("detail", "Rate limited"))
+            
+            response.raise_for_status()
+            return response.json()
+            
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"Deployer API error: {e.response.text}"
+        )
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail="Deployer API unavailable")
+
+
+@router.get("/{twin_id}/log-trace/stream/{trace_id}")
+async def stream_log_trace(
+    twin_id: str,
+    trace_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    SSE endpoint for streaming log trace results.
+    
+    Proxies to Deployer API /logs/trace/stream/{trace_id} endpoint.
+    
+    Events:
+    - "log": {prefix, timestamp, message, layer, provider}
+    - "error": {message}
+    - "done": {summary}
+    """
+    from starlette.responses import StreamingResponse
+    
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    
+    # Get resource name for Deployer API
+    resource_name = twin.name.lower().replace(" ", "-")
+    if twin.deployer_config and twin.deployer_config.resource_name:
+        resource_name = twin.deployer_config.resource_name
+    
+    async def event_generator():
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                async with client.stream(
+                    "GET",
+                    f"{DEPLOYER_API_URL}/logs/trace/stream/{trace_id}",
+                    params={"project_name": resource_name}
+                ) as response:
+                    async for line in response.aiter_lines():
+                        if line:
+                            yield f"{line}\n"
+        except Exception as e:
+            yield f"event: error\ndata: {{\"message\": \"Stream error: {str(e)}\"}}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
+
