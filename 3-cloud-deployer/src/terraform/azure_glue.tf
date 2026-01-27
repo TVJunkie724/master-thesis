@@ -120,6 +120,10 @@ resource "azurerm_linux_function_app" "l0_glue" {
 
     # ADT instance URL - required by adt-pusher for multi-cloud L4 updates
     ADT_INSTANCE_URL = var.layer_4_provider == "azure" ? local.azure_adt_url : ""
+
+    # Application Insights for logging
+    APPINSIGHTS_INSTRUMENTATIONKEY        = local.app_insights_key
+    APPLICATIONINSIGHTS_CONNECTION_STRING = local.app_insights_conn_str
   }
 
   # ZIP deployment will be handled by Python orchestrator post-Terraform

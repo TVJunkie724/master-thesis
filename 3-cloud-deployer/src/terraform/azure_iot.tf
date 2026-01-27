@@ -144,6 +144,10 @@ resource "azurerm_linux_function_app" "l1" {
     # L2 Function Key - required for Azure→Azure HTTP authentication
     # processor_wrapper has AuthLevel.FUNCTION so requires this key
     L2_FUNCTION_KEY = var.layer_2_provider == "azure" ? try(data.azurerm_function_app_host_keys.l2[0].default_function_key, "") : ""
+
+    # Application Insights for logging
+    APPINSIGHTS_INSTRUMENTATIONKEY        = local.app_insights_key
+    APPLICATIONINSIGHTS_CONNECTION_STRING = local.app_insights_conn_str
   }
 
   tags = local.common_tags

@@ -208,6 +208,10 @@ resource "azurerm_linux_function_app" "l3" {
 
     # Azure ADT instance URL (for hot-reader to resolve device IDs)
     ADT_INSTANCE_URL = var.layer_4_provider == "azure" ? local.azure_adt_url : ""
+
+    # Application Insights for logging
+    APPINSIGHTS_INSTRUMENTATIONKEY        = local.app_insights_key
+    APPLICATIONINSIGHTS_CONNECTION_STRING = local.app_insights_conn_str
   }
 
   tags = local.common_tags

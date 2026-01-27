@@ -429,3 +429,30 @@ variable "azure_user_zip_path" {
   default     = ""
 }
 
+# ==============================================================================
+# Observability Configuration
+# ==============================================================================
+
+variable "enable_aws_logging" {
+  description = "Enable CloudWatch logging for AWS resources"
+  type        = bool
+  default     = true
+}
+
+variable "enable_gcp_logging" {
+  description = "Enable Cloud Logging for GCP resources (placeholder)"
+  type        = bool
+  default     = true
+}
+
+variable "enable_azure_logging" {
+  description = "Enable Log Analytics and App Insights for Azure resources"
+  type        = bool
+  default     = true
+}
+
+variable "log_retention_days" {
+  description = "Log retention period in days"
+  type        = number
+  default     = 7
+}

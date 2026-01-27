@@ -145,6 +145,10 @@ resource "azurerm_linux_function_app" "l2" {
 
     # IoT Hub connection - required by event_feedback_wrapper to send feedback to devices
     IOT_HUB_CONNECTION_STRING = var.layer_1_provider == "azure" ? azurerm_iothub.main[0].event_hub_events_endpoint : ""
+
+    # Application Insights for logging
+    APPINSIGHTS_INSTRUMENTATIONKEY        = local.app_insights_key
+    APPLICATIONINSIGHTS_CONNECTION_STRING = local.app_insights_conn_str
   }
 
   tags = local.common_tags
@@ -234,6 +238,10 @@ resource "azurerm_linux_function_app" "user" {
 
     # IoT Hub connection - required by event_feedback_wrapper to send feedback to devices
     IOT_HUB_CONNECTION_STRING = var.layer_1_provider == "azure" ? azurerm_iothub.main[0].event_hub_events_endpoint : ""
+
+    # Application Insights for logging
+    APPINSIGHTS_INSTRUMENTATIONKEY        = local.app_insights_key
+    APPLICATIONINSIGHTS_CONNECTION_STRING = local.app_insights_conn_str
   }
 
   tags = local.common_tags
