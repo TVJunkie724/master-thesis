@@ -436,4 +436,70 @@ class ApiService {
     final response = await _dio.get('/twins/$twinId/deployment-status');
     return response.data as Map<String, dynamic>;
   }
+
+  // ==========================================================================
+  // Test Deployment (UI Testing Only)
+  // ==========================================================================
+
+  /// Test deployment for UI testing - requires ENABLE_TEST_ENDPOINTS=true on backend
+  ///
+  /// Simulates a realistic deployment with terraform-style console logs.
+  /// No real cloud resources are created.
+  /// Now returns {session_id, sse_url} for streaming.
+  Future<Map<String, dynamic>> testDeployTwin(
+    String twinId, {
+    int duration = 30,
+    bool shouldFail = false,
+  }) async {
+    final response = await _dio.post(
+      '/twins/$twinId/test-deploy',
+      queryParameters: {'duration': duration, 'should_fail': shouldFail},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Test destroy for UI testing - requires ENABLE_TEST_ENDPOINTS=true on backend
+  /// Now returns {session_id, sse_url} for streaming.
+  Future<Map<String, dynamic>> testDestroyTwin(
+    String twinId, {
+    int duration = 20,
+    bool shouldFail = false,
+  }) async {
+    final response = await _dio.post(
+      '/twins/$twinId/test-destroy',
+      queryParameters: {'duration': duration, 'should_fail': shouldFail},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  // ==========================================================================
+  // SSE Streaming and Logs
+  // ==========================================================================
+
+  /// Get full SSE URL for streaming deployment logs
+  String getSseUrl(String sseUrl, {int? lastEventId}) {
+    final base = '${ApiConfig.baseUrl}$sseUrl';
+    if (lastEventId != null && lastEventId > 0) {
+      return '$base?last_event_id=$lastEventId';
+    }
+    return base;
+  }
+
+  /// Get deployment logs from database (for catchup after reconnection)
+  Future<Map<String, dynamic>> getDeploymentLogs(
+    String twinId, {
+    String? sessionId,
+    int? afterEventId,
+    int limit = 100,
+  }) async {
+    final queryParams = <String, dynamic>{'limit': limit};
+    if (sessionId != null) queryParams['session_id'] = sessionId;
+    if (afterEventId != null) queryParams['after_event_id'] = afterEventId;
+
+    final response = await _dio.get(
+      '/twins/$twinId/logs',
+      queryParameters: queryParams,
+    );
+    return response.data as Map<String, dynamic>;
+  }
 }

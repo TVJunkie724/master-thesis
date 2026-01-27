@@ -10,11 +10,20 @@ Editable: Yes - This is shared runtime code packaged with Cloud Functions
 """
 import json
 import time
+import base64
 import uuid
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone
 from typing import Any, Optional
+
+# Google Auth for ID token (GCP service-to-service authentication)
+try:
+    import google.auth.transport.requests
+    import google.oauth2.id_token
+    _GOOGLE_AUTH_AVAILABLE = True
+except ImportError:
+    _GOOGLE_AUTH_AVAILABLE = False
 
 
 # ==========================================
@@ -24,6 +33,88 @@ from typing import Any, Optional
 MAX_RETRIES = 3
 RETRY_BASE_DELAY = 1  # seconds
 DEFAULT_TIMEOUT = 30  # seconds
+
+# Token cache for performance (ID tokens valid ~1 hour)
+_token_cache = {}
+_TOKEN_REFRESH_MARGIN = 60  # Refresh 60 seconds before expiry
+
+
+# ==========================================
+# GCP Service-to-Service Authentication
+# ==========================================
+
+def _get_token_expiry(token: str) -> float:
+    """
+    Parse the expiry time from a JWT token.
+    
+    Args:
+        token: JWT token string
+        
+    Returns:
+        Expiry timestamp as float, or current_time + 3600 if parsing fails
+    """
+    try:
+        # JWT format: header.payload.signature
+        payload = token.split('.')[1]
+        # Add padding if needed for base64 decoding
+        payload += '=' * (4 - len(payload) % 4)
+        decoded = json.loads(base64.urlsafe_b64decode(payload))
+        return float(decoded.get('exp', time.time() + 3600))
+    except Exception:
+        # Fallback to 1 hour if parsing fails
+        return time.time() + 3600
+
+
+def get_id_token_headers(target_url: str) -> dict:
+    """
+    Get headers with ID token for GCP Cloud Functions Gen2 service-to-service calls.
+    
+    Uses caching to avoid fetching a new token on every request.
+    Tokens are refreshed 60 seconds before their actual expiry.
+    
+    Args:
+        target_url: The URL of the target Cloud Function (used as audience)
+    
+    Returns:
+        dict: Headers including Authorization bearer token and Content-Type
+    
+    Raises:
+        ValueError: If target_url is empty or invalid
+        RuntimeError: If google-auth library is unavailable or token fetch fails
+    """
+    global _token_cache
+    
+    # Validate URL
+    if not target_url or not target_url.startswith('http'):
+        raise ValueError(f"Invalid target URL for ID token: {target_url}")
+    
+    headers = {"Content-Type": "application/json"}
+    
+    if not _GOOGLE_AUTH_AVAILABLE:
+        raise RuntimeError("google-auth library not available - required for GCP service-to-service calls")
+    
+    # Check cache
+    cache_key = target_url
+    cached = _token_cache.get(cache_key)
+    if cached and time.time() < cached["expiry"] - _TOKEN_REFRESH_MARGIN:
+        headers["Authorization"] = f"Bearer {cached['token']}"
+        return headers
+    
+    try:
+        auth_req = google.auth.transport.requests.Request()
+        id_token = google.oauth2.id_token.fetch_id_token(auth_req, target_url)
+        headers["Authorization"] = f"Bearer {id_token}"
+        
+        # Cache token with actual expiry from JWT
+        _token_cache[cache_key] = {
+            "token": id_token,
+            "expiry": _get_token_expiry(id_token)
+        }
+        print(f"ID token obtained for {target_url[:50]}...")
+    except Exception as e:
+        raise RuntimeError(f"Failed to get ID token for {target_url}: {e}")
+    
+    return headers
 
 
 # ==========================================

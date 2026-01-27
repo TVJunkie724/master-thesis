@@ -17,12 +17,14 @@ import functions_framework
 try:
     from _shared.env_utils import require_env
     from _shared.normalize import normalize_telemetry
+    from _shared.inter_cloud import get_id_token_headers
 except ModuleNotFoundError:
     _cloud_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _cloud_funcs_dir not in sys.path:
         sys.path.insert(0, _cloud_funcs_dir)
     from _shared.env_utils import require_env
     from _shared.normalize import normalize_telemetry
+    from _shared.inter_cloud import get_id_token_headers
 
 
 # Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
@@ -88,7 +90,7 @@ def main(request):
         response = requests.post(
             target_url,
             json=event,
-            headers={"Content-Type": "application/json"},
+            headers=get_id_token_headers(target_url),
             timeout=30
         )
         

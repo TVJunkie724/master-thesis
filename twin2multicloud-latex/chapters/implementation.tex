@@ -1,0 +1,34 @@
+\chapter{\label{chap:implementation}Implementation}
+
+% This chapter covers the "how" - the technical details of building the system.
+% Focus on non-obvious decisions and interesting implementation challenges.
+
+\section{Technology Stack}
+% Overview of technologies used:
+% - Backend: Python (Flask/FastAPI), Terraform CLI
+% - Frontend: Flutter/Dart
+% - Infrastructure: Docker, Docker Compose
+% - Cloud SDKs and APIs for each provider
+% Include a table summarizing the stack per component
+
+\section{Docker-based Development Environment}
+% Explain the containerized development setup:
+% - Why Docker: reproducibility, isolation, ARM64 compatibility
+% - Container architecture: separate containers per component
+% - Volume mounts for credentials and configuration
+% - Developer workflow: docker compose up, hot reloading
+
+\section{API Design and Integration}
+% Detail the API contracts between components:
+% - Management API endpoints (twin CRUD, deployment triggers)
+% - Optimizer API (cost calculation requests)
+% - Deployer API (provision, destroy, validate)
+% - Error handling and response formats
+
+\section{Key Implementation Decisions}
+% Discuss interesting technical decisions:
+% - Why Terraform over Pulumi or CloudFormation
+% - Handling cloud credential security
+% - State synchronization between UI and backend
+% - Retry logic and failure recovery patterns
+% - Any significant refactoring decisions made during development

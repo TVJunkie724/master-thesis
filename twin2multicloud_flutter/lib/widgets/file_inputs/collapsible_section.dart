@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// A collapsible section with animated expand/collapse.
 /// Used to organize Step 3 into logical groups.
-/// 
+///
 /// Supports a locked state where the section cannot be expanded
 /// and displays a hint message explaining what needs to be completed.
 class CollapsibleSection extends StatefulWidget {
@@ -12,17 +12,25 @@ class CollapsibleSection extends StatefulWidget {
   final int sectionNumber;
   final bool initiallyExpanded;
   final Widget child;
+
   /// If set, constrains header width when collapsed (centers the collapsed header)
   final double? collapsedMaxWidth;
+
   /// If true, the section is locked and cannot be expanded
   final bool isLocked;
+
   /// Hint text shown when section is locked (e.g., "Complete Section 2 to unlock")
   final String? lockedHint;
+
   /// Optional info/warning message shown in header (non-blocking, e.g., dependency warning)
   final String? infoHint;
+
   /// If true, show a check icon indicating the section is complete/valid
   final bool isValid;
-  
+
+  /// If true, forces the section to collapse (used for auto-collapse after zip upload)
+  final bool forceCollapsed;
+
   const CollapsibleSection({
     super.key,
     required this.title,
@@ -35,19 +43,20 @@ class CollapsibleSection extends StatefulWidget {
     this.lockedHint,
     this.infoHint,
     this.isValid = false,
+    this.forceCollapsed = false,
     required this.child,
   });
-  
+
   @override
   State<CollapsibleSection> createState() => _CollapsibleSectionState();
 }
 
-class _CollapsibleSectionState extends State<CollapsibleSection> 
+class _CollapsibleSectionState extends State<CollapsibleSection>
     with SingleTickerProviderStateMixin {
   late bool _isExpanded;
   late AnimationController _controller;
   late Animation<double> _iconTurns;
-  
+
   @override
   void initState() {
     super.initState();
@@ -57,14 +66,15 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    _iconTurns = Tween<double>(begin: 0.0, end: 0.5).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _iconTurns = Tween<double>(
+      begin: 0.0,
+      end: 0.5,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     if (_isExpanded) {
       _controller.value = 1.0;
     }
   }
-  
+
   @override
   void didUpdateWidget(CollapsibleSection oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -75,18 +85,25 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
         _controller.reverse();
       });
     }
+    // If forceCollapsed becomes true, collapse the section
+    if (widget.forceCollapsed && !oldWidget.forceCollapsed && _isExpanded) {
+      setState(() {
+        _isExpanded = false;
+        _controller.reverse();
+      });
+    }
   }
-  
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-  
+
   void _toggleExpanded() {
     // Don't allow expanding if locked
     if (widget.isLocked) return;
-    
+
     setState(() {
       _isExpanded = !_isExpanded;
       if (_isExpanded) {
@@ -96,16 +113,16 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
       }
     });
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).colorScheme.primary;
     final isLocked = widget.isLocked;
-    
+
     // Colors for locked state
     final lockedOpacity = isLocked ? 0.5 : 1.0;
-    final badgeColor = isLocked 
+    final badgeColor = isLocked
         ? (isDark ? Colors.grey.shade600 : Colors.grey.shade400)
         : primaryColor;
     // Use neutral grey for section icon (matching static box pattern)
@@ -116,7 +133,7 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
         ? (isDark ? Colors.grey.shade500 : Colors.grey.shade500)
         : (isDark ? Colors.white : Colors.black87);
     final descColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
-    
+
     final section = Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -171,8 +188,8 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                         const SizedBox(width: 12),
                         // Icon - show lock icon when locked
                         Icon(
-                          isLocked ? Icons.lock_outline : widget.icon, 
-                          color: iconColor, 
+                          isLocked ? Icons.lock_outline : widget.icon,
+                          color: iconColor,
                           size: 22,
                         ),
                         const SizedBox(width: 12),
@@ -202,9 +219,14 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                         // Show lock icon, check icon, or expand chevron
                         if (isLocked)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                              color: isDark
+                                  ? Colors.grey.shade800
+                                  : Colors.grey.shade200,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Row(
@@ -213,7 +235,9 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                                 Icon(
                                   Icons.lock,
                                   size: 14,
-                                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                  color: isDark
+                                      ? Colors.grey.shade400
+                                      : Colors.grey.shade600,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
@@ -221,7 +245,9 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
-                                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                    color: isDark
+                                        ? Colors.grey.shade400
+                                        : Colors.grey.shade600,
                                   ),
                                 ),
                               ],
@@ -232,11 +258,16 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                           if (widget.isValid)
                             Container(
                               margin: const EdgeInsets.only(right: 12),
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.green.shade100,
                                 borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: Colors.green.shade300),
+                                border: Border.all(
+                                  color: Colors.green.shade300,
+                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -262,7 +293,9 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                             turns: _iconTurns,
                             child: Icon(
                               Icons.expand_more,
-                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              color: isDark
+                                  ? Colors.grey.shade400
+                                  : Colors.grey.shade600,
                             ),
                           ),
                         ],
@@ -272,14 +305,17 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                     if (isLocked && widget.lockedHint != null) ...[
                       const SizedBox(height: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
-                          color: isDark 
+                          color: isDark
                               ? Colors.orange.shade900.withAlpha(50)
                               : Colors.orange.shade50,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: isDark 
+                            color: isDark
                                 ? Colors.orange.shade700.withAlpha(100)
                                 : Colors.orange.shade200,
                           ),
@@ -289,7 +325,9 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                             Icon(
                               Icons.info_outline,
                               size: 16,
-                              color: isDark ? Colors.orange.shade300 : Colors.orange.shade700,
+                              color: isDark
+                                  ? Colors.orange.shade300
+                                  : Colors.orange.shade700,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -297,7 +335,9 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                                 widget.lockedHint!,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: isDark ? Colors.orange.shade200 : Colors.orange.shade800,
+                                  color: isDark
+                                      ? Colors.orange.shade200
+                                      : Colors.orange.shade800,
                                 ),
                               ),
                             ),
@@ -309,14 +349,17 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                     if (!isLocked && widget.infoHint != null) ...[
                       const SizedBox(height: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
-                          color: isDark 
+                          color: isDark
                               ? Colors.blue.shade900.withAlpha(50)
                               : Colors.blue.shade50,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: isDark 
+                            color: isDark
                                 ? Colors.blue.shade700.withAlpha(100)
                                 : Colors.blue.shade200,
                           ),
@@ -326,7 +369,9 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                             Icon(
                               Icons.info_outline,
                               size: 16,
-                              color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
+                              color: isDark
+                                  ? Colors.blue.shade300
+                                  : Colors.blue.shade700,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -334,7 +379,9 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                                 widget.infoHint!,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: isDark ? Colors.blue.shade200 : Colors.blue.shade800,
+                                  color: isDark
+                                      ? Colors.blue.shade200
+                                      : Colors.blue.shade800,
                                 ),
                               ),
                             ),
@@ -354,8 +401,8 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: widget.child,
                 ),
-                crossFadeState: _isExpanded 
-                    ? CrossFadeState.showSecond 
+                crossFadeState: _isExpanded
+                    ? CrossFadeState.showSecond
                     : CrossFadeState.showFirst,
                 duration: const Duration(milliseconds: 200),
               ),
@@ -363,7 +410,7 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
         ),
       ),
     );
-    
+
     // When collapsed/locked and maxWidth set, center and constrain
     if ((!_isExpanded || isLocked) && widget.collapsedMaxWidth != null) {
       return Center(
@@ -373,7 +420,7 @@ class _CollapsibleSectionState extends State<CollapsibleSection>
         ),
       );
     }
-    
+
     return section;
   }
 }

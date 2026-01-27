@@ -52,4 +52,9 @@ class DigitalTwin(Base):
         uselist=False,
         cascade="all, delete-orphan"
     )
+    deployment_logs = relationship(
+        "DeploymentLog",
+        back_populates="twin",
+        order_by="DeploymentLog.event_id.asc()"
+    )
 

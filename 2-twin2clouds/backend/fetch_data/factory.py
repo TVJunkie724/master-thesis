@@ -164,7 +164,7 @@ class GCPPriceFetcher:
         billing_client = kwargs.get("billing_client")
         
         return fetch_gcp_price(
-            billing_client=billing_client,
+            client=billing_client,
             service_name=service_name,
             region_code=region_code,
             region_map=region_map,

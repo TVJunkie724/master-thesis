@@ -38,6 +38,13 @@ class ZipFileAccessor:
         with self._zf.open(path) as f:
             return f.read().decode('utf-8')
     
+    def read_binary(self, path: str) -> bytes:
+        """Read file contents as bytes."""
+        if path not in self._files:
+            raise FileNotFoundError(f"File not found in ZIP: {path}")
+        with self._zf.open(path) as f:
+            return f.read()
+    
     def get_project_root(self) -> str:
         return self._project_root
 
@@ -74,5 +81,13 @@ class DirectoryAccessor:
             raise FileNotFoundError(f"File not found: {path}")
         return file_path.read_text(encoding='utf-8')
     
+    def read_binary(self, path: str) -> bytes:
+        """Read file contents as bytes."""
+        file_path = self._path / path
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {path}")
+        return file_path.read_bytes()
+    
     def get_project_root(self) -> str:
         return ""  # Directory is already the project root
+

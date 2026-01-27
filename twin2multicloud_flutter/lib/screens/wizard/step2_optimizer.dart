@@ -85,11 +85,12 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
   Future<void> _loadPricingStatus() async {
     try {
       final status = await _apiService.getPricingStatus();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _pricingStatus = status;
           _loadingStatus = false;
         });
+      }
     } catch (e) {
       debugPrint('Failed to load pricing status: $e');
       if (mounted) setState(() => _loadingStatus = false);

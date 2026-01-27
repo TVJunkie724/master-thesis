@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 
 /// A reusable switch widget with label and optional helper text.
-/// 
+///
 /// Features:
 /// - Consistent styling with form inputs
 /// - Helper/description text
@@ -18,7 +18,7 @@ class ValidatedSwitch extends StatelessWidget {
   final bool enabled;
   final IconData? leadingIcon;
   final Color? activeColor;
-  
+
   const ValidatedSwitch({
     super.key,
     required this.title,
@@ -29,19 +29,19 @@ class ValidatedSwitch extends StatelessWidget {
     this.leadingIcon,
     this.activeColor,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return SwitchListTile(
       title: Row(
         children: [
           if (leadingIcon != null) ...[
             Icon(
               leadingIcon,
-              color: enabled 
-                  ? theme.colorScheme.primary 
+              color: enabled
+                  ? theme.colorScheme.primary
                   : theme.colorScheme.outline,
               size: 20,
             ),
@@ -61,8 +61,8 @@ class ValidatedSwitch extends StatelessWidget {
           ? Text(
               subtitle!,
               style: TextStyle(
-                color: enabled 
-                    ? theme.colorScheme.onSurfaceVariant 
+                color: enabled
+                    ? theme.colorScheme.onSurfaceVariant
                     : theme.colorScheme.outline,
                 fontSize: 12,
               ),
@@ -70,7 +70,7 @@ class ValidatedSwitch extends StatelessWidget {
           : null,
       value: value,
       onChanged: enabled ? onChanged : null,
-      activeColor: activeColor ?? theme.colorScheme.primary,
+      activeThumbColor: activeColor ?? theme.colorScheme.primary,
       contentPadding: EdgeInsets.zero,
     );
   }

@@ -54,3 +54,4 @@ google-cloud-service-usage
 google-cloud-functions
 google-cloud-run
 google-cloud-billing
+google-api-python-client

@@ -514,8 +514,11 @@ def build_gcp_cloud_function_packages(
     gcp_funcs_dir = Path(__file__).parent.parent / "gcp" / "cloud_functions"
     shared_dir = gcp_funcs_dir / "_shared"
     
+    # Load optimization flags from config_optimization.json
+    optimization_flags = _load_optimization_flags(project_path)
+    
     # Get functions from registry (replaces hardcoded boundary logic)
-    functions_to_build = get_functions_for_provider_build("gcp", providers_config)
+    functions_to_build = get_functions_for_provider_build("gcp", providers_config, optimization_flags)
     
     # Copy source files to project_path/cloud_functions/ for Terraform filemd5() access
     cloud_functions_dir = project_path / "cloud_functions"
@@ -596,7 +599,7 @@ def _create_gcp_function_zip(
         
         # Merge defaults with function's requirements.txt (always include defaults)
         defaults = {"functions-framework", "requests", "google-cloud-firestore", 
-                   "google-cloud-storage", "google-cloud-pubsub"}
+                   "google-cloud-storage", "google-cloud-pubsub", "google-auth"}
         func_req = func_dir / "requirements.txt"
         if func_req.exists():
             for line in func_req.read_text().strip().splitlines():

@@ -112,6 +112,11 @@ STATE_MACHINE_SIGNATURES = {
     GOOGLE_STATE_MACHINE_FILE: ["main"]  # 'steps' is inside 'main', not top-level
 }
 
+# Azure Logic App: Required keys INSIDE the "definition" block
+# Based on: https://learn.microsoft.com/en-us/azure/logic-apps/logic-apps-workflow-definition-language
+AZURE_DEFINITION_REQUIRED_KEYS = ["$schema", "triggers"]
+AZURE_DEFINITION_EXPECTED_KEYS = ["actions"]  # Warning if missing, not error
+
 # ==========================================
 # 4. Defaults
 # ==========================================

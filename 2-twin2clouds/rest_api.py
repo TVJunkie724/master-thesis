@@ -14,7 +14,7 @@ from backend.logger import logger
 from backend.config_loader import load_config_file
 
 # Import API routers
-from api import calculation, pricing, regions, file_status, credentials
+from api import calculation, pricing, regions, file_status, credentials, validation
 
 
 # =============================================================================
@@ -64,6 +64,7 @@ app = FastAPI(
         {"name": "File Status", "description": "Endpoints for checking the age of data files."},
         {"name": "Permissions - Upload", "description": "Verify cloud credentials from request body."},
         {"name": "Permissions - Project", "description": "Verify cloud credentials from project config."},
+        {"name": "Validation", "description": "Endpoints for validating optimizer configuration."},
     ],
     lifespan=lifespan
 )
@@ -116,3 +117,4 @@ app.include_router(pricing.router)
 app.include_router(regions.router)
 app.include_router(file_status.router)
 app.include_router(credentials.router)
+app.include_router(validation.router)

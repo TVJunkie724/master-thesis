@@ -1,17 +1,78 @@
-% !TEX root = ./Schoepf_VolatileSim_Thesis.tex
-\chapter{\label{chap:systemArchitecture}System architecture}
+\chapter{\label{chap:systemArchitecture}System Architecture}
 
-This is the main chapter of your thesis. It should be long.
+% This is the MAIN chapter of your thesis. Present the Twin2MultiCloud platform
+% design in detail. Focus on the "what" and "why", not implementation details.
 
-This section should cover:
-\begin{itemize}
-    \item the overall system architecture. Describe the process from input until output
-    \item system design - describe each component or module that you mentioned in the system architecture
-    \item focus on components' functionalities
-    \item you may mention in a separate section used technologies (but do not describe technologies themselves, it should be done in Background)
-\end{itemize}
+\section{Overview and Design Principles}
+% High-level system overview:
+% - The three-component architecture: Orchestrator, Brain, Muscle
+% - Design principles: separation of concerns, stateless services, API-first
+% - Include a system architecture diagram showing all components
 
-Avoid citations / explanation of others' work in this section.
+\section{The Orchestrator: CLI and Flutter UI}
+% Present the user-facing component that ties everything together.
 
+\subsection{User Interface Design}
+% Describe the Flutter application:
+% - Wizard-based workflow for twin configuration
+% - Cost comparison visualization
+% - Deployment monitoring and management
+% - Include UI mockups/screenshots
 
+\subsection{Management API}
+% Explain the backend that supports the UI:
+% - Role: persists twin configurations and state
+% - Proxies requests to Optimizer and Deployer
+% - Key design rule: Flutter NEVER calls Deployer directly
 
+\section{The Brain: Cost Optimizer}
+% Present the cost calculation engine (2-twin2clouds).
+
+\subsection{Cost Formulas and Models}
+% Explain the mathematical foundation from EDT_25:
+% - Formula structure for compute, storage, network costs
+% - How formulas differ across providers
+% - Handling of edge cases and constraints
+
+\subsection{Real-Time Price Fetching}
+% Describe the price fetching mechanism:
+% - Sources: AWS Pricing API, Azure Retail Prices, GCP Catalog
+% - Caching strategy and update frequency
+% - Handling of regional pricing variations
+
+\subsection{Optimization Algorithm}
+% Present the optimization logic:
+% - Input: user requirements (devices, messages/sec, retention)
+% - Process: evaluate all provider combinations
+% - Output: optimal configuration per layer (e.g., L1=GCP, L2=AWS)
+
+\section{The Muscle: Cloud Deployer}
+% Present the deployment engine (3-cloud-deployer).
+
+\subsection{Terraform-based IaC Generation}
+% Explain the IaC approach:
+% - Dynamic Terraform file generation
+% - Template-based resource definitions
+% - State management and idempotency
+
+\subsection{Multi-Cloud Resource Mapping}
+% Describe how abstract requirements map to provider-specific resources:
+% - Compute: EC2 / Azure VMs / GCE instances
+% - Storage: S3 / Blob Storage / Cloud Storage
+% - Messaging: SNS+SQS / Event Grid / Pub/Sub
+% - Functions: Lambda / Azure Functions / Cloud Functions
+
+\subsection{Cross-Cloud Connectivity}
+% Explain how the system handles inter-cloud communication:
+% - Webhook-based triggers between clouds
+% - Authentication and credential handling
+% - Network considerations (firewalls, IP whitelisting)
+
+\section{End-to-End Workflow}
+% Tie everything together with a complete workflow example:
+% - Step 1: User defines twin parameters in Flutter
+% - Step 2: Optimizer calculates costs and recommends configuration
+% - Step 3: User reviews and approves
+% - Step 4: Deployer provisions infrastructure
+% - Step 5: Twin is operational, user monitors via dashboard
+% Include a sequence diagram showing the flow

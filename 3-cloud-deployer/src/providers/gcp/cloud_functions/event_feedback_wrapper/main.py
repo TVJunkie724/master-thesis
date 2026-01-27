@@ -9,9 +9,19 @@ Architecture:
 import json
 import logging
 import os
+import sys
 import functions_framework
 import requests
 from google.cloud import iot_v1
+
+# Handle import path for shared module
+try:
+    from _shared.inter_cloud import get_id_token_headers
+except ModuleNotFoundError:
+    _cloud_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _cloud_funcs_dir not in sys.path:
+        sys.path.insert(0, _cloud_funcs_dir)
+    from _shared.inter_cloud import get_id_token_headers
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -95,7 +105,7 @@ def main(request):
         else:
             try:
                 logger.info(f"Calling user event-feedback function at {url}")
-                response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
+                response = requests.post(url, json=payload, headers=get_id_token_headers(url), timeout=30)
                 response.raise_for_status()
                 processed_payload = response.json()
                 logger.info(f"User Logic Complete. Result: {json.dumps(processed_payload)}")

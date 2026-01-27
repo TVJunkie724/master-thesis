@@ -2,34 +2,42 @@
 // Reusable info card widgets for Step 3 deployer
 
 import 'package:flutter/material.dart';
-import '../../bloc/wizard/wizard_state.dart';
 
 /// Collection of info card widgets for Step 3 deployer.
-/// 
+///
 /// All methods support dark mode through BuildContext parameter.
 class Step3InfoCards {
-  
   /// Build amber info box for unmet dependencies
   static Widget dependencyInfo(BuildContext context, String message) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.amber.shade900.withOpacity(0.3) : Colors.amber.shade50,
+        color: isDark
+            ? Colors.amber.shade900.withOpacity(0.3)
+            : Colors.amber.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? Colors.amber.shade700 : Colors.amber.shade200),
+        border: Border.all(
+          color: isDark ? Colors.amber.shade700 : Colors.amber.shade200,
+        ),
       ),
       child: Row(
         children: [
-          Icon(Icons.info_outline, color: isDark ? Colors.amber.shade300 : Colors.amber.shade700, size: 24),
+          Icon(
+            Icons.info_outline,
+            color: isDark ? Colors.amber.shade300 : Colors.amber.shade700,
+            size: 24,
+          ),
           const SizedBox(width: 16),
-          Expanded(child: Text(
-            message, 
-            style: TextStyle(
-              color: isDark ? Colors.amber.shade100 : Colors.amber.shade900, 
-              fontSize: 13,
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: isDark ? Colors.amber.shade100 : Colors.amber.shade900,
+                fontSize: 13,
+              ),
             ),
-          )),
+          ),
         ],
       ),
     );
@@ -43,19 +51,27 @@ class Step3InfoCards {
       decoration: BoxDecoration(
         color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
+        border: Border.all(
+          color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+        ),
       ),
       child: Row(
         children: [
-          Icon(Icons.info_outline, color: isDark ? Colors.grey.shade400 : Colors.grey.shade500, size: 24),
+          Icon(
+            Icons.info_outline,
+            color: isDark ? Colors.grey.shade400 : Colors.grey.shade500,
+            size: 24,
+          ),
           const SizedBox(width: 16),
-          Expanded(child: Text(
-            message, 
-            style: TextStyle(
-              color: isDark ? Colors.grey.shade300 : Colors.grey.shade600, 
-              fontSize: 13,
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: isDark ? Colors.grey.shade300 : Colors.grey.shade600,
+                fontSize: 13,
+              ),
             ),
-          )),
+          ),
         ],
       ),
     );
@@ -69,7 +85,9 @@ class Step3InfoCards {
       decoration: BoxDecoration(
         color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
+        border: Border.all(
+          color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+        ),
       ),
       child: Row(
         children: [
@@ -80,17 +98,17 @@ class Step3InfoCards {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Auto-configured', 
+                  'Auto-configured',
                   style: TextStyle(
-                    fontWeight: FontWeight.w600, 
-                    fontSize: 14, 
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
                     color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
                 Text(
-                  'Storage tiers are automatically provisioned.', 
+                  'Storage tiers are automatically provisioned.',
                   style: TextStyle(
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600, 
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                     fontSize: 12,
                   ),
                 ),
@@ -111,11 +129,11 @@ class Step3InfoCards {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = l4Provider?.toUpperCase();
-    
+
     String message;
     IconData icon;
     Color color;
-    
+
     if (!needs3DModel) {
       message = 'L4 visualization not needed (needs3DModel = false in Step 2)';
       icon = Icons.info_outline;
@@ -133,13 +151,15 @@ class Step3InfoCards {
       icon = Icons.check_circle_outline;
       color = Colors.green;
     }
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
+        border: Border.all(
+          color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+        ),
       ),
       child: Row(
         children: [
@@ -147,8 +167,10 @@ class Step3InfoCards {
           const SizedBox(width: 16),
           Expanded(
             child: Text(
-              message, 
-              style: TextStyle(color: isDark ? Colors.grey.shade300 : Colors.grey.shade600),
+              message,
+              style: TextStyle(
+                color: isDark ? Colors.grey.shade300 : Colors.grey.shade600,
+              ),
             ),
           ),
         ],
@@ -161,7 +183,7 @@ class Step3InfoCards {
   static Widget l5Info(BuildContext context, {String? l5Provider}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = l5Provider?.toUpperCase();
-    
+
     String message;
     if (provider == 'GCP') {
       message = 'GCP Grafana configuration not supported in this thesis scope';
@@ -170,13 +192,15 @@ class Step3InfoCards {
     } else {
       message = 'L5 config not required for $provider';
     }
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
+        border: Border.all(
+          color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+        ),
       ),
       child: Row(
         children: [
@@ -184,8 +208,10 @@ class Step3InfoCards {
           const SizedBox(width: 16),
           Expanded(
             child: Text(
-              message, 
-              style: TextStyle(color: isDark ? Colors.grey.shade300 : Colors.grey.shade600),
+              message,
+              style: TextStyle(
+                color: isDark ? Colors.grey.shade300 : Colors.grey.shade600,
+              ),
             ),
           ),
         ],

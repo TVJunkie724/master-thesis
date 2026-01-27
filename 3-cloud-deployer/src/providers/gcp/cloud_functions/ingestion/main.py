@@ -15,14 +15,14 @@ import requests
 import functions_framework
 
 try:
-    from _shared.inter_cloud import validate_token, build_auth_error_response
+    from _shared.inter_cloud import validate_token, build_auth_error_response, get_id_token_headers
     from _shared.env_utils import require_env
     from _shared.normalize import normalize_telemetry
 except ModuleNotFoundError:
     _cloud_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _cloud_funcs_dir not in sys.path:
         sys.path.insert(0, _cloud_funcs_dir)
-    from _shared.inter_cloud import validate_token, build_auth_error_response
+    from _shared.inter_cloud import validate_token, build_auth_error_response, get_id_token_headers
     from _shared.env_utils import require_env
     from _shared.normalize import normalize_telemetry
 
@@ -87,10 +87,13 @@ def main(request):
         
         print(f"Invoking processor wrapper: {processor_url}")
         
+        # Get ID token for GCP Cloud Functions Gen2 service-to-service auth
+        headers = get_id_token_headers(processor_url)
+        
         response = requests.post(
             processor_url,
             json=payload,
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             timeout=30
         )
         
