@@ -110,6 +110,9 @@ resource "azurerm_linux_function_app" "l1" {
     ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
     AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
 
+    # Code version hash - triggers update-in-place when ZIP content changes
+    FUNCTION_CODE_VERSION = var.azure_l1_zip_path != "" ? filemd5(var.azure_l1_zip_path) : ""
+
     # Required for Consumption Plan with zip deploy
     WEBSITE_CONTENTAZUREFILECONNECTIONSTRING = local.azure_storage_connection_string
     WEBSITE_CONTENTSHARE                     = local.azure_l1_content_share

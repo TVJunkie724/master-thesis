@@ -71,6 +71,9 @@ resource "azurerm_linux_function_app" "l2" {
     ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
     AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
 
+    # Code version hash - triggers update-in-place when ZIP content changes
+    FUNCTION_CODE_VERSION = var.azure_l2_zip_path != "" ? filemd5(var.azure_l2_zip_path) : ""
+
     # Required for Consumption Plan with zip deploy
     WEBSITE_CONTENTAZUREFILECONNECTIONSTRING = local.azure_storage_connection_string
     WEBSITE_CONTENTSHARE                     = local.azure_l2_content_share
@@ -203,6 +206,9 @@ resource "azurerm_linux_function_app" "user" {
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
     ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
     AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
+
+    # Code version hash - triggers update-in-place when ZIP content changes
+    FUNCTION_CODE_VERSION = var.azure_user_zip_path != "" ? filemd5(var.azure_user_zip_path) : ""
 
     # Required for Consumption Plan with zip deploy
     WEBSITE_CONTENTAZUREFILECONNECTIONSTRING = local.azure_storage_connection_string
