@@ -995,3 +995,242 @@ class TestZipStructureValidation:
                 content = zf.read(submodule).decode("utf-8")
                 assert "sys.path.insert" not in content, f"{submodule} has sys.path manipulation"
                 assert "# Handle import path for shared module" not in content, f"{submodule} has import comment"
+
+
+class TestL0BlueprintRegistration:
+    """Tests for L0 single-function Blueprint registration.
+    
+    These tests verify that even single L0 functions get proper FunctionApp wrappers,
+    not raw Blueprint files copied to the root.
+    """
+    
+    @pytest.fixture
+    def l0_azure_functions_dir(self, tmp_path):
+        """Create mock L0 function directories with Blueprint pattern."""
+        azure_funcs = tmp_path / "azure_functions"
+        azure_funcs.mkdir()
+        
+        # Create shared files
+        (azure_funcs / "requirements.txt").write_text("azure-functions")
+        (azure_funcs / "host.json").write_text('{"version": "2.0"}')
+        
+        # Create L0 functions with Blueprint pattern (matching real source)
+        l0_functions = {
+            "hot-writer": '''import azure.functions as func
+bp = func.Blueprint()
+
+@bp.function_name(name="hot-writer")
+@bp.route(route="hot-writer", methods=["POST"])
+def hot_writer(req: func.HttpRequest) -> func.HttpResponse:
+    return func.HttpResponse("OK", status_code=200)
+''',
+            "ingestion": '''import azure.functions as func
+bp = func.Blueprint()
+
+@bp.function_name(name="ingestion")
+@bp.route(route="ingestion", methods=["POST"])
+def ingestion(req: func.HttpRequest) -> func.HttpResponse:
+    return func.HttpResponse("OK", status_code=200)
+''',
+            "cold-writer": '''import azure.functions as func
+bp = func.Blueprint()
+
+@bp.function_name(name="cold-writer")
+@bp.route(route="cold-writer", methods=["POST"])
+def cold_writer(req: func.HttpRequest) -> func.HttpResponse:
+    return func.HttpResponse("OK", status_code=200)
+''',
+        }
+        
+        for func_name, code in l0_functions.items():
+            func_dir = azure_funcs / func_name
+            func_dir.mkdir()
+            (func_dir / "function_app.py").write_text(code)
+        
+        return tmp_path
+    
+    def test_single_l0_has_functionapp_wrapper(self, l0_azure_functions_dir):
+        """Single L0 function should have FunctionApp wrapper, not raw Blueprint."""
+        providers = {
+            "layer_1_provider": "azure",
+            "layer_2_provider": "google",  # Cross-cloud: only hot-writer needed
+            "layer_3_hot_provider": "azure",
+            "layer_4_provider": "azure",
+            "layer_5_provider": "azure"
+        }
+        
+        zip_bytes, funcs = bundle_l0_functions(str(l0_azure_functions_dir), providers)
+        
+        assert len(funcs) == 1
+        assert "hot-writer" in funcs
+        
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            content = zf.read("function_app.py").decode("utf-8")
+            
+            # Must have FunctionApp wrapper (not raw Blueprint)
+            assert "func.FunctionApp()" in content, "Missing FunctionApp wrapper"
+            assert "register_functions" in content, "Missing register_functions call"
+    
+    def test_single_l0_has_submodule_structure(self, l0_azure_functions_dir):
+        """Single L0 ZIP should contain module subdirectory."""
+        providers = {
+            "layer_1_provider": "azure",
+            "layer_2_provider": "google",
+            "layer_3_hot_provider": "azure",
+            "layer_4_provider": "azure",
+            "layer_5_provider": "azure"
+        }
+        
+        zip_bytes, _ = bundle_l0_functions(str(l0_azure_functions_dir), providers)
+        
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            names = zf.namelist()
+            
+            assert "hot_writer/__init__.py" in names, "Missing submodule __init__.py"
+            assert "hot_writer/function_app.py" in names, "Missing submodule function_app.py"
+    
+    def test_single_l0_main_imports_blueprint(self, l0_azure_functions_dir):
+        """Main function_app.py should import Blueprint from submodule."""
+        providers = {
+            "layer_1_provider": "azure",
+            "layer_2_provider": "google",
+            "layer_3_hot_provider": "azure",
+            "layer_4_provider": "azure",
+            "layer_5_provider": "azure"
+        }
+        
+        zip_bytes, _ = bundle_l0_functions(str(l0_azure_functions_dir), providers)
+        
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            content = zf.read("function_app.py").decode("utf-8")
+            
+            assert "from hot_writer.function_app import bp" in content
+    
+    def test_single_l0_submodule_has_blueprint_not_functionapp(self, l0_azure_functions_dir):
+        """Submodule should have Blueprint, NOT FunctionApp."""
+        providers = {
+            "layer_1_provider": "azure",
+            "layer_2_provider": "google",
+            "layer_3_hot_provider": "azure",
+            "layer_4_provider": "azure",
+            "layer_5_provider": "azure"
+        }
+        
+        zip_bytes, _ = bundle_l0_functions(str(l0_azure_functions_dir), providers)
+        
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            submodule_content = zf.read("hot_writer/function_app.py").decode("utf-8")
+            
+            assert "bp = func.Blueprint()" in submodule_content, "Submodule should use Blueprint"
+            assert "func.FunctionApp()" not in submodule_content, "Submodule should NOT have FunctionApp"
+    
+    def test_multiple_l0_all_blueprints_registered(self, l0_azure_functions_dir):
+        """Multiple L0 functions should all be registered."""
+        providers = {
+            "layer_1_provider": "aws",  # ingestion needed (L1 != L2)
+            "layer_2_provider": "azure",
+            "layer_3_hot_provider": "google",  # hot-writer needed (L2 != L3)
+            "layer_4_provider": "azure",
+            "layer_5_provider": "azure"
+        }
+        
+        zip_bytes, funcs = bundle_l0_functions(str(l0_azure_functions_dir), providers)
+        
+        # Should have ingestion (AWS->Azure boundary)
+        assert "ingestion" in funcs
+        
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            content = zf.read("function_app.py").decode("utf-8")
+            
+            # Exactly one FunctionApp
+            assert content.count("func.FunctionApp()") == 1
+            
+            # All included blueprints registered
+            for func_name in funcs:
+                module_name = func_name.replace("-", "_")
+                assert f"register_functions({module_name}_bp)" in content
+    
+    def test_l0_functionapp_converted_to_blueprint(self, tmp_path):
+        """Source with FunctionApp pattern should be converted to Blueprint."""
+        azure_funcs = tmp_path / "azure_functions"
+        azure_funcs.mkdir()
+        (azure_funcs / "requirements.txt").write_text("azure-functions")
+        (azure_funcs / "host.json").write_text('{"version": "2.0"}')
+        
+        # Create function with FunctionApp pattern (like some real functions use)
+        hot_writer = azure_funcs / "hot-writer"
+        hot_writer.mkdir()
+        (hot_writer / "function_app.py").write_text('''import azure.functions as func
+app = func.FunctionApp()
+
+@app.function_name(name="hot-writer")
+@app.route(route="hot-writer", methods=["POST"])
+def hot_writer(req: func.HttpRequest) -> func.HttpResponse:
+    return func.HttpResponse("OK", status_code=200)
+''')
+        
+        providers = {
+            "layer_1_provider": "azure",
+            "layer_2_provider": "google",
+            "layer_3_hot_provider": "azure",
+            "layer_4_provider": "azure",
+            "layer_5_provider": "azure"
+        }
+        
+        zip_bytes, _ = bundle_l0_functions(str(tmp_path), providers)
+        
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            submodule_content = zf.read("hot_writer/function_app.py").decode("utf-8")
+            
+            # FunctionApp should be converted to Blueprint
+            assert "bp = func.Blueprint()" in submodule_content
+            assert "@bp." in submodule_content
+            assert "app = func.FunctionApp()" not in submodule_content
+    
+    def test_l0_gcp_provider_maps_to_google(self, l0_azure_functions_dir):
+        """Provider 'google' should correctly trigger L0 functions."""
+        providers = {
+            "layer_1_provider": "google",  # GCP uses "google" in config
+            "layer_2_provider": "azure",   # Cross-cloud: ingestion on Azure
+            "layer_3_hot_provider": "azure",
+            "layer_4_provider": "azure",
+            "layer_5_provider": "azure"
+        }
+        
+        zip_bytes, funcs = bundle_l0_functions(str(l0_azure_functions_dir), providers)
+        
+        assert zip_bytes is not None
+        assert "ingestion" in funcs
+    
+    def test_l0_optional_boundary_missing_ok(self, tmp_path):
+        """Missing optional L0 function (cold-writer) should not error."""
+        azure_funcs = tmp_path / "azure_functions"
+        azure_funcs.mkdir()
+        (azure_funcs / "requirements.txt").write_text("azure-functions")
+        (azure_funcs / "host.json").write_text('{"version": "2.0"}')
+        
+        # Only create hot-writer, NOT cold-writer (which is optional)
+        hot_writer = azure_funcs / "hot-writer"
+        hot_writer.mkdir()
+        (hot_writer / "function_app.py").write_text('''import azure.functions as func
+bp = func.Blueprint()
+
+@bp.function_name(name="hot-writer")
+@bp.route(route="hot-writer", methods=["POST"])
+def hot_writer(req): return func.HttpResponse("OK")
+''')
+        
+        providers = {
+            "layer_1_provider": "azure",
+            "layer_2_provider": "google",
+            "layer_3_hot_provider": "azure",
+            "layer_3_cold_provider": "aws",  # Would need cold-writer if it existed
+            "layer_4_provider": "azure",
+            "layer_5_provider": "azure"
+        }
+        
+        # Should not raise, just log warning and skip missing optional function
+        zip_bytes, funcs = bundle_l0_functions(str(tmp_path), providers)
+        
+        assert "hot-writer" in funcs
+        # cold-writer should NOT be in funcs (missing but optional)

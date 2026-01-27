@@ -472,7 +472,7 @@ def bundle_l0_functions(
     
     logger.info(f"Bundling L0 glue functions: {functions_to_include}")
     
-    is_single = len(functions_to_include) == 1
+
     
     # Create ZIP
     zip_buffer = io.BytesIO()
@@ -487,21 +487,9 @@ def bundle_l0_functions(
             else:
                 logger.warning(f"L0 function not found: {func_name}")
         
-        # For multi-function bundles, merge function_app.py files
-        if is_single and func_dirs:
-            # Single function: add directly
-            for root, _, files in os.walk(func_dirs[0]):
-                for file in files:
-                    if "__pycache__" in root or file.endswith(".pyc"):
-                        continue
-                    file_path = Path(root) / file
-                    if file == "function_app.py":
-                        arcname = "function_app.py"
-                    else:
-                        arcname = str(file_path.relative_to(azure_functions_dir))
-                    zf.write(file_path, arcname)
-        else:
-            _merge_function_files(zf, func_dirs, azure_functions_dir)
+        # Always use _merge_function_files() for proper Blueprint registration
+        # (even single functions use Blueprint pattern and need a FunctionApp wrapper)
+        _merge_function_files(zf, func_dirs, azure_functions_dir)
     
     return zip_buffer.getvalue(), functions_to_include
 
@@ -561,8 +549,6 @@ def bundle_l2_functions(project_path: str) -> bytes:
     
     logger.info(f"Bundling L2 functions from {core_functions_dir}: {functions}")
     
-    is_single = len(functions) == 1
-    
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         _add_shared_files(zf, core_functions_dir)
@@ -575,11 +561,7 @@ def bundle_l2_functions(project_path: str) -> bytes:
             else:
                 raise BundleError(f"L2 function not found: {func_dir}")
         
-        if not is_single:
-            _merge_function_files(zf, func_dirs, core_functions_dir)
-        else:
-            # Single function bundling (shouldn't happen for L2 but handle it)
-            _merge_function_files(zf, func_dirs, core_functions_dir)
+        _merge_function_files(zf, func_dirs, core_functions_dir)
     
     return zip_buffer.getvalue()
 
