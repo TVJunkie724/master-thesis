@@ -17,13 +17,13 @@ from google.cloud import firestore
 
 # Handle import path for both Cloud Functions and test contexts
 try:
-    from _shared.inter_cloud import post_to_remote
+    from _shared.inter_cloud import post_to_remote, get_id_token_headers
     from _shared.env_utils import require_env
 except ModuleNotFoundError:
     _cloud_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _cloud_funcs_dir not in sys.path:
         sys.path.insert(0, _cloud_funcs_dir)
-    from _shared.inter_cloud import post_to_remote
+    from _shared.inter_cloud import post_to_remote, get_id_token_headers
     from _shared.env_utils import require_env
 
 
@@ -144,10 +144,11 @@ def main(request):
         if os.environ.get("USE_EVENT_CHECKING", "false").lower() == "true":
             if EVENT_CHECKER_FUNCTION_URL:
                 try:
+                    # Use OIDC ID token for GCP Cloud Functions Gen2 service-to-service auth
                     requests.post(
                         EVENT_CHECKER_FUNCTION_URL,
                         json=event,
-                        headers={"Content-Type": "application/json"},
+                        headers=get_id_token_headers(EVENT_CHECKER_FUNCTION_URL),
                         timeout=10
                     )
                 except Exception as e:
