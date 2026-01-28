@@ -27,13 +27,13 @@ resource "google_storage_bucket_object" "persister_source" {
 # ==============================================================================
 
 resource "google_cloudfunctions2_function" "persister" {
-  count    = local.gcp_l2_enabled && local.gcp_l3_hot_enabled ? 1 : 0
-  name     = "${var.digital_twin_name}-persister"
+  count    = local.gcp_l2_enabled ? 1 : 0
+  name     = local.gcp_l2_persister_name
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -55,20 +55,18 @@ resource "google_cloudfunctions2_function" "persister" {
       DIGITAL_TWIN_NAME      = var.digital_twin_name
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       GCP_PROJECT_ID         = local.gcp_project_id
-      FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
-      FIRESTORE_DATABASE     = var.digital_twin_name
-      INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      FIRESTORE_COLLECTION   = local.gcp_l3_firestore_collection
+      FIRESTORE_DATABASE     = local.gcp_firestore_database_name
+      INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
 
       # Multi-cloud L2→L3: When GCP L2 sends to remote L3
       REMOTE_WRITER_URL = var.layer_2_provider == "google" && var.layer_3_hot_provider != "google" ? (
         var.layer_3_hot_provider == "aws" ? try(aws_lambda_function_url.l0_hot_writer[0].function_url, "") :
-        var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/hot-writer" : ""
+        var.layer_3_hot_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.hot_writer}" : ""
       ) : ""
 
       # Event checker (optional)
-      EVENT_CHECKER_FUNCTION_URL = var.use_event_checking ? "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net/${var.digital_twin_name}-event-checker" : ""
+      EVENT_CHECKER_FUNCTION_URL = var.use_event_checking ? local.gcp_l2_event_checker_url : ""
       USE_EVENT_CHECKING         = var.use_event_checking ? "true" : "false"
     }
   }
@@ -88,7 +86,7 @@ resource "google_cloudfunctions2_function" "persister" {
 # ==============================================================================
 
 resource "google_cloud_run_service_iam_member" "persister_invoker" {
-  count    = local.gcp_l2_enabled && local.gcp_l3_hot_enabled ? 1 : 0
+  count    = local.gcp_l2_enabled ? 1 : 0
   project  = local.gcp_project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.persister[0].name
@@ -113,12 +111,12 @@ resource "google_storage_bucket_object" "connector_source" {
 
 resource "google_cloudfunctions2_function" "connector" {
   count    = local.gcp_l1_enabled && var.layer_2_provider != "google" ? 1 : 0
-  name     = "${var.digital_twin_name}-connector"
+  name     = local.gcp_l2_connector_name
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -138,11 +136,9 @@ resource "google_cloudfunctions2_function" "connector" {
     
     environment_variables = {
       DIGITAL_TWIN_INFO = var.digital_twin_info_json
-      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
       # Multi-cloud L1→L2: Remote ingestion endpoint
-      REMOTE_INGESTION_URL = var.layer_2_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/ingestion" : (
+      REMOTE_INGESTION_URL = var.layer_2_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.ingestion}" : (
         var.layer_2_provider == "aws" ? try(aws_lambda_function_url.l0_ingestion[0].function_url, "") : ""
       )
     }
@@ -179,7 +175,8 @@ resource "google_cloud_run_service_iam_member" "connector_invoker" {
 
 resource "google_storage_bucket_object" "event_checker_source" {
   count  = local.gcp_l2_enabled && var.use_event_checking ? 1 : 0
-  name   = "event-checker-${filemd5("${var.project_path}/.build/gcp/event-checker.zip")}.zip"
+  # Use try() to gracefully fallback when file doesn't exist (count=0 case)
+  name   = "event-checker-${try(filemd5("${var.project_path}/.build/gcp/event-checker.zip"), "disabled")}.zip"
   bucket = google_storage_bucket.function_source[0].name
   source = "${var.project_path}/.build/gcp/event-checker.zip"
 }
@@ -190,12 +187,12 @@ resource "google_storage_bucket_object" "event_checker_source" {
 
 resource "google_cloudfunctions2_function" "event_checker" {
   count    = local.gcp_l2_enabled && var.use_event_checking ? 1 : 0
-  name     = "${var.digital_twin_name}-event-checker"
+  name     = local.gcp_l2_event_checker_name
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -217,16 +214,14 @@ resource "google_cloudfunctions2_function" "event_checker" {
       DIGITAL_TWIN_NAME     = var.digital_twin_name
       DIGITAL_TWIN_INFO     = var.digital_twin_info_json
       GCP_PROJECT_ID        = local.gcp_project_id
-      INTER_CLOUD_TOKEN     = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      INTER_CLOUD_TOKEN     = local.inter_cloud_token_value
       # Workflow trigger URL (if enabled)
       WORKFLOW_TRIGGER_URL  = var.trigger_notification_workflow ? (
-        "https://workflowexecutions.googleapis.com/v1/projects/${local.gcp_project_id}/locations/${var.gcp_region}/workflows/${var.digital_twin_name}-event-workflow/executions"
+        local.gcp_l2_event_workflow_url
       ) : ""
       # Feedback function URL (if enabled)
       FEEDBACK_FUNCTION_URL = var.return_feedback_to_device ? (
-        "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net/${var.digital_twin_name}-event-feedback"
+        local.gcp_l2_event_feedback_url
       ) : ""
       USE_FEEDBACK          = var.return_feedback_to_device ? "true" : "false"
     }
@@ -259,7 +254,7 @@ resource "google_project_service" "workflows" {
 
 resource "google_workflows_workflow" "event_workflow" {
   count    = local.gcp_l2_enabled && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
-  name     = "${var.digital_twin_name}-event-workflow"
+  name     = local.gcp_l2_event_workflow_name
   region   = var.gcp_region
   project  = local.gcp_project_id
   
@@ -309,12 +304,12 @@ resource "google_storage_bucket_object" "processor_wrapper_source" {
 
 resource "google_cloudfunctions2_function" "processor_wrapper" {
   count    = local.gcp_l2_enabled ? 1 : 0
-  name     = "${var.digital_twin_name}-processor"
+  name     = local.gcp_l2_processor_name
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -336,15 +331,26 @@ resource "google_cloudfunctions2_function" "processor_wrapper" {
       DIGITAL_TWIN_NAME      = var.digital_twin_name
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       GCP_PROJECT_ID         = local.gcp_project_id
-      FUNCTION_BASE_URL      = "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net"
-      PERSISTER_FUNCTION_URL = local.gcp_l3_hot_enabled ? google_cloudfunctions2_function.persister[0].url : ""
-      INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      FUNCTION_BASE_URL      = local.gcp_function_base_url
+      PERSISTER_FUNCTION_URL = local.gcp_l2_enabled ? google_cloudfunctions2_function.persister[0].url : ""
+      INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
     }
   }
 
   labels = local.gcp_common_labels
+}
+
+# ==============================================================================
+# IAM: Allow authenticated invocations of processor_wrapper
+# ==============================================================================
+
+resource "google_cloud_run_service_iam_member" "processor_wrapper_invoker" {
+  count    = local.gcp_l2_enabled ? 1 : 0
+  project  = local.gcp_project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.processor_wrapper[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.functions[0].email}"
 }
 
 # ==============================================================================
@@ -362,12 +368,12 @@ resource "google_storage_bucket_object" "processor_source" {
 resource "google_cloudfunctions2_function" "processor" {
   for_each = { for p in var.gcp_processors : p.name => p }
   
-  name     = "${var.digital_twin_name}-${each.value.name}-processor"
+  name     = format(local.gcp_l2_processor_name_pattern, each.value.name)
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -389,12 +395,10 @@ resource "google_cloudfunctions2_function" "processor" {
       DIGITAL_TWIN_NAME      = var.digital_twin_name
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       GCP_PROJECT_ID         = local.gcp_project_id
-      FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
-      FIRESTORE_DATABASE     = var.digital_twin_name
-      PERSISTER_FUNCTION_URL = local.gcp_l3_hot_enabled ? google_cloudfunctions2_function.persister[0].url : ""
-      INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      FIRESTORE_COLLECTION   = local.gcp_l3_firestore_collection
+      FIRESTORE_DATABASE     = local.gcp_firestore_database_name
+      PERSISTER_FUNCTION_URL = local.gcp_l2_enabled ? google_cloudfunctions2_function.persister[0].url : ""
+      INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
     }
   }
 
@@ -432,12 +436,12 @@ resource "google_storage_bucket_object" "event_action_source" {
 resource "google_cloudfunctions2_function" "event_action" {
   for_each = { for a in var.gcp_event_actions : a.name => a }
   
-  name     = "${var.digital_twin_name}-event-action-${each.value.name}"
+  name     = format(local.gcp_l2_event_action_pattern, each.value.name)
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -459,11 +463,9 @@ resource "google_cloudfunctions2_function" "event_action" {
       DIGITAL_TWIN_NAME      = var.digital_twin_name
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       GCP_PROJECT_ID         = local.gcp_project_id
-      FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
-      FIRESTORE_DATABASE     = var.digital_twin_name
-      INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      FIRESTORE_COLLECTION   = local.gcp_l3_firestore_collection
+      FIRESTORE_DATABASE     = local.gcp_firestore_database_name
+      INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
     }
   }
 
@@ -501,12 +503,12 @@ resource "google_storage_bucket_object" "event_feedback_source" {
 resource "google_cloudfunctions2_function" "event_feedback" {
   count    = var.gcp_event_feedback_enabled ? 1 : 0
   
-  name     = "${var.digital_twin_name}-event-feedback"
+  name     = local.gcp_l2_event_feedback_name
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -528,16 +530,14 @@ resource "google_cloudfunctions2_function" "event_feedback" {
       DIGITAL_TWIN_NAME      = var.digital_twin_name
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       GCP_PROJECT_ID         = local.gcp_project_id
-      FIRESTORE_COLLECTION   = "${var.digital_twin_name}-hot-data"
-      FIRESTORE_DATABASE     = var.digital_twin_name
-      INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      FIRESTORE_COLLECTION   = local.gcp_l3_firestore_collection
+      FIRESTORE_DATABASE     = local.gcp_firestore_database_name
+      INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
       
       # IoT Core vars - required for event_feedback_wrapper to send commands to devices
       GCP_IOT_REGION              = var.gcp_region
-      GCP_IOT_REGISTRY_ID         = "${var.digital_twin_name}-registry"
-      EVENT_FEEDBACK_FUNCTION_URL = "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net/${var.digital_twin_name}-event-feedback"
+      GCP_IOT_REGISTRY_ID         = local.gcp_l1_registry_id
+      EVENT_FEEDBACK_FUNCTION_URL = local.gcp_l2_event_feedback_url
     }
   }
 

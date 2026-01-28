@@ -15,14 +15,18 @@ class CredentialField {
   final String label;
   final bool obscure;
   final String? defaultValue;
-  final bool required;  // NEW
+  final bool required;
+  final bool readOnly;
+  final String? placeholder;  // Example text shown when field is empty
   
   const CredentialField({
     required this.name,
     required this.label,
     this.obscure = false,
     this.defaultValue,
-    this.required = true,  // Default: required
+    this.required = true,
+    this.readOnly = false,
+    this.placeholder,
   });
 }
 
@@ -73,6 +77,12 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
   // This survives BLoC state changes and allows restoration when clearing fields
   late bool _wasOriginallyConfigured;
   
+  // GCP-specific: Track uploaded Service Account file
+  String? _gcpUploadedFileName;
+  DateTime? _gcpUploadedAt;
+  String? _gcpServiceAccountJson;  // Store actual SA JSON content for validation
+  bool get _hasGcpServiceAccount => _gcpUploadedFileName != null && _gcpServiceAccountJson != null;
+  
   // Overall valid only if BOTH pass
   bool get _isValid => (_optimizerValid && _deployerValid) || (_wasOriginallyConfigured && _optimizerMessage == null && _deployerMessage == null);
   
@@ -108,6 +118,33 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
     return true;
   }
   
+  /// Check if validation can be triggered (provider-specific logic)
+  bool _canValidate() {
+    // For GCP: require SA file upload AND region filled
+    if (widget.provider == 'gcp') {
+      final hasRegion = _controllers['region']?.text.trim().isNotEmpty ?? false;
+      return _hasGcpServiceAccount && hasRegion;
+    }
+    // For other providers: use standard logic
+    return _areRequiredFieldsFilled() || _wasOriginallyConfigured;
+  }
+  
+  /// Format upload timestamp for display
+  String _formatUploadTime(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+    
+    if (diff.inMinutes < 1) {
+      return 'just now';
+    } else if (diff.inHours < 1) {
+      return '${diff.inMinutes}m ago';
+    } else if (diff.inDays < 1) {
+      return '${diff.inHours}h ago';
+    } else {
+      return '${time.month}/${time.day} ${time.hour}:${time.minute.toString().padLeft(2, '0')}';
+    }
+  }
+  
   /// Validate credentials against BOTH Optimizer and Deployer APIs
   Future<void> _validateCredentials() async {
     setState(() {
@@ -125,6 +162,11 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
         if (entry.value.text.isNotEmpty) {
           credentials[entry.key] = entry.value.text;
         }
+      }
+      
+      // GCP-specific: Include the uploaded Service Account JSON
+      if (widget.provider == 'gcp' && _gcpServiceAccountJson != null) {
+        credentials['service_account_json'] = _gcpServiceAccountJson;
       }
       
       // Use DUAL validation (calls both Optimizer and Deployer)
@@ -192,27 +234,66 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       
       final file = result.files.single;
       final jsonString = await readPickedFile(file);
-      final jsonData = jsonDecode(jsonString);
+      final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
       
-      if (jsonData['project_id'] != null) {
-        _controllers['project_id']?.text = jsonData['project_id'];
+      // Validate Service Account JSON structure
+      if (jsonData['type'] != 'service_account') {
+        setState(() {
+          _optimizerMessage = '❌ Invalid file: Expected a GCP Service Account JSON (type: "service_account")';
+          _deployerMessage = null;
+          _optimizerValid = false;
+          _deployerValid = false;
+          _gcpUploadedFileName = null;
+          _gcpUploadedAt = null;
+          _gcpServiceAccountJson = null;
+        });
+        return;
       }
+      
+      if (jsonData['project_id'] == null || jsonData['client_email'] == null) {
+        setState(() {
+          _optimizerMessage = '❌ Invalid Service Account: Missing required fields (project_id, client_email)';
+          _deployerMessage = null;
+          _optimizerValid = false;
+          _deployerValid = false;
+          _gcpUploadedFileName = null;
+          _gcpUploadedAt = null;
+          _gcpServiceAccountJson = null;
+        });
+        return;
+      }
+      
+      // Auto-fill project_id from SA file
+      _controllers['project_id']?.text = jsonData['project_id'];
+      
+      // Track the uploaded file AND store the JSON content
+      setState(() {
+        _gcpUploadedFileName = file.name;
+        _gcpUploadedAt = DateTime.now();
+        _gcpServiceAccountJson = jsonString;  // Store for validation
+        // Clear any previous error messages
+        _optimizerMessage = null;
+        _deployerMessage = null;
+      });
       
       widget.onJsonUploaded?.call(jsonString);
       
       _notifyCredentialsChanged();
       
-      // Auto-trigger validation after GCP JSON upload
-      await _validateCredentials();
+      // NOTE: No auto-validation - user must fill region and click Validate
     } catch (e) {
       setState(() {
         _optimizerMessage = 'Failed to load JSON: ${ApiErrorHandler.extractMessage(e)}';
         _deployerMessage = null;
         _optimizerValid = false;
         _deployerValid = false;
+        _gcpUploadedFileName = null;
+        _gcpUploadedAt = null;
+        _gcpServiceAccountJson = null;  // Clear on error
       });
     }
   }
+
   
   /// Upload credentials JSON and auto-fill form fields
   Future<void> _uploadCredentialsJson() async {
@@ -381,6 +462,10 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
       _deployerValid = false;
       _optimizerMessage = null;
       _deployerMessage = null;
+      // GCP-specific: Clear uploaded SA state
+      _gcpUploadedFileName = null;
+      _gcpUploadedAt = null;
+      _gcpServiceAccountJson = null;
     });
     // Notify parent that validation is reset and credentials are empty
     widget.onValidationChanged(false); 
@@ -522,34 +607,59 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
 
                       
                       // Credential fields
-                      ...widget.fields.map((field) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: TextField(
-                          controller: _controllers[field.name],
-                          decoration: InputDecoration(
-                            labelText: field.required 
-                              ? field.label 
-                              : '${field.label} (optional)',
-                            // Only show "Stored Securely" for REQUIRED fields that are configured
-                            // Optional fields (like session_token) may genuinely be empty
-                            hintText: (_wasOriginallyConfigured && field.required && _controllers[field.name]?.text.isEmpty == true)
-                                ? '•••••••••••••••• (Stored Securely)' 
-                                : null,
-                            hintStyle: TextStyle(
-                              color: Colors.green.shade700,
-                              fontWeight: FontWeight.w500,
-                              fontStyle: FontStyle.italic,
+                      ...widget.fields.map((field) {
+                        // GCP-specific: project_id is read-only when SA is uploaded
+                        final isReadOnly = field.readOnly || 
+                            (widget.provider == 'gcp' && field.name == 'project_id' && _hasGcpServiceAccount);
+                        
+                        // Determine hint text: "Stored Securely" takes precedence, then placeholder
+                        String? hintText;
+                        TextStyle? hintStyle;
+                        final isEmpty = _controllers[field.name]?.text.isEmpty ?? true;
+                        
+                        if (_wasOriginallyConfigured && field.required && isEmpty) {
+                          // Stored credentials - show secure indicator
+                          hintText = '•••••••••••••••• (Stored Securely)';
+                          hintStyle = TextStyle(
+                            color: Colors.green.shade700,
+                            fontWeight: FontWeight.w500,
+                            fontStyle: FontStyle.italic,
+                          );
+                        } else if (field.placeholder != null && isEmpty) {
+                          // Show example placeholder
+                          hintText = 'e.g., ${field.placeholder}';
+                          hintStyle = TextStyle(
+                            color: Colors.grey.shade500,
+                            fontStyle: FontStyle.italic,
+                          );
+                        }
+                        
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: TextField(
+                            controller: _controllers[field.name],
+                            enabled: !isReadOnly,
+                            decoration: InputDecoration(
+                              labelText: field.required 
+                                ? field.label 
+                                : '${field.label} (optional)',
+                              hintText: hintText,
+                              hintStyle: hintStyle,
+                              floatingLabelBehavior: FloatingLabelBehavior.always,
+                              border: const OutlineInputBorder(),
+                              // Show lock icon for read-only fields
+                              suffixIcon: isReadOnly 
+                                  ? Icon(Icons.lock_outline, color: Colors.grey.shade500, size: 20)
+                                  : null,
                             ),
-                            floatingLabelBehavior: FloatingLabelBehavior.always,
-                            border: const OutlineInputBorder(),
+                            obscureText: field.obscure && _controllers[field.name]?.text.isNotEmpty == true,
+                            onChanged: isReadOnly ? null : (_) {
+                              _notifyCredentialsChanged();
+                              setState(() {});
+                            },
                           ),
-                          obscureText: field.obscure && _controllers[field.name]?.text.isNotEmpty == true,
-                          onChanged: (_) {
-                            _notifyCredentialsChanged();
-                            setState(() {});
-                          },
-                        ),
-                      )),
+                        );
+                      }),
                     ],
                   ),
                 ),
@@ -666,6 +776,49 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
               ],
             ),
             
+            // GCP-specific: Service Account upload status indicator
+            if (widget.provider == 'gcp') ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: _hasGcpServiceAccount 
+                      ? Colors.green.withAlpha(25)
+                      : Colors.grey.withAlpha(25),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _hasGcpServiceAccount 
+                        ? Colors.green.shade600 
+                        : Colors.grey.shade400,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _hasGcpServiceAccount ? Icons.check_circle : Icons.warning_amber_rounded,
+                      color: _hasGcpServiceAccount ? Colors.green.shade600 : Colors.grey.shade600,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _hasGcpServiceAccount
+                            ? 'Service Account: $_gcpUploadedFileName (${_formatUploadTime(_gcpUploadedAt!)})'
+                            : 'No Service Account uploaded',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: _hasGcpServiceAccount 
+                              ? Colors.green.shade700 
+                              : Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            
             // Validation button and status
             const SizedBox(height: 16),
             Row(
@@ -689,7 +842,8 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
                     )
                   : FilledButton.icon(
                       // Enable button if fields are filled OR if we can validate stored credentials
-                      onPressed: (_isValidating || (!_areRequiredFieldsFilled() && !_wasOriginallyConfigured)) 
+                      // GCP-specific: Also require SA file to be uploaded
+                      onPressed: (_isValidating || !_canValidate()) 
                           ? null 
                           : _validateCredentials,
                       icon: _isValidating

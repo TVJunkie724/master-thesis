@@ -153,8 +153,8 @@ def ingestion(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json"
             )
         
-        # 5. Determine target processor
-        processor_name = f"{device_id}-processor"
+        # 5. Invoke processor wrapper (handles user processing + persister)
+        processor_name = "processor"
         
         logging.info(f"Invoking processor: {processor_name}")
         

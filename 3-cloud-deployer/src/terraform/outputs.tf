@@ -98,7 +98,7 @@ output "azure_user_functions_app_name" {
 
 output "azure_dispatcher_url" {
   description = "URL of the Azure L2 dispatcher function"
-  value       = try("https://${azurerm_linux_function_app.l2[0].default_hostname}/api/dispatcher", null)
+  value       = try("https://${azurerm_linux_function_app.l2[0].default_hostname}/${local.api_paths.dispatcher}", null)
 }
 
 # ==============================================================================
@@ -122,7 +122,7 @@ output "azure_l3_function_app_name" {
 
 output "azure_l3_hot_reader_url" {
   description = "URL of the L3 Hot Reader function"
-  value       = try("https://${azurerm_linux_function_app.l3[0].default_hostname}/api/hot-reader", null)
+  value       = try("https://${azurerm_linux_function_app.l3[0].default_hostname}/${local.api_paths.hot_reader}", null)
 }
 
 output "azure_archive_storage_account" {
@@ -168,9 +168,9 @@ output "azure_adt_portal_url" {
     "https://portal.azure.com/#@/resource/subscriptions/",
     var.azure_subscription_id,
     "/resourceGroups/",
-    "${var.digital_twin_name}-rg",
+    local.azure_resource_group_name,
     "/providers/Microsoft.DigitalTwins/digitalTwinsInstances/",
-    "${var.digital_twin_name}-adt/overview"
+    "${local.azure_adt_name}/overview"
   ]) : null
 }
 
@@ -181,9 +181,9 @@ output "azure_storage_portal_url" {
     "https://portal.azure.com/#@/resource/subscriptions/",
     var.azure_subscription_id,
     "/resourceGroups/",
-    "${var.digital_twin_name}-rg",
+    local.azure_resource_group_name,
     "/providers/Microsoft.Storage/storageAccounts/",
-    replace("${var.digital_twin_name}st", "-", ""),
+    local.azure_storage_account_name,
     "/overview"
   ]) : null
 }
@@ -192,7 +192,7 @@ output "azure_adt_access_instructions" {
   description = "How to access Azure Digital Twins and 3D Scenes Studio"
   value = var.layer_4_provider == "azure" ? join("\n", [
     "========== Azure Digital Twins Access ==========",
-    "ADT Instance: ${var.digital_twin_name}-adt",
+    "ADT Instance: ${local.azure_adt_name}",
     "ADT Endpoint: https://${azurerm_digital_twins_instance.main[0].host_name}",
     "",
     "3D Scenes Studio: https://explorer.digitaltwins.azure.net/3dscenes",
@@ -256,7 +256,7 @@ output "azure_grafana_access_instructions" {
 
 output "inter_cloud_token" {
   description = "Token for cross-cloud authentication"
-  value       = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, null)
+  value       = local.inter_cloud_token_value
   sensitive   = true
 }
 
@@ -568,6 +568,11 @@ output "gcp_firestore_database" {
 output "gcp_cold_bucket" {
   description = "Name of the cold storage bucket"
   value       = try(google_storage_bucket.cold[0].name, null)
+}
+
+output "gcp_archive_bucket" {
+  description = "Name of the archive storage bucket (when GCP is archive but not cold provider)"
+  value       = try(google_storage_bucket.archive[0].name, null)
 }
 
 output "gcp_hot_reader_url" {

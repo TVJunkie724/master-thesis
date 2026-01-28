@@ -2,6 +2,7 @@
 // State for the Wizard BLoC state machine
 
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
@@ -17,13 +18,16 @@ enum WizardMode { create, edit }
 enum WizardStatus { initial, loading, ready, saving, error }
 
 /// Source of credential data
-enum CredentialSource { 
+enum CredentialSource {
   /// No credentials configured
-  none, 
+  none,
+
   /// Credentials inherited from database (masked, should not be sent on update)
-  inherited, 
+  inherited,
+
   /// Credentials newly entered by user (should be sent on update)
   newlyEntered,
+
   /// Credentials were cleared (should be deleted from database on save)
   cleared,
 }
@@ -37,13 +41,13 @@ class ProviderCredentials extends Equatable {
   final Map<String, String> values;
   final bool isValid;
   final CredentialSource source;
-  
+
   const ProviderCredentials({
     this.values = const {},
     this.isValid = false,
     this.source = CredentialSource.none,
   });
-  
+
   ProviderCredentials copyWith({
     Map<String, String>? values,
     bool? isValid,
@@ -55,7 +59,7 @@ class ProviderCredentials extends Equatable {
       source: source ?? this.source,
     );
   }
-  
+
   @override
   List<Object?> get props => [values, isValid, source];
 }
@@ -68,16 +72,16 @@ class ProviderCredentials extends Equatable {
 class WizardState extends Equatable {
   // === Mode & Navigation ===
   final WizardMode mode;
-  final int currentStep;        // 0, 1, 2
+  final int currentStep; // 0, 1, 2
   final int highestStepReached; // For step indicator gating
   final WizardStatus status;
-  
+
   // === Transient UI (cleared on step change) ===
   final String? errorMessage;
   final String? successMessage;
   final String? warningMessage;
   final bool isCalculating;
-  
+
   // === Persistent Data: Step 1 ===
   final String? twinId;
   final String? twinName;
@@ -86,60 +90,75 @@ class WizardState extends Equatable {
   final ProviderCredentials azure;
   final ProviderCredentials gcp;
   final String? gcpServiceAccountJson;
-  
+
   // === Persistent Data: Step 2 ===
   final CalcParams? calcParams;
-  final bool isCalcFormValid;  // Whether the calculation form passes validation
+  final bool isCalcFormValid; // Whether the calculation form passes validation
   final CalcResult? calcResult;
-  final CalcResult? savedCalcResult;  // Last saved result from DB (for revert)
+  final CalcResult? savedCalcResult; // Last saved result from DB (for revert)
   final Map<String, dynamic>? calcResultRaw;
-  final Map<String, dynamic>? savedCalcResultRaw;  // Last saved raw result (for revert)
+  final Map<String, dynamic>?
+  savedCalcResultRaw; // Last saved raw result (for revert)
   final Map<String, dynamic>? pricingSnapshots;
   final Map<String, String?>? pricingTimestamps;
-  
+
   // === Persistent Data: Step 3 Section 2 ===
-  final String? deployerDigitalTwinName;  // config.json digital_twin_name (separate from Step 1 name)
-  final String? configEventsJson;         // config_events.json content
-  final String? configIotDevicesJson;     // config_iot_devices.json content
-  final bool configJsonValidated;         // config.json validation state
-  final bool configEventsValidated;       // Validation state (gates save)
-  final bool configIotDevicesValidated;   // Validation state (gates save)
-  
+  final String?
+  deployerDigitalTwinName; // config.json digital_twin_name (separate from Step 1 name)
+  final String? configEventsJson; // config_events.json content
+  final String? configIotDevicesJson; // config_iot_devices.json content
+  final bool configJsonValidated; // config.json validation state
+  final bool configEventsValidated; // Validation state (gates save)
+  final bool configIotDevicesValidated; // Validation state (gates save)
+
   // === Persistent Data: Step 3 Section 3 (L1) ===
   final Map<String, dynamic>? deployerConfig;
-  final String? payloadsJson;       // L1: payloads.json content
-  final bool payloadsValidated;     // L1: validation state
-  
+  final String? payloadsJson; // L1: payloads.json content
+  final bool payloadsValidated; // L1: validation state
+
   // === Persistent Data: Step 3 Section 3 (L2) ===
-  final Map<String, String> processorContents;       // device_id -> process.py content
-  final Map<String, bool> processorValidated;        // device_id -> validation state
-  final Map<String, String> processorRequirements;   // device_id -> requirements.txt content
-  final String? eventFeedbackContent;                // event-feedback/process.py
+  final Map<String, String>
+  processorContents; // device_id -> process.py content
+  final Map<String, bool> processorValidated; // device_id -> validation state
+  final Map<String, String>
+  processorRequirements; // device_id -> requirements.txt content
+  final String? eventFeedbackContent; // event-feedback/process.py
   final bool eventFeedbackValidated;
-  final String? eventFeedbackRequirements;           // requirements.txt content
-  final Map<String, String> eventActionContents;     // functionName -> code content
-  final Map<String, bool> eventActionValidated;      // functionName -> validation state
-  final Map<String, String> eventActionRequirements; // functionName -> requirements.txt
-  final String? stateMachineContent;                 // AWS/Azure/GCP workflow JSON/YAML
+  final String? eventFeedbackRequirements; // requirements.txt content
+  final Map<String, String> eventActionContents; // functionName -> code content
+  final Map<String, bool>
+  eventActionValidated; // functionName -> validation state
+  final Map<String, String>
+  eventActionRequirements; // functionName -> requirements.txt
+  final String? stateMachineContent; // AWS/Azure/GCP workflow JSON/YAML
   final bool stateMachineValidated;
-  
+
   // === Persistent Data: Step 3 Section 2 (L4 Hierarchy) ===
-  final String? hierarchyContent;                    // aws_hierarchy.json or azure_hierarchy.json
+  final String? hierarchyContent; // aws_hierarchy.json or azure_hierarchy.json
   final bool hierarchyValidated;
-  
+
   // === Persistent Data: Step 3 Section 3 (L4 Scene) ===
-  final bool sceneGlbUploaded;                       // True if GLB file exists on server
-  final String? sceneConfigContent;                  // scene.json or 3DScenesConfiguration.json
+  final bool sceneGlbUploaded; // True if GLB file exists on server
+  final String? sceneConfigContent; // scene.json or 3DScenesConfiguration.json
   final bool sceneConfigValidated;
-  
+
   // === Persistent Data: Step 3 Section 3 (L4/L5 User Config) ===
-  final String? userConfigContent;                   // config_user.json content
+  final String? userConfigContent; // config_user.json content
   final bool userConfigValidated;
-  
+
+  // === Zip Upload State ===
+  final bool zipUploadInProgress; // True during upload/extraction
+  final bool zipUploadPending; // True when confirmation needed
+  final String? pendingZipFilePath; // Pending file for confirmation
+  final Uint8List? pendingZipFileBytes; // Pending bytes for confirmation
+  final String? pendingZipFileName; // Pending filename for confirmation
+  final bool
+  forceCollapseSections; // Triggers section collapse after zip success
+
   // === State Tracking ===
   final bool hasUnsavedChanges;
-  final bool step3Invalidated;  // True when new calc invalidates Section 3 data
-  
+  final bool step3Invalidated; // True when new calc invalidates Section 3 data
+
   const WizardState({
     this.mode = WizardMode.create,
     this.currentStep = 0,
@@ -157,7 +176,7 @@ class WizardState extends Equatable {
     this.gcp = const ProviderCredentials(),
     this.gcpServiceAccountJson,
     this.calcParams,
-    this.isCalcFormValid = true,  // Default to valid
+    this.isCalcFormValid = true, // Default to valid
     this.calcResult,
     this.savedCalcResult,
     this.calcResultRaw,
@@ -193,36 +212,59 @@ class WizardState extends Equatable {
     this.sceneConfigValidated = false,
     this.userConfigContent,
     this.userConfigValidated = false,
+    // Zip upload state
+    this.zipUploadInProgress = false,
+    this.zipUploadPending = false,
+    this.pendingZipFilePath,
+    this.pendingZipFileBytes,
+    this.pendingZipFileName,
+    this.forceCollapseSections = false,
     this.hasUnsavedChanges = false,
     this.step3Invalidated = false,
   });
-  
+
   // ============================================================
   // DERIVED GETTERS
   // ============================================================
-  
+
   /// Can proceed from Step 1 to Step 2?
-  bool get canProceedToStep2 => 
-    (twinName?.isNotEmpty ?? false) && 
-    (aws.isValid || azure.isValid || gcp.isValid);
-  
+  bool get canProceedToStep2 =>
+      (twinName?.isNotEmpty ?? false) &&
+      (aws.isValid || azure.isValid || gcp.isValid);
+
   /// Can proceed from Step 2 to Step 3?
   bool get canProceedToStep3 => calcResult != null;
-  
+
   /// Set of configured provider names (uppercase)
   Set<String> get configuredProviders => {
     if (aws.isValid) 'AWS',
     if (azure.isValid) 'AZURE',
     if (gcp.isValid) 'GCP',
   };
-  
+
+  /// Set of required provider names (from optimizer result) that are NOT configured
+  Set<String> get unconfiguredProviders {
+    final required = layerProviders.values.toSet();
+    return required.difference(configuredProviders);
+  }
+
   /// Is Section 2 validated? (gates save)
   /// Includes hierarchy validation when L4 provider is AWS or Azure
+  /// Requires non-empty deployerDigitalTwinName
   bool get isSection2Valid {
     // Core configs must always be validated
-    if (!configJsonValidated || !configEventsValidated || !configIotDevicesValidated) {
+    if (!configJsonValidated ||
+        !configEventsValidated ||
+        !configIotDevicesValidated) {
       return false;
     }
+
+    // deployerDigitalTwinName must be non-empty
+    if (deployerDigitalTwinName == null ||
+        deployerDigitalTwinName!.trim().isEmpty) {
+      return false;
+    }
+
     // Hierarchy is required for AWS/Azure L4
     final l4 = layer4Provider?.toUpperCase();
     if (l4 == 'AWS' || l4 == 'AZURE') {
@@ -230,12 +272,12 @@ class WizardState extends Equatable {
     }
     return true;
   }
-  
+
   /// Is Section 3 validated? (all required L1-L5 fields complete)
   bool get isSection3Valid {
     // L1: Payloads always required
     if (!payloadsValidated) return false;
-    
+
     // L2: All device processors must be validated
     final devices = deviceIds;
     if (devices.isNotEmpty) {
@@ -243,12 +285,12 @@ class WizardState extends Equatable {
         if (processorValidated[deviceId] != true) return false;
       }
     }
-    
+
     // L2: Event feedback (if enabled)
     if (calcParams?.returnFeedbackToDevice == true) {
       if (!eventFeedbackValidated) return false;
     }
-    
+
     // L2: Event actions (if enabled)
     if (calcParams?.useEventChecking == true) {
       final actionNames = eventActionFunctionNames;
@@ -256,33 +298,33 @@ class WizardState extends Equatable {
         if (eventActionValidated[name] != true) return false;
       }
     }
-    
+
     // L2: State machine (if enabled)
     if (calcParams?.triggerNotificationWorkflow == true) {
       if (!stateMachineValidated) return false;
     }
-    
+
     // L4: Scene config (if needs3DModel && hierarchy validated && AWS/Azure)
     final l4 = layer4Provider?.toUpperCase();
-    if (calcParams?.needs3DModel == true && 
-        hierarchyValidated && 
+    if (calcParams?.needs3DModel == true &&
+        hierarchyValidated &&
         (l4 == 'AWS' || l4 == 'AZURE')) {
       if (!sceneConfigValidated) return false;
     }
-    
+
     // L5: User config (if AWS/Azure)
     final l5 = layer5Provider?.toUpperCase();
     if (l5 == 'AWS' || l5 == 'AZURE') {
       if (!userConfigValidated) return false;
     }
-    
+
     return true;
   }
-  
+
   // ============================================================
   // L2 DERIVED GETTERS
   // ============================================================
-  
+
   /// Get device IDs from validated config_iot_devices.json
   /// Handles both array format [{id:...}] and object format {devices:[{device_id:...}]}
   List<String> get deviceIds {
@@ -291,9 +333,9 @@ class WizardState extends Equatable {
       final data = jsonDecode(configIotDevicesJson!);
       final List<dynamic> devices;
       if (data is List) {
-        devices = data;  // Direct array format: [{id:...}, ...]
+        devices = data; // Direct array format: [{id:...}, ...]
       } else if (data is Map && data['devices'] is List) {
-        devices = data['devices'];  // Wrapped format: {devices: [...]}
+        devices = data['devices']; // Wrapped format: {devices: [...]}
       } else {
         return [];
       }
@@ -305,7 +347,7 @@ class WizardState extends Equatable {
       return [];
     }
   }
-  
+
   /// Get event action function names from validated config_events.json
   /// Handles both singular 'action' and plural 'actions' formats
   List<String> get eventActionFunctionNames {
@@ -315,9 +357,9 @@ class WizardState extends Equatable {
       final data = jsonDecode(configEventsJson!);
       final List<dynamic> events;
       if (data is List) {
-        events = data;  // Direct array format
+        events = data; // Direct array format
       } else if (data is Map && data['events'] is List) {
-        events = data['events'];  // Wrapped format
+        events = data['events']; // Wrapped format
       } else {
         return [];
       }
@@ -343,7 +385,7 @@ class WizardState extends Equatable {
       return [];
     }
   }
-  
+
   /// Get layer providers from calculation result (L1-L5)
   /// Parses cheapestPath format: ['L1_AWS', 'L2_Azure', 'L3_hot_GCP', ...]
   Map<String, String> get layerProviders {
@@ -361,16 +403,16 @@ class WizardState extends Equatable {
     }
     return result;
   }
-  
+
   /// Get the L2 provider from calculation result
   String? get layer2Provider => layerProviders['L2'];
-  
+
   /// Get the L4 provider from calculation result
   String? get layer4Provider => layerProviders['L4'];
-  
-  /// Get the L5 provider from calculation result  
+
+  /// Get the L5 provider from calculation result
   String? get layer5Provider => layerProviders['L5'];
-  
+
   /// Get state machine filename based on L2 provider
   String? get stateMachineFilename {
     final l2 = layer2Provider?.toLowerCase();
@@ -386,15 +428,17 @@ class WizardState extends Equatable {
         return null;
     }
   }
-  
+
   /// Should show feedback function input?
   bool get shouldShowFeedbackFunction =>
-      configIotDevicesValidated && (calcParams?.returnFeedbackToDevice ?? false);
+      configIotDevicesValidated &&
+      (calcParams?.returnFeedbackToDevice ?? false);
 
   /// Should show state machine input?
   bool get shouldShowStateMachine =>
-      configIotDevicesValidated && (calcParams?.triggerNotificationWorkflow ?? false);
-  
+      configIotDevicesValidated &&
+      (calcParams?.triggerNotificationWorkflow ?? false);
+
   /// Computed: true if any Section 3 field has content (L1 + L2)
   bool get hasSection3Data =>
       (payloadsJson?.isNotEmpty ?? false) ||
@@ -402,11 +446,11 @@ class WizardState extends Equatable {
       (eventFeedbackContent?.isNotEmpty ?? false) ||
       eventActionContents.isNotEmpty ||
       (stateMachineContent?.isNotEmpty ?? false);
-  
+
   // ============================================================
   // COPY WITH
   // ============================================================
-  
+
   WizardState copyWith({
     WizardMode? mode,
     int? currentStep,
@@ -470,6 +514,16 @@ class WizardState extends Equatable {
     bool clearHierarchyContent = false,
     bool clearSceneConfigContent = false,
     bool clearUserConfigContent = false,
+    // Zip upload fields
+    bool? zipUploadInProgress,
+    bool? zipUploadPending,
+    String? pendingZipFilePath,
+    dynamic pendingZipFileBytes,
+    String? pendingZipFileName,
+    bool clearPendingZipFilePath = false,
+    bool clearPendingZipFileBytes = false,
+    bool clearPendingZipFileName = false,
+    bool? forceCollapseSections,
   }) {
     return WizardState(
       mode: mode ?? this.mode,
@@ -477,8 +531,12 @@ class WizardState extends Equatable {
       highestStepReached: highestStepReached ?? this.highestStepReached,
       status: status ?? this.status,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      successMessage: clearSuccess ? null : (successMessage ?? this.successMessage),
-      warningMessage: clearWarning ? null : (warningMessage ?? this.warningMessage),
+      successMessage: clearSuccess
+          ? null
+          : (successMessage ?? this.successMessage),
+      warningMessage: clearWarning
+          ? null
+          : (warningMessage ?? this.warningMessage),
       isCalculating: isCalculating ?? this.isCalculating,
       twinId: twinId ?? this.twinId,
       twinName: twinName ?? this.twinName,
@@ -486,7 +544,8 @@ class WizardState extends Equatable {
       aws: aws ?? this.aws,
       azure: azure ?? this.azure,
       gcp: gcp ?? this.gcp,
-      gcpServiceAccountJson: gcpServiceAccountJson ?? this.gcpServiceAccountJson,
+      gcpServiceAccountJson:
+          gcpServiceAccountJson ?? this.gcpServiceAccountJson,
       calcParams: calcParams ?? this.calcParams,
       isCalcFormValid: isCalcFormValid ?? this.isCalcFormValid,
       calcResult: calcResult ?? this.calcResult,
@@ -495,47 +554,71 @@ class WizardState extends Equatable {
       savedCalcResultRaw: savedCalcResultRaw ?? this.savedCalcResultRaw,
       pricingSnapshots: pricingSnapshots ?? this.pricingSnapshots,
       pricingTimestamps: pricingTimestamps ?? this.pricingTimestamps,
-      deployerDigitalTwinName: deployerDigitalTwinName ?? this.deployerDigitalTwinName,
+      deployerDigitalTwinName:
+          deployerDigitalTwinName ?? this.deployerDigitalTwinName,
       configEventsJson: configEventsJson ?? this.configEventsJson,
       configIotDevicesJson: configIotDevicesJson ?? this.configIotDevicesJson,
       configJsonValidated: configJsonValidated ?? this.configJsonValidated,
-      configEventsValidated: configEventsValidated ?? this.configEventsValidated,
-      configIotDevicesValidated: configIotDevicesValidated ?? this.configIotDevicesValidated,
+      configEventsValidated:
+          configEventsValidated ?? this.configEventsValidated,
+      configIotDevicesValidated:
+          configIotDevicesValidated ?? this.configIotDevicesValidated,
       deployerConfig: deployerConfig ?? this.deployerConfig,
       payloadsJson: payloadsJson ?? this.payloadsJson,
       payloadsValidated: payloadsValidated ?? this.payloadsValidated,
       // L2 fields
       processorContents: processorContents ?? this.processorContents,
       processorValidated: processorValidated ?? this.processorValidated,
-      processorRequirements: processorRequirements ?? this.processorRequirements,
+      processorRequirements:
+          processorRequirements ?? this.processorRequirements,
       eventFeedbackContent: eventFeedbackContent ?? this.eventFeedbackContent,
-      eventFeedbackValidated: eventFeedbackValidated ?? this.eventFeedbackValidated,
-      eventFeedbackRequirements: eventFeedbackRequirements ?? this.eventFeedbackRequirements,
+      eventFeedbackValidated:
+          eventFeedbackValidated ?? this.eventFeedbackValidated,
+      eventFeedbackRequirements:
+          eventFeedbackRequirements ?? this.eventFeedbackRequirements,
       eventActionContents: eventActionContents ?? this.eventActionContents,
       eventActionValidated: eventActionValidated ?? this.eventActionValidated,
-      eventActionRequirements: eventActionRequirements ?? this.eventActionRequirements,
+      eventActionRequirements:
+          eventActionRequirements ?? this.eventActionRequirements,
       stateMachineContent: stateMachineContent ?? this.stateMachineContent,
-      stateMachineValidated: stateMachineValidated ?? this.stateMachineValidated,
+      stateMachineValidated:
+          stateMachineValidated ?? this.stateMachineValidated,
       // L4/L5 fields
-      hierarchyContent: clearHierarchyContent ? null : (hierarchyContent ?? this.hierarchyContent),
+      hierarchyContent: clearHierarchyContent
+          ? null
+          : (hierarchyContent ?? this.hierarchyContent),
       hierarchyValidated: hierarchyValidated ?? this.hierarchyValidated,
       sceneGlbUploaded: sceneGlbUploaded ?? this.sceneGlbUploaded,
-      sceneConfigContent: clearSceneConfigContent ? null : (sceneConfigContent ?? this.sceneConfigContent),
+      sceneConfigContent: clearSceneConfigContent
+          ? null
+          : (sceneConfigContent ?? this.sceneConfigContent),
       sceneConfigValidated: sceneConfigValidated ?? this.sceneConfigValidated,
-      userConfigContent: clearUserConfigContent ? null : (userConfigContent ?? this.userConfigContent),
+      userConfigContent: clearUserConfigContent
+          ? null
+          : (userConfigContent ?? this.userConfigContent),
       userConfigValidated: userConfigValidated ?? this.userConfigValidated,
+      zipUploadInProgress: zipUploadInProgress ?? this.zipUploadInProgress,
+      zipUploadPending: zipUploadPending ?? this.zipUploadPending,
+      pendingZipFilePath: clearPendingZipFilePath
+          ? null
+          : (pendingZipFilePath ?? this.pendingZipFilePath),
+      pendingZipFileBytes: clearPendingZipFileBytes
+          ? null
+          : (pendingZipFileBytes ?? this.pendingZipFileBytes),
+      pendingZipFileName: clearPendingZipFileName
+          ? null
+          : (pendingZipFileName ?? this.pendingZipFileName),
+      forceCollapseSections:
+          forceCollapseSections ?? this.forceCollapseSections,
       hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
       step3Invalidated: step3Invalidated ?? this.step3Invalidated,
     );
   }
-  
+
   /// Clear all transient notifications (called on step navigation)
-  WizardState clearNotifications() => copyWith(
-    clearError: true,
-    clearSuccess: true,
-    clearWarning: true,
-  );
-  
+  WizardState clearNotifications() =>
+      copyWith(clearError: true, clearSuccess: true, clearWarning: true);
+
   @override
   List<Object?> get props => [
     mode,
@@ -561,10 +644,10 @@ class WizardState extends Equatable {
     savedCalcResultRaw,
     pricingSnapshots,
     pricingTimestamps,
-    deployerDigitalTwinName,  // FIXED: was missing
+    deployerDigitalTwinName, // FIXED: was missing
     configEventsJson,
     configIotDevicesJson,
-    configJsonValidated,      // FIXED: was missing
+    configJsonValidated, // FIXED: was missing
     configEventsValidated,
     configIotDevicesValidated,
     deployerConfig,
@@ -590,6 +673,12 @@ class WizardState extends Equatable {
     sceneConfigValidated,
     userConfigContent,
     userConfigValidated,
+    zipUploadInProgress,
+    zipUploadPending,
+    pendingZipFilePath,
+    pendingZipFileBytes,
+    pendingZipFileName,
+    forceCollapseSections,
     hasUnsavedChanges,
     step3Invalidated,
   ];

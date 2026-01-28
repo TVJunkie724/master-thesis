@@ -6,17 +6,24 @@ RUN apt-get update && apt-get install -y curl unzip \
  && apt-get install -y nodejs \
  && apt-get clean
 
-# Install Terraform (direct download)
-RUN curl -fsSL https://releases.hashicorp.com/terraform/1.7.5/terraform_1.7.5_linux_amd64.zip -o /tmp/terraform.zip \
+# Install Terraform (architecture-aware for ARM64/AMD64 compatibility)
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then TF_ARCH="arm64"; else TF_ARCH="amd64"; fi && \
+    curl -fsSL "https://releases.hashicorp.com/terraform/1.7.5/terraform_1.7.5_linux_${TF_ARCH}.zip" -o /tmp/terraform.zip \
  && unzip /tmp/terraform.zip -d /usr/local/bin/ \
  && rm /tmp/terraform.zip \
  && chmod +x /usr/local/bin/terraform
 
-WORKDIR /app
-COPY ./3-cloud-deployer/requirements.txt /app/requirements.txt
-COPY ./3-cloud-deployer /app
+# Disable uamqp (C library) - use pure-Python AMQP for ARM64 compatibility
+ENV AZURE_UAMQP_EXTENSION_ENABLED=False
 
-RUN pip install -r requirements.txt
+WORKDIR /app
+COPY requirements.txt /app/requirements.txt
+COPY constraints.txt /app/constraints.txt
+COPY . /app
+
+# Install with constraints to block uamqp
+RUN pip install -r /app/requirements.txt -c /app/constraints.txt
 
 EXPOSE 8000
 

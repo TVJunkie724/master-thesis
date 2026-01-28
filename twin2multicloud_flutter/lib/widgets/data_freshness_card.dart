@@ -6,6 +6,8 @@ class DataFreshnessCard extends StatelessWidget {
   final String label; // e.g., 'Pricing', 'Regions'
   final Map<String, dynamic>? status;
   final VoidCallback? onRefresh;
+  final bool enabled;
+  final String? disabledReason;
 
   const DataFreshnessCard({
     super.key,
@@ -13,6 +15,8 @@ class DataFreshnessCard extends StatelessWidget {
     this.label = 'Pricing',
     this.status,
     this.onRefresh,
+    this.enabled = true,
+    this.disabledReason,
   });
 
   @override
@@ -88,16 +92,22 @@ class DataFreshnessCard extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // Refresh button
+            // Refresh button with disabled state
             SizedBox(
               width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: onRefresh,
-                icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('Refresh'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: providerColor,
-                  side: BorderSide(color: providerColor),
+              child: Tooltip(
+                message: enabled ? '' : (disabledReason ?? 'Refresh disabled'),
+                child: OutlinedButton.icon(
+                  onPressed: enabled ? onRefresh : null,
+                  icon: Icon(
+                    enabled ? Icons.refresh : Icons.lock_outline,
+                    size: 16,
+                  ),
+                  label: const Text('Refresh'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: enabled ? providerColor : Colors.grey,
+                    side: BorderSide(color: enabled ? providerColor : Colors.grey.shade400),
+                  ),
                 ),
               ),
             ),

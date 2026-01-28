@@ -1,0 +1,4 @@
+# Block uamqp installation by specifying an impossible version
+# uamqp is a C library that fails to build on ARM64 (Apple Silicon)
+# Modern Azure SDKs use pure-Python AMQP implementation as fallback
+uamqp==999.0.0

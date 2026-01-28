@@ -5,28 +5,26 @@ import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/wizard/wizard_screen.dart';
+import 'screens/twin_overview/twin_overview_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 
 // Router configuration
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
-  
+
   return GoRouter(
     initialLocation: '/login',
     redirect: (context, state) {
       final isLoggedIn = authState.isAuthenticated;
       final isLoggingIn = state.matchedLocation == '/login';
-      
+
       if (!isLoggedIn && !isLoggingIn) return '/login';
       if (isLoggedIn && isLoggingIn) return '/dashboard';
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/dashboard',
         builder: (context, state) => const DashboardScreen(),
@@ -49,9 +47,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/wizard/:twinId',
-        builder: (context, state) => WizardScreen(
-          twinId: state.pathParameters['twinId'],
-        ),
+        builder: (context, state) =>
+            WizardScreen(twinId: state.pathParameters['twinId']),
+      ),
+      // Twin Overview page (Phase 1)
+      GoRoute(
+        path: '/twins/:id/overview',
+        builder: (context, state) =>
+            TwinOverviewScreen(twinId: state.pathParameters['id']!),
       ),
     ],
   );
@@ -63,10 +66,10 @@ class Twin2MultiCloudApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
-    
+
     // Simple Material theme - uses Material 3 defaults with blue primary
     const Color primaryBlue = Color(0xFF1976D2);
-    
+
     // Light Theme - Standard Material defaults
     final lightTheme = ThemeData(
       useMaterial3: true,
@@ -75,7 +78,7 @@ class Twin2MultiCloudApp extends ConsumerWidget {
         brightness: Brightness.light,
       ),
     );
-    
+
     // Dark Theme - Standard Material defaults
     final darkTheme = ThemeData(
       useMaterial3: true,
@@ -84,7 +87,7 @@ class Twin2MultiCloudApp extends ConsumerWidget {
         brightness: Brightness.dark,
       ),
     );
-    
+
     return MaterialApp.router(
       title: 'Twin2MultiCloud',
       debugShowCheckedModeBanner: false,

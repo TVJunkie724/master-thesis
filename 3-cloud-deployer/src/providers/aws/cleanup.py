@@ -77,13 +77,44 @@ def cleanup_aws_resources(
                     logger.info(f"    [DRY RUN] Would delete workspace and contents")
                 else:
                     try:
+                        # Delete entities (async operation)
                         for entity in twinmaker.list_entities(workspaceId=workspace_id).get('entitySummaries', []):
                             twinmaker.delete_entity(workspaceId=workspace_id, entityId=entity['entityId'], isRecursive=True)
+                        
+                        # Wait for entities to be fully deleted (timeout-based)
+                        start_time = time.time()
+                        max_wait = 60  # seconds
+                        while time.time() - start_time < max_wait:
+                            remaining = twinmaker.list_entities(workspaceId=workspace_id).get('entitySummaries', [])
+                            if not remaining:
+                                break
+                            remaining_time = int(max_wait - (time.time() - start_time))
+                            logger.info(f"    Waiting for {len(remaining)} entities ({remaining_time}s remaining)...")
+                            time.sleep(3)
+                        else:
+                            logger.warning(f"    Timeout waiting for entities, proceeding anyway")
+                        
+                        # Delete scenes
                         for scene in twinmaker.list_scenes(workspaceId=workspace_id).get('sceneSummaries', []):
                             twinmaker.delete_scene(workspaceId=workspace_id, sceneId=scene['sceneId'])
+                        
+                        # Delete component types with retry (may still be referenced)
                         for ct in twinmaker.list_component_types(workspaceId=workspace_id).get('componentTypeSummaries', []):
                             if not ct['componentTypeId'].startswith('com.amazon'):
-                                twinmaker.delete_component_type(workspaceId=workspace_id, componentTypeId=ct['componentTypeId'])
+                                ct_id = ct['componentTypeId']
+                                for attempt in range(3):
+                                    try:
+                                        twinmaker.delete_component_type(workspaceId=workspace_id, componentTypeId=ct_id)
+                                        break
+                                    except Exception as e:
+                                        if "being used by entities" in str(e) and attempt < 2:
+                                            wait = 2 ** attempt
+                                            logger.warning(f"    Retry {attempt+1}/3 for {ct_id}: waiting {wait}s")
+                                            time.sleep(wait)
+                                        else:
+                                            logger.warning(f"    ✗ Failed to delete {ct_id}: {e}")
+                                            break
+                        
                         time.sleep(2)
                         twinmaker.delete_workspace(workspaceId=workspace_id)
                         logger.info(f"    ✓ Deleted")
@@ -276,7 +307,27 @@ def cleanup_aws_resources(
     except Exception as e:
         logger.warning(f"  Error: {e}")
     
-    # 11. Identity Store User (ONLY if we created it during this deployment)
+    # 11. AWS Resource Groups (used for tagging/organizing resources)
+    logger.info("[Resource Groups] Checking for orphans...")
+    try:
+        rg = session.client('resource-groups')
+        for page in rg.get_paginator('list_groups').paginate():
+            for group in page['Groups']:
+                group_name = group['Name']
+                if prefix in group_name or prefix_underscore in group_name:
+                    logger.info(f"  Found orphan: {group_name}")
+                    if dry_run:
+                        logger.info(f"    [DRY RUN] Would delete")
+                    else:
+                        try:
+                            rg.delete_group(Group=group_name)
+                            logger.info(f"    ✓ Deleted")
+                        except Exception as e:
+                            logger.warning(f"    ✗ Error: {e}")
+    except Exception as e:
+        logger.warning(f"  Error: {e}")
+    
+    # 12. Identity Store User (ONLY if we created it during this deployment)
     if cleanup_identity_user:
         logger.info("[Identity Store] Checking for user to clean up...")
         try:

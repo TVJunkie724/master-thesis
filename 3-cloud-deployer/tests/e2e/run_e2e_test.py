@@ -27,10 +27,10 @@ def main():
         "aws-stepfunctions": ("tests/e2e/aws/test_aws_stepfunctions_e2e.py", "tests/e2e/aws"),
         "aws-twinmaker-full": ("tests/e2e/aws/test_aws_twinmaker_integrated_e2e.py", "tests/e2e/aws"),
         "gcp": ("tests/e2e/gcp/test_gcp_terraform_e2e.py", "tests/e2e/gcp"),
-        "azure": ("tests/e2e/azure/test_azure_single_cloud_e2e.py", "tests/e2e/azure"),
-        "azure-adt-full": ("tests/e2e/azure/test_azure_adt_integrated_e2e.py", "tests/e2e/azure"),
-        "azure-grafana": ("tests/e2e/azure/test_azure_grafana_e2e.py", "tests/e2e/azure"),
-        "azure-logicapp-isolated": ("tests/e2e/azure/test_azure_logicapp_isolated_e2e.py", "tests/e2e/azure"),
+        "azure": ("tests/e2e/azure_tests/test_azure_single_cloud_e2e.py", "tests/e2e/azure_tests"),
+        "azure-adt-full": ("tests/e2e/azure_tests/test_azure_adt_integrated_e2e.py", "tests/e2e/azure_tests"),
+        "azure-grafana": ("tests/e2e/azure_tests/test_azure_grafana_e2e.py", "tests/e2e/azure_tests"),
+        "azure-logicapp-isolated": ("tests/e2e/azure_tests/test_azure_logicapp_isolated_e2e.py", "tests/e2e/azure_tests"),
         "azure-zip": ("tests/e2e/test_azure_functions_only.py", "tests/e2e"),
         "multicloud": ("tests/e2e/multicloud/test_multicloud_e2e.py", "tests/e2e/multicloud"),
         # Deployer scenario tests (one at a time)
@@ -88,51 +88,69 @@ def main():
     # Record start time for duration tracking
     start_time = datetime.now()
     
-    # Run and capture output
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd="/app"
-    )
+    # Open output files for streaming
+    with open(output_file, "w") as f_out:
+        # Write header
+        header = [
+            f"E2E Test Output - {provider.upper()}",
+            f"Started: {start_time.isoformat()}",
+            f"Test file: {test_file}",
+            "=" * 60 + "\n",
+        ]
+        for line in header:
+            print(line)  # Print to console
+            f_out.write(line + "\n")
+        f_out.flush()
+        
+        # Run pytest with real-time streaming output
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Combine stderr into stdout
+            text=True,
+            bufsize=1,  # Line buffered
+            cwd="/app"
+        )
+        
+        # Stream output line by line
+        stdout_lines = []
+        for line in process.stdout:
+            print(line, end="")  # Print to console (already has newline)
+            f_out.write(line)
+            f_out.flush()
+            stdout_lines.append(line)
+        
+        # Wait for process to complete
+        process.wait()
+        returncode = process.returncode
     
     # Calculate duration
     end_time = datetime.now()
     duration = end_time - start_time
     duration_str = str(duration).split('.')[0]  # Remove microseconds for readability
     
-    # Prepare output content
-    output_content = []
-    output_content.append(f"E2E Test Output - {provider.upper()}")
-    output_content.append(f"Started: {start_time.isoformat()}")
-    output_content.append(f"Finished: {end_time.isoformat()}")
-    output_content.append(f"Duration: {duration_str}")
-    output_content.append(f"Test file: {test_file}")
-    output_content.append(f"Exit code: {result.returncode}")
-    output_content.append("=" * 60 + "\n")
-    output_content.append("=== STDOUT ===")
-    output_content.append(result.stdout or "(empty)")
-    output_content.append("\n=== STDERR ===")
-    output_content.append(result.stderr or "(empty)")
-    output_content.append("\n" + "=" * 60)
-    output_content.append(f"TEST DURATION: {duration_str}")
-    output_content.append("=" * 60)
+    # Append footer to output file
+    with open(output_file, "a") as f_out:
+        footer = [
+            "\n" + "=" * 60,
+            f"Finished: {end_time.isoformat()}",
+            f"Duration: {duration_str}",
+            f"Exit code: {returncode}",
+            "=" * 60,
+        ]
+        for line in footer:
+            print(line)
+            f_out.write(line + "\n")
     
-    full_output = "\n".join(output_content)
-    
-    # Write to timestamped file
-    with open(output_file, "w") as f:
-        f.write(full_output)
-    
-    # Write to latest file (overwrite)
-    with open(latest_file, "w") as f:
-        f.write(full_output)
+    # Create latest file copy
+    import shutil
+    shutil.copy(output_file, latest_file)
     
     # Print summary
     print(f"\n{'=' * 60}")
     print(f"  COMPLETE")
     print(f"{'=' * 60}")
-    print(f"Exit code: {result.returncode}")
+    print(f"Exit code: {returncode}")
     print(f"Duration: {duration_str}")
     print(f"Output saved to: {output_file}")
     print(f"Latest output: {latest_file}")
@@ -144,7 +162,7 @@ def main():
     print("To view last 100 lines:")
     print(f"  docker exec master-thesis-3cloud-deployer-1 tail -100 {latest_file}")
     
-    sys.exit(result.returncode)
+    sys.exit(returncode)
 
 
 def run_with_error_handling():

@@ -23,7 +23,7 @@
 
 resource "azurerm_dashboard_grafana" "main" {
   count               = var.layer_5_provider == "azure" ? 1 : 0
-  name                = "${var.digital_twin_name}-grafana"
+  name                = local.azure_grafana_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
 

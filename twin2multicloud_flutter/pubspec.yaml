@@ -68,10 +68,17 @@ dependencies:
   flutter_code_editor: 0.3.5
   flutter_highlight: ^0.7.0
   highlight: ^0.7.0
+  
+  # File download
+  file_saver: ^0.2.14
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  
+  # BLoC testing
+  bloc_test: ^9.1.7
+  mocktail: ^1.0.4
   
   # Code generation
   riverpod_generator: ^2.3.9

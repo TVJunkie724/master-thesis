@@ -48,6 +48,12 @@ from src.providers.terraform.aws_deployer import (
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
 
+# Pre-import cleanup modules to avoid ThreadPoolExecutor deadlock
+# Python import locks can cause deadlock when multiple threads import simultaneously
+from src.providers.aws.cleanup import cleanup_aws_resources
+from src.providers.azure.cleanup import cleanup_azure_resources
+from src.providers.gcp.cleanup import cleanup_gcp_resources
+
 logger = logging.getLogger(__name__)
 
 
@@ -306,6 +312,179 @@ class TerraformDeployerStrategy:
         if self._terraform_outputs is None:
             self._terraform_outputs = self.runner.output()
         return self._terraform_outputs
+    
+    # =========================================================================
+    # Async Streaming Methods (for SSE)
+    # =========================================================================
+    
+    async def deploy_all_async(self, context: Optional['DeploymentContext'] = None, skip_credential_check: bool = False):
+        """
+        Deploy all infrastructure with async streaming.
+        
+        Yields log lines for SSE streaming. Uses async subprocess for Terraform
+        and async HTTP for Azure Kudu deployments.
+        
+        Args:
+            context: DeploymentContext for SDK operations (REQUIRED)
+            skip_credential_check: Skip pre-deployment credential validation
+            
+        Yields:
+            Log lines during deployment
+        """
+        import asyncio
+        from src.providers.azure.layers.deployment_helpers import (
+            deploy_to_kudu_async,
+            get_publishing_credentials_async
+        )
+        from src.providers.terraform.package_builder import build_azure_user_bundle
+        
+        if context is None:
+            raise ValueError("DeploymentContext is required for SDK operations.")
+        
+        yield "=" * 60
+        yield "  TERRAFORM DEPLOYMENT - STARTING"
+        yield "=" * 60
+        
+        # Step 0: Validate credentials (sync, fast)
+        if not skip_credential_check:
+            yield "\n[STEP 0/9] Validating cloud credentials..."
+            self._validate_credentials()
+            yield "✓ Credentials validated"
+        else:
+            yield "\n[STEP 0/9] Skipping credential validation"
+        
+        # Step 0.5: Initialize providers (sync, fast)
+        yield "\n[STEP 0.5/9] Initializing cloud providers..."
+        self._initialize_providers(context)
+        yield "✓ Providers initialized"
+        
+        # Step 1: Validate project (sync, fast)
+        yield "\n[STEP 1/9] Validating project structure..."
+        from src.validation.directory_validator import validate_project_directory
+        validate_project_directory(self.project_path)
+        yield "✓ Project validation passed"
+        
+        # Step 2: Build packages (sync, fast)
+        yield "\n[STEP 2/9] Building function packages..."
+        self._build_packages()
+        yield "✓ Packages built"
+        
+        # Step 3: Generate tfvars (sync, fast)
+        yield "\n[STEP 3/9] Generating tfvars.json..."
+        self._generate_tfvars()
+        yield f"✓ Generated: {self.tfvars_path}"
+        
+        # Step 4: Terraform init (async streaming)
+        yield "\n[STEP 4/9] Terraform init..."
+        async for line in self.runner.init_async():
+            yield line
+        
+        # Step 5: Terraform apply (async streaming)
+        yield "\n[STEP 5/9] Terraform apply..."
+        async for line in self.runner.apply_async(str(self.tfvars_path)):
+            yield line
+        
+        # Get outputs
+        self._terraform_outputs = self.runner.output()
+        yield f"✓ Terraform outputs: {list(self._terraform_outputs.keys())}"
+        
+        # Step 6: Deploy Azure function code (async with streaming)
+        yield "\n[STEP 6/9] Deploying Azure function code..."
+        providers_config = self._load_providers_config()
+        
+        if providers_config.get("layer_2_provider") == "azure":
+            app_name = self._terraform_outputs.get("azure_user_functions_app_name")
+            rg_name = self._terraform_outputs.get("azure_resource_group_name")
+            
+            if app_name and rg_name:
+                provider = context.providers.get("azure")
+                if provider:
+                    # Build ZIP
+                    combined_zip_path = build_azure_user_bundle(self.project_path, providers_config)
+                    if combined_zip_path and combined_zip_path.exists():
+                        with open(combined_zip_path, "rb") as f:
+                            zip_bytes = f.read()
+                        
+                        # Get credentials (async, uses executor)
+                        yield "  Getting publishing credentials..."
+                        web_client = provider.clients["web"]
+                        creds = await get_publishing_credentials_async(web_client, rg_name, app_name)
+                        
+                        # Deploy via Kudu (async streaming)
+                        async for line in deploy_to_kudu_async(
+                            app_name=app_name,
+                            zip_content=zip_bytes,
+                            publish_username=creds.publishing_user_name,
+                            publish_password=creds.publishing_password
+                        ):
+                            yield line
+                    else:
+                        yield "  No user functions to deploy"
+                else:
+                    yield "  Azure provider not initialized, skipping Kudu"
+            else:
+                yield "  No user functions app deployed, skipping"
+        else:
+            yield "  No Azure layers configured, skipping Kudu"
+        
+        # Step 7: Post-deployment (sync, moderate - use executor for blocking calls)
+        yield "\n[STEP 7/9] Running post-deployment operations..."
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: self._run_post_deployment(context))
+        yield "✓ Post-deployment operations complete"
+        
+        yield "\n" + "=" * 60
+        yield "  TERRAFORM DEPLOYMENT - COMPLETE"
+        yield "=" * 60
+    
+    async def destroy_all_async(self, context: Optional['DeploymentContext'] = None):
+        """
+        Destroy all resources with async streaming.
+        
+        Yields log lines for SSE streaming.
+        
+        Args:
+            context: DeploymentContext for SDK cleanup
+            
+        Yields:
+            Log lines during destruction
+        """
+        import asyncio
+        
+        yield "=" * 60
+        yield "  TERRAFORM DESTROY - STARTING"
+        yield "=" * 60
+        
+        # Generate tfvars if needed
+        if not self.tfvars_path.exists():
+            yield "tfvars.json not found, generating..."
+            self._generate_tfvars()
+        
+        # Terraform init (async)
+        yield "\n[STEP 1/3] Terraform init..."
+        async for line in self.runner.init_async():
+            yield line
+        
+        # Terraform destroy (async streaming)
+        yield "\n[STEP 2/3] Terraform destroy..."
+        async for line in self.runner.destroy_async(str(self.tfvars_path)):
+            yield line
+        
+        # SDK fallback cleanup (sync, uses executor)
+        yield "\n[STEP 3/3] SDK fallback cleanup..."
+        if context:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: self._run_sdk_fallback_cleanup(context, dry_run=False, timeout_seconds=300, max_retries=2)
+            )
+            yield "✓ SDK cleanup complete"
+        else:
+            yield "  No context provided, skipping SDK cleanup"
+        
+        yield "\n" + "=" * 60
+        yield "  TERRAFORM DESTROY - COMPLETE"
+        yield "=" * 60
     
     # =========================================================================
     # Internal Methods
@@ -669,14 +848,12 @@ class TerraformDeployerStrategy:
         """Unified cleanup dispatcher with logging."""
         logger.info(f"[{provider.upper()}] Starting SDK cleanup...")
         
+        # Uses pre-imported cleanup modules (see top of file) to avoid ThreadPoolExecutor deadlock
         if provider == "aws":
-            from src.providers.aws.cleanup import cleanup_aws_resources
             cleanup_aws_resources(credentials, prefix, cleanup_user, platform_user_email, dry_run=dry_run)
         elif provider == "azure":
-            from src.providers.azure.cleanup import cleanup_azure_resources
             cleanup_azure_resources(credentials, prefix, cleanup_user, platform_user_email, dry_run=dry_run)
         elif provider == "gcp":
-            from src.providers.gcp.cleanup import cleanup_gcp_resources
             cleanup_gcp_resources(credentials, prefix, dry_run=dry_run)
         
         logger.info(f"[{provider.upper()}] ✓ Cleanup complete")

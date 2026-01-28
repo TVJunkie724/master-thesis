@@ -1,16 +1,43 @@
 \chapter{\label{chap:evaluation}Evaluation}
 
-Another important chapter of your thesis. After writing what did you do and how, you need to evaluate that your system improves something.
+% This chapter proves that your system works and solves the stated problems.
+% Present methodology, experiments, and results with quantitative data.
 
-\vspace{20 pt}
+\section{Evaluation Methodology}
+% Describe your testing approach:
+% - Goals: verify functionality, measure cost accuracy, assess deployment reliability
+% - Metrics collected: deployment time, cost deviation, success rate
+% - Experimental setup: hardware, cloud accounts used
 
-Present the used testing methodology. One should be able to repeat your experiments. 
+\section{E2E Testing Framework}
+% Detail the automated testing infrastructure:
+% - Test scenarios: single-cloud (AWS, Azure, GCP) and multi-cloud combinations
+% - What each test covers: provision, verify data flow, cleanup
+% - How tests are executed (Docker, pytest, helper scripts)
+% - Reproducibility considerations
 
-Which systems did you use, did you repeat the experiments, what did you measure, how ...
-If you need more sections, consider creating a new chapter - Testing methodology.
+\section{Cost Accuracy Validation}
+% Compare predicted vs. actual costs:
+% - Methodology: deploy twins, measure actual costs, compare with predictions
+% - Results table showing predicted vs. actual for each scenario
+% - Analysis of deviations and their causes
 
-\vspace{20 pt}
+\section{Deployment Performance}
+% Measure deployment characteristics:
+% - Provisioning time per provider and configuration
+% - Resource creation parallelization
+% - Failure rates and recovery
 
-Present the results. Explain insights. Explain outliers! 
+\section{Multi-Cloud Scenarios Tested}
+% Present the specific scenarios evaluated:
+% - AWS-only, Azure-only, GCP-only (baseline)
+% - AWS+GCP, Azure+AWS, Azure+GCP (two-cloud)
+% - AWS+Azure+GCP (full multi-cloud)
+% - Success/failure status and any issues encountered
 
-You have to prove that your work improved / solve the problems mentioned in introduction and motivation. 
+\section{Results and Analysis}
+% Synthesize findings:
+% - Summary of key metrics
+% - Comparison with stated research questions
+% - Insights and unexpected findings
+% Include charts/graphs visualizing results

@@ -55,6 +55,67 @@ locals {
   
   # Base URL for GCP Cloud Functions
   gcp_function_base_url = "https://${var.gcp_region}-${local.gcp_project_id}.cloudfunctions.net"
+  
+  # Firestore database name with random suffix (used by Cloud Functions)
+  # This must match the actual database ID created in gcp_storage.tf
+  gcp_firestore_database_name = local.gcp_l3_hot_enabled ? google_firestore_database.main[0].name : ""
+
+  # ===========================================================================
+  # GCP Resource Names - Single Source of Truth
+  # ===========================================================================
+
+  # Project
+  gcp_project_name = "${var.digital_twin_name}-project"
+
+  # Service Account
+  gcp_functions_sa_id      = "${var.digital_twin_name}-functions-sa"
+  gcp_functions_sa_display = "${var.digital_twin_name} Cloud Functions Service Account"
+  gcp_functions_role_title = "${var.digital_twin_name} Functions Role"
+
+  # Function Source Bucket
+  gcp_function_source_bucket = "${local.gcp_project_id}-${var.digital_twin_name}-functions"
+
+  # L0 Glue
+  gcp_l0_ingestion_name    = "${var.digital_twin_name}-ingestion"
+  gcp_l0_hot_writer_name   = "${var.digital_twin_name}-hot-writer"
+  gcp_l0_cold_writer_name  = "${var.digital_twin_name}-cold-writer"
+  gcp_l0_archive_writer_name = "${var.digital_twin_name}-archive-writer"
+
+  # L1 IoT
+  gcp_l1_telemetry_topic = "${var.digital_twin_name}-telemetry"
+  gcp_l1_events_topic    = "${var.digital_twin_name}-events"
+  gcp_l1_dispatcher_name = "${var.digital_twin_name}-dispatcher"
+  gcp_l1_mqtt_topic_path = "dt/${var.digital_twin_name}/telemetry"
+  gcp_l1_registry_id     = "${var.digital_twin_name}-registry"
+
+  # L2 Compute
+  gcp_l2_persister_name       = "${var.digital_twin_name}-persister"
+  gcp_l2_connector_name       = "${var.digital_twin_name}-connector"
+  gcp_l2_event_checker_name   = "${var.digital_twin_name}-event-checker"
+  gcp_l2_event_workflow_name  = "${var.digital_twin_name}-event-workflow"
+  gcp_l2_processor_name       = "${var.digital_twin_name}-processor"
+  gcp_l2_processor_name_pattern = "${var.digital_twin_name}-%s-processor"
+  gcp_l2_event_action_pattern = "${var.digital_twin_name}-event-action-%s"
+  gcp_l2_event_feedback_name  = "${var.digital_twin_name}-event-feedback"
+
+  # L3 Storage
+  gcp_l3_firestore_database = "${var.digital_twin_name}-${local.deployment_suffix}"
+  gcp_l3_firestore_collection = "${var.digital_twin_name}-hot-data"
+  gcp_l3_cold_bucket         = "${local.gcp_project_id}-${var.digital_twin_name}-cold"
+  gcp_l3_archive_bucket      = "${local.gcp_project_id}-${var.digital_twin_name}-archive"
+  gcp_l3_hot_reader_name     = "${var.digital_twin_name}-hot-reader"
+  gcp_l3_hot_to_cold_mover   = "${var.digital_twin_name}-hot-to-cold-mover"
+  gcp_l3_hot_to_cold_schedule = "${var.digital_twin_name}-hot-to-cold-schedule"
+  gcp_l3_cold_to_archive_mover = "${var.digital_twin_name}-cold-to-archive-mover"
+  gcp_l3_cold_to_archive_schedule = "${var.digital_twin_name}-cold-to-archive-schedule"
+
+  # ===========================================================================
+  # GCP URLs - Centralized function URLs
+  # ===========================================================================
+
+  gcp_l2_event_checker_url = "${local.gcp_function_base_url}/${local.gcp_l2_event_checker_name}"
+  gcp_l2_event_feedback_url = "${local.gcp_function_base_url}/${local.gcp_l2_event_feedback_name}"
+  gcp_l2_event_workflow_url = "https://workflowexecutions.googleapis.com/v1/projects/${local.gcp_project_id}/locations/${var.gcp_region}/workflows/${local.gcp_l2_event_workflow_name}/executions"
 }
 
 # ==============================================================================
@@ -64,7 +125,7 @@ locals {
 # Only create project in org account mode (when billing_account provided but no project_id)
 resource "google_project" "main" {
   count           = local.deploy_gcp && !local.gcp_use_existing_project ? 1 : 0
-  name            = "${var.digital_twin_name}-project"
+  name            = local.gcp_project_name
   project_id      = local.gcp_generated_project_id
   billing_account = var.gcp_billing_account
 
@@ -172,8 +233,8 @@ resource "google_project_service" "iam" {
 resource "google_service_account" "functions" {
   count        = local.deploy_gcp ? 1 : 0
   project      = local.gcp_project_id
-  account_id   = "${var.digital_twin_name}-functions-sa"
-  display_name = "${var.digital_twin_name} Cloud Functions Service Account"
+  account_id   = local.gcp_functions_sa_id
+  display_name = local.gcp_functions_sa_display
   
   depends_on = [google_project_service.iam]
 }
@@ -185,8 +246,8 @@ resource "google_service_account" "functions" {
 resource "google_project_iam_custom_role" "functions_role" {
   count       = local.deploy_gcp ? 1 : 0
   project     = local.gcp_project_id
-  role_id     = "${replace(var.digital_twin_name, "-", "_")}_functions_role"
-  title       = "${var.digital_twin_name} Functions Role"
+  role_id     = "${replace(var.digital_twin_name, "-", "_")}_functions_role_${local.deployment_suffix}"
+  title       = local.gcp_functions_role_title
   description = "Custom role for Digital Twin Cloud Functions with least-privilege permissions"
   stage       = "GA"
 
@@ -232,7 +293,7 @@ resource "google_project_iam_member" "functions_custom_role" {
 resource "google_storage_bucket" "function_source" {
   count         = local.deploy_gcp ? 1 : 0
   project       = local.gcp_project_id
-  name          = "${local.gcp_project_id}-${var.digital_twin_name}-functions"
+  name          = local.gcp_function_source_bucket
   location      = var.gcp_region
   force_destroy = true
   

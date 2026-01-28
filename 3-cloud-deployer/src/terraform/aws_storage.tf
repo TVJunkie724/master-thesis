@@ -32,18 +32,18 @@ locals {
 
 resource "aws_dynamodb_table" "l3_hot" {
   count        = local.l3_hot_aws_enabled ? 1 : 0
-  name         = "${var.digital_twin_name}-hot"
+  name         = local.aws_l3_dynamodb_table_name
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "device_id"
-  range_key    = "timestamp"
+  hash_key     = local.schema_partition_key
+  range_key    = local.schema_sort_key
 
   attribute {
-    name = "device_id"
+    name = local.schema_partition_key
     type = "S"
   }
 
   attribute {
-    name = "timestamp"
+    name = local.schema_sort_key
     type = "S"
   }
 
@@ -62,7 +62,7 @@ resource "aws_dynamodb_table" "l3_hot" {
 
 resource "aws_iam_role" "l3_lambda" {
   count = local.l3_any_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l3-lambda-role"
+  name  = local.aws_l3_role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -90,7 +90,7 @@ resource "aws_iam_role_policy_attachment" "l3_lambda_logs" {
 # DynamoDB access
 resource "aws_iam_role_policy" "l3_dynamodb" {
   count = local.l3_hot_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l3-dynamodb-policy"
+  name  = local.aws_l3_dynamodb_policy_name
   role  = aws_iam_role.l3_lambda[0].id
 
   policy = jsonencode({
@@ -113,7 +113,7 @@ resource "aws_iam_role_policy" "l3_dynamodb" {
 # S3 access for Cold/Archive
 resource "aws_iam_role_policy" "l3_s3" {
   count = local.l3_cold_aws_enabled || local.l3_archive_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l3-s3-policy"
+  name  = local.aws_l3_s3_policy_name
   role  = aws_iam_role.l3_lambda[0].id
 
   policy = jsonencode({
@@ -128,10 +128,10 @@ resource "aws_iam_role_policy" "l3_s3" {
           "s3:ListBucket"
         ]
         Resource = [
-          "arn:aws:s3:::${var.digital_twin_name}-cold",
-          "arn:aws:s3:::${var.digital_twin_name}-cold/*",
-          "arn:aws:s3:::${var.digital_twin_name}-archive",
-          "arn:aws:s3:::${var.digital_twin_name}-archive/*"
+          "arn:aws:s3:::${local.aws_l3_s3_cold_bucket_name}",
+          "arn:aws:s3:::${local.aws_l3_s3_cold_bucket_name}/*",
+          "arn:aws:s3:::${local.aws_l3_s3_archive_bucket_name}",
+          "arn:aws:s3:::${local.aws_l3_s3_archive_bucket_name}/*"
         ]
       }
     ]
@@ -144,10 +144,10 @@ resource "aws_iam_role_policy" "l3_s3" {
 
 resource "aws_lambda_function" "l3_hot_reader" {
   count         = local.l3_hot_aws_enabled ? 1 : 0
-  function_name = "${var.digital_twin_name}-l3-hot-reader"
+  function_name = local.aws_l3_hot_reader_name
   role          = aws_iam_role.l3_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 256
 
@@ -159,7 +159,7 @@ resource "aws_lambda_function" "l3_hot_reader" {
     variables = {
       DIGITAL_TWIN_INFO   = var.digital_twin_info_json
       DYNAMODB_TABLE_NAME = aws_dynamodb_table.l3_hot[0].name
-      INTER_CLOUD_TOKEN   = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      INTER_CLOUD_TOKEN   = local.inter_cloud_token_value
     }
   }
 
@@ -178,7 +178,7 @@ resource "aws_lambda_function_url" "l3_hot_reader" {
 
 resource "aws_s3_bucket" "l3_cold" {
   count  = local.l3_cold_aws_enabled ? 1 : 0
-  bucket = "${var.digital_twin_name}-cold"
+  bucket = local.aws_l3_s3_cold_bucket_name
 
   tags = local.aws_common_tags
 }
@@ -206,10 +206,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "l3_cold" {
 
 resource "aws_lambda_function" "l3_hot_to_cold_mover" {
   count         = local.l3_hot_aws_enabled && local.l3_cold_aws_enabled ? 1 : 0
-  function_name = "${var.digital_twin_name}-l3-hot-to-cold-mover"
+  function_name = local.aws_l3_hot_to_cold_mover_name
   role          = aws_iam_role.l3_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 300
   memory_size   = 512
 
@@ -225,12 +225,12 @@ resource "aws_lambda_function" "l3_hot_to_cold_mover" {
 
       # Multi-cloud Hot→Cold: When AWS L3 Hot sends to remote Cold
       REMOTE_COLD_WRITER_URL = var.layer_3_hot_provider == "aws" && var.layer_3_cold_provider != "aws" ? (
-        var.layer_3_cold_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/cold-writer" :
+        var.layer_3_cold_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.cold_writer}" :
         var.layer_3_cold_provider == "google" ? try(google_cloudfunctions2_function.cold_writer[0].url, "") : ""
       ) : ""
 
       # Inter-cloud token
-      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
     }
   }
 
@@ -240,7 +240,7 @@ resource "aws_lambda_function" "l3_hot_to_cold_mover" {
 # EventBridge Rule - Schedule hot-to-cold mover
 resource "aws_cloudwatch_event_rule" "l3_hot_to_cold" {
   count               = local.l3_hot_aws_enabled && local.l3_cold_aws_enabled ? 1 : 0
-  name                = "${var.digital_twin_name}-l3-hot-to-cold-schedule"
+  name                = local.aws_l3_hot_to_cold_schedule
   description         = "Trigger hot-to-cold data mover daily"
   schedule_expression = "rate(1 day)"
 
@@ -269,7 +269,7 @@ resource "aws_lambda_permission" "l3_hot_to_cold" {
 
 resource "aws_s3_bucket" "l3_archive" {
   count  = local.l3_archive_aws_enabled ? 1 : 0
-  bucket = "${var.digital_twin_name}-archive"
+  bucket = local.aws_l3_s3_archive_bucket_name
 
   tags = local.aws_common_tags
 }
@@ -297,10 +297,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "l3_archive" {
 
 resource "aws_lambda_function" "l3_cold_to_archive_mover" {
   count         = local.l3_cold_aws_enabled && local.l3_archive_aws_enabled ? 1 : 0
-  function_name = "${var.digital_twin_name}-l3-cold-to-archive-mover"
+  function_name = local.aws_l3_cold_to_archive_name
   role          = aws_iam_role.l3_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 300
   memory_size   = 512
 
@@ -316,12 +316,12 @@ resource "aws_lambda_function" "l3_cold_to_archive_mover" {
 
       # Multi-cloud Cold→Archive: When AWS L3 Cold sends to remote Archive
       REMOTE_ARCHIVE_WRITER_URL = var.layer_3_cold_provider == "aws" && var.layer_3_archive_provider != "aws" ? (
-        var.layer_3_archive_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/archive-writer" :
+        var.layer_3_archive_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.archive_writer}" :
         var.layer_3_archive_provider == "google" ? try(google_cloudfunctions2_function.archive_writer[0].url, "") : ""
       ) : ""
 
       # Inter-cloud token
-      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
     }
   }
 
@@ -331,7 +331,7 @@ resource "aws_lambda_function" "l3_cold_to_archive_mover" {
 # EventBridge Rule - Schedule cold-to-archive mover
 resource "aws_cloudwatch_event_rule" "l3_cold_to_archive" {
   count               = local.l3_cold_aws_enabled && local.l3_archive_aws_enabled ? 1 : 0
-  name                = "${var.digital_twin_name}-l3-cold-to-archive-schedule"
+  name                = local.aws_l3_cold_to_archive_schedule
   description         = "Trigger cold-to-archive data mover weekly"
   schedule_expression = "rate(7 days)"
 

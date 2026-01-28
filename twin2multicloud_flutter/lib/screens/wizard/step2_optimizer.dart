@@ -11,11 +11,12 @@ import '../../widgets/data_freshness_card.dart';
 import '../../widgets/calc_form/calc_form.dart';
 import '../../widgets/results/layer_cost_card.dart';
 import '../../widgets/results/optimization_warning.dart';
+import '../../widgets/results/cheapest_path_visualization.dart';
 import '../../services/api_service.dart';
 import '../../services/sse_service.dart';
 
 /// Step 2: Optimizer - BLoC version
-/// 
+///
 /// Manages calculation parameters and displays optimization results.
 class Step2Optimizer extends ConsumerStatefulWidget {
   const Step2Optimizer({super.key});
@@ -26,31 +27,29 @@ class Step2Optimizer extends ConsumerStatefulWidget {
 
 class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
   final ApiService _apiService = ApiService();
-  
+
   // Local state for pricing/refresh (not in BLoC yet)
   Map<String, dynamic>? _pricingStatus;
   bool _loadingStatus = true;
   bool _loadingConfig = true;
-  
+
   // SSE Refresh State
   bool _isRefreshing = false;
   String? _refreshingProvider;
   List<String> _refreshLogs = [];
   StreamSubscription? _sseSubscription;
-  
+
   // Scroll keys for navigation
   final _resultsKey = GlobalKey();
 
-  // Provider Colors
-  static const Color awsColor = Colors.orange;
-  static const Color azureColor = Colors.blue;
+  // Provider Colors (gcpColor used for results header)
   static const Color gcpColor = Colors.green;
 
   @override
   void initState() {
     super.initState();
     _loadPricingStatus();
-    
+
     // If we have calcParams in BLoC state, skip loading
     final state = context.read<WizardBloc>().state;
     if (state.calcParams != null) {
@@ -60,7 +59,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
     } else {
       _loadingConfig = false;
     }
-    
+
     // Auto-scroll to results if they're already present (edit mode resume)
     if (state.calcResult != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -86,10 +85,12 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
   Future<void> _loadPricingStatus() async {
     try {
       final status = await _apiService.getPricingStatus();
-      if (mounted) setState(() {
-        _pricingStatus = status;
-        _loadingStatus = false;
-      });
+      if (mounted) {
+        setState(() {
+          _pricingStatus = status;
+          _loadingStatus = false;
+        });
+      }
     } catch (e) {
       debugPrint('Failed to load pricing status: $e');
       if (mounted) setState(() => _loadingStatus = false);
@@ -102,16 +103,16 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
       setState(() => _loadingConfig = false);
       return;
     }
-    
+
     try {
       final api = ref.read(apiServiceProvider);
       final config = await api.getOptimizerConfig(state.twinId!);
-      
+
       if (config['params'] != null && mounted) {
         final params = CalcParams.fromJson(config['params']);
         context.read<WizardBloc>().add(WizardCalcParamsChanged(params));
       }
-      
+
       if (mounted) setState(() => _loadingConfig = false);
     } catch (e) {
       debugPrint('Failed to load optimizer config: $e');
@@ -130,11 +131,17 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
         title: Text('Refresh ${provider.toUpperCase()} Pricing?'),
         content: const Text(
           'Fetching cloud pricing data may take 30-60 seconds.\n\n'
-          'You will see real-time progress in the log window below.'
+          'You will see real-time progress in the log window below.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Refresh')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Refresh'),
+          ),
         ],
       ),
     );
@@ -161,38 +168,48 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
     _sseSubscription = sseService
         .streamRefreshPricing(provider, state.twinId ?? '')
         .listen(
-      (event) {
-        if (!mounted) return;
-        setState(() {
-          _refreshLogs.add('${_formatTime()} ${event.message}');
-        });
+          (event) {
+            if (!mounted) return;
+            setState(() {
+              _refreshLogs.add('${_formatTime()} ${event.message}');
+            });
 
-        if (event.isComplete) {
-          _loadPricingStatus();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${provider.toUpperCase()} pricing refreshed successfully')),
-            );
-          }
-        } else if (event.isError) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to refresh ${provider.toUpperCase()} pricing')),
-            );
-          }
-        }
-      },
-      onDone: () {
-        if (mounted) setState(() => _isRefreshing = false);
-      },
-      onError: (e) {
-        if (!mounted) return;
-        setState(() {
-          _refreshLogs.add('${_formatTime()} ❌ Connection error: ${ApiErrorHandler.extractMessage(e)}');
-          _isRefreshing = false;
-        });
-      },
-    );
+            if (event.isComplete) {
+              _loadPricingStatus();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '${provider.toUpperCase()} pricing refreshed successfully',
+                    ),
+                  ),
+                );
+              }
+            } else if (event.isError) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Failed to refresh ${provider.toUpperCase()} pricing',
+                    ),
+                  ),
+                );
+              }
+            }
+          },
+          onDone: () {
+            if (mounted) setState(() => _isRefreshing = false);
+          },
+          onError: (e) {
+            if (!mounted) return;
+            setState(() {
+              _refreshLogs.add(
+                '${_formatTime()} ❌ Connection error: ${ApiErrorHandler.extractMessage(e)}',
+              );
+              _isRefreshing = false;
+            });
+          },
+        );
   }
 
   String _formatTime() => TimeOfDay.now().format(context);
@@ -201,7 +218,8 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
   Widget build(BuildContext context) {
     return BlocListener<WizardBloc, WizardState>(
       // Scroll to results when any calculation completes (not just first)
-      listenWhen: (prev, curr) => prev.isCalculating && !curr.isCalculating && curr.calcResult != null,
+      listenWhen: (prev, curr) =>
+          prev.isCalculating && !curr.isCalculating && curr.calcResult != null,
       listener: (context, state) {
         // Scroll to results when calculation completes
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -226,18 +244,18 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
                   children: [
                     // Section 1: Data Freshness
                     _buildPricingStatusSection(context),
-                    
+
                     if (_isRefreshing || _refreshLogs.isNotEmpty)
                       _buildLogWindow(),
-                    
+
                     const SizedBox(height: 32),
                     const Divider(),
                     const SizedBox(height: 32),
-                    
+
                     // Note: Step 3 invalidation warning now shown in header alert via warningMessage
                     // Section 2: Calculation Inputs
                     _buildCalculationSection(context, state),
-                    
+
                     // Section 3: Results (if available)
                     if (state.calcResult != null) ...[
                       const SizedBox(height: 64),
@@ -262,13 +280,17 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
       children: [
         Row(
           children: [
-            Icon(Icons.cloud_sync, size: 28, color: Theme.of(context).primaryColor),
+            Icon(
+              Icons.cloud_sync,
+              size: 28,
+              color: Theme.of(context).primaryColor,
+            ),
             const SizedBox(width: 12),
             Text(
               'Pricing Data Status',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -289,33 +311,84 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
     if (_loadingStatus) {
       return const Center(child: CircularProgressIndicator());
     }
-    
-    return Row(
-      children: [
-        Expanded(
-          child: DataFreshnessCard(
-            provider: 'aws',
-            status: _pricingStatus?['aws'],
-            onRefresh: () => _confirmRefresh('aws'),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: DataFreshnessCard(
-            provider: 'azure',
-            status: _pricingStatus?['azure'],
-            onRefresh: () => _confirmRefresh('azure'),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: DataFreshnessCard(
-            provider: 'gcp',
-            status: _pricingStatus?['gcp'],
-            onRefresh: () => _confirmRefresh('gcp'),
-          ),
-        ),
-      ],
+
+    // Wrap in BlocBuilder to react to state changes (e.g., draft saved → twinId available)
+    return BlocBuilder<WizardBloc, WizardState>(
+      buildWhen: (prev, curr) =>
+          prev.twinId != curr.twinId ||
+          prev.aws.isValid != curr.aws.isValid ||
+          prev.aws.source != curr.aws.source ||
+          prev.gcp.isValid != curr.gcp.isValid ||
+          prev.gcp.source != curr.gcp.source ||
+          prev.hasUnsavedChanges != curr.hasUnsavedChanges,
+      builder: (context, state) {
+        final hasSavedDraft = state.twinId != null;
+
+        // Helper: credentials are "saved" if inherited from DB OR no unsaved changes
+        bool isCredentialSaved(ProviderCredentials cred) {
+          if (!cred.isValid) return false;
+          return cred.source == CredentialSource.inherited ||
+              !state.hasUnsavedChanges;
+        }
+
+        // Determine enabled state for each provider:
+        // - Azure: Always enabled (uses public API, no credentials needed)
+        // - AWS/GCP: Enabled only if draft saved AND credentials are SAVED (not just validated)
+        final awsEnabled = hasSavedDraft && isCredentialSaved(state.aws);
+        final gcpEnabled = hasSavedDraft && isCredentialSaved(state.gcp);
+
+        // Build disabled reason messages
+        String? awsDisabledReason;
+        if (!hasSavedDraft) {
+          awsDisabledReason = 'Save draft to enable refresh';
+        } else if (!state.aws.isValid) {
+          awsDisabledReason = 'Configure AWS credentials in Step 1';
+        } else if (!isCredentialSaved(state.aws)) {
+          awsDisabledReason = 'Save credentials to enable refresh';
+        }
+
+        String? gcpDisabledReason;
+        if (!hasSavedDraft) {
+          gcpDisabledReason = 'Save draft to enable refresh';
+        } else if (!state.gcp.isValid) {
+          gcpDisabledReason = 'Configure GCP credentials in Step 1';
+        } else if (!isCredentialSaved(state.gcp)) {
+          gcpDisabledReason = 'Save credentials to enable refresh';
+        }
+
+        return Row(
+          children: [
+            Expanded(
+              child: DataFreshnessCard(
+                provider: 'aws',
+                status: _pricingStatus?['aws'],
+                onRefresh: () => _confirmRefresh('aws'),
+                enabled: awsEnabled,
+                disabledReason: awsDisabledReason,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: DataFreshnessCard(
+                provider: 'azure',
+                status: _pricingStatus?['azure'],
+                onRefresh: () => _confirmRefresh('azure'),
+                enabled: true, // Azure always enabled (public API)
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: DataFreshnessCard(
+                provider: 'gcp',
+                status: _pricingStatus?['gcp'],
+                onRefresh: () => _confirmRefresh('gcp'),
+                enabled: gcpEnabled,
+                disabledReason: gcpDisabledReason,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -330,7 +403,10 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
             const SizedBox(width: 8),
             Text(
               'Refresh Log${_refreshingProvider != null ? " (${_refreshingProvider!.toUpperCase()})" : ""}',
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[700]),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[700],
+              ),
             ),
             const Spacer(),
             if (!_isRefreshing)
@@ -354,10 +430,17 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
               if (index < _refreshLogs.length) {
                 return Text(
                   _refreshLogs[index],
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Colors.green),
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    color: Colors.green,
+                  ),
                 );
               } else {
-                return const Padding(padding: EdgeInsets.only(top: 8), child: LinearProgressIndicator());
+                return const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: LinearProgressIndicator(),
+                );
               }
             },
           ),
@@ -376,9 +459,9 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
             const SizedBox(width: 12),
             Text(
               'Calculation Inputs',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -390,7 +473,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
           ),
         ),
         const SizedBox(height: 24),
-        
+
         if (_loadingConfig)
           const Center(child: CircularProgressIndicator())
         else
@@ -398,7 +481,9 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
             initialParams: state.calcParams,
             onChanged: _onCalcParamsChanged,
             onValidChanged: (isValid) {
-              context.read<WizardBloc>().add(WizardCalcFormValidChanged(isValid));
+              context.read<WizardBloc>().add(
+                WizardCalcFormValidChanged(isValid),
+              );
             },
           ),
       ],
@@ -407,7 +492,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
 
   Widget _buildResultsSection(BuildContext context, WizardState state) {
     final result = state.calcResult!;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -418,21 +503,20 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
             const SizedBox(width: 12),
             Text(
               'Optimization Results',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),
         const SizedBox(height: 8),
         const Divider(thickness: 2),
         const SizedBox(height: 24),
-        
+
         // Total Cost Banner
         _buildTotalCost(result),
-        
+
         // Note: Unconfigured provider warning is now shown in the wizard header
-        
         const SizedBox(height: 32),
 
         // Cheapest Path
@@ -444,24 +528,36 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
           ),
         ),
         const SizedBox(height: 16),
-        Center(child: _buildCheapestPath(result.cheapestPath)),
+        Center(child: CheapestPathVisualization(path: result.cheapestPath)),
         const SizedBox(height: 32),
 
         // Optimization Warnings (if any)
         if (result.l1OptimizationOverride != null) ...[
-          OptimizationWarning(layer: 'L1', optimizationOverride: result.l1OptimizationOverride!),
+          OptimizationWarning(
+            layer: 'L1',
+            optimizationOverride: result.l1OptimizationOverride!,
+          ),
           const SizedBox(height: 8),
         ],
         if (result.l2OptimizationOverride != null) ...[
-          OptimizationWarning(layer: 'L2', optimizationOverride: result.l2OptimizationOverride!),
+          OptimizationWarning(
+            layer: 'L2',
+            optimizationOverride: result.l2OptimizationOverride!,
+          ),
           const SizedBox(height: 8),
         ],
         if (result.l3OptimizationOverride != null) ...[
-          OptimizationWarning(layer: 'L3', optimizationOverride: result.l3OptimizationOverride!),
+          OptimizationWarning(
+            layer: 'L3',
+            optimizationOverride: result.l3OptimizationOverride!,
+          ),
           const SizedBox(height: 8),
         ],
         if (result.l4OptimizationOverride != null) ...[
-          OptimizationWarning(layer: 'L4', optimizationOverride: result.l4OptimizationOverride!),
+          OptimizationWarning(
+            layer: 'L4',
+            optimizationOverride: result.l4OptimizationOverride!,
+          ),
           const SizedBox(height: 8),
         ],
         const SizedBox(height: 24),
@@ -475,7 +571,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
           ),
         ),
         const SizedBox(height: 16),
-        
+
         Center(
           child: Wrap(
             alignment: WrapAlignment.center,
@@ -562,7 +658,10 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
         Center(
           child: Text(
             'Prices are estimates based on public pricing APIs and may vary.',
-            style: TextStyle(color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+            style: TextStyle(
+              color: Colors.grey.shade500,
+              fontStyle: FontStyle.italic,
+            ),
           ),
         ),
         const SizedBox(height: 32),
@@ -602,80 +701,6 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
             style: TextStyle(fontSize: 12, color: Colors.green.shade800),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCheapestPath(List<String> path) {
-    if (path.isEmpty) return const SizedBox();
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 16,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        for (int i = 0; i < path.length; i++) ...[
-          _buildPathSegment(path[i]),
-          if (i < path.length - 1)
-            const Icon(Icons.arrow_forward, color: Colors.grey, size: 20),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildPathSegment(String segment) {
-    final parts = segment.split('_');
-    String layer = '';
-    String provider = '';
-    
-    if (segment.startsWith('L3')) {
-      if (parts.length >= 3) {
-        layer = 'L3 ${parts[1]}';
-        provider = parts[2];
-      } else {
-        layer = parts[0];
-        provider = parts.length > 1 ? parts[1] : '?';
-      }
-    } else {
-      layer = parts[0];
-      provider = parts.length > 1 ? parts[1] : '?';
-    }
-
-    Color bgColor;
-    switch (provider.toUpperCase()) {
-      case 'AWS':
-        bgColor = awsColor;
-        break;
-      case 'AZURE':
-        bgColor = azureColor;
-        break;
-      case 'GCP':
-        bgColor = gcpColor;
-        break;
-      default:
-        bgColor = Colors.grey;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: bgColor.withAlpha(100),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Text(
-        '$layer $provider'.toUpperCase(),
-        style: const TextStyle(
-          color: Colors.white, 
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-        ),
       ),
     );
   }

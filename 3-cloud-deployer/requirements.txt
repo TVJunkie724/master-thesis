@@ -2,6 +2,7 @@ fastapi
 uvicorn
 requests
 colorlog
+aiohttp
 
 # Testing packages
 pytest
@@ -42,6 +43,7 @@ azure-digitaltwins-core
 
 # Azure SDK packages for L5 (Visualization)
 azure-mgmt-dashboard
+azure-monitor-query
 
 # GCP SDK packages
 functions-framework
@@ -54,3 +56,4 @@ google-cloud-service-usage
 google-cloud-functions
 google-cloud-run
 google-cloud-billing
+google-api-python-client

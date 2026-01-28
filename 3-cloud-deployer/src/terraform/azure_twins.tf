@@ -25,7 +25,7 @@
 
 resource "azurerm_digital_twins_instance" "main" {
   count               = var.layer_4_provider == "azure" ? 1 : 0
-  name                = "${var.digital_twin_name}-adt"
+  name                = local.azure_adt_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
 
@@ -84,7 +84,7 @@ locals {
 # Storage container for 3D scenes
 resource "azurerm_storage_container" "scenes" {
   count                 = local.l4_azure_scene_enabled ? 1 : 0
-  name                  = "3dscenes"
+  name                  = local.scenes_container_name
   storage_account_id    = azurerm_storage_account.main[0].id
   container_access_type = "private"
 }
@@ -144,21 +144,13 @@ locals {
   l4_azure_user_enabled = var.layer_4_provider == "azure" && var.platform_user_email != ""
 }
 
-# Random suffix to avoid role assignment conflicts on re-deploy
-# Stable across applies (only changes if email changes)
-resource "random_id" "role_suffix" {
-  count       = local.l4_azure_user_enabled ? 1 : 0
-  byte_length = 4
-  keepers     = { email = var.platform_user_email }
-}
-
 resource "azurerm_role_assignment" "adt_user_owner" {
   count                = local.l4_azure_user_enabled ? 1 : 0
   scope                = azurerm_digital_twins_instance.main[0].id
   role_definition_name = "Azure Digital Twins Data Owner"
   
-  # Descriptive prefix + random suffix to avoid conflicts on re-deploy
-  name                 = uuidv5("dns", "${var.platform_user_email}-adt-owner-${random_id.role_suffix[0].hex}")
+  # Descriptive prefix + shared deployment suffix to avoid conflicts on re-deploy
+  name                 = uuidv5("dns", "${var.platform_user_email}-adt-owner-${local.deployment_suffix}")
   principal_id         = local.platform_user_object_id
 
   depends_on = [azuread_user.platform_user]
@@ -175,8 +167,8 @@ resource "azurerm_role_assignment" "scenes_user_contributor" {
   scope                = azurerm_storage_account.main[0].id
   role_definition_name = "Storage Blob Data Contributor"
   
-  # Descriptive prefix + random suffix to avoid conflicts on re-deploy
-  name                 = uuidv5("dns", "${var.platform_user_email}-scenes-contributor-${random_id.role_suffix[0].hex}")
+  # Descriptive prefix + shared deployment suffix to avoid conflicts on re-deploy
+  name                 = uuidv5("dns", "${var.platform_user_email}-scenes-contributor-${local.deployment_suffix}")
   principal_id         = local.platform_user_object_id
 
   depends_on = [azuread_user.platform_user]

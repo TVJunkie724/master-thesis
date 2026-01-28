@@ -62,14 +62,18 @@ class TestValidation(unittest.TestCase):
         }
         with self.assertRaises(ValueError) as cm:
              validator.validate_config_content(CONSTANTS.CONFIG_CREDENTIALS_FILE, content)
-        self.assertIn("Missing required credential field 'aws_secret_access_key'", str(cm.exception))
+        self.assertIn("Missing credential field 'aws_secret_access_key'", str(cm.exception))
+        # Verify multi-error - should also show aws_region missing
+        self.assertIn("aws_region", str(cm.exception))
 
     def test_validate_config_file_list_malformed(self):
         """Test list-based config receiving dict or missing keys"""
         # IOT file expects list of objects with required keys (id, properties)
         with self.assertRaises(ValueError) as cm:
              validator.validate_config_content(CONSTANTS.CONFIG_IOT_DEVICES_FILE, [{"other": "1"}]) # Missing required keys
-        self.assertIn("Missing key 'id'", str(cm.exception))
+        self.assertIn("missing key 'id'", str(cm.exception))
+        # Verify multi-error - should also show properties missing
+        self.assertIn("missing key 'properties'", str(cm.exception))
 
     def test_validate_config_events_complex(self):
         """Test nested validation in config_events.json"""
@@ -77,13 +81,13 @@ class TestValidation(unittest.TestCase):
         content = [{"condition": "x", "action": {"type": "lambda"}}]
         with self.assertRaises(ValueError) as cm:
             validator.validate_config_content(CONSTANTS.CONFIG_EVENTS_FILE, content)
-        self.assertIn("missing 'type' or 'functionName'", str(cm.exception))
+        self.assertIn("action missing 'functionName'", str(cm.exception))
 
         # 2. Missing Feedback Fields
         content = [{"condition": "x", "action": {"type": "lambda", "functionName": "x", "feedback": {"iotDeviceId": "d"}}}] # Missing payload
         with self.assertRaises(ValueError) as cm:
             validator.validate_config_content(CONSTANTS.CONFIG_EVENTS_FILE, content)
-        self.assertIn("missing 'iotDeviceId' or 'payload'", str(cm.exception))
+        self.assertIn("feedback missing 'payload'", str(cm.exception))
 
         # 3. Valid
         content = [{"condition": "x", "action": {"type": "lambda", "functionName": "x", "feedback": {"iotDeviceId": "d", "payload": "p"}}}]
@@ -95,10 +99,10 @@ class TestValidation(unittest.TestCase):
         content = [{"id": "1", "type": "component", "name": "c1"}]
         with self.assertRaises(ValueError) as cm:
             validator.validate_aws_hierarchy_content(content)
-        self.assertIn("must have 'componentTypeId' or 'iotDeviceId'", str(cm.exception))
+        self.assertIn("missing required 'componentTypeId'", str(cm.exception))
 
-        # Component Valid
-        content = [{"id": "1", "type": "component", "name": "c1", "iotDeviceId": "d1"}]
+        # Component Valid (with required componentTypeId)
+        content = [{"id": "1", "type": "component", "name": "c1", "componentTypeId": "type1"}]
         validator.validate_aws_hierarchy_content(content)
         
         # Missing type field
@@ -121,21 +125,69 @@ class TestValidation(unittest.TestCase):
             validator.validate_state_machine_content(CONSTANTS.AWS_STATE_MACHINE_FILE, "{")
 
     def test_validate_state_machine_content_azure_special(self):
-        """Test Azure with and without 'definition' key behavior"""
-        # 1. Valid with definition
-        validator.validate_state_machine_content(CONSTANTS.AZURE_STATE_MACHINE_FILE, {"definition": {}})
+        """Test Azure with proper 'definition' structure per official Microsoft schema."""
+        # 1. Valid with complete definition (all required keys)
+        valid_azure = {
+            "definition": {
+                "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                "triggers": {"manual": {"type": "Request"}},
+                "actions": {"Response": {"type": "Response"}}
+            }
+        }
+        validator.validate_state_machine_content(CONSTANTS.AZURE_STATE_MACHINE_FILE, valid_azure)
         
-        # 2. Invalid without definition
+        # 2. Invalid - missing definition wrapper entirely
         with self.assertRaises(ValueError) as cm:
              validator.validate_state_machine_content(CONSTANTS.AZURE_STATE_MACHINE_FILE, {"other": {}})
-        self.assertIn("Invalid State Machine format", str(cm.exception))
+        self.assertIn("Missing required 'definition' wrapper", str(cm.exception))
+        
+        # 3. Invalid - definition present but missing $schema
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_state_machine_content(CONSTANTS.AZURE_STATE_MACHINE_FILE, {
+                "definition": {"triggers": {}, "actions": {}}
+            })
+        self.assertIn("Missing required key", str(cm.exception))
+        self.assertIn("$schema", str(cm.exception))
+        
+        # 4. Invalid - definition present but missing triggers
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_state_machine_content(CONSTANTS.AZURE_STATE_MACHINE_FILE, {
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/test",
+                    "actions": {}
+                }
+            })
+        self.assertIn("Missing required key", str(cm.exception))
+        self.assertIn("triggers", str(cm.exception))
+        
+        # 5. Invalid - definition present but missing actions
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_state_machine_content(CONSTANTS.AZURE_STATE_MACHINE_FILE, {
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/test",
+                    "triggers": {}
+                }
+            })
+        self.assertIn("Missing expected key", str(cm.exception))
+        self.assertIn("actions", str(cm.exception))
+        
+        # 6. Invalid - bad $schema URL
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_state_machine_content(CONSTANTS.AZURE_STATE_MACHINE_FILE, {
+                "definition": {
+                    "$schema": "https://badurl.com/schema",
+                    "triggers": {},
+                    "actions": {}
+                }
+            })
+        self.assertIn("Invalid $schema URL", str(cm.exception))
 
     def test_validate_state_machine_content_google(self):
         """Test GCP workflow validation - 'main' at top level, 'steps' inside 'main'."""
         # 1. Missing 'main' entirely
         with self.assertRaises(ValueError) as cm:
              validator.validate_state_machine_content(CONSTANTS.GOOGLE_STATE_MACHINE_FILE, {"steps": []})
-        self.assertIn("missing required 'main' block", str(cm.exception))
+        self.assertIn("Missing required 'main' block", str(cm.exception))
         
         # 2. 'main' present but missing 'steps' inside
         with self.assertRaises(ValueError) as cm:
@@ -145,6 +197,122 @@ class TestValidation(unittest.TestCase):
         # 3. Valid - 'main' with 'steps' inside (nested structure)
         valid_gcp = {"main": {"steps": [{"init": {"assign": [{"result": "ok"}]}}]}}
         validator.validate_state_machine_content(CONSTANTS.GOOGLE_STATE_MACHINE_FILE, valid_gcp)
+        
+        # 4. Valid - 'main' is directly a list of steps (simplified format)
+        valid_gcp_list = {"main": [{"init": {"assign": [{"x": 1}]}}, {"process": {"call": "http.get"}}]}
+        validator.validate_state_machine_content(CONSTANTS.GOOGLE_STATE_MACHINE_FILE, valid_gcp_list)
+        
+        # 5. Invalid - duplicate step names
+        with self.assertRaises(ValueError) as cm:
+            duplicate_steps = {"main": {"steps": [
+                {"init": {"assign": [{"x": 1}]}},
+                {"process": {"call": "http.get"}},
+                {"init": {"return": "done"}}  # Duplicate 'init'
+            ]}}
+            validator.validate_state_machine_content(CONSTANTS.GOOGLE_STATE_MACHINE_FILE, duplicate_steps)
+        self.assertIn("Duplicate step names", str(cm.exception))
+        self.assertIn("init", str(cm.exception))
+        
+        # 6. Invalid - duplicate step names in list format
+        with self.assertRaises(ValueError) as cm:
+            duplicate_list = {"main": [
+                {"step1": {}},
+                {"step2": {}},
+                {"step1": {}}  # Duplicate 'step1'
+            ]}
+            validator.validate_state_machine_content(CONSTANTS.GOOGLE_STATE_MACHINE_FILE, duplicate_list)
+        self.assertIn("Duplicate step names", str(cm.exception))
+    
+    def test_validate_state_machine_content_aws(self):
+        """Test AWS Step Function validation - StartAt must reference existing state."""
+        # 1. Valid AWS Step Function
+        valid_aws = {
+            "StartAt": "FirstState",
+            "States": {
+                "FirstState": {"Type": "Pass", "Next": "SecondState"},
+                "SecondState": {"Type": "Succeed"}
+            }
+        }
+        validator.validate_state_machine_content(CONSTANTS.AWS_STATE_MACHINE_FILE, valid_aws)
+        
+        # 2. Invalid - missing StartAt
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_state_machine_content(CONSTANTS.AWS_STATE_MACHINE_FILE, {
+                "States": {"OnlyState": {"Type": "Succeed"}}
+            })
+        self.assertIn("Missing required key", str(cm.exception))
+        self.assertIn("StartAt", str(cm.exception))
+        
+        # 3. Invalid - missing States
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_state_machine_content(CONSTANTS.AWS_STATE_MACHINE_FILE, {
+                "StartAt": "Init"
+            })
+        self.assertIn("Missing required key", str(cm.exception))
+        self.assertIn("States", str(cm.exception))
+        
+        # 4. Invalid - StartAt references non-existent state
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_state_machine_content(CONSTANTS.AWS_STATE_MACHINE_FILE, {
+                "StartAt": "NonExistent",
+                "States": {
+                    "ActualState": {"Type": "Succeed"}
+                }
+            })
+        self.assertIn("references non-existent state", str(cm.exception))
+        self.assertIn("NonExistent", str(cm.exception))
+        self.assertIn("ActualState", str(cm.exception))
+        
+        # 5. Invalid - States is not an object
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_state_machine_content(CONSTANTS.AWS_STATE_MACHINE_FILE, {
+                "StartAt": "Init",
+                "States": ["not", "an", "object"]
+            })
+        self.assertIn("must be an object", str(cm.exception))
+    
+    def test_state_machine_azure_multiple_errors(self):
+        """Test Azure Logic App returns all errors at once, not just the first one."""
+        # Missing both $schema AND triggers
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_state_machine_content(CONSTANTS.AZURE_STATE_MACHINE_FILE, {
+                "definition": {"actions": {}}  # Missing $schema and triggers
+            })
+        error_msg = str(cm.exception)
+        self.assertIn("$schema", error_msg)
+        self.assertIn("triggers", error_msg)
+        # Verify we have multiple sub-bullets
+        self.assertGreaterEqual(error_msg.count("◦"), 2)
+    
+    def test_state_machine_azure_all_three_errors(self):
+        """Test Azure returns all 3 missing key errors together."""
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_state_machine_content(CONSTANTS.AZURE_STATE_MACHINE_FILE, {
+                "definition": {}  # Missing all: $schema, triggers, actions
+            })
+        error_msg = str(cm.exception)
+        self.assertIn("$schema", error_msg)
+        self.assertIn("triggers", error_msg)
+        self.assertIn("actions", error_msg)
+        self.assertGreaterEqual(error_msg.count("◦"), 3)
+    
+    def test_state_machine_aws_multiple_errors(self):
+        """Test AWS Step Function returns multiple errors together."""
+        # Both missing required keys at once
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_state_machine_content(CONSTANTS.AWS_STATE_MACHINE_FILE, {})
+        error_msg = str(cm.exception)
+        self.assertIn("StartAt", error_msg)
+        self.assertIn("States", error_msg)
+        self.assertGreaterEqual(error_msg.count("◦"), 2)
+    
+    def test_state_machine_gcp_missing_main_and_steps_edge_case(self):
+        """Test GCP returns error for missing main block (edge case - can't check steps without main)."""
+        # When main is missing, we can't check steps - so only one error
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_state_machine_content(CONSTANTS.GOOGLE_STATE_MACHINE_FILE, {})
+        error_msg = str(cm.exception)
+        self.assertIn("main", error_msg)
 
     # ==========================================
     # 3. Code Validation Tests (Azure/Google)
@@ -709,8 +877,8 @@ class TestStateMachineValidation(unittest.TestCase):
         ctx.all_files = [f"state_machines/{CONSTANTS.AWS_STATE_MACHINE_FILE}"]
         
         mock_accessor = MagicMock()
-        # Return valid AWS step function content
-        mock_accessor.read_text.return_value = json.dumps({"StartAt": "Init", "States": {}})
+        # Return valid AWS step function content (StartAt must reference existing state)
+        mock_accessor.read_text.return_value = json.dumps({"StartAt": "Init", "States": {"Init": {"Type": "Succeed"}}})
         
         # Should NOT raise - valid AWS state machine
         check_state_machines(mock_accessor, ctx)
@@ -727,7 +895,14 @@ class TestStateMachineValidation(unittest.TestCase):
         ctx.all_files = [f"state_machines/{CONSTANTS.AZURE_STATE_MACHINE_FILE}"]
         
         mock_accessor = MagicMock()
-        mock_accessor.read_text.return_value = json.dumps({"definition": {}})
+        # Valid Azure Logic App with all required keys
+        mock_accessor.read_text.return_value = json.dumps({
+            "definition": {
+                "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                "triggers": {"manual": {"type": "Request"}},
+                "actions": {"Response": {"type": "Response"}}
+            }
+        })
         
         check_state_machines(mock_accessor, ctx)
         mock_accessor.read_text.assert_called_once()
@@ -782,7 +957,8 @@ class TestStateMachineValidation(unittest.TestCase):
         ]
         
         mock_accessor = MagicMock()
-        mock_accessor.read_text.return_value = json.dumps({"StartAt": "Init", "States": {}})
+        # Valid AWS Step Function with StartAt referencing existing state
+        mock_accessor.read_text.return_value = json.dumps({"StartAt": "Init", "States": {"Init": {"Type": "Succeed"}}})
         
         check_state_machines(mock_accessor, ctx)
         # Should only read AWS file, not GCP

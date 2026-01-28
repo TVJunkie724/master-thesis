@@ -140,3 +140,7 @@ Festo_Demo_Box/
 # AI Agent Session Tracking
 # -----------------------------------------------------------------------------
 .ai-session.json
+
+twin2multicloud_flutter/android/local.properties
+
+3-cloud-deployer/upload/template copy/

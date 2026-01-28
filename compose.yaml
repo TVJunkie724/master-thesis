@@ -15,8 +15,8 @@ services:
   2twin2clouds:
     image: 2twin2clouds
     build: 
-      context: .
-      dockerfile: ./2-twin2clouds/Dockerfile
+      context: ./2-twin2clouds/
+      dockerfile: Dockerfile
     ports:
       - "5003:8000"
     volumes:
@@ -31,21 +31,20 @@ services:
   3cloud-deployer:
     image: 3cloud-deployer
     build: 
-      context: .
-      dockerfile: ./3-cloud-deployer/Dockerfile
+      context: ./3-cloud-deployer
+      dockerfile: Dockerfile
     ports:
       - "5004:8000"
     volumes: 
       - ./3-cloud-deployer:/app/
       # mount into upload/template folder to simulate upload process
       - ./config.json:/config/config.json
-      # - ./config_credentials.json:/config/config_credentials.json
-      # - ./google-credentials.json:/config/gcp_credentials.json
+      - ./config_credentials.json:/config/config_credentials.json
+      - ./gcp_credentials.json:/config/gcp_credentials.json
     tty: true
     networks:
       - my_master_thesis_network
 
-  # Management API (Sprint 1)
   management-api:
     build:
       context: ./twin2multicloud_backend
@@ -60,6 +59,7 @@ services:
       - DATABASE_URL=sqlite:///./data/app.db
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key}
       - DEBUG=true
+      - ENABLE_TEST_ENDPOINTS=true
       # External API URLs (Docker internal hostnames)
       - OPTIMIZER_URL=http://master-thesis-2twin2clouds-1:8000
       - DEPLOYER_URL=http://master-thesis-3cloud-deployer-1:8000

@@ -54,7 +54,10 @@ def validate_digital_twin_name(name: str) -> None:
 def validate_config_content(filename, content):
     """
     Validates the content of a configuration file against defined schemas.
+    Returns all validation errors aggregated, not just the first one.
     """
+    errors = []
+    
     if isinstance(content, str):
         try:
             content = json.loads(content)
@@ -71,13 +74,20 @@ def validate_config_content(filename, content):
                 if provider in content:
                     for key in keys:
                         if key not in content[provider]:
-                            raise ValueError(f"Missing required credential field '{key}' for provider '{provider}' in {filename}.")
+                            errors.append(f"Missing credential field '{key}' for provider '{provider}'")
                     
                     # Azure-specific validation
                     if provider == "azure":
                         azure_region = content[provider].get("azure_region")
                         if azure_region:
-                            validate_azure_region_for_consumption_plan(azure_region)
+                            try:
+                                validate_azure_region_for_consumption_plan(azure_region)
+                            except ValueError as e:
+                                errors.append(str(e))
+            
+            if errors:
+                raise ValueError(f"Config validation errors in {filename}:\n  ◦ " + "\n  ◦ ".join(errors))
+            return
 
         
         # General Case: List of objects (IOT, EVENTS, HIERARCHY)
@@ -88,42 +98,57 @@ def validate_config_content(filename, content):
              for index, item in enumerate(content):
                  for key in required_keys:
                      if key not in item:
-                         raise ValueError(f"Missing key '{key}' in {filename} at index {index}.")
+                         errors.append(f"Item at index {index}: missing key '{key}'")
                  
                  # Nested Checks for specific files
                  if filename == CONSTANTS.CONFIG_EVENTS_FILE:
                      # Check action structure
                      if "action" in item:
                          action = item["action"]
-                         if "type" not in action or "functionName" not in action:
-                             raise ValueError(f"Event action at index {index} missing 'type' or 'functionName'.")
+                         if "type" not in action:
+                             errors.append(f"Event at index {index}: action missing 'type'")
+                         if "functionName" not in action:
+                             errors.append(f"Event at index {index}: action missing 'functionName'")
                          
-                         if action["type"] == "lambda" and "feedback" in action:
+                         if action.get("type") == "lambda" and "feedback" in action:
                              feedback = action["feedback"]
-                             if "iotDeviceId" not in feedback or "payload" not in feedback:
-                                 raise ValueError(f"Event feedback at index {index} missing 'iotDeviceId' or 'payload'.")
+                             if "iotDeviceId" not in feedback:
+                                 errors.append(f"Event at index {index}: feedback missing 'iotDeviceId'")
+                             if "payload" not in feedback:
+                                 errors.append(f"Event at index {index}: feedback missing 'payload'")
+             
+             if errors:
+                 raise ValueError(f"Config validation errors in {filename}:\n  ◦ " + "\n  ◦ ".join(errors))
+             return
         
         # General Case: Single Object (CONFIG, OPTIMIZATION)
         elif isinstance(content, dict):
              for key in required_keys:
                  if key not in content:
-                     raise ValueError(f"Missing key '{key}' in {filename}.")
+                     errors.append(f"Missing key '{key}'")
              
              # Validate digital_twin_name format in config.json
              if filename == CONSTANTS.CONFIG_FILE:
                  twin_name = content.get("digital_twin_name")
                  if twin_name:
-                     validate_digital_twin_name(twin_name)
+                     try:
+                         validate_digital_twin_name(twin_name)
+                     except ValueError as e:
+                         errors.append(str(e))
              
              # Special Case: Inter-Cloud Configuration
              if filename == CONSTANTS.CONFIG_INTER_CLOUD_FILE:
                  connections = content.get("connections", {})
                  if not isinstance(connections, dict):
-                     raise ValueError("'connections' must be a dictionary.")
-                 
-                 for conn_id, details in connections.items():
-                     if not all(k in details for k in ["provider", "token", "url"]):
-                         raise ValueError(f"Connection '{conn_id}' missing required fields: provider, token, url")
+                     errors.append("'connections' must be a dictionary")
+                 else:
+                     for conn_id, details in connections.items():
+                         missing_conn_fields = [k for k in ["provider", "token", "url"] if k not in details]
+                         if missing_conn_fields:
+                             errors.append(f"Connection '{conn_id}': missing fields {missing_conn_fields}")
+             
+             if errors:
+                 raise ValueError(f"Config validation errors in {filename}:\n  ◦ " + "\n  ◦ ".join(errors))
 
 
 # ==========================================
@@ -171,20 +196,23 @@ def validate_azure_region_for_consumption_plan(azure_region: str) -> None:
 def validate_aws_hierarchy_content(content):
     """
     Validates AWS TwinMaker hierarchy format (entity/component structure).
+    Returns all validation errors aggregated, not just the first one.
     
     The AWS hierarchy is an array of entity objects, each with:
     - type: "entity" or "component"
     - id: Entity identifier (required for entities)
     - name: Display name (required for components)
     - children: Nested array of child entities/components (optional)
-    - componentTypeId or iotDeviceId: Required for components
+    - componentTypeId: Required for components
     
     Args:
         content: JSON string or parsed list/dict
         
     Raises:
-        ValueError: If format is invalid (fail-fast)
+        ValueError: If format is invalid (aggregated errors)
     """
+    errors = []
+    
     if content is None:
         raise ValueError("AWS hierarchy content cannot be None")
     
@@ -198,70 +226,74 @@ def validate_aws_hierarchy_content(content):
         raise ValueError("AWS hierarchy must be a JSON array")
     
     def _validate_item(item, path="root"):
-        """Recursively validate hierarchy items."""
+        """Recursively validate hierarchy items, collecting all errors."""
         if not isinstance(item, dict):
-            raise ValueError(f"Hierarchy item at {path} must be a dictionary")
+            errors.append(f"Item at {path}: must be a dictionary")
+            return
         
         if "type" not in item:
-            raise ValueError(f"Hierarchy item at {path} missing required 'type' field")
+            errors.append(f"Item at {path}: missing required 'type' field")
+            return
         
         item_type = item["type"]
         if item_type not in ("entity", "component"):
-            raise ValueError(f"Hierarchy item at {path} has invalid type '{item_type}'. Must be 'entity' or 'component'")
+            errors.append(f"Item at {path}: invalid type '{item_type}' (must be 'entity' or 'component')")
+            return
         
         if item_type == "entity":
             if "id" not in item:
-                raise ValueError(f"Entity at {path} missing required 'id' field")
+                errors.append(f"Entity at {path}: missing required 'id' field")
         elif item_type == "component":
             if "name" not in item:
-                raise ValueError(f"Component at {path} missing required 'name' field")
+                errors.append(f"Component at {path}: missing required 'name' field")
             
             # componentTypeId is MANDATORY for full deployment (3D scenes, data binding)
-            # NOTE: fast fail on missing componentTypeId
             if "componentTypeId" not in item:
-                raise ValueError(
-                    f"Component '{item.get('name')}' at {path} missing required 'componentTypeId'. "
-                    "This is required for TwinMaker 3D scene visualization and data binding."
+                errors.append(
+                    f"Component '{item.get('name', 'unnamed')}' at {path}: missing required 'componentTypeId'"
                 )
             
             # Validate properties array if present
             properties = item.get("properties", [])
             if not isinstance(properties, list):
-                raise ValueError(f"Component '{item.get('name')}' at {path}: 'properties' must be an array")
-            
-            valid_types = ["STRING", "DOUBLE", "INTEGER", "BOOLEAN", "LONG"]
-            for i, prop in enumerate(properties):
-                if not isinstance(prop, dict):
-                    raise ValueError(f"Property at {path}.properties[{i}] must be an object")
-                if "name" not in prop:
-                    raise ValueError(f"Property at {path}.properties[{i}] missing 'name'")
-                if "dataType" not in prop:
-                    raise ValueError(f"Property at {path}.properties[{i}] missing 'dataType'")
-                if prop.get("dataType") not in valid_types:
-                    raise ValueError(
-                        f"Property '{prop.get('name')}' at {path}.properties[{i}] has invalid dataType "
-                        f"'{prop.get('dataType')}'. Must be one of: {valid_types}"
-                    )
+                errors.append(f"Component '{item.get('name')}' at {path}: 'properties' must be an array")
+            else:
+                valid_types = ["STRING", "DOUBLE", "INTEGER", "BOOLEAN", "LONG"]
+                for i, prop in enumerate(properties):
+                    if not isinstance(prop, dict):
+                        errors.append(f"Property at {path}.properties[{i}]: must be an object")
+                        continue
+                    if "name" not in prop:
+                        errors.append(f"Property at {path}.properties[{i}]: missing 'name'")
+                    if "dataType" not in prop:
+                        errors.append(f"Property at {path}.properties[{i}]: missing 'dataType'")
+                    elif prop.get("dataType") not in valid_types:
+                        errors.append(
+                            f"Property '{prop.get('name')}' at {path}.properties[{i}]: invalid dataType "
+                            f"'{prop.get('dataType')}' (must be one of: {valid_types})"
+                        )
             
             # Validate constProperties array if present
             const_props = item.get("constProperties", [])
             if not isinstance(const_props, list):
-                raise ValueError(f"Component '{item.get('name')}' at {path}: 'constProperties' must be an array")
-            
-            for i, cprop in enumerate(const_props):
-                if not isinstance(cprop, dict):
-                    raise ValueError(f"Const property at {path}.constProperties[{i}] must be an object")
-                if "name" not in cprop:
-                    raise ValueError(f"Const property at {path}.constProperties[{i}] missing 'name'")
-                if "value" not in cprop:
-                    raise ValueError(f"Const property at {path}.constProperties[{i}] missing 'value'")
-                if "dataType" not in cprop:
-                    raise ValueError(f"Const property at {path}.constProperties[{i}] missing 'dataType'")
-                if cprop.get("dataType") not in valid_types:
-                    raise ValueError(
-                        f"Const property '{cprop.get('name')}' at {path}.constProperties[{i}] has invalid dataType "
-                        f"'{cprop.get('dataType')}'. Must be one of: {valid_types}"
-                    )
+                errors.append(f"Component '{item.get('name')}' at {path}: 'constProperties' must be an array")
+            else:
+                valid_types = ["STRING", "DOUBLE", "INTEGER", "BOOLEAN", "LONG"]
+                for i, cprop in enumerate(const_props):
+                    if not isinstance(cprop, dict):
+                        errors.append(f"Const property at {path}.constProperties[{i}]: must be an object")
+                        continue
+                    if "name" not in cprop:
+                        errors.append(f"Const property at {path}.constProperties[{i}]: missing 'name'")
+                    if "value" not in cprop:
+                        errors.append(f"Const property at {path}.constProperties[{i}]: missing 'value'")
+                    if "dataType" not in cprop:
+                        errors.append(f"Const property at {path}.constProperties[{i}]: missing 'dataType'")
+                    elif cprop.get("dataType") not in valid_types:
+                        errors.append(
+                            f"Const property '{cprop.get('name')}' at {path}.constProperties[{i}]: invalid dataType "
+                            f"'{cprop.get('dataType')}' (must be one of: {valid_types})"
+                        )
             
             # Warning if no properties AND no constProperties (will be abstract)
             if not properties and not const_props:
@@ -278,6 +310,9 @@ def validate_aws_hierarchy_content(content):
     for i, item in enumerate(content):
         _validate_item(item, f"[{i}]")
     
+    if errors:
+        raise ValueError(f"AWS hierarchy validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
+    
     logger.info(f"✓ AWS hierarchy validated: {len(content)} top-level items")
 
 
@@ -287,6 +322,7 @@ def validate_aws_hierarchy_content(content):
 def validate_azure_hierarchy_content(content):
     """
     Validates Azure Digital Twins DTDL hierarchy format.
+    Returns all validation errors aggregated, not just the first one.
     
     At deployment time (L4), this JSON is converted to NDJSON for the
     Azure Digital Twins Import Jobs API:
@@ -301,8 +337,10 @@ def validate_azure_hierarchy_content(content):
         content: JSON string or parsed dict
         
     Raises:
-        ValueError: If format is invalid (fail-fast)
+        ValueError: If format is invalid (aggregated errors)
     """
+    errors = []
+    
     if content is None:
         raise ValueError("Azure hierarchy content cannot be None")
     
@@ -319,56 +357,63 @@ def validate_azure_hierarchy_content(content):
     header = content.get("header")
     if header is not None:
         if not isinstance(header, dict):
-            raise ValueError("Azure hierarchy 'header' must be an object")
-        if "fileVersion" not in header:
-            raise ValueError("Azure hierarchy header missing 'fileVersion'")
+            errors.append("'header' must be an object")
+        elif "fileVersion" not in header:
+            errors.append("header missing 'fileVersion'")
     
     # Validate models
     models = content.get("models", [])
     if not isinstance(models, list):
-        raise ValueError("Azure hierarchy 'models' must be an array")
-    
-    for i, model in enumerate(models):
-        if not isinstance(model, dict):
-            raise ValueError(f"Model at index {i} must be an object")
-        if "@id" not in model:
-            raise ValueError(f"Model at index {i} missing '@id'")
-        if "@type" not in model:
-            raise ValueError(f"Model at index {i} missing '@type'")
-        if "@context" not in model:
-            raise ValueError(f"Model at index {i} missing '@context'")
-        if not model["@id"].startswith("dtmi:"):
-            raise ValueError(f"Model @id '{model['@id']}' must start with 'dtmi:'")
+        errors.append("'models' must be an array")
+    else:
+        for i, model in enumerate(models):
+            if not isinstance(model, dict):
+                errors.append(f"Model at index {i}: must be an object")
+                continue
+            if "@id" not in model:
+                errors.append(f"Model at index {i}: missing '@id'")
+            elif not model["@id"].startswith("dtmi:"):
+                errors.append(f"Model at index {i}: @id '{model['@id']}' must start with 'dtmi:'")
+            if "@type" not in model:
+                errors.append(f"Model at index {i}: missing '@type'")
+            if "@context" not in model:
+                errors.append(f"Model at index {i}: missing '@context'")
     
     # Validate twins
     twins = content.get("twins", [])
     if not isinstance(twins, list):
-        raise ValueError("Azure hierarchy 'twins' must be an array")
-    
-    for i, twin in enumerate(twins):
-        if not isinstance(twin, dict):
-            raise ValueError(f"Twin at index {i} must be an object")
-        if "$dtId" not in twin:
-            raise ValueError(f"Twin at index {i} missing '$dtId'")
-        if "$metadata" not in twin:
-            raise ValueError(f"Twin '{twin.get('$dtId')}' missing '$metadata'")
-        if "$model" not in twin.get("$metadata", {}):
-            raise ValueError(f"Twin '{twin.get('$dtId')}' metadata missing '$model'")
+        errors.append("'twins' must be an array")
+    else:
+        for i, twin in enumerate(twins):
+            if not isinstance(twin, dict):
+                errors.append(f"Twin at index {i}: must be an object")
+                continue
+            twin_id = twin.get('$dtId', f'index-{i}')
+            if "$dtId" not in twin:
+                errors.append(f"Twin at index {i}: missing '$dtId'")
+            if "$metadata" not in twin:
+                errors.append(f"Twin '{twin_id}': missing '$metadata'")
+            elif "$model" not in twin.get("$metadata", {}):
+                errors.append(f"Twin '{twin_id}': metadata missing '$model'")
     
     # Validate relationships
     relationships = content.get("relationships", [])
     if not isinstance(relationships, list):
-        raise ValueError("Azure hierarchy 'relationships' must be an array")
+        errors.append("'relationships' must be an array")
+    else:
+        for i, rel in enumerate(relationships):
+            if not isinstance(rel, dict):
+                errors.append(f"Relationship at index {i}: must be an object")
+                continue
+            if "$dtId" not in rel:
+                errors.append(f"Relationship at index {i}: missing '$dtId'")
+            if "$targetId" not in rel:
+                errors.append(f"Relationship at index {i}: missing '$targetId'")
+            if "$relationshipName" not in rel:
+                errors.append(f"Relationship at index {i}: missing '$relationshipName'")
     
-    for i, rel in enumerate(relationships):
-        if not isinstance(rel, dict):
-            raise ValueError(f"Relationship at index {i} must be an object")
-        if "$dtId" not in rel:
-            raise ValueError(f"Relationship at index {i} missing '$dtId'")
-        if "$targetId" not in rel:
-            raise ValueError(f"Relationship at index {i} missing '$targetId'")
-        if "$relationshipName" not in rel:
-            raise ValueError(f"Relationship at index {i} missing '$relationshipName'")
+    if errors:
+        raise ValueError(f"Azure hierarchy validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
     
     logger.info(f"✓ Azure hierarchy validated: {len(models)} models, {len(twins)} twins, {len(relationships)} relationships")
 
@@ -487,7 +532,14 @@ def validate_state_machine_content(filename, content):
     """
     Validates that the state machine file content matches the expected provider format.
     Supports both JSON (.json) and YAML (.yaml/.yml) files.
+    
+    Returns all validation errors aggregated, not just the first one.
+    
+    Azure Logic Apps: Validates against official Microsoft schema requirements.
+    See: https://learn.microsoft.com/en-us/azure/logic-apps/logic-apps-workflow-definition-language
     """
+    errors = []
+    
     # 1. Parse content based on file extension
     if isinstance(content, str):
         if filename.endswith(('.yaml', '.yml')):
@@ -508,35 +560,116 @@ def validate_state_machine_content(filename, content):
     else:
         parsed_content = content
 
-    # 2. Check Signature
+    # 2. Check Signature (top-level keys)
     if filename in CONSTANTS.STATE_MACHINE_SIGNATURES:
         required_keys = CONSTANTS.STATE_MACHINE_SIGNATURES[filename]
         missing_keys = [k for k in required_keys if k not in parsed_content]
         
-        # Special handling for Azure because $schema is sometimes inside definition
+        # 2a. Azure Logic App: Validate definition wrapper AND internal structure
         if filename == CONSTANTS.AZURE_STATE_MACHINE_FILE:
-             if "definition" in parsed_content:
-                 pass
+            if "definition" not in parsed_content:
+                raise ValueError(
+                    f"Invalid Azure Logic App format for {filename}. "
+                    f"Missing required 'definition' wrapper. "
+                    f"Expected structure: {{\"definition\": {{\"$schema\": ..., \"triggers\": ..., \"actions\": ...}}}}"
+                )
+            
+            definition = parsed_content["definition"]
+            if not isinstance(definition, dict):
+                raise ValueError(
+                    f"Azure Logic App 'definition' must be an object, got {type(definition).__name__}"
+                )
+            
+            # Check required keys inside definition (aggregate all missing)
+            for key in CONSTANTS.AZURE_DEFINITION_REQUIRED_KEYS:
+                if key not in definition:
+                    errors.append(f"Missing required key: '{key}'")
+            
+            # Check expected keys inside definition
+            for key in CONSTANTS.AZURE_DEFINITION_EXPECTED_KEYS:
+                if key not in definition:
+                    errors.append(f"Missing expected key: '{key}'")
+            
+            # Validate $schema URL format (only if $schema exists)
+            if "$schema" in definition:
+                schema_url = definition.get("$schema", "")
+                if not schema_url.startswith("https://schema.management.azure.com/"):
+                    errors.append(
+                        f"Invalid $schema URL: expected 'https://schema.management.azure.com/...', "
+                        f"got '{schema_url}'"
+                    )
+            
+            if errors:
+                raise ValueError(f"Azure Logic App validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
+            return  # Azure validation complete
         
-        # Special handling for GCP - 'steps' is nested inside 'main', not top-level
+        # 2b. GCP Workflow: Special handling for 'main' structure
         if filename == CONSTANTS.GOOGLE_STATE_MACHINE_FILE:
             if "main" not in parsed_content:
-                raise ValueError(f"GCP Workflow missing required 'main' block")
-            main_block = parsed_content.get("main", {})
-            # For YAML, main_block is a list of step dicts
-            if isinstance(main_block, list):
-                # Valid YAML workflow format: main is a list of steps
-                return
-            # For JSON, main_block is a dict with 'steps' key
-            if isinstance(main_block, dict) and "steps" not in main_block:
-                raise ValueError(f"GCP Workflow 'main' block missing required 'steps' array")
+                errors.append("Missing required 'main' block")
+            else:
+                main_block = parsed_content.get("main", {})
+                
+                # Extract steps list based on format
+                steps_list = None
+                if isinstance(main_block, list):
+                    # Simplified format: main is directly a list of steps
+                    steps_list = main_block
+                elif isinstance(main_block, dict):
+                    if "steps" not in main_block:
+                        errors.append("'main' block missing required 'steps' array")
+                    else:
+                        steps_list = main_block.get("steps", [])
+                
+                # Validate step names are unique
+                if steps_list and isinstance(steps_list, list):
+                    step_names = []
+                    for step in steps_list:
+                        if isinstance(step, dict):
+                            step_names.extend(step.keys())
+                    
+                    # Check for duplicates
+                    seen = set()
+                    duplicates = []
+                    for name in step_names:
+                        if name in seen:
+                            duplicates.append(name)
+                        seen.add(name)
+                    
+                    if duplicates:
+                        errors.append(f"Duplicate step names: {duplicates}")
+            
+            if errors:
+                raise ValueError(f"GCP Workflow validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
             return  # Valid GCP workflow
         
+        # 2c. AWS Step Function: Validate StartAt references existing state
+        if filename == CONSTANTS.AWS_STATE_MACHINE_FILE:
+            # Collect all missing keys
+            for key in missing_keys:
+                errors.append(f"Missing required key: '{key}'")
+            
+            start_at = parsed_content.get("StartAt")
+            states = parsed_content.get("States", {})
+            
+            if "States" in parsed_content and not isinstance(states, dict):
+                errors.append(f"'States' must be an object, got {type(states).__name__}")
+            elif isinstance(states, dict):
+                # Validate StartAt references an existing state
+                if start_at and start_at not in states:
+                    available_states = list(states.keys())[:5]
+                    errors.append(
+                        f"'StartAt' references non-existent state '{start_at}'. "
+                        f"Available states: {available_states}"
+                    )
+            
+            if errors:
+                raise ValueError(f"AWS Step Function validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
+            return  # AWS validation complete
+        
+        # 2d. Other providers (fallback)
         if missing_keys:
-             if filename == CONSTANTS.AZURE_STATE_MACHINE_FILE and "definition" in parsed_content:
-                 pass 
-             else:
-                 raise ValueError(f"Invalid State Machine format for {filename}. Missing required keys: {missing_keys}")
+            raise ValueError(f"Invalid State Machine format for {filename}. Missing required keys: {missing_keys}")
 
 # ==========================================
 # 3. Zip Archive Validation

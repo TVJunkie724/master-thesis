@@ -1,6 +1,7 @@
 // lib/bloc/wizard/wizard_event.dart
 // Events for the Wizard BLoC state machine
 
+import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import '../../models/calc_params.dart';
 
@@ -150,7 +151,7 @@ class WizardDismissError extends WizardEvent {
 }
 
 // ============================================================
-// STEP 3 INVALIDATION EVENTS  
+// STEP 3 INVALIDATION EVENTS
 // ============================================================
 
 /// User confirmed to proceed with new calculation results (clears Section 3)
@@ -277,7 +278,7 @@ class WizardStateMachineContentChanged extends WizardEvent {
 /// Pass null to remove requirements (will be deleted on save)
 class WizardProcessorRequirementsChanged extends WizardEvent {
   final String deviceId;
-  final String? content;  // null = remove
+  final String? content; // null = remove
   const WizardProcessorRequirementsChanged(this.deviceId, this.content);
   @override
   List<Object?> get props => [deviceId, content];
@@ -285,7 +286,7 @@ class WizardProcessorRequirementsChanged extends WizardEvent {
 
 /// Event feedback requirements.txt changed
 class WizardEventFeedbackRequirementsChanged extends WizardEvent {
-  final String? content;  // null = remove
+  final String? content; // null = remove
   const WizardEventFeedbackRequirementsChanged(this.content);
   @override
   List<Object?> get props => [content];
@@ -294,7 +295,7 @@ class WizardEventFeedbackRequirementsChanged extends WizardEvent {
 /// Event action requirements.txt changed
 class WizardEventActionRequirementsChanged extends WizardEvent {
   final String functionName;
-  final String? content;  // null = remove
+  final String? content; // null = remove
   const WizardEventActionRequirementsChanged(this.functionName, this.content);
   @override
   List<Object?> get props => [functionName, content];
@@ -416,4 +417,57 @@ class WizardL4CleanupRequested extends WizardEvent {
   const WizardL4CleanupRequested();
   @override
   List<Object?> get props => [];
+}
+
+// ============================================================
+// STEP 3: ZIP UPLOAD EVENTS
+// ============================================================
+
+/// User requested zip upload for auto-population
+/// Triggers confirmation dialog if Step 3 already has data
+class WizardZipUploadRequested extends WizardEvent {
+  final String filePath;
+  final Uint8List fileBytes;
+  final String fileName;
+  const WizardZipUploadRequested({
+    required this.filePath,
+    required this.fileBytes,
+    required this.fileName,
+  });
+  @override
+  List<Object?> get props => [filePath, fileName];
+}
+
+/// User confirmed to replace existing Step 3 data with zip contents
+class WizardZipUploadConfirmed extends WizardEvent {
+  final String filePath;
+  final Uint8List fileBytes;
+  final String fileName;
+  const WizardZipUploadConfirmed({
+    required this.filePath,
+    required this.fileBytes,
+    required this.fileName,
+  });
+  @override
+  List<Object?> get props => [filePath, fileName];
+}
+
+/// Zip upload and extraction completed successfully
+class WizardZipUploadSuccess extends WizardEvent {
+  final Map<String, dynamic> extractionResult;
+  const WizardZipUploadSuccess(this.extractionResult);
+  @override
+  List<Object?> get props => [extractionResult];
+}
+
+/// Zip upload failed with validation errors
+class WizardZipUploadFailure extends WizardEvent {
+  final List<String> errors;
+  final List<String> warnings;
+  const WizardZipUploadFailure({
+    required this.errors,
+    this.warnings = const [],
+  });
+  @override
+  List<Object?> get props => [errors, warnings];
 }

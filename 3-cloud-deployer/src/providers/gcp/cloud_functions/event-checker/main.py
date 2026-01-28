@@ -18,11 +18,13 @@ from google.cloud import firestore
 # Handle import path for shared module
 try:
     from _shared.env_utils import require_env
+    from _shared.inter_cloud import get_id_token_headers
 except ModuleNotFoundError:
     _cloud_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _cloud_funcs_dir not in sys.path:
         sys.path.insert(0, _cloud_funcs_dir)
     from _shared.env_utils import require_env
+    from _shared.inter_cloud import get_id_token_headers
 
 
 class ConfigurationError(Exception):
@@ -122,7 +124,7 @@ def _trigger_action(event: dict, action: dict, condition: dict = None) -> None:
         requests.post(
             WORKFLOW_TRIGGER_URL,
             json={"event": event, "action": action},
-            headers={"Content-Type": "application/json"},
+            headers=get_id_token_headers(WORKFLOW_TRIGGER_URL),
             timeout=30
         )
     
@@ -134,7 +136,7 @@ def _trigger_action(event: dict, action: dict, condition: dict = None) -> None:
             requests.post(
                 function_url,
                 json={"event": event, "action": action},
-                headers={"Content-Type": "application/json"},
+                headers=get_id_token_headers(function_url),
                 timeout=30
             )
     
@@ -162,7 +164,7 @@ def _trigger_action(event: dict, action: dict, condition: dict = None) -> None:
         requests.post(
             FEEDBACK_FUNCTION_URL,
             json=feedback_payload,
-            headers={"Content-Type": "application/json"},
+            headers=get_id_token_headers(FEEDBACK_FUNCTION_URL),
             timeout=30
         )
 

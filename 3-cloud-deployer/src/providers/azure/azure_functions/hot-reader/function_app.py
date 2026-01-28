@@ -199,13 +199,17 @@ def _query_cosmos_db(query_params: dict) -> dict:
 
 
 @bp.function_name(name="hot-reader")
-@bp.route(route="hot-reader", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+@bp.route(route="hot-reader", methods=["GET", "POST"], auth_level=func.AuthLevel.ANONYMOUS)
 def hot_reader(req: func.HttpRequest) -> func.HttpResponse:
     """
     Query Cosmos DB for time-range data.
     
     Supports both direct invocation (Azure Digital Twins) and
     remote HTTP requests (cross-cloud L4).
+    
+    Methods:
+        GET: Simple queries with query parameters (device_id, limit)
+        POST: Complex ADT-compatible queries with JSON body
     """
     logging.info("Azure Hot Reader: Received request")
     
@@ -223,7 +227,39 @@ def hot_reader(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json"
             )
         
-        # Parse query parameters
+        # Handle GET requests (simple queries from E2E tests and basic API clients)
+        if req.method == "GET":
+            device_id = req.params.get("device_id") or req.params.get("iotDeviceId")
+            limit = int(req.params.get("limit", "100"))
+            
+            container = _get_cosmos_container()
+            
+            # Build query
+            if device_id:
+                query = "SELECT TOP @limit * FROM c WHERE c.device_id = @device_id ORDER BY c.timestamp DESC"
+                parameters = [
+                    {"name": "@device_id", "value": device_id},
+                    {"name": "@limit", "value": limit}
+                ]
+            else:
+                query = "SELECT TOP @limit * FROM c ORDER BY c.timestamp DESC"
+                parameters = [{"name": "@limit", "value": limit}]
+            
+            items = list(container.query_items(
+                query=query,
+                parameters=parameters,
+                enable_cross_partition_query=True
+            ))
+            
+            logging.info(f"GET query returned {len(items)} items for device {device_id}")
+            
+            return func.HttpResponse(
+                json.dumps({"items": items, "count": len(items)}),
+                status_code=200,
+                mimetype="application/json"
+            )
+        
+        # Handle POST requests (complex ADT-compatible queries)
         query_params = req.get_json()
         logging.info(f"Query: {json.dumps(query_params)}")
         

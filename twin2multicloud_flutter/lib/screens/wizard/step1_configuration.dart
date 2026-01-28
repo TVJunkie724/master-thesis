@@ -116,23 +116,27 @@ class _Step1ConfigurationState extends State<Step1Configuration> {
                       CredentialField(
                         name: 'access_key_id', 
                         label: 'Access Key ID', 
+                        placeholder: 'AKIAIOSFODNN7EXAMPLE',
                         defaultValue: state.aws.values['access_key_id'],
                       ),
                       CredentialField(
                         name: 'secret_access_key', 
                         label: 'Secret Access Key', 
                         obscure: true,
+                        placeholder: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLE',
                         defaultValue: state.aws.values['secret_access_key'],
                       ),
                       CredentialField(
                         name: 'region', 
                         label: 'Region', 
+                        placeholder: 'eu-central-1',
                         defaultValue: state.aws.values['region'] ?? '',
                       ),
                       CredentialField(
                         name: 'sso_region', 
                         label: 'SSO Region (if different)', 
                         required: false,
+                        placeholder: 'us-east-1',
                         defaultValue: state.aws.values['sso_region'] ?? '',
                       ),
                       CredentialField(
@@ -140,6 +144,7 @@ class _Step1ConfigurationState extends State<Step1Configuration> {
                         label: 'Session Token', 
                         obscure: true, 
                         required: false,
+                        placeholder: 'FwoGZXIvYXdzE...',
                         defaultValue: state.aws.values['session_token'],
                       ),
                     ],
@@ -165,27 +170,32 @@ class _Step1ConfigurationState extends State<Step1Configuration> {
                       CredentialField(
                         name: 'subscription_id', 
                         label: 'Subscription ID',
+                        placeholder: '12345678-1234-1234-1234-123456789abc',
                         defaultValue: state.azure.values['subscription_id'],
                       ),
                       CredentialField(
                         name: 'client_id', 
                         label: 'Client ID',
+                        placeholder: 'abcd1234-ab12-cd34-ef56-123456abcdef',
                         defaultValue: state.azure.values['client_id'],
                       ),
                       CredentialField(
                         name: 'client_secret', 
                         label: 'Client Secret', 
                         obscure: true,
+                        placeholder: 'abc8Q~xyz...',
                         defaultValue: state.azure.values['client_secret'],
                       ),
                       CredentialField(
                         name: 'tenant_id', 
                         label: 'Tenant ID',
+                        placeholder: '87654321-4321-4321-4321-cba987654321',
                         defaultValue: state.azure.values['tenant_id'],
                       ),
                       CredentialField(
                         name: 'region', 
                         label: 'Region', 
+                        placeholder: 'westeurope',
                         defaultValue: state.azure.values['region'] ?? '',
                       ),
                     ],
@@ -208,29 +218,34 @@ class _Step1ConfigurationState extends State<Step1Configuration> {
                       bloc.add(WizardCredentialsChanged('gcp', creds));
                     },
                     onJsonUploaded: (json) {
-                      // TODO: Add gcpServiceAccountJson to BLoC state
                       bloc.add(WizardCredentialsChanged('gcp', {'service_account_json': json}));
                     },
                     fields: [
                       CredentialField(
                         name: 'project_id', 
                         label: 'Project ID', 
-                        required: false,
+                        required: true,
+                        readOnly: true,
+                        placeholder: 'Auto-filled from Service Account',
                         defaultValue: state.gcp.values['project_id'],
                       ),
                       CredentialField(
                         name: 'billing_account', 
                         label: 'Billing Account', 
                         required: false,
+                        placeholder: '01ABCD-234EFG-567HIJ',
                         defaultValue: state.gcp.values['billing_account'],
                       ),
                       CredentialField(
                         name: 'region', 
                         label: 'Region', 
+                        required: true,
+                        placeholder: 'europe-west1',
                         defaultValue: state.gcp.values['region'] ?? '',
                       ),
                     ],
                     supportsJsonUpload: true,
+                    supportsCredentialsUpload: false,
                   ),
                   
                   const SizedBox(height: 32),

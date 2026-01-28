@@ -21,7 +21,7 @@
 
 resource "azurerm_iothub" "main" {
   count               = var.layer_1_provider == "azure" ? 1 : 0
-  name                = "${var.digital_twin_name}-iothub"
+  name                = local.azure_iothub_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = local.azure_iothub_region
 
@@ -59,7 +59,7 @@ resource "azurerm_role_assignment" "identity_iothub_contributor" {
 
 resource "azurerm_service_plan" "l1" {
   count               = var.layer_1_provider == "azure" ? 1 : 0
-  name                = "${var.digital_twin_name}-l1-plan"
+  name                = local.azure_l1_plan_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   os_type             = "Linux"
@@ -74,7 +74,7 @@ resource "azurerm_service_plan" "l1" {
 
 resource "azurerm_linux_function_app" "l1" {
   count               = var.layer_1_provider == "azure" ? 1 : 0
-  name                = "${var.digital_twin_name}-l1-functions"
+  name                = local.azure_l1_functions_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   service_plan_id     = azurerm_service_plan.l1[0].id
@@ -97,7 +97,7 @@ resource "azurerm_linux_function_app" "l1" {
 
   site_config {
     application_stack {
-      python_version = "3.11"
+      python_version = local.python_runtime_azure
     }
   }
 
@@ -110,9 +110,12 @@ resource "azurerm_linux_function_app" "l1" {
     ENABLE_ORYX_BUILD              = "true"  # Required for remote pip install
     AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
 
+    # Code version hash - triggers update-in-place when ZIP content changes
+    FUNCTION_CODE_VERSION = var.azure_l1_zip_path != "" ? filemd5(var.azure_l1_zip_path) : ""
+
     # Required for Consumption Plan with zip deploy
     WEBSITE_CONTENTAZUREFILECONNECTIONSTRING = local.azure_storage_connection_string
-    WEBSITE_CONTENTSHARE                     = "${var.digital_twin_name}-l1-content"
+    WEBSITE_CONTENTSHARE                     = local.azure_l1_content_share
 
     # IoT Hub connection (for Event Grid subscription)
     IOTHUB_CONNECTION_STRING = azurerm_iothub.main[0].event_hub_events_endpoint
@@ -128,18 +131,26 @@ resource "azurerm_linux_function_app" "l1" {
     AZURE_CLIENT_ID   = azurerm_user_assigned_identity.main[0].client_id
 
     # Inter-cloud token for cross-cloud L2 calls
-    INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+    INTER_CLOUD_TOKEN = local.inter_cloud_token_value
 
     # Full Digital Twin configuration - required by dispatcher for routing
     DIGITAL_TWIN_INFO = var.digital_twin_info_json
 
+    # Target function suffix: connector for multi-cloud, processor for single-cloud
+    # This tells the dispatcher whether to route to connector (cross-cloud) or processor (same-cloud)
+    TARGET_FUNCTION_SUFFIX = local.target_function_suffix
+
     # L2 Function App URL - required by dispatcher to call processor_wrapper
     # Points to L2-functions app where processor_wrapper is deployed
-    FUNCTION_APP_BASE_URL = var.layer_2_provider == "azure" ? "https://${var.digital_twin_name}-l2-functions.azurewebsites.net" : ""
+    FUNCTION_APP_BASE_URL = var.layer_2_provider == "azure" ? local.azure_l2_functions_url : ""
 
     # L2 Function Key - required for Azure→Azure HTTP authentication
     # processor_wrapper has AuthLevel.FUNCTION so requires this key
     L2_FUNCTION_KEY = var.layer_2_provider == "azure" ? try(data.azurerm_function_app_host_keys.l2[0].default_function_key, "") : ""
+
+    # Application Insights for logging
+    APPINSIGHTS_INSTRUMENTATIONKEY        = local.app_insights_key
+    APPLICATIONINSIGHTS_CONNECTION_STRING = local.app_insights_conn_str
   }
 
   tags = local.common_tags
@@ -155,7 +166,7 @@ resource "azurerm_linux_function_app" "l1" {
 
 resource "azurerm_eventgrid_system_topic" "iothub" {
   count               = var.layer_1_provider == "azure" ? 1 : 0
-  name                = "${var.digital_twin_name}-iothub-events"
+  name                = local.azure_iothub_events_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = local.azure_iothub_region
   source_resource_id  = azurerm_iothub.main[0].id
@@ -186,7 +197,7 @@ resource "time_sleep" "wait_for_function_sync" {
 resource "azurerm_eventgrid_system_topic_event_subscription" "iothub_to_dispatcher" {
   # Only create if L1 is Azure AND we have a ZIP file (function code deployed)
   count               = var.layer_1_provider == "azure" && var.azure_l1_zip_path != "" ? 1 : 0
-  name                = "${var.digital_twin_name}-iothub-subscription"
+  name                = local.azure_iothub_subscription
   system_topic        = azurerm_eventgrid_system_topic.iothub[0].name
   resource_group_name = azurerm_resource_group.main[0].name
 

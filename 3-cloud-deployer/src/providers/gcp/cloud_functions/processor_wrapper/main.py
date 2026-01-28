@@ -20,11 +20,13 @@ import functions_framework
 # Handle import path for shared module
 try:
     from _shared.env_utils import require_env
+    from _shared.inter_cloud import get_id_token_headers
 except ModuleNotFoundError:
     _cloud_funcs_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _cloud_funcs_dir not in sys.path:
         sys.path.insert(0, _cloud_funcs_dir)
     from _shared.env_utils import require_env
+    from _shared.inter_cloud import get_id_token_headers
 
 
 # Lazy-loaded environment variables (loaded on first use to avoid import-time failures)
@@ -49,8 +51,8 @@ def _get_processor_url(device_id: str) -> str:
     """Construct processor URL dynamically from device ID."""
     twin_name = _get_digital_twin_info()["config"]["digital_twin_name"]
     processor_name = f"{twin_name}-{device_id}-processor"
-    base_url = os.environ.get("FUNCTION_APP_BASE_URL", "")
-    return f"{base_url}/api/{processor_name}"
+    base_url = os.environ.get("FUNCTION_BASE_URL", "")
+    return f"{base_url}/{processor_name}"
 
 
 @functions_framework.http
@@ -76,7 +78,7 @@ def main(request):
 
             else:
                 print(f"Calling user processor at {url}")
-                response = requests.post(url, json=event, headers={"Content-Type": "application/json"}, timeout=30)
+                response = requests.post(url, json=event, headers=get_id_token_headers(url), timeout=30)
                 response.raise_for_status()
                 processed_event = response.json()
                 print(f"User Logic Complete. Result: {json.dumps(processed_event)}")
@@ -86,10 +88,11 @@ def main(request):
             return (json.dumps({"error": "User logic error", "message": str(e)}), 500, {"Content-Type": "application/json"})
         
         # 2. Invoke Persister
+        persister_url = _get_persister_function_url()
         response = requests.post(
-            _get_persister_function_url(),
+            persister_url,
             json=processed_event,
-            headers={"Content-Type": "application/json"},
+            headers=get_id_token_headers(persister_url),
             timeout=30
         )
         print(f"Persister invoked: {response.status_code}")

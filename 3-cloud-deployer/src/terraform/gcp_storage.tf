@@ -24,9 +24,9 @@
 resource "google_firestore_database" "main" {
   count      = local.gcp_l3_hot_enabled ? 1 : 0
   project    = local.gcp_project_id
-  # Use unique database ID per digital twin (allows parallel E2E tests)
+  # Use unique database ID per digital twin with shared deployment suffix
   # Note: Database IDs must be 1-63 chars, lowercase letters, numbers, hyphens
-  name       = var.digital_twin_name
+  name       = local.gcp_l3_firestore_database
   location_id = var.gcp_region
   type       = "FIRESTORE_NATIVE"
   
@@ -46,7 +46,7 @@ resource "google_firestore_index" "hot_data_device_id" {
   count      = local.gcp_l3_hot_enabled ? 1 : 0
   project    = local.gcp_project_id
   database   = google_firestore_database.main[0].name
-  collection = "${var.digital_twin_name}-hot-data"
+  collection = local.gcp_l3_firestore_collection
 
   fields {
     field_path = "device_id"
@@ -68,7 +68,7 @@ resource "google_firestore_index" "hot_data_device_id" {
 resource "google_storage_bucket" "cold" {
   count         = local.gcp_l3_cold_enabled ? 1 : 0
   project       = local.gcp_project_id
-  name          = "${local.gcp_project_id}-${var.digital_twin_name}-cold"
+  name          = local.gcp_l3_cold_bucket
   location      = var.gcp_region
   storage_class = "NEARLINE"
   force_destroy = true
@@ -98,7 +98,7 @@ resource "google_storage_bucket" "cold" {
 resource "google_storage_bucket" "archive" {
   count         = local.gcp_l3_archive_enabled && !local.gcp_l3_cold_enabled ? 1 : 0
   project       = local.gcp_project_id
-  name          = "${local.gcp_project_id}-${var.digital_twin_name}-archive"
+  name          = local.gcp_l3_archive_bucket
   location      = var.gcp_region
   storage_class = "ARCHIVE"
   force_destroy = true
@@ -138,12 +138,12 @@ resource "google_storage_bucket_object" "hot_to_cold_mover_source" {
 
 resource "google_cloudfunctions2_function" "hot_reader" {
   count    = local.gcp_l3_hot_enabled ? 1 : 0
-  name     = "${var.digital_twin_name}-hot-reader"
+  name     = local.gcp_l3_hot_reader_name
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -165,11 +165,9 @@ resource "google_cloudfunctions2_function" "hot_reader" {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
       DIGITAL_TWIN_INFO    = var.digital_twin_info_json
       GCP_PROJECT_ID       = local.gcp_project_id
-      FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
-      FIRESTORE_DATABASE   = var.digital_twin_name
-      INTER_CLOUD_TOKEN    = var.inter_cloud_token != "" ? var.inter_cloud_token : (
-        try(random_password.inter_cloud_token[0].result, "")
-      )
+      FIRESTORE_COLLECTION = local.gcp_l3_firestore_collection
+      FIRESTORE_DATABASE   = local.gcp_firestore_database_name
+      INTER_CLOUD_TOKEN    = local.inter_cloud_token_value
     }
   }
 
@@ -189,12 +187,12 @@ resource "google_cloudfunctions2_function" "hot_reader" {
 
 resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
   count    = local.gcp_l3_hot_enabled && local.gcp_l3_cold_enabled ? 1 : 0
-  name     = "${var.digital_twin_name}-hot-to-cold-mover"
+  name     = local.gcp_l3_hot_to_cold_mover
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -216,19 +214,19 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
       DIGITAL_TWIN_NAME    = var.digital_twin_name
       DIGITAL_TWIN_INFO    = var.digital_twin_info_json
       GCP_PROJECT_ID       = local.gcp_project_id
-      FIRESTORE_COLLECTION = "${var.digital_twin_name}-hot-data"
-      FIRESTORE_DATABASE   = var.digital_twin_name
+      FIRESTORE_COLLECTION = local.gcp_l3_firestore_collection
+      FIRESTORE_DATABASE   = local.gcp_firestore_database_name
       COLD_BUCKET_NAME     = google_storage_bucket.cold[0].name
       HOT_RETENTION_DAYS   = var.layer_3_hot_to_cold_interval_days
 
       # Multi-cloud Hot→Cold: When GCP L3 Hot sends to remote Cold
       REMOTE_COLD_WRITER_URL = var.layer_3_hot_provider == "google" && var.layer_3_cold_provider != "google" ? (
         var.layer_3_cold_provider == "aws" ? try(aws_lambda_function_url.l0_cold_writer[0].function_url, "") :
-        var.layer_3_cold_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/cold-writer" : ""
+        var.layer_3_cold_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.cold_writer}" : ""
       ) : ""
 
       # Inter-cloud token
-      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
     }
   }
 
@@ -249,7 +247,7 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
 
 resource "google_cloud_scheduler_job" "hot_to_cold" {
   count    = local.gcp_l3_hot_enabled && local.gcp_l3_cold_enabled ? 1 : 0
-  name     = "${var.digital_twin_name}-hot-to-cold-schedule"
+  name     = local.gcp_l3_hot_to_cold_schedule
   project  = local.gcp_project_id
   region   = var.gcp_region
   schedule = "0 2 * * *"  # Run daily at 2 AM
@@ -276,7 +274,7 @@ resource "google_cloud_run_service_iam_member" "hot_reader_invoker" {
   location = var.gcp_region
   service  = google_cloudfunctions2_function.hot_reader[0].name
   role     = "roles/run.invoker"
-  member   = "serviceAccount:${google_service_account.functions[0].email}"
+  member   = "allUsers" # Publicly accessible, protected by inter-cloud-token in application logic
 }
 
 resource "google_cloud_run_service_iam_member" "hot_to_cold_mover_invoker" {
@@ -305,12 +303,12 @@ resource "google_storage_bucket_object" "cold_to_archive_mover_source" {
 
 resource "google_cloudfunctions2_function" "cold_to_archive_mover" {
   count    = local.gcp_l3_cold_enabled && local.gcp_l3_archive_enabled ? 1 : 0
-  name     = "${var.digital_twin_name}-cold-to-archive-mover"
+  name     = local.gcp_l3_cold_to_archive_mover
   location = var.gcp_region
   project  = local.gcp_project_id
 
   build_config {
-    runtime     = "python311"
+    runtime     = local.python_runtime_gcp
     entry_point = "main"
     
     source {
@@ -341,11 +339,11 @@ resource "google_cloudfunctions2_function" "cold_to_archive_mover" {
       # Multi-cloud Cold→Archive: When GCP L3 Cold sends to remote Archive
       REMOTE_ARCHIVE_WRITER_URL = var.layer_3_cold_provider == "google" && var.layer_3_archive_provider != "google" ? (
         var.layer_3_archive_provider == "aws" ? try(aws_lambda_function_url.l0_archive_writer[0].function_url, "") :
-        var.layer_3_archive_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/archive-writer" : ""
+        var.layer_3_archive_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.archive_writer}" : ""
       ) : ""
 
       # Inter-cloud token
-      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
     }
   }
 
@@ -365,7 +363,7 @@ resource "google_cloudfunctions2_function" "cold_to_archive_mover" {
 
 resource "google_cloud_scheduler_job" "cold_to_archive" {
   count    = local.gcp_l3_cold_enabled && local.gcp_l3_archive_enabled ? 1 : 0
-  name     = "${var.digital_twin_name}-cold-to-archive-schedule"
+  name     = local.gcp_l3_cold_to_archive_schedule
   project  = local.gcp_project_id
   region   = var.gcp_region
   schedule = "0 3 * * 0"  # Run weekly on Sunday at 3 AM

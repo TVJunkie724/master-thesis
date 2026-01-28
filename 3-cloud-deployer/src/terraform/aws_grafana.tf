@@ -29,7 +29,7 @@ locals {
 
 resource "aws_iam_role" "l5_grafana" {
   count = local.l5_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l5-grafana-role"
+  name  = local.aws_l5_grafana_role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -65,8 +65,8 @@ resource "aws_iam_role_policy_attachment" "l5_grafana_cloudwatch" {
 
 resource "aws_grafana_workspace" "main" {
   count                     = local.l5_aws_enabled ? 1 : 0
-  name                      = "${var.digital_twin_name}-grafana"
-  description               = "Grafana workspace for ${var.digital_twin_name} Digital Twin"
+  name                      = local.aws_l5_grafana_workspace_name
+  description               = "Grafana workspace for ${var.digital_twin_name} Digital Twin (${local.deployment_suffix})"
   account_access_type       = "CURRENT_ACCOUNT"
   authentication_providers  = ["AWS_SSO"]
   permission_type           = "SERVICE_MANAGED"
@@ -85,7 +85,7 @@ resource "aws_grafana_workspace" "main" {
 
 resource "aws_grafana_workspace_api_key" "admin" {
   count           = local.l5_aws_enabled ? 1 : 0
-  key_name        = "${var.digital_twin_name}-admin-key"
+  key_name        = local.aws_l5_grafana_api_key_name
   key_role        = "ADMIN"
   seconds_to_live = 2592000  # 30 days
   workspace_id    = aws_grafana_workspace.main[0].id

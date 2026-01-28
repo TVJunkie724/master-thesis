@@ -47,7 +47,7 @@ locals {
 
 resource "aws_iam_role" "l0_lambda" {
   count = local.l0_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l0-lambda-role"
+  name  = local.aws_l0_role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -75,7 +75,7 @@ resource "aws_iam_role_policy_attachment" "l0_lambda_logs" {
 # DynamoDB access for Hot Writer/Reader
 resource "aws_iam_role_policy" "l0_dynamodb" {
   count = local.l0_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l0-dynamodb-policy"
+  name  = local.aws_l0_dynamodb_policy_name
   role  = aws_iam_role.l0_lambda[0].id
 
   policy = jsonencode({
@@ -101,10 +101,10 @@ resource "aws_iam_role_policy" "l0_dynamodb" {
 
 resource "aws_lambda_function" "l0_ingestion" {
   count         = local.l0_ingestion_enabled ? 1 : 0
-  function_name = "${var.digital_twin_name}-l0-ingestion"
+  function_name = local.aws_l0_ingestion_function_name
   role          = aws_iam_role.l0_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 256
 
@@ -115,7 +115,7 @@ resource "aws_lambda_function" "l0_ingestion" {
   environment {
     variables = {
       DIGITAL_TWIN_INFO   = var.digital_twin_info_json
-      INTER_CLOUD_TOKEN   = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      INTER_CLOUD_TOKEN   = local.inter_cloud_token_value
     }
   }
 
@@ -134,10 +134,10 @@ resource "aws_lambda_function_url" "l0_ingestion" {
 
 resource "aws_lambda_function" "l0_hot_writer" {
   count         = local.l0_hot_writer_enabled ? 1 : 0
-  function_name = "${var.digital_twin_name}-l0-hot-writer"
+  function_name = local.aws_l0_hot_writer_function_name
   role          = aws_iam_role.l0_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 256
 
@@ -148,8 +148,8 @@ resource "aws_lambda_function" "l0_hot_writer" {
   environment {
     variables = {
       DIGITAL_TWIN_INFO   = var.digital_twin_info_json
-      DYNAMODB_TABLE_NAME = "${var.digital_twin_name}-hot"
-      INTER_CLOUD_TOKEN   = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      DYNAMODB_TABLE_NAME = local.aws_l3_dynamodb_table_name
+      INTER_CLOUD_TOKEN   = local.inter_cloud_token_value
     }
   }
 
@@ -168,10 +168,10 @@ resource "aws_lambda_function_url" "l0_hot_writer" {
 
 resource "aws_lambda_function" "l0_hot_reader" {
   count         = local.l0_hot_reader_enabled ? 1 : 0
-  function_name = "${var.digital_twin_name}-l0-hot-reader"
+  function_name = local.aws_l0_hot_reader_function_name
   role          = aws_iam_role.l0_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 256
 
@@ -182,8 +182,8 @@ resource "aws_lambda_function" "l0_hot_reader" {
   environment {
     variables = {
       DIGITAL_TWIN_INFO   = var.digital_twin_info_json
-      DYNAMODB_TABLE_NAME = "${var.digital_twin_name}-hot"
-      INTER_CLOUD_TOKEN   = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      DYNAMODB_TABLE_NAME = local.aws_l3_dynamodb_table_name
+      INTER_CLOUD_TOKEN   = local.inter_cloud_token_value
     }
   }
 
@@ -202,10 +202,10 @@ resource "aws_lambda_function_url" "l0_hot_reader" {
 
 resource "aws_lambda_function" "l0_cold_writer" {
   count         = local.l0_cold_writer_enabled ? 1 : 0
-  function_name = "${var.digital_twin_name}-l0-cold-writer"
+  function_name = local.aws_l0_cold_writer_function_name
   role          = aws_iam_role.l0_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 256
 
@@ -216,8 +216,8 @@ resource "aws_lambda_function" "l0_cold_writer" {
   environment {
     variables = {
       DIGITAL_TWIN_INFO   = var.digital_twin_info_json
-      COLD_S3_BUCKET_NAME = "${var.digital_twin_name}-cold"
-      INTER_CLOUD_TOKEN   = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      COLD_S3_BUCKET_NAME = local.aws_l3_s3_cold_bucket_name
+      INTER_CLOUD_TOKEN   = local.inter_cloud_token_value
     }
   }
 
@@ -236,10 +236,10 @@ resource "aws_lambda_function_url" "l0_cold_writer" {
 
 resource "aws_lambda_function" "l0_archive_writer" {
   count         = local.l0_archive_writer_enabled ? 1 : 0
-  function_name = "${var.digital_twin_name}-l0-archive-writer"
+  function_name = local.aws_l0_archive_writer_function_name
   role          = aws_iam_role.l0_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 256
 
@@ -250,8 +250,8 @@ resource "aws_lambda_function" "l0_archive_writer" {
   environment {
     variables = {
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
-      ARCHIVE_S3_BUCKET_NAME = "${var.digital_twin_name}-archive"
-      INTER_CLOUD_TOKEN      = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      ARCHIVE_S3_BUCKET_NAME = local.aws_l3_s3_archive_bucket_name
+      INTER_CLOUD_TOKEN      = local.inter_cloud_token_value
     }
   }
 

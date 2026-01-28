@@ -8,6 +8,8 @@ AWS: Terraform uses ZIPs directly (no post-deployment upload needed)
 Azure: ZIPs are uploaded via Kudu after Terraform creates infrastructure
 """
 
+import glob
+import hashlib
 import io
 import os
 import re
@@ -34,6 +36,21 @@ logger = logging.getLogger(__name__)
 
 # Build output directory (relative to terraform directory)
 BUILD_DIR = ".build"
+
+
+def _compute_content_hash(data: bytes) -> str:
+    """Compute short MD5 hash of bytes for content-based versioning."""
+    return hashlib.md5(data).hexdigest()[:16]
+
+
+def _clean_old_versioned_zips(build_dir: Path, prefix: str) -> None:
+    """Remove old versioned ZIPs with same prefix to avoid accumulation."""
+    pattern = build_dir / f"{prefix}_*.zip"
+    for old_zip in glob.glob(str(pattern)):
+        try:
+            Path(old_zip).unlink()
+        except OSError:
+            pass  # Ignore removal errors
 
 
 def build_all_packages(
@@ -170,49 +187,75 @@ def build_azure_function_packages(
 
 
 def build_azure_l0_bundle(project_path: Path, providers_config: dict) -> Optional[Path]:
-    """Build L0 Glue functions ZIP. Returns path or None."""
+    """Build L0 Glue functions ZIP. Returns path or None.
+    
+    Uses content-hash-based filename to force Azure redeployment when content changes.
+    """
     zip_bytes, func_list = _azure_bundle_l0(str(project_path), providers_config)
     if not zip_bytes:
         return None
     build_dir = project_path / ".terraform_zips"
     build_dir.mkdir(parents=True, exist_ok=True)
-    output = build_dir / "l0_functions.zip"
+    
+    # Use content hash in filename to force Azure redeployment
+    content_hash = _compute_content_hash(zip_bytes)
+    _clean_old_versioned_zips(build_dir, "l0_functions")
+    output = build_dir / f"l0_functions_{content_hash}.zip"
     output.write_bytes(zip_bytes)
     return output
 
 
+
 def build_azure_l1_bundle(project_path: Path) -> Optional[Path]:
-    """Build L1 Dispatcher functions ZIP. Returns path or None."""
+    """Build L1 Dispatcher functions ZIP. Returns path or None.
+    
+    Uses content-hash-based filename to force Azure redeployment when content changes.
+    """
     zip_bytes = _azure_bundle_l1(str(project_path))
     if not zip_bytes:
         return None
     build_dir = project_path / ".terraform_zips"
     build_dir.mkdir(parents=True, exist_ok=True)
-    output = build_dir / "l1_functions.zip"
+    
+    content_hash = _compute_content_hash(zip_bytes)
+    _clean_old_versioned_zips(build_dir, "l1_functions")
+    output = build_dir / f"l1_functions_{content_hash}.zip"
     output.write_bytes(zip_bytes)
     return output
 
 
 def build_azure_l2_bundle(project_path: Path) -> Optional[Path]:
-    """Build L2 Processor functions ZIP. Returns path or None."""
+    """Build L2 Processor functions ZIP. Returns path or None.
+    
+    Uses content-hash-based filename to force Azure redeployment when content changes.
+    """
     zip_bytes = _azure_bundle_l2(str(project_path))
     if not zip_bytes:
         return None
     build_dir = project_path / ".terraform_zips"
     build_dir.mkdir(parents=True, exist_ok=True)
-    output = build_dir / "l2_functions.zip"
+    
+    content_hash = _compute_content_hash(zip_bytes)
+    _clean_old_versioned_zips(build_dir, "l2_functions")
+    output = build_dir / f"l2_functions_{content_hash}.zip"
     output.write_bytes(zip_bytes)
     return output
 
 
 def build_azure_l3_bundle(project_path: Path) -> Optional[Path]:
-    """Build L3 Storage functions ZIP. Returns path or None."""
+    """Build L3 Storage functions ZIP. Returns path or None.
+    
+    Uses content-hash-based filename to force Azure redeployment when content changes.
+    """
     zip_bytes = _azure_bundle_l3(str(project_path))
     if not zip_bytes:
         return None
     build_dir = project_path / ".terraform_zips"
     build_dir.mkdir(parents=True, exist_ok=True)
-    output = build_dir / "l3_functions.zip"
+    
+    content_hash = _compute_content_hash(zip_bytes)
+    _clean_old_versioned_zips(build_dir, "l3_functions")
+    output = build_dir / f"l3_functions_{content_hash}.zip"
     output.write_bytes(zip_bytes)
     return output
 
@@ -350,6 +393,8 @@ def build_azure_user_bundle(project_path: Path, providers_config: dict, optimiza
     
     Supports both process.py + wrapper and direct function_app.py patterns.
     Returns path to ZIP or None if no user functions found.
+    
+    Uses content-hash-based filename to force Azure redeployment when content changes.
     """
     if providers_config.get("layer_2_provider") != "azure":
         return None
@@ -372,7 +417,6 @@ def build_azure_user_bundle(project_path: Path, providers_config: dict, optimiza
     
     build_dir = project_path / ".terraform_zips"
     build_dir.mkdir(parents=True, exist_ok=True)
-    output_path = build_dir / "user_functions.zip"
     
     azure_funcs_base = Path(__file__).parent.parent / "azure" / "azure_functions"
     
@@ -383,7 +427,9 @@ def build_azure_user_bundle(project_path: Path, providers_config: dict, optimiza
         config_data = json.loads(config_file.read_text())
         digital_twin_name = config_data.get("digital_twin_name", "")
     
-    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+    # Build ZIP in memory first to compute hash
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
         # Add shared files (host.json, requirements.txt base, _shared/)
         _add_shared_files(zf, azure_funcs_base)
         
@@ -412,8 +458,16 @@ def build_azure_user_bundle(project_path: Path, providers_config: dict, optimiza
             main_content = _generate_main_function_app(all_modules)
             zf.writestr("function_app.py", main_content)
     
+    # Write with hash-based filename
+    zip_bytes = zip_buffer.getvalue()
+    content_hash = _compute_content_hash(zip_bytes)
+    _clean_old_versioned_zips(build_dir, "user_functions")
+    output_path = build_dir / f"user_functions_{content_hash}.zip"
+    output_path.write_bytes(zip_bytes)
+    
     logger.info(f"  ✓ Built user bundle: {len(all_modules)} functions")
     return output_path
+
 
 
 
@@ -514,8 +568,11 @@ def build_gcp_cloud_function_packages(
     gcp_funcs_dir = Path(__file__).parent.parent / "gcp" / "cloud_functions"
     shared_dir = gcp_funcs_dir / "_shared"
     
+    # Load optimization flags from config_optimization.json
+    optimization_flags = _load_optimization_flags(project_path)
+    
     # Get functions from registry (replaces hardcoded boundary logic)
-    functions_to_build = get_functions_for_provider_build("gcp", providers_config)
+    functions_to_build = get_functions_for_provider_build("gcp", providers_config, optimization_flags)
     
     # Copy source files to project_path/cloud_functions/ for Terraform filemd5() access
     cloud_functions_dir = project_path / "cloud_functions"
@@ -596,7 +653,7 @@ def _create_gcp_function_zip(
         
         # Merge defaults with function's requirements.txt (always include defaults)
         defaults = {"functions-framework", "requests", "google-cloud-firestore", 
-                   "google-cloud-storage", "google-cloud-pubsub"}
+                   "google-cloud-storage", "google-cloud-pubsub", "google-auth"}
         func_req = func_dir / "requirements.txt"
         if func_req.exists():
             for line in func_req.read_text().strip().splitlines():

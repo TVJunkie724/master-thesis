@@ -37,7 +37,7 @@ data "aws_iot_endpoint" "main" {
 
 resource "aws_iam_role" "l1_dispatcher" {
   count = local.l1_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l1-dispatcher-role"
+  name  = local.aws_l1_dispatcher_role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -65,7 +65,7 @@ resource "aws_iam_role_policy_attachment" "l1_dispatcher_logs" {
 # Lambda invoke policy (to call L2 functions)
 resource "aws_iam_role_policy" "l1_dispatcher_invoke" {
   count = local.l1_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l1-dispatcher-invoke-policy"
+  name  = local.aws_l1_dispatcher_policy_name
   role  = aws_iam_role.l1_dispatcher[0].id
 
   policy = jsonencode({
@@ -88,10 +88,10 @@ resource "aws_iam_role_policy" "l1_dispatcher_invoke" {
 
 resource "aws_lambda_function" "l1_dispatcher" {
   count         = local.l1_aws_enabled ? 1 : 0
-  function_name = "${var.digital_twin_name}-l1-dispatcher"
+  function_name = local.aws_l1_dispatcher_function_name
   role          = aws_iam_role.l1_dispatcher[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 256
 
@@ -102,16 +102,16 @@ resource "aws_lambda_function" "l1_dispatcher" {
   environment {
     variables = {
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
-      TARGET_FUNCTION_SUFFIX = var.layer_2_provider == "aws" ? "-processor" : "-connector"
+      TARGET_FUNCTION_SUFFIX = local.target_function_suffix
 
       # Multi-cloud L1→L2: When AWS L1 sends to remote L2
       REMOTE_INGESTION_URL = var.layer_1_provider == "aws" && var.layer_2_provider != "aws" ? (
-        var.layer_2_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/ingestion" :
+        var.layer_2_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.ingestion}" :
         var.layer_2_provider == "google" ? try(google_cloudfunctions2_function.ingestion[0].url, "") : ""
       ) : ""
 
       # Inter-cloud token for cross-cloud authentication
-      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
     }
   }
 
@@ -124,7 +124,7 @@ resource "aws_lambda_function" "l1_dispatcher" {
 
 resource "aws_iam_role" "l1_connector" {
   count = local.l1_aws_enabled && var.layer_2_provider != "aws" ? 1 : 0
-  name  = "${var.digital_twin_name}-l1-connector-role"
+  name  = local.aws_l1_connector_role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -150,10 +150,10 @@ resource "aws_iam_role_policy_attachment" "l1_connector_logs" {
 
 resource "aws_lambda_function" "l1_connector" {
   count         = local.l1_aws_enabled && var.layer_2_provider != "aws" ? 1 : 0
-  function_name = "${var.digital_twin_name}-connector"
+  function_name = local.aws_l1_connector_function_name
   role          = aws_iam_role.l1_connector[0].arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = local.python_runtime_aws
   timeout       = 30
   memory_size   = 256
 
@@ -165,10 +165,10 @@ resource "aws_lambda_function" "l1_connector" {
     variables = {
       DIGITAL_TWIN_INFO = var.digital_twin_info_json
       # Multi-cloud L1→L2: Remote ingestion endpoint
-      REMOTE_INGESTION_URL = var.layer_2_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/api/ingestion" : (
+      REMOTE_INGESTION_URL = var.layer_2_provider == "azure" ? "https://${try(azurerm_linux_function_app.l0_glue[0].default_hostname, "")}/${local.api_paths.ingestion}" : (
         var.layer_2_provider == "google" ? try(google_cloudfunctions2_function.ingestion[0].url, "") : ""
       )
-      INTER_CLOUD_TOKEN = var.inter_cloud_token != "" ? var.inter_cloud_token : try(random_password.inter_cloud_token[0].result, "")
+      INTER_CLOUD_TOKEN = local.inter_cloud_token_value
     }
   }
 
@@ -187,10 +187,10 @@ resource "aws_lambda_function" "l1_connector" {
 
 resource "aws_iot_topic_rule" "dispatcher" {
   count       = local.l1_aws_enabled ? 1 : 0
-  name        = replace("${var.digital_twin_name}_telemetry_rule", "-", "_")
+  name        = local.aws_l1_iot_rule_name
   description = "Routes telemetry messages to dispatcher Lambda"
   enabled     = true
-  sql         = "SELECT * FROM 'dt/${var.digital_twin_name}/+/telemetry'"
+  sql         = "SELECT * FROM '${local.aws_l1_iot_topic_pattern}'"
   sql_version = "2016-03-23"
 
   lambda {
@@ -216,7 +216,7 @@ resource "aws_lambda_permission" "l1_iot_invoke" {
 
 resource "aws_iam_role" "l1_iot_rule" {
   count = local.l1_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l1-iot-rule-role"
+  name  = local.aws_l1_iot_rule_role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -236,7 +236,7 @@ resource "aws_iam_role" "l1_iot_rule" {
 
 resource "aws_iam_role_policy" "l1_iot_rule_lambda" {
   count = local.l1_aws_enabled ? 1 : 0
-  name  = "${var.digital_twin_name}-l1-iot-rule-lambda-policy"
+  name  = local.aws_l1_iot_rule_policy_name
   role  = aws_iam_role.l1_iot_rule[0].id
 
   policy = jsonencode({
@@ -292,7 +292,7 @@ locals {
 # IAM Policy for E2E test IoT publishing
 resource "aws_iam_policy" "e2e_iot_publish" {
   count       = local.is_iam_user ? 1 : 0
-  name        = "${var.digital_twin_name}-e2e-iot-publish"
+  name        = local.aws_e2e_iot_publish_policy
   description = "Allows publishing to IoT Core topics for E2E testing"
 
   policy = jsonencode({

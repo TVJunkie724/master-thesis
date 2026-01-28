@@ -8,7 +8,9 @@ from src.models.database import Base
 class TwinState(str, enum.Enum):
     DRAFT = "draft"
     CONFIGURED = "configured"
+    DEPLOYING = "deploying"      # Transient: deployment in progress
     DEPLOYED = "deployed"
+    DESTROYING = "destroying"    # Transient: destruction in progress
     DESTROYED = "destroyed"
     ERROR = "error"
     INACTIVE = "inactive"
@@ -30,6 +32,9 @@ class DigitalTwin(Base):
     deployed_at = Column(DateTime, nullable=True)
     destroyed_at = Column(DateTime, nullable=True)
     
+    # Error tracking
+    last_error = Column(String, nullable=True)
+    
     # Relationships
     owner = relationship("User", back_populates="twins")
     file_versions = relationship("FileVersion", back_populates="twin")
@@ -46,5 +51,10 @@ class DigitalTwin(Base):
         back_populates="twin",
         uselist=False,
         cascade="all, delete-orphan"
+    )
+    deployment_logs = relationship(
+        "DeploymentLog",
+        back_populates="twin",
+        order_by="DeploymentLog.event_id.asc()"
     )
 

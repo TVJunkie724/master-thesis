@@ -232,6 +232,54 @@ aws-lambda-powertools>=2.0.0
 
 ---
 
+## 20. Observability Variables API Wiring
+
+> [!NOTE]
+> Observability implementation (Jan 2026) added Terraform variables with hardcoded defaults.
+> Variables are NOT exposed via API or config.json yet.
+
+### Status: Not Implemented
+
+### Background
+
+The observability implementation added 4 Terraform variables:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `enable_aws_logging` | `true` | Toggle CloudWatch log groups |
+| `enable_azure_logging` | `true` | Toggle Log Analytics + App Insights |
+| `enable_gcp_logging` | `true` | Placeholder (GCP logs natively) |
+| `log_retention_days` | `7` | Log retention period |
+
+Currently these are always enabled with a 7-day retention. The config.json.example shows the planned schema:
+
+```json
+{
+  "observability": {
+    "aws_logging": true,
+    "gcp_logging": true,
+    "azure_logging": true,
+    "retention_days": 7
+  }
+}
+```
+
+### Implementation Tasks
+
+1. **tfvars_generator.py**: Read `observability` from config.json and write to terraform.tfvars
+2. **Deployer API**: Add optional `observability` field to deployment request schema
+3. **Flutter UI**: Add observability toggle section to Step 3 wizard (optional - could remain hidden default)
+
+### Estimated Effort
+
+| Component | Effort |
+|-----------|--------|
+| tfvars_generator.py | Low (~30min) |
+| API schema update | Low (~30min) |
+| Flutter UI (optional) | Medium (~2h) |
+
+---
+
 ## 1. Deprecated Code Cleanup
 
 ### Status: Pending
@@ -1194,6 +1242,278 @@ This creates a **global mutable state anti-pattern** that bypasses the modern `P
 | ValidationContext unification | High |
 | Test updates | Medium |
 | **Total** | **~3-4 days** |
+
+---
+
+## 20. Terraform String Consolidation Phase 3: Storage Names
+
+> [!NOTE]
+> This is Phase 3 of 4 in the Terraform SSOT consolidation effort.
+> Phases 1 (Auth/Routing) and 2 (API Paths) completed January 2026.
+> See `src/terraform/cross_cloud.tf` for the consolidated locals.
+
+### Status: Deferred (Post-Thesis)
+
+### Background
+
+Phase 3 consolidates hardcoded storage name patterns into a single `local.storage_names` map. These patterns are less error-prone than Phase 1/2 since they already use `var.digital_twin_name` as a base, but consolidation would still improve maintainability.
+
+### Scope
+
+| Pattern | Example | Occurrences |
+|---------|---------|-------------|
+| Firestore collection | `"${var.digital_twin_name}-hot-data"` | ~5 |
+| Firestore database | `var.digital_twin_name` | ~3 |
+| DynamoDB table | `"${var.digital_twin_name}-hot"` | ~4 |
+| Cosmos container | `"hot"` | ~3 |
+| S3/GCS bucket prefix | `"${var.digital_twin_name}-archive"` | ~4 |
+
+**Estimated changes**: ~19 occurrences across 5 files
+
+### Proposed Implementation
+
+Add to `src/terraform/cross_cloud.tf`:
+
+```hcl
+# ===========================================================================
+# Storage Names - Single Source of Truth
+# ===========================================================================
+#
+# These storage names must remain consistent across providers for
+# cross-cloud data access patterns.
+
+storage_names = {
+  # Layer 3 Hot Storage
+  dynamodb_table       = "${var.digital_twin_name}-hot"
+  firestore_database   = var.digital_twin_name
+  firestore_collection = "${var.digital_twin_name}-hot-data"
+  cosmos_database      = "hot"
+  cosmos_container     = "hot"
+  
+  # Layer 3 Cold Storage
+  s3_bucket_cold       = "${var.digital_twin_name}-cold"
+  gcs_bucket_cold      = "${var.digital_twin_name}-cold"
+  blob_container_cold  = "cold"
+  
+  # Layer 3 Archive Storage
+  s3_bucket_archive    = "${var.digital_twin_name}-archive"
+  gcs_bucket_archive   = "${var.digital_twin_name}-archive"
+  blob_container_archive = "archive"
+}
+```
+
+### Files to Modify
+
+- `src/terraform/cross_cloud.tf` - Add `storage_names` local
+- `src/terraform/aws_storage.tf` - Replace DynamoDB, S3 names
+- `src/terraform/azure_storage.tf` - Replace Cosmos, Blob names
+- `src/terraform/gcp_storage.tf` - Replace Firestore, GCS names
+- `src/terraform/aws_twins.tf` - Replace DynamoDB references
+- `src/terraform/azure_twins.tf` - Replace Cosmos references
+
+### Complexity Assessment
+
+| Aspect | Effort |
+|--------|--------|
+| Define `storage_names` local | Low (~30 min) |
+| Replace occurrences | Low (~1 hour) |
+| Testing | Medium (~2 hours) |
+| **Total** | **~3-4 hours** |
+
+---
+
+## 21. Terraform String Consolidation Phase 4: Layer Suffixes
+
+> [!NOTE]
+> This is Phase 4 of 4 in the Terraform SSOT consolidation effort.
+> This is the largest phase, touching nearly every resource definition.
+
+### Status: Deferred (Post-Thesis)
+
+### Background
+
+Phase 4 consolidates hardcoded resource naming suffixes into a `local.layer_suffixes` map. This is the most complex phase due to the volume of changes and the consistency required across all three cloud providers.
+
+### Scope
+
+| Suffix Category | Examples | Estimated Occurrences |
+|-----------------|----------|----------------------|
+| L1 IoT suffixes | `-l1-dispatcher`, `-l1-connector` | ~12 |
+| L2 Processing suffixes | `-l2-plan`, `-l2-functions` | ~15 |
+| L3 Storage suffixes | `-l3-hot`, `-l3-cold`, `-l3-archive` | ~20 |
+| Function suffixes | `-processor`, `-persister`, `-connector` | ~15 |
+
+**Estimated changes**: 40+ occurrences across 20+ files
+
+### Proposed Implementation
+
+Add to `src/terraform/cross_cloud.tf`:
+
+```hcl
+# ===========================================================================
+# Layer Suffixes - Single Source of Truth
+# ===========================================================================
+#
+# These suffixes define the naming convention for all deployed resources.
+# Changing these affects resource identification and cross-layer references.
+
+layer_suffixes = {
+  l1 = {
+    dispatcher = "-l1-dispatcher"
+    connector  = "-l1-connector"
+    functions  = "-l1-functions"
+    plan       = "-l1-plan"
+  }
+  l2 = {
+    functions  = "-l2-functions"
+    plan       = "-l2-plan"
+    processor  = "-processor"
+    persister  = "-persister"
+  }
+  l3 = {
+    hot      = "-l3-hot"
+    cold     = "-l3-cold"
+    archive  = "-l3-archive"
+  }
+  l4 = {
+    twins    = "-l4-twins"
+    plan     = "-l4-plan"
+  }
+  l5 = {
+    grafana  = "-l5-grafana"
+  }
+  glue = {
+    receiver = "-l0-glue"
+  }
+}
+```
+
+### Files to Modify (Partial List)
+
+| File | Changes |
+|------|---------|
+| `cross_cloud.tf` | Add `layer_suffixes` local |
+| `aws_iot.tf` | Replace L1 suffixes |
+| `azure_iot.tf` | Replace L1 suffixes |
+| `gcp_iot.tf` | Replace L1 suffixes |
+| `aws_compute.tf` | Replace L2 suffixes |
+| `azure_compute.tf` | Replace L2 suffixes |
+| `gcp_compute.tf` | Replace L2 suffixes |
+| `aws_storage.tf` | Replace L3 suffixes |
+| `azure_storage.tf` | Replace L3 suffixes |
+| `gcp_storage.tf` | Replace L3 suffixes |
+| `aws_twins.tf` | Replace L4 suffixes |
+| `azure_twins.tf` | Replace L4 suffixes |
+| `aws_grafana.tf` | Replace L5 suffixes |
+| `azure_grafana.tf` | Replace L5 suffixes |
+| `*_glue.tf` | Replace L0 suffixes |
+
+### Risk Assessment
+
+| Risk | Mitigation |
+|------|------------|
+| Resource recreation | Run `terraform plan` carefully before apply |
+| Cross-file consistency | Add automated grep checks to CI |
+| Provider-specific naming | Document any provider restrictions |
+
+### Complexity Assessment
+
+| Aspect | Effort |
+|--------|--------|
+| Define `layer_suffixes` local | Medium (~1 hour) |
+| Replace 40+ occurrences | High (~4-5 hours) |
+| Cross-provider verification | Medium (~2 hours) |
+| Testing all scenarios | High (~3 hours) |
+| **Total** | **~10-12 hours (1.5 days)** |
+
+---
+
+## 20. Unified Validation Error Aggregation Architecture
+
+> [!NOTE]
+> Current implementation (Jan 2026) aggregates errors within individual check functions.
+> This section documents a deeper refactoring to unify aggregation across all layers.
+
+### Status: Documented, Partially Implemented
+
+### Current State
+
+Validation has three layers with inconsistent aggregation behavior:
+
+| Layer | Example | Aggregates Internally? |
+|-------|---------|------------------------|
+| **L1: Content** | `validate_config_content()` | ✅ Yes |
+| **L2: Check Group** | `check_config_schemas()` | ⚠️ Partial (stops on first file error) |
+| **L3: Orchestrator** | `run_all_checks_aggregated()` | ✅ Yes (wraps L2 in try/catch) |
+
+**Problem**: Even in "aggregated" mode, only the first file's errors are returned per check function.
+
+### Current Workaround (Jan 2026)
+
+Updated individual check functions (`check_config_schemas`, `check_processor_syntax`, `check_state_machines`) to collect errors from ALL files before raising. This provides ~80% of the benefit.
+
+### Proposed Full Solution: Context-Based Aggregation Mode
+
+Inject aggregation mode into `ValidationContext`, check it in each function:
+
+```python
+@dataclass
+class ValidationContext:
+    # ... existing fields ...
+    aggregate_errors: bool = False  # Set by orchestrator
+    result: ValidationResult = field(default_factory=ValidationResult)
+```
+
+Check functions would use the pattern:
+
+```python
+def check_X(accessor, ctx) -> None:
+    if error_condition:
+        if ctx.aggregate_errors:
+            ctx.result.add_error("Error message")  # Continue
+        else:
+            raise ValueError("Error message")  # Fail-fast
+```
+
+### Implementation Considerations
+
+| Consideration | Details |
+|---------------|---------|
+| **Config Population Side Effects** | If validation fails, `ctx.prov_config` etc. may be empty; downstream checks must handle gracefully |
+| **Error Message Nesting** | With full aggregation, errors become deeply nested; consider flattening at orchestrator level |
+| **Test Complexity** | Each check has two code paths (aggregate vs fail-fast); use parameterized tests |
+| **Return Semantics** | Functions return `None` but may not raise; caller must check `ctx.result` |
+
+### Alternative: Split Validation from Population
+
+Separate "does this config have errors?" from "load this config into context":
+
+```python
+def load_configs(accessor, ctx) -> None:
+    """Load all configs into context (no validation)."""
+
+def validate_configs(accessor, ctx) -> List[str]:
+    """Validate all configs, return list of errors."""
+```
+
+**Pros**: Clean separation, no side-effect concerns  
+**Cons**: More invasive refactoring
+
+### Files to Modify (If Implementing Full Solution)
+
+- `src/validation/core.py` - Add `aggregate_errors` to `ValidationContext`, update all 13 check functions
+- `src/validator.py` - Possibly add aggregation mode to content validators
+- `tests/unit/test_validation.py` - Add parameterized tests for both modes
+
+### Complexity Assessment
+
+| Component | Effort |
+|-----------|--------|
+| Update ValidationContext | Low (~15 min) |
+| Update 13 check functions | Medium (~2 hours) |
+| Handle config population side effects | Medium (~1 hour) |
+| Add parameterized tests | Medium (~1 hour) |
+| **Total** | **~4-5 hours** |
 
 ---
 

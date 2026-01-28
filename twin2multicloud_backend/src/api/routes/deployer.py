@@ -383,3 +383,133 @@ async def delete_scene_glb(
         db.commit()
     
     return {"message": "GLB file deleted"}
+
+
+# ==========================================
+# Zip Upload and Extraction for Wizard
+# ==========================================
+@router.post("/upload-zip")
+async def upload_project_zip(
+    twin_id: str,
+    file: UploadFile = File(..., description="Project zip file to extract"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Upload and extract project.zip for Step 3 wizard auto-population.
+    
+    1. Builds ValidationContext from twin's saved optimizer config
+    2. Proxies to Deployer /validate/zip/extract
+    3. If GLB exists in response, saves via existing upload logic
+    4. Returns extracted content for Flutter to populate fields
+    """
+    import base64
+    
+    twin = await get_user_twin(twin_id, current_user, db)
+    
+    # Build validation context from twin's optimizer config
+    validation_context = {
+        "skip_credentials": True,  # Mode A: never return credentials
+        "skip_config_files": [],   # Validate all files
+    }
+    
+    # Get provider info from optimizer config if available
+    if twin.optimizer_config:
+        opt_config = twin.optimizer_config
+        # Map providers from cheapest path columns
+        if opt_config.cheapest_l2:
+            validation_context["l2_provider"] = opt_config.cheapest_l2.lower()
+        if opt_config.cheapest_l4:
+            validation_context["l4_provider"] = opt_config.cheapest_l4.lower()
+    
+    # Read zip file content
+    zip_content = await file.read()
+    
+    # File size limit: 100MB
+    MAX_ZIP_SIZE = 100 * 1024 * 1024  # 100 MB
+    if len(zip_content) > MAX_ZIP_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum allowed size is 100MB, got {len(zip_content) / (1024*1024):.1f}MB"
+        )
+    
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            # Proxy to Deployer
+            response = await client.post(
+                f"{settings.DEPLOYER_URL}/validate/zip/extract",
+                files={"file": ("project.zip", zip_content, "application/zip")},
+                params={
+                    "validation_context": json.dumps(validation_context),
+                    "include_credentials": False
+                }
+            )
+            
+            if response.status_code != 200:
+                return {
+                    "success": False,
+                    "validation_errors": [f"Deployer error: {response.text}"],
+                    "files": {},
+                    "functions": {"processors": {}, "event_actions": {}, "event_feedback": None},
+                    "assets": {"scene_glb": None},
+                    "warnings": []
+                }
+            
+            result = response.json()
+            
+            # If GLB exists in result, save it locally
+            assets = result.get("assets") or {}
+            scene_glb = assets.get("scene_glb") or {}
+            if scene_glb.get("exists"):
+                glb_data = scene_glb
+                if glb_data.get("content") and glb_data.get("is_binary"):
+                    try:
+                        glb_bytes = base64.b64decode(glb_data["content"])
+                        
+                        # Save to disk (reuse existing logic)
+                        upload_path = Path(settings.UPLOAD_DIR) / twin_id
+                        glb_path = upload_path / "scene.glb"
+                        upload_path.mkdir(parents=True, exist_ok=True)
+                        
+                        with open(glb_path, "wb") as f:
+                            f.write(glb_bytes)
+                        
+                        # Update DB flag
+                        config = twin.deployer_config
+                        if not config:
+                            config = DeployerConfiguration(twin_id=twin_id)
+                            db.add(config)
+                        config.scene_glb_uploaded = True
+                        db.commit()
+                        
+                        # Mark as saved (don't return base64 content to Flutter)
+                        result["assets"]["scene_glb"] = {
+                            "exists": True,
+                            "saved": True,
+                            "is_binary": True,
+                            "content": None  # Don't send base64 back to Flutter
+                        }
+                    except Exception as e:
+                        result["warnings"] = result.get("warnings", []) + [f"Failed to save GLB: {str(e)}"]
+            
+            return result
+            
+    except httpx.ConnectError:
+        return {
+            "success": False,
+            "validation_errors": ["Cannot connect to Deployer API. Is it running?"],
+            "files": {},
+            "functions": {"processors": {}, "event_actions": {}, "event_feedback": None},
+            "assets": {"scene_glb": None},
+            "warnings": []
+        }
+    except httpx.RequestError as e:
+        return {
+            "success": False,
+            "validation_errors": [f"Request error: {str(e)}"],
+            "files": {},
+            "functions": {"processors": {}, "event_actions": {}, "event_feedback": None},
+            "assets": {"scene_glb": None},
+            "warnings": []
+        }
+

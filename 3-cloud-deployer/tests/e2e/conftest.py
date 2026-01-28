@@ -40,31 +40,41 @@ def pytest_runtest_logreport(report):
     if report.when == "call" or (report.when == "setup" and report.outcome == "error"):
         # Determine output file based on test location
         test_file = report.fspath
+        
+        # Try provider-specific directories, fall back to base e2e dir
         if "gcp" in str(test_file):
             output_dir = Path(__file__).parent / "gcp"
         elif "azure" in str(test_file):
-            output_dir = Path(__file__).parent / "azure"
+            output_dir = Path(__file__).parent / "azure_tests"  # Updated path
         elif "aws" in str(test_file):
             output_dir = Path(__file__).parent / "aws"
+        elif "multicloud" in str(test_file):
+            output_dir = Path(__file__).parent / "multicloud" / ".build"
         else:
             output_dir = Path(__file__).parent
         
+        # Create directory if it doesn't exist
+        output_dir.mkdir(parents=True, exist_ok=True)
         output_file = output_dir / "test_results.txt"
         
         # Write test result
-        with open(output_file, "a") as f:
-            status = report.outcome.upper()
-            f.write(f"{report.nodeid}: {status}\n")
-            
-            # Write captured stdout if any
-            if hasattr(report, "capstdout") and report.capstdout:
-                f.write(f"  STDOUT:\n{report.capstdout}\n")
-            
-            # Write failure details
-            if report.failed and hasattr(report, "longrepr") and report.longrepr:
-                f.write(f"  FAILURE:\n{report.longrepr}\n")
-            
-            f.write("\n")
+        try:
+            with open(output_file, "a") as f:
+                status = report.outcome.upper()
+                f.write(f"{report.nodeid}: {status}\n")
+                
+                # Write captured stdout if any
+                if hasattr(report, "capstdout") and report.capstdout:
+                    f.write(f"  STDOUT:\n{report.capstdout}\n")
+                
+                # Write failure details
+                if report.failed and hasattr(report, "longrepr") and report.longrepr:
+                    f.write(f"  FAILURE:\n{report.longrepr}\n")
+                
+                f.write("\n")
+        except Exception as e:
+            # Don't crash the test run if logging fails
+            pass
 
 
 @pytest.fixture(scope="session")
@@ -180,8 +190,8 @@ def azure_terraform_e2e_project_path(template_project_path, azure_terraform_e2e_
     Configures all layers to use Azure.
     """
     # Use FIXED directory next to test file for consistent state across runs
-    # This maps to /app/tests/e2e/azure/e2e_state/ in Docker
-    fixed_base_dir = Path(__file__).parent / "azure" / "e2e_state"
+    # This maps to /app/tests/e2e/azure_tests/e2e_state/ in Docker
+    fixed_base_dir = Path(__file__).parent / "azure_tests" / "e2e_state"
     project_path = fixed_base_dir / azure_terraform_e2e_test_id
     
     if project_path.exists():
@@ -249,7 +259,7 @@ def azure_adt_e2e_project_path(template_project_path, azure_adt_e2e_test_id):
     Copies template hierarchy and scene assets for DTDL/twin creation.
     """
     # Use FIXED directory next to test file for consistent state across runs
-    fixed_base_dir = Path(__file__).parent / "azure" / "e2e_state"
+    fixed_base_dir = Path(__file__).parent / "azure_tests" / "e2e_state"
     project_path = fixed_base_dir / azure_adt_e2e_test_id
     
     if project_path.exists():
@@ -646,6 +656,7 @@ def aws_credentials(template_project_path):
             os.environ["AWS_ACCESS_KEY_ID"] = aws_creds["aws_access_key_id"]
             os.environ["AWS_SECRET_ACCESS_KEY"] = aws_creds["aws_secret_access_key"]
             os.environ["AWS_REGION"] = aws_creds.get("aws_region", "eu-west-1")
+            os.environ["AWS_DEFAULT_REGION"] = aws_creds.get("aws_region", "eu-west-1")  # boto3 uses this
             
             return {
                 "auth_type": "access_key",

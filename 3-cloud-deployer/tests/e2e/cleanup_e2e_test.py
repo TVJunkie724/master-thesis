@@ -268,8 +268,8 @@ TEST_MAP = {
     # Single cloud tests (project names from conftest.py)
     "aws": ("tf-e2e-aws", "/app/tests/e2e/aws/e2e_state"),
     "aws-twinmaker-full": ("tf-e2e-tm", "/app/tests/e2e/aws/e2e_state"),
-    "azure": ("tf-e2e-az", "/app/tests/e2e/azure/e2e_state"),
-    "azure-adt-full": ("tf-e2e-adt", "/app/tests/e2e/azure/e2e_state"),
+    "azure": ("tf-e2e-az", "/app/tests/e2e/azure_tests/e2e_state"),
+    "azure-adt-full": ("tf-e2e-adt", "/app/tests/e2e/azure_tests/e2e_state"),
     "gcp": ("tf-e2e-gcp", "/app/tests/e2e/gcp/e2e_state"),
     
     # Isolated component tests (use own Terraform workspaces, not e2e_state)
