@@ -60,6 +60,7 @@ locals {
   # ===========================================================================
 
   azure_l0_glue_url        = "https://${local.azure_l0_glue_name}.azurewebsites.net"
+  azure_l1_functions_url   = "https://${local.azure_l1_functions_name}.azurewebsites.net"
   azure_l2_functions_url   = "https://${local.azure_l2_functions_name}.azurewebsites.net"
   azure_user_functions_url = "https://${local.azure_user_functions_name}.azurewebsites.net"
   azure_adt_url            = "https://${local.azure_adt_name}.${var.azure_region}.digitaltwins.azure.net"

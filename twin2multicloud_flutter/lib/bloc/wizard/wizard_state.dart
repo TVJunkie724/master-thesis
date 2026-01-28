@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
+import '../../utils/twin_state_utils.dart';
 
 // ============================================================
 // ENUMS
@@ -231,10 +232,7 @@ class WizardState extends Equatable {
 
   /// Can modifications (save draft, finish config) be made?
   /// Returns false for deployed/deploying/destroying twins.
-  bool get canModify {
-    final state = twinState?.toLowerCase();
-    return state != 'deployed' && state != 'deploying' && state != 'destroying';
-  }
+  bool get canModify => TwinStateUtils.canEdit(twinState);
 
   /// Can proceed from Step 1 to Step 2?
   bool get canProceedToStep2 =>

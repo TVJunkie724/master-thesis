@@ -774,7 +774,15 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       // Persist current step position for resume on edit
       config['highest_step_reached'] = state.highestStepReached;
 
-      await _api.updateTwinConfig(twinId!, config);
+      // Save config and capture response for state sync
+      final configResponse = await _api.updateTwinConfig(twinId!, config);
+
+      // Track if state was regressed by backend
+      final String? newTwinState = configResponse['twin_state'] as String?;
+      final bool stateRegressed =
+          newTwinState != null &&
+          newTwinState != state.twinState &&
+          newTwinState == 'draft';
 
       // Save optimizer result with pricing snapshots (if calc result exists)
       if (state.calcParams != null &&
@@ -872,12 +880,15 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         state.copyWith(
           status: WizardStatus.ready,
           twinId: twinId,
+          twinState: newTwinState ?? state.twinState, // Sync state from backend
           hasUnsavedChanges: false,
           savedCalcResult:
               state.calcResult, // Update saved result on successful save
           savedCalcResultRaw: state.calcResultRaw, // Update saved raw result
           step3Invalidated: false, // Clear invalidation after save
-          successMessage: 'Draft saved!',
+          successMessage: stateRegressed
+              ? 'Saved. Configuration reverted to draft.'
+              : 'Draft saved!',
         ),
       );
     } catch (e) {

@@ -4,7 +4,7 @@ import httpx
 import json
 
 from src.models.database import get_db
-from src.models.twin import DigitalTwin
+from src.models.twin import DigitalTwin, TwinState
 from src.models.twin_config import TwinConfiguration
 from src.models.optimizer_config import OptimizerConfiguration
 from src.models.user import User
@@ -63,6 +63,18 @@ async def update_config(
     Credentials are ENCRYPTED with user+twin-specific key.
     """
     twin = await get_user_twin(twin_id, current_user, db)
+    
+    # Block modifications for deployed/deploying/destroying twins
+    BLOCKED_STATES = {TwinState.DEPLOYED, TwinState.DEPLOYING, TwinState.DESTROYING}
+    if twin.state in BLOCKED_STATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot modify twin in '{twin.state.value}' state"
+        )
+    
+    # Track if we need to regress state
+    REGRESS_STATES = {TwinState.CONFIGURED, TwinState.ERROR, TwinState.DESTROYED}
+    should_regress = twin.state in REGRESS_STATES
     
     if not twin.configuration:
         config = TwinConfiguration(twin_id=twin_id)
@@ -123,11 +135,17 @@ async def update_config(
         if update.optimizer_result is not None:
             opt_config.result_json = json.dumps(update.optimizer_result)
     
+    # Regress to draft if editing configured/error/destroyed twin
+    if should_regress:
+        twin.state = TwinState.DRAFT
+    
     db.commit()
     db.refresh(config)
-    # Refresh to get updated optimizer_config
     db.refresh(twin)
-    return TwinConfigResponse.from_db(config, twin.optimizer_config)
+    
+    # Include twin_state in response for frontend sync
+    response = TwinConfigResponse.from_db(config, twin.optimizer_config)
+    return {**response.dict(), "twin_state": twin.state.value}
 
 
 @router.post("/validate/{provider}", response_model=CredentialValidationResult)

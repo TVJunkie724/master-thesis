@@ -371,7 +371,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Save Draft button
+                            // Save button
                             Tooltip(
                               message: !state.canModify
                                   ? 'Cannot modify a deployed twin'
@@ -407,7 +407,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
                                       ),
                                   ],
                                 ),
-                                label: const Text('Save Draft'),
+                                label: const Text('Save'),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -710,7 +710,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, 'save'),
-            child: const Text('Save Draft'),
+            child: const Text('Save'),
           ),
         ],
       ),

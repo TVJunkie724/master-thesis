@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 
 from src.models.database import get_db
-from src.models.twin import DigitalTwin
+from src.models.twin import DigitalTwin, TwinState
 from src.models.deployer_config import DeployerConfiguration
 from src.models.user import User
 from src.api.dependencies import get_current_user
@@ -64,6 +64,18 @@ async def update_deployer_config(
     Validation state is persisted to gate save operations.
     """
     twin = await get_user_twin(twin_id, current_user, db)
+    
+    # Block modifications for deployed/deploying/destroying twins
+    BLOCKED_STATES = {TwinState.DEPLOYED, TwinState.DEPLOYING, TwinState.DESTROYING}
+    if twin.state in BLOCKED_STATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot modify twin in '{twin.state.value}' state"
+        )
+    
+    # Track if we need to regress state
+    REGRESS_STATES = {TwinState.CONFIGURED, TwinState.ERROR, TwinState.DESTROYED}
+    should_regress = twin.state in REGRESS_STATES
     
     if not twin.deployer_config:
         config = DeployerConfiguration(twin_id=twin_id)
@@ -130,9 +142,17 @@ async def update_deployer_config(
     if update.user_config_validated is not None:
         config.user_config_validated = update.user_config_validated
     
+    # Regress to draft if editing configured/error/destroyed twin
+    if should_regress:
+        twin.state = TwinState.DRAFT
+    
     db.commit()
     db.refresh(config)
-    return DeployerConfigResponse.from_db(config)
+    db.refresh(twin)
+    
+    # Include twin_state in response for frontend sync
+    response = DeployerConfigResponse.from_db(config)
+    return {**response.dict(), "twin_state": twin.state.value}
 
 
 @router.post("/validate/{config_type}", response_model=ConfigValidationResponse)
