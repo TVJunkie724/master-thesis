@@ -112,7 +112,8 @@ async def update_twin(
     return twin
 
 
-OPTIMIZER_API_URL = os.getenv("OPTIMIZER_API_URL", "http://twin2clouds:5002")
+OPTIMIZER_API_URL = os.getenv("OPTIMIZER_URL", "http://twin2clouds:8000")
+DEPLOYER_API_URL = os.getenv("DEPLOYER_URL", "http://3cloud-deployer:8000")
 
 
 async def _validate_configured_transition(twin: DigitalTwin, db: Session):
@@ -141,7 +142,7 @@ async def _validate_configured_transition(twin: DigitalTwin, db: Session):
         })
     
     # Check at least one provider has credentials
-    config = twin.config if twin.config else None
+    config = twin.configuration if twin.configuration else None
     has_creds = False
     if config:
         has_creds = any([
@@ -163,31 +164,34 @@ async def _validate_configured_transition(twin: DigitalTwin, db: Session):
     
     # Build request payloads
     optimizer_payload = {
-        "params": json.loads(optimizer_config.optimizer_params) if optimizer_config and optimizer_config.optimizer_params else None,
-        "result": json.loads(optimizer_config.optimizer_result) if optimizer_config and optimizer_config.optimizer_result else None
+        "params": json.loads(optimizer_config.params) if optimizer_config and optimizer_config.params else None,
+        "result": json.loads(optimizer_config.result_json) if optimizer_config and optimizer_config.result_json else None
     }
     
     # Parse cheapest path from result for deployer context
+    # Deployer expects dict format {L1: "aws", L2: "azure", ...}
+    # Optimizer returns this as 'calculationResult', not 'cheapestPath' (which is an array)
     cheapest_path = {}
     if optimizer_payload["result"]:
-        cheapest_path = optimizer_payload["result"].get("cheapest_path", {})
+        cheapest_path = optimizer_payload["result"].get("calculationResult", {})
     
     deployer_payload = {
-        "deployer_digital_twin_name": deployer_config.resource_name if deployer_config else None,
+        "deployer_digital_twin_name": deployer_config.deployer_digital_twin_name if deployer_config else None,
         "config_events": deployer_config.config_events_json if deployer_config else None,
         "config_iot_devices": deployer_config.config_iot_devices_json if deployer_config else None,
         "payloads": deployer_config.payloads_json if deployer_config else None,
         "processors": json.loads(deployer_config.processor_contents) if deployer_config and deployer_config.processor_contents else None,
         "event_feedback": deployer_config.event_feedback_content if deployer_config else None,
         "event_actions": json.loads(deployer_config.event_action_contents) if deployer_config and deployer_config.event_action_contents else None,
-        "hierarchy": deployer_config.hierarchy_json if deployer_config else None,
-        "scene_config": deployer_config.scenes_3d_json if deployer_config else None,
-        "scene_glb_uploaded": bool(deployer_config.scene_glb_path) if deployer_config else False,
+        "hierarchy": deployer_config.hierarchy_content if deployer_config else None,
+        "scene_config": deployer_config.scene_config_content if deployer_config else None,
+        "scene_glb_uploaded": deployer_config.scene_glb_uploaded if deployer_config else False,
         "state_machine": deployer_config.state_machine_content if deployer_config else None,
-        "user_config": deployer_config.config_user_json if deployer_config else None,
-        "optimizer_params": json.loads(optimizer_config.optimizer_params) if optimizer_config and optimizer_config.optimizer_params else None,
+        "user_config": deployer_config.user_config_content if deployer_config else None,
+        "optimizer_params": json.loads(optimizer_config.params) if optimizer_config and optimizer_config.params else None,
         "cheapest_path": cheapest_path
     }
+    
     
     async with httpx.AsyncClient(timeout=30.0) as client:
         # Call both APIs in parallel
@@ -286,8 +290,6 @@ async def delete_twin(
 # ============================================================
 # Deployment Cooldown Check
 # ============================================================
-
-DEPLOYER_API_URL = os.getenv("DEPLOYER_API_URL", "http://3cloud-deployer:5004")
 
 
 @router.get("/{twin_id}/can-redeploy")
@@ -1699,8 +1701,16 @@ async def stream_log_trace(
                     params={"project_name": resource_name}
                 ) as response:
                     async for line in response.aiter_lines():
+                        # SSE lines come pre-formatted, just pass through
+                        # Only add newline if line doesn't end with one
                         if line:
-                            yield f"{line}\n"
+                            if line.endswith('\n'):
+                                yield line
+                            else:
+                                yield f"{line}\n"
+                        else:
+                            # Empty line is SSE event separator
+                            yield "\n"
         except Exception as e:
             yield f"event: error\ndata: {{\"message\": \"Stream error: {str(e)}\"}}\n\n"
     

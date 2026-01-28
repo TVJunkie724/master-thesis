@@ -1,6 +1,8 @@
 // lib/bloc/wizard/wizard_bloc.dart
 // BLoC for wizard state machine
 
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../models/calc_params.dart';
@@ -1627,10 +1629,25 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       String? hierarchy;
       String? sceneConfig;
       String? userConfig;
+      String? digitalTwinName; // From config.json
       Map<String, String> processors = {};
       Map<String, String> eventActions = {};
       String? eventFeedback;
       bool glbUploaded = false;
+
+      // Extract digital_twin_name from config.json
+      if (_fileHasContent(files['config.json'])) {
+        try {
+          final configJson = jsonDecode(
+            files['config.json']['content'] as String,
+          );
+          if (configJson is Map<String, dynamic>) {
+            digitalTwinName = configJson['digital_twin_name'] as String?;
+          }
+        } catch (e) {
+          // Ignore parse errors - validation will catch them
+        }
+      }
 
       // Config files
       if (_fileHasContent(files['config_events.json'])) {
@@ -1758,6 +1775,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       // Update state with extracted content AND validation status
       final newState = state.copyWith(
         zipUploadInProgress: false,
+        deployerDigitalTwinName: digitalTwinName,
         configEventsJson: configEvents,
         configIotDevicesJson: configIotDevices,
         payloadsJson: payloads,

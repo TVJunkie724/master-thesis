@@ -85,12 +85,14 @@ async def validate_optimizer_config(
             message="Optimizer result required - run cost calculation in Step 2"
         ))
     else:
-        # Check cheapest_path in result
-        if not config.result.get("cheapest_path"):
+        # Check cheapestPath in result (camelCase as returned by optimizer)
+        # Also accept calculationResult as it contains the same info in dict format
+        has_path = config.result.get("cheapestPath") or config.result.get("calculationResult")
+        if not has_path:
             errors.append(ValidationError(
                 code="MISSING_CHEAPEST_PATH",
                 field="cheapest_path",
-                message="cheapest_path missing in result - calculation may have failed"
+                message="cheapestPath or calculationResult missing in result - calculation may have failed"
             ))
     
     return ValidationResponse(

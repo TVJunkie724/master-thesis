@@ -986,7 +986,7 @@ class DeployerCompleteValidation(BaseModel):
     
     # Context from optimizer
     optimizer_params: dict | None = None
-    cheapest_path: dict | None = None         # {L1: "aws", L2: "azure", ...}
+    cheapest_path: list | dict | None = None  # Either ['L1_GCP', 'L2_AWS', ...] or {L1: "aws", ...}
 
 
 class DeployerValidationResponse(BaseModel):
