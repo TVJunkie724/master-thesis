@@ -48,6 +48,12 @@ from src.providers.terraform.aws_deployer import (
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
 
+# Pre-import cleanup modules to avoid ThreadPoolExecutor deadlock
+# Python import locks can cause deadlock when multiple threads import simultaneously
+from src.providers.aws.cleanup import cleanup_aws_resources
+from src.providers.azure.cleanup import cleanup_azure_resources
+from src.providers.gcp.cleanup import cleanup_gcp_resources
+
 logger = logging.getLogger(__name__)
 
 
@@ -842,14 +848,12 @@ class TerraformDeployerStrategy:
         """Unified cleanup dispatcher with logging."""
         logger.info(f"[{provider.upper()}] Starting SDK cleanup...")
         
+        # Uses pre-imported cleanup modules (see top of file) to avoid ThreadPoolExecutor deadlock
         if provider == "aws":
-            from src.providers.aws.cleanup import cleanup_aws_resources
             cleanup_aws_resources(credentials, prefix, cleanup_user, platform_user_email, dry_run=dry_run)
         elif provider == "azure":
-            from src.providers.azure.cleanup import cleanup_azure_resources
             cleanup_azure_resources(credentials, prefix, cleanup_user, platform_user_email, dry_run=dry_run)
         elif provider == "gcp":
-            from src.providers.gcp.cleanup import cleanup_gcp_resources
             cleanup_gcp_resources(credentials, prefix, dry_run=dry_run)
         
         logger.info(f"[{provider.upper()}] ✓ Cleanup complete")

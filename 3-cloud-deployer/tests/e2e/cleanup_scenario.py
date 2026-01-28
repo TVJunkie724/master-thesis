@@ -46,6 +46,12 @@ sys.path = [p for p in sys.path if 'tests/e2e' not in p and 'tests\\e2e' not in 
 sys.path.insert(0, '/app')
 sys.path.insert(0, '/app/src')
 
+# Pre-import cleanup modules to avoid ThreadPoolExecutor deadlock
+# Python import locks can cause deadlock when multiple threads import simultaneously
+from src.providers.aws.cleanup import cleanup_aws_resources as _aws_cleanup
+from src.providers.azure.cleanup import cleanup_azure_resources as _azure_cleanup
+from src.providers.gcp.cleanup import cleanup_gcp_resources as _gcp_cleanup
+
 # All known scenario prefixes
 ALL_PREFIXES = [
     "sc-aws-azure", "sc-aws-gcp", 
@@ -74,16 +80,13 @@ def load_credentials():
 def cleanup_aws(creds: dict, prefix: str, dry_run: bool) -> str:
     """Clean up AWS resources for a prefix. Returns status message."""
     try:
-        from src.providers.aws.cleanup import cleanup_aws_resources
-        cleanup_aws_resources(
+        _aws_cleanup(
             creds, prefix,
             cleanup_identity_user=False,
             platform_user_email="",
             dry_run=dry_run
         )
         return "✓ Complete"
-    except ImportError as e:
-        return f"✗ Import Error: {e}"
     except Exception as e:
         return f"✗ Error: {e}"
 
@@ -91,17 +94,13 @@ def cleanup_aws(creds: dict, prefix: str, dry_run: bool) -> str:
 def cleanup_azure(creds: dict, prefix: str, dry_run: bool) -> str:
     """Clean up Azure resources for a prefix. Returns status message."""
     try:
-        import azure.identity  # Pre-import to ensure it's available
-        from src.providers.azure.cleanup import cleanup_azure_resources
-        cleanup_azure_resources(
+        _azure_cleanup(
             creds, prefix,
             cleanup_entra_user=False,
             platform_user_email="",
             dry_run=dry_run
         )
         return "✓ Complete"
-    except ImportError as e:
-        return f"✗ Import Error: {e}"
     except Exception as e:
         return f"✗ Error: {e}"
 
@@ -109,11 +108,8 @@ def cleanup_azure(creds: dict, prefix: str, dry_run: bool) -> str:
 def cleanup_gcp(creds: dict, prefix: str, dry_run: bool) -> str:
     """Clean up GCP resources for a prefix. Returns status message."""
     try:
-        from src.providers.gcp.cleanup import cleanup_gcp_resources
-        cleanup_gcp_resources(creds, prefix, dry_run=dry_run)
+        _gcp_cleanup(creds, prefix, dry_run=dry_run)
         return "✓ Complete"
-    except ImportError as e:
-        return f"✗ Import Error: {e}"
     except Exception as e:
         return f"✗ Error: {e}"
 
