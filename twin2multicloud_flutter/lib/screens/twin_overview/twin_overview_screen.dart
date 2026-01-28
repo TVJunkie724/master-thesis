@@ -1043,7 +1043,7 @@ class TwinOverviewView extends ConsumerWidget {
                 Tooltip(
                   message: state.canEdit
                       ? 'Edit configuration'
-                      : 'Destroy cloud resources before editing',
+                      : 'Cannot edit deployed twin - destroy resources first',
                   child: OutlinedButton.icon(
                     onPressed: state.canEdit
                         ? () => context.go('/wizard/${state.twinId}')

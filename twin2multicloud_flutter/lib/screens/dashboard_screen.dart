@@ -563,9 +563,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   tooltip: 'View',
                 ),
               IconButton(
-                icon: const Icon(Icons.edit, size: 20),
-                onPressed: () => context.go('/wizard/${twin.id}'),
-                tooltip: 'Edit',
+                icon: Icon(
+                  Icons.edit,
+                  size: 20,
+                  color: TwinStateUtils.canEdit(twin.state)
+                      ? null
+                      : Colors.grey.shade400,
+                ),
+                onPressed: TwinStateUtils.canEdit(twin.state)
+                    ? () => context.go('/wizard/${twin.id}')
+                    : null,
+                tooltip: TwinStateUtils.canEdit(twin.state)
+                    ? 'Edit'
+                    : 'Cannot edit deployed twin',
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 20),

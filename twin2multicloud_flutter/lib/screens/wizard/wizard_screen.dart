@@ -372,38 +372,43 @@ class _WizardViewState extends ConsumerState<WizardView> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             // Save Draft button
-                            OutlinedButton.icon(
-                              onPressed: isSaving
-                                  ? null
-                                  : () => _handleSaveDraft(context, state),
-                              icon: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  isSaving
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
+                            Tooltip(
+                              message: !state.canModify
+                                  ? 'Cannot modify a deployed twin'
+                                  : '',
+                              child: OutlinedButton.icon(
+                                onPressed: (isSaving || !state.canModify)
+                                    ? null
+                                    : () => _handleSaveDraft(context, state),
+                                icon: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    isSaving
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(Icons.save),
+                                    if (state.hasUnsavedChanges && !isSaving)
+                                      Positioned(
+                                        right: -4,
+                                        top: -4,
+                                        child: Container(
+                                          width: 10,
+                                          height: 10,
+                                          decoration: const BoxDecoration(
+                                            color: Colors.orange,
+                                            shape: BoxShape.circle,
                                           ),
-                                        )
-                                      : const Icon(Icons.save),
-                                  if (state.hasUnsavedChanges && !isSaving)
-                                    Positioned(
-                                      right: -4,
-                                      top: -4,
-                                      child: Container(
-                                        width: 10,
-                                        height: 10,
-                                        decoration: const BoxDecoration(
-                                          color: Colors.orange,
-                                          shape: BoxShape.circle,
                                         ),
                                       ),
-                                    ),
-                                ],
+                                  ],
+                                ),
+                                label: const Text('Save Draft'),
                               ),
-                              label: const Text('Save Draft'),
                             ),
                             const SizedBox(width: 16),
                             // Next/Finish button
@@ -417,14 +422,16 @@ class _WizardViewState extends ConsumerState<WizardView> {
                               )
                             else
                               Tooltip(
-                                message:
-                                    !(state.isSection2Valid &&
-                                        state.isSection3Valid)
+                                message: !state.canModify
+                                    ? 'Cannot modify a deployed twin'
+                                    : !(state.isSection2Valid &&
+                                          state.isSection3Valid)
                                     ? 'Complete and validate all required fields before finishing'
                                     : '',
                                 child: ElevatedButton.icon(
                                   onPressed:
-                                      (state.isSection2Valid &&
+                                      (state.canModify &&
+                                          state.isSection2Valid &&
                                           state.isSection3Valid)
                                       ? () => _handleFinishConfiguration(
                                           context,

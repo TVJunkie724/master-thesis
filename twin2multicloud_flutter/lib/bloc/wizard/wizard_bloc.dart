@@ -325,6 +325,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
           highestStepReached: startStep,
           twinId: event.twinId,
           twinName: twin['name'],
+          twinState: twin['state'], // Lifecycle state: draft, deployed, etc.
           debugMode: config['debug_mode'] ?? true,
           aws: awsCreds,
           azure: azureCreds,
