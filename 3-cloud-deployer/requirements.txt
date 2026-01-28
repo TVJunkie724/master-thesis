@@ -45,6 +45,9 @@ azure-digitaltwins-core
 azure-mgmt-dashboard
 azure-monitor-query
 
+# Azure SDK packages for Cleanup (Observability)
+azure-mgmt-monitor
+
 # GCP SDK packages
 functions-framework
 google-auth

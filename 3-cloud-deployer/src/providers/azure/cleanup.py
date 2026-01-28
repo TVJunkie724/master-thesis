@@ -59,6 +59,100 @@ def cleanup_azure_resources(
         logger.info("[Azure SDK] DRY RUN MODE - no resources will be deleted")
     
     # ========================================
+    # PHASE 0.1: Diagnostic Settings Cleanup
+    # (Must run BEFORE resource deletion to prevent state drift)
+    # ========================================
+    logger.info("[Diagnostic Settings] Checking for orphans...")
+    try:
+        from azure.mgmt.monitor import MonitorManagementClient
+        monitor_client = MonitorManagementClient(credential, subscription_id)
+        
+        for rg in resource_client.resource_groups.list():
+            if prefix not in rg.name:
+                continue
+            # List all resources in matching RG (cache to avoid double API call)
+            resources = list(resource_client.resources.list_by_resource_group(rg.name))
+            for resource in resources:
+                try:
+                    for setting in monitor_client.diagnostic_settings.list(resource.id):
+                        logger.info(f"  Found: {setting.name} on {resource.name}")
+                        if dry_run:
+                            logger.info(f"    [DRY RUN] Would delete")
+                        else:
+                            monitor_client.diagnostic_settings.delete(resource.id, setting.name)
+                            logger.info(f"    ✓ Deleted")
+                except Exception:
+                    pass  # Resource may not support diagnostic settings
+            
+            # Handle storage sub-resources (blobServices/default) - reuse cached list
+            for storage in [r for r in resources if r.type == "Microsoft.Storage/storageAccounts"]:
+                blob_uri = f"{storage.id}/blobServices/default"
+                try:
+                    for setting in monitor_client.diagnostic_settings.list(blob_uri):
+                        logger.info(f"  Found: {setting.name} on {storage.name}/blobServices/default")
+                        if dry_run:
+                            logger.info(f"    [DRY RUN] Would delete")
+                        else:
+                            monitor_client.diagnostic_settings.delete(blob_uri, setting.name)
+                            logger.info(f"    ✓ Deleted")
+                except Exception:
+                    pass
+    except Exception as e:
+        logger.warning(f"  Error: {e}")
+    
+    # ========================================
+    # PHASE 0.2: Role Assignments Cleanup
+    # ========================================
+    logger.info("[Role Assignments] Checking for orphans...")
+    try:
+        from azure.mgmt.authorization import AuthorizationManagementClient
+        auth_client = AuthorizationManagementClient(credential, subscription_id)
+        
+        for rg in resource_client.resource_groups.list():
+            if prefix not in rg.name:
+                continue
+            rg_scope = f"/subscriptions/{subscription_id}/resourceGroups/{rg.name}"
+            for assignment in auth_client.role_assignments.list_for_scope(rg_scope):
+                logger.info(f"  Found: {assignment.role_definition_id.split('/')[-1]} -> {assignment.principal_id[:8]}...")
+                if dry_run:
+                    logger.info(f"    [DRY RUN] Would delete")
+                else:
+                    try:
+                        auth_client.role_assignments.delete_by_id(assignment.id)
+                        logger.info(f"    ✓ Deleted")
+                    except Exception as e:
+                        logger.warning(f"    ✗ Error: {e}")
+    except Exception as e:
+        logger.warning(f"  Error: {e}")
+    
+    # ========================================
+    # PHASE 0.3: CosmosDB SQL Role Assignments
+    # (Uses separate API from regular role assignments)
+    # ========================================
+    logger.info("[CosmosDB SQL Roles] Checking for orphans...")
+    try:
+        from azure.mgmt.cosmosdb import CosmosDBManagementClient
+        cosmos_client = CosmosDBManagementClient(credential, subscription_id)
+        for account in cosmos_client.database_accounts.list():
+            if prefix not in account.name:
+                continue
+            rg_name = account.id.split('/')[4]
+            for assignment in cosmos_client.sql_resources.list_sql_role_assignments(rg_name, account.name):
+                logger.info(f"  Found: SQL role on {account.name}")
+                if dry_run:
+                    logger.info(f"    [DRY RUN] Would delete")
+                else:
+                    try:
+                        cosmos_client.sql_resources.begin_delete_sql_role_assignment(
+                            assignment.name, rg_name, account.name
+                        ).result(timeout=120)
+                        logger.info(f"    ✓ Deleted")
+                    except Exception as e:
+                        logger.warning(f"    ✗ Error: {e}")
+    except Exception as e:
+        logger.warning(f"  Error: {e}")
+    
+    # ========================================
     # PHASE 1: Check for orphaned resources
     # ========================================
     
