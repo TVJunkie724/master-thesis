@@ -61,11 +61,14 @@ class SseService {
               type: eventType,
               level: data['level']?.toString(),
               outputs: data['outputs'] as Map<String, dynamic>?,
+              data: data as Map<String, dynamic>?,
             ),
           );
 
           // Close stream on terminal events
-          if (eventType == 'complete' || eventType == 'error') {
+          if (eventType == 'complete' ||
+              eventType == 'error' ||
+              eventType == 'done') {
             controller.close();
           }
         } catch (e) {
@@ -95,9 +98,10 @@ class SseService {
 class SseLogEvent {
   final int id; // Event ID for reconnection support
   final String message;
-  final String type; // 'log', 'complete', 'error', 'heartbeat'
+  final String type; // 'log', 'complete', 'error', 'heartbeat', 'done'
   final String? level; // 'info', 'error', 'warning'
   final Map<String, dynamic>? outputs;
+  final Map<String, dynamic>? data; // Raw parsed data for custom event types
 
   SseLogEvent({
     this.id = 0,
@@ -105,9 +109,10 @@ class SseLogEvent {
     required this.type,
     this.level,
     this.outputs,
+    this.data,
   });
 
-  bool get isComplete => type == 'complete';
+  bool get isComplete => type == 'complete' || type == 'done';
   bool get isError => type == 'error';
   bool get isLog => type == 'log';
   bool get isHeartbeat => type == 'heartbeat';

@@ -20,6 +20,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   Timer? _pollingTimer;
   StreamSubscription? _sseSubscription;
   SseService? _sseService;
+  StreamSubscription? _logTraceSseSubscription;
+  SseService? _logTraceSseService;
 
   TwinOverviewBloc({required ApiService api})
     : _api = api,
@@ -34,6 +36,10 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     on<TwinOverviewClearMessages>(_onClearMessages);
     on<TwinOverviewShowMessage>(_onShowMessage);
     on<TwinOverviewCloseTerminal>(_onCloseTerminal);
+    on<TwinOverviewStartLogTrace>(_onStartLogTrace);
+    on<TwinOverviewLogTraceUpdate>(_onLogTraceUpdate);
+    on<TwinOverviewLogTraceComplete>(_onLogTraceComplete);
+    on<TwinOverviewLogTraceError>(_onLogTraceError);
   }
 
   Future<void> _onLoad(
@@ -402,6 +408,168 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   }
 
   // ==========================================================================
+  // Log Trace
+  // ==========================================================================
+
+  Future<void> _onStartLogTrace(
+    TwinOverviewStartLogTrace event,
+    Emitter<TwinOverviewState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded) return;
+
+    // Must be deployed to trace logs
+    if (currentState.twinState != 'deployed') {
+      emit(
+        currentState.copyWith(
+          errorMessage: 'Twin must be deployed to trace logs',
+        ),
+      );
+      return;
+    }
+
+    emit(
+      currentState.copyWith(
+        isTracing: true,
+        showTerminal: true,
+        terminalLogs: ['> Starting log trace test...'],
+      ),
+    );
+
+    try {
+      // Call backend to start log trace
+      final result = await _api.startLogTrace(currentState.twinId);
+
+      final traceId = result['trace_id'] as String?;
+      final providers = result['providers'] as List<dynamic>?;
+
+      if (traceId == null) {
+        throw Exception('Backend did not return trace_id');
+      }
+
+      // Add trace info to terminal
+      emit(
+        (state as TwinOverviewLoaded).copyWith(
+          traceId: traceId,
+          terminalLogs: [
+            ...currentState.terminalLogs,
+            '> Trace ID: $traceId',
+            '> Providers: ${providers?.join(", ") ?? "unknown"}',
+            '> Streaming logs for 90 seconds...',
+            '',
+          ],
+        ),
+      );
+
+      // Subscribe to log trace SSE stream
+      _subscribeToLogTraceSseStream(
+        twinId: currentState.twinId,
+        traceId: traceId,
+      );
+    } catch (e) {
+      emit(
+        currentState.copyWith(
+          isTracing: false,
+          errorMessage:
+              'Log trace failed: ${ApiErrorHandler.extractMessage(e)}',
+        ),
+      );
+    }
+  }
+
+  void _onLogTraceUpdate(
+    TwinOverviewLogTraceUpdate event,
+    Emitter<TwinOverviewState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded) return;
+
+    final newLogs = [...currentState.terminalLogs, event.logLine];
+    emit(currentState.copyWith(terminalLogs: newLogs));
+  }
+
+  void _onLogTraceComplete(
+    TwinOverviewLogTraceComplete event,
+    Emitter<TwinOverviewState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded) return;
+
+    _cancelLogTraceSseSubscription();
+
+    final newLogs = [
+      ...currentState.terminalLogs,
+      '',
+      '> Trace complete. Total logs: ${event.totalLogs ?? 0}',
+    ];
+
+    emit(currentState.copyWith(isTracing: false, terminalLogs: newLogs));
+  }
+
+  void _onLogTraceError(
+    TwinOverviewLogTraceError event,
+    Emitter<TwinOverviewState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded) return;
+
+    _cancelLogTraceSseSubscription();
+
+    emit(currentState.copyWith(isTracing: false, errorMessage: event.message));
+  }
+
+  void _subscribeToLogTraceSseStream({
+    required String twinId,
+    required String traceId,
+  }) {
+    _cancelLogTraceSseSubscription();
+
+    _logTraceSseService = SseService(
+      baseUrl: ApiConfig.baseUrl,
+      authToken: 'dev-token', // TODO: Get from ApiService
+    );
+
+    final sseUrl = '/twins/$twinId/log-trace/stream/$traceId';
+
+    _logTraceSseSubscription = _logTraceSseService!
+        .streamDeploymentLogs(sseUrl)
+        .listen(
+          (event) {
+            if (event.isHeartbeat) return;
+
+            if (event.type == 'log') {
+              // Parse log trace event
+              final prefix = event.data?['prefix'] as String? ?? '';
+              final message =
+                  event.data?['message'] as String? ?? event.message;
+              final formattedLog = '$prefix $message';
+              add(TwinOverviewLogTraceUpdate(formattedLog));
+            } else if (event.type == 'done') {
+              final totalLogs = event.data?['total_logs'] as int?;
+              add(TwinOverviewLogTraceComplete(totalLogs: totalLogs));
+            } else if (event.isError) {
+              add(TwinOverviewLogTraceError(event.message));
+            }
+          },
+          onError: (e) {
+            _cancelLogTraceSseSubscription();
+            add(
+              TwinOverviewLogTraceError(
+                'Connection lost: ${ApiErrorHandler.extractMessage(e)}',
+              ),
+            );
+          },
+        );
+  }
+
+  void _cancelLogTraceSseSubscription() {
+    _logTraceSseSubscription?.cancel();
+    _logTraceSseSubscription = null;
+    _logTraceSseService?.cancel();
+    _logTraceSseService = null;
+  }
+
+  // ==========================================================================
   // SSE Streaming
   // ==========================================================================
 
@@ -484,6 +652,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   Future<void> close() {
     _stopPolling();
     _cancelSseSubscription();
+    _cancelLogTraceSseSubscription();
     return super.close();
   }
 

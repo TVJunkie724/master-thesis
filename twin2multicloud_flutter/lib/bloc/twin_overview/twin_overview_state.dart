@@ -41,6 +41,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
   // Transient states
   final bool isDeploying;
   final bool isDestroying;
+  final bool isTracing;
+  final String? traceId;
 
   // Error handling
   final String? lastError;
@@ -88,6 +90,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
     required this.canDelete,
     this.isDeploying = false,
     this.isDestroying = false,
+    this.isTracing = false,
+    this.traceId,
     this.lastError,
     this.lastDeploymentLogs,
     this.showTerminal = false,
@@ -123,6 +127,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
     bool? canDelete,
     bool? isDeploying,
     bool? isDestroying,
+    bool? isTracing,
+    String? traceId,
     String? lastError,
     String? lastDeploymentLogs,
     bool? showTerminal,
@@ -160,6 +166,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
       canDelete: canDelete ?? this.canDelete,
       isDeploying: isDeploying ?? this.isDeploying,
       isDestroying: isDestroying ?? this.isDestroying,
+      isTracing: isTracing ?? this.isTracing,
+      traceId: traceId ?? this.traceId,
       lastError: lastError ?? this.lastError,
       lastDeploymentLogs: lastDeploymentLogs ?? this.lastDeploymentLogs,
       showTerminal: showTerminal ?? this.showTerminal,
@@ -201,6 +209,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
     canDelete,
     isDeploying,
     isDestroying,
+    isTracing,
+    traceId,
     lastError,
     lastDeploymentLogs,
     showTerminal,

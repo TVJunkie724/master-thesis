@@ -1,0 +1,84 @@
+# GCP IoT Device Simulator
+
+> Generated for project: **{{project_name}}**
+> Device ID: **{{device_id}}**
+> Generated at: {{timestamp}}
+
+## Overview
+
+This standalone simulator sends telemetry data to GCP Pub/Sub, simulating an IoT device.
+
+**Note:** GCP IoT Core was deprecated in January 2023. This simulator uses Pub/Sub directly
+with service account authentication.
+
+## Prerequisites
+
+- Python 3.9+
+- GCP Service Account with Pub/Sub Publisher role
+- Docker (optional, for containerized deployment)
+
+## Security Warning
+
+⚠️ **IMPORTANT:** This package contains a GCP service account key file (`service_account.json`).
+
+- Never commit this file to version control
+- Keep it secure and rotate regularly
+- The service account should have minimal required permissions
+
+## Quick Start
+
+### Option 1: Run with Python
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run interactive mode
+python -m src.main
+```
+
+### Option 2: Run with Docker
+
+```bash
+# Build and run
+docker compose up -d
+
+# Attach to container for interactive mode
+docker attach gcp-iot-simulator-{{device_id}}
+```
+
+## Configuration
+
+The simulator uses `config.json` for connection settings:
+
+```json
+{
+  "project_id": "your-gcp-project",
+  "topic_name": "iot-telemetry",
+  "device_id": "{{device_id}}",
+  "service_account_key_path": "service_account.json",
+  "payload_path": "payloads.json"
+}
+```
+
+## Payloads
+
+Edit `payloads.json` to customize the telemetry data:
+
+```json
+[
+  {
+    "iotDeviceId": "{{device_id}}",
+    "type": "temperature",
+    "value": 25.5
+  }
+]
+```
+
+The `time` field is automatically added if not present.
+
+## Troubleshooting
+
+1. **Authentication Error**: Ensure `service_account.json` is valid and has Pub/Sub Publisher role
+2. **Topic Not Found**: Verify the topic exists in your GCP project
+3. **Permission Denied**: Check service account permissions in IAM

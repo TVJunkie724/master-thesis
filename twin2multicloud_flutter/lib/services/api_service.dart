@@ -509,4 +509,19 @@ class ApiService {
     );
     return response.data as Map<String, dynamic>;
   }
+
+  // ==========================================================================
+  // Log Trace (Live Log Tracing)
+  // ==========================================================================
+
+  /// Start a log trace test for a deployed twin
+  ///
+  /// Sends a test IoT message with a unique trace_id and returns
+  /// the trace_id for SSE streaming.
+  ///
+  /// Returns {trace_id, sent_at, l1_provider, providers, message}
+  Future<Map<String, dynamic>> startLogTrace(String twinId) async {
+    final response = await _dio.post('/twins/$twinId/log-trace/start');
+    return response.data as Map<String, dynamic>;
+  }
 }

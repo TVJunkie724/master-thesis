@@ -603,3 +603,30 @@ output "gcp_archive_writer_url" {
   description = "URL of the archive writer function (multi-cloud)"
   value       = try(google_cloudfunctions2_function.archive_writer[0].url, null)
 }
+
+# ==============================================================================
+# Observability Outputs (for Log Tracing)
+# ==============================================================================
+
+output "aws_cloudwatch_log_groups" {
+  description = "Map of AWS CloudWatch Log Group names by function"
+  value = var.enable_aws_logging ? {
+    for key, log_group in aws_cloudwatch_log_group.lambda : key => log_group.name
+  } : {}
+}
+
+output "aws_cloudwatch_log_group_iot" {
+  description = "AWS CloudWatch Log Group name for IoT Core logs"
+  value       = try(aws_cloudwatch_log_group.iot[0].name, null)
+}
+
+output "azure_log_analytics_workspace_id" {
+  description = "Azure Log Analytics Workspace ID (GUID for API queries)"
+  value       = try(azurerm_log_analytics_workspace.main[0].workspace_id, null)
+}
+
+output "azure_log_analytics_workspace_name" {
+  description = "Azure Log Analytics Workspace resource name"
+  value       = try(azurerm_log_analytics_workspace.main[0].name, null)
+}
+

@@ -176,14 +176,18 @@ async def download_simulator_package(project_name: str, provider: str):
     - payloads.json: IoT device payloads
     - src/: Simulator source code
     - certificates/: Device certificates (AWS only)
+    - service_account.json: Service account key (GCP only)
     - Dockerfile & docker-compose.yml: Container setup
     - README.md: Usage instructions
     """
-    if provider not in ("aws", "azure"):
-        raise HTTPException(status_code=400, detail=f"Provider '{provider}' not supported. Supported: aws, azure.")
+    # Normalize 'gcp' to 'google' internally
+    internal_provider = "google" if provider == "gcp" else provider
+    
+    if internal_provider not in ("aws", "azure", "google"):
+        raise HTTPException(status_code=400, detail=f"Provider '{provider}' not supported. Supported: aws, azure, gcp.")
 
-    base_dir = os.path.join(state.get_project_upload_path(), project_name, "iot_device_simulator", provider)
-    src_dir = os.path.join(state.get_project_base_path(), "src", "iot_device_simulator", provider)
+    base_dir = os.path.join(state.get_project_upload_path(), project_name, "iot_device_simulator", internal_provider)
+    src_dir = os.path.join(state.get_project_base_path(), "src", "iot_device_simulator", internal_provider)
     config_path = os.path.join(base_dir, "config_generated.json")
     payload_path = os.path.join(base_dir, "payloads.json")
 
@@ -197,11 +201,22 @@ async def download_simulator_package(project_name: str, provider: str):
     device_id = config_data.get("device_id")
     
     # AWS-specific: validate certificates exist
-    if provider == "aws":
+    if internal_provider == "aws":
         auth_dir = os.path.join(state.get_project_upload_path(), project_name, "iot_devices_auth")
         device_cert_dir = os.path.join(auth_dir, device_id)
         if not os.path.exists(device_cert_dir):
             raise HTTPException(status_code=404, detail=f"Certificates for device '{device_id}' not found.")
+
+    # GCP-specific: validate service account key exists
+    if internal_provider == "google":
+        sa_key_path = config_data.get("service_account_key_path", "")
+        if sa_key_path and os.path.exists(sa_key_path):
+            pass  # Service account key exists in config
+        else:
+            # Check if key is embedded in credentials
+            sa_key_path = os.path.join(state.get_project_upload_path(), project_name, "service_account.json")
+            if not os.path.exists(sa_key_path):
+                raise HTTPException(status_code=404, detail="GCP service account key not found. Configure GCP credentials first.")
 
     # Create Zip
     zip_buffer = io.BytesIO()
@@ -209,11 +224,14 @@ async def download_simulator_package(project_name: str, provider: str):
         
         # 1. Config (transformed based on provider)
         sim_config = config_data.copy()
-        if provider == "aws":
+        if internal_provider == "aws":
             # AWS: update paths for standalone package
             sim_config["cert_path"] = f"certificates/{device_id}/certificate.pem.crt"
             sim_config["key_path"] = f"certificates/{device_id}/private.pem.key"
             sim_config["root_ca_path"] = "AmazonRootCA1.pem"
+        elif internal_provider == "google":
+            # GCP: update service account key path for standalone package
+            sim_config["service_account_key_path"] = "service_account.json"
         # Azure: connection_string is already in config, just update payload path
         sim_config["payload_path"] = "payloads.json"
         zip_file.writestr("config.json", json.dumps(sim_config, indent=2))
@@ -225,7 +243,7 @@ async def download_simulator_package(project_name: str, provider: str):
             zip_file.writestr("payloads.json", "[]")
 
         # 3. AWS-specific: Root CA and Certificates
-        if provider == "aws":
+        if internal_provider == "aws":
             root_ca_path = os.path.join(src_dir, "AmazonRootCA1.pem")
             if os.path.exists(root_ca_path):
                 zip_file.write(root_ca_path, "AmazonRootCA1.pem")
@@ -234,6 +252,17 @@ async def download_simulator_package(project_name: str, provider: str):
                 fp = os.path.join(device_cert_dir, f)
                 if os.path.exists(fp):
                     zip_file.write(fp, f"certificates/{device_id}/{f}")
+
+        # 3b. GCP-specific: Service Account Key
+        if internal_provider == "google":
+            # Try to get SA key from config path first, then fall back to credentials dir
+            original_sa_path = config_data.get("service_account_key_path", "")
+            if original_sa_path and os.path.exists(original_sa_path):
+                zip_file.write(original_sa_path, "service_account.json")
+            else:
+                fallback_sa_path = os.path.join(state.get_project_upload_path(), project_name, "service_account.json")
+                if os.path.exists(fallback_sa_path):
+                    zip_file.write(fallback_sa_path, "service_account.json")
 
         # 4. Source Code
         for f in ["main.py", "transmission.py", "globals.py"]:
@@ -244,23 +273,25 @@ async def download_simulator_package(project_name: str, provider: str):
         # 5. Generated Files from Templates
         template_vars = {
             "project_name": project_name,
-            "provider": provider,
+            "provider": provider,  # Use original provider name (gcp) for display
             "device_id": device_id,
             "endpoint": config_data.get("endpoint", ""),  # AWS only
+            "project_id": config_data.get("project_id", ""),  # GCP only
+            "topic_name": config_data.get("topic_name", ""),  # GCP only
             "timestamp": datetime.datetime.now().isoformat()
         }
         
         # README.md (with variable substitution)
-        zip_file.writestr("README.md", _load_template(provider, "README.md.template", template_vars))
+        zip_file.writestr("README.md", _load_template(internal_provider, "README.md.template", template_vars))
         
         # requirements.txt (static)
-        zip_file.writestr("requirements.txt", _load_template(provider, "requirements.txt"))
+        zip_file.writestr("requirements.txt", _load_template(internal_provider, "requirements.txt"))
         
         # Dockerfile (static)
-        zip_file.writestr("Dockerfile", _load_template(provider, "Dockerfile"))
+        zip_file.writestr("Dockerfile", _load_template(internal_provider, "Dockerfile"))
         
         # docker-compose.yml (with variable substitution)
-        zip_file.writestr("docker-compose.yml", _load_template(provider, "docker-compose.yml.template", template_vars))
+        zip_file.writestr("docker-compose.yml", _load_template(internal_provider, "docker-compose.yml.template", template_vars))
 
 
     zip_buffer.seek(0)

@@ -5,13 +5,16 @@ This module provides the CLI interface for the Azure IoT device simulator,
 allowing interactive commands to send test payloads to Azure IoT Hub.
 
 Usage:
-    Standalone mode: python main.py (with config.json in current directory)
-    Integrated mode: python main.py --project <project_name>
+    Interactive mode: python main.py --project <project_name>
+    Single-shot mode: python main.py --project <project_name> --payload '{"key": "value"}'
 """
 
 from . import globals
 from . import transmission
 import argparse
+import json
+import sys
+from datetime import datetime, timezone
 
 
 def help_menu():
@@ -28,14 +31,32 @@ def main():
     """Main entry point for the Azure IoT device simulator."""
     parser = argparse.ArgumentParser(description="Azure IoT Device Simulator")
     parser.add_argument("--project", help="Name of the project (for integrated mode)")
+    parser.add_argument("--payload", help="Custom payload JSON (single-shot mode for log tracing)")
     args = parser.parse_args()
 
     try:
         globals.initialize_config(project_name=args.project)
     except Exception as e:
         print(f"Error initializing simulator: {e}")
-        return
+        sys.exit(1)
 
+    # Single-shot mode: send custom payload and exit
+    if args.payload:
+        try:
+            payload = json.loads(args.payload)
+            # Add timestamp if missing
+            if "time" not in payload or payload["time"] == "":
+                payload["time"] = datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+            transmission.send_mqtt(payload)
+            sys.exit(0)
+        except json.JSONDecodeError as e:
+            print(f"ERROR: Invalid JSON payload: {e}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"ERROR: Failed to send payload: {e}")
+            sys.exit(1)
+
+    # Interactive mode
     print("Welcome to the Azure IoT Device Simulator. Type 'help' for commands.")
 
     while True:
@@ -67,3 +88,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

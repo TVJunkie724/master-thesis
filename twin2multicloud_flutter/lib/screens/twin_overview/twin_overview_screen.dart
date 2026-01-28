@@ -1153,6 +1153,42 @@ class TwinOverviewView extends ConsumerWidget {
               ],
             ),
 
+            // Log Trace button (only visible for deployed twins)
+            if (state.twinState == 'deployed') ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: state.isTracing
+                      ? null
+                      : () => context.read<TwinOverviewBloc>().add(
+                          const TwinOverviewStartLogTrace(),
+                        ),
+                  icon: state.isTracing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.sms_outlined, size: 22),
+                  label: Text(
+                    state.isTracing
+                        ? 'TRACING LOGS...'
+                        : 'SEND TEST IOT MESSAGE',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.primary,
+                    side: BorderSide(color: theme.colorScheme.primary),
+                  ),
+                ),
+              ),
+            ],
+
             // Error banner (if applicable)
             if (state.twinState == 'error' && state.lastError != null) ...[
               const SizedBox(height: 16),
@@ -1259,7 +1295,10 @@ class TwinOverviewView extends ConsumerWidget {
                     color: theme.colorScheme.primary,
                   ),
                   const SizedBox(width: 8),
-                  Text('Deployment Output', style: theme.textTheme.labelLarge),
+                  Text(
+                    state.isTracing ? 'Log Trace Output' : 'Deployment Output',
+                    style: theme.textTheme.labelLarge,
+                  ),
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.close, size: 18),
@@ -1275,8 +1314,14 @@ class TwinOverviewView extends ConsumerWidget {
                 height: 300,
                 child: DeploymentTerminal(
                   logs: state.terminalLogs,
-                  isConnected: state.isDeploying || state.isDestroying,
-                  isComplete: !state.isDeploying && !state.isDestroying,
+                  isConnected:
+                      state.isDeploying ||
+                      state.isDestroying ||
+                      state.isTracing,
+                  isComplete:
+                      !state.isDeploying &&
+                      !state.isDestroying &&
+                      !state.isTracing,
                   isReconnecting: false,
                 ),
               ),
