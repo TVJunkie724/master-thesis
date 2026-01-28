@@ -28,8 +28,6 @@ class TerraformOutputsCard extends StatefulWidget {
 }
 
 class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
-  bool _isExpanded = true;
-
   // Track which groups are expanded (first group expanded by default)
   final Map<String, bool> _expandedGroups = {};
 
@@ -126,120 +124,111 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
-          InkWell(
-            onTap: () => setState(() => _isExpanded = !_isExpanded),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.terminal,
-                    color: theme.colorScheme.primary,
-                    size: 20,
+          // Header (not collapsible - always visible)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.terminal,
+                  color: theme.colorScheme.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Terraform Outputs',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Terraform Outputs',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (widget.deployedAt != null) ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      '• ${_formatRelativeTime(widget.deployedAt)}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                  const Spacer(),
-                  // Copy All JSON button
-                  TextButton.icon(
-                    onPressed: _copyAllOutputs,
-                    icon: const Icon(Icons.copy_all, size: 16),
-                    label: const Text('Copy All'),
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
+                ),
+                if (widget.deployedAt != null) ...[
                   const SizedBox(width: 8),
-                  Icon(
-                    _isExpanded ? Icons.expand_less : Icons.expand_more,
-                    color: theme.colorScheme.onSurfaceVariant,
+                  Text(
+                    '• ${_formatRelativeTime(widget.deployedAt)}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
-              ),
+                const Spacer(),
+                // Copy All JSON button
+                TextButton.icon(
+                  onPressed: _copyAllOutputs,
+                  icon: const Icon(Icons.copy_all, size: 16),
+                  label: const Text('Copy All'),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
             ),
           ),
 
-          // Content (collapsible)
-          if (_isExpanded) ...[
-            const Divider(height: 1),
-            // Provider groups
-            ...groups.entries.map((groupEntry) {
-              final provider = groupEntry.key;
-              final outputs = groupEntry.value;
-              final isGroupExpanded = _expandedGroups[provider] ?? false;
+          // Content (provider groups - always visible, but individual groups are collapsible)
+          const Divider(height: 1),
+          // Provider groups
+          ...groups.entries.map((groupEntry) {
+            final provider = groupEntry.key;
+            final outputs = groupEntry.value;
+            final isGroupExpanded = _expandedGroups[provider] ?? false;
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Group header
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        _expandedGroups[provider] = !isGroupExpanded;
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      color: theme.colorScheme.surfaceContainerHighest
-                          .withOpacity(0.3),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isGroupExpanded
-                                ? Icons.keyboard_arrow_down
-                                : Icons.keyboard_arrow_right,
-                            size: 20,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            _getProviderIcon(provider),
-                            size: 18,
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Group header
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _expandedGroups[provider] = !isGroupExpanded;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.3,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isGroupExpanded
+                              ? Icons.keyboard_arrow_down
+                              : Icons.keyboard_arrow_right,
+                          size: 20,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          _getProviderIcon(provider),
+                          size: 18,
+                          color: _getProviderColor(provider, theme),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          provider,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
                             color: _getProviderColor(provider, theme),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            provider,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: _getProviderColor(provider, theme),
-                            ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '(${outputs.length})',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '(${outputs.length})',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                  // Group content (compact table)
-                  if (isGroupExpanded) _buildCompactTable(outputs, theme),
-                ],
-              );
-            }),
-          ],
+                ),
+                // Group content (compact table)
+                if (isGroupExpanded) _buildCompactTable(outputs, theme),
+              ],
+            );
+          }),
         ],
       ),
     );
@@ -259,7 +248,7 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
-                    color: theme.dividerColor.withOpacity(0.3),
+                    color: theme.dividerColor.withValues(alpha: 0.3),
                     width: 0.5,
                   ),
                 ),
@@ -275,7 +264,9 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
                       style: theme.textTheme.bodySmall?.copyWith(
                         fontFamily: 'monospace',
                         fontWeight: FontWeight.w500,
-                        color: theme.colorScheme.onSurface.withOpacity(0.8),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.8,
+                        ),
                       ),
                     ),
                   ),
@@ -287,7 +278,9 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
                           : value,
                       style: theme.textTheme.bodySmall?.copyWith(
                         fontFamily: 'monospace',
-                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.7,
+                        ),
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -297,7 +290,7 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
                   Icon(
                     Icons.copy_outlined,
                     size: 12,
-                    color: theme.colorScheme.onSurface.withOpacity(0.3),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                   ),
                 ],
               ),

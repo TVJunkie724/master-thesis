@@ -85,6 +85,14 @@ async def update_twin(
     if not twin:
         raise HTTPException(status_code=404, detail="Twin not found")
     
+    # Block NAME changes for deployed/deploying/destroying twins (state changes allowed for deploy/destroy flow)
+    BLOCKED_STATES = {TwinState.DEPLOYED, TwinState.DEPLOYING, TwinState.DESTROYING}
+    if update.name is not None and update.name != twin.name and twin.state in BLOCKED_STATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot rename twin in '{twin.state.value}' state"
+        )
+    
     if update.name is not None and update.name != twin.name:
         # Check for duplicate name (case-insensitive, excluding this twin and inactive twins)
         existing = db.query(DigitalTwin).filter(
@@ -388,8 +396,8 @@ async def deploy_twin(
     
     # Get resource name and provider from config
     resource_name = twin.name.lower().replace(" ", "-")
-    if twin.deployer_config and twin.deployer_config.resource_name:
-        resource_name = twin.deployer_config.resource_name
+    if twin.deployer_config and twin.deployer_config.deployer_digital_twin_name:
+        resource_name = twin.deployer_config.deployer_digital_twin_name
     
     # Determine provider - use L1 provider as the main deployment target
     provider = "aws"  # default
@@ -476,8 +484,8 @@ async def destroy_twin_infrastructure(
     
     # Get resource name from deployer config
     resource_name = twin.name.lower().replace(" ", "-")
-    if twin.deployer_config and twin.deployer_config.resource_name:
-        resource_name = twin.deployer_config.resource_name
+    if twin.deployer_config and twin.deployer_config.deployer_digital_twin_name:
+        resource_name = twin.deployer_config.deployer_digital_twin_name
     
     # Determine provider - use L1 provider as the main deployment target
     provider = "aws"  # default
@@ -765,6 +773,182 @@ async def test_destroy_twin(
         "session_id": session_id,
         "sse_url": f"/sse/deploy/{session_id}"
     }
+
+
+@router.post("/{twin_id}/test-log-trace/start")
+async def test_log_trace_start(
+    twin_id: str,
+    duration: int = Query(30, ge=5, le=90, description="Simulated duration in seconds"),
+    should_fail: bool = Query(False, description="Simulate trace failure"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Test log trace for UI testing - simulates realistic multi-cloud log streaming.
+    
+    Requires ENABLE_TEST_ENDPOINTS=true environment variable.
+    No real cloud resources are queried.
+    
+    Returns session_id for SSE connection to stream mock logs in real-time.
+    
+    Args:
+        duration: How long the simulated trace takes (5-90 seconds)
+        should_fail: If true, simulate a trace failure
+    """
+    if not TEST_ENDPOINTS_ENABLED:
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    import uuid
+    import asyncio
+    from datetime import datetime, timezone
+    from src.api.routes.sse import create_session
+    
+    # Validate twin exists
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    
+    # Generate mock trace_id
+    trace_id = f"TRACE-{uuid.uuid4().hex[:8].upper()}"
+    
+    # Get providers from deployer_config (dynamic)
+    providers = ["aws"]  # Default fallback
+    if twin.deployer_config and hasattr(twin.deployer_config, 'layer_providers'):
+        layer_providers = twin.deployer_config.layer_providers or {}
+        unique_providers = set()
+        for layer in ['layer_1_provider', 'layer_2_provider', 'layer_3_hot_provider']:
+            if layer_providers.get(layer):
+                unique_providers.add(layer_providers[layer])
+        if unique_providers:
+            providers = list(unique_providers)
+    
+    # Create SSE session
+    session_id = str(uuid.uuid4())
+    session = await create_session(twin_id, session_id, operation_type="log_trace")
+    
+    # Spawn background task for streaming mock logs
+    asyncio.create_task(_run_test_log_trace_stream(
+        session_id=session_id,
+        twin_id=twin_id,
+        trace_id=trace_id,
+        providers=providers,
+        duration=duration,
+        should_fail=should_fail
+    ))
+    
+    return {
+        "trace_id": trace_id,
+        "sent_at": datetime.now(timezone.utc).isoformat(),
+        "l1_provider": providers[0] if providers else "aws",
+        "providers": providers,
+        "message": f"Test message sent to {providers[0] if providers else 'aws'} IoT endpoint",
+        "session_id": session_id,
+        "sse_url": f"/sse/deploy/{session_id}"
+    }
+
+
+async def _run_test_log_trace_stream(
+    session_id: str,
+    twin_id: str,
+    trace_id: str,
+    providers: list,
+    duration: int,
+    should_fail: bool
+):
+    """
+    Background task that simulates multi-cloud log streaming via SSE.
+    Generates realistic log events based on configured providers.
+    """
+    import asyncio
+    import json
+    from datetime import datetime, timezone
+    from src.api.routes.sse import get_session
+    
+    session = await get_session(session_id)
+    if not session:
+        return
+    
+    try:
+        # Build log steps based on providers
+        # Format: (fraction_of_duration, event_type, data_dict)
+        steps = []
+        
+        # Provider-specific storage names
+        storage_names = {"aws": "DynamoDB", "azure": "CosmosDB", "gcp": "Firestore"}
+        
+        # Primary provider (L1) logs
+        primary = providers[0] if providers else "aws"
+        storage_name = storage_names.get(primary, "Database")
+        
+        steps.extend([
+            (0.02, "log", {"layer": "L1", "provider": primary, "function": "dispatcher",
+             "message": f'{{"device_id":"test-sensor","trace_id":"{trace_id}"}}'}),
+            (0.02, "log", {"layer": "L1", "provider": primary, "function": "dispatcher",
+             "message": "Routing to L2 persister"}),
+            (0.05, "log", {"layer": "L2", "provider": primary, "function": "persister",
+             "message": "Processing payload for device: test-sensor"}),
+            (0.05, "log", {"layer": "L2", "provider": primary, "function": "persister",
+             "message": f"PutItem: pk=test-sensor, sk={datetime.now(timezone.utc).isoformat()}"}),
+            (0.05, "log", {"layer": "L3", "provider": primary, "function": storage_name,
+             "message": "Write succeeded, RCU: 1"}),
+        ])
+        
+        # Secondary provider(s) - cross-cloud via L0 glue
+        for idx, prov in enumerate(providers[1:], start=1):
+            sec_storage = storage_names.get(prov, "Database")
+            steps.extend([
+                (0.08, "log", {"layer": "L0", "provider": prov, "function": "l0-ingestion",
+                 "message": f"HTTP 200: Ingested from {primary.upper()}, trace_id={trace_id}"}),
+                (0.05, "log", {"layer": "L2", "provider": prov, "function": "dispatcher",
+                 "message": "Processing cross-cloud payload"}),
+                (0.05, "log", {"layer": "L3", "provider": prov, "function": sec_storage,
+                 "message": "Write succeeded"}),
+            ])
+        
+        # Add heartbeat at midpoint
+        steps.append((0.30, "heartbeat", {"elapsed_seconds": duration // 2}))
+        
+        # Calculate timing
+        total_fraction = sum(s[0] for s in steps)
+        log_count = 0
+        
+        for fraction, event_type, data in steps:
+            await asyncio.sleep(duration * fraction / total_fraction)
+            
+            data["timestamp"] = datetime.now(timezone.utc).isoformat()
+            
+            if event_type == "log":
+                log_count += 1
+                # Log events use push_log with JSON data payload
+                await session.push_log(json.dumps(data))
+            else:
+                # Non-log events (heartbeat, etc.) use push_event with proper SSE type
+                await session.push_event(event_type, data)
+        
+        if should_fail:
+            error_data = {
+                "message": "Simulated trace failure: CloudWatch query timeout",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            await session.push_event("error", error_data)
+            session.on_complete(success=False, message="Trace failed")
+            return
+        
+        # Done event - use push_event for proper SSE type
+        done_data = {
+            "message": "Trace complete",
+            "log_count": log_count,
+            "duration_seconds": duration
+        }
+        await session.push_event("done", done_data)
+        session.on_complete(success=True, message="Trace complete")
+        
+    except Exception as e:
+        session.on_complete(success=False, message=str(e))
 
 
 # =============================================================================
@@ -1634,8 +1818,8 @@ async def start_log_trace(
     
     # Get resource name for Deployer API
     resource_name = twin.name.lower().replace(" ", "-")
-    if twin.deployer_config and twin.deployer_config.resource_name:
-        resource_name = twin.deployer_config.resource_name
+    if twin.deployer_config and twin.deployer_config.deployer_digital_twin_name:
+        resource_name = twin.deployer_config.deployer_digital_twin_name
     
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -1689,8 +1873,8 @@ async def stream_log_trace(
     
     # Get resource name for Deployer API
     resource_name = twin.name.lower().replace(" ", "-")
-    if twin.deployer_config and twin.deployer_config.resource_name:
-        resource_name = twin.deployer_config.resource_name
+    if twin.deployer_config and twin.deployer_config.deployer_digital_twin_name:
+        resource_name = twin.deployer_config.deployer_digital_twin_name
     
     async def event_generator():
         try:

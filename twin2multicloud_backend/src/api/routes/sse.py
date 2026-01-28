@@ -94,6 +94,29 @@ class LogSession:
 
         return self.event_counter
 
+    async def push_event(self, event_type: str, data: dict = None) -> int:
+        """Push a generic event with custom type (heartbeat, done, etc.).
+        
+        Unlike push_log(), this sends the event_type as the SSE 'type' field
+        rather than embedding it in the data.
+        """
+        self.event_counter += 1
+        event = {
+            "id": self.event_counter,
+            "type": event_type,
+            "data": data or {},
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        self.touch()
+
+        if self.state == SessionState.STREAMING:
+            await self.queue.put(event)
+        else:
+            if len(self.buffer) < self.MAX_BUFFER_SIZE:
+                self.buffer.append(event)
+
+        return self.event_counter
+
     def on_connect(self):
         """Client connected to SSE stream."""
         self.state = SessionState.STREAMING

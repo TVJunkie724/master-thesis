@@ -149,11 +149,15 @@ def fetch_aws_logs(
                 )
                 
                 for event in response.get('events', []):
+                    # Extract function name from log group (e.g., "/aws/lambda/proj-l1-dispatcher" -> "l1-dispatcher")
+                    function_name = log_group_name.rsplit('/', 1)[-1] if log_group_name else layer_name
+                    
                     results.append({
                         'timestamp': datetime.fromtimestamp(event['timestamp'] / 1000, tz=timezone.utc).isoformat(),
                         'message': event['message'].strip(),
                         'layer': layer_name,
-                        'provider': 'aws'
+                        'provider': 'aws',
+                        'function': function_name
                     })
             except Exception as e:
                 logger.warning(f"Failed to query log group {log_group_name}: {e}")
@@ -223,7 +227,8 @@ def fetch_azure_logs(
                     'timestamp': timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp),
                     'message': message,
                     'layer': layer,
-                    'provider': 'azure'
+                    'provider': 'azure',
+                    'function': operation
                 })
                 
     except Exception as e:
@@ -289,7 +294,8 @@ def fetch_gcp_logs(
                 'timestamp': entry.timestamp.isoformat() if entry.timestamp else '',
                 'message': message,
                 'layer': layer,
-                'provider': 'gcp'
+                'provider': 'gcp',
+                'function': resource_name
             })
             
     except Exception as e:
@@ -526,7 +532,8 @@ async def stream_log_trace(
                         "timestamp": log['timestamp'],
                         "message": log['message'],
                         "layer": log.get('layer'),
-                        "provider": log.get('provider')
+                        "provider": log.get('provider'),
+                        "function": log.get('function', '')
                     }
                     
                     yield {"event": "log", "data": json.dumps(formatted)}

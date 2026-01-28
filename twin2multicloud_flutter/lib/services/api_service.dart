@@ -524,4 +524,20 @@ class ApiService {
     final response = await _dio.post('/twins/$twinId/log-trace/start');
     return response.data as Map<String, dynamic>;
   }
+
+  /// Test log trace for UI testing - requires ENABLE_TEST_ENDPOINTS=true on backend
+  ///
+  /// Simulates realistic multi-cloud log streaming without real cloud resources.
+  /// Returns {trace_id, sent_at, l1_provider, providers, message, session_id, sse_url}
+  Future<Map<String, dynamic>> testLogTrace(
+    String twinId, {
+    int duration = 30,
+    bool shouldFail = false,
+  }) async {
+    final response = await _dio.post(
+      '/twins/$twinId/test-log-trace/start',
+      queryParameters: {'duration': duration, 'should_fail': shouldFail},
+    );
+    return response.data as Map<String, dynamic>;
+  }
 }

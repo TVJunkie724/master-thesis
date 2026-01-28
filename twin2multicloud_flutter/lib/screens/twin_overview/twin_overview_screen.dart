@@ -1234,7 +1234,50 @@ class TwinOverviewView extends ConsumerWidget {
               ),
             ],
 
-            // Terraform Outputs Card (persists independently of terminal)
+            // Deployment Terminal (appears when showTerminal is true)
+            if (state.showTerminal) ...[
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(
+                    Icons.terminal,
+                    size: 16,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    state.isTracing ? 'Log Trace Output' : 'Deployment Output',
+                    style: theme.textTheme.labelLarge,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => context.read<TwinOverviewBloc>().add(
+                      const TwinOverviewCloseTerminal(),
+                    ),
+                    tooltip: 'Close terminal',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 300,
+                child: DeploymentTerminal(
+                  logs: state.terminalLogs,
+                  isConnected:
+                      state.isDeploying ||
+                      state.isDestroying ||
+                      state.isTracing,
+                  isComplete:
+                      !state.isDeploying &&
+                      !state.isDestroying &&
+                      !state.isTracing,
+                  isReconnecting: false,
+                ),
+              ),
+            ],
+
+            // Terraform Outputs Card (below terminal)
             if (state.deploymentOutputs != null &&
                 state.deploymentOutputs!.isNotEmpty &&
                 state.twinState == 'deployed') ...[
@@ -1283,49 +1326,6 @@ class TwinOverviewView extends ConsumerWidget {
                   ),
                 ),
               ),
-
-            // Deployment Terminal (appears when showTerminal is true)
-            if (state.showTerminal) ...[
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Icon(
-                    Icons.terminal,
-                    size: 16,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    state.isTracing ? 'Log Trace Output' : 'Deployment Output',
-                    style: theme.textTheme.labelLarge,
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () => context.read<TwinOverviewBloc>().add(
-                      const TwinOverviewCloseTerminal(),
-                    ),
-                    tooltip: 'Close terminal',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 300,
-                child: DeploymentTerminal(
-                  logs: state.terminalLogs,
-                  isConnected:
-                      state.isDeploying ||
-                      state.isDestroying ||
-                      state.isTracing,
-                  isComplete:
-                      !state.isDeploying &&
-                      !state.isDestroying &&
-                      !state.isTracing,
-                  isReconnecting: false,
-                ),
-              ),
-            ],
           ],
         ),
       ),

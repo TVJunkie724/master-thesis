@@ -2,6 +2,7 @@
 // BLoC for the twin overview screen
 
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../config/api_config.dart';
 import '../../services/api_service.dart';
@@ -13,6 +14,10 @@ import 'twin_overview_state.dart';
 /// Toggle for UI testing - uses mock deployment endpoints when true.
 /// Set to false for production/real deployments.
 const bool kUseTestDeploy = true;
+
+/// Toggle for UI testing - uses mock log trace endpoints when true.
+/// Set to false for real log tracing with deployed twins.
+const bool kUseTestLogTrace = true;
 
 class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   final ApiService _api;
@@ -437,8 +442,10 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     );
 
     try {
-      // Call backend to start log trace
-      final result = await _api.startLogTrace(currentState.twinId);
+      // Call backend to start log trace - use test endpoint if enabled
+      final result = kUseTestLogTrace
+          ? await _api.testLogTrace(currentState.twinId, duration: 30)
+          : await _api.startLogTrace(currentState.twinId);
 
       final traceId = result['trace_id'] as String?;
       final providers = result['providers'] as List<dynamic>?;
@@ -462,9 +469,12 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       );
 
       // Subscribe to log trace SSE stream
+      // For test mode, use the sse_url returned by backend; otherwise construct URL
+      final sseUrl = result['sse_url'] as String?;
       _subscribeToLogTraceSseStream(
         twinId: currentState.twinId,
         traceId: traceId,
+        sseUrl: sseUrl,
       );
     } catch (e) {
       emit(
@@ -521,6 +531,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   void _subscribeToLogTraceSseStream({
     required String twinId,
     required String traceId,
+    String? sseUrl,
   }) {
     _cancelLogTraceSseSubscription();
 
@@ -529,26 +540,34 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       authToken: 'dev-token', // TODO: Get from ApiService
     );
 
-    final sseUrl = '/twins/$twinId/log-trace/stream/$traceId';
+    // Use provided sseUrl (from test endpoint) or construct default URL
+    final streamUrl = sseUrl ?? '/twins/$twinId/log-trace/stream/$traceId';
 
     _logTraceSseSubscription = _logTraceSseService!
-        .streamDeploymentLogs(sseUrl)
+        .streamDeploymentLogs(streamUrl)
         .listen(
           (event) {
-            if (event.isHeartbeat) return;
+            // Handle events by SSE type (now consistent between mock and real)
+            if (event.isHeartbeat) {
+              add(TwinOverviewLogTraceUpdate('...'));
+              return;
+            }
 
-            if (event.type == 'log') {
-              // Parse log trace event
-              final prefix = event.data?['prefix'] as String? ?? '';
-              final message =
-                  event.data?['message'] as String? ?? event.message;
-              final formattedLog = '$prefix $message';
-              add(TwinOverviewLogTraceUpdate(formattedLog));
-            } else if (event.type == 'done') {
-              final totalLogs = event.data?['total_logs'] as int?;
-              add(TwinOverviewLogTraceComplete(totalLogs: totalLogs));
-            } else if (event.isError) {
+            if (event.type == 'done') {
+              final data = event.data?['data'];
+              final logCount = data is Map ? data['log_count'] as int? : null;
+              add(TwinOverviewLogTraceComplete(totalLogs: logCount));
+              return;
+            }
+
+            if (event.isError) {
               add(TwinOverviewLogTraceError(event.message));
+              return;
+            }
+
+            // Regular log event - format with aligned columns
+            if (event.type == 'log') {
+              add(TwinOverviewLogTraceUpdate(_formatLogEvent(event)));
             }
           },
           onError: (e) {
@@ -567,6 +586,47 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     _logTraceSseSubscription = null;
     _logTraceSseService?.cancel();
     _logTraceSseService = null;
+  }
+
+  /// Parse log data from SSE event.
+  /// Returns null if parsing fails.
+  Map<String, dynamic>? _parseLogData(SseLogEvent event) {
+    final outerData = event.data;
+    if (outerData == null) return null;
+
+    final innerDataRaw = outerData['data'];
+    if (innerDataRaw is String) {
+      try {
+        return json.decode(innerDataRaw) as Map<String, dynamic>?;
+      } catch (_) {
+        return null;
+      }
+    } else if (innerDataRaw is Map<String, dynamic>) {
+      return innerDataRaw;
+    }
+    return null;
+  }
+
+  /// Format log trace event with aligned columns
+  /// Output: [HH:MM:SS] L1 AWS   │ function         │ message
+  String _formatLogEvent(SseLogEvent event) {
+    final logData = _parseLogData(event);
+    if (logData == null) return event.message;
+
+    final timestamp = logData['timestamp'] as String?;
+    final layer = logData['layer'] as String? ?? '';
+    final provider = (logData['provider'] as String?)?.toUpperCase() ?? '';
+    final function = logData['function'] as String? ?? '';
+    final message = logData['message'] as String? ?? event.message;
+
+    final time = timestamp != null
+        ? DateTime.tryParse(timestamp)?.toLocal()
+        : DateTime.now();
+    final timeStr = time != null
+        ? '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:${time.second.toString().padLeft(2, '0')}'
+        : '';
+
+    return '[$timeStr] $layer ${provider.padRight(5)} │ ${function.padRight(16)} │ $message';
   }
 
   // ==========================================================================
