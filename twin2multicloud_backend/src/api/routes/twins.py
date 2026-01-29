@@ -1907,3 +1907,156 @@ async def stream_log_trace(
         }
     )
 
+
+# ============================================================
+# IoT Simulator Download
+# ============================================================
+
+@router.get("/{twin_id}/simulator/download", tags=["twins"])
+async def download_simulator(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Download IoT simulator package for L1 provider.
+    
+    Extracts L1 from OptimizerConfiguration.cheapest_path and proxies to
+    Deployer API /projects/{name}/simulator/{provider}/download.
+    """
+    import io
+    from fastapi.responses import StreamingResponse
+    from src.models.optimizer_config import OptimizerConfiguration
+    
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if not twin:
+        raise HTTPException(404, "Twin not found")
+    
+    if twin.state != TwinState.DEPLOYED:
+        raise HTTPException(400, f"Simulator only available for deployed twins. Current: {twin.state.value}")
+    
+    opt_config = db.query(OptimizerConfiguration).filter_by(twin_id=twin_id).first()
+    if not opt_config or not opt_config.cheapest_l1:
+        raise HTTPException(404, "Optimization not configured. Complete Step 2 first.")
+    
+    l1_provider = opt_config.cheapest_l1.lower()
+    
+    # Get resource name from deployer config (same pattern as deploy/destroy)
+    resource_name = twin.name.lower().replace(" ", "-")
+    if twin.deployer_config and twin.deployer_config.deployer_digital_twin_name:
+        resource_name = twin.deployer_config.deployer_digital_twin_name
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(
+                f"{DEPLOYER_API_URL}/projects/{resource_name}/simulator/{l1_provider}/download",
+                timeout=60.0
+            )
+        except httpx.RequestError as e:
+            raise HTTPException(502, f"Failed to connect to Deployer: {str(e)}")
+        
+        if resp.status_code == 404:
+            raise HTTPException(404, "Simulator not available. Ensure L1 deployed.")
+        elif resp.status_code != 200:
+            raise HTTPException(resp.status_code, f"Deployer error: {resp.text}")
+        
+        return StreamingResponse(
+            io.BytesIO(resp.content),
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename=simulator_{resource_name}_{l1_provider}.zip"}
+        )
+
+
+@router.get(
+    "/{twin_id}/simulator/test-download",
+    tags=["Twins"],
+    summary="[TEST] Download mock IoT simulator package",
+    responses={
+        200: {"description": "Mock simulator zip package for UI testing"},
+        404: {"description": "Twin not found"}
+    }
+)
+async def test_download_simulator(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Mock endpoint for UI testing - returns a sample simulator zip.
+    
+    Does NOT require real deployment or Deployer connectivity.
+    Use when kUseTestDeploy = true in Flutter.
+    """
+    import io
+    import json
+    import zipfile
+    from fastapi.responses import StreamingResponse
+    from src.models.optimizer_config import OptimizerConfiguration
+    
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if not twin:
+        raise HTTPException(404, "Twin not found")
+    
+    # Get L1 provider from optimizer config (or default to 'gcp')
+    opt_config = db.query(OptimizerConfiguration).filter_by(twin_id=twin_id).first()
+    l1_provider = opt_config.cheapest_l1.lower() if opt_config and opt_config.cheapest_l1 else "gcp"
+    
+    resource_name = twin.name.lower().replace(" ", "-")
+    if twin.deployer_config and twin.deployer_config.deployer_digital_twin_name:
+        resource_name = twin.deployer_config.deployer_digital_twin_name
+    
+    # Create mock zip in memory
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        # config.json
+        config = {
+            "project_id": "mock-project-id",
+            "topic_name": f"projects/mock-project/topics/{resource_name}-telemetry",
+            "device_id": "mock-device-1",
+            "digital_twin_name": resource_name,
+            "payload_path": "payloads.json",
+            "service_account_key_path": "service_account.json"
+        }
+        zf.writestr("config.json", json.dumps(config, indent=2))
+        
+        # payloads.json
+        payloads = [{"temperature": 25.5, "humidity": 60, "device_id": "mock-device-1"}]
+        zf.writestr("payloads.json", json.dumps(payloads, indent=2))
+        
+        # README.md
+        readme = f"""# IoT Device Simulator - {resource_name} ({l1_provider.upper()})
+
+## [MOCK PACKAGE - FOR UI TESTING ONLY]
+
+This is a mock simulator package generated for UI testing purposes.
+In production, this package would contain the actual simulator code.
+
+## Usage
+```bash
+pip install -r requirements.txt
+python src/main.py --project {resource_name}
+```
+"""
+        zf.writestr("README.md", readme)
+        
+        # requirements.txt
+        zf.writestr("requirements.txt", "google-cloud-pubsub>=2.0.0\n")
+        
+        # src/main.py placeholder
+        zf.writestr("src/main.py", "# Mock simulator main.py\nprint('Mock simulator')\n")
+    
+    zip_buffer.seek(0)
+    
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename=simulator_{resource_name}_{l1_provider}.zip"}
+    )

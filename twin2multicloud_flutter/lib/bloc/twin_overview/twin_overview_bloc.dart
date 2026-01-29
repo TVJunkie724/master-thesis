@@ -45,6 +45,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     on<TwinOverviewLogTraceUpdate>(_onLogTraceUpdate);
     on<TwinOverviewLogTraceComplete>(_onLogTraceComplete);
     on<TwinOverviewLogTraceError>(_onLogTraceError);
+    on<TwinOverviewDownloadSimulator>(_onDownloadSimulator);
+    on<TwinOverviewClearSimulatorBytes>(_onClearSimulatorBytes);
   }
 
   Future<void> _onLoad(
@@ -777,5 +779,53 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       outputsTimestamp: outputsTimestamp,
       outputsError: outputsError,
     );
+  }
+
+  /// Handle simulator download request
+  Future<void> _onDownloadSimulator(
+    TwinOverviewDownloadSimulator event,
+    Emitter<TwinOverviewState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded) return;
+    if (currentState.twinState != 'deployed') return;
+
+    emit(
+      currentState.copyWith(
+        isDownloadingSimulator: true,
+        infoMessage: 'Downloading simulator...',
+      ),
+    );
+
+    try {
+      final bytes = kUseTestDeploy
+          ? await _api.testDownloadSimulator(currentState.twinId)
+          : await _api.downloadSimulator(currentState.twinId);
+      emit(
+        currentState.copyWith(
+          isDownloadingSimulator: false,
+          simulatorBytes: bytes,
+          clearInfo: true,
+        ),
+      );
+    } catch (e) {
+      emit(
+        currentState.copyWith(
+          isDownloadingSimulator: false,
+          errorMessage: 'Download failed: ${ApiErrorHandler.extractMessage(e)}',
+          clearInfo: true,
+        ),
+      );
+    }
+  }
+
+  /// Handle clearing simulator bytes from state
+  void _onClearSimulatorBytes(
+    TwinOverviewClearSimulatorBytes event,
+    Emitter<TwinOverviewState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! TwinOverviewLoaded) return;
+    emit(currentState.copyWith(clearSimulatorBytes: true));
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import '../core/result.dart';
@@ -539,5 +541,31 @@ class ApiService {
       queryParameters: {'duration': duration, 'should_fail': shouldFail},
     );
     return response.data as Map<String, dynamic>;
+  }
+
+  /// Download IoT simulator package (L1 provider determined by backend).
+  /// Returns binary ZIP data.
+  Future<Uint8List> downloadSimulator(String twinId) async {
+    final response = await _dio.get(
+      '/twins/$twinId/simulator/download',
+      options: Options(
+        responseType: ResponseType.bytes,
+        receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+    return response.data as Uint8List;
+  }
+
+  /// [TEST] Download mock simulator package for UI testing.
+  /// Returns binary ZIP data without requiring real Deployer.
+  Future<Uint8List> testDownloadSimulator(String twinId) async {
+    final response = await _dio.get(
+      '/twins/$twinId/simulator/test-download',
+      options: Options(
+        responseType: ResponseType.bytes,
+        receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+    return response.data as Uint8List;
   }
 }
