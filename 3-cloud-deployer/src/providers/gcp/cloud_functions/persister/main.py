@@ -93,6 +93,60 @@ def _is_multi_cloud_storage() -> bool:
     return True
 
 
+def _should_push_to_adt() -> bool:
+    """
+    Check if we should push data to remote ADT Pusher.
+    
+    Returns True only if:
+    1. REMOTE_ADT_PUSHER_URL is set AND non-empty
+    2. ADT_PUSHER_TOKEN is set AND non-empty
+    
+    ADT push is for multi-cloud L4 scenarios where L2 != L4 and L4 = Azure.
+    """
+    remote_url = os.environ.get("REMOTE_ADT_PUSHER_URL", "").strip()
+    token = os.environ.get("ADT_PUSHER_TOKEN", "").strip()
+    return bool(remote_url and token)
+
+
+def _push_to_adt(event: dict) -> None:
+    """
+    Push telemetry to remote ADT Pusher (L4 Multi-Cloud).
+    
+    This is called IN ADDITION TO storage persist, not instead of it.
+    Failures are logged but don't fail the overall persist operation.
+    
+    Args:
+        event: Original telemetry event (with 'timestamp' field)
+    """
+    if not _should_push_to_adt():
+        return
+    
+    remote_url = os.environ.get("REMOTE_ADT_PUSHER_URL")
+    token = os.environ.get("ADT_PUSHER_TOKEN")
+    
+    print(f"Pushing to ADT Pusher at {remote_url}")
+    
+    try:
+        # Build ADT push payload
+        adt_payload = {
+            "device_id": event.get("device_id"),
+            "device_type": event.get("device_type"),
+            "telemetry": event.get("telemetry", {}),
+            "timestamp": event.get("timestamp") or event.get("time")
+        }
+        
+        result = post_to_remote(
+            url=remote_url,
+            token=token,
+            payload=adt_payload,
+            target_layer="L4"
+        )
+        print(f"ADT push successful: {result}")
+    except Exception as e:
+        # Log but don't fail - ADT is secondary to storage
+        print(f"ADT push failed (non-fatal): {e}")
+
+
 @functions_framework.http
 def main(request):
     """
@@ -112,8 +166,12 @@ def main(request):
             return (json.dumps({"error": "Missing 'timestamp' in event. Did normalization run?"}), 400, {"Content-Type": "application/json"})
         
         item = event.copy()
-        # Use timestamp as Firestore document ID for consistency
-        item["id"] = str(item["timestamp"])
+        # Generate document ID (consistent across all clouds)
+        # ID format: {device_id}_{timestamp} for uniqueness and traceability
+        # Timestamp is ISO8601 string from normalize_telemetry() (e.g., "2026-01-28T12:00:00Z")
+        if "device_id" not in item:
+            return (json.dumps({"error": "Missing 'device_id' in event. Cannot generate document ID."}), 400, {"Content-Type": "application/json"})
+        item["id"] = f"{item['device_id']}_{item['timestamp']}"
         # Remove 'time' to avoid duplicate data
         item.pop("time", None)
         
@@ -139,6 +197,9 @@ def main(request):
             doc_ref = db.collection(FIRESTORE_COLLECTION).document(item["id"])
             doc_ref.set(item)
             print("Item persisted to local Firestore.")
+        
+        # Push to ADT (L4) if configured - non-fatal on failure
+        _push_to_adt(event)
         
         # Event checking (only if enabled)
         if os.environ.get("USE_EVENT_CHECKING", "false").lower() == "true":

@@ -949,14 +949,34 @@ class BaseScenarioTest:
             print(f"  [WARN] Could not query ADT: {e}")
     
     def test_12_azure_functions_deployed(self, deployed_environment):
-        """GAP FIX #6: Verify Azure Function Apps have code deployed (not empty)."""
+        """GAP FIX #6: Verify Azure Function Apps have expected functions deployed.
+        
+        Uses the same function_registry logic as bundlers to determine which
+        functions should be deployed for each Azure layer.
+        
+        Verifies:
+        - L0: Dynamic glue functions based on cross-cloud boundaries
+        - L1: IoT acquisition functions (if L1=Azure)  
+        - L2: Processing functions (if L2=Azure)
+        - L3: Hot storage functions (if L3-hot=Azure)
+        - User: User-defined functions (optional, no failure if empty)
+        """
+        from src.function_registry import get_by_layer, get_l0_for_config, Layer
+        
         scenario = deployed_environment["scenario"]
         outputs = deployed_environment["terraform_outputs"]
         credentials = deployed_environment["credentials"]
-        l2_provider = scenario.providers["layer_2_provider"]
+        providers = scenario.providers
         
-        if l2_provider != "azure":
-            pytest.skip("L2 is not Azure - skipping Azure Functions verification")
+        # Check if any Azure layers exist
+        azure_layers = ["layer_1_provider", "layer_2_provider", "layer_3_hot_provider"]
+        has_azure = any(providers.get(layer) == "azure" for layer in azure_layers)
+        
+        # Also check for L0 glue functions (cross-cloud boundaries to Azure)
+        l0_funcs = get_l0_for_config(providers, "azure")
+        
+        if not has_azure and not l0_funcs:
+            pytest.skip("No Azure layers - skipping Azure Functions verification")
         
         azure_creds = credentials.get("azure", {})
         subscription_id = azure_creds.get("azure_subscription_id")
@@ -977,23 +997,92 @@ class BaseScenarioTest:
             
             web_client = WebSiteManagementClient(credential, subscription_id)
             
-            # Check L2 Function App
-            l2_app_name = outputs.get("azure_l2_function_app_name")
-            if l2_app_name:
+            def verify_function_app(app_name: str, expected_funcs: list, layer_name: str, is_optional: bool = False):
+                """Verify a function app has expected functions deployed."""
+                if not app_name:
+                    if not is_optional:
+                        print(f"  [INFO] No {layer_name} Function App in outputs")
+                    return
+                
                 try:
-                    functions = list(web_client.web_apps.list_functions(resource_group, l2_app_name))
-                    if functions:
-                        func_names = [f.name.split('/')[-1] for f in functions]
-                        print(f"  [OK] Azure L2 Functions ({l2_app_name}): {func_names}")
-                    else:
-                        print(f"  [WARN] Azure L2 Functions: App exists but NO functions deployed!")
+                    functions = list(web_client.web_apps.list_functions(resource_group, app_name))
+                    # Azure function names use hyphens (e.g., "hot-reader")
+                    deployed_names = [f.name.split('/')[-1] for f in functions]
+                    
+                    if not functions:
+                        if is_optional:
+                            print(f"  [OK] {layer_name} ({app_name}): Empty (optional)")
+                        else:
+                            pytest.fail(f"{layer_name} ({app_name}): NO functions deployed!")
+                        return
+                    
+                    # Check for missing expected functions
+                    missing = [f for f in expected_funcs if f not in deployed_names]
+                    if missing:
+                        pytest.fail(f"{layer_name} ({app_name}): Missing functions {missing}, got {deployed_names}")
+                    
+                    print(f"  [OK] {layer_name} ({app_name}): {deployed_names}")
+                    
                 except Exception as e:
-                    print(f"  [WARN] Could not list functions for {l2_app_name}: {e}")
-            else:
-                print(f"  [INFO] No L2 Function App in outputs")
+                    # Don't silently pass - re-raise so outer handler can fail properly
+                    raise RuntimeError(f"Could not list functions for {app_name}: {e}")
+            
+            # L0: Dynamic based on cross-cloud boundaries
+            if l0_funcs:
+                l0_app_name = outputs.get("azure_l0_function_app_name")
+                verify_function_app(l0_app_name, l0_funcs, "L0 Glue")
+            
+            # L1: IoT Acquisition (use registry boundary like bundler)
+            if providers.get("layer_1_provider") == "azure":
+                l1_expected = []
+                for f in get_by_layer(Layer.L1_ACQUISITION):
+                    if "azure" not in f.providers:
+                        continue
+                    # Skip functions with boundary when same-cloud (matches bundler logic)
+                    if f.boundary:
+                        src_key, tgt_key = f.boundary
+                        if providers.get(src_key) == providers.get(tgt_key):
+                            continue
+                    l1_expected.append(f.name)
+                l1_app_name = outputs.get("azure_l1_function_app_name")
+                verify_function_app(l1_app_name, l1_expected, "L1 IoT")
+            
+            # L2: Processing (match bundler: include optional if dir exists)
+            if providers.get("layer_2_provider") == "azure":
+                azure_funcs_dir = Path(__file__).parent.parent.parent.parent / "src" / "providers" / "azure" / "azure_functions"
+                l2_expected = []
+                for f in get_by_layer(Layer.L2_PROCESSING):
+                    if "azure" not in f.providers:
+                        continue
+                    func_dir = azure_funcs_dir / f.get_dir_name()
+                    # Match bundler logic: include if not optional OR if dir exists
+                    if not f.is_optional or func_dir.exists():
+                        l2_expected.append(f.name)
+                l2_app_name = outputs.get("azure_l2_function_app_name")
+                verify_function_app(l2_app_name, l2_expected, "L2 Processing")
+            
+            # L3: Hot Storage (match bundler: include optional if dir exists)
+            if providers.get("layer_3_hot_provider") == "azure":
+                azure_funcs_dir = Path(__file__).parent.parent.parent.parent / "src" / "providers" / "azure" / "azure_functions"
+                l3_expected = []
+                for f in get_by_layer(Layer.L3_STORAGE):
+                    if "azure" not in f.providers:
+                        continue
+                    func_dir = azure_funcs_dir / f.get_dir_name()
+                    # Match bundler logic: include if not optional OR if dir exists
+                    if not f.is_optional or func_dir.exists():
+                        l3_expected.append(f.name)
+                l3_app_name = outputs.get("azure_l3_function_app_name")
+                verify_function_app(l3_app_name, l3_expected, "L3 Storage")
+            
+            # User Functions: Optional (don't fail if empty)
+            user_app_name = outputs.get("azure_user_functions_app_name")
+            if user_app_name:
+                verify_function_app(user_app_name, [], "User Functions", is_optional=True)
                 
         except ImportError:
             pytest.skip("azure-mgmt-web SDK not installed")
         except Exception as e:
-            print(f"  [WARN] Could not verify Azure Functions: {e}")
+            # Fail the test on unexpected errors (don't silently pass)
+            pytest.fail(f"Azure Functions verification failed: {e}")
 

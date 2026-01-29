@@ -227,9 +227,9 @@ def _build_azure_function_zips(project_dir: Path, providers: dict, optimization_
             zip_paths["azure_l0_zip_path"] = str(l0_path)
             logger.info("    ✓ L0 ZIP built")
         
-        # Build L1 dispatcher
+        # Build L1 dispatcher (connector skipped if L1=L2 same-cloud)
         if providers.get("layer_1_provider") == "azure":
-            l1_path = build_azure_l1_bundle(project_dir)
+            l1_path = build_azure_l1_bundle(project_dir, providers)
             if l1_path:
                 zip_paths["azure_l1_zip_path"] = str(l1_path)
                 logger.info("    ✓ L1 ZIP built")

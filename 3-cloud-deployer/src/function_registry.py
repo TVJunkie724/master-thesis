@@ -142,6 +142,8 @@ STATIC_FUNCTIONS: List[FunctionDefinition] = [
     FunctionDefinition(
         name="connector",
         layer=Layer.L1_ACQUISITION,
+        # Connector bridges L1→L2 cross-cloud: only needed when L1 != L2
+        boundary=("layer_1_provider", "layer_2_provider"),
     ),
     
     # L2: Processing

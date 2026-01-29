@@ -206,12 +206,17 @@ def build_azure_l0_bundle(project_path: Path, providers_config: dict) -> Optiona
 
 
 
-def build_azure_l1_bundle(project_path: Path) -> Optional[Path]:
+def build_azure_l1_bundle(project_path: Path, providers_config: dict = None) -> Optional[Path]:
     """Build L1 Dispatcher functions ZIP. Returns path or None.
     
     Uses content-hash-based filename to force Azure redeployment when content changes.
+    
+    Args:
+        project_path: Path to project directory
+        providers_config: Optional provider config for conditional function inclusion.
+                         If L1 and L2 use same provider, connector is excluded.
     """
-    zip_bytes = _azure_bundle_l1(str(project_path))
+    zip_bytes = _azure_bundle_l1(str(project_path), providers_config)
     if not zip_bytes:
         return None
     build_dir = project_path / ".terraform_zips"

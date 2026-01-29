@@ -494,8 +494,15 @@ def bundle_l0_functions(
     return zip_buffer.getvalue(), functions_to_include
 
 
-def bundle_l1_functions(project_path: str) -> bytes:
-    """Bundle L1 functions (dispatcher) using Blueprint pattern."""
+def bundle_l1_functions(project_path: str, providers_config: dict = None) -> bytes:
+    """Bundle L1 functions (dispatcher) using Blueprint pattern.
+    
+    Args:
+        project_path: Path to project directory
+        providers_config: Optional provider config to conditionally skip functions.
+                         If provided, functions with boundary attributes are skipped
+                         when the boundary providers match (same-cloud optimization).
+    """
     if not project_path:
         raise ValueError("project_path is required")
     
@@ -504,9 +511,19 @@ def bundle_l1_functions(project_path: str) -> bytes:
     if not core_functions_dir.exists():
         raise BundleError(f"Core azure_functions directory not found: {core_functions_dir}")
     
-    # Use registry
+    # Use registry with boundary check
     l1_funcs = get_by_layer(Layer.L1_ACQUISITION)
-    functions = [f.get_dir_name() for f in l1_funcs if "azure" in f.providers]
+    functions = []
+    for f in l1_funcs:
+        if "azure" not in f.providers:
+            continue
+        # Skip functions with boundaries when same-cloud (like L0 logic)
+        if f.boundary and providers_config:
+            src_key, tgt_key = f.boundary
+            if providers_config.get(src_key) == providers_config.get(tgt_key):
+                logger.info(f"Skipping {f.name} (same-cloud L1→L2)")
+                continue
+        functions.append(f.get_dir_name())
     
     logger.info(f"Bundling L1 functions from {core_functions_dir}: {functions}")
     
