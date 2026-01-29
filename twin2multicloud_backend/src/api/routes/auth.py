@@ -1,3 +1,12 @@
+"""Authentication API endpoints.
+
+Provides OAuth and SAML authentication flows for Google and UIBK SSO.
+
+**Key flows:**
+- Google OAuth: /auth/google/login → callback → JWT
+- UIBK SAML: /auth/uibk/login → callback → JWT
+- User info: /auth/me for current user details
+"""
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
@@ -12,6 +21,7 @@ from src.auth.jwt import create_access_token
 from src.schemas.auth import TokenResponse
 from src.api.dependencies import get_current_user
 from src.config import settings
+from src.api.routes.agentic_models import AGENTIC_ERROR_RESPONSES
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -23,7 +33,12 @@ oauth_states: dict[str, str] = {}
 # Google OAuth Routes
 # ============================================================================
 
-@router.get("/google/login")
+@router.get(
+    "/google/login",
+    operation_id="initiateGoogleLogin",
+    summary="Initiate Google OAuth flow",
+    description="Returns auth_url to redirect user to Google for authentication."
+)
 async def google_login():
     """Initiate Google OAuth flow."""
     state = secrets.token_urlsafe(32)
@@ -34,13 +49,21 @@ async def google_login():
     
     return {"auth_url": auth_url}
 
-@router.get("/google/callback")
+@router.get(
+    "/google/callback",
+    operation_id="handleGoogleCallback",
+    summary="Handle Google OAuth callback",
+    description="Exchanges code for tokens, creates/updates user, issues JWT.",
+    responses={
+        400: AGENTIC_ERROR_RESPONSES[400],
+    }
+)
 async def google_callback(
     code: str = Query(...),
     state: str = Query(...),
     db: Session = Depends(get_db)
 ):
-    """Handle Google OAuth callback."""
+    """Handle Google OAuth callback."""""
     # Verify state
     if state not in oauth_states:
         raise HTTPException(status_code=400, detail="Invalid state")
@@ -202,14 +225,32 @@ async def uibk_metadata():
 # Common Routes
 # ============================================================================
 
-@router.get("/me", response_model=dict)
+@router.get(
+    "/me", 
+    response_model=dict,
+    operation_id="getCurrentUser",
+    summary="Get current authenticated user details",
+    responses={
+        401: AGENTIC_ERROR_RESPONSES[401],
+    }
+)
 async def get_me(
     current_user: User = Depends(get_current_user)
 ):
-    """Get current authenticated user."""
+    """Get current authenticated user."""""
     return _build_user_response(current_user)
 
-@router.patch("/me", response_model=dict)
+@router.patch(
+    "/me", 
+    response_model=dict,
+    operation_id="updateCurrentUser",
+    summary="Update current user preferences",
+    description="Updates user preferences like theme_preference (light/dark).",
+    responses={
+        400: AGENTIC_ERROR_RESPONSES[400],
+        401: AGENTIC_ERROR_RESPONSES[401],
+    }
+)
 async def update_me(
     updates: dict,
     current_user: User = Depends(get_current_user),
@@ -242,7 +283,12 @@ def _build_user_response(user: User) -> dict:
         "google_linked": user.google_id is not None,
     }
 
-@router.get("/providers")
+@router.get(
+    "/providers",
+    operation_id="getAvailableAuthProviders",
+    summary="Get list of available authentication providers",
+    description="Returns which auth methods are enabled (google, uibk)."
+)
 async def get_available_providers():
     """Get list of available authentication providers."""
     providers = ["google"]  # Always available

@@ -1,3 +1,14 @@
+"""Deployer Configuration API endpoints.
+
+Manages deployer config for digital twins, including config validation,
+GLB file uploads, and project.zip extraction for wizard auto-population.
+
+**Key endpoints:**
+- GET/PUT /config: Deployer configuration CRUD
+- POST /validate/{type}: Validate config via Deployer API
+- POST /upload-glb: Upload 3D scene file
+- POST /upload-zip: Extract project.zip for wizard
+"""
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 import httpx
@@ -18,12 +29,23 @@ from src.schemas.deployer_config import (
 )
 from src.config import settings
 from src.services.twin_helpers import get_user_twin
+from src.api.routes.agentic_models import AGENTIC_ERROR_RESPONSES
 
 router = APIRouter(prefix="/twins/{twin_id}/deployer", tags=["deployer"])
 
 
 
-@router.get("/config", response_model=DeployerConfigResponse)
+@router.get(
+    "/config", 
+    response_model=DeployerConfigResponse,
+    operation_id="getDeployerConfig",
+    summary="Get deployer configuration for a twin",
+    description="Returns deployer config, creating default if none exists.",
+    responses={
+        401: AGENTIC_ERROR_RESPONSES[401],
+        404: AGENTIC_ERROR_RESPONSES[404],
+    }
+)
 async def get_deployer_config(
     twin_id: str,
     db: Session = Depends(get_db),
@@ -43,7 +65,18 @@ async def get_deployer_config(
     return DeployerConfigResponse.from_db(config)
 
 
-@router.put("/config", response_model=DeployerConfigResponse)
+@router.put(
+    "/config", 
+    response_model=DeployerConfigResponse,
+    operation_id="updateDeployerConfig",
+    summary="Update deployer configuration",
+    description="Updates deployer config fields. Blocked for deployed twins.",
+    responses={
+        400: AGENTIC_ERROR_RESPONSES[400],
+        401: AGENTIC_ERROR_RESPONSES[401],
+        404: AGENTIC_ERROR_RESPONSES[404],
+    }
+)
 async def update_deployer_config(
     twin_id: str,
     update: DeployerConfigUpdate,
@@ -146,7 +179,18 @@ async def update_deployer_config(
     return {**response.dict(), "twin_state": twin.state.value}
 
 
-@router.post("/validate/{config_type}", response_model=ConfigValidationResponse)
+@router.post(
+    "/validate/{config_type}", 
+    response_model=ConfigValidationResponse,
+    operation_id="validateDeployerConfigSection",
+    summary="Validate a deployer config section via Deployer API",
+    description="Validates events, iot, config, payloads, function-code, state-machine, hierarchy, scene-config, or user-config.",
+    responses={
+        400: AGENTIC_ERROR_RESPONSES[400],
+        401: AGENTIC_ERROR_RESPONSES[401],
+        404: AGENTIC_ERROR_RESPONSES[404],
+    }
+)
 async def validate_config(
     twin_id: str,
     config_type: str,
@@ -313,7 +357,18 @@ async def validate_config(
 # ==========================================
 # GLB File Upload/Delete for L4 Scene
 # ==========================================
-@router.post("/upload-glb")
+@router.post(
+    "/upload-glb",
+    operation_id="uploadSceneGlb",
+    summary="Upload 3D scene GLB file",
+    description="Saves scene.glb for 3D visualization (max 100MB).",
+    responses={
+        400: AGENTIC_ERROR_RESPONSES[400],
+        401: AGENTIC_ERROR_RESPONSES[401],
+        404: AGENTIC_ERROR_RESPONSES[404],
+        500: AGENTIC_ERROR_RESPONSES[500],
+    }
+)
 async def upload_scene_glb(
     twin_id: str,
     file: UploadFile = File(..., description="Scene GLB file (max 100MB)"),
@@ -361,7 +416,15 @@ async def upload_scene_glb(
         raise HTTPException(status_code=500, detail=f"Failed to save GLB file: {str(e)}")
 
 
-@router.delete("/upload-glb")
+@router.delete(
+    "/upload-glb",
+    operation_id="deleteSceneGlb",
+    summary="Delete 3D scene GLB file",
+    responses={
+        401: AGENTIC_ERROR_RESPONSES[401],
+        404: AGENTIC_ERROR_RESPONSES[404],
+    }
+)
 async def delete_scene_glb(
     twin_id: str,
     db: Session = Depends(get_db),
@@ -399,7 +462,17 @@ async def delete_scene_glb(
 # ==========================================
 # Zip Upload and Extraction for Wizard
 # ==========================================
-@router.post("/upload-zip")
+@router.post(
+    "/upload-zip",
+    operation_id="uploadProjectZip",
+    summary="Upload project.zip for wizard auto-population",
+    description="Extracts zip and returns content for Step 3 fields. Saves GLB if present.",
+    responses={
+        401: AGENTIC_ERROR_RESPONSES[401],
+        404: AGENTIC_ERROR_RESPONSES[404],
+        413: {"description": "File too large (max 100MB)"},
+    }
+)
 async def upload_project_zip(
     twin_id: str,
     file: UploadFile = File(..., description="Project zip file to extract"),
