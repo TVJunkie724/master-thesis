@@ -4,15 +4,21 @@ Permissions API endpoints for validating cloud provider credentials.
 Provides endpoints for verifying cloud credentials against required permissions.
 Supports AWS, Azure, and GCP credential validation.
 
-Categories:
-- "Permissions - Upload": Verify credentials from request body
-- "Permissions - Project": Verify credentials from project config
+**Endpoint categories:**
+- "Permissions - Upload": Verify credentials from request body (for UI forms)
+- "Permissions - Project": Verify credentials from project config file
+
+**Use before:**
+- Refreshing pricing data (AWS/GCP require valid credentials)
+- Running calculations (to ensure credentials will work for deployment)
+- Deploying infrastructure (credentials are required for Terraform)
 """
 from fastapi import APIRouter
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 
 from backend import credentials_checker
+from api.agentic_models import AGENTIC_ERROR_RESPONSES
 
 router = APIRouter(prefix="/permissions")
 
@@ -74,8 +80,9 @@ class AzureCredentialsRequest(BaseModel):
 
 @router.get(
     "/verify/aws",
+    operation_id="verifyAwsCredentialsFromConfig",
     tags=["Permissions - Project"],
-    summary="Verify AWS permissions from project config",
+    summary="Verify AWS permissions using project config credentials",
     description=(
         "Validates AWS credentials loaded from the config file. "
         "Checks: credentials present, STS GetCallerIdentity succeeds, "
@@ -110,6 +117,7 @@ def check_aws_from_config():
 
 @router.post(
     "/verify/aws",
+    operation_id="verifyAwsCredentialsFromBody",
     tags=["Permissions - Upload"],
     summary="Verify AWS permissions from request body",
     description=(
@@ -128,8 +136,9 @@ def check_aws_from_body(request: AWSCredentialsRequest):
 
 @router.get(
     "/verify/gcp",
+    operation_id="verifyGcpCredentialsFromConfig",
     tags=["Permissions - Project"],
-    summary="Verify GCP permissions from project config",
+    summary="Verify GCP permissions using project config credentials",
     description=(
         "Validates GCP service account credentials loaded from the config. "
         "Checks: credentials file exists, can load credentials, "
@@ -164,6 +173,7 @@ def check_gcp_from_config():
 
 @router.post(
     "/verify/gcp",
+    operation_id="verifyGcpCredentialsFromBody",
     tags=["Permissions - Upload"],
     summary="Verify GCP permissions from request body",
     description=(
@@ -181,8 +191,9 @@ def check_gcp_from_body(request: GCPCredentialsRequest):
 
 @router.get(
     "/verify/azure",
+    operation_id="verifyAzureCredentialsFromConfig",
     tags=["Permissions - Project"],
-    summary="Verify Azure permissions from project config",
+    summary="Verify Azure configuration using project config",
     description=(
         "Validates Azure configuration loaded from the config file. "
         "Note: Azure Pricing API is publicly accessible, so credentials "
@@ -219,8 +230,9 @@ def check_azure_from_config():
 
 @router.post(
     "/verify/azure",
+    operation_id="verifyAzureCredentialsFromBody",
     tags=["Permissions - Upload"],
-    summary="Verify Azure permissions from request body",
+    summary="Verify Azure configuration from request body",
     description=(
         "Validates Azure configuration provided in the request body. "
         "Note: Azure Pricing API is publicly accessible."

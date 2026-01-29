@@ -1,5 +1,9 @@
 """
 Calculation API endpoints.
+
+This module provides the core cost optimization endpoint for Digital Twin deployments.
+It calculates the optimal cloud provider distribution across all 5 architectural layers
+based on current pricing data and user-defined scenario parameters.
 """
 from fastapi import APIRouter, Body, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -7,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from backend.logger import logger
 from backend.utils import print_stack_trace
 from backend.config_loader import load_combined_pricing
+from api.agentic_models import AGENTIC_ERROR_RESPONSES
 
 router = APIRouter(tags=["Calculation"])
 
@@ -115,24 +120,37 @@ class CalcParams(BaseModel):
 # --------------------------------------------------
 @router.put(
     "/calculate",
-    summary="Calculate Cloud Costs and Determine Cheapest Provider Setup",
+    operation_id="calculateOptimalCloudDistribution",
+    summary="Calculate optimal multi-cloud cost distribution for Digital Twin deployment",
     description=(
-        "This endpoint receives a complete set of **Digital Twin scenario parameters**, "
-        "processes them through the Python calculation engine, and returns "
-        "the calculated cost breakdown for AWS, Azure, and GCP, along with the optimal provider "
-        "per architectural layer (L1–L5)."
-        "\n"
-        "**Layers overview:**\n"
-        "- **L1:** IoT Data Acquisition & Processing\n"
-        "- **L2:** Storage (Hot, Cool, Archive)\n"
-        "- **L3:** Data Processing & Integration\n"
-        "- **L4:** Twin Management (3D model)\n"
-        "- **L5:** Data Visualization (Dashboards)"
+        "**Purpose:** Computes the most cost-effective distribution of Digital Twin services "
+        "across AWS, Azure, and GCP based on your scenario parameters and current cloud pricing.\n\n"
+        
+        "**When to use this endpoint:**\n"
+        "- Before deploying a new Digital Twin to determine the cheapest provider configuration\n"
+        "- When comparing costs across different scenario configurations\n"
+        "- To understand cost breakdown by architectural layer\n\n"
+        
+        "**How it works:**\n"
+        "1. Takes your Digital Twin parameters (device count, message frequency, storage needs, etc.)\n"
+        "2. Loads current pricing data for all three cloud providers\n"
+        "3. Calculates costs for each of the 5 architectural layers on each provider\n"
+        "4. Returns the optimal provider per layer and detailed cost breakdowns\n\n"
+        
+        "**The 5 Architectural Layers:**\n"
+        "- **L1 (Ingestion):** IoT data acquisition - receives telemetry from devices\n"
+        "- **L2 (Storage):** Hot/Cool/Archive storage tiers - each can be on different providers\n"
+        "- **L3 (Processing):** Data processing, event detection, notifications\n"
+        "- **L4 (Management):** Digital Twin entity management and 3D modeling\n"
+        "- **L5 (Visualization):** Dashboards and user interfaces\n\n"
+        
+        "**Important:** This is a calculation-only endpoint. It does not deploy any resources. "
+        "Use the Deployer API's `/infrastructure/deploy` to actually provision infrastructure."
     ),
-    response_description="JSON object containing cost breakdowns and cheapest provider path.",
+    response_description="Complete cost analysis with optimal provider per layer and detailed breakdowns",
     responses={
         200: {
-            "description": "Successful calculation of costs and cheapest cloud configuration.",
+            "description": "Successful calculation - returns cost breakdown and optimal configuration",
             "content": {
                 "application/json": {
                     "example": {
@@ -141,20 +159,23 @@ class CalcParams(BaseModel):
                                 "L1": "GCP",
                                 "L2": {"Hot": "AWS", "Cool": "GCP", "Archive": "AWS"},
                                 "L3": "AWS",
-                                "L4": "GCP",
+                                "L4": "Azure",
                                 "L5": "GCP"
                             },
-                            "awsCosts": "...",
-                            "azureCosts": "...",
-                            "gcpCosts": "...",
-                            "cheapestPath": ["L1_GCP", "L2_AWS_Hot", "L2_GCP_Cool", "L2_AWS_Archive", "L3_AWS", "L4_GCP", "L5_GCP"]
+                            "awsCosts": {"L1": 12.50, "L2_Hot": 5.00, "L2_Cool": 8.00, "L2_Archive": 2.00},
+                            "azureCosts": {"L1": 15.00, "L4": 20.00},
+                            "gcpCosts": {"L1": 10.00, "L5": 18.00},
+                            "cheapestPath": ["L1_GCP", "L2_AWS_Hot", "L2_GCP_Cool", "L2_AWS_Archive", "L3_AWS", "L4_Azure", "L5_GCP"],
+                            "totalMonthlyCost": 85.50,
+                            "currency": "USD"
                         }
                     }
                 }
             },
         },
-        400: {"description": "Invalid input parameters."},
-        500: {"description": "Internal error during cost calculation."},
+        400: AGENTIC_ERROR_RESPONSES[400],
+        422: AGENTIC_ERROR_RESPONSES[422],
+        500: AGENTIC_ERROR_RESPONSES[500],
     },
 )
 def calc(params: CalcParams = Body(

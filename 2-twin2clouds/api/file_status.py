@@ -1,5 +1,14 @@
 """
 File Status API endpoints for checking age and validity of cached data files.
+
+This module provides endpoints for checking whether cached pricing and region data
+is fresh or stale. Agents should use these endpoints before running calculations
+to determine if pricing data needs to be refreshed.
+
+**Freshness thresholds:**
+- Pricing data: 7 days
+- AWS/Azure regions: 7 days
+- GCP regions: 30 days (due to slow fetch time)
 """
 import os
 from fastapi import APIRouter
@@ -8,6 +17,7 @@ from backend.logger import logger
 from backend.utils import get_file_age_string, is_file_fresh
 from backend.config_loader import load_json_file
 import backend.constants as CONSTANTS
+from api.agentic_models import AGENTIC_ERROR_RESPONSES
 
 router = APIRouter(tags=["File Status"])
 
@@ -22,15 +32,34 @@ REGIONS_THRESHOLD_GCP = 30
 # Pricing Age Endpoints
 # --------------------------------------------------
 
-@router.get("/pricing_age/aws", summary="Get AWS Pricing File Status")
+@router.get(
+    "/pricing_age/aws",
+    operation_id="getAwsPricingStatus",
+    summary="Check age and validity of cached AWS pricing data",
+    description=(
+        "**Purpose:** Check if AWS pricing data is fresh and valid before running calculations.\n\n"
+        "**Use this to decide:** Should I call `refreshAwsPricing` before `calculateOptimalCloudDistribution`?\n\n"
+        "**Response fields:**\n"
+        "- `is_fresh`: true if data aged < 7 days\n"
+        "- `status`: 'valid', 'incomplete', 'missing', or 'error'\n"
+        "- `missing_keys`: service keys that are missing if incomplete"
+    ),
+    responses={
+        200: {
+            "description": "Pricing file status",
+            "content": {"application/json": {"example": {
+                "age": "3 days",
+                "status": "valid",
+                "missing_keys": [],
+                "is_fresh": True,
+                "threshold_days": 7
+            }}}
+        }
+    }
+)
 def get_pricing_age_aws():
     """
     Checks the age and validity of the local AWS pricing data file.
-    
-    **Returns**:
-    - **age**: Time since last update (e.g., "3 days").
-    - **status**: Validation status (`valid`, `incomplete`, `missing`, `error`).
-    - **missing_keys**: List of missing service keys if status is `incomplete`.
     """
     age = get_file_age_string(CONSTANTS.AWS_PRICING_FILE_PATH)
     status = "missing"
@@ -56,15 +85,30 @@ def get_pricing_age_aws():
     }
 
 
-@router.get("/pricing_age/azure", summary="Get Azure Pricing File Status")
+@router.get(
+    "/pricing_age/azure",
+    operation_id="getAzurePricingStatus",
+    summary="Check age and validity of cached Azure pricing data",
+    description=(
+        "**Purpose:** Check if Azure pricing data is fresh and valid before running calculations.\n\n"
+        "**Use this to decide:** Should I call `refreshAzurePricing` before `calculateOptimalCloudDistribution`?"
+    ),
+    responses={
+        200: {
+            "description": "Pricing file status",
+            "content": {"application/json": {"example": {
+                "age": "1 day",
+                "status": "valid",
+                "missing_keys": [],
+                "is_fresh": True,
+                "threshold_days": 7
+            }}}
+        }
+    }
+)
 def get_pricing_age_azure():
     """
     Checks the age and validity of the local Azure pricing data file.
-    
-    **Returns**:
-    - **age**: Time since last update.
-    - **status**: Validation status (`valid`, `incomplete`, `missing`, `error`).
-    - **missing_keys**: List of missing service keys if status is `incomplete`.
     """
     age = get_file_age_string(CONSTANTS.AZURE_PRICING_FILE_PATH)
     status = "missing"
@@ -90,15 +134,30 @@ def get_pricing_age_azure():
     }
 
 
-@router.get("/pricing_age/gcp", summary="Get GCP Pricing File Status")
+@router.get(
+    "/pricing_age/gcp",
+    operation_id="getGcpPricingStatus",
+    summary="Check age and validity of cached GCP pricing data",
+    description=(
+        "**Purpose:** Check if GCP pricing data is fresh and valid before running calculations.\n\n"
+        "**Use this to decide:** Should I call `refreshGcpPricing` before `calculateOptimalCloudDistribution`?"
+    ),
+    responses={
+        200: {
+            "description": "Pricing file status",
+            "content": {"application/json": {"example": {
+                "age": "5 days",
+                "status": "valid",
+                "missing_keys": [],
+                "is_fresh": True,
+                "threshold_days": 7
+            }}}
+        }
+    }
+)
 def get_pricing_age_gcp():
     """
     Checks the age and validity of the local GCP pricing data file.
-    
-    **Returns**:
-    - **age**: Time since last update.
-    - **status**: Validation status (`valid`, `incomplete`, `missing`, `error`).
-    - **missing_keys**: List of missing service keys if status is `incomplete`.
     """
     age = get_file_age_string(CONSTANTS.GCP_PRICING_FILE_PATH)
     status = "missing"
@@ -128,13 +187,20 @@ def get_pricing_age_gcp():
 # Regions Age Endpoints
 # --------------------------------------------------
 
-@router.get("/regions_age/aws", summary="Get AWS Regions File Age")
+@router.get(
+    "/regions_age/aws",
+    operation_id="getAwsRegionsStatus",
+    summary="Check age of cached AWS regions data",
+    description="Returns the age and freshness of the local AWS regions cache.",
+    responses={
+        200: {
+            "description": "Regions file status",
+            "content": {"application/json": {"example": {"age": "2 days", "is_fresh": True, "threshold_days": 7}}}
+        }
+    }
+)
 def get_regions_age_aws():
-    """
-    Returns the age and freshness of the local AWS regions data file.
-    
-    **Returns**: age, is_fresh (bool), threshold_days (int).
-    """
+    """Returns the age and freshness of the local AWS regions data file."""
     return {
         "age": get_file_age_string(CONSTANTS.AWS_REGIONS_FILE_PATH),
         "is_fresh": is_file_fresh(CONSTANTS.AWS_REGIONS_FILE_PATH, REGIONS_THRESHOLD_AWS),
@@ -142,13 +208,20 @@ def get_regions_age_aws():
     }
 
 
-@router.get("/regions_age/azure", summary="Get Azure Regions File Age")
+@router.get(
+    "/regions_age/azure",
+    operation_id="getAzureRegionsStatus",
+    summary="Check age of cached Azure regions data",
+    description="Returns the age and freshness of the local Azure regions cache.",
+    responses={
+        200: {
+            "description": "Regions file status",
+            "content": {"application/json": {"example": {"age": "4 days", "is_fresh": True, "threshold_days": 7}}}
+        }
+    }
+)
 def get_regions_age_azure():
-    """
-    Returns the age and freshness of the local Azure regions data file.
-    
-    **Returns**: age, is_fresh (bool), threshold_days (int).
-    """
+    """Returns the age and freshness of the local Azure regions data file."""
     return {
         "age": get_file_age_string(CONSTANTS.AZURE_REGIONS_FILE_PATH),
         "is_fresh": is_file_fresh(CONSTANTS.AZURE_REGIONS_FILE_PATH, REGIONS_THRESHOLD_AZURE),
@@ -156,13 +229,20 @@ def get_regions_age_azure():
     }
 
 
-@router.get("/regions_age/gcp", summary="Get GCP Regions File Age")
+@router.get(
+    "/regions_age/gcp",
+    operation_id="getGcpRegionsStatus",
+    summary="Check age of cached GCP regions data",
+    description="Returns the age and freshness of the local GCP regions cache (30-day threshold).",
+    responses={
+        200: {
+            "description": "Regions file status",
+            "content": {"application/json": {"example": {"age": "15 days", "is_fresh": True, "threshold_days": 30}}}
+        }
+    }
+)
 def get_regions_age_gcp():
-    """
-    Returns the age and freshness of the local GCP regions data file.
-    
-    **Returns**: age, is_fresh (bool), threshold_days (int=30).
-    """
+    """Returns the age and freshness of the local GCP regions data file."""
     return {
         "age": get_file_age_string(CONSTANTS.GCP_REGIONS_FILE_PATH),
         "is_fresh": is_file_fresh(CONSTANTS.GCP_REGIONS_FILE_PATH, REGIONS_THRESHOLD_GCP),
@@ -174,11 +254,18 @@ def get_regions_age_gcp():
 # Currency Age Endpoint
 # --------------------------------------------------
 
-@router.get("/currency_age", summary="Get Currency File Age")
+@router.get(
+    "/currency_age",
+    operation_id="getCurrencyRatesStatus",
+    summary="Check age of cached currency exchange rates",
+    description="Returns the age of the local currency conversion rates file.",
+    responses={
+        200: {
+            "description": "Currency file age",
+            "content": {"application/json": {"example": {"age": "12 hours"}}}
+        }
+    }
+)
 def get_currency_age():
-    """
-    Returns the age of the local currency conversion rates file.
-    
-    **Returns**: A JSON object with the `age` string.
-    """
+    """Returns the age of the local currency conversion rates file."""
     return {"age": get_file_age_string(CONSTANTS.CURRENCY_CONVERSION_FILE_PATH)}

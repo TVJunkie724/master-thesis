@@ -1,13 +1,21 @@
 """
 Pricing API endpoints for fetching cloud provider pricing data.
+
+This module provides endpoints for refreshing and retrieving cloud pricing data
+from AWS, Azure, and GCP. Pricing data is cached locally for 7 days and can be
+force-refreshed when needed. The data is used by the calculation engine to
+determine optimal cloud provider distribution.
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional
 
 from backend.logger import logger
 from backend.utils import is_file_fresh
 from backend.config_loader import load_json_file
 from backend.fetch_data.calculate_up_to_date_pricing import calculate_up_to_date_pricing
 import backend.constants as CONSTANTS
+from api.agentic_models import AGENTIC_ERROR_RESPONSES
 
 router = APIRouter(tags=["Pricing"])
 
@@ -16,7 +24,27 @@ router = APIRouter(tags=["Pricing"])
 # Pricing Fetching Endpoints
 # --------------------------------------------------
 
-@router.post("/fetch_pricing/aws", summary="Fetch AWS Pricing")
+@router.post(
+    "/fetch_pricing/aws",
+    operation_id="refreshAwsPricing",
+    summary="Refresh AWS pricing data from Price List API",
+    description=(
+        "**Purpose:** Fetches current AWS pricing data and caches it locally for use in cost calculations.\n\n"
+        "**When to use:**\n"
+        "- Before running calculations if pricing data is stale (>7 days old)\n"
+        "- When you need guaranteed fresh pricing data\n"
+        "- After AWS announces pricing changes\n\n"
+        "**Behavior:**\n"
+        "- Uses cached data if less than 7 days old (unless force_fetch=true)\n"
+        "- Requires valid AWS credentials in config_credentials.json\n"
+        "- May take 30-60 seconds for a full refresh"
+    ),
+    responses={
+        200: {"description": "Pricing data (cached or freshly fetched)"},
+        401: AGENTIC_ERROR_RESPONSES[401],
+        500: AGENTIC_ERROR_RESPONSES[500],
+    }
+)
 def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False):
     """
     Fetches the latest AWS pricing data.
@@ -42,7 +70,24 @@ def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False)
         raise HTTPException(status_code=500, detail="Failed to fetch AWS pricing. Check server logs.")
 
 
-@router.post("/fetch_pricing/azure", summary="Fetch Azure Pricing")
+@router.post(
+    "/fetch_pricing/azure",
+    operation_id="refreshAzurePricing",
+    summary="Refresh Azure pricing data from Retail Prices API",
+    description=(
+        "**Purpose:** Fetches current Azure pricing data and caches it locally.\n\n"
+        "**When to use:**\n"
+        "- Before running calculations if pricing data is stale\n"
+        "- The Azure Retail Prices API is public - no credentials required\n\n"
+        "**Behavior:**\n"
+        "- Uses cached data if less than 7 days old (unless force_fetch=true)\n"
+        "- No authentication required (public API)"
+    ),
+    responses={
+        200: {"description": "Pricing data (cached or freshly fetched)"},
+        500: AGENTIC_ERROR_RESPONSES[500],
+    }
+)
 def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = False):
     """
     Fetches the latest Azure pricing data.
@@ -68,7 +113,25 @@ def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = Fals
         raise HTTPException(status_code=500, detail="Failed to fetch Azure pricing. Check server logs.")
 
 
-@router.post("/fetch_pricing/gcp", summary="Fetch GCP Pricing")
+@router.post(
+    "/fetch_pricing/gcp",
+    operation_id="refreshGcpPricing",
+    summary="Refresh GCP pricing data from Cloud Billing API",
+    description=(
+        "**Purpose:** Fetches current Google Cloud pricing data and caches it locally.\n\n"
+        "**When to use:**\n"
+        "- Before running calculations if pricing data is stale (>7 days old)\n"
+        "- Requires valid GCP service account credentials\n\n"
+        "**Behavior:**\n"
+        "- Uses cached data if less than 7 days old (unless force_fetch=true)\n"
+        "- Requires gcp_credentials.json with Cloud Billing Catalog API access"
+    ),
+    responses={
+        200: {"description": "Pricing data (cached or freshly fetched)"},
+        401: AGENTIC_ERROR_RESPONSES[401],
+        500: AGENTIC_ERROR_RESPONSES[500],
+    }
+)
 def fetch_pricing_gcp(additional_debug: bool = False, force_fetch: bool = False):
     """
     Fetches the latest Google Cloud Platform (GCP) pricing data.
@@ -98,7 +161,24 @@ def fetch_pricing_gcp(additional_debug: bool = False, force_fetch: bool = False)
 # Currency Endpoint
 # --------------------------------------------------
 
-@router.post("/fetch_currency", summary="Fetch Currency Rates")
+@router.post(
+    "/fetch_currency",
+    operation_id="refreshCurrencyRates",
+    summary="Refresh currency exchange rates (USD/EUR)",
+    description=(
+        "**Purpose:** Fetches current currency exchange rates for cost display.\n\n"
+        "**When to use:**\n"
+        "- The calculation engine uses these rates to convert costs between currencies\n"
+        "- Rates are cached for 1 day"
+    ),
+    responses={
+        200: {
+            "description": "Current exchange rates",
+            "content": {"application/json": {"example": {"USD": 1.0, "EUR": 0.92}}}
+        },
+        500: AGENTIC_ERROR_RESPONSES[500],
+    }
+)
 def fetch_currency_rates():
     """
     Fetches up-to-date currency exchange rates (USD/EUR).
@@ -124,7 +204,31 @@ def fetch_currency_rates():
 import os
 from datetime import datetime, timezone
 
-@router.get("/pricing/export/{provider}", summary="Export Pricing for Snapshot")
+@router.get(
+    "/pricing/export/{provider}",
+    operation_id="exportPricingSnapshot",
+    summary="Export cached pricing data for audit/snapshot purposes",
+    description=(
+        "**Purpose:** Returns the complete cached pricing data for a provider with metadata.\n\n"
+        "**When to use:**\n"
+        "- To capture exact pricing data used in a calculation for audit trail\n"
+        "- To understand what pricing data is currently cached\n\n"
+        "**Parameters:**\n"
+        "- provider: 'aws', 'azure', or 'gcp'"
+    ),
+    responses={
+        200: {
+            "description": "Full pricing data with metadata",
+            "content": {"application/json": {"example": {
+                "provider": "aws",
+                "updated_at": "2026-01-29T10:00:00Z",
+                "pricing": {"...full pricing object..."}
+            }}}
+        },
+        400: AGENTIC_ERROR_RESPONSES[400],
+        404: AGENTIC_ERROR_RESPONSES[404],
+    }
+)
 def export_pricing(provider: str):
     """
     Export full pricing JSON for a provider (for snapshotting).

@@ -6,12 +6,11 @@ This module provides endpoints for checking deployment status using a hybrid app
 2. Hash Metadata: User function deployment status from .build/metadata/
 3. SDK Managed: Dynamic resources checked via cloud SDK (TwinMaker, IoT, Grafana)
 
-Endpoints:
+**Key endpoint:**
 - GET /infrastructure/status: Unified status check with categorized output
-- GET /infrastructure/status?detailed=true: Includes terraform plan -refresh-only for drift detection
+- GET /infrastructure/status?detailed=true: Includes drift detection (slower)
 
-Architecture:
-    Infrastructure (Terraform State) + User Functions (Hash Metadata) + SDK Managed (API Calls)
+**Use before:** Deploying (check if already deployed) or in dashboards.
 """
 
 import json
@@ -26,6 +25,7 @@ import src.core.state as state
 import src.validator as validator
 from api.dependencies import validate_project_context
 from logger import print_stack_trace, logger
+from api.agentic_models import AGENTIC_ERROR_RESPONSES
 
 
 def _get_upload_dir(project_name: str) -> str:
@@ -397,11 +397,23 @@ def check_terraform_drift(project_name: str) -> Dict[str, Any]:
 
 @router.get(
     "/infrastructure/status", 
+    operation_id="getDeploymentStatus",
     tags=["Infrastructure"],
-    summary="Check deployment status",
+    summary="Check complete deployment status across all layers",
+    description=(
+        "**Purpose:** Unified status check for infrastructure, user functions, and SDK-managed resources.\n\n"
+        "**Returns three categories:**\n"
+        "- `infrastructure`: Terraform-managed resources (fast, local state check)\n"
+        "- `user_functions`: Function deployment status (from hash metadata)\n"
+        "- `sdk_managed`: Dynamic resources (TwinMaker entities, IoT devices)\n\n"
+        "**Performance:**\n"
+        "- Default: ~instant (local state file)\n"
+        "- With `detailed=true`: 5-30 seconds (cloud API drift detection)"
+    ),
     responses={
         200: {"description": "Status check successful"},
-        400: {"description": "Invalid project or provider"}
+        400: AGENTIC_ERROR_RESPONSES[400],
+        500: AGENTIC_ERROR_RESPONSES[500],
     }
 )
 def check_endpoint(

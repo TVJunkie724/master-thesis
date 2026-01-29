@@ -1,8 +1,14 @@
 """
 Simulator API - IoT device simulation endpoints.
 
-Provides WebSocket endpoint for real-time simulator interaction and
-download endpoint for standalone simulator package.
+Provides download endpoint for standalone simulator packages and WebSocket
+endpoint for real-time simulator interaction.
+
+**Key endpoints:**
+- GET /projects/{name}/simulator/{provider}/download: Download standalone package
+- WS /projects/{name}/simulator/{provider}/stream: Real-time WebSocket simulation
+
+**Use case:** Testing IoT data ingestion without physical devices.
 """
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import StreamingResponse
@@ -16,6 +22,7 @@ import io
 import datetime
 from logger import logger
 import src.core.state as state
+from api.agentic_models import AGENTIC_ERROR_RESPONSES
 
 
 router = APIRouter()
@@ -159,12 +166,22 @@ def _load_template(provider: str, template_name: str, variables: dict = None) ->
 # ==========================================
 @router.get(
     "/projects/{project_name}/simulator/{provider}/download",
+    operation_id="downloadSimulatorPackage",
     tags=["Projects"],
-    summary="Download standalone simulator package",
+    summary="Download standalone IoT simulator package as ZIP",
+    description=(
+        "**Purpose:** Download a self-contained IoT device simulator for local/Docker use.\n\n"
+        "**Package contents:**\n"
+        "- config.json, payloads.json\n"
+        "- src/: Simulator Python code\n"
+        "- certificates/ or service_account.json (provider-specific)\n"
+        "- Dockerfile & docker-compose.yml\n"
+        "- README.md with setup instructions"
+    ),
     responses={
         200: {"description": "Simulator zip package"},
-        400: {"description": "Unsupported provider"},
-        404: {"description": "Simulator config not found - deploy L1 first"}
+        400: AGENTIC_ERROR_RESPONSES[400],
+        404: AGENTIC_ERROR_RESPONSES[404],
     }
 )
 async def download_simulator_package(project_name: str, provider: str):

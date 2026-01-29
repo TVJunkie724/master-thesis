@@ -1,3 +1,15 @@
+"""
+Project Management API endpoints for the Deployer.
+
+This module provides CRUD operations for deployment projects. Projects contain
+all configuration, credentials, state machines, and IoT payloads needed for
+Digital Twin deployment.
+
+**Key concepts:**
+- Projects are stored as directories with configuration files
+- The 'template' project is read-only and serves as a reference
+- Projects can be imported/exported as ZIP files
+"""
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Path, Request
 import json
 import os
@@ -10,6 +22,7 @@ import constants as CONSTANTS
 from logger import logger
 from api.utils import extract_file_content
 from api.functions import invalidate_function_cache, clear_all_hash_metadata
+from api.agentic_models import AGENTIC_ERROR_RESPONSES
 
 import src.core.state as state
 
@@ -24,9 +37,20 @@ router = APIRouter()
 # ==========================================
 @router.get(
     "/projects", 
+    operation_id="listDeploymentProjects",
     tags=["Projects"],
-    summary="List all projects",
-    responses={200: {"description": "Project list retrieved successfully"}}
+    summary="List all deployment projects with metadata",
+    description=(
+        "**Purpose:** Returns all available projects for the project selector UI.\n\n"
+        "**Response includes:**\n"
+        "- Project names and descriptions\n"
+        "- Version counts (saved ZIP snapshots)\n"
+        "- Currently active project name"
+    ),
+    responses={
+        200: {"description": "Project list retrieved successfully"},
+        500: AGENTIC_ERROR_RESPONSES[500],
+    }
 )
 def list_projects():
     """
@@ -76,11 +100,25 @@ def list_projects():
 
 @router.post(
     "/projects", 
+    operation_id="createDeploymentProject",
     tags=["Projects"],
-    summary="Create new project from zip",
+    summary="Create new project from uploaded ZIP file",
+    description=(
+        "**Purpose:** Creates a new deployment project from a ZIP file.\n\n"
+        "**ZIP structure expected:**\n"
+        "- config.json (required)\n"
+        "- config_providers.json (required)\n"
+        "- config_credentials.json (required)\n"
+        "- config_iot_devices.json, config_events.json, etc.\n\n"
+        "**Validation performed:**\n"
+        "- ZIP structure validation\n"
+        "- Config schema validation\n"
+        "- Cross-config consistency checks"
+    ),
     responses={
         200: {"description": "Project created successfully"},
-        400: {"description": "Invalid zip file or validation failed"}
+        400: AGENTIC_ERROR_RESPONSES[400],
+        422: AGENTIC_ERROR_RESPONSES[422],
     }
 )
 async def create_project(
@@ -114,11 +152,21 @@ async def create_project(
 
 @router.get(
     "/projects/{project_name}/validate", 
+    operation_id="validateProjectStructure",
     tags=["Projects"],
-    summary="Validate project structure",
+    summary="Validate project structure and configuration",
+    description=(
+        "**Purpose:** Pre-deployment readiness check for existing projects.\n\n"
+        "**Checks performed:**\n"
+        "- Required files presence\n"
+        "- Config content validity (schema validation)\n"
+        "- Optimization flag dependencies\n"
+        "- Cross-config consistency (payloads ↔ devices, credentials ↔ providers)"
+    ),
     responses={
         200: {"description": "Project structure is valid"},
-        400: {"description": "Validation failed with details"}
+        400: AGENTIC_ERROR_RESPONSES[400],
+        404: AGENTIC_ERROR_RESPONSES[404],
     }
 )
 def validate_project_structure(project_name: str = Path(..., description="Name of the project structure to validate")):
