@@ -209,6 +209,13 @@ def lambda_handler(event, context):
         # Remove 'time' to avoid storing duplicate data (timestamp is the canonical sort key)
         item.pop("time", None)
 
+        # Generate document ID (consistent across all clouds)
+        # ID format: {device_id}_{timestamp} for uniqueness and traceability
+        # Timestamp is ISO8601 string from normalize_telemetry() (e.g., "2026-01-28T12:00:00Z")
+        if "device_id" not in item:
+            raise ValueError("Missing 'device_id' in event. Cannot generate document ID.")
+        item["id"] = f"{item['device_id']}_{item['timestamp']}"
+
         # Multi-cloud: Check if we should write to remote Writer
         if _is_multi_cloud_storage():
             remote_url = os.environ.get("REMOTE_WRITER_URL")

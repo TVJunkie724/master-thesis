@@ -129,3 +129,13 @@ class TwinOverviewLogTraceError extends TwinOverviewEvent {
   @override
   List<Object?> get props => [message];
 }
+
+/// Download simulator package
+class TwinOverviewDownloadSimulator extends TwinOverviewEvent {
+  const TwinOverviewDownloadSimulator();
+}
+
+/// Clear simulator bytes from state (after save dialog completes)
+class TwinOverviewClearSimulatorBytes extends TwinOverviewEvent {
+  const TwinOverviewClearSimulatorBytes();
+}

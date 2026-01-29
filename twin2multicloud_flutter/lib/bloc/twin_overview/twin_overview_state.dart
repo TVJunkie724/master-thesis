@@ -1,6 +1,7 @@
 // lib/bloc/twin_overview/twin_overview_state.dart
 // State classes for the twin overview BLoC
 
+import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 
 abstract class TwinOverviewState extends Equatable {
@@ -79,6 +80,10 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final DateTime? outputsTimestamp;
   final String? outputsError;
 
+  // Simulator download state
+  final bool isDownloadingSimulator;
+  final Uint8List? simulatorBytes;
+
   const TwinOverviewLoaded({
     required this.twinId,
     required this.projectName,
@@ -113,6 +118,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
     this.deploymentOutputs,
     this.outputsTimestamp,
     this.outputsError,
+    this.isDownloadingSimulator = false,
+    this.simulatorBytes,
   });
 
   /// Create copy with updated fields
@@ -150,10 +157,13 @@ class TwinOverviewLoaded extends TwinOverviewState {
     Map<String, dynamic>? deploymentOutputs,
     DateTime? outputsTimestamp,
     String? outputsError,
+    bool? isDownloadingSimulator,
+    Uint8List? simulatorBytes,
     bool clearSuccess = false,
     bool clearError = false,
     bool clearInfo = false,
     bool clearOutputsError = false,
+    bool clearSimulatorBytes = false,
   }) {
     return TwinOverviewLoaded(
       twinId: twinId ?? this.twinId,
@@ -194,6 +204,11 @@ class TwinOverviewLoaded extends TwinOverviewState {
       outputsError: clearOutputsError
           ? null
           : (outputsError ?? this.outputsError),
+      isDownloadingSimulator:
+          isDownloadingSimulator ?? this.isDownloadingSimulator,
+      simulatorBytes: clearSimulatorBytes
+          ? null
+          : (simulatorBytes ?? this.simulatorBytes),
     );
   }
 
@@ -232,5 +247,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     deploymentOutputs,
     outputsTimestamp,
     outputsError,
+    isDownloadingSimulator,
+    simulatorBytes,
   ];
 }

@@ -124,6 +124,7 @@ def hot_writer(req: func.HttpRequest) -> func.HttpResponse:
         
         # 4. Ensure required fields for Cosmos DB
         if "id" not in payload:
+            logging.warning("Received payload without 'id' - using fallback ID generation. Source persister may need fixing.")
             if "timestamp" in payload:
                 payload["id"] = str(payload["timestamp"])
             elif "time" in payload:

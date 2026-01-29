@@ -17,19 +17,10 @@ from src.schemas.deployer_config import (
     ConfigValidationResponse,
 )
 from src.config import settings
+from src.services.twin_helpers import get_user_twin
 
 router = APIRouter(prefix="/twins/{twin_id}/deployer", tags=["deployer"])
 
-
-async def get_user_twin(twin_id: str, user: User, db: Session) -> DigitalTwin:
-    """Helper to verify twin ownership."""
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == user.id
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    return twin
 
 
 @router.get("/config", response_model=DeployerConfigResponse)

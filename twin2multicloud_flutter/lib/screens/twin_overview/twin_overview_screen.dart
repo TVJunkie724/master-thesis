@@ -11,6 +11,7 @@ import '../../bloc/twin_overview/twin_overview_event.dart';
 import '../../bloc/twin_overview/twin_overview_state.dart';
 import '../../providers/twins_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../utils/file_download_utils.dart';
 import '../../utils/twin_state_utils.dart';
 import '../../widgets/branded_app_bar.dart';
 import '../../widgets/code_viewer_dialog.dart';
@@ -44,13 +45,50 @@ class TwinOverviewView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return BlocListener<TwinOverviewBloc, TwinOverviewState>(
-      listenWhen: (prev, curr) =>
-          curr is TwinOverviewLoaded && curr.successMessage == 'deleted',
-      listener: (context, state) {
-        // Navigate back to dashboard after successful delete
-        context.go('/dashboard');
-      },
+    return MultiBlocListener(
+      listeners: [
+        // Navigate after delete
+        BlocListener<TwinOverviewBloc, TwinOverviewState>(
+          listenWhen: (prev, curr) =>
+              curr is TwinOverviewLoaded && curr.successMessage == 'deleted',
+          listener: (context, state) {
+            context.go('/dashboard');
+          },
+        ),
+        // Handle simulator bytes - trigger save dialog
+        BlocListener<TwinOverviewBloc, TwinOverviewState>(
+          listenWhen: (prev, curr) =>
+              curr is TwinOverviewLoaded &&
+              curr.simulatorBytes != null &&
+              (prev is! TwinOverviewLoaded || prev.simulatorBytes == null),
+          listener: (context, state) async {
+            if (state is! TwinOverviewLoaded || state.simulatorBytes == null) {
+              return;
+            }
+            final l1 = (state.cheapestPath?['l1'] as String?) ?? 'unknown';
+            final name = state.cloudResourceName ?? state.projectName;
+            final filename = 'simulator_${name}_$l1.zip';
+
+            final result = await saveBinaryFile(
+              bytes: state.simulatorBytes!,
+              suggestedName: filename,
+            );
+
+            if (!context.mounted) return;
+            final bloc = context.read<TwinOverviewBloc>();
+            if (result.success) {
+              bloc.add(
+                TwinOverviewShowMessage(result.message!, MessageType.success),
+              );
+            } else if (!result.cancelled && result.error != null) {
+              bloc.add(
+                TwinOverviewShowMessage(result.error!, MessageType.error),
+              );
+            }
+            bloc.add(const TwinOverviewClearSimulatorBytes());
+          },
+        ),
+      ],
       child: BlocBuilder<TwinOverviewBloc, TwinOverviewState>(
         builder: (context, state) {
           return Scaffold(
@@ -1153,39 +1191,87 @@ class TwinOverviewView extends ConsumerWidget {
               ],
             ),
 
-            // Log Trace button (only visible for deployed twins)
+            // Testing Utilities (only visible for deployed twins)
             if (state.twinState == 'deployed') ...[
               const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton.icon(
-                  onPressed: state.isTracing
-                      ? null
-                      : () => context.read<TwinOverviewBloc>().add(
-                          const TwinOverviewStartLogTrace(),
-                        ),
-                  icon: state.isTracing
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.sms_outlined, size: 22),
-                  label: Text(
-                    state.isTracing
-                        ? 'TRACING LOGS...'
-                        : 'SEND TEST IOT MESSAGE',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+              // Labeled separator
+              Row(
+                children: [
+                  Expanded(child: Divider(color: theme.dividerColor)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'TESTING UTILITIES',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
+                      ),
                     ),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: theme.colorScheme.primary,
-                    side: BorderSide(color: theme.colorScheme.primary),
+                  Expanded(child: Divider(color: theme.dividerColor)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Compact button row
+              Row(
+                children: [
+                  // Send Test IoT Message button
+                  Expanded(
+                    child: SizedBox(
+                      height: 40,
+                      child: OutlinedButton.icon(
+                        onPressed: state.isTracing
+                            ? null
+                            : () => context.read<TwinOverviewBloc>().add(
+                                const TwinOverviewStartLogTrace(),
+                              ),
+                        icon: state.isTracing
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.sms_outlined, size: 18),
+                        label: Text(
+                          state.isTracing ? 'Tracing...' : 'Send Test Message',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  // Download Simulator button
+                  Expanded(
+                    child: SizedBox(
+                      height: 40,
+                      child: OutlinedButton.icon(
+                        onPressed: state.isDownloadingSimulator
+                            ? null
+                            : () => context.read<TwinOverviewBloc>().add(
+                                const TwinOverviewDownloadSimulator(),
+                              ),
+                        icon: state.isDownloadingSimulator
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.download_outlined, size: 18),
+                        label: Text(
+                          state.isDownloadingSimulator
+                              ? 'Downloading...'
+                              : 'Download ${(state.cheapestPath?['l1'] as String?)?.toUpperCase() ?? 'L1'} Simulator',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
 

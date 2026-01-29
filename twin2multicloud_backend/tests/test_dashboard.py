@@ -59,17 +59,19 @@ class TestDashboardStats:
         assert data["draft_count"] == 0  # No longer draft
 
     def test_stats_draft_count(self, authenticated_client):
-        """Stats correctly count draft twins separately from configured."""
+        """Stats correctly count draft twins separately from deployed."""
         client, headers = authenticated_client
         
-        # Create one draft and one configured twin
+        # Create one draft and one deployed twin
+        # (Note: 'deployed' state can be set directly, 'configured' requires validation)
         client.post("/twins/", json={"name": "Draft Twin"}, headers=headers)
-        r2 = client.post("/twins/", json={"name": "Configured Twin"}, headers=headers)
-        client.put(f"/twins/{r2.json()['id']}", json={"state": "configured"}, headers=headers)
+        r2 = client.post("/twins/", json={"name": "Deployed Twin"}, headers=headers)
+        client.put(f"/twins/{r2.json()['id']}", json={"state": "deployed"}, headers=headers)
         
         response = client.get("/dashboard/stats", headers=headers)
         
         assert response.status_code == 200
         data = response.json()
         assert data["draft_count"] == 1
+        assert data["deployed_count"] == 1
         assert data["total_twins"] == 2

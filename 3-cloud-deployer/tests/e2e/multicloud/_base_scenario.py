@@ -832,6 +832,129 @@ class BaseScenarioTest:
         except Exception as e:
             print(f"  [WARN] Could not query TwinMaker: {e}")
     
+    def test_10b_twinmaker_telemetry(self, deployed_environment):
+        """Verify telemetry accessible via TwinMaker after test_07/08.
+        
+        This test validates the full L4 data flow for AWS:
+        L2 Persister → DynamoDB → TwinMaker dataReader connector → get_property_value_history
+        
+        Uses polling to handle async writes and connector cold starts.
+        """
+        scenario = deployed_environment["scenario"]
+        outputs = deployed_environment["terraform_outputs"]
+        l4_provider = scenario.providers["layer_4_provider"]
+        
+        if l4_provider != "aws":
+            pytest.skip("L4 is not AWS - skipping TwinMaker telemetry verification")
+        
+        workspace_id = outputs.get("aws_twinmaker_workspace_id")
+        if not workspace_id:
+            pytest.skip("TwinMaker workspace not deployed")
+        
+        try:
+            import boto3
+            from datetime import datetime, timedelta
+            
+            twinmaker = boto3.client('iottwinmaker')
+            
+            # Step 1: Find an entity with components
+            response = twinmaker.list_entities(workspaceId=workspace_id)
+            entities = response.get('entitySummaries', [])
+            
+            if not entities:
+                print(f"  [WARN] No TwinMaker entities found - cannot verify telemetry")
+                return
+            
+            # Step 2: Get entity details to find component with time-series properties
+            target_entity = None
+            target_component = None
+            target_properties = []
+            
+            for entity_summary in entities:
+                entity_id = entity_summary.get('entityId')
+                try:
+                    entity_details = twinmaker.get_entity(
+                        workspaceId=workspace_id,
+                        entityId=entity_id
+                    )
+                    components = entity_details.get('components', {})
+                    
+                    for comp_name, comp_info in components.items():
+                        # Find properties marked as time-series (isTimeSeries=True)
+                        props = comp_info.get('properties', {})
+                        ts_props = [
+                            name for name, info in props.items()
+                            if info.get('definition', {}).get('isTimeSeries', False)
+                        ]
+                        
+                        if ts_props:
+                            target_entity = entity_id
+                            target_component = comp_name
+                            target_properties = ts_props[:3]  # Limit to 3 properties
+                            break
+                    
+                    if target_entity:
+                        break
+                except Exception as e:
+                    print(f"  [DEBUG] Could not get entity {entity_id}: {e}")
+                    continue
+            
+            if not target_entity:
+                print(f"  [WARN] No entities with time-series components found")
+                return
+            
+            print(f"  Querying TwinMaker: entity={target_entity}, component={target_component}")
+            print(f"  Properties: {target_properties}")
+            
+            # Step 3: Poll for telemetry via get_property_value_history
+            max_attempts = 30
+            poll_interval = 2  # seconds
+            
+            end_time = datetime.utcnow()
+            start_time = end_time - timedelta(hours=1)
+            
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    history_response = twinmaker.get_property_value_history(
+                        workspaceId=workspace_id,
+                        entityId=target_entity,
+                        componentName=target_component,
+                        selectedProperties=target_properties,
+                        startDateTime=start_time,
+                        endDateTime=end_time,
+                        orderByTime='DESCENDING',
+                        maxResults=10
+                    )
+                    
+                    property_values = history_response.get('propertyValues', [])
+                    
+                    if property_values:
+                        print(f"  ✓ TWINMAKER TELEMETRY VERIFIED (Attempt {attempt}/{max_attempts})")
+                        for pv in property_values[:3]:
+                            prop_ref = pv.get('entityPropertyReference', {})
+                            values = pv.get('values', [])
+                            if values:
+                                print(f"    - {prop_ref.get('propertyName')}: {len(values)} data points")
+                        return  # Success!
+                    
+                except Exception as e:
+                    print(f"  [DEBUG] Attempt {attempt}: {e}")
+                
+                time.sleep(poll_interval)
+            
+            # After max attempts, FAIL - L4 data flow is critical
+            pytest.fail(
+                f"[L4 DATAFLOW CRITICAL] No telemetry found via TwinMaker "
+                f"after {max_attempts * poll_interval}s. "
+                f"Entity: {target_entity}, Component: {target_component}"
+            )
+            
+        except ImportError:
+            pytest.skip("boto3 not installed")
+        except Exception as e:
+            print(f"  [WARN] Could not query TwinMaker telemetry: {e}")
+
+    
     def test_11_adt_twins(self, deployed_environment):
         """GAP FIX #5: Verify ADT twins were created when L4=Azure."""
         scenario = deployed_environment["scenario"]

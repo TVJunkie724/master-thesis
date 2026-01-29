@@ -152,3 +152,66 @@ def create_test_twin(client, headers, name="Test Twin"):
     response = client.post("/twins/", json={"name": name}, headers=headers)
     assert response.status_code == 200
     return response.json()["id"]
+
+
+# ============================================================
+# Fixture Aliases for state transition tests
+# ============================================================
+
+@pytest.fixture
+def auth_client(client, auth_headers):
+    """Authenticated client for state transition tests.
+    
+    Unlike authenticated_client, this returns a pre-configured TestClient
+    with headers automatically included (uses custom request method).
+    """
+    from src.models.user import User
+    from src.models.twin import DigitalTwin
+    
+    # First request triggers dev user creation
+    client.get("/twins/", headers=auth_headers)
+    
+    # Store headers on client for convenience
+    original_request = client.request
+    def auth_request(method, url, **kwargs):
+        headers = kwargs.pop("headers", {})
+        headers.update(auth_headers)
+        return original_request(method, url, headers=headers, **kwargs)
+    
+    client.request = auth_request
+    client.get = lambda url, **kwargs: auth_request("GET", url, **kwargs)
+    client.post = lambda url, **kwargs: auth_request("POST", url, **kwargs)
+    client.put = lambda url, **kwargs: auth_request("PUT", url, **kwargs)
+    client.delete = lambda url, **kwargs: auth_request("DELETE", url, **kwargs)
+    
+    return client
+
+
+@pytest.fixture
+def db(db_session):
+    """Alias for db_session for tests using 'db' name."""
+    return db_session
+
+
+@pytest.fixture
+def test_twin(auth_client, db):
+    """Create a test twin owned by the dev user created by auth_client."""
+    from src.models.twin import DigitalTwin, TwinState
+    from src.models.user import User
+    
+    # Get the dev user created by auth_client (first user in DB)
+    user = db.query(User).first()
+    if not user:
+        raise RuntimeError("No user found - auth_client should have created one")
+    
+    # Create twin owned by this user
+    twin = DigitalTwin(
+        name=f"Test Twin {id(db)}",
+        user_id=user.id,
+        state=TwinState.DRAFT
+    )
+    db.add(twin)
+    db.commit()
+    db.refresh(twin)
+    
+    return twin

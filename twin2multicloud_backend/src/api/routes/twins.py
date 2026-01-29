@@ -11,6 +11,11 @@ from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.schemas.twin import TwinCreate, TwinUpdate, TwinResponse
 from src.config import settings
+from src.services.deployment_service import (
+    run_real_deploy_stream,
+    run_real_destroy_stream,
+    build_deploy_config,
+)
 
 router = APIRouter(prefix="/twins", tags=["twins"])
 
@@ -291,6 +296,8 @@ async def delete_twin(
         pass  # Directory not empty or doesn't exist
     
     twin.state = TwinState.INACTIVE
+    # Rename to free up the name for reuse (unique constraint)
+    twin.name = f"_deleted_{twin_id}_{twin.name}"
     db.commit()
     return {"message": "Twin deleted"}
 
@@ -429,7 +436,7 @@ async def deploy_twin(
     await create_session(twin_id, session_id, operation_type="deploy")
     
     # Spawn background task for streaming logs from Deployer
-    asyncio.create_task(_run_real_deploy_stream(
+    asyncio.create_task(run_real_deploy_stream(
         session_id=session_id,
         twin_id=twin_id,
         resource_name=resource_name,
@@ -517,7 +524,7 @@ async def destroy_twin_infrastructure(
     await create_session(twin_id, session_id, operation_type="destroy")
     
     # Spawn background task
-    asyncio.create_task(_run_real_destroy_stream(
+    asyncio.create_task(run_real_destroy_stream(
         session_id=session_id,
         twin_id=twin_id,
         resource_name=resource_name,
@@ -1390,202 +1397,6 @@ async def _run_test_destroy_stream(
 
 
 # =============================================================================
-# Real Deployment/Destroy Stream Functions
-# =============================================================================
-
-async def _run_real_deploy_stream(
-    session_id: str,
-    twin_id: str,
-    resource_name: str,
-    provider: str
-):
-    """
-    Background task that subscribes to Deployer SSE and forwards logs.
-    Updates Deployment record on completion.
-    """
-    from datetime import datetime
-    from src.api.routes.sse import get_session
-    from src.models.database import SessionLocal
-    from src.models.twin import DigitalTwin, TwinState
-    from src.models.deployment import Deployment
-    
-    session = await get_session(session_id)
-    if not session:
-        return
-    
-    # Create Deployment record at start
-    db = SessionLocal()
-    deployment = Deployment(
-        twin_id=twin_id,
-        session_id=session_id,
-        operation_type="deploy",
-        status="running"
-    )
-    db.add(deployment)
-    db.commit()
-    db.close()
-    
-    terraform_outputs = {}
-    
-    try:
-        # Subscribe to Deployer SSE with long timeouts
-        timeout = httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0)
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            async with client.stream(
-                "POST",
-                f"{DEPLOYER_API_URL}/infrastructure/deploy/stream",
-                params={"provider": provider, "project_name": resource_name}
-            ) as response:
-                async for line in response.aiter_lines():
-                    if line.startswith("data: "):
-                        msg = line[6:]  # Remove "data: " prefix
-                        print(msg, flush=True)  # Container logs
-                        await session.push_log(msg)
-                    elif line.startswith("event: complete"):
-                        # Next line contains JSON
-                        pass
-                    elif line.startswith('{"success":'):
-                        # Parse completion event
-                        import json
-                        try:
-                            result = json.loads(line)
-                            if result.get("success"):
-                                terraform_outputs = result.get("outputs", {})
-                        except json.JSONDecodeError:
-                            pass
-        
-        # Success path
-        db = SessionLocal()
-        try:
-            twin = db.query(DigitalTwin).get(twin_id)
-            if twin:
-                twin.state = TwinState.DEPLOYED
-                twin.deployed_at = datetime.utcnow()
-                db.commit()
-            
-            # Update Deployment record
-            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
-            if deployment:
-                deployment.status = "success"
-                deployment.terraform_outputs = terraform_outputs
-                deployment.completed_at = datetime.utcnow()
-                db.commit()
-        finally:
-            db.close()
-        
-        session.on_complete(success=True, message="Deployment complete", outputs=terraform_outputs)
-        
-    except Exception as e:
-        # Error path
-        db = SessionLocal()
-        try:
-            twin = db.query(DigitalTwin).get(twin_id)
-            if twin:
-                twin.state = TwinState.ERROR
-                twin.last_error = str(e)
-                db.commit()
-            
-            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
-            if deployment:
-                deployment.status = "failed"
-                deployment.error_message = str(e)
-                deployment.completed_at = datetime.utcnow()
-                db.commit()
-        finally:
-            db.close()
-        
-        await session.push_log(f"✗ Deployment error: {e}", level="error")
-        session.on_complete(success=False, message=str(e))
-
-
-async def _run_real_destroy_stream(
-    session_id: str,
-    twin_id: str,
-    resource_name: str,
-    provider: str
-):
-    """
-    Background task that subscribes to Deployer destroy SSE and forwards logs.
-    """
-    from datetime import datetime
-    from src.api.routes.sse import get_session
-    from src.models.database import SessionLocal
-    from src.models.twin import DigitalTwin, TwinState
-    from src.models.deployment import Deployment
-    
-    session = await get_session(session_id)
-    if not session:
-        return
-    
-    # Create Deployment record at start
-    db = SessionLocal()
-    deployment = Deployment(
-        twin_id=twin_id,
-        session_id=session_id,
-        operation_type="destroy",
-        status="running"
-    )
-    db.add(deployment)
-    db.commit()
-    db.close()
-    
-    try:
-        # Subscribe to Deployer destroy SSE
-        timeout = httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0)
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            async with client.stream(
-                "POST",
-                f"{DEPLOYER_API_URL}/infrastructure/destroy/stream",
-                params={"provider": provider, "project_name": resource_name}
-            ) as response:
-                async for line in response.aiter_lines():
-                    if line.startswith("data: "):
-                        msg = line[6:]
-                        print(msg, flush=True)
-                        await session.push_log(msg)
-        
-        # Success path
-        db = SessionLocal()
-        try:
-            twin = db.query(DigitalTwin).get(twin_id)
-            if twin:
-                twin.state = TwinState.DESTROYED
-                twin.destroyed_at = datetime.utcnow()
-                db.commit()
-            
-            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
-            if deployment:
-                deployment.status = "success"
-                deployment.completed_at = datetime.utcnow()
-                db.commit()
-        finally:
-            db.close()
-        
-        session.on_complete(success=True, message="Destruction complete")
-        
-    except Exception as e:
-        db = SessionLocal()
-        try:
-            twin = db.query(DigitalTwin).get(twin_id)
-            if twin:
-                twin.state = TwinState.ERROR
-                twin.last_error = str(e)
-                db.commit()
-            
-            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
-            if deployment:
-                deployment.status = "failed"
-                deployment.error_message = str(e)
-                deployment.completed_at = datetime.utcnow()
-                db.commit()
-        finally:
-            db.close()
-        
-        await session.push_log(f"✗ Destroy error: {e}", level="error")
-        session.on_complete(success=False, message=str(e))
-
-
-# =============================================================================
 # Logs Query Endpoint
 # =============================================================================
 
@@ -1717,69 +1528,6 @@ async def _simulate_destroy(name: str, duration: int, should_fail: bool, logger)
         raise Exception(error_msg)
     
     return collected_logs
-
-
-def _build_deploy_config(twin: DigitalTwin) -> dict:
-    """
-    Build the config.json payload from saved configurations.
-    
-    Combines:
-    - OptimizerConfiguration (layer providers, parameters)
-    - DeployerConfiguration (config files, user functions)
-    """
-    import json
-    
-    config = {
-        "resource_name": twin.name.lower().replace(" ", "-"),
-        "twin_id": twin.id,
-    }
-    
-    # Add from deployer config
-    if twin.deployer_config:
-        dc = twin.deployer_config
-        config["resource_name"] = dc.resource_name or config["resource_name"]
-        
-        # Parse JSON fields
-        if dc.config_events_json:
-            config["config_events"] = json.loads(dc.config_events_json)
-        if dc.config_iot_devices_json:
-            config["config_iot_devices"] = json.loads(dc.config_iot_devices_json)
-        if dc.payloads_json:
-            config["payloads"] = json.loads(dc.payloads_json)
-        if dc.state_machine_content:
-            config["state_machine"] = dc.state_machine_content
-        if dc.hierarchy_json:
-            config["hierarchy"] = json.loads(dc.hierarchy_json)
-        if dc.scenes_3d_json:
-            config["3d_scenes"] = json.loads(dc.scenes_3d_json)
-        if dc.config_user_json:
-            config["config_user"] = json.loads(dc.config_user_json)
-        
-        # User functions
-        if dc.processor_contents:
-            config["processors"] = json.loads(dc.processor_contents)
-        if dc.event_feedback_content:
-            config["event_feedback"] = dc.event_feedback_content
-        if dc.event_action_contents:
-            config["event_actions"] = json.loads(dc.event_action_contents)
-    
-    # Add from optimizer config
-    if twin.optimizer_config:
-        oc = twin.optimizer_config
-        config["layers"] = {
-            "l1": oc.layer_1_provider,
-            "l2": oc.layer_2_provider,
-            "l3_hot": oc.layer_3_hot_provider,
-            "l3_cool": oc.layer_3_cool_provider,
-            "l3_archive": oc.layer_3_archive_provider,
-            "l4": oc.layer_4_provider,
-            "l5": oc.layer_5_provider,
-        }
-        if oc.optimizer_result:
-            config["optimizer_result"] = json.loads(oc.optimizer_result)
-    
-    return config
-
 
 # ============================================================
 # Log Trace Endpoints (Proxy to Deployer API)

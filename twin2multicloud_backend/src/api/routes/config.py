@@ -15,20 +15,11 @@ from src.schemas.twin_config import (
 )
 from src.config import settings
 from src.utils.crypto import encrypt, decrypt
+from src.services.twin_helpers import get_user_twin
 
 router = APIRouter(prefix="/twins/{twin_id}/config", tags=["configuration"])
 inline_router = APIRouter(prefix="/config", tags=["configuration"])
 
-
-async def get_user_twin(twin_id: str, user: User, db: Session) -> DigitalTwin:
-    """Helper to verify twin ownership."""
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == user.id
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    return twin
 
 
 @router.get("/", response_model=TwinConfigResponse)

@@ -54,6 +54,10 @@ def lambda_handler(event, context):
         if not isinstance(data_to_write, dict):
             raise ValueError("Data payload must be a JSON object.")
 
+        # Validate ID field (should come from persister)
+        if "id" not in data_to_write:
+            print("WARNING: Received item without 'id' field. Source persister may need fixing.")
+
         table.put_item(Item=data_to_write)
         print("Data persisted to DynamoDB.")
         

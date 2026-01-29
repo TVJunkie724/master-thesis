@@ -265,19 +265,29 @@ def persister(req: func.HttpRequest) -> func.HttpResponse:
         # Build storage item (Cosmos DB requires 'id' as primary key)
         item = event.copy()
         
-        # After normalization, event has 'timestamp' field (canonical)
-        # Use 'timestamp' as the document ID for consistency with other clouds
+        # Generate document ID (consistent across all clouds)
+        # ID format: {device_id}_{timestamp} for uniqueness and traceability
+        # Timestamp is ISO8601 string from normalize_telemetry() (e.g., "2026-01-28T12:00:00Z")
         timestamp_value = item.get("timestamp")
-        if timestamp_value:
-            item["id"] = str(timestamp_value)
-        else:
-            # Fallback: generate a unique ID using current timestamp + UUID
-            import uuid
-            from datetime import datetime
-            timestamp = datetime.utcnow().isoformat() + "Z"
-            item["id"] = f"{timestamp}_{uuid.uuid4().hex[:8]}"
-            item["timestamp"] = timestamp  # Ensure timestamp field exists
-            logging.info(f"Generated document ID: {item['id']}")
+        device_id = item.get("device_id")
+        
+        if not device_id:
+            logging.error("Missing 'device_id' in event - cannot generate document ID")
+            return func.HttpResponse(
+                json.dumps({"error": "Missing 'device_id' in event. Cannot generate document ID."}),
+                status_code=400,
+                mimetype="application/json"
+            )
+        
+        if not timestamp_value:
+            logging.error("Missing 'timestamp' in event - cannot generate document ID")
+            return func.HttpResponse(
+                json.dumps({"error": "Missing 'timestamp' in event. Did normalization run?"}),
+                status_code=400,
+                mimetype="application/json"
+            )
+        
+        item["id"] = f"{device_id}_{timestamp_value}"
         
         # Remove 'time' to avoid duplicate data (timestamp is canonical)
         item.pop("time", None)
