@@ -27,7 +27,7 @@ from src.services.deployment_service import (
     run_real_destroy_stream,
     build_deploy_config,
 )
-from src.api.routes.agentic_models import AGENTIC_ERROR_RESPONSES
+from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/twins", tags=["twins"])
 
@@ -38,7 +38,7 @@ router = APIRouter(prefix="/twins", tags=["twins"])
     summary="List all digital twins for current user",
     description="Returns all non-inactive twins belonging to the authenticated user.",
     responses={
-        401: AGENTIC_ERROR_RESPONSES[401],
+        401: ERROR_RESPONSES[401],
     }
 )
 async def list_twins(
@@ -59,8 +59,8 @@ async def list_twins(
     summary="Create a new digital twin",
     description="Creates a twin in DRAFT state. Name must be unique per user.",
     responses={
-        400: AGENTIC_ERROR_RESPONSES[400],
-        401: AGENTIC_ERROR_RESPONSES[401],
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
         409: {"description": "Twin with this name already exists"},
     }
 )
@@ -98,8 +98,8 @@ async def create_twin(
     operation_id="getDigitalTwin",
     summary="Get a specific digital twin by ID",
     responses={
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
     }
 )
 async def get_twin(
@@ -123,9 +123,9 @@ async def get_twin(
     summary="Update a digital twin",
     description="Updates name and/or state. Name changes blocked for deployed twins.",
     responses={
-        400: AGENTIC_ERROR_RESPONSES[400],
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
         409: {"description": "Twin with this name already exists"},
     }
 )
@@ -332,8 +332,8 @@ async def _validate_configured_transition(twin: DigitalTwin, db: Session):
     summary="Soft-delete a digital twin",
     description="Sets twin to INACTIVE state and cleans up GLB files.",
     responses={
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
     }
 )
 async def delete_twin(
@@ -375,8 +375,8 @@ async def delete_twin(
     summary="Check if twin can be redeployed",
     description="Checks GCP Firestore 5-min cooldown. Zero cloud costs - pure calculation.",
     responses={
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
         503: {"description": "Deployer API unavailable"},
     }
 )
@@ -437,9 +437,9 @@ async def can_redeploy(
     summary="Deploy twin infrastructure to cloud providers",
     description="Starts async deployment via SSE streaming. Twin must be configured/destroyed/error state.",
     responses={
-        400: AGENTIC_ERROR_RESPONSES[400],
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
         409: {"description": "Deployment already in progress"},
     }
 )
@@ -538,9 +538,9 @@ async def deploy_twin(
     summary="Destroy twin's deployed cloud infrastructure",
     description="Starts async destruction via SSE streaming. Twin must be deployed/error state.",
     responses={
-        400: AGENTIC_ERROR_RESPONSES[400],
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
         409: {"description": "Destroy operation already in progress"},
     }
 )
@@ -637,8 +637,8 @@ async def destroy_twin_infrastructure(
     summary="Get current deployment status",
     description="Returns state, timestamps, and last error. Used for polling fallback when SSE unavailable.",
     responses={
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
     }
 )
 async def get_deployment_status(
@@ -672,8 +672,8 @@ async def get_deployment_status(
     summary="Get Terraform outputs from most recent deployment",
     description="Returns outputs stored in Deployment table. Used after terminal closed or page refresh.",
     responses={
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
     }
 )
 async def get_deployment_outputs(
@@ -720,8 +720,8 @@ async def get_deployment_outputs(
     summary="Get deployment history for a twin",
     description="Returns list of historical deployments ordered by most recent first.",
     responses={
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
     }
 )
 async def get_deployment_history(
@@ -777,9 +777,9 @@ async def get_deployment_history(
     summary="Start a log trace with test IoT message",
     description="Sends test message with unique trace_id to verify cloud log flow. Only for deployed twins.",
     responses={
-        400: AGENTIC_ERROR_RESPONSES[400],
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
         429: {"description": "Rate limited"},
         503: {"description": "Deployer API unavailable"},
     }
@@ -848,8 +848,8 @@ async def start_log_trace(
     summary="SSE endpoint for streaming log trace results",
     description="Proxies to Deployer API. Events: log (prefix, timestamp, message), error, done.",
     responses={
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
         503: {"description": "Deployer API unavailable"},
     }
 )
@@ -927,9 +927,9 @@ async def stream_log_trace(
     description="Extracts L1 from OptimizerConfiguration and proxies to Deployer API. Only for deployed twins.",
     tags=["twins"],
     responses={
-        400: AGENTIC_ERROR_RESPONSES[400],
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
         502: {"description": "Failed to connect to Deployer"},
     }
 )

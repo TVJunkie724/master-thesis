@@ -22,7 +22,7 @@ import io
 import datetime
 from logger import logger
 import src.core.state as state
-from api.agentic_models import AGENTIC_ERROR_RESPONSES
+from api.error_models import ERROR_RESPONSES
 
 
 router = APIRouter()
@@ -180,8 +180,8 @@ def _load_template(provider: str, template_name: str, variables: dict = None) ->
     ),
     responses={
         200: {"description": "Simulator zip package"},
-        400: AGENTIC_ERROR_RESPONSES[400],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        400: ERROR_RESPONSES[400],
+        404: ERROR_RESPONSES[404],
     }
 )
 async def download_simulator_package(project_name: str, provider: str):

@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from backend.logger import logger
 from backend.utils import print_stack_trace
 from backend.config_loader import load_combined_pricing
-from api.agentic_models import AGENTIC_ERROR_RESPONSES
+from api.error_models import ERROR_RESPONSES
 
 router = APIRouter(tags=["Calculation"])
 
@@ -173,9 +173,9 @@ class CalcParams(BaseModel):
                 }
             },
         },
-        400: AGENTIC_ERROR_RESPONSES[400],
-        422: AGENTIC_ERROR_RESPONSES[422],
-        500: AGENTIC_ERROR_RESPONSES[500],
+        400: ERROR_RESPONSES[400],
+        422: ERROR_RESPONSES[422],
+        500: ERROR_RESPONSES[500],
     },
 )
 def calc(params: CalcParams = Body(

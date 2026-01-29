@@ -21,7 +21,7 @@ from src.auth.jwt import create_access_token
 from src.schemas.auth import TokenResponse
 from src.api.dependencies import get_current_user
 from src.config import settings
-from src.api.routes.agentic_models import AGENTIC_ERROR_RESPONSES
+from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -55,7 +55,7 @@ async def google_login():
     summary="Handle Google OAuth callback",
     description="Exchanges code for tokens, creates/updates user, issues JWT.",
     responses={
-        400: AGENTIC_ERROR_RESPONSES[400],
+        400: ERROR_RESPONSES[400],
     }
 )
 async def google_callback(
@@ -231,7 +231,7 @@ async def uibk_metadata():
     operation_id="getCurrentUser",
     summary="Get current authenticated user details",
     responses={
-        401: AGENTIC_ERROR_RESPONSES[401],
+        401: ERROR_RESPONSES[401],
     }
 )
 async def get_me(
@@ -247,8 +247,8 @@ async def get_me(
     summary="Update current user preferences",
     description="Updates user preferences like theme_preference (light/dark).",
     responses={
-        400: AGENTIC_ERROR_RESPONSES[400],
-        401: AGENTIC_ERROR_RESPONSES[401],
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
     }
 )
 async def update_me(

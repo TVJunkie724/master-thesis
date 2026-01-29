@@ -22,7 +22,7 @@ import constants as CONSTANTS
 from logger import logger
 from api.utils import extract_file_content
 from api.functions import invalidate_function_cache, clear_all_hash_metadata
-from api.agentic_models import AGENTIC_ERROR_RESPONSES
+from api.error_models import ERROR_RESPONSES
 
 import src.core.state as state
 
@@ -49,7 +49,7 @@ router = APIRouter()
     ),
     responses={
         200: {"description": "Project list retrieved successfully"},
-        500: AGENTIC_ERROR_RESPONSES[500],
+        500: ERROR_RESPONSES[500],
     }
 )
 def list_projects():
@@ -117,8 +117,8 @@ def list_projects():
     ),
     responses={
         200: {"description": "Project created successfully"},
-        400: AGENTIC_ERROR_RESPONSES[400],
-        422: AGENTIC_ERROR_RESPONSES[422],
+        400: ERROR_RESPONSES[400],
+        422: ERROR_RESPONSES[422],
     }
 )
 async def create_project(
@@ -165,8 +165,8 @@ async def create_project(
     ),
     responses={
         200: {"description": "Project structure is valid"},
-        400: AGENTIC_ERROR_RESPONSES[400],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        400: ERROR_RESPONSES[400],
+        404: ERROR_RESPONSES[404],
     }
 )
 def validate_project_structure(project_name: str = Path(..., description="Name of the project structure to validate")):

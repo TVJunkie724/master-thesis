@@ -9,7 +9,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, Any, List
 
-from api.agentic_models import AGENTIC_ERROR_RESPONSES
+from api.error_models import ERROR_RESPONSES
 
 router = APIRouter(tags=["Validation"])
 
@@ -142,7 +142,7 @@ class ValidationResponse(BaseModel):
                 }}
             }}}
         },
-        422: AGENTIC_ERROR_RESPONSES[422],
+        422: ERROR_RESPONSES[422],
     }
 )
 async def validate_optimizer_config(

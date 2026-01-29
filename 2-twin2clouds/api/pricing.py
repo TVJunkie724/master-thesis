@@ -15,7 +15,7 @@ from backend.utils import is_file_fresh
 from backend.config_loader import load_json_file
 from backend.fetch_data.calculate_up_to_date_pricing import calculate_up_to_date_pricing
 import backend.constants as CONSTANTS
-from api.agentic_models import AGENTIC_ERROR_RESPONSES
+from api.error_models import ERROR_RESPONSES
 
 router = APIRouter(tags=["Pricing"])
 
@@ -41,8 +41,8 @@ router = APIRouter(tags=["Pricing"])
     ),
     responses={
         200: {"description": "Pricing data (cached or freshly fetched)"},
-        401: AGENTIC_ERROR_RESPONSES[401],
-        500: AGENTIC_ERROR_RESPONSES[500],
+        401: ERROR_RESPONSES[401],
+        500: ERROR_RESPONSES[500],
     }
 )
 def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False):
@@ -85,7 +85,7 @@ def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False)
     ),
     responses={
         200: {"description": "Pricing data (cached or freshly fetched)"},
-        500: AGENTIC_ERROR_RESPONSES[500],
+        500: ERROR_RESPONSES[500],
     }
 )
 def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = False):
@@ -128,8 +128,8 @@ def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = Fals
     ),
     responses={
         200: {"description": "Pricing data (cached or freshly fetched)"},
-        401: AGENTIC_ERROR_RESPONSES[401],
-        500: AGENTIC_ERROR_RESPONSES[500],
+        401: ERROR_RESPONSES[401],
+        500: ERROR_RESPONSES[500],
     }
 )
 def fetch_pricing_gcp(additional_debug: bool = False, force_fetch: bool = False):
@@ -176,7 +176,7 @@ def fetch_pricing_gcp(additional_debug: bool = False, force_fetch: bool = False)
             "description": "Current exchange rates",
             "content": {"application/json": {"example": {"USD": 1.0, "EUR": 0.92}}}
         },
-        500: AGENTIC_ERROR_RESPONSES[500],
+        500: ERROR_RESPONSES[500],
     }
 )
 def fetch_currency_rates():
@@ -225,8 +225,8 @@ from datetime import datetime, timezone
                 "pricing": {"...full pricing object..."}
             }}}
         },
-        400: AGENTIC_ERROR_RESPONSES[400],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        400: ERROR_RESPONSES[400],
+        404: ERROR_RESPONSES[404],
     }
 )
 def export_pricing(provider: str):

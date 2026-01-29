@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 
 from backend import credentials_checker
-from api.agentic_models import AGENTIC_ERROR_RESPONSES
+from api.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/permissions")
 

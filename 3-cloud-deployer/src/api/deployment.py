@@ -19,7 +19,7 @@ from fastapi import APIRouter, HTTPException, Query, Path
 import src.validator as validator
 from api.dependencies import validate_project_context, validate_provider, check_template_protection
 from logger import print_stack_trace, logger
-from api.agentic_models import AGENTIC_ERROR_RESPONSES
+from api.error_models import ERROR_RESPONSES
 
 import providers.deployer as core_deployer
 from src.core.factory import create_context
@@ -119,8 +119,8 @@ def check_cooldown(
     ),
     responses={
         200: {"description": "Deployment successful with Terraform outputs"},
-        400: AGENTIC_ERROR_RESPONSES[400],
-        500: AGENTIC_ERROR_RESPONSES[500],
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
     }
 )
 def deploy_all(
@@ -184,7 +184,7 @@ def deploy_all(
     ),
     responses={
         200: {"description": "Destruction successful"},
-        500: AGENTIC_ERROR_RESPONSES[500],
+        500: ERROR_RESPONSES[500],
     }
 )
 def destroy_all(
@@ -238,8 +238,8 @@ from fastapi.responses import StreamingResponse
     ),
     responses={
         200: {"description": "SSE stream of deployment logs"},
-        400: AGENTIC_ERROR_RESPONSES[400],
-        500: AGENTIC_ERROR_RESPONSES[500],
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
     }
 )
 async def deploy_stream(
@@ -309,7 +309,7 @@ async def deploy_stream(
     ),
     responses={
         200: {"description": "SSE stream of destruction logs"},
-        500: AGENTIC_ERROR_RESPONSES[500],
+        500: ERROR_RESPONSES[500],
     }
 )
 async def destroy_stream(

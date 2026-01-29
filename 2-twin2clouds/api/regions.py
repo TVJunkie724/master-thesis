@@ -12,7 +12,7 @@ from backend.utils import is_file_fresh
 from backend.config_loader import load_json_file
 from backend.fetch_data import initial_fetch_aws, initial_fetch_azure, initial_fetch_google
 import backend.constants as CONSTANTS
-from api.agentic_models import AGENTIC_ERROR_RESPONSES
+from api.error_models import ERROR_RESPONSES
 
 router = APIRouter(tags=["Regions"])
 
@@ -39,7 +39,7 @@ router = APIRouter(tags=["Regions"])
             "description": "Map of region codes to names",
             "content": {"application/json": {"example": {"us-east-1": "US East (N. Virginia)", "eu-west-1": "EU (Ireland)"}}}
         },
-        500: AGENTIC_ERROR_RESPONSES[500],
+        500: ERROR_RESPONSES[500],
     }
 )
 def fetch_regions_aws(force_fetch: bool = False):
@@ -81,7 +81,7 @@ def fetch_regions_aws(force_fetch: bool = False):
             "description": "Map of region codes to names",
             "content": {"application/json": {"example": {"westeurope": "West Europe", "eastus": "East US"}}}
         },
-        500: AGENTIC_ERROR_RESPONSES[500],
+        500: ERROR_RESPONSES[500],
     }
 )
 def fetch_regions_azure(force_fetch: bool = False):
@@ -124,7 +124,7 @@ def fetch_regions_azure(force_fetch: bool = False):
             "description": "Map of region codes to names",
             "content": {"application/json": {"example": {"us-central1": "Council Bluffs, Iowa", "europe-west1": "St. Ghislain, Belgium"}}}
         },
-        500: AGENTIC_ERROR_RESPONSES[500],
+        500: ERROR_RESPONSES[500],
     }
 )
 def fetch_regions_gcp(force_fetch: bool = False):

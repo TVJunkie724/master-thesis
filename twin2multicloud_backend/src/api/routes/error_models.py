@@ -1,8 +1,8 @@
 """
-Agentic API Models - Shared response schemas for AI-ready APIs.
+API Error Models - Standardized response schemas for comprehensive error handling.
 
-These models are designed for consumption by autonomous LLM agents,
-with verbose descriptions, strict typing, and machine-readable error handling.
+These models provide structured, machine-readable error responses with detailed
+descriptions, strict typing, and actionable fix suggestions.
 """
 from typing import Optional, List
 from pydantic import BaseModel, Field, ConfigDict
@@ -12,7 +12,7 @@ class FieldError(BaseModel):
     """
     Describes a validation error for a specific request field.
     
-    Use this to help agents understand exactly which field failed validation
+    Use this to understand exactly which field failed validation
     and what values would be acceptable.
     """
     field: str = Field(
@@ -46,16 +46,15 @@ class FieldError(BaseModel):
     })
 
 
-class AgenticErrorResponse(BaseModel):
+class ErrorResponse(BaseModel):
     """
-    Standardized error response designed for autonomous agent consumption.
+    Standardized error response with detailed information for troubleshooting.
     
-    This schema provides machine-readable error information that enables
-    an LLM agent to:
-    1. Understand what went wrong (error_code, message)
-    2. Know exactly how to fix it (fix_suggestion)
-    3. Identify specific field issues (field_errors)
-    4. Find additional help (documentation_url)
+    This schema provides structured error information that enables:
+    1. Understanding what went wrong (error_code, message)
+    2. Knowing exactly how to fix it (fix_suggestion)
+    3. Identifying specific field issues (field_errors)
+    4. Finding additional help (documentation_url)
     
     All error responses from this API follow this schema for consistency.
     """
@@ -77,7 +76,7 @@ class AgenticErrorResponse(BaseModel):
     fix_suggestion: str = Field(
         ...,
         description=(
-            "Actionable instruction that tells an agent exactly how to fix this error "
+            "Actionable instruction that explains exactly how to fix this error "
             "and retry the request successfully. Be specific about what to change."
         ),
         json_schema_extra={
@@ -119,10 +118,10 @@ class AgenticErrorResponse(BaseModel):
 
 
 # Common error response definitions for OpenAPI documentation
-AGENTIC_ERROR_RESPONSES = {
+ERROR_RESPONSES = {
     400: {
         "description": "Bad Request - The request was malformed or missing required parameters",
-        "model": AgenticErrorResponse,
+        "model": ErrorResponse,
         "content": {
             "application/json": {
                 "example": {
@@ -136,7 +135,7 @@ AGENTIC_ERROR_RESPONSES = {
     },
     401: {
         "description": "Unauthorized - Authentication credentials are missing or invalid",
-        "model": AgenticErrorResponse,
+        "model": ErrorResponse,
         "content": {
             "application/json": {
                 "example": {
@@ -150,7 +149,7 @@ AGENTIC_ERROR_RESPONSES = {
     },
     404: {
         "description": "Not Found - The requested resource does not exist",
-        "model": AgenticErrorResponse,
+        "model": ErrorResponse,
         "content": {
             "application/json": {
                 "example": {
@@ -164,7 +163,7 @@ AGENTIC_ERROR_RESPONSES = {
     },
     422: {
         "description": "Validation Error - Request body failed schema validation",
-        "model": AgenticErrorResponse,
+        "model": ErrorResponse,
         "content": {
             "application/json": {
                 "example": {
@@ -181,7 +180,7 @@ AGENTIC_ERROR_RESPONSES = {
     },
     500: {
         "description": "Internal Server Error - An unexpected error occurred",
-        "model": AgenticErrorResponse,
+        "model": ErrorResponse,
         "content": {
             "application/json": {
                 "example": {

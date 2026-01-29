@@ -29,7 +29,7 @@ from src.schemas.deployer_config import (
 )
 from src.config import settings
 from src.services.twin_helpers import get_user_twin
-from src.api.routes.agentic_models import AGENTIC_ERROR_RESPONSES
+from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/twins/{twin_id}/deployer", tags=["deployer"])
 
@@ -42,8 +42,8 @@ router = APIRouter(prefix="/twins/{twin_id}/deployer", tags=["deployer"])
     summary="Get deployer configuration for a twin",
     description="Returns deployer config, creating default if none exists.",
     responses={
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
     }
 )
 async def get_deployer_config(
@@ -72,9 +72,9 @@ async def get_deployer_config(
     summary="Update deployer configuration",
     description="Updates deployer config fields. Blocked for deployed twins.",
     responses={
-        400: AGENTIC_ERROR_RESPONSES[400],
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
     }
 )
 async def update_deployer_config(
@@ -186,9 +186,9 @@ async def update_deployer_config(
     summary="Validate a deployer config section via Deployer API",
     description="Validates events, iot, config, payloads, function-code, state-machine, hierarchy, scene-config, or user-config.",
     responses={
-        400: AGENTIC_ERROR_RESPONSES[400],
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
     }
 )
 async def validate_config(
@@ -363,10 +363,10 @@ async def validate_config(
     summary="Upload 3D scene GLB file",
     description="Saves scene.glb for 3D visualization (max 100MB).",
     responses={
-        400: AGENTIC_ERROR_RESPONSES[400],
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
-        500: AGENTIC_ERROR_RESPONSES[500],
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        500: ERROR_RESPONSES[500],
     }
 )
 async def upload_scene_glb(
@@ -421,8 +421,8 @@ async def upload_scene_glb(
     operation_id="deleteSceneGlb",
     summary="Delete 3D scene GLB file",
     responses={
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
     }
 )
 async def delete_scene_glb(
@@ -468,8 +468,8 @@ async def delete_scene_glb(
     summary="Upload project.zip for wizard auto-population",
     description="Extracts zip and returns content for Step 3 fields. Saves GLB if present.",
     responses={
-        401: AGENTIC_ERROR_RESPONSES[401],
-        404: AGENTIC_ERROR_RESPONSES[404],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
         413: {"description": "File too large (max 100MB)"},
     }
 )

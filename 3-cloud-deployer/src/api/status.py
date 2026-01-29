@@ -25,7 +25,7 @@ import src.core.state as state
 import src.validator as validator
 from api.dependencies import validate_project_context
 from logger import print_stack_trace, logger
-from api.agentic_models import AGENTIC_ERROR_RESPONSES
+from api.error_models import ERROR_RESPONSES
 
 
 def _get_upload_dir(project_name: str) -> str:
@@ -412,8 +412,8 @@ def check_terraform_drift(project_name: str) -> Dict[str, Any]:
     ),
     responses={
         200: {"description": "Status check successful"},
-        400: AGENTIC_ERROR_RESPONSES[400],
-        500: AGENTIC_ERROR_RESPONSES[500],
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
     }
 )
 def check_endpoint(
