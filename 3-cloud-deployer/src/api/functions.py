@@ -28,6 +28,7 @@ from typing import Dict, Optional, Any
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
+from api.error_models import ERROR_RESPONSES
 
 import constants as CONSTANTS
 import src.core.state as state
@@ -645,9 +646,15 @@ def clear_all_hash_metadata(project_name: str) -> None:
     operation_id="listUpdatableFunctions",
     tags=["Functions"],
     summary="List user-modifiable functions",
+    description=(
+        "**Purpose:** Discover all functions that can be updated via SDK.\n\n"
+        "**When to call:** Before updating functions to get available targets.\n\n"
+        "**Returns:** Function names, types (event_action/processor/feedback), and deployment status."
+    ),
     responses={
-        200: {"description": "Function list retrieved successfully"},
-        400: {"description": "Invalid project or missing config"}
+        200: {"description": "Function list retrieved"},
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
     }
 )
 def get_updatable_functions(
@@ -708,10 +715,15 @@ def get_updatable_functions(
     operation_id="updateFunctionCode",
     tags=["Functions"],
     summary="Update function code via SDK",
+    description=(
+        "**Purpose:** Deploy updated function code to cloud via SDK (boto3/Kudu/gcloud).\n\n"
+        "**When to call:** After modifying function code locally.\n\n"
+        "**Process:** Build ZIP → Compare hash → Upload if changed → Save metadata."
+    ),
     responses={
-        200: {"description": "Function updated successfully"},
-        400: {"description": "Invalid function or missing code"},
-        500: {"description": "SDK upload failed"}
+        200: {"description": "Function updated"},
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
     }
 )
 def update_function(
@@ -1009,10 +1021,15 @@ def _build_gcp_zip(function_content: bytes, requirements_content: bytes = None) 
     operation_id="buildFunctionZip",
     tags=["Functions"],
     summary="Build function deployment ZIP",
+    description=(
+        "**Purpose:** Create cloud-ready ZIP from Python function file.\n\n"
+        "**When to call:** To prepare a function for manual deployment.\n\n"
+        "**Validation:** Syntax check, entry point validation per provider."
+    ),
     responses={
         200: {"description": "ZIP file download", "content": {"application/zip": {}}},
-        400: {"description": "Validation failed - syntax error or missing entry point"},
-        422: {"description": "Invalid file upload"}
+        400: ERROR_RESPONSES[400],
+        422: ERROR_RESPONSES[422],
     }
 )
 async def build_function_zip(
