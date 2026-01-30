@@ -1,84 +1,64 @@
 # GCP IoT Device Simulator
 
 > Generated for project: **{{project_name}}**
-> Device ID: **{{device_id}}**
+> Devices: **{{device_ids}}**
 > Generated at: {{timestamp}}
 
-## Overview
+## Multi-Device Support
 
-This standalone simulator sends telemetry data to GCP Pub/Sub, simulating an IoT device.
+This simulator automatically routes each payload to the correct device credentials
+based on the `iotDeviceId` field in your payloads.
 
-**Note:** GCP IoT Core was deprecated in January 2023. This simulator uses Pub/Sub directly
-with service account authentication.
+### How it works:
+1. Your `payloads.json` contains payloads with `iotDeviceId` fields
+2. When you run `send`, the simulator reads the next payload
+3. It looks up the matching config in `configs/{iotDeviceId}/`
+4. Uses that device's service account to publish to Pub/Sub
 
-## Prerequisites
-
-- Python 3.9+
-- GCP Service Account with Pub/Sub Publisher role
-- Docker (optional, for containerized deployment)
-
-## Security Warning
-
-⚠️ **IMPORTANT:** This package contains a GCP service account key file (`service_account.json`).
-
-- Never commit this file to version control
-- Keep it secure and rotate regularly
-- The service account should have minimal required permissions
-
-## Quick Start
-
-### Option 1: Run with Python
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run interactive mode
-python -m src.main
-```
-
-### Option 2: Run with Docker
-
-```bash
-# Build and run
-docker compose up -d
-
-# Attach to container for interactive mode
-docker attach gcp-iot-simulator-{{device_id}}
-```
-
-## Configuration
-
-The simulator uses `config.json` for connection settings:
-
-```json
-{
-  "project_id": "your-gcp-project",
-  "topic_name": "iot-telemetry",
-  "device_id": "{{device_id}}",
-  "service_account_key_path": "service_account.json",
-  "payload_path": "payloads.json"
-}
-```
-
-## Payloads
-
-Edit `payloads.json` to customize the telemetry data:
-
+### Example payloads.json:
 ```json
 [
-  {
-    "iotDeviceId": "{{device_id}}",
-    "type": "temperature",
-    "value": 25.5
-  }
+  {"iotDeviceId": "temperature-sensor-1", "temperature": 28.5},
+  {"iotDeviceId": "pressure-sensor-1", "pressure": 101.3}
 ]
 ```
 
-The `time` field is automatically added if not present.
+Each payload uses the configured device ID for routing.
 
-## Troubleshooting
+## Quick Start
 
-1. **Authentication Error**: Ensure `service_account.json` is valid and has Pub/Sub Publisher role
-2. **Topic Not Found**: Verify the topic exists in your GCP project
-3. **Permission Denied**: Check service account permissions in IAM
+### Docker (Recommended)
+```bash
+docker compose up -d
+docker attach gcp-iot-simulator-{{device_id}}
+```
+
+### Python
+```bash
+pip install -r requirements.txt
+python -m src.main
+```
+
+## Commands
+- `send` - Send next payload (auto-routes to correct device)
+- `help` - Show commands
+- `exit` - Exit
+
+## File Structure
+```
+├── config.json           # Default device config (backward compat)
+├── configs/              # Per-device configurations
+│   ├── device-1/
+│   │   └── config.json
+│   └── device-2/
+│       └── ...
+├── payloads.json         # Your IoT payloads
+├── service_account.json  # GCP service account key
+└── src/                  # Simulator code
+```
+
+## Security Warning
+
+⚠️ **IMPORTANT:** This package contains a GCP service account key file.
+- Never commit to version control
+- Keep secure and rotate regularly

@@ -22,6 +22,7 @@ from typing import List, Dict, Set, Optional
 from fastapi import APIRouter, Query, HTTPException
 from sse_starlette.sse import EventSourceResponse
 
+from api.error_models import ERROR_RESPONSES
 from logger import logger
 import constants as CONSTANTS
 import src.core.state as state
@@ -316,6 +317,9 @@ def _send_test_message_via_simulator(
     """
     Send test message via existing IoT simulator using subprocess.
     Uses the --payload CLI argument for single-shot mode.
+    
+    Loads the first payload from payloads.json to determine the device ID,
+    then injects trace_id and sends via the correct device credentials.
     """
     # Map provider to simulator script path
     provider_map = {
@@ -330,22 +334,50 @@ def _send_test_message_via_simulator(
         logger.error(f"Unknown provider: {provider}")
         return False
     
-    script_path = f"/app/src/iot_device_simulator/{simulator_provider}/main.py"
-    
-    # Create payload with trace_id
-    payload = {
-        "iotDeviceId": "log-trace-test",
-        "trace_id": trace_id,
-        "type": "log_trace_test",
-        "time": datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z'),
-        "value": 42.0
-    }
+    # Try to load first payload from payloads.json
+    payloads_path = f"/app/upload/{project_name}/iot_device_simulator/payloads.json"
+    device_id = None
+    payload = None
     
     try:
+        if os.path.exists(payloads_path):
+            with open(payloads_path, 'r') as f:
+                payloads = json.load(f)
+            
+            if payloads and len(payloads) > 0:
+                # Use first payload as template
+                payload = payloads[0].copy()
+                device_id = payload.get("iotDeviceId")
+                logger.info(f"Using first payload from payloads.json, device_id: {device_id}")
+    except Exception as e:
+        logger.warning(f"Could not load payloads.json: {e}, using synthetic payload")
+    
+    # Fallback to synthetic payload if no payloads found
+    if payload is None:
+        payload = {
+            "iotDeviceId": "log-trace-test",
+            "type": "log_trace_test",
+            "value": 42.0
+        }
+        logger.info("Using synthetic payload, no device_id specified")
+    
+    # Inject trace_id and current timestamp
+    payload["trace_id"] = trace_id
+    payload["time"] = datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+    
+    try:
+        # Build command - include --device if we have a device_id
+        cmd = [
+            sys.executable, "-m", f"src.iot_device_simulator.{simulator_provider}.main",
+            "--project", project_name,
+            "--payload", json.dumps(payload)
+        ]
+        
+        if device_id:
+            cmd.extend(["--device", device_id])
+        
         result = subprocess.run(
-            [sys.executable, "-m", f"src.iot_device_simulator.{simulator_provider}.main",
-             "--project", project_name,
-             "--payload", json.dumps(payload)],
+            cmd,
             capture_output=True,
             text=True,
             timeout=30,
@@ -371,7 +403,23 @@ def _send_test_message_via_simulator(
 # API Endpoints
 # ==============================================================================
 
-@router.post("/trace/start")
+@router.post(
+    "/trace/start",
+    operation_id="startLogTrace",
+    summary="Send test IoT message with unique trace_id",
+    description=(
+        "**Purpose:** Initiates end-to-end log tracing by sending a test IoT message.\n\n"
+        "**When to call:** To verify the EDT pipeline is working after deployment.\n\n"
+        "**Rate limited:** 1 trace per 30 seconds per project.\n"
+        "**Returns:** trace_id to use with /trace/stream/{trace_id}"
+    ),
+    responses={
+        200: {"description": "Trace started, returns trace_id and provider info"},
+        404: ERROR_RESPONSES[404],
+        429: {"description": "Rate limited, wait before retrying"},
+        500: ERROR_RESPONSES[500],
+    }
+)
 async def start_log_trace(
     project_name: str = Query(..., description="Digital twin project name"),
 ):
@@ -437,7 +485,24 @@ async def start_log_trace(
     }
 
 
-@router.get("/trace/stream/{trace_id}")
+@router.get(
+    "/trace/stream/{trace_id}",
+    operation_id="streamLogTrace",
+    summary="SSE endpoint streaming logs matching trace_id",
+    description=(
+        "**Purpose:** Streams logs from all cloud providers containing the trace_id.\n\n"
+        "**When to call:** After calling /trace/start, use the returned trace_id.\n\n"
+        "**SSE Events:** 'log' (each matching entry), 'error', 'done' (with summary).\n"
+        "**Duration:** Polls providers every 2s for 90s."
+    ),
+    responses={
+        200: {"description": "SSE stream with log events"},
+        403: {"description": "Trace ID does not belong to this project"},
+        404: ERROR_RESPONSES[404],
+        410: {"description": "Trace ID expired (older than 2 minutes)"},
+        500: ERROR_RESPONSES[500],
+    }
+)
 async def stream_log_trace(
     trace_id: str,
     project_name: str = Query(...),

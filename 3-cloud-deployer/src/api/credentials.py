@@ -15,6 +15,7 @@ from typing import Optional
 from api.credentials_checker import check_aws_credentials, check_aws_credentials_from_config
 from api.azure_credentials_checker import check_azure_credentials, check_azure_credentials_from_config
 from api.gcp_credentials_checker import check_gcp_credentials, check_gcp_credentials_from_config
+from api.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/permissions")
 
@@ -92,14 +93,20 @@ class GCPCredentialsCheckResponse(BaseModel):
 # ==========================================
 @router.post(
     "/verify/aws",
+    operation_id="verifyAwsCredentialsFromBody",
     response_model=CredentialsCheckResponse,
     tags=["Permissions - Upload"],
     summary="Verify AWS permissions from request body",
     description=(
-        "Verifies AWS credentials against all required permissions for the deployer. "
-        "Accepts credentials directly in the request body. "
-        "Returns categorized results by layer and by service."
-    )
+        "**Purpose:** Verifies AWS credentials against all required permissions for the deployer.\n\n"
+        "**When to call:** During wizard to validate user-provided AWS credentials.\n\n"
+        "**Response:** Categorized results by layer (1-5) and by service."
+    ),
+    responses={
+        200: {"description": "Credential validation completed (check status field)"},
+        422: ERROR_RESPONSES[422],
+        500: ERROR_RESPONSES[500],
+    }
 )
 async def check_aws_from_body(request: AWSCredentialsRequest):
     """
@@ -122,14 +129,20 @@ async def check_aws_from_body(request: AWSCredentialsRequest):
 # ==========================================
 @router.get(
     "/verify/aws",
+    operation_id="verifyAwsCredentialsFromConfig",
     response_model=CredentialsCheckResponse,
     tags=["Permissions - Project"],
     summary="Verify AWS permissions from project config",
     description=(
-        "Verifies AWS credentials from the project's config_credentials.json file. "
-        "Uses the active project if no project name is specified. "
-        "Returns categorized results by layer and by service."
-    )
+        "**Purpose:** Verifies AWS credentials from project's config_credentials.json.\n\n"
+        "**When to call:** To re-verify deployed project credentials.\n\n"
+        "**Query param:** project (optional) - uses active project if not specified."
+    ),
+    responses={
+        200: {"description": "Credential validation completed (check status field)"},
+        404: ERROR_RESPONSES[404],
+        500: ERROR_RESPONSES[500],
+    }
 )
 async def check_aws_from_config(
     project: Optional[str] = Query(
@@ -153,14 +166,20 @@ async def check_aws_from_config(
 # ==========================================
 @router.post(
     "/verify/azure",
+    operation_id="verifyAzureCredentialsFromBody",
     response_model=AzureCredentialsCheckResponse,
     tags=["Permissions - Upload"],
     summary="Verify Azure permissions from request body",
     description=(
-        "Verifies Azure Service Principal credentials against required RBAC roles. "
-        "Checks if Contributor and User Access Administrator roles are assigned. "
-        "Returns categorized results by deployment layer."
-    )
+        "**Purpose:** Verifies Azure Service Principal credentials against required RBAC roles.\n\n"
+        "**When to call:** During wizard to validate user-provided Azure credentials.\n\n"
+        "**Checks:** Contributor and User Access Administrator role assignments."
+    ),
+    responses={
+        200: {"description": "Credential validation completed (check status field)"},
+        422: ERROR_RESPONSES[422],
+        500: ERROR_RESPONSES[500],
+    }
 )
 async def check_azure_from_body(request: AzureCredentialsRequest):
     """
@@ -185,14 +204,20 @@ async def check_azure_from_body(request: AzureCredentialsRequest):
 # ==========================================
 @router.get(
     "/verify/azure",
+    operation_id="verifyAzureCredentialsFromConfig",
     response_model=AzureCredentialsCheckResponse,
     tags=["Permissions - Project"],
     summary="Verify Azure permissions from project config",
     description=(
-        "Verifies Azure credentials from the project's config_credentials.json file. "
-        "Uses the active project if no project name is specified. "
-        "Returns categorized results by layer."
-    )
+        "**Purpose:** Verifies Azure credentials from project's config_credentials.json.\n\n"
+        "**When to call:** To re-verify deployed project credentials.\n\n"
+        "**Query param:** project (optional) - uses active project if not specified."
+    ),
+    responses={
+        200: {"description": "Credential validation completed (check status field)"},
+        404: ERROR_RESPONSES[404],
+        500: ERROR_RESPONSES[500],
+    }
 )
 async def check_azure_from_config(
     project: Optional[str] = Query(
@@ -216,14 +241,20 @@ async def check_azure_from_config(
 # ==========================================
 @router.post(
     "/verify/gcp",
+    operation_id="verifyGcpCredentialsFromBody",
     response_model=GCPCredentialsCheckResponse,
     tags=["Permissions - Upload"],
     summary="Verify GCP permissions from request body",
     description=(
-        "Verifies GCP Service Account credentials against required permissions. "
-        "Checks project access and API enablement status. "
-        "Returns status and missing APIs by layer."
-    )
+        "**Purpose:** Verifies GCP Service Account credentials against required permissions.\n\n"
+        "**When to call:** During wizard to validate user-provided GCP credentials.\n\n"
+        "**Checks:** Project access, API enablement (Pub/Sub, Cloud Functions, Firestore, etc)."
+    ),
+    responses={
+        200: {"description": "Credential validation completed (check status field)"},
+        422: ERROR_RESPONSES[422],
+        500: ERROR_RESPONSES[500],
+    }
 )
 async def check_gcp_from_body(request: GCPCredentialsRequest):
     """
@@ -247,14 +278,20 @@ async def check_gcp_from_body(request: GCPCredentialsRequest):
 # ==========================================
 @router.get(
     "/verify/gcp",
+    operation_id="verifyGcpCredentialsFromConfig",
     response_model=GCPCredentialsCheckResponse,
     tags=["Permissions - Project"],
     summary="Verify GCP permissions from project config",
     description=(
-        "Verifies GCP credentials from the project's config_credentials.json file. "
-        "Uses the active project if no project name is specified. "
-        "Returns status and API enablement results."
-    )
+        "**Purpose:** Verifies GCP credentials from project's config_credentials.json.\n\n"
+        "**When to call:** To re-verify deployed project credentials.\n\n"
+        "**Query param:** project (optional) - uses active project if not specified."
+    ),
+    responses={
+        200: {"description": "Credential validation completed (check status field)"},
+        404: ERROR_RESPONSES[404],
+        500: ERROR_RESPONSES[500],
+    }
 )
 async def check_gcp_from_config(
     project: Optional[str] = Query(

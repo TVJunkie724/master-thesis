@@ -102,7 +102,20 @@ async def google_callback(
 # UIBK SAML Routes
 # ============================================================================
 
-@router.get("/uibk/login")
+@router.get(
+    "/uibk/login",
+    operation_id="initiateUibkLogin",
+    summary="Initiate UIBK SAML SSO flow",
+    description=(
+        "**Purpose:** Begins UIBK SAML authentication flow.\n\n"
+        "**When to call:** When user clicks 'Login with UIBK' button.\n\n"
+        "**Response:** Returns auth_url to redirect user to UIBK IdP."
+    ),
+    responses={
+        200: {"description": "Returns auth_url for redirect"},
+        503: {"description": "SAML not enabled or library not installed"},
+    }
+)
 async def uibk_login(request: Request):
     """
     Initiate UIBK SAML SSO flow.
@@ -133,7 +146,21 @@ async def uibk_login(request: Request):
     
     return {"auth_url": redirect_url}
 
-@router.post("/uibk/callback")
+@router.post(
+    "/uibk/callback",
+    operation_id="handleUibkCallback",
+    summary="Handle UIBK SAML assertion callback",
+    description=(
+        "**Purpose:** Processes SAML assertion from UIBK IdP after user login.\n\n"
+        "**When to call:** UIBK IdP POSTs here after successful authentication.\n\n"
+        "**Response:** Redirects to frontend with JWT token."
+    ),
+    responses={
+        302: {"description": "Redirect to frontend with JWT token"},
+        400: ERROR_RESPONSES[400],
+        503: {"description": "SAML not enabled or library not installed"},
+    }
+)
 async def uibk_callback(
     request: Request,
     db: Session = Depends(get_db)
@@ -204,7 +231,20 @@ async def uibk_callback(
         url=f"{settings.FRONTEND_CALLBACK_URL}?token={token}"
     )
 
-@router.get("/uibk/metadata")
+@router.get(
+    "/uibk/metadata",
+    operation_id="getUibkSpMetadata",
+    summary="Serve SP metadata for ACOnet registration",
+    description=(
+        "**Purpose:** Returns SAML SP metadata XML for ACOnet/eduID.at federation.\n\n"
+        "**When to call:** During service provider registration with ACOnet.\n\n"
+        "**Response:** XML metadata document."
+    ),
+    responses={
+        200: {"description": "XML metadata document"},
+        503: {"description": "SAML library not installed"},
+    }
+)
 async def uibk_metadata():
     """
     Serve SP metadata for ACOnet registration.

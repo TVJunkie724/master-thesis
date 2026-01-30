@@ -642,6 +642,7 @@ def clear_all_hash_metadata(project_name: str) -> None:
 
 @router.get(
     "/updatable_functions",
+    operation_id="listUpdatableFunctions",
     tags=["Functions"],
     summary="List user-modifiable functions",
     responses={
@@ -704,6 +705,7 @@ def get_updatable_functions(
 
 @router.post(
     "/update_function/{function_name}",
+    operation_id="updateFunctionCode",
     tags=["Functions"],
     summary="Update function code via SDK",
     responses={
@@ -1004,6 +1006,7 @@ def _build_gcp_zip(function_content: bytes, requirements_content: bytes = None) 
 
 @router.post(
     "/build",
+    operation_id="buildFunctionZip",
     tags=["Functions"],
     summary="Build function deployment ZIP",
     responses={

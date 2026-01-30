@@ -10,7 +10,16 @@ import src.core.state as state
 router = APIRouter()
 
 
-@router.get("/", tags=["Projects"])
+@router.get(
+    "/", 
+    operation_id="getApiHealth",
+    tags=["Projects"],
+    summary="API health check",
+    description=(
+        "**Purpose:** Check API status and active project.\\n\\n"
+        "**When to call:** For health checks and debugging."
+    )
+)
 def read_root():
     """
     API health check endpoint.
