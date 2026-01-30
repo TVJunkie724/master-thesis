@@ -6,7 +6,11 @@ from AWS, Azure, and GCP. Pricing data is cached locally for 7 days and can be
 force-refreshed when needed. The data is used by the calculation engine to
 determine optimal cloud provider distribution.
 """
+import asyncio
+import logging
 from fastapi import APIRouter, HTTPException, Body
+from fastapi.responses import StreamingResponse
+from starlette.requests import Request
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 
@@ -14,6 +18,7 @@ from backend.logger import logger
 from backend.utils import is_file_fresh
 from backend.config_loader import load_json_file
 from backend.fetch_data.calculate_up_to_date_pricing import calculate_up_to_date_pricing
+from backend.sse_utils import ThreadSafeSseHandler, emit_sse
 import backend.constants as CONSTANTS
 from api.error_models import ERROR_RESPONSES
 
@@ -343,3 +348,114 @@ def fetch_pricing_with_credentials(
     except Exception as e:
         logger.error(f"Error fetching {provider} pricing with credentials: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch {provider} pricing. Check server logs.")
+
+
+# --------------------------------------------------
+# SSE Streaming Endpoint
+# --------------------------------------------------
+
+@router.post(
+    "/stream/fetch_pricing/{provider}",
+    operation_id="streamFetchPricing",
+    summary="SSE stream for pricing fetch with real-time logs",
+    description=(
+        "**Purpose:** Stream real-time logs during pricing data fetch via Server-Sent Events.\n\n"
+        "**Event types:**\n"
+        "- `log`: Progress message from pricing fetch operations\n"
+        "- `heartbeat`: Keep-alive signal (every 10s during long operations)\n"
+        "- `complete`: Pricing fetch completed successfully\n"
+        "- `error`: An error occurred during fetch\n\n"
+        "**Dual Output:** Logs appear in both SSE stream AND container logs."
+    ),
+    responses={
+        200: {"description": "SSE stream of log events"},
+        400: ERROR_RESPONSES[400],
+    }
+)
+async def stream_fetch_pricing(
+    provider: str,
+    request: Request,
+    credentials: CredentialRequest = Body(default=CredentialRequest())
+):
+    """
+    SSE endpoint that streams logger output during pricing fetch.
+    
+    Uses log handler capture pattern to stream all logger.info() calls
+    from the pricing fetch functions to the SSE stream, while also
+    writing them to container logs (dual output).
+    """
+    if provider not in ["aws", "azure", "gcp"]:
+        return StreamingResponse(
+            iter([emit_sse(f"Invalid provider: {provider}. Must be aws, azure, or gcp.", "error")]),
+            media_type="text/event-stream"
+        )
+    
+    async def event_generator():
+        loop = asyncio.get_event_loop()
+        queue = asyncio.Queue(maxsize=100)
+        handler = ThreadSafeSseHandler(queue, loop)
+        handler.setFormatter(logging.Formatter('%(message)s'))
+        handler.setLevel(logging.INFO)
+        logger.addHandler(handler)
+        
+        try:
+            yield emit_sse(f"Starting {provider.upper()} pricing fetch...")
+            
+            # Import pricing functions
+            from backend.fetch_data.calculate_up_to_date_pricing import (
+                calculate_up_to_date_pricing_with_credentials
+            )
+            
+            # Run sync pricing function in thread pool
+            if provider == "azure":
+                # Azure uses public API - no credentials needed
+                task = loop.run_in_executor(
+                    None, calculate_up_to_date_pricing, provider, False
+                )
+            else:
+                creds_dict = credentials.model_dump()
+                task = loop.run_in_executor(
+                    None, calculate_up_to_date_pricing_with_credentials,
+                    provider, creds_dict, False
+                )
+            
+            # Yield logs as they arrive, check for disconnect
+            while not task.done():
+                if await request.is_disconnected():
+                    task.cancel()
+                    return
+                try:
+                    msg = await asyncio.wait_for(queue.get(), timeout=10.0)
+                    yield emit_sse(msg)
+                except asyncio.TimeoutError:
+                    yield emit_sse("⏳", "heartbeat")
+            
+            # Drain remaining logs from queue
+            while not queue.empty():
+                try:
+                    msg = queue.get_nowait()
+                    yield emit_sse(msg)
+                except asyncio.QueueEmpty:
+                    break
+            
+            # Check if task raised an exception
+            try:
+                await task
+                yield emit_sse(f"✅ {provider.upper()} pricing fetch complete!", "complete")
+            except Exception as e:
+                yield emit_sse(f"❌ Pricing fetch failed: {str(e)}", "error")
+            
+        except Exception as e:
+            yield emit_sse(f"❌ Error: {str(e)}", "error")
+        finally:
+            logger.removeHandler(handler)
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable nginx buffering
+        }
+    )

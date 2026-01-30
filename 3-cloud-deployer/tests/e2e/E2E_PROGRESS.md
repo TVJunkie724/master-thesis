@@ -1,6 +1,6 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-01-30 23:04  
+**Last Updated:** 2026-01-30 23:35  
 **Cloud Log Investigation:** 2026-01-29 19:22 UTC  
 **TwinMaker Fix Session:** AI-0130-5dda
 
@@ -12,16 +12,31 @@
 |----------|----------|--------------|--------------|---------------|--------|
 | **AWS→GCP** | Jan 28 | 11 | 0 | 3 | ✅ PASS |
 | **AWS→Azure** | Jan 25 | 12 | 0 | 1 | ✅ PASS |
-| **Azure→AWS** | Jan 30 | 12 | 1 | 2 | ❌ FAIL (test_10b) |
+| **Azure→AWS** | Jan 30 (23:31) | 11 | 2 | 2 | ❌ FAIL |
 | **Azure→GCP** | - | - | - | - | ⏳ Untested |
 | **GCP→AWS** | - | - | - | - | ⏳ Untested |
 | **GCP→Azure** | - | - | - | - | ⏳ Untested |
 
-### Azure→AWS Last Run Details (Jan 30, 19:19)
-- **Duration**: 22m 42s
-- **Result**: `1 failed, 12 passed, 2 skipped`
-- **Failed Test**: `test_10b_twinmaker_telemetry`
-- **Error**: `[L4 DATAFLOW CRITICAL] No telemetry found via TwinMaker after 60s. Entity: machine-1, Component: temperature-sensor-1`
+### Azure→AWS Last Run Details (Jan 30, 22:07 → 22:31)
+- **Duration**: 24m 21s
+- **Result**: `2 failed, 11 passed, 2 skipped`
+- **Failed Tests**: 
+  1. `test_08_verify_hot_storage` - No data in GCP Firestore after 120s (Status 200, empty)
+  2. `test_10b_twinmaker_telemetry` - No telemetry via TwinMaker after 60s
+
+### Azure→AWS Run Comparison
+| Run | test_08 | test_10b | Total |
+|-----|---------|----------|-------|
+| Jan 30 19:19 | ✅ PASS | ❌ FAIL | 1 failed, 12 passed |
+| Jan 30 22:07 | ❌ FAIL | ❌ FAIL | 2 failed, 11 passed |
+
+**Key Observation:** test_08 passed in the earlier run but failed in the latest run. This indicates **intermittent data flow issues** in the Azure → AWS → GCP pipeline.
+
+**Investigation Notes:**
+- GCP hot-reader was NOT changed in this session
+- Our changes (TwinMaker connector fix, timestamp normalization) require **redeployment** to take effect
+- The AWS persister correctly adds `id` field (code confirmed)
+- test_08 queries by `device_id` only (no timestamp filtering), so timestamp format is not the issue for test_08
 
 ---
 
@@ -85,36 +100,38 @@
 
 ---
 
-## ❌ Azure→AWS: TWO ROOT CAUSES (Now Fixed)
+## ❌ Azure→AWS: ROOT CAUSES
 
-### Error 1: L0 AccessDeniedException
+### Error 1: L0 AccessDeniedException (Fixed in Terraform)
 **Lambda:** `sc-azure-aws-l0-ingestion` (Jan 28 14:11)
 ```
 AccessDeniedException: User ...sc-azure-aws-l0-lambda-role/sc-azure-aws-l0-ingestion 
 is NOT AUTHORIZED to perform: lambda:InvokeFunction
 ```
-**Fix:** Add `lambda:InvokeFunction` permission to `sc-azure-aws-l0-lambda-role`
+**Fix:** `lambda:InvokeFunction` permission added to L0 role.
 
 ---
 
-### Error 2: L2 Persister Missing ID
+### Error 2: L2 Persister Missing ID (Fixed Jan 27)
 **Lambda:** `sc-azure-aws-l2-persister` (Jan 28 17:23)
 ```
-Event: {"temperature": 42.5, "time": "1769621022101", "device_id": "temperature-sensor-1", "timestamp": "1769621022101"}
-Multi-cloud mode: POSTing to remote Hot Writer at https://.../sc-azure-aws-hot-writer
 Client Error (400): Bad Request. Body: {"error": "Missing 'id' in item"}
 ```
-**The `id` field is NOT being set!** Looking at the event, it has `device_id` and `timestamp` but no `id`.
+**Fix:** `item["id"] = f"{device_id}_{timestamp}"` added.
 
-**Root Cause:** The Document ID standardization fix IS in the code, but the deployed Lambda is **stale** (pre-Jan 27 code).
+---
 
-**Fix:** Re-deploy Azure→AWS scenario to pick up the `item["id"] = f"{device_id}_{timestamp}"` fix.
+### Error 3: test_08 Intermittent Failure (NEW)
+Data sometimes doesn't reach GCP Firestore within 120s timeout. Hot reader returns 200 with empty results.
+
+**Possible causes:**
+- Azure → AWS L1 dispatcher not triggering
+- AWS → GCP persister failing silently
+- GCP Firestore write timing
 
 ---
 
 ## ⏳ Untested Scenarios
-
-The following scenarios have not been run yet:
 
 | Scenario | Test File | Notes |
 |----------|-----------|-------|
@@ -135,8 +152,8 @@ The following scenarios have not been run yet:
 
 ## Next Steps
 
-1. Run E2E test `deployer-azure-aws` to validate fixes
-2. Verify `test_10b_twinmaker_telemetry` passes
+1. Investigate intermittent test_08 failure (data flow Azure→GCP)
+2. Check cloud logs for the failing run
 3. Run remaining 3 untested scenarios
 
 ---

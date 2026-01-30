@@ -294,76 +294,73 @@ async def stream_refresh_pricing(
 
     async def event_generator():
         def emit(msg: str, event_type: str = "log"):
-            return f"event: {event_type}\ndata: {json.dumps({'message': msg})}\n\n"
+            return f"event: {event_type}\ndata: {json.dumps({'message': msg, 'type': event_type})}\n\n"
 
         yield emit(f"Starting {provider.upper()} pricing refresh...")
         await asyncio.sleep(0.1)  # Allow client to receive
 
         try:
-            # Azure uses public API - no credentials needed
+            # Prepare credentials (Management API responsibility - security boundary)
+            credentials = {}
+            
             if provider == "azure":
                 yield emit("Azure uses public API - no credentials needed")
+            else:
+                # AWS/GCP need credentials from twin config
+                yield emit("Loading twin credentials...")
                 await asyncio.sleep(0.1)
                 
-                yield emit(f"Calling Azure pricing API (this may take 30-60 seconds)...")
+                twin = await get_user_twin(twin_id, current_user, db)
+                config = twin.configuration
                 
-                async with httpx.AsyncClient(timeout=300.0) as client:
-                    response = await client.post(
-                        f"{OPTIMIZER_URL}/fetch_pricing/azure",
-                        params={"force_fetch": True}
-                    )
-                
-                if response.status_code == 200:
-                    yield emit(f"✅ Successfully refreshed Azure pricing!", "complete")
-                else:
-                    yield emit(f"❌ Error: {response.text}", "error")
-                return
-            
-            # AWS/GCP need credentials from twin config
-            yield emit("Loading twin credentials...")
-            await asyncio.sleep(0.1)
-            
-            twin = await get_user_twin(twin_id, current_user, db)
-            config = twin.configuration
-            
-            if not config:
-                yield emit("❌ Error: Twin has no configuration. Complete Step 1 first.", "error")
-                return
+                if not config:
+                    yield emit("❌ Error: Twin has no configuration. Complete Step 1 first.", "error")
+                    return
 
-            credentials = {}
-            if provider == "aws":
-                if not config.aws_access_key_id:
-                    yield emit("❌ Error: AWS credentials not configured in Step 1", "error")
-                    return
-                credentials = {
-                    "aws_access_key_id": decrypt(config.aws_access_key_id, current_user.id, twin_id),
-                    "aws_secret_access_key": decrypt(config.aws_secret_access_key, current_user.id, twin_id),
-                    "aws_region": config.aws_region or "eu-central-1"
-                }
-                yield emit("AWS credentials loaded and decrypted")
-            elif provider == "gcp":
-                if not config.gcp_service_account_json:
-                    yield emit("❌ Error: GCP credentials not configured in Step 1", "error")
-                    return
-                credentials = {
-                    "gcp_service_account_json": decrypt(config.gcp_service_account_json, current_user.id, twin_id),
-                    "gcp_region": config.gcp_region or "europe-west1"
-                }
-                yield emit("GCP credentials loaded and decrypted")
+                if provider == "aws":
+                    if not config.aws_access_key_id:
+                        yield emit("❌ Error: AWS credentials not configured in Step 1", "error")
+                        return
+                    credentials = {
+                        "aws_access_key_id": decrypt(config.aws_access_key_id, current_user.id, twin_id),
+                        "aws_secret_access_key": decrypt(config.aws_secret_access_key, current_user.id, twin_id),
+                        "aws_region": config.aws_region or "eu-central-1"
+                    }
+                    yield emit("AWS credentials loaded and decrypted")
+                elif provider == "gcp":
+                    if not config.gcp_service_account_json:
+                        yield emit("❌ Error: GCP credentials not configured in Step 1", "error")
+                        return
+                    credentials = {
+                        "gcp_service_account_json": decrypt(config.gcp_service_account_json, current_user.id, twin_id),
+                        "gcp_region": config.gcp_region or "europe-west1"
+                    }
+                    yield emit("GCP credentials loaded and decrypted")
 
             await asyncio.sleep(0.1)
-            yield emit(f"Calling {provider.upper()} pricing API (this may take 30-60 seconds)...")
+            yield emit(f"Connecting to Optimizer service for {provider.upper()} pricing...")
 
+            # Relay SSE stream from Optimizer
             async with httpx.AsyncClient(timeout=300.0) as client:
-                response = await client.post(
-                    f"{OPTIMIZER_URL}/fetch_pricing_with_credentials/{provider}",
-                    json=credentials
-                )
-
-            if response.status_code == 200:
-                yield emit(f"✅ Successfully refreshed {provider.upper()} pricing!", "complete")
-            else:
-                yield emit(f"❌ Error: {response.text}", "error")
+                async with client.stream(
+                    "POST",
+                    f"{OPTIMIZER_URL}/stream/fetch_pricing/{provider}",
+                    json=credentials,
+                    headers={"Accept": "text/event-stream"}
+                ) as response:
+                    if response.status_code != 200:
+                        yield emit(f"❌ Optimizer error: {response.status_code}", "error")
+                        return
+                    
+                    # Relay SSE events from Optimizer
+                    buffer = ""
+                    async for chunk in response.aiter_text():
+                        buffer += chunk
+                        # Process complete SSE events (delimited by double newline)
+                        while "\n\n" in buffer:
+                            event_str, buffer = buffer.split("\n\n", 1)
+                            if event_str.strip():
+                                yield event_str + "\n\n"
 
         except httpx.ConnectError:
             yield emit("❌ Error: Cannot connect to Optimizer service", "error")
