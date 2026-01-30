@@ -613,9 +613,19 @@ class TestAzureSingleCloudE2E:
         config = deployed_environment["config"]
         
         # Get simulator config for first device
-        sim_config_path = os.path.join(
-            project_path, "iot_device_simulator", "azure", "config_generated.json"
-        )
+        # Config is stored per-device: azure/{device_id}/config_generated.json
+        azure_sim_dir = os.path.join(project_path, "iot_device_simulator", "azure")
+        
+        if not os.path.exists(azure_sim_dir):
+            pytest.skip("Azure simulator directory not found - check L1 deployment")
+        
+        # Find first device subdirectory
+        device_dirs = [d for d in os.listdir(azure_sim_dir) 
+                      if os.path.isdir(os.path.join(azure_sim_dir, d))]
+        if not device_dirs:
+            pytest.skip("No device configs found - check L1 deployment")
+        
+        sim_config_path = os.path.join(azure_sim_dir, device_dirs[0], "config_generated.json")
         
         if not os.path.exists(sim_config_path):
             pytest.skip("Simulator config not generated - check L1 deployment")

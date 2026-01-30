@@ -283,12 +283,12 @@ TEST_MAP = {
     "multicloud": ("mc-e2e-test", "/app/tests/e2e/multicloud/e2e_state"),
     
     # Deployer scenario tests (project names from _base_scenario.py ScenarioConfig)
-    "deployer-gcp-azure": ("sc-gcp-azure", "/app/tests/e2e/multicloud/e2e_state"),
-    "deployer-gcp-aws": ("sc-gcp-aws", "/app/tests/e2e/multicloud/e2e_state"),
-    "deployer-aws-azure": ("sc-aws-azure", "/app/tests/e2e/multicloud/e2e_state"),
-    "deployer-aws-gcp": ("sc-aws-gcp", "/app/tests/e2e/multicloud/e2e_state"),
-    "deployer-azure-aws": ("sc-azure-aws", "/app/tests/e2e/multicloud/e2e_state"),
-    "deployer-azure-gcp": ("sc-azure-gcp", "/app/tests/e2e/multicloud/e2e_state"),
+    "deployer-gcp-azure": ("sc2-gcp-azure", "/app/tests/e2e/multicloud/e2e_state"),
+    "deployer-gcp-aws": ("sc2-gcp-aws", "/app/tests/e2e/multicloud/e2e_state"),
+    "deployer-aws-azure": ("sc2-aws-azure", "/app/tests/e2e/multicloud/e2e_state"),
+    "deployer-aws-gcp": ("sc2-aws-gcp", "/app/tests/e2e/multicloud/e2e_state"),
+    "deployer-azure-aws": ("sc2-azure-aws", "/app/tests/e2e/multicloud/e2e_state"),
+    "deployer-azure-gcp": ("sc2-azure-gcp", "/app/tests/e2e/multicloud/e2e_state"),
 }
 
 
