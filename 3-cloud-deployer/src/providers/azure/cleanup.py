@@ -64,8 +64,8 @@ def cleanup_azure_resources(
     # ========================================
     logger.info("[Diagnostic Settings] Checking for orphans...")
     try:
-        from azure.mgmt.monitor import MonitorManagementClient
-        monitor_client = MonitorManagementClient(credential, subscription_id)
+        from .diagnostic_settings_helper import DiagnosticSettingsHelper
+        diag_helper = DiagnosticSettingsHelper(credential, subscription_id)
         
         for rg in resource_client.resource_groups.list():
             if prefix not in rg.name:
@@ -73,32 +73,28 @@ def cleanup_azure_resources(
             # List all resources in matching RG (cache to avoid double API call)
             resources = list(resource_client.resources.list_by_resource_group(rg.name))
             for resource in resources:
-                try:
-                    for setting in monitor_client.diagnostic_settings.list(resource.id):
-                        logger.info(f"  Found: {setting.name} on {resource.name}")
-                        if dry_run:
-                            logger.info(f"    [DRY RUN] Would delete")
-                        else:
-                            monitor_client.diagnostic_settings.delete(resource.id, setting.name)
-                            logger.info(f"    ✓ Deleted")
-                except Exception:
-                    pass  # Resource may not support diagnostic settings
+                for setting in diag_helper.list(resource.id):
+                    setting_name = setting.get("name", "unknown")
+                    logger.info(f"  Found: {setting_name} on {resource.name}")
+                    if dry_run:
+                        logger.info(f"    [DRY RUN] Would delete")
+                    else:
+                        diag_helper.delete(resource.id, setting_name)
+                        logger.info(f"    ✓ Deleted")
             
             # Handle storage sub-resources (blobServices/default) - reuse cached list
             for storage in [r for r in resources if r.type == "Microsoft.Storage/storageAccounts"]:
                 blob_uri = f"{storage.id}/blobServices/default"
-                try:
-                    for setting in monitor_client.diagnostic_settings.list(blob_uri):
-                        logger.info(f"  Found: {setting.name} on {storage.name}/blobServices/default")
-                        if dry_run:
-                            logger.info(f"    [DRY RUN] Would delete")
-                        else:
-                            monitor_client.diagnostic_settings.delete(blob_uri, setting.name)
-                            logger.info(f"    ✓ Deleted")
-                except Exception:
-                    pass
+                for setting in diag_helper.list(blob_uri):
+                    setting_name = setting.get("name", "unknown")
+                    logger.info(f"  Found: {setting_name} on {storage.name}/blobServices/default")
+                    if dry_run:
+                        logger.info(f"    [DRY RUN] Would delete")
+                    else:
+                        diag_helper.delete(blob_uri, setting_name)
+                        logger.info(f"    ✓ Deleted")
     except Exception as e:
-        logger.warning(f"  Error: {e}")
+        logger.warning(f"  Diagnostic settings cleanup error: {e}")
     
     # ========================================
     # PHASE 0.2: Role Assignments Cleanup
