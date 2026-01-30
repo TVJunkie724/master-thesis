@@ -1,17 +1,17 @@
 // lib/bloc/wizard/wizard_bloc.dart
 // BLoC for wizard state machine
-
-import 'dart:convert';
+// Refactored to use service extraction pattern for testability
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
 import '../../services/api_service.dart';
 import '../../utils/api_error_handler.dart';
 import 'wizard_event.dart';
 import 'wizard_state.dart';
 import 'helpers/helpers.dart';
+import 'services/wizard_init_service.dart';
+import 'services/wizard_zip_service.dart';
 
 /// WizardBloc - State machine for the multi-step wizard
 ///
@@ -21,11 +21,18 @@ import 'helpers/helpers.dart';
 /// - Persistent data (credentials, calc results) that survives navigation
 /// - Create vs Edit mode distinction
 class WizardBloc extends Bloc<WizardEvent, WizardState> {
+  final WizardInitService _initService;
+  final WizardZipService _zipService;
   final ApiService _api;
 
-  WizardBloc({required ApiService api})
-    : _api = api,
-      super(const WizardState()) {
+  WizardBloc({
+    required ApiService api,
+    WizardInitService? initService,
+    WizardZipService? zipService,
+  }) : _api = api,
+       _initService = initService ?? WizardInitService(api: api),
+       _zipService = zipService ?? WizardZipService(),
+       super(const WizardState()) {
     // === Initialization ===
     on<WizardInitCreate>(_onInitCreate);
     on<WizardInitEdit>(_onInitEdit);
@@ -117,13 +124,11 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   }
 
   // ============================================================
-  // INITIALIZATION HANDLERS
+  // INITIALIZATION HANDLERS - Delegated to WizardInitService
   // ============================================================
 
   void _onInitCreate(WizardInitCreate event, Emitter<WizardState> emit) {
-    emit(
-      const WizardState(mode: WizardMode.create, status: WizardStatus.ready),
-    );
+    emit(_initService.initializeCreateMode());
   }
 
   Future<void> _onInitEdit(
@@ -131,256 +136,11 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     Emitter<WizardState> emit,
   ) async {
     emit(state.copyWith(status: WizardStatus.loading));
-
-    try {
-      final twin = await _api.getTwin(event.twinId);
-      final config = await _api.getTwinConfig(event.twinId);
-
-      // Hydrate credentials (marked as inherited - masked from DB)
-      ProviderCredentials awsCreds = const ProviderCredentials();
-      ProviderCredentials azureCreds = const ProviderCredentials();
-      ProviderCredentials gcpCreds = const ProviderCredentials();
-
-      if (config['aws_configured'] == true) {
-        awsCreds = ProviderCredentials(
-          isValid: true,
-          source: CredentialSource.inherited,
-          values: _extractMaskedCredentials(config['aws']),
-        );
-      }
-      if (config['azure_configured'] == true) {
-        azureCreds = ProviderCredentials(
-          isValid: true,
-          source: CredentialSource.inherited,
-          values: _extractMaskedCredentials(config['azure']),
-        );
-      }
-      if (config['gcp_configured'] == true) {
-        gcpCreds = ProviderCredentials(
-          isValid: true,
-          source: CredentialSource.inherited,
-          values: _extractMaskedCredentials(config['gcp']),
-        );
-      }
-
-      // Determine starting step: use persisted value, fallback to data-based detection
-      int startStep = config['highest_step_reached'] as int? ?? 0;
-
-      // Validate startStep against actual data (can't go to step without prerequisites)
-      if (startStep >= 1 &&
-          !(awsCreds.isValid || azureCreds.isValid || gcpCreds.isValid)) {
-        startStep = 0; // Need at least one provider for Step 2
-      }
-
-      // Load optimizer result if available
-      CalcResult? loadedResult;
-      Map<String, dynamic>? loadedResultRaw;
-      if (config['optimizer_result'] != null) {
-        loadedResultRaw = {'result': config['optimizer_result']};
-        loadedResult = CalcResult.fromJson(loadedResultRaw);
-      } else if (startStep >= 2) {
-        startStep = 1; // Can't be on Step 3 without calc result
-      }
-
-      // Load optimizer params if available
-      CalcParams? loadedParams;
-      if (config['optimizer_params'] != null) {
-        loadedParams = CalcParams.fromJson(config['optimizer_params']);
-      }
-
-      // Load deployer config (Section 2 data) if available
-      String? deployerDigitalTwinName;
-      String? configEventsJson;
-      String? configIotDevicesJson;
-      bool configJsonValidated = false;
-      bool configEventsValidated = false;
-      bool configIotDevicesValidated = false;
-      // Section 3 L1
-      String? payloadsJson;
-      bool payloadsValidated = false;
-      // Section 3 L2
-      Map<String, String> processorContents = {};
-      Map<String, bool> processorValidated = {};
-      Map<String, String> processorRequirements = {};
-      String? eventFeedbackContent;
-      bool eventFeedbackValidated = false;
-      String? eventFeedbackRequirements;
-      Map<String, String> eventActionContents = {};
-      Map<String, bool> eventActionValidated = {};
-      Map<String, String> eventActionRequirements = {};
-      String? stateMachineContent;
-      bool stateMachineValidated = false;
-      // L4/L5 fields
-      String? hierarchyContent;
-      bool hierarchyValidated = false;
-      bool sceneGlbUploaded = false;
-      String? sceneConfigContent;
-      bool sceneConfigValidated = false;
-      String? userConfigContent;
-      bool userConfigValidated = false;
-
-      try {
-        final deployerConfig = await _api.getDeployerConfig(event.twinId);
-        deployerDigitalTwinName =
-            deployerConfig['deployer_digital_twin_name'] as String?;
-        configEventsJson = deployerConfig['config_events_json'] as String?;
-        configIotDevicesJson =
-            deployerConfig['config_iot_devices_json'] as String?;
-        configJsonValidated =
-            deployerConfig['config_json_validated'] as bool? ?? false;
-        configEventsValidated =
-            deployerConfig['config_events_validated'] as bool? ?? false;
-        configIotDevicesValidated =
-            deployerConfig['config_iot_devices_validated'] as bool? ?? false;
-        // Section 3 L1
-        payloadsJson = deployerConfig['payloads_json'] as String?;
-        payloadsValidated =
-            deployerConfig['payloads_validated'] as bool? ?? false;
-        // Section 3 L2
-        if (deployerConfig['processor_contents'] != null) {
-          processorContents = Map<String, String>.from(
-            deployerConfig['processor_contents'] as Map,
-          );
-        }
-        if (deployerConfig['processor_validated'] != null) {
-          processorValidated = Map<String, bool>.from(
-            deployerConfig['processor_validated'] as Map,
-          );
-        }
-        if (deployerConfig['processor_requirements'] != null) {
-          processorRequirements = Map<String, String>.from(
-            deployerConfig['processor_requirements'] as Map,
-          );
-        }
-        eventFeedbackContent =
-            deployerConfig['event_feedback_content'] as String?;
-        eventFeedbackValidated =
-            deployerConfig['event_feedback_validated'] as bool? ?? false;
-        eventFeedbackRequirements =
-            deployerConfig['event_feedback_requirements'] as String?;
-        if (deployerConfig['event_action_contents'] != null) {
-          eventActionContents = Map<String, String>.from(
-            deployerConfig['event_action_contents'] as Map,
-          );
-        }
-        if (deployerConfig['event_action_validated'] != null) {
-          eventActionValidated = Map<String, bool>.from(
-            deployerConfig['event_action_validated'] as Map,
-          );
-        }
-        if (deployerConfig['event_action_requirements'] != null) {
-          eventActionRequirements = Map<String, String>.from(
-            deployerConfig['event_action_requirements'] as Map,
-          );
-        }
-        stateMachineContent =
-            deployerConfig['state_machine_content'] as String?;
-        stateMachineValidated =
-            deployerConfig['state_machine_validated'] as bool? ?? false;
-        // L4/L5 fields
-        hierarchyContent = deployerConfig['hierarchy_content'] as String?;
-        hierarchyValidated =
-            deployerConfig['hierarchy_validated'] as bool? ?? false;
-        sceneGlbUploaded =
-            deployerConfig['scene_glb_uploaded'] as bool? ?? false;
-        sceneConfigContent = deployerConfig['scene_config_content'] as String?;
-        sceneConfigValidated =
-            deployerConfig['scene_config_validated'] as bool? ?? false;
-        userConfigContent = deployerConfig['user_config_content'] as String?;
-        userConfigValidated =
-            deployerConfig['user_config_validated'] as bool? ?? false;
-      } catch (e) {
-        // No deployer config yet, that's fine
-      }
-
-      // Generate warning for unconfigured providers in loaded result
-      String? warningMessage;
-      if (loadedResult != null) {
-        final configuredProviders = <String>{};
-        if (awsCreds.isValid) configuredProviders.add('AWS');
-        if (azureCreds.isValid) configuredProviders.add('AZURE');
-        if (gcpCreds.isValid) configuredProviders.add('GCP');
-
-        final resultProviders = <String>{};
-        for (final segment in loadedResult.cheapestPath) {
-          final parts = segment.split('_');
-          if (parts.length >= 3 && segment.startsWith('L3')) {
-            resultProviders.add(parts[2].toUpperCase());
-          } else if (parts.length >= 2) {
-            resultProviders.add(parts[1].toUpperCase());
-          }
-        }
-        final unconfigured = resultProviders.difference(configuredProviders);
-        if (unconfigured.isNotEmpty) {
-          warningMessage =
-              'Unconfigured provider(s) in optimal path: ${unconfigured.join(", ")}. Return to Step 1 to add credentials.';
-        }
-      }
-
-      emit(
-        WizardState(
-          mode: WizardMode.edit,
-          status: WizardStatus.ready,
-          currentStep: startStep,
-          highestStepReached: startStep,
-          twinId: event.twinId,
-          twinName: twin['name'],
-          twinState: twin['state'], // Lifecycle state: draft, deployed, etc.
-          debugMode: config['debug_mode'] ?? true,
-          aws: awsCreds,
-          azure: azureCreds,
-          gcp: gcpCreds,
-          calcParams: loadedParams,
-          calcResult: loadedResult,
-          savedCalcResult: loadedResult, // Store for revert capability
-          calcResultRaw: loadedResultRaw,
-          savedCalcResultRaw: loadedResultRaw, // Store raw for revert
-          // Section 2: Deployer config (hydrated from backend)
-          deployerDigitalTwinName: deployerDigitalTwinName,
-          configEventsJson: configEventsJson,
-          configIotDevicesJson: configIotDevicesJson,
-          configJsonValidated: configJsonValidated,
-          configEventsValidated: configEventsValidated,
-          configIotDevicesValidated: configIotDevicesValidated,
-          // Section 3 L1 (hydrated)
-          payloadsJson: payloadsJson,
-          payloadsValidated: payloadsValidated,
-          // Section 3 L2 (hydrated)
-          processorContents: processorContents,
-          processorValidated: processorValidated,
-          processorRequirements: processorRequirements,
-          eventFeedbackContent: eventFeedbackContent,
-          eventFeedbackValidated: eventFeedbackValidated,
-          eventFeedbackRequirements: eventFeedbackRequirements,
-          eventActionContents: eventActionContents,
-          eventActionValidated: eventActionValidated,
-          eventActionRequirements: eventActionRequirements,
-          stateMachineContent: stateMachineContent,
-          stateMachineValidated: stateMachineValidated,
-          // L4/L5 fields (hydrated)
-          hierarchyContent: hierarchyContent,
-          hierarchyValidated: hierarchyValidated,
-          sceneGlbUploaded: sceneGlbUploaded,
-          sceneConfigContent: sceneConfigContent,
-          sceneConfigValidated: sceneConfigValidated,
-          userConfigContent: userConfigContent,
-          userConfigValidated: userConfigValidated,
-          warningMessage: warningMessage,
-        ),
-      );
-    } catch (e) {
-      emit(
-        state.copyWith(
-          status: WizardStatus.error,
-          errorMessage:
-              'Failed to load twin: ${ApiErrorHandler.extractMessage(e)}',
-        ),
-      );
-    }
-  }
-
-  Map<String, String> _extractMaskedCredentials(dynamic config) {
-    return CredentialsHelper.extractMaskedCredentials(config);
+    final result = await _initService.initializeEditMode(
+      twinId: event.twinId,
+      currentState: state,
+    );
+    emit(result.state);
   }
 
   // ============================================================
@@ -1597,6 +1357,8 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   }
 
   /// Process the actual zip upload and populate fields
+  ///
+  /// Delegates to WizardZipService for the heavy lifting.
   Future<void> _processZipUpload(
     dynamic fileBytes,
     String fileName,
@@ -1613,276 +1375,25 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     emit(state.copyWith(zipUploadInProgress: true, clearError: true));
 
     try {
+      // Call API to upload and parse zip
       final result = await _api.uploadProjectZip(twinId, fileBytes, fileName);
 
-      final success = result['success'] as bool? ?? false;
-      final errors = List<String>.from(result['validation_errors'] ?? []);
-      final warnings = List<String>.from(result['warnings'] ?? []);
-      final files = result['files'] as Map<String, dynamic>? ?? {};
-      final functions = result['functions'] as Map<String, dynamic>? ?? {};
-      final assets = result['assets'] as Map<String, dynamic>? ?? {};
-
-      if (!success && errors.isNotEmpty) {
-        // Show all validation errors
-        emit(
-          state.copyWith(
-            zipUploadInProgress: false,
-            errorMessage: 'Validation errors:\n${errors.join('\n')}',
-            warningMessage: warnings.isNotEmpty ? warnings.join('\n') : null,
-          ),
-        );
-        return;
-      }
-
-      // Populate fields from extraction result
-      String? configEvents;
-      String? configIotDevices;
-      String? payloads;
-      String? hierarchy;
-      String? sceneConfig;
-      String? userConfig;
-      String? digitalTwinName; // From config.json
-      Map<String, String> processors = {};
-      Map<String, String> eventActions = {};
-      String? eventFeedback;
-      bool glbUploaded = false;
-
-      // Extract digital_twin_name from config.json
-      if (_fileHasContent(files['config.json'])) {
-        try {
-          final configJson = jsonDecode(
-            files['config.json']['content'] as String,
-          );
-          if (configJson is Map<String, dynamic>) {
-            digitalTwinName = configJson['digital_twin_name'] as String?;
-          }
-        } catch (e) {
-          // Ignore parse errors - validation will catch them
-        }
-      }
-
-      // Config files
-      if (_fileHasContent(files['config_events.json'])) {
-        configEvents = files['config_events.json']['content'];
-      }
-      if (_fileHasContent(files['config_iot_devices.json'])) {
-        configIotDevices = files['config_iot_devices.json']['content'];
-      }
-      if (_fileHasContent(files['iot_device_simulator/payloads.json'])) {
-        payloads = files['iot_device_simulator/payloads.json']['content'];
-      }
-
-      // Hierarchy (check both AWS and Azure format)
-      if (_fileHasContent(files['twin_hierarchy/aws_hierarchy.json'])) {
-        hierarchy = files['twin_hierarchy/aws_hierarchy.json']['content'];
-      } else if (_fileHasContent(
-        files['twin_hierarchy/azure_hierarchy.json'],
-      )) {
-        hierarchy = files['twin_hierarchy/azure_hierarchy.json']['content'];
-      }
-
-      // Scene config (provider-specific subdirectories)
-      // AWS: scene_assets/aws/scene.json, Azure: scene_assets/azure/3DScenesConfiguration.json
-      if (_fileHasContent(files['scene_assets/aws/scene.json'])) {
-        sceneConfig = files['scene_assets/aws/scene.json']['content'];
-      } else if (_fileHasContent(
-        files['scene_assets/azure/3DScenesConfiguration.json'],
-      )) {
-        sceneConfig =
-            files['scene_assets/azure/3DScenesConfiguration.json']['content'];
-      }
-
-      // User config
-      if (_fileHasContent(files['config_user.json'])) {
-        userConfig = files['config_user.json']['content'];
-      }
-
-      // Processors
-      final processorMap =
-          functions['processors'] as Map<String, dynamic>? ?? {};
-      for (final entry in processorMap.entries) {
-        if (_fileHasContent(entry.value)) {
-          processors[entry.key] = entry.value['content'];
-        }
-      }
-
-      // Event actions
-      final actionMap =
-          functions['event_actions'] as Map<String, dynamic>? ?? {};
-      for (final entry in actionMap.entries) {
-        if (_fileHasContent(entry.value)) {
-          eventActions[entry.key] = entry.value['content'];
-        }
-      }
-
-      // Event feedback
-      if (_fileHasContent(functions['event_feedback'])) {
-        eventFeedback = functions['event_feedback']['content'];
-      }
-
-      // State machine (check all provider formats)
-      String? stateMachine;
-      if (_fileHasContent(files['state_machines/aws_step_function.json'])) {
-        stateMachine =
-            files['state_machines/aws_step_function.json']['content'];
-      } else if (_fileHasContent(
-        files['state_machines/azure_logic_app.json'],
-      )) {
-        stateMachine = files['state_machines/azure_logic_app.json']['content'];
-      } else if (_fileHasContent(
-        files['state_machines/google_cloud_workflow.yaml'],
-      )) {
-        stateMachine =
-            files['state_machines/google_cloud_workflow.yaml']['content'];
-      }
-
-      // GLB (already saved by Management API)
-      if (assets['scene_glb'] != null) {
-        final glbData = assets['scene_glb'] as Map<String, dynamic>;
-        glbUploaded = glbData['exists'] == true && glbData['saved'] == true;
-      }
-
-      // Build validation maps from backend validation status
-      // A file is valid if it exists, has content, and has no validation_error
-      bool isFileValid(dynamic file) {
-        if (file == null) return false;
-        if (file is! Map<String, dynamic>) return false;
-        return file['exists'] == true &&
-            file['content'] != null &&
-            file['validation_error'] == null;
-      }
-
-      // Build processor validation map
-      Map<String, bool> processorValidation = {};
-      for (final entry in processorMap.entries) {
-        processorValidation[entry.key] = isFileValid(entry.value);
-      }
-
-      // Build event action validation map
-      Map<String, bool> eventActionValidation = {};
-      for (final entry in actionMap.entries) {
-        eventActionValidation[entry.key] = isFileValid(entry.value);
-      }
-
-      // Compute validation flags for the individual files
-      final configJsonValid = isFileValid(files['config.json']);
-      final eventsValid = isFileValid(files['config_events.json']);
-      final iotDevicesValid = isFileValid(files['config_iot_devices.json']);
-      final payloadsValid = isFileValid(
-        files['iot_device_simulator/payloads.json'],
+      // Delegate to service for processing
+      final processingResult = _zipService.processZipUpload(
+        state: state,
+        apiResult: result,
       );
-      final hierarchyValid =
-          isFileValid(files['twin_hierarchy/aws_hierarchy.json']) ||
-          isFileValid(files['twin_hierarchy/azure_hierarchy.json']);
-      final sceneConfigValid =
-          isFileValid(files['scene_assets/aws/scene.json']) ||
-          isFileValid(files['scene_assets/azure/3DScenesConfiguration.json']);
-      final userConfigValid = isFileValid(files['config_user.json']);
-      final stateMachineValid =
-          isFileValid(files['state_machines/aws_step_function.json']) ||
-          isFileValid(files['state_machines/azure_logic_app.json']) ||
-          isFileValid(files['state_machines/google_cloud_workflow.yaml']);
-      final eventFeedbackValid = isFileValid(functions['event_feedback']);
+      emit(processingResult.state);
 
-      // Update state with extracted content AND validation status
-      final newState = state.copyWith(
-        zipUploadInProgress: false,
-        deployerDigitalTwinName: digitalTwinName,
-        configEventsJson: configEvents,
-        configIotDevicesJson: configIotDevices,
-        payloadsJson: payloads,
-        hierarchyContent: hierarchy,
-        sceneConfigContent: sceneConfig,
-        userConfigContent: userConfig,
-        stateMachineContent: stateMachine,
-        processorContents: processors.isNotEmpty
-            ? processors
-            : state.processorContents,
-        eventActionContents: eventActions.isNotEmpty
-            ? eventActions
-            : state.eventActionContents,
-        eventFeedbackContent: eventFeedback,
-        sceneGlbUploaded: glbUploaded,
-        hasUnsavedChanges: true,
-        successMessage:
-            'Zip extracted! ${_countExtracted(files, functions, assets)} items populated.',
-        warningMessage: warnings.isNotEmpty ? warnings.join('\n') : null,
-        // Set validation based on backend validation status
-        configJsonValidated: configJsonValid,
-        configEventsValidated: eventsValid,
-        configIotDevicesValidated: iotDevicesValid,
-        payloadsValidated: payloadsValid,
-        hierarchyValidated: hierarchyValid,
-        sceneConfigValidated: sceneConfigValid,
-        userConfigValidated: userConfigValid,
-        stateMachineValidated: stateMachineValid,
-        processorValidated: processorValidation.isNotEmpty
-            ? processorValidation
-            : state.processorValidated,
-        eventActionValidated: eventActionValidation.isNotEmpty
-            ? eventActionValidation
-            : state.eventActionValidated,
-        eventFeedbackValidated: eventFeedbackValid,
-      );
-      emit(newState);
-
-      // P2-2 Fix: Use the state getters (which have proper conditional logic)
-      // to determine if all required fields are valid
-      final allSectionsValid =
-          newState.isSection2Valid && newState.isSection3Valid;
-
-      // DEBUG: Log validation state to understand why collapse might not trigger
-      debugPrint('=== ZIP UPLOAD VALIDATION DEBUG ===');
-      debugPrint('Section 2 Valid: ${newState.isSection2Valid}');
-      debugPrint('  - configJsonValidated: ${newState.configJsonValidated}');
-      debugPrint(
-        '  - configEventsValidated: ${newState.configEventsValidated}',
-      );
-      debugPrint(
-        '  - configIotDevicesValidated: ${newState.configIotDevicesValidated}',
-      );
-      debugPrint('  - hierarchyValidated: ${newState.hierarchyValidated}');
-      debugPrint('  - L4 provider: ${newState.layer4Provider}');
-      debugPrint('Section 3 Valid: ${newState.isSection3Valid}');
-      debugPrint('  - payloadsValidated: ${newState.payloadsValidated}');
-      debugPrint('  - processorValidated: ${newState.processorValidated}');
-      debugPrint('  - deviceIds: ${newState.deviceIds}');
-      debugPrint(
-        '  - calcParams.returnFeedbackToDevice: ${newState.calcParams?.returnFeedbackToDevice}',
-      );
-      debugPrint(
-        '  - eventFeedbackValidated: ${newState.eventFeedbackValidated}',
-      );
-      debugPrint(
-        '  - calcParams.useEventChecking: ${newState.calcParams?.useEventChecking}',
-      );
-      debugPrint('  - eventActionValidated: ${newState.eventActionValidated}');
-      debugPrint(
-        '  - calcParams.triggerNotificationWorkflow: ${newState.calcParams?.triggerNotificationWorkflow}',
-      );
-      debugPrint(
-        '  - stateMachineValidated: ${newState.stateMachineValidated}',
-      );
-      debugPrint(
-        '  - calcParams.needs3DModel: ${newState.calcParams?.needs3DModel}',
-      );
-      debugPrint('  - sceneConfigValidated: ${newState.sceneConfigValidated}');
-      debugPrint('  - L5 provider: ${newState.layer5Provider}');
-      debugPrint('  - userConfigValidated: ${newState.userConfigValidated}');
-      debugPrint('All sections valid: $allSectionsValid');
-      debugPrint('===================================');
-
-      // P2-1 Fix: If all valid, trigger collapse then immediately reset
-      // This ensures the flag transitions from false→true→false, allowing
-      // the UI widgets to detect the change and collapse
-      if (allSectionsValid) {
+      // Handle section collapse if all sections are valid
+      if (processingResult.shouldTriggerCollapse) {
         // P3-1: Brief delay so users see validation checkmarks before collapse
         await Future.delayed(const Duration(milliseconds: 400));
-        emit(newState.copyWith(forceCollapseSections: true));
+        emit(processingResult.state.copyWith(forceCollapseSections: true));
         // Wait one frame so the UI widget's didUpdateWidget sees the true state
         await Future.delayed(const Duration(milliseconds: 50));
         // Reset so subsequent uploads can trigger again
-        emit(newState.copyWith(forceCollapseSections: false));
+        emit(processingResult.state.copyWith(forceCollapseSections: false));
       }
     } catch (e) {
       emit(
@@ -1892,33 +1403,5 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         ),
       );
     }
-  }
-
-  /// Helper to check if a file result has extractable content
-  bool _fileHasContent(dynamic file) {
-    if (file == null) return false;
-    if (file is! Map<String, dynamic>) return false;
-    return file['exists'] == true && file['content'] != null;
-  }
-
-  /// Count how many items were extracted for success message
-  String _countExtracted(
-    Map<String, dynamic> files,
-    Map<String, dynamic> functions,
-    Map<String, dynamic> assets,
-  ) {
-    int count = 0;
-    files.forEach((k, v) {
-      if (_fileHasContent(v)) count++;
-    });
-    (functions['processors'] as Map<String, dynamic>?)?.forEach((k, v) {
-      if (_fileHasContent(v)) count++;
-    });
-    (functions['event_actions'] as Map<String, dynamic>?)?.forEach((k, v) {
-      if (_fileHasContent(v)) count++;
-    });
-    if (_fileHasContent(functions['event_feedback'])) count++;
-    if (assets['scene_glb']?['saved'] == true) count++;
-    return count.toString();
   }
 }
