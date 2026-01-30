@@ -1,11 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 
 /// Login screen with Google OAuth and UIBK SAML authentication options.
-/// 
+///
 /// UIBK login uses Shibboleth SAML via the university's Identity Provider.
 /// The user logs in with their UIBK username/password (not email), and the
 /// IdP provides the email automatically from the university's LDAP directory.
@@ -15,7 +14,7 @@ class LoginScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
-    
+
     return Scaffold(
       body: Center(
         child: Card(
@@ -46,76 +45,84 @@ class LoginScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 32),
-                
+
                 if (authState.isLoading)
                   const CircularProgressIndicator()
                 else ...[
-                  
                   // ============================================================
-                  // UIBK SAML Login Button - COMMENTED OUT until SAML is configured
-                  // Uncomment when ACOnet registration is complete and SAML_ENABLED=true
+                  // Login buttons are DISABLED for now.
+                  // Backend authentication (Google OAuth + UIBK SAML) is fully
+                  // implemented, but the Flutter integration is mocked/disabled
+                  // until production deployment requirements are finalized.
                   // ============================================================
+
+                  // UIBK SAML Login Button (disabled)
                   FilledButton.icon(
-                    onPressed: () async {
-                      // In dev mode, use mock login
-                      // if (kDebugMode) {
-                      //   await ref.read(authProvider.notifier).mockLogin();
-                      //   if (context.mounted) {
-                      //     context.go('/dashboard');
-                      //   }
-                      //   return;
-                      // }
-                      // TODO: Production SAML flow via /auth/uibk/login
-                    },
+                    onPressed: null, // Disabled
                     icon: const Icon(Icons.school),
                     label: const Text('Sign in with UIBK'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF003366), // UIBK brand color
+                      backgroundColor: const Color(
+                        0xFF003366,
+                      ), // UIBK brand color
                       foregroundColor: Colors.white,
+                      disabledBackgroundColor: const Color(
+                        0xFF003366,
+                      ).withOpacity(0.4),
+                      disabledForegroundColor: Colors.white.withOpacity(0.6),
                       minimumSize: const Size(double.infinity, 48),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 12),
 
-                  // Google OAuth button
+                  // Google OAuth button (disabled)
                   FilledButton.icon(
-                    onPressed: () async {
-                      // In dev mode, use mock login
-                      if (kDebugMode) {
-                        await ref.read(authProvider.notifier).mockLogin();
-                        if (context.mounted) {
-                          context.go('/dashboard');
-                        }
-                        return;
-                      }
-                      // TODO: Production OAuth flow
-                    },
+                    onPressed: null, // Disabled
                     icon: const Icon(Icons.login),
                     label: const Text('Sign in with Google'),
                     style: FilledButton.styleFrom(
                       minimumSize: const Size(double.infinity, 48),
                     ),
                   ),
+
+                  const SizedBox(height: 16),
+
+                  // Skip login link for development
+                  TextButton(
+                    onPressed: () async {
+                      await ref.read(authProvider.notifier).mockLogin();
+                      if (context.mounted) {
+                        context.go('/dashboard');
+                      }
+                    },
+                    child: const Text('Skip Login (Development)'),
+                  ),
                 ],
-                
-                const SizedBox(height: 16),
-                Text(
-                  'Development Mode: Mock Login',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
+
+                const SizedBox(height: 8),
+
+                // Info text about authentication status
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'ℹ️ Authentication (Google OAuth & UIBK SAML) is implemented '
+                    'in the backend but temporarily disabled in this UI.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
-                
-                // Hint about UIBK login (for future)
-                // const SizedBox(height: 8),
-                // Text(
-                //   'University members can use their UIBK credentials',
-                //   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                //     color: Theme.of(context).colorScheme.outline,
-                //   ),
-                //   textAlign: TextAlign.center,
-                // ),
               ],
             ),
           ),
@@ -124,4 +131,3 @@ class LoginScreen extends ConsumerWidget {
     );
   }
 }
-

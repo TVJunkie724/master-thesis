@@ -161,6 +161,20 @@ ERROR_RESPONSES = {
             }
         }
     },
+    409: {
+        "description": "Conflict - The request conflicts with current resource state",
+        "model": ErrorResponse,
+        "content": {
+            "application/json": {
+                "example": {
+                    "error_code": "CONFLICT",
+                    "message": "Resource already exists or state transition not allowed",
+                    "fix_suggestion": "Check the current state of the resource before performing this action",
+                    "http_status": 409
+                }
+            }
+        }
+    },
     422: {
         "description": "Validation Error - Request body failed schema validation",
         "model": ErrorResponse,
