@@ -7,28 +7,17 @@ import '../../../models/calc_result.dart';
 import '../wizard_state.dart';
 import '../helpers/helpers.dart';
 
-/// Result of initialization operation
+/// Result of initialization operation.
+/// Simplified: error handling is done in BLoC via try/catch.
 class WizardInitResult {
   final WizardState state;
   final bool success;
-  final String? errorMessage;
 
-  const WizardInitResult({
-    required this.state,
-    required this.success,
-    this.errorMessage,
-  });
+  const WizardInitResult._({required this.state, required this.success});
 
   /// Factory for successful result
   factory WizardInitResult.ok(WizardState state) =>
-      WizardInitResult(state: state, success: true);
-
-  /// Factory for error result
-  factory WizardInitResult.error(String message) => WizardInitResult(
-    state: const WizardState(),
-    success: false,
-    errorMessage: message,
-  );
+      WizardInitResult._(state: state, success: true);
 }
 
 /// Data class to hold fetched twin data for edit mode initialization.

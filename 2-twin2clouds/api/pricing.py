@@ -284,7 +284,21 @@ class CredentialRequest(BaseModel):
     gcp_region: Optional[str] = "europe-west1"
 
 
-@router.post("/fetch_pricing_with_credentials/{provider}", summary="Fetch Pricing with Credentials")
+@router.post(
+    "/fetch_pricing_with_credentials/{provider}",
+    operation_id="fetchPricingWithCredentials",
+    summary="Fetch pricing using twin credentials",
+    description=(
+        "**Purpose:** Refresh pricing data using credentials from request body.\n\n"
+        "**When to call:** Management API integration to refresh pricing with saved twin credentials.\n\n"
+        "**Credentials:** AWS needs access keys; Azure uses public API; GCP needs service account JSON."
+    ),
+    responses={
+        200: {"description": "Pricing data fetched"},
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
+    }
+)
 def fetch_pricing_with_credentials(
     provider: str,
     credentials: CredentialRequest = Body(...),

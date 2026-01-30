@@ -55,6 +55,10 @@ class ExtractedContent {
   final Map<String, String> processors;
   final Map<String, String> eventActions;
   final bool glbUploaded;
+  // GAP 4: requirements.txt support
+  final Map<String, String> processorRequirements;
+  final Map<String, String> eventActionRequirements;
+  final String? eventFeedbackRequirements;
 
   const ExtractedContent({
     this.digitalTwinName,
@@ -69,7 +73,50 @@ class ExtractedContent {
     this.processors = const {},
     this.eventActions = const {},
     this.glbUploaded = false,
+    this.processorRequirements = const {},
+    this.eventActionRequirements = const {},
+    this.eventFeedbackRequirements,
   });
+
+  /// GAP 5: copyWith for consistency with other data classes
+  ExtractedContent copyWith({
+    String? digitalTwinName,
+    String? configEvents,
+    String? configIotDevices,
+    String? payloads,
+    String? hierarchy,
+    String? sceneConfig,
+    String? userConfig,
+    String? stateMachine,
+    String? eventFeedback,
+    Map<String, String>? processors,
+    Map<String, String>? eventActions,
+    bool? glbUploaded,
+    Map<String, String>? processorRequirements,
+    Map<String, String>? eventActionRequirements,
+    String? eventFeedbackRequirements,
+  }) {
+    return ExtractedContent(
+      digitalTwinName: digitalTwinName ?? this.digitalTwinName,
+      configEvents: configEvents ?? this.configEvents,
+      configIotDevices: configIotDevices ?? this.configIotDevices,
+      payloads: payloads ?? this.payloads,
+      hierarchy: hierarchy ?? this.hierarchy,
+      sceneConfig: sceneConfig ?? this.sceneConfig,
+      userConfig: userConfig ?? this.userConfig,
+      stateMachine: stateMachine ?? this.stateMachine,
+      eventFeedback: eventFeedback ?? this.eventFeedback,
+      processors: processors ?? this.processors,
+      eventActions: eventActions ?? this.eventActions,
+      glbUploaded: glbUploaded ?? this.glbUploaded,
+      processorRequirements:
+          processorRequirements ?? this.processorRequirements,
+      eventActionRequirements:
+          eventActionRequirements ?? this.eventActionRequirements,
+      eventFeedbackRequirements:
+          eventFeedbackRequirements ?? this.eventFeedbackRequirements,
+    );
+  }
 }
 
 /// Data class for validation results from zip.
@@ -158,6 +205,14 @@ class WizardZipService {
           : state.eventActionContents,
       eventFeedbackContent: extracted.eventFeedback,
       sceneGlbUploaded: extracted.glbUploaded,
+      // GAP 4: Populate requirements.txt fields
+      processorRequirements: extracted.processorRequirements.isNotEmpty
+          ? extracted.processorRequirements
+          : state.processorRequirements,
+      eventActionRequirements: extracted.eventActionRequirements.isNotEmpty
+          ? extracted.eventActionRequirements
+          : state.eventActionRequirements,
+      eventFeedbackRequirements: extracted.eventFeedbackRequirements,
       hasUnsavedChanges: true,
       successMessage:
           'Zip extracted! ${countExtracted(files, functions, assets)} items populated.',
@@ -232,6 +287,10 @@ class WizardZipService {
     Map<String, String> processors = {};
     Map<String, String> eventActions = {};
     bool glbUploaded = false;
+    // GAP 4: requirements.txt support
+    Map<String, String> processorRequirements = {};
+    Map<String, String> eventActionRequirements = {};
+    String? eventFeedbackRequirements;
 
     // Extract digital_twin_name from config.json
     if (fileHasContent(files['config.json'])) {
@@ -280,25 +339,49 @@ class WizardZipService {
       userConfig = files['config_user.json']['content'];
     }
 
-    // Processors
+    // Processors (code + requirements)
     final processorMap = functions['processors'] as Map<String, dynamic>? ?? {};
     for (final entry in processorMap.entries) {
-      if (fileHasContent(entry.value)) {
-        processors[entry.key] = entry.value['content'];
+      final procData = entry.value as Map<String, dynamic>?;
+      if (procData != null) {
+        if (fileHasContent(procData)) {
+          processors[entry.key] = procData['content'];
+        }
+        // GAP 4: Extract requirements.txt
+        if (procData['requirements'] != null &&
+            procData['requirements'] is String) {
+          processorRequirements[entry.key] = procData['requirements'];
+        }
       }
     }
 
-    // Event actions
+    // Event actions (code + requirements)
     final actionMap = functions['event_actions'] as Map<String, dynamic>? ?? {};
     for (final entry in actionMap.entries) {
-      if (fileHasContent(entry.value)) {
-        eventActions[entry.key] = entry.value['content'];
+      final actData = entry.value as Map<String, dynamic>?;
+      if (actData != null) {
+        if (fileHasContent(actData)) {
+          eventActions[entry.key] = actData['content'];
+        }
+        // GAP 4: Extract requirements.txt
+        if (actData['requirements'] != null &&
+            actData['requirements'] is String) {
+          eventActionRequirements[entry.key] = actData['requirements'];
+        }
       }
     }
 
-    // Event feedback
+    // Event feedback (code + requirements)
     if (fileHasContent(functions['event_feedback'])) {
       eventFeedback = functions['event_feedback']['content'];
+    }
+    // GAP 4: Extract event feedback requirements
+    final feedbackData = functions['event_feedback'];
+    if (feedbackData != null && feedbackData is Map<String, dynamic>) {
+      if (feedbackData['requirements'] != null &&
+          feedbackData['requirements'] is String) {
+        eventFeedbackRequirements = feedbackData['requirements'];
+      }
     }
 
     // State machine (check all provider formats)
@@ -332,6 +415,9 @@ class WizardZipService {
       processors: processors,
       eventActions: eventActions,
       glbUploaded: glbUploaded,
+      processorRequirements: processorRequirements,
+      eventActionRequirements: eventActionRequirements,
+      eventFeedbackRequirements: eventFeedbackRequirements,
     );
   }
 

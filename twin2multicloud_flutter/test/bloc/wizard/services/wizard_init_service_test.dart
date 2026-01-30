@@ -190,15 +190,7 @@ void main() {
         final result = WizardInitResult.ok(state);
 
         expect(result.success, true);
-        expect(result.errorMessage, isNull);
         expect(result.state.mode, WizardMode.create);
-      });
-
-      test('error factory creates failed result', () {
-        final result = WizardInitResult.error('Something went wrong');
-
-        expect(result.success, false);
-        expect(result.errorMessage, 'Something went wrong');
       });
     });
 
@@ -221,6 +213,77 @@ void main() {
         final data = TwinEditData(twin: {'name': 'Test'}, config: {});
 
         expect(data.deployerConfig, isNull);
+      });
+    });
+
+    group('unconfigured provider warning (GAP 3)', () {
+      test('generates warning when optimal path has unconfigured provider', () {
+        // AWS configured, Azure not configured, optimal path uses both
+        final data = TwinEditData(
+          twin: {'name': 'Test', 'state': 'draft'},
+          config: {
+            'aws_configured': true,
+            'aws': {'access_key': '***'},
+            // Azure NOT configured
+            'optimizer_result': {
+              'cheapest_path': ['L1_AWS', 'L2_AZURE', 'L3_AWS_HOT'],
+              'cheapest_cost': 100.0,
+            },
+          },
+        );
+
+        final result = service.initializeEditMode(
+          twinId: 'twin-123',
+          data: data,
+        );
+
+        expect(result.state.warningMessage, isNotNull);
+        expect(result.state.warningMessage, contains('AZURE'));
+        expect(result.state.warningMessage, contains('Unconfigured'));
+      });
+
+      test('no warning when all providers in path are configured', () {
+        // AWS & Azure both configured
+        final data = TwinEditData(
+          twin: {'name': 'Test', 'state': 'draft'},
+          config: {
+            'aws_configured': true,
+            'aws': {'access_key': '***'},
+            'azure_configured': true,
+            'azure': {'subscription_id': '***'},
+            'optimizer_result': {
+              'cheapest_path': ['L1_AWS', 'L2_AZURE'],
+              'cheapest_cost': 100.0,
+            },
+          },
+        );
+
+        final result = service.initializeEditMode(
+          twinId: 'twin-123',
+          data: data,
+        );
+
+        expect(result.state.warningMessage, isNull);
+      });
+
+      test('handles empty optimal path gracefully', () {
+        final data = TwinEditData(
+          twin: {'name': 'Test', 'state': 'draft'},
+          config: {
+            'aws_configured': true,
+            'aws': {'key': '***'},
+            'optimizer_result': {'cheapest_path': [], 'cheapest_cost': 0.0},
+          },
+        );
+
+        final result = service.initializeEditMode(
+          twinId: 'twin-123',
+          data: data,
+        );
+
+        // No crash, no warning (empty path)
+        expect(result.success, true);
+        expect(result.state.warningMessage, isNull);
       });
     });
   });

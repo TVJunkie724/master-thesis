@@ -198,11 +198,18 @@ def validate_project_structure(project_name: str = Path(..., description="Name o
 # ==========================================
 @router.get(
     "/projects/{project_name}/config/{config_type}",
+    operation_id="getProjectConfig",
     tags=["Projects"],
     summary="Get project configuration",
+    description=(
+        "**Purpose:** Retrieve a specific configuration file from a project.\n\n"
+        "**When to call:** To load config for editing in wizard or display.\n\n"
+        "**Path params:** config_type = config|iot|events|providers|credentials|optimization|aws_hierarchy|azure_hierarchy"
+    ),
     responses={
         200: {"description": "Configuration retrieved successfully"},
-        404: {"description": "Project or config file not found"}
+        404: ERROR_RESPONSES[404],
+        500: ERROR_RESPONSES[500],
     }
 )
 def get_project_config(
@@ -278,7 +285,23 @@ def get_project_config(
 # ==========================================
 # 3. Config Updates
 # ==========================================
-@router.put("/projects/{project_name}/config/{config_type}", tags=["Projects"])
+@router.put(
+    "/projects/{project_name}/config/{config_type}",
+    operation_id="updateProjectConfig",
+    tags=["Projects"],
+    summary="Update a configuration file",
+    description=(
+        "**Purpose:** Update a specific config file (config.json, config_iot_devices.json, etc).\n\n"
+        "**When to call:** After wizard field changes to persist configuration.\n\n"
+        "**Accepts:** Multipart (binary) or JSON (Base64)."
+    ),
+    responses={
+        200: {"description": "Configuration updated"},
+        400: ERROR_RESPONSES[400],
+        404: ERROR_RESPONSES[404],
+        500: ERROR_RESPONSES[500],
+    }
+)
 async def update_config(project_name: str, config_type: ConfigType, request: Request):
     """
     Update a specific configuration file for a project.
@@ -313,7 +336,23 @@ async def update_config(project_name: str, config_type: ConfigType, request: Req
         logger.error(str(e))
         raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
-@router.post("/projects/{project_name}/import", tags=["Projects"])
+@router.post(
+    "/projects/{project_name}/import",
+    operation_id="importProjectZip",
+    tags=["Projects"],
+    summary="Import/update project from zip",
+    description=(
+        "**Purpose:** Upload a complete project zip to update an existing project.\n\n"
+        "**Prerequisite:** Project must already exist (create via POST /projects first).\n\n"
+        "**Validation:** Zip structure and config schema validation performed."
+    ),
+    responses={
+        200: {"description": "Project imported successfully"},
+        400: ERROR_RESPONSES[400],
+        404: ERROR_RESPONSES[404],
+        500: ERROR_RESPONSES[500],
+    }
+)
 async def import_project(
     project_name: str, 
     file: UploadFile = File(..., description="Project zip file"),
@@ -358,11 +397,18 @@ async def import_project(
 
 @router.get(
     "/projects/{project_name}/export",
+    operation_id="exportProjectZip",
     tags=["Projects"],
     summary="Export project as zip",
+    description=(
+        "**Purpose:** Download a complete project as a ZIP file.\n\n"
+        "**When to call:** For backup, sharing, or migrating projects.\n\n"
+        "**Contents:** All configs, hierarchies, state machines, payloads, 3D assets."
+    ),
     responses={
         200: {"description": "Project zip file"},
-        404: {"description": "Project not found"}
+        404: ERROR_RESPONSES[404],
+        500: ERROR_RESPONSES[500],
     }
 )
 async def export_project(
@@ -398,8 +444,18 @@ async def export_project(
 
 @router.get(
     "/projects/{project_name}/summary",
+    operation_id="getProjectSummary",
     tags=["Projects"],
-    summary="Get project dashboard summary"
+    summary="Get project dashboard summary",
+    description=(
+        "**Purpose:** Dashboard overview for Flutter frontend.\n\n"
+        "**When to call:** When displaying project cards or details.\n\n"
+        "**Returns:** name, description, providers, deployment/validation status."
+    ),
+    responses={
+        200: {"description": "Project summary"},
+        404: ERROR_RESPONSES[404],
+    }
 )
 def get_project_summary(
     project_name: str = Path(..., description="Project name")
@@ -456,8 +512,18 @@ def get_project_summary(
 
 @router.get(
     "/projects/{project_name}/files",
+    operation_id="getProjectFileTree",
     tags=["Projects"],
-    summary="Get project file tree"
+    summary="Get project file tree",
+    description=(
+        "**Purpose:** Returns recursive file tree for file browser UI.\n\n"
+        "**When to call:** When displaying project contents in explorer view."
+    ),
+    responses={
+        200: {"description": "File tree structure"},
+        404: ERROR_RESPONSES[404],
+        500: ERROR_RESPONSES[500],
+    }
 )
 def get_project_files(
     project_name: str = Path(..., description="Project name")
@@ -478,8 +544,19 @@ def get_project_files(
 
 @router.get(
     "/projects/{project_name}/files/{file_path:path}",
+    operation_id="getProjectFile",
     tags=["Projects"],
-    summary="Get project file content"
+    summary="Get file content",
+    description=(
+        "**Purpose:** Read a specific file from a project.\n\n"
+        "**When to call:** When opening a file in the editor.\n\n"
+        "**Supports:** JSON files return parsed content; others return raw."
+    ),
+    responses={
+        200: {"description": "File content"},
+        404: ERROR_RESPONSES[404],
+        500: ERROR_RESPONSES[500],
+    }
 )
 def get_project_file_content_endpoint(
     project_name: str = Path(..., description="Project name"),
@@ -500,7 +577,22 @@ def get_project_file_content_endpoint(
         raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
 
-@router.delete("/projects/{project_name}", tags=["Projects"])
+@router.delete(
+    "/projects/{project_name}",
+    operation_id="deleteProject",
+    tags=["Projects"],
+    summary="Delete a project",
+    description=(
+        "**Purpose:** Permanently delete a project and all saved versions.\n\n"
+        "**Side effect:** If this was the active project, resets to default.\n\n"
+        "**Protected:** Cannot delete the 'template' project."
+    ),
+    responses={
+        200: {"description": "Project deleted"},
+        404: ERROR_RESPONSES[404],
+        500: ERROR_RESPONSES[500],
+    }
+)
 def delete_project_endpoint(project_name: str):
     """
     Deletes a project and all its versions.
@@ -522,7 +614,22 @@ def delete_project_endpoint(project_name: str):
         raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
 
-@router.patch("/projects/{project_name}/info", tags=["Projects"])
+@router.patch(
+    "/projects/{project_name}/info",
+    operation_id="updateProjectInfo",
+    tags=["Projects"],
+    summary="Update project metadata",
+    description=(
+        "**Purpose:** Update project description without re-uploading zip.\n\n"
+        "**Body:** `{\"description\": \"New description\"}`"
+    ),
+    responses={
+        200: {"description": "Project info updated"},
+        400: ERROR_RESPONSES[400],
+        404: ERROR_RESPONSES[404],
+        500: ERROR_RESPONSES[500],
+    }
+)
 async def update_project_info_endpoint(project_name: str, request: Request):
     """
     Updates project metadata (description only, without re-uploading zip).
@@ -548,7 +655,23 @@ async def update_project_info_endpoint(project_name: str, request: Request):
         logger.error(str(e))
         raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
-@router.put("/projects/{project_name}/state_machines/{provider}", tags=["Projects"])
+@router.put(
+    "/projects/{project_name}/state_machines/{provider}",
+    operation_id="uploadStateMachine",
+    tags=["Projects"],
+    summary="Upload state machine definition",
+    description=(
+        "**Purpose:** Upload AWS Step Function, Azure Logic App, or GCP Workflow.\n\n"
+        "**Path param:** provider = aws|azure|google\n\n"
+        "**Validation:** Schema validation performed before saving."
+    ),
+    responses={
+        200: {"description": "State machine uploaded"},
+        400: ERROR_RESPONSES[400],
+        404: ERROR_RESPONSES[404],
+        500: ERROR_RESPONSES[500],
+    }
+)
 async def upload_state_machine(
     project_name: str,
     provider: ProviderEnum,
@@ -599,7 +722,22 @@ async def upload_state_machine(
         logger.error(str(e))
         raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
 
-@router.put("/projects/{project_name}/simulator/payloads", tags=["Projects"])
+@router.put(
+    "/projects/{project_name}/simulator/payloads",
+    operation_id="uploadSimulatorPayloads",
+    tags=["Projects"],
+    summary="Upload IoT simulator payloads",
+    description=(
+        "**Purpose:** Upload payloads.json for the IoT simulator.\n\n"
+        "**Validation:** Structure and iotDeviceId validation performed.\n\n"
+        "**Location:** Saved to iot_device_simulator/payloads.json"
+    ),
+    responses={
+        200: {"description": "Payloads uploaded"},
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
+    }
+)
 async def upload_simulator_payloads(project_name: str, request: Request):
     """
     Uploads payloads.json for the simulator (provider-agnostic).
@@ -641,11 +779,17 @@ async def upload_simulator_payloads(project_name: str, request: Request):
 # ==========================================
 @router.delete(
     "/projects/{project_name}/cleanup/aws-twinmaker",
+    operation_id="cleanupAwsTwinmaker",
     tags=["Projects"],
     summary="Force delete AWS TwinMaker workspace",
+    description=(
+        "**Purpose:** Force delete TwinMaker workspace when Terraform destroy fails.\n\n"
+        "**When to call:** When `terraform destroy` fails due to existing entities.\n\n"
+        "**Deletion order:** Entities → Component Types → Workspace"
+    ),
     responses={
         200: {"description": "TwinMaker workspace deleted"},
-        500: {"description": "Deletion failed"}
+        500: ERROR_RESPONSES[500],
     }
 )
 def cleanup_aws_twinmaker(
