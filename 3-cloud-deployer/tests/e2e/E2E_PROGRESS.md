@@ -1,6 +1,6 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-01-30 23:57  
+**Last Updated:** 2026-01-31 00:50  
 **Cloud Log Investigation:** 2026-01-29 19:22 UTC  
 **TwinMaker Fix Session:** AI-0130-5dda
 
@@ -12,16 +12,17 @@
 |----------|----------|--------------|--------------|---------------|--------|
 | **AWS→GCP** | Jan 28 | 11 | 0 | 3 | ✅ PASS |
 | **AWS→Azure** | Jan 25 | 12 | 0 | 1 | ✅ PASS |
-| **Azure→AWS** | Jan 30 (22:41) | 12 | 1 | 2 | ⚠️ PARTIAL |
+| **Azure→AWS** | Jan 31 (00:29) | 13 | 0 | 2 | ✅ **PASS** |
 | **Azure→GCP** | - | - | - | - | ⏳ Untested |
 | **GCP→AWS** | - | - | - | - | ⏳ Untested |
 | **GCP→Azure** | - | - | - | - | ⏳ Untested |
 
-### Azure→AWS Latest Run (Jan 30, 22:41 → 22:53)
-- **Duration**: 11m 57s
-- **Result**: `1 failed, 12 passed, 2 skipped`
-- **Failed Test**: `test_10b_twinmaker_telemetry` (TwinMaker → pressure-sensor-1)
-- **Passed Test**: `test_08_verify_hot_storage` ✅ (was failing in previous run!)
+### Azure→AWS Latest Run (Jan 31, 00:29 → 00:50)
+- **Duration**: 21m 22s
+- **Result**: `13 passed, 2 skipped, 0 failed` ✅
+- **All tests passing** including:
+  - `test_08_verify_hot_storage` ✅ (data found in GCP Firestore)
+  - `test_10b_twinmaker_telemetry` ✅ (TwinMaker successfully queries GCP hot-reader)
 
 ### Azure→AWS Run Comparison
 | Run | test_08 | test_10b | Total |
@@ -29,8 +30,12 @@
 | Jan 30 19:19 | ✅ PASS | ❌ FAIL | 1 failed, 12 passed |
 | Jan 30 22:07 | ❌ FAIL | ❌ FAIL | 2 failed, 11 passed |
 | Jan 30 22:41 | ✅ PASS | ❌ FAIL | 1 failed, 12 passed |
+| Jan 31 00:29 | ✅ PASS | ✅ PASS | **0 failed, 13 passed** ✅ |
 
-**Key Finding:** test_08 is **intermittent** (infra timing), test_10b requires fix redeployment.
+**Fixes Verified:**
+1. ✅ **GCP URL detection** (cloudfunctions.net) - test_10b now passes
+2. ✅ **Extended timeout** (180s) - test_08 stable
+
 
 ---
 
