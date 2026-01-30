@@ -268,7 +268,26 @@ async def push_complete(session_id: str, status: str, message: str, outputs: dic
 # SSE Endpoint
 # =============================================================================
 
-@router.get("/deploy/{session_id}")
+@router.get(
+    "/deploy/{session_id}",
+    operation_id="streamDeploymentLogs",
+    summary="SSE endpoint for real-time deployment log streaming",
+    description=(
+        "**Purpose:** Stream real-time deployment/destroy logs via Server-Sent Events.\\n\\n"
+        "**When to call:** After POST to /deploy or /destroy returns session_id.\\n\\n"
+        "**Connection:** Open as EventSource in browser/HTTP client.\\n\\n"
+        "**SSE event types:**\\n"
+        "- `log`: Line of output {id, data, level, timestamp}\\n"
+        "- `heartbeat`: Keep-alive (via SSE comment)\\n"
+        "- `complete`: Success {status, message, outputs}\\n"
+        "- `error`: Failure {status, message}\\n\\n"
+        "**Reconnection:** Pass `last_event_id` query param to resume from event ID.\\n\\n"
+        "**Timeout:** Heartbeats sent every 30s to keep connection alive."
+    ),
+    responses={
+        404: {"description": "Session not found or expired"},
+    }
+)
 async def stream_deploy_logs(
     session_id: str,
     request: Request,

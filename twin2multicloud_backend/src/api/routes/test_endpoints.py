@@ -40,7 +40,24 @@ def _require_test_endpoints():
 # Test Deploy Endpoint
 # =============================================================================
 
-@router.post("/{twin_id}/test-deploy")
+@router.post(
+    "/{twin_id}/test-deploy",
+    operation_id="testDeployDigitalTwin",
+    summary="[TEST] Simulate deployment for UI testing",
+    description=(
+        "**Purpose:** Simulate a realistic deployment without creating cloud resources.\n\n"
+        "**When to call:** During UI development with `kUseTestDeploy = true`.\n\n"
+        "**Gate:** Requires `ENABLE_TEST_ENDPOINTS=true` environment variable.\n\n"
+        "**Query params:**\n"
+        "- `duration`: Simulated duration in seconds (5-120, default 30)\n"
+        "- `should_fail`: Simulate failure at end (boolean)\n\n"
+        "**Response:** Same as real /deploy - session_id and sse_url."
+    ),
+    responses={
+        404: {"description": "Twin not found or test endpoints disabled"},
+        409: {"description": "Operation already in progress"},
+    }
+)
 async def test_deploy_twin(
     twin_id: str,
     duration: int = Query(30, ge=5, le=120, description="Simulated duration in seconds"),
@@ -92,7 +109,24 @@ async def test_deploy_twin(
 # Test Destroy Endpoint
 # =============================================================================
 
-@router.post("/{twin_id}/test-destroy")
+@router.post(
+    "/{twin_id}/test-destroy",
+    operation_id="testDestroyDigitalTwin",
+    summary="[TEST] Simulate infrastructure destruction for UI testing",
+    description=(
+        "**Purpose:** Simulate a realistic destroy operation without cloud API calls.\n\n"
+        "**When to call:** During UI development with `kUseTestDeploy = true`.\n\n"
+        "**Gate:** Requires `ENABLE_TEST_ENDPOINTS=true` environment variable.\n\n"
+        "**Query params:**\n"
+        "- `duration`: Simulated duration in seconds (5-60, default 20)\n"
+        "- `should_fail`: Simulate failure at end (boolean)\n\n"
+        "**Response:** Same as real /destroy - session_id and sse_url."
+    ),
+    responses={
+        404: {"description": "Twin not found or test endpoints disabled"},
+        409: {"description": "Operation already in progress"},
+    }
+)
 async def test_destroy_twin(
     twin_id: str,
     duration: int = Query(20, ge=5, le=60, description="Simulated duration in seconds"),
@@ -143,7 +177,23 @@ async def test_destroy_twin(
 # Test Log Trace Endpoint  
 # =============================================================================
 
-@router.post("/{twin_id}/test-log-trace/start")
+@router.post(
+    "/{twin_id}/test-log-trace/start",
+    operation_id="testStartLogTrace",
+    summary="[TEST] Simulate log trace for UI testing",
+    description=(
+        "**Purpose:** Simulate multi-cloud log streaming without real cloud queries.\n\n"
+        "**When to call:** During UI development with `kUseTestDeploy = true`.\n\n"
+        "**Gate:** Requires `ENABLE_TEST_ENDPOINTS=true` environment variable.\n\n"
+        "**Query params:**\n"
+        "- `duration`: Simulated duration in seconds (5-90, default 30)\n"
+        "- `should_fail`: Simulate trace failure (boolean)\n\n"
+        "**Response:** Same as real /log-trace/start - trace_id, providers, sse_url."
+    ),
+    responses={
+        404: {"description": "Twin not found or test endpoints disabled"},
+    }
+)
 async def test_log_trace_start(
     twin_id: str,
     duration: int = Query(30, ge=5, le=90, description="Simulated duration in seconds"),
@@ -211,7 +261,16 @@ async def test_log_trace_start(
 
 @router.get(
     "/{twin_id}/simulator/test-download",
+    operation_id="testDownloadIoTSimulator",
     summary="[TEST] Download mock IoT simulator package",
+    description=(
+        "**Purpose:** Return a mock simulator zip for UI development testing.\n\n"
+        "**When to call:** During UI development with `kUseTestDeploy = true`.\n\n"
+        "**Note:** Does NOT require real deployment or Deployer connectivity.\n\n"
+        "**Response:** ZIP file with mock simulator structure:\n"
+        "- config.json, payloads.json, README.md\n"
+        "- requirements.txt, src/main.py (mock code)"
+    ),
     responses={
         200: {"description": "Mock simulator zip package for UI testing"},
         404: {"description": "Twin not found"}
