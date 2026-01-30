@@ -703,7 +703,7 @@ class BaseScenarioTest:
         if inter_cloud_token:
             headers["X-Inter-Cloud-Token"] = inter_cloud_token
         
-        max_retries = 60
+        max_retries = 90  # 90 retries × 2s = 180s timeout (extended from 120s for cross-cloud latency)
         retry_interval = 2
         response = None  # Initialize to avoid undefined variable in error message
         
