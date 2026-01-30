@@ -93,6 +93,17 @@ def cleanup_azure_resources(
                     else:
                         diag_helper.delete(blob_uri, setting_name)
                         logger.info(f"    ✓ Deleted")
+            
+            # Handle EventGrid system topics - reuse cached list
+            for eventgrid in [r for r in resources if r.type == "Microsoft.EventGrid/systemTopics"]:
+                for setting in diag_helper.list(eventgrid.id):
+                    setting_name = setting.get("name", "unknown")
+                    logger.info(f"  Found: {setting_name} on {eventgrid.name} (EventGrid)")
+                    if dry_run:
+                        logger.info(f"    [DRY RUN] Would delete")
+                    else:
+                        diag_helper.delete(eventgrid.id, setting_name)
+                        logger.info(f"    ✓ Deleted")
     except Exception as e:
         logger.warning(f"  Diagnostic settings cleanup error: {e}")
     
