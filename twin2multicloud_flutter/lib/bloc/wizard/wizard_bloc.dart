@@ -30,7 +30,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     WizardInitService? initService,
     WizardZipService? zipService,
   }) : _api = api,
-       _initService = initService ?? WizardInitService(api: api),
+       _initService = initService ?? WizardInitService(),
        _zipService = zipService ?? WizardZipService(),
        super(const WizardState()) {
     // === Initialization ===
@@ -136,11 +136,40 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     Emitter<WizardState> emit,
   ) async {
     emit(state.copyWith(status: WizardStatus.loading));
-    final result = await _initService.initializeEditMode(
-      twinId: event.twinId,
-      currentState: state,
-    );
-    emit(result.state);
+
+    try {
+      // Fetch data from API (BLoC owns API calls)
+      final twin = await _api.getTwin(event.twinId);
+      final config = await _api.getTwinConfig(event.twinId);
+
+      // Fetch deployer config separately (may not exist yet)
+      DeployerConfigData? deployerConfig;
+      try {
+        final deployerJson = await _api.getDeployerConfig(event.twinId);
+        deployerConfig = DeployerConfigData.fromJson(deployerJson);
+      } catch (e) {
+        // No deployer config yet, that's fine
+      }
+
+      // Pass to stateless service for state construction
+      final result = _initService.initializeEditMode(
+        twinId: event.twinId,
+        data: TwinEditData(
+          twin: twin,
+          config: config,
+          deployerConfig: deployerConfig,
+        ),
+      );
+      emit(result.state);
+    } catch (e) {
+      emit(
+        state.copyWith(
+          status: WizardStatus.error,
+          errorMessage:
+              'Failed to load twin: ${ApiErrorHandler.extractMessage(e)}',
+        ),
+      );
+    }
   }
 
   // ============================================================

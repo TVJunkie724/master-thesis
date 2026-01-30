@@ -1,25 +1,109 @@
 // lib/bloc/wizard/services/wizard_zip_service.dart
 // Handles zip file upload processing for wizard Step 3
+// STATELESS SERVICE: receives data, returns state (no API calls)
 
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../wizard_state.dart';
 
-/// Result of processing a zip upload
+/// Result of processing a zip upload.
+/// Consistent with WizardInitResult pattern.
 class ZipProcessingResult {
   final WizardState state;
+  final bool success;
   final bool shouldTriggerCollapse;
 
   const ZipProcessingResult({
     required this.state,
+    required this.success,
     this.shouldTriggerCollapse = false,
+  });
+
+  /// Factory for successful result
+  factory ZipProcessingResult.ok(
+    WizardState state, {
+    bool shouldTriggerCollapse = false,
+  }) => ZipProcessingResult(
+    state: state,
+    success: true,
+    shouldTriggerCollapse: shouldTriggerCollapse,
+  );
+
+  /// Factory for error result
+  factory ZipProcessingResult.error(WizardState state, String message) =>
+      ZipProcessingResult(
+        state: state.copyWith(
+          zipUploadInProgress: false,
+          errorMessage: message,
+        ),
+        success: false,
+      );
+}
+
+/// Data class for extracted content from zip.
+/// Public for testing.
+class ExtractedContent {
+  final String? digitalTwinName;
+  final String? configEvents;
+  final String? configIotDevices;
+  final String? payloads;
+  final String? hierarchy;
+  final String? sceneConfig;
+  final String? userConfig;
+  final String? stateMachine;
+  final String? eventFeedback;
+  final Map<String, String> processors;
+  final Map<String, String> eventActions;
+  final bool glbUploaded;
+
+  const ExtractedContent({
+    this.digitalTwinName,
+    this.configEvents,
+    this.configIotDevices,
+    this.payloads,
+    this.hierarchy,
+    this.sceneConfig,
+    this.userConfig,
+    this.stateMachine,
+    this.eventFeedback,
+    this.processors = const {},
+    this.eventActions = const {},
+    this.glbUploaded = false,
   });
 }
 
-/// Service for processing zip uploads in the wizard
-///
-/// Extracted from WizardBloc to enable isolated unit testing.
-/// Pure business logic - takes state and returns new state.
+/// Data class for validation results from zip.
+/// Public for testing.
+class ZipValidationResult {
+  final bool configJsonValid;
+  final bool eventsValid;
+  final bool iotDevicesValid;
+  final bool payloadsValid;
+  final bool hierarchyValid;
+  final bool sceneConfigValid;
+  final bool userConfigValid;
+  final bool stateMachineValid;
+  final bool eventFeedbackValid;
+  final Map<String, bool> processorValidation;
+  final Map<String, bool> eventActionValidation;
+
+  const ZipValidationResult({
+    this.configJsonValid = false,
+    this.eventsValid = false,
+    this.iotDevicesValid = false,
+    this.payloadsValid = false,
+    this.hierarchyValid = false,
+    this.sceneConfigValid = false,
+    this.userConfigValid = false,
+    this.stateMachineValid = false,
+    this.eventFeedbackValid = false,
+    this.processorValidation = const {},
+    this.eventActionValidation = const {},
+  });
+}
+
+/// STATELESS service for processing zip uploads in the wizard.
+/// Receives data, returns state (no API calls).
 class WizardZipService {
   /// Process the actual zip upload and populate fields
   ///
@@ -32,13 +116,15 @@ class WizardZipService {
     final success = apiResult['success'] as bool? ?? false;
     final errors = List<String>.from(apiResult['validation_errors'] ?? []);
     final warnings = List<String>.from(apiResult['warnings'] ?? []);
-    final files = apiResult['files'] as Map<String, dynamic>? ?? {};
-    final functions = apiResult['functions'] as Map<String, dynamic>? ?? {};
-    final assets = apiResult['assets'] as Map<String, dynamic>? ?? {};
+    // Safe cast from potentially dynamic maps
+    final files = Map<String, dynamic>.from(apiResult['files'] ?? {});
+    final functions = Map<String, dynamic>.from(apiResult['functions'] ?? {});
+    final assets = Map<String, dynamic>.from(apiResult['assets'] ?? {});
 
     // Handle validation errors
     if (!success && errors.isNotEmpty) {
       return ZipProcessingResult(
+        success: false,
         state: state.copyWith(
           zipUploadInProgress: false,
           errorMessage: 'Validation errors:\n${errors.join('\n')}',
@@ -48,10 +134,10 @@ class WizardZipService {
     }
 
     // Extract content from files
-    final extracted = _extractContent(files, functions, assets);
+    final extracted = extractContent(files, functions, assets);
 
     // Build validation maps from backend validation status
-    final validation = _buildValidationMaps(files, functions);
+    final validation = buildValidationMaps(files, functions);
 
     // Create new state with extracted content and validation status
     final newState = state.copyWith(
@@ -74,7 +160,7 @@ class WizardZipService {
       sceneGlbUploaded: extracted.glbUploaded,
       hasUnsavedChanges: true,
       successMessage:
-          'Zip extracted! ${_countExtracted(files, functions, assets)} items populated.',
+          'Zip extracted! ${countExtracted(files, functions, assets)} items populated.',
       warningMessage: warnings.isNotEmpty ? warnings.join('\n') : null,
       // Set validation based on backend validation status
       configJsonValidated: validation.configJsonValid,
@@ -98,23 +184,27 @@ class WizardZipService {
     final allSectionsValid =
         newState.isSection2Valid && newState.isSection3Valid;
 
-    // Log validation state for debugging
-    _logValidationState(newState, allSectionsValid);
+    // Log validation state (only in debug mode)
+    if (kDebugMode) {
+      _logValidationState(newState, allSectionsValid);
+    }
 
-    return ZipProcessingResult(
-      state: newState,
+    return ZipProcessingResult.ok(
+      newState,
       shouldTriggerCollapse: allSectionsValid,
     );
   }
 
-  /// Check if a file result has extractable content
+  /// Check if a file result has extractable content.
+  /// Public for testing.
   bool fileHasContent(dynamic file) {
     if (file == null) return false;
     if (file is! Map<String, dynamic>) return false;
     return file['exists'] == true && file['content'] != null;
   }
 
-  /// Check if a file is valid (exists, has content, no validation error)
+  /// Check if a file is valid (exists, has content, no validation error).
+  /// Public for testing.
   bool isFileValid(dynamic file) {
     if (file == null) return false;
     if (file is! Map<String, dynamic>) return false;
@@ -123,12 +213,9 @@ class WizardZipService {
         file['validation_error'] == null;
   }
 
-  // ============================================================
-  // Private helpers
-  // ============================================================
-
-  /// Extract all content from zip result
-  _ExtractedContent _extractContent(
+  /// Extract all content from zip result.
+  /// Public for testing.
+  ExtractedContent extractContent(
     Map<String, dynamic> files,
     Map<String, dynamic> functions,
     Map<String, dynamic> assets,
@@ -232,7 +319,7 @@ class WizardZipService {
       glbUploaded = glbData['exists'] == true && glbData['saved'] == true;
     }
 
-    return _ExtractedContent(
+    return ExtractedContent(
       digitalTwinName: digitalTwinName,
       configEvents: configEvents,
       configIotDevices: configIotDevices,
@@ -248,8 +335,9 @@ class WizardZipService {
     );
   }
 
-  /// Build validation maps from file results
-  _ValidationResult _buildValidationMaps(
+  /// Build validation maps from file results.
+  /// Public for testing.
+  ZipValidationResult buildValidationMaps(
     Map<String, dynamic> files,
     Map<String, dynamic> functions,
   ) {
@@ -268,7 +356,7 @@ class WizardZipService {
       eventActionValidation[entry.key] = isFileValid(entry.value);
     }
 
-    return _ValidationResult(
+    return ZipValidationResult(
       configJsonValid: isFileValid(files['config.json']),
       eventsValid: isFileValid(files['config_events.json']),
       iotDevicesValid: isFileValid(files['config_iot_devices.json']),
@@ -290,8 +378,9 @@ class WizardZipService {
     );
   }
 
-  /// Count how many items were extracted for success message
-  String _countExtracted(
+  /// Count how many items were extracted for success message.
+  /// Public for testing.
+  int countExtracted(
     Map<String, dynamic> files,
     Map<String, dynamic> functions,
     Map<String, dynamic> assets,
@@ -308,10 +397,10 @@ class WizardZipService {
     });
     if (fileHasContent(functions['event_feedback'])) count++;
     if (assets['scene_glb']?['saved'] == true) count++;
-    return count.toString();
+    return count;
   }
 
-  /// Log validation state for debugging
+  /// Log validation state for debugging (only called in debug mode)
   void _logValidationState(WizardState state, bool allSectionsValid) {
     debugPrint('=== ZIP UPLOAD VALIDATION DEBUG ===');
     debugPrint('Section 2 Valid: ${state.isSection2Valid}');
@@ -347,64 +436,4 @@ class WizardZipService {
     debugPrint('All sections valid: $allSectionsValid');
     debugPrint('===================================');
   }
-}
-
-/// Internal class to hold extracted content
-class _ExtractedContent {
-  final String? digitalTwinName;
-  final String? configEvents;
-  final String? configIotDevices;
-  final String? payloads;
-  final String? hierarchy;
-  final String? sceneConfig;
-  final String? userConfig;
-  final String? stateMachine;
-  final String? eventFeedback;
-  final Map<String, String> processors;
-  final Map<String, String> eventActions;
-  final bool glbUploaded;
-
-  const _ExtractedContent({
-    this.digitalTwinName,
-    this.configEvents,
-    this.configIotDevices,
-    this.payloads,
-    this.hierarchy,
-    this.sceneConfig,
-    this.userConfig,
-    this.stateMachine,
-    this.eventFeedback,
-    this.processors = const {},
-    this.eventActions = const {},
-    this.glbUploaded = false,
-  });
-}
-
-/// Internal class to hold validation results
-class _ValidationResult {
-  final bool configJsonValid;
-  final bool eventsValid;
-  final bool iotDevicesValid;
-  final bool payloadsValid;
-  final bool hierarchyValid;
-  final bool sceneConfigValid;
-  final bool userConfigValid;
-  final bool stateMachineValid;
-  final bool eventFeedbackValid;
-  final Map<String, bool> processorValidation;
-  final Map<String, bool> eventActionValidation;
-
-  const _ValidationResult({
-    this.configJsonValid = false,
-    this.eventsValid = false,
-    this.iotDevicesValid = false,
-    this.payloadsValid = false,
-    this.hierarchyValid = false,
-    this.sceneConfigValid = false,
-    this.userConfigValid = false,
-    this.stateMachineValid = false,
-    this.eventFeedbackValid = false,
-    this.processorValidation = const {},
-    this.eventActionValidation = const {},
-  });
 }
