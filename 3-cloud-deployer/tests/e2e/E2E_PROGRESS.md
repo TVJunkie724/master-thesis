@@ -1,6 +1,6 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-01-30 23:35  
+**Last Updated:** 2026-01-30 23:57  
 **Cloud Log Investigation:** 2026-01-29 19:22 UTC  
 **TwinMaker Fix Session:** AI-0130-5dda
 
@@ -12,44 +12,68 @@
 |----------|----------|--------------|--------------|---------------|--------|
 | **AWS→GCP** | Jan 28 | 11 | 0 | 3 | ✅ PASS |
 | **AWS→Azure** | Jan 25 | 12 | 0 | 1 | ✅ PASS |
-| **Azure→AWS** | Jan 30 (23:31) | 11 | 2 | 2 | ❌ FAIL |
+| **Azure→AWS** | Jan 30 (22:41) | 12 | 1 | 2 | ⚠️ PARTIAL |
 | **Azure→GCP** | - | - | - | - | ⏳ Untested |
 | **GCP→AWS** | - | - | - | - | ⏳ Untested |
 | **GCP→Azure** | - | - | - | - | ⏳ Untested |
 
-### Azure→AWS Last Run Details (Jan 30, 22:07 → 22:31)
-- **Duration**: 24m 21s
-- **Result**: `2 failed, 11 passed, 2 skipped`
-- **Failed Tests**: 
-  1. `test_08_verify_hot_storage` - No data in GCP Firestore after 120s (Status 200, empty)
-  2. `test_10b_twinmaker_telemetry` - No telemetry via TwinMaker after 60s
+### Azure→AWS Latest Run (Jan 30, 22:41 → 22:53)
+- **Duration**: 11m 57s
+- **Result**: `1 failed, 12 passed, 2 skipped`
+- **Failed Test**: `test_10b_twinmaker_telemetry` (TwinMaker → pressure-sensor-1)
+- **Passed Test**: `test_08_verify_hot_storage` ✅ (was failing in previous run!)
 
 ### Azure→AWS Run Comparison
 | Run | test_08 | test_10b | Total |
 |-----|---------|----------|-------|
 | Jan 30 19:19 | ✅ PASS | ❌ FAIL | 1 failed, 12 passed |
 | Jan 30 22:07 | ❌ FAIL | ❌ FAIL | 2 failed, 11 passed |
+| Jan 30 22:41 | ✅ PASS | ❌ FAIL | 1 failed, 12 passed |
 
-**Key Observation:** test_08 passed in the earlier run but failed in the latest run. This indicates **intermittent data flow issues** in the Azure → AWS → GCP pipeline.
-
-**Investigation Notes:**
-- GCP hot-reader was NOT changed in this session
-- Our changes (TwinMaker connector fix, timestamp normalization) require **redeployment** to take effect
-- The AWS persister correctly adds `id` field (code confirmed)
-- test_08 queries by `device_id` only (no timestamp filtering), so timestamp format is not the issue for test_08
+**Key Finding:** test_08 is **intermittent** (infra timing), test_10b requires fix redeployment.
 
 ---
 
 ## 🔧 Fixes Applied (Jan 30)
 
-### Issue 1: TwinMaker ↔ GCP Hot-Reader Incompatibility
+### Issue 1: GCP URL Detection Missing `cloudfunctions.net` (FIXED 23:55)
+
+**Problem:** TwinMaker data connector only detected GCP URLs with `.run.app` pattern.
+GCP Cloud Functions Gen2 can use `cloudfunctions.net` URLs (e.g., `europe-west1-project.cloudfunctions.net/...`).
+This caused the connector to bypass GCP-specific query translation and response transformation.
+
+**Symptoms:**
+- Connector printed "Azure mode" when calling GCP hot-reader
+- Raw `{"items": [...]}` response was returned instead of `{"propertyValues": [...]}`
+- TwinMaker threw `ConnectorFailureException: expecting propertyValues field to be set`
+
+**Fix Applied:**
+```python
+# Before: Only detected Cloud Run direct URLs
+return ".run.app" in REMOTE_READER_URL
+
+# After: Detects both URL patterns
+return ".run.app" in REMOTE_READER_URL or "cloudfunctions.net" in REMOTE_READER_URL
+```
+
+**Verification:** Manually updated Lambda and verified TwinMaker successfully retrieved data:
+```
+GCP mode: Querying https://...cloudfunctions.net/...?device_id=temperature-sensor-1
+Transformed to TwinMaker format: {"propertyValues": [...]}
+```
+
+**File:** `aws/lambda_functions/digital-twin-data-connector/lambda_function.py`
+
+---
+
+### Issue 2: TwinMaker ↔ GCP Hot-Reader Query/Response Format (Jan 30 morning)
 
 **Problem:** AWS TwinMaker data connector couldn't communicate with GCP hot-reader due to:
 1. Query format mismatch (JSON body vs URL params)
 2. Response format mismatch (`items` vs `propertyValues`)
 
 **Fix Applied:**
-- Added `_is_gcp_reader()` - Detects GCP Gen2 URLs (`.run.app`)
+- Added `_is_gcp_reader()` - Detects GCP Gen2 URLs
 - Added `_build_gcp_query_url()` - Translates TwinMaker query to URL params
 - Added `_transform_gcp_to_twinmaker()` - Converts GCP response to TwinMaker format
 
@@ -57,7 +81,7 @@
 
 ---
 
-### Issue 2: Timestamp Format Mismatch
+### Issue 3: Timestamp Format Mismatch
 
 **Problem:** Test payloads use epoch milliseconds (`1738267800000`), but TwinMaker queries with ISO8601 (`2026-01-30T18:00:00Z`). String comparison failed.
 
@@ -69,6 +93,7 @@
 - `aws/_shared/normalize.py`
 - `azure/_shared/normalize.py`
 - `gcp/_shared/normalize.py`
+
 
 ---
 
