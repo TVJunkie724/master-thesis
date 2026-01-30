@@ -217,6 +217,27 @@ void main() {
     });
 
     group('unconfigured provider warning (GAP 3)', () {
+      // Helper to build valid optimizer_result structure
+      Map<String, dynamic> buildOptimizerResult(List<String> cheapestPath) {
+        return <String, dynamic>{
+          'awsCosts': <String, dynamic>{
+            'L1': <String, dynamic>{
+              'cost': 10.0,
+              'components': <String, double>{},
+            },
+          },
+          'azureCosts': <String, dynamic>{
+            'L2': <String, dynamic>{
+              'cost': 20.0,
+              'components': <String, double>{},
+            },
+          },
+          'gcpCosts': <String, dynamic>{},
+          'cheapestPath': cheapestPath,
+          'inputParamsUsed': <String, dynamic>{},
+        };
+      }
+
       test('generates warning when optimal path has unconfigured provider', () {
         // AWS configured, Azure not configured, optimal path uses both
         final data = TwinEditData(
@@ -225,10 +246,11 @@ void main() {
             'aws_configured': true,
             'aws': {'access_key': '***'},
             // Azure NOT configured
-            'optimizer_result': {
-              'cheapest_path': ['L1_AWS', 'L2_AZURE', 'L3_AWS_HOT'],
-              'cheapest_cost': 100.0,
-            },
+            'optimizer_result': buildOptimizerResult([
+              'L1_AWS',
+              'L2_AZURE',
+              'L3_AWS_HOT',
+            ]),
           },
         );
 
@@ -251,10 +273,7 @@ void main() {
             'aws': {'access_key': '***'},
             'azure_configured': true,
             'azure': {'subscription_id': '***'},
-            'optimizer_result': {
-              'cheapest_path': ['L1_AWS', 'L2_AZURE'],
-              'cheapest_cost': 100.0,
-            },
+            'optimizer_result': buildOptimizerResult(['L1_AWS', 'L2_AZURE']),
           },
         );
 
@@ -272,7 +291,7 @@ void main() {
           config: {
             'aws_configured': true,
             'aws': {'key': '***'},
-            'optimizer_result': {'cheapest_path': [], 'cheapest_cost': 0.0},
+            'optimizer_result': buildOptimizerResult([]),
           },
         );
 
