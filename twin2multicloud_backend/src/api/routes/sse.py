@@ -19,6 +19,7 @@ from starlette.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from src.models import get_db, DeploymentLog
+from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/sse", tags=["sse"])
 
@@ -285,7 +286,7 @@ async def push_complete(session_id: str, status: str, message: str, outputs: dic
         "**Timeout:** Heartbeats sent every 30s to keep connection alive."
     ),
     responses={
-        404: {"description": "Session not found or expired"},
+        404: ERROR_RESPONSES[404],
     }
 )
 async def stream_deploy_logs(

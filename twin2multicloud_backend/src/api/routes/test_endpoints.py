@@ -23,6 +23,7 @@ from src.models.database import get_db
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.api.dependencies import get_current_user
+from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/twins", tags=["twins-test"])
 
@@ -54,8 +55,8 @@ def _require_test_endpoints():
         "**Response:** Same as real /deploy - session_id and sse_url."
     ),
     responses={
-        404: {"description": "Twin not found or test endpoints disabled"},
-        409: {"description": "Operation already in progress"},
+        404: ERROR_RESPONSES[404],
+        409: ERROR_RESPONSES[409],
     }
 )
 async def test_deploy_twin(
@@ -123,8 +124,8 @@ async def test_deploy_twin(
         "**Response:** Same as real /destroy - session_id and sse_url."
     ),
     responses={
-        404: {"description": "Twin not found or test endpoints disabled"},
-        409: {"description": "Operation already in progress"},
+        404: ERROR_RESPONSES[404],
+        409: ERROR_RESPONSES[409],
     }
 )
 async def test_destroy_twin(
@@ -191,7 +192,7 @@ async def test_destroy_twin(
         "**Response:** Same as real /log-trace/start - trace_id, providers, sse_url."
     ),
     responses={
-        404: {"description": "Twin not found or test endpoints disabled"},
+        404: ERROR_RESPONSES[404],
     }
 )
 async def test_log_trace_start(
@@ -273,7 +274,7 @@ async def test_log_trace_start(
     ),
     responses={
         200: {"description": "Mock simulator zip package for UI testing"},
-        404: {"description": "Twin not found"}
+        404: ERROR_RESPONSES[404],
     }
 )
 async def test_download_simulator(
