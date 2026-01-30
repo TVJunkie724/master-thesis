@@ -60,14 +60,17 @@ def _is_multi_cloud() -> bool:
 
 def _is_gcp_reader() -> bool:
     """
-    Check if remote reader is GCP Cloud Functions Gen2.
+    Check if remote reader is GCP Cloud Functions.
     
-    GCP Gen2 functions are backed by Cloud Run with URLs like:
-    https://hot-reader-abc123xyz-uc.a.run.app
+    GCP Cloud Functions Gen2 can have two types of URLs:
+    1. Cloud Run backing: https://hot-reader-abc123xyz-uc.a.run.app
+    2. Standard Gen2: https://region-project.cloudfunctions.net/function-name
     
-    Note: Gen1 uses cloudfunctions.net but we use Gen2 exclusively.
+    Both require query param-based requests and response transformation.
     """
-    return bool(REMOTE_READER_URL and ".run.app" in REMOTE_READER_URL)
+    if not REMOTE_READER_URL:
+        return False
+    return ".run.app" in REMOTE_READER_URL or "cloudfunctions.net" in REMOTE_READER_URL
 
 
 # ==============================================================================
