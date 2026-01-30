@@ -1,3 +1,11 @@
+# TODO(refactoring): This file is 1636 lines - candidate for refactoring.
+# Consider extracting:
+# - IoT Manager (IoT rules, things, certificates)
+# - TwinMaker Manager (workspace, scenes, components)
+# - Lambda Manager (function CRUD, permissions)
+# - IAM Manager (roles, policies)
+# See: monolith_reduction_patterns KI for patterns.
+
 import json
 import os
 import time

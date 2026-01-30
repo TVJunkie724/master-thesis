@@ -1,3 +1,11 @@
+# TODO(refactoring): This file is 1151 lines - candidate for refactoring.
+# Consider splitting by provider:
+# - aws_bundler.py - AWS Lambda packaging
+# - azure_bundler.py - Azure Function packaging (already partially extracted)
+# - gcp_bundler.py - GCP Cloud Function packaging
+# - user_bundler.py - User function packaging (processors, event_actions)
+# See: monolith_reduction_patterns KI for patterns.
+
 """
 Function Package Builder for Terraform Deployment.
 

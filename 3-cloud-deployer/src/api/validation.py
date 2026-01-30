@@ -1,3 +1,11 @@
+# TODO(refactoring): This file is 1377 lines - candidate for refactoring.
+# Consider splitting into domain-specific validation modules:
+# - zip_validation.py - Zip validation endpoints
+# - config_validation.py - Config file validation
+# - function_validation.py - Function code validation
+# - hierarchy_validation.py - L4 hierarchy validation
+# See: monolith_reduction_patterns KI for patterns.
+
 from fastapi import APIRouter, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel
 import src.validator as validator

@@ -1,3 +1,10 @@
+# TODO(refactoring): This file is 1115 lines - candidate for refactoring.
+# Consider splitting by function domain:
+# - function_discovery.py - _get_updatable_functions, caching
+# - function_upload.py - SDK upload functions (AWS, Azure, GCP)
+# - function_hash.py - Hash computation, metadata storage
+# See: monolith_reduction_patterns KI for patterns.
+
 """
 Functions API - User Function Management Endpoints.
 

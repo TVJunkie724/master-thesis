@@ -1,3 +1,8 @@
+// TODO(refactoring): This file is 1265 lines - candidate for refactoring.
+// Consider extracting ExpansionTile widgets into separate components per layer:
+// - L1Section, L2Section, L3Section, L4Section, L5Section
+// See: monolith_reduction_patterns KI for widget extraction patterns.
+
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';

@@ -1,6 +1,12 @@
 // lib/bloc/wizard/wizard_bloc.dart
 // BLoC for wizard state machine
 // Refactored to use service extraction pattern for testability
+//
+// TODO(refactoring): Extract WizardSaveService from _onSaveDraft and _onFinish
+// handlers (~70 lines of duplicated config-building logic). See:
+// - buildTwinConfig() - credential + optimizer config
+// - buildDeployerConfig() - all deployer fields (currently duplicated)
+// - buildCheapestPathMap() - path extraction for pricing
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

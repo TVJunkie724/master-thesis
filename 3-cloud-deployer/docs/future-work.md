@@ -1517,7 +1517,182 @@ def validate_configs(accessor, ctx) -> List[str]:
 
 ---
 
+## 21. Azure Diagnostic Settings 409 Conflict (EventGrid & Storage)
+
+> [!CAUTION]
+> This issue causes intermittent E2E test failures. Investigation ongoing (Jan 2026).
+
+### Status: Blocked / Under Investigation
+
+### The Error
+
+```
+Error: creating Monitor Diagnostics Setting "sc-azure-aws-logs-c4225a39" for Resource 
+  ".../Microsoft.EventGrid/systemTopics/sc-azure-aws-iothub-events":
+unexpected status 409 (409 Conflict): Data sink '...logs' is already used in 
+diagnostic setting 'logs-to-analytics' for category 'DeliveryFailures'.
+```
+
+Same error occurs for `azurerm_monitor_diagnostic_setting.storage` targeting `/blobServices/default`.
+
+### Background
+
+Terraform attempts to create diagnostic settings with a unique name (`${twin_name}-logs-${suffix}`), but Azure reports a setting named `logs-to-analytics` already exists on the target resource, causing a 409 conflict.
+
+### Timeline of Events
+
+| Date | Event |
+|------|-------|
+| Jan 27 | Diagnostic settings used hardcoded name `logs-to-analytics` |
+| Jan 28 10:20 | E2E run succeeded, cleanup destroyed all settings ✓ |
+| **Jan 28 12:51** | E2E run with `E2E_SKIP_CLEANUP=true` - created settings, **no cleanup** ❌ |
+| Jan 29 | Code changed to dynamic naming: `${twin_name}-logs-${suffix}` |
+| Jan 29+ | All E2E runs fail with 409 conflict |
+
+### Investigation Findings
+
+#### ❌ Debunked Hypotheses
+
+| Hypothesis | Investigation Result |
+|------------|---------------------|
+| Azure Policy auto-creates settings | Only 2 policies on subscription, neither creates diagnostic settings |
+| Microsoft Defender auto-provisioning | All Defender plans on Free tier, auto-provision OFF |
+| `logs-to-analytics` is Azure default | It's our custom name from commit `dfbf59d0` |
+| Orphaned resources in Azure | Subscription currently has only 2 unrelated RGs |
+| Python cleanup is broken | Code correctly handles EventGrid/Storage; runs when RG doesn't exist |
+
+#### ✅ Confirmed Facts
+
+1. Resources are created **fresh** each run (logs show `Creating...`, not `Refreshing...`)
+2. Pre-cleanup runs but finds **no RGs** to clean (they don't exist yet)
+3. Error occurs **only for EventGrid and Storage**, not IoT Hub or Grafana
+4. The `logs-to-analytics` name appeared from a run with cleanup disabled
+
+### The Unsolved Mystery
+
+**The Paradox:**
+- Resources are created fresh (not reused)
+- Pre-cleanup finds nothing to clean
+- Yet `logs-to-analytics` settings appear on freshly created resources
+
+Possible explanations:
+1. Terraform provider bug (see GitHub issue #15734)
+2. Azure caching/tombstone behavior
+3. Race condition in E2E retry logic
+
+### Affected Resources
+
+```hcl
+# azure_observability.tf
+
+resource "azurerm_monitor_diagnostic_setting" "eventgrid" {
+  # Logs: DeliveryFailures, AllMetrics
+  # --> 409 CONFLICT
+}
+
+resource "azurerm_monitor_diagnostic_setting" "storage" {
+  # Logs: StorageRead, StorageWrite, AllMetrics
+  # --> 409 CONFLICT
+}
+```
+
+### What These Logs Capture
+
+| Resource | Log Categories | Purpose |
+|----------|---------------|---------|
+| EventGrid | `DeliveryFailures` | Event delivery issues to downstream functions |
+| Storage (blobServices) | `StorageRead`, `StorageWrite` | Blob access patterns for cold/archive storage |
+
+**Note:** These are **infrastructure-level logs** not captured by Application Insights on the Azure Functions. However, the actual function execution logs ARE captured via App Insights, so the user can still debug application issues.
+
+### Proposed Solutions
+
+#### Option A: Comment Out Problematic Resources (Recommended Short-Term)
+
+Comment out EventGrid and Storage diagnostic settings. This is acceptable because:
+- Function execution logs are captured via Application Insights
+- IoT Hub logs capture the message flow
+- Cold/archive write failures would appear in function logs
+
+#### Option B: Mid-Deployment Cleanup via Terraform
+
+Add a `null_resource` that cleans diagnostic settings after resource creation but before diagnostic settings are created:
+
+```hcl
+resource "null_resource" "cleanup_diagnostic_settings" {
+  triggers = { storage_id = azurerm_storage_account.main[0].id }
+  provisioner "local-exec" {
+    command = "python3 cleanup_diag.py ${azurerm_storage_account.main[0].id}"
+  }
+}
+
+resource "azurerm_monitor_diagnostic_setting" "storage" {
+  depends_on = [null_resource.cleanup_diagnostic_settings]
+  ...
+}
+```
+
+#### Option C: Use Consistent Naming
+
+Revert to `logs-to-analytics` for all diagnostic settings. Terraform would then adopt existing settings instead of conflicting.
+
+### References
+
+- [GitHub Issue #15734](https://github.com/hashicorp/terraform-provider-azurerm/issues/15734) - "Diagnostic Settings not destroyed correctly"
+- [GitHub Issue #23453](https://github.com/hashicorp/terraform-provider-azurerm/issues/23453) - Storage diagnostic setting conflicts
+
+### Files Involved
+
+- [`azure_observability.tf`](../src/terraform/azure_observability.tf) - Diagnostic settings definitions
+- [`cleanup.py`](../src/providers/azure/cleanup.py) - Python cleanup logic
+- [`diagnostic_settings_helper.py`](../src/providers/azure/diagnostic_settings_helper.py) - REST API helper
+
+---
+
+## 21. Codebase Refactoring - Monolith Reduction
+
+> [!NOTE]
+> Phase 1 partially complete (Jan 2026). TODO comments added to files pending refactoring.
+
+### Status: Deferred (TODO Comments Added)
+
+### Background
+
+Several files exceed 1000 lines and are candidates for the "Stateless Service Delegate" refactoring pattern. This pattern extracts business logic from BLoCs/route handlers into dedicated service classes for improved testability and maintainability.
+
+### Files with TODO Comments
+
+| File | Lines | Suggested Extraction |
+|------|-------|---------------------|
+| `wizard_bloc.dart` | 1437 | `WizardSaveService` - config-building logic |
+| `core_deployer_aws.py` | 1636 | IoT Manager, TwinMaker Manager, Lambda Manager, IAM Manager |
+| `step3_deployer.dart` | 1265 | L1-L5 Section widgets |
+| `validation.py` | 1377 | Domain-specific validation modules |
+| `functions.py` | 1115 | Function discovery, upload, hash modules |
+| `package_builder.py` | 1151 | Provider-specific bundler modules |
+
+### Pattern Reference
+
+See the `monolith_reduction_patterns` Knowledge Item for:
+- Stateless Service Delegate pattern implementation
+- Widget extraction patterns for Flutter
+- Python module splitting guidelines
+
+### Completed Refactoring (Phase 1)
+
+- `twins.py`: Reduced from 2065 → 837 lines (~60% reduction)
+- `wizard_bloc.dart`: Extracted `WizardInitService`, `WizardZipService`
+
+### Next Steps
+
+1. Extract `WizardSaveService` from `wizard_bloc.dart` (~70 lines duplicated)
+2. Refactor `core_deployer_aws.py` into domain managers
+3. Split `validation.py` into domain-specific modules
+
+---
+
 ## Notes
 
-- **Priority**: GCP Simulator > L0 Optimization > SDK validation > N-User Grafana > SSO Automation > Config Unification > Legacy Cleanup > Security enhancements
+- **Priority**: GCP Simulator > L0 Optimization > SDK validation > N-User Grafana > SSO Automation > Config Unification > Codebase Refactoring > Legacy Cleanup > Security enhancements
 - **Timeline**: To be determined based on thesis requirements
+
