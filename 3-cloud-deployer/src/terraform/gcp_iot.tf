@@ -138,23 +138,25 @@ resource "google_cloud_run_service_iam_member" "dispatcher_invoker" {
 # require device connection strings that are only available AFTER registering
 # the device in IoT Hub/IoT Core respectively.
 #
-# The filename is config_generated.json (no device suffix) for consistency with
-# AWS/Azure and to match the download API expectation. Uses first device only.
+# Creates per-device config_generated.json files in device-specific subdirectories.
+# This matches AWS/Azure patterns and supports multi-device payloads.
 # Folder is 'google' to match internal provider naming in simulator.py.
 
 resource "local_file" "gcp_simulator_config" {
-  count = local.gcp_l1_enabled && length(var.iot_devices) > 0 ? 1 : 0
+  for_each = local.gcp_l1_enabled ? {
+    for d in var.iot_devices : d.id => d
+  } : {}
   
-  filename = "${var.project_path}/iot_device_simulator/google/config_generated.json"
+  filename = "${var.project_path}/iot_device_simulator/google/${each.key}/config_generated.json"
   
   content = jsonencode({
-    project_id              = local.gcp_project_id
-    topic_name              = local.gcp_l1_mqtt_topic_path
-    device_id               = var.iot_devices[0].id
-    digital_twin_name       = var.digital_twin_name
-    payload_path            = "payloads.json"
-    auth_method             = "service_account"
-    service_account_key_path = "service_account.json"
+    project_id               = local.gcp_project_id
+    topic_name               = local.gcp_l1_mqtt_topic_path
+    device_id                = each.key
+    digital_twin_name        = var.digital_twin_name
+    payload_path             = "../payloads.json"
+    auth_method              = "service_account"
+    service_account_key_path = "../service_account.json"
   })
   
   file_permission = "0644"

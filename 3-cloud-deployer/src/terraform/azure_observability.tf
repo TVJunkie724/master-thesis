@@ -33,7 +33,7 @@ locals {
 
 resource "azurerm_monitor_diagnostic_setting" "iothub" {
   count                      = var.enable_azure_logging && var.layer_1_provider == "azure" ? 1 : 0
-  name                       = "logs-to-analytics"
+  name                       = "${var.digital_twin_name}-logs-${local.deployment_suffix}"
   target_resource_id         = azurerm_iothub.main[0].id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main[0].id
   enabled_log { category = "Connections" }
@@ -45,7 +45,7 @@ resource "azurerm_monitor_diagnostic_setting" "iothub" {
 
 resource "azurerm_monitor_diagnostic_setting" "eventgrid" {
   count                      = var.enable_azure_logging && var.layer_1_provider == "azure" ? 1 : 0
-  name                       = "logs-to-analytics"
+  name                       = "${var.digital_twin_name}-logs-${local.deployment_suffix}"
   target_resource_id         = azurerm_eventgrid_system_topic.iothub[0].id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main[0].id
   enabled_log { category = "DeliveryFailures" }
@@ -55,7 +55,7 @@ resource "azurerm_monitor_diagnostic_setting" "eventgrid" {
 
 resource "azurerm_monitor_diagnostic_setting" "cosmos" {
   count                      = var.enable_azure_logging && var.layer_3_hot_provider == "azure" ? 1 : 0
-  name                       = "logs-to-analytics"
+  name                       = "${var.digital_twin_name}-logs-${local.deployment_suffix}"
   target_resource_id         = azurerm_cosmosdb_account.main[0].id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main[0].id
   enabled_log { category = "DataPlaneRequests" }
@@ -66,7 +66,7 @@ resource "azurerm_monitor_diagnostic_setting" "cosmos" {
 
 resource "azurerm_monitor_diagnostic_setting" "adt" {
   count                      = var.enable_azure_logging && var.layer_4_provider == "azure" ? 1 : 0
-  name                       = "logs-to-analytics"
+  name                       = "${var.digital_twin_name}-logs-${local.deployment_suffix}"
   target_resource_id         = azurerm_digital_twins_instance.main[0].id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main[0].id
   enabled_log { category = "DigitalTwinsOperation" }
@@ -77,7 +77,7 @@ resource "azurerm_monitor_diagnostic_setting" "adt" {
 
 resource "azurerm_monitor_diagnostic_setting" "logic_app" {
   count                      = var.enable_azure_logging && var.layer_2_provider == "azure" && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
-  name                       = "logs-to-analytics"
+  name                       = "${var.digital_twin_name}-logs-${local.deployment_suffix}"
   target_resource_id         = azurerm_logic_app_workflow.event_notification[0].id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main[0].id
   enabled_log { category = "WorkflowRuntime" }
@@ -87,7 +87,7 @@ resource "azurerm_monitor_diagnostic_setting" "logic_app" {
 
 resource "azurerm_monitor_diagnostic_setting" "grafana" {
   count                      = var.enable_azure_logging && var.layer_5_provider == "azure" ? 1 : 0
-  name                       = "logs-to-analytics"
+  name                       = "${var.digital_twin_name}-logs-${local.deployment_suffix}"
   target_resource_id         = azurerm_dashboard_grafana.main[0].id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main[0].id
   enabled_log { category = "GrafanaLoginEvents" }
@@ -97,7 +97,7 @@ resource "azurerm_monitor_diagnostic_setting" "grafana" {
 
 resource "azurerm_monitor_diagnostic_setting" "storage" {
   count                      = var.enable_azure_logging && local.deploy_azure ? 1 : 0
-  name                       = "logs-to-analytics"
+  name                       = "${var.digital_twin_name}-logs-${local.deployment_suffix}"
   target_resource_id         = "${azurerm_storage_account.main[0].id}/blobServices/default"
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main[0].id
   enabled_log { category = "StorageRead" }

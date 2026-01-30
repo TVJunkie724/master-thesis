@@ -24,13 +24,23 @@ from . import globals
 from . import transmission
 
 
-def get_config_path(project_name: str) -> str:
-    """Construct path to config_generated.json for a project."""
+def get_config_path(project_name: str, device_id: str = None) -> str:
+    """Construct path to config_generated.json for a project/device."""
     # When running inside container
-    if os.path.exists("/app/upload"):
-        return f"/app/upload/{project_name}/iot_device_simulator/google/config_generated.json"
-    # When running locally
-    return f"upload/{project_name}/iot_device_simulator/google/config_generated.json"
+    base = "/app/upload" if os.path.exists("/app/upload") else "upload"
+    google_sim_dir = f"{base}/{project_name}/iot_device_simulator/google"
+    
+    if device_id:
+        # Device-specific config path
+        return f"{google_sim_dir}/{device_id}/config_generated.json"
+    else:
+        # Fallback: find first device subdirectory
+        if os.path.exists(google_sim_dir):
+            device_dirs = [d for d in os.listdir(google_sim_dir) 
+                          if os.path.isdir(os.path.join(google_sim_dir, d))]
+            if device_dirs:
+                return f"{google_sim_dir}/{device_dirs[0]}/config_generated.json"
+        raise ValueError(f"No device configs found in {google_sim_dir}")
 
 
 def print_menu():
@@ -91,11 +101,18 @@ def main():
     parser = argparse.ArgumentParser(description="GCP IoT Device Simulator")
     parser.add_argument("--project", required=True, help="Project name")
     parser.add_argument("--payload", help="Custom payload JSON (single-shot mode for log tracing)")
+    parser.add_argument("--device", help="Device ID for device-specific config")
     
     args = parser.parse_args()
     
     # Load configuration
-    config_path = get_config_path(args.project)
+    try:
+        config_path = get_config_path(args.project, args.device)
+    except ValueError as e:
+        print(f"ERROR: {e}")
+        print("Deploy L1 first to generate simulator configuration.")
+        sys.exit(1)
+    
     if not os.path.exists(config_path):
         print(f"ERROR: Config not found at {config_path}")
         print("Deploy L1 first to generate simulator configuration.")

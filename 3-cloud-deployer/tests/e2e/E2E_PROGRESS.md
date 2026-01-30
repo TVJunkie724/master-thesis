@@ -1,85 +1,68 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-01-29  
-**Session:** AI-0129-089a
+**Last Updated:** 2026-01-29 20:22  
+**Cloud Log Investigation:** 2026-01-29 19:22 UTC
 
 ---
 
-## Multi-Cloud Scenario Status
+## Summary
 
-| Scenario | L1→L2 | L3-Hot | L4 | Status | Notes |
-|----------|-------|--------|----|----|-------|
-| AWS→Azure | AWS→AWS | Azure | Azure | ✅ Passing | Full dataflow verified |
-| AWS→GCP | AWS→AWS | GCP | AWS | ✅ Passing | TwinMaker entities OK |
-| Azure→AWS | Azure→Azure | AWS | AWS | ✅ Passing | |
-| Azure→GCP | Azure→Azure | GCP | Azure | ⚠️ Needs verification | GCP ADT push just fixed |
-| GCP→AWS | GCP→GCP | AWS | AWS | ✅ Passing | |
-| GCP→Azure | GCP→GCP | Azure | Azure | ⚠️ Needs verification | GCP ADT push just fixed |
+| Scenario | test_08 | Full Dataflow | Errors Found |
+|----------|---------|---------------|--------------|
+| **AWS→GCP** | ✅ PASS | ✅ **YES** | None |
+| Azure→AWS | ❌ FAIL | ❌ No | 2 errors |
 
 ---
 
-## Test Coverage (Base Scenario)
+## ✅ AWS→GCP: VERIFIED PASS
 
-| Test | Purpose | Status |
-|------|---------|--------|
-| test_01 | Load Terraform outputs | ✅ Pass |
-| test_02 | Validate provider selection | ✅ Pass |
-| test_03 | Verify L1 infrastructure | ✅ Pass |
-| test_04 | Verify L2 infrastructure | ✅ Pass |
-| test_05 | Verify L3 storage | ✅ Pass |
-| test_06 | Verify L4 twin management | ✅ Pass |
-| test_07 | Send test IoT message | ✅ Pass |
-| test_08 | Verify hot storage | ✅ Pass |
-| test_09 | Verify IoT devices | ✅ Pass |
-| test_10 | TwinMaker entities exist | ✅ Pass |
-| **test_10b** | TwinMaker telemetry | ✅ **NEW** |
-| test_11 | ADT twins exist | ✅ Pass |
-| test_11b | ADT twin telemetry | ✅ Pass |
-| test_12 | Azure Functions deployed | ✅ **FIXED** |
-| test_12b | ADT twin verification | ✅ Pass |
+**Cloud Logs (Jan 28 23:23):**
+- `sc-aws-gcp-l1-dispatcher`: ✅ Dispatch successful
+- `sc-aws-gcp-connector`: ✅ 9.4s invocation, completed successfully
+
+**No errors found in any Lambda** - dataflow confirmed working.
 
 ---
 
-## Recent Fixes (This Session)
+## ❌ Azure→AWS: TWO ROOT CAUSES
 
-### 1. Azure L1 Bundling Optimization
-**Problem:** `connector` function always bundled even when L1=L2 (same cloud)  
-**Fix:** Added `boundary` attribute to function registry, updated `bundle_l1_functions()`  
-**Files:** `function_registry.py`, `azure_bundler.py`, `package_builder.py`, `tfvars_generator.py`
-
-### 2. test_12 Azure Functions Verification
-**Problem:** Inconsistent logic, didn't match bundler behavior  
-**Fix:** Registry-based logic, boundary attribute for L1 connector, L3 optional filter  
-**Files:** `_base_scenario.py`
-
-### 3. GCP ADT Telemetry Push (Critical Gap)
-**Problem:** GCP persister didn't push to ADT (AWS/Azure already had it)  
-**Fix:** Added `_should_push_to_adt()` and `_push_to_adt()` + Terraform env vars  
-**Files:** `persister/main.py` (GCP), `gcp_compute.tf`
-
-### 4. test_10b TwinMaker Telemetry (New)
-**Problem:** No telemetry verification for AWS TwinMaker (ADT had test_11b)  
-**Fix:** Added test_10b with dynamic entity discovery + `get_property_value_history` API  
-**Files:** `_base_scenario.py`
-
----
-
-## Known Issues / TODO
-
-1. **GCP→Azure/Azure→GCP scenarios** - GCP ADT push just added, needs E2E verification
-2. **TwinMaker telemetry test** - New test_10b, needs real execution validation
-
----
-
-## Data Flow Architecture
-
+### Error 1: L0 AccessDeniedException
+**Lambda:** `sc-azure-aws-l0-ingestion` (Jan 28 14:11)
 ```
-L1 (IoT) → L2 (Processing) → L3 (Storage) → L4 (Twin Management)
-                 │
-                 └── _push_to_adt() ──→ L0 ADT Pusher ──→ Azure Digital Twins
+AccessDeniedException: User ...sc-azure-aws-l0-lambda-role/sc-azure-aws-l0-ingestion 
+is NOT AUTHORIZED to perform: lambda:InvokeFunction
 ```
+**Fix:** Add `lambda:InvokeFunction` permission to `sc-azure-aws-l0-lambda-role`
 
-**Persister ADT Push Status:**
-- ✅ AWS Lambda persister 
-- ✅ Azure Function persister
-- ✅ GCP Cloud Function persister (just fixed)
+---
+
+### Error 2: L2 Persister Missing ID
+**Lambda:** `sc-azure-aws-l2-persister` (Jan 28 17:23)
+```
+Event: {"temperature": 42.5, "time": "1769621022101", "device_id": "temperature-sensor-1", "timestamp": "1769621022101"}
+Multi-cloud mode: POSTing to remote Hot Writer at https://.../sc-azure-aws-hot-writer
+Client Error (400): Bad Request. Body: {"error": "Missing 'id' in item"}
+```
+**The `id` field is NOT being set!** Looking at the event, it has `device_id` and `timestamp` but no `id`.
+
+**Root Cause:** The Document ID standardization fix IS in the code, but the deployed Lambda is **stale** (pre-Jan 27 code).
+
+**Fix:** Re-deploy Azure→AWS scenario to pick up the `item["id"] = f"{device_id}_{timestamp}"` fix.
+
+---
+
+## Issues Preventing Full Log Check
+
+| Provider | Issue |
+|----------|-------|
+| GCP | `CloudFunctionsServiceClient.list_functions()` API error |
+| Azure | Terraform state not found in Docker container |
+
+---
+
+## Detailed Log File
+
+Full investigation saved to:
+```
+tests/e2e/multicloud/.build/cloud_logs_investigation.txt
+```

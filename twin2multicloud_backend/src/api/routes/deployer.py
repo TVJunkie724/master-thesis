@@ -40,7 +40,16 @@ router = APIRouter(prefix="/twins/{twin_id}/deployer", tags=["deployer"])
     response_model=DeployerConfigResponse,
     operation_id="getDeployerConfig",
     summary="Get deployer configuration for a twin",
-    description="Returns deployer config, creating default if none exists.",
+    description=(
+        "**Purpose:** Retrieve Step 3 (Deployer) configuration for a Digital Twin.\n\n"
+        "**When to call:** Loading Step 3 wizard to restore saved config fields.\n\n"
+        "**Response fields:**\n"
+        "- `layer_*_provider`: Selected provider per layer (aws, azure, gcp)\n"
+        "- `*_config`/`*_code`/`*_state_machine`: Config content per provider\n"
+        "- `*_validated`: Boolean validation flags per section\n"
+        "- `scene_glb_uploaded`: Whether 3D model file exists\n\n"
+        "**Note:** Creates empty config if none exists."
+    ),
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
@@ -70,7 +79,17 @@ async def get_deployer_config(
     response_model=DeployerConfigResponse,
     operation_id="updateDeployerConfig",
     summary="Update deployer configuration",
-    description="Updates deployer config fields. Blocked for deployed twins.",
+    description=(
+        "**Purpose:** Save Step 3 configuration fields (function code, state machines, configs).\n\n"
+        "**When to call:** Auto-save on field blur, or explicit 'Save' button.\n\n"
+        "**Request body:** Partial update - only provided fields are modified.\n\n"
+        "**Key fields:**\n"
+        "- `layer_*_provider`: aws, azure, or gcp\n"
+        "- `*_function_code`, `*_state_machine`: Code and workflow definitions\n"
+        "- `*_config`: Provider-specific configuration\n\n"
+        "**Blocked states:** Returns 400 for DEPLOYED, DEPLOYING, DESTROYING twins.\n\n"
+        "**Side effect:** Regresses CONFIGURED/ERROR/DESTROYED twins to DRAFT."
+    ),
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -184,7 +203,19 @@ async def update_deployer_config(
     response_model=ConfigValidationResponse,
     operation_id="validateDeployerConfigSection",
     summary="Validate a deployer config section via Deployer API",
-    description="Validates events, iot, config, payloads, function-code, state-machine, hierarchy, scene-config, or user-config.",
+    description=(
+        "**Purpose:** Validate individual config sections before saving/deployment.\n\n"
+        "**When to call:** User clicks 'Validate' button for a specific section.\n\n"
+        "**Path param config_type:**\n"
+        "- Section 2: 'events', 'iot', 'config', 'hierarchy'\n"
+        "- Section 3 L1: 'payloads'\n"
+        "- Section 3 L2: 'function-code', 'state-machine'\n"
+        "- Section 3 L4: 'scene-config', 'user-config'\n\n"
+        "**Response fields:**\n"
+        "- `valid`: Boolean\n"
+        "- `errors`: Array of {field, message, line (optional)}\n\n"
+        "**Note:** Proxies to Deployer API's /validate/* endpoints."
+    ),
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -361,7 +392,15 @@ async def validate_config(
     "/upload-glb",
     operation_id="uploadSceneGlb",
     summary="Upload 3D scene GLB file",
-    description="Saves scene.glb for 3D visualization (max 100MB).",
+    description=(
+        "**Purpose:** Upload the scene.glb file for L4 3D visualization.\n\n"
+        "**When to call:** User selects GLB file in Step 3 L4 config.\n\n"
+        "**Constraints:**\n"
+        "- Max file size: 100MB\n"
+        "- Must be `.glb` format\n\n"
+        "**Response:** `{message, size_mb}` on success.\n\n"
+        "**Storage:** Saved to `UPLOAD_DIR/{twin_id}/scene.glb`."
+    ),
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -420,6 +459,14 @@ async def upload_scene_glb(
     "/upload-glb",
     operation_id="deleteSceneGlb",
     summary="Delete 3D scene GLB file",
+    description=(
+        "**Purpose:** Remove the uploaded scene.glb file.\n\n"
+        "**When to call:**\n"
+        "- User unchecks 'Include 3D Model' toggle\n"
+        "- L4 provider changes (invalidates previous GLB)\n"
+        "- Twin is deleted\n\n"
+        "**Side effects:** Updates `scene_glb_uploaded` flag to false."
+    ),
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
@@ -466,7 +513,19 @@ async def delete_scene_glb(
     "/upload-zip",
     operation_id="uploadProjectZip",
     summary="Upload project.zip for wizard auto-population",
-    description="Extracts zip and returns content for Step 3 fields. Saves GLB if present.",
+    description=(
+        "**Purpose:** Upload and extract project.zip to auto-populate Step 3 fields.\n\n"
+        "**When to call:** User clicks 'Upload Project Zip' button in Step 3.\n\n"
+        "**Flow:**\n"
+        "1. Validates zip structure against optimizer's cheapest_path\n"
+        "2. Extracts code files, configs, and optional scene.glb\n"
+        "3. Returns content for UI fields (NOT persisted - BLoC handles save)\n\n"
+        "**Response fields per provider:**\n"
+        "- `functionCode`, `stateMachine`, `config`: Content strings\n"
+        "- `valid`: Boolean validation status\n"
+        "- `errors`: Validation errors if any\n\n"
+        "**Max size:** 100MB"
+    ),
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],

@@ -285,9 +285,9 @@ def _generate_azure_simulator_config(
         "payload_path": "../payloads.json"
     }
     
-    # Write to upload/{project}/iot_device_simulator/azure/
+    # Write to upload/{project}/iot_device_simulator/azure/{device_id}/
     project_dir = Path(project_path)
-    sim_dir = project_dir / "iot_device_simulator" / "azure"
+    sim_dir = project_dir / "iot_device_simulator" / "azure" / device_id
     sim_dir.mkdir(parents=True, exist_ok=True)
     config_path = sim_dir / "config_generated.json"
     

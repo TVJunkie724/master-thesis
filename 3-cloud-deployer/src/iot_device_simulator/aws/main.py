@@ -33,10 +33,11 @@ def main():
     parser = argparse.ArgumentParser(description="IoT Device Simulator")
     parser.add_argument("--project", help="Name of the project (for integrated mode)")
     parser.add_argument("--payload", help="Custom payload JSON (single-shot mode for log tracing)")
+    parser.add_argument("--device", help="Device ID for device-specific config (used with --project)")
     args = parser.parse_args()
 
     try:
-        globals.initialize_config(project_name=args.project)
+        globals.initialize_config(project_name=args.project, device_id=args.device)
     except Exception as e:
         print(f"Error initializing simulator: {e}")
         sys.exit(1)

@@ -5,7 +5,12 @@ from src.models.database import get_db
 
 router = APIRouter(tags=["health"])
 
-@router.get("/health")
+@router.get(
+    "/health",
+    operation_id="healthCheck",
+    summary="Health check endpoint",
+    description="Returns API and database connection status."
+)
 async def health_check(db: Session = Depends(get_db)):
     """Health check endpoint."""
     try:

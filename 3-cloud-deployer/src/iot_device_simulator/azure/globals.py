@@ -14,13 +14,14 @@ import json
 config = {}
 
 
-def initialize_config(project_name=None):
+def initialize_config(project_name=None, device_id=None):
     """
     Initialize the simulator configuration.
     
     Args:
         project_name: Optional project name for integrated mode.
                      If None, looks for local config.json (standalone mode).
+        device_id: Optional device ID for device-specific config.
     
     Raises:
         ValueError: If no configuration source is found.
@@ -39,12 +40,27 @@ def initialize_config(project_name=None):
         config_path = os.path.abspath(local_config_path)
         print(f"Loading standalone config from: {config_path}")
     elif project_name:
-        # 2. Integrated mode: `upload/{project}/iot_device_simulator/azure/config_generated.json`
-        # We assume this script is running from the project root (3-cloud-deployer)
+        # 2. Integrated mode: `upload/{project}/iot_device_simulator/azure/{device_id}/config_generated.json`
         repo_root = os.getcwd()
-        config_path = os.path.join(
-            repo_root, "upload", project_name, "iot_device_simulator", "azure", "config_generated.json"
+        azure_sim_dir = os.path.join(
+            repo_root, "upload", project_name, "iot_device_simulator", "azure"
         )
+        
+        if device_id:
+            # Device-specific config path
+            config_path = os.path.join(azure_sim_dir, device_id, "config_generated.json")
+        else:
+            # Fallback: find first device subdirectory
+            if os.path.exists(azure_sim_dir):
+                device_dirs = [d for d in os.listdir(azure_sim_dir) 
+                              if os.path.isdir(os.path.join(azure_sim_dir, d))]
+                if device_dirs:
+                    config_path = os.path.join(azure_sim_dir, device_dirs[0], "config_generated.json")
+                else:
+                    raise ValueError(f"No device configs found in {azure_sim_dir}")
+            else:
+                raise ValueError(f"Simulator directory not found: {azure_sim_dir}")
+        
         print(f"Loading project config from: {config_path}")
     else:
         raise ValueError(

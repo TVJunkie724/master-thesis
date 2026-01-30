@@ -23,6 +23,7 @@ from src.api.dependencies import get_current_user
 from src.config import settings
 from src.utils.crypto import decrypt
 from src.services.twin_helpers import get_user_twin
+from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/optimizer", tags=["optimizer"])
 
@@ -35,7 +36,23 @@ OPTIMIZER_URL = getattr(settings, 'OPTIMIZER_URL', 'http://master-thesis-2twin2c
 # Data Freshness Endpoints
 # ============================================================================
 
-@router.get("/pricing-status")
+@router.get(
+    "/pricing-status",
+    operation_id="getPricingStatus",
+    summary="Get pricing cache status for all providers",
+    description=(
+        "**Purpose:** Check freshness of cached pricing data before calculations.\n\n"
+        "**When to call:** Before `calculateOptimalDistribution` to decide if `refreshPricing` is needed.\n\n"
+        "**Response fields per provider:**\n"
+        "- `age`: Human-readable age (e.g., '3 days')\n"
+        "- `is_fresh`: Boolean, true if cached data < 7 days old\n"
+        "- `status`: 'valid', 'incomplete', 'missing', or 'error'"
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        503: {"description": "Cannot connect to Optimizer service"},
+    }
+)
 async def get_pricing_status(current_user: User = Depends(get_current_user)):
     """
     Get pricing file age/status for all providers.
@@ -61,7 +78,22 @@ async def get_pricing_status(current_user: User = Depends(get_current_user)):
         raise HTTPException(502, f"Request failed: {type(e).__name__}")
 
 
-@router.get("/regions-status")
+@router.get(
+    "/regions-status",
+    operation_id="getRegionsStatus",
+    summary="Get regions cache status for all providers",
+    description=(
+        "**Purpose:** Check freshness of cached region/location data.\n\n"
+        "**When to call:** Before calculations if region availability matters.\n\n"
+        "**Response fields per provider:**\n"
+        "- `age`: Human-readable age\n"
+        "- `is_fresh`: Boolean (AWS/Azure: 7 days, GCP: 30 days threshold)"
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        503: {"description": "Cannot connect to Optimizer service"},
+    }
+)
 async def get_regions_status(current_user: User = Depends(get_current_user)):
     """
     Get regions file age for all providers.
@@ -91,7 +123,21 @@ async def get_regions_status(current_user: User = Depends(get_current_user)):
 # Pricing Export (for snapshotting)
 # ============================================================================
 
-@router.get("/pricing/export/{provider}")
+@router.get(
+    "/pricing/export/{provider}",
+    operation_id="exportPricingSnapshot",
+    summary="Export pricing data for snapshotting",
+    description=(
+        "**Purpose:** Export full pricing data for a provider to store as snapshot with calculation results.\n\n"
+        "**When to call:** After `calculateOptimalDistribution` to preserve the pricing data used.\n\n"
+        "**Path parameter:** provider = 'aws', 'azure', or 'gcp'"
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        503: {"description": "Cannot connect to Optimizer service"},
+    }
+)
 async def proxy_pricing_export(
     provider: str,
     current_user: User = Depends(get_current_user)
@@ -118,7 +164,26 @@ async def proxy_pricing_export(
 # Pricing Refresh Endpoints
 # ============================================================================
 
-@router.post("/refresh-pricing/{provider}")
+@router.post(
+    "/refresh-pricing/{provider}",
+    operation_id="refreshPricing",
+    summary="Refresh pricing using twin's stored credentials",
+    description=(
+        "**Purpose:** Fetch fresh pricing data from cloud provider APIs using stored credentials.\n\n"
+        "**Prerequisites:**\n"
+        "- AWS: Requires `aws_access_key_id` and `aws_secret_access_key` stored in twin config\n"
+        "- Azure: No credentials needed (uses public Retail Prices API)\n"
+        "- GCP: Requires `gcp_service_account_json` stored in twin config\n\n"
+        "**When to call:** When `getPricingStatus` shows `is_fresh: false`.\n\n"
+        "**Query parameter:** `twin_id` - The twin whose credentials to use"
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        503: {"description": "Cannot connect to Optimizer service"},
+    }
+)
 async def refresh_pricing(
     provider: str,
     twin_id: str = Query(..., description="Twin ID to get credentials from"),
@@ -192,7 +257,24 @@ async def refresh_pricing(
         raise HTTPException(502, f"Request failed: {type(e).__name__}")
 
 
-@router.get("/stream/refresh-pricing/{provider}")
+@router.get(
+    "/stream/refresh-pricing/{provider}",
+    operation_id="streamRefreshPricing",
+    summary="SSE stream for pricing refresh with real-time logs",
+    description=(
+        "**Purpose:** Same as `refreshPricing` but with real-time progress via Server-Sent Events.\n\n"
+        "**Event types:**\n"
+        "- `log`: Progress message (e.g., 'Loading credentials...', 'Calling AWS API...')\n"
+        "- `complete`: Final success message\n"
+        "- `error`: Error occurred, includes error details\n\n"
+        "**When to use:** When UI needs live progress feedback during 30-60 second refresh operation."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    }
+)
 async def stream_refresh_pricing(
     provider: str,
     twin_id: str = Query(..., description="Twin ID to get credentials from"),
@@ -352,7 +434,25 @@ class CalcParams(BaseModel):
     currency: str = Field("USD", description="Currency code (USD or EUR)")
 
 
-@router.put("/calculate")
+@router.put(
+    "/calculate",
+    operation_id="calculateOptimalDistribution",
+    summary="Proxy calculation request to Optimizer",
+    description=(
+        "**Purpose:** Calculate optimal cross-cloud distribution for a Digital Twin based on 26 parameters.\n\n"
+        "**Prerequisites:** Call `getPricingStatus` first - if `is_fresh: false`, call `refreshPricing`.\n\n"
+        "**Response includes:**\n"
+        "- `awsCosts`, `azureCosts`, `gcpCosts`: Per-layer cost breakdowns\n"
+        "- `cheapestPath`: Optimal provider selection per layer (L1-L5)\n"
+        "- `combinationTables`: Detailed cost analysis matrices\n"
+        "- `transferCosts`: Cross-cloud data transfer estimates"
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        422: ERROR_RESPONSES[422],
+        503: {"description": "Cannot connect to Optimizer service"},
+    }
+)
 async def calculate(
     params: CalcParams,
     current_user: User = Depends(get_current_user)

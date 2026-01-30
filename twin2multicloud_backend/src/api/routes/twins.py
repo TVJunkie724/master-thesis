@@ -36,7 +36,12 @@ router = APIRouter(prefix="/twins", tags=["twins"])
     response_model=List[TwinResponse],
     operation_id="listDigitalTwins",
     summary="List all digital twins for current user",
-    description="Returns all non-inactive twins belonging to the authenticated user.",
+    description=(
+        "**Purpose:** Retrieve all Digital Twins owned by the authenticated user.\n\n"
+        "**When to call:** Dashboard load, twin list view, or any UI needing twin overview.\n\n"
+        "**Response:** Array of TwinResponse objects excluding INACTIVE (soft-deleted) twins.\n\n"
+        "**Fields per twin:** id, name, state, created_at, deployed_at, destroyed_at."
+    ),
     responses={
         401: ERROR_RESPONSES[401],
     }
@@ -57,7 +62,13 @@ async def list_twins(
     response_model=TwinResponse,
     operation_id="createDigitalTwin",
     summary="Create a new digital twin",
-    description="Creates a twin in DRAFT state. Name must be unique per user.",
+    description=(
+        "**Purpose:** Create a new Digital Twin in DRAFT state.\n\n"
+        "**When to call:** User clicks 'Create New Twin' or 'Add' button.\n\n"
+        "**Request body:** `{name: string}` - Must be unique (case-insensitive) for this user.\n\n"
+        "**Response:** Created twin with auto-generated UUID, state=DRAFT, timestamps.\n\n"
+        "**Error 409:** Name already in use by another active twin."
+    ),
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -97,6 +108,12 @@ async def create_twin(
     response_model=TwinResponse,
     operation_id="getDigitalTwin",
     summary="Get a specific digital twin by ID",
+    description=(
+        "**Purpose:** Retrieve complete details for a single Digital Twin.\n\n"
+        "**When to call:** Loading twin detail/edit screen, wizard navigation.\n\n"
+        "**Response fields:** id, name, state, all timestamps, related configs via lazy load.\n\n"
+        "**Error 404:** Twin not found or belongs to different user."
+    ),
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
@@ -121,7 +138,17 @@ async def get_twin(
     response_model=TwinResponse,
     operation_id="updateDigitalTwin",
     summary="Update a digital twin",
-    description="Updates name and/or state. Name changes blocked for deployed twins.",
+    description=(
+        "**Purpose:** Update twin name and/or state.\n\n"
+        "**When to call:** Rename twin, or transition state (draft→configured).\n\n"
+        "**Request body:**\n"
+        "- `name`: New unique name (blocked for DEPLOYED/DEPLOYING/DESTROYING twins)\n"
+        "- `state`: New state (validated transitions only)\n\n"
+        "**State transitions:**\n"
+        "- To 'configured': Triggers distributed validation (Optimizer + Deployer APIs)\n"
+        "- Other transitions: Local state machine rules apply\n\n"
+        "**Error 409:** New name already in use."
+    ),
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -330,7 +357,15 @@ async def _validate_configured_transition(twin: DigitalTwin, db: Session):
     "/{twin_id}",
     operation_id="deleteDigitalTwin",
     summary="Soft-delete a digital twin",
-    description="Sets twin to INACTIVE state and cleans up GLB files.",
+    description=(
+        "**Purpose:** Mark a twin as inactive (soft delete).\n\n"
+        "**When to call:** User confirms delete in UI.\n\n"
+        "**Behavior:**\n"
+        "- Sets state to INACTIVE (hidden from list queries)\n"
+        "- Renames to '_deleted_{id}_{name}' to free unique constraint\n"
+        "- Cleans up uploaded GLB scene files\n\n"
+        "**Note:** Does NOT destroy cloud infrastructure. Call /destroy first for deployed twins."
+    ),
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
@@ -373,7 +408,15 @@ async def delete_twin(
     "/{twin_id}/can-redeploy",
     operation_id="checkRedeploymentCooldown",
     summary="Check if twin can be redeployed",
-    description="Checks GCP Firestore 5-min cooldown. Zero cloud costs - pure calculation.",
+    description=(
+        "**Purpose:** Check if redeployment is allowed after destroy (GCP Firestore cooldown).\n\n"
+        "**When to call:** Before showing 'Deploy' button for a DESTROYED twin.\n\n"
+        "**Why needed:** GCP Firestore has a 5-minute cooldown after database deletion.\n\n"
+        "**Response fields:**\n"
+        "- `ready`: Boolean - true if cooldown elapsed\n"
+        "- `remaining_seconds`: Seconds until ready (0 if ready)\n\n"
+        "**Note:** Returns `ready: true` for twins not using GCP Firestore."
+    ),
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
@@ -435,7 +478,18 @@ async def can_redeploy(
     "/{twin_id}/deploy",
     operation_id="deployDigitalTwin",
     summary="Deploy twin infrastructure to cloud providers",
-    description="Starts async deployment via SSE streaming. Twin must be configured/destroyed/error state.",
+    description=(
+        "**Purpose:** Start infrastructure deployment to selected cloud providers.\n\n"
+        "**When to call:** User clicks 'Deploy' button in Step 4.\n\n"
+        "**Prerequisites:**\n"
+        "- Twin must be in CONFIGURED, DESTROYED, or ERROR state\n"
+        "- All credentials validated\n"
+        "- Optimizer calculation complete (cheapest_path set)\n\n"
+        "**Response fields:**\n"
+        "- `session_id`: UUID for this deployment session\n"
+        "- `sse_url`: Connect to `/sse/deploy/{session_id}` for real-time logs\n\n"
+        "**Side effects:** Sets twin state to DEPLOYING, creates Deployment record."
+    ),
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -536,7 +590,18 @@ async def deploy_twin(
     "/{twin_id}/destroy",
     operation_id="destroyDigitalTwinInfrastructure",
     summary="Destroy twin's deployed cloud infrastructure",
-    description="Starts async destruction via SSE streaming. Twin must be deployed/error state.",
+    description=(
+        "**Purpose:** Tear down all deployed cloud infrastructure for this twin.\n\n"
+        "**When to call:** User clicks 'Destroy Infrastructure' button.\n\n"
+        "**Prerequisites:** Twin must be in DEPLOYED or ERROR state.\n\n"
+        "**Response fields:**\n"
+        "- `session_id`: UUID for this destroy session\n"
+        "- `sse_url`: Connect to `/sse/deploy/{session_id}` for real-time logs\n\n"
+        "**Side effects:**\n"
+        "- Sets twin state to DESTROYING\n"
+        "- Runs `terraform destroy` via Deployer\n"
+        "- On success: state → DESTROYED, destroyed_at timestamp set"
+    ),
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -635,7 +700,16 @@ async def destroy_twin_infrastructure(
     "/{twin_id}/deployment-status",
     operation_id="getDigitalTwinDeploymentStatus",
     summary="Get current deployment status",
-    description="Returns state, timestamps, and last error. Used for polling fallback when SSE unavailable.",
+    description=(
+        "**Purpose:** Get deployment state and timestamps for polling fallback.\n\n"
+        "**When to call:** When SSE is unavailable or as periodic health check.\n\n"
+        "**Response fields:**\n"
+        "- `state`: Current TwinState (DEPLOYING, DEPLOYED, etc.)\n"
+        "- `last_error`: Error message if state is ERROR\n"
+        "- `deployed_at`: ISO timestamp of last successful deploy\n"
+        "- `destroyed_at`: ISO timestamp of last destroy\n\n"
+        "**Note:** Prefer SSE streaming for real-time updates during operations."
+    ),
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
@@ -670,7 +744,14 @@ async def get_deployment_status(
     "/{twin_id}/outputs",
     operation_id="getDigitalTwinTerraformOutputs",
     summary="Get Terraform outputs from most recent deployment",
-    description="Returns outputs stored in Deployment table. Used after terminal closed or page refresh.",
+    description=(
+        "**Purpose:** Retrieve Terraform outputs from the last successful deployment.\n\n"
+        "**When to call:** Step 4 after deployment complete, or page refresh to restore outputs.\n\n"
+        "**Response fields:**\n"
+        "- `outputs`: Object with provider-specific outputs (endpoints, ARNs, resource IDs)\n"
+        "- `deployed_at`: ISO timestamp of the deployment\n\n"
+        "**Use case:** Display IoT endpoint URLs, function ARNs, storage bucket names to user."
+    ),
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
@@ -718,7 +799,15 @@ async def get_deployment_outputs(
     "/{twin_id}/deployments",
     operation_id="getDigitalTwinDeploymentHistory",
     summary="Get deployment history for a twin",
-    description="Returns list of historical deployments ordered by most recent first.",
+    description=(
+        "**Purpose:** Retrieve historical deployment records for audit and troubleshooting.\n\n"
+        "**When to call:** Deployment history view, debugging failed deployments.\n\n"
+        "**Query params:** `limit` (1-50, default 10)\n\n"
+        "**Response:** Array of deployment records with:\n"
+        "- id, session_id, operation_type (deploy/destroy/test)\n"
+        "- status (pending/running/success/failed)\n"
+        "- started_at, completed_at, error_message"
+    ),
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
@@ -775,7 +864,15 @@ async def get_deployment_history(
     "/{twin_id}/log-trace/start",
     operation_id="startLogTrace",
     summary="Start a log trace with test IoT message",
-    description="Sends test message with unique trace_id to verify cloud log flow. Only for deployed twins.",
+    description=(
+        "**Purpose:** Send a test IoT message and track it through the deployed infrastructure.\n\n"
+        "**When to call:** User clicks 'Send Test IoT Message' button in Step 4.\n\n"
+        "**Prerequisites:** Twin must be in DEPLOYED state.\n\n"
+        "**Response fields:**\n"
+        "- `trace_id`: UUID embedded in the test message for tracking\n"
+        "- `providers`: List of cloud providers that will be queried (aws, azure, gcp)\n\n"
+        "**Next step:** Connect to SSE endpoint `/log-trace/stream/{trace_id}` to see logs."
+    ),
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -846,7 +943,15 @@ async def start_log_trace(
     "/{twin_id}/log-trace/stream/{trace_id}",
     operation_id="streamLogTrace",
     summary="SSE endpoint for streaming log trace results",
-    description="Proxies to Deployer API. Events: log (prefix, timestamp, message), error, done.",
+    description=(
+        "**Purpose:** Real-time SSE stream of log entries matching the trace_id.\n\n"
+        "**When to call:** After `startLogTrace` returns, connect to this SSE endpoint.\n\n"
+        "**SSE event types:**\n"
+        "- `log`: Individual log entry {prefix, timestamp, message, layer, provider}\n"
+        "- `error`: Error during trace {message}\n"
+        "- `done`: Trace complete {summary with counts per provider/layer}\n\n"
+        "**Timeout:** Stream closes after ~30s or when 'done' event is sent."
+    ),
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
@@ -924,7 +1029,18 @@ async def stream_log_trace(
     "/{twin_id}/simulator/download",
     operation_id="downloadIoTSimulator",
     summary="Download IoT simulator package for L1 provider",
-    description="Extracts L1 from OptimizerConfiguration and proxies to Deployer API. Only for deployed twins.",
+    description=(
+        "**Purpose:** Download a ready-to-run IoT device simulator package.\n\n"
+        "**When to call:** User clicks 'Download Simulator' button in Step 4.\n\n"
+        "**Prerequisites:**\n"
+        "- Twin must be in DEPLOYED state\n"
+        "- Optimizer calculation complete (cheapest_l1 set)\n\n"
+        "**Response:** ZIP file containing:\n"
+        "- Provider-specific simulator code (Python)\n"
+        "- Pre-configured credentials and endpoints\n"
+        "- requirements.txt and run instructions\n\n"
+        "**Filename:** `simulator_{twin_name}_{l1_provider}.zip`"
+    ),
     tags=["twins"],
     responses={
         400: ERROR_RESPONSES[400],

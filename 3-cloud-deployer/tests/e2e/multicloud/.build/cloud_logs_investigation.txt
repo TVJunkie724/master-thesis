@@ -1,0 +1,241 @@
+================================================================================
+COMPLETE E2E CLOUD LOG INVESTIGATION - ALL FUNCTIONS
+Time: 2026-01-29 19:22:19.499948
+Output saved to: /app/tests/e2e/multicloud/.build/cloud_logs_investigation.txt
+================================================================================
+
+
+################################################################################
+# SCENARIO: sc-aws-gcp
+# L1=AWS IoT, L2=GCP, L3-Hot=AZURE CosmosDB, L4=AWS TwinMaker
+################################################################################
+
+================================================================================
+AWS CLOUDWATCH - ALL LAMBDAS FOR sc-aws-gcp
+================================================================================
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-aws-gcp-connector
+────────────────────────────────────────────────────────────
+   [2026-01-28 23:23:35.136000] INIT_START Runtime Version: python:3.11.v109	Runtime Version ARN: arn:aws:lambda:eu-central-1::runtime:49f733259c7ce7e0deee75ff91c6afe35c7d58b04ed300f32701216263b4590c
+   [2026-01-28 23:23:35.292000] START RequestId: 00d1cc76-e0ce-46e5-832e-858ce8b12b51 Version: $LATEST
+   [2026-01-28 23:23:44.747000] END RequestId: 00d1cc76-e0ce-46e5-832e-858ce8b12b51
+   [2026-01-28 23:23:44.747000] REPORT RequestId: 00d1cc76-e0ce-46e5-832e-858ce8b12b51	Duration: 9453.81 ms	Billed Duration: 9607 ms	Memory Size: 256 MB	Max Memory Used: 52 MB	Init Duration: 152.30 ms
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-aws-gcp-l0-archive-writer
+────────────────────────────────────────────────────────────
+   ⚠️ No logs in last 2 days
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-aws-gcp-l0-cold-writer
+────────────────────────────────────────────────────────────
+   ⚠️ No logs in last 2 days
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-aws-gcp-l0-hot-reader
+────────────────────────────────────────────────────────────
+   ⚠️ No logs in last 2 days
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-aws-gcp-l0-hot-writer
+────────────────────────────────────────────────────────────
+   ⚠️ No logs in last 2 days
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-aws-gcp-l0-ingestion
+────────────────────────────────────────────────────────────
+   ⚠️ No logs in last 2 days
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-aws-gcp-l1-dispatcher
+────────────────────────────────────────────────────────────
+   [2026-01-28 23:23:34.281000] INIT_START Runtime Version: python:3.11.v109	Runtime Version ARN: arn:aws:lambda:eu-central-1::runtime:49f733259c7ce7e0deee75ff91c6afe35c7d58b04ed300f32701216263b4590c
+   [2026-01-28 23:23:34.707000] START RequestId: 3a4d99b5-2b29-433d-97d6-3ebb9f3db1ca Version: $LATEST
+   [2026-01-28 23:23:34.707000] Hello from Dispatcher!
+   [2026-01-28 23:23:34.707000] Event: {"iotDeviceId": "temperature-sensor-1", "temperature": 42.5, "time": "1769642613801"}
+   [2026-01-28 23:23:34.707000] Dispatching to: sc-aws-gcp-connector
+   [2026-01-28 23:23:34.844000] Dispatch successful.
+   [2026-01-28 23:23:34.846000] END RequestId: 3a4d99b5-2b29-433d-97d6-3ebb9f3db1ca
+   [2026-01-28 23:23:34.846000] REPORT RequestId: 3a4d99b5-2b29-433d-97d6-3ebb9f3db1ca	Duration: 138.37 ms	Billed Duration: 561 ms	Memory Size: 256 MB	Max Memory Used: 85 MB	Init Duration: 422.62 ms
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-aws-gcp-l4-connector
+────────────────────────────────────────────────────────────
+   ⚠️ No logs in last 2 days
+
+================================================================================
+GCP CLOUD FUNCTIONS - ALL FOR sc-aws-gcp
+================================================================================
+Error listing functions: CloudFunctionsServiceClient.list_functions() got an unexpected keyword argument 'parent'
+
+================================================================================
+AZURE FUNCTIONS - ALL FOR sc-aws-gcp
+================================================================================
+⚠️ Terraform state not found: /app/tests/e2e/multicloud/e2e_state/sc-aws-gcp/terraform.tfstate
+
+
+################################################################################
+# SCENARIO: sc-azure-aws
+# L1=AZURE IoT Hub, L2=AWS, L3-Hot=GCP Firestore, L4=AWS TwinMaker
+################################################################################
+
+================================================================================
+AZURE FUNCTIONS - ALL FOR sc-azure-aws
+================================================================================
+⚠️ Terraform state not found: /app/tests/e2e/multicloud/e2e_state/sc-azure-aws/terraform.tfstate
+
+================================================================================
+AWS CLOUDWATCH - ALL LAMBDAS FOR sc-azure-aws
+================================================================================
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-azure-aws-event-feedback-wrapper
+────────────────────────────────────────────────────────────
+   ⚠️ No logs in last 2 days
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-azure-aws-l0-archive-writer
+────────────────────────────────────────────────────────────
+   ⚠️ No logs in last 2 days
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-azure-aws-l0-cold-writer
+────────────────────────────────────────────────────────────
+   ⚠️ No logs in last 2 days
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-azure-aws-l0-hot-reader
+────────────────────────────────────────────────────────────
+   ⚠️ No logs in last 2 days
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-azure-aws-l0-hot-writer
+────────────────────────────────────────────────────────────
+   ⚠️ No logs in last 2 days
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-azure-aws-l0-ingestion
+────────────────────────────────────────────────────────────
+   [2026-01-28 14:11:58.274000] INIT_START Runtime Version: python:3.11.v109	Runtime Version ARN: arn:aws:lambda:eu-central-1::runtime:49f733259c7ce7e0deee75ff91c6afe35c7d58b04ed300f32701216263b4590c
+   [2026-01-28 14:11:58.740000] START RequestId: 8a4e1184-538b-4db0-b3f4-58b1b15c8b7d Version: $LATEST
+   [2026-01-28 14:11:58.740000] Received event from source cloud: azure
+❌ [2026-01-28 14:11:58.872000] Ingestion Invocation Failed: An error occurred (AccessDeniedException) when calling the Invoke operation: User: arn:aws:sts::340335988314:assumed-role/sc-azure-aws-l0-lambda-role/sc-azure-aws-l0-ingestion is not authorized to perform: lambda:InvokeFunction on resource: arn:aws:lambda:eu-central-1:34
+   [2026-01-28 14:11:58.881000] Traceback (most recent call last):
+   [2026-01-28 14:11:58.882000] File "/var/task/lambda_function.py", line 72, in lambda_handler
+   [2026-01-28 14:11:58.882000] lambda_client.invoke(FunctionName=processor_name, InvocationType="Event", Payload=json.dumps(actual_event).encode("utf-8"))
+   [2026-01-28 14:11:58.882000] File "/var/lang/lib/python3.11/site-packages/botocore/client.py", line 602, in _api_call
+   [2026-01-28 14:11:58.882000] return self._make_api_call(operation_name, kwargs)
+   [2026-01-28 14:11:58.882000] ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   [2026-01-28 14:11:58.882000] File "/var/lang/lib/python3.11/site-packages/botocore/context.py", line 123, in wrapper
+   [2026-01-28 14:11:58.882000] return func(*args, **kwargs)
+   [2026-01-28 14:11:58.882000] ^^^^^^^^^^^^^^^^^^^^^
+   [2026-01-28 14:11:58.882000] File "/var/lang/lib/python3.11/site-packages/botocore/client.py", line 1078, in _make_api_call
+❌ [2026-01-28 14:11:58.882000] raise error_class(parsed_response, operation_name)
+❌ [2026-01-28 14:11:58.882000] botocore.exceptions.ClientError: An error occurred (AccessDeniedException) when calling the Invoke operation: User: arn:aws:sts::340335988314:assumed-role/sc-azure-aws-l0-lambda-role/sc-azure-aws-l0-ingestion is not authorized to perform: lambda:InvokeFunction on resource: arn:aws:lambda:eu-central-
+   [2026-01-28 14:11:58.884000] END RequestId: 8a4e1184-538b-4db0-b3f4-58b1b15c8b7d
+   [2026-01-28 14:11:58.884000] REPORT RequestId: 8a4e1184-538b-4db0-b3f4-58b1b15c8b7d	Duration: 143.59 ms	Billed Duration: 606 ms	Memory Size: 256 MB	Max Memory Used: 84 MB	Init Duration: 462.24 ms
+   [2026-01-28 14:11:59.961000] START RequestId: f291d5ba-b478-410d-a3b2-894da5448f97 Version: $LATEST
+   [2026-01-28 14:11:59.963000] Received event from source cloud: azure
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-azure-aws-l2-event-checker
+────────────────────────────────────────────────────────────
+   ⚠️ No logs in last 2 days
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-azure-aws-l2-persister
+────────────────────────────────────────────────────────────
+   [2026-01-28 17:23:47.029000] INIT_START Runtime Version: python:3.11.v109	Runtime Version ARN: arn:aws:lambda:eu-central-1::runtime:49f733259c7ce7e0deee75ff91c6afe35c7d58b04ed300f32701216263b4590c
+   [2026-01-28 17:23:47.472000] START RequestId: 8249be80-e6bc-4eab-b491-f18d647aa0cf Version: $LATEST
+   [2026-01-28 17:23:47.472000] Hello from Persister!
+   [2026-01-28 17:23:47.472000] Event: {"temperature": 42.5, "time": "1769621022101", "device_id": "temperature-sensor-1", "timestamp": "1769621022101"}
+   [2026-01-28 17:23:47.472000] Multi-cloud mode: POSTing to remote Hot Writer at https://europe-west1-digital-twin-dev-481720.cloudfunctions.net/sc-azure-aws-hot-writer
+❌ [2026-01-28 17:23:49.461000] Client Error (400): Bad Request. Body: {"error": "Missing 'id' in item"}. Not retrying.
+❌ [2026-01-28 17:23:49.461000] Persister Error: HTTP Error 400: Bad Request
+   [2026-01-28 17:23:49.464000] Traceback (most recent call last):
+   [2026-01-28 17:23:49.464000] File "/var/task/lambda_function.py", line 218, in lambda_handler
+   [2026-01-28 17:23:49.464000] post_to_remote(
+   [2026-01-28 17:23:49.464000] File "/var/task/_shared/inter_cloud.py", line 134, in post_to_remote
+   [2026-01-28 17:23:49.464000] raise e
+   [2026-01-28 17:23:49.464000] File "/var/task/_shared/inter_cloud.py", line 117, in post_to_remote
+   [2026-01-28 17:23:49.464000] with urllib.request.urlopen(req, timeout=timeout) as response:
+   [2026-01-28 17:23:49.464000] ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   [2026-01-28 17:23:49.464000] File "/var/lang/lib/python3.11/urllib/request.py", line 216, in urlopen
+   [2026-01-28 17:23:49.464000] return opener.open(url, data, timeout)
+   [2026-01-28 17:23:49.464000] ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   [2026-01-28 17:23:49.464000] File "/var/lang/lib/python3.11/urllib/request.py", line 525, in open
+   [2026-01-28 17:23:49.464000] response = meth(req, response)
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-azure-aws-l4-connector
+────────────────────────────────────────────────────────────
+   ⚠️ No logs in last 2 days
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-azure-aws-pressure-sensor-1-processor
+────────────────────────────────────────────────────────────
+   ⚠️ No logs in last 2 days
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-azure-aws-processor
+────────────────────────────────────────────────────────────
+   [2026-01-28 17:23:45.253000] INIT_START Runtime Version: python:3.11.v109	Runtime Version ARN: arn:aws:lambda:eu-central-1::runtime:49f733259c7ce7e0deee75ff91c6afe35c7d58b04ed300f32701216263b4590c
+   [2026-01-28 17:23:45.544000] START RequestId: 3b0fb02e-dcc6-4731-967a-636ca977960e Version: $LATEST
+   [2026-01-28 17:23:45.545000] Wrapper Invoked. Calling User Processor...
+   [2026-01-28 17:23:45.545000] Invoking user processor: sc-azure-aws-temperature-sensor-1-processor
+   [2026-01-28 17:23:46.814000] User Processor Complete. Result: {"temperature": 42.5, "time": "1769621022101", "device_id": "temperature-sensor-1", "timestamp": "1769621022101"}
+   [2026-01-28 17:23:46.859000] END RequestId: 3b0fb02e-dcc6-4731-967a-636ca977960e
+   [2026-01-28 17:23:46.859000] REPORT RequestId: 3b0fb02e-dcc6-4731-967a-636ca977960e	Duration: 1313.87 ms	Billed Duration: 1602 ms	Memory Size: 256 MB	Max Memory Used: 84 MB	Init Duration: 287.28 ms
+   [2026-01-28 17:49:38.485000] INIT_START Runtime Version: python:3.11.v109	Runtime Version ARN: arn:aws:lambda:eu-central-1::runtime:49f733259c7ce7e0deee75ff91c6afe35c7d58b04ed300f32701216263b4590c
+   [2026-01-28 17:49:38.791000] START RequestId: ea6526a3-af3e-451c-8505-b3fbb28c6eec Version: $LATEST
+   [2026-01-28 17:49:38.791000] Wrapper Invoked. Calling User Processor...
+   [2026-01-28 17:49:38.791000] Invoking user processor: sc-azure-aws-temperature-sensor-1-processor
+   [2026-01-28 17:49:40.055000] User Processor Complete. Result: {"temperature": 42.5, "time": "1769605291397", "device_id": "temperature-sensor-1", "timestamp": "1769605291397"}
+   [2026-01-28 17:49:40.091000] END RequestId: ea6526a3-af3e-451c-8505-b3fbb28c6eec
+   [2026-01-28 17:49:40.091000] REPORT RequestId: ea6526a3-af3e-451c-8505-b3fbb28c6eec	Duration: 1299.07 ms	Billed Duration: 1602 ms	Memory Size: 256 MB	Max Memory Used: 84 MB	Init Duration: 302.53 ms
+   [2026-01-28 18:27:12.343000] INIT_START Runtime Version: python:3.11.v109	Runtime Version ARN: arn:aws:lambda:eu-central-1::runtime:49f733259c7ce7e0deee75ff91c6afe35c7d58b04ed300f32701216263b4590c
+   [2026-01-28 18:27:12.598000] START RequestId: 18ca8b86-ffb9-4c63-9ba7-d0f37b76535a Version: $LATEST
+   [2026-01-28 18:27:12.598000] Wrapper Invoked. Calling User Processor...
+   [2026-01-28 18:27:12.598000] Invoking user processor: sc-azure-aws-temperature-sensor-1-processor
+   [2026-01-28 18:27:13.741000] User Processor Complete. Result: {"temperature": 42.5, "time": "1769607596074", "device_id": "temperature-sensor-1", "timestamp": "1769607596074"}
+   [2026-01-28 18:27:13.783000] END RequestId: 18ca8b86-ffb9-4c63-9ba7-d0f37b76535a
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-azure-aws-temperature-sensor-1-processor
+────────────────────────────────────────────────────────────
+   [2026-01-28 17:23:46.721000] INIT_START Runtime Version: python:3.11.v109	Runtime Version ARN: arn:aws:lambda:eu-central-1::runtime:49f733259c7ce7e0deee75ff91c6afe35c7d58b04ed300f32701216263b4590c
+   [2026-01-28 17:23:46.809000] START RequestId: afdb75c5-f2ad-4080-9175-8f306edbd02e Version: $LATEST
+   [2026-01-28 17:23:46.810000] END RequestId: afdb75c5-f2ad-4080-9175-8f306edbd02e
+   [2026-01-28 17:23:46.810000] REPORT RequestId: afdb75c5-f2ad-4080-9175-8f306edbd02e	Duration: 1.61 ms	Billed Duration: 86 ms	Memory Size: 256 MB	Max Memory Used: 34 MB	Init Duration: 83.88 ms
+   [2026-01-28 17:29:28.799000] INIT_START Runtime Version: python:3.11.v109	Runtime Version ARN: arn:aws:lambda:eu-central-1::runtime:49f733259c7ce7e0deee75ff91c6afe35c7d58b04ed300f32701216263b4590c
+   [2026-01-28 17:49:39.956000] INIT_START Runtime Version: python:3.11.v109	Runtime Version ARN: arn:aws:lambda:eu-central-1::runtime:49f733259c7ce7e0deee75ff91c6afe35c7d58b04ed300f32701216263b4590c
+   [2026-01-28 17:49:40.051000] START RequestId: 3da56a42-4905-4a0c-bb1e-f0d9280c56f1 Version: $LATEST
+   [2026-01-28 17:49:40.053000] END RequestId: 3da56a42-4905-4a0c-bb1e-f0d9280c56f1
+   [2026-01-28 17:49:40.054000] REPORT RequestId: 3da56a42-4905-4a0c-bb1e-f0d9280c56f1	Duration: 1.64 ms	Billed Duration: 94 ms	Memory Size: 256 MB	Max Memory Used: 34 MB	Init Duration: 91.42 ms
+   [2026-01-28 18:27:13.647000] INIT_START Runtime Version: python:3.11.v109	Runtime Version ARN: arn:aws:lambda:eu-central-1::runtime:49f733259c7ce7e0deee75ff91c6afe35c7d58b04ed300f32701216263b4590c
+   [2026-01-28 18:27:13.732000] START RequestId: 145974ba-92b2-44be-b884-34ba5f46c9de Version: $LATEST
+   [2026-01-28 18:27:13.734000] END RequestId: 145974ba-92b2-44be-b884-34ba5f46c9de
+   [2026-01-28 18:27:13.734000] REPORT RequestId: 145974ba-92b2-44be-b884-34ba5f46c9de	Duration: 1.45 ms	Billed Duration: 84 ms	Memory Size: 256 MB	Max Memory Used: 34 MB	Init Duration: 81.69 ms
+   [2026-01-28 18:37:23.406000] INIT_START Runtime Version: python:3.11.v109	Runtime Version ARN: arn:aws:lambda:eu-central-1::runtime:49f733259c7ce7e0deee75ff91c6afe35c7d58b04ed300f32701216263b4590c
+   [2026-01-28 18:37:23.487000] START RequestId: 6c9d89dc-7b1b-4e79-be9e-708be19644f7 Version: $LATEST
+   [2026-01-28 18:37:23.489000] END RequestId: 6c9d89dc-7b1b-4e79-be9e-708be19644f7
+   [2026-01-28 18:37:23.489000] REPORT RequestId: 6c9d89dc-7b1b-4e79-be9e-708be19644f7	Duration: 1.42 ms	Billed Duration: 80 ms	Memory Size: 256 MB	Max Memory Used: 34 MB	Init Duration: 77.75 ms
+   [2026-01-28 18:59:49.716000] INIT_START Runtime Version: python:3.11.v109	Runtime Version ARN: arn:aws:lambda:eu-central-1::runtime:49f733259c7ce7e0deee75ff91c6afe35c7d58b04ed300f32701216263b4590c
+   [2026-01-28 18:59:49.812000] START RequestId: 9e809def-27b4-4b90-af2a-07a2d85975c6 Version: $LATEST
+   [2026-01-28 18:59:49.814000] END RequestId: 9e809def-27b4-4b90-af2a-07a2d85975c6
+
+────────────────────────────────────────────────────────────
+📦 /aws/lambda/sc-azure-aws-temperature-sensor-2-processor
+────────────────────────────────────────────────────────────
+   ⚠️ No logs in last 2 days
+
+================================================================================
+GCP CLOUD FUNCTIONS - ALL FOR sc-azure-aws
+================================================================================
+Error listing functions: CloudFunctionsServiceClient.list_functions() got an unexpected keyword argument 'parent'
+
+
+================================================================================
+INVESTIGATION COMPLETE - Output saved to: /app/tests/e2e/multicloud/.build/cloud_logs_investigation.txt
+================================================================================
