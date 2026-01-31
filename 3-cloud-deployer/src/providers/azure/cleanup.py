@@ -120,6 +120,11 @@ def cleanup_azure_resources(
                 continue
             rg_scope = f"/subscriptions/{subscription_id}/resourceGroups/{rg.name}"
             for assignment in auth_client.role_assignments.list_for_scope(rg_scope):
+                # Skip inherited subscription-level role assignments (we can't delete those)
+                # Only delete assignments scoped to this RG or its child resources
+                if not assignment.scope.startswith(rg_scope):
+                    logger.debug(f"  Skipping inherited assignment at scope: {assignment.scope}")
+                    continue
                 logger.info(f"  Found: {assignment.role_definition_id.split('/')[-1]} -> {assignment.principal_id[:8]}...")
                 if dry_run:
                     logger.info(f"    [DRY RUN] Would delete")

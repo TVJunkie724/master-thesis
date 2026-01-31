@@ -208,7 +208,8 @@ resource "azurerm_linux_function_app" "user" {
     AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
 
     # Code version hash - triggers update-in-place when ZIP content changes
-    FUNCTION_CODE_VERSION = var.azure_user_zip_path != "" ? filemd5(var.azure_user_zip_path) : ""
+    # Note: Using try() to handle missing file during terraform destroy
+    FUNCTION_CODE_VERSION = try(filemd5(var.azure_user_zip_path), "")
 
     # Required for Consumption Plan with zip deploy
     WEBSITE_CONTENTAZUREFILECONNECTIONSTRING = local.azure_storage_connection_string

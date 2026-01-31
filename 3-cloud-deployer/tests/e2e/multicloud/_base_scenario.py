@@ -171,11 +171,15 @@ class BaseScenarioTest:
             # Try Terraform destroy if we have context and strategy
             if cleanup_state["strategy"] and cleanup_state["context"]:
                 try:
-                    cleanup_state["strategy"].destroy_all(
+                    result = cleanup_state["strategy"].destroy_all(
                         context=cleanup_state["context"],
                         sdk_fallback="always"  # Always run SDK cleanup for thorough cleanup
                     )
-                    print("[CLEANUP] ✓ Resources destroyed via Terraform + SDK")
+                    if result.terraform_success:
+                        print("[CLEANUP] ✓ Resources destroyed via Terraform + SDK")
+                    else:
+                        print(f"[CLEANUP] ⚠ Terraform destroy failed: {result.terraform_error}")
+                        print("[CLEANUP] SDK fallback cleanup ran, but may have orphaned resources")
                 except Exception as e:
                     print(f"[CLEANUP] ✗ Terraform destroy failed: {e}")
                     # Even if Terraform fails, try SDK cleanup

@@ -859,13 +859,23 @@ class TerraformDeployerStrategy:
         logger.info(f"[{provider.upper()}] ✓ Cleanup complete")
     
     def _uses_provider(self, providers_config: dict, cloud: str) -> bool:
-        """Check if any layer uses the specified cloud provider."""
+        """Check if any layer uses the specified cloud provider.
+        
+        Note: GCP can be specified as either 'gcp' or 'google' in configs.
+        Terraform uses 'google' (the provider name), but SDK uses 'gcp'.
+        We normalize by checking for both when cloud='gcp'.
+        """
         # Check all possible layer keys including L3 sublayers
         layer_keys = [
             "layer_1_provider", "layer_2_provider", 
             "layer_3_provider", "layer_3_hot_provider", "layer_3_cold_provider", "layer_3_archive_provider",
             "layer_4_provider", "layer_5_provider"
         ]
+        
+        # Handle GCP naming inconsistency: config may use 'google' (Terraform) or 'gcp' (SDK)
+        if cloud == "gcp":
+            return any(providers_config.get(key) in ("gcp", "google") for key in layer_keys)
+        
         return any(providers_config.get(key) == cloud for key in layer_keys)
     
     def _get_platform_user_email(self, context: 'DeploymentContext') -> str:
