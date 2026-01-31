@@ -269,6 +269,25 @@ class TerraformDeployerStrategy:
         logger.info("  TERRAFORM DESTROY - STARTING")
         logger.info("=" * 60)
         
+        # Pre-destroy: Clean orphaned diagnostic settings while parent resources still exist
+        # This prevents 409 Conflict errors during Terraform destroy
+        if context:
+            try:
+                azure_creds = context.credentials.get("azure", {})
+                if azure_creds:
+                    from src.providers.azure.diagnostic_settings_helper import DiagnosticSettingsHelper
+                    from azure.identity import ClientSecretCredential
+                    credential = ClientSecretCredential(
+                        tenant_id=azure_creds["azure_tenant_id"],
+                        client_id=azure_creds["azure_client_id"],
+                        client_secret=azure_creds["azure_client_secret"]
+                    )
+                    helper = DiagnosticSettingsHelper(credential, azure_creds["azure_subscription_id"])
+                    logger.info("[Pre-Destroy] Cleaning orphaned diagnostic settings...")
+                    helper.cleanup_orphaned_by_prefix(context.project_name, dry_run=dry_run)
+            except Exception as e:
+                logger.warning(f"[Pre-Destroy] Diagnostic settings cleanup failed: {e}")
+        
         if dry_run:
             logger.info("[DRY RUN] Would run terraform destroy")
             result.terraform_success = True

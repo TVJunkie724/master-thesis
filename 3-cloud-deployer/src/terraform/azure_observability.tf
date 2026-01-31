@@ -7,7 +7,7 @@
 
 resource "azurerm_log_analytics_workspace" "main" {
   count               = var.enable_azure_logging && local.deploy_azure ? 1 : 0
-  name                = "${var.digital_twin_name}-logs"
+  name                = "${var.digital_twin_name}-logs-${local.deployment_suffix}"
   location            = azurerm_resource_group.main[0].location
   resource_group_name = azurerm_resource_group.main[0].name
   sku                 = "PerGB2018"
@@ -18,7 +18,7 @@ resource "azurerm_log_analytics_workspace" "main" {
 
 resource "azurerm_application_insights" "functions" {
   count               = var.enable_azure_logging && local.deploy_azure ? 1 : 0
-  name                = "${var.digital_twin_name}-insights"
+  name                = "${var.digital_twin_name}-insights-${local.deployment_suffix}"
   location            = azurerm_resource_group.main[0].location
   resource_group_name = azurerm_resource_group.main[0].name
   workspace_id        = azurerm_log_analytics_workspace.main[0].id

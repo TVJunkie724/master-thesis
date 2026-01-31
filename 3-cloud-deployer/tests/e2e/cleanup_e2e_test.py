@@ -184,6 +184,21 @@ def main():
                 destroy_success = False
     else:
         print("\n[1/2] Skipping terraform destroy (no valid config)")
+        # Fallback: Run SDK cleanup directly when config loading failed
+        print("  Running standalone SDK cleanup fallback...")
+        try:
+            from src.providers.azure.cleanup import cleanup_azure_resources
+            import json
+            creds_path = project_path / "config_credentials.json"
+            if creds_path.exists():
+                with open(creds_path) as f:
+                    credentials = json.load(f)
+                cleanup_azure_resources(credentials, test_name, dry_run=dry_run)
+                print("  ✓ SDK cleanup complete")
+            else:
+                print(f"  ⚠ No credentials found at {creds_path}")
+        except Exception as e:
+            print(f"  ✗ SDK fallback error: {e}")
     
     # Step 2: Remove state files
     print("\n[2/2] Removing local state files...")

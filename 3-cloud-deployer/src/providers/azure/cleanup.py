@@ -59,7 +59,59 @@ def cleanup_azure_resources(
         logger.info("[Azure SDK] DRY RUN MODE - no resources will be deleted")
     
     # ========================================
-    # PHASE 0.1: Diagnostic Settings Cleanup
+    # PHASE 0.0: Subscription-Wide Observability Cleanup
+    # (Catches orphans from soft-delete or Azure bugs)
+    # ========================================
+    logger.info("[Observability] Subscription-wide orphan sweep...")
+    
+    # 0.0.1 Log Analytics Workspaces
+    try:
+        from azure.mgmt.loganalytics import LogAnalyticsManagementClient
+        la_client = LogAnalyticsManagementClient(credential, subscription_id)
+        for ws in la_client.workspaces.list():
+            if ws.name.startswith(f"{prefix}-") and "-logs-" in ws.name:
+                rg = ws.id.split('/')[4]
+                logger.info(f"  Found Log Analytics: {ws.name}")
+                if dry_run:
+                    logger.info(f"    [DRY RUN] Would delete")
+                else:
+                    try:
+                        la_client.workspaces.begin_delete(rg, ws.name, force=True).result(timeout=300)
+                        logger.info(f"    ✓ Deleted")
+                    except Exception as e:
+                        logger.warning(f"    ✗ Error: {e}")
+    except Exception as e:
+        logger.warning(f"  Log Analytics cleanup error: {e}")
+    
+    # 0.0.2 Application Insights
+    try:
+        from azure.mgmt.applicationinsights import ApplicationInsightsManagementClient
+        ai_client = ApplicationInsightsManagementClient(credential, subscription_id)
+        for comp in ai_client.components.list():
+            if comp.name.startswith(f"{prefix}-") and "-insights-" in comp.name:
+                rg = comp.id.split('/')[4]
+                logger.info(f"  Found App Insights: {comp.name}")
+                if dry_run:
+                    logger.info(f"    [DRY RUN] Would delete")
+                else:
+                    try:
+                        ai_client.components.delete(rg, comp.name)
+                        logger.info(f"    ✓ Deleted")
+                    except Exception as e:
+                        logger.warning(f"    ✗ Error: {e}")
+    except Exception as e:
+        logger.warning(f"  App Insights cleanup error: {e}")
+    
+    # 0.0.3 Diagnostic Settings (subscription-wide via helper)
+    try:
+        from .diagnostic_settings_helper import DiagnosticSettingsHelper
+        diag_helper = DiagnosticSettingsHelper(credential, subscription_id)
+        diag_helper.cleanup_orphaned_by_prefix(prefix, dry_run=dry_run)
+    except Exception as e:
+        logger.warning(f"  Diagnostic settings subscription-wide error: {e}")
+    
+    # ========================================
+    # PHASE 0.1: Diagnostic Settings Cleanup (RG-scoped)
     # (Must run BEFORE resource deletion to prevent state drift)
     # ========================================
     logger.info("[Diagnostic Settings] Checking for orphans...")

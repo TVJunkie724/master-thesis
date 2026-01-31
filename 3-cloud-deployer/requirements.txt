@@ -47,6 +47,8 @@ azure-monitor-query
 
 # Azure SDK packages for Cleanup (Observability)
 azure-mgmt-monitor
+azure-mgmt-loganalytics
+azure-mgmt-applicationinsights
 
 # GCP SDK packages
 functions-framework
