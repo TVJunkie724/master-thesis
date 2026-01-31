@@ -17,6 +17,19 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, Optional
 
+
+def _registry_to_azure_name(registry_name: str) -> str:
+    """Map registry name to Azure deployed function name.
+    
+    Wrappers (e.g., processor_wrapper) drop '_wrapper' suffix.
+    Underscores become hyphens (Azure convention).
+    """
+    if registry_name.endswith("_wrapper"):
+        base = registry_name[:-8]  # Remove '_wrapper'
+        return base.replace("_", "-")
+    return registry_name.replace("_", "-")
+
+
 # Add src to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "src")))
 
@@ -1176,7 +1189,7 @@ class BaseScenarioTest:
                         src_key, tgt_key = f.boundary
                         if providers.get(src_key) == providers.get(tgt_key):
                             continue
-                    l1_expected.append(f.name)
+                    l1_expected.append(_registry_to_azure_name(f.name))
                 l1_app_name = outputs.get("azure_l1_function_app_name")
                 verify_function_app(l1_app_name, l1_expected, "L1 IoT")
             
@@ -1190,7 +1203,7 @@ class BaseScenarioTest:
                     func_dir = azure_funcs_dir / f.get_dir_name()
                     # Match bundler logic: include if not optional OR if dir exists
                     if not f.is_optional or func_dir.exists():
-                        l2_expected.append(f.name)
+                        l2_expected.append(_registry_to_azure_name(f.name))
                 l2_app_name = outputs.get("azure_l2_function_app_name")
                 verify_function_app(l2_app_name, l2_expected, "L2 Processing")
             
@@ -1204,7 +1217,7 @@ class BaseScenarioTest:
                     func_dir = azure_funcs_dir / f.get_dir_name()
                     # Match bundler logic: include if not optional OR if dir exists
                     if not f.is_optional or func_dir.exists():
-                        l3_expected.append(f.name)
+                        l3_expected.append(_registry_to_azure_name(f.name))
                 l3_app_name = outputs.get("azure_l3_function_app_name")
                 verify_function_app(l3_app_name, l3_expected, "L3 Storage")
             

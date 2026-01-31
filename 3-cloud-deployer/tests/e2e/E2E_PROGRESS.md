@@ -1,8 +1,20 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-01-31 00:50  
+**Last Updated:** 2026-01-31 02:24  
 **Cloud Log Investigation:** 2026-01-29 19:22 UTC  
 **TwinMaker Fix Session:** AI-0130-5dda
+
+---
+
+## 🔜 Next Steps (Feb 1)
+
+1. **Run AWS→Azure test with cleanup disabled** to read logs:
+   ```bash
+   docker exec -e E2E_SKIP_CLEANUP=true -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
+     python tests/e2e/run_e2e_test.py deployer-aws-azure
+   ```
+2. **Investigate test_11b ADT failure** - Check Azure Function logs for `adt-pusher`
+3. **Investigate test_08 hot storage failure** - Check AWS Lambda logs for `l0-hot-writer`
 
 ---
 
@@ -10,12 +22,12 @@
 
 | Scenario | Last Run | Tests Passed | Tests Failed | Tests Skipped | Result |
 |----------|----------|--------------|--------------|---------------|--------|
-| **AWS→GCP** | Jan 28 | 11 | 0 | 3 | ✅ PASS |
-| **AWS→Azure** | Jan 25 | 12 | 0 | 1 | ✅ PASS |
+| **AWS→GCP** | Jan 31 (01:11) | 13 | 0 | 2 | ✅ **PASS** |
+| **AWS→Azure** | Jan 31 (01:22) | 11 | 2 | 2 | ❌ FAIL |
 | **Azure→AWS** | Jan 31 (00:29) | 13 | 0 | 2 | ✅ **PASS** |
-| **Azure→GCP** | - | - | - | - | ⏳ Untested |
-| **GCP→AWS** | - | - | - | - | ⏳ Untested |
-| **GCP→Azure** | - | - | - | - | ⏳ Untested |
+| **Azure→GCP** | Jan 31 (01:39) | 11 | 2 | 2 | ❌ FAIL |
+| **GCP→AWS** | Jan 31 (01:45) | 11 | 1 | 3 | ❌ FAIL |
+| **GCP→Azure** | Jan 31 (01:45) | 9 | 3 | 3 | ❌ FAIL |
 
 ### Azure→AWS Latest Run (Jan 31, 00:29 → 00:50)
 - **Duration**: 21m 22s
@@ -35,6 +47,74 @@
 **Fixes Verified:**
 1. ✅ **GCP URL detection** (cloudfunctions.net) - test_10b now passes
 2. ✅ **Extended timeout** (180s) - test_08 stable
+
+---
+
+## ❌ Current Failures (Jan 31)
+
+### Failure Pattern Summary
+
+| Test | AWS→Azure | Azure→GCP | GCP→AWS | GCP→Azure | Root Cause |
+|------|-----------|-----------|---------|-----------|------------|
+| **test_08** (hot storage) | ✅ | ❌ | ❌ | ❌ | L3-Hot=AWS data flow issue |
+| **test_11b** (ADT telemetry) | ❌ | ❌ | N/A | ❌ | ADT Pusher not updating twins |
+| **test_12** (Azure functions) | ❌ | ✅ | ✅ | ❌ | Test naming mismatch (see below) |
+
+---
+
+### Issue #1: `test_08_verify_hot_storage` - L3-Hot AWS Data Flow
+
+**Affected:** Azure→GCP, GCP→AWS, GCP→Azure (all have L3-Hot = AWS DynamoDB)
+
+**Error:** `[DATAFLOW CRITICAL] No data found in hot storage after 180s. Last Response Status: 200`
+
+**Pattern:** Fails when L3-Hot is AWS DynamoDB. Passes when L3-Hot is GCP Firestore or Azure CosmosDB.
+
+**Root Cause Candidates:**
+1. **L0 hot-writer Lambda** not receiving data from L2 persister
+2. **DynamoDB write** failing silently (wrong table format or partition key)
+3. **Hot-reader Lambda** returning empty array despite data existing
+
+**Next Steps:** Check AWS Lambda logs for `l0-hot-writer` and `l3-hot-reader`.
+
+---
+
+### Issue #2: `test_11b_adt_twin_telemetry` - ADT Not Receiving Updates
+
+**Affected:** AWS→Azure, Azure→GCP, GCP→Azure (all have L4 = Azure ADT)
+
+**Error:** `[L4 DATAFLOW CRITICAL] No telemetry properties found in ADT twin after 60s. Available properties: []`
+
+**Data Flow:** L2 Persister → `_push_to_adt()` → ADT Pusher (L0) → Azure Digital Twins
+
+**Root Cause Candidates:**
+1. **ADT Pusher** not deployed or not receiving HTTP calls from persister
+2. **Persister `_push_to_adt()`** function not being triggered
+3. **ADT model mismatch** - twin properties not matching telemetry fields
+
+**Next Steps:** Check Azure Function App logs for `adt-pusher` and verify ADT model.
+
+---
+
+### Issue #3: `test_12_azure_functions_deployed` - Naming Mismatch
+
+**Affected:** AWS→Azure, GCP→Azure (L2 = Azure)
+
+**Error:**
+```
+L2 Processing (sc2-aws-azure-l2-functions): Missing functions 
+['processor_wrapper', 'event_feedback_wrapper'], got 
+['event-checker', 'event-feedback', 'persister', 'processor']
+```
+
+**Root Cause:** **Test logic bug** - Test uses `f.name` from registry but Azure functions register with different names via `@bp.function_name()`:
+
+| Registry Name | Azure Deployed Name | Source |
+|---------------|---------------------|--------|
+| `processor_wrapper` | `processor` | `@bp.function_name(name="processor")` |
+| `event_feedback_wrapper` | `event-feedback` | `@bp.function_name(name="event-feedback")` |
+
+**Fix:** Added `_registry_to_azure_name()` helper in `_base_scenario.py` ✅ (Jan 31 02:23)
 
 
 ---
@@ -123,10 +203,11 @@ Transformed to TwinMaker format: {"propertyValues": [...]}
 
 ---
 
-## ✅ AWS→Azure: VERIFIED PASS (Jan 25)
+## ✅ AWS→Azure: Previous Run (Jan 25)
 
 - All 12 tests passed
 - Duration: 19m 56s
+- **Note:** Current runs (Jan 31) have 2 failures - see "Current Failures" above
 
 ---
 
@@ -161,30 +242,25 @@ Data sometimes doesn't reach GCP Firestore within 120s timeout. Hot reader retur
 
 ---
 
-## ⏳ Untested Scenarios
+## ⏳ Tested Scenarios Status
 
-| Scenario | Test File | Notes |
-|----------|-----------|-------|
-| **Azure→GCP** | `test_scenario_azure_gcp.py` | L1=Azure, L2=GCP |
-| **GCP→AWS** | `test_scenario_gcp_aws.py` | L1=GCP, L2=AWS |
-| **GCP→Azure** | `test_scenario_gcp_azure.py` | L1=GCP, L2=Azure |
-
----
-
-## Issues Preventing Full Log Check
-
-| Provider | Issue |
-|----------|-------|
-| GCP | `CloudFunctionsServiceClient.list_functions()` API error |
-| Azure | Terraform state not found in Docker container |
+| Scenario | Status | Key Issues |
+|----------|--------|------------|
+| **AWS→GCP** | ✅ PASS | None |
+| **AWS→Azure** | ❌ FAIL | test_11b, test_12 (fix applied) |
+| **Azure→AWS** | ✅ PASS | None |
+| **Azure→GCP** | ❌ FAIL | test_08, test_11b |
+| **GCP→AWS** | ❌ FAIL | test_08 |
+| **GCP→Azure** | ❌ FAIL | test_08, test_11b, test_12 (fix applied) |
 
 ---
 
-## Next Steps
+## Notes
 
-1. Investigate intermittent test_08 failure (data flow Azure→GCP)
-2. Check cloud logs for the failing run
-3. Run remaining 3 untested scenarios
+Full investigation logs saved to:
+```
+tests/e2e/multicloud/.build/cloud_logs_investigation.txt
+```
 
 ---
 
