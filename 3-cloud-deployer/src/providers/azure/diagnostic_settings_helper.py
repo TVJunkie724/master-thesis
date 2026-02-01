@@ -138,3 +138,93 @@ class DiagnosticSettingsHelper:
             
         resp.raise_for_status()
         return True
+    
+    def cleanup_orphaned_by_prefix(self, prefix: str, dry_run: bool = False) -> dict:
+        """Delete all diagnostic settings matching prefix across subscription.
+        
+        This catches orphaned diagnostic settings from previous deployments that 
+        had different deployment suffixes but the same resource names. These cause
+        409 Conflict errors when creating new diagnostic settings.
+        
+        Args:
+            prefix: Resource name prefix to match (e.g., 'sc2-aws-azure')
+            dry_run: If True, log what would be deleted without deleting
+            
+        Returns:
+            Dict with 'deleted' and 'errors' counts
+        """
+        from azure.mgmt.digitaltwins import AzureDigitalTwinsManagementClient
+        from azure.mgmt.storage import StorageManagementClient
+        
+        results = {"deleted": 0, "errors": 0, "resources_checked": 0}
+        
+        logger.info(f"[Diagnostic Settings] Scanning subscription for orphans matching '{prefix}'...")
+        
+        # Check all ADT instances
+        try:
+            adt_client = AzureDigitalTwinsManagementClient(self.credential, self.subscription_id)
+            for adt in adt_client.digital_twins.list():
+                if prefix in adt.name.lower():
+                    results["resources_checked"] += 1
+                    for setting in self.list(adt.id):
+                        setting_name = setting.get("name", "unknown")
+                        if prefix in setting_name.lower():
+                            logger.info(f"  ADT '{adt.name}': {setting_name}")
+                            if dry_run:
+                                logger.info("    [DRY RUN] Would delete")
+                            else:
+                                try:
+                                    self.delete(adt.id, setting_name)
+                                    results["deleted"] += 1
+                                    logger.info("    ✓ Deleted")
+                                except Exception as e:
+                                    results["errors"] += 1
+                                    logger.warning(f"    ✗ Error: {e}")
+        except Exception as e:
+            logger.warning(f"  ADT scan error: {e}")
+        
+        # Check all Storage accounts (including blobServices/default sub-resource)
+        try:
+            storage_client = StorageManagementClient(self.credential, self.subscription_id)
+            for account in storage_client.storage_accounts.list():
+                if prefix in account.name.lower():
+                    results["resources_checked"] += 1
+                    # Storage account itself
+                    for setting in self.list(account.id):
+                        setting_name = setting.get("name", "unknown")
+                        if prefix in setting_name.lower():
+                            logger.info(f"  Storage '{account.name}': {setting_name}")
+                            if dry_run:
+                                logger.info("    [DRY RUN] Would delete")
+                            else:
+                                try:
+                                    self.delete(account.id, setting_name)
+                                    results["deleted"] += 1
+                                    logger.info("    ✓ Deleted")
+                                except Exception as e:
+                                    results["errors"] += 1
+                                    logger.warning(f"    ✗ Error: {e}")
+                    
+                    # blobServices/default sub-resource
+                    blob_id = f"{account.id}/blobServices/default"
+                    for setting in self.list(blob_id):
+                        setting_name = setting.get("name", "unknown")
+                        if prefix in setting_name.lower():
+                            logger.info(f"  Storage '{account.name}/blobServices/default': {setting_name}")
+                            if dry_run:
+                                logger.info("    [DRY RUN] Would delete")
+                            else:
+                                try:
+                                    self.delete(blob_id, setting_name)
+                                    results["deleted"] += 1
+                                    logger.info("    ✓ Deleted")
+                                except Exception as e:
+                                    results["errors"] += 1
+                                    logger.warning(f"    ✗ Error: {e}")
+        except Exception as e:
+            logger.warning(f"  Storage scan error: {e}")
+        
+        logger.info(f"[Diagnostic Settings] Scan complete: {results['resources_checked']} resources checked, "
+                    f"{results['deleted']} deleted, {results['errors']} errors")
+        
+        return results
