@@ -1,20 +1,16 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-01-31 02:24  
-**Cloud Log Investigation:** 2026-01-29 19:22 UTC  
+**Last Updated:** 2026-02-01 14:45  
+**ADT Telemetry Fix Session:** AI-0201-9886  
 **TwinMaker Fix Session:** AI-0130-5dda
 
 ---
 
 ## 🔜 Next Steps (Feb 1)
 
-1. **Run AWS→Azure test with cleanup disabled** to read logs:
-   ```bash
-   docker exec -e E2E_SKIP_CLEANUP=true -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
-     python tests/e2e/run_e2e_test.py deployer-aws-azure
-   ```
-2. **Investigate test_11b ADT failure** - Check Azure Function logs for `adt-pusher`
-3. **Investigate test_08 hot storage failure** - Check AWS Lambda logs for `l0-hot-writer`
+1. ✅ **Root cause for test_11b identified and fixed** - Persister was sending empty telemetry (commit d1cccad)
+2. **Redeploy AWS→Azure scenario** - Function code changed, requires new deployment to verify fix
+3. **Investigate test_08 hot storage failure** - Check AWS Lambda logs for `l0-hot-writer` (affects L3-Hot=AWS scenarios)
 
 ---
 
@@ -87,12 +83,13 @@
 
 **Data Flow:** L2 Persister → `_push_to_adt()` → ADT Pusher (L0) → Azure Digital Twins
 
-**Root Cause Candidates:**
-1. **ADT Pusher** not deployed or not receiving HTTP calls from persister
-2. **Persister `_push_to_adt()`** function not being triggered
-3. **ADT model mismatch** - twin properties not matching telemetry fields
+**Root Cause (Found Feb 1):** The `_push_to_adt()` function in all three persisters (Azure, AWS, GCP) was sending empty telemetry to the adt-pusher. The code used `event.get("telemetry", {})` but after normalization, telemetry fields (temperature, humidity) are at the **root level**, not nested under a `telemetry` key.
 
-**Next Steps:** Check Azure Function App logs for `adt-pusher` and verify ADT model.
+**Fix Applied (AI-0201-9886):** Commit d1cccad - Extract telemetry from root-level fields by filtering out metadata keys (device_id, timestamp, etc.).
+
+**Status:** ✅ FIX APPLIED - Pending redeployment and verification
+
+**Verification Required:** Redeploy the scenario and re-run E2E tests to verify fix.
 
 ---
 
