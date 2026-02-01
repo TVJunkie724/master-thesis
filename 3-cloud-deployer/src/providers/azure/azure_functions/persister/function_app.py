@@ -205,10 +205,18 @@ def _push_to_adt(event: dict) -> None:
     
     try:
         # Build ADT push payload
+        # Extract telemetry: prefer nested 'telemetry' key, fallback to root-level fields
+        telemetry = event.get("telemetry")
+        if not telemetry:
+            # Telemetry is at root level (after normalization)
+            # Exclude metadata keys to extract only telemetry values
+            excluded_keys = {"device_id", "device_type", "id", "time", "timestamp", "ts"}
+            telemetry = {k: v for k, v in event.items() if k not in excluded_keys}
+        
         adt_payload = {
             "device_id": event.get("device_id"),
             "device_type": event.get("device_type"),
-            "telemetry": event.get("telemetry", {}),
+            "telemetry": telemetry,
             "timestamp": event.get("timestamp") or event.get("time")
         }
         
