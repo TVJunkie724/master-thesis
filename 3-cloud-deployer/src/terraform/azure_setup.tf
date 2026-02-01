@@ -63,7 +63,9 @@ locals {
   azure_l1_functions_url   = "https://${local.azure_l1_functions_name}.azurewebsites.net"
   azure_l2_functions_url   = "https://${local.azure_l2_functions_name}.azurewebsites.net"
   azure_user_functions_url = "https://${local.azure_user_functions_name}.azurewebsites.net"
-  azure_adt_url            = "https://${local.azure_adt_name}.${var.azure_region}.digitaltwins.azure.net"
+  # ADT URL must use the actual host_name from the resource (not string-constructed)
+  # Azure's format is: name.api.region-code.digitaltwins.azure.net (e.g., .api.weu.)
+  azure_adt_url            = try("https://${azurerm_digital_twins_instance.main[0].host_name}", "")
 }
 
 # ==============================================================================
