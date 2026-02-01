@@ -71,3 +71,24 @@ description: Onboarding workflow for AI agents working on any project in this re
 11. Run unit tests after implementation
 12. Run relevant E2E tests if infrastructure was modified
 13. Report test results to user before marking task complete
+
+### E2E Test Flags
+
+| Flag | Description |
+|------|-------------|
+| `--skip-cleanup` | Preserve infrastructure after test for log investigation |
+
+**Examples:**
+```bash
+# Run test with cleanup (default)
+pytest tests/e2e/multicloud/test_scenario_aws_azure.py -v
+
+# Run test and preserve infrastructure for investigation
+pytest tests/e2e/multicloud/test_scenario_aws_azure.py --skip-cleanup -v
+
+# Clean up preserved infrastructure manually
+python tests/e2e/cleanup_e2e_test.py aws-azure --force
+```
+
+> [!WARNING]
+> Do NOT use environment variables like `E2E_SKIP_CLEANUP=true` - use the `--skip-cleanup` flag instead.

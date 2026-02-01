@@ -219,11 +219,16 @@ class BaseScenarioTest:
                     print(f"[CLEANUP] ⚠ Could not remove state files: {e}")
         
         # Register cleanup FIRST - before any work that might fail
-        skip_cleanup = os.environ.get("E2E_SKIP_CLEANUP", "false").lower() == "true"
+        # skip_cleanup comes from conftest.py fixture (--skip-cleanup flag)
+        skip_cleanup = request.config.getoption("--skip-cleanup", default=False)
+        # Also check backwards-compat env var
+        if not skip_cleanup:
+            skip_cleanup = getattr(request.config, "_skip_cleanup_compat", False)
+        
         if not skip_cleanup:
             request.addfinalizer(terraform_cleanup)
         else:
-            print("[CLEANUP] ⚠ Cleanup disabled (E2E_SKIP_CLEANUP=true)")
+            print("[CLEANUP] ⚠ Cleanup disabled (--skip-cleanup flag)")
         
         # ================================================================
         # FIX #2: PRE-CLEANUP - Remove orphaned resources from previous runs
@@ -239,7 +244,7 @@ class BaseScenarioTest:
         
         # Pre-cleanup is coupled with cleanup: skip if cleanup is skipped OR state exists
         if skip_cleanup:
-            print("\n[PHASE -1] Pre-Test Orphan Cleanup: SKIPPED (E2E_SKIP_CLEANUP=true)")
+            print("\n[PHASE -1] Pre-Test Orphan Cleanup: SKIPPED (--skip-cleanup flag)")
         elif state_exists:
             print("\n[PHASE -1] Pre-Test Orphan Cleanup: SKIPPED (Terraform state exists - using existing resources)")
         else:

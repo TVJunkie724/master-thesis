@@ -2,7 +2,7 @@
 E2E Test Cleanup Script
 
 Destroys all resources and removes state files for a specific E2E test.
-Use this when E2E_SKIP_CLEANUP=true was used and you need to clean up manually.
+Use this when 'pytest --skip-cleanup' was used and you need to clean up manually.
 
 Usage:
     python tests/e2e/cleanup_e2e_test.py aws
