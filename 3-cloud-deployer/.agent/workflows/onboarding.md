@@ -81,10 +81,10 @@ description: Onboarding workflow for AI agents working on any project in this re
 **Examples:**
 ```bash
 # Run test with cleanup (default)
-pytest tests/e2e/multicloud/test_scenario_aws_azure.py -v
+python tests/e2e/run_e2e_test.py deployer-aws-azure
 
 # Run test and preserve infrastructure for investigation
-pytest tests/e2e/multicloud/test_scenario_aws_azure.py --skip-cleanup -v
+python tests/e2e/run_e2e_test.py deployer-aws-azure --skip-cleanup
 
 # Clean up preserved infrastructure manually
 python tests/e2e/cleanup_e2e_test.py aws-azure --force
@@ -92,3 +92,4 @@ python tests/e2e/cleanup_e2e_test.py aws-azure --force
 
 > [!WARNING]
 > Do NOT use environment variables like `E2E_SKIP_CLEANUP=true` - use the `--skip-cleanup` flag instead.
+

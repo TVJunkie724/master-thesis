@@ -10,10 +10,24 @@ Output is saved to tests/e2e/<provider>/.build/e2e_output_<timestamp>.txt
 """
 import subprocess
 import sys
+import os
 from datetime import datetime
 from pathlib import Path
 
 def main():
+    # Check for deprecated environment variable
+    if os.environ.get("E2E_SKIP_CLEANUP", "").lower() == "true":
+        print(f"\n{'!' * 60}")
+        print("  WARNING: E2E_SKIP_CLEANUP environment variable is DEPRECATED!")
+        print(f"{'!' * 60}")
+        print("\nUse the --skip-cleanup flag instead:")
+        print("  python tests/e2e/run_e2e_test.py <provider> --skip-cleanup")
+        print("\nContinuing anyway (flag will be auto-added)...")
+        print()
+        # Auto-add the flag for backwards compatibility
+        if "--skip-cleanup" not in sys.argv:
+            sys.argv.append("--skip-cleanup")
+    
     if len(sys.argv) < 2:
         print("Usage: python run_e2e_test.py <provider>")
         print("  Providers: aws, gcp, azure, multicloud, etc.")
@@ -77,8 +91,45 @@ def main():
     ]
 
     # Add any extra arguments passed to the script
+    # Explicitly define known flags to prevent silent mistakes
+    KNOWN_FLAGS = {
+        "--skip-cleanup": "Skip cleanup after test (preserve infrastructure for investigation)",
+        "--dry-run": "Show what would be done without actually doing it",
+        "-k": "Only run tests matching expression (pytest -k)",
+        "-x": "Stop on first failure (pytest -x)",
+        "--pdb": "Drop into debugger on failures (pytest --pdb)",
+        "-v": "Verbose output (already included)",
+        "-vv": "Extra verbose output",
+    }
+    
     if len(sys.argv) > 2:
         extra_args = sys.argv[2:]
+        
+        # Check for unknown flags
+        unknown_flags = []
+        for arg in extra_args:
+            if arg.startswith("-"):
+                # Check if it's a known flag or starts with a known flag (for -k expr)
+                is_known = any(
+                    arg == flag or arg.startswith(flag.rstrip(":") + "=") or
+                    (flag == "-k" and arg == "-k")  # -k needs next arg
+                    for flag in KNOWN_FLAGS
+                )
+                if not is_known and not arg.startswith("-k"):  # -k value is handled
+                    unknown_flags.append(arg)
+        
+        if unknown_flags:
+            print(f"\n{'!' * 60}")
+            print("  ERROR: Unknown flag(s) detected!")
+            print(f"{'!' * 60}")
+            print(f"\nUnknown: {unknown_flags}")
+            print("\nKnown flags:")
+            for flag, desc in KNOWN_FLAGS.items():
+                print(f"  {flag:20} {desc}")
+            print("\nIf you intended to use an environment variable, note that")
+            print("E2E_SKIP_CLEANUP is DEPRECATED - use --skip-cleanup instead.")
+            sys.exit(1)
+        
         print(f"Adding extra arguments: {extra_args}")
         cmd.extend(extra_args)
     
