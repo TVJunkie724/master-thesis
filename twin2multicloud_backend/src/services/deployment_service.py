@@ -5,17 +5,29 @@ Deployment services extracted from twins.py route handlers.
 This module provides:
 - Real deployment streaming functions (subscribe to Deployer SSE)
 - Build deployment config helper
+- Project ZIP building and upload (production deployment flow)
 - Shared constants and error handling
 
 These functions were previously embedded in twins.py but are now
 centralized for reusability and maintainability.
 """
 
+import io
 import json
+import logging
+import zipfile
 import httpx
 from datetime import datetime
+from typing import Optional, TYPE_CHECKING
 
 from src.config import settings
+from src.utils.crypto import decrypt
+
+if TYPE_CHECKING:
+    from src.models.deployer_config import DeployerConfiguration
+    from src.models.optimizer_config import OptimizerConfiguration
+
+logger = logging.getLogger(__name__)
 
 # Deployer API URL from settings
 DEPLOYER_API_URL = getattr(settings, 'DEPLOYER_URL', 'http://3cloud-deployer:8000')
@@ -288,3 +300,374 @@ async def run_real_destroy_stream(
         
         await session.push_log(f"✗ Destroy error: {e}", level="error")
         session.on_complete(success=False, message=str(e))
+
+
+# ============================================================================
+# PRODUCTION DEPLOYMENT - ZIP Building and Upload
+# ============================================================================
+
+def build_project_zip(twin, user_id: str) -> io.BytesIO:
+    """
+    Build a ZIP file containing all configuration files for the Deployer.
+    
+    Args:
+        twin: DigitalTwin model with related configurations loaded
+        user_id: Current user ID (for credential decryption)
+        
+    Returns:
+        BytesIO containing the ZIP file
+    """
+    zip_buffer = io.BytesIO()
+    dc = twin.deployer_config  # Shorthand to avoid repetition
+    
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # --- Config Files ---
+        providers = _build_providers_config(twin)
+        _add_config_files(zf, twin, user_id, providers)
+        
+        # --- Provider-Specific Files ---
+        _add_hierarchy_files(zf, dc)
+        _add_state_machine_file(zf, dc, twin.optimizer_config)
+        _add_user_functions(zf, dc, providers)
+        _add_scene_files(zf, dc, providers)
+        
+        # --- Simulator Files ---
+        if dc and dc.payloads_json:
+            zf.writestr("iot_device_simulator/payloads.json", dc.payloads_json)
+    
+    zip_buffer.seek(0)
+    return zip_buffer
+
+
+# ============================================================================
+# HELPER FUNCTIONS - Separation of Concerns
+# ============================================================================
+
+def _add_config_files(zf: zipfile.ZipFile, twin, user_id: str, providers: dict):
+    """Add all config JSON files to the ZIP."""
+    dc = twin.deployer_config
+    oc = twin.optimizer_config
+    
+    # Main config and providers
+    zf.writestr("config.json", json.dumps(_build_main_config(twin), indent=2))
+    zf.writestr("config_providers.json", json.dumps(providers, indent=2))
+    
+    # Credentials (with separate GCP file)
+    credentials, gcp_creds = _build_credentials_config(twin, user_id)
+    zf.writestr("config_credentials.json", json.dumps(credentials, indent=2))
+    if gcp_creds:
+        zf.writestr("gcp_credentials.json", json.dumps(gcp_creds, indent=2))
+    
+    # Optional config files from deployer_config
+    if dc:
+        _write_if_present(zf, "config_iot_devices.json", dc.config_iot_devices_json)
+        _write_if_present(zf, "config_events.json", dc.config_events_json)
+        _write_if_present(zf, "config_user.json", dc.user_config_content)
+    
+    # Optimizer result
+    if oc and oc.result_json:
+        zf.writestr("config_optimization.json", oc.result_json)
+
+
+def _add_hierarchy_files(zf: zipfile.ZipFile, dc: Optional["DeployerConfiguration"]) -> None:
+    """Add twin hierarchy files (written to both provider locations)."""
+    if dc and dc.hierarchy_content:
+        zf.writestr("twin_hierarchy/aws_hierarchy.json", dc.hierarchy_content)
+        zf.writestr("twin_hierarchy/azure_hierarchy.json", dc.hierarchy_content)
+
+
+def _add_state_machine_file(zf: zipfile.ZipFile, dc: Optional["DeployerConfiguration"], oc: Optional["OptimizerConfiguration"]) -> None:
+    """Add state machine file to provider-specific location."""
+    if not (dc and dc.state_machine_content and oc and oc.cheapest_l2):
+        return
+    
+    l2 = oc.cheapest_l2.lower()
+    filenames = {
+        "aws": "state_machines/aws_step_function.yaml",
+        "azure": "state_machines/azure_logic_app.json",
+        "google": "state_machines/google_workflow.yaml",
+        "gcp": "state_machines/google_workflow.yaml",
+    }
+    if l2 in filenames:
+        zf.writestr(filenames[l2], dc.state_machine_content)
+
+
+def _add_user_functions(zf: zipfile.ZipFile, dc: Optional["DeployerConfiguration"], providers: dict) -> None:
+    """Add all user functions (processors, event_actions, event_feedback)."""
+    if not dc:
+        return
+    
+    # DRY: Single function to get provider folder
+    func_base = _get_function_base_folder(providers.get("layer_1_provider", "aws"))
+    
+    # Processors
+    _add_function_set(
+        zf, func_base, "processors", "processor.py",
+        dc.processor_contents, dc.processor_requirements
+    )
+    
+    # Event actions
+    _add_function_set(
+        zf, func_base, "event_actions", "lambda_function.py",
+        dc.event_action_contents, dc.event_action_requirements
+    )
+    
+    # Event feedback (single function, not dict)
+    if dc.event_feedback_content:
+        zf.writestr(f"{func_base}/event-feedback/lambda_function.py", dc.event_feedback_content)
+        _write_if_present(zf, f"{func_base}/event-feedback/requirements.txt", dc.event_feedback_requirements)
+
+
+def _add_scene_files(zf: zipfile.ZipFile, dc: Optional["DeployerConfiguration"], providers: dict) -> None:
+    """Add scene files to provider-specific location."""
+    if not dc or not dc.scene_config_content:
+        return
+    
+    l4 = providers.get("layer_4_provider")
+    scene_filenames = {
+        "azure": "scene_assets/azure/3DScenesConfiguration.json",
+        "aws": "scene_assets/aws/scene.json",
+    }
+    if l4 in scene_filenames:
+        zf.writestr(scene_filenames[l4], dc.scene_config_content)
+
+
+# ============================================================================
+# UTILITY FUNCTIONS - DRY Helpers
+# ============================================================================
+
+def _get_function_base_folder(provider: str) -> str:
+    """Map provider to function folder name."""
+    return {
+        "azure": "azure_functions",
+        "google": "cloud_functions",
+        "gcp": "cloud_functions",
+    }.get(provider, "lambda_functions")
+
+
+def _add_function_set(
+    zf: zipfile.ZipFile,
+    base_folder: str,
+    subfolder: str,
+    filename: str,
+    contents_json: Optional[str],
+    requirements_json: Optional[str]
+):
+    """Add a set of functions with optional requirements.txt files (DRY pattern)."""
+    if not contents_json:
+        return
+    
+    try:
+        contents = json.loads(contents_json)
+        for name, code in contents.items():
+            zf.writestr(f"{base_folder}/{subfolder}/{name}/{filename}", code)
+        
+        # Add requirements if available
+        if requirements_json:
+            try:
+                reqs = json.loads(requirements_json)
+                for name, req_content in reqs.items():
+                    zf.writestr(f"{base_folder}/{subfolder}/{name}/requirements.txt", req_content)
+            except json.JSONDecodeError:
+                pass
+    except json.JSONDecodeError:
+        pass
+
+
+def _write_if_present(zf: zipfile.ZipFile, path: str, content: Optional[str]):
+    """Write content to ZIP only if not None (DRY helper)."""
+    if content:
+        zf.writestr(path, content)
+
+
+def get_resource_name(twin) -> str:
+    """
+    Extract the Deployer resource name from a twin (DRY helper).
+    Used by: build_project_zip, prepare_project_for_deployment, deploy, destroy.
+    """
+    if twin.deployer_config and twin.deployer_config.deployer_digital_twin_name:
+        return twin.deployer_config.deployer_digital_twin_name
+    return twin.name.lower().replace(" ", "-")
+
+
+def _build_main_config(twin) -> dict:
+    """Build the main config.json content."""
+    return {
+        "digital_twin_name": get_resource_name(twin),  # DRY: reuse helper
+        "mode": "production",
+    }
+
+
+def _build_providers_config(twin) -> dict:
+    """
+    Build config_providers.json from OptimizerConfiguration.
+    
+    NOTE: Provider values are stored as uppercase ("AWS", "AZURE", "GCP")
+    but the Deployer expects lowercase. We convert here.
+    """
+    if not twin.optimizer_config:
+        return {}
+    
+    oc = twin.optimizer_config
+    
+    def normalize(value: Optional[str]) -> Optional[str]:
+        return value.lower() if value else None
+    
+    return {
+        "layer_1_provider": normalize(oc.cheapest_l1),
+        "layer_2_provider": normalize(oc.cheapest_l2),
+        "layer_3_hot_provider": normalize(oc.cheapest_l3_hot),
+        "layer_3_cold_provider": normalize(oc.cheapest_l3_cool),  # Model: cheapest_l3_cool → Output: layer_3_cold_provider
+        "layer_3_archive_provider": normalize(oc.cheapest_l3_archive),
+        "layer_4_provider": normalize(oc.cheapest_l4),
+        "layer_5_provider": normalize(oc.cheapest_l5),
+    }
+
+
+def _build_credentials_config(twin, user_id: str) -> tuple[dict, Optional[dict]]:
+    """
+    Build config_credentials.json with DECRYPTED credentials.
+    
+    IMPORTANT: This contains real credentials. The Deployer needs these
+    to authenticate with cloud providers during terraform operations.
+    
+    NOTE: Credentials are stored in twin.configuration (TwinConfiguration),
+    NOT a separate credentials_config relationship.
+    """
+    # Credentials are in TwinConfiguration, accessed via twin.configuration
+    if not twin.configuration:
+        return {}, None  # Return empty tuple to match return type
+    
+    creds = twin.configuration
+    result = {}
+    
+    # AWS credentials
+    # NOTE: decrypt() raises ValueError if decryption fails - handle gracefully
+    if creds.aws_access_key_id:
+        try:
+            result["aws"] = {
+                "aws_access_key_id": decrypt(creds.aws_access_key_id, user_id, twin.id),
+                "aws_secret_access_key": decrypt(creds.aws_secret_access_key, user_id, twin.id),
+                "aws_region": creds.aws_region or "eu-central-1",
+            }
+            # Include session token if present (for STS/SSO)
+            if creds.aws_session_token:
+                result["aws"]["aws_session_token"] = decrypt(creds.aws_session_token, user_id, twin.id)
+        except ValueError as e:
+            # Log but continue - allows partial deployment with remaining providers
+            logger.warning(f"AWS credential decryption failed: {e}")
+    
+    # Azure credentials
+    if creds.azure_subscription_id:
+        try:
+            result["azure"] = {
+                "azure_subscription_id": decrypt(creds.azure_subscription_id, user_id, twin.id),
+                "azure_tenant_id": decrypt(creds.azure_tenant_id, user_id, twin.id),
+                "azure_client_id": decrypt(creds.azure_client_id, user_id, twin.id),
+                "azure_client_secret": decrypt(creds.azure_client_secret, user_id, twin.id),
+            }
+        except ValueError as e:
+            logger.warning(f"Azure credential decryption failed: {e}")
+    
+    # GCP credentials - uses separate gcp_credentials.json file (per template structure)
+    gcp_creds_content = None
+    if creds.gcp_project_id:
+        try:
+            gcp_creds = {
+                "gcp_project_id": creds.gcp_project_id,
+                "gcp_region": creds.gcp_region or "europe-west1",
+            }
+            # GCP service account is written to separate gcp_credentials.json file
+            if creds.gcp_service_account_json:
+                gcp_creds["gcp_credentials_file"] = "gcp_credentials.json"
+                gcp_creds_content = json.loads(
+                    decrypt(creds.gcp_service_account_json, user_id, twin.id)
+                )
+            result["gcp"] = gcp_creds
+        except ValueError as e:
+            logger.warning(f"GCP credential decryption failed: {e}")
+        except json.JSONDecodeError as e:
+            logger.warning(f"GCP service account JSON parsing failed: {e}")
+    
+    return result, gcp_creds_content
+
+
+async def upload_project_to_deployer(
+    project_name: str,
+    zip_data: io.BytesIO,
+    update_existing: bool = True
+) -> dict:
+    """
+    Upload project ZIP to the Deployer API.
+    
+    Args:
+        project_name: Name of the project in the Deployer
+        zip_data: BytesIO containing the project ZIP
+        update_existing: If True, use import endpoint for existing projects
+        
+    Returns:
+        Response from Deployer API
+        
+    Raises:
+        HTTPException on failure
+    """
+    from fastapi import HTTPException
+    
+    # Use detailed timeouts like existing code (see run_real_deploy_stream)
+    timeout = httpx.Timeout(connect=30.0, read=60.0, write=60.0, pool=30.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        # Check if project already exists
+        check_resp = await client.get(f"{DEPLOYER_API_URL}/projects/{project_name}/validate")
+        project_exists = check_resp.status_code == 200
+        
+        zip_data.seek(0)
+        content = zip_data.read()
+        
+        if project_exists and update_existing:
+            # Use import endpoint to UPDATE existing project
+            # Import endpoint uses UploadFile (multipart form data)
+            resp = await client.post(
+                f"{DEPLOYER_API_URL}/projects/{project_name}/import",
+                files={"file": (f"{project_name}.zip", content, "application/zip")}
+            )
+        else:
+            # Create NEW project
+            # IMPORTANT: create_project uses extract_file_content() which ONLY accepts:
+            # - multipart/form-data
+            # - application/json (with base64)
+            # It does NOT accept application/octet-stream (returns 415)!
+            resp = await client.post(
+                f"{DEPLOYER_API_URL}/projects",
+                params={"project_name": project_name},
+                files={"file": (f"{project_name}.zip", content, "application/zip")}
+            )
+        
+        if resp.status_code not in (200, 201):
+            raise HTTPException(
+                status_code=502,
+                detail=f"Deployer project setup failed: {resp.text}"
+            )
+        
+        return resp.json()
+
+
+async def prepare_project_for_deployment(twin, user_id: str) -> str:
+    """
+    Main entry point: Prepare and upload project to Deployer.
+    
+    Args:
+        twin: DigitalTwin with all related configurations loaded
+        user_id: Current user ID for credential decryption
+        
+    Returns:
+        resource_name: The project name used in the Deployer
+    """
+    resource_name = get_resource_name(twin)  # DRY: reuse helper
+    
+    # Build ZIP
+    zip_data = build_project_zip(twin, user_id)
+    
+    # Upload to Deployer
+    await upload_project_to_deployer(resource_name, zip_data)
+    
+    return resource_name

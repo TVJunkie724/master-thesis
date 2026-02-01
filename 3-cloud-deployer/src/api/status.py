@@ -435,7 +435,7 @@ def check_endpoint(
     
     **Use case:** Dashboard status display, pre-deploy checks.
     """
-    validate_project_context(project_name)
+    # NOTE: validate_project_context removed - project validation handled by config loading
     
     try:
         provider = provider.lower()

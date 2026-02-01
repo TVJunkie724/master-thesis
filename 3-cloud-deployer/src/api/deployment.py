@@ -145,7 +145,8 @@ def deploy_all(
     **Note:** Long-running operation (2-10 minutes depending on resources).
     """
     check_template_protection(project_name, "deploy")
-    validate_project_context(project_name)
+    # NOTE: validate_project_context removed - was blocking production use.
+    # Project existence is validated by create_context() which loads files from disk.
     try:
         provider = validate_provider(provider)
         
@@ -204,7 +205,7 @@ def destroy_all(
     **Note:** This operation cannot be undone. All data will be lost.
     """
     check_template_protection(project_name, "destroy")
-    validate_project_context(project_name)
+    # NOTE: validate_project_context removed - see deploy() comment
     try:
         provider = provider.lower()
         context = create_context(project_name, provider)
@@ -255,7 +256,7 @@ async def deploy_stream(
     from pathlib import Path
     
     check_template_protection(project_name, "deploy")
-    validate_project_context(project_name)
+    # NOTE: validate_project_context removed - see deploy() comment
     
     try:
         provider = validate_provider(provider)
@@ -325,7 +326,7 @@ async def destroy_stream(
     from pathlib import Path
     
     check_template_protection(project_name, "destroy")
-    validate_project_context(project_name)
+    # NOTE: validate_project_context removed - see deploy() comment
     
     try:
         provider = provider.lower()

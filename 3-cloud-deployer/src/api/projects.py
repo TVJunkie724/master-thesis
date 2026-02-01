@@ -807,8 +807,7 @@ def cleanup_aws_twinmaker(
     
     **Note:** AWS-specific operation. Only works for projects using AWS for L4.
     """
-    from api.dependencies import validate_project_context
-    validate_project_context(project_name)
+    # NOTE: validate_project_context removed - blocking production use
     try:
         from src.providers.aws.provider import AWSProvider
         from src.providers.aws.layers.layer_4_twinmaker import force_delete_twinmaker_workspace

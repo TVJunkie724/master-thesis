@@ -31,6 +31,32 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
   // Track which groups are expanded (first group expanded by default)
   final Map<String, bool> _expandedGroups = {};
 
+  // Toggle for showing/hiding sensitive values
+  bool _showSensitive = false;
+
+  // Patterns that indicate sensitive output keys
+  static const sensitivePatterns = [
+    'connection_string',
+    'primary_key',
+    'secondary_key',
+    'access_key',
+    'secret',
+    'password',
+    'token',
+    'certificate',
+    'private',
+  ];
+
+  bool _isSensitiveKey(String key) {
+    final keyLower = key.toLowerCase();
+    return sensitivePatterns.any((p) => keyLower.contains(p));
+  }
+
+  String _maskValue(String value) {
+    if (value.length <= 8) return '••••••••';
+    return '${value.substring(0, 4)}••••${value.substring(value.length - 4)}';
+  }
+
   /// Group outputs by provider prefix
   Map<String, Map<String, dynamic>> _groupOutputs() {
     final groups = <String, Map<String, dynamic>>{
@@ -151,6 +177,20 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
                   ),
                 ],
                 const Spacer(),
+                // Show/Hide sensitive toggle
+                TextButton.icon(
+                  onPressed: () =>
+                      setState(() => _showSensitive = !_showSensitive),
+                  icon: Icon(
+                    _showSensitive ? Icons.visibility_off : Icons.visibility,
+                    size: 16,
+                  ),
+                  label: Text(_showSensitive ? 'Hide' : 'Show'),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                const SizedBox(width: 8),
                 // Copy All JSON button
                 TextButton.icon(
                   onPressed: _copyAllOutputs,
@@ -270,19 +310,46 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
                       ),
                     ),
                   ),
-                  // Value (truncated)
+                  // Value (truncated, masked if sensitive)
                   Expanded(
-                    child: Text(
-                      value.length > 50
-                          ? '${value.substring(0, 50)}...'
-                          : value,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.7,
-                        ),
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                    child: Builder(
+                      builder: (context) {
+                        final isSensitive = _isSensitiveKey(entry.key);
+                        final displayValue = (isSensitive && !_showSensitive)
+                            ? _maskValue(value)
+                            : (value.length > 50
+                                  ? '${value.substring(0, 50)}...'
+                                  : value);
+                        return Row(
+                          children: [
+                            if (isSensitive && !_showSensitive)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 4),
+                                child: Icon(
+                                  Icons.lock_outline,
+                                  size: 12,
+                                  color: theme.colorScheme.tertiary.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                ),
+                              ),
+                            Expanded(
+                              child: Text(
+                                displayValue,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontFamily: 'monospace',
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: isSensitive && !_showSensitive
+                                        ? 0.5
+                                        : 0.7,
+                                  ),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                   // Copy icon (subtle)

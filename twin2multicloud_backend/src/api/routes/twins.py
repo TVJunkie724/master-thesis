@@ -9,6 +9,7 @@ and destroy operations, log tracing, and IoT simulator downloads.
 - Log Trace: Real-time cloud log verification
 - Simulator: Download IoT simulator packages
 """
+import logging
 import os
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -28,6 +29,8 @@ from src.services.deployment_service import (
     build_deploy_config,
 )
 from src.api.routes.error_models import ERROR_RESPONSES
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/twins", tags=["twins"])
 
@@ -538,17 +541,7 @@ async def deploy_twin(
             detail="Deployment already in progress"
         )
     
-    # Get resource name and provider from config
-    resource_name = twin.name.lower().replace(" ", "-")
-    if twin.deployer_config and twin.deployer_config.deployer_digital_twin_name:
-        resource_name = twin.deployer_config.deployer_digital_twin_name
-    
-    # Determine provider - use L1 provider as the main deployment target
-    provider = "aws"  # default
-    if twin.optimizer_config and twin.optimizer_config.layer_1_provider:
-        provider = twin.optimizer_config.layer_1_provider.lower()
-    
-    # Update state to deploying
+    # Update state to deploying (NOTE: resource_name and provider now extracted after prepare step)
     twin.state = TwinState.DEPLOYING
     twin.last_error = None
     db.commit()
@@ -557,6 +550,8 @@ async def deploy_twin(
     import asyncio
     import uuid
     from src.api.routes.sse import create_session, get_active_sessions_for_twin
+    from src.services.deployment_service import prepare_project_for_deployment
+    from sqlalchemy.orm import joinedload
     
     # Check for concurrent deployment
     active_sessions = await get_active_sessions_for_twin(twin_id)
@@ -567,6 +562,36 @@ async def deploy_twin(
             status_code=409,
             detail="Deployment already in progress for this twin"
         )
+    
+    # Reload twin with ALL related configurations for ZIP building
+    twin = db.query(DigitalTwin).options(
+        joinedload(DigitalTwin.deployer_config),
+        joinedload(DigitalTwin.optimizer_config),
+        joinedload(DigitalTwin.configuration),  # Contains cloud credentials
+    ).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+    ).first()
+    
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found during reload")
+    
+    # Prepare project in Deployer (build ZIP and upload) before streaming
+    try:
+        resource_name = await prepare_project_for_deployment(twin, current_user.id)
+    except HTTPException as e:
+        twin.state = TwinState.CONFIGURED  # Rollback state on failure
+        db.commit()
+        raise e
+    except Exception as e:
+        twin.state = TwinState.CONFIGURED  # Rollback state on failure
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Failed to prepare project: {str(e)}")
+    
+    # Determine provider - use L1 provider as the main deployment target
+    provider = "aws"  # default
+    if twin.optimizer_config and twin.optimizer_config.cheapest_l1:
+        provider = twin.optimizer_config.cheapest_l1.lower()
     
     # Create SSE session
     session_id = str(uuid.uuid4())
@@ -648,16 +673,6 @@ async def destroy_twin_infrastructure(
             detail="Destroy operation already in progress"
         )
     
-    # Get resource name from deployer config
-    resource_name = twin.name.lower().replace(" ", "-")
-    if twin.deployer_config and twin.deployer_config.deployer_digital_twin_name:
-        resource_name = twin.deployer_config.deployer_digital_twin_name
-    
-    # Determine provider - use L1 provider as the main deployment target
-    provider = "aws"  # default
-    if twin.optimizer_config and twin.optimizer_config.layer_1_provider:
-        provider = twin.optimizer_config.layer_1_provider.lower()
-    
     # Update state to destroying
     twin.state = TwinState.DESTROYING
     twin.last_error = None
@@ -667,6 +682,8 @@ async def destroy_twin_infrastructure(
     import asyncio
     import uuid
     from src.api.routes.sse import create_session, get_active_sessions_for_twin
+    from src.services.deployment_service import prepare_project_for_deployment, get_resource_name
+    from sqlalchemy.orm import joinedload
     
     # Check for concurrent operation
     active_sessions = await get_active_sessions_for_twin(twin_id)
@@ -677,6 +694,34 @@ async def destroy_twin_infrastructure(
             status_code=409,
             detail="Destroy operation already in progress for this twin"
         )
+    
+    # Reload twin with ALL related configurations (for project preparation)
+    twin = db.query(DigitalTwin).options(
+        joinedload(DigitalTwin.deployer_config),
+        joinedload(DigitalTwin.optimizer_config),
+        joinedload(DigitalTwin.configuration),
+    ).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+    ).first()
+    
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found during reload")
+    
+    # Get resource name (DRY: use helper)
+    resource_name = get_resource_name(twin)
+    
+    # Prepare project in Deployer (ensures terraform state is accessible)
+    try:
+        await prepare_project_for_deployment(twin, current_user.id)
+    except Exception as e:
+        # Log but don't fail - destroy should work even if project prep fails
+        logger.warning(f"Project preparation failed during destroy: {e}")
+    
+    # Determine provider - use L1 provider as the main deployment target
+    provider = "aws"  # default
+    if twin.optimizer_config and twin.optimizer_config.cheapest_l1:
+        provider = twin.optimizer_config.cheapest_l1.lower()
     
     # Create SSE session
     session_id = str(uuid.uuid4())
@@ -911,10 +956,24 @@ async def start_log_trace(
             detail=f"Twin must be deployed to trace logs (current state: {twin.state})"
         )
     
-    # Get resource name for Deployer API
-    resource_name = twin.name.lower().replace(" ", "-")
-    if twin.deployer_config and twin.deployer_config.deployer_digital_twin_name:
-        resource_name = twin.deployer_config.deployer_digital_twin_name
+    # Reload twin with all configs (especially credentials for log querying)
+    from src.services.deployment_service import prepare_project_for_deployment
+    from sqlalchemy.orm import joinedload
+    
+    twin = db.query(DigitalTwin).options(
+        joinedload(DigitalTwin.deployer_config),
+        joinedload(DigitalTwin.optimizer_config),
+        joinedload(DigitalTwin.configuration),  # Contains cloud credentials
+    ).filter(DigitalTwin.id == twin_id).first()
+    
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found during reload")
+    
+    # Prepare project in Deployer (ensures credentials are current for log queries)
+    try:
+        resource_name = await prepare_project_for_deployment(twin, current_user.id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to prepare project for log trace: {str(e)}")
     
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -1075,16 +1134,29 @@ async def download_simulator(
     if twin.state != TwinState.DEPLOYED:
         raise HTTPException(400, f"Simulator only available for deployed twins. Current: {twin.state.value}")
     
-    opt_config = db.query(OptimizerConfiguration).filter_by(twin_id=twin_id).first()
-    if not opt_config or not opt_config.cheapest_l1:
+    # Reload twin with all configs for project preparation
+    from src.services.deployment_service import prepare_project_for_deployment
+    from sqlalchemy.orm import joinedload
+    
+    twin = db.query(DigitalTwin).options(
+        joinedload(DigitalTwin.deployer_config),
+        joinedload(DigitalTwin.optimizer_config),
+        joinedload(DigitalTwin.configuration),
+    ).filter(DigitalTwin.id == twin_id).first()
+    
+    if not twin:
+        raise HTTPException(404, "Twin not found during reload")
+    
+    if not twin.optimizer_config or not twin.optimizer_config.cheapest_l1:
         raise HTTPException(404, "Optimization not configured. Complete Step 2 first.")
     
-    l1_provider = opt_config.cheapest_l1.lower()
+    l1_provider = twin.optimizer_config.cheapest_l1.lower()
     
-    # Get resource name from deployer config (same pattern as deploy/destroy)
-    resource_name = twin.name.lower().replace(" ", "-")
-    if twin.deployer_config and twin.deployer_config.deployer_digital_twin_name:
-        resource_name = twin.deployer_config.deployer_digital_twin_name
+    # Prepare project in Deployer (ensures simulator config is current)
+    try:
+        resource_name = await prepare_project_for_deployment(twin, current_user.id)
+    except Exception as e:
+        raise HTTPException(500, f"Failed to prepare project for simulator download: {str(e)}")
     
     async with httpx.AsyncClient() as client:
         try:
@@ -1106,3 +1178,52 @@ async def download_simulator(
             headers={"Content-Disposition": f"attachment; filename=simulator_{resource_name}_{l1_provider}.zip"}
         )
 
+
+@router.get(
+    "/{twin_id}/export",
+    operation_id="exportTwinConfiguration",
+    summary="Export twin configuration as ZIP",
+    description=(
+        "**Purpose:** Downloads the twin configuration as a Deployer-compatible ZIP file.\n\n"
+        "**Use case:** Debugging, backup, or manual deployment verification.\n\n"
+        "**Contents:** config.json, config_providers.json, config_credentials.json (decrypted), "
+        "state machine, hierarchy, user functions, scene assets, and simulator payloads."
+    ),
+    responses={
+        200: {"description": "ZIP file", "content": {"application/zip": {}}},
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    }
+)
+async def export_twin_configuration(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Export twin configuration as downloadable ZIP."""
+    from src.services.deployment_service import build_project_zip
+    from sqlalchemy.orm import joinedload
+    from fastapi.responses import StreamingResponse
+    
+    twin = db.query(DigitalTwin).options(
+        joinedload(DigitalTwin.deployer_config),
+        joinedload(DigitalTwin.optimizer_config),
+        joinedload(DigitalTwin.configuration),
+    ).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+    ).first()
+    
+    if not twin:
+        raise HTTPException(404, "Twin not found")
+    
+    # Reuse the same ZIP building logic
+    zip_data = build_project_zip(twin, current_user.id)
+    
+    filename = f"{twin.name.lower().replace(' ', '-')}_config.zip"
+    
+    return StreamingResponse(
+        zip_data,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
