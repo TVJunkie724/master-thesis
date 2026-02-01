@@ -2,6 +2,8 @@ import json
 import os
 import sys
 import traceback
+import math
+from decimal import Decimal
 import boto3
 
 # Handle import path for shared module
@@ -20,6 +22,27 @@ INTER_CLOUD_TOKEN = require_env("INTER_CLOUD_TOKEN")
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(DYNAMODB_TABLE_NAME)
+
+
+def _convert_floats_to_decimal(obj):
+    """Recursively convert float values to Decimal for DynamoDB compatibility.
+    
+    DynamoDB does not support Python float type. This function handles:
+    - Nested dicts and lists
+    - NaN/Infinity (filtered to None to avoid Decimal errors)
+    - Bool vs int distinction (bool checked first)
+    """
+    if isinstance(obj, bool):
+        return obj  # Must check before int (bool is subclass of int)
+    elif isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None  # DynamoDB can't store NaN/Inf
+        return Decimal(str(obj))  # str() preserves precision
+    elif isinstance(obj, dict):
+        return {k: _convert_floats_to_decimal(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_convert_floats_to_decimal(i) for i in obj]
+    return obj
 
 
 def lambda_handler(event, context):
@@ -57,6 +80,9 @@ def lambda_handler(event, context):
         # Validate ID field (should come from persister)
         if "id" not in data_to_write:
             print("WARNING: Received item without 'id' field. Source persister may need fixing.")
+
+        # Convert floats to Decimal (DynamoDB requirement)
+        data_to_write = _convert_floats_to_decimal(data_to_write)
 
         table.put_item(Item=data_to_write)
         print("Data persisted to DynamoDB.")

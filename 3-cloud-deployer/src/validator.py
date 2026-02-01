@@ -415,6 +415,26 @@ def validate_azure_hierarchy_content(content):
     if errors:
         raise ValueError(f"Azure hierarchy validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
     
+    # Semantic check: Telemetry without Property causes silent update failures
+    for i, model in enumerate(models):
+        contents = model.get("contents", [])
+        telemetry_names = {
+            item.get("name") for item in contents
+            if isinstance(item, dict) and item.get("@type") == "Telemetry"
+        }
+        property_names = {
+            item.get("name") for item in contents
+            if isinstance(item, dict) and item.get("@type") == "Property"
+        }
+        
+        missing_props = telemetry_names - property_names - {None}
+        if missing_props:
+            model_id = model.get("@id", f"index-{i}")
+            logger.warning(
+                f"Model '{model_id}': Telemetry fields {missing_props} have no matching "
+                f"Property. Twin updates via update_digital_twin() will not persist."
+            )
+    
     logger.info(f"✓ Azure hierarchy validated: {len(models)} models, {len(twins)} twins, {len(relationships)} relationships")
 
 

@@ -2,8 +2,8 @@
 Verify cleanup of cloud resources for a given prefix.
 
 Usage:
-    docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
-        python tests/e2e/verify_cleanup.py sc-aws-azure
+    docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \\
+        python tests/e2e/verify_cleanup.py sc2-aws-azure
 """
 import sys
 import json

@@ -9,11 +9,17 @@ import json
 from pathlib import Path
 
 
-# All known scenario prefixes
+# All known scenario prefixes (sc2- is current, sc- is legacy)
 PREFIXES = [
+    # Current naming convention
+    "sc2-aws-azure", "sc2-aws-gcp", 
+    "sc2-azure-aws", "sc2-azure-gcp",
+    "sc2-gcp-aws", "sc2-gcp-azure",
+    # Legacy naming (for catching old orphans)
     "sc-aws-azure", "sc-aws-gcp", 
     "sc-azure-aws", "sc-azure-gcp",
     "sc-gcp-aws", "sc-gcp-azure",
+    # Other test prefixes
     "mc-e2e", "tf-e2e",
     "iso-stepfunc", "iso-grafana", "iso-logicapp"
 ]

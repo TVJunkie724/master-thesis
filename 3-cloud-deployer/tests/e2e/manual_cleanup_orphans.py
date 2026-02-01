@@ -3,8 +3,8 @@ Manual cleanup script for orphaned cloud resources.
 Deletes AWS Resource Group and Azure Resource Group by name.
 
 Usage:
-    docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
-        python tests/e2e/manual_cleanup_orphans.py sc-aws-azure
+    docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \\
+        python tests/e2e/manual_cleanup_orphans.py sc2-aws-azure
 """
 import sys
 import json
