@@ -75,6 +75,11 @@ resource "google_storage_bucket" "cold" {
   
   uniform_bucket_level_access = true
   
+  # Disable soft-delete to allow immediate bucket name reuse
+  soft_delete_policy {
+    retention_duration_seconds = 0
+  }
+  
   # Lifecycle: Move to Archive after cold_to_archive_interval_days
   lifecycle_rule {
     condition {
@@ -104,6 +109,11 @@ resource "google_storage_bucket" "archive" {
   force_destroy = true
   
   uniform_bucket_level_access = true
+  
+  # Disable soft-delete to allow immediate bucket name reuse
+  soft_delete_policy {
+    retention_duration_seconds = 0
+  }
   
   labels = local.gcp_common_labels
   

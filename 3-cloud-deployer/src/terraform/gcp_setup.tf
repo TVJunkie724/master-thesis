@@ -72,8 +72,8 @@ locals {
   gcp_functions_sa_display = "${var.digital_twin_name} Cloud Functions Service Account"
   gcp_functions_role_title = "${var.digital_twin_name} Functions Role"
 
-  # Function Source Bucket
-  gcp_function_source_bucket = "${local.gcp_project_id}-${var.digital_twin_name}-functions"
+  # Function Source Bucket (with suffix to avoid soft-delete conflicts)
+  gcp_function_source_bucket = "${local.gcp_project_id}-${var.digital_twin_name}-func-${local.deployment_suffix}"
 
   # L0 Glue
   gcp_l0_ingestion_name    = "${var.digital_twin_name}-ingestion"
@@ -298,6 +298,11 @@ resource "google_storage_bucket" "function_source" {
   force_destroy = true
   
   uniform_bucket_level_access = true
+  
+  # Disable soft-delete to allow immediate bucket name reuse
+  soft_delete_policy {
+    retention_duration_seconds = 0
+  }
   
   labels = local.gcp_common_labels
 }
