@@ -83,6 +83,9 @@ def build_adt_patch(telemetry: Dict[str, Any]) -> list:
     Azure Digital Twins uses JSON Patch (RFC 6902) format for partial updates.
     This function converts telemetry key-value pairs into patch operations.
     
+    Note: DTDL v3 requires unique names within 'contents', so telemetry names
+    are mapped to property names (e.g., 'temperature' → 'lastTemperature').
+    
     Args:
         telemetry: Dictionary of property names to values
         
@@ -92,18 +95,32 @@ def build_adt_patch(telemetry: Dict[str, Any]) -> list:
     Example:
         >>> build_adt_patch({"temperature": 23.5, "humidity": 60.2})
         [
-            {"op": "replace", "path": "/temperature", "value": 23.5},
-            {"op": "replace", "path": "/humidity", "value": 60.2}
+            {"op": "replace", "path": "/lastTemperature", "value": 23.5},
+            {"op": "replace", "path": "/lastHumidity", "value": 60.2}
         ]
     """
     if not telemetry:
         raise ValueError("telemetry is required and cannot be empty")
     
+    # DTDL v3 requires unique names in 'contents', so telemetry names
+    # must be different from property names. Convention: last{TelemetryName}
+    TELEMETRY_TO_PROPERTY = {
+        "temperature": "lastTemperature",
+        "pressure": "lastPressure",
+        "humidity": "lastHumidity",
+    }
+    
     patch = []
     for key, value in telemetry.items():
+        # Map telemetry name to property name, or use 'last{Key}' as fallback
+        prop_name = TELEMETRY_TO_PROPERTY.get(key)
+        if prop_name is None:
+            # Fallback: capitalize first letter and prefix with 'last'
+            prop_name = f"last{key[0].upper()}{key[1:]}" if key else key
+        
         patch.append({
             "op": "replace",
-            "path": f"/{key}",
+            "path": f"/{prop_name}",
             "value": value
         })
     

@@ -1077,8 +1077,11 @@ class BaseScenarioTest:
                 
                 # Check for telemetry properties (flexible matching)
                 # ADT pusher uses property names from telemetry payload
-                telemetry_props = ['temperature', 'Temperature', 'LastTemperature', 
-                                   'humidity', 'Humidity', 'LastHumidity', 'value']
+                # Note: DTDL v3 requires unique names, so we use 'lastX' convention
+                telemetry_props = ['lastTemperature', 'lastPressure', 'lastHumidity',
+                                   'temperature', 'Temperature', 'LastTemperature', 
+                                   'humidity', 'Humidity', 'LastHumidity', 
+                                   'pressure', 'Pressure', 'LastPressure', 'value']
                 
                 found_props = {k: v for k, v in twin.items() 
                                if k in telemetry_props and v is not None}
