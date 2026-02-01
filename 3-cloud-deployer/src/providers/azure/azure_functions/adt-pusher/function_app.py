@@ -160,6 +160,12 @@ def adt_pusher(req: func.HttpRequest) -> func.HttpResponse:
     
     logging.info(f"ADT Pusher: Body = {json.dumps(body)}")
     
+    # 3.5 Unwrap inter-cloud envelope if present
+    # post_to_remote() wraps payloads in: {source_cloud, target_layer, payload: {...}}
+    if "payload" in body and "source_cloud" in body:
+        logging.info("ADT Pusher: Unwrapping inter-cloud envelope")
+        body = body.get("payload", body)
+    
     # 4. Extract device_id and telemetry
     device_id = body.get("device_id")
     
