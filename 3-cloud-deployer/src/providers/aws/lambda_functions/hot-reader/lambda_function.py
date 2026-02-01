@@ -94,6 +94,20 @@ def _query_dynamodb(query_event: dict) -> dict:
     return { "propertyValues": property_values }
 
 
+def _query_dynamodb_simple(device_id: str, limit: int = 100) -> dict:
+    """Query DynamoDB directly using device_id (for HTTP GET requests).
+    
+    Uses partition key only - returns latest `limit` items for the device.
+    """
+    response = dynamodb_table.query(
+        KeyConditionExpression=Key("device_id").eq(device_id),
+        ScanIndexForward=False,  # Descending (newest first)
+        Limit=limit
+    )
+    items = response.get("Items", [])
+    return {"items": items, "count": len(items)}
+
+
 def lambda_handler(event, context):
     print("Hello from Hot Reader!")
     print("Event: " + json.dumps(event))
@@ -108,9 +122,23 @@ def lambda_handler(event, context):
                     "statusCode": 401,
                     "body": json.dumps({"error": "Unauthorized: Invalid X-Inter-Cloud-Token"})
                 }
-            # Parse query from HTTP body
-            query_event = _parse_http_request(event)
-            result = _query_dynamodb(query_event)
+            
+            # Check for simple query params (GET-style)
+            query_params = event.get("queryStringParameters", {}) or {}
+            device_id = query_params.get("device_id") or query_params.get("iotDeviceId")
+            
+            if device_id:
+                # Simple query - matches GCP/Azure hot-reader behavior
+                try:
+                    limit = int(query_params.get("limit", 100))
+                except (ValueError, TypeError):
+                    limit = 100
+                result = _query_dynamodb_simple(device_id, limit)
+            else:
+                # TwinMaker-style query from body (backwards compatible)
+                query_event = _parse_http_request(event)
+                result = _query_dynamodb(query_event)
+            
             return {
                 "statusCode": 200,
                 "body": json.dumps(result)
