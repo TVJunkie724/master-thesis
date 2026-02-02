@@ -37,6 +37,55 @@
 
 ## ✅ Fixes Applied (Feb 2)
 
+### AWS Hot-Reader DecimalEncoder Fix (AI-0202-fee9)
+
+**Problem:** `test_08_verify_hot_storage` failed with:
+```
+Hot reader returned 500: {"error": "Object of type Decimal is not JSON serializable"}
+```
+
+**Root Cause:** AWS DynamoDB stores numbers as `Decimal`. The hot-writer was updated to convert `float→Decimal`, but the hot-reader's `json.dumps()` couldn't serialize `Decimal` back to JSON.
+
+**Fix Applied:**
+```python
+# Added DecimalEncoder class to hot-reader (lambda_function.py)
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return int(obj) if obj % 1 == 0 else float(obj)
+        return super().default(obj)
+
+# Updated json.dumps to use encoder
+json.dumps(result, cls=DecimalEncoder)
+```
+
+**File:** `src/providers/aws/lambda_functions/hot-reader/lambda_function.py`
+
+---
+
+### Test Timeout Increase for Cold Start Delays (AI-0202-fee9)
+
+**Problem:** Data arrived ~7 minutes after IoT message sent due to GCP→AWS cold start chain.
+
+**Evidence from logs:**
+- IoT message sent at 13:34:25
+- GCP persister received at 13:41:15 
+- AWS hot-writer wrote at 13:41:16
+- Test timeout exceeded at 13:38:56 (after 180s)
+
+**Fix Applied:**
+```python
+# Before: 90 × 2s = 180s (3 min)
+max_retries = 90
+
+# After: 300 × 2s = 600s (10 min) 
+max_retries = 300
+```
+
+**File:** `tests/e2e/multicloud/_base_scenario.py` (test_08_verify_hot_storage)
+
+---
+
 ### ADT Pusher JSON Patch Fix (AI-0201-9886)
 
 **Problem:** `test_11b_adt_twin_telemetry` failed with:
