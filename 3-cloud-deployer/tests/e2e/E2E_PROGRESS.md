@@ -1,11 +1,11 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-02-02 20:59  
-**Status:** 🎉 **ALL 6 SCENARIOS PASSING**
+**Last Updated:** 2026-02-02 21:10  
+**Status:** 🎉 **ALL 9 SCENARIOS CONFIGURED** (6 cross-cloud + 3 same-cloud)
 
 ---
 
-## Summary (All 6 Scenarios)
+## Summary (All 9 Scenarios)
 
 | Scenario | Last Run | Tests Passed | Tests Failed | Tests Skipped | Result |
 |----------|----------|--------------|--------------|---------------|--------|
@@ -15,8 +15,41 @@
 | **Azure→GCP** | Feb 2 (19:36) | 13 | 0 | 2 | ✅ **PASS** |
 | **GCP→AWS** | Feb 2 (20:15) | 12 | 0 | 3 | ✅ **PASS** |
 | **GCP→Azure** | Feb 2 (18:48) | 12 | 0 | 3 | ✅ **PASS** |
+| **AWS** | - | - | - | - | 🆕 New |
+| **Azure** | - | - | - | - | 🆕 New |
+| **GCP** | - | - | - | - | 🆕 New |
 
 ---
+
+## Scenario Provider Configuration
+
+| Scenario | L1 (IoT) | L2 (Process) | L3-Hot | L3-Cold | L3-Archive | L4 (Twins) | L5 (Viz) |
+|----------|:--------:|:------------:|:------:|:-------:|:----------:|:----------:|:--------:|
+| **aws-azure** | AWS | Azure | GCP | AWS | Azure | Azure | AWS |
+| **aws-gcp** | AWS | GCP | Azure | AWS | GCP | AWS | Azure |
+| **azure-aws** | Azure | AWS | GCP | Azure | AWS | AWS | Azure |
+| **azure-gcp** | Azure | GCP | AWS | Azure | GCP | Azure | AWS |
+| **gcp-aws** | GCP | AWS | Azure | GCP | AWS | AWS | Azure |
+| **gcp-azure** | GCP | Azure | AWS | GCP | Azure | Azure | AWS |
+| **aws** | AWS | AWS | AWS | AWS | AWS | AWS | AWS |
+| **azure** | Azure | Azure | Azure | Azure | Azure | Azure | Azure |
+| **gcp** | GCP | GCP | GCP | GCP | GCP | none | none |
+
+> **Note:** GCP has no managed L4 (Digital Twins) or L5 (Grafana) services.
+
+---
+
+## Cross-Cloud Boundary Coverage
+
+| Boundary | Total Combos | Tested | Coverage |
+|----------|:------------:|:------:|:--------:|
+| L1→L2 | 6 | 6 | ✅ 100% |
+| L2→L3-Hot | 6 | 6 | ✅ 100% |
+| L2→L3-Cold | 6 | 6 | ✅ 100% |
+| L2→L4 (Azure) | 2 | 2 | ✅ 100% |
+| L4→L5 | 2 | 2 | ✅ 100% |
+
+
 
 ## Session References
 
