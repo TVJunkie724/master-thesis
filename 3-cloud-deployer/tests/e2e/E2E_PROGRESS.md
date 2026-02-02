@@ -1,11 +1,11 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-02-02 21:10  
-**Status:** 🎉 **ALL 9 SCENARIOS CONFIGURED** (6 cross-cloud + 3 same-cloud)
+**Last Updated:** 2026-02-02 21:16  
+**Status:** 🎉 **ALL 10 SCENARIOS CONFIGURED** (7 cross-cloud + 3 same-cloud)
 
 ---
 
-## Summary (All 9 Scenarios)
+## Summary (All 10 Scenarios)
 
 | Scenario | Last Run | Tests Passed | Tests Failed | Tests Skipped | Result |
 |----------|----------|--------------|--------------|---------------|--------|
@@ -15,6 +15,7 @@
 | **Azure→GCP** | Feb 2 (19:36) | 13 | 0 | 2 | ✅ **PASS** |
 | **GCP→AWS** | Feb 2 (20:15) | 12 | 0 | 3 | ✅ **PASS** |
 | **GCP→Azure** | Feb 2 (18:48) | 12 | 0 | 3 | ✅ **PASS** |
+| **Azure→AWS-ADT** | - | - | - | - | 🆕 New |
 | **AWS** | - | - | - | - | 🆕 New |
 | **Azure** | - | - | - | - | 🆕 New |
 | **GCP** | - | - | - | - | 🆕 New |
@@ -31,6 +32,7 @@
 | **azure-gcp** | Azure | GCP | AWS | Azure | GCP | Azure | AWS |
 | **gcp-aws** | GCP | AWS | Azure | GCP | AWS | AWS | Azure |
 | **gcp-azure** | GCP | Azure | AWS | GCP | Azure | Azure | AWS |
+| **azure-aws-adt** | Azure | AWS | GCP | Azure | AWS | **Azure** | Azure |
 | **aws** | AWS | AWS | AWS | AWS | AWS | AWS | AWS |
 | **azure** | Azure | Azure | Azure | Azure | Azure | Azure | Azure |
 | **gcp** | GCP | GCP | GCP | GCP | GCP | none | none |
@@ -46,8 +48,10 @@
 | L1→L2 | 6 | 6 | ✅ 100% |
 | L2→L3-Hot | 6 | 6 | ✅ 100% |
 | L2→L3-Cold | 6 | 6 | ✅ 100% |
-| L2→L4 (Azure) | 2 | 2 | ✅ 100% |
+| L2→L4 (ADT) | 2 | **2** | ✅ 100% |
 | L4→L5 | 2 | 2 | ✅ 100% |
+
+> **Note:** `azure-aws-adt` specifically tests AWS L2 → Azure L4 (ADT) boundary.
 
 
 
