@@ -407,8 +407,7 @@ class TestAzureHierarchyValidation(unittest.TestCase):
         self.assertTrue(any("temp" in msg and "Property" in msg for msg in log.output))
 
     def test_azure_telemetry_with_property_no_warning(self):
-        """Semantic: Telemetry WITH matching Property does not warn."""
-        import logging
+        """Semantic: Telemetry WITH matching lastXxx Property does not warn."""
         content = {
             "models": [{
                 "@id": "dtmi:test:Sensor;1",
@@ -416,13 +415,31 @@ class TestAzureHierarchyValidation(unittest.TestCase):
                 "@context": "dtmi:dtdl:context;3",
                 "contents": [
                     {"@type": "Telemetry", "name": "temp", "schema": "double"},
-                    {"@type": "Property", "name": "temp", "schema": "double", "writable": True}
+                    {"@type": "Property", "name": "lastTemp", "schema": "double", "writable": True}
                 ]
             }],
             "twins": [], "relationships": []
         }
         # Should NOT log warning - validation passes cleanly
         validator.validate_azure_hierarchy_content(content)
+
+    def test_azure_duplicate_content_names_raises_error(self):
+        """Error: Same name for Telemetry and Property raises ValueError."""
+        content = {
+            "models": [{
+                "@id": "dtmi:test:Sensor;1",
+                "@type": "Interface",
+                "@context": "dtmi:dtdl:context;3",
+                "contents": [
+                    {"@type": "Telemetry", "name": "temp", "schema": "double"},
+                    {"@type": "Property", "name": "temp", "schema": "double"}
+                ]
+            }],
+            "twins": [], "relationships": []
+        }
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_azure_hierarchy_content(content)
+        self.assertIn("Duplicate", str(cm.exception))
 
 class TestCheckHierarchyProviderMatchInZip(unittest.TestCase):
     """

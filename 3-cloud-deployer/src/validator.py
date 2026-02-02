@@ -412,10 +412,19 @@ def validate_azure_hierarchy_content(content):
             if "$relationshipName" not in rel:
                 errors.append(f"Relationship at index {i}: missing '$relationshipName'")
     
+    # DTDL v3: Check for duplicate content names (error)
+    for i, model in enumerate(models):
+        contents = model.get("contents", [])
+        names = [item.get("name") for item in contents if isinstance(item, dict) and item.get("name")]
+        duplicates = [n for n in set(names) if names.count(n) > 1]
+        if duplicates:
+            model_id = model.get("@id", f"index-{i}")
+            errors.append(f"Model '{model_id}': Duplicate content names {duplicates} - DTDL v3 requires unique names")
+    
     if errors:
         raise ValueError(f"Azure hierarchy validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
     
-    # Semantic check: Telemetry without Property causes silent update failures
+    # Semantic check: Telemetry without matching last{Name} Property
     for i, model in enumerate(models):
         contents = model.get("contents", [])
         telemetry_names = {
@@ -427,13 +436,16 @@ def validate_azure_hierarchy_content(content):
             if isinstance(item, dict) and item.get("@type") == "Property"
         }
         
-        missing_props = telemetry_names - property_names - {None}
-        if missing_props:
-            model_id = model.get("@id", f"index-{i}")
-            logger.warning(
-                f"Model '{model_id}': Telemetry fields {missing_props} have no matching "
-                f"Property. Twin updates via update_digital_twin() will not persist."
-            )
+        # Expected pattern: Telemetry 'temperature' → Property 'lastTemperature'
+        for tel_name in telemetry_names:
+            if tel_name:
+                expected_prop = f"last{tel_name[0].upper()}{tel_name[1:]}"
+                if expected_prop not in property_names:
+                    model_id = model.get("@id", f"index-{i}")
+                    logger.warning(
+                        f"Model '{model_id}': Telemetry '{tel_name}' has no Property "
+                        f"'{expected_prop}'. Twin updates may not persist."
+                    )
     
     logger.info(f"✓ Azure hierarchy validated: {len(models)} models, {len(twins)} twins, {len(relationships)} relationships")
 

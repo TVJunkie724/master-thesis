@@ -14,18 +14,18 @@ class TestBuildAdtPatch(unittest.TestCase):
     """Tests for build_adt_patch()."""
     
     def test_single_property_creates_patch(self):
-        """Happy path: single property creates valid JSON Patch."""
+        """Happy path: single property creates valid JSON Patch with lastXxx name."""
         from src.providers.azure.azure_functions._shared.adt_helper import build_adt_patch
         result = build_adt_patch({"temperature": 23.5})
-        self.assertEqual(result, [{"op": "replace", "path": "/temperature", "value": 23.5}])
+        self.assertEqual(result, [{"op": "replace", "path": "/lastTemperature", "value": 23.5}])
     
     def test_multiple_properties_creates_multiple_patches(self):
-        """Happy path: multiple properties create multiple patch operations."""
+        """Happy path: multiple properties create multiple patch operations with lastXxx names."""
         from src.providers.azure.azure_functions._shared.adt_helper import build_adt_patch
         result = build_adt_patch({"temperature": 23.5, "humidity": 60})
         self.assertEqual(len(result), 2)
         paths = {p["path"] for p in result}
-        self.assertEqual(paths, {"/temperature", "/humidity"})
+        self.assertEqual(paths, {"/lastTemperature", "/lastHumidity"})
     
     def test_empty_telemetry_raises(self):
         """Validation: empty telemetry dict raises ValueError."""
@@ -35,10 +35,11 @@ class TestBuildAdtPatch(unittest.TestCase):
         self.assertIn("cannot be empty", str(cm.exception))
 
     def test_patch_uses_replace_operation(self):
-        """Verification: patch operations use 'replace' for updates."""
+        """Verification: patch operations use 'replace' for updates with lastXxx path."""
         from src.providers.azure.azure_functions._shared.adt_helper import build_adt_patch
         result = build_adt_patch({"pressure": 101.3})
         self.assertEqual(result[0]["op"], "replace")
+        self.assertEqual(result[0]["path"], "/lastPressure")
 
 
 class TestGetTwinIdForDevice(unittest.TestCase):
