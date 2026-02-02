@@ -3,8 +3,8 @@
 {"Section": "Models"}
 {"@id":"dtmi:twin2clouds:Room;1","@type":"Interface","@context":"dtmi:dtdl:context;3","displayName":"Room","contents":[{"@type":"Relationship","name":"contains","target":"dtmi:twin2clouds:Machine;1"},{"@type":"Relationship","name":"hasSensor"}]}
 {"@id":"dtmi:twin2clouds:Machine;1","@type":"Interface","@context":"dtmi:dtdl:context;3","displayName":"Machine","contents":[{"@type":"Relationship","name":"hasSensor"}]}
-{"@id":"dtmi:twin2clouds:TemperatureSensor;1","@type":"Interface","@context":"dtmi:dtdl:context;3","displayName":"Temperature Sensor","contents":[{"@type":"Telemetry","name":"temperature","schema":"double"},{"@type":"Property","name":"temperature","schema":"double","writable":true}]}
-{"@id":"dtmi:twin2clouds:PressureSensor;1","@type":"Interface","@context":"dtmi:dtdl:context;3","displayName":"Pressure Sensor","contents":[{"@type":"Telemetry","name":"pressure","schema":"double"},{"@type":"Property","name":"pressure","schema":"double","writable":true}]}
+{"@id":"dtmi:twin2clouds:TemperatureSensor;1","@type":"Interface","@context":"dtmi:dtdl:context;3","displayName":"Temperature Sensor","contents":[{"@type":"Telemetry","name":"temperature","schema":"double"},{"@type":"Property","name":"lastTemperature","schema":"double","writable":true}]}
+{"@id":"dtmi:twin2clouds:PressureSensor;1","@type":"Interface","@context":"dtmi:dtdl:context;3","displayName":"Pressure Sensor","contents":[{"@type":"Telemetry","name":"pressure","schema":"double"},{"@type":"Property","name":"lastPressure","schema":"double","writable":true}]}
 {"Section": "Twins"}
 {"$dtId":"room-1","$metadata":{"$model":"dtmi:twin2clouds:Room;1"}}
 {"$dtId":"room-2","$metadata":{"$model":"dtmi:twin2clouds:Room;1"}}

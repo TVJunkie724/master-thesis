@@ -47,7 +47,7 @@
                 },
                 {
                     "@type": "Property",
-                    "name": "temperature",
+                    "name": "lastTemperature",
                     "schema": "double",
                     "writable": true,
                     "description": "Last known temperature value"
@@ -67,7 +67,7 @@
                 },
                 {
                     "@type": "Property",
-                    "name": "pressure",
+                    "name": "lastPressure",
                     "schema": "double",
                     "writable": true,
                     "description": "Last known pressure value"

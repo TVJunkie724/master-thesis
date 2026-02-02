@@ -3,7 +3,20 @@ import os
 import sys
 import traceback
 import boto3
+from decimal import Decimal
 from boto3.dynamodb.conditions import Key
+
+
+class DecimalEncoder(json.JSONEncoder):
+    """JSON encoder for DynamoDB Decimal types."""
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            # Check for special values first
+            if obj.is_nan() or obj.is_infinite():
+                return None
+            # Convert to int if whole number, else float
+            return int(obj) if obj % 1 == 0 else float(obj)
+        return super().default(obj)
 
 # Handle import path for shared module
 try:
@@ -141,7 +154,7 @@ def lambda_handler(event, context):
             
             return {
                 "statusCode": 200,
-                "body": json.dumps(result)
+                "body": json.dumps(result, cls=DecimalEncoder)
             }
         
         # Direct Lambda invocation (from TwinMaker or Digital Twin Data Connector)
