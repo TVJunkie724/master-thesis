@@ -36,12 +36,12 @@ def main():
     provider = sys.argv[1].lower()
     
     test_map = {
-        "aws": ("tests/e2e/aws/test_aws_terraform_e2e.py", "tests/e2e/aws"),
+        "aws": ("tests/e2e/multicloud/test_scenario_aws.py", "tests/e2e/multicloud"),
         "aws-grafana": ("tests/e2e/aws/test_aws_grafana_e2e.py", "tests/e2e/aws"),
         "aws-stepfunctions": ("tests/e2e/aws/test_aws_stepfunctions_e2e.py", "tests/e2e/aws"),
         "aws-twinmaker-full": ("tests/e2e/aws/test_aws_twinmaker_integrated_e2e.py", "tests/e2e/aws"),
-        "gcp": ("tests/e2e/gcp/test_gcp_terraform_e2e.py", "tests/e2e/gcp"),
-        "azure": ("tests/e2e/azure_tests/test_azure_single_cloud_e2e.py", "tests/e2e/azure_tests"),
+        "gcp": ("tests/e2e/multicloud/test_scenario_gcp.py", "tests/e2e/multicloud"),
+        "azure": ("tests/e2e/multicloud/test_scenario_azure.py", "tests/e2e/multicloud"),
         "azure-adt-full": ("tests/e2e/azure_tests/test_azure_adt_integrated_e2e.py", "tests/e2e/azure_tests"),
         "azure-grafana": ("tests/e2e/azure_tests/test_azure_grafana_e2e.py", "tests/e2e/azure_tests"),
         "azure-logicapp-isolated": ("tests/e2e/azure_tests/test_azure_logicapp_isolated_e2e.py", "tests/e2e/azure_tests"),
