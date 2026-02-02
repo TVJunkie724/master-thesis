@@ -332,8 +332,8 @@ Data sometimes doesn't reach GCP Firestore within 120s timeout. Hot reader retur
 | **AWS→Azure** | ✅ PASS | None (fixed Feb 2) |
 | **Azure→AWS** | ✅ PASS | None |
 | **Azure→GCP** | ✅ PASS | None (fixed Feb 2) |
-| **GCP→AWS** | ⏳ Pending | Needs re-test with DecimalEncoder fix |
-| **GCP→Azure** | ⏳ Pending | Needs re-test with DecimalEncoder fix |
+| **GCP→AWS** | ⏳ Pending | Needs re-test with dispatcher fix |
+| **GCP→Azure** | ✅ PASS | None (fixed Feb 2) |
 
 ---
 
