@@ -119,7 +119,7 @@ def build_adt_patch(telemetry: Dict[str, Any]) -> list:
             prop_name = f"last{key[0].upper()}{key[1:]}" if key else key
         
         patch.append({
-            "op": "replace",
+            "op": "add",
             "path": f"/{prop_name}",
             "value": value
         })

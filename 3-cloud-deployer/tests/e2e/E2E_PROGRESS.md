@@ -1,15 +1,15 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-02-01 14:45  
+**Last Updated:** 2026-02-02 09:45  
 **ADT Telemetry Fix Session:** AI-0201-9886  
 **TwinMaker Fix Session:** AI-0130-5dda
 
 ---
 
-## 🔜 Next Steps (Feb 1)
+## 🔜 Next Steps (Feb 2)
 
-1. ✅ **Root cause for test_11b identified and fixed** - Persister was sending empty telemetry (commit d1cccad)
-2. **Redeploy AWS→Azure scenario** - Function code changed, requires new deployment to verify fix
+1. ✅ **AWS→Azure PASSING** - All 13 tests pass after ADT Pusher fix
+2. **Verify other ADT scenarios** - Azure→GCP, GCP→Azure should also pass now
 3. **Investigate test_08 hot storage failure** - Check AWS Lambda logs for `l0-hot-writer` (affects L3-Hot=AWS scenarios)
 
 ---
@@ -19,77 +19,68 @@
 | Scenario | Last Run | Tests Passed | Tests Failed | Tests Skipped | Result |
 |----------|----------|--------------|--------------|---------------|--------|
 | **AWS→GCP** | Jan 31 (01:11) | 13 | 0 | 2 | ✅ **PASS** |
-| **AWS→Azure** | Jan 31 (01:22) | 11 | 2 | 2 | ❌ FAIL |
+| **AWS→Azure** | Feb 2 (08:35) | 13 | 0 | 2 | ✅ **PASS** |
 | **Azure→AWS** | Jan 31 (00:29) | 13 | 0 | 2 | ✅ **PASS** |
 | **Azure→GCP** | Jan 31 (01:39) | 11 | 2 | 2 | ❌ FAIL |
 | **GCP→AWS** | Jan 31 (01:45) | 11 | 1 | 3 | ❌ FAIL |
 | **GCP→Azure** | Jan 31 (01:45) | 9 | 3 | 3 | ❌ FAIL |
 
-### Azure→AWS Latest Run (Jan 31, 00:29 → 00:50)
-- **Duration**: 21m 22s
+### AWS→Azure Latest Run (Feb 2, 08:35 → 08:46)
+- **Duration**: 10m 21s
 - **Result**: `13 passed, 2 skipped, 0 failed` ✅
-- **All tests passing** including:
+- **Key tests passing**:
   - `test_08_verify_hot_storage` ✅ (data found in GCP Firestore)
-  - `test_10b_twinmaker_telemetry` ✅ (TwinMaker successfully queries GCP hot-reader)
-
-### Azure→AWS Run Comparison
-| Run | test_08 | test_10b | Total |
-|-----|---------|----------|-------|
-| Jan 30 19:19 | ✅ PASS | ❌ FAIL | 1 failed, 12 passed |
-| Jan 30 22:07 | ❌ FAIL | ❌ FAIL | 2 failed, 11 passed |
-| Jan 30 22:41 | ✅ PASS | ❌ FAIL | 1 failed, 12 passed |
-| Jan 31 00:29 | ✅ PASS | ✅ PASS | **0 failed, 13 passed** ✅ |
-
-**Fixes Verified:**
-1. ✅ **GCP URL detection** (cloudfunctions.net) - test_10b now passes
-2. ✅ **Extended timeout** (180s) - test_08 stable
+  - `test_11b_adt_twin_telemetry` ✅ (`lastTemperature: 42.5` verified in ADT twin)
+  - `test_12_azure_functions_deployed` ✅
 
 ---
 
-## ❌ Current Failures (Jan 31)
+## ✅ Fixes Applied (Feb 2)
 
-### Failure Pattern Summary
+### ADT Pusher JSON Patch Fix (AI-0201-9886)
 
-| Test | AWS→Azure | Azure→GCP | GCP→AWS | GCP→Azure | Root Cause |
-|------|-----------|-----------|---------|-----------|------------|
-| **test_08** (hot storage) | ✅ | ❌ | ❌ | ❌ | L3-Hot=AWS data flow issue |
-| **test_11b** (ADT telemetry) | ❌ | ❌ | N/A | ❌ | ADT Pusher not updating twins |
-| **test_12** (Azure functions) | ❌ | ✅ | ✅ | ❌ | Test naming mismatch (see below) |
+**Problem:** `test_11b_adt_twin_telemetry` failed with:
+```
+(JsonPatchInvalid) lastTemperature does not exist on component
+```
+
+**Root Cause:** The ADT Pusher used `"op": "replace"` in JSON Patch, which requires the property to already exist. Since twins are created without initial property values, the first telemetry update always failed.
+
+**Fix Applied:**
+```python
+# Before (adt_helper.py line 122)
+patch.append({"op": "replace", "path": f"/{prop_name}", "value": value})
+
+# After
+patch.append({"op": "add", "path": f"/{prop_name}", "value": value})
+```
+
+The `"add"` operation works as upsert: creates if missing, updates if exists.
+
+**File:** `src/providers/azure/azure_functions/_shared/adt_helper.py`
 
 ---
+
+## ❌ Remaining Failures (Feb 2)
 
 ### Issue #1: `test_08_verify_hot_storage` - L3-Hot AWS Data Flow
 
 **Affected:** Azure→GCP, GCP→AWS, GCP→Azure (all have L3-Hot = AWS DynamoDB)
 
-**Error:** `[DATAFLOW CRITICAL] No data found in hot storage after 180s. Last Response Status: 200`
+**Error:** `[DATAFLOW CRITICAL] No data found in hot storage after 180s.`
 
-**Pattern:** Fails when L3-Hot is AWS DynamoDB. Passes when L3-Hot is GCP Firestore or Azure CosmosDB.
-
-**Root Cause Candidates:**
-1. **L0 hot-writer Lambda** not receiving data from L2 persister
-2. **DynamoDB write** failing silently (wrong table format or partition key)
-3. **Hot-reader Lambda** returning empty array despite data existing
+**Pattern:** Fails when L3-Hot is AWS DynamoDB. Passes when L3-Hot is GCP Firestore.
 
 **Next Steps:** Check AWS Lambda logs for `l0-hot-writer` and `l3-hot-reader`.
 
 ---
 
-### Issue #2: `test_11b_adt_twin_telemetry` - ADT Not Receiving Updates
+### Issue #2: `test_11b_adt_twin_telemetry` - FIXED ✅
 
-**Affected:** AWS→Azure, Azure→GCP, GCP→Azure (all have L4 = Azure ADT)
+**Status:** Fixed on Feb 2 - see "Fixes Applied" above.
 
-**Error:** `[L4 DATAFLOW CRITICAL] No telemetry properties found in ADT twin after 60s. Available properties: []`
+**Scenarios to verify:** Azure→GCP, GCP→Azure should now pass with the same fix.
 
-**Data Flow:** L2 Persister → `_push_to_adt()` → ADT Pusher (L0) → Azure Digital Twins
-
-**Root Cause (Found Feb 1):** The `_push_to_adt()` function in all three persisters (Azure, AWS, GCP) was sending empty telemetry to the adt-pusher. The code used `event.get("telemetry", {})` but after normalization, telemetry fields (temperature, humidity) are at the **root level**, not nested under a `telemetry` key.
-
-**Fix Applied (AI-0201-9886):** Commit d1cccad - Extract telemetry from root-level fields by filtering out metadata keys (device_id, timestamp, etc.).
-
-**Status:** ✅ FIX APPLIED - Pending redeployment and verification
-
-**Verification Required:** Redeploy the scenario and re-run E2E tests to verify fix.
 
 ---
 
