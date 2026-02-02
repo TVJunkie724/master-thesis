@@ -1,16 +1,17 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-02-02 09:45  
+**Last Updated:** 2026-02-02 19:53  
+**Hot-Reader Serialization Fix Session:** AI-0202-fee9  
 **ADT Telemetry Fix Session:** AI-0201-9886  
 **TwinMaker Fix Session:** AI-0130-5dda
 
 ---
 
-## 🔜 Next Steps (Feb 2)
+## 🔜 Next Steps
 
 1. ✅ **AWS→Azure PASSING** - All 13 tests pass after ADT Pusher fix
-2. **Verify other ADT scenarios** - Azure→GCP, GCP→Azure should also pass now
-3. **Investigate test_08 hot storage failure** - Check AWS Lambda logs for `l0-hot-writer` (affects L3-Hot=AWS scenarios)
+2. ✅ **Azure→GCP PASSING** - All 13 tests pass (Feb 2, 19:36)
+3. **Verify remaining scenarios** - GCP→AWS, GCP→Azure should pass with DecimalEncoder fix
 
 ---
 
@@ -21,11 +22,20 @@
 | **AWS→GCP** | Jan 31 (01:11) | 13 | 0 | 2 | ✅ **PASS** |
 | **AWS→Azure** | Feb 2 (08:35) | 13 | 0 | 2 | ✅ **PASS** |
 | **Azure→AWS** | Jan 31 (00:29) | 13 | 0 | 2 | ✅ **PASS** |
-| **Azure→GCP** | Jan 31 (01:39) | 11 | 2 | 2 | ❌ FAIL |
-| **GCP→AWS** | Jan 31 (01:45) | 11 | 1 | 3 | ❌ FAIL |
-| **GCP→Azure** | Jan 31 (01:45) | 9 | 3 | 3 | ❌ FAIL |
+| **Azure→GCP** | Feb 2 (19:36) | 13 | 0 | 2 | ✅ **PASS** |
+| **GCP→AWS** | Jan 31 (01:45) | 11 | 1 | 3 | ⏳ Pending |
+| **GCP→Azure** | Jan 31 (01:45) | 9 | 3 | 3 | ⏳ Pending |
 
-### AWS→Azure Latest Run (Feb 2, 08:35 → 08:46)
+### Azure→GCP Latest Run (Feb 2, 18:21 → 18:36)
+- **Duration**: 15m 02s
+- **Result**: `13 passed, 2 skipped, 0 failed` ✅
+- **Key tests passing**:
+  - `test_08_verify_hot_storage` ✅ (data found in ~36s, attempt 18/300)
+  - `test_11b_adt_twin_telemetry` ✅ (`lastTemperature: 42.5` verified in ADT, attempt 7/30)
+  - `test_12_azure_functions_deployed` ✅
+- **Resources**: 104 deployed, 103 destroyed (cleanup successful)
+
+### AWS→Azure Previous Run (Feb 2, 08:35 → 08:46)
 - **Duration**: 10m 21s
 - **Result**: `13 passed, 2 skipped, 0 failed` ✅
 - **Key tests passing**:
@@ -110,25 +120,18 @@ The `"add"` operation works as upsert: creates if missing, updates if exists.
 
 ---
 
-## ❌ Remaining Failures (Feb 2)
+## ⏳ Pending Verification
 
-### Issue #1: `test_08_verify_hot_storage` - L3-Hot AWS Data Flow
+### GCP→AWS and GCP→Azure Scenarios
 
-**Affected:** Azure→GCP, GCP→AWS, GCP→Azure (all have L3-Hot = AWS DynamoDB)
+**Status:** Not yet re-tested with DecimalEncoder fix.
 
-**Error:** `[DATAFLOW CRITICAL] No data found in hot storage after 180s.`
+**Expected:** Should pass now that:
+1. DecimalEncoder fix resolves Decimal serialization in AWS hot-reader
+2. Timeout increased to 600s handles cold start delays
+3. ADT Pusher uses `"add"` instead of `"replace"`
 
-**Pattern:** Fails when L3-Hot is AWS DynamoDB. Passes when L3-Hot is GCP Firestore.
-
-**Next Steps:** Check AWS Lambda logs for `l0-hot-writer` and `l3-hot-reader`.
-
----
-
-### Issue #2: `test_11b_adt_twin_telemetry` - FIXED ✅
-
-**Status:** Fixed on Feb 2 - see "Fixes Applied" above.
-
-**Scenarios to verify:** Azure→GCP, GCP→Azure should now pass with the same fix.
+**Next Steps:** Run `deployer-gcp-aws` and `deployer-gcp-azure` to verify.
 
 
 ---
@@ -284,11 +287,11 @@ Data sometimes doesn't reach GCP Firestore within 120s timeout. Hot reader retur
 | Scenario | Status | Key Issues |
 |----------|--------|------------|
 | **AWS→GCP** | ✅ PASS | None |
-| **AWS→Azure** | ❌ FAIL | test_11b, test_12 (fix applied) |
+| **AWS→Azure** | ✅ PASS | None (fixed Feb 2) |
 | **Azure→AWS** | ✅ PASS | None |
-| **Azure→GCP** | ❌ FAIL | test_08, test_11b |
-| **GCP→AWS** | ❌ FAIL | test_08 |
-| **GCP→Azure** | ❌ FAIL | test_08, test_11b, test_12 (fix applied) |
+| **Azure→GCP** | ✅ PASS | None (fixed Feb 2) |
+| **GCP→AWS** | ⏳ Pending | Needs re-test with DecimalEncoder fix |
+| **GCP→Azure** | ⏳ Pending | Needs re-test with DecimalEncoder fix |
 
 ---
 
