@@ -54,7 +54,7 @@ def main():
         "deployer-aws-gcp": ("tests/e2e/multicloud/test_scenario_aws_gcp.py", "tests/e2e/multicloud"),
         "deployer-azure-aws": ("tests/e2e/multicloud/test_scenario_azure_aws.py", "tests/e2e/multicloud"),
         "deployer-azure-gcp": ("tests/e2e/multicloud/test_scenario_azure_gcp.py", "tests/e2e/multicloud"),
-        "deployer-azure-aws-adt": ("tests/e2e/multicloud/test_scenario_azure_aws_adt.py", "tests/e2e/multicloud"),
+        "deployer-cross-l4": ("tests/e2e/multicloud/test_scenario_cross_l4.py", "tests/e2e/multicloud"),
     }
     
     if provider not in test_map:

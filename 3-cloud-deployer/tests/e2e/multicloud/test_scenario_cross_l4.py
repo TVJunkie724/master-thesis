@@ -1,5 +1,5 @@
 """
-Scenario: Azure→AWS with Azure L4 (Cross-L4 Test)
+Scenario: Cross-L4 (AWS L2 → Azure L4)
 
 This scenario specifically tests the AWS L2 → Azure L4 boundary,
 which is NOT covered by the other 6 cross-cloud scenarios.
@@ -23,8 +23,8 @@ import pytest
 from ._base_scenario import BaseScenarioTest, ScenarioConfig
 
 SCENARIO = ScenarioConfig(
-    name="azure-aws-adt",
-    description="Azure→AWS with Azure L4: Tests AWS Persister → Azure ADT boundary",
+    name="cross-l4",
+    description="Cross-L4: Tests AWS Persister → Azure ADT boundary",
     providers={
         "layer_1_provider": "azure",
         "layer_2_provider": "aws",
@@ -38,6 +38,6 @@ SCENARIO = ScenarioConfig(
 
 
 @pytest.mark.live
-class TestScenarioAzureAwsAdt(BaseScenarioTest):
+class TestScenarioCrossL4(BaseScenarioTest):
     """E2E test for cross-cloud L2→L4 boundary (AWS→Azure ADT)."""
     SCENARIO = SCENARIO

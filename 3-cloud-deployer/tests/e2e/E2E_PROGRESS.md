@@ -15,7 +15,7 @@
 | **Azure→GCP** | Feb 2 (19:36) | 13 | 0 | 2 | ✅ **PASS** |
 | **GCP→AWS** | Feb 2 (20:15) | 12 | 0 | 3 | ✅ **PASS** |
 | **GCP→Azure** | Feb 2 (18:48) | 12 | 0 | 3 | ✅ **PASS** |
-| **Azure→AWS-ADT** | - | - | - | - | 🆕 New |
+| **Cross-L4** | - | - | - | - | 🆕 New |
 | **AWS** | - | - | - | - | 🆕 New |
 | **Azure** | - | - | - | - | 🆕 New |
 | **GCP** | - | - | - | - | 🆕 New |
@@ -32,7 +32,7 @@
 | **azure-gcp** | Azure | GCP | AWS | Azure | GCP | Azure | AWS |
 | **gcp-aws** | GCP | AWS | Azure | GCP | AWS | AWS | Azure |
 | **gcp-azure** | GCP | Azure | AWS | GCP | Azure | Azure | AWS |
-| **azure-aws-adt** | Azure | AWS | GCP | Azure | AWS | **Azure** | Azure |
+| **cross-l4** | Azure | **AWS** | GCP | Azure | AWS | **Azure** | Azure |
 | **aws** | AWS | AWS | AWS | AWS | AWS | AWS | AWS |
 | **azure** | Azure | Azure | Azure | Azure | Azure | Azure | Azure |
 | **gcp** | GCP | GCP | GCP | GCP | GCP | none | none |
@@ -51,7 +51,7 @@
 | L2→L4 (ADT) | 2 | **2** | ✅ 100% |
 | L4→L5 | 2 | 2 | ✅ 100% |
 
-> **Note:** `azure-aws-adt` specifically tests AWS L2 → Azure L4 (ADT) boundary.
+> **Note:** `cross-l4` specifically tests AWS L2 → Azure L4 (ADT) boundary.
 
 
 
