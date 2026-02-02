@@ -134,6 +134,7 @@ def verify_gcp(creds: dict, prefix: str) -> list:
     try:
         from google.cloud import storage
         from google.oauth2 import service_account
+        from googleapiclient import discovery
         
         gcp = creds.get("gcp", {})
         project_id = gcp.get("gcp_project_id")
@@ -155,17 +156,51 @@ def verify_gcp(creds: dict, prefix: str) -> list:
             remaining.append("GCP credentials file not found")
             return remaining
         
+        prefix_underscore = prefix.replace("-", "_")
+        
         # Check Storage buckets
         try:
             storage_client = storage.Client(project=project_id, credentials=credentials)
             for bucket in storage_client.list_buckets():
-                if prefix in bucket.name:
+                if prefix in bucket.name or prefix_underscore in bucket.name:
                     remaining.append(f"GCP Storage: {bucket.name}")
         except Exception as e:
             remaining.append(f"GCP Storage check failed: {e}")
         
-        # Note: Firestore and Cloud Functions need separate APIs
-        remaining.append(f"GCP Firestore/Functions: Check manually for prefix '{prefix}'")
+        # Check Pub/Sub topics
+        try:
+            pubsub = discovery.build('pubsub', 'v1', credentials=credentials)
+            topics = pubsub.projects().topics().list(project=f'projects/{project_id}').execute()
+            for t in topics.get('topics', []):
+                if prefix in t['name'] or prefix_underscore in t['name']:
+                    topic_name = t['name'].split('/')[-1]
+                    remaining.append(f"GCP Pub/Sub Topic: {topic_name}")
+        except Exception as e:
+            remaining.append(f"GCP Pub/Sub check failed: {e}")
+        
+        # Check Cloud Functions (v2)
+        try:
+            functions = discovery.build('cloudfunctions', 'v2', credentials=credentials)
+            parent = f'projects/{project_id}/locations/-'
+            result = functions.projects().locations().functions().list(parent=parent).execute()
+            for f in result.get('functions', []):
+                if prefix in f['name'] or prefix_underscore in f['name']:
+                    func_name = f['name'].split('/')[-1]
+                    remaining.append(f"GCP Cloud Function: {func_name}")
+        except Exception as e:
+            # Ignore "no functions" errors
+            if "404" not in str(e) and "NOT_FOUND" not in str(e):
+                remaining.append(f"GCP Functions check failed: {e}")
+        
+        # Check Service Accounts
+        try:
+            iam = discovery.build('iam', 'v1', credentials=credentials)
+            sa_list = iam.projects().serviceAccounts().list(name=f'projects/{project_id}').execute()
+            for sa in sa_list.get('accounts', []):
+                if prefix in sa['email'] or prefix_underscore in sa['email']:
+                    remaining.append(f"GCP Service Account: {sa['email']}")
+        except Exception as e:
+            remaining.append(f"GCP Service Account check failed: {e}")
         
     except ImportError:
         remaining.append("GCP SDK not fully available for verification")
