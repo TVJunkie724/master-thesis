@@ -1,6 +1,7 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-02-02 19:53  
+**Last Updated:** 2026-02-02 19:58  
+**GCP Dispatcher Fix Session:** AI-0202-f1ac  
 **Hot-Reader Serialization Fix Session:** AI-0202-fee9  
 **ADT Telemetry Fix Session:** AI-0201-9886  
 **TwinMaker Fix Session:** AI-0130-5dda
@@ -11,7 +12,8 @@
 
 1. ✅ **AWS→Azure PASSING** - All 13 tests pass after ADT Pusher fix
 2. ✅ **Azure→GCP PASSING** - All 13 tests pass (Feb 2, 19:36)
-3. **Verify remaining scenarios** - GCP→AWS, GCP→Azure should pass with DecimalEncoder fix
+3. ✅ **GCP→Azure PASSING** - All 12 tests pass after dispatcher base64 fix (Feb 2, 18:48)
+4. **Verify remaining scenarios** - GCP→AWS should pass with DecimalEncoder + dispatcher fix
 
 ---
 
@@ -24,9 +26,18 @@
 | **Azure→AWS** | Jan 31 (00:29) | 13 | 0 | 2 | ✅ **PASS** |
 | **Azure→GCP** | Feb 2 (19:36) | 13 | 0 | 2 | ✅ **PASS** |
 | **GCP→AWS** | Jan 31 (01:45) | 11 | 1 | 3 | ⏳ Pending |
-| **GCP→Azure** | Jan 31 (01:45) | 9 | 3 | 3 | ⏳ Pending |
+| **GCP→Azure** | Feb 2 (18:48) | 12 | 0 | 3 | ✅ **PASS** |
 
-### Azure→GCP Latest Run (Feb 2, 18:21 → 18:36)
+### GCP→Azure Latest Run (Feb 2, 18:27 → 18:48)
+- **Duration**: 21m 43s
+- **Result**: `12 passed, 3 skipped, 0 failed` ✅
+- **Key tests passing**:
+  - `test_08_verify_hot_storage` ✅ (data found in ~18s, attempt 9/300)
+  - `test_11b_adt_twin_telemetry` ✅ (`lastTemperature: 42.5` verified in ADT, attempt 6/30)
+  - `test_12_azure_functions_deployed` ✅
+- **Resources**: 82 deployed, 81 destroyed (cleanup successful)
+
+### Azure→GCP Previous Run (Feb 2, 18:21 → 18:36)
 - **Duration**: 15m 02s
 - **Result**: `13 passed, 2 skipped, 0 failed` ✅
 - **Key tests passing**:
@@ -120,18 +131,49 @@ The `"add"` operation works as upsert: creates if missing, updates if exists.
 
 ---
 
+### GCP Dispatcher Pub/Sub Base64 Fix (AI-0202-f1ac)
+
+**Problem:** `test_08_verify_hot_storage` and `test_11b_adt_twin_telemetry` failed with:
+```
+Error: 'device_id' missing in event.
+```
+
+**Root Cause:** GCP Pub/Sub via Eventarc wraps messages in a CloudEvents envelope with base64-encoded data:
+```json
+{"message": {"data": "eyJpb3REZXZpY2VJZCI6IC4uLn0=", "messageId": "..."}}
+```
+The dispatcher was calling `normalize_telemetry()` on the wrapper instead of decoding the payload first.
+
+**Fix Applied:**
+```python
+# Added helper function to extract and decode Pub/Sub payload
+def _extract_pubsub_payload(envelope: dict) -> dict:
+    if "message" in envelope and "data" in envelope.get("message", {}):
+        encoded = envelope["message"]["data"]
+        decoded = base64.b64decode(encoded).decode("utf-8")
+        return json.loads(decoded)
+    return envelope  # Direct HTTP call, no wrapper
+
+# Called before normalize_telemetry in main()
+event = _extract_pubsub_payload(event)
+```
+
+**File:** `src/providers/gcp/cloud_functions/dispatcher/main.py`
+
+---
+
 ## ⏳ Pending Verification
 
-### GCP→AWS and GCP→Azure Scenarios
+### GCP→AWS Scenario
 
-**Status:** Not yet re-tested with DecimalEncoder fix.
+**Status:** Not yet re-tested with dispatcher base64 fix.
 
 **Expected:** Should pass now that:
-1. DecimalEncoder fix resolves Decimal serialization in AWS hot-reader
-2. Timeout increased to 600s handles cold start delays
-3. ADT Pusher uses `"add"` instead of `"replace"`
+1. Dispatcher base64 fix correctly decodes Pub/Sub messages
+2. DecimalEncoder fix resolves Decimal serialization in AWS hot-reader
+3. Timeout increased to 600s handles cold start delays
 
-**Next Steps:** Run `deployer-gcp-aws` and `deployer-gcp-azure` to verify.
+**Next Steps:** Run `deployer-gcp-aws` to verify.
 
 
 ---
