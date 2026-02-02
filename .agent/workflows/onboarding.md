@@ -222,15 +222,25 @@ Credential files are mounted into containers:
 ## ⚠️ Critical Rules
 
 ### NEVER Auto-Run E2E Tests
-E2E tests in `tests/e2e/` deploy real cloud resources that cost money.
+E2E tests in `tests/e2e/` deploy real cloud resources that **cost money**.
+
+> [!CAUTION]
+> **MANDATORY: Before running ANY E2E test, you MUST:**
+> 1. Use `notify_user` to **ASK PERMISSION FIRST**
+> 2. Wait for explicit user approval
+> 3. Only then run the test
+>
+> This applies even after implementing a fix - do NOT run E2E tests to "verify" without asking.
 
 ```
-❌ FORBIDDEN: Running E2E tests without explicit user instruction
+❌ FORBIDDEN: Running E2E tests without notify_user approval
+❌ FORBIDDEN: Proposing E2E test with SafeToAutoRun=false (still wrong!)
+✅ REQUIRED: notify_user → Ask "Should I run the E2E test to verify?" → Wait for approval
 ✅ ALLOWED: Running unit/integration tests (--ignore=tests/e2e)
 ```
 
 ### E2E Test Protocol
-When running E2E tests (with explicit user permission):
+When running E2E tests (**ONLY after explicit user approval**):
 
 **⚠️ ALWAYS use the helper script** - never run pytest directly for E2E tests:
 ```bash
