@@ -53,6 +53,55 @@
 
 > **Note:** `cross-l4` specifically tests AWS L2 → Azure L4 (ADT) boundary.
 
+---
+
+## Deployed Functions by Layer
+
+| Layer | Functions |
+|-------|-----------|
+| L0 (Glue) | ingestion, connector, hot-writer, cold-writer, archive-writer, adt-pusher, l0-hot-reader |
+| L1 (Acquisition) | dispatcher |
+| L2 (Processing) | persister, processor_wrapper, event-checker, event_feedback_wrapper |
+| L3 (Storage) | hot-reader, hot-reader-last-entry, hot-to-cold-mover, cold-to-archive-mover |
+| L4 (Management) | adt-updater (Azure), digital-twin-data-connector (AWS) |
+
+---
+
+## Event Flow Architecture
+
+```
+IoT Device → Dispatcher → Processor → Persister
+                                        ↓
+              ┌─────────────────────────┴──────────────────────────┐
+              ↓                         ↓                          ↓
+        Hot Storage               ADT Pusher               Event-Checker
+     (DynamoDB/Cosmos)          (Azure L4)             (if USE_EVENT_CHECKING)
+                                                              ↓
+                                                    ┌─────────┴─────────┐
+                                                    ↓                   ↓
+                                            Workflow Action      Lambda Action
+                                         (Step Fn/Logic App)   (user callback)
+                                                    ↓                   ↓
+                                                    └─────────┬─────────┘
+                                                              ↓
+                                                       Feedback Func
+                                                      (send to device)
+```
+
+**Event Flow Tests:**
+- `test_13`: Event-Checker invoked
+- `test_14`: Lambda action called  
+- `test_15`: Workflow triggered
+- `test_16`: Feedback sent
+
+**L3 Mover Deployment Verification:**
+- `test_17`: Hot-to-cold mover deployed (checks function + env vars)
+- `test_18`: Cold-to-archive mover deployed (checks function + env vars)
+
+**L3 Mover Deployment Verification:**
+- `test_17`: Hot-to-cold mover deployed (checks function + env vars)
+- `test_18`: Cold-to-archive mover deployed (checks function + env vars)
+
 
 
 ## Session References

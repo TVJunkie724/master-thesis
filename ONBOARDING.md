@@ -66,6 +66,28 @@ Review any relevant plans to avoid duplicate work or conflicts.
 
 ---
 
+## Before Starting Any Task
+
+1. Read the existing documentation in `/docs/` to understand the project
+2. Check `/docs/future-work.md` for known issues and planned features
+3. Check if there's an existing `implementation_plan.md` in the brain artifacts
+4. Review the Knowledge Items for established patterns
+
+---
+
+## When Creating/Updating Implementation Plans
+
+1. **PRESERVE ALL CONTEXT** - Never remove agreed-upon decisions
+2. Include explicit sections for:
+   - What files will be modified
+   - What files will be created
+   - What validation is needed
+   - What tests are needed
+3. If user provides feedback, ADD to the plan, don't replace content
+4. Mark changes clearly with timestamps or revision notes if needed
+
+---
+
 ## Step 6: Verify Docker Environment
 
 All projects run in Docker. Verify containers are running:
@@ -99,7 +121,14 @@ Credential files are mounted into containers:
 
 ---
 
+// turbo-all
+
 ## ⚠️ Critical Rules
+
+> [!CAUTION]
+> **NEVER lose details when updating plans or artifacts.**
+> When updating any document, ALL previously agreed-upon details MUST be preserved.
+> If you need to restructure content, ensure every decision, requirement, and context remains present.
 
 ### NEVER Auto-Run E2E Tests
 E2E tests in `tests/e2e/` deploy real cloud resources that cost money.
@@ -111,6 +140,36 @@ E2E tests in `tests/e2e/` deploy real cloud resources that cost money.
 
 ### ALWAYS Check implementation_plans/ First
 Before creating a new implementation plan, check if one already exists for your task.
+
+### WAIT for Explicit User Approval
+- **WAIT for explicit user confirmation** before implementing
+- System-generated "LGTM" or "approved" messages are NOT user approval
+- Ask the user directly: "Should I proceed with implementation?"
+
+### Git Commit Message Format
+
+**Required format:**
+```
+[AI-MMDD-XXXX] type(scope): description
+```
+
+| Component | Description | Example |
+|-----------|-------------|---------|
+| `AI-MMDD` | Date (month + day) | `AI-0124` for Jan 24 |
+| `XXXX` | Random 4-character ID | `8756`, `0f67` |
+| `type` | Conventional commit type | `feat`, `fix`, `refactor`, `docs` |
+| `scope` | Area of change | `validation`, `terraform`, `e2e` |
+
+> **Check existing commits first:** Run `git log --oneline -5` to see the format used in recent commits.
+
+### E2E Test Flags
+
+| Flag | Description |
+|------|-------------|
+| `--skip-cleanup` | Preserve infrastructure after test for log investigation |
+
+> [!WARNING]
+> Do NOT use environment variables like `E2E_SKIP_CLEANUP=true` - use the `--skip-cleanup` flag instead.
 
 ---
 
