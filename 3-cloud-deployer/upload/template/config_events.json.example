@@ -1,0 +1,39 @@
+[
+  {
+    "_comment": "Lambda/Function action - works with any L2 provider",
+    "condition": "entityId.componentId.temperature > DOUBLE(30)",
+    "action": {
+      "type": "lambda",
+      "functionName": "my-callback-function",
+      "autoDeploy": true,
+      "feedback": {
+        "type": "mqtt",
+        "iotDeviceId": "device-1",
+        "payload": "Temperature warning"
+      }
+    }
+  },
+  {
+    "_comment": "AWS Step Function - requires layer_2_provider: aws",
+    "condition": "entityId.componentId.pressure > DOUBLE(100)",
+    "action": { "type": "step_function" }
+  },
+  {
+    "_comment": "Azure Logic App - requires layer_2_provider: azure",
+    "condition": "entityId.componentId.humidity < DOUBLE(20)",
+    "action": { "type": "logic_app" }
+  },
+  {
+    "_comment": "GCP Cloud Workflow - requires layer_2_provider: google",
+    "condition": "entityId.componentId.voltage > DOUBLE(220)",
+    "action": { "type": "workflow" }
+  },
+  {
+    "_comment": "GCP Function action - alternative to 'lambda' for GCP",
+    "condition": "entityId.componentId.current > DOUBLE(10)",
+    "action": {
+      "type": "function",
+      "functionUrl": "https://region-project.cloudfunctions.net/my-function"
+    }
+  }
+]
