@@ -117,6 +117,61 @@ def get_id_token_headers(target_url: str) -> dict:
     return headers
 
 
+def get_access_token_headers() -> dict:
+    """
+    Get headers with OAuth2 access token for GCP API calls.
+    
+    This is different from get_id_token_headers():
+    - ID tokens: Used for Cloud Functions/Cloud Run service-to-service auth
+    - Access tokens: Used for GCP REST APIs (like Workflows Execution API)
+    
+    Uses Application Default Credentials (ADC) which automatically work
+    when running in Cloud Functions with a service account.
+    
+    Returns:
+        dict: Headers including Authorization bearer token and Content-Type
+    
+    Raises:
+        RuntimeError: If google-auth library is unavailable or token fetch fails
+    """
+    global _token_cache
+    
+    headers = {"Content-Type": "application/json"}
+    
+    if not _GOOGLE_AUTH_AVAILABLE:
+        raise RuntimeError("google-auth library not available - required for GCP API calls")
+    
+    # Check cache for access token
+    cache_key = "_gcp_access_token"
+    cached = _token_cache.get(cache_key)
+    if cached and time.time() < cached["expiry"] - _TOKEN_REFRESH_MARGIN:
+        headers["Authorization"] = f"Bearer {cached['token']}"
+        return headers
+    
+    try:
+        import google.auth
+        credentials, project = google.auth.default()
+        
+        # Refresh credentials to get a valid token
+        auth_req = google.auth.transport.requests.Request()
+        credentials.refresh(auth_req)
+        
+        access_token = credentials.token
+        headers["Authorization"] = f"Bearer {access_token}"
+        
+        # Cache with expiry (default 1 hour for access tokens)
+        expiry_time = credentials.expiry.timestamp() if credentials.expiry else time.time() + 3600
+        _token_cache[cache_key] = {
+            "token": access_token,
+            "expiry": expiry_time
+        }
+        print("Access token obtained for GCP API calls")
+    except Exception as e:
+        raise RuntimeError(f"Failed to get access token: {e}")
+    
+    return headers
+
+
 # ==========================================
 # Payload Envelope Builder
 # ==========================================

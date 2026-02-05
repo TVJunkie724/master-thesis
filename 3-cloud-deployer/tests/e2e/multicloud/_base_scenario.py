@@ -144,7 +144,9 @@ def create_scenario_project(scenario: ScenarioConfig, template_path: Path, base_
             {
                 "condition": "testEntityId.pressure-sensor-1.pressure > DOUBLE(999)",
                 "action": {
-                    "type": workflow_type
+                    "type": workflow_type,
+                    "workflowName": "pressure-alert-workflow",
+                    "autoDeploy": True
                 }
             }
         ]
@@ -1309,6 +1311,57 @@ class BaseScenarioTest:
             client_secret=azure_creds["azure_client_secret"]
         )
     
+    def _setup_gcp_credentials(self, credentials: dict, project_path) -> callable:
+        """Set up GCP credentials via GOOGLE_APPLICATION_CREDENTIALS env var.
+        
+        Returns a cleanup function to restore the original env var state.
+        """
+        gcp_creds = credentials.get("gcp", {})
+        creds_file = gcp_creds.get("gcp_credentials_file")
+        old_creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+        
+        if creds_file:
+            if not os.path.isabs(creds_file):
+                creds_file = str(Path(project_path) / creds_file)
+            if os.path.exists(creds_file):
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_file
+        
+        def cleanup():
+            if old_creds is not None:
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = old_creds
+            elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
+                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+        
+        return cleanup
+    
+    def _get_gcp_region(self, outputs: dict) -> str:
+        """Extract GCP region from Terraform outputs.
+        
+        Since gcp_region is not directly in outputs, we extract it from:
+        1. gcp_event_workflow_id: projects/{project}/locations/{region}/workflows/{name}
+        2. gcp_dispatcher_url: https://{region}-{project}.cloudfunctions.net/{name}
+        3. Default to us-central1 if not found
+        """
+        import re
+        
+        # Try from workflow ID first (most reliable)
+        workflow_id = outputs.get("gcp_event_workflow_id", "")
+        if workflow_id:
+            match = re.search(r'/locations/([^/]+)/', workflow_id)
+            if match:
+                return match.group(1)
+        
+        # Try from any GCP function URL
+        for key in ["gcp_dispatcher_url", "gcp_persister_url", "gcp_hot_reader_url"]:
+            url = outputs.get(key, "")
+            if url:
+                # URL format: https://{region}-{project}.cloudfunctions.net/
+                match = re.match(r'https://([^-]+)-', url)
+                if match:
+                    return match.group(1)
+        
+        return "us-central1"  # Default fallback
+    
     def test_13_event_checker_invoked(self, deployed_environment):
         """Verify Event-Checker was invoked by Persister.
         
@@ -1333,7 +1386,7 @@ class BaseScenarioTest:
             logs_client = boto3.client('logs')
             
             # Event-Checker Lambda log group
-            func_name = outputs.get('aws_l2_event_checker_name', 'event-checker')
+            func_name = outputs.get('aws_l2_event_checker_function_name', 'event-checker')
             log_group = f"/aws/lambda/{func_name}"
             
             # Query recent logs for invocation evidence (extended to 15 min for cold starts)
@@ -1372,11 +1425,15 @@ class BaseScenarioTest:
             
             credential = self._get_azure_credential(azure_creds)
             client = LogsQueryClient(credential)
+            # NOTE: Use AppTraces (Application Insights) instead of FunctionAppLogs
+            # FunctionAppLogs has 15-30 min ingestion lag; AppTraces is faster (~5 min)
             query = """
-            FunctionAppLogs
-            | where FunctionName contains "event-checker"
-            | where TimeGenerated > ago(15m)
-            | limit 5
+            AppTraces
+            | where AppRoleName contains "l2-functions"
+            | where Message contains "Event Checker" or Message contains "event-checker"
+            | where TimeGenerated > ago(60m)
+            | project TimeGenerated, Message
+            | limit 10
             """
             
             try:
@@ -1396,27 +1453,32 @@ class BaseScenarioTest:
                 pytest.skip("google-cloud-logging SDK not installed")
             
             project_id = outputs.get("gcp_project_id")
+            project_path = deployed_environment["project_path"]
             if not project_id:
                 pytest.fail("GCP project ID not in outputs - cannot verify GCP logs")
             
-            client = cloud_logging.Client(project=project_id)
+            cleanup = self._setup_gcp_credentials(credentials, project_path)
+            try:
+                client = cloud_logging.Client(project=project_id)
             
-            # Query for event-checker function logs (last 15 minutes)
-            cutoff = datetime.now(timezone.utc).timestamp() - (15 * 60)
-            cutoff_str = datetime.fromtimestamp(cutoff, tz=timezone.utc).isoformat()
-            
-            filter_str = f'''
-                resource.type="cloud_function"
-                AND resource.labels.function_name:"event-checker"
-                AND timestamp >= "{cutoff_str}"
-            '''
-            
-            entries = list(client.list_entries(filter_=filter_str, max_results=5))
-            
-            if entries:
-                print(f"  ✓ EVENT-CHECKER INVOKED (found {len(entries)} log entries)")
-            else:
-                pytest.fail("Event-Checker logs not found in Cloud Logging within last 15 minutes")
+                # Query for event-checker function logs (last 15 minutes)
+                cutoff = datetime.now(timezone.utc).timestamp() - (15 * 60)
+                cutoff_str = datetime.fromtimestamp(cutoff, tz=timezone.utc).isoformat()
+                
+                filter_str = f'''
+                    resource.type="cloud_function"
+                    AND resource.labels.function_name:"event-checker"
+                    AND timestamp >= "{cutoff_str}"
+                '''
+                
+                entries = list(client.list_entries(filter_=filter_str, max_results=5))
+                
+                if entries:
+                    print(f"  ✓ EVENT-CHECKER INVOKED (found {len(entries)} log entries)")
+                else:
+                    pytest.fail("Event-Checker logs not found in Cloud Logging within last 15 minutes")
+            finally:
+                cleanup()
         else:
             pytest.fail(f"Unknown L2 provider: {l2_provider}")
     
@@ -1444,7 +1506,10 @@ class BaseScenarioTest:
                 pytest.skip("boto3 SDK not installed")
             
             logs_client = boto3.client('logs')
-            log_group = f"/aws/lambda/{function_name}"
+            
+            # Get digital_twin_name prefix for Lambda functions
+            dt_name = outputs.get('digital_twin_name', '')
+            log_group = f"/aws/lambda/{dt_name}-{function_name}" if dt_name else f"/aws/lambda/{function_name}"
             
             end_time = int(time.time() * 1000)
             start_time = end_time - (15 * 60 * 1000)
@@ -1480,11 +1545,15 @@ class BaseScenarioTest:
             
             credential = self._get_azure_credential(azure_creds)
             client = LogsQueryClient(credential)
+            # NOTE: Use AppTraces (Application Insights) instead of FunctionAppLogs
+            # FunctionAppLogs has 15-30 min ingestion lag; AppTraces is faster (~5 min)
             query = f"""
-            FunctionAppLogs
-            | where FunctionName contains "{function_name}"
-            | where TimeGenerated > ago(15m)
-            | limit 5
+            AppTraces
+            | where AppRoleName contains "user-functions"
+            | where Message contains "{function_name}"
+            | where TimeGenerated > ago(60m)
+            | project TimeGenerated, Message
+            | limit 10
             """
             
             try:
@@ -1504,26 +1573,31 @@ class BaseScenarioTest:
                 pytest.skip("google-cloud-logging SDK not installed")
             
             project_id = outputs.get("gcp_project_id")
+            project_path = deployed_environment["project_path"]
             if not project_id:
                 pytest.fail("GCP project ID not in outputs - cannot verify GCP logs")
             
-            client = cloud_logging.Client(project=project_id)
+            cleanup = self._setup_gcp_credentials(credentials, project_path)
+            try:
+                client = cloud_logging.Client(project=project_id)
             
-            cutoff = datetime.now(timezone.utc).timestamp() - (15 * 60)
-            cutoff_str = datetime.fromtimestamp(cutoff, tz=timezone.utc).isoformat()
-            
-            filter_str = f'''
-                resource.type="cloud_function"
-                AND resource.labels.function_name:"{function_name}"
-                AND timestamp >= "{cutoff_str}"
-            '''
-            
-            entries = list(client.list_entries(filter_=filter_str, max_results=5))
-            
-            if entries:
-                print(f"  ✓ ACTION FUNCTION INVOKED (found {len(entries)} log entries)")
-            else:
-                pytest.fail(f"Action function '{function_name}' logs not found in Cloud Logging within last 15 minutes")
+                cutoff = datetime.now(timezone.utc).timestamp() - (15 * 60)
+                cutoff_str = datetime.fromtimestamp(cutoff, tz=timezone.utc).isoformat()
+                
+                filter_str = f'''
+                    resource.type="cloud_function"
+                    AND resource.labels.function_name:"{function_name}"
+                    AND timestamp >= "{cutoff_str}"
+                '''
+                
+                entries = list(client.list_entries(filter_=filter_str, max_results=5))
+                
+                if entries:
+                    print(f"  ✓ ACTION FUNCTION INVOKED (found {len(entries)} log entries)")
+                else:
+                    pytest.fail(f"Action function '{function_name}' logs not found in Cloud Logging within last 15 minutes")
+            finally:
+                cleanup()
         else:
             pytest.fail(f"Unknown L2 provider: {l2_provider}")
     
@@ -1627,19 +1701,20 @@ class BaseScenarioTest:
             except ImportError:
                 pytest.skip("google-cloud-workflows SDK not installed")
             
+            # gcp_event_workflow_id already contains full path:
+            # "projects/{project}/locations/{region}/workflows/{workflow_name}"
             workflow_id = outputs.get("gcp_event_workflow_id") or outputs.get("gcp_workflow_name")
-            project_id = outputs.get("gcp_project_id")
-            region = outputs.get("gcp_region", "us-central1")
+            project_path = deployed_environment["project_path"]
             
             if not workflow_id:
                 pytest.fail("Workflow ID not in Terraform outputs (gcp_event_workflow_id)")
-            if not project_id:
-                pytest.fail("GCP project_id not in outputs - cannot verify workflow")
             
-            client = executions_v1.ExecutionsClient()
-            parent = f"projects/{project_id}/locations/{region}/workflows/{workflow_id}"
-            
+            cleanup = self._setup_gcp_credentials(credentials, project_path)
             try:
+                client = executions_v1.ExecutionsClient()
+                # workflow_id is already the full parent path for executions
+                parent = workflow_id
+                
                 executions = list(client.list_executions(parent=parent))
                 # Filter by recent time
                 recent_executions = [
@@ -1656,6 +1731,8 @@ class BaseScenarioTest:
                     pytest.fail("No Cloud Workflow executions found in last 15 minutes")
             except Exception as e:
                 pytest.fail(f"Could not list Cloud Workflow executions: {e}")
+            finally:
+                cleanup()
         else:
             pytest.fail(f"Unknown L2 provider: {l2_provider}")
     
@@ -1680,9 +1757,13 @@ class BaseScenarioTest:
             
             logs_client = boto3.client('logs')
             
-            # Feedback function log group
-            function_name = outputs.get("aws_feedback_function_name", "event-feedback")
-            log_group = f"/aws/lambda/{function_name}"
+            # Feedback function log group - use cloudwatch_log_groups dict or fallback
+            log_groups = outputs.get("aws_cloudwatch_log_groups", {})
+            log_group = log_groups.get("feedback-wrapper")
+            if not log_group:
+                # Fallback: construct from digital_twin_name
+                dt_name = outputs.get('digital_twin_name', '')
+                log_group = f"/aws/lambda/{dt_name}-event-feedback-wrapper" if dt_name else "/aws/lambda/event-feedback"
             
             end_time = int(time.time() * 1000)
             start_time = end_time - (15 * 60 * 1000)
@@ -1719,11 +1800,15 @@ class BaseScenarioTest:
             
             credential = self._get_azure_credential(azure_creds)
             client = LogsQueryClient(credential)
+            # NOTE: Use AppTraces (Application Insights) instead of FunctionAppLogs
+            # FunctionAppLogs has 15-30 min ingestion lag; AppTraces is faster (~5 min)
             query = """
-            FunctionAppLogs
-            | where FunctionName contains "event-feedback"
-            | where TimeGenerated > ago(15m)
-            | limit 5
+            AppTraces
+            | where AppRoleName contains "user-functions" or AppRoleName contains "l2-functions"
+            | where Message contains "event-feedback" or Message contains "Feedback"
+            | where TimeGenerated > ago(60m)
+            | project TimeGenerated, Message
+            | limit 10
             """
             
             try:
@@ -1743,26 +1828,31 @@ class BaseScenarioTest:
                 pytest.skip("google-cloud-logging SDK not installed")
             
             project_id = outputs.get("gcp_project_id")
+            project_path = deployed_environment["project_path"]
             if not project_id:
                 pytest.fail("GCP project ID not in outputs - cannot verify GCP logs")
             
-            client = cloud_logging.Client(project=project_id)
-            
-            cutoff = datetime.now(timezone.utc).timestamp() - (15 * 60)
-            cutoff_str = datetime.fromtimestamp(cutoff, tz=timezone.utc).isoformat()
-            
-            filter_str = f'''
-                resource.type="cloud_function"
-                AND resource.labels.function_name:"event-feedback"
-                AND timestamp >= "{cutoff_str}"
-            '''
-            
-            entries = list(client.list_entries(filter_=filter_str, max_results=5))
-            
-            if entries:
-                print(f"  ✓ FEEDBACK SENT (found {len(entries)} log entries)")
-            else:
-                pytest.fail("Feedback function logs not found in Cloud Logging within last 15 minutes")
+            cleanup = self._setup_gcp_credentials(credentials, project_path)
+            try:
+                client = cloud_logging.Client(project=project_id)
+                
+                cutoff = datetime.now(timezone.utc).timestamp() - (15 * 60)
+                cutoff_str = datetime.fromtimestamp(cutoff, tz=timezone.utc).isoformat()
+                
+                filter_str = f'''
+                    resource.type="cloud_function"
+                    AND resource.labels.function_name:"event-feedback"
+                    AND timestamp >= "{cutoff_str}"
+                '''
+                
+                entries = list(client.list_entries(filter_=filter_str, max_results=5))
+                
+                if entries:
+                    print(f"  ✓ FEEDBACK SENT (found {len(entries)} log entries)")
+                else:
+                    pytest.fail("Feedback function logs not found in Cloud Logging within last 15 minutes")
+            finally:
+                cleanup()
         else:
             pytest.fail(f"Unknown L2 provider: {l2_provider}")
 
@@ -1845,15 +1935,17 @@ class BaseScenarioTest:
                 pytest.skip("google-cloud-functions SDK not installed")
             
             project_id = outputs.get("gcp_project_id")
-            region = outputs.get("gcp_region", "us-central1")
+            project_path = deployed_environment["project_path"]
+            region = self._get_gcp_region(outputs)
             
             if not project_id:
                 pytest.fail("GCP project_id not in outputs - cannot verify mover")
             
             func_name = f"projects/{project_id}/locations/{region}/functions/{twin_name}-hot-to-cold-mover"
             
-            client = functions_v2.FunctionServiceClient()
+            cleanup = self._setup_gcp_credentials(credentials, project_path)
             try:
+                client = functions_v2.FunctionServiceClient()
                 function = client.get_function(name=func_name)
                 env_vars = function.service_config.environment_variables
                 
@@ -1866,6 +1958,8 @@ class BaseScenarioTest:
                     
             except Exception as e:
                 pytest.fail(f"Could not verify GCP function {func_name}: {e}")
+            finally:
+                cleanup()
         else:
             pytest.fail(f"Unknown L3-Hot provider: {l3_hot}")
     
@@ -1874,7 +1968,7 @@ class BaseScenarioTest:
         
         Checks for each provider:
         - AWS: Lambda exists with COLD_S3_BUCKET_NAME, ARCHIVE_S3_BUCKET_NAME
-        - Azure: Separate Function App for cold-to-archive mover
+        - Azure: Bundled in L3 functions app (same as hot-to-cold-mover)
         - GCP: Cloud Function exists with COLD_BUCKET_NAME, ARCHIVE_BUCKET_NAME
         """
         scenario = deployed_environment["scenario"]
@@ -1918,7 +2012,8 @@ class BaseScenarioTest:
             subscription_id = azure_creds.get("azure_subscription_id")
             
             resource_group = outputs.get("azure_resource_group_name", f"{twin_name}-rg")
-            func_app = outputs.get("azure_archive_function_app_name", f"{twin_name}-l3-archive-functions")
+            # NOTE: Azure bundles cold-to-archive-mover in the same L3 function app as hot-to-cold-mover
+            func_app = outputs.get("azure_l3_function_app_name", f"{twin_name}-l3-functions")
             
             credential = self._get_azure_credential(azure_creds)
             client = WebSiteManagementClient(credential, subscription_id)
@@ -1927,7 +2022,7 @@ class BaseScenarioTest:
                 settings = client.web_apps.list_application_settings(resource_group, func_app)
                 props = settings.properties if settings else {}
                 
-                print(f"  ✓ COLD-TO-ARCHIVE MOVER DEPLOYED: {func_app}")
+                print(f"  ✓ COLD-TO-ARCHIVE MOVER DEPLOYED (bundled in {func_app})")
                 
                 if "COLD_STORAGE_CONTAINER" in props:
                     print(f"    - COLD_STORAGE_CONTAINER: configured")
@@ -1944,15 +2039,17 @@ class BaseScenarioTest:
                 pytest.skip("google-cloud-functions SDK not installed")
             
             project_id = outputs.get("gcp_project_id")
-            region = outputs.get("gcp_region", "us-central1")
+            project_path = deployed_environment["project_path"]
+            region = self._get_gcp_region(outputs)
             
             if not project_id:
                 pytest.fail("GCP project_id not in outputs - cannot verify mover")
             
             func_name = f"projects/{project_id}/locations/{region}/functions/{twin_name}-cold-to-archive-mover"
             
-            client = functions_v2.FunctionServiceClient()
+            cleanup = self._setup_gcp_credentials(credentials, project_path)
             try:
+                client = functions_v2.FunctionServiceClient()
                 function = client.get_function(name=func_name)
                 env_vars = function.service_config.environment_variables
                 
@@ -1965,6 +2062,8 @@ class BaseScenarioTest:
                     
             except Exception as e:
                 pytest.fail(f"Could not verify GCP function {func_name}: {e}")
+            finally:
+                cleanup()
         else:
             pytest.fail(f"Unknown L3-Cold provider: {l3_cold}")
 
