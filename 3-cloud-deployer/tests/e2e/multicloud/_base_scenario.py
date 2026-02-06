@@ -1726,20 +1726,27 @@ class BaseScenarioTest:
                 # workflow_id is already the full parent path for executions
                 parent = workflow_id
                 
-                executions = list(client.list_executions(parent=parent))
-                # Filter by recent time
-                recent_executions = [
-                    e for e in executions
-                    if e.start_time.replace(tzinfo=timezone.utc) > cutoff_time
-                ]
-                
-                if recent_executions:
-                    latest = recent_executions[0]
-                    print(f"  ✓ CLOUD WORKFLOW TRIGGERED")
-                    print(f"    - Execution: {latest.name}")
-                    print(f"    - State: {latest.state.name}")
+                # Poll for executions with retry (API has indexing delay)
+                max_attempts = 12
+                for attempt in range(1, max_attempts + 1):
+                    executions = list(client.list_executions(parent=parent))
+                    # Filter by recent time
+                    recent_executions = [
+                        e for e in executions
+                        if e.start_time.replace(tzinfo=timezone.utc) > cutoff_time
+                    ]
+                    
+                    if recent_executions:
+                        latest = recent_executions[0]
+                        print(f"  ✓ CLOUD WORKFLOW TRIGGERED")
+                        print(f"    - Execution: {latest.name}")
+                        print(f"    - State: {latest.state.name}")
+                        break
+                        
+                    if attempt < max_attempts:
+                        time.sleep(5)
                 else:
-                    pytest.fail("No Cloud Workflow executions found in last 15 minutes")
+                    pytest.fail(f"No Cloud Workflow executions found after {max_attempts} attempts")
             except Exception as e:
                 pytest.fail(f"Could not list Cloud Workflow executions: {e}")
             finally:

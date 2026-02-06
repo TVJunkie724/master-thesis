@@ -273,6 +273,10 @@ resource "google_project_iam_custom_role" "functions_role" {
 
     # Cloud Run (Function invocation)
     "run.routes.invoke",
+    
+    # Cloud Workflows (Event workflow execution)
+    "workflows.executions.create",
+    "workflows.executions.get",
   ]
   
   depends_on = [google_project_service.iam]
