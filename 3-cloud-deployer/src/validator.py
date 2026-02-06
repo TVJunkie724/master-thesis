@@ -107,8 +107,21 @@ def validate_config_content(filename, content):
                          action = item["action"]
                          if "type" not in action:
                              errors.append(f"Event at index {index}: action missing 'type'")
-                         if "functionName" not in action:
-                             errors.append(f"Event at index {index}: action missing 'functionName'")
+                         
+                         # Validate action name field based on type
+                         action_type = action.get("type")
+                         workflow_types = ("step_function", "logic_app", "workflow")
+                         
+                         if action_type in workflow_types:
+                             # Workflow-type actions require functionName and functionNameB
+                             if "functionName" not in action:
+                                 errors.append(f"Event at index {index}: {action_type} action missing 'functionName' (first function in chain)")
+                             if "functionNameB" not in action:
+                                 errors.append(f"Event at index {index}: {action_type} action missing 'functionNameB' (second function in chain)")
+                         else:
+                             # Lambda/function actions require functionName
+                             if "functionName" not in action:
+                                 errors.append(f"Event at index {index}: action missing 'functionName'")
                          
                          if action.get("type") == "lambda" and "feedback" in action:
                              feedback = action["feedback"]
@@ -670,10 +683,29 @@ def validate_state_machine_content(filename, content):
                     
                     if duplicates:
                         errors.append(f"Duplicate step names: {duplicates}")
+                    
+                    # Check for HTTP calls missing OIDC authentication.
+                    # This is MANDATORY for Cloud Functions Gen2 which run on Cloud Run.
+                    # Without 'auth: {type: OIDC}' in the args, the workflow will receive
+                    # a 403 Forbidden error when calling the function, even if IAM 
+                    # permissions (roles/run.invoker) are correctly configured.
+                    for step in steps_list:
+                        if isinstance(step, dict):
+                            for step_name, step_def in step.items():
+                                if isinstance(step_def, dict):
+                                    call_type = step_def.get("call", "")
+                                    if call_type in ("http.post", "http.get", "http.request"):
+                                        args = step_def.get("args", {})
+                                        if isinstance(args, dict) and "auth" not in args:
+                                            errors.append(
+                                                f"Step '{step_name}' uses {call_type} without 'auth' section. "
+                                                f"Add 'auth: {{type: OIDC}}' to authenticate to Cloud Functions Gen2."
+                                            )
             
             if errors:
                 raise ValueError(f"GCP Workflow validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
             return  # Valid GCP workflow
+
         
         # 2c. AWS Step Function: Validate StartAt references existing state
         if filename == CONSTANTS.AWS_STATE_MACHINE_FILE:
