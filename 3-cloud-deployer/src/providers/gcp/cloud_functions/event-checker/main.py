@@ -191,6 +191,39 @@ def _evaluate_condition(event: dict, condition) -> bool:
         return False
 
 
+def _build_workflow_payload(event: dict, action: dict) -> dict:
+    """
+    Build Cloud Workflow execution payload with function URLs.
+    
+    Constructs the payload expected by google_cloud_workflow.yaml:
+    - FunctionA_URL: URL of the first Cloud Function to invoke
+    - FunctionB_URL: URL of the second Cloud Function to invoke
+    - InputData: The event and action data
+    
+    Args:
+        event: The incoming telemetry event
+        action: The action configuration from config_events.json
+    
+    Returns:
+        dict ready to pass to Workflows API as argument
+    """
+    twin_info = _get_digital_twin_info()
+    twin_name = twin_info["config"]["digital_twin_name"]
+    func_a = action.get("functionName")
+    func_b = action.get("functionNameB")
+    
+    # Get base URL from environment
+    base_url = os.environ.get("GCP_FUNCTION_BASE_URL", "")
+    
+    payload = {"InputData": {"event": event, "action": action}}
+    if func_a and base_url:
+        payload["FunctionA_URL"] = f"{base_url}/{twin_name}-{func_a}"
+    if func_b and base_url:
+        payload["FunctionB_URL"] = f"{base_url}/{twin_name}-{func_b}"
+    
+    return payload
+
+
 def _trigger_action(event: dict, action: dict, condition = None) -> None:
     """
     Execute the configured action with enriched context.
@@ -215,9 +248,10 @@ def _trigger_action(event: dict, action: dict, condition = None) -> None:
         print(f"Triggering Cloud Workflow: {WORKFLOW_TRIGGER_URL}")
         try:
             # Workflows API requires OAuth2 access tokens, not ID tokens
+            workflow_payload = _build_workflow_payload(event, action)
             resp = requests.post(
                 WORKFLOW_TRIGGER_URL,
-                json={"argument": json.dumps({"event": event, "action": action})},
+                json={"argument": json.dumps(workflow_payload)},
                 headers=get_access_token_headers(),
                 timeout=30
             )
@@ -239,15 +273,10 @@ def _trigger_action(event: dict, action: dict, condition = None) -> None:
                 twin_info = _get_digital_twin_info()
                 twin_name = twin_info["config"]["digital_twin_name"]
                 
-                # Try to get GCP region and project from a known URL
-                dispatcher_url = os.environ.get("GCP_DISPATCHER_URL", "")
-                if dispatcher_url and "cloudfunctions.net" in dispatcher_url:
-                    # Extract base URL pattern: https://{region}-{project}.cloudfunctions.net
-                    import re
-                    match = re.match(r'(https://[^/]+\.cloudfunctions\.net)', dispatcher_url)
-                    if match:
-                        base_url = match.group(1)
-                        function_url = f"{base_url}/{twin_name}-{function_name}"
+                # Get base URL from environment
+                base_url = os.environ.get("GCP_FUNCTION_BASE_URL", "")
+                if base_url:
+                    function_url = f"{base_url}/{twin_name}-{function_name}"
         
         if function_url:
             print(f"Invoking function: {function_url}")

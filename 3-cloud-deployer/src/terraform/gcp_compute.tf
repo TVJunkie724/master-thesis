@@ -224,6 +224,7 @@ resource "google_cloudfunctions2_function" "event_checker" {
       DIGITAL_TWIN_INFO     = var.digital_twin_info_json
       GCP_PROJECT_ID        = local.gcp_project_id
       INTER_CLOUD_TOKEN     = local.inter_cloud_token_value
+      GCP_FUNCTION_BASE_URL = local.gcp_function_base_url
       # Workflow trigger URL (if enabled)
       WORKFLOW_TRIGGER_URL  = var.trigger_notification_workflow ? (
         local.gcp_l2_event_workflow_url
