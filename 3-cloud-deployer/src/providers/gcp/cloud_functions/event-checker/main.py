@@ -217,9 +217,9 @@ def _build_workflow_payload(event: dict, action: dict) -> dict:
     
     payload = {"InputData": {"event": event, "action": action}}
     if func_a and base_url:
-        payload["FunctionA_URL"] = f"{base_url}/{twin_name}-{func_a}"
+        payload["FunctionA_URL"] = f"{base_url}/{twin_name}-event-action-{func_a}"
     if func_b and base_url:
-        payload["FunctionB_URL"] = f"{base_url}/{twin_name}-{func_b}"
+        payload["FunctionB_URL"] = f"{base_url}/{twin_name}-event-action-{func_b}"
     
     return payload
 
@@ -276,7 +276,7 @@ def _trigger_action(event: dict, action: dict, condition = None) -> None:
                 # Get base URL from environment
                 base_url = os.environ.get("GCP_FUNCTION_BASE_URL", "")
                 if base_url:
-                    function_url = f"{base_url}/{twin_name}-{function_name}"
+                    function_url = f"{base_url}/{twin_name}-event-action-{function_name}"
         
         if function_url:
             print(f"Invoking function: {function_url}")
