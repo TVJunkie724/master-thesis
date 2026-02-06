@@ -1,6 +1,6 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-02-02 21:16  
+**Last Updated:** 2026-02-06 22:52  
 **Status:** 🎉 **ALL 10 SCENARIOS CONFIGURED** (7 cross-cloud + 3 same-cloud)
 
 ---
@@ -16,9 +16,9 @@
 | **GCP→AWS** | Feb 2 (20:15) | 12 | 0 | 3 | ✅ **PASS** |
 | **GCP→Azure** | Feb 2 (18:48) | 12 | 0 | 3 | ✅ **PASS** |
 | **Cross-L4** | - | - | - | - | 🆕 New |
-| **AWS** | - | - | - | - | 🆕 New |
+| **AWS** | Feb 6 (10:16) | 17 | 1 | 3 | ⚠️ **1 FAIL** |
 | **Azure** | - | - | - | - | 🆕 New |
-| **GCP** | - | - | - | - | 🆕 New |
+| **GCP** | Feb 6 (20:32) | 13 | 0 | 8 | ✅ **PASS** |
 
 ---
 
@@ -98,16 +98,13 @@ IoT Device → Dispatcher → Processor → Persister
 - `test_17`: Hot-to-cold mover deployed (checks function + env vars)
 - `test_18`: Cold-to-archive mover deployed (checks function + env vars)
 
-**L3 Mover Deployment Verification:**
-- `test_17`: Hot-to-cold mover deployed (checks function + env vars)
-- `test_18`: Cold-to-archive mover deployed (checks function + env vars)
-
 
 
 ## Session References
 
 | Session ID | Focus |
 |------------|-------|
+| AI-0204-3b0e | AWS Same-Cloud E2E: IAM Fixes + CloudWatch Polling |
 | AI-0202-fee9 | Hot-Reader DecimalEncoder + Timeout Fix |
 | AI-0202-f1ac | GCP Dispatcher Pub/Sub Base64 Fix |
 | AI-0201-9886 | ADT Pusher JSON Patch Fix |
@@ -116,6 +113,33 @@ IoT Device → Dispatcher → Processor → Persister
 ---
 
 ## Latest Run Details
+
+### GCP Same-Cloud (Feb 6, 20:31 → 20:32)
+- **Duration**: 1m 26s
+- **Result**: `13 passed, 8 skipped, 0 failed` ✅
+- **Key tests**:
+  - `test_08_verify_hot_storage` ✅ (5 records, attempt 1)
+  - `test_13_event_checker_invoked` ✅ (4 log entries)
+  - `test_14_event_action_function_called` ✅ (4 log entries)
+  - `test_15_workflow_triggered` ✅ (Status: **SUCCEEDED** 🎉)
+  - `test_16_event_feedback_sent` ✅ (4 log entries)
+  - `test_17_hot_to_cold_mover` ✅
+  - `test_18_cold_to_archive_mover` ✅
+- **Cloud Workflow**: Now SUCCEEDED after OIDC auth fix (was FAILED with 403 in earlier rounds)
+- **Skipped**: 8 tests (L4/L5 not available for GCP, IoT devices, Azure functions)
+
+### AWS Same-Cloud (Feb 6, Round 5 — 10:16)
+- **Duration**: 41s
+- **Result**: `17 passed, 3 skipped, 1 failed` ⚠️
+- **Key tests**:
+  - `test_08_verify_hot_storage` ✅ (4 records, attempt 1)
+  - `test_10b_twinmaker_telemetry` ✅ (verified in 1 attempt)
+  - `test_13_event_checker_invoked` ✅ (1 log event found)
+  - `test_14_event_action_function_called` ❌ (CloudWatch indexing delay — fix applied post-run)
+  - `test_15_workflow_triggered` ✅ (Status: **SUCCEEDED**)
+  - `test_16_event_feedback_sent` ✅
+- **Step Function**: Now SUCCEEDED after IAM fix (was FAILED in rounds 1–4)
+- **Note**: `test_14` failure is a test-side timing issue (no polling), fix applied but not yet re-verified
 
 ### GCP→AWS (Feb 2, 19:07 → 20:15)
 - **Duration**: 8m 30s
@@ -143,6 +167,104 @@ IoT Device → Dispatcher → Processor → Persister
 ### AWS→Azure (Feb 2, 08:35 → 08:46)
 - **Duration**: 10m 21s
 - **Result**: `13 passed, 2 skipped, 0 failed` ✅
+
+---
+
+## Fixes Applied (Feb 6 — GCP Workflow)
+
+### 1. GCP Function Base URL Env Var
+
+**Problem:** `KeyError: FunctionA_URL` — workflow execution failed because function URLs were missing from payload.
+
+**Root Cause:** `GCP_FUNCTION_BASE_URL` env var was not configured for event-checker.
+
+**Fix:** Added `GCP_FUNCTION_BASE_URL` env var to event-checker Terraform config.
+
+**File:** `src/terraform/gcp_compute.tf`
+
+---
+
+### 2. Event-Action URL Pattern Fix
+
+**Problem:** 404 errors — workflow called functions at wrong URL.
+
+**Root Cause:** URL pattern was `{twin}-{func}` but deployed functions are named `{twin}-event-action-{func}`.
+
+**Fix:** Added `event-action-` prefix in `_build_workflow_payload()` and `_trigger_action()`.
+
+**File:** `src/providers/gcp/cloud_functions/event-checker/main.py`
+
+---
+
+### 3. Workflow OIDC Authentication
+
+**Problem:** 403 Forbidden — workflow couldn't invoke Cloud Functions Gen2.
+
+**Root Cause:** User-provided workflow template lacked `auth: {type: OIDC}` on HTTP calls. Cloud Functions Gen2 (backed by Cloud Run) require OIDC tokens even when IAM `roles/run.invoker` is granted.
+
+**Fix:** Added `auth: type: OIDC` to both `callFunctionA` and `callFunctionB` steps in template. Also added validation error in `validator.py` to catch missing auth during upload.
+
+**Files:** `upload/template/state_machines/google_cloud_workflow.yaml`, `src/validator.py`
+
+---
+
+## Fixes Applied (Feb 6 — AWS)
+
+### 1. L4 Connector IAM Policy Fix (AI-0204-3b0e)
+
+**Problem:** `AccessDeniedException: not authorized to perform lambda:InvokeFunction on l3-hot-reader`
+
+**Root Cause:** IAM policy referenced `l0-hot-reader` instead of `l3-hot-reader`.
+
+**Fix:** Changed `Resource` ARN to use `local.aws_l3_hot_reader_name`.
+
+**File:** `src/terraform/aws_twins.tf`
+
+---
+
+### 2. L3 TwinMaker IAM Permission (AI-0204-3b0e)
+
+**Problem:** `AccessDeniedException: not authorized to perform iottwinmaker:GetEntity`
+
+**Root Cause:** L3 Lambda role lacked TwinMaker read permissions needed when L4 connector invokes hot-reader.
+
+**Fix:** Added `aws_iam_role_policy.l3_twinmaker` with `iottwinmaker:GetEntity` and `iottwinmaker:GetWorkspace`.
+
+**File:** `src/terraform/aws_storage.tf`
+
+---
+
+### 3. Step Functions IAM Policy Fix (AI-0204-3b0e)
+
+**Problem:** Step Function failed with `AccessDeniedException` invoking `high-temperature-callback`
+
+**Root Cause:** `l2_sfn_lambda` policy only granted invoke on `event-checker`, not on event action Lambdas.
+
+**Fix:** Used `concat()` to include all `event_action` Lambda ARNs in the Resource list.
+
+**File:** `src/terraform/aws_compute.tf`
+
+---
+
+### 4. CloudWatch Log Polling (AI-0204-3b0e)
+
+**Problem:** Tests 13, 14, 16 failed due to CloudWatch log indexing delay (~30-60s).
+
+**Fix:** Added active polling (12 attempts × 5s) to all CloudWatch-based log assertions.
+
+**File:** `tests/e2e/multicloud/_base_scenario.py`
+
+---
+
+### 5. CloudWatch Filter Pattern Syntax (AI-0204-3b0e)
+
+**Problem:** `filterPattern="Hello from Event-Checker"` returned 0 results.
+
+**Root Cause:** CloudWatch filter patterns need double quotes for exact phrase matching.
+
+**Fix:** `filterPattern='"Hello from Event-Checker"'`
+
+**File:** `tests/e2e/multicloud/_base_scenario.py`
 
 ---
 
