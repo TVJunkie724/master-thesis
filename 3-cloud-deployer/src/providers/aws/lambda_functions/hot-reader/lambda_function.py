@@ -48,7 +48,7 @@ def _is_http_request(event: dict) -> bool:
 def _validate_token(event: dict) -> bool:
     """Validate X-Inter-Cloud-Token header for HTTP requests."""
     if not INTER_CLOUD_TOKEN:
-        # No token configured = reject all HTTP requests
+        # No token configured = reject all HTTP requests (security: block unauthenticated access)
         return False
     headers = event.get("headers", {})
     # Headers are lowercased by Lambda Function URL
@@ -97,8 +97,10 @@ def _query_dynamodb(query_event: dict) -> dict:
         }
 
         for item in items:
+            if property_name not in item:
+                continue  # Skip records missing this property
             entry["values"].append({
-                "time": item["id"],
+                "time": item.get("timestamp", ""),
                 "value": { property_type: item[property_name] }
             })
 

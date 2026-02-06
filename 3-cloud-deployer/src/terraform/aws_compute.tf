@@ -257,9 +257,10 @@ resource "aws_iam_role_policy" "l2_sfn_lambda" {
         Action = [
           "lambda:InvokeFunction"
         ]
-        Resource = [
-          aws_lambda_function.l2_event_checker[0].arn
-        ]
+        Resource = concat(
+          [aws_lambda_function.l2_event_checker[0].arn],
+          [for name, fn in aws_lambda_function.event_action : fn.arn]
+        )
       }
     ]
   })
