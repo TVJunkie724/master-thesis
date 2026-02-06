@@ -72,12 +72,21 @@ def _add_shared_files(zf: zipfile.ZipFile, azure_functions_dir: Path) -> None:
         zf.write(host_path, "host.json")
     else:
         # Create minimal host.json for Azure Functions v2
+        # NOTE: Sampling is disabled to ensure all logs are captured.
+        # With sampling enabled, Application Insights randomly drops
+        # telemetry which causes log-based E2E tests to fail.
         default_host = json.dumps({
             "version": "2.0",
             "logging": {
+                "logLevel": {
+                    "default": "Information",
+                    "Host.Results": "Information",
+                    "Function": "Information"
+                },
                 "applicationInsights": {
                     "samplingSettings": {
-                        "isEnabled": True
+                        "isEnabled": False,
+                        "excludedTypes": "Request;Exception"
                     }
                 }
             },

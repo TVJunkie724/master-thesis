@@ -142,7 +142,7 @@ def create_scenario_project(scenario: ScenarioConfig, template_path: Path, base_
             },
             # Workflow action (L2-specific)
             {
-                "condition": "testEntityId.temperature-sensor-1.pressure > DOUBLE(999)",
+                "condition": "testEntityId.pressure-sensor-1.pressure > DOUBLE(999)",
                 "action": {
                     "type": workflow_type,
                     "functionName": "high-temperature-callback",
@@ -585,12 +585,23 @@ class BaseScenarioTest:
         test_state = deployed_environment["test_state"]
         l1_provider = scenario.providers["layer_1_provider"]
         
-        test_payload = {
+        # Split payloads by device type for proper DTDL model matching:
+        # - temperature-sensor-1 sends temperature (TemperatureSensor DTDL)
+        # - pressure-sensor-1 sends pressure (PressureSensor DTDL)
+        test_payload_temp = {
             "iotDeviceId": "temperature-sensor-1",
             "temperature": 30,  # Match event condition (== DOUBLE(30))
+            "time": str(int(time.time() * 1000))
+        }
+        test_payload_pressure = {
+            "iotDeviceId": "pressure-sensor-1",
             "pressure": 1001,   # Trigger workflow condition (> DOUBLE(999))
             "time": str(int(time.time() * 1000))
         }
+        
+        # Use temperature payload for primary test (lambda callback + feedback)
+        # Pressure payload is for workflow test only
+        test_payload = test_payload_temp
         
         if l1_provider == "google":
             topic = outputs.get("gcp_pubsub_telemetry_topic")
@@ -611,12 +622,21 @@ class BaseScenarioTest:
                             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_file
                     
                     publisher = pubsub_v1.PublisherClient()
+                    
+                    # Send temperature payload (for lambda callback + ADT temp update)
                     data = json.dumps(test_payload).encode("utf-8")
                     future = publisher.publish(topic, data)
                     message_id = future.result()
-                    print(f"  [OK] Sent via GCP Pub/Sub: {message_id}")
+                    print(f"  [OK] Sent temperature payload via GCP Pub/Sub: {message_id}")
+                    
+                    # Send pressure payload (for workflow trigger + ADT pressure update)
+                    data_pressure = json.dumps(test_payload_pressure).encode("utf-8")
+                    future_pressure = publisher.publish(topic, data_pressure)
+                    message_id_pressure = future_pressure.result()
+                    print(f"  [OK] Sent pressure payload via GCP Pub/Sub: {message_id_pressure}")
                     
                     test_state["test_payload"] = test_payload
+                    test_state["test_payload_pressure"] = test_payload_pressure
                     test_state["test_device_id"] = test_payload["iotDeviceId"]
                 finally:
                     # Restore original env var
@@ -658,20 +678,61 @@ class BaseScenarioTest:
                 if not device_conn_str:
                     pytest.fail("[DATAFLOW CRITICAL] Device connection string not in simulator config. Check IoT device registration.")
                 
-                # Send telemetry message as the device
-                client = IoTHubDeviceClient.create_from_connection_string(device_conn_str)
+                # Send telemetry message as temperature-sensor-1
+                temp_device_dir = azure_sim_dir / "temperature-sensor-1"
+                if not temp_device_dir.exists():
+                    # Fallback to first device dir for backward compatibility
+                    temp_device_dir = device_dirs[0]
+                temp_config_path = temp_device_dir / "config_generated.json"
+                if not temp_config_path.exists():
+                    pytest.fail(f"[DATAFLOW CRITICAL] Temperature device config not found at {temp_config_path}")
+                
+                with open(temp_config_path) as f:
+                    temp_config = json.load(f)
+                temp_conn_str = temp_config.get("connection_string")
+                if not temp_conn_str:
+                    pytest.fail("[DATAFLOW CRITICAL] Temperature device connection string not found")
+                
+                client = IoTHubDeviceClient.create_from_connection_string(temp_conn_str)
                 client.connect()
                 try:
                     message = Message(json.dumps(test_payload))
                     message.content_type = "application/json"
                     message.content_encoding = "utf-8"
                     client.send_message(message)
-                    print(f"  [OK] Sent via Azure IoT Hub device client")
-                    
-                    test_state["test_payload"] = test_payload
-                    test_state["test_device_id"] = test_payload["iotDeviceId"]
+                    print(f"  [OK] Sent temperature payload via Azure IoT Hub")
                 finally:
                     client.disconnect()
+                
+                # Send pressure payload as pressure-sensor-1
+                pressure_device_dir = azure_sim_dir / "pressure-sensor-1"
+                if pressure_device_dir.exists():
+                    pressure_config_path = pressure_device_dir / "config_generated.json"
+                    if pressure_config_path.exists():
+                        with open(pressure_config_path) as f:
+                            pressure_config = json.load(f)
+                        pressure_conn_str = pressure_config.get("connection_string")
+                        if pressure_conn_str:
+                            pressure_client = IoTHubDeviceClient.create_from_connection_string(pressure_conn_str)
+                            pressure_client.connect()
+                            try:
+                                pressure_message = Message(json.dumps(test_payload_pressure))
+                                pressure_message.content_type = "application/json"
+                                pressure_message.content_encoding = "utf-8"
+                                pressure_client.send_message(pressure_message)
+                                print(f"  [OK] Sent pressure payload via Azure IoT Hub")
+                            finally:
+                                pressure_client.disconnect()
+                        else:
+                            print(f"  [WARN] pressure-sensor-1 has no connection string, skipping pressure payload")
+                    else:
+                        print(f"  [WARN] pressure-sensor-1 config not found, skipping pressure payload")
+                else:
+                    print(f"  [WARN] pressure-sensor-1 device dir not found, skipping pressure payload")
+                    
+                test_state["test_payload"] = test_payload
+                test_state["test_payload_pressure"] = test_payload_pressure
+                test_state["test_device_id"] = test_payload["iotDeviceId"]
                     
             except ImportError:
                 pytest.fail("[DATAFLOW CRITICAL] azure-iot-device not installed in container. Install with: pip install azure-iot-device")
@@ -707,22 +768,34 @@ class BaseScenarioTest:
                 # Use iot-data client to publish to the ingestion topic
                 # The topic must match the IoT Topic Rule pattern: dt/{name}/+/telemetry
                 # The + is a wildcard for device_id, so we include it in the topic
-                device_id = test_payload["iotDeviceId"]
                 dt_name = outputs.get('digital_twin_name')
                 if not dt_name:
                     pytest.fail("[FAIL-FAST] digital_twin_name output not found. This is required for AWS IoT topic construction.")
-                topic_name = f"dt/{dt_name}/{device_id}/telemetry"
                 
                 iot_data = boto3.client('iot-data', endpoint_url=f"https://{iot_endpoint}")
                 
+                # Send temperature payload
+                device_id = test_payload["iotDeviceId"]
+                topic_name = f"dt/{dt_name}/{device_id}/telemetry"
                 response = iot_data.publish(
                     topic=topic_name,
                     qos=1,
                     payload=json.dumps(test_payload)
                 )
-                print(f"  [OK] Sent via AWS IoT Core to topic: {topic_name}")
+                print(f"  [OK] Sent temperature payload via AWS IoT Core to topic: {topic_name}")
+                
+                # Send pressure payload
+                pressure_device_id = test_payload_pressure["iotDeviceId"]
+                pressure_topic = f"dt/{dt_name}/{pressure_device_id}/telemetry"
+                response = iot_data.publish(
+                    topic=pressure_topic,
+                    qos=1,
+                    payload=json.dumps(test_payload_pressure)
+                )
+                print(f"  [OK] Sent pressure payload via AWS IoT Core to topic: {pressure_topic}")
                 
                 test_state["test_payload"] = test_payload
+                test_state["test_payload_pressure"] = test_payload_pressure
                 test_state["test_device_id"] = test_payload["iotDeviceId"]
                 
             except ImportError:
@@ -1526,17 +1599,27 @@ class BaseScenarioTest:
             start_time = end_time - (15 * 60 * 1000)
             
             try:
-                response = logs_client.filter_log_events(
-                    logGroupName=log_group,
-                    startTime=start_time,
-                    endTime=end_time,
-                    limit=5
-                )
-                
-                if response.get('events'):
-                    print(f"  ✓ ACTION FUNCTION INVOKED ({function_name})")
+                # Poll for logs with retry (CloudWatch has indexing delay)
+                max_attempts = 12
+                for attempt in range(1, max_attempts + 1):
+                    end_time = int(time.time() * 1000)
+                    start_time = end_time - (15 * 60 * 1000)
+                    
+                    response = logs_client.filter_log_events(
+                        logGroupName=log_group,
+                        startTime=start_time,
+                        endTime=end_time,
+                        limit=5
+                    )
+                    
+                    if response.get('events'):
+                        print(f"  ✓ ACTION FUNCTION INVOKED ({function_name})")
+                        break
+                        
+                    if attempt < max_attempts:
+                        time.sleep(5)
                 else:
-                    pytest.fail(f"Action function logs not found in {log_group} within last 15 minutes")
+                    pytest.fail(f"Action function logs not found in {log_group} after {max_attempts} attempts")
                     
             except logs_client.exceptions.ResourceNotFoundException:
                 pytest.fail(f"Log group {log_group} does not exist - action function may not be deployed")
