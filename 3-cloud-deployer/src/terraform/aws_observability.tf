@@ -37,6 +37,14 @@ locals {
     for p in var.aws_processors : "processor-${p.name}" => format(local.aws_l2_processor_name_pattern, p.name)
   } : {}
   
+  aws_l2_event_action_log_groups = var.layer_2_provider == "aws" && var.use_event_checking ? {
+    for a in var.aws_event_actions : "event-action-${a.name}" => format(local.aws_l2_event_action_name_pattern, a.name)
+  } : {}
+  
+  aws_l2_event_feedback_log_group = var.layer_2_provider == "aws" && var.aws_event_feedback_enabled ? {
+    "event-feedback" = local.aws_l2_event_feedback_name
+  } : {}
+  
   aws_l3_log_groups = var.layer_3_hot_provider == "aws" ? {
     "l3-hot-reader"        = local.aws_l3_hot_reader_name
     "l3-hot-to-cold-mover" = local.aws_l3_hot_to_cold_mover_name
@@ -51,6 +59,7 @@ locals {
     local.aws_l0_log_groups, local.aws_l1_log_groups,
     local.aws_l2_base_log_groups, local.aws_l2_event_checker_log_groups,
     local.aws_l2_feedback_log_groups, local.aws_l2_user_processor_log_groups,
+    local.aws_l2_event_action_log_groups, local.aws_l2_event_feedback_log_group,
     local.aws_l3_log_groups, local.aws_l4_log_groups
   )
 }

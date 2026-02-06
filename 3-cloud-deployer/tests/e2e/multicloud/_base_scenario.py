@@ -142,10 +142,11 @@ def create_scenario_project(scenario: ScenarioConfig, template_path: Path, base_
             },
             # Workflow action (L2-specific)
             {
-                "condition": "testEntityId.pressure-sensor-1.pressure > DOUBLE(999)",
+                "condition": "testEntityId.temperature-sensor-1.pressure > DOUBLE(999)",
                 "action": {
                     "type": workflow_type,
-                    "workflowName": "pressure-alert-workflow",
+                    "functionName": "high-temperature-callback",
+                    "functionNameB": "high-temperature-callback",
                     "autoDeploy": True
                 }
             }
@@ -1394,18 +1395,28 @@ class BaseScenarioTest:
             start_time = end_time - (15 * 60 * 1000)
             
             try:
-                response = logs_client.filter_log_events(
-                    logGroupName=log_group,
-                    startTime=start_time,
-                    endTime=end_time,
-                    filterPattern="Hello from Event-Checker",  # Match actual log message
-                    limit=5
-                )
-                
-                if response.get('events'):
-                    print(f"  ✓ EVENT-CHECKER INVOKED (found {len(response['events'])} log events)")
+                # Poll for logs with retry (CloudWatch has indexing delay)
+                max_attempts = 12
+                for attempt in range(1, max_attempts + 1):
+                    end_time = int(time.time() * 1000)
+                    start_time = end_time - (15 * 60 * 1000)
+                    
+                    response = logs_client.filter_log_events(
+                        logGroupName=log_group,
+                        startTime=start_time,
+                        endTime=end_time,
+                        filterPattern='"Hello from Event-Checker"',
+                        limit=5
+                    )
+                    
+                    if response.get('events'):
+                        print(f"  ✓ EVENT-CHECKER INVOKED (found {len(response['events'])} log events)")
+                        break
+                        
+                    if attempt < max_attempts:
+                        time.sleep(5)
                 else:
-                    pytest.fail(f"Event-Checker logs not found in {log_group} within last 15 minutes")
+                    pytest.fail(f"Event-Checker logs not found in {log_group} after {max_attempts} attempts")
                     
             except logs_client.exceptions.ResourceNotFoundException:
                 pytest.fail(f"Log group {log_group} does not exist - Event-Checker may not be deployed")
@@ -1757,30 +1768,33 @@ class BaseScenarioTest:
             
             logs_client = boto3.client('logs')
             
-            # Feedback function log group - use cloudwatch_log_groups dict or fallback
-            log_groups = outputs.get("aws_cloudwatch_log_groups", {})
-            log_group = log_groups.get("feedback-wrapper")
-            if not log_group:
-                # Fallback: construct from digital_twin_name
-                dt_name = outputs.get('digital_twin_name', '')
-                log_group = f"/aws/lambda/{dt_name}-event-feedback-wrapper" if dt_name else "/aws/lambda/event-feedback"
-            
-            end_time = int(time.time() * 1000)
-            start_time = end_time - (15 * 60 * 1000)
+            # "Feedback sent" is logged by Event-Checker, not feedback-wrapper
+            func_name = outputs.get('aws_l2_event_checker_function_name', 'event-checker')
+            log_group = f"/aws/lambda/{func_name}"
             
             try:
-                response = logs_client.filter_log_events(
-                    logGroupName=log_group,
-                    startTime=start_time,
-                    endTime=end_time,
-                    filterPattern="publish",
-                    limit=5
-                )
-                
-                if response.get('events'):
-                    print(f"  ✓ FEEDBACK SENT (found publish events)")
+                # Poll for logs with retry (CloudWatch has indexing delay)
+                max_attempts = 12
+                for attempt in range(1, max_attempts + 1):
+                    end_time = int(time.time() * 1000)
+                    start_time = end_time - (15 * 60 * 1000)
+                    
+                    response = logs_client.filter_log_events(
+                        logGroupName=log_group,
+                        startTime=start_time,
+                        endTime=end_time,
+                        filterPattern="Feedback sent",
+                        limit=5
+                    )
+                    
+                    if response.get('events'):
+                        print(f"  ✓ FEEDBACK SENT (found feedback events)")
+                        break
+                        
+                    if attempt < max_attempts:
+                        time.sleep(5)
                 else:
-                    pytest.fail(f"Feedback publish events not found in {log_group}")
+                    pytest.fail(f"Feedback events not found in {log_group} after {max_attempts} attempts")
                     
             except logs_client.exceptions.ResourceNotFoundException:
                 pytest.fail(f"Log group {log_group} does not exist - feedback function may not be deployed")

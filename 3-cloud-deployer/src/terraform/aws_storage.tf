@@ -110,6 +110,22 @@ resource "aws_iam_role_policy" "l3_dynamodb" {
   })
 }
 
+# TwinMaker access for L4 data connector queries
+resource "aws_iam_role_policy" "l3_twinmaker" {
+  count = local.l3_hot_aws_enabled && local.l4_aws_enabled ? 1 : 0
+  name  = "${var.digital_twin_name}-l3-twinmaker-policy"
+  role  = aws_iam_role.l3_lambda[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["iottwinmaker:GetEntity", "iottwinmaker:GetWorkspace"]
+      Resource = "*"
+    }]
+  })
+}
+
 # S3 access for Cold/Archive
 resource "aws_iam_role_policy" "l3_s3" {
   count = local.l3_cold_aws_enabled || local.l3_archive_aws_enabled ? 1 : 0

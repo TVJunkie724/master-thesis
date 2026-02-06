@@ -317,7 +317,8 @@ def _build_gcp_user_function_vars(project_dir: Path, providers: dict) -> dict:
             events = json.load(f)
         
         for event in events:
-            if "action" in event and "functionName" in event["action"]:
+            action = event.get("action", {})
+            if action.get("type") == "lambda" and "functionName" in action:
                 func_name = event["action"]["functionName"]
                 zip_path = build_dir / f"{func_name}.zip"
                 if zip_path.exists():
@@ -381,7 +382,8 @@ def _get_aws_user_function_vars(project_dir: Path, providers: dict) -> dict:
             events = json.load(f)
         
         for event in events:
-            if "action" in event and "functionName" in event["action"]:
+            action = event.get("action", {})
+            if action.get("type") == "lambda" and "functionName" in action:
                 func_name = event["action"]["functionName"]
                 zip_path = build_dir / f"{func_name}.zip"
                 if zip_path.exists():
