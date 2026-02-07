@@ -340,7 +340,7 @@ resource "google_cloudfunctions2_function" "cold_to_archive_mover" {
       DIGITAL_TWIN_INFO   = var.digital_twin_info_json
       GCP_PROJECT_ID      = local.gcp_project_id
       COLD_BUCKET_NAME    = google_storage_bucket.cold[0].name
-      ARCHIVE_BUCKET_NAME = local.gcp_l3_archive_enabled ? google_storage_bucket.archive[0].name : ""
+      ARCHIVE_BUCKET_NAME = local.gcp_l3_archive_enabled ? try(google_storage_bucket.archive[0].name, google_storage_bucket.cold[0].name) : ""
       COLD_RETENTION_DAYS = var.layer_3_cold_to_archive_interval_days
 
       # Multi-cloud Cold→Archive: When GCP L3 Cold sends to remote Archive
