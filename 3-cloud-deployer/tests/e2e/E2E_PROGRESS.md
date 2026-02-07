@@ -1,6 +1,6 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-02-06 22:52  
+**Last Updated:** 2026-02-08 00:13  
 **Status:** 🎉 **ALL 10 SCENARIOS CONFIGURED** (7 cross-cloud + 3 same-cloud)
 
 ---
@@ -16,9 +16,9 @@
 | **GCP→AWS** | Feb 2 (20:15) | 12 | 0 | 3 | ✅ **PASS** |
 | **GCP→Azure** | Feb 2 (18:48) | 12 | 0 | 3 | ✅ **PASS** |
 | **Cross-L4** | - | - | - | - | 🆕 New |
-| **AWS** | Feb 6 (10:16) | 17 | 1 | 3 | ⚠️ **1 FAIL** |
-| **Azure** | - | - | - | - | 🆕 New |
-| **GCP** | Feb 6 (20:32) | 13 | 0 | 8 | ✅ **PASS** |
+| **AWS** | Feb 7 (22:11) | 18 | 0 | 3 | ✅ **PASS** |
+| **Azure** | Feb 8 (00:06) | 19 | 0 | 2 | ✅ **PASS** |
+| **GCP** | Feb 7 (22:30) | 13 | 0 | 8 | ✅ **PASS** |
 
 ---
 
@@ -104,6 +104,8 @@ IoT Device → Dispatcher → Processor → Persister
 
 | Session ID | Focus |
 |------------|-------|
+| AI-0207-da82 | All 3 Same-Cloud E2E Runs + GCP Archive Bucket Fix |
+| AI-0207-5896 | L3 Mover Deployment Fix (Cross-Cloud) |
 | AI-0204-3b0e | AWS Same-Cloud E2E: IAM Fixes + CloudWatch Polling |
 | AI-0202-fee9 | Hot-Reader DecimalEncoder + Timeout Fix |
 | AI-0202-f1ac | GCP Dispatcher Pub/Sub Base64 Fix |
@@ -114,32 +116,44 @@ IoT Device → Dispatcher → Processor → Persister
 
 ## Latest Run Details
 
-### GCP Same-Cloud (Feb 6, 20:31 → 20:32)
-- **Duration**: 1m 26s
-- **Result**: `13 passed, 8 skipped, 0 failed` ✅
+### AWS Same-Cloud (Feb 7, 22:11 — with cleanup)
+- **Duration**: 13m 58s
+- **Result**: `18 passed, 3 skipped, 0 failed` ✅
+- **Cleanup**: ✅ 87 resources destroyed (TwinMaker SDK fallback used)
 - **Key tests**:
-  - `test_08_verify_hot_storage` ✅ (5 records, attempt 1)
-  - `test_13_event_checker_invoked` ✅ (4 log entries)
-  - `test_14_event_action_function_called` ✅ (4 log entries)
-  - `test_15_workflow_triggered` ✅ (Status: **SUCCEEDED** 🎉)
-  - `test_16_event_feedback_sent` ✅ (4 log entries)
+  - `test_08_verify_hot_storage` ✅
+  - `test_10_twinmaker_entities` ✅ (3 entities)
+  - `test_10b_twinmaker_telemetry` ✅
+  - `test_13–16_event_flow` ✅ (all 4 passed)
   - `test_17_hot_to_cold_mover` ✅
   - `test_18_cold_to_archive_mover` ✅
-- **Cloud Workflow**: Now SUCCEEDED after OIDC auth fix (was FAILED with 403 in earlier rounds)
+- **Skipped**: 3 tests (ADT twins, Azure functions — not applicable)
+
+### GCP Same-Cloud (Feb 7, 22:30 — with cleanup)
+- **Duration**: 6m 21s
+- **Result**: `13 passed, 8 skipped, 0 failed` ✅
+- **Cleanup**: ✅ 64 resources destroyed
+- **Fix applied**: GCP archive bucket `Invalid index` on `gcp_storage.tf:343` (see fixes below)
+- **Key tests**:
+  - `test_08_verify_hot_storage` ✅
+  - `test_13–16_event_flow` ✅ (all 4 passed)
+  - `test_17_hot_to_cold_mover` ✅
+  - `test_18_cold_to_archive_mover` ✅ (`COLD_BUCKET_NAME: digital-twin-dev-481720-sc2-gcp-cold`)
 - **Skipped**: 8 tests (L4/L5 not available for GCP, IoT devices, Azure functions)
 
-### AWS Same-Cloud (Feb 6, Round 5 — 10:16)
-- **Duration**: 41s
-- **Result**: `17 passed, 3 skipped, 1 failed` ⚠️
+### Azure Same-Cloud (Feb 8, 00:06 — with cleanup)
+- **Duration**: 48m 06s
+- **Result**: `19 passed, 2 skipped, 0 failed` ✅
+- **Cleanup**: ✅ Resources destroyed
 - **Key tests**:
-  - `test_08_verify_hot_storage` ✅ (4 records, attempt 1)
-  - `test_10b_twinmaker_telemetry` ✅ (verified in 1 attempt)
-  - `test_13_event_checker_invoked` ✅ (1 log event found)
-  - `test_14_event_action_function_called` ❌ (CloudWatch indexing delay — fix applied post-run)
-  - `test_15_workflow_triggered` ✅ (Status: **SUCCEEDED**)
-  - `test_16_event_feedback_sent` ✅
-- **Step Function**: Now SUCCEEDED after IAM fix (was FAILED in rounds 1–4)
-- **Note**: `test_14` failure is a test-side timing issue (no polling), fix applied but not yet re-verified
+  - `test_08_verify_hot_storage` ✅
+  - `test_09_iot_devices_registered` ✅ (3 devices)
+  - `test_11_adt_twins` ✅ (6 twins)
+  - `test_11b_adt_twin_telemetry` ✅
+  - `test_13–16_event_flow` ✅ (all 4 passed)
+  - `test_17_hot_to_cold_mover` ✅
+  - `test_18_cold_to_archive_mover` ✅
+- **Skipped**: 2 tests (TwinMaker — not applicable)
 
 ### GCP→AWS (Feb 2, 19:07 → 20:15)
 - **Duration**: 8m 30s
@@ -167,6 +181,26 @@ IoT Device → Dispatcher → Processor → Persister
 ### AWS→Azure (Feb 2, 08:35 → 08:46)
 - **Duration**: 10m 21s
 - **Result**: `13 passed, 2 skipped, 0 failed` ✅
+
+---
+
+## Fixes Applied (Feb 7 — GCP Archive Bucket)
+
+### 1. GCP Archive Bucket Invalid Index (AI-0207-da82)
+
+**Problem:** `Invalid index: google_storage_bucket.archive is empty tuple` — GCP same-cloud E2E test crashed during Terraform apply.
+
+**Root Cause:** `google_storage_bucket.archive` has `count = archive_enabled && !cold_enabled`. In same-cloud GCP (both cold and archive = GCP), the dedicated archive bucket is not created (cold bucket handles archiving via lifecycle rule). But `cold_to_archive_mover` env var referenced `archive[0].name` without accounting for this.
+
+**Fix:** Wrapped in `try()` with cold bucket fallback:
+```hcl
+# Before:
+ARCHIVE_BUCKET_NAME = local.gcp_l3_archive_enabled ? google_storage_bucket.archive[0].name : ""
+# After:
+ARCHIVE_BUCKET_NAME = local.gcp_l3_archive_enabled ? try(google_storage_bucket.archive[0].name, google_storage_bucket.cold[0].name) : ""
+```
+
+**File:** `src/terraform/gcp_storage.tf` (line 343)
 
 ---
 
@@ -265,6 +299,18 @@ IoT Device → Dispatcher → Processor → Persister
 **Fix:** `filterPattern='"Hello from Event-Checker"'`
 
 **File:** `tests/e2e/multicloud/_base_scenario.py`
+
+---
+
+### 6. TwinMaker Response Format Fix (AI-0204-3b0e)
+
+**Problem:** `ConnectorFailureException: PropertyValue missed timestamp or time property` + `expecting propertyValues field to be set`
+
+**Root Cause:** Hot-reader's `_query_dynamodb()` used `item["id"]` (composite `device_timestamp`) instead of `item["timestamp"]` (ISO 8601) for the `time` field. Also crashed with `KeyError` when a requested property was missing from a DynamoDB record.
+
+**Fix:** Changed `time` to use `item.get("timestamp", "")` and added `if property_name not in item: continue`.
+
+**File:** `src/providers/aws/lambda_functions/hot-reader/lambda_function.py`
 
 ---
 
