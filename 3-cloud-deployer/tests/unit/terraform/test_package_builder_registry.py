@@ -222,3 +222,46 @@ class TestNoHardcodedLists:
             "package_builder should import from function_registry"
         assert "get_functions_for_provider_build" in source, \
             "package_builder should use get_functions_for_provider_build"
+
+
+class TestCrossCloudL3:
+    """Tests for L3 function building in cross-cloud scenarios.
+    
+    The key insight: cold-to-archive-mover should be built for the
+    cold provider's cloud, not the hot provider's cloud.
+    """
+    
+    @pytest.fixture
+    def aws_azure_config(self):
+        """AWS-Azure scenario: L3-hot=GCP, L3-cold=AWS, L3-archive=Azure."""
+        return {
+            "layer_1_provider": "aws",
+            "layer_2_provider": "azure",
+            "layer_3_hot_provider": "google",
+            "layer_3_cold_provider": "aws",
+            "layer_3_archive_provider": "azure",
+            "layer_4_provider": "azure",
+        }
+    
+    def test_cold_provider_builds_cold_to_archive_mover(self, aws_azure_config):
+        """Cold-to-archive-mover should be built for the cold provider (AWS)."""
+        functions = get_functions_for_provider_build("aws", aws_azure_config)
+        assert "cold-to-archive-mover" in functions
+    
+    def test_hot_provider_does_not_build_cold_to_archive_mover(self, aws_azure_config):
+        """Cold-to-archive-mover should NOT be built for hot provider (GCP)."""
+        functions = get_functions_for_provider_build("gcp", aws_azure_config)
+        assert "cold-to-archive-mover" not in functions
+    
+    def test_hot_provider_builds_hot_functions(self, aws_azure_config):
+        """Hot-reader and hot-to-cold-mover should be built for hot provider (GCP)."""
+        functions = get_functions_for_provider_build("gcp", aws_azure_config)
+        assert "hot-reader" in functions
+        assert "hot-to-cold-mover" in functions
+        assert "hot-reader-last-entry" in functions
+    
+    def test_cold_provider_does_not_build_hot_functions(self, aws_azure_config):
+        """Hot functions should NOT be built for cold provider (AWS)."""
+        functions = get_functions_for_provider_build("aws", aws_azure_config)
+        assert "hot-reader" not in functions
+        assert "hot-to-cold-mover" not in functions
