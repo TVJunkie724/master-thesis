@@ -1411,28 +1411,36 @@ class BaseScenarioTest:
     def _get_gcp_region(self, outputs: dict) -> str:
         """Extract GCP region from Terraform outputs.
         
-        Since gcp_region is not directly in outputs, we extract it from:
-        1. gcp_event_workflow_id: projects/{project}/locations/{region}/workflows/{name}
-        2. gcp_dispatcher_url: https://{region}-{project}.cloudfunctions.net/{name}
-        3. Default to us-central1 if not found
+        Priority:
+        1. gcp_region output (direct, most reliable)
+        2. gcp_event_workflow_id: projects/{project}/locations/{region}/workflows/{name}
+        3. GCP function URL: https://{region}-{project}.cloudfunctions.net/{name}
+        4. Default to us-central1 if not found
         """
         import re
         
-        # Try from workflow ID first (most reliable)
+        # Try direct output first (most reliable)
+        region = outputs.get("gcp_region", "")
+        if region:
+            return region
+        
+        # Try from workflow ID
         workflow_id = outputs.get("gcp_event_workflow_id", "")
         if workflow_id:
             match = re.search(r'/locations/([^/]+)/', workflow_id)
             if match:
                 return match.group(1)
         
-        # Try from any GCP function URL
-        for key in ["gcp_dispatcher_url", "gcp_persister_url", "gcp_hot_reader_url"]:
-            url = outputs.get(key, "")
-            if url:
-                # URL format: https://{region}-{project}.cloudfunctions.net/
-                match = re.match(r'https://([^-]+)-', url)
-                if match:
-                    return match.group(1)
+        # Try from any GCP function URL using project_id for deterministic parsing
+        project_id = outputs.get("gcp_project_id", "")
+        if project_id:
+            for key in ["gcp_dispatcher_url", "gcp_persister_url", "gcp_hot_reader_url"]:
+                url = outputs.get(key, "")
+                if url and project_id in url:
+                    # URL format: https://{region}-{project}.cloudfunctions.net/
+                    match = re.search(rf'https://(.+?)-{re.escape(project_id)}', url)
+                    if match:
+                        return match.group(1)
         
         return "us-central1"  # Default fallback
     

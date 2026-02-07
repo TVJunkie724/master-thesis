@@ -101,6 +101,11 @@ output "azure_dispatcher_url" {
   value       = try("https://${azurerm_linux_function_app.l2[0].default_hostname}/${local.api_paths.dispatcher}", null)
 }
 
+output "azure_logic_app_name" {
+  description = "Name of the Azure Logic App for event workflows"
+  value       = try(azurerm_logic_app_workflow.event_notification[0].name, null)
+}
+
 # ==============================================================================
 # Azure L3 Storage Outputs
 # ==============================================================================
@@ -491,6 +496,11 @@ output "aws_grafana_sso_warning" {
 output "gcp_project_id" {
   description = "GCP Project ID (provided or auto-created)"
   value       = local.deploy_gcp ? local.gcp_project_id : null
+}
+
+output "gcp_region" {
+  description = "GCP region for deployed resources"
+  value       = local.deploy_gcp ? var.gcp_region : null
 }
 
 output "gcp_service_account_email" {

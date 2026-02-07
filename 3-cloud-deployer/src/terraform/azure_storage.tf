@@ -108,7 +108,7 @@ resource "azurerm_storage_container" "archive" {
 # ==============================================================================
 
 resource "azurerm_service_plan" "l3" {
-  count               = var.layer_3_hot_provider == "azure" ? 1 : 0
+  count               = var.layer_3_hot_provider == "azure" || var.layer_3_cold_provider == "azure" ? 1 : 0
   name                = local.azure_l3_plan_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -123,7 +123,7 @@ resource "azurerm_service_plan" "l3" {
 # ==============================================================================
 
 resource "azurerm_linux_function_app" "l3" {
-  count               = var.layer_3_hot_provider == "azure" ? 1 : 0
+  count               = var.layer_3_hot_provider == "azure" || var.layer_3_cold_provider == "azure" ? 1 : 0
   name                = local.azure_l3_functions_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -173,10 +173,10 @@ resource "azurerm_linux_function_app" "l3" {
     WEBSITE_CONTENTSHARE                     = local.azure_l3_content_share
 
     # Cosmos DB connection
-    COSMOS_DB_ENDPOINT     = azurerm_cosmosdb_account.main[0].endpoint
-    COSMOS_DB_KEY          = azurerm_cosmosdb_account.main[0].primary_key
-    COSMOS_DB_DATABASE     = azurerm_cosmosdb_sql_database.main[0].name
-    COSMOS_DB_CONTAINER    = azurerm_cosmosdb_sql_container.hot[0].name
+    COSMOS_DB_ENDPOINT     = try(azurerm_cosmosdb_account.main[0].endpoint, "")
+    COSMOS_DB_KEY          = try(azurerm_cosmosdb_account.main[0].primary_key, "")
+    COSMOS_DB_DATABASE     = try(azurerm_cosmosdb_sql_database.main[0].name, "")
+    COSMOS_DB_CONTAINER    = try(azurerm_cosmosdb_sql_container.hot[0].name, "")
 
     # Storage account for cold/archive
     BLOB_CONNECTION_STRING    = local.azure_storage_connection_string

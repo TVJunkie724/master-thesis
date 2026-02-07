@@ -242,7 +242,7 @@ def _build_azure_function_zips(project_dir: Path, providers: dict, optimization_
                 logger.info("    ✓ L2 ZIP built")
         
         # Build L3 reader/movers
-        if providers.get("layer_3_hot_provider") == "azure":
+        if providers.get("layer_3_hot_provider") == "azure" or providers.get("layer_3_cold_provider") == "azure":
             l3_path = build_azure_l3_bundle(project_dir)
             if l3_path:
                 zip_paths["azure_l3_zip_path"] = str(l3_path)

@@ -209,7 +209,7 @@ resource "google_project_service" "cloudbuild" {
 }
 
 resource "google_project_service" "cloudscheduler" {
-  count   = local.gcp_l3_hot_enabled ? 1 : 0
+  count   = local.gcp_l3_hot_enabled || local.gcp_l3_cold_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "cloudscheduler.googleapis.com"
   
