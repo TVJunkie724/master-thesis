@@ -306,19 +306,36 @@ def cleanup_gcp_resources(
         logger.warning(f"  Error: {e}")
     
     # 8. Custom IAM Roles
+    # NOTE: GCP soft-deletes custom roles (they remain in DELETED state for 7-44 days).
+    # The default roles().list() hides soft-deleted roles, so we MUST use showDeleted=True
+    # to find and clean them up. Without this, Terraform fails with:
+    #   "Cannot add new grants to deleted role"
     logger.info("[Custom IAM Roles] Checking for orphans...")
     try:
         iam_client = discovery.build('iam', 'v1', credentials=gcp_credentials)
         
-        result = iam_client.projects().roles().list(parent=f"projects/{project_id}").execute()
+        result = iam_client.projects().roles().list(
+            parent=f"projects/{project_id}",
+            showDeleted=True
+        ).execute()
         for role in result.get('roles', []):
             role_id = role['name'].split('/')[-1]
             if prefix in role_id or prefix_underscore in role_id:
-                logger.info(f"  Found orphan: {role_id}")
+                is_deleted = role.get('deleted', False)
+                status = " (soft-deleted)" if is_deleted else ""
+                logger.info(f"  Found orphan: {role_id}{status}")
                 if dry_run:
                     logger.info(f"    [DRY RUN] Would delete")
                 else:
                     try:
+                        # If role is already soft-deleted, undelete it first so we can
+                        # clean it up properly (and free the role_id for reuse)
+                        if is_deleted:
+                            iam_client.projects().roles().undelete(
+                                name=role['name'],
+                                body={}
+                            ).execute()
+                            logger.info(f"    ✓ Undeleted (was soft-deleted)")
                         iam_client.projects().roles().delete(name=role['name']).execute()
                         logger.info(f"    ✓ Deleted")
                     except Exception as e:

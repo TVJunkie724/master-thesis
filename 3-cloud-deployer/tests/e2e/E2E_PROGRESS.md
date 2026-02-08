@@ -1,6 +1,6 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-02-08 00:13  
+**Last Updated:** 2026-02-08 10:30  
 **Status:** 🎉 **ALL 10 SCENARIOS CONFIGURED** (7 cross-cloud + 3 same-cloud)
 
 ---
@@ -10,8 +10,8 @@
 | Scenario | Last Run | Tests Passed | Tests Failed | Tests Skipped | Result |
 |----------|----------|--------------|--------------|---------------|--------|
 | **AWS→GCP** | Jan 31 (01:11) | 13 | 0 | 2 | ✅ **PASS** |
-| **AWS→Azure** | Feb 2 (08:35) | 13 | 0 | 2 | ✅ **PASS** |
-| **Azure→AWS** | Jan 31 (00:29) | 13 | 0 | 2 | ✅ **PASS** |
+| **AWS→Azure** | Feb 8 (00:12) | 19 | 0 | 2 | ✅ **PASS** |
+| **Azure→AWS** | Feb 8 (07:26) | 19 | 0 | 2 | ✅ **PASS** |
 | **Azure→GCP** | Feb 2 (19:36) | 13 | 0 | 2 | ✅ **PASS** |
 | **GCP→AWS** | Feb 2 (20:15) | 12 | 0 | 3 | ✅ **PASS** |
 | **GCP→Azure** | Feb 2 (18:48) | 12 | 0 | 3 | ✅ **PASS** |
@@ -104,6 +104,7 @@ IoT Device → Dispatcher → Processor → Persister
 
 | Session ID | Focus |
 |------------|-------|
+| AI-0208-2368 | GCP IAM Soft-Delete Cleanup Fix + Azure→AWS E2E |
 | AI-0207-da82 | All 3 Same-Cloud E2E Runs + GCP Archive Bucket Fix |
 | AI-0207-5896 | L3 Mover Deployment Fix (Cross-Cloud) |
 | AI-0204-3b0e | AWS Same-Cloud E2E: IAM Fixes + CloudWatch Polling |
@@ -178,9 +179,42 @@ IoT Device → Dispatcher → Processor → Persister
   - `test_08_verify_hot_storage` ✅ (data found in ~36s, attempt 18/300)
   - `test_11b_adt_twin_telemetry` ✅ (`lastTemperature: 42.5`, attempt 7/30)
 
-### AWS→Azure (Feb 2, 08:35 → 08:46)
-- **Duration**: 10m 21s
-- **Result**: `13 passed, 2 skipped, 0 failed` ✅
+### Azure→AWS (Feb 8, 07:26 — with cleanup)
+- **Duration**: 21m 11s
+- **Result**: `19 passed, 2 skipped, 0 failed` ✅
+- **Fix verified**: GCP IAM soft-delete cleanup fix (`fd76cc8`)
+- **Key tests**:
+  - `test_01_l0_setup` ✅ — GCP IAM role created successfully (previously failed)
+  - `test_13–16_event_flow` ✅ (all 4 passed)
+  - `test_17_hot_to_cold_mover` ✅
+  - `test_18_cold_to_archive_mover` ✅
+- **Skipped**: 2 tests (TwinMaker — not applicable)
+- **Cleanup**: ✅ Terraform destroy completed (minor TwinMaker SDK fallback)
+
+### AWS→Azure (Feb 8, 00:12 — skip-cleanup)
+- **Duration**: 17m 08s
+- **Result**: `19 passed, 2 skipped, 0 failed` ✅
+- **Fix verified**: L3 mover build pipeline fix (`bfb2204`) — `cold-to-archive-mover` now built for cold provider
+- **Key tests**:
+  - `test_13–16_event_flow` ✅ (all 4 passed)
+  - `test_17_hot_to_cold_mover` ✅ (GCP: `FIRESTORE_COLLECTION: sc2-aws-azure-hot-data`)
+  - `test_18_cold_to_archive_mover` ✅ (AWS: `sc2-aws-azure-l3-cold-to-archive-mover`)
+- **Skipped**: 2 tests (TwinMaker — not applicable)
+- **Output**: `tests/e2e/multicloud/.build/e2e_output_deployer-aws-azure_20260207_231212.txt`
+
+---
+
+## Fixes Applied (Feb 8 — GCP IAM Cleanup)
+
+### 1. GCP Soft-Deleted IAM Role Cleanup (AI-0208-2368)
+
+**Problem:** E2E tests failed with `Cannot add new grants to deleted role` after cleanup.
+
+**Root Cause:** GCP soft-deletes custom IAM roles (kept in DELETED state for 7-44 days). The cleanup script called `roles().list()` without `showDeleted=True`, making it completely blind to soft-deleted roles. Terraform then failed trying to add grants to the invisible deleted role.
+
+**Fix:** Added `showDeleted=True` to `roles().list()`. For roles already in DELETED state, call `roles().undelete()` first, then `roles().delete()`.
+
+**File:** `src/providers/gcp/cleanup.py` (lines 308-345)
 
 ---
 
