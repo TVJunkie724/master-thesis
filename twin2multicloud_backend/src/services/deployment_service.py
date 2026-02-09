@@ -139,6 +139,8 @@ async def run_real_deploy_stream(
     db.close()
     
     terraform_outputs = {}
+    deploy_success = False
+    expecting_result = False
     
     try:
         # Subscribe to Deployer SSE with long timeouts
@@ -152,40 +154,50 @@ async def run_real_deploy_stream(
                 async for line in response.aiter_lines():
                     if line.startswith("data: "):
                         msg = line[6:]  # Remove "data: " prefix
-                        print(msg, flush=True)  # Container logs
-                        await session.push_log(msg)
-                    elif line.startswith("event: complete"):
-                        # Next line contains JSON
-                        pass
-                    elif line.startswith('{"success":'):
-                        # Parse completion event
-                        try:
-                            result = json.loads(line)
-                            if result.get("success"):
-                                terraform_outputs = result.get("outputs", {})
-                        except json.JSONDecodeError:
-                            pass
+                        if expecting_result:
+                            # Completion JSON — parse for success, don't push as log
+                            expecting_result = False
+                            try:
+                                result = json.loads(msg)
+                                deploy_success = result.get("success", False)
+                                if deploy_success:
+                                    terraform_outputs = result.get("outputs", {})
+                            except json.JSONDecodeError:
+                                pass
+                        else:
+                            print(msg, flush=True)  # Container logs
+                            await session.push_log(msg)
+                    elif line.startswith("event: complete") or line.startswith("event: error"):
+                        expecting_result = True
         
-        # Success path
+        # Stream finished — use deploy_success to decide state
         db = SessionLocal()
         try:
             twin = db.query(DigitalTwin).get(twin_id)
             if twin:
-                twin.state = TwinState.DEPLOYED
-                twin.deployed_at = datetime.utcnow()
+                if deploy_success:
+                    twin.state = TwinState.DEPLOYED
+                    twin.deployed_at = datetime.utcnow()
+                else:
+                    twin.state = TwinState.ERROR
+                    twin.last_error = "Deployment completed with errors — check logs"
                 db.commit()
             
             # Update Deployment record
             deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
             if deployment:
-                deployment.status = "success"
+                deployment.status = "success" if deploy_success else "failed"
                 deployment.terraform_outputs = terraform_outputs
                 deployment.completed_at = datetime.utcnow()
                 db.commit()
         finally:
             db.close()
         
-        session.on_complete(success=True, message="Deployment complete", outputs=terraform_outputs)
+        session.on_complete(
+            success=deploy_success,
+            message="Deployment complete" if deploy_success else "Deployment failed",
+            outputs=terraform_outputs
+        )
         
     except Exception as e:
         # Error path
@@ -247,6 +259,9 @@ async def run_real_destroy_stream(
     db.commit()
     db.close()
     
+    destroy_success = False
+    expecting_result = False
+    
     try:
         # Subscribe to Deployer destroy SSE
         timeout = httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0)
@@ -259,27 +274,45 @@ async def run_real_destroy_stream(
                 async for line in response.aiter_lines():
                     if line.startswith("data: "):
                         msg = line[6:]
-                        print(msg, flush=True)
-                        await session.push_log(msg)
+                        if expecting_result:
+                            # Completion JSON — parse for success, don't push as log
+                            expecting_result = False
+                            try:
+                                result = json.loads(msg)
+                                destroy_success = result.get("success", False)
+                            except json.JSONDecodeError:
+                                pass
+                        else:
+                            print(msg, flush=True)
+                            await session.push_log(msg)
+                    elif line.startswith("event: complete") or line.startswith("event: error"):
+                        expecting_result = True
         
-        # Success path
+        # Stream finished — use destroy_success to decide state
         db = SessionLocal()
         try:
             twin = db.query(DigitalTwin).get(twin_id)
             if twin:
-                twin.state = TwinState.DESTROYED
-                twin.destroyed_at = datetime.utcnow()
+                if destroy_success:
+                    twin.state = TwinState.DESTROYED
+                    twin.destroyed_at = datetime.utcnow()
+                else:
+                    twin.state = TwinState.ERROR
+                    twin.last_error = "Destroy completed with errors — check logs"
                 db.commit()
             
             deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
             if deployment:
-                deployment.status = "success"
+                deployment.status = "success" if destroy_success else "failed"
                 deployment.completed_at = datetime.utcnow()
                 db.commit()
         finally:
             db.close()
         
-        session.on_complete(success=True, message="Destruction complete")
+        session.on_complete(
+            success=destroy_success,
+            message="Destruction complete" if destroy_success else "Destroy failed"
+        )
         
     except Exception as e:
         db = SessionLocal()
