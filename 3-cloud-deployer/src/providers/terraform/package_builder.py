@@ -919,11 +919,23 @@ def build_user_packages(
     logger.info(f"Building user packages for provider: {l2_provider}")
     
     # 1. Build Event Action packages
+    # Note: Workflow actions (step_function, logic_app, workflow) trigger managed services
+    # and don't have user function code to build - only lambda/function actions do
+    WORKFLOW_ACTION_TYPES = {"step_function", "logic_app", "workflow"}
+    
     for event in events_config:
         if "action" not in event:
             raise ValueError("Event config entry missing required 'action' field")
         
         action = event["action"]
+        action_type = action.get("type", "")
+        
+        # Skip workflow actions - they trigger managed services, no user code to build
+        if action_type in WORKFLOW_ACTION_TYPES:
+            logger.info(f"  → Skipping {action_type} action (no user code to build)")
+            continue
+        
+        # For lambda/function actions, require functionName
         if "functionName" not in action:
             raise ValueError("Event action missing required 'functionName' field")
         

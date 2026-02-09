@@ -43,8 +43,6 @@ import urllib.request
 import urllib.error
 
 import azure.functions as func
-from azure.digitaltwins.core import DigitalTwinsClient
-from azure.identity import DefaultAzureCredential
 
 # Handle import path for shared module
 try:
@@ -73,7 +71,7 @@ def _get_digital_twin_info():
     return _digital_twin_info
 
 # Optional environment variables
-ADT_INSTANCE_URL = os.environ.get("ADT_INSTANCE_URL", "").strip()
+
 LOGIC_APP_TRIGGER_URL = os.environ.get("LOGIC_APP_TRIGGER_URL", "").strip()
 FEEDBACK_FUNCTION_URL = os.environ.get("FEEDBACK_FUNCTION_URL", "").strip()
 FUNCTION_APP_BASE_URL = os.environ.get("FUNCTION_APP_BASE_URL", "").strip()
@@ -94,52 +92,20 @@ def _get_user_function_key():
 # Create Blueprint for registration in main function_app.py
 bp = func.Blueprint()
 
-# ADT client (lazy initialized)
-_adt_client = None
-
-
-def _get_adt_client():
-    """Lazy initialization of ADT client."""
-    global _adt_client
-    if _adt_client is None:
-        if not ADT_INSTANCE_URL:
-            raise ValueError("ADT_INSTANCE_URL is required for fetching ADT property values")
-        credential = DefaultAzureCredential()
-        _adt_client = DigitalTwinsClient(ADT_INSTANCE_URL, credential)
-    return _adt_client
-
-
-def fetch_value(entity_id: str, component_name: str, property_name: str):
+def fetch_value_from_event(event: dict, property_name: str):
     """
-    Fetch property value from Azure Digital Twins.
+    Extract property value from incoming event data.
     
-    Equivalent to AWS TwinMaker get_property_value.
-    
-    Args:
-        entity_id: Digital twin entity ID
-        component_name: Component name
-        property_name: Property to fetch
-    
-    Returns:
-        Property value
+    Provider-agnostic - no ADT query needed.
     """
-    client = _get_adt_client()
+    if property_name in event:
+        return event[property_name]
     
-    # Get the digital twin
-    twin = client.get_digital_twin(entity_id)
+    telemetry = event.get("telemetry", {})
+    if property_name in telemetry:
+        return telemetry[property_name]
     
-    # ADT stores component data in the twin properties
-    # Component properties are typically nested under the component name
-    if component_name in twin:
-        component_data = twin[component_name]
-        if property_name in component_data:
-            return component_data[property_name]
-    
-    # Fallback: check top-level properties
-    if property_name in twin:
-        return twin[property_name]
-    
-    raise ValueError(f"Property {property_name} not found in entity {entity_id}")
+    return None
 
 
 def extract_const_value(string: str):
@@ -172,6 +138,35 @@ def _trigger_logic_app(payload: dict) -> None:
     except urllib.error.HTTPError as e:
         logging.error(f"Failed to trigger Logic App: {e.code}")
         raise
+
+
+def _build_logic_app_payload(event_rule: dict) -> dict:
+    """
+    Build Logic App trigger payload with function URLs.
+    
+    Constructs the payload expected by azure_logic_app.json:
+    - FunctionA_URL: URL of the first Azure Function to invoke
+    - FunctionB_URL: URL of the second Azure Function to invoke
+    - InputData: The original event rule data
+    
+    Args:
+        event_rule: The matched event rule from config_events.json
+    
+    Returns:
+        dict ready to pass to Logic App trigger
+    """
+    action = event_rule.get("action", {})
+    func_a = action.get("functionName")
+    func_b = action.get("functionNameB")
+    user_key = _get_user_function_key()
+    
+    payload = {"InputData": event_rule}
+    if func_a:
+        payload["FunctionA_URL"] = f"{FUNCTION_APP_BASE_URL}/api/{func_a}?code={user_key}"
+    if func_b:
+        payload["FunctionB_URL"] = f"{FUNCTION_APP_BASE_URL}/api/{func_b}?code={user_key}"
+    
+    return payload
 
 
 def _invoke_function(function_name: str, payload: dict) -> None:
@@ -230,6 +225,9 @@ def _validate_config():
     """
     if USE_LOGIC_APPS and not LOGIC_APP_TRIGGER_URL:
         raise ConfigurationError("LOGIC_APP_TRIGGER_URL is required when USE_LOGIC_APPS is enabled")
+        
+    if USE_LOGIC_APPS and not FUNCTION_APP_BASE_URL:
+        raise ConfigurationError("FUNCTION_APP_BASE_URL is required when USE_LOGIC_APPS is enabled")
     
     if USE_FEEDBACK and not FEEDBACK_FUNCTION_URL:
         raise ConfigurationError("FEEDBACK_FUNCTION_URL is required when USE_FEEDBACK is enabled")
@@ -269,15 +267,21 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
                 
                 # Extract param1 value (property or constant)
                 if len(param1.split(".")) > 1:
-                    p1_parts = param1.split(".")
-                    param1_value = fetch_value(p1_parts[0], p1_parts[1], p1_parts[2])
+                    param1_property = param1.split(".")[-1]
+                    param1_value = fetch_value_from_event(event, param1_property)
+                    if param1_value is None:
+                        logging.warning(f"Property '{param1_property}' not found in event for condition '{condition}', skipping")
+                        continue
                 else:
                     param1_value = extract_const_value(param1)
                 
                 # Extract param2 value (property or constant)
                 if len(param2.split(".")) > 1:
-                    p2_parts = param2.split(".")
-                    param2_value = fetch_value(p2_parts[0], p2_parts[1], p2_parts[2])
+                    param2_property = param2.split(".")[-1]
+                    param2_value = fetch_value_from_event(event, param2_property)
+                    if param2_value is None:
+                        logging.warning(f"Property '{param2_property}' not found in event for condition '{condition}', skipping")
+                        continue
                 else:
                     param2_value = extract_const_value(param2)
                 
@@ -297,7 +301,8 @@ def event_checker(req: func.HttpRequest) -> func.HttpResponse:
                     
                     # Handle Logic App action
                     if action_type == "logic_app" and USE_LOGIC_APPS:
-                        _trigger_logic_app({"event": e})
+                        payload = _build_logic_app_payload(e)
+                        _trigger_logic_app(payload)
                         results.append({"event": condition, "action": "logic_app_triggered"})
                     
                     # Handle function/lambda action

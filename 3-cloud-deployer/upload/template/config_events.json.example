@@ -14,19 +14,31 @@
     }
   },
   {
-    "_comment": "AWS Step Function - requires layer_2_provider: aws",
+    "_comment": "AWS Step Function - chains LambdaA → LambdaB",
     "condition": "entityId.componentId.pressure > DOUBLE(100)",
-    "action": { "type": "step_function" }
+    "action": {
+      "type": "step_function",
+      "functionName": "first-handler",
+      "functionNameB": "second-handler"
+    }
   },
   {
-    "_comment": "Azure Logic App - requires layer_2_provider: azure",
+    "_comment": "Azure Logic App - chains FunctionA → FunctionB",
     "condition": "entityId.componentId.humidity < DOUBLE(20)",
-    "action": { "type": "logic_app" }
+    "action": {
+      "type": "logic_app",
+      "functionName": "humidity-handler",
+      "functionNameB": "notification-sender"
+    }
   },
   {
-    "_comment": "GCP Cloud Workflow - requires layer_2_provider: google",
+    "_comment": "GCP Cloud Workflow - chains CloudFunctionA → CloudFunctionB",
     "condition": "entityId.componentId.voltage > DOUBLE(220)",
-    "action": { "type": "workflow" }
+    "action": {
+      "type": "workflow",
+      "functionName": "voltage-handler",
+      "functionNameB": "alert-sender"
+    }
   },
   {
     "_comment": "GCP Function action - alternative to 'lambda' for GCP",

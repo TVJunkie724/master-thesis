@@ -1092,7 +1092,11 @@ def _parse_device_ids(config_iot_devices: str | None) -> list[str]:
 
 
 def _parse_action_names(config_events: str | None) -> list[str]:
-    """Extract action functionNames from config_events JSON."""
+    """Extract action functionNames from config_events JSON.
+    
+    For workflow actions (step_function, logic_app, workflow), extracts both
+    functionName and functionNameB since they represent chained functions.
+    """
     if not config_events:
         return []
     try:
@@ -1102,8 +1106,11 @@ def _parse_action_names(config_events: str | None) -> list[str]:
             for event in events:
                 if isinstance(event, dict):
                     action = event.get("action", {})
-                    if isinstance(action, dict) and action.get("functionName"):
-                        names.append(action["functionName"])
+                    if isinstance(action, dict):
+                        if action.get("functionName"):
+                            names.append(action["functionName"])
+                        if action.get("functionNameB"):
+                            names.append(action["functionNameB"])
             return names
     except json.JSONDecodeError:
         pass
