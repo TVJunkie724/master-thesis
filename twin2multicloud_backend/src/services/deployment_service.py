@@ -364,9 +364,11 @@ def _add_config_files(zf: zipfile.ZipFile, twin, user_id: str, providers: dict):
         _write_if_present(zf, "config_events.json", dc.config_events_json)
         _write_if_present(zf, "config_user.json", dc.user_config_content)
     
-    # Optimizer result
-    if oc and oc.result_json:
-        zf.writestr("config_optimization.json", oc.result_json)
+    # Optimizer result (deployer expects {"result": {"inputParamsUsed": {...}}})
+    if oc:
+        zf.writestr("config_optimization.json", json.dumps(
+            _build_optimization_config(oc), indent=2
+        ))
 
 
 def _add_hierarchy_files(zf: zipfile.ZipFile, dc: Optional["DeployerConfiguration"]) -> None:
@@ -492,9 +494,25 @@ def get_resource_name(twin) -> str:
 
 def _build_main_config(twin) -> dict:
     """Build the main config.json content."""
+    # Storage durations from optimizer params (months → days)
+    hot_days = 30  # default: 1 month
+    cold_days = 90  # default: 3 months
+    if twin.optimizer_config and twin.optimizer_config.params:
+        try:
+            params = json.loads(twin.optimizer_config.params)
+            hot_days = params.get("hotStorageDurationInMonths", 1) * 30
+            cold_days = params.get("coolStorageDurationInMonths", 3) * 30
+        except (json.JSONDecodeError, TypeError):
+            pass  # Use defaults
+
+    # Mode from Step 1 debug toggle
+    mode = "debug" if (twin.configuration and twin.configuration.debug_mode) else "production"
+
     return {
-        "digital_twin_name": get_resource_name(twin),  # DRY: reuse helper
-        "mode": "production",
+        "digital_twin_name": get_resource_name(twin),
+        "hot_storage_size_in_days": hot_days,
+        "cold_storage_size_in_days": cold_days,
+        "mode": mode,
     }
 
 
@@ -553,6 +571,8 @@ def _build_credentials_config(twin, user_id: str) -> tuple[dict, Optional[dict]]
             # Include session token if present (for STS/SSO)
             if creds.aws_session_token:
                 result["aws"]["aws_session_token"] = decrypt(creds.aws_session_token, user_id, twin.id)
+            # SSO region for AWS SSO authentication (may differ from resource region)
+            result["aws"]["aws_sso_region"] = creds.aws_sso_region or ""
         except ValueError as e:
             # Log but continue - allows partial deployment with remaining providers
             logger.warning(f"AWS credential decryption failed: {e}")
@@ -565,6 +585,9 @@ def _build_credentials_config(twin, user_id: str) -> tuple[dict, Optional[dict]]
                 "azure_tenant_id": decrypt(creds.azure_tenant_id, user_id, twin.id),
                 "azure_client_id": decrypt(creds.azure_client_id, user_id, twin.id),
                 "azure_client_secret": decrypt(creds.azure_client_secret, user_id, twin.id),
+                "azure_region": creds.azure_region or "westeurope",
+                "azure_region_iothub": creds.azure_region or "westeurope",
+                "azure_region_digital_twin": creds.azure_region or "westeurope",
             }
         except ValueError as e:
             logger.warning(f"Azure credential decryption failed: {e}")
@@ -577,6 +600,9 @@ def _build_credentials_config(twin, user_id: str) -> tuple[dict, Optional[dict]]
                 "gcp_project_id": creds.gcp_project_id,
                 "gcp_region": creds.gcp_region or "europe-west1",
             }
+            # Billing account for org accounts (auto-project creation)
+            if creds.gcp_billing_account:
+                gcp_creds["gcp_billing_account"] = decrypt(creds.gcp_billing_account, user_id, twin.id)
             # GCP service account is written to separate gcp_credentials.json file
             if creds.gcp_service_account_json:
                 gcp_creds["gcp_credentials_file"] = "gcp_credentials.json"
@@ -590,6 +616,29 @@ def _build_credentials_config(twin, user_id: str) -> tuple[dict, Optional[dict]]
             logger.warning(f"GCP service account JSON parsing failed: {e}")
     
     return result, gcp_creds_content
+
+
+def _build_optimization_config(oc) -> dict:
+    """
+    Build config_optimization.json with the deployer-expected format.
+    
+    The deployer reads: result.inputParamsUsed.{flag} via config_loader.load_optimization_flags()
+    These flags control which Terraform resources are conditionally created.
+    """
+    input_params = {}
+    if oc.params:
+        try:
+            params = json.loads(oc.params)
+            input_params = {
+                "useEventChecking": params.get("useEventChecking", False),
+                "triggerNotificationWorkflow": params.get("triggerNotificationWorkflow", False),
+                "returnFeedbackToDevice": params.get("returnFeedbackToDevice", False),
+                "integrateErrorHandling": params.get("integrateErrorHandling", False),
+                "needs3DModel": params.get("needs3DModel", False),
+            }
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return {"result": {"inputParamsUsed": input_params}}
 
 
 async def upload_project_to_deployer(

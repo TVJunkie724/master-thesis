@@ -32,6 +32,9 @@ from src.api.routes.error_models import ERROR_RESPONSES
 
 logger = logging.getLogger(__name__)
 
+# Test mode: production endpoints delegate to mock implementations
+TEST_MODE = os.getenv("ENABLE_TEST_ENDPOINTS", "false").lower() == "true"
+
 router = APIRouter(prefix="/twins", tags=["twins"])
 
 @router.get(
@@ -563,6 +566,17 @@ async def deploy_twin(
             detail="Deployment already in progress for this twin"
         )
     
+    # TEST MODE: delegate to mock deployment
+    if TEST_MODE:
+        from src.api.routes.test_endpoints import _run_test_deploy_stream
+        session_id = str(uuid.uuid4())
+        await create_session(twin_id, session_id, operation_type="test")
+        asyncio.create_task(_run_test_deploy_stream(
+            session_id=session_id, twin_id=twin_id,
+            twin_name=twin.name, duration=30, should_fail=False
+        ))
+        return {"session_id": session_id, "sse_url": f"/sse/deploy/{session_id}"}
+    
     # Reload twin with ALL related configurations for ZIP building
     twin = db.query(DigitalTwin).options(
         joinedload(DigitalTwin.deployer_config),
@@ -580,10 +594,12 @@ async def deploy_twin(
     try:
         resource_name = await prepare_project_for_deployment(twin, current_user.id)
     except HTTPException as e:
+        logger.error(f"Deploy preparation failed for twin '{twin.name}' ({twin_id}): {e.detail}")
         twin.state = TwinState.CONFIGURED  # Rollback state on failure
         db.commit()
         raise e
     except Exception as e:
+        logger.error(f"Deploy preparation failed for twin '{twin.name}' ({twin_id}): {e}", exc_info=True)
         twin.state = TwinState.CONFIGURED  # Rollback state on failure
         db.commit()
         raise HTTPException(status_code=500, detail=f"Failed to prepare project: {str(e)}")
@@ -694,6 +710,17 @@ async def destroy_twin_infrastructure(
             status_code=409,
             detail="Destroy operation already in progress for this twin"
         )
+    
+    # TEST MODE: delegate to mock destruction
+    if TEST_MODE:
+        from src.api.routes.test_endpoints import _run_test_destroy_stream
+        session_id = str(uuid.uuid4())
+        await create_session(twin_id, session_id, operation_type="destroy")
+        asyncio.create_task(_run_test_destroy_stream(
+            session_id=session_id, twin_id=twin_id,
+            twin_name=twin.name, duration=20, should_fail=False
+        ))
+        return {"session_id": session_id, "sse_url": f"/sse/deploy/{session_id}"}
     
     # Reload twin with ALL related configurations (for project preparation)
     twin = db.query(DigitalTwin).options(
@@ -956,6 +983,41 @@ async def start_log_trace(
             detail=f"Twin must be deployed to trace logs (current state: {twin.state})"
         )
     
+    # TEST MODE: delegate to mock log trace
+    if TEST_MODE:
+        import asyncio
+        import uuid
+        from datetime import datetime, timezone
+        from src.api.routes.sse import create_session
+        from src.api.routes.test_endpoints import _run_test_log_trace_stream
+
+        providers = ["aws"]  # default
+        if twin.optimizer_config:
+            oc = twin.optimizer_config
+            unique = {p.lower() for p in filter(None, [
+                oc.cheapest_l1, oc.cheapest_l2, oc.cheapest_l3_hot
+            ])}
+            if unique:
+                providers = list(unique)
+
+        trace_id = f"TRACE-{uuid.uuid4().hex[:8].upper()}"
+        session_id = str(uuid.uuid4())
+        await create_session(twin_id, session_id, operation_type="log_trace")
+        asyncio.create_task(_run_test_log_trace_stream(
+            session_id=session_id, twin_id=twin_id,
+            trace_id=trace_id, providers=providers,
+            duration=30, should_fail=False
+        ))
+        return {
+            "trace_id": trace_id,
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "l1_provider": providers[0],
+            "providers": providers,
+            "message": f"Test message sent to {providers[0]} IoT endpoint",
+            "session_id": session_id,
+            "sse_url": f"/sse/deploy/{session_id}"
+        }
+    
     # Reload twin with all configs (especially credentials for log querying)
     from src.services.deployment_service import prepare_project_for_deployment
     from sqlalchemy.orm import joinedload
@@ -1133,6 +1195,11 @@ async def download_simulator(
     
     if twin.state != TwinState.DEPLOYED:
         raise HTTPException(400, f"Simulator only available for deployed twins. Current: {twin.state.value}")
+    
+    # TEST MODE: delegate to mock simulator download
+    if TEST_MODE:
+        from src.api.routes.test_endpoints import test_download_simulator
+        return await test_download_simulator(twin_id, db=db, current_user=current_user)
     
     # Reload twin with all configs for project preparation
     from src.services.deployment_service import prepare_project_for_deployment

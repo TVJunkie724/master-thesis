@@ -21,6 +21,7 @@ from src.services.deployment_service import (
     _build_main_config,
     _build_providers_config,
     _build_credentials_config,
+    _build_optimization_config,
 )
 
 
@@ -68,11 +69,63 @@ class TestBuildMainConfig:
         twin = Mock()
         twin.deployer_config = Mock()
         twin.deployer_config.deployer_digital_twin_name = "test-twin"
+        twin.optimizer_config = Mock()
+        twin.optimizer_config.params = json.dumps({
+            "hotStorageDurationInMonths": 2,
+            "coolStorageDurationInMonths": 6,
+        })
+        twin.configuration = Mock()
+        twin.configuration.debug_mode = False
         
         result = _build_main_config(twin)
         
         assert result["digital_twin_name"] == "test-twin"
         assert result["mode"] == "production"
+        assert result["hot_storage_size_in_days"] == 60
+        assert result["cold_storage_size_in_days"] == 180
+    
+    def test_storage_days_from_optimizer_params(self):
+        """Should convert months to days from optimizer params."""
+        twin = Mock()
+        twin.deployer_config = Mock()
+        twin.deployer_config.deployer_digital_twin_name = "test"
+        twin.optimizer_config = Mock()
+        twin.optimizer_config.params = json.dumps({
+            "hotStorageDurationInMonths": 1,
+            "coolStorageDurationInMonths": 3,
+        })
+        twin.configuration = None
+        
+        result = _build_main_config(twin)
+        
+        assert result["hot_storage_size_in_days"] == 30
+        assert result["cold_storage_size_in_days"] == 90
+    
+    def test_storage_days_defaults_when_no_params(self):
+        """Should use defaults (30/90) when no optimizer params."""
+        twin = Mock()
+        twin.deployer_config = Mock()
+        twin.deployer_config.deployer_digital_twin_name = "test"
+        twin.optimizer_config = None
+        twin.configuration = None
+        
+        result = _build_main_config(twin)
+        
+        assert result["hot_storage_size_in_days"] == 30
+        assert result["cold_storage_size_in_days"] == 90
+    
+    def test_mode_from_debug_mode(self):
+        """Should set mode based on debug_mode flag."""
+        twin = Mock()
+        twin.deployer_config = Mock()
+        twin.deployer_config.deployer_digital_twin_name = "test"
+        twin.optimizer_config = None
+        twin.configuration = Mock()
+        twin.configuration.debug_mode = True
+        
+        result = _build_main_config(twin)
+        
+        assert result["mode"] == "debug"
 
 
 class TestBuildProvidersConfig:
@@ -272,14 +325,58 @@ class TestBuildProjectZip:
         twin.optimizer_config.cheapest_l4 = None
         twin.optimizer_config.cheapest_l5 = None
         twin.optimizer_config.result_json = None
+        twin.optimizer_config.params = json.dumps({
+            "hotStorageDurationInMonths": 1,
+            "coolStorageDurationInMonths": 3,
+            "useEventChecking": True,
+            "triggerNotificationWorkflow": False,
+            "returnFeedbackToDevice": False,
+            "integrateErrorHandling": False,
+            "needs3DModel": False,
+        })
         
         # Configuration (credentials)
         twin.configuration = Mock()
+        twin.configuration.debug_mode = False
         twin.configuration.aws_access_key_id = "enc_key"
         twin.configuration.aws_secret_access_key = "enc_secret"
         twin.configuration.aws_session_token = None
         twin.configuration.aws_region = "eu-central-1"
+        twin.configuration.aws_sso_region = None
         twin.configuration.azure_subscription_id = None
         twin.configuration.gcp_project_id = None
         
         return twin
+
+
+class TestBuildOptimizationConfig:
+    """Tests for _build_optimization_config helper."""
+    
+    def test_wraps_params_in_result_envelope(self):
+        """Should produce {result: {inputParamsUsed: {...}}} structure."""
+        oc = Mock()
+        oc.params = json.dumps({
+            "useEventChecking": True,
+            "triggerNotificationWorkflow": False,
+            "returnFeedbackToDevice": True,
+            "integrateErrorHandling": False,
+            "needs3DModel": True,
+        })
+        
+        result = _build_optimization_config(oc)
+        
+        assert "result" in result
+        assert "inputParamsUsed" in result["result"]
+        flags = result["result"]["inputParamsUsed"]
+        assert flags["useEventChecking"] is True
+        assert flags["triggerNotificationWorkflow"] is False
+        assert flags["needs3DModel"] is True
+    
+    def test_defaults_when_no_params(self):
+        """Should return all-false flags when params is None."""
+        oc = Mock()
+        oc.params = None
+        
+        result = _build_optimization_config(oc)
+        
+        assert result == {"result": {"inputParamsUsed": {}}}

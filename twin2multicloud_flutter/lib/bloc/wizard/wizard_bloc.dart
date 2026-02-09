@@ -168,6 +168,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       );
       emit(result.state);
     } catch (e) {
+      debugPrint(
+        '[WizardBloc] Failed to load twin: ${ApiErrorHandler.extractMessage(e)}',
+      );
       emit(
         state.copyWith(
           status: WizardStatus.error,
@@ -473,6 +476,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         ),
       );
     } catch (e) {
+      debugPrint(
+        '[WizardBloc] Calculation failed: ${ApiErrorHandler.extractMessage(e)}',
+      );
       emit(
         state.copyWith(
           isCalculating: false,
@@ -687,6 +693,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         ),
       );
     } catch (e) {
+      debugPrint(
+        '[WizardBloc] Save failed: ${ApiErrorHandler.extractMessage(e)}',
+      );
       emit(
         state.copyWith(
           status: WizardStatus.ready,
@@ -784,6 +793,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         ),
       );
     } catch (e) {
+      debugPrint(
+        '[WizardBloc] Finish failed: ${ApiErrorHandler.extractMessage(e)}',
+      );
       emit(
         state.copyWith(
           status: WizardStatus.ready,
@@ -1035,6 +1047,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         );
       }
     } catch (e) {
+      debugPrint(
+        '[WizardBloc] Validation failed: ${ApiErrorHandler.extractMessage(e)}',
+      );
       emit(
         state.copyWith(
           errorMessage:
@@ -1431,6 +1446,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         emit(processingResult.state.copyWith(forceCollapseSections: false));
       }
     } catch (e) {
+      debugPrint(
+        '[WizardBloc] Upload failed: ${ApiErrorHandler.extractMessage(e)}',
+      );
       emit(
         state.copyWith(
           zipUploadInProgress: false,

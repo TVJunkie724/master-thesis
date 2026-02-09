@@ -3,6 +3,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../config/api_config.dart';
 import '../../services/api_service.dart';
@@ -10,14 +11,6 @@ import '../../services/sse_service.dart';
 import '../../utils/api_error_handler.dart';
 import 'twin_overview_event.dart';
 import 'twin_overview_state.dart';
-
-/// Toggle for UI testing - uses mock deployment endpoints when true.
-/// Set to false for production/real deployments.
-const bool kUseTestDeploy = true;
-
-/// Toggle for UI testing - uses mock log trace endpoints when true.
-/// Set to false for real log tracing with deployed twins.
-const bool kUseTestLogTrace = true;
 
 class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   final ApiService _api;
@@ -111,6 +104,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         ),
       );
     } catch (e) {
+      debugPrint(
+        '[TwinOverviewBloc] Failed to load twin: ${ApiErrorHandler.extractMessage(e)}',
+      );
       emit(
         TwinOverviewError(
           'Failed to load twin: ${ApiErrorHandler.extractMessage(e)}',
@@ -199,9 +195,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
 
     try {
       // Call backend to start deployment - now returns session_id and sse_url
-      final result = kUseTestDeploy
-          ? await _api.testDeployTwin(currentState.twinId, duration: 30)
-          : await _api.deployTwin(currentState.twinId);
+      final result = await _api.deployTwin(currentState.twinId);
 
       final sseUrl = result['sse_url'] as String?;
       final sessionId = result['session_id'] as String?;
@@ -220,6 +214,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         isDestroy: false,
       );
     } catch (e) {
+      debugPrint(
+        '[TwinOverviewBloc] Deployment failed: ${ApiErrorHandler.extractMessage(e)}',
+      );
       emit(
         currentState.copyWith(
           isDeploying: false,
@@ -249,9 +246,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
 
     try {
       // Call backend to start destruction - now returns session_id and sse_url
-      final result = kUseTestDeploy
-          ? await _api.testDestroyTwin(currentState.twinId, duration: 20)
-          : await _api.destroyTwin(currentState.twinId);
+      final result = await _api.destroyTwin(currentState.twinId);
 
       final sseUrl = result['sse_url'] as String?;
       final sessionId = result['session_id'] as String?;
@@ -270,6 +265,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         isDestroy: true,
       );
     } catch (e) {
+      debugPrint(
+        '[TwinOverviewBloc] Destroy failed: ${ApiErrorHandler.extractMessage(e)}',
+      );
       emit(
         currentState.copyWith(
           isDestroying: false,
@@ -292,6 +290,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       // Navigation will be handled by the screen listener
       emit(currentState.copyWith(successMessage: 'deleted'));
     } catch (e) {
+      debugPrint(
+        '[TwinOverviewBloc] Delete failed: ${ApiErrorHandler.extractMessage(e)}',
+      );
       emit(
         currentState.copyWith(
           errorMessage:
@@ -444,10 +445,8 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     );
 
     try {
-      // Call backend to start log trace - use test endpoint if enabled
-      final result = kUseTestLogTrace
-          ? await _api.testLogTrace(currentState.twinId, duration: 30)
-          : await _api.startLogTrace(currentState.twinId);
+      // Call backend to start log trace
+      final result = await _api.startLogTrace(currentState.twinId);
 
       final traceId = result['trace_id'] as String?;
       final providers = result['providers'] as List<dynamic>?;
@@ -479,6 +478,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         sseUrl: sseUrl,
       );
     } catch (e) {
+      debugPrint(
+        '[TwinOverviewBloc] Log trace failed: ${ApiErrorHandler.extractMessage(e)}',
+      );
       emit(
         currentState.copyWith(
           isTracing: false,
@@ -684,6 +686,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
           },
           onError: (e) {
             // SSE connection error - update state
+            debugPrint(
+              '[TwinOverviewBloc] SSE connection lost: ${ApiErrorHandler.extractMessage(e)}',
+            );
             _cancelSseSubscription();
             add(
               TwinOverviewDeploymentComplete(
@@ -798,9 +803,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     );
 
     try {
-      final bytes = kUseTestDeploy
-          ? await _api.testDownloadSimulator(currentState.twinId)
-          : await _api.downloadSimulator(currentState.twinId);
+      final bytes = await _api.downloadSimulator(currentState.twinId);
       emit(
         currentState.copyWith(
           isDownloadingSimulator: false,
@@ -809,6 +812,9 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         ),
       );
     } catch (e) {
+      debugPrint(
+        '[TwinOverviewBloc] Download failed: ${ApiErrorHandler.extractMessage(e)}',
+      );
       emit(
         currentState.copyWith(
           isDownloadingSimulator: false,
