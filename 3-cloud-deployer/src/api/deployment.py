@@ -267,15 +267,71 @@ async def deploy_stream(
         strategy = TerraformDeployerStrategy(str(terraform_dir), str(project_path))
         
         async def generate():
+            import json
+            errors = []
+            in_error_block = False
+            current_error = []
+            resource_count = 0
+            
             try:
                 async for line in strategy.deploy_all_async(context):
                     yield f"data: {line}\n\n"
-                # Final success event
+                    
+                    # Track Terraform errors
+                    stripped = line.strip()
+                    if stripped.startswith("Error:") or stripped.startswith("│ Error:"):
+                        in_error_block = True
+                        current_error = [stripped]
+                    elif in_error_block:
+                        if stripped == "" or stripped == "│":
+                            # End of error block
+                            errors.append("\n".join(current_error))
+                            current_error = []
+                            in_error_block = False
+                        else:
+                            current_error.append(stripped)
+                    
+                    # Count resources created
+                    if "Creation complete" in line or "Apply complete!" in line:
+                        resource_count += 1
+                
+                # Flush any remaining error block
+                if current_error:
+                    errors.append("\n".join(current_error))
+                
+                # Emit deployment summary
+                yield f"data: \n\n"
+                yield f"data: {'=' * 60}\n\n"
+                if errors:
+                    yield f"data:   DEPLOYMENT SUMMARY — {len(errors)} ERROR(S)\n\n"
+                    yield f"data: {'=' * 60}\n\n"
+                    for i, err in enumerate(errors, 1):
+                        yield f"data: [{i}] {err}\n\n"
+                else:
+                    yield f"data:   DEPLOYMENT SUMMARY — SUCCESS\n\n"
+                    yield f"data: {'=' * 60}\n\n"
+                    if resource_count > 0:
+                        yield f"data: Resources provisioned: {resource_count}\n\n"
+                
+                # Final SSE event
                 outputs = strategy.get_outputs()
-                import json
-                yield f"event: complete\ndata: {json.dumps({'success': True, 'outputs': outputs})}\n\n"
+                yield f"event: complete\ndata: {json.dumps({'success': len(errors) == 0, 'outputs': outputs, 'errors': errors})}\n\n"
             except Exception as e:
-                yield f"event: error\ndata: {json.dumps({'success': False, 'error': str(e)})}\n\n"
+                # Flush any remaining error block
+                if current_error:
+                    errors.append("\n".join(current_error))
+                
+                yield f"data: \n\n"
+                yield f"data: {'=' * 60}\n\n"
+                yield f"data:   DEPLOYMENT FAILED\n\n"
+                yield f"data: {'=' * 60}\n\n"
+                yield f"data: {str(e)}\n\n"
+                if errors:
+                    yield f"data: \n\n"
+                    yield f"data: Terraform errors encountered:\n\n"
+                    for i, err in enumerate(errors, 1):
+                        yield f"data: [{i}] {err}\n\n"
+                yield f"event: error\ndata: {json.dumps({'success': False, 'error': str(e), 'errors': errors})}\n\n"
         
         return StreamingResponse(
             generate(),
@@ -337,14 +393,67 @@ async def destroy_stream(
         strategy = TerraformDeployerStrategy(str(terraform_dir), str(project_path))
         
         async def generate():
+            import json
+            errors = []
+            in_error_block = False
+            current_error = []
+            resource_count = 0
+            
             try:
                 async for line in strategy.destroy_all_async(context):
                     yield f"data: {line}\n\n"
-                import json
-                yield f"event: complete\ndata: {json.dumps({'success': True})}\n\n"
+                    
+                    # Track Terraform errors
+                    stripped = line.strip()
+                    if stripped.startswith("Error:") or stripped.startswith("│ Error:"):
+                        in_error_block = True
+                        current_error = [stripped]
+                    elif in_error_block:
+                        if stripped == "" or stripped == "│":
+                            errors.append("\n".join(current_error))
+                            current_error = []
+                            in_error_block = False
+                        else:
+                            current_error.append(stripped)
+                    
+                    # Count resources destroyed
+                    if "Destruction complete" in line or "Destroy complete!" in line:
+                        resource_count += 1
+                
+                # Flush any remaining error block
+                if current_error:
+                    errors.append("\n".join(current_error))
+                
+                # Emit destruction summary
+                yield f"data: \n\n"
+                yield f"data: {'=' * 60}\n\n"
+                if errors:
+                    yield f"data:   DESTROY SUMMARY — {len(errors)} ERROR(S)\n\n"
+                    yield f"data: {'=' * 60}\n\n"
+                    for i, err in enumerate(errors, 1):
+                        yield f"data: [{i}] {err}\n\n"
+                else:
+                    yield f"data:   DESTROY SUMMARY — SUCCESS\n\n"
+                    yield f"data: {'=' * 60}\n\n"
+                    if resource_count > 0:
+                        yield f"data: Resources destroyed: {resource_count}\n\n"
+                
+                yield f"event: complete\ndata: {json.dumps({'success': len(errors) == 0, 'errors': errors})}\n\n"
             except Exception as e:
-                import json
-                yield f"event: error\ndata: {json.dumps({'success': False, 'error': str(e)})}\n\n"
+                if current_error:
+                    errors.append("\n".join(current_error))
+                
+                yield f"data: \n\n"
+                yield f"data: {'=' * 60}\n\n"
+                yield f"data:   DESTROY FAILED\n\n"
+                yield f"data: {'=' * 60}\n\n"
+                yield f"data: {str(e)}\n\n"
+                if errors:
+                    yield f"data: \n\n"
+                    yield f"data: Terraform errors encountered:\n\n"
+                    for i, err in enumerate(errors, 1):
+                        yield f"data: [{i}] {err}\n\n"
+                yield f"event: error\ndata: {json.dumps({'success': False, 'error': str(e), 'errors': errors})}\n\n"
         
         return StreamingResponse(
             generate(),

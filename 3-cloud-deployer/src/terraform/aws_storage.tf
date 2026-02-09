@@ -193,8 +193,9 @@ resource "aws_lambda_function_url" "l3_hot_reader" {
 # ==============================================================================
 
 resource "aws_s3_bucket" "l3_cold" {
-  count  = local.l3_cold_aws_enabled ? 1 : 0
-  bucket = local.aws_l3_s3_cold_bucket_name
+  count         = local.l3_cold_aws_enabled ? 1 : 0
+  bucket        = local.aws_l3_s3_cold_bucket_name
+  force_destroy = true
 
   tags = local.aws_common_tags
 }
@@ -284,8 +285,9 @@ resource "aws_lambda_permission" "l3_hot_to_cold" {
 # ==============================================================================
 
 resource "aws_s3_bucket" "l3_archive" {
-  count  = local.l3_archive_aws_enabled ? 1 : 0
-  bucket = local.aws_l3_s3_archive_bucket_name
+  count         = local.l3_archive_aws_enabled ? 1 : 0
+  bucket        = local.aws_l3_s3_archive_bucket_name
+  force_destroy = true
 
   tags = local.aws_common_tags
 }

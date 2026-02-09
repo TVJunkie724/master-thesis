@@ -106,8 +106,9 @@ resource "aws_iam_role_policy" "l4_twinmaker_lambda" {
 # ==============================================================================
 
 resource "aws_s3_bucket" "l4_twinmaker" {
-  count  = local.l4_aws_enabled ? 1 : 0
-  bucket = local.aws_l4_twinmaker_bucket_name
+  count         = local.l4_aws_enabled ? 1 : 0
+  bucket        = local.aws_l4_twinmaker_bucket_name
+  force_destroy = true
 
   tags = local.aws_common_tags
 }

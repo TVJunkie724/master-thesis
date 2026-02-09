@@ -269,6 +269,13 @@ class TerraformDeployerStrategy:
         logger.info("  TERRAFORM DESTROY - STARTING")
         logger.info("=" * 60)
         
+        # Load credentials for pre-destroy and SDK fallback cleanup
+        if context and not context.credentials:
+            try:
+                context.credentials = self._load_credentials()
+            except Exception as e:
+                logger.warning(f"Could not load credentials: {e}")
+        
         # Pre-destroy: Clean orphaned diagnostic settings while parent resources still exist
         # This prevents 409 Conflict errors during Terraform destroy
         if context:
@@ -492,6 +499,12 @@ class TerraformDeployerStrategy:
         # SDK fallback cleanup (sync, uses executor)
         yield "\n[STEP 3/3] SDK fallback cleanup..."
         if context:
+            # Load credentials for SDK cleanup (destroy skips _initialize_providers)
+            if not context.credentials:
+                try:
+                    context.credentials = self._load_credentials()
+                except Exception as e:
+                    yield f"  ⚠ Could not load credentials for SDK cleanup: {e}"
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(
                 None,
@@ -631,6 +644,9 @@ class TerraformDeployerStrategy:
         """
         providers = self._load_providers_config()
         credentials = self._load_credentials()
+        
+        # Store credentials on context for SDK fallback cleanup
+        context.credentials = credentials
         
         # Determine which clouds need SDK operations
         sdk_layers = ["layer_1_provider", "layer_2_provider", "layer_4_provider", "layer_5_provider"]
