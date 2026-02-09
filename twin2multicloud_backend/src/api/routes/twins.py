@@ -805,11 +805,25 @@ async def get_deployment_status(
     if not twin:
         raise HTTPException(status_code=404, detail="Twin not found")
     
+    # Check for active SSE session (for reconnection after navigation)
+    from src.api.routes.sse import get_active_sessions_for_twin
+    active_session = None
+    if twin.state in (TwinState.DEPLOYING, TwinState.DESTROYING):
+        sessions = await get_active_sessions_for_twin(twin_id)
+        if sessions:
+            s = sessions[0]
+            active_session = {
+                "session_id": s.session_id,
+                "sse_url": f"/sse/deploy/{s.session_id}",
+                "operation_type": s.operation_type,
+            }
+
     return {
         "state": twin.state,
         "last_error": twin.last_error,
         "deployed_at": twin.deployed_at.isoformat() if twin.deployed_at else None,
         "destroyed_at": twin.destroyed_at.isoformat() if twin.destroyed_at else None,
+        "active_session": active_session,
     }
 
 @router.get(

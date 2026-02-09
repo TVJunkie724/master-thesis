@@ -103,6 +103,44 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
           outputsError: outputsError,
         ),
       );
+
+      // If the twin is deploying/destroying, try to reconnect to the active SSE session
+      // (handles the case where user navigated away and came back)
+      if (['deploying', 'destroying'].contains(twinState)) {
+        final isDestroy = twinState == 'destroying';
+        try {
+          final status = await _api.getDeploymentStatus(event.twinId);
+          final activeSession =
+              status['active_session'] as Map<String, dynamic>?;
+          if (activeSession != null) {
+            final sseUrl = activeSession['sse_url'] as String;
+
+            // Update UI to show terminal with reconnection indicator
+            final currentState = state;
+            if (currentState is TwinOverviewLoaded) {
+              emit(
+                currentState.copyWith(
+                  isDeploying: !isDestroy,
+                  isDestroying: isDestroy,
+                  showTerminal: true,
+                  terminalLogs: ['> Reconnected to active session...'],
+                ),
+              );
+            }
+
+            // Reuse existing SSE subscription method
+            _subscribeToSseStream(
+              sseUrl: sseUrl,
+              sessionId: activeSession['session_id'] as String?,
+              twinId: event.twinId,
+              isDestroy: isDestroy,
+            );
+          }
+        } catch (e) {
+          debugPrint('[TwinOverviewBloc] SSE reconnect failed: $e');
+          // Non-fatal — user sees the deploying/destroying state, just without live logs
+        }
+      }
     } catch (e) {
       debugPrint(
         '[TwinOverviewBloc] Failed to load twin: ${ApiErrorHandler.extractMessage(e)}',

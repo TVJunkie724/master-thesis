@@ -364,6 +364,15 @@ async def stream_deploy_logs(
 
     async def event_generator():
         try:
+            # If the operation already completed (e.g., user navigated away and
+            # the operation finished before they returned), replay the final event.
+            if session.state == SessionState.COMPLETED:
+                final_events = [e for e in session.logs if e.get("type") in ("complete", "error")]
+                if final_events:
+                    event = final_events[-1]
+                    yield f"id: {event['id']}\ndata: {json.dumps(event)}\n\n"
+                return
+
             # Mark session as streaming
             session.on_connect()
 
@@ -401,8 +410,11 @@ async def stream_deploy_logs(
             # Final persistence of any remaining logs
             if session.unpersisted_logs:
                 await _persist_logs_batch(session, session.get_unpersisted_and_clear(), db)
-            # Don't cleanup immediately - leave for reaper in case of reconnect
-            session.state = SessionState.COMPLETED
+            # If the operation is still running (no terminal event received),
+            # reset to PENDING so a reconnecting client can resume.
+            # If on_complete() was already called, state is already COMPLETED.
+            if session.state == SessionState.STREAMING:
+                session.state = SessionState.PENDING
 
     return StreamingResponse(
         event_generator(),
