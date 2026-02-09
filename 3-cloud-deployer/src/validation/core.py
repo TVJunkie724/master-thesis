@@ -563,7 +563,9 @@ def check_credentials_per_provider(ctx: ValidationContext) -> None:
     configured_providers = set()
     for key, value in ctx.prov_config.items():
         if key.startswith("layer_") and value:
-            configured_providers.add(value.lower())
+            # Skip 'none' - it's a placeholder for disabled layers, not a real provider
+            if value.lower() != "none":
+                configured_providers.add(value.lower())
     
     # Normalize provider names for credentials lookup
     # config_providers.json uses "google" but config_credentials.json uses "gcp"
