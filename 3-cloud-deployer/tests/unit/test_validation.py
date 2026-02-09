@@ -199,7 +199,7 @@ class TestValidation(unittest.TestCase):
         validator.validate_state_machine_content(CONSTANTS.GOOGLE_STATE_MACHINE_FILE, valid_gcp)
         
         # 4. Valid - 'main' is directly a list of steps (simplified format)
-        valid_gcp_list = {"main": [{"init": {"assign": [{"x": 1}]}}, {"process": {"call": "http.get"}}]}
+        valid_gcp_list = {"main": [{"init": {"assign": [{"x": 1}]}}, {"process": {"call": "http.get", "args": {"url": "https://example.com", "auth": {"type": "OIDC"}}}}]}
         validator.validate_state_machine_content(CONSTANTS.GOOGLE_STATE_MACHINE_FILE, valid_gcp_list)
         
         # 5. Invalid - duplicate step names
@@ -415,7 +415,15 @@ class TestValidation(unittest.TestCase):
                         proc_path = f"{func_dir}/processors/{device_id}/{proc_file}"
                         # Only add if not already in extra_files
                         if not extra_files or proc_path not in extra_files:
-                            zf.writestr(proc_path, "def process(data: dict) -> dict:\n    return data\n")
+                            # Use the correct entry point per provider
+                            entry_point_map = {
+                                "aws": "def lambda_handler(event, context):\n    return {'statusCode': 200}\n",
+                                "azure": "def main(req):\n    return 'OK'\n",
+                                "google": "def main(request):\n    return 'OK'\n",
+                                "gcp": "def main(request):\n    return 'OK'\n",
+                            }
+                            entry_code = entry_point_map.get(layer_2_provider, "def lambda_handler(event, context):\n    return {'statusCode': 200}\n")
+                            zf.writestr(proc_path, entry_code)
             
             if func_dir:
                 func_placeholder = f"{func_dir}/placeholder.txt"
@@ -440,7 +448,7 @@ class TestValidation(unittest.TestCase):
     def test_validate_zip_feedback_success(self):
         """Test zip with returnFeedbackToDevice=True AND feedback logic present"""
         opt = {"result": {"inputParamsUsed": {"returnFeedbackToDevice": True}}}
-        extras = {f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event-feedback/lambda_function.py": ""}
+        extras = {f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event-feedback/lambda_function.py": "def lambda_handler(event, context):\n    return {'statusCode': 200}\n"}
         zip_buf = self._create_zip_with_configs({CONSTANTS.CONFIG_OPTIMIZATION_FILE: opt}, extras)
         validator.validate_project_zip(zip_buf)
 

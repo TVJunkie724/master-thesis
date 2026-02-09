@@ -17,7 +17,7 @@ class TestBuildAdtPatch(unittest.TestCase):
         """Happy path: single property creates valid JSON Patch with lastXxx name."""
         from src.providers.azure.azure_functions._shared.adt_helper import build_adt_patch
         result = build_adt_patch({"temperature": 23.5})
-        self.assertEqual(result, [{"op": "replace", "path": "/lastTemperature", "value": 23.5}])
+        self.assertEqual(result, [{"op": "add", "path": "/lastTemperature", "value": 23.5}])
     
     def test_multiple_properties_creates_multiple_patches(self):
         """Happy path: multiple properties create multiple patch operations with lastXxx names."""
@@ -38,7 +38,7 @@ class TestBuildAdtPatch(unittest.TestCase):
         """Verification: patch operations use 'replace' for updates with lastXxx path."""
         from src.providers.azure.azure_functions._shared.adt_helper import build_adt_patch
         result = build_adt_patch({"pressure": 101.3})
-        self.assertEqual(result[0]["op"], "replace")
+        self.assertEqual(result[0]["op"], "add")
         self.assertEqual(result[0]["path"], "/lastPressure")
 
 

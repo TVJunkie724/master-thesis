@@ -61,7 +61,7 @@ def {func_name.replace("-", "_")}(req: func.HttpRequest) -> func.HttpResponse:
             bundle_l0_functions(str(azure_functions_dir), {})
     
     def test_no_glue_for_single_cloud(self, azure_functions_dir):
-        """Should return None when all providers are same (no cross-cloud)."""
+        """Should return only adt-pusher when all providers are azure (no cross-cloud boundaries)."""
         providers = {
             "layer_1_provider": "azure",
             "layer_2_provider": "azure",
@@ -72,8 +72,9 @@ def {func_name.replace("-", "_")}(req: func.HttpRequest) -> func.HttpResponse:
         
         zip_bytes, funcs = bundle_l0_functions(str(azure_functions_dir), providers)
         
-        assert zip_bytes is None
-        assert funcs == []
+        # adt-pusher always deploys for azure (no boundary), even in single-cloud
+        assert zip_bytes is not None
+        assert funcs == ["adt-pusher"]
     
     def test_bundles_ingestion_for_l1_l2_boundary(self, azure_functions_dir):
         """Should include ingestion when L1 != L2 and L2 is azure."""
@@ -1061,8 +1062,9 @@ def cold_writer(req: func.HttpRequest) -> func.HttpResponse:
         
         zip_bytes, funcs = bundle_l0_functions(str(l0_azure_functions_dir), providers)
         
-        assert len(funcs) == 1
+        assert len(funcs) == 2  # hot-writer + adt-pusher (always included for azure)
         assert "hot-writer" in funcs
+        assert "adt-pusher" in funcs
         
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
             content = zf.read("function_app.py").decode("utf-8")

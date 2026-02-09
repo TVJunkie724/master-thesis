@@ -5,15 +5,11 @@ Tests D1-D13 from the implementation plan.
 """
 import pytest
 from fastapi.testclient import TestClient
-import sys
-import os
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
-from app import app
+import rest_api
 
 
-client = TestClient(app)
+client = TestClient(rest_api.app)
 
 
 # Valid processor code for each provider

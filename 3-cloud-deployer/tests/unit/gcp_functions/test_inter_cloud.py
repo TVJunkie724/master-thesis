@@ -11,6 +11,7 @@ from pathlib import Path
 gcp_funcs_path = Path(__file__).parent.parent.parent.parent / "src" / "providers" / "gcp" / "cloud_functions"
 sys.path.insert(0, str(gcp_funcs_path))
 
+import _shared.inter_cloud as _inter_cloud_module
 from _shared.inter_cloud import _get_token_expiry, get_id_token_headers, _token_cache
 
 
@@ -71,11 +72,15 @@ class TestGetIdTokenHeaders:
         with pytest.raises(ValueError, match="Invalid target URL"):
             get_id_token_headers("ftp://example.com")
     
-    @patch('_shared.inter_cloud._GOOGLE_AUTH_AVAILABLE', False)
     def test_missing_google_auth_raises_runtime_error(self):
         """Should raise RuntimeError if google-auth not installed."""
-        with pytest.raises(RuntimeError, match="google-auth library not available"):
-            get_id_token_headers("https://example.com")
+        original = _inter_cloud_module._GOOGLE_AUTH_AVAILABLE
+        try:
+            _inter_cloud_module._GOOGLE_AUTH_AVAILABLE = False
+            with pytest.raises(RuntimeError, match="google-auth library not available"):
+                get_id_token_headers("https://example.com")
+        finally:
+            _inter_cloud_module._GOOGLE_AUTH_AVAILABLE = original
 
 
 class TestGetIdTokenHeadersWithGoogleAuth:
