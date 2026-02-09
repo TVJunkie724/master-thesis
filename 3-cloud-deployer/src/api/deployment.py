@@ -262,7 +262,7 @@ async def deploy_stream(
         provider = validate_provider(provider)
         context = create_context(project_name, provider)
         
-        terraform_dir = Path(f"/app/upload/{project_name}/terraform")
+        terraform_dir = Path("/app/src/terraform")
         project_path = Path(f"/app/upload/{project_name}")
         strategy = TerraformDeployerStrategy(str(terraform_dir), str(project_path))
         
@@ -332,7 +332,7 @@ async def destroy_stream(
         provider = provider.lower()
         context = create_context(project_name, provider)
         
-        terraform_dir = Path(f"/app/upload/{project_name}/terraform")
+        terraform_dir = Path("/app/src/terraform")
         project_path = Path(f"/app/upload/{project_name}")
         strategy = TerraformDeployerStrategy(str(terraform_dir), str(project_path))
         
