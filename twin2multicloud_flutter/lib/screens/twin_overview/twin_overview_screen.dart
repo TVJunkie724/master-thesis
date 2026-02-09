@@ -1306,6 +1306,15 @@ class TwinOverviewView extends ConsumerWidget {
                               color: Colors.red[900],
                             ),
                           ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '⚠️ Orphaned cloud resources may exist. '
+                            'Run CLEANUP before retrying deployment.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.orange[900],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ],
                       ),
                     ),

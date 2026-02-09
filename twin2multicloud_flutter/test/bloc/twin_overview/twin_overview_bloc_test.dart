@@ -262,7 +262,85 @@ void main() {
             .having((s) => s.terminalLogs, 'logs preserved', [
               'Log 1',
               'Error log',
-            ]),
+            ])
+            .having((s) => s.canDestroy, 'canDestroy', true)
+            .having((s) => s.canDeploy, 'canDeploy', true),
+      ],
+    );
+  });
+
+  // ============================================================
+  // Permission Recalculation Tests
+  // ============================================================
+
+  group('TwinOverviewBloc - Permission Recalculation', () {
+    late MockApiService mockApi;
+
+    setUp(() {
+      mockApi = MockApiService();
+    });
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'DeploymentComplete success sets canDestroy=true and canDeploy=false',
+      seed: () => const TwinOverviewLoaded(
+        twinId: 'test-id',
+        projectName: 'Test Project',
+        twinState: 'deploying',
+        canDeploy: false,
+        canDestroy: false,
+        canEdit: false,
+        canDelete: false,
+        isDeploying: true,
+        showTerminal: true,
+        terminalLogs: ['Log 1'],
+      ),
+      build: () => TwinOverviewBloc(api: mockApi),
+      act: (bloc) => bloc.add(
+        const TwinOverviewDeploymentComplete(
+          success: true,
+          newState: 'deployed',
+          message: 'Deployment successful',
+        ),
+      ),
+      expect: () => [
+        isA<TwinOverviewLoaded>()
+            .having((s) => s.twinState, 'twinState', 'deployed')
+            .having((s) => s.canDeploy, 'canDeploy', false)
+            .having((s) => s.canDestroy, 'canDestroy', true)
+            .having((s) => s.canEdit, 'canEdit', false)
+            .having((s) => s.canDelete, 'canDelete', false),
+      ],
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'DeploymentComplete failure from configured state enables cleanup',
+      seed: () => const TwinOverviewLoaded(
+        twinId: 'test-id',
+        projectName: 'Test Project',
+        twinState: 'deploying',
+        canDeploy: false,
+        canDestroy: false,
+        canEdit: false,
+        canDelete: false,
+        isDeploying: true,
+        showTerminal: true,
+        terminalLogs: ['Log 1'],
+      ),
+      build: () => TwinOverviewBloc(api: mockApi),
+      act: (bloc) => bloc.add(
+        const TwinOverviewDeploymentComplete(
+          success: false,
+          newState: 'error',
+          message: 'Terraform apply failed',
+        ),
+      ),
+      expect: () => [
+        isA<TwinOverviewLoaded>()
+            .having((s) => s.twinState, 'twinState', 'error')
+            .having((s) => s.canDeploy, 'canDeploy', true)
+            .having((s) => s.canDestroy, 'canDestroy', true)
+            .having((s) => s.canEdit, 'canEdit', true)
+            .having((s) => s.canDelete, 'canDelete', true),
       ],
     );
   });

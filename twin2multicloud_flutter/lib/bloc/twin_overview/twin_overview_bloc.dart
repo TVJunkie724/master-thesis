@@ -184,10 +184,15 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
 
+    final perms = _permissionsForState('deploying');
     emit(
       currentState.copyWith(
         isDeploying: true,
         twinState: 'deploying',
+        canDeploy: perms['canDeploy'],
+        canDestroy: perms['canDestroy'],
+        canEdit: perms['canEdit'],
+        canDelete: perms['canDelete'],
         showTerminal: true,
         terminalLogs: ['> Starting deployment...'],
       ),
@@ -217,10 +222,15 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       debugPrint(
         '[TwinOverviewBloc] Deployment failed: ${ApiErrorHandler.extractMessage(e)}',
       );
+      final errPerms = _permissionsForState('error');
       emit(
         currentState.copyWith(
           isDeploying: false,
           twinState: 'error',
+          canDeploy: errPerms['canDeploy'],
+          canDestroy: errPerms['canDestroy'],
+          canEdit: errPerms['canEdit'],
+          canDelete: errPerms['canDelete'],
           errorMessage:
               'Deployment failed: ${ApiErrorHandler.extractMessage(e)}',
         ),
@@ -235,10 +245,15 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
 
+    final perms = _permissionsForState('destroying');
     emit(
       currentState.copyWith(
         isDestroying: true,
         twinState: 'destroying',
+        canDeploy: perms['canDeploy'],
+        canDestroy: perms['canDestroy'],
+        canEdit: perms['canEdit'],
+        canDelete: perms['canDelete'],
         showTerminal: true,
         terminalLogs: ['> Starting resource destruction...'],
       ),
@@ -268,10 +283,15 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       debugPrint(
         '[TwinOverviewBloc] Destroy failed: ${ApiErrorHandler.extractMessage(e)}',
       );
+      final errPerms = _permissionsForState('error');
       emit(
         currentState.copyWith(
           isDestroying: false,
           twinState: 'error',
+          canDeploy: errPerms['canDeploy'],
+          canDestroy: errPerms['canDestroy'],
+          canEdit: errPerms['canEdit'],
+          canDelete: errPerms['canDelete'],
           errorMessage: 'Destroy failed: ${ApiErrorHandler.extractMessage(e)}',
         ),
       );
@@ -324,11 +344,17 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     final isDestroy = event.newState == 'destroyed';
 
     // First emit state update that PRESERVES terminal logs so they stay visible
+    final newState = event.newState ?? (event.success ? 'deployed' : 'error');
+    final perms = _permissionsForState(newState);
     emit(
       currentState.copyWith(
         isDeploying: false,
         isDestroying: false,
-        twinState: event.newState ?? (event.success ? 'deployed' : 'error'),
+        twinState: newState,
+        canDeploy: perms['canDeploy'],
+        canDestroy: perms['canDestroy'],
+        canEdit: perms['canEdit'],
+        canDelete: perms['canDelete'],
         lastError: event.success ? null : event.message,
         successMessage: event.success ? event.message : null,
         // Store outputs from SSE on successful deploy, clear on destroy
@@ -723,6 +749,17 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     return super.close();
   }
 
+  /// Recalculate permissions for a given twinState.
+  /// Single source of truth — used by _buildLoadedState and all copyWith transitions.
+  static Map<String, bool> _permissionsForState(String twinState) {
+    return {
+      'canDeploy': ['configured', 'destroyed', 'error'].contains(twinState),
+      'canDestroy': ['deployed', 'error'].contains(twinState),
+      'canEdit': !['deploying', 'destroying', 'deployed'].contains(twinState),
+      'canDelete': !['deploying', 'destroying', 'deployed'].contains(twinState),
+    };
+  }
+
   /// Build loaded state with calculated permissions based on twin state
   TwinOverviewLoaded _buildLoadedState({
     required String twinId,
@@ -734,19 +771,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     DateTime? outputsTimestamp,
     String? outputsError,
   }) {
-    // State-based permission matrix (from implementation plan)
-    final canDeploy = ['configured', 'destroyed', 'error'].contains(twinState);
-    final canDestroy = ['deployed', 'error'].contains(twinState);
-    final canEdit = ![
-      'deploying',
-      'destroying',
-      'deployed',
-    ].contains(twinState);
-    final canDelete = ![
-      'deploying',
-      'destroying',
-      'deployed',
-    ].contains(twinState);
+    final perms = _permissionsForState(twinState);
 
     return TwinOverviewLoaded(
       twinId: twinId,
@@ -754,10 +779,10 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       cloudResourceName:
           deployerConfig?['deployer_digital_twin_name'] as String?,
       twinState: twinState,
-      canDeploy: canDeploy,
-      canDestroy: canDestroy,
-      canEdit: canEdit,
-      canDelete: canDelete,
+      canDeploy: perms['canDeploy']!,
+      canDestroy: perms['canDestroy']!,
+      canEdit: perms['canEdit']!,
+      canDelete: perms['canDelete']!,
       lastError: twin['last_error'] as String?,
       lastDeploymentLogs: twin['last_deployment_logs'] as String?,
       // Optimizer result and params
