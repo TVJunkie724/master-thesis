@@ -367,13 +367,14 @@ class TerraformRunner:
         import asyncio
         
         # Build base command (same logic as _run_command)
-        # Use -no-color for clean SSE streaming output
-        cmd = ["terraform", f"-chdir={self.terraform_dir}", "-no-color"]
+        cmd = ["terraform", f"-chdir={self.terraform_dir}"]
         stateful_commands = ["apply", "destroy", "plan", "output", "show", "import", "taint", "untaint"]
         
         if len(args) > 0:
             subcommand = args[0]
             cmd.append(subcommand)
+            # -no-color must come after the subcommand (it's a subcommand option, not global)
+            cmd.append("-no-color")
             
             if self.state_path and subcommand in stateful_commands:
                 cmd.append(f"-state={self.state_path}")
