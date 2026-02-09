@@ -134,6 +134,9 @@ Festo_Demo_Box/
 **/temp_tfvars.json
 **/e2e_*.txt
 **/e2e_persistence_temp/
+twin2multicloud_flutter/android/local.properties
+3-cloud-deployer/upload/template copy/
+twin2multicloud_backend/**/scene.glb
 
 
 # -----------------------------------------------------------------------------
@@ -141,6 +144,3 @@ Festo_Demo_Box/
 # -----------------------------------------------------------------------------
 .ai-session.json
 
-twin2multicloud_flutter/android/local.properties
-
-3-cloud-deployer/upload/template copy/
