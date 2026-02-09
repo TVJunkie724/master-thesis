@@ -547,7 +547,11 @@ def _build_providers_config(twin) -> dict:
     oc = twin.optimizer_config
     
     def normalize(value: Optional[str]) -> Optional[str]:
-        return value.lower() if value else None
+        if not value:
+            return None
+        v = value.lower()
+        # Optimizer stores "GCP" but Terraform/Deployer expect "google"
+        return "google" if v == "gcp" else v
     
     return {
         "layer_1_provider": normalize(oc.cheapest_l1),

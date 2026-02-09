@@ -147,7 +147,7 @@ class TestBuildProvidersConfig:
         
         assert result["layer_1_provider"] == "aws"
         assert result["layer_2_provider"] == "azure"
-        assert result["layer_3_hot_provider"] == "gcp"
+        assert result["layer_3_hot_provider"] == "google"
         assert result["layer_4_provider"] == "azure"
     
     def test_returns_empty_when_no_optimizer_config(self):
