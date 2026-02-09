@@ -1,11 +1,11 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-02-08 13:40  
-**Status:** 🎉 **ALL 10 SCENARIOS CONFIGURED** (7 cross-cloud + 3 same-cloud)
+**Last Updated:** 2026-02-09 21:40  
+**Status:** 🎉 **ALL 11 SCENARIOS CONFIGURED** (8 cross-cloud + 3 same-cloud)
 
 ---
 
-## Summary (All 10 Scenarios)
+## Summary (All 11 Scenarios)
 
 | Scenario | Last Run | Tests Passed | Tests Failed | Tests Skipped | Result |
 |----------|----------|--------------|--------------|---------------|--------|
@@ -16,6 +16,7 @@
 | **GCP→AWS** | Feb 8 (13:16) | 18 | 0 | 3 | ✅ **PASS** |
 | **GCP→Azure** | Feb 8 (13:39) | 18 | 0 | 3 | ✅ **PASS** |
 | **Cross-L4** | Feb 8 (09:56) | 19 | 0 | 2 | ✅ **PASS** |
+| **Shared-L2-L3** | — | — | — | — | 🆕 **NEW** |
 | **AWS** | Feb 7 (22:11) | 18 | 0 | 3 | ✅ **PASS** |
 | **Azure** | Feb 8 (00:06) | 19 | 0 | 2 | ✅ **PASS** |
 | **GCP** | Feb 7 (22:30) | 13 | 0 | 8 | ✅ **PASS** |
@@ -33,11 +34,13 @@
 | **gcp-aws** | GCP | AWS | Azure | GCP | AWS | AWS | Azure |
 | **gcp-azure** | GCP | Azure | AWS | GCP | Azure | Azure | AWS |
 | **cross-l4** | Azure | **AWS** | GCP | Azure | AWS | **Azure** | Azure |
+| **shared-l2-l3** | GCP | **AWS** | GCP | **AWS** | Azure | AWS | AWS |
 | **aws** | AWS | AWS | AWS | AWS | AWS | AWS | AWS |
 | **azure** | Azure | Azure | Azure | Azure | Azure | Azure | Azure |
 | **gcp** | GCP | GCP | GCP | GCP | GCP | none | none |
 
 > **Note:** GCP has no managed L4 (Digital Twins) or L5 (Grafana) services.
+> **Note:** `shared-l2-l3` tests **L2 = L3-Cold** (both AWS) with L3-Hot on GCP — catches cold-writer boundary bug.
 
 ---
 
@@ -47,11 +50,14 @@
 |----------|:------------:|:------:|:--------:|
 | L1→L2 | 6 | 6 | ✅ 100% |
 | L2→L3-Hot | 6 | 6 | ✅ 100% |
-| L2→L3-Cold | 6 | 6 | ✅ 100% |
+| L3-Hot→L3-Cold | 6 | 6 | ✅ 100% |
+| L3-Cold→L3-Archive | 6 | 6 | ✅ 100% |
 | L2→L4 (ADT) | 2 | **2** | ✅ 100% |
 | L4→L5 | 2 | 2 | ✅ 100% |
+| **L2=L3-Cold edge** | — | **1** | ✅ `shared-l2-l3` |
 
-> **Note:** `cross-l4` specifically tests AWS L2 → Azure L4 (ADT) boundary.
+> **Note:** `cross-l4` specifically tests AWS L2 → Azure L4 (ADT) boundary.  
+> **Note:** `shared-l2-l3` specifically tests the cold-writer L0 boundary when L2 shares a provider with L3-Cold.
 
 ---
 
@@ -248,6 +254,22 @@ IoT Device → Dispatcher → Processor → Persister
   - `test_18_cold_to_archive_mover` ✅ (AWS: `sc2-aws-azure-l3-cold-to-archive-mover`)
 - **Skipped**: 2 tests (TwinMaker — not applicable)
 - **Output**: `tests/e2e/multicloud/.build/e2e_output_deployer-aws-azure_20260207_231212.txt`
+
+---
+
+## Fixes Applied (Feb 9 — L0 Boundary Bug)
+
+### 1. Cold-Writer Registry Boundary Mismatch
+
+**Problem:** `cold-writer.zip` not built → Terraform `filebase64sha256` fails with file not found.
+
+**Root Cause:** Function registry used boundary `(layer_2_provider, layer_3_cold_provider)` but cold-writer bridges **L3-hot → L3-cold**. When production config had `L2 = L3-cold = aws`, the check `L2 ≠ L3-cold` was false → zip skipped. All 10 E2E scenarios accidentally had `L2 ≠ L3-cold`, masking the bug.
+
+**Fix:** Changed boundary to `(layer_3_hot_provider, layer_3_cold_provider)`. Also fixed `l0-hot-reader` and `l0-hot-reader-last-entry` boundaries from `(layer_3_hot_provider, layer_5_provider)` to `(layer_4_provider, layer_3_hot_provider)`.
+
+**File:** `src/function_registry.py` (lines 109, 127, 134)
+
+**Coverage:** Added E2E scenario `shared-l2-l3` + 4 unit tests in `TestL0BoundaryEdgeCases`.
 
 ---
 

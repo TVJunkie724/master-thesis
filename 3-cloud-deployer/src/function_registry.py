@@ -106,7 +106,7 @@ STATIC_FUNCTIONS: List[FunctionDefinition] = [
     FunctionDefinition(
         name="cold-writer",
         layer=Layer.L0_GLUE,
-        boundary=("layer_2_provider", "layer_3_cold_provider"),
+        boundary=("layer_3_hot_provider", "layer_3_cold_provider"),
         is_optional=True,
     ),
     FunctionDefinition(
@@ -125,13 +125,13 @@ STATIC_FUNCTIONS: List[FunctionDefinition] = [
         name="l0-hot-reader",
         layer=Layer.L0_GLUE,
         dir_name="hot-reader",
-        boundary=("layer_3_hot_provider", "layer_5_provider"),
+        boundary=("layer_4_provider", "layer_3_hot_provider"),
     ),
     FunctionDefinition(
         name="l0-hot-reader-last-entry",
         layer=Layer.L0_GLUE,
         dir_name="hot-reader-last-entry",
-        boundary=("layer_3_hot_provider", "layer_5_provider"),
+        boundary=("layer_4_provider", "layer_3_hot_provider"),
     ),
     
     # L1: Data Acquisition
