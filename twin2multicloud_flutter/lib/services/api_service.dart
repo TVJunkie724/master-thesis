@@ -439,41 +439,6 @@ class ApiService {
     return response.data as Map<String, dynamic>;
   }
 
-  // ==========================================================================
-  // Test Deployment (UI Testing Only)
-  // ==========================================================================
-
-  /// Test deployment for UI testing - requires ENABLE_TEST_ENDPOINTS=true on backend
-  ///
-  /// Simulates a realistic deployment with terraform-style console logs.
-  /// No real cloud resources are created.
-  /// Now returns {session_id, sse_url} for streaming.
-  Future<Map<String, dynamic>> testDeployTwin(
-    String twinId, {
-    int duration = 30,
-    bool shouldFail = false,
-  }) async {
-    final response = await _dio.post(
-      '/twins/$twinId/test-deploy',
-      queryParameters: {'duration': duration, 'should_fail': shouldFail},
-    );
-    return response.data as Map<String, dynamic>;
-  }
-
-  /// Test destroy for UI testing - requires ENABLE_TEST_ENDPOINTS=true on backend
-  /// Now returns {session_id, sse_url} for streaming.
-  Future<Map<String, dynamic>> testDestroyTwin(
-    String twinId, {
-    int duration = 20,
-    bool shouldFail = false,
-  }) async {
-    final response = await _dio.post(
-      '/twins/$twinId/test-destroy',
-      queryParameters: {'duration': duration, 'should_fail': shouldFail},
-    );
-    return response.data as Map<String, dynamic>;
-  }
-
   /// Get terraform outputs from most recent successful deployment
   /// Returns {outputs: Map?, deployed_at: String?}
   Future<Map<String, dynamic>> getDeploymentOutputs(String twinId) async {
@@ -527,40 +492,11 @@ class ApiService {
     return response.data as Map<String, dynamic>;
   }
 
-  /// Test log trace for UI testing - requires ENABLE_TEST_ENDPOINTS=true on backend
-  ///
-  /// Simulates realistic multi-cloud log streaming without real cloud resources.
-  /// Returns {trace_id, sent_at, l1_provider, providers, message, session_id, sse_url}
-  Future<Map<String, dynamic>> testLogTrace(
-    String twinId, {
-    int duration = 30,
-    bool shouldFail = false,
-  }) async {
-    final response = await _dio.post(
-      '/twins/$twinId/test-log-trace/start',
-      queryParameters: {'duration': duration, 'should_fail': shouldFail},
-    );
-    return response.data as Map<String, dynamic>;
-  }
-
   /// Download IoT simulator package (L1 provider determined by backend).
   /// Returns binary ZIP data.
   Future<Uint8List> downloadSimulator(String twinId) async {
     final response = await _dio.get(
       '/twins/$twinId/simulator/download',
-      options: Options(
-        responseType: ResponseType.bytes,
-        receiveTimeout: const Duration(seconds: 60),
-      ),
-    );
-    return response.data as Uint8List;
-  }
-
-  /// [TEST] Download mock simulator package for UI testing.
-  /// Returns binary ZIP data without requiring real Deployer.
-  Future<Uint8List> testDownloadSimulator(String twinId) async {
-    final response = await _dio.get(
-      '/twins/$twinId/simulator/test-download',
       options: Options(
         responseType: ResponseType.bytes,
         receiveTimeout: const Duration(seconds: 60),

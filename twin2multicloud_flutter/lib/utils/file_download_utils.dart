@@ -1,6 +1,7 @@
 /// File download utilities for cross-platform file persistence.
 ///
 /// Uses file_selector to trigger native "Save As" dialog on all platforms.
+library;
 
 import 'dart:typed_data';
 import 'package:file_selector/file_selector.dart';
