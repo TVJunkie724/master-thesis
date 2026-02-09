@@ -75,16 +75,8 @@ async def get_dashboard_stats(
             if result_json:
                 try:
                     result = json.loads(result_json)
-                    # Sum the cheapest path costs
-                    cheapest_path = result.get('cheapestPath', [])
-                    for provider_costs_key in ['awsCosts', 'azureCosts', 'gcpCosts']:
-                        costs = result.get(provider_costs_key, {})
-                        for layer_key, layer_data in costs.items():
-                            # Only count if this layer is in the cheapest path
-                            provider = provider_costs_key.replace('Costs', '').upper()
-                            path_key = f"{layer_key}_{provider}"
-                            if path_key in cheapest_path:
-                                estimated_cost += layer_data.get('cost', 0)
+                    # Use the engine's pre-computed totalCost (includes layer + transfer costs)
+                    estimated_cost += result.get('totalCost', 0)
                 except (json.JSONDecodeError, TypeError, AttributeError):
                     pass
     

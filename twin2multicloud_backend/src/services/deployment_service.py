@@ -16,6 +16,7 @@ import io
 import json
 import logging
 import zipfile
+from pathlib import Path
 import httpx
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
@@ -329,7 +330,7 @@ def build_project_zip(twin, user_id: str) -> io.BytesIO:
         _add_hierarchy_files(zf, dc)
         _add_state_machine_file(zf, dc, twin.optimizer_config)
         _add_user_functions(zf, dc, providers)
-        _add_scene_files(zf, dc, providers)
+        _add_scene_files(zf, dc, providers, twin.id)
         
         # --- Simulator Files ---
         if dc and dc.payloads_json:
@@ -385,10 +386,10 @@ def _add_state_machine_file(zf: zipfile.ZipFile, dc: Optional["DeployerConfigura
     
     l2 = oc.cheapest_l2.lower()
     filenames = {
-        "aws": "state_machines/aws_step_function.yaml",
+        "aws": "state_machines/aws_step_function.json",
         "azure": "state_machines/azure_logic_app.json",
-        "google": "state_machines/google_workflow.yaml",
-        "gcp": "state_machines/google_workflow.yaml",
+        "google": "state_machines/google_cloud_workflow.yaml",
+        "gcp": "state_machines/google_cloud_workflow.yaml",
     }
     if l2 in filenames:
         zf.writestr(filenames[l2], dc.state_machine_content)
@@ -422,7 +423,7 @@ def _add_user_functions(zf: zipfile.ZipFile, dc: Optional["DeployerConfiguration
         _write_if_present(zf, f"{func_base}/event-feedback/requirements.txt", dc.event_feedback_requirements)
 
 
-def _add_scene_files(zf: zipfile.ZipFile, dc: Optional["DeployerConfiguration"], providers: dict) -> None:
+def _add_scene_files(zf: zipfile.ZipFile, dc: Optional["DeployerConfiguration"], providers: dict, twin_id: str) -> None:
     """Add scene files to provider-specific location."""
     if not dc or not dc.scene_config_content:
         return
@@ -434,6 +435,12 @@ def _add_scene_files(zf: zipfile.ZipFile, dc: Optional["DeployerConfiguration"],
     }
     if l4 in scene_filenames:
         zf.writestr(scene_filenames[l4], dc.scene_config_content)
+    
+    # Add GLB binary if uploaded (stored on backend disk, not in DB)
+    if dc.scene_glb_uploaded and l4 in ("aws", "azure"):
+        glb_path = Path(settings.UPLOAD_DIR) / twin_id / "scene.glb"
+        if glb_path.exists():
+            zf.write(str(glb_path), f"scene_assets/{l4}/scene.glb")
 
 
 # ============================================================================
