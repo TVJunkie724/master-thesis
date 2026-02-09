@@ -100,7 +100,7 @@ resource "azurerm_linux_function_app" "l2" {
       var.layer_3_hot_provider == "google" ? try(google_cloudfunctions2_function.hot_writer[0].url, "") : ""
     ) : ""
 
-    # Multi-cloud L2→L4: When Azure L2 sends to Azure ADT
+    # ADT push: Set when L4=azure (for both same-cloud and cross-cloud)
     REMOTE_ADT_PUSHER_URL = var.layer_4_provider == "azure" ? (
       "${local.azure_l0_glue_url}/${local.api_paths.adt_pusher}"
     ) : ""
@@ -109,10 +109,10 @@ resource "azurerm_linux_function_app" "l2" {
     ) : ""
 
     # Logic App trigger URL for event checking workflow
-    # FIX: Use workflow access_endpoint instead of separate trigger resource
+    # FIX: Use ARM template output to get the actual callback URL with SAS signature
     # The trigger is defined in the azure_logic_app.json ARM template
     LOGIC_APP_TRIGGER_URL = var.trigger_notification_workflow && var.use_event_checking ? (
-      try(azurerm_logic_app_workflow.event_notification[0].access_endpoint, "")
+      try(jsondecode(azurerm_resource_group_template_deployment.logic_app_definition[0].output_content).callbackUrl.value, "")
     ) : ""
 
     # Event checker URL for event checking (optional)
@@ -300,6 +300,12 @@ resource "azurerm_resource_group_template_deployment" "logic_app_definition" {
         definition = jsondecode(file(var.logic_app_definition_file)).definition
       }
     }]
+    outputs = {
+      callbackUrl = {
+        type  = "string"
+        value = "[listCallbackUrl(resourceId('Microsoft.Logic/workflows/triggers', '${azurerm_logic_app_workflow.event_notification[0].name}', 'manual'), '2019-05-01').value]"
+      }
+    }
   })
 
   depends_on = [azurerm_logic_app_workflow.event_notification]

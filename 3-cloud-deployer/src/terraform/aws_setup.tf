@@ -67,6 +67,7 @@ locals {
   aws_l2_event_checker_name      = "${var.digital_twin_name}-l2-event-checker"
   aws_l2_processor_function_name = "${var.digital_twin_name}-processor"
   aws_l2_processor_name_pattern  = "${var.digital_twin_name}-%s-processor"
+  aws_l2_event_action_name_pattern = "${var.digital_twin_name}-%s"
   aws_l2_event_workflow_name     = "${var.digital_twin_name}-l2-event-workflow"
   aws_l2_sfn_role_name           = "${var.digital_twin_name}-l2-sfn-role"
   aws_l2_sfn_policy_name         = "${var.digital_twin_name}-l2-sfn-lambda-policy"
