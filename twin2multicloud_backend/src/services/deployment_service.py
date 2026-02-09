@@ -399,24 +399,26 @@ def _add_user_functions(zf: zipfile.ZipFile, dc: Optional["DeployerConfiguration
     if not dc:
         return
     
-    # DRY: Single function to get provider folder
-    func_base = _get_function_base_folder(providers.get("layer_1_provider", "aws"))
+    # L2 is the compute layer (where functions run)
+    l2 = providers.get("layer_2_provider", "aws")
+    func_base = _get_function_base_folder(l2)
+    func_file = _get_function_filename(l2)
     
     # Processors
     _add_function_set(
-        zf, func_base, "processors", "processor.py",
+        zf, func_base, "processors", func_file,
         dc.processor_contents, dc.processor_requirements
     )
     
     # Event actions
     _add_function_set(
-        zf, func_base, "event_actions", "lambda_function.py",
+        zf, func_base, "event_actions", func_file,
         dc.event_action_contents, dc.event_action_requirements
     )
     
     # Event feedback (single function, not dict)
     if dc.event_feedback_content:
-        zf.writestr(f"{func_base}/event-feedback/lambda_function.py", dc.event_feedback_content)
+        zf.writestr(f"{func_base}/event-feedback/{func_file}", dc.event_feedback_content)
         _write_if_present(zf, f"{func_base}/event-feedback/requirements.txt", dc.event_feedback_requirements)
 
 
@@ -445,6 +447,15 @@ def _get_function_base_folder(provider: str) -> str:
         "google": "cloud_functions",
         "gcp": "cloud_functions",
     }.get(provider, "lambda_functions")
+
+
+def _get_function_filename(provider: str) -> str:
+    """Map provider to the expected user-code filename."""
+    return {
+        "azure": "function_app.py",
+        "google": "main.py",
+        "gcp": "main.py",
+    }.get(provider, "lambda_function.py")
 
 
 def _add_function_set(
