@@ -59,7 +59,7 @@ services:
       - DATABASE_URL=sqlite:///./data/app.db
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key}
       - DEBUG=true
-      - ENABLE_TEST_ENDPOINTS=true
+      # - ENABLE_TEST_ENDPOINTS=true
       # External API URLs (Docker internal hostnames)
       - OPTIMIZER_URL=http://master-thesis-2twin2clouds-1:8000
       - DEPLOYER_URL=http://master-thesis-3cloud-deployer-1:8000

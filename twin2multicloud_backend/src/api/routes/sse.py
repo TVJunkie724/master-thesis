@@ -180,9 +180,49 @@ async def _persist_logs_batch(session: LogSession, logs: List[dict], db: Session
     db.commit()
 
 
+
+async def _recover_stuck_twins():
+    """Recover twins stuck in deploying/destroying for >30 min with no active session."""
+    import logging
+    from src.models import get_db
+    from src.models.twin import DigitalTwin, TwinState
+
+    logger = logging.getLogger(__name__)
+    threshold = datetime.utcnow() - timedelta(minutes=30)
+
+    # Snapshot active twin IDs under lock
+    async with _sessions_lock:
+        active_twin_ids = {s.twin_id for s in _sessions.values()
+                          if s.state != SessionState.COMPLETED}
+
+    # Query stuck twins outside lock (avoids holding lock during DB I/O)
+    try:
+        db_gen = get_db()
+        db = next(db_gen)
+        stuck = db.query(DigitalTwin).filter(
+            DigitalTwin.state.in_([TwinState.DEPLOYING, TwinState.DESTROYING]),
+            DigitalTwin.updated_at < threshold,
+        ).all()
+
+        for twin in stuck:
+            if twin.id not in active_twin_ids:
+                logger.warning(
+                    f"Recovering stuck twin {twin.id} from {twin.state} → error"
+                )
+                twin.state = TwinState.ERROR
+                twin.last_error = "Operation timed out after 30 minutes (auto-recovered)"
+        db.commit()
+        db.close()
+    except Exception as e:
+        logger.warning(f"Failed to query stuck twins: {e}")
+
+
 async def _session_reaper():
     """Background task that cleans expired sessions every 10 seconds."""
     from src.models import get_db
+    import logging
+    _reaper_logger = logging.getLogger(__name__)
+    _stuck_check_counter = 0
     while True:
         await asyncio.sleep(10)
         async with _sessions_lock:
@@ -198,6 +238,15 @@ async def _session_reaper():
                         db.close()
                     except Exception:
                         pass  # Best effort
+
+        # Check for stuck deployments every ~5 minutes (30 iterations × 10s)
+        _stuck_check_counter += 1
+        if _stuck_check_counter >= 30:
+            _stuck_check_counter = 0
+            try:
+                await _recover_stuck_twins()
+            except Exception as e:
+                _reaper_logger.warning(f"Stuck twin recovery failed: {e}")
 
 
 def start_reaper():
