@@ -1,6 +1,6 @@
 # E2E Test Progress & Status
 
-**Last Updated:** 2026-02-08 10:30  
+**Last Updated:** 2026-02-08 13:40  
 **Status:** 🎉 **ALL 10 SCENARIOS CONFIGURED** (7 cross-cloud + 3 same-cloud)
 
 ---
@@ -9,13 +9,13 @@
 
 | Scenario | Last Run | Tests Passed | Tests Failed | Tests Skipped | Result |
 |----------|----------|--------------|--------------|---------------|--------|
-| **AWS→GCP** | Jan 31 (01:11) | 13 | 0 | 2 | ✅ **PASS** |
+| **AWS→GCP** | Feb 8 (12:48) | 19 | 0 | 2 | ✅ **PASS** |
 | **AWS→Azure** | Feb 8 (00:12) | 19 | 0 | 2 | ✅ **PASS** |
 | **Azure→AWS** | Feb 8 (07:26) | 19 | 0 | 2 | ✅ **PASS** |
-| **Azure→GCP** | Feb 2 (19:36) | 13 | 0 | 2 | ✅ **PASS** |
-| **GCP→AWS** | Feb 2 (20:15) | 12 | 0 | 3 | ✅ **PASS** |
-| **GCP→Azure** | Feb 2 (18:48) | 12 | 0 | 3 | ✅ **PASS** |
-| **Cross-L4** | - | - | - | - | 🆕 New |
+| **Azure→GCP** | Feb 8 (12:13) | 19 | 0 | 2 | ✅ **PASS** |
+| **GCP→AWS** | Feb 8 (13:16) | 18 | 0 | 3 | ✅ **PASS** |
+| **GCP→Azure** | Feb 8 (13:39) | 18 | 0 | 3 | ✅ **PASS** |
+| **Cross-L4** | Feb 8 (09:56) | 19 | 0 | 2 | ✅ **PASS** |
 | **AWS** | Feb 7 (22:11) | 18 | 0 | 3 | ✅ **PASS** |
 | **Azure** | Feb 8 (00:06) | 19 | 0 | 2 | ✅ **PASS** |
 | **GCP** | Feb 7 (22:30) | 13 | 0 | 8 | ✅ **PASS** |
@@ -156,28 +156,75 @@ IoT Device → Dispatcher → Processor → Persister
   - `test_18_cold_to_archive_mover` ✅
 - **Skipped**: 2 tests (TwinMaker — not applicable)
 
-### GCP→AWS (Feb 2, 19:07 → 20:15)
-- **Duration**: 8m 30s
-- **Result**: `12 passed, 3 skipped, 0 failed` ✅
+### AWS→GCP (Feb 8, 12:48 — with cleanup)
+- **Duration**: 21m 03s
+- **Result**: `19 passed, 2 skipped, 0 failed` ✅
+- **Cleanup**: ✅ Terraform destroy + SDK fallback
 - **Key tests**:
-  - `test_08_verify_hot_storage` ✅ (data found in ~8s, attempt 4/300)
+  - `test_08_verify_hot_storage` ✅ (data found in attempt 3/300)
+  - `test_10_twinmaker_entities` ✅ (3 entities)
+  - `test_10b_twinmaker_telemetry` ✅
+  - `test_13–16_event_flow` ✅ (all 4 passed)
+  - `test_17_hot_to_cold_mover` ✅
+  - `test_18_cold_to_archive_mover` ✅
+- **Skipped**: 2 tests (ADT — not applicable)
+
+### GCP→AWS (Feb 8, 13:16 — with cleanup)
+- **Duration**: 27m 48s
+- **Result**: `18 passed, 3 skipped, 0 failed` ✅
+- **Cleanup**: ✅ Terraform destroy + SDK fallback
+- **Key tests**:
+  - `test_08_verify_hot_storage` ✅
+  - `test_10_twinmaker_entities` ✅ (3 entities)
   - `test_10b_twinmaker_telemetry` ✅ (verified in 1 attempt!)
   - `test_12_azure_functions_deployed` ✅
-- **Resources**: 106 deployed (skip-cleanup)
+  - `test_13–16_event_flow` ✅ (all 4 passed)
+  - `test_17_hot_to_cold_mover` ✅
+  - `test_18_cold_to_archive_mover` ✅
+- **Skipped**: 3 tests (IoT devices, ADT twins, ADT telemetry — not applicable)
 
-### GCP→Azure (Feb 2, 18:27 → 18:48)
-- **Duration**: 21m 43s
-- **Result**: `12 passed, 3 skipped, 0 failed` ✅
+### GCP→Azure (Feb 8, 13:39 — with cleanup)
+- **Duration**: 22m 01s
+- **Result**: `18 passed, 3 skipped, 0 failed` ✅
+- **Resources**: 91 deployed, 90 destroyed
+- **Cleanup**: ✅ Terraform destroy + SDK
 - **Key tests**:
-  - `test_08_verify_hot_storage` ✅ (data found in ~18s, attempt 9/300)
-  - `test_11b_adt_twin_telemetry` ✅ (`lastTemperature: 42.5`, attempt 6/30)
+  - `test_08_verify_hot_storage` ✅
+  - `test_11_adt_twins` ✅ — 6 ADT twins
+  - `test_11b_adt_twin_telemetry` ✅
+  - `test_12_azure_functions_deployed` ✅
+  - `test_13–16_event_flow` ✅ (Logic App workflow succeeded)
+  - `test_17_hot_to_cold_mover` ✅
+  - `test_18_cold_to_archive_mover` ✅
+- **Skipped**: 3 tests (IoT devices, TwinMaker — not applicable)
 
-### Azure→GCP (Feb 2, 18:21 → 18:36)
-- **Duration**: 15m 02s
-- **Result**: `13 passed, 2 skipped, 0 failed` ✅
+### Azure→GCP (Feb 8, 12:13 — with cleanup)
+- **Duration**: 15m 46s
+- **Result**: `19 passed, 2 skipped, 0 failed` ✅
+- **Resources**: 106 deployed
+- **Cleanup**: ✅ 106 destroyed via Terraform + SDK
 - **Key tests**:
-  - `test_08_verify_hot_storage` ✅ (data found in ~36s, attempt 18/300)
-  - `test_11b_adt_twin_telemetry` ✅ (`lastTemperature: 42.5`, attempt 7/30)
+  - `test_11_adt_twins` ✅ — 6 ADT twins
+  - `test_11b_adt_twin_telemetry` ✅
+  - `test_13–16_event_flow` ✅ (all 4 passed)
+  - `test_17_hot_to_cold_mover` ✅
+  - `test_18_cold_to_archive_mover` ✅
+- **Skipped**: 2 tests (TwinMaker — not applicable)
+
+### Cross-L4 (Feb 8, 09:56 — with cleanup)
+- **Duration**: 22m 22s
+- **Result**: `19 passed, 2 skipped, 0 failed` ✅
+- **Resources**: 109 deployed
+- **Cleanup**: ✅ Terraform destroy completed
+- **Key tests**:
+  - `test_05_l4_twins` ✅ — Azure Digital Twins (cross-L4: AWS L2 → Azure L4)
+  - `test_11_adt_twins` ✅ — 6 ADT twins found
+  - `test_11b_adt_twin_telemetry` ✅ — telemetry pushed via ADT Pusher
+  - `test_12_azure_functions_deployed` ✅ — `adt-pusher`, `cold-writer`, `hot-reader`, `hot-reader-last-entry`
+  - `test_13–16_event_flow` ✅ (all 4 passed)
+  - `test_17_hot_to_cold_mover` ✅
+  - `test_18_cold_to_archive_mover` ✅
+- **Skipped**: 2 tests (TwinMaker — not applicable, L4 is Azure ADT)
 
 ### Azure→AWS (Feb 8, 07:26 — with cleanup)
 - **Duration**: 21m 11s
