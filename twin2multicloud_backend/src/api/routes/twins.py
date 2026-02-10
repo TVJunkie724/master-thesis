@@ -1157,6 +1157,273 @@ async def stream_log_trace(
 
 
 # ============================================================
+# Deployment Verification Endpoints
+# ============================================================
+
+@router.post(
+    "/{twin_id}/verify/infrastructure",
+    operation_id="verifyInfrastructure",
+    summary="Run structured infrastructure health check",
+    description=(
+        "**Purpose:** Verify all deployed cloud resources across layers L0–L5.\n\n"
+        "**When to call:** After deployment, to confirm all resources are healthy.\n\n"
+        "**Prerequisites:** Twin must be in DEPLOYED state.\n\n"
+        "**Response:** Structured JSON with pass/fail/skip per check and summary.\n\n"
+        "**Duration:** 5-30 seconds (cloud SDK calls).\n"
+        "**Cost:** None (read-only API calls)."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        503: {"description": "Deployer API unavailable"},
+    }
+)
+async def verify_infrastructure(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Run structured infrastructure verification.
+    
+    Proxies to Deployer API /infrastructure/verify endpoint.
+    Only works for deployed twins.
+    
+    Returns:
+        checks: List of {name, status, provider, detail, layer}
+        summary: {pass_count, fail_count, skip_count, total, healthy}
+    """
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    
+    # Must be deployed to verify infrastructure
+    if twin.state != TwinState.DEPLOYED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Twin must be deployed to verify infrastructure (current state: {twin.state})"
+        )
+    
+    # TEST MODE: return mock verification data
+    if TEST_MODE:
+        return {
+            "checks": [
+                {"name": "L0 Setup resources", "status": "pass", "provider": "", "detail": "12 resources found", "layer": "L0"},
+                {"name": "L0 Glue functions", "status": "pass", "provider": "", "detail": "cold-writer, hot-reader", "layer": "L0"},
+                {"name": "IoT endpoint", "status": "pass", "provider": "AWS", "detail": "endpoint active", "layer": "L1"},
+                {"name": "IoT devices registered", "status": "pass", "provider": "AWS", "detail": "2 device(s)", "layer": "L1"},
+                {"name": "Functions deployed", "status": "pass", "provider": "AWS", "detail": "5 resources", "layer": "L2"},
+                {"name": "Hot storage", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
+                {"name": "Cold storage", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
+                {"name": "Archive storage", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
+                {"name": "Hot→Cold mover", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
+                {"name": "Cold→Archive mover", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L3"},
+                {"name": "TwinMaker workspace", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L4"},
+                {"name": "TwinMaker entities", "status": "pass", "provider": "AWS", "detail": "2 entities created", "layer": "L4"},
+                {"name": "ADT twins", "status": "skip", "provider": "", "detail": "L4 not Azure", "layer": "L4"},
+                {"name": "Grafana workspace", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L5"},
+            ],
+            "summary": {"pass_count": 13, "fail_count": 0, "skip_count": 1, "total": 14, "healthy": True}
+        }
+    
+    # Reload twin with configs for credential sync
+    from src.services.deployment_service import prepare_project_for_deployment
+    from sqlalchemy.orm import joinedload
+    
+    twin = db.query(DigitalTwin).options(
+        joinedload(DigitalTwin.deployer_config),
+        joinedload(DigitalTwin.optimizer_config),
+        joinedload(DigitalTwin.configuration),
+    ).filter(DigitalTwin.id == twin_id).first()
+    
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found during reload")
+    
+    # Prepare project in Deployer (ensures credentials are current)
+    try:
+        resource_name = await prepare_project_for_deployment(twin, current_user.id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to prepare project: {str(e)}")
+    
+    # Determine provider for Deployer API
+    provider = "aws"
+    if twin.optimizer_config and twin.optimizer_config.cheapest_l1:
+        provider = twin.optimizer_config.cheapest_l1.lower()
+    
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{DEPLOYER_API_URL}/infrastructure/verify",
+                params={"project_name": resource_name, "provider": provider}
+            )
+            response.raise_for_status()
+            return response.json()
+            
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"Deployer API error: {e.response.text}"
+        )
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Deployer API unavailable: {str(e)}")
+
+
+# ============================================================
+# Data Flow Verification
+# ============================================================
+
+async def _proxy_dataflow_sse(
+    session_id: str,
+    resource_name: str,
+    payload: dict,
+):
+    """Background task that proxies Deployer data flow SSE to our session."""
+    from src.api.routes.sse import get_session
+
+    session = await get_session(session_id)
+    if not session:
+        return
+
+    try:
+        timeout = httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            async with client.stream(
+                "POST",
+                f"{DEPLOYER_API_URL}/dataflow/verify",
+                params={"project_name": resource_name},
+                json={"payload": payload},
+            ) as response:
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        msg = line[6:]
+                        await session.push_log(msg)
+                    elif line.startswith("event: done"):
+                        # Next data line is the summary
+                        pass
+
+        session.on_complete(success=True, message="Data flow verification complete")
+
+    except Exception as e:
+        await session.push_log(json.dumps({
+            "timestamp": "",
+            "message": f"✗ Verification error: {e}",
+            "status": "fail",
+        }))
+        session.on_complete(success=False, message=str(e))
+
+
+@router.post(
+    "/{twin_id}/verify/dataflow",
+    operation_id="verifyDataFlow",
+    summary="Verify end-to-end data flow through deployed pipeline",
+    description=(
+        "**Purpose:** Send a test IoT message and verify it propagates through the entire "
+        "deployed pipeline (ingestion → processing → storage → digital twin → event flow).\n\n"
+        "**When to call:** After infrastructure verification passes.\n\n"
+        "**Prerequisites:** Twin must be in DEPLOYED state.\n\n"
+        "**Request body:** `{payload: {iotDeviceId: ..., ...}}` — test IoT payload.\n\n"
+        "**Response:** `{session_id, sse_url}` — connect to SSE for real-time results.\n\n"
+        "**Duration:** 1-15 minutes depending on cold starts."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        503: {"description": "Deployer API unavailable"},
+    }
+)
+async def verify_dataflow(
+    twin_id: str,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Verify data flow through deployed pipeline via SSE.
+    
+    Sends payload to Deployer which orchestrates 4-phase verification:
+    1. Send IoT message
+    2. Poll hot-reader for data propagation
+    3. Check digital twin update (TwinMaker/ADT)
+    4. Verify event flow via cloud logs
+    
+    Returns session_id and sse_url for SSE streaming.
+    """
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE
+    ).first()
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+    
+    if twin.state != TwinState.DEPLOYED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Twin must be deployed to verify data flow (current state: {twin.state})"
+        )
+    
+    # Validate payload
+    payload = body.get("payload", {})
+    if not payload or "iotDeviceId" not in payload:
+        raise HTTPException(
+            status_code=400,
+            detail="Request body must contain 'payload' with 'iotDeviceId' field"
+        )
+    
+    # TEST MODE: return mock SSE session
+    if TEST_MODE:
+        session_id = str(uuid.uuid4())
+        from src.api.routes.sse import create_session
+        await create_session(twin_id, session_id, operation_type="verify_dataflow")
+        return {
+            "session_id": session_id,
+            "sse_url": f"/sse/deploy/{session_id}",
+        }
+    
+    # Reload twin with configs for credential sync
+    from src.services.deployment_service import prepare_project_for_deployment
+    from sqlalchemy.orm import joinedload
+    
+    twin = db.query(DigitalTwin).options(
+        joinedload(DigitalTwin.deployer_config),
+        joinedload(DigitalTwin.optimizer_config),
+        joinedload(DigitalTwin.configuration),
+    ).filter(DigitalTwin.id == twin_id).first()
+    
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found during reload")
+    
+    # Prepare project (sync credentials)
+    try:
+        resource_name = await prepare_project_for_deployment(twin, current_user.id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to prepare project: {str(e)}")
+    
+    # Create SSE session
+    session_id = str(uuid.uuid4())
+    from src.api.routes.sse import create_session
+    await create_session(twin_id, session_id, operation_type="verify_dataflow")
+    
+    # Start background SSE proxy
+    asyncio.create_task(_proxy_dataflow_sse(
+        session_id=session_id,
+        resource_name=resource_name,
+        payload=payload,
+    ))
+    
+    return {
+        "session_id": session_id,
+        "sse_url": f"/sse/deploy/{session_id}",
+    }
+
+
+# ============================================================
 # IoT Simulator Download
 # ============================================================
 

@@ -16,6 +16,7 @@ import '../../utils/twin_state_utils.dart';
 import '../../widgets/branded_app_bar.dart';
 import '../../widgets/code_viewer_dialog.dart';
 import '../../widgets/deployment_terminal.dart';
+import '../../widgets/deployment_verification_card.dart';
 import '../../widgets/terraform_outputs_card.dart';
 import '../../widgets/results/cheapest_path_visualization.dart';
 
@@ -100,7 +101,7 @@ class TwinOverviewView extends ConsumerWidget {
                 // Alert banners for messages
                 _buildAlertBanners(context, state),
                 // Main content
-                Expanded(child: _buildBody(context, state)),
+                Expanded(child: _buildBody(context, state, ref)),
               ],
             ),
           );
@@ -244,7 +245,11 @@ class TwinOverviewView extends ConsumerWidget {
     );
   }
 
-  Widget _buildBody(BuildContext context, TwinOverviewState state) {
+  Widget _buildBody(
+    BuildContext context,
+    TwinOverviewState state,
+    WidgetRef ref,
+  ) {
     if (state is TwinOverviewLoading) {
       return const Center(
         child: Column(
@@ -291,14 +296,18 @@ class TwinOverviewView extends ConsumerWidget {
     }
 
     if (state is TwinOverviewLoaded) {
-      return _buildLoadedContent(context, state);
+      return _buildLoadedContent(context, state, ref);
     }
 
     // Initial state
     return const Center(child: CircularProgressIndicator());
   }
 
-  Widget _buildLoadedContent(BuildContext context, TwinOverviewLoaded state) {
+  Widget _buildLoadedContent(
+    BuildContext context,
+    TwinOverviewLoaded state,
+    WidgetRef ref,
+  ) {
     final theme = Theme.of(context);
 
     return SingleChildScrollView(
@@ -316,7 +325,20 @@ class TwinOverviewView extends ConsumerWidget {
 
                 // Command Center (always visible)
                 _buildCommandCenter(context, state),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+
+                // Deployment Verification (only for deployed twins)
+                if (state.twinState == 'deployed') ...[
+                  DeploymentVerificationCard(
+                    twinId: state.twinId,
+                    api: ref.read(apiServiceProvider),
+                    payloadsJson:
+                        state.deployerConfig?['payloads_json'] as String?,
+                    configEventsJson:
+                        state.deployerConfig?['config_events_json'] as String?,
+                  ),
+                  const SizedBox(height: 24),
+                ],
 
                 // Configuration Review sections
                 Text(

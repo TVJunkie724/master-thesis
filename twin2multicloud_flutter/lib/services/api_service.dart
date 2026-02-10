@@ -492,6 +492,34 @@ class ApiService {
     return response.data as Map<String, dynamic>;
   }
 
+  // ==========================================================================
+  // Deployment Verification
+  // ==========================================================================
+
+  /// Run structured infrastructure verification (L0-L5 checks)
+  /// Returns {checks: List, summary: {pass_count, fail_count, skip_count, total, healthy}}
+  Future<Map<String, dynamic>> verifyInfrastructure(String twinId) async {
+    final response = await _dio.post(
+      '/twins/$twinId/verify/infrastructure',
+      options: Options(receiveTimeout: const Duration(seconds: 60)),
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Start data flow verification with SSE streaming.
+  /// Returns {session_id, sse_url} for connecting to SSE.
+  Future<Map<String, dynamic>> verifyDataFlow(
+    String twinId,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/verify/dataflow',
+      data: {'payload': payload},
+      options: Options(receiveTimeout: const Duration(seconds: 30)),
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   /// Download IoT simulator package (L1 provider determined by backend).
   /// Returns binary ZIP data.
   Future<Uint8List> downloadSimulator(String twinId) async {
