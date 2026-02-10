@@ -174,6 +174,7 @@ async def run_real_deploy_stream(
         db = SessionLocal()
         try:
             twin = db.query(DigitalTwin).get(twin_id)
+            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
             if twin:
                 if deploy_success:
                     twin.state = TwinState.DEPLOYED
@@ -181,15 +182,13 @@ async def run_real_deploy_stream(
                 else:
                     twin.state = TwinState.ERROR
                     twin.last_error = "Deployment completed with errors — check logs"
-                db.commit()
             
             # Update Deployment record
-            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
             if deployment:
                 deployment.status = "success" if deploy_success else "failed"
                 deployment.terraform_outputs = terraform_outputs
                 deployment.completed_at = datetime.utcnow()
-                db.commit()
+            db.commit()  # Single atomic commit
         finally:
             db.close()
         
@@ -200,26 +199,35 @@ async def run_real_deploy_stream(
         )
         
     except Exception as e:
-        # Error path
+        # Error path — respect deploy_success flag to avoid overwriting a successful outcome
+        logger.error(f"Deploy stream error (success={deploy_success}): {e}", exc_info=True)
         db = SessionLocal()
         try:
             twin = db.query(DigitalTwin).get(twin_id)
-            if twin:
+            if twin and not deploy_success:
                 twin.state = TwinState.ERROR
                 twin.last_error = str(e)
-                db.commit()
+            elif twin and deploy_success:
+                twin.state = TwinState.DEPLOYED
+                twin.deployed_at = datetime.utcnow()
             
             deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
             if deployment:
-                deployment.status = "failed"
-                deployment.error_message = str(e)
+                deployment.status = "success" if deploy_success else "failed"
+                deployment.terraform_outputs = terraform_outputs
+                deployment.error_message = str(e) if not deploy_success else None
                 deployment.completed_at = datetime.utcnow()
-                db.commit()
+            db.commit()
         finally:
             db.close()
         
-        await session.push_log(f"✗ Deployment error: {e}", level="error")
-        session.on_complete(success=False, message=str(e))
+        if not deploy_success:
+            await session.push_log(f"✗ Deployment error: {e}", level="error")
+        session.on_complete(
+            success=deploy_success,
+            message=str(e) if not deploy_success else "Deployment complete",
+            outputs=terraform_outputs if deploy_success else {}
+        )
 
 
 async def run_real_destroy_stream(
@@ -292,6 +300,7 @@ async def run_real_destroy_stream(
         db = SessionLocal()
         try:
             twin = db.query(DigitalTwin).get(twin_id)
+            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
             if twin:
                 if destroy_success:
                     twin.state = TwinState.DESTROYED
@@ -299,13 +308,11 @@ async def run_real_destroy_stream(
                 else:
                     twin.state = TwinState.ERROR
                     twin.last_error = "Destroy completed with errors — check logs"
-                db.commit()
             
-            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
             if deployment:
                 deployment.status = "success" if destroy_success else "failed"
                 deployment.completed_at = datetime.utcnow()
-                db.commit()
+            db.commit()  # Single atomic commit
         finally:
             db.close()
         
@@ -315,25 +322,33 @@ async def run_real_destroy_stream(
         )
         
     except Exception as e:
+        # Error path — respect destroy_success flag to avoid overwriting a successful outcome
+        logger.error(f"Destroy stream error (success={destroy_success}): {e}", exc_info=True)
         db = SessionLocal()
         try:
             twin = db.query(DigitalTwin).get(twin_id)
-            if twin:
+            if twin and not destroy_success:
                 twin.state = TwinState.ERROR
                 twin.last_error = str(e)
-                db.commit()
+            elif twin and destroy_success:
+                twin.state = TwinState.DESTROYED
+                twin.destroyed_at = datetime.utcnow()
             
             deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
             if deployment:
-                deployment.status = "failed"
-                deployment.error_message = str(e)
+                deployment.status = "success" if destroy_success else "failed"
+                deployment.error_message = str(e) if not destroy_success else None
                 deployment.completed_at = datetime.utcnow()
-                db.commit()
+            db.commit()
         finally:
             db.close()
         
-        await session.push_log(f"✗ Destroy error: {e}", level="error")
-        session.on_complete(success=False, message=str(e))
+        if not destroy_success:
+            await session.push_log(f"✗ Destroy error: {e}", level="error")
+        session.on_complete(
+            success=destroy_success,
+            message=str(e) if not destroy_success else "Destruction complete"
+        )
 
 
 # ============================================================================

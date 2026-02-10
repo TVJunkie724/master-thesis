@@ -78,10 +78,17 @@ class SseService {
         }
       },
       onError: (e) {
-        controller.addError(e);
-        controller.close();
+        if (!controller.isClosed) {
+          controller.addError(e);
+          controller.close();
+        }
       },
-      onDone: () => controller.close(),
+      onDone: () {
+        // Normal stream end — only close if not already closed by a terminal event
+        if (!controller.isClosed) {
+          controller.close();
+        }
+      },
     );
 
     return controller.stream;

@@ -260,19 +260,15 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       debugPrint(
         '[TwinOverviewBloc] Deployment failed: ${ApiErrorHandler.extractMessage(e)}',
       );
-      final errPerms = _permissionsForState('error');
       emit(
         currentState.copyWith(
           isDeploying: false,
-          twinState: 'error',
-          canDeploy: errPerms['canDeploy'],
-          canDestroy: errPerms['canDestroy'],
-          canEdit: errPerms['canEdit'],
-          canDelete: errPerms['canDelete'],
           errorMessage:
               'Deployment failed: ${ApiErrorHandler.extractMessage(e)}',
         ),
       );
+      // Refresh from backend to get the correct rolled-back state
+      add(TwinOverviewRefresh());
     }
   }
 
@@ -321,18 +317,14 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       debugPrint(
         '[TwinOverviewBloc] Destroy failed: ${ApiErrorHandler.extractMessage(e)}',
       );
-      final errPerms = _permissionsForState('error');
       emit(
         currentState.copyWith(
           isDestroying: false,
-          twinState: 'error',
-          canDeploy: errPerms['canDeploy'],
-          canDestroy: errPerms['canDestroy'],
-          canEdit: errPerms['canEdit'],
-          canDelete: errPerms['canDelete'],
           errorMessage: 'Destroy failed: ${ApiErrorHandler.extractMessage(e)}',
         ),
       );
+      // Refresh from backend to get the correct rolled-back state
+      add(TwinOverviewRefresh());
     }
   }
 
@@ -405,13 +397,10 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       ),
     );
 
-    // Then schedule a background refresh to get updated server state
-    // (but don't clear logs - the user can close the terminal manually)
-    if (event.success) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        add(TwinOverviewRefresh());
-      });
-    }
+    // Always refresh from backend to ensure state is synchronized
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!isClosed) add(TwinOverviewRefresh());
+    });
   }
 
   void _onClearMessages(
@@ -749,19 +738,15 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
             }
           },
           onError: (e) {
-            // SSE connection error - update state
+            // SSE connection error — don't decide state, poll backend instead
             debugPrint(
               '[TwinOverviewBloc] SSE connection lost: ${ApiErrorHandler.extractMessage(e)}',
             );
             _cancelSseSubscription();
-            add(
-              TwinOverviewDeploymentComplete(
-                success: false,
-                newState: 'error',
-                message:
-                    'Connection lost: ${ApiErrorHandler.extractMessage(e)}',
-              ),
-            );
+            // Wait briefly for the backend to finish its DB commit
+            Future.delayed(const Duration(seconds: 3), () {
+              if (!isClosed) add(TwinOverviewRefresh());
+            });
           },
         );
   }
