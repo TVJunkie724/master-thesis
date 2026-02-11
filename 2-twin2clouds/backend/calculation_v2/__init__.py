@@ -9,5 +9,5 @@ A refactored cost calculation module using:
 - Cross-cloud cost handling (cross_cloud/)
 - Path optimization (optimization/)
 
-This module replaces the deprecated backend/calculation/ module.
+This module replaced the original monolithic calculation engine.
 """

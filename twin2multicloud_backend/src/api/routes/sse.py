@@ -288,33 +288,6 @@ async def get_active_sessions_for_twin(twin_id: str) -> List[LogSession]:
 
 
 # =============================================================================
-# Legacy API (for backward compatibility with existing code)
-# =============================================================================
-
-def get_log_queue(session_id: str) -> asyncio.Queue:
-    """Get or create a log queue for a session (legacy API)."""
-    if session_id not in _sessions:
-        # Create a minimal session for legacy compatibility
-        session = LogSession("legacy", session_id, "deploy")
-        _sessions[session_id] = session
-    return _sessions[session_id].queue
-
-
-async def push_log(session_id: str, log: str):
-    """Push a log message to a session's queue (legacy API)."""
-    session = await get_session(session_id)
-    if session:
-        await session.push_log(log)
-
-
-async def push_complete(session_id: str, status: str, message: str, outputs: dict = None):
-    """Push completion message to a session's queue (legacy API)."""
-    session = await get_session(session_id)
-    if session:
-        session.on_complete(success=(status != "error"), message=message, outputs=outputs)
-
-
-# =============================================================================
 # SSE Endpoint
 # =============================================================================
 
