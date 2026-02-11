@@ -5,7 +5,7 @@ Tests GET /twins/{twin_id}/simulator/download which proxies to Deployer API.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 import httpx
 
 from src.models.twin import DigitalTwin, TwinState
@@ -55,8 +55,9 @@ def deployed_twin_with_optimizer(authenticated_client, db_session):
 # Happy Path Tests (3)
 # ============================================================
 
+@patch("src.services.deployment_service.prepare_project_for_deployment", new_callable=AsyncMock, return_value="sim-test-project")
 @patch("httpx.AsyncClient.get")
-def test_download_simulator_aws_success(mock_get, deployed_twin_with_optimizer):
+def test_download_simulator_aws_success(mock_get, mock_prepare, deployed_twin_with_optimizer):
     """Successfully download AWS simulator package."""
     client, headers, twin_id = deployed_twin_with_optimizer
     
@@ -74,8 +75,9 @@ def test_download_simulator_aws_success(mock_get, deployed_twin_with_optimizer):
     assert "sim-test-project" in response.headers["content-disposition"]
 
 
+@patch("src.services.deployment_service.prepare_project_for_deployment", new_callable=AsyncMock, return_value="azure-project")
 @patch("httpx.AsyncClient.get")
-def test_download_simulator_azure_success(mock_get, authenticated_client, db_session):
+def test_download_simulator_azure_success(mock_get, mock_prepare, authenticated_client, db_session):
     """Successfully download Azure simulator package."""
     client, headers = authenticated_client
     twin_id = create_test_twin(client, headers, "Azure Sim Twin")
@@ -99,8 +101,9 @@ def test_download_simulator_azure_success(mock_get, authenticated_client, db_ses
     assert "azure" in response.headers["content-disposition"]
 
 
+@patch("src.services.deployment_service.prepare_project_for_deployment", new_callable=AsyncMock, return_value="gcp-project")
 @patch("httpx.AsyncClient.get")
-def test_download_simulator_gcp_success(mock_get, authenticated_client, db_session):
+def test_download_simulator_gcp_success(mock_get, mock_prepare, authenticated_client, db_session):
     """Successfully download GCP simulator package."""
     client, headers = authenticated_client
     twin_id = create_test_twin(client, headers, "GCP Sim Twin")
@@ -182,8 +185,9 @@ def test_download_simulator_no_l1(authenticated_client, db_session):
     assert "optimization" in response.json()["detail"].lower()
 
 
+@patch("src.services.deployment_service.prepare_project_for_deployment", new_callable=AsyncMock, return_value="sim-test-project")
 @patch("httpx.AsyncClient.get")
-def test_download_simulator_deployer_404(mock_get, deployed_twin_with_optimizer):
+def test_download_simulator_deployer_404(mock_get, mock_prepare, deployed_twin_with_optimizer):
     """404 when Deployer returns 404."""
     client, headers, twin_id = deployed_twin_with_optimizer
     
@@ -202,8 +206,9 @@ def test_download_simulator_deployer_404(mock_get, deployed_twin_with_optimizer)
 # Edge Case Tests (4)
 # ============================================================
 
+@patch("src.services.deployment_service.prepare_project_for_deployment", new_callable=AsyncMock, return_value="sim-test-project")
 @patch("httpx.AsyncClient.get")
-def test_download_simulator_deployer_timeout(mock_get, deployed_twin_with_optimizer):
+def test_download_simulator_deployer_timeout(mock_get, mock_prepare, deployed_twin_with_optimizer):
     """502 when Deployer times out."""
     client, headers, twin_id = deployed_twin_with_optimizer
     
@@ -215,8 +220,9 @@ def test_download_simulator_deployer_timeout(mock_get, deployed_twin_with_optimi
     assert "failed to connect" in response.json()["detail"].lower()
 
 
+@patch("src.services.deployment_service.prepare_project_for_deployment", new_callable=AsyncMock, return_value="sim-test-project")
 @patch("httpx.AsyncClient.get")
-def test_download_simulator_deployer_500(mock_get, deployed_twin_with_optimizer):
+def test_download_simulator_deployer_500(mock_get, mock_prepare, deployed_twin_with_optimizer):
     """500 when Deployer returns 500."""
     client, headers, twin_id = deployed_twin_with_optimizer
     

@@ -30,12 +30,12 @@ def temp_project_path(tmp_path):
 def valid_zip_bytes():
     """Create a valid project zip file in memory with unique credentials."""
     import uuid
-    unique_id = uuid.uuid4().hex[:8]
+    unique_id = uuid.uuid4().hex[:4]
     
     bio = io.BytesIO()
     with zipfile.ZipFile(bio, 'w') as zf:
         config = {
-            "digital_twin_name": f"test-twin-{unique_id}",
+            "digital_twin_name": f"tt-{unique_id}",
             "hot_storage_size_in_days": 30,
             "cold_storage_size_in_days": 90,
             "mode": "DEBUG"

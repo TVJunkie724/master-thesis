@@ -109,14 +109,14 @@ def test_calculate_load_pricing_failure(mock_load_pricing):
     response = client.put("/calculate", json=payload)
     assert response.status_code == 500
     data = response.json()
-    assert "error" in data
-    assert "Disk failure simulation" in data["error"]
+    assert "detail" in data
+    assert "Calculation failed" in data["detail"]
 
-@patch("backend.calculation.engine.calculate_cheapest_costs")
+@patch("backend.calculation_v2.engine.calculate_cheapest_costs")
 @patch("api.calculation.load_combined_pricing")
 def test_calculate_engine_internal_error(mock_load, mock_engine):
     """Test behavior when engine raises an unexpected error."""
-    # PATCH TARGET: backend.calculation.engine.calculate_cheapest_costs
+    # PATCH TARGET: backend.calculation_v2.engine.calculate_cheapest_costs
     # Because api/calculation.py imports it locally inside the function 'calc'
     mock_load.return_value = {}
     mock_engine.side_effect = ValueError("Calculation logic exploded")
@@ -137,10 +137,11 @@ def test_calculate_engine_internal_error(mock_load, mock_engine):
     }
     
     response = client.put("/calculate", json=payload)
-    assert response.status_code == 500
+    # ValueError is caught as a 400 by the handler (not 500)
+    assert response.status_code == 400
     data = response.json()
-    assert "error" in data
-    assert "Calculation logic exploded" in data["error"]
+    assert "detail" in data
+    assert "Calculation logic exploded" in data["detail"]
 
 # -----------------------------------------------------------------------------
 # 3. Feature Toggle Verification
@@ -150,9 +151,9 @@ def test_calculate_engine_internal_error(mock_load, mock_engine):
 def test_feature_toggle_gcp_l4_disabled(mock_load_pricing):
     """Verify that disabling 'allowGcpSelfHostedL4' in params passes correct flag to engine."""
     
-    # We patch the ENGINE function (backend.calculation.engine.calculate_cheapest_costs)
+    # We patch the ENGINE function (backend.calculation_v2.engine.calculate_cheapest_costs)
     # to inspect arguments passed to it.
-    with patch("backend.calculation.engine.calculate_cheapest_costs") as mock_calc:
+    with patch("backend.calculation_v2.engine.calculate_cheapest_costs") as mock_calc:
         mock_calc.return_value = {}
         mock_load_pricing.return_value = {}
         

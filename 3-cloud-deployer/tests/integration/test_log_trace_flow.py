@@ -13,7 +13,6 @@ import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 from datetime import datetime, timezone
 import json
-import asyncio
 
 
 class TestCrossCloudLogAggregation:
@@ -58,7 +57,7 @@ class TestCrossCloudLogAggregation:
     @patch('src.api.logs.fetch_aws_logs')
     @patch('src.api.logs.fetch_azure_logs')
     @patch('src.api.logs.fetch_gcp_logs')
-    async def test_aggregate_logs_all_providers(
+    def test_aggregate_logs_all_providers(
         self,
         mock_gcp,
         mock_azure,
@@ -95,7 +94,7 @@ class TestCrossCloudLogAggregation:
         assert "gcp" in providers_found
 
     @patch('src.api.logs.fetch_aws_logs')
-    async def test_aggregate_logs_single_provider(self, mock_aws, mock_aws_logs):
+    def test_aggregate_logs_single_provider(self, mock_aws, mock_aws_logs):
         """Should handle single-provider deployments."""
         mock_aws.return_value = mock_aws_logs
         
@@ -106,7 +105,7 @@ class TestCrossCloudLogAggregation:
 
     @patch('src.api.logs.fetch_aws_logs')
     @patch('src.api.logs.fetch_azure_logs')
-    async def test_aggregate_logs_provider_failure(self, mock_azure, mock_aws, mock_aws_logs):
+    def test_aggregate_logs_provider_failure(self, mock_azure, mock_aws, mock_aws_logs):
         """Should handle partial provider failures gracefully."""
         mock_aws.return_value = mock_aws_logs
         mock_azure.side_effect = Exception("Azure query failed")
@@ -198,14 +197,14 @@ class TestTimeoutAndErrorHandling:
         assert 1 <= POLL_INTERVAL_SECONDS <= 3
 
     @patch('src.api.logs.fetch_aws_logs')
-    async def test_log_fetch_timeout_handling(self, mock_aws):
+    def test_log_fetch_timeout_handling(self, mock_aws):
         """Should handle log fetch timeouts."""
-        mock_aws.side_effect = asyncio.TimeoutError()
+        mock_aws.side_effect = TimeoutError()
         
         result = []
         try:
-            result = await mock_aws()
-        except asyncio.TimeoutError:
+            result = mock_aws()
+        except TimeoutError:
             # Expected - should not crash
             pass
         

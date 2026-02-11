@@ -24,7 +24,14 @@ class TestOptimizerConfigValidation:
                 "triggerNotificationWorkflow": True
             },
             "result": {
-                "cheapest_path": {
+                "cheapestPath": [
+                    "L1_aws",
+                    "L2_azure",
+                    "L3_gcp",
+                    "L4_aws",
+                    "L5_azure"
+                ],
+                "calculationResult": {
                     "L1": "aws",
                     "L2": "azure",
                     "L3_hot": "gcp",
@@ -45,7 +52,7 @@ class TestOptimizerConfigValidation:
         response = client.post("/validate/optimizer-config", json={
             "params": None,
             "result": {
-                "cheapest_path": {"L1": "aws"}
+                "cheapestPath": ["L1_aws"]
             }
         })
         
