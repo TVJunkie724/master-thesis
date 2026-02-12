@@ -137,10 +137,14 @@ Festo_Demo_Box/
 twin2multicloud_flutter/android/local.properties
 3-cloud-deployer/upload/template copy/
 twin2multicloud_backend/**/scene.glb
+3-cloud-deployer/upload/**
+!3-cloud-deployer/upload/template
+
 
 
 # -----------------------------------------------------------------------------
 # AI Agent Session Tracking
 # -----------------------------------------------------------------------------
 .ai-session.json
+
 
