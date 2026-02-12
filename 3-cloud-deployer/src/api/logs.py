@@ -12,6 +12,7 @@ Supports:
 """
 import asyncio
 import json
+import os
 import subprocess
 import sys
 import uuid
@@ -312,14 +313,17 @@ def fetch_gcp_logs(
 def _send_test_message_via_simulator(
     provider: str,
     project_name: str,
-    trace_id: str
+    trace_id: str,
+    payload_override: dict = None,
 ) -> bool:
     """
     Send test message via existing IoT simulator using subprocess.
     Uses the --payload CLI argument for single-shot mode.
     
-    Loads the first payload from payloads.json to determine the device ID,
-    then injects trace_id and sends via the correct device credentials.
+    If payload_override is given (from verify.py), uses it directly.
+    Otherwise loads the first payload from payloads.json to determine
+    the device ID, then injects trace_id and sends via the correct 
+    device credentials.
     """
     # Map provider to simulator script path
     provider_map = {
@@ -334,23 +338,28 @@ def _send_test_message_via_simulator(
         logger.error(f"Unknown provider: {provider}")
         return False
     
-    # Try to load first payload from payloads.json
+    # Try to load first payload from payloads.json (unless caller supplied one)
     payloads_path = f"/app/upload/{project_name}/iot_device_simulator/payloads.json"
     device_id = None
     payload = None
     
-    try:
-        if os.path.exists(payloads_path):
-            with open(payloads_path, 'r') as f:
-                payloads = json.load(f)
-            
-            if payloads and len(payloads) > 0:
-                # Use first payload as template
-                payload = payloads[0].copy()
-                device_id = payload.get("iotDeviceId")
-                logger.info(f"Using first payload from payloads.json, device_id: {device_id}")
-    except Exception as e:
-        logger.warning(f"Could not load payloads.json: {e}, using synthetic payload")
+    if payload_override is not None:
+        payload = payload_override.copy()
+        device_id = payload.get("iotDeviceId")
+        logger.info(f"Using caller-supplied payload, device_id: {device_id}")
+    else:
+        try:
+            if os.path.exists(payloads_path):
+                with open(payloads_path, 'r') as f:
+                    payloads = json.load(f)
+                
+                if payloads and len(payloads) > 0:
+                    # Use first payload as template
+                    payload = payloads[0].copy()
+                    device_id = payload.get("iotDeviceId")
+                    logger.info(f"Using first payload from payloads.json, device_id: {device_id}")
+        except Exception as e:
+            logger.warning(f"Could not load payloads.json: {e}, using synthetic payload")
     
     # Fallback to synthetic payload if no payloads found
     if payload is None:

@@ -147,3 +147,53 @@ All multi-cloud environment variables are now in Terraform files:
 | Azure | ✅ Implemented |
 | AWS | ✅ Implemented |
 | GCP | ✅ Implemented |
+
+---
+
+## GCP IoT Device Simulator
+
+> [!NOTE]
+> Resolved February 2026.
+
+Fully implemented in `src/iot_device_simulator/google/` with `main.py`, `globals.py`, and `transmission.py`. Uses `google-cloud-pubsub` SDK for Pub/Sub message publishing. Supports interactive menu and single-shot payload mode.
+
+---
+
+## Azure/GCP Hot Reader Functions
+
+> [!NOTE]
+> Resolved February 2026.
+
+Both Azure (Cosmos DB) and GCP (Firestore) hot reader functions implemented:
+- `src/providers/azure/azure_functions/hot-reader/` and `hot-reader-last-entry/`
+- `src/providers/gcp/cloud_functions/hot-reader/` and `hot-reader-last-entry/`
+
+Both use `X-Inter-Cloud-Token` authentication and return TwinMaker-compatible JSON.
+
+---
+
+## SDK Managed Resource Validation
+
+> [!NOTE]
+> Resolved February 2026.
+
+`check_sdk_managed()` in `src/api/status.py` fully implemented. Uses `info_l1()`, `info_l4()`, and `info_l5()` from provider strategies to check IoT devices, TwinMaker/ADT instances, and Grafana workspaces.
+
+---
+
+## Unified Validation Error Aggregation
+
+> [!NOTE]
+> Resolved February 2026.
+
+`run_all_checks_aggregated()` in `src/validation/core.py` collects ALL validation errors across all check phases before returning, providing maximum feedback on first upload.
+
+---
+
+## Azure Cosmos DB Custom Role — readMetadata Permission
+
+> [!NOTE]
+> Resolved February 2026.
+
+`Microsoft.DocumentDB/databaseAccounts/readMetadata` permission added to `docs/references/azure_custom_role.json`.
+

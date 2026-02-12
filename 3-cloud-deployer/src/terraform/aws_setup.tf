@@ -77,8 +77,8 @@ locals {
 
   # L3 Storage
   aws_l3_dynamodb_table_name      = "${var.digital_twin_name}-${local.storage_tier_hot}"
-  aws_l3_s3_cold_bucket_name      = "${var.digital_twin_name}-${local.storage_tier_cold}"
-  aws_l3_s3_archive_bucket_name   = "${var.digital_twin_name}-${local.storage_tier_archive}"
+  aws_l3_s3_cold_bucket_name      = "${var.digital_twin_name}-${local.storage_tier_cold}-${local.deployment_suffix}"
+  aws_l3_s3_archive_bucket_name   = "${var.digital_twin_name}-${local.storage_tier_archive}-${local.deployment_suffix}"
   aws_l3_role_name                = "${var.digital_twin_name}-l3-lambda-role"
   aws_l3_dynamodb_policy_name     = "${var.digital_twin_name}-l3-dynamodb-policy"
   aws_l3_s3_policy_name           = "${var.digital_twin_name}-l3-s3-policy"
@@ -93,7 +93,7 @@ locals {
   aws_l4_twinmaker_role_name     = "${var.digital_twin_name}-l4-twinmaker-role"
   aws_l4_twinmaker_s3_policy     = "${var.digital_twin_name}-l4-twinmaker-s3-policy"
   aws_l4_twinmaker_lambda_policy = "${var.digital_twin_name}-l4-twinmaker-lambda-policy"
-  aws_l4_twinmaker_bucket_name   = "${var.digital_twin_name}-twinmaker"
+  aws_l4_twinmaker_bucket_name   = "${var.digital_twin_name}-twinmaker-${local.deployment_suffix}"
   aws_l4_connector_role_name     = "${var.digital_twin_name}-l4-connector-role"
   aws_l4_connector_policy_name   = "${var.digital_twin_name}-l4-connector-dynamodb-policy"
   aws_l4_connector_function_name = "${var.digital_twin_name}-l4-connector"

@@ -25,7 +25,7 @@ def validate_digital_twin_name(name: str) -> None:
     Validates the digital twin name for AWS resource naming compatibility.
     
     Constraints:
-    - Maximum 20 characters (resource naming limits)
+    - Maximum 15 characters (resource naming limits)
     - Only alphanumeric, hyphen, underscore allowed
     
     Args:
@@ -34,7 +34,7 @@ def validate_digital_twin_name(name: str) -> None:
     Raises:
         ValueError: If name exceeds length or contains invalid characters
     """
-    max_length = 30
+    max_length = 15
     if len(name) > max_length:
         raise ValueError(
             f"Digital twin name '{name}' exceeds {max_length} characters."

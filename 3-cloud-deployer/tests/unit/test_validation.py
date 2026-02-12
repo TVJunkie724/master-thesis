@@ -983,8 +983,8 @@ class TestDigitalTwinNameValidation(unittest.TestCase):
         validator.validate_digital_twin_name("Twin-Name_01")
     
     def test_name_too_long(self):
-        """Test name exceeding 30 characters raises error."""
-        long_name = "a" * 31
+        """Test name exceeding 15 characters raises error."""
+        long_name = "a" * 16
         with self.assertRaises(ValueError) as cm:
             validator.validate_digital_twin_name(long_name)
         self.assertIn("exceeds", str(cm.exception))
@@ -998,6 +998,68 @@ class TestDigitalTwinNameValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             validator.validate_digital_twin_name("my.twin")  # Period
         self.assertIn("invalid characters", str(cm.exception))
+
+    def test_name_exactly_at_limit(self):
+        """Test name at exactly 15 characters passes."""
+        name_15 = "a" * 15  # Exactly at limit
+        validator.validate_digital_twin_name(name_15)
+
+    def test_name_one_over_limit(self):
+        """Test name at exactly 16 characters fails (boundary)."""
+        name_16 = "a" * 16
+        with self.assertRaises(ValueError):
+            validator.validate_digital_twin_name(name_16)
+
+    def test_name_single_character(self):
+        """Test single character name passes."""
+        validator.validate_digital_twin_name("a")
+        validator.validate_digital_twin_name("1")
+
+    def test_name_empty_string(self):
+        """Test empty string fails — regex rejects zero-length match."""
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_digital_twin_name("")
+        self.assertIn("invalid characters", str(cm.exception))
+
+    def test_name_special_characters(self):
+        """Test various special characters all fail."""
+        invalid_names = ["my@twin", "my!twin", "my#twin", "my$twin",
+                         "my/twin", "my\\twin", "my:twin", "my twin"]
+        for name in invalid_names:
+            with self.assertRaises(ValueError, msg=f"'{name}' should be rejected"):
+                validator.validate_digital_twin_name(name)
+
+    def test_name_with_uppercase(self):
+        """Test uppercase is accepted — validator allows [A-Za-z0-9_-]."""
+        validator.validate_digital_twin_name("MyTwin")
+        validator.validate_digital_twin_name("TWIN")
+
+    def test_name_hyphens_and_underscores(self):
+        """Test names consisting of only hyphens/underscores pass regex."""
+        validator.validate_digital_twin_name("-")
+        validator.validate_digital_twin_name("_")
+        validator.validate_digital_twin_name("---")
+        validator.validate_digital_twin_name("a-b_c")
+
+    def test_name_very_long(self):
+        """Test very long name (100 chars) fails with correct message."""
+        long_name = "a" * 100
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_digital_twin_name(long_name)
+        self.assertIn("exceeds", str(cm.exception))
+        self.assertIn("15", str(cm.exception))
+
+    def test_error_message_includes_name(self):
+        """Test error messages include the offending name for debugging."""
+        bad_name = "my.bad.twin"
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_digital_twin_name(bad_name)
+        self.assertIn(bad_name, str(cm.exception))
+
+        long_name = "this-is-too-long"
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_digital_twin_name(long_name)
+        self.assertIn(long_name, str(cm.exception))
 
 
 class TestAzureRegionValidation(unittest.TestCase):

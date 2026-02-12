@@ -96,11 +96,12 @@ def _hot_reader_url_for_provider(provider: str, outputs: dict) -> Optional[str]:
 
 def _poll_hot_reader(
     url: str, device_id: str, inter_cloud_token: Optional[str],
-    timeout: int, poll_interval: int
+    timeout: int, poll_interval: int, trace_id: str = None,
 ) -> dict:
     """
     Poll hot-reader endpoint until data appears or timeout.
     Returns {success, elapsed, record_count, error}.
+    If `trace_id` is set, only records containing that trace_id are considered.
     """
     headers = {}
     if inter_cloud_token:
@@ -113,7 +114,7 @@ def _poll_hot_reader(
         try:
             resp = requests.get(
                 url,
-                params={"device_id": device_id, "limit": "5"},
+                params={"device_id": device_id, "limit": "20"},
                 headers=headers,
                 timeout=10,
             )
@@ -128,6 +129,13 @@ def _poll_hot_reader(
                     items = data["items"]
                 elif isinstance(data, dict) and "data" in data:
                     items = data["data"]
+
+                # Filter by trace_id if provided
+                if trace_id and items:
+                    items = [
+                        it for it in items
+                        if it.get("trace_id") == trace_id
+                    ]
 
                 if len(items) > 0:
                     elapsed = round(time.time() - start, 1)
@@ -149,7 +157,8 @@ def _poll_hot_reader(
 
 
 def _check_twinmaker_telemetry(
-    workspace_id: str, entity_id: str, timeout: int, poll_interval: int
+    workspace_id: str, entity_id: str, timeout: int, poll_interval: int,
+    aws_region: str = None, aws_creds: dict = None,
 ) -> dict:
     """Poll TwinMaker for property value history updates."""
     try:
@@ -157,7 +166,16 @@ def _check_twinmaker_telemetry(
     except ImportError:
         return {"success": False, "error": "boto3 SDK not available"}
 
-    client = boto3.client("iottwinmaker")
+    try:
+        creds = aws_creds or {}
+        session = boto3.Session(
+            aws_access_key_id=creds.get("aws_access_key_id"),
+            aws_secret_access_key=creds.get("aws_secret_access_key"),
+            region_name=aws_region,
+        )
+        client = session.client("iottwinmaker")
+    except Exception as e:
+        return {"success": False, "error": f"Failed to create TwinMaker client: {e}"}
     start = time.time()
 
     while time.time() - start < timeout:
@@ -476,8 +494,11 @@ async def verify_data_flow(
             timespec="milliseconds"
         ).replace("+00:00", "Z")
 
-        # Write modified payload to a temp file and send via simulator
-        success = _send_test_message_via_simulator(l1_provider, project_name, trace_id)
+        # Send via simulator with the user's payload
+        success = _send_test_message_via_simulator(
+            l1_provider, project_name, trace_id,
+            payload_override=send_payload,
+        )
 
         if success:
             results["pass"] += 1
@@ -589,6 +610,7 @@ async def verify_data_flow(
             batch_result = await asyncio.to_thread(
                 _poll_hot_reader, hot_url, device_id, inter_cloud_token,
                 batch_timeout, PHASE_2_POLL_INTERVAL,
+                trace_id=trace_id,
             )
 
             if batch_result["success"]:
@@ -683,6 +705,8 @@ async def verify_data_flow(
                     twin_result = await asyncio.to_thread(
                         _check_twinmaker_telemetry,
                         workspace_id, device_id, PHASE_3_TIMEOUT, PHASE_3_POLL_INTERVAL,
+                        aws_region=tf_outputs.get("aws_region"),
+                        aws_creds=project_creds.get("aws", {}),
                     )
                 else:
                     twin_result = {"success": False, "error": "TwinMaker workspace ID not in outputs"}
@@ -824,8 +848,30 @@ async def verify_data_flow(
             "hints": _cloud_log_hints(providers) if results["fail"] > 0 else [],
         })
 
+    async def _safe_wrapper():
+        """Wrap event_generator to catch unhandled exceptions."""
+        start = time.time()
+        try:
+            async for event in event_generator():
+                yield event
+        except Exception as e:
+            logger.exception(f"Data flow verification crashed: {e}")
+            yield _sse_event("log", {
+                "timestamp": _timestamp(),
+                "message": f"\u2717 Internal error: {e}",
+                "status": "fail",
+            })
+            yield _sse_event("done", {
+                "pass_count": 0,
+                "fail_count": 1,
+                "skip_count": 0,
+                "total_time": round(time.time() - start, 1),
+                "failed_phase": "Internal error",
+                "hints": [],
+            })
+
     return StreamingResponse(
-        event_generator(),
+        _safe_wrapper(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

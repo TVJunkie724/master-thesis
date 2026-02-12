@@ -68,12 +68,16 @@ def _run_terraform_command(args: List[str], project_name: str) -> subprocess.Com
         subcommand = args[0]
         cmd.append(subcommand)
         
-        # Add state path for stateful commands (per-project isolation)
-        if subcommand in stateful_commands:
+        # For 'state' subcommands (e.g. state list), -state= must go AFTER
+        # the sub-subcommand: terraform state list -state=Y
+        if subcommand == "state":
+            cmd.extend(args[1:])
             cmd.append(f"-state={state_path}")
-        
-        # Add remaining args
-        cmd.extend(args[1:])
+        else:
+            # Add state path for stateful commands (per-project isolation)
+            if subcommand in stateful_commands:
+                cmd.append(f"-state={state_path}")
+            cmd.extend(args[1:])
     
     try:
         result = subprocess.run(
@@ -439,8 +443,10 @@ def check_endpoint(
     
     try:
         provider = provider.lower()
+        if provider == "gcp":
+            provider = "google"
         if provider not in ("aws", "azure", "google"):
-            raise ValueError(f"Invalid provider: {provider}. Must be aws, azure, or google.")
+            raise ValueError(f"Invalid provider: {provider}. Must be aws, azure, gcp, or google.")
         
         # 1. Check Terraform state (fast, local)
         infrastructure = check_terraform_state(project_name)
@@ -528,6 +534,17 @@ def verify_infrastructure(project_name: str, provider: str) -> Dict[str, Any]:
         config = context.config
         providers_map = config.providers
         
+        # Compute all-providers string for L0 badges
+        _unique = sorted(set(p.upper() for p in [providers_map.get("layer_1_provider", ""),
+            providers_map.get("layer_2_provider", ""), providers_map.get("layer_3_hot_provider", ""),
+            providers_map.get("layer_3_cold_provider", ""), providers_map.get("layer_3_archive_provider", "")] if p))
+        all_providers_str = "/".join(_unique) if _unique else ""
+        
+        # Backfill L0 checks with provider info now that we have it
+        for c in checks:
+            if c.get("layer") == "L0" and not c.get("provider"):
+                c["provider"] = all_providers_str
+        
         # Initialize all needed providers for SDK checks
         credentials = load_credentials(context.project_path)
         unique_providers = set()
@@ -550,7 +567,7 @@ def verify_infrastructure(project_name: str, provider: str) -> Dict[str, Any]:
                           if tf_state.get("status") != "not_deployed" else [])
                          if "cold_writer" in r.lower() or "hot_reader" in r.lower()]
         if tf_state.get("status") == "not_deployed":
-            checks.append(_make_check("L0 Glue functions", "fail", "", "Not deployed", "L0"))
+            checks.append(_make_check("L0 Glue functions", "fail", all_providers_str, "Not deployed", "L0"))
         else:
             # Check code hashes for glue functions
             code_hashes = check_code_hashes(project_name)
@@ -558,11 +575,11 @@ def verify_infrastructure(project_name: str, provider: str) -> Dict[str, Any]:
             glue_names = [f for f in funcs if "cold-writer" in f or "hot-reader" in f]
             if glue_names:
                 checks.append(_make_check(
-                    "L0 Glue functions", "pass", "", ", ".join(glue_names), "L0"
+                    "L0 Glue functions", "pass", all_providers_str, ", ".join(glue_names), "L0"
                 ))
             else:
                 checks.append(_make_check(
-                    "L0 Glue functions", "pass", "", "Terraform-managed", "L0"
+                    "L0 Glue functions", "pass", all_providers_str, "Terraform-managed", "L0"
                 ))
         
         # --- L1 IoT ---
@@ -662,29 +679,27 @@ def verify_infrastructure(project_name: str, provider: str) -> Dict[str, Any]:
         code_hashes = check_code_hashes(project_name)
         funcs = code_hashes.get("functions", {})
         
-        for mover_name, label in [
-            ("hot-to-cold-mover", "Hot→Cold mover"),
-            ("cold-to-archive-mover", "Cold→Archive mover"),
+        # Movers: Hot→Cold uses hot provider, Cold→Archive uses cold provider
+        for mover_name, label, mover_prov_name in [
+            ("hot-to-cold-mover", "Hot→Cold mover", l3_hot_prov),
+            ("cold-to-archive-mover", "Cold→Archive mover", l3_cold_prov),
         ]:
             matching = [f for f in funcs if mover_name in f]
             if matching:
-                f_info = funcs[matching[0]]
-                mover_prov = f_info.get("provider", "").upper()
                 checks.append(_make_check(
-                    label, "pass", mover_prov, "deployed", "L3"
+                    label, "pass", mover_prov_name.upper(), "deployed", "L3"
                 ))
             else:
                 # Movers might be Terraform-managed
-                # Check if any mover resources exist in terraform state
                 mover_resources = [r for r in tf_state.get("l3", {}).get("hot", {}).get("resources", [])
                                    if "mover" in r.lower()] if tf_state.get("status") != "not_deployed" else []
                 if mover_resources or tf_state.get("status") == "deployed":
                     checks.append(_make_check(
-                        label, "pass", "", "Terraform-managed", "L3"
+                        label, "pass", mover_prov_name.upper(), "Terraform-managed", "L3"
                     ))
                 else:
                     checks.append(_make_check(
-                        label, "fail", "", "not found", "L3"
+                        label, "fail", mover_prov_name.upper(), "not found", "L3"
                     ))
         
         # --- L4 Digital Twins ---
@@ -841,8 +856,10 @@ def verify_endpoint(
     """
     try:
         provider = provider.lower()
+        if provider == "gcp":
+            provider = "google"
         if provider not in ("aws", "azure", "google"):
-            raise ValueError(f"Invalid provider: {provider}. Must be aws, azure, or google.")
+            raise ValueError(f"Invalid provider: {provider}. Must be aws, azure, gcp, or google.")
         
         return verify_infrastructure(project_name, provider)
         

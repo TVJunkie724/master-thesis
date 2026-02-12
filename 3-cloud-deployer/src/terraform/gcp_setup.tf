@@ -85,7 +85,6 @@ locals {
   gcp_l1_telemetry_topic = "${var.digital_twin_name}-telemetry"
   gcp_l1_events_topic    = "${var.digital_twin_name}-events"
   gcp_l1_dispatcher_name = "${var.digital_twin_name}-dispatcher"
-  gcp_l1_mqtt_topic_path = "dt/${var.digital_twin_name}/telemetry"
   gcp_l1_registry_id     = "${var.digital_twin_name}-registry"
 
   # L2 Compute
@@ -101,8 +100,8 @@ locals {
   # L3 Storage
   gcp_l3_firestore_database = "${var.digital_twin_name}-${local.deployment_suffix}"
   gcp_l3_firestore_collection = "${var.digital_twin_name}-hot-data"
-  gcp_l3_cold_bucket         = "${local.gcp_project_id}-${var.digital_twin_name}-cold"
-  gcp_l3_archive_bucket      = "${local.gcp_project_id}-${var.digital_twin_name}-archive"
+  gcp_l3_cold_bucket         = "${local.gcp_project_id}-${var.digital_twin_name}-cold-${local.deployment_suffix}"
+  gcp_l3_archive_bucket      = "${local.gcp_project_id}-${var.digital_twin_name}-archive-${local.deployment_suffix}"
   gcp_l3_hot_reader_name     = "${var.digital_twin_name}-hot-reader"
   gcp_l3_hot_to_cold_mover   = "${var.digital_twin_name}-hot-to-cold-mover"
   gcp_l3_hot_to_cold_schedule = "${var.digital_twin_name}-hot-to-cold-schedule"

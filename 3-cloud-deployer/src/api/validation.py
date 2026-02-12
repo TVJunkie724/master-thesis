@@ -1138,7 +1138,7 @@ def _get_state_machine_filename(provider: str) -> str:
 Validates ALL deployer configuration files and functions for state transition to 'configured'.
 
 **Checks performed (reuses existing validators):**
-- `deployer_digital_twin_name`: Non-empty, valid format (alphanumeric, hyphen, underscore, max 30 chars)
+- `deployer_digital_twin_name`: Non-empty, valid format (alphanumeric, hyphen, underscore, max 15 chars)
 - `config_events`, `config_iot_devices`: Required, schema validation
 - `payloads`: Required
 - `processors`: One per device in config_iot_devices, code validation

@@ -97,7 +97,7 @@ provider "google" {
 # Replaces separate random_ids for TwinMaker, Firestore, Grafana, IAM roles.
 
 resource "random_id" "deployment_suffix" {
-  byte_length = 4
+  byte_length = 2
 }
 
 locals {

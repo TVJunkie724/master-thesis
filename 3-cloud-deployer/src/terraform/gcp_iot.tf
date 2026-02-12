@@ -151,7 +151,7 @@ resource "local_file" "gcp_simulator_config" {
   
   content = jsonencode({
     project_id               = local.gcp_project_id
-    topic_name               = local.gcp_l1_mqtt_topic_path
+    topic_name               = local.gcp_l1_telemetry_topic
     device_id                = each.key
     digital_twin_name        = var.digital_twin_name
     payload_path             = "../payloads.json"
