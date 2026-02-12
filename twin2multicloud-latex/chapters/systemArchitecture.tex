@@ -305,13 +305,12 @@ Destruction reverses this in two phases. Phase~1 runs \texttt{terraform destroy}
 Supporting three cloud providers without triplicating the deployment logic requires a clean abstraction boundary. I defined this boundary through a \texttt{CloudProvider} protocol, a Python \texttt{typing.Protocol} that uses structural subtyping rather than inheritance (see Section~\ref{sec:bg-protocol-pattern}). % TODO: CITE --- Python typing.Protocol (PEP 544)
 Any class that implements the required methods satisfies the protocol regardless of its class hierarchy. In practice, each provider (\texttt{AWSProvider}, \texttt{AzureProvider}, \texttt{GCPProvider}) also extends a shared \texttt{BaseProvider} for convenience, but the type system does not enforce this. Figure~\ref{fig:provider-abstraction} illustrates this pattern.
 
-% TODO: Figure --- provider abstraction diagram (provider_abstraction_diagram.png)
-% \begin{figure}[htbp]
-%     \centering
-%     \includegraphics[width=0.85\textwidth]{figures/ch4-provider-abstraction.png}
-%     \caption{Provider abstraction model. The \texttt{CloudProvider} protocol defines the structural interface; concrete providers inherit from \texttt{BaseProvider} for convenience. The \texttt{ProviderRegistry} maps names to implementations, and the \texttt{DeploymentContext} aggregates provider instances for use throughout the pipeline.}
-%     \label{fig:provider-abstraction}
-% \end{figure}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/ch4-provider-abstraction.png}
+    \caption{Provider abstraction model. The \texttt{CloudProvider} protocol defines the structural interface; concrete providers inherit from \texttt{BaseProvider} for convenience. The \texttt{ProviderRegistry} maps names to implementations, and the \texttt{DeploymentContext} aggregates provider instances for use throughout the pipeline.}
+    \label{fig:provider-abstraction}
+\end{figure}
 
 The protocol specifies five members: a \texttt{name} property for identification, an \texttt{initialize\_clients} method that creates authenticated SDK clients for the provider's cloud services, a \texttt{clients} dictionary exposing those clients, a \texttt{get\_resource\_name} method that prefixes all resource identifiers with the digital twin name to prevent cross-deployment collisions, and a \texttt{get\_deployer\_strategy} hook that returns the provider's deployment strategy. Currently all three providers delegate to the shared \texttt{TerraformDeployerStrategy}, but I kept the strategy as a replaceable component so that a future provider could use a different provisioning engine without modifying the pipeline. % TODO: CITE --- Pulumi, AWS CloudFormation
 
@@ -326,25 +325,26 @@ Table~\ref{tab:resource-mapping} maps each layer of the 5-layer \gls{iot} archit
 
 \begin{table}[htbp]
     \centering
-    \caption{Cloud service mapping per architectural layer. L3 is split into three independently assignable storage tiers, each of which may reside on a different provider.}
+    \caption{Cloud service mapping per architectural layer.\textsuperscript{\dag} L3 is split into three independently assignable storage tiers, each of which may reside on a different provider.}
     \label{tab:resource-mapping}
-    \small
-    \begin{tabular}{l l p{3.5cm} p{3.5cm} p{3.5cm}}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{l l l l l}
         \hline
         \textbf{Layer} & \textbf{Role} & \textbf{AWS} & \textbf{Azure} & \textbf{GCP} \\
         \hline
-        L0 & Glue & Lambda & Azure Functions & Cloud Functions \\
-        L1 & Ingestion & IoT Core, Lambda, IoT Topic Rules & IoT Hub, Azure Functions, Event Grid & Pub/Sub, Cloud Functions \\
-        L2 & Processing & Lambda, Step Functions, EventBridge & Azure Functions, Logic Apps, Event Grid & Cloud Functions, Workflows, Cloud Scheduler \\
-        L3 Hot & Storage (Hot) & DynamoDB, Lambda & Cosmos DB, Azure Functions & Firestore, Cloud Functions \\
-        L3 Cool & Storage (Cool) & S3 (Infrequent Access), Lambda, CloudWatch Events & Blob Storage (Cool Tier), Azure Functions & GCS (Nearline), Cloud Functions, Cloud Scheduler \\
-        L3 Archive & Storage (Archive) & S3 (Glacier Deep Archive), Lambda, CloudWatch Events & Blob Storage (Archive Tier), Azure Functions & GCS (Coldline), Cloud Functions, Cloud Scheduler \\
-        L4 & Twin Mgmt & IoT TwinMaker, Lambda, S3 & Azure Digital Twins & ---\textsuperscript{*} \\
-        L5 & Visualization & Managed Grafana, IAM Identity Center & Managed Grafana & ---\textsuperscript{*} \\
+        L0 & Glue & (relay only) & (relay only) & (relay only) \\
+        L1 & Ingestion & IoT Core, IoT Rules & IoT Hub, Event Grid & Pub/Sub \\
+        L2 & Processing & Step Functions, EventBridge & Logic Apps, Event Grid & Workflows, Cloud Scheduler \\
+        L3 Hot & Storage & DynamoDB & Cosmos DB & Firestore \\
+        L3 Cool & Storage & S3 (IA), CloudWatch & Blob Storage (Cool) & GCS (Nearline), Scheduler \\
+        L3 Archive & Storage & S3 (Glacier DA), CloudWatch & Blob Storage (Archive) & GCS (Coldline), Scheduler \\
+        L4 & Twin Mgmt & IoT TwinMaker, S3 & Azure Digital Twins & ---\textsuperscript{*} \\
+        L5 & Visualization & Managed Grafana, IAM IC & Managed Grafana & ---\textsuperscript{*} \\
         \hline
-    \end{tabular}
+    \end{tabular}}
 
     \vspace{0.5em}
+    \textsuperscript{\dag} Every layer except L5 additionally uses the provider's serverless compute service (Lambda, Azure Functions, or Cloud Functions) for data processing and routing.\\
     \textsuperscript{*} \gls{gcp} lacks managed equivalents for digital twin platforms and Grafana hosting. L4 and L5 are not implemented for \gls{gcp} in the current version; adding support is noted as future work.
 \end{table}
 
