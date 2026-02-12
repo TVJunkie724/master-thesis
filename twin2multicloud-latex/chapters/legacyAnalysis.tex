@@ -1,0 +1,174 @@
+\chapter{\label{chap:legacyAnalysis}Analysis of Legacy Systems}
+
+% ============================================================================
+% PURPOSE: Critique the starting point to justify the engineering work.
+% This chapter should make the reader understand WHY everything had to change.
+% Tone: objective, analytical. Show code snippets and architecture diagrams
+% to illustrate the problems.
+% TARGET: ~10-15 pages
+% ============================================================================
+
+\section{Overview of Legacy Prototypes}
+% Introduce the two bachelor thesis projects that form the starting point.
+% Each was a standalone proof-of-concept, never designed for integration.
+
+\subsection{Project A: The Cost Optimizer ("The Brain")}
+% SOURCE: deprecated/optimizer/ (conference paper artifact for EDTConf'25)
+%
+% TECH: Pure client-side JavaScript web app — 15 files, ~2,160 lines total.
+%   No server, no API, no backend. Static HTML page served via python3 -m http.server.
+%
+% What it did:
+% - Calculated monthly cost estimates for deploying a DT across AWS and Azure.
+% - 12 input parameters (devices, interval, messageSize, storage durations,
+%   3D model toggle, dashboard config). 3 hardcoded presets in index.html.
+% - Used a graph-based approach (Dijkstra in provider_decision.js, 126 lines)
+%   to find the cheapest hot→cool→archive storage path across providers.
+% - Output: HTML result cards injected into the DOM (no JSON API response).
+%
+% Key limitations to highlight:
+% - AWS + Azure only — no GCP support whatsoever.
+% - Static pricing.json (115 lines) with hardcoded prices — no live API fetching.
+% - Monolithic calculation: single calculateCosts() function = 491 lines!
+%   Reads DOM inputs, calls all layer calculators, assembles HTML output.
+% - Different layer numbering: L2=Storage, L3=Processing (reversed from current).
+% - No L0 glue layer — cross-cloud transfer modeled as flat cost additions
+%   via 12 explicit transfer functions in data_transfer.js (148 lines).
+% - No type safety — manual DOM parsing with parseInt()/parseFloat().
+% - Azure processing function literally copies the AWS Lambda result:
+%   "We execute the same function as for AWS since the costs are identical."
+% - No design patterns: procedural JS, no classes (except PriorityQueue),
+%   no modules, no abstraction layers. Global `pricing` variable via fetch().
+%
+% EVIDENCE IDEAS:
+% - Code snippet: the monolithic calculateCosts() function header showing
+%   all 12 DOM reads + inline validation (contrast with Pydantic CalcParams).
+% - Code snippet: Azure processing function that just calls the AWS one.
+% - Side-by-side: pricing.json (static) vs. live API fetching architecture.
+%
+% CROSS-REF: For the refactored version, see Chapter~\ref{chap:systemArchitecture}
+% Section on Cost Optimizer. See also docs/codebase_investigation_findings.md §9.
+
+\subsection{Project B: The Cloud Deployer ("The Muscle")}
+% SOURCE: deprecated/deployer/ (bachelor thesis project)
+%
+% TECH: Python + boto3 (AWS SDK). 68 Python files, ~4,332 lines total.
+%   CLI-based REPL interface (main.py, 88 lines): deploy/destroy/info/help/exit.
+%   No HTTP API, no REST, no FastAPI — purely local terminal interaction.
+%
+% What it did:
+% - Deployed AWS-only DT infrastructure via imperative boto3 API calls.
+% - 5-phase deployment: core → iot → hierarchy → event_actions → init_values.
+% - 49 deployer files under deployers/aws/, one class per resource
+%   (e.g., dispatcher_iam_role.py, dispatcher_lambda_function.py).
+% - Deployer ABC base class with 4 methods: deploy(), destroy(), info(), log().
+% - Aggregator pattern: L1Deployer composes DispatcherIamRoleDeployer +
+%   DispatcherLambdaFunctionDeployer + DispatcherIotRuleDeployer.
+% - 11 Lambda function directories (8 core + 1 processor + 2 event actions).
+% - 5 JSON config files (~120 lines): config.json, config_credentials.json,
+%   config_providers.json, config_iot_devices.json, config_events.json.
+%
+% Key limitations to highlight:
+% - AWS-only: config_providers.json supports per-layer assignment but
+%   only AWS implementations exist. No Azure, no GCP.
+% - No IaC: all resources via imperative boto3 calls, no Terraform,
+%   no CloudFormation, no state file. Resource existence checked via API.
+% - Global mutable state: globals.py (257 lines) holds 12 boto3 clients
+%   as module-level variables + 30 naming functions using string concat.
+%   All modules import globals directly — no DI, no factory pattern.
+% - No credentials encryption: plaintext config_credentials.json on disk.
+% - No error recovery: failed deployments leave orphaned resources, no rollback.
+% - No concurrent deployment: strictly sequential resource creation.
+% - No streaming/SSE: progress reported only via print() statements.
+% - No tests: no unit tests, integration tests, or E2E tests.
+% - Limited validation: only DT name regex (10 chars, alphanumeric + - + _).
+% - CLI-only: no web interface, cannot integrate with management system.
+%
+% EVIDENCE IDEAS:
+% - Code snippet: globals.py showing 12 global boto3 clients and naming functions
+%   (contrast with current factory-based client creation + DeploymentContext DI).
+% - Code snippet: dispatcher_lambda_function.py deploy() showing imperative
+%   SDK call (contrast with Terraform declarative approach).
+% - Architecture diagram: 49 per-resource deployer files vs. per-layer strategies.
+%
+% CROSS-REF: For the refactored version, see Chapter~\ref{chap:systemArchitecture}
+% Section on Cloud Deployer. See also docs/codebase_investigation_findings.md §10.
+
+\section{Gap Analysis}
+% Systematically identify what was missing to build a production-quality
+% multi-cloud Digital Twin platform.
+%
+% NOTE: Include a condensed side-by-side comparison table here (or at end of
+% Section 4.1) showing ~15 key dimensions: language, execution model, cloud
+% providers, IaC, state management, design patterns, testing, etc.
+% Source data: docs/codebase_investigation_findings.md §11 (comparative analysis).
+% Keep it focused on motivating the gaps — the Discussion chapter (§7.2)
+% will circle back with quantitative before/after metrics.
+
+\subsection{Lack of Integration}
+% The two projects had:
+% - No common data format (Optimizer output could not feed into Deployer input)
+%   - Optimizer: HTML template literals injected into DOM
+%   - Deployer: reads from 5 separate JSON config files
+% - No shared API (Optimizer: browser-only; Deployer: CLI REPL)
+% - No shared configuration model (each had its own incompatible config format)
+% - No way to pass the Optimizer's "cheapest path" decision to the Deployer
+%   (Dijkstra result was rendered as HTML, not structured data)
+%
+% DIAGRAM: Show the disconnected state — two boxes with no arrow between them.
+
+\subsection{Absence of State Management}
+% Neither project tracked state:
+% - The Optimizer: no persistence of calculation results or pricing data
+% - The Deployer: no record of what was deployed; "deploy and forget"
+% - No way to know: "Is my twin currently deployed? On which providers?"
+% - No deployment lifecycle (draft → deploying → deployed → destroying → destroyed)
+%
+% This made it impossible to build UX around deployment management.
+
+\subsection{Usability Barriers}
+% Both projects required deep technical knowledge to operate:
+% - Manual JSON editing for all configuration
+% - CLI-only interaction, no visual feedback
+% - No validation: typos in config files caused cryptic errors at deploy time
+% - No credential validation before attempting deployment
+% - No progress feedback during (potentially 10+ minute) deployments
+%
+% These barriers made the prototypes unsuitable for any user beyond the authors.
+
+\subsection{Inflexibility and Hardcoded Values}
+% Hardcoded elements that prevented real-world usage:
+% - Fixed AWS regions (e.g., "eu-central-1" embedded in code)
+% - Fixed resource naming (collisions when deploying multiple twins)
+% - Fixed pricing values (stale within weeks)
+% - No support for optional architectural layers (all-or-nothing deployment)
+%
+% EVIDENCE: A table showing hardcoded vs. configurable elements
+% in the legacy code vs. the new system.
+
+\section{Requirements for a Unified Platform}
+% Derived from the gap analysis, state what the new system must provide.
+% These requirements directly motivate the architecture (Chapter 4)
+% and implementation decisions (Chapter 5).
+
+\subsection{Architectural Requirements}
+% - AR-1: API-first design — all components must expose RESTful APIs
+% - AR-2: Microservice architecture — loose coupling between Optimizer, Deployer, and Management
+% - AR-3: Provider abstraction — adding a new cloud provider must not require
+%   modifying existing provider implementations
+% - AR-4: Infrastructure as Code — declarative, repeatable deployments
+% - AR-5: Real-time feedback — deployment progress must be streamed to the user
+
+\subsection{Functional Requirements}
+% - FR-1: Persist twin configurations and deployment state in a database
+% - FR-2: Fetch live pricing data from cloud provider APIs
+% - FR-3: Calculate optimal cross-cloud configurations automatically
+% - FR-4: Deploy and destroy infrastructure across AWS, Azure, and GCP
+% - FR-5: Provide a graphical user interface for non-technical users
+% - FR-6: Validate credentials, configurations, and code before deployment
+
+\subsection{Quality Requirements}
+% - QR-1: Test coverage — unit tests for all calculation and deployment logic
+% - QR-2: Error handling — structured exceptions with provider/layer context
+% - QR-3: Type safety — protocols, enums, and schema validation throughout
+% - QR-4: Reproducibility — containerized environment with Docker Compose
