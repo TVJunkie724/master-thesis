@@ -1,78 +1,398 @@
 \chapter{\label{chap:systemArchitecture}System Architecture}
 
-% This is the MAIN chapter of your thesis. Present the Twin2MultiCloud platform
-% design in detail. Focus on the "what" and "why", not implementation details.
+% ============================================================================
+% PURPOSE: Present the "To-Be" state — the blueprint of the unified platform.
+% Focus on the "WHAT" and "WHY", not implementation details (those go in Ch.5).
+% This chapter should be readable by someone who has never seen the code.
+% TARGET: ~15-20 pages
+% ============================================================================
 
 \section{Overview and Design Principles}
-% High-level system overview:
-% - The three-component architecture: Orchestrator, Brain, Muscle
-% - Design principles: separation of concerns, stateless services, API-first
-% - Include a system architecture diagram showing all components
+\label{sec:arch-overview}
 
-\section{The Orchestrator: CLI and Flutter UI}
-% Present the user-facing component that ties everything together.
+The Twin2MultiCloud platform is a distributed system composed of three independently deployable subsystems. The three-service structure follows directly from the project's starting point: the cost optimizer and the cloud deployer already existed as separate bachelor thesis prototypes (Chapter~\ref{chap:legacyAnalysis}), and I developed the Orchestrator as a new coordination layer to connect them under a unified interface. Each subsystem handles a distinct responsibility in the lifecycle of a multi-cloud \gls{dt} deployment: the Orchestrator manages coordination and state, the Brain handles cost optimization, and the Muscle handles infrastructure provisioning.
 
-\subsection{User Interface Design}
-% Describe the Flutter application:
-% - Wizard-based workflow for twin configuration
-% - Cost comparison visualization
-% - Deployment monitoring and management
-% - Include UI mockups/screenshots
+\begin{itemize}
+    \item \textbf{The Orchestrator} is the only component built from scratch for this thesis. It exposes a \gls{rest}ful management \gls{api}, hosts the Flutter-based \gls{ui}, and owns all persistent state (twin configurations, deployment history, credentials, and cached optimizer results) in a SQLite database. Because it is the sole entry point for user interactions, neither the Brain nor the Muscle needs to maintain session state or handle authentication. However, this also means that the Orchestrator is a single point of failure. For the evaluation scope of this thesis, that trade-off is acceptable; a production deployment would require replication or failover mechanisms.
 
-\subsection{Management API}
-% Explain the backend that supports the UI:
-% - Role: persists twin configurations and state
+    \item \textbf{The Brain} is a refactored version of the legacy cost optimization prototype (Chapter~\ref{chap:legacyAnalysis}). Given a set of deployment parameters (number of \gls{iot} devices, message frequencies, storage retention periods), it computes per-layer hosting costs for \gls{aws}, Azure, and \gls{gcp}, identifies the cheapest provider assignment per layer, and estimates the cross-cloud data transfer overhead when adjacent layers reside on different providers. It holds no state between requests.
+
+    \item \textbf{The Muscle} is a refactored version of the legacy cloud deployer prototype. It translates deployment configurations into actual cloud infrastructure using Terraform for declarative resource provisioning. % TODO: CITE --- Terraform (HashiCorp)
+    However, not all operations can be expressed in Terraform's configuration language. Azure function code deployment requires the Kudu ZIP deploy \gls{api}, \gls{iot} device registration relies on provider SDKs, and Grafana dashboard provisioning uses the Grafana HTTP \gls{api}. These SDK-based operations run as post-apply hooks after Terraform completes. % TODO: CITE --- Kudu REST API docs, Grafana HTTP API docs
+\end{itemize}
+
+Figure~\ref{fig:arch-overview} shows the communication paths between these subsystems. The Orchestrator mediates all external interactions; the Brain and the Muscle are reachable only from within the Docker network.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/ch4-architecture-overview.png}
+    \caption{High-level architecture of the Twin2MultiCloud platform. The Orchestrator mediates all communication between the \gls{ui} and the backend microservices via \gls{rest} and \gls{sse}.}
+    \label{fig:arch-overview}
+\end{figure}
+
+Four design principles guided the architecture. Each was established in direct response to a limitation identified during the legacy system analysis (Chapter~\ref{chap:legacyAnalysis}):
+
+\begin{enumerate}
+    \item \textbf{Separation of Concerns.} Each subsystem owns exactly one domain. Changes to the pricing model do not require modifications to the deployment logic, and vice versa. Furthermore, this boundary allows each subsystem to be developed and tested in isolation, without requiring the other services to be running.
+
+    \item \textbf{\gls{api}-First Communication.} The services share no database, file system, or in-memory state; all inter-service interaction happens through \gls{rest}ful \glspl{api}. An alternative would have been a shared database with each service reading from different tables, but schema changes in one service would then risk breaking the others. The \gls{api} boundary forces each service to declare its inputs and outputs as an explicit contract that can be versioned and tested independently.
+
+    \item \textbf{Stateless Execution Services.} Neither the Brain nor the Muscle retains user session state. The Brain computes results purely from the parameters it receives; the Muscle provisions infrastructure from the configuration it is given. Terraform state files, which track what cloud resources currently exist, are the only persistent artifact on the Muscle's file system. All user-facing state resides in the Orchestrator's SQLite database. This asymmetry keeps the execution services simple to test, since they need no database setup and carry no state between requests.
+
+    \item \textbf{\gls{iac}.} All cloud resources are provisioned through Terraform configuration files rather than imperative SDK calls. A given configuration, applied twice, produces identical infrastructure. Additionally, Terraform tracks every resource it creates, which simplifies teardown. However, Terraform does not always manage every resource it touches. For example, TwinMaker entities created via SDK calls during deployment are not tracked in the Terraform state. I therefore implemented a \texttt{destroy\_all()} function that first runs \texttt{terraform destroy} and then executes a per-provider SDK cleanup pass that removes any remaining resources (such as TwinMaker workspaces, IoT things, Grafana instances, or IAM roles) that Terraform either failed to delete or never managed in the first place.
+\end{enumerate}
+
+The backend technology stack is uniform: all three services run Python on FastAPI. % TODO: CITE --- FastAPI
+I selected FastAPI over alternatives like Flask or Django because of its native support for asynchronous request handling, automatic OpenAPI schema generation, and built-in dependency injection via \texttt{Depends()}. The \gls{ui} is built with Flutter, enabling deployment as a web, desktop, or mobile application from a single Dart codebase. % TODO: CITE --- Flutter
+Docker Compose orchestrates the containerized runtime environment and provides service discovery through its internal DNS. % TODO: CITE --- Docker Compose
+For the database, I chose SQLite over PostgreSQL because, in a single-user evaluation context, the operational overhead of running a separate database server was not justified. % TODO: CITE --- SQLite
+
+\section{Microservices Architecture}
+\label{sec:microservices}
+
+The platform runs as a set of Docker containers orchestrated by Docker Compose. The Flutter \gls{ui} executes natively on the host machine and communicates with the backend over HTTP. Inside the Docker network, the three backend services (Management \gls{api}, Cost Optimizer, and Cloud Deployer) address each other by container hostname (e.g., \texttt{3cloud-deployer:8000}). The Management \gls{api} reads these addresses from the environment variables \texttt{OPTIMIZER\_URL} and \texttt{DEPLOYER\_URL}, which are set in the \texttt{docker-compose.yml} file. I avoided hard-coding these URLs because switching between development and deployment configurations would have been unnecessarily fragile otherwise.
+
+\subsection{Service Communication Patterns}
+\label{sec:comm-patterns}
+
+The Management \gls{api} acts as a gateway: it is the only service exposed to the \gls{ui}, and it proxies every request to the Brain or the Muscle on behalf of the client. This is intentional: if the \gls{ui} contacted the Deployer directly, it would bypass credential decryption and state tracking, both of which are handled exclusively by the Management \gls{api}.
+
+Two communication protocols are in use:
+
+\begin{itemize}
+    \item \textbf{\gls{rest} over HTTP} handles all synchronous operations: cost calculations, pricing data retrieval, credential validation, and twin configuration management. The \gls{ui} sends requests to the Management \gls{api}, which decrypts the stored credentials for the relevant twin, injects them into the forwarded request body, and relays the response back to the client.
+
+    \item \textbf{\gls{sse}} covers long-running operations where the client needs continuous progress updates, primarily deployments and teardowns, which can run for several minutes. % TODO: CITE --- SSE (W3C Server-Sent Events spec)
+    When the \gls{ui} initiates a deployment, the Management \gls{api} returns a \texttt{session\_id}. The client then opens a persistent \gls{sse} connection to \texttt{/sse/deploy/\{session\_id\}}, which streams Terraform output line by line. I chose \gls{sse} over WebSockets because the data flow is unidirectional (server to client only), and \gls{sse} operates over standard HTTP without requiring a separate WebSocket library on the backend. The trade-off is that \gls{sse} does not support binary payloads or client-to-server messages, but neither of these is needed for log streaming. % TODO: CITE --- WebSocket (RFC 6455) if comparing
+\end{itemize}
+
+Figure~\ref{fig:comm-flow} illustrates these communication paths. Credentials are decrypted only inside the Management \gls{api}; the \gls{ui} never handles raw credential material after the initial submission.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/ch4-communication-flow.png}
+    \caption{Service communication patterns. The Management \gls{api} acts as a gateway, proxying \gls{rest} requests and streaming \gls{sse} events to the \gls{ui}. Backend services are only reachable within the Docker network.}
+    \label{fig:comm-flow}
+\end{figure}
+
+\subsection{Credential Security and Trust Boundaries}
+\label{sec:credential-security}
+
+Cloud provider credentials (\gls{aws} access keys, Azure service principal secrets, and \gls{gcp} service account \gls{json} files) are stored encrypted at rest in the Orchestrator's SQLite database. The encryption relies on Fernet symmetric encryption, which wraps AES-128-CBC ciphertext with an HMAC-SHA256 authentication tag. % TODO: CITE --- Fernet spec (https://github.com/fernet/spec) and Python cryptography library
+The implementation uses the Python \texttt{cryptography} library, specifically the \texttt{Fernet} class. I chose Fernet for its simplicity: it bundles encryption, authentication, and key versioning into a single token format, and the \texttt{cryptography} library is one of the most widely audited Python cryptographic packages. More complex options such as AES-256-GCM with manual nonce management were considered but offered no practical benefit for this use case.
+
+Each credential is encrypted with a key that is derived uniquely per user and per twin instance. The key derivation uses PBKDF2-HMAC-SHA256 with 100\,000 iterations, taking the following inputs: % TODO: CITE --- PBKDF2 (RFC 8018)
+
+\begin{itemize}
+    \item The master encryption key (\texttt{ENCRYPTION\_KEY} environment variable) as the input key material
+    \item A salt constructed from the user ID and twin ID, separated by a colon (\texttt{user\_id:twin\_id})
+\end{itemize}
+
+Because the salt differs for every user-twin combination, identical credentials submitted by different users, or for different twins of the same user, produce different ciphertext. Furthermore, a key derived for one twin cannot decrypt credentials belonging to another. This means that even if one key is compromised, only the credentials of that specific twin are affected, not the entire credential store.
+
+Decryption happens only when the Management \gls{api} needs to forward a request to the Brain or the Muscle. At that point, the \gls{api} reads the encrypted credential blob from the database, derives the appropriate key, decrypts the credentials, and injects them into the outgoing HTTP request body. The \gls{ui} never sees raw credentials after the initial submission. On subsequent page loads, it receives only a boolean flag indicating whether credentials exist for a given provider.
+
+Before any credential is persisted, the Management \gls{api} validates it against both backend services in parallel. The two services require different permission scopes, so a credential that passes one check may fail the other:
+
+\begin{itemize}
+    \item The \textbf{Brain} verifies that the credentials grant access to pricing data. For \gls{aws}, this means calling STS \texttt{GetCallerIdentity} and then querying the Pricing \gls{api}. For \gls{gcp}, it attempts to load the service account and query the Cloud Billing Catalog \gls{api}. Azure is an exception: its Pricing \gls{api} is publicly accessible without authentication, so the Brain only validates that the configuration (subscription ID, region) is properly formatted.
+    \item The \textbf{Muscle} checks for infrastructure write permissions. This involves verifying that the credential can create and delete resources such as Lambda functions, storage accounts, and Terraform remote state backends. In practice, the specific permission sets differ across providers: \gls{aws} requires programmatic IAM access keys with broad resource creation policies, Azure requires a service principal with Contributor role on a resource group, and \gls{gcp} requires a service account with Editor and additional custom roles for Firestore and Cloud Functions.
+\end{itemize}
+
+Only when both validations succeed are the credentials encrypted and stored. This two-phase check prevents a failure mode that came up during development: credentials with sufficient read permissions for cost estimation sometimes lacked the write permissions required for infrastructure provisioning, which would only surface minutes into a deployment when a Terraform \texttt{apply} failed.
+
+\section{The Orchestrator: Management API and Flutter UI}
+
+\subsection{Management API Design}
+% The central coordinator that:
+% - Persists twin configurations and deployment state (SQLAlchemy ORM)
 % - Proxies requests to Optimizer and Deployer
-% - Key design rule: Flutter NEVER calls Deployer directly
+% - Handles credential encryption/decryption
+% - Manages SSE streaming from Deployer to Flutter
+%
+% Key API groups:
+% - /twins — CRUD for digital twin instances
+% - /twins/{id}/config — configuration management
+% - /twins/{id}/deploy, /destroy — deployment lifecycle
+% - /optimizer/* — proxied cost calculation and pricing endpoints
+% - /deployer/* — proxied validation and status endpoints
+
+\subsection{Flutter User Interface}
+% Present the user-facing application without code details.
+%
+% Key screens:
+% 1. Dashboard: overview of all twins with state indicators
+% 2. Wizard: 4-step guided twin creation
+%    - Step 1: Basic configuration (name, credentials)
+%    - Step 2: Cost optimization (parameters → calculation → cheapest path)
+%    - Step 3: Deployer configuration (functions, hierarchies, state machines)
+%    - Step 4: Review and deploy
+% 3. Twin Overview: deployment status, logs, cost summary
+% 4. Deployment Terminal: real-time SSE log viewer
+%
+% FIGURES: Screenshots of each key screen (capture from running app).
+%
+% Architecture: BLoC pattern separating UI from business logic.
+% (Detailed in Chapter~\ref{chap:implementation})
 
 \section{The Brain: Cost Optimizer}
-% Present the cost calculation engine (2-twin2clouds).
 
-\subsection{Cost Formulas and Models}
-% Explain the mathematical foundation from EDT_25:
-% - Formula structure for compute, storage, network costs
-% - How formulas differ across providers
-% - Handling of edge cases and constraints
+\subsection{API Design}
+% Stateless microservice exposing:
+% - POST /calculate — multi-provider cost calculation
+% - GET /pricing/{provider} — fetch/cache current pricing
+% - POST /validate-credentials — validate cloud credentials
+%
+% Input: user parameters (devices, messages/sec, storage days, regions)
+% Output: per-layer costs for each provider + cheapest path recommendation
 
-\subsection{Real-Time Price Fetching}
-% Describe the price fetching mechanism:
-% - Sources: AWS Pricing API, Azure Retail Prices, GCP Catalog
-% - Caching strategy and update frequency
-% - Handling of regional pricing variations
+\subsection{Cost Calculation Pipeline}
+% Present the high-level flow (not code):
+% 1. Receive parameters from Management API
+% 2. Fetch current pricing data (from cache or cloud APIs)
+% 3. Calculate costs per component per provider
+%    - L0: IoT ingestion costs
+%    - L1: Compute/Lambda costs
+%    - L2: Orchestration costs
+%    - L3: Storage costs (hot + cold + archive tiers)
+%    - L4: Twin platform costs
+% 4. Determine cheapest provider per layer
+% 5. Calculate cross-cloud transfer costs (if mixed providers)
+% 6. Return optimal configuration
+%
+% DIAGRAM: Pipeline flow showing data transformation stages.
 
-\subsection{Optimization Algorithm}
-% Present the optimization logic:
-% - Input: user requirements (devices, messages/sec, retention)
-% - Process: evaluate all provider combinations
-% - Output: optimal configuration per layer (e.g., L1=GCP, L2=AWS)
+\subsection{Pricing Architecture}
+% How live pricing replaces the hardcoded values from the legacy system:
+% - Provider-specific price fetchers normalize data into comparable units
+% - Pricing data cached locally, refreshable on demand
+% - Pricing snapshots stored with calculation results for auditability
+%
+% Link to Factory Pattern implementation in Chapter~\ref{chap:implementation}.
 
 \section{The Muscle: Cloud Deployer}
-% Present the deployment engine (3-cloud-deployer).
+\label{sec:deployer}
 
-\subsection{Terraform-based IaC Generation}
-% Explain the IaC approach:
-% - Dynamic Terraform file generation
-% - Template-based resource definitions
-% - State management and idempotency
+The Cloud Deployer translates an optimized provider assignment into running cloud infrastructure. It descends from the legacy deployer prototype analyzed in Chapter~\ref{chap:legacyAnalysis}, but I restructured the internals around Terraform as the primary provisioning engine. % TODO: CITE --- Terraform (HashiCorp)
+The original prototype provisioned infrastructure entirely through imperative Python SDK calls and supported only \gls{aws}. In the refactored version, Terraform handles all declarative resource provisioning across all three providers, while provider-specific SDKs cover operations that Terraform cannot express. On Azure, this includes deploying function code via the Kudu ZIP deploy \gls{api} and uploading DTDL models to Azure Digital Twins. On \gls{aws}, it includes creating TwinMaker entities and registering IoT Core things. Both \gls{aws} and Azure also require SDK-based Grafana dashboard provisioning. \gls{gcp}, in the current implementation, has no post-Terraform SDK operations. % TODO: CITE --- Kudu REST API, Grafana HTTP API, DTDL (Microsoft), AWS IoT TwinMaker
 
-\subsection{Multi-Cloud Resource Mapping}
-% Describe how abstract requirements map to provider-specific resources:
-% - Compute: EC2 / Azure VMs / GCE instances
-% - Storage: S3 / Blob Storage / Cloud Storage
-% - Messaging: SNS+SQS / Event Grid / Pub/Sub
-% - Functions: Lambda / Azure Functions / Cloud Functions
+\subsection{API Design}
+\label{sec:deployer-api}
 
-\subsection{Cross-Cloud Connectivity}
-% Explain how the system handles inter-cloud communication:
-% - Webhook-based triggers between clouds
-% - Authentication and credential handling
-% - Network considerations (firewalls, IP whitelisting)
+Where the Brain operates on structured \gls{json} payloads, the Deployer works with project directories. A project directory bundles everything needed to stand up a \gls{dt} on one or more cloud providers into a single ZIP archive: \gls{json} configuration files (provider assignments, \gls{iot} device definitions, event rules, credentials, optimization results), serverless function source code in provider-specific directories (\texttt{lambda\_functions/}, \texttt{azure\_functions/}, \texttt{cloud\_functions/}), orchestration workflow definitions (Step Functions \gls{json}, Logic App \gls{json}, Cloud Workflow YAML), twin hierarchy specifications for \gls{aws} TwinMaker and Azure Digital Twins, optional 3D scene assets (GLB models and scene configuration files), telemetry payload templates, and a set of shared Terraform \texttt{.tf} files that parameterize the actual infrastructure. The Management \gls{api} assembles this archive from its database records and uploads it before triggering any deployment.
+
+The principal endpoints are:
+
+\begin{itemize}
+    \item \texttt{POST /projects}: accepts a project ZIP, extracts it, and registers the project on disk.
+    \item \texttt{POST /projects/\{name\}/deploy/\{provider\}} and the corresponding \texttt{destroy} endpoint control the deployment lifecycle. Both return a \texttt{session\_id} that the caller uses to subscribe to logs via \gls{sse}.
+    \item \texttt{GET /projects/\{name\}/status}: returns the current deployment state, including Terraform outputs (resource IDs, endpoints, connection strings) once provisioning completes.
+    \item \texttt{GET /logs/stream/\{session\_id\}}: an \gls{sse} stream that relays Terraform's \texttt{stdout} and internal log messages in real time.
+\end{itemize}
+
+Terraform state files (\texttt{.tfstate}) are persisted on disk alongside each project directory. The original deployer prototype was already file-based, and the refactored version retains this model: configuration \gls{json} files, serverless function source code, state machine definitions, twin hierarchy specifications, and 3D scene assets all reside as plain files on disk. Terraform reads \texttt{.tf} configurations, consumes the generated \texttt{tfvars.json}, and writes its own \texttt{.tfstate} to the same directory. Function packages are assembled as ZIP files that Terraform and the Kudu \gls{api} reference by local path. Introducing a database would have meant serializing all of these artifacts into table rows only to write them back to disk before every tool invocation, which would add complexity for no practical benefit. The downside of a purely file-based model is that project state is lost if the container volume is deleted, but for the evaluation scope of this thesis that trade-off is acceptable.
+
+\subsection{Deployment Pipeline}
+\label{sec:deploy-pipeline}
+
+Every deployment passes through a fixed pipeline implemented in the \texttt{TerraformDeployerStrategy} class. Each phase emits a numbered log prefix (e.g., \texttt{[STEP 0/9]}, \texttt{[STEP 1/9]}) that appears in the \gls{sse} stream and is visible in the deployment terminal. The pipeline proceeds as follows:
+
+\begin{enumerate}
+    \setcounter{enumi}{-1}
+    \item \textbf{Validate credentials} against each configured provider's \gls{api}.
+    \item[0.5] \textbf{Initialize cloud provider SDK clients} for post-Terraform operations.
+    \item \textbf{Validate project structure and configuration} (schema checks, cross-referencing, syntax parsing).
+    \item \textbf{Build function packages} (per-function ZIPs for \gls{aws}/\gls{gcp}, bundled ZIPs for Azure).
+    \item \textbf{Generate \texttt{tfvars.json}} from all configuration files plus the unified \texttt{DIGITAL\_TWIN\_INFO} runtime structure.
+    \item \textbf{Terraform init}: downloads provider plugins and initializes modules.
+    \item \textbf{Terraform apply}: provisions all cloud resources, streaming output via \gls{sse}.
+    \item \textbf{Deploy Azure function code} via the Kudu ZIP Deploy \gls{api}.
+    \item \textbf{Post-deployment SDK operations}: IoT device registration, twin model uploads, Grafana configuration.
+\end{enumerate}
+
+The following subsections detail the steps that involve non-trivial logic beyond invoking Terraform directly.
+
+\subsubsection{Credential Validation (Step 0)}
+\label{sec:deploy-credential-validation}
+
+Before any infrastructure is touched, the Deployer re-runs the same credential checker functions that the Management \gls{api}'s dual validation invokes during credential storage (Section~\ref{sec:credential-security}). Each provider has its own comprehensive check: for \gls{aws}, the checker calls STS \texttt{GetCallerIdentity}, validates the configured region, and audits attached IAM policies against a per-layer list of required permissions. For Azure, it authenticates the Service Principal via \texttt{ClientSecretCredential}, checks credential expiration through the Microsoft Graph \gls{api}, validates the subscription's regions, and audits RBAC role assignments against per-layer required actions. For \gls{gcp}, it parses the service account \gls{json}, verifies project access and billing status, checks that required \glspl{api} are enabled per layer, and validates the region. If any provider fails, the pipeline aborts immediately. This fail-fast design avoids wasting ten or more minutes on a Terraform apply that would ultimately error out.
+
+\subsubsection{SDK Client Initialization (Step 0.5)}
+\label{sec:deploy-sdk-init}
+
+SDK clients (\texttt{boto3} for \gls{aws}, the Azure SDK, Google Cloud client libraries) are instantiated with the validated credentials. % TODO: CITE --- boto3 (AWS SDK for Python), azure-identity, google-cloud-python
+These clients are not needed during Terraform execution itself; they exist solely for the post-deployment SDK operations in Steps 6 and 7.
+
+\subsubsection{Project Validation (Step 1)}
+\label{sec:deploy-project-validation}
+
+The uploaded project goes through a multi-phase validation pipeline before any Terraform commands run. First, required configuration files are checked for presence. Then each \gls{json} config file is parsed and validated against its expected schema. For example, \texttt{config\_providers.json} must contain valid layer-to-provider assignments, and \texttt{config\_iot\_devices.json} must define devices with IDs and properties. Beyond schema checks, the validator performs cross-referencing: it verifies that a processor function directory exists for each configured \gls{iot} device, that payload device IDs reference devices defined in the \gls{iot} config, that credentials are present for every provider used in the layer assignments, and that the correct twin hierarchy file (AWS or Azure format) exists when L4 is configured. Serverless function source files are parsed through Python's AST module to check for syntax errors and validate that each function contains the expected entry point signature for its target provider (e.g., \texttt{lambda\_handler(event, context)} for \gls{aws}, \texttt{main(req)} for Azure). If any check fails, the pipeline aborts with a descriptive error message before Terraform is invoked.
+
+\subsubsection{Function Packaging (Step 2)}
+\label{sec:deploy-function-packaging}
+
+The packaging model differs by provider. For \gls{aws} and \gls{gcp}, the builder produces one ZIP per function: each Lambda or Cloud Function gets its own archive containing the function source, shared utility modules, and a \texttt{requirements.txt}. For Azure, multiple functions are bundled into a single ZIP per Function App. Each user-written function is stored as a Blueprint (Listing~\ref{lst:azure-blueprint-func}), and the Deployer generates a main \texttt{function\_app.py} (Listing~\ref{lst:azure-generated-main}) that imports and registers all Blueprints into a single \texttt{FunctionApp} instance. % TODO: CITE --- Azure Functions Blueprints
+This reflects Azure's deployment model, where a Function App is the unit of deployment rather than the individual function. All ZIPs must exist before \texttt{terraform apply} because the Terraform configuration for all three providers references them as local file paths.
+
+\begin{lstlisting}[language=Python, caption={User processor function as an Azure Functions Blueprint.}, label={lst:azure-blueprint-func}]
+import azure.functions as func
+
+bp = func.Blueprint()
+
+@bp.function_name(name="temperature-sensor-1-processor")
+@bp.route(route="temperature-sensor-1-processor",
+          methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
+def main(req: func.HttpRequest) -> func.HttpResponse:
+    event = req.get_json()
+    processed_event = event  # user processing logic
+    return func.HttpResponse(json.dumps(processed_event))
+\end{lstlisting}
+
+\begin{lstlisting}[language=Python, caption={Auto-generated \texttt{function\_app.py} that registers all Blueprints.}, label={lst:azure-generated-main}]
+# Auto-generated by package_builder
+import azure.functions as func
+
+from processor_temp1.function_app import bp as processor_temp1_bp
+from processor_pressure1.function_app import bp as processor_pressure1_bp
+from event_action_alert.function_app import bp as event_action_alert_bp
+
+app = func.FunctionApp()
+app.register_functions(processor_temp1_bp)
+app.register_functions(processor_pressure1_bp)
+app.register_functions(event_action_alert_bp)
+\end{lstlisting}
+
+\subsubsection{Variable Generation and Runtime Configuration (Step 3)}
+\label{sec:deploy-tfvars}
+
+The \texttt{tfvars\_generator} module reads every configuration file from the project directory (core settings, credentials, layer-to-provider assignments, \gls{iot} device definitions, event rules, inter-cloud tokens, and platform user config) and merges them into a single Terraform variables file. Beyond simple concatenation, the generator also resolves provider-specific function paths (Lambda ZIP locations for \gls{aws}, Azure Function bundle paths, \gls{gcp} processor and event action lists), injects optimization feature flags (\texttt{useEventChecking}, \texttt{triggerNotificationWorkflow}, \texttt{needs3DModel}, etc.), and maps workflow definition file paths to the correct state machine format for the configured L2 provider. A key output is the \texttt{DIGITAL\_TWIN\_INFO} \gls{json} structure, a unified runtime configuration that Terraform injects as an environment variable into every deployed serverless function. This structure contains the complete layer-to-provider mapping (L1 through L5), all \gls{iot} device definitions, all event rules, and storage retention settings. The architectural implication is significant: every function, regardless of which provider hosts it, is aware of the entire \gls{dt} architecture and can route data to the correct cross-provider endpoints at runtime. The result is a single \texttt{tfvars.json} that fully parameterizes the shared \texttt{.tf} templates.
+
+\subsubsection{Terraform Initialization (Step 4)}
+\label{sec:deploy-tf-init}
+
+Terraform is initialized with \texttt{terraform init}, which downloads the required provider plugins (\texttt{hashicorp/aws}, \texttt{hashicorp/azurerm}, \texttt{hashicorp/google}) and initializes any modules referenced by the \texttt{.tf} templates. Because the Deployer uses a local backend, no remote state configuration is required.
+
+\subsubsection{Terraform Apply (Step 5)}
+\label{sec:deploy-tf-apply}
+
+The core provisioning step runs \texttt{terraform apply} with the generated \texttt{tfvars.json}. Every line of Terraform's output is captured and forwarded to the \gls{sse} stream, giving the user a live view of which resources are being created or modified. A full multi-provider deployment typically takes 8--15 minutes, with the upper range driven by resources that have inherently long provisioning times: Azure Cosmos DB accounts can take up to 30 minutes, Azure Digital Twins instances have a similar default timeout, and \gls{gcp} Firestore index creation can exceed 20 minutes depending on existing data volume. % TODO: CITE --- Firestore (Google Cloud), Azure Cosmos DB, Azure Digital Twins
+
+\subsubsection{Azure Function Code Deployment (Step 6)}
+\label{sec:deploy-kudu}
+
+Azure Functions uses a remote build model: the uploaded ZIP contains only source code and a \texttt{requirements.txt}, and Azure's Oryx build system runs \texttt{pip install} on the server after upload to resolve dependencies. % TODO: CITE --- Azure Functions deployment, Oryx build system
+This remote build runs on Azure's Kudu SCM endpoint, which needs two to five minutes to become operational after Terraform creates a new Function App. Terraform's built-in \texttt{zip\_deploy\_file} attribute does not retry if the SCM is not yet ready, causing silent deployment failures in practice. I therefore adopted a hybrid model: system-level functions (L0--L3), whose code is static and whose Function Apps already exist after the first deployment, are deployed via \texttt{zip\_deploy\_file} during \texttt{terraform apply}. User-written functions (processors, event actions, and feedback handlers) are deployed via Azure's Kudu \gls{rest} \gls{api} as a separate post-Terraform step. The Deployer's Kudu integration uses asynchronous ZIP upload with exponential-backoff retry logic that waits for the SCM endpoint to respond (up to 15 retries at 30-second intervals), then waits an additional three minutes for the Oryx build to complete dependency installation. % TODO: CITE --- Kudu ZIP Deploy API
+On \gls{gcp}, Cloud Functions handles dependency resolution natively during deployment, so no equivalent post-provisioning step is needed for either provider.
+
+\subsubsection{Post-Deployment SDK Operations (Step 7)}
+\label{sec:deploy-post-ops}
+
+The final step runs provider-specific SDK calls that cannot be expressed in Terraform. On Azure: register IoT Hub devices, upload DTDL models to Azure Digital Twins (if L4 is Azure), and configure Managed Grafana dashboards (if L5 is Azure). On \gls{aws}: register IoT Core things, create TwinMaker entities and component types (if L4 is \gls{aws}), and configure Managed Grafana data sources and dashboards (if L5 is \gls{aws}). \gls{gcp} currently has no post-deployment SDK operations; its IoT ingestion (Pub/Sub) and storage layers are fully managed through Terraform. % TODO: CITE --- DTDL (Digital Twins Definition Language, Microsoft), AWS IoT TwinMaker, Azure Digital Twins
+
+\noindent
+While the preceding steps describe how the Deployer provisions infrastructure, the reverse operation, tearing down the infrastructure, follows a separate two-phase process.
+
+\subsubsection{Destruction}
+\label{sec:deploy-destruction}
+
+Destruction reverses this in two phases. Phase~1 runs \texttt{terraform destroy}, which removes all declaratively managed resources in the correct dependency order. Phase~2 performs SDK-based cleanup for resources that Terraform does not track: \gls{iot} device registrations, uploaded function code, and provider-specific artifacts created as side effects during post-deployment. I adopted this two-phase approach after early testing showed that \texttt{terraform destroy} alone left orphaned resources on Azure and \gls{aws}, which required manual cleanup through the cloud console.
+
+% TODO: Figure --- deployment pipeline diagram
+
+\subsection{Provider Abstraction Model}
+\label{sec:provider-abstraction}
+
+Supporting three cloud providers without triplicating the deployment logic requires a clean abstraction boundary. I defined this boundary through a \texttt{CloudProvider} protocol, a Python \texttt{typing.Protocol} that uses structural subtyping rather than inheritance (see Section~\ref{sec:bg-protocol-pattern}). % TODO: CITE --- Python typing.Protocol (PEP 544)
+Any class that implements the required methods satisfies the protocol regardless of its class hierarchy. In practice, each provider (\texttt{AWSProvider}, \texttt{AzureProvider}, \texttt{GCPProvider}) also extends a shared \texttt{BaseProvider} for convenience, but the type system does not enforce this. Figure~\ref{fig:provider-abstraction} illustrates this pattern.
+
+% TODO: Figure --- provider abstraction diagram (provider_abstraction_diagram.png)
+% \begin{figure}[htbp]
+%     \centering
+%     \includegraphics[width=0.85\textwidth]{figures/ch4-provider-abstraction.png}
+%     \caption{Provider abstraction model. The \texttt{CloudProvider} protocol defines the structural interface; concrete providers inherit from \texttt{BaseProvider} for convenience. The \texttt{ProviderRegistry} maps names to implementations, and the \texttt{DeploymentContext} aggregates provider instances for use throughout the pipeline.}
+%     \label{fig:provider-abstraction}
+% \end{figure}
+
+The protocol specifies five members: a \texttt{name} property for identification, an \texttt{initialize\_clients} method that creates authenticated SDK clients for the provider's cloud services, a \texttt{clients} dictionary exposing those clients, a \texttt{get\_resource\_name} method that prefixes all resource identifiers with the digital twin name to prevent cross-deployment collisions, and a \texttt{get\_deployer\_strategy} hook that returns the provider's deployment strategy. Currently all three providers delegate to the shared \texttt{TerraformDeployerStrategy}, but I kept the strategy as a replaceable component so that a future provider could use a different provisioning engine without modifying the pipeline. % TODO: CITE --- Pulumi, AWS CloudFormation
+
+Provider implementations register themselves with a central \texttt{ProviderRegistry} at import time. Each provider's \texttt{\_\_init\_\_.py} calls \texttt{ProviderRegistry.register("aws", AWSProvider)}, and the registry maps names to classes and instantiates them on demand. I chose this self-registration pattern over an explicit provider list because adding a fourth cloud provider then requires only implementing the \texttt{CloudProvider} interface and dropping the package into the \texttt{providers/} directory, without any modifications to existing code paths.
+
+At the center of each deployment sits a \texttt{DeploymentContext} dataclass that aggregates the project configuration, credential dictionaries for each provider, the layer-to-provider mapping from the optimizer's output, and the initialized \texttt{CloudProvider} instances. Its \texttt{get\_provider\_for\_layer(layer)} method returns the correct provider for any given architectural layer. Threading this single object through the entire pipeline avoids global state and repeated lookups.
+
+\subsection{5-Layer Resource Mapping}
+\label{sec:resource-mapping}
+
+Table~\ref{tab:resource-mapping} maps each layer of the 5-layer \gls{iot} architecture to the concrete managed service used on each provider. The mapping is defined in the Deployer's Terraform templates and mirrored in the \texttt{function\_registry.py} module, which serves as the single source of truth for all serverless function definitions.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Cloud service mapping per architectural layer. L3 is split into three independently assignable storage tiers, each of which may reside on a different provider.}
+    \label{tab:resource-mapping}
+    \small
+    \begin{tabular}{l l p{3.5cm} p{3.5cm} p{3.5cm}}
+        \hline
+        \textbf{Layer} & \textbf{Role} & \textbf{AWS} & \textbf{Azure} & \textbf{GCP} \\
+        \hline
+        L0 & Glue & Lambda & Azure Functions & Cloud Functions \\
+        L1 & Ingestion & IoT Core, Lambda, IoT Topic Rules & IoT Hub, Azure Functions, Event Grid & Pub/Sub, Cloud Functions \\
+        L2 & Processing & Lambda, Step Functions, EventBridge & Azure Functions, Logic Apps, Event Grid & Cloud Functions, Workflows, Cloud Scheduler \\
+        L3 Hot & Storage (Hot) & DynamoDB, Lambda & Cosmos DB, Azure Functions & Firestore, Cloud Functions \\
+        L3 Cool & Storage (Cool) & S3 (Infrequent Access), Lambda, CloudWatch Events & Blob Storage (Cool Tier), Azure Functions & GCS (Nearline), Cloud Functions, Cloud Scheduler \\
+        L3 Archive & Storage (Archive) & S3 (Glacier Deep Archive), Lambda, CloudWatch Events & Blob Storage (Archive Tier), Azure Functions & GCS (Coldline), Cloud Functions, Cloud Scheduler \\
+        L4 & Twin Mgmt & IoT TwinMaker, Lambda, S3 & Azure Digital Twins & ---\textsuperscript{*} \\
+        L5 & Visualization & Managed Grafana, IAM Identity Center & Managed Grafana & ---\textsuperscript{*} \\
+        \hline
+    \end{tabular}
+
+    \vspace{0.5em}
+    \textsuperscript{*} \gls{gcp} lacks managed equivalents for digital twin platforms and Grafana hosting. L4 and L5 are not implemented for \gls{gcp} in the current version; adding support is noted as future work.
+\end{table}
+
+% TODO: CITE --- AWS IoT Core, Azure IoT Hub, Google Cloud Pub/Sub, DynamoDB, Cosmos DB, Firestore, S3, Azure Blob Storage, GCS, AWS Step Functions, Azure Logic Apps, Google Cloud Workflows, AWS Managed Grafana
+
+Three aspects of this mapping are worth explaining. First, L0 glue functions are conditional: they are only provisioned when two adjacent layers reside on different providers and data must cross a cloud boundary. If all layers land on the same provider, no glue functions are deployed, which saves cost and avoids unnecessary cross-cloud latency.
+
+Additionally, the three L3 storage tiers (hot, cool, archive) can each be assigned to a different provider independently, giving L3 finer granularity than the other layers. A typical configuration might place hot data on \gls{aws} DynamoDB for low-latency access while routing archived data to Azure Blob Storage Archive, where per-gigabyte storage costs are substantially lower.
+
+L4 and L5 are currently not implemented for \gls{gcp}. Google Cloud offers no managed digital twin platform comparable to \gls{aws} IoT TwinMaker or Azure Digital Twins, and no managed Grafana equivalent was available in the required regions at the time of development. Rather than self-hosting these services on Compute Engine VMs (which would introduce operational overhead that defeats the purpose of a fully managed architecture), I left \gls{gcp} L4/L5 as future work. The cost calculator already excludes \gls{gcp} from L4 and L5 optimization, so users selecting all-GCP configurations receive only L0--L3 resources. % TODO: CITE --- AWS IoT TwinMaker, Azure Digital Twins
 
 \section{End-to-End Workflow}
-% Tie everything together with a complete workflow example:
-% - Step 1: User defines twin parameters in Flutter
-% - Step 2: Optimizer calculates costs and recommends configuration
-% - Step 3: User reviews and approves
-% - Step 4: Deployer provisions infrastructure
-% - Step 5: Twin is operational, user monitors via dashboard
-% Include a sequence diagram showing the flow
+% Tie everything together with a complete workflow example.
+%
+% A user wants to deploy a Digital Twin for monitoring 10 IoT sensors:
+%
+% 1. \textbf{Configure}: In the Flutter wizard, the user sets parameters
+%    (10 devices, 1 msg/sec, 30 days retention) and enters cloud credentials.
+% 2. \textbf{Optimize}: The system calculates costs across providers.
+%    Result: L0=GCP (cheapest IoT), L1=AWS (cheapest Lambda), L3=Azure (cheapest storage).
+% 3. \textbf{Review}: The user sees a visual architecture diagram showing
+%    the recommended multi-cloud configuration with costs per layer.
+% 4. \textbf{Deploy}: The user clicks "Deploy". The Management API sends
+%    the configuration to the Deployer, which provisions infrastructure
+%    via Terraform. Live logs stream to the Flutter deployment terminal.
+% 5. \textbf{Operate}: The twin is live. IoT data flows through the pipeline:
+%    sensors → GCP Pub/Sub → AWS Lambda (processing) → Azure Blob (storage).
+%    The user monitors status via the dashboard.
+% 6. \textbf{Destroy}: When done, the user clicks "Destroy" to tear down
+%    all infrastructure across all providers.
+%
+% DIAGRAM: Sequence diagram showing the complete flow (use mermaid or tikz).
+
+\section{Data Flow and State Management}
+% How state is managed across three services that have different persistence:
+%
+% - The Optimizer is STATELESS: receives parameters, returns results, forgets.
+%   Pricing data is cached in-memory/on-disk but is not mission-critical.
+%
+% - The Deployer is FILE-BASED: projects live as directories on disk.
+%   Terraform state files track what cloud resources exist.
+%   This is a necessity: Terraform operates on files.
+%
+% - The Management API is DATABASE-BACKED: SQLite stores twin configurations,
+%   deployment history, and user credentials (encrypted).
+%   This is the system's "source of truth" for what the user configured.
+%
+% The Management API bridges the file-based subsystems by:
+% 1. Constructing ZIP files from database records for the Deployer
+% 2. Storing Deployer outputs (endpoints, resource IDs) back in the database
+% 3. Caching Optimizer results alongside user configurations
