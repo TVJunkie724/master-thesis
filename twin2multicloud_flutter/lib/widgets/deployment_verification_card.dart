@@ -46,7 +46,7 @@ class _DeploymentVerificationCardState
   bool _isRunningDataFlow = false;
   String? _dataFlowError;
   final List<_DataFlowLogEntry> _dataFlowLogs = [];
-  final Map<int, _PhaseStatus> _phaseStatus = {};
+
   Map<String, dynamic>? _dataFlowSummary;
   SseService? _sseService;
   StreamSubscription? _sseSubscription;
@@ -143,7 +143,7 @@ class _DeploymentVerificationCardState
       _isRunningDataFlow = true;
       _dataFlowError = null;
       _dataFlowLogs.clear();
-      _phaseStatus.clear();
+
       _dataFlowSummary = null;
     });
 
@@ -220,8 +220,7 @@ class _DeploymentVerificationCardState
           onError: (e) {
             if (!mounted) return;
             setState(() {
-              _dataFlowError =
-                  'SSE connection lost: ${ApiErrorHandler.extractMessage(e)}';
+              _dataFlowError = 'SSE connection lost: $e';
               _isRunningDataFlow = false;
             });
           },
@@ -240,18 +239,41 @@ class _DeploymentVerificationCardState
     final phase = data['phase'] as int?;
     final name = data['name'] as String?;
 
-    // Phase update
+    // Phase update → render as inline log entry
     if (phase != null && name != null && status != null) {
-      setState(() {
-        _phaseStatus[phase] = _PhaseStatus(
-          phase: phase,
-          name: name,
-          status: status,
-          elapsed: (data['elapsed'] as num?)?.toDouble(),
-          reason: data['reason'] as String?,
-          timeout: data['timeout'] as int?,
-        );
-      });
+      String? phaseMsg;
+      String? phaseStatus;
+      if (status == 'running') {
+        final timeout = data['timeout'] as int?;
+        final timeoutSuffix = timeout != null ? ' (timeout: ${timeout}s)' : '';
+        phaseMsg = '── Phase $phase: $name$timeoutSuffix ──';
+      } else if (status == 'pass') {
+        final elapsed = (data['elapsed'] as num?)?.toDouble();
+        final elapsedStr = elapsed != null ? ' (${elapsed}s)' : '';
+        phaseMsg = '✓ Phase $phase passed$elapsedStr';
+        phaseStatus = 'pass';
+      } else if (status == 'fail') {
+        final reason = data['reason'] as String?;
+        final reasonStr = reason != null ? ': $reason' : '';
+        phaseMsg = '✗ Phase $phase failed$reasonStr';
+        phaseStatus = 'fail';
+      } else if (status == 'skip') {
+        phaseMsg = '— Phase $phase skipped';
+        phaseStatus = 'skip';
+      }
+      if (phaseMsg != null) {
+        setState(() {
+          _dataFlowLogs.add(
+            _DataFlowLogEntry(
+              timestamp: timestamp,
+              message: phaseMsg!,
+              status: phaseStatus,
+            ),
+          );
+        });
+        _scrollToBottom();
+      }
+      return;
     }
 
     // "done" event — completion summary
@@ -516,12 +538,6 @@ class _DeploymentVerificationCardState
           _buildErrorBox(isDark, _dataFlowError!),
         ],
 
-        // Phase indicators
-        if (_phaseStatus.isNotEmpty || _isRunningDataFlow) ...[
-          const SizedBox(height: 16),
-          _buildPhaseIndicators(theme, isDark),
-        ],
-
         // Terminal log output
         if (_dataFlowLogs.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -686,127 +702,6 @@ class _DeploymentVerificationCardState
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildPhaseIndicators(ThemeData theme, bool isDark) {
-    const phases = [
-      (1, 'Message Delivery'),
-      (2, 'Pipeline → Hot Storage'),
-      (3, 'Digital Twin Update'),
-      (4, 'Event Flow'),
-    ];
-
-    return Row(
-      children: [
-        for (int i = 0; i < phases.length; i++) ...[
-          if (i > 0) _buildPhaseConnector(theme, isDark, phases[i].$1),
-          _buildPhaseChip(theme, isDark, phases[i].$1, phases[i].$2),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildPhaseChip(ThemeData theme, bool isDark, int phase, String name) {
-    final status = _phaseStatus[phase];
-    Color bgColor;
-    Color textColor;
-    IconData? icon;
-
-    if (status == null) {
-      // Pending
-      bgColor = isDark ? Colors.grey[800]! : Colors.grey[200]!;
-      textColor = isDark ? Colors.grey[400]! : Colors.grey[600]!;
-    } else {
-      switch (status.status) {
-        case 'running':
-          bgColor = isDark
-              ? Colors.blue[900]!.withOpacity(0.5)
-              : Colors.blue[50]!;
-          textColor = isDark ? Colors.blue[300]! : Colors.blue[800]!;
-          icon = null; // will show spinner
-          break;
-        case 'pass':
-          bgColor = isDark
-              ? Colors.green[900]!.withOpacity(0.5)
-              : Colors.green[50]!;
-          textColor = isDark ? Colors.green[300]! : Colors.green[800]!;
-          icon = Icons.check;
-          break;
-        case 'fail':
-          bgColor = isDark
-              ? Colors.red[900]!.withOpacity(0.5)
-              : Colors.red[50]!;
-          textColor = isDark ? Colors.red[300]! : Colors.red[800]!;
-          icon = Icons.close;
-          break;
-        case 'skip':
-          bgColor = isDark ? Colors.grey[800]! : Colors.grey[100]!;
-          textColor = isDark ? Colors.grey[500]! : Colors.grey[500]!;
-          icon = Icons.remove;
-          break;
-        default: // partial
-          bgColor = isDark
-              ? Colors.orange[900]!.withOpacity(0.5)
-              : Colors.orange[50]!;
-          textColor = isDark ? Colors.orange[300]! : Colors.orange[800]!;
-          icon = Icons.warning_amber;
-      }
-    }
-
-    return Expanded(
-      child: Tooltip(
-        message: status?.reason ?? name,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (status?.status == 'running')
-                SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 1.5,
-                    color: textColor,
-                  ),
-                )
-              else if (icon != null)
-                Icon(icon, size: 14, color: textColor),
-              const SizedBox(width: 3),
-              Flexible(
-                child: Text(
-                  'P$phase',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: textColor,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPhaseConnector(ThemeData theme, bool isDark, int nextPhase) {
-    final prevPhase = nextPhase - 1;
-    final prevStatus = _phaseStatus[prevPhase]?.status;
-    final color = prevStatus == 'pass'
-        ? (isDark ? Colors.green[700]! : Colors.green[400]!)
-        : (isDark ? Colors.grey[700]! : Colors.grey[300]!);
-
-    return SizedBox(
-      width: 12,
-      child: Center(child: Container(height: 2, color: color)),
     );
   }
 
@@ -1123,18 +1018,10 @@ class _DeploymentVerificationCardState
             ),
           ),
 
-          // Checks grouped by layer
+          // Checks table
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final layerKey in sortedKeys) ...[
-                  const SizedBox(height: 4),
-                  _buildLayerGroup(theme, isDark, layerKey, grouped[layerKey]!),
-                ],
-              ],
-            ),
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            child: _buildInfraTable(theme, isDark, sortedKeys, grouped),
           ),
 
           // Failure hint
@@ -1179,11 +1066,11 @@ class _DeploymentVerificationCardState
     );
   }
 
-  Widget _buildLayerGroup(
+  Widget _buildInfraTable(
     ThemeData theme,
     bool isDark,
-    String layerKey,
-    List<Map<String, dynamic>> checks,
+    List<String> sortedKeys,
+    Map<String, List<Map<String, dynamic>>> grouped,
   ) {
     const layerLabels = {
       'L0': 'Layer Setup',
@@ -1194,109 +1081,196 @@ class _DeploymentVerificationCardState
       'L5': 'Visualization',
     };
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Layer header
-        Padding(
-          padding: const EdgeInsets.only(bottom: 2),
-          child: Text(
-            '${layerLabels[layerKey] ?? layerKey} ($layerKey)',
-            style: theme.textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurfaceVariant,
-              letterSpacing: 0.5,
-            ),
+    final rows = <TableRow>[];
+
+    // Header row
+    rows.add(
+      TableRow(
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: theme.dividerColor.withOpacity(0.5)),
           ),
         ),
-        // Individual checks
-        for (final check in checks) _buildCheckRow(theme, isDark, check),
-        const SizedBox(height: 4),
-      ],
-    );
-  }
-
-  Widget _buildCheckRow(
-    ThemeData theme,
-    bool isDark,
-    Map<String, dynamic> check,
-  ) {
-    final status = check['status'] as String? ?? 'fail';
-    final name = check['name'] as String? ?? '';
-    final provider = check['provider'] as String? ?? '';
-    final detail = check['detail'] as String? ?? '';
-
-    IconData icon;
-    Color iconColor;
-
-    switch (status) {
-      case 'pass':
-        icon = Icons.check_circle_outline;
-        iconColor = isDark ? Colors.green[400]! : Colors.green[700]!;
-        break;
-      case 'skip':
-        icon = Icons.remove_circle_outline;
-        iconColor = isDark ? Colors.grey[500]! : Colors.grey[600]!;
-        break;
-      default: // fail
-        icon = Icons.cancel_outlined;
-        iconColor = isDark ? Colors.red[400]! : Colors.red[700]!;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1.5),
-      child: Row(
         children: [
-          Icon(icon, size: 16, color: iconColor),
-          const SizedBox(width: 6),
-          // Check name
-          Text(
-            name,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w500,
+          const SizedBox(width: 20),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              'Check',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurfaceVariant,
+                letterSpacing: 0.5,
+              ),
             ),
           ),
-          // Provider badge
-          if (provider.isNotEmpty) ...[
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(
-                color: _getProviderColor(
-                  provider,
-                ).withOpacity(isDark ? 0.2 : 0.1),
-                borderRadius: BorderRadius.circular(3),
-              ),
-              child: Text(
-                provider,
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  color: _getProviderColor(provider),
-                ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              'Provider',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurfaceVariant,
+                letterSpacing: 0.5,
               ),
             ),
-          ],
-          const Spacer(),
-          // Detail text
-          Flexible(
-            child: Text(
-              status == 'skip' ? '— $detail' : detail,
-              style: TextStyle(
-                fontSize: 11,
-                color: theme.colorScheme.onSurfaceVariant,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'Detail',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  letterSpacing: 0.5,
+                ),
               ),
-              textAlign: TextAlign.right,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
       ),
     );
+
+    for (final layerKey in sortedKeys) {
+      // Layer section header row
+      rows.add(
+        TableRow(
+          children: [
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 2),
+              child: Text(
+                '${layerLabels[layerKey] ?? layerKey} ($layerKey)',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurface,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+            const SizedBox(),
+            const SizedBox(),
+          ],
+        ),
+      );
+
+      // Check rows
+      for (final check in grouped[layerKey]!) {
+        final status = check['status'] as String? ?? 'fail';
+        final name = check['name'] as String? ?? '';
+        final provider = check['provider'] as String? ?? '';
+        final detail = check['detail'] as String? ?? '';
+
+        IconData icon;
+        Color iconColor;
+        switch (status) {
+          case 'pass':
+            icon = Icons.check_circle_outline;
+            iconColor = isDark ? Colors.green[400]! : Colors.green[700]!;
+            break;
+          case 'skip':
+            icon = Icons.remove_circle_outline;
+            iconColor = isDark ? Colors.grey[500]! : Colors.grey[600]!;
+            break;
+          default:
+            icon = Icons.cancel_outlined;
+            iconColor = isDark ? Colors.red[400]! : Colors.red[700]!;
+        }
+
+        final badgeLabel = provider.isNotEmpty ? provider.toUpperCase() : '';
+        final badgeColor = provider.isNotEmpty
+            ? _getProviderColor(provider)
+            : Colors.transparent;
+
+        rows.add(
+          TableRow(
+            children: [
+              // Status icon
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Icon(icon, size: 15, color: iconColor),
+              ),
+              // Name
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Text(
+                  name,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              // Provider badge
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: badgeLabel.isNotEmpty
+                    ? Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: badgeColor.withOpacity(isDark ? 0.2 : 0.1),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            badgeLabel,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: badgeColor,
+                            ),
+                          ),
+                        ),
+                      )
+                    : const SizedBox(),
+              ),
+              // Detail
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    status == 'skip' ? '— $detail' : detail,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+
+    return Table(
+      columnWidths: const {
+        0: FixedColumnWidth(24), // icon
+        1: FlexColumnWidth(2.5), // name
+        2: FixedColumnWidth(72), // provider badge
+        3: FlexColumnWidth(2), // detail
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      children: rows,
+    );
   }
 
   Color _getProviderColor(String provider) {
-    switch (provider.toUpperCase()) {
+    final upper = provider.toUpperCase();
+    // Multi-provider (e.g. "AWS/AZURE/GOOGLE")
+    if (upper.contains('/')) return const Color(0xFF78909C); // blue-grey
+    switch (upper) {
       case 'AWS':
         return const Color(0xFFFF9900);
       case 'AZURE':
@@ -1325,23 +1299,5 @@ class _DataFlowLogEntry {
     required this.message,
     this.status,
     this.detail,
-  });
-}
-
-class _PhaseStatus {
-  final int phase;
-  final String name;
-  final String status; // running, pass, fail, skip, partial
-  final double? elapsed;
-  final String? reason;
-  final int? timeout;
-
-  _PhaseStatus({
-    required this.phase,
-    required this.name,
-    required this.status,
-    this.elapsed,
-    this.reason,
-    this.timeout,
   });
 }

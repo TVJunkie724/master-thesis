@@ -9,8 +9,10 @@ and destroy operations, log tracing, and IoT simulator downloads.
 - Log Trace: Real-time cloud log verification
 - Simulator: Download IoT simulator packages
 """
+import json
 import logging
 import os
+import asyncio
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -1298,15 +1300,30 @@ async def _proxy_dataflow_sse(
                 params={"project_name": resource_name},
                 json={"payload": payload},
             ) as response:
+                last_data = None
                 async for line in response.aiter_lines():
                     if line.startswith("data: "):
                         msg = line[6:]
+                        last_data = msg
                         await session.push_log(msg)
                     elif line.startswith("event: done"):
                         # Next data line is the summary
                         pass
 
-        session.on_complete(success=True, message="Data flow verification complete")
+        # Parse done event to determine success
+        verification_ok = True
+        summary_msg = "Data flow verification complete"
+        if last_data:
+            try:
+                summary = json.loads(last_data)
+                fail_count = summary.get("fail_count", 0)
+                verification_ok = fail_count == 0
+                if not verification_ok:
+                    failed_phase = summary.get("failed_phase", "unknown")
+                    summary_msg = f"Verification failed at: {failed_phase}"
+            except (json.JSONDecodeError, TypeError):
+                pass
+        session.on_complete(success=verification_ok, message=summary_msg)
 
     except Exception as e:
         await session.push_log(json.dumps({
@@ -1406,6 +1423,7 @@ async def verify_dataflow(
         raise HTTPException(status_code=500, detail=f"Failed to prepare project: {str(e)}")
     
     # Create SSE session
+    import uuid, asyncio
     session_id = str(uuid.uuid4())
     from src.api.routes.sse import create_session
     await create_session(twin_id, session_id, operation_type="verify_dataflow")

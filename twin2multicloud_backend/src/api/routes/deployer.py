@@ -128,6 +128,8 @@ async def update_deployer_config(
     
     # Update fields
     if update.deployer_digital_twin_name is not None:
+        if len(update.deployer_digital_twin_name) > 15:
+            raise HTTPException(status_code=400, detail="Digital twin name exceeds 15 characters")
         config.deployer_digital_twin_name = update.deployer_digital_twin_name
     if update.config_events_json is not None:
         config.config_events_json = update.config_events_json

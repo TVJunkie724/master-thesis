@@ -6,25 +6,25 @@ import '../../utils/file_reader.dart';
 
 /// Form-style input block for config.json.
 /// Similar to CredentialSection but for deployment configuration.
-/// 
+///
 /// Fields:
 /// - digital_twin_name (text)
 /// - hot_storage_size_in_days (number)
 /// - cold_storage_size_in_days (number)
-/// 
+///
 /// NOTE: mode field is NOT included (already set in Step 1)
 class ConfigFormBlock extends StatefulWidget {
   final Function(Map<String, dynamic>)? onConfigChanged;
   final Future<Map<String, dynamic>> Function(Map<String, dynamic>)? onValidate;
-  final bool autoValidateOnUpload;  // NEW: Auto-validate after file upload
-  
+  final bool autoValidateOnUpload; // NEW: Auto-validate after file upload
+
   const ConfigFormBlock({
     super.key,
     this.onConfigChanged,
     this.onValidate,
-    this.autoValidateOnUpload = false,  // Default: false for backward compat
+    this.autoValidateOnUpload = false, // Default: false for backward compat
   });
-  
+
   @override
   State<ConfigFormBlock> createState() => _ConfigFormBlockState();
 }
@@ -33,20 +33,20 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
   final _twinNameController = TextEditingController();
   final _hotDaysController = TextEditingController(text: '30');
   final _coldDaysController = TextEditingController(text: '90');
-  
+
   bool _isValidating = false;
   bool? _isValid;
   String? _validationMessage;
-  
+
   // Pink accent removed - using neutral colors
-  
+
   // Example JSON content
   static const String _exampleJson = '''{
-  "digital_twin_name": "my-digital-twin",
+  "digital_twin_name": "my-smart-home",
   "hot_storage_size_in_days": 30,
   "cold_storage_size_in_days": 90
 }''';
-  
+
   @override
   void dispose() {
     _twinNameController.dispose();
@@ -54,7 +54,7 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
     _coldDaysController.dispose();
     super.dispose();
   }
-  
+
   Map<String, dynamic> _buildConfigJson() {
     return {
       'digital_twin_name': _twinNameController.text.trim(),
@@ -62,54 +62,60 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
       'cold_storage_size_in_days': int.tryParse(_coldDaysController.text) ?? 90,
     };
   }
-  
+
   void _notifyChange() {
     widget.onConfigChanged?.call(_buildConfigJson());
   }
-  
+
   Future<void> _pickJsonFile() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
       );
-      
+
       if (result == null || result.files.isEmpty) return;
-      
+
       final content = await readPickedFile(result.files.single);
       final json = jsonDecode(content) as Map<String, dynamic>;
-      
+
       setState(() {
         if (json['digital_twin_name'] != null) {
-          _twinNameController.text = json['digital_twin_name'].toString();
+          final rawName = json['digital_twin_name'].toString();
+          _twinNameController.text = rawName.length > 15
+              ? rawName.substring(0, 15)
+              : rawName;
         }
         if (json['hot_storage_size_in_days'] != null) {
           _hotDaysController.text = json['hot_storage_size_in_days'].toString();
         }
         if (json['cold_storage_size_in_days'] != null) {
-          _coldDaysController.text = json['cold_storage_size_in_days'].toString();
+          _coldDaysController.text = json['cold_storage_size_in_days']
+              .toString();
         }
         _isValid = null;
         _validationMessage = null;
       });
-      
+
       _notifyChange();
-      
+
       // Auto-validate if enabled (matches CredentialSection pattern)
       if (widget.autoValidateOnUpload) {
         await _validate();
       }
     } catch (e) {
-      if (!mounted) return;  // Guard against async context use
+      if (!mounted) return; // Guard against async context use
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to parse JSON: ${ApiErrorHandler.extractMessage(e)}'),
+          content: Text(
+            'Failed to parse JSON: ${ApiErrorHandler.extractMessage(e)}',
+          ),
           backgroundColor: Colors.red.shade700,
         ),
       );
     }
   }
-  
+
   void _showExampleDialog() {
     showDialog(
       context: context,
@@ -146,7 +152,7 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
             onPressed: () {
               // Fill form with example values
               setState(() {
-                _twinNameController.text = 'my-digital-twin';
+                _twinNameController.text = 'my-smart-home';
                 _hotDaysController.text = '30';
                 _coldDaysController.text = '90';
               });
@@ -159,7 +165,7 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
       ),
     );
   }
-  
+
   Future<void> _validate() async {
     if (widget.onValidate == null) {
       // Client-side validation only
@@ -167,13 +173,14 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
         final name = _twinNameController.text.trim();
         final hotDays = int.tryParse(_hotDaysController.text);
         final coldDays = int.tryParse(_coldDaysController.text);
-        
+
         if (name.isEmpty) {
           _isValid = false;
           _validationMessage = 'Digital twin name is required';
         } else if (!RegExp(r'^[a-z0-9-]+$').hasMatch(name)) {
           _isValid = false;
-          _validationMessage = 'Name must be lowercase alphanumeric with hyphens only';
+          _validationMessage =
+              'Name must be lowercase alphanumeric with hyphens only';
         } else if (hotDays == null || hotDays < 1 || hotDays > 365) {
           _isValid = false;
           _validationMessage = 'Hot storage days must be 1-365';
@@ -187,33 +194,35 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
       });
       return;
     }
-    
+
     setState(() {
       _isValidating = true;
       _validationMessage = null;
     });
-    
+
     try {
       final result = await widget.onValidate!(_buildConfigJson());
       setState(() {
         _isValid = result['valid'] == true;
-        _validationMessage = result['message']?.toString() ?? 
-          (_isValid! ? 'Valid ✓' : 'Validation failed');
+        _validationMessage =
+            result['message']?.toString() ??
+            (_isValid! ? 'Valid ✓' : 'Validation failed');
       });
     } catch (e) {
       setState(() {
         _isValid = false;
-        _validationMessage = 'Validation error: ${ApiErrorHandler.extractMessage(e)}';
+        _validationMessage =
+            'Validation error: ${ApiErrorHandler.extractMessage(e)}';
       });
     } finally {
       setState(() => _isValidating = false);
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -221,9 +230,13 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
         color: isDark ? const Color(0xFF2D2D2D) : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: _isValid == true ? Colors.green.shade600 : 
-                 _isValid == false ? Colors.red.shade400 : 
-                 isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+          color: _isValid == true
+              ? Colors.green.shade600
+              : _isValid == false
+              ? Colors.red.shade400
+              : isDark
+              ? Colors.grey.shade700
+              : Colors.grey.shade300,
           width: _isValid != null ? 2 : 1,
         ),
       ),
@@ -245,12 +258,17 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
                         fontWeight: FontWeight.w600,
                         fontFamily: 'monospace',
                         fontSize: 14,
-                        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                        color: isDark
+                            ? Colors.grey.shade300
+                            : Colors.grey.shade700,
                       ),
                     ),
                     Text(
                       'Core deployment configuration',
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -263,14 +281,18 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
                 ),
                 child: const Text(
                   'REQUIRED',
-                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Form and buttons row
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -284,9 +306,11 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
                     _buildTextField(
                       label: 'Digital Twin Name',
                       controller: _twinNameController,
-                      hint: 'e.g., my-digital-twin',
-                      helperText: 'Lowercase, alphanumeric, hyphens only',
+                      hint: 'e.g., my-smart-home',
+                      helperText:
+                          'Max 15 chars. Lowercase, alphanumeric, hyphens only',
                       isDark: isDark,
+                      maxLength: 15,
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -315,9 +339,9 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
                   ],
                 ),
               ),
-              
+
               const SizedBox(width: 24),
-              
+
               // Buttons column (1/3)
               Expanded(
                 flex: 1,
@@ -363,7 +387,7 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
               ),
             ],
           ),
-          
+
           // Validation button
           const SizedBox(height: 20),
           Center(
@@ -371,37 +395,48 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
               onPressed: _isValidating ? null : _validate,
               icon: _isValidating
                   ? const SizedBox(
-                      width: 16, height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.check_circle),
               label: const Text('Validate'),
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 24,
+                ),
                 // Use theme primary instead of pink for consistency with Step 1
               ),
             ),
           ),
-          
+
           // Validation result
           if (_validationMessage != null) ...[
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: _isValid == true 
+                color: _isValid == true
                     ? Colors.green.withAlpha(38)
                     : Colors.red.withAlpha(38),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: _isValid == true ? Colors.green.shade600 : Colors.red.shade400,
+                  color: _isValid == true
+                      ? Colors.green.shade600
+                      : Colors.red.shade400,
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
                     _isValid == true ? Icons.check_circle : Icons.error,
-                    color: _isValid == true ? Colors.green.shade400 : Colors.red.shade400,
+                    color: _isValid == true
+                        ? Colors.green.shade400
+                        : Colors.red.shade400,
                     size: 18,
                   ),
                   const SizedBox(width: 8),
@@ -409,7 +444,9 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
                     child: Text(
                       _validationMessage!,
                       style: TextStyle(
-                        color: _isValid == true ? Colors.green.shade300 : Colors.red.shade300,
+                        color: _isValid == true
+                            ? Colors.green.shade300
+                            : Colors.red.shade300,
                         fontSize: 12,
                       ),
                     ),
@@ -422,13 +459,14 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
       ),
     );
   }
-  
+
   Widget _buildTextField({
     required String label,
     required TextEditingController controller,
     required String hint,
     String? helperText,
     required bool isDark,
+    int? maxLength,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,22 +482,24 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
         const SizedBox(height: 6),
         TextField(
           controller: controller,
+          maxLength: maxLength,
           onChanged: (_) => _notifyChange(),
           decoration: InputDecoration(
             hintText: hint,
             helperText: helperText,
             helperStyle: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
             ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           style: const TextStyle(fontSize: 14),
         ),
       ],
     );
   }
-  
+
   Widget _buildNumberField({
     required String label,
     required TextEditingController controller,
@@ -485,10 +525,11 @@ class _ConfigFormBlockState extends State<ConfigFormBlock> {
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
             hintText: '$min-$max',
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
             ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           style: const TextStyle(fontSize: 14),
         ),

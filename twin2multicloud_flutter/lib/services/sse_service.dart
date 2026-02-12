@@ -49,7 +49,11 @@ class SseService {
     _currentSubscription = stream.listen(
       (event) {
         try {
-          final data = json.decode(event.data ?? '{}');
+          final rawData = event.data;
+          if (rawData == null || rawData.trim().isEmpty) {
+            return; // Skip heartbeat/empty events
+          }
+          final data = json.decode(rawData);
           final eventType = data['type']?.toString() ?? event.event ?? 'log';
           final eventId = data['id'] as int? ?? 0;
 
