@@ -36,6 +36,7 @@ Consolidated future work items across the entire Twin2MultiCloud platform, organ
 | 🟢 Low | Backend | [Auto-Generated Encryption Keys](#auto-generated-encryption-keys) | ✅ |
 | 🟢 Low | Full Stack | [Codebase Refactoring — Monolith Reduction (Flutter)](#codebase-refactoring--monolith-reduction-flutter) | ✅ |
 | Ongoing | Deployer | [Documentation](#documentation) | ✅ |
+| 🟡 Medium | Optimizer | [Tiered Pricing for Additional Services](#tiered-pricing-for-additional-services) | ❌ |
 
 ---
 
@@ -241,6 +242,28 @@ Built-in default processors at `src/providers/*/default-processor/` contain full
 - [ ] Document multi-cloud configuration examples
 - [ ] Add troubleshooting guide for common deployment issues
 - [ ] Create video walkthrough of deployment process
+
+---
+
+# 2-twin2clouds (Cost Optimizer)
+
+## Tiered Pricing for Additional Services
+
+**Status:** Not Implemented
+
+The cost engine currently applies tiered pricing only to AWS IoT Core (`tiered_message_cost`). Several other services that offer volume-based tiered pricing in practice are modeled with flat single-tier rates:
+
+| Service | Current Formula | Issue |
+|---------|----------------|-------|
+| AWS IoT TwinMaker | `action_based_cost` (flat) | First-tier rate applied to entire volume |
+| Azure Digital Twins | `action_based_cost` + `message_based_cost` (flat) | Same |
+| Cross-cloud egress | Hardcoded flat $/GB in `engine.py` | `tiered_transfer_cost` defined but unused |
+
+**Impact:** At high volumes (e.g., preset scenario 3), the flat-rate simplification inflates L4 costs by orders of magnitude because the first-tier rate is applied to the full volume instead of applying decreasing rates to successive brackets.
+
+**Fix:** Extend the existing `tiered_message_cost` / `tiered_transfer_cost` tier-walking algorithm to TwinMaker, Digital Twins, and egress calculators. Requires fetching tier breakpoints from the pricing APIs.
+
+**Files:** `components/aws/twinmaker.py`, `components/azure/digital_twins.py`, `engine.py` (egress), `formulas/core_formulas.py`
 
 ---
 
