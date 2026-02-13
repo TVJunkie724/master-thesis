@@ -66,14 +66,9 @@ Two communication protocols are in use:
     When the \gls{ui} initiates a deployment, the Management \gls{api} returns a \texttt{session\_id}. The client then opens a persistent \gls{sse} connection to \texttt{/sse/deploy/\{session\_id\}}, which streams Terraform output line by line. I chose \gls{sse} over WebSockets because the data flow is unidirectional (server to client only), and \gls{sse} operates over standard HTTP without requiring a separate WebSocket library on the backend. The trade-off is that \gls{sse} does not support binary payloads or client-to-server messages, but neither of these is needed for log streaming. % TODO: CITE --- WebSocket (RFC 6455) if comparing
 \end{itemize}
 
-Figure~\ref{fig:comm-flow} illustrates these communication paths. Credentials are decrypted only inside the Management \gls{api}; the \gls{ui} never handles raw credential material after the initial submission.
+Figure~\ref{fig:arch-overview} illustrates these communication paths. Credentials are decrypted only inside the Management \gls{api}; the \gls{ui} never handles raw credential material after the initial submission.
 
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=0.85\textwidth]{figures/ch4-communication-flow.png}
-    \caption{Service communication patterns. The Management \gls{api} acts as a gateway, proxying \gls{rest} requests and streaming \gls{sse} events to the \gls{ui}. Backend services are only reachable within the Docker network.}
-    \label{fig:comm-flow}
-\end{figure}
+
 
 \subsection{Credential Security and Trust Boundaries}
 \label{sec:credential-security}
@@ -102,73 +97,134 @@ Before any credential is persisted, the Management \gls{api} validates it agains
 Only when both validations succeed are the credentials encrypted and stored. This two-phase check prevents a failure mode that came up during development: credentials with sufficient read permissions for cost estimation sometimes lacked the write permissions required for infrastructure provisioning, which would only surface minutes into a deployment when a Terraform \texttt{apply} failed.
 
 \section{The Orchestrator: Management API and Flutter UI}
+\label{sec:orchestrator}
 
-\subsection{Management API Design}
-% The central coordinator that:
-% - Persists twin configurations and deployment state (SQLAlchemy ORM)
-% - Proxies requests to Optimizer and Deployer
-% - Handles credential encryption/decryption
-% - Manages SSE streaming from Deployer to Flutter
-%
-% Key API groups:
-% - /twins — CRUD for digital twin instances
-% - /twins/{id}/config — configuration management
-% - /twins/{id}/deploy, /destroy — deployment lifecycle
-% - /optimizer/* — proxied cost calculation and pricing endpoints
-% - /deployer/* — proxied validation and status endpoints
+The Orchestrator ties the platform together. It consists of two components: a Python-based Management \gls{api} that coordinates all operations between the Brain and the Muscle, and a Flutter desktop application that provides the user-facing interface. Neither component contains cloud-specific logic itself; both delegate to the specialized backend services. The Management \gls{api} persists twin configurations and deployment state in its own SQLite database, while the Flutter \gls{ui} communicates exclusively with the Management \gls{api} and never contacts the Brain or the Muscle directly. This is intentional: if the \gls{ui} called the Deployer directly, it would bypass credential decryption, since only the Management \gls{api} holds the encryption key needed to recover stored cloud credentials (Section~\ref{sec:credential-security}).
+
+\subsection{Management \gls{api} Design}
+\label{sec:management-api}
+
+The Management \gls{api} is built with FastAPI and uses SQLAlchemy as its \gls{orm} for all database interactions. % TODO: CITE --- FastAPI, SQLAlchemy
+It exposes six groups of endpoints, each implemented as a separate router module:
+
+\begin{itemize}
+    \item \textbf{Twin lifecycle} (\texttt{/twins}): \gls{crud} operations for digital twin instances. Creating a twin initializes it in \texttt{DRAFT} state; updating it stores configuration data (name, description, cloud credentials). Deleting a twin performs a soft delete by setting its state to \texttt{INACTIVE}, which preserves deployment history while hiding the twin from the dashboard. The configuration update endpoint encrypts credentials on write and exposes only a boolean presence flag on read, as described in Section~\ref{sec:credential-security}.
+    \item \textbf{Configuration management} (\texttt{/twins/\{id\}/config}): Stores and retrieves twin-specific configurations including credentials, optimizer parameters, and optimizer calculation results. This is also where dual credential validation lives: when a user saves credentials, the \gls{api} forwards them simultaneously to the Brain (for pricing \gls{api} access checks) and the Muscle (for infrastructure write permission checks), then returns a combined pass/fail result for each service.
+    \item \textbf{Optimizer proxy} (\texttt{/optimizer}): Forwards pricing refresh requests and cost calculation requests to the Brain. For pricing refresh, the \gls{api} first decrypts the stored credentials, injects them into the outbound request, and opens a \gls{sse} channel that relays the Brain's progress logs to the \gls{ui}. For calculation requests, it proxies a synchronous \gls{json} payload and stores the result in the database alongside the current pricing snapshot for auditability.
+    \item \textbf{Deployer proxy} (\texttt{/twins/\{id\}/deployer}): Manages deployer-specific configuration (functions, hierarchies, state machines, event rules, 3D scene files). Includes a validation endpoint that proxies configuration content to the Muscle's validator, and a ZIP upload endpoint that extracts a project archive to auto-populate the wizard's Step~3 fields.
+    \item \textbf{Deployment operations} (\texttt{/twins/\{id\}/deploy}, \texttt{/destroy}): Triggers infrastructure provisioning or teardown. Before deploying, the \gls{api} runs a distributed validation that checks all three wizard steps: local validation of twin metadata and credentials (Step~1, see also Section~\ref{sec:credential-security}), remote validation of optimizer parameters against the Brain (Step~2), and remote validation of deployer configuration against the Muscle (Step~3). If all checks pass, the \gls{api} assembles a project ZIP from the database records, uploads it to the Deployer, and triggers the deployment in a background thread. A \gls{sse} session is created for the \gls{ui} to stream logs from the running operation.
+    \item \textbf{Dashboard} (\texttt{/dashboard/stats}): Returns aggregated statistics for the dashboard overview: counts of deployed, draft, and total twins, plus the estimated monthly cost summed from all deployed twins' optimizer results.
+\end{itemize}
+
+\subsubsection{Twin Lifecycle State Machine}
+\label{sec:twin-states}
+
+Each digital twin progresses through a defined set of states that govern which operations are permitted. The eight states are: \texttt{DRAFT} (initial, configuration incomplete), \texttt{CONFIGURED} (all wizard steps validated), \texttt{DEPLOYING} (provisioning in progress), \texttt{DEPLOYED} (infrastructure live), \texttt{DESTROYING} (teardown in progress), \texttt{DESTROYED} (infrastructure removed, can be redeployed), \texttt{ERROR} (operation failed, can retry), and \texttt{INACTIVE} (soft-deleted). The \texttt{DEPLOYING} and \texttt{DESTROYING} states are transient: they exist only while a background operation is running and are guarded by a session-level lock that prevents concurrent deployments on the same twin.
+
+State transitions are enforced server-side. A deployment can only start from \texttt{CONFIGURED}, \texttt{DESTROYED}, or \texttt{ERROR}. Destruction requires either \texttt{DEPLOYED} or \texttt{ERROR}. If a deployment fails, the twin moves to \texttt{ERROR} with the failure message persisted in a \texttt{last\_error} column; from there, the user can either retry the deployment or destroy whatever partial infrastructure was created. Additionally, \gls{gcp} Firestore imposes a five-minute cooldown between database deletions and recreations, so the \gls{api} checks this interval before allowing redeployment of twins that include \gls{gcp} resources. Figure~\ref{fig:twin-state-machine} illustrates the complete state machine with all permitted transitions.
+
+\input{figures/twin_state_machine}
+
+\subsubsection{Real-Time Log Streaming}
+\label{sec:sse-streaming}
+
+Deployment and destruction are long-running operations, typically lasting two to five minutes depending on the number of providers involved. To give users immediate visibility into what is happening, the Management \gls{api} implements a \gls{sse}-based log streaming system. % TODO: CITE --- W3C SSE specification
+
+When a deployment starts, the \gls{api} creates a \texttt{LogSession} object with a unique session ID. The Deployer writes Terraform output and SDK operation logs to this session via HTTP callbacks. Meanwhile, the Flutter \gls{ui} connects to a \gls{sse} endpoint (\texttt{/sse/\{session\_id\}}) and receives each log line as it arrives. The session follows a three-state lifecycle: \texttt{PENDING} (created, client not yet connected), \texttt{STREAMING} (client connected, logs flowing), and \texttt{COMPLETED} (operation finished). A background reaper task runs every ten seconds to clean up expired sessions and recover twins stuck in transient states for over 30 minutes, which can occur if the Deployer crashes mid-operation.
+
+Each log event carries an incrementing event ID, enabling reconnection. If the Flutter client loses its connection, it can resume from the last received event ID without missing intermediate messages. In the current implementation, \gls{sse} was chosen over WebSockets because all communication is unidirectional (server to client), and \gls{sse} handles reconnection natively through the browser's \texttt{EventSource} \gls{api}, whereas WebSocket reconnection would have required manual implementation. % TODO: CITE --- WebSocket (RFC 6455)
+Figure~\ref{fig:sse-sequence} illustrates the complete message flow during a deployment, showing how the Management \gls{api} subscribes to the Deployer's \gls{sse} stream in a background task and re-emits each log line to the Flutter client through its own \gls{sse} endpoint.
+
+\input{figures/sse_sequence}
 
 \subsection{Flutter User Interface}
-% Present the user-facing application without code details.
-%
-% Key screens:
-% 1. Dashboard: overview of all twins with state indicators
-% 2. Wizard: 4-step guided twin creation
-%    - Step 1: Basic configuration (name, credentials)
-%    - Step 2: Cost optimization (parameters → calculation → cheapest path)
-%    - Step 3: Deployer configuration (functions, hierarchies, state machines)
-%    - Step 4: Review and deploy
-% 3. Twin Overview: deployment status, logs, cost summary
-% 4. Deployment Terminal: real-time SSE log viewer
-%
-% FIGURES: Screenshots of each key screen (capture from running app).
-%
-% Architecture: BLoC pattern separating UI from business logic.
-% (Detailed in Chapter~\ref{chap:implementation})
+\label{sec:flutter-ui}
+
+The user-facing application is built with Flutter and runs as a desktop application. % TODO: CITE --- Flutter
+I chose Flutter for two reasons: cross-platform compilation from a single codebase (targeting macOS, Windows, and Linux), and the availability of the BLoC (Business Logic Component) pattern for separating \gls{ui} state management from presentation. % TODO: CITE --- BLoC pattern / flutter_bloc package
+The architectural details of the BLoC implementation, including the event-state flow and service extraction patterns, are discussed in Chapter~\ref{chap:implementation}. This section focuses on the user-facing screens and the workflows they support.
+
+The application is organized around four primary views:
+
+\textbf{Dashboard.} The entry screen lists all digital twins belonging to the authenticated user. Each twin appears as a row showing its name, current lifecycle state (color-coded), cloud provider assignments, creation date, and estimated monthly cost. Summary statistics (total twins, deployed count, estimated cost) are rendered as cards above the table. Users can filter twins by state, sort by different columns, and navigate to either the wizard (for configuration) or the overview (for deployed twins). The dashboard also provides access to global settings such as cloud documentation links.
+
+\textbf{Creation Wizard.} Configuring a new digital twin is a three-step guided workflow. Step~1 captures basic information: the twin's name, an optional description, and cloud provider credentials for each provider the user intends to use. The credentials are validated in real time against both backend services before the user can proceed. Step~2 runs cost optimization: the user sets \gls{iot} scenario parameters (device count, message frequency, storage durations, optional features), triggers a calculation against the Brain, and reviews a cost breakdown per layer and provider. The cheapest path is highlighted, and the user can override individual layer assignments if desired. Step~3 configures deployment details: serverless function code (with a code editor), event rules, \gls{iot} device hierarchies, state machine definitions, and optionally a 3D scene model for TwinMaker visualization. Users can pre-populate Step~3 by uploading a project ZIP archive from a previous deployment. Once all three steps pass validation, the twin transitions to \texttt{CONFIGURED} and becomes eligible for deployment. Each step validates independently, and the wizard preserves state if the user navigates away and returns later.
+
+\textbf{Twin Overview.} Once a twin transitions from \texttt{DRAFT} to \texttt{CONFIGURED}, this screen replaces the wizard as the primary detail view. It displays the twin's current state, the deployed provider assignment, cost information from the optimizer result, configuration file review sections, and pricing data with fetch timestamps. For deployed twins, a dedicated verification section provides two actions: \emph{Check Infrastructure} queries each provider's API to confirm that expected resources exist, and \emph{Verify Data Flow} sends a test payload through the deployed IoT pipeline and streams progress via \gls{sse}, reporting whether data arrives at each layer. Users can also trigger deployment, redeployment, or destruction from this screen.
+
+% TODO: FIGURES --- Screenshots of each key screen (dashboard, wizard steps, twin overview). Capture from running application.
+
 
 \section{The Brain: Cost Optimizer}
+\label{sec:optimizer}
 
-\subsection{API Design}
-% Stateless microservice exposing:
-% - POST /calculate — multi-provider cost calculation
-% - GET /pricing/{provider} — fetch/cache current pricing
-% - POST /validate-credentials — validate cloud credentials
-%
-% Input: user parameters (devices, messages/sec, storage days, regions)
-% Output: per-layer costs for each provider + cheapest path recommendation
+The Cost Optimizer is a stateless microservice that determines the cheapest provider assignment for each layer of the 5-layer architecture. Given a set of scenario parameters (device count, message frequency, storage retention requirements, and optional features), it evaluates costs for all three providers at every layer, accounts for cross-cloud data transfer overhead when adjacent layers land on different providers, and returns the combination with the lowest total monthly cost. The service descends directly from the Twin2Clouds prototype analyzed in Chapter~\ref{chap:legacyAnalysis}; I refactored the monolithic calculation into a component-level architecture but kept the mathematical foundation intact. % TODO: CITE --- Gritsch et al., "Twin2Clouds: Cost-Aware Digital Twin Engineering" (MODELS 2025)
+
+\subsection{\gls{api} Design}
+\label{sec:optimizer-api}
+
+The Optimizer exposes three functional groups of endpoints:
+
+\begin{itemize}
+    \item \textbf{Pricing}: \texttt{GET /pricing/\{provider\}} fetches live pricing data from the respective cloud provider's pricing \gls{api} (\gls{aws} Price List \gls{api}, Azure Retail Prices \gls{api}, Google Cloud Billing \gls{api}). % TODO: CITE --- AWS Price List API, Azure Retail Prices API, Google Cloud Billing API
+    Each provider's data is cached locally as a \gls{json} file with a 7-day expiry; users refresh it explicitly from the Flutter \gls{ui}. \gls{aws} and \gls{gcp} require valid credentials to access their pricing \glspl{api}, while Azure's pricing \gls{api} is publicly accessible. A companion \gls{sse} endpoint streams fetch progress logs to the \gls{ui} in real time, giving users visibility into the multi-minute pricing retrieval process.
+    \item \textbf{Calculation}: \texttt{PUT /calculate} accepts a parameter model (\texttt{CalcParams}) and returns the full cost breakdown. The input specifies 26 parameters across five categories: core \gls{iot} settings (device count, sending interval, message size), storage retention durations (hot, cool, archive, validated for monotonic ordering), dashboard configuration (editors, viewers, refresh rate), optional feature toggles (event checking, notification workflows, feedback-to-device, error handling), and workload multipliers (events per message, orchestration actions, device types). The output contains per-provider per-layer cost breakdowns, the optimal provider per layer, cross-cloud transfer costs, the cheapest path as an ordered list, and the total monthly cost. All values are returned in a single \gls{json} response.
+    \item \textbf{Credential Validation}: \texttt{POST /validate-credentials/\{provider\}} verifies that stored credentials have the permissions needed for pricing data retrieval.
+\end{itemize}
+
+The service has no persistent database. Pricing data is stored as three \gls{json} files on disk (one per provider), and calculation results are ephemeral. The Management \gls{api} stores them in its own SQLite database alongside pricing snapshots for auditability (Section~\ref{sec:data-flow}).
 
 \subsection{Cost Calculation Pipeline}
-% Present the high-level flow (not code):
-% 1. Receive parameters from Management API
-% 2. Fetch current pricing data (from cache or cloud APIs)
-% 3. Calculate costs per component per provider
-%    - L0: IoT ingestion costs
-%    - L1: Compute/Lambda costs
-%    - L2: Orchestration costs
-%    - L3: Storage costs (hot + cold + archive tiers)
-%    - L4: Twin platform costs
-% 4. Determine cheapest provider per layer
-% 5. Calculate cross-cloud transfer costs (if mixed providers)
-% 6. Return optimal configuration
-%
-% DIAGRAM: Pipeline flow showing data transformation stages.
+\label{sec:calc-pipeline}
 
-\subsection{Pricing Architecture}
-% How live pricing replaces the hardcoded values from the legacy system:
-% - Provider-specific price fetchers normalize data into comparable units
-% - Pricing data cached locally, refreshable on demand
-% - Pricing snapshots stored with calculation results for auditability
-%
-% Link to Factory Pattern implementation in Chapter~\ref{chap:implementation}.
+When the Management \gls{api} proxies a calculation request, the Optimizer loads the cached pricing \gls{json} and runs the calculation through three stages (Figure~\ref{fig:calc-pipeline}).
+
+% TODO: Figure --- calculation pipeline diagram (calculation_pipeline_diagram.png)
+% \begin{figure}[htbp]
+%     \centering
+%     \includegraphics[width=0.85\textwidth]{figures/ch4-calc-pipeline.png}
+%     \caption{Cost calculation pipeline. Stage 1 computes per-provider costs independently; Stage 2 selects the cheapest provider per layer; Stage 3 adds cross-cloud transfer costs at each boundary where adjacent layers differ in provider.}
+%     \label{fig:calc-pipeline}
+% \end{figure}
+
+\textbf{Stage 1: Per-Provider Cost Computation.} The engine computes costs for all layers on each provider independently. Each provider has a dedicated \texttt{LayerCalculators} class (\texttt{AWSLayerCalculators}, \texttt{AzureLayerCalculators}, \texttt{GCPLayerCalculators}) that aggregates the relevant component calculators. For example, the \gls{aws} L2 (Processing) calculation sums the costs of the persister Lambda, per-device-type processor Lambdas, optional event-checker and event-feedback Lambdas, Step Functions state transitions (if orchestration is enabled), EventBridge events (if error handling is enabled), and event-action Lambdas (one per configured event action). Which components are included depends on the boolean feature flags from the input parameters. A deployment with event checking disabled, for instance, omits those components entirely.
+
+\textbf{Stage 2: Layer-by-Layer Selection.} The engine iterates over each layer (L1 through L5, with L3 split into hot, cool, and archive sub-tiers) and selects the provider with the lowest cost. This gives seven independent selections, since each sub-tier can land on a different provider. For L4 and L5, \gls{gcp} is excluded from the selection because those layers are not implemented for \gls{gcp} (Section~\ref{sec:resource-mapping}).
+
+\textbf{Stage 3: Cross-Cloud Transfer Costs.} If adjacent layers land on different providers, data must cross a cloud boundary. The engine adds two cost components for each such boundary: an egress cost (the source provider's outbound data transfer rate applied to the monthly data volume) and a glue function cost (the destination provider's Lambda/Functions invocation cost for the L0 relay function that receives the forwarded data). The engine evaluates five potential boundaries: L1$\to$L2, L2$\to$L3\textsubscript{hot}, L3\textsubscript{hot}$\to$L3\textsubscript{cool}, L3\textsubscript{cool}$\to$L3\textsubscript{archive}, and L3\textsubscript{hot}$\to$L4. If a boundary is same-provider, no transfer cost is added.
+
+The final output sums the seven layer costs and any transfer costs into a total monthly estimate.
+
+\subsection{Cost Model Formulas}
+\label{sec:cost-formulas}
+
+The calculation engine uses six provider-independent cost formulas derived from the cost model in Gritsch et al.\ (2025), each applied to different types of cloud resources. % TODO: CITE --- Gritsch et al., Twin2Clouds MODELS 2025
+These formulas are implemented as pure functions in a shared \texttt{core\_formulas.py} module that all three provider calculators invoke with provider-specific pricing parameters.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Cost model formulas. Each formula captures a billing model common across cloud providers. Derived from the cost model in Gritsch et al.~(2025).} % TODO: CITE --- Gritsch et al., Twin2Clouds MODELS 2025
+    \label{tab:cost-formulas}
+    \small
+    \begin{tabularx}{\textwidth}{@{} l l X X @{}}
+        \toprule
+        \textbf{ID} & \textbf{Formula} & \textbf{Description} & \textbf{Applied to} \\
+        \midrule
+        $C_M$ & $c_m \times N_m$ & Message-based: cost per message times message count & IoT Core, IoT Hub \\[4pt]
+        $C_E$ & $c_e \max(0, N_e{-}f_e) + c_t \max(0, T_e{-}f_t)$ & Execution-based: request cost plus compute time, net of free tier & Lambda, Functions, Cloud~Functions \\[4pt]
+        $C_A$ & $c_a \times N_a$ & Action-based: cost per action times action count & DynamoDB, Step Functions, EventBridge, Logic Apps, Event Grid, Workflows \\[4pt]
+        $C_S$ & $c_s \times V \times D$ & Storage-based: price per GB-month times volume times duration & S3, Blob Storage, GCS, DynamoDB, Cosmos~DB, Firestore \\[4pt]
+        $C_U$ & $c_{ed} N_{ed} + c_{vi} N_{vi} + c_h H$ & User-based: per-seat licensing plus optional hourly cost & Managed Grafana, Digital Twins, TwinMaker \\[4pt]
+        $C_T$ & $c_t \times G$ & Transfer-based: cost per GB of egress & Cross-cloud boundaries, Pub/Sub \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+For \gls{iot} Core, the engine supports tiered pricing: \gls{aws} \gls{iot} Core charges decreasing per-message rates as volume increases, and the engine applies a tier-walking algorithm that applies the correct rate to each volume bracket. However, several other services that offer tiered pricing in practice (such as \gls{aws} \gls{iot} TwinMaker, Azure Digital Twins, and cross-cloud egress) are modeled with flat single-tier rates for simplicity. This simplification introduces a known upward bias at high volumes; for example, a large-scale scenario can inflate L4 costs to over one million dollars because the first-tier rate is applied to the entire volume. Extending the tier-walking algorithm to these services is noted as future work (Section~\ref{sec:future-work}).
+
+Each provider's layer calculator maps concrete cloud services to the appropriate formula. An \gls{aws} L1 cost, for instance, combines $C_M$ for \gls{iot} Core messaging with $C_E$ for the dispatcher Lambda. An Azure L2 cost combines $C_E$ for Azure Functions, $C_A$ for Logic Apps state transitions and Event Grid operations, and conditionally adds more $C_E$ terms for event-checker and feedback functions. The component-level architecture means each service has its own calculator class that encapsulates the pricing key lookup and formula invocation, so adding a new service or adjusting a formula affects only a single file.
+
+% TODO: CITE: Gritsch et al. Twin2Clouds MODELS 2025, AWS Price List API, Azure Retail Prices API, Google Cloud Billing API
 
 \section{The Muscle: Cloud Deployer}
 \label{sec:deployer}

@@ -4,7 +4,11 @@
 \usepackage{color}
 
 \graphicspath{{figures/}}
+\usepackage{tikz}
+\usetikzlibrary{automata, positioning, arrows.meta, calc, fit, backgrounds, decorations.pathreplacing, decorations.pathmorphing}
 \usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
 \usepackage{selinput}
 \SelectInputMappings{
 	adieresis={ä},
@@ -55,8 +59,6 @@
 	\abstract{\input{chapters/abstract}}
 	
 	\tableofcontents
-	% \listoffigures
-	% \listoftables
 	% \printglossary[type=\acronymtype,title=Acronyms]
 	
 	% === CHAPTERS ===
@@ -71,8 +73,12 @@
 	\include{chapters/conclusion}
 
 	% === BIBLIOGRAPHY ===
-	% \bibliographystyle{plain}
-	% \bibliography{bibliography/biblio}
+	\bibliographystyle{plain}
+	\bibliography{bibliography/biblio}
+
+	% === LISTS ===
+	\listoffigures
+	\listoftables
 
 	% === APPENDIX ===
 	% \include{chapters/appendix}

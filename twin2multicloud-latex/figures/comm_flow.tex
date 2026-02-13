@@ -1,0 +1,87 @@
+% Communication Flow Diagram — clean two-column layout
+% Shows REST (left path) vs SSE (right path) through Management API gateway
+\begin{figure}[htbp]
+\centering
+\resizebox{0.92\textwidth}{!}{%
+\begin{tikzpicture}[
+    >=Stealth,
+    font=\small,
+    comp/.style={
+        rectangle, rounded corners=3pt,
+        minimum width=3cm, minimum height=1cm,
+        draw=black!70, thick, font=\small\bfseries,
+    },
+    db/.style={
+        cylinder, shape border rotate=90, aspect=0.25,
+        minimum width=1.4cm, minimum height=0.9cm,
+        draw=black!60, thick, fill=gray!10,
+        font=\scriptsize\bfseries,
+    },
+    rest/.style={->, thick, blue!70!black},
+    sse/.style={->, thick, red!60!black, densely dashed},
+    lbl/.style={font=\scriptsize, fill=white, inner sep=2pt, align=center},
+]
+
+% === COMPONENTS ===
+\node[comp, fill=blue!12] (ui) at (0, 0) {Flutter UI};
+\node[comp, fill=green!12, minimum width=3.6cm] (api) at (0, -3.5) {Management API};
+\node[comp, fill=yellow!15] (brain) at (-4, -7.5) {Cost Optimizer};
+\node[comp, fill=red!12] (muscle) at (4, -7.5) {Cloud Deployer};
+\node[db] (db) at (4, -3.5) {SQLite};
+
+% === LEFT COLUMN: REST synchronous flow ===
+% UI → API
+\draw[rest] ([xshift=-0.6cm]ui.south) -- 
+    node[lbl, left, xshift=-2pt] {\texttt{/twins}\\\texttt{/calculate}\\\texttt{/pricing}}
+    ([xshift=-0.6cm]api.north);
+
+% API → Brain
+\draw[rest] ([xshift=-0.3cm]api.south) -- 
+    node[lbl, left, xshift=-2pt] {proxy +\\credentials}
+    ([xshift=0.3cm]brain.north);
+
+% Brain → API (response)
+\draw[rest, black!40] ([xshift=0.3cm]brain.north east) -- 
+    node[lbl, right, xshift=2pt] {JSON\\result}
+    ([xshift=-0.6cm]api.south east);
+
+% === RIGHT COLUMN: SSE deployment flow ===
+% UI → API: deploy trigger
+\draw[rest] ([xshift=0.6cm]ui.south) -- 
+    node[lbl, right, xshift=2pt] {\texttt{POST}\\{\texttt{/deploy}}}
+    ([xshift=0.6cm]api.north);
+
+% API → Muscle: subscribe to deploy stream
+\draw[rest] ([xshift=0.3cm]api.south) -- 
+    node[lbl, right, xshift=2pt] {\texttt{POST}\\{\texttt{/deploy/stream}}}
+    ([xshift=-0.3cm]muscle.north);
+
+% Muscle → API: SSE log events
+\draw[sse] ([xshift=-0.8cm]muscle.north) -- 
+    node[lbl, left, xshift=-2pt] {SSE\\log lines}
+    ([xshift=0.8cm]api.south);
+
+% API → UI: SSE relay to client
+\draw[sse] ([xshift=1.2cm]api.north) -- 
+    node[lbl, right, xshift=2pt] {SSE\\{\texttt{/sse/deploy/\{id\}}}}
+    ([xshift=1.2cm]ui.south);
+
+% === DB connection ===
+\draw[->, thick, black!40, dashed] (api.east) -- node[lbl, above] {encrypt / decrypt} (db.west);
+
+% === DOCKER BOUNDARY ===
+\draw[rounded corners=8pt, dashed, black!40, thick] 
+    (-6.2, -2.2) rectangle (6.2, -8.8);
+\node[font=\scriptsize, text=black!45, anchor=south west] at (-6.1, -8.8) {Docker Network};
+
+% === LEGEND ===
+\begin{scope}[shift={(-5.5, -10)}]
+    \draw[rest] (0,0) -- (1.2,0) node[right, font=\scriptsize] {REST / HTTP};
+    \draw[sse] (0,-0.5) -- (1.2,-0.5) node[right, font=\scriptsize] {SSE stream};
+\end{scope}
+
+\end{tikzpicture}
+}%
+\caption[Service communication patterns]{Service communication patterns. Solid arrows show synchronous \gls{rest} proxying (left path); dashed arrows show \gls{sse} streaming during deployments (right path). The Management \gls{api} decrypts stored credentials before forwarding requests and is the only service reachable from outside the Docker network.}
+\label{fig:comm-flow}
+\end{figure}

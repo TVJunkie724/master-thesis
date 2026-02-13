@@ -1,0 +1,94 @@
+% SSE Log Streaming Sequence Diagram
+% Usage: \input{figures/sse_sequence}
+% Requires: \usepackage{tikz}, \usetikzlibrary{arrows.meta, calc, positioning}
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+    >=Stealth,
+    font=\small,
+    actor/.style={
+        rectangle, rounded corners=4pt,
+        minimum width=2.8cm, minimum height=0.8cm,
+        draw=black!70, thick, fill=blue!5,
+        font=\small\bfseries,
+    },
+    msg/.style={->, thick, >=Stealth},
+    ret/.style={->, thick, >=Stealth, dashed},
+    sse/.style={->, thick, >=Stealth, decorate,
+        decoration={snake, amplitude=0.8pt, segment length=6pt}},
+    lbl/.style={font=\scriptsize, fill=white, inner sep=2pt},
+    note/.style={font=\scriptsize, text width=3.8cm, align=left,
+        draw=black!30, rounded corners=2pt, fill=yellow!8, inner sep=4pt},
+]
+
+% === ACTORS (lifelines) ===
+\node[actor] (ui) at (0,0)    {Flutter UI};
+\node[actor] (api) at (5.5,0)  {Mgmt API};
+\node[actor] (dep) at (11,0)   {Deployer};
+
+% Lifelines
+\draw[dashed, black!30] (ui.south)  -- ++(0,-14.5);
+\draw[dashed, black!30] (api.south) -- ++(0,-14.5);
+\draw[dashed, black!30] (dep.south) -- ++(0,-14.5);
+
+% === MESSAGES ===
+% 1) Deploy request
+\draw[msg] ([yshift=-1.2cm]ui.south) -- node[lbl, above] {\texttt{POST /twins/\{id\}/deploy}} ([yshift=-1.2cm]api.south);
+
+% 2) API creates session + prepares ZIP + uploads to Deployer
+\draw[msg] ([yshift=-2.0cm]api.south) -- node[lbl, above] {upload project ZIP} ([yshift=-2.0cm]dep.south);
+\draw[ret] ([yshift=-2.6cm]dep.south) -- node[lbl, above] {\texttt{200 OK}} ([yshift=-2.6cm]api.south);
+
+% Note: session creation
+\node[note, anchor=west] at ([xshift=0.5cm, yshift=-1.6cm]api.south) {create \texttt{LogSession}\\state $\leftarrow$ \texttt{PENDING}};
+
+% 3) API returns session_id
+\draw[ret] ([yshift=-3.2cm]api.south) -- node[lbl, above] {\texttt{\{session\_id, sse\_url\}}} ([yshift=-3.2cm]ui.south);
+
+% 4) API spawns background task → subscribes to Deployer SSE
+\draw[msg] ([yshift=-4.0cm]api.south) -- node[lbl, above] {\texttt{POST /deploy/stream}} ([yshift=-4.0cm]dep.south);
+
+% Note: background task
+\node[note, anchor=east] at ([xshift=-0.5cm, yshift=-3.6cm]api.south) {spawn background\\deploy task};
+
+% 5) Client opens SSE connection
+\draw[msg] ([yshift=-4.8cm]ui.south) -- node[lbl, above] {\texttt{GET /sse/deploy/\{session\_id\}}} ([yshift=-4.8cm]api.south);
+
+% Note: state transition
+\node[note, anchor=west] at ([xshift=0.5cm, yshift=-5.0cm]api.south) {state $\leftarrow$ \texttt{STREAMING}\\flush buffered events};
+
+% 6-8) Log streaming loop
+\draw[sse, blue!60] ([yshift=-6.0cm]dep.south) -- node[lbl, above, text=blue!80] {\texttt{data: [STEP 1/9] ...}} ([yshift=-6.0cm]api.south);
+\draw[sse, blue!60] ([yshift=-6.4cm]api.south) -- node[lbl, above, text=blue!80] {\texttt{id:1 data: [STEP 1/9] ...}} ([yshift=-6.4cm]ui.south);
+
+\draw[sse, blue!60] ([yshift=-7.0cm]dep.south) -- node[lbl, above, text=blue!80] {\texttt{data: [STEP 2/9] ...}} ([yshift=-7.0cm]api.south);
+\draw[sse, blue!60] ([yshift=-7.4cm]api.south) -- node[lbl, above, text=blue!80] {\texttt{id:2 data: [STEP 2/9] ...}} ([yshift=-7.4cm]ui.south);
+
+% Ellipsis
+\node[font=\large, text=black!50] at ([yshift=-8.0cm]api.south) {$\vdots$};
+
+% 9) Deployer signals completion
+\draw[sse, green!60!black] ([yshift=-8.8cm]dep.south) -- node[lbl, above, text=green!60!black] {\texttt{event: complete}} ([yshift=-8.8cm]api.south);
+
+% 10) API updates twin state + sends terminal event
+\node[note, anchor=west] at ([xshift=0.5cm, yshift=-9.4cm]api.south) {twin $\leftarrow$ \texttt{DEPLOYED}\\session $\leftarrow$ \texttt{COMPLETED}};
+
+\draw[sse, green!60!black] ([yshift=-10.0cm]api.south) -- node[lbl, above, text=green!60!black] {\texttt{type:complete, status:success}} ([yshift=-10.0cm]ui.south);
+
+% Loop box
+\draw[rounded corners=4pt, dashed, black!40] ([xshift=-0.8cm, yshift=-5.6cm]ui.south) rectangle ([xshift=0.8cm, yshift=-8.4cm]dep.south);
+\node[font=\scriptsize\itshape, text=black!60, anchor=north west] at ([xshift=-0.8cm, yshift=-5.6cm]ui.south) {loop: Terraform output lines};
+
+% Heartbeat note at bottom
+\node[note, anchor=north, text width=5cm] at ([yshift=-11.5cm]api.south) {If no events for 30\,s, API sends\\SSE comment \texttt{: heartbeat}\\to keep connection alive};
+
+% Reconnection note
+\node[note, anchor=north, text width=5cm] at ([yshift=-13.0cm]ui.south) {On disconnect, Flutter resumes\\from \texttt{last\_event\_id} — missed\\events replayed automatically};
+
+\end{tikzpicture}
+}%
+\caption[SSE log streaming sequence]{SSE log streaming sequence during deployment. The Management API subscribes to the Deployer's SSE stream in a background task and re-emits each log line to the Flutter client through its own SSE endpoint, adding incrementing event IDs for reconnection support.}
+\label{fig:sse-sequence}
+\end{figure}
