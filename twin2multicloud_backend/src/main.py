@@ -46,6 +46,10 @@ app.include_router(test_endpoints_router)
 async def startup_event():
     """Start background tasks on app startup."""
     start_reaper()
+    # Seed test data if enabled in settings
+    if settings.SEED_DATA:
+        from scripts.seed_twins import seed_if_needed
+        await seed_if_needed()
 
 @app.get("/")
 async def root():
