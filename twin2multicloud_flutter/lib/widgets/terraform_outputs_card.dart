@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'package:twin2multicloud_flutter/theme/colors.dart';
+import 'package:twin2multicloud_flutter/widgets/terraform_output_labels.dart';
 
 /// Card that displays terraform outputs from a successful deployment.
 ///
@@ -275,11 +276,25 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
   }
 
   Widget _buildCompactTable(Map<String, dynamic> outputs, ThemeData theme) {
+    // Sort entries by their position in outputLabels (defines UI category order).
+    // Keys not in the map go to the end.
+    final labelKeys = outputLabels.keys.toList();
+    final sortedEntries = outputs.entries.toList()
+      ..sort((a, b) {
+        final ai = labelKeys.indexOf(a.key);
+        final bi = labelKeys.indexOf(b.key);
+        // Unknown keys (-1) go to end
+        final aIdx = ai == -1 ? labelKeys.length : ai;
+        final bIdx = bi == -1 ? labelKeys.length : bi;
+        return aIdx.compareTo(bIdx);
+      });
+
     return Container(
       color: theme.colorScheme.surface,
       child: Column(
-        children: outputs.entries.map((entry) {
+        children: sortedEntries.map((entry) {
           final value = entry.value?.toString() ?? '';
+          final label = getOutputLabel(entry.key);
 
           return InkWell(
             onTap: () => _copyToClipboard(value, keyName: entry.key),
@@ -296,31 +311,42 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Key (narrower than before)
+                  // Label (human-readable, first column)
                   SizedBox(
-                    width: 180,
+                    width: 160,
                     child: Text(
-                      entry.key,
+                      label,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
                         fontWeight: FontWeight.w500,
                         color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.8,
+                          alpha: 0.85,
                         ),
                       ),
                     ),
                   ),
-                  // Value (truncated, masked if sensitive)
+                  // Key (monospace, subtle, second column)
+                  SizedBox(
+                    width: 160,
+                    child: Text(
+                      entry.key,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFamily: 'monospace',
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.4,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Value (wraps, multiline, masked if sensitive)
                   Expanded(
                     child: Builder(
                       builder: (context) {
                         final isSensitive = _isSensitiveKey(entry.key);
                         final displayValue = (isSensitive && !_showSensitive)
                             ? _maskValue(value)
-                            : (value.length > 50
-                                  ? '${value.substring(0, 50)}...'
-                                  : value);
+                            : value;
                         return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (isSensitive && !_showSensitive)
                               Padding(
@@ -336,6 +362,7 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
                             Expanded(
                               child: Text(
                                 displayValue,
+                                softWrap: true,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   fontFamily: 'monospace',
                                   color: theme.colorScheme.onSurface.withValues(
@@ -344,7 +371,6 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
                                         : 0.7,
                                   ),
                                 ),
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
