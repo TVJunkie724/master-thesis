@@ -1,0 +1,60 @@
+% Deployment Pipeline Diagram
+% Shows the 8-step deployment pipeline from init to post-deploy SDK ops
+\begin{tikzpicture}[
+    node distance=0.35cm,
+    step/.style={
+        draw, rounded corners=3pt, fill=blue!8,
+        minimum height=0.7cm, minimum width=10cm,
+        align=left, font=\small,
+        inner sep=6pt
+    },
+    stepnum/.style={
+        fill=blue!25, rounded corners=2pt,
+        minimum width=0.7cm, minimum height=0.5cm,
+        font=\small\bfseries, inner sep=2pt
+    },
+    phase/.style={
+        font=\small\itshape\color{black!60}
+    },
+    arrow/.style={->, >=stealth, thick, color=black!50},
+    brace/.style={decorate, decoration={brace, amplitude=6pt, mirror}, thick, color=black!40},
+]
+
+% Steps - each row: number then box
+\node[stepnum] (n0) at (0, 0) {0};
+\node[step, anchor=west] (s0) at (0.7, 0) {Credential validation (parallel: Brain + Muscle)};
+
+\node[stepnum] (n1) at (0, -1.05) {1};
+\node[step, anchor=west] (s1) at (0.7, -1.05) {Project validation (schema, cross-refs, file existence)};
+
+\node[stepnum] (n2) at (0, -2.1) {2};
+\node[step, anchor=west] (s2) at (0.7, -2.1) {Function build (ZIP packaging per provider)};
+
+\node[stepnum] (n3) at (0, -3.15) {3};
+\node[step, anchor=west] (s3) at (0.7, -3.15) {\texttt{tfvars.json} generation (7 configs $\to$ 50+ variables)};
+
+\node[stepnum] (n4) at (0, -4.2) {4};
+\node[step, anchor=west] (s4) at (0.7, -4.2) {\texttt{terraform init}};
+
+\node[stepnum] (n5) at (0, -5.25) {5};
+\node[step, anchor=west] (s5) at (0.7, -5.25) {\texttt{terraform apply} (declarative resource provisioning)};
+
+\node[stepnum] (n6) at (0, -6.3) {6};
+\node[step, anchor=west] (s6) at (0.7, -6.3) {Azure Kudu ZIP deploy (15$\times$30s retries + 180s warmup)};
+
+\node[stepnum] (n7) at (0, -7.35) {7};
+\node[step, anchor=west] (s7) at (0.7, -7.35) {Post-deploy SDK ops (IoT devices, DT models, Grafana)};
+
+% Vertical arrows between steps (centered)
+\foreach \i/\j in {0/1, 1/2, 2/3, 3/4, 4/5, 5/6, 6/7} {
+    \draw[arrow] (5.7, -\i*1.05 - 0.35) -- (5.7, -\j*1.05 + 0.35);
+}
+
+% Phase braces on the right - placed well outside the step boxes
+\coordinate (braceX) at (11.2, 0);
+\draw[brace] (11.2, 0.35) -- (11.2, -1.4) node[phase, midway, right=8pt] {Validation};
+\draw[brace] (11.2, -1.75) -- (11.2, -3.5) node[phase, midway, right=8pt] {Preparation};
+\draw[brace] (11.2, -3.85) -- (11.2, -5.6) node[phase, midway, right=8pt] {Terraform};
+\draw[brace] (11.2, -5.95) -- (11.2, -7.7) node[phase, midway, right=8pt] {SDK};
+
+\end{tikzpicture}

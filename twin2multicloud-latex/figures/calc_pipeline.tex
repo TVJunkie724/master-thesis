@@ -1,0 +1,58 @@
+% Calculation Pipeline Diagram
+% Shows the three-stage cost calculation pipeline
+\begin{tikzpicture}[
+    node distance=0.4cm and 0.6cm,
+    stage/.style={
+        draw, rounded corners=4pt, fill=blue!8,
+        minimum width=3.8cm, minimum height=3.2cm,
+        align=center, font=\small
+    },
+    stagelabel/.style={
+        font=\small\bfseries, fill=blue!20, rounded corners=2pt,
+        inner sep=3pt, minimum width=3.4cm
+    },
+    arrow/.style={->, >=stealth, thick, color=black!70},
+    inputbox/.style={
+        draw, rounded corners=3pt, fill=green!8,
+        minimum width=2.6cm, minimum height=0.9cm,
+        align=center, font=\footnotesize
+    },
+    outputbox/.style={
+        draw, rounded corners=3pt, fill=orange!8,
+        minimum width=2.6cm, minimum height=0.9cm,
+        align=center, font=\footnotesize
+    },
+]
+
+% Input
+\node[inputbox] (input) {CalcParams\\(26 parameters)};
+
+% Stage 1
+\node[stage, right=1.2cm of input] (s1) {};
+\node[stagelabel] at ([yshift=1.0cm]s1.center) {Stage 1};
+\node[font=\footnotesize, align=center] at ([yshift=-0.3cm]s1.center) {Per-Provider\\Cost Computation\\{\tiny AWS $\times$ 7 layers}\\{\tiny Azure $\times$ 7 layers}\\{\tiny GCP $\times$ 5 layers}};
+
+% Stage 2
+\node[stage, right=0.6cm of s1] (s2) {};
+\node[stagelabel] at ([yshift=1.0cm]s2.center) {Stage 2};
+\node[font=\footnotesize, align=center] at ([yshift=-0.3cm]s2.center) {Layer-by-Layer\\Selection\\{\tiny min(cost) per layer}\\{\tiny $\to$ cheapest path}};
+
+% Stage 3
+\node[stage, right=0.6cm of s2] (s3) {};
+\node[stagelabel] at ([yshift=1.0cm]s3.center) {Stage 3};
+\node[font=\footnotesize, align=center] at ([yshift=-0.3cm]s3.center) {Cross-Cloud\\Transfer Costs\\{\tiny egress + glue fn}\\{\tiny at each boundary}};
+
+% Output
+\node[outputbox, right=1.2cm of s3] (output) {Cost Result\\(per-layer breakdown)};
+
+% Arrows
+\draw[arrow] (input) -- (s1);
+\draw[arrow] (s1) -- (s2);
+\draw[arrow] (s2) -- (s3);
+\draw[arrow] (s3) -- (output);
+
+% Pricing cache arrow into Stage 1
+\node[inputbox, above=0.6cm of s1] (cache) {Pricing Cache\\(JSON per provider)};
+\draw[arrow] (cache) -- (s1);
+
+\end{tikzpicture}
