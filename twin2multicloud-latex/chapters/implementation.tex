@@ -15,46 +15,66 @@
 % ============================================================================
 
 \section{Technology Stack}
-% Overview table of technologies per component:
-%
-% \begin{table}[h]
-% \centering
-% \begin{tabular}{|l|l|l|}
-% \hline
-% Component & Technology & Role \\
-% \hline
-% Optimizer & Python, FastAPI & Cost calculation microservice \\
-% Deployer & Python, FastAPI, Terraform & Infrastructure deployment engine \\
-% Management API & Python, FastAPI, SQLAlchemy & Orchestration and persistence \\
-% Flutter UI & Dart, Flutter, BLoC & Cross-platform user interface \\
-% Infrastructure & Docker, Docker Compose & Development and deployment environment \\
-% IaC & Terraform (HCL) & Declarative cloud resource definitions \\
-% \hline
-% \end{tabular}
-% \end{table}
+\label{sec:tech-stack}
+
+Table~\ref{tab:tech-stack} summarizes the core technologies used across the four subsystems. All three Python services run on Python~3.11 and expose their functionality through FastAPI, a modern asynchronous web framework built on Starlette and Pydantic. % TODO: CITE --- FastAPI (Ramírez), Starlette, Pydantic
+I chose FastAPI over alternatives like Flask or Django REST Framework for three reasons: its native support for asynchronous request handlers (critical for SSE streaming), automatic OpenAPI documentation from type hints, and Pydantic-based request validation that eliminates manual input checking.
+
+\begin{table}[ht]
+    \centering
+    \caption{Technology stack by subsystem.}
+    \label{tab:tech-stack}
+    \begin{tabularx}{\textwidth}{l l X}
+        \toprule
+        \textbf{Subsystem} & \textbf{Key Technologies} & \textbf{Role} \\
+        \midrule
+        Cost Optimizer (Brain) & Python~3.11, FastAPI, boto3, azure-mgmt, google-cloud-billing & Fetches live cloud pricing data and computes per-layer cost estimates across three providers \\
+        Cloud Deployer (Muscle) & Python~3.11, FastAPI, Terraform~1.7.5, Node.js~18, boto3, Azure SDKs, GCP SDKs & Provisions and destroys multi-cloud infrastructure via Terraform and provider SDKs \\
+        Management \gls{api} (Orchestrator) & Python~3.11, FastAPI, SQLAlchemy~2.0, Pydantic~2.5, cryptography & Persists twin configurations, bridges Brain and Muscle, manages authentication and credential encryption \\
+        Flutter \gls{ui} & Dart~3.10, Flutter, flutter\_bloc~8.1, Riverpod~2.4, Dio~5.4 & Cross-platform desktop and mobile client with reactive state management \\
+        Infrastructure & Docker, Docker Compose, SQLite & Containerized development and deployment environment with file-based persistence \\
+        \gls{iac} & Terraform (HCL), 38 \texttt{.tf} files & Declarative cloud resource definitions organized by provider and architectural layer \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+The Deployer's container is the most complex of the four. Beyond the Python runtime, it bundles Terraform and Node.js, which is required for packaging Azure Functions deployments. The Terraform version is pinned rather than tracking the latest release because Terraform state files are not guaranteed to be forward-compatible; upgrading mid-project risks corrupting existing deployments. % TODO: CITE --- Terraform, HashiCorp
+
+On the Flutter side, the application targets macOS, iOS, Android, and web from a single Dart codebase. I use both flutter\_bloc (for complex UI flows like the creation wizard and deployment terminal) and Riverpod (for simpler dependency injection and global state such as API service instances). % TODO: CITE --- Flutter, BLoC pattern, Riverpod
 
 \section{Standardization Phase}
-% Before any code changes, the development environment had to be unified.
+\label{sec:standardization}
+
+Before any refactoring could begin, the development environment needed unification. The legacy Optimizer was a pure client-side JavaScript web application (static HTML and JS files), while the legacy Deployer was a Python CLI application that managed AWS resources through global mutable state and imperative boto3 calls. Neither project had a documented setup procedure beyond ``install requirements and run.'' Containerizing each service made the setup straightforward and ensured that all components could run together in a consistent, reproducible environment regardless of the host machine.
 
 \subsection{Containerization with Docker}
-% Challenge: Legacy projects had different Python versions, dependencies,
-% and OS-specific assumptions. They could not run on the same machine cleanly.
-%
-% Solution: Created Dockerfiles for each component. Each runs in an isolated
-% container with pinned dependencies.
-%
-% Key decisions:
-% - Separate containers for Optimizer, Deployer, and Management API
-% - Shared Docker Compose for one-command startup
-% - Volume mounts for credentials (not baked into images)
-% - Hot-reload for development via mounted source directories
+\label{sec:containerization}
+
+I containerized each service with its own Dockerfile, all based on \texttt{python:3.11-slim} to minimize image size while retaining access to the full Python standard library. The key design decisions were:
+
+\begin{itemize}
+    \item \textbf{One container per service.} The Optimizer, Deployer, and Management \gls{api} each run in an isolated container with pinned dependencies. This eliminates version conflicts: for instance, the Deployer requires specific Azure SDK versions that conflict with the Management \gls{api}'s authentication libraries.
+    \item \textbf{Source directory mounts for development.} During development, each service's source directory is mounted as a Docker volume (e.g., \texttt{./2-twin2clouds:/app}), enabling hot-reload without rebuilding the image after every change.
+    \item \textbf{Credential injection via volume mounts.} Cloud provider credentials (\texttt{config\_credentials.json}, \texttt{gcp\_credentials.json}) are mounted from the host filesystem into the container at \texttt{/config/}. Credentials are never baked into Docker images, which would create a security risk if images were pushed to a registry.
+\end{itemize}
+
+The Deployer's Dockerfile is notably more complex than the others, since it also installs Terraform and Node.js in addition to the Python dependencies. % TODO: CITE --- Docker
 
 \subsection{Shared Development Environment}
-% Docker Compose configuration:
-% - Service discovery via Docker networking (e.g., deployer:8000)
-% - Environment variable standardization (replacing hardcoded paths)
-% - Database initialization (SQLite for development, migration path to PostgreSQL)
-% - ARM64 compatibility for Apple Silicon development
+\label{sec:shared-dev-env}
+
+Docker Compose ties the three backend services together into a single development stack. The \texttt{compose.yaml} file defines the following:
+
+\begin{itemize}
+    \item \textbf{Service discovery via Docker networking.} All services join a shared bridge network (\texttt{my\_master\_thesis\_network}). The Management \gls{api} references the Optimizer and Deployer by their Docker-internal hostnames (e.g., \texttt{OPTIMIZER\_URL=http://master-thesis-2twin2clouds-1:8000}) rather than \texttt{localhost} with port offsets.
+    \item \textbf{Dependency ordering.} The Management \gls{api} declares \texttt{depends\_on} for both the Optimizer and Deployer, ensuring they are started before the Orchestrator attempts to call them.
+    \item \textbf{Environment variable standardization.} Configuration that was previously scattered across hardcoded strings, command-line arguments, and config files is now centralized in environment variables. The Management \gls{api}'s \texttt{DATABASE\_URL}, \texttt{JWT\_SECRET\_KEY}, and \texttt{DEBUG} flag are all set in the Compose file, with sensible defaults for development (e.g., \texttt{DEBUG=true} enables the JWT bypass, as discussed in Section~\ref{sec:e2e-workflow}).
+    \item \textbf{Persistent volumes.} The Management \gls{api}'s SQLite database is stored in a named Docker volume (\texttt{management-data}), so twin configurations and deployment history survive container restarts. The Deployer's Terraform state files are similarly preserved through the source mount.
+\end{itemize}
+
+The Flutter \gls{ui} runs natively on the host machine rather than inside a container, since Flutter's desktop rendering requires access to the host's GPU and window manager. During development, it connects to the Management \gls{api} at \texttt{http://localhost:5005}, which forwards requests to the other two services over the Docker bridge network.
+
+% TODO: CITE --- Docker Compose
 
 \section{Refactoring Methodology}
 % Describe the iterative process — this is a key narrative element.

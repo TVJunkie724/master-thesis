@@ -44,6 +44,44 @@ The goal of this master thesis is to build a unified application that combines t
 
 ---
 
+## 🔍 Three Reviewer Perspectives (Apply to ALL Actions)
+
+Every action in this workflow — researching, outlining, drafting, reviewing, restructuring — must be performed through **three distinct reviewer lenses**. These are not a review-only checklist; they are the perspectives that guide every decision.
+
+### 🎓 Lens 1: Academic Supervisor (Structure & Rigor)
+*"Would a CS professor accept this?"*
+- Does this content advance the thesis argument, or is it filler?
+- Are claims supported by evidence (code, metrics, test results)?
+- Is there overlap with other chapters? Each fact belongs in exactly one place.
+- Are the research questions being addressed?
+- Is the contribution clearly distinguished from standard engineering?
+- Is the chapter/section structure logical and free of redundancy?
+
+### 🔧 Lens 2: Domain Expert (Technical Accuracy)
+*"Would a senior cloud/DevOps engineer find this credible?"*
+- Are all technical descriptions factually correct? (Terraform, Docker, SDKs, cloud APIs)
+- Do design decisions make sense given the constraints, or are they oversold?
+- Are trade-offs stated honestly? (e.g., "SQLite is fine for single-user eval" not "SQLite provides enterprise-grade persistence")
+- Would a practitioner spot inaccuracies or oversimplifications?
+- Are code snippets accurate and representative of the actual implementation?
+
+### 👁️ Lens 3: Educated Outsider (Clarity & Accessibility)
+*"Would a CS grad student from a different specialization understand this?"*
+- Can someone unfamiliar with IoT/digital twins follow the argument?
+- Does this content assume knowledge not yet introduced in Background?
+- Are acronyms and domain terms defined before use?
+- Is the writing clear, or does it require re-reading?
+- Are there jumps in logic that need bridging sentences?
+
+> [!IMPORTANT]
+> **How to apply the lenses per action:**
+> - **Researching/Outlining:** 🎓 checks structure and scope; 🔧 identifies what requires source code verification; 👁️ flags concepts that need Background coverage.
+> - **Drafting:** 🎓 prevents overlap and filler; 🔧 ensures every technical claim is grounded; 👁️ ensures each paragraph is understandable without insider knowledge.
+> - **Reviewing:** Full pass through all three lenses on the final draft before proposing to the user.
+> - **Restructuring:** 🎓 drives decisions about what belongs where; 👁️ validates the reading flow.
+
+---
+
 ## Prerequisites
 
 ### Start LaTeX Watch Mode
@@ -68,8 +106,8 @@ Write chapters in this order — **not** the order they appear in the thesis. Th
 
 | Phase | Chapter | Why This Order |
 |-------|---------|----------------|
-| 1 | **System Architecture** (Ch 4) | You know the system best right now — capture the design while it's fresh |
-| 2 | **Implementation** (Ch 5) | Naturally follows from architecture — cover the "how" |
+| 1 | **System Architecture** (Ch 5) | You know the system best right now — capture the design while it's fresh |
+| 2 | **Legacy Analysis & Refactoring** (Ch 4) | Naturally pairs the "before" with the transformation story |
 | 3 | **Evaluation** (Ch 6) | Document E2E tests, cost accuracy, deployment metrics you already have |
 | 4 | **Background** (Ch 2) | Now you know exactly which concepts the reader needs |
 | 5 | **Related Work** (Ch 3) | Position your work against others — easier after writing your own chapters |
@@ -87,15 +125,21 @@ For each chapter, follow these steps:
 ### Step 1: Gather Source Material
 Before writing, collect relevant inputs:
 - Read the chapter's `.tex` file for the existing outline and comment prompts
-- Review the relevant codebase (e.g., for Implementation → read the actual source code)
+- Review the relevant codebase (e.g., for refactoring sections → read both legacy and current source code)
 - Check Knowledge Items for technical details
 - Review `integration_vision.md` for high-level context
 - Check `docs/` folders in each project for existing documentation
+- 🎓 **Supervisor lens:** Identify what the chapter must contribute that no other chapter covers
+- 🔧 **Domain lens:** Flag any technical claims that require source code verification before drafting
+- 👁️ **Outsider lens:** Note any domain concepts that need to be introduced or cross-referenced to Background
 
 ### Step 2: Draft Section by Section
 - **Propose** the draft to the user first — do NOT write directly into `.tex` files
 - Replace the `% comment` prompts with actual LaTeX prose only after approval
 - Write **one section at a time** — don't try to write the whole chapter at once
+- 🎓 Before writing each paragraph, ask: *"Does this belong here or in another chapter?"*
+- 🔧 Before making any technical claim, ask: *"Have I verified this against the source code?"*
+- 👁️ Before using any domain term, ask: *"Has this been defined for the reader?"*
 - Use `\gls{acronym}` for defined acronyms (see `styles/glossary.tex`)
 - Include `\label{}` and `\ref{}` for cross-references
 - Mark TODOs with `% TODO: VERIFY —` for any claim that needs verification
@@ -105,14 +149,16 @@ Before writing, collect relevant inputs:
 - Use consistent figure naming: `chX-description.png`
 - Every figure/table must be referenced in the text
 - Use the AI image generation tool for diagrams if needed
+- 🎓 Does this figure add value, or is it decorative?
+- 🔧 Does the figure accurately represent the system as implemented?
+- 👁️ Can a non-specialist reader understand the figure without reading the surrounding text?
 
-### Step 4: Review and Refine
-- Ask the AI to review for:
-  - Logical flow and coherence
-  - Academic writing style (formal, third person, precise)
-  - Missing citations (`\cite{}` placeholders)
-  - Consistency with other chapters
-- Check the compiled PDF for formatting issues
+### Step 4: Three-Lens Review Pass
+Perform a full review through all three lenses before proposing any draft to the user:
+- 🎓 **Supervisor:** Structure sound? No overlap? Claims evidenced? Contribution clear?
+- 🔧 **Domain Expert:** Technically correct? Trade-offs honest? Code snippets accurate?
+- 👁️ **Outsider:** Readable? Terms defined? Logic bridges present?
+- Also check: missing citations, consistency with other chapters, PDF formatting
 
 ### Step 5: Compile and Verify
 // turbo
@@ -187,15 +233,22 @@ AI detectors check if the text follows the highest-probability sequence of token
 ### Self-Check Before Proposing a Draft
 
 Before presenting any drafted section to the user, mentally verify:
+
+**AI Detection Checks:**
 - [ ] No paragraph has 3+ consecutive sentences with identical grammatical structure
 - [ ] No paragraph starts with the same word/phrase pattern more than twice
-- [ ] At least one sentence per section includes a decision justification or trade-off
-- [ ] Natural transition words (Furthermore, However, Thus, Moreover) are used where they fit — text does not feel choppy or disconnected
+- [ ] Natural transition words (Furthermore, However, Thus, Moreover) are used where they fit
 - [ ] Every list has items of varying length and structure
-- [ ] At least one scope qualifier or limitation acknowledgment per section
 - [ ] No default collocations from the blocklist in rule 1
 - [ ] Tone matches the Author Voice guidelines: direct, practical, not over-polished
 - [ ] First-person "I" is used for design decisions; passive voice for system descriptions
+
+**Three-Lens Reviewer Checks:**
+- [ ] 🎓 **Supervisor:** Section advances the thesis argument; no overlap with other chapters; claims backed by evidence
+- [ ] 🔧 **Domain Expert:** All technical descriptions are factually correct; trade-offs stated honestly; no overselling
+- [ ] 👁️ **Outsider:** A non-specialist CS reader can follow the argument; all terms introduced before use
+- [ ] At least one decision justification or trade-off per section
+- [ ] At least one scope qualifier or limitation acknowledgment per section
 - [ ] Every mentioned technology, protocol, standard, or academic concept has either a `\cite{}` or a `% TODO: CITE —` comment
 
 ---
@@ -208,9 +261,8 @@ Before presenting any drafted section to the user, mentally verify:
 | Introduction | 4–6 | Problem, RQs, contributions, structure |
 | Background | 10–15 | Theory the reader needs |
 | Related Work | 8–12 | Survey + gap identification |
-| Legacy Analysis | 6–10 | Analysis of predecessor systems |
-| System Architecture | 15–20 | **Main chapter** — design & rationale |
-| Implementation | 12–16 | Tech stack, patterns, key decisions |
+| From Legacy Prototypes to Unified Platform | 18–25 | **Main chapter** — legacy analysis + refactoring narrative |
+| System Architecture | 15–20 | Architecture & design rationale of the final system |
 | Evaluation | 12–18 | E2E tests, cost validation, metrics |
 | Discussion | 6–10 | Comparison, limitations, threats |
 | Conclusion | 3–5 | Summary + future work |

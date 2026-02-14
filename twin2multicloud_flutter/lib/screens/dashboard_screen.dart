@@ -53,6 +53,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return twins.where((t) => t.state == _selectedStateFilter).toList();
   }
 
+  /// Invalidate all dashboard-related providers to force a fresh fetch.
+  void _refreshDashboard(WidgetRef ref) {
+    ref.invalidate(twinsProvider);
+    ref.invalidate(dashboardStatsProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
     // Invalidate stale cache on first build to ensure fresh data when navigating
@@ -61,8 +67,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       _needsRefresh = false;
       // Schedule for after this build frame to avoid rebuild loop
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.invalidate(twinsProvider);
-        ref.invalidate(dashboardStatsProvider);
+        _refreshDashboard(ref);
       });
     }
 
@@ -234,8 +239,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                       ),
                                       const SizedBox(height: 16),
                                       OutlinedButton.icon(
-                                        onPressed: () =>
-                                            ref.invalidate(twinsProvider),
+                                        onPressed: () => _refreshDashboard(ref),
                                         icon: const Icon(Icons.refresh),
                                         label: const Text('Retry'),
                                       ),

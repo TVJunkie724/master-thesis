@@ -42,6 +42,16 @@
 % Custom hyphenation
 \hyphenation{Mi-cro-soft}
 
+% --- Overfull hbox prevention ---
+% microtype: character protrusion + font expansion (most effective single fix)
+\usepackage{microtype}
+% Allow slightly more inter-word stretch before declaring overfull
+\emergencystretch=1em
+% Allow hyphenation inside \texttt{} (monospace words normally can't break)
+\newcommand{\origtt}{}
+\let\origtt\texttt
+\renewcommand{\texttt}[1]{\origtt{\hyphenchar\font=`\-\relax #1}}
+
 % *** DOCUMENT INFO ***
 \title{TITLE}
 \author{Caroline Steinacker}
@@ -67,7 +77,7 @@
 	\include{chapters/relatedWork}
 	\include{chapters/legacyAnalysis}
 	\include{chapters/systemArchitecture}
-	\include{chapters/implementation}
+	% \include{chapters/implementation} % REMOVED: content merged into legacyAnalysis (refactoring) and systemArchitecture (tech stack)
 	\include{chapters/evaluation}
 	\include{chapters/discussion}
 	\include{chapters/conclusion}

@@ -56,6 +56,29 @@
 % 3. Introduces a new Orchestration Layer (Management API + Flutter UI) that
 %    connects optimization with deployment in a seamless workflow
 % 4. Validates the end-to-end flow through automated E2E testing
+%
+% To guide this work, the thesis addresses three research questions:
+%
+% \begin{enumerate}
+%   \item[\textbf{RQ1}] \textit{How can a configuration-driven platform be designed
+%         that transforms user-defined IoT scenario parameters into a fully functional,
+%         deployed digital twin across one or more cloud providers?}
+%         \\ Addressed in Chapter~\ref{chap:systemArchitecture} (architecture)
+%         and Chapter~\ref{chap:evaluation} (E2E validation).
+%
+%   \item[\textbf{RQ2}] \textit{How can independently developed, single-purpose
+%         prototypes (a cost optimizer and a cloud deployer) be refactored and
+%         integrated into a unified multi-cloud platform without discarding their
+%         core logic?}
+%         \\ Addressed in Chapter~\ref{chap:legacyAnalysis} (legacy analysis and
+%         refactoring methodology).
+%
+%   \item[\textbf{RQ3}] \textit{What deployment challenges and failure modes emerge
+%         when provisioning multi-cloud digital twin infrastructure, and how can they
+%         be systematically detected and resolved?}
+%         \\ Addressed in Chapter~\ref{chap:evaluation} (E2E test results and bugs)
+%         and Chapter~\ref{chap:discussion} (reflection on challenges).
+% \end{enumerate}
 
 \section{Contributions}
 % List 4-5 concrete contributions.
@@ -89,11 +112,10 @@
 % - Chapter~\ref{chap:relatedWork} surveys existing solutions and identifies
 %   the research gap addressed by this work.
 % - Chapter~\ref{chap:legacyAnalysis} analyzes the two legacy prototypes,
-%   identifies their limitations, and derives requirements for the unified platform.
+%   identifies their limitations, derives requirements for the unified
+%   platform, and describes the refactoring process that transformed them.
 % - Chapter~\ref{chap:systemArchitecture} presents the Twin2MultiCloud platform
 %   architecture and design decisions.
-% - Chapter~\ref{chap:implementation} details the refactoring methodology,
-%   key implementation decisions, and applied design patterns.
 % - Chapter~\ref{chap:evaluation} validates the system through E2E testing
 %   and deployment performance analysis.
 % - Chapter~\ref{chap:discussion} reflects on challenges, compares with related

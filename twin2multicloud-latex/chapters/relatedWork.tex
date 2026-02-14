@@ -2,18 +2,25 @@
 
 % This chapter surveys existing solutions and positions your work.
 % For each category, describe existing approaches and state their weaknesses/gaps.
+%
+% TODO: Target 10–15 citations across all sections.
+% TODO: Add a comparison table (§3.5) — rows = tools/papers, columns:
+%   Multi-cloud support, Config-driven (no code), IaC-based provisioning,
+%   Cost estimation, E2E data flow (ingestion→viz), 5-layer architecture, Cross-cloud transfers
 
 \section{Digital Twin Deployment Platforms}
 % Survey existing DT platforms:
 % - Azure Digital Twins, AWS IoT TwinMaker
 % - Academic frameworks and research prototypes
 % - Weakness: typically single-cloud, vendor lock-in
+% TODO: Also cover Eclipse Ditto, academic DT frameworks (Luo et al., Minerva, etc.)
 
 \section{Multi-Cloud Orchestration Tools}
 % Discuss tools for managing multi-cloud deployments:
 % - Terraform, Pulumi, Crossplane
 % - Kubernetes-based solutions (multi-cluster federation)
 % - Weakness: require significant expertise, not DT-specific
+% TODO: Also cover Anthos, Azure Arc as managed multi-cloud platforms
 
 \section{Cloud Cost Optimization Solutions}
 % Review cost management tools:
@@ -21,6 +28,7 @@
 % - Third-party solutions (CloudHealth, Spot.io)
 % - Academic research on cloud cost modeling
 % - Weakness: post-hoc analysis, not integrated with deployment decisions
+% TODO: Also cover Infracost (IaC-integrated cost estimation), academic cloud cost papers
 
 \section{Research Gap}
 % Synthesize the gaps from previous sections:
@@ -28,3 +36,8 @@
 % - DT platforms are single-cloud; multi-cloud tools are not DT-aware
 % - Cost tools analyze after deployment, not before
 % - Your contribution: Twin2MultiCloud bridges these gaps
+
+\section{Comparison with Existing Approaches}
+% TODO: Comparison table goes here. Use \begin{table} with the columns listed above.
+% Each row = one existing tool/paper. Final row = Twin2MultiCloud (this work).
+% This table visually summarizes the research gap and positions our contribution.

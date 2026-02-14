@@ -19,7 +19,7 @@
 % The decision to switch to Terraform was not immediate; it came after
 % attempting the SDK extension and encountering cascading race conditions.
 % This experience validated the "fail-fast, refactor-properly" approach
-% described in Chapter~\ref{chap:implementation}.
+% described in Chapter~\ref{chap:legacyAnalysis}.
 %
 % Trade-off: Terraform abstracts away fine-grained control. Some operations
 % (e.g., Azure Function Keys, SDK-specific cleanup) still require SDK
@@ -104,11 +104,11 @@
 % \end{tabular}
 % \end{table}
 %
-% After the table, briefly discuss the 8 key architectural evolution patterns
-% (from findings §11.3): Procedural→Protocol, CLI→API, Single→Multi-cloud,
-% Static→Dynamic, Global→DI, Monolith→Component, No-state→Declarative,
-% Insecure→Encrypted. One paragraph each — focus on WHY the change was
-% necessary, not just WHAT changed (the table covers the what).
+% After the table, add 1–2 paragraphs reflecting on the most significant
+% evolutionary shifts. Keep brief: use one-sentence cross-references to
+% Ch 4 sections (e.g., "The migration from imperative SDK calls to Terraform
+% is described in Section~\ref{sec:refactoring-deployer}") rather than
+% re-narrating the transformation story.
 
 \section{Design Pattern Effectiveness}
 % Reflect on which patterns provided the most value and why.
