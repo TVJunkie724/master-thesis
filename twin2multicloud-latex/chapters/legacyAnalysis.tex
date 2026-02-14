@@ -18,88 +18,87 @@
 \section{Overview of Legacy Prototypes}
 \label{sec:legacy-overview}
 
-The Twin2MultiCloud platform builds on two independent bachelor thesis prototypes: a cost optimizer that estimated monthly hosting costs for digital twin deployments, % TODO: CITE --- Gritsch et al., Twin2Clouds (MODELS 2025)
-and a cloud deployer that provisioned the required \gls{aws} infrastructure. % TODO: CITE --- Bachelor thesis (source to be added)
-Neither project was designed for integration with the other. The optimizer ran entirely in the browser with no server component, while the deployer operated as a local command-line tool. This section describes each prototype's original state, focusing on the architectural decisions and technical constraints that later drove the refactoring effort documented in Sections~\ref{sec:refactoring-optimizer}--\ref{sec:refactoring-management}.
+The Twin2MultiCloud platform builds on two independent bachelor thesis prototypes: a cost optimizer % TODO: CITE --- Gritsch et al., Twin2Clouds (MODELS 2025)
+that estimated monthly hosting costs for digital twin deployments, and a cloud deployer % TODO: CITE --- Kaserer, "Developing a Configurable Cloud-Based Digital Twin System with Layered Architecture and Automated Deployment", Bachelor Thesis, University of Innsbruck, 2026
+that provisioned the required \gls{aws} infrastructure. Neither project was designed for integration with the other. The optimizer ran entirely in the browser with no server component, while the deployer operated as a local command-line tool. This section describes each prototype's original state, focusing on the architectural decisions and technical constraints that later drove the refactoring effort documented in Sections~\ref{sec:refactoring-optimizer}--\ref{sec:refactoring-management}.
 
-\subsection{Project A: The Cost Optimizer (``The Brain'')}
+\subsection{Project A: Twin2Clouds (``The Brain'')}
 \label{sec:legacy-optimizer}
 
-The original cost optimizer was a client-side JavaScript web application, developed as part of a conference paper submission. % TODO: CITE --- Gritsch et al., Twin2Clouds (MODELS 2025)
-It consisted of 15 files totaling approximately 2,160 lines of code, with no server component. Users opened an HTML page served via Python's built-in HTTP server (\texttt{python3~-m~http.server}), filled in 12 input fields describing their \gls{iot} deployment scenario (device count, sending interval, message size, storage durations, dashboard configuration, and an optional 3D model toggle), and pressed a button to trigger the cost calculation. The result was rendered as a set of HTML cards injected directly into the page's \gls{dom}.
+The Twin2Clouds project, referred to as the Cost Optimizer or ``The Brain'' throughout the rest of this thesis, was a pure client-side JavaScript web application developed as part of a conference paper submission. % TODO: CITE --- Gritsch et al., Twin2Clouds (MODELS 2025)
+It had no server component and no backend; users opened an HTML page via any static file server, configured their \gls{iot} deployment scenario through form inputs, and triggered a cost calculation. The result was rendered as HTML cards injected directly into the page's \gls{dom}.
 
-The calculation itself lived in a single function, \texttt{calculateCosts()}, spanning 491~lines in \texttt{cost\_calculation.js}. This function handled input parsing, validation, cost computation for all layers, cross-provider transfer cost estimation, and output rendering in one monolithic block. Listing~\ref{lst:legacy-calc-header} shows the function's opening section, where twelve form values are read from the \gls{dom} using manual \texttt{parseInt()} and \texttt{parseFloat()} calls with no type safety beyond runtime \texttt{isNaN()} checks.
+Table~\ref{tab:legacy-optimizer-structure} shows the file layout. The application consisted of nine JavaScript source files containing 35~top-level functions, with no classes (except a utility \texttt{PriorityQueue}), no module system, and no shared interfaces. The central orchestrator, \texttt{cost\_calculation.js}, contained a single 490-line function that handled input reading, validation, all layer cost computations, and HTML output assembly in one monolithic block.
 
-\begin{lstlisting}[language=JavaScript, caption={Opening of the legacy \texttt{calculateCosts()} function: 12 DOM reads with manual type coercion.}, label={lst:legacy-calc-header}]
-async function calculateCosts() {
-  if (!pricing) { await loadPricingData(); }
-  const numberOfDevices = parseInt(
-    document.getElementById("devices").value);
-  const deviceSendingIntervalInMinutes = parseFloat(
-    document.getElementById("interval").value);
-  const averageSizeOfMessageInKb = parseFloat(
-    document.getElementById("messageSize").value);
-  const hotStorageDurationInMonths = parseInt(
-    document.getElementById("hotStorageDurationInMonths").value);
-  // ... 8 more DOM reads, then inline validation,
-  // then all layer calculations, then HTML assembly
-}
-\end{lstlisting}
+\begin{table}[htbp]
+\centering
+\caption{File structure of the legacy Twin2Clouds optimizer.}
+\label{tab:legacy-optimizer-structure}
+\begin{tabular}{lp{5.5cm}r}
+\hline
+\textbf{File} & \textbf{Purpose} & \textbf{Lines} \\
+\hline
+\texttt{cost\_calculation.js} & Orchestrates entire calculation and renders output & 490 \\
+\texttt{layer\_data\_acquisition.js} & L1: IoT ingestion cost estimation & 139 \\
+\texttt{layer\_data\_storage.js} & L2: Hot, cool, and archive storage costs & 250 \\
+\texttt{layer\_data\_processing.js} & L3: Serverless compute costs & 73 \\
+\texttt{layer\_twin\_management.js} & L4: Digital twin service costs & 67 \\
+\texttt{layer\_data\_visualization.js} & L5: Dashboard costs & 30 \\
+\texttt{data\_transfer.js} & Cross-provider egress fee estimation & 147 \\
+\texttt{provider\_decision.js} & Cheapest storage path via Dijkstra's algorithm & 125 \\
+\texttt{ui.js} & Slider styling, scenario presets, card interactions & 100 \\
+\hline
+& \textbf{Total} & \textbf{1,421} \\
+\hline
+\end{tabular}
+\end{table}
 
-Pricing data was stored in a static \texttt{pricing.json} file containing 115~lines of hardcoded values for \gls{aws} and Azure services. There was no mechanism to fetch live prices from cloud provider \glspl{api}; the values were accurate only at the time the file was last manually updated. Given that cloud providers adjust their pricing periodically, these figures would grow stale within weeks.
+While the optimizer served its purpose as a conference artifact, several architectural limitations prevented it from scaling to a multi-provider production tool:
 
-The optimizer supported only two providers: \gls{aws} and Azure. It used a graph-based approach to find the cheapest storage path: the \texttt{provider\_decision.js} module (126~lines) constructed a weighted directed graph of all possible hot$\to$cool$\to$archive storage combinations across the two providers, then ran Dijkstra's shortest-path algorithm to select the cost-minimal route. Cross-cloud data transfer was modeled through twelve explicit transfer cost functions in \texttt{data\_transfer.js} (148~lines), each computing the egress fee for a specific provider-to-provider boundary. There was no concept of a glue layer (L0) or relay functions; transfer overhead was treated as a flat monetary addition rather than a deployable infrastructure component.
+\textbf{Extensibility.} The application supported only \gls{aws} and Azure. Adding a third provider would have required modifying every layer calculator file, adding new transfer cost functions for each provider pair (the existing 14 would grow to at least 24), and updating the static \texttt{pricing.json} file with new service entries. There was no provider abstraction; each calculator contained provider-specific logic inline.
 
-Several design limitations are worth highlighting. First, the application used a reversed layer numbering compared to the current system: Layer~2 referred to storage and Layer~3 to processing, the opposite of the convention adopted in the unified platform. Second, the entire codebase was procedural JavaScript. The only class in the project was a \texttt{PriorityQueue} used by the Dijkstra implementation. There were no modules, no abstraction layers, and no separation between calculation logic and presentation. The global \texttt{pricing} variable was loaded via \texttt{fetch()} and accessed from every calculator function without encapsulation. Third, the Azure processing cost calculation contained a comment acknowledging that it reused the \gls{aws} Lambda formula verbatim: the two providers' serverless compute pricing happened to be identical at the time, so no separate implementation was written. This assumption would break if either provider changed their pricing model.
+\textbf{Maintainability.} All pricing data was stored in a static JSON file containing 114~lines of hardcoded values. There was no mechanism to fetch live prices from cloud provider \glspl{api}, so the figures grew stale as soon as any provider adjusted its rates. This is not a theoretical concern: Azure publishes global pricing updates twice per year, % TODO: CITE --- Microsoft, "Global pricing changes for cloud products", 2023
+and \gls{aws} has announced over 60 public price reductions since its inception. \gls{gcp} adjusts infrastructure prices quarterly and updates Spot prices as frequently as monthly. With a static pricing file, any of these changes would go unnoticed indefinitely. Furthermore, the Azure serverless compute calculator reused the \gls{aws} Lambda pricing formula verbatim, with a source code comment acknowledging this shortcut. This assumption would silently produce incorrect results if either provider changed their pricing model.
+
+\textbf{Modularity.} The 490-line \texttt{calculateCosts()} function mixed input parsing, validation, computation, and presentation in a single block. A global \texttt{pricing} variable, loaded via \texttt{fetch()} at startup, was accessed by every calculator without encapsulation. The application also used a different layer numbering than the one later adopted in the unified platform: the Twin2Clouds paper defined Layer~2 as Storage and Layer~3 as Processing, following the 5-Layer Architecture reference model, whereas the Cloud Deployer bachelor thesis reordered them so that data flows through layers in sequence (L2=Processing, L3=Storage). The unified platform adopted the deployer's convention, making direct comparison with the original optimizer non-trivial.
+
+\textbf{Testability.} Because every function read directly from the browser's \gls{dom} and the global \texttt{pricing} object, there was no way to run calculations outside a browser context. The project contained no tests.
 
 For the refactored version of the optimizer, see Chapter~\ref{chap:systemArchitecture}, Section~\ref{sec:optimizer}.
 
-\subsection{Project B: The Cloud Deployer (``The Muscle'')}
+\subsection{Project B: Cloud Deployer CLI (``The Muscle'')}
 \label{sec:legacy-deployer}
 
-The original cloud deployer was a Python command-line application using the \texttt{boto3} \gls{aws} SDK. % TODO: CITE --- boto3 (AWS SDK for Python)
-It contained 68~Python files totaling approximately 4,330~lines. The tool provisioned the entire 5-layer digital twin infrastructure on \gls{aws} through imperative SDK calls: each resource (IAM roles, Lambda functions, IoT rules, DynamoDB tables, S3 buckets, TwinMaker workspaces, Grafana instances) was created by calling the corresponding \texttt{boto3} client method directly. There was no Terraform, no CloudFormation, and no state file tracking which resources had been created. % TODO: CITE --- Terraform (HashiCorp), AWS CloudFormation
+The Cloud Deployer CLI, referred to as the Cloud Deployer or ``The Muscle'' throughout the rest of this thesis, was a Python command-line application that provisioned the entire 5-layer digital twin infrastructure on \gls{aws} through imperative \texttt{boto3} SDK calls. % TODO: CITE --- boto3 (AWS SDK for Python)
+There was no \gls{iac} tooling; each resource (IAM roles, Lambda functions, IoT rules, DynamoDB tables, S3 buckets, TwinMaker workspaces, Grafana dashboards) was created by calling the corresponding SDK method directly, with no state file tracking which resources existed. % TODO: CITE --- Terraform (HashiCorp)
 
-The user interacted with the deployer through a simple REPL loop. The \texttt{main.py} file (88~lines) offered five commands: \texttt{deploy}, \texttt{destroy}, \texttt{info}, \texttt{help}, and \texttt{exit}. On startup, the program initialized configuration from five JSON files and then instantiated twelve global \texttt{boto3} service clients. The \texttt{deploy} command triggered a five-phase process, invoking aggregator deployers in sequence: core infrastructure, IoT device registration, twin hierarchy setup, event action configuration, and initial value provisioning.
+The project followed a composition-based architecture. An abstract \texttt{Deployer} base class defined four operations (\texttt{deploy}, \texttt{destroy}, \texttt{info}, \texttt{log}), and 49~concrete deployer classes each handled a single cloud resource. Aggregator classes composed these per-resource deployers into layer-level units that ran sequentially. This structure provided a clear deployment ordering, but it was tightly bound to a single provider: all deployer classes resided under \texttt{deployers/aws/}, and adding Azure or GCP support would have required duplicating the entire directory hierarchy with no shared abstraction.
 
-\begin{lstlisting}[language=Python, caption={Legacy deployer startup: 12 global client initializations and sequential deployment.}, label={lst:legacy-deployer-main}]
-def main():
-    globals.initialize_config()
-    globals.initialize_config_iot_devices()
-    globals.initialize_config_credentials()
-    globals.initialize_config_events()
-    globals.initialize_config_hierarchy()
-    globals.initialize_aws_iam_client()
-    globals.initialize_aws_lambda_client()
-    # ... 10 more client initializations
-    while True:
-      command = input(">>> ").strip()
-      if command == "deploy":
-        sanity_checker.check()
-        deployers.aws.core.all.AllDeployer().deploy()
-        deployers.aws.iot.all.AllDeployer().deploy()
-        # ... 3 more sequential phases
-\end{lstlisting}
-
-The most significant architectural issue was the \texttt{globals.py} module (257~lines), which served as a shared mutable state container for the entire application. It held twelve \texttt{boto3} client objects as module-level variables, initialized through individual \texttt{initialize\_*} functions that each used the \texttt{global} keyword. Alongside the clients, the file contained over thirty naming functions that constructed resource identifiers via string concatenation (for example, \texttt{config["digital\_twin\_name"] + "-dispatcher"}). Every other module in the codebase imported \texttt{globals} directly to access these shared clients and naming utilities. This design made it impossible to write isolated unit tests, since any test that imported a deployer module would transitively trigger \texttt{boto3} client construction, which required valid \gls{aws} credentials.
-
-Despite this coupling, the deployer did exhibit one useful structural pattern. An abstract base class, \texttt{Deployer}, defined four methods: \texttt{deploy()}, \texttt{destroy()}, \texttt{info()}, and \texttt{log()}. Each of the 49~resource deployer files under \texttt{deployers/aws/} implemented this interface for a single cloud resource. Aggregator classes then composed these per-resource deployers into layer-level deployment units. While this composition approach provided a clear deployment ordering, it was tightly bound to \gls{aws}: the class hierarchy lived under \texttt{deployers/aws/}, and adding a second provider would have required duplicating the entire directory structure with no shared abstraction between providers.
-
-The deployer's configuration format included a \texttt{config\_providers.json} file that mapped each architectural layer to a cloud provider:
+The deployer's configuration format hinted at multi-provider ambitions that were out of scope of the bachelor thesis. A \texttt{config\_providers.json} file mapped each architectural layer to a cloud provider:
 
 \begin{lstlisting}[language=json, caption={Legacy provider assignment: per-layer configuration with only AWS implemented.}, label={lst:legacy-providers}]
 {
   "layer_1_provider": "aws",
   "layer_2_provider": "aws",
-  "layer_3_provider": "aws",
+  "layer_3_hot_provider": "aws",
+  "layer_3_cold_provider": "aws",
+  "layer_3_archive_provider": "aws",
   "layer_4_provider": "aws",
   "layer_5_provider": "aws"
 }
 \end{lstlisting}
 
-Although the configuration schema allowed per-layer provider selection, only \gls{aws} implementations existed. Setting any layer to \texttt{"azure"} or another provider would have been silently ignored or would have caused an import error, since no corresponding deployer classes had been written.
+Although the schema allowed per-layer provider selection, only \gls{aws} implementations existed. Setting any layer to \texttt{"azure"} would have caused an import error, since no corresponding deployer classes had been written. This gap between the configuration model and the implementation illustrates the prototype's incomplete extensibility.
 
-Additional limitations compounded the architectural constraints. Cloud credentials were stored in plaintext in \texttt{config\_credentials.json} on disk, with no encryption, no validation before deployment, and no separation of concerns between credential management and infrastructure provisioning. If a deployment failed midway, for example because an IAM role creation timed out, the deployer had no rollback mechanism: resources created before the failure remained orphaned on \gls{aws}, requiring manual cleanup through the console. There was no streaming of progress information; the only feedback during a deployment was whatever \texttt{print()} statements the individual deployer classes emitted to the terminal. The project contained no tests of any kind. Furthermore, validation was minimal: the only input check was a regular expression constraining the digital twin name to ten alphanumeric characters with hyphens and underscores.
+Beyond the single-provider limitation, several additional architectural constraints affected the system's quality:
+
+\textbf{Coupling.} A central \texttt{globals.py} module (256~lines) served as a shared mutable state container. It held twelve \texttt{boto3} client objects as module-level variables, initialized through functions using Python's \texttt{global} keyword, alongside over thirty resource-naming functions. Every other module imported \texttt{globals} directly. This design meant that any attempt to unit-test a deployer class would transitively trigger all twelve client initializations, which required valid \gls{aws} credentials at import time.
+
+\textbf{Reliability.} If a deployment failed midway, for instance because an IAM role creation timed out, the deployer had no rollback mechanism. Resources created before the failure remained orphaned on \gls{aws}, requiring manual cleanup through the web console. There was no streaming of progress information either; the only feedback during deployment was whatever \texttt{print()} statements individual deployer classes emitted.
+
+\textbf{Security.} Cloud credentials were stored in plaintext in \texttt{config\_credentials.json} on disk, with no encryption and no validation before deployment began.
+
+\textbf{Testability.} The project contained no tests of any kind. The tight coupling through \texttt{globals.py} and the absence of dependency injection made introducing tests prohibitively difficult without first restructuring the entire codebase.
 
 For the refactored version of the deployer, see Chapter~\ref{chap:systemArchitecture}, Section~\ref{sec:deployer}.
 
