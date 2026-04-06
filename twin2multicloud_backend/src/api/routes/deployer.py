@@ -13,8 +13,11 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 import httpx
 import json
+import logging
 import shutil
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from src.models.database import get_db
 from src.models.twin import DigitalTwin, TwinState
@@ -558,14 +561,36 @@ async def upload_project_zip(
         "skip_config_files": [],   # Validate all files
     }
     
-    # Get provider info from optimizer config if available
+    # Get provider info from optimizer config if available.
+    # Prefer the cheapest_l* columns; fall back to parsing result_json.calculationResult
+    # when the columns weren't populated (data inconsistency from save endpoint).
     if twin.optimizer_config:
         opt_config = twin.optimizer_config
-        # Map providers from cheapest path columns
-        if opt_config.cheapest_l2:
-            validation_context["l2_provider"] = opt_config.cheapest_l2.lower()
-        if opt_config.cheapest_l4:
-            validation_context["l4_provider"] = opt_config.cheapest_l4.lower()
+
+        # Parse calculationResult from result_json as fallback source
+        calc_result = {}
+        if opt_config.result_json:
+            try:
+                calc_result = (json.loads(opt_config.result_json) or {}).get("calculationResult", {}) or {}
+            except (ValueError, TypeError):
+                calc_result = {}
+
+        def _resolve_layer(column_value: str | None, calc_key: str) -> str | None:
+            if column_value:
+                return column_value.lower()
+            raw = calc_result.get(calc_key)
+            return raw.lower() if isinstance(raw, str) and raw else None
+
+        l2 = _resolve_layer(opt_config.cheapest_l2, "L2")
+        l4 = _resolve_layer(opt_config.cheapest_l4, "L4")
+        if l2:
+            validation_context["l2_provider"] = l2
+        if l4:
+            validation_context["l4_provider"] = l4
+        logger.info(
+            "upload-zip: resolved providers for twin %s — l2=%s, l4=%s (columns: l2=%s l4=%s)",
+            twin_id, l2, l4, opt_config.cheapest_l2, opt_config.cheapest_l4,
+        )
     
     # Read zip file content
     zip_content = await file.read()

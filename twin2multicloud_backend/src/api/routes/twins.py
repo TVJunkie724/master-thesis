@@ -352,6 +352,12 @@ async def _validate_configured_transition(twin: DigitalTwin, db: Session):
             })
     
     if errors:
+        logger.warning(
+            "Twin %s validation failed with %d errors: %s",
+            twin.id,
+            len(errors),
+            json.dumps(errors, indent=2, default=str),
+        )
         raise HTTPException(
             status_code=400,
             detail={
