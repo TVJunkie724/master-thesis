@@ -115,14 +115,14 @@ Future<DownloadResult> downloadCodeFile({
       await FileSaver.instance.saveFile(
         name: cleanName.replaceAll(extension, ''),
         bytes: Uint8List.fromList(bytes),
-        ext: extension.substring(1), // Remove leading dot
+        fileExtension: extension.substring(1), // Remove leading dot
         mimeType: _getMimeType(extension),
       );
 
       return DownloadResult(success: true, message: 'Downloaded $cleanName');
     } else {
       // Desktop: Use file_picker save dialog
-      final outputPath = await FilePicker.platform.saveFile(
+      final outputPath = await FilePicker.saveFile(
         dialogTitle: 'Save $cleanName',
         fileName: cleanName,
         type: FileType.custom,
