@@ -225,7 +225,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
   
   Future<void> _pickJsonFile() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
       );
@@ -298,7 +298,7 @@ class _CredentialSectionState extends ConsumerState<CredentialSection> {
   /// Upload credentials JSON and auto-fill form fields
   Future<void> _uploadCredentialsJson() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
       );

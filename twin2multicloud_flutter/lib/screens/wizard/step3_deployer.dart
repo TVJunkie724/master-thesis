@@ -1200,7 +1200,7 @@ class _Step3DeployerState extends State<Step3Deployer> {
                 }
 
                 // Pick GLB file
-                final result = await FilePicker.platform.pickFiles(
+                final result = await FilePicker.pickFiles(
                   type: FileType.custom,
                   allowedExtensions: ['glb'],
                   withData: true, // Required for web support

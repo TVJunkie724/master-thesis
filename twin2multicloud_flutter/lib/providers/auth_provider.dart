@@ -11,41 +11,40 @@ final mockUser = User(
   themePreference: "dark",
 );
 
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(ref);
-});
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
 
 class AuthState {
   final User? user;
   final bool isLoading;
   final bool isAuthenticated;
-  
+
   AuthState({this.user, this.isLoading = false, this.isAuthenticated = false});
 }
 
-class AuthNotifier extends StateNotifier<AuthState> {
-  final Ref _ref;
-  
-  AuthNotifier(this._ref) : super(AuthState());
-  
+class AuthNotifier extends Notifier<AuthState> {
+  @override
+  AuthState build() {
+    return AuthState();
+  }
+
   // MOCK: Auto-login for development
   Future<void> mockLogin() async {
     state = AuthState(isLoading: true);
     await Future.delayed(const Duration(milliseconds: 500)); // Simulate delay
     state = AuthState(user: mockUser, isAuthenticated: true);
-    
+
     // Hydrate theme from user's preference
-    _ref.read(themeProvider.notifier).hydrateFromUser(mockUser.themePreference);
+    ref.read(themeProvider.notifier).hydrateFromUser(mockUser.themePreference);
   }
-  
+
   /// Login with user data from API (for real OAuth flows)
   void loginWithUser(User user) {
     state = AuthState(user: user, isAuthenticated: true);
-    
+
     // Hydrate theme from user's preference
-    _ref.read(themeProvider.notifier).hydrateFromUser(user.themePreference);
+    ref.read(themeProvider.notifier).hydrateFromUser(user.themePreference);
   }
-  
+
   void logout() {
     state = AuthState();
   }
