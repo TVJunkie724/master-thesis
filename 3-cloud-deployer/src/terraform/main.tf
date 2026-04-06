@@ -30,18 +30,34 @@ provider "azurerm" {
   # Disable auto-registration of resource providers (requires elevated permissions)
   resource_provider_registrations = "none"
 
-  subscription_id = var.azure_subscription_id
-  client_id       = var.azure_client_id
-  client_secret   = var.azure_client_secret
-  tenant_id       = var.azure_tenant_id
+  # Disable all fallback auth methods — use only service principal credentials.
+  # Without these, Terraform falls back to Azure CLI / MSI / OIDC when any
+  # credential variable is empty (e.g. AWS-only or GCP-only deployments).
+  use_cli  = false
+  use_msi  = false
+  use_oidc = false
+
+  # azurerm v4 requires subscription_id/client_id/tenant_id to be non-empty even
+  # when the provider is unused. Fall back to a zero-UUID placeholder — the provider
+  # initializes but no actual API calls are made unless a resource is created.
+  subscription_id = var.azure_subscription_id != "" ? var.azure_subscription_id : "00000000-0000-0000-0000-000000000000"
+  client_id       = var.azure_client_id != "" ? var.azure_client_id : "00000000-0000-0000-0000-000000000000"
+  client_secret   = var.azure_client_secret != "" ? var.azure_client_secret : "placeholder-secret-not-used"
+  tenant_id       = var.azure_tenant_id != "" ? var.azure_tenant_id : "00000000-0000-0000-0000-000000000000"
 }
 
 # Azure AD Provider (for Entra ID user management - Grafana admin users)
 # Uses same service principal credentials as azurerm
 provider "azuread" {
-  client_id     = var.azure_client_id
-  client_secret = var.azure_client_secret
-  tenant_id     = var.azure_tenant_id
+  # Same fallback auth suppression as azurerm — prevents Azure CLI lookup on
+  # deployments that don't use Azure layers.
+  use_cli  = false
+  use_msi  = false
+  use_oidc = false
+
+  client_id     = var.azure_client_id != "" ? var.azure_client_id : "00000000-0000-0000-0000-000000000000"
+  client_secret = var.azure_client_secret != "" ? var.azure_client_secret : "placeholder-secret-not-used"
+  tenant_id     = var.azure_tenant_id != "" ? var.azure_tenant_id : "00000000-0000-0000-0000-000000000000"
 }
 
 # AWS Provider (for multi-cloud deployments)
@@ -83,7 +99,9 @@ provider "aws" {
 provider "google" {
   project     = local.deploy_gcp ? "${var.digital_twin_name}-project" : "placeholder-not-used"
   region      = var.gcp_region != "" ? var.gcp_region : "us-central1"
-  credentials = var.gcp_credentials_json != "" ? var.gcp_credentials_json : null
+  # Use dummy credentials when none provided to prevent Application Default Credentials
+  # lookup (which fails in containers without gcloud CLI).
+  credentials = var.gcp_credentials_json != "" ? var.gcp_credentials_json : "{\"type\":\"service_account\",\"project_id\":\"placeholder\",\"private_key_id\":\"\",\"private_key\":\"\",\"client_email\":\"placeholder@placeholder.iam.gserviceaccount.com\",\"client_id\":\"\",\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\",\"token_uri\":\"https://oauth2.googleapis.com/token\"}"
 }
 
 # ==============================================================================
