@@ -22,6 +22,8 @@ from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.config import settings
 from src.utils.crypto import decrypt
+from src.services.twin_helpers import get_user_twin
+from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/optimizer", tags=["optimizer"])
 
@@ -29,26 +31,28 @@ router = APIRouter(prefix="/optimizer", tags=["optimizer"])
 OPTIMIZER_URL = getattr(settings, 'OPTIMIZER_URL', 'http://master-thesis-2twin2clouds-1:8000')
 
 
-# ============================================================================
-# Helper
-# ============================================================================
-
-async def get_user_twin(twin_id: str, user: User, db: Session) -> DigitalTwin:
-    """Verify twin ownership and return twin."""
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == user.id
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    return twin
-
 
 # ============================================================================
 # Data Freshness Endpoints
 # ============================================================================
 
-@router.get("/pricing-status")
+@router.get(
+    "/pricing-status",
+    operation_id="getPricingStatus",
+    summary="Get pricing cache status for all providers",
+    description=(
+        "**Purpose:** Check freshness of cached pricing data before calculations.\n\n"
+        "**When to call:** Before `calculateOptimalDistribution` to decide if `refreshPricing` is needed.\n\n"
+        "**Response fields per provider:**\n"
+        "- `age`: Human-readable age (e.g., '3 days')\n"
+        "- `is_fresh`: Boolean, true if cached data < 7 days old\n"
+        "- `status`: 'valid', 'incomplete', 'missing', or 'error'"
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        503: {"description": "Cannot connect to Optimizer service"},
+    }
+)
 async def get_pricing_status(current_user: User = Depends(get_current_user)):
     """
     Get pricing file age/status for all providers.
@@ -74,7 +78,22 @@ async def get_pricing_status(current_user: User = Depends(get_current_user)):
         raise HTTPException(502, f"Request failed: {type(e).__name__}")
 
 
-@router.get("/regions-status")
+@router.get(
+    "/regions-status",
+    operation_id="getRegionsStatus",
+    summary="Get regions cache status for all providers",
+    description=(
+        "**Purpose:** Check freshness of cached region/location data.\n\n"
+        "**When to call:** Before calculations if region availability matters.\n\n"
+        "**Response fields per provider:**\n"
+        "- `age`: Human-readable age\n"
+        "- `is_fresh`: Boolean (AWS/Azure: 7 days, GCP: 30 days threshold)"
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        503: {"description": "Cannot connect to Optimizer service"},
+    }
+)
 async def get_regions_status(current_user: User = Depends(get_current_user)):
     """
     Get regions file age for all providers.
@@ -104,7 +123,21 @@ async def get_regions_status(current_user: User = Depends(get_current_user)):
 # Pricing Export (for snapshotting)
 # ============================================================================
 
-@router.get("/pricing/export/{provider}")
+@router.get(
+    "/pricing/export/{provider}",
+    operation_id="exportPricingSnapshot",
+    summary="Export pricing data for snapshotting",
+    description=(
+        "**Purpose:** Export full pricing data for a provider to store as snapshot with calculation results.\n\n"
+        "**When to call:** After `calculateOptimalDistribution` to preserve the pricing data used.\n\n"
+        "**Path parameter:** provider = 'aws', 'azure', or 'gcp'"
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        503: {"description": "Cannot connect to Optimizer service"},
+    }
+)
 async def proxy_pricing_export(
     provider: str,
     current_user: User = Depends(get_current_user)
@@ -131,7 +164,26 @@ async def proxy_pricing_export(
 # Pricing Refresh Endpoints
 # ============================================================================
 
-@router.post("/refresh-pricing/{provider}")
+@router.post(
+    "/refresh-pricing/{provider}",
+    operation_id="refreshPricing",
+    summary="Refresh pricing using twin's stored credentials",
+    description=(
+        "**Purpose:** Fetch fresh pricing data from cloud provider APIs using stored credentials.\n\n"
+        "**Prerequisites:**\n"
+        "- AWS: Requires `aws_access_key_id` and `aws_secret_access_key` stored in twin config\n"
+        "- Azure: No credentials needed (uses public Retail Prices API)\n"
+        "- GCP: Requires `gcp_service_account_json` stored in twin config\n\n"
+        "**When to call:** When `getPricingStatus` shows `is_fresh: false`.\n\n"
+        "**Query parameter:** `twin_id` - The twin whose credentials to use"
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        503: {"description": "Cannot connect to Optimizer service"},
+    }
+)
 async def refresh_pricing(
     provider: str,
     twin_id: str = Query(..., description="Twin ID to get credentials from"),
@@ -205,7 +257,24 @@ async def refresh_pricing(
         raise HTTPException(502, f"Request failed: {type(e).__name__}")
 
 
-@router.get("/stream/refresh-pricing/{provider}")
+@router.get(
+    "/stream/refresh-pricing/{provider}",
+    operation_id="streamRefreshPricing",
+    summary="SSE stream for pricing refresh with real-time logs",
+    description=(
+        "**Purpose:** Same as `refreshPricing` but with real-time progress via Server-Sent Events.\n\n"
+        "**Event types:**\n"
+        "- `log`: Progress message (e.g., 'Loading credentials...', 'Calling AWS API...')\n"
+        "- `complete`: Final success message\n"
+        "- `error`: Error occurred, includes error details\n\n"
+        "**When to use:** When UI needs live progress feedback during 30-60 second refresh operation."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    }
+)
 async def stream_refresh_pricing(
     provider: str,
     twin_id: str = Query(..., description="Twin ID to get credentials from"),
@@ -225,76 +294,73 @@ async def stream_refresh_pricing(
 
     async def event_generator():
         def emit(msg: str, event_type: str = "log"):
-            return f"event: {event_type}\ndata: {json.dumps({'message': msg})}\n\n"
+            return f"event: {event_type}\ndata: {json.dumps({'message': msg, 'type': event_type})}\n\n"
 
         yield emit(f"Starting {provider.upper()} pricing refresh...")
         await asyncio.sleep(0.1)  # Allow client to receive
 
         try:
-            # Azure uses public API - no credentials needed
+            # Prepare credentials (Management API responsibility - security boundary)
+            credentials = {}
+            
             if provider == "azure":
                 yield emit("Azure uses public API - no credentials needed")
+            else:
+                # AWS/GCP need credentials from twin config
+                yield emit("Loading twin credentials...")
                 await asyncio.sleep(0.1)
                 
-                yield emit(f"Calling Azure pricing API (this may take 30-60 seconds)...")
+                twin = await get_user_twin(twin_id, current_user, db)
+                config = twin.configuration
                 
-                async with httpx.AsyncClient(timeout=300.0) as client:
-                    response = await client.post(
-                        f"{OPTIMIZER_URL}/fetch_pricing/azure",
-                        params={"force_fetch": True}
-                    )
-                
-                if response.status_code == 200:
-                    yield emit(f"✅ Successfully refreshed Azure pricing!", "complete")
-                else:
-                    yield emit(f"❌ Error: {response.text}", "error")
-                return
-            
-            # AWS/GCP need credentials from twin config
-            yield emit("Loading twin credentials...")
-            await asyncio.sleep(0.1)
-            
-            twin = await get_user_twin(twin_id, current_user, db)
-            config = twin.configuration
-            
-            if not config:
-                yield emit("❌ Error: Twin has no configuration. Complete Step 1 first.", "error")
-                return
+                if not config:
+                    yield emit("❌ Error: Twin has no configuration. Complete Step 1 first.", "error")
+                    return
 
-            credentials = {}
-            if provider == "aws":
-                if not config.aws_access_key_id:
-                    yield emit("❌ Error: AWS credentials not configured in Step 1", "error")
-                    return
-                credentials = {
-                    "aws_access_key_id": decrypt(config.aws_access_key_id, current_user.id, twin_id),
-                    "aws_secret_access_key": decrypt(config.aws_secret_access_key, current_user.id, twin_id),
-                    "aws_region": config.aws_region or "eu-central-1"
-                }
-                yield emit("AWS credentials loaded and decrypted")
-            elif provider == "gcp":
-                if not config.gcp_service_account_json:
-                    yield emit("❌ Error: GCP credentials not configured in Step 1", "error")
-                    return
-                credentials = {
-                    "gcp_service_account_json": decrypt(config.gcp_service_account_json, current_user.id, twin_id),
-                    "gcp_region": config.gcp_region or "europe-west1"
-                }
-                yield emit("GCP credentials loaded and decrypted")
+                if provider == "aws":
+                    if not config.aws_access_key_id:
+                        yield emit("❌ Error: AWS credentials not configured in Step 1", "error")
+                        return
+                    credentials = {
+                        "aws_access_key_id": decrypt(config.aws_access_key_id, current_user.id, twin_id),
+                        "aws_secret_access_key": decrypt(config.aws_secret_access_key, current_user.id, twin_id),
+                        "aws_region": config.aws_region or "eu-central-1"
+                    }
+                    yield emit("AWS credentials loaded and decrypted")
+                elif provider == "gcp":
+                    if not config.gcp_service_account_json:
+                        yield emit("❌ Error: GCP credentials not configured in Step 1", "error")
+                        return
+                    credentials = {
+                        "gcp_service_account_json": decrypt(config.gcp_service_account_json, current_user.id, twin_id),
+                        "gcp_region": config.gcp_region or "europe-west1"
+                    }
+                    yield emit("GCP credentials loaded and decrypted")
 
             await asyncio.sleep(0.1)
-            yield emit(f"Calling {provider.upper()} pricing API (this may take 30-60 seconds)...")
+            yield emit(f"Connecting to Optimizer service for {provider.upper()} pricing...")
 
+            # Relay SSE stream from Optimizer
             async with httpx.AsyncClient(timeout=300.0) as client:
-                response = await client.post(
-                    f"{OPTIMIZER_URL}/fetch_pricing_with_credentials/{provider}",
-                    json=credentials
-                )
-
-            if response.status_code == 200:
-                yield emit(f"✅ Successfully refreshed {provider.upper()} pricing!", "complete")
-            else:
-                yield emit(f"❌ Error: {response.text}", "error")
+                async with client.stream(
+                    "POST",
+                    f"{OPTIMIZER_URL}/stream/fetch_pricing/{provider}",
+                    json=credentials,
+                    headers={"Accept": "text/event-stream"}
+                ) as response:
+                    if response.status_code != 200:
+                        yield emit(f"❌ Optimizer error: {response.status_code}", "error")
+                        return
+                    
+                    # Relay SSE events from Optimizer
+                    buffer = ""
+                    async for chunk in response.aiter_text():
+                        buffer += chunk
+                        # Process complete SSE events (delimited by double newline)
+                        while "\n\n" in buffer:
+                            event_str, buffer = buffer.split("\n\n", 1)
+                            if event_str.strip():
+                                yield event_str + "\n\n"
 
         except httpx.ConnectError:
             yield emit("❌ Error: Cannot connect to Optimizer service", "error")
@@ -365,7 +431,25 @@ class CalcParams(BaseModel):
     currency: str = Field("USD", description="Currency code (USD or EUR)")
 
 
-@router.put("/calculate")
+@router.put(
+    "/calculate",
+    operation_id="calculateOptimalDistribution",
+    summary="Proxy calculation request to Optimizer",
+    description=(
+        "**Purpose:** Calculate optimal cross-cloud distribution for a Digital Twin based on 26 parameters.\n\n"
+        "**Prerequisites:** Call `getPricingStatus` first - if `is_fresh: false`, call `refreshPricing`.\n\n"
+        "**Response includes:**\n"
+        "- `awsCosts`, `azureCosts`, `gcpCosts`: Per-layer cost breakdowns\n"
+        "- `cheapestPath`: Optimal provider selection per layer (L1-L5)\n"
+        "- `combinationTables`: Detailed cost analysis matrices\n"
+        "- `transferCosts`: Cross-cloud data transfer estimates"
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        422: ERROR_RESPONSES[422],
+        503: {"description": "Cannot connect to Optimizer service"},
+    }
+)
 async def calculate(
     params: CalcParams,
     current_user: User = Depends(get_current_user)

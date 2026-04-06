@@ -2,49 +2,59 @@
 
 **Project**: {{project_name}}
 **Provider**: {{provider}}
-**Device ID**: {{device_id}}
-**Endpoint**: {{endpoint}}
+**Devices**: {{device_ids}}
 **Generated**: {{timestamp}}
 
-## Prerequisites
-- Python 3.9+
-- pip
-- Docker (optional)
+## Multi-Device Support
 
-## Setup
-1. Extract this zip file.
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+This simulator automatically routes each payload to the correct device credentials
+based on the `iotDeviceId` field in your payloads.
 
-## Usage
+### How it works:
+1. Your `payloads.json` contains payloads with `iotDeviceId` fields
+2. When you run `send`, the simulator reads the next payload
+3. It looks up the matching config in `configs/{iotDeviceId}/`
+4. Connects using that device's certificates and sends the payload
 
-### Option 1: Python
-Run the simulator:
-```bash
-python src/main.py
+### Example payloads.json:
+```json
+[
+  {"iotDeviceId": "temperature-sensor-1", "temperature": 28.5},
+  {"iotDeviceId": "pressure-sensor-1", "pressure": 101.3}
+]
 ```
 
-### Option 2: Docker
-Build and run:
+Each payload is sent using its respective device's AWS IoT credentials.
+
+## Quick Start
+
+### Docker (Recommended)
 ```bash
 docker-compose up --build
 ```
-Or manually:
+
+### Python
 ```bash
-docker build -t iot-simulator .
-docker run -it iot-simulator
+pip install -r requirements.txt
+python src/main.py
 ```
 
-### Available Commands
-- `send` - Send the next payload from payloads.json to AWS IoT Core.
-- `help` - Show available commands.
-- `exit` - Exit the simulator.
+## Commands
+- `send` - Send next payload (auto-routes to correct device)
+- `help` - Show commands
+- `exit` - Exit
 
 ## File Structure
-- `config.json` - Simulator configuration.
-- `payloads.json` - Payload data.
-- `AmazonRootCA1.pem` - AWS Root CA.
-- `certificates/` - Device certificates.
-- `src/` - Simulator Python code.
+```
+├── config.json           # Default device config (backward compat)
+├── configs/              # Per-device configurations
+│   ├── device-1/
+│   │   ├── config.json
+│   │   ├── certificate.pem.crt
+│   │   └── private.pem.key
+│   └── device-2/
+│       └── ...
+├── payloads.json         # Your IoT payloads
+├── AmazonRootCA1.pem     # AWS Root CA
+└── src/                  # Simulator code
+```

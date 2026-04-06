@@ -122,10 +122,15 @@ def _load_hierarchy_for_provider(project_path: Path, provider: str) -> Dict[str,
     if provider_lower == "google":
         return []  # No hierarchy for GCP - no Digital Twin service
     
+    # Handle 'none' provider - used when L4/L5 layers are explicitly disabled
+    # (e.g., GCP-only scenarios with no Digital Twin service)
+    if provider_lower == "none":
+        return []  # No hierarchy when L4 is disabled
+    
     # Strict validation: only aws and azure have hierarchy support
     if provider_lower not in ("aws", "azure"):
         raise ValueError(
-            f"Invalid provider '{provider}'. Hierarchy is only available for 'aws', 'azure', or 'google' (empty)."
+            f"Invalid provider '{provider}'. Hierarchy is only available for 'aws', 'azure', 'google' (empty), or 'none' (disabled)."
         )
     
     hierarchy_dir = project_path / TWIN_HIERARCHY_DIR_NAME

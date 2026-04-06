@@ -32,6 +32,9 @@ def cleanup_gcp_resources(
         - Cloud Storage buckets
         - Cloud Workflows
         - Service Accounts
+        - Custom IAM Roles
+        - Firestore Named Databases
+        - Cloud Scheduler Jobs
     """
     from google.oauth2 import service_account
     from googleapiclient import discovery
@@ -303,19 +306,36 @@ def cleanup_gcp_resources(
         logger.warning(f"  Error: {e}")
     
     # 8. Custom IAM Roles
+    # NOTE: GCP soft-deletes custom roles (they remain in DELETED state for 7-44 days).
+    # The default roles().list() hides soft-deleted roles, so we MUST use showDeleted=True
+    # to find and clean them up. Without this, Terraform fails with:
+    #   "Cannot add new grants to deleted role"
     logger.info("[Custom IAM Roles] Checking for orphans...")
     try:
         iam_client = discovery.build('iam', 'v1', credentials=gcp_credentials)
         
-        result = iam_client.projects().roles().list(parent=f"projects/{project_id}").execute()
+        result = iam_client.projects().roles().list(
+            parent=f"projects/{project_id}",
+            showDeleted=True
+        ).execute()
         for role in result.get('roles', []):
             role_id = role['name'].split('/')[-1]
             if prefix in role_id or prefix_underscore in role_id:
-                logger.info(f"  Found orphan: {role_id}")
+                is_deleted = role.get('deleted', False)
+                status = " (soft-deleted)" if is_deleted else ""
+                logger.info(f"  Found orphan: {role_id}{status}")
                 if dry_run:
                     logger.info(f"    [DRY RUN] Would delete")
                 else:
                     try:
+                        # If role is already soft-deleted, undelete it first so we can
+                        # clean it up properly (and free the role_id for reuse)
+                        if is_deleted:
+                            iam_client.projects().roles().undelete(
+                                name=role['name'],
+                                body={}
+                            ).execute()
+                            logger.info(f"    ✓ Undeleted (was soft-deleted)")
                         iam_client.projects().roles().delete(name=role['name']).execute()
                         logger.info(f"    ✓ Deleted")
                     except Exception as e:
@@ -345,6 +365,38 @@ def cleanup_gcp_resources(
                         logger.info(f"    ✓ Deleted (may take a few minutes)")
                     except Exception as e:
                         logger.warning(f"    ✗ Error: {e}")
+    except Exception as e:
+        logger.warning(f"  Error: {e}")
+    
+    # 10. Cloud Scheduler Jobs
+    logger.info("[Cloud Scheduler] Checking for orphan jobs...")
+    try:
+        scheduler_client = discovery.build('cloudscheduler', 'v1', credentials=gcp_credentials)
+        parent = f"projects/{project_id}/locations/{region}"
+        
+        page_token = None
+        while True:
+            if page_token:
+                result = scheduler_client.projects().locations().jobs().list(parent=parent, pageToken=page_token).execute()
+            else:
+                result = scheduler_client.projects().locations().jobs().list(parent=parent).execute()
+            
+            for job in result.get('jobs', []):
+                job_name = job['name'].split('/')[-1]
+                if prefix in job_name or prefix_underscore in job_name:
+                    logger.info(f"  Found orphan: {job_name}")
+                    if dry_run:
+                        logger.info(f"    [DRY RUN] Would delete")
+                    else:
+                        try:
+                            scheduler_client.projects().locations().jobs().delete(name=job['name']).execute()
+                            logger.info(f"    ✓ Deleted")
+                        except Exception as e:
+                            logger.warning(f"    ✗ Error: {e}")
+            
+            page_token = result.get('nextPageToken')
+            if not page_token:
+                break
     except Exception as e:
         logger.warning(f"  Error: {e}")
     

@@ -11,10 +11,12 @@ import '../../bloc/twin_overview/twin_overview_event.dart';
 import '../../bloc/twin_overview/twin_overview_state.dart';
 import '../../providers/twins_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../utils/file_download_utils.dart';
 import '../../utils/twin_state_utils.dart';
 import '../../widgets/branded_app_bar.dart';
 import '../../widgets/code_viewer_dialog.dart';
 import '../../widgets/deployment_terminal.dart';
+import '../../widgets/deployment_verification_card.dart';
 import '../../widgets/terraform_outputs_card.dart';
 import '../../widgets/results/cheapest_path_visualization.dart';
 
@@ -44,13 +46,50 @@ class TwinOverviewView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return BlocListener<TwinOverviewBloc, TwinOverviewState>(
-      listenWhen: (prev, curr) =>
-          curr is TwinOverviewLoaded && curr.successMessage == 'deleted',
-      listener: (context, state) {
-        // Navigate back to dashboard after successful delete
-        context.go('/dashboard');
-      },
+    return MultiBlocListener(
+      listeners: [
+        // Navigate after delete
+        BlocListener<TwinOverviewBloc, TwinOverviewState>(
+          listenWhen: (prev, curr) =>
+              curr is TwinOverviewLoaded && curr.successMessage == 'deleted',
+          listener: (context, state) {
+            context.go('/dashboard');
+          },
+        ),
+        // Handle simulator bytes - trigger save dialog
+        BlocListener<TwinOverviewBloc, TwinOverviewState>(
+          listenWhen: (prev, curr) =>
+              curr is TwinOverviewLoaded &&
+              curr.simulatorBytes != null &&
+              (prev is! TwinOverviewLoaded || prev.simulatorBytes == null),
+          listener: (context, state) async {
+            if (state is! TwinOverviewLoaded || state.simulatorBytes == null) {
+              return;
+            }
+            final l1 = (state.cheapestPath?['l1'] as String?) ?? 'unknown';
+            final name = state.cloudResourceName ?? state.projectName;
+            final filename = 'simulator_${name}_$l1.zip';
+
+            final result = await saveBinaryFile(
+              bytes: state.simulatorBytes!,
+              suggestedName: filename,
+            );
+
+            if (!context.mounted) return;
+            final bloc = context.read<TwinOverviewBloc>();
+            if (result.success) {
+              bloc.add(
+                TwinOverviewShowMessage(result.message!, MessageType.success),
+              );
+            } else if (!result.cancelled && result.error != null) {
+              bloc.add(
+                TwinOverviewShowMessage(result.error!, MessageType.error),
+              );
+            }
+            bloc.add(const TwinOverviewClearSimulatorBytes());
+          },
+        ),
+      ],
       child: BlocBuilder<TwinOverviewBloc, TwinOverviewState>(
         builder: (context, state) {
           return Scaffold(
@@ -62,7 +101,7 @@ class TwinOverviewView extends ConsumerWidget {
                 // Alert banners for messages
                 _buildAlertBanners(context, state),
                 // Main content
-                Expanded(child: _buildBody(context, state)),
+                Expanded(child: _buildBody(context, state, ref)),
               ],
             ),
           );
@@ -206,7 +245,11 @@ class TwinOverviewView extends ConsumerWidget {
     );
   }
 
-  Widget _buildBody(BuildContext context, TwinOverviewState state) {
+  Widget _buildBody(
+    BuildContext context,
+    TwinOverviewState state,
+    WidgetRef ref,
+  ) {
     if (state is TwinOverviewLoading) {
       return const Center(
         child: Column(
@@ -253,14 +296,18 @@ class TwinOverviewView extends ConsumerWidget {
     }
 
     if (state is TwinOverviewLoaded) {
-      return _buildLoadedContent(context, state);
+      return _buildLoadedContent(context, state, ref);
     }
 
     // Initial state
     return const Center(child: CircularProgressIndicator());
   }
 
-  Widget _buildLoadedContent(BuildContext context, TwinOverviewLoaded state) {
+  Widget _buildLoadedContent(
+    BuildContext context,
+    TwinOverviewLoaded state,
+    WidgetRef ref,
+  ) {
     final theme = Theme.of(context);
 
     return SingleChildScrollView(
@@ -278,7 +325,20 @@ class TwinOverviewView extends ConsumerWidget {
 
                 // Command Center (always visible)
                 _buildCommandCenter(context, state),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+
+                // Deployment Verification (only for deployed twins)
+                if (state.twinState == 'deployed') ...[
+                  DeploymentVerificationCard(
+                    twinId: state.twinId,
+                    api: ref.read(apiServiceProvider),
+                    payloadsJson:
+                        state.deployerConfig?['payloads_json'] as String?,
+                    configEventsJson:
+                        state.deployerConfig?['config_events_json'] as String?,
+                  ),
+                  const SizedBox(height: 24),
+                ],
 
                 // Configuration Review sections
                 Text(
@@ -1043,7 +1103,7 @@ class TwinOverviewView extends ConsumerWidget {
                 Tooltip(
                   message: state.canEdit
                       ? 'Edit configuration'
-                      : 'Destroy cloud resources before editing',
+                      : 'Cannot edit deployed twin - destroy resources first',
                   child: OutlinedButton.icon(
                     onPressed: state.canEdit
                         ? () => context.go('/wizard/${state.twinId}')
@@ -1153,6 +1213,90 @@ class TwinOverviewView extends ConsumerWidget {
               ],
             ),
 
+            // Testing Utilities (only visible for deployed twins)
+            if (state.twinState == 'deployed') ...[
+              const SizedBox(height: 16),
+              // Labeled separator
+              Row(
+                children: [
+                  Expanded(child: Divider(color: theme.dividerColor)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'TESTING UTILITIES',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                  Expanded(child: Divider(color: theme.dividerColor)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Compact button row
+              Row(
+                children: [
+                  // Send Test IoT Message button
+                  Expanded(
+                    child: SizedBox(
+                      height: 40,
+                      child: OutlinedButton.icon(
+                        onPressed: state.isTracing
+                            ? null
+                            : () => context.read<TwinOverviewBloc>().add(
+                                const TwinOverviewStartLogTrace(),
+                              ),
+                        icon: state.isTracing
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.sms_outlined, size: 18),
+                        label: Text(
+                          state.isTracing ? 'Tracing...' : 'Send Test Message',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Download Simulator button
+                  Expanded(
+                    child: SizedBox(
+                      height: 40,
+                      child: OutlinedButton.icon(
+                        onPressed: state.isDownloadingSimulator
+                            ? null
+                            : () => context.read<TwinOverviewBloc>().add(
+                                const TwinOverviewDownloadSimulator(),
+                              ),
+                        icon: state.isDownloadingSimulator
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.download_outlined, size: 18),
+                        label: Text(
+                          state.isDownloadingSimulator
+                              ? 'Downloading...'
+                              : 'Download ${(state.cheapestPath?['l1'] as String?)?.toUpperCase() ?? 'L1'} Simulator',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
             // Error banner (if applicable)
             if (state.twinState == 'error' && state.lastError != null) ...[
               const SizedBox(height: 16),
@@ -1184,6 +1328,15 @@ class TwinOverviewView extends ConsumerWidget {
                               color: Colors.red[900],
                             ),
                           ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '⚠️ Orphaned cloud resources may exist. '
+                            'Run CLEANUP before retrying deployment.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.orange[900],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -1198,7 +1351,50 @@ class TwinOverviewView extends ConsumerWidget {
               ),
             ],
 
-            // Terraform Outputs Card (persists independently of terminal)
+            // Deployment Terminal (appears when showTerminal is true)
+            if (state.showTerminal) ...[
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(
+                    Icons.terminal,
+                    size: 16,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    state.isTracing ? 'Log Trace Output' : 'Deployment Output',
+                    style: theme.textTheme.labelLarge,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => context.read<TwinOverviewBloc>().add(
+                      const TwinOverviewCloseTerminal(),
+                    ),
+                    tooltip: 'Close terminal',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 300,
+                child: DeploymentTerminal(
+                  logs: state.terminalLogs,
+                  isConnected:
+                      state.isDeploying ||
+                      state.isDestroying ||
+                      state.isTracing,
+                  isComplete:
+                      !state.isDeploying &&
+                      !state.isDestroying &&
+                      !state.isTracing,
+                  isReconnecting: false,
+                ),
+              ),
+            ],
+
+            // Terraform Outputs Card (below terminal)
             if (state.deploymentOutputs != null &&
                 state.deploymentOutputs!.isNotEmpty &&
                 state.twinState == 'deployed') ...[
@@ -1247,40 +1443,6 @@ class TwinOverviewView extends ConsumerWidget {
                   ),
                 ),
               ),
-
-            // Deployment Terminal (appears when showTerminal is true)
-            if (state.showTerminal) ...[
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Icon(
-                    Icons.terminal,
-                    size: 16,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text('Deployment Output', style: theme.textTheme.labelLarge),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () => context.read<TwinOverviewBloc>().add(
-                      const TwinOverviewCloseTerminal(),
-                    ),
-                    tooltip: 'Close terminal',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 300,
-                child: DeploymentTerminal(
-                  logs: state.terminalLogs,
-                  isConnected: state.isDeploying || state.isDestroying,
-                  isComplete: !state.isDeploying && !state.isDestroying,
-                  isReconnecting: false,
-                ),
-              ),
-            ],
           ],
         ),
       ),

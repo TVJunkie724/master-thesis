@@ -25,7 +25,7 @@ def validate_digital_twin_name(name: str) -> None:
     Validates the digital twin name for AWS resource naming compatibility.
     
     Constraints:
-    - Maximum 20 characters (resource naming limits)
+    - Maximum 15 characters (resource naming limits)
     - Only alphanumeric, hyphen, underscore allowed
     
     Args:
@@ -34,7 +34,7 @@ def validate_digital_twin_name(name: str) -> None:
     Raises:
         ValueError: If name exceeds length or contains invalid characters
     """
-    max_length = 30
+    max_length = 15
     if len(name) > max_length:
         raise ValueError(
             f"Digital twin name '{name}' exceeds {max_length} characters."
@@ -107,8 +107,21 @@ def validate_config_content(filename, content):
                          action = item["action"]
                          if "type" not in action:
                              errors.append(f"Event at index {index}: action missing 'type'")
-                         if "functionName" not in action:
-                             errors.append(f"Event at index {index}: action missing 'functionName'")
+                         
+                         # Validate action name field based on type
+                         action_type = action.get("type")
+                         workflow_types = ("step_function", "logic_app", "workflow")
+                         
+                         if action_type in workflow_types:
+                             # Workflow-type actions require functionName and functionNameB
+                             if "functionName" not in action:
+                                 errors.append(f"Event at index {index}: {action_type} action missing 'functionName' (first function in chain)")
+                             if "functionNameB" not in action:
+                                 errors.append(f"Event at index {index}: {action_type} action missing 'functionNameB' (second function in chain)")
+                         else:
+                             # Lambda/function actions require functionName
+                             if "functionName" not in action:
+                                 errors.append(f"Event at index {index}: action missing 'functionName'")
                          
                          if action.get("type") == "lambda" and "feedback" in action:
                              feedback = action["feedback"]
@@ -412,8 +425,40 @@ def validate_azure_hierarchy_content(content):
             if "$relationshipName" not in rel:
                 errors.append(f"Relationship at index {i}: missing '$relationshipName'")
     
+    # DTDL v3: Check for duplicate content names (error)
+    for i, model in enumerate(models):
+        contents = model.get("contents", [])
+        names = [item.get("name") for item in contents if isinstance(item, dict) and item.get("name")]
+        duplicates = [n for n in set(names) if names.count(n) > 1]
+        if duplicates:
+            model_id = model.get("@id", f"index-{i}")
+            errors.append(f"Model '{model_id}': Duplicate content names {duplicates} - DTDL v3 requires unique names")
+    
     if errors:
         raise ValueError(f"Azure hierarchy validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
+    
+    # Semantic check: Telemetry without matching last{Name} Property
+    for i, model in enumerate(models):
+        contents = model.get("contents", [])
+        telemetry_names = {
+            item.get("name") for item in contents
+            if isinstance(item, dict) and item.get("@type") == "Telemetry"
+        }
+        property_names = {
+            item.get("name") for item in contents
+            if isinstance(item, dict) and item.get("@type") == "Property"
+        }
+        
+        # Expected pattern: Telemetry 'temperature' → Property 'lastTemperature'
+        for tel_name in telemetry_names:
+            if tel_name:
+                expected_prop = f"last{tel_name[0].upper()}{tel_name[1:]}"
+                if expected_prop not in property_names:
+                    model_id = model.get("@id", f"index-{i}")
+                    logger.warning(
+                        f"Model '{model_id}': Telemetry '{tel_name}' has no Property "
+                        f"'{expected_prop}'. Twin updates may not persist."
+                    )
     
     logger.info(f"✓ Azure hierarchy validated: {len(models)} models, {len(twins)} twins, {len(relationships)} relationships")
 
@@ -638,10 +683,29 @@ def validate_state_machine_content(filename, content):
                     
                     if duplicates:
                         errors.append(f"Duplicate step names: {duplicates}")
+                    
+                    # Check for HTTP calls missing OIDC authentication.
+                    # This is MANDATORY for Cloud Functions Gen2 which run on Cloud Run.
+                    # Without 'auth: {type: OIDC}' in the args, the workflow will receive
+                    # a 403 Forbidden error when calling the function, even if IAM 
+                    # permissions (roles/run.invoker) are correctly configured.
+                    for step in steps_list:
+                        if isinstance(step, dict):
+                            for step_name, step_def in step.items():
+                                if isinstance(step_def, dict):
+                                    call_type = step_def.get("call", "")
+                                    if call_type in ("http.post", "http.get", "http.request"):
+                                        args = step_def.get("args", {})
+                                        if isinstance(args, dict) and "auth" not in args:
+                                            errors.append(
+                                                f"Step '{step_name}' uses {call_type} without 'auth' section. "
+                                                f"Add 'auth: {{type: OIDC}}' to authenticate to Cloud Functions Gen2."
+                                            )
             
             if errors:
                 raise ValueError(f"GCP Workflow validation errors:\n  ◦ " + "\n  ◦ ".join(errors))
             return  # Valid GCP workflow
+
         
         # 2c. AWS Step Function: Validate StartAt references existing state
         if filename == CONSTANTS.AWS_STATE_MACHINE_FILE:

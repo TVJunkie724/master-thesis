@@ -110,6 +110,22 @@ resource "aws_iam_role_policy" "l3_dynamodb" {
   })
 }
 
+# TwinMaker access for L4 data connector queries
+resource "aws_iam_role_policy" "l3_twinmaker" {
+  count = local.l3_hot_aws_enabled && local.l4_aws_enabled ? 1 : 0
+  name  = "${var.digital_twin_name}-l3-twinmaker-policy"
+  role  = aws_iam_role.l3_lambda[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["iottwinmaker:GetEntity", "iottwinmaker:GetWorkspace"]
+      Resource = "*"
+    }]
+  })
+}
+
 # S3 access for Cold/Archive
 resource "aws_iam_role_policy" "l3_s3" {
   count = local.l3_cold_aws_enabled || local.l3_archive_aws_enabled ? 1 : 0
@@ -177,8 +193,9 @@ resource "aws_lambda_function_url" "l3_hot_reader" {
 # ==============================================================================
 
 resource "aws_s3_bucket" "l3_cold" {
-  count  = local.l3_cold_aws_enabled ? 1 : 0
-  bucket = local.aws_l3_s3_cold_bucket_name
+  count         = local.l3_cold_aws_enabled ? 1 : 0
+  bucket        = local.aws_l3_s3_cold_bucket_name
+  force_destroy = true
 
   tags = local.aws_common_tags
 }
@@ -205,7 +222,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "l3_cold" {
 # ==============================================================================
 
 resource "aws_lambda_function" "l3_hot_to_cold_mover" {
-  count         = local.l3_hot_aws_enabled && local.l3_cold_aws_enabled ? 1 : 0
+  count         = local.l3_hot_aws_enabled ? 1 : 0
   function_name = local.aws_l3_hot_to_cold_mover_name
   role          = aws_iam_role.l3_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
@@ -221,7 +238,7 @@ resource "aws_lambda_function" "l3_hot_to_cold_mover" {
     variables = {
       DIGITAL_TWIN_INFO      = var.digital_twin_info_json
       DYNAMODB_TABLE_NAME    = aws_dynamodb_table.l3_hot[0].name
-      COLD_S3_BUCKET_NAME    = aws_s3_bucket.l3_cold[0].bucket
+      COLD_S3_BUCKET_NAME    = try(aws_s3_bucket.l3_cold[0].bucket, "")
 
       # Multi-cloud Hot→Cold: When AWS L3 Hot sends to remote Cold
       REMOTE_COLD_WRITER_URL = var.layer_3_hot_provider == "aws" && var.layer_3_cold_provider != "aws" ? (
@@ -239,7 +256,7 @@ resource "aws_lambda_function" "l3_hot_to_cold_mover" {
 
 # EventBridge Rule - Schedule hot-to-cold mover
 resource "aws_cloudwatch_event_rule" "l3_hot_to_cold" {
-  count               = local.l3_hot_aws_enabled && local.l3_cold_aws_enabled ? 1 : 0
+  count               = local.l3_hot_aws_enabled ? 1 : 0
   name                = local.aws_l3_hot_to_cold_schedule
   description         = "Trigger hot-to-cold data mover daily"
   schedule_expression = "rate(1 day)"
@@ -248,14 +265,14 @@ resource "aws_cloudwatch_event_rule" "l3_hot_to_cold" {
 }
 
 resource "aws_cloudwatch_event_target" "l3_hot_to_cold" {
-  count     = local.l3_hot_aws_enabled && local.l3_cold_aws_enabled ? 1 : 0
+  count     = local.l3_hot_aws_enabled ? 1 : 0
   rule      = aws_cloudwatch_event_rule.l3_hot_to_cold[0].name
   target_id = "HotToColdMover"
   arn       = aws_lambda_function.l3_hot_to_cold_mover[0].arn
 }
 
 resource "aws_lambda_permission" "l3_hot_to_cold" {
-  count         = local.l3_hot_aws_enabled && local.l3_cold_aws_enabled ? 1 : 0
+  count         = local.l3_hot_aws_enabled ? 1 : 0
   statement_id  = "AllowEventBridge"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.l3_hot_to_cold_mover[0].function_name
@@ -268,8 +285,9 @@ resource "aws_lambda_permission" "l3_hot_to_cold" {
 # ==============================================================================
 
 resource "aws_s3_bucket" "l3_archive" {
-  count  = local.l3_archive_aws_enabled ? 1 : 0
-  bucket = local.aws_l3_s3_archive_bucket_name
+  count         = local.l3_archive_aws_enabled ? 1 : 0
+  bucket        = local.aws_l3_s3_archive_bucket_name
+  force_destroy = true
 
   tags = local.aws_common_tags
 }
@@ -296,7 +314,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "l3_archive" {
 # ==============================================================================
 
 resource "aws_lambda_function" "l3_cold_to_archive_mover" {
-  count         = local.l3_cold_aws_enabled && local.l3_archive_aws_enabled ? 1 : 0
+  count         = local.l3_cold_aws_enabled ? 1 : 0
   function_name = local.aws_l3_cold_to_archive_name
   role          = aws_iam_role.l3_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
@@ -312,7 +330,7 @@ resource "aws_lambda_function" "l3_cold_to_archive_mover" {
     variables = {
       DIGITAL_TWIN_INFO         = var.digital_twin_info_json
       COLD_S3_BUCKET_NAME       = aws_s3_bucket.l3_cold[0].bucket
-      ARCHIVE_S3_BUCKET_NAME    = aws_s3_bucket.l3_archive[0].bucket
+      ARCHIVE_S3_BUCKET_NAME    = try(aws_s3_bucket.l3_archive[0].bucket, "")
 
       # Multi-cloud Cold→Archive: When AWS L3 Cold sends to remote Archive
       REMOTE_ARCHIVE_WRITER_URL = var.layer_3_cold_provider == "aws" && var.layer_3_archive_provider != "aws" ? (
@@ -330,7 +348,7 @@ resource "aws_lambda_function" "l3_cold_to_archive_mover" {
 
 # EventBridge Rule - Schedule cold-to-archive mover
 resource "aws_cloudwatch_event_rule" "l3_cold_to_archive" {
-  count               = local.l3_cold_aws_enabled && local.l3_archive_aws_enabled ? 1 : 0
+  count               = local.l3_cold_aws_enabled ? 1 : 0
   name                = local.aws_l3_cold_to_archive_schedule
   description         = "Trigger cold-to-archive data mover weekly"
   schedule_expression = "rate(7 days)"
@@ -339,14 +357,14 @@ resource "aws_cloudwatch_event_rule" "l3_cold_to_archive" {
 }
 
 resource "aws_cloudwatch_event_target" "l3_cold_to_archive" {
-  count     = local.l3_cold_aws_enabled && local.l3_archive_aws_enabled ? 1 : 0
+  count     = local.l3_cold_aws_enabled ? 1 : 0
   rule      = aws_cloudwatch_event_rule.l3_cold_to_archive[0].name
   target_id = "ColdToArchiveMover"
   arn       = aws_lambda_function.l3_cold_to_archive_mover[0].arn
 }
 
 resource "aws_lambda_permission" "l3_cold_to_archive" {
-  count         = local.l3_cold_aws_enabled && local.l3_archive_aws_enabled ? 1 : 0
+  count         = local.l3_cold_aws_enabled ? 1 : 0
   statement_id  = "AllowEventBridge"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.l3_cold_to_archive_mover[0].function_name

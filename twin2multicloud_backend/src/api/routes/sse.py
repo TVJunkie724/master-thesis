@@ -19,6 +19,7 @@ from starlette.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from src.models import get_db, DeploymentLog
+from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/sse", tags=["sse"])
 
@@ -94,6 +95,29 @@ class LogSession:
 
         return self.event_counter
 
+    async def push_event(self, event_type: str, data: dict = None) -> int:
+        """Push a generic event with custom type (heartbeat, done, etc.).
+        
+        Unlike push_log(), this sends the event_type as the SSE 'type' field
+        rather than embedding it in the data.
+        """
+        self.event_counter += 1
+        event = {
+            "id": self.event_counter,
+            "type": event_type,
+            "data": data or {},
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        self.touch()
+
+        if self.state == SessionState.STREAMING:
+            await self.queue.put(event)
+        else:
+            if len(self.buffer) < self.MAX_BUFFER_SIZE:
+                self.buffer.append(event)
+
+        return self.event_counter
+
     def on_connect(self):
         """Client connected to SSE stream."""
         self.state = SessionState.STREAMING
@@ -156,9 +180,49 @@ async def _persist_logs_batch(session: LogSession, logs: List[dict], db: Session
     db.commit()
 
 
+
+async def _recover_stuck_twins():
+    """Recover twins stuck in deploying/destroying for >30 min with no active session."""
+    import logging
+    from src.models import get_db
+    from src.models.twin import DigitalTwin, TwinState
+
+    logger = logging.getLogger(__name__)
+    threshold = datetime.utcnow() - timedelta(minutes=30)
+
+    # Snapshot active twin IDs under lock
+    async with _sessions_lock:
+        active_twin_ids = {s.twin_id for s in _sessions.values()
+                          if s.state != SessionState.COMPLETED}
+
+    # Query stuck twins outside lock (avoids holding lock during DB I/O)
+    try:
+        db_gen = get_db()
+        db = next(db_gen)
+        stuck = db.query(DigitalTwin).filter(
+            DigitalTwin.state.in_([TwinState.DEPLOYING, TwinState.DESTROYING]),
+            DigitalTwin.updated_at < threshold,
+        ).all()
+
+        for twin in stuck:
+            if twin.id not in active_twin_ids:
+                logger.warning(
+                    f"Recovering stuck twin {twin.id} from {twin.state} → error"
+                )
+                twin.state = TwinState.ERROR
+                twin.last_error = "Operation timed out after 30 minutes (auto-recovered)"
+        db.commit()
+        db.close()
+    except Exception as e:
+        logger.warning(f"Failed to query stuck twins: {e}")
+
+
 async def _session_reaper():
     """Background task that cleans expired sessions every 10 seconds."""
     from src.models import get_db
+    import logging
+    _reaper_logger = logging.getLogger(__name__)
+    _stuck_check_counter = 0
     while True:
         await asyncio.sleep(10)
         async with _sessions_lock:
@@ -174,6 +238,15 @@ async def _session_reaper():
                         db.close()
                     except Exception:
                         pass  # Best effort
+
+        # Check for stuck deployments every ~5 minutes (30 iterations × 10s)
+        _stuck_check_counter += 1
+        if _stuck_check_counter >= 30:
+            _stuck_check_counter = 0
+            try:
+                await _recover_stuck_twins()
+            except Exception as e:
+                _reaper_logger.warning(f"Stuck twin recovery failed: {e}")
 
 
 def start_reaper():
@@ -215,37 +288,29 @@ async def get_active_sessions_for_twin(twin_id: str) -> List[LogSession]:
 
 
 # =============================================================================
-# Legacy API (for backward compatibility with existing code)
-# =============================================================================
-
-def get_log_queue(session_id: str) -> asyncio.Queue:
-    """Get or create a log queue for a session (legacy API)."""
-    if session_id not in _sessions:
-        # Create a minimal session for legacy compatibility
-        session = LogSession("legacy", session_id, "deploy")
-        _sessions[session_id] = session
-    return _sessions[session_id].queue
-
-
-async def push_log(session_id: str, log: str):
-    """Push a log message to a session's queue (legacy API)."""
-    session = await get_session(session_id)
-    if session:
-        await session.push_log(log)
-
-
-async def push_complete(session_id: str, status: str, message: str, outputs: dict = None):
-    """Push completion message to a session's queue (legacy API)."""
-    session = await get_session(session_id)
-    if session:
-        session.on_complete(success=(status != "error"), message=message, outputs=outputs)
-
-
-# =============================================================================
 # SSE Endpoint
 # =============================================================================
 
-@router.get("/deploy/{session_id}")
+@router.get(
+    "/deploy/{session_id}",
+    operation_id="streamDeploymentLogs",
+    summary="SSE endpoint for real-time deployment log streaming",
+    description=(
+        "**Purpose:** Stream real-time deployment/destroy logs via Server-Sent Events.\\n\\n"
+        "**When to call:** After POST to /deploy or /destroy returns session_id.\\n\\n"
+        "**Connection:** Open as EventSource in browser/HTTP client.\\n\\n"
+        "**SSE event types:**\\n"
+        "- `log`: Line of output {id, data, level, timestamp}\\n"
+        "- `heartbeat`: Keep-alive (via SSE comment)\\n"
+        "- `complete`: Success {status, message, outputs}\\n"
+        "- `error`: Failure {status, message}\\n\\n"
+        "**Reconnection:** Pass `last_event_id` query param to resume from event ID.\\n\\n"
+        "**Timeout:** Heartbeats sent every 30s to keep connection alive."
+    ),
+    responses={
+        404: ERROR_RESPONSES[404],
+    }
+)
 async def stream_deploy_logs(
     session_id: str,
     request: Request,
@@ -272,6 +337,15 @@ async def stream_deploy_logs(
 
     async def event_generator():
         try:
+            # If the operation already completed (e.g., user navigated away and
+            # the operation finished before they returned), replay the final event.
+            if session.state == SessionState.COMPLETED:
+                final_events = [e for e in session.logs if e.get("type") in ("complete", "error")]
+                if final_events:
+                    event = final_events[-1]
+                    yield f"id: {event['id']}\ndata: {json.dumps(event)}\n\n"
+                return
+
             # Mark session as streaming
             session.on_connect()
 
@@ -309,8 +383,11 @@ async def stream_deploy_logs(
             # Final persistence of any remaining logs
             if session.unpersisted_logs:
                 await _persist_logs_batch(session, session.get_unpersisted_and_clear(), db)
-            # Don't cleanup immediately - leave for reaper in case of reconnect
-            session.state = SessionState.COMPLETED
+            # If the operation is still running (no terminal event received),
+            # reset to PENDING so a reconnecting client can resume.
+            # If on_complete() was already called, state is already COMPLETED.
+            if session.state == SessionState.STREAMING:
+                session.state = SessionState.PENDING
 
     return StreamingResponse(
         event_generator(),

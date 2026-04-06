@@ -72,8 +72,8 @@ locals {
   gcp_functions_sa_display = "${var.digital_twin_name} Cloud Functions Service Account"
   gcp_functions_role_title = "${var.digital_twin_name} Functions Role"
 
-  # Function Source Bucket
-  gcp_function_source_bucket = "${local.gcp_project_id}-${var.digital_twin_name}-functions"
+  # Function Source Bucket (with suffix to avoid soft-delete conflicts)
+  gcp_function_source_bucket = "${local.gcp_project_id}-${var.digital_twin_name}-func-${local.deployment_suffix}"
 
   # L0 Glue
   gcp_l0_ingestion_name    = "${var.digital_twin_name}-ingestion"
@@ -85,7 +85,6 @@ locals {
   gcp_l1_telemetry_topic = "${var.digital_twin_name}-telemetry"
   gcp_l1_events_topic    = "${var.digital_twin_name}-events"
   gcp_l1_dispatcher_name = "${var.digital_twin_name}-dispatcher"
-  gcp_l1_mqtt_topic_path = "dt/${var.digital_twin_name}/telemetry"
   gcp_l1_registry_id     = "${var.digital_twin_name}-registry"
 
   # L2 Compute
@@ -101,8 +100,8 @@ locals {
   # L3 Storage
   gcp_l3_firestore_database = "${var.digital_twin_name}-${local.deployment_suffix}"
   gcp_l3_firestore_collection = "${var.digital_twin_name}-hot-data"
-  gcp_l3_cold_bucket         = "${local.gcp_project_id}-${var.digital_twin_name}-cold"
-  gcp_l3_archive_bucket      = "${local.gcp_project_id}-${var.digital_twin_name}-archive"
+  gcp_l3_cold_bucket         = "${local.gcp_project_id}-${var.digital_twin_name}-cold-${local.deployment_suffix}"
+  gcp_l3_archive_bucket      = "${local.gcp_project_id}-${var.digital_twin_name}-archive-${local.deployment_suffix}"
   gcp_l3_hot_reader_name     = "${var.digital_twin_name}-hot-reader"
   gcp_l3_hot_to_cold_mover   = "${var.digital_twin_name}-hot-to-cold-mover"
   gcp_l3_hot_to_cold_schedule = "${var.digital_twin_name}-hot-to-cold-schedule"
@@ -209,7 +208,7 @@ resource "google_project_service" "cloudbuild" {
 }
 
 resource "google_project_service" "cloudscheduler" {
-  count   = local.gcp_l3_hot_enabled ? 1 : 0
+  count   = local.gcp_l3_hot_enabled || local.gcp_l3_cold_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "cloudscheduler.googleapis.com"
   
@@ -273,6 +272,10 @@ resource "google_project_iam_custom_role" "functions_role" {
 
     # Cloud Run (Function invocation)
     "run.routes.invoke",
+    
+    # Cloud Workflows (Event workflow execution)
+    "workflows.executions.create",
+    "workflows.executions.get",
   ]
   
   depends_on = [google_project_service.iam]
@@ -298,6 +301,11 @@ resource "google_storage_bucket" "function_source" {
   force_destroy = true
   
   uniform_bucket_level_access = true
+  
+  # Disable soft-delete to allow immediate bucket name reuse
+  soft_delete_policy {
+    retention_duration_seconds = 0
+  }
   
   labels = local.gcp_common_labels
 }

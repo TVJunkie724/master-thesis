@@ -119,6 +119,23 @@ resource "aws_iam_role_policy" "l2_invoke_lambda" {
   })
 }
 
+# Step Functions invocation (Event-Checker → Workflow)
+resource "aws_iam_role_policy" "l2_step_functions" {
+  # Must match aws_sfn_state_machine.l2_event_workflow condition exactly
+  count = local.l2_aws_enabled && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
+  name  = "${var.digital_twin_name}-l2-sfn-invoke-policy"
+  role  = aws_iam_role.l2_lambda[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["states:StartExecution"]
+      Resource = aws_sfn_state_machine.l2_event_workflow[0].arn
+    }]
+  })
+}
+
 # ==============================================================================
 # Persister Lambda Function
 # ==============================================================================
@@ -194,7 +211,6 @@ resource "aws_lambda_function" "l2_event_checker" {
       USE_FEEDBACK                       = var.return_feedback_to_device ? "true" : "false"
       LAMBDA_CHAIN_STEP_FUNCTION_ARN     = var.trigger_notification_workflow && var.use_event_checking ? "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:stateMachine:${local.aws_l2_event_workflow_name}" : ""
       USE_STEP_FUNCTIONS                 = var.trigger_notification_workflow ? "true" : "false"
-      TWINMAKER_WORKSPACE_NAME           = var.layer_4_provider == "aws" ? local.aws_l4_twinmaker_workspace_id : ""
     }
   }
 
@@ -241,9 +257,10 @@ resource "aws_iam_role_policy" "l2_sfn_lambda" {
         Action = [
           "lambda:InvokeFunction"
         ]
-        Resource = [
-          aws_lambda_function.l2_event_checker[0].arn
-        ]
+        Resource = concat(
+          [aws_lambda_function.l2_event_checker[0].arn],
+          [for name, fn in aws_lambda_function.event_action : fn.arn]
+        )
       }
     ]
   })
@@ -325,12 +342,63 @@ resource "aws_lambda_function" "user_processor" {
 }
 
 # ==============================================================================
+# AWS Event Action Lambda Functions (Individual per action)
+# ==============================================================================
+
+resource "aws_lambda_function" "event_action" {
+  for_each = var.use_event_checking ? { for a in var.aws_event_actions : a.name => a } : {}
+  
+  function_name = format(local.aws_l2_event_action_name_pattern, each.value.name)
+  role          = aws_iam_role.l2_lambda[0].arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = local.python_runtime_aws
+  timeout       = 30
+  memory_size   = 256
+
+  filename         = each.value.zip_path
+  source_code_hash = filebase64sha256(each.value.zip_path)
+
+  environment {
+    variables = {
+      DIGITAL_TWIN_INFO = var.digital_twin_info_json
+    }
+  }
+
+  tags = local.aws_common_tags
+}
+
+# ==============================================================================
+# AWS Event Feedback Lambda (User-defined feedback logic)
+# ==============================================================================
+
+resource "aws_lambda_function" "event_feedback" {
+  count         = local.l2_aws_enabled && var.aws_event_feedback_enabled ? 1 : 0
+  function_name = local.aws_l2_event_feedback_name
+  role          = aws_iam_role.l2_lambda[0].arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = local.python_runtime_aws
+  timeout       = 30
+  memory_size   = 256
+
+  filename         = var.aws_event_feedback_zip_path
+  source_code_hash = filebase64sha256(var.aws_event_feedback_zip_path)
+
+  environment {
+    variables = {
+      DIGITAL_TWIN_INFO = var.digital_twin_info_json
+    }
+  }
+
+  tags = local.aws_common_tags
+}
+
+# ==============================================================================
 # AWS Event Feedback Wrapper Lambda (Calls user feedback and sends to IoT)
-# Only deployed if return_feedback_to_device is enabled
+# Only deployed if return_feedback_to_device is enabled AND user feedback exists
 # ==============================================================================
 
 resource "aws_lambda_function" "event_feedback_wrapper" {
-  count         = local.l2_aws_enabled && var.return_feedback_to_device ? 1 : 0
+  count         = local.l2_aws_enabled && var.return_feedback_to_device && var.aws_event_feedback_enabled ? 1 : 0
   function_name = local.aws_l2_feedback_wrapper_name
   role          = aws_iam_role.l2_lambda[0].arn
   handler       = "lambda_function.lambda_handler"
@@ -344,7 +412,7 @@ resource "aws_lambda_function" "event_feedback_wrapper" {
   environment {
     variables = {
       DIGITAL_TWIN_INFO          = var.digital_twin_info_json
-      EVENT_FEEDBACK_LAMBDA_NAME = local.aws_l2_event_feedback_name
+      EVENT_FEEDBACK_LAMBDA_NAME = var.aws_event_feedback_enabled ? local.aws_l2_event_feedback_name : ""
     }
   }
 

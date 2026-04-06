@@ -4,11 +4,11 @@ import sys
 
 config = {}
 
-def initialize_config(project_name=None):
+def initialize_config(project_name=None, device_id=None):
     global config
     
     # Determine config file path
-    # 1. Check for local config (standalone mode) in current directory or parent
+    # 1. Check for local config (standalone mode) in current directory
     # In standalone zip, config.json is at root, src/ is a subdir. So main.py is in src/.
     # executed as `python src/main.py` from root -> CWD is root.
     # config.json should be in CWD.
@@ -19,11 +19,25 @@ def initialize_config(project_name=None):
         config_path = os.path.abspath(local_config_path)
         print(f"Loading standalone config from: {config_path}")
     elif project_name:
-        # 2. Integrated mode: `upload/{project}/iot_device_simulator/aws/config_generated.json`
-        # We assume this script is running from the project root (3-cloud-deployer)
-        # Construct path relative to repo root
-        repo_root = os.getcwd() # Assumes running from repo root
-        config_path = os.path.join(repo_root, "upload", project_name, "iot_device_simulator", "aws", "config_generated.json")
+        # 2. Integrated mode: `upload/{project}/iot_device_simulator/aws/{device_id}/config_generated.json`
+        repo_root = os.getcwd()
+        aws_sim_dir = os.path.join(repo_root, "upload", project_name, "iot_device_simulator", "aws")
+        
+        if device_id:
+            # Device-specific config path
+            config_path = os.path.join(aws_sim_dir, device_id, "config_generated.json")
+        else:
+            # Fallback: find first device subdirectory
+            if os.path.exists(aws_sim_dir):
+                device_dirs = [d for d in os.listdir(aws_sim_dir) 
+                              if os.path.isdir(os.path.join(aws_sim_dir, d))]
+                if device_dirs:
+                    config_path = os.path.join(aws_sim_dir, device_dirs[0], "config_generated.json")
+                else:
+                    raise ValueError(f"No device configs found in {aws_sim_dir}")
+            else:
+                raise ValueError(f"Simulator directory not found: {aws_sim_dir}")
+        
         print(f"Loading project config from: {config_path}")
     else:
         raise ValueError("Configuration not found. Provide --project or run from a standalone package with config.json.")

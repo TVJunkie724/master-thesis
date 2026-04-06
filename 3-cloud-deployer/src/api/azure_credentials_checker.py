@@ -170,7 +170,7 @@ def _get_caller_identity(credential, subscription_id: str) -> dict:
     Returns:
         Dict with subscription info and principal identifiers
     """
-    from azure.mgmt.resource import SubscriptionClient
+    from azure.mgmt.subscription import SubscriptionClient
     from azure.core.exceptions import ClientAuthenticationError, HttpResponseError
     
     try:
@@ -180,7 +180,7 @@ def _get_caller_identity(credential, subscription_id: str) -> dict:
         return {
             "subscription_id": subscription.subscription_id,
             "subscription_name": subscription.display_name,
-            "tenant_id": subscription.tenant_id,
+            "tenant_id": getattr(credential, '_tenant_id', None),
             "state": subscription.state,
             "principal_type": "service_principal",  # Always SP for ClientSecretCredential
         }
@@ -358,7 +358,7 @@ def _validate_azure_regions(credential, subscription_id: str, regions: dict) -> 
     Returns:
         Dict with validation results per region key
     """
-    from azure.mgmt.resource import SubscriptionClient
+    from azure.mgmt.subscription import SubscriptionClient
     
     result = {}
     try:

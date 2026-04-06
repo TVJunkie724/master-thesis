@@ -473,6 +473,54 @@ def check_state_machine_presence(ctx: ValidationContext) -> None:
             )
 
 
+def check_event_action_types(ctx: ValidationContext) -> None:
+    """
+    Validate that workflow action types match the L2 provider.
+    
+    Rules:
+    - action.type: "step_function" → requires layer_2_provider: "aws"
+    - action.type: "logic_app" → requires layer_2_provider: "azure"
+    - action.type: "workflow" → requires layer_2_provider: "google"
+    - action.type: "lambda" or "function" → valid for any provider
+    """
+    l2_provider = ctx.prov_config.get("layer_2_provider", "").lower()
+    
+    action_to_provider = {
+        "step_function": "aws",
+        "logic_app": "azure",
+        "workflow": "google",
+    }
+    
+    for event in ctx.events_config:
+        action = event.get("action", {})
+        action_type = action.get("type")
+        
+        # Skip lambda/function - valid for all providers
+        if action_type in ("lambda", "function"):
+            continue
+        
+        # Check workflow action types
+        if action_type in action_to_provider:
+            required_provider = action_to_provider[action_type]
+            # Handle 'gcp' alias for 'google'
+            effective_l2 = "google" if l2_provider == "gcp" else l2_provider
+            
+            if effective_l2 != required_provider:
+                raise ValueError(
+                    f"Action type '{action_type}' requires layer_2_provider='{required_provider}', "
+                    f"but got '{l2_provider}'. "
+                    f"Either change the action type or the L2 provider."
+                )
+            
+            # Check triggerNotificationWorkflow is enabled
+            opt = ctx.opt_config.get("result", {}).get("inputParamsUsed", {})
+            if not opt.get("triggerNotificationWorkflow", False):
+                raise ValueError(
+                    f"Action type '{action_type}' requires triggerNotificationWorkflow=true "
+                    f"in config_optimization.json"
+                )
+
+
 def check_payloads_vs_devices(accessor: FileAccessor, ctx: ValidationContext) -> None:
     """Validate that iotDeviceId in payloads.json matches config_iot_devices.json.
     Returns all unknown device references, not just the first one."""
@@ -515,7 +563,9 @@ def check_credentials_per_provider(ctx: ValidationContext) -> None:
     configured_providers = set()
     for key, value in ctx.prov_config.items():
         if key.startswith("layer_") and value:
-            configured_providers.add(value.lower())
+            # Skip 'none' - it's a placeholder for disabled layers, not a real provider
+            if value.lower() != "none":
+                configured_providers.add(value.lower())
     
     # Normalize provider names for credentials lookup
     # config_providers.json uses "google" but config_credentials.json uses "gcp"
@@ -766,6 +816,7 @@ def run_all_checks(accessor: FileAccessor) -> None:
     check_state_machines(accessor, ctx)  # Already uses ctx.prov_config
     check_processor_syntax(accessor, ctx, l2_provider)
     check_event_actions(ctx)
+    check_event_action_types(ctx)  # Validate workflow action types match L2 provider
     check_feedback_function(ctx)
     check_processor_folders_match_devices(accessor, ctx, l2_provider)
     check_state_machine_presence(ctx)  # Already provider-aware
@@ -836,6 +887,7 @@ def run_all_checks_aggregated(
         (check_state_machines, (accessor, ctx)),
         (check_processor_syntax, (accessor, ctx, l2_provider)),
         (check_event_actions, (ctx,)),
+        (check_event_action_types, (ctx,)),  # Validate workflow action types match L2 provider
         (check_feedback_function, (ctx,)),
         (check_processor_folders_match_devices, (accessor, ctx, l2_provider)),
         (check_state_machine_presence, (ctx,)),

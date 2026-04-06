@@ -81,7 +81,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     def test_gcp_main_py_passes(self):
         """GCP: cloud_functions/processors/device-1/main.py passes."""
         valid_gcp_code = '''
-def process(request):
+def main(request):
     return "OK"
 '''
         accessor = MockAccessor({

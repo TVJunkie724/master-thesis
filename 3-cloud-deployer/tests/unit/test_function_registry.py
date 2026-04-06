@@ -29,9 +29,13 @@ class TestRegistryStructure:
                 assert provider in ["aws", "azure", "gcp"], f"Invalid provider: {provider}"
     
     def test_l0_functions_have_boundaries(self):
-        """All L0 glue functions should have boundary definitions."""
+        """All L0 glue functions (except adt-pusher) should have boundary definitions."""
         l0_funcs = get_by_layer(Layer.L0_GLUE)
         for f in l0_funcs:
+            if f.name == "adt-pusher":
+                # adt-pusher intentionally has no boundary - always deploys when target=azure
+                assert f.boundary is None
+                continue
             assert f.boundary is not None, f"L0 function {f.name} missing boundary"
             assert len(f.boundary) == 2, f"Boundary should be (source, target) tuple"
     
@@ -96,7 +100,7 @@ class TestL0GlueLogic:
             "layer_5_provider": "azure",
         }
         funcs = get_l0_for_config(config, "azure")
-        assert funcs == []
+        assert funcs == ["adt-pusher"]  # adt-pusher always included for azure (no boundary)
     
     def test_l0_ingestion_for_l1_l2_boundary(self):
         """Should include ingestion when L1 != L2 and L2 is target."""

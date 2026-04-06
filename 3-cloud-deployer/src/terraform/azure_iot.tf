@@ -140,12 +140,14 @@ resource "azurerm_linux_function_app" "l1" {
     # This tells the dispatcher whether to route to connector (cross-cloud) or processor (same-cloud)
     TARGET_FUNCTION_SUFFIX = local.target_function_suffix
 
-    # L2 Function App URL - required by dispatcher to call processor_wrapper
-    # Points to L2-functions app where processor_wrapper is deployed
-    FUNCTION_APP_BASE_URL = var.layer_2_provider == "azure" ? local.azure_l2_functions_url : ""
+    # L2 Function App URL - required by dispatcher to call processor_wrapper (single-cloud)
+    # or connector (multi-cloud). Connector is LOCAL to L1, so use L1 URL when multi-cloud.
+    # Points to L2-functions when single-cloud, L1-functions when multi-cloud.
+    FUNCTION_APP_BASE_URL = var.layer_2_provider == "azure" ? local.azure_l2_functions_url : local.azure_l1_functions_url
 
-    # L2 Function Key - required for Azure→Azure HTTP authentication
+    # L2 Function Key - required for Azure→Azure HTTP authentication (single-cloud only)
     # processor_wrapper has AuthLevel.FUNCTION so requires this key
+    # Multi-cloud connector uses AuthLevel.ANONYMOUS (see connector/function_app.py docstring)
     L2_FUNCTION_KEY = var.layer_2_provider == "azure" ? try(data.azurerm_function_app_host_keys.l2[0].default_function_key, "") : ""
 
     # Application Insights for logging

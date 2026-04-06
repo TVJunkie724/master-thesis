@@ -1,3 +1,11 @@
+# TODO(refactoring): This file is 1151 lines - candidate for refactoring.
+# Consider splitting by provider:
+# - aws_bundler.py - AWS Lambda packaging
+# - azure_bundler.py - Azure Function packaging (already partially extracted)
+# - gcp_bundler.py - GCP Cloud Function packaging
+# - user_bundler.py - User function packaging (processors, event_actions)
+# See: monolith_reduction_patterns KI for patterns.
+
 """
 Function Package Builder for Terraform Deployment.
 
@@ -206,12 +214,17 @@ def build_azure_l0_bundle(project_path: Path, providers_config: dict) -> Optiona
 
 
 
-def build_azure_l1_bundle(project_path: Path) -> Optional[Path]:
+def build_azure_l1_bundle(project_path: Path, providers_config: dict = None) -> Optional[Path]:
     """Build L1 Dispatcher functions ZIP. Returns path or None.
     
     Uses content-hash-based filename to force Azure redeployment when content changes.
+    
+    Args:
+        project_path: Path to project directory
+        providers_config: Optional provider config for conditional function inclusion.
+                         If L1 and L2 use same provider, connector is excluded.
     """
-    zip_bytes = _azure_bundle_l1(str(project_path))
+    zip_bytes = _azure_bundle_l1(str(project_path), providers_config)
     if not zip_bytes:
         return None
     build_dir = project_path / ".terraform_zips"
@@ -906,11 +919,23 @@ def build_user_packages(
     logger.info(f"Building user packages for provider: {l2_provider}")
     
     # 1. Build Event Action packages
+    # Note: Workflow actions (step_function, logic_app, workflow) trigger managed services
+    # and don't have user function code to build - only lambda/function actions do
+    WORKFLOW_ACTION_TYPES = {"step_function", "logic_app", "workflow"}
+    
     for event in events_config:
         if "action" not in event:
             raise ValueError("Event config entry missing required 'action' field")
         
         action = event["action"]
+        action_type = action.get("type", "")
+        
+        # Skip workflow actions - they trigger managed services, no user code to build
+        if action_type in WORKFLOW_ACTION_TYPES:
+            logger.info(f"  → Skipping {action_type} action (no user code to build)")
+            continue
+        
+        # For lambda/function actions, require functionName
         if "functionName" not in action:
             raise ValueError("Event action missing required 'functionName' field")
         

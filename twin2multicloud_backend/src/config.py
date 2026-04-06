@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     MAX_GLB_SIZE_MB: int = 100
     
+    # Seed Data (development only)
+    SEED_DATA: bool = False
+    SEED_CREDENTIALS_FILE: str = "/config/config_credentials.json"
+    SEED_GCP_CREDENTIALS_FILE: str = "/config/gcp_credentials.json"
+    
     class Config:
         env_file = ".env"
         extra = "ignore"

@@ -4,7 +4,11 @@
 \usepackage{color}
 
 \graphicspath{{figures/}}
+\usepackage{tikz}
+\usetikzlibrary{automata, positioning, arrows.meta, calc, fit, backgrounds, decorations.pathreplacing, decorations.pathmorphing}
 \usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
 \usepackage{selinput}
 \SelectInputMappings{
 	adieresis={ä},
@@ -38,6 +42,16 @@
 % Custom hyphenation
 \hyphenation{Mi-cro-soft}
 
+% --- Overfull hbox prevention ---
+% microtype: character protrusion + font expansion (most effective single fix)
+\usepackage{microtype}
+% Allow slightly more inter-word stretch before declaring overfull
+\emergencystretch=1em
+% Allow hyphenation inside \texttt{} (monospace words normally can't break)
+\newcommand{\origtt}{}
+\let\origtt\texttt
+\renewcommand{\texttt}[1]{\origtt{\hyphenchar\font=`\-\relax #1}}
+
 % *** DOCUMENT INFO ***
 \title{TITLE}
 \author{Caroline Steinacker}
@@ -55,23 +69,26 @@
 	\abstract{\input{chapters/abstract}}
 	
 	\tableofcontents
-	% \listoffigures
-	% \listoftables
 	% \printglossary[type=\acronymtype,title=Acronyms]
 	
 	% === CHAPTERS ===
 	\include{chapters/introduction}
 	\include{chapters/background}
 	\include{chapters/relatedWork}
+	\include{chapters/legacyAnalysis}
 	\include{chapters/systemArchitecture}
-	\include{chapters/implementation}
+	% \include{chapters/implementation} % REMOVED: content merged into legacyAnalysis (refactoring) and systemArchitecture (tech stack)
 	\include{chapters/evaluation}
 	\include{chapters/discussion}
 	\include{chapters/conclusion}
 
 	% === BIBLIOGRAPHY ===
-	% \bibliographystyle{plain}
-	% \bibliography{bibliography/biblio}
+	\bibliographystyle{plain}
+	\bibliography{bibliography/biblio}
+
+	% === LISTS ===
+	\listoffigures
+	\listoftables
 
 	% === APPENDIX ===
 	% \include{chapters/appendix}

@@ -433,8 +433,8 @@ def _generate_aws_simulator_config(
         "payload_path": "payloads.json"
     }
     
-    # Write to upload/{project}/iot_device_simulator/aws/
-    sim_dir = project_path / "iot_device_simulator" / "aws"
+    # Write to upload/{project}/iot_device_simulator/aws/{device_id}/
+    sim_dir = project_path / "iot_device_simulator" / "aws" / device_id
     sim_dir.mkdir(parents=True, exist_ok=True)
     config_path = sim_dir / "config_generated.json"
     

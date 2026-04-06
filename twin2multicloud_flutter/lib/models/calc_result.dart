@@ -1,8 +1,11 @@
 /// Calculation result from Optimizer API.
-/// 
+///
 /// Contains cost breakdown for all providers, cheapest path,
 /// optimization overrides, and comparison tables.
 class CalcResult {
+  /// Total monthly cost (computed by backend engine, includes layer costs + transfer costs)
+  final double totalCost;
+
   /// AWS cost breakdown by layer
   final ProviderCosts awsCosts;
 
@@ -30,11 +33,12 @@ class CalcResult {
 
   /// Cross-cloud transfer costs (key -> cost)
   final Map<String, double>? transferCosts;
-  
+
   /// Input params used for the calculation (for invalidation detection)
   final InputParamsUsed inputParamsUsed;
 
   CalcResult({
+    required this.totalCost,
     required this.awsCosts,
     required this.azureCosts,
     required this.gcpCosts,
@@ -63,7 +67,9 @@ class CalcResult {
       // Direct format - the json IS the result
       result = json;
     } else {
-      throw FormatException('Invalid CalcResult format: missing result or awsCosts key. Keys: ${json.keys}');
+      throw FormatException(
+        'Invalid CalcResult format: missing result or awsCosts key. Keys: ${json.keys}',
+      );
     }
 
     Map<String, double>? parseTransferCosts(dynamic data) {
@@ -78,9 +84,16 @@ class CalcResult {
     }
 
     return CalcResult(
-      awsCosts: ProviderCosts.fromJson(result['awsCosts'] as Map<String, dynamic>),
-      azureCosts: ProviderCosts.fromJson(result['azureCosts'] as Map<String, dynamic>),
-      gcpCosts: ProviderCosts.fromJson(result['gcpCosts'] as Map<String, dynamic>? ?? {}),
+      totalCost: (result['totalCost'] as num?)?.toDouble() ?? 0,
+      awsCosts: ProviderCosts.fromJson(
+        result['awsCosts'] as Map<String, dynamic>,
+      ),
+      azureCosts: ProviderCosts.fromJson(
+        result['azureCosts'] as Map<String, dynamic>,
+      ),
+      gcpCosts: ProviderCosts.fromJson(
+        result['gcpCosts'] as Map<String, dynamic>? ?? {},
+      ),
       cheapestPath: List<String>.from(result['cheapestPath'] ?? []),
       l1OptimizationOverride: result['l1OptimizationOverride'] != null
           ? OptimizationOverride.fromJson(result['l1OptimizationOverride'])
@@ -94,8 +107,11 @@ class CalcResult {
       l2CoolOptimizationOverride: result['l2CoolOptimizationOverride'] != null
           ? OptimizationOverride.fromJson(result['l2CoolOptimizationOverride'])
           : null,
-      l2ArchiveOptimizationOverride: result['l2ArchiveOptimizationOverride'] != null
-          ? OptimizationOverride.fromJson(result['l2ArchiveOptimizationOverride'])
+      l2ArchiveOptimizationOverride:
+          result['l2ArchiveOptimizationOverride'] != null
+          ? OptimizationOverride.fromJson(
+              result['l2ArchiveOptimizationOverride'],
+            )
           : null,
       l4OptimizationOverride: result['l4OptimizationOverride'] != null
           ? OptimizationOverride.fromJson(result['l4OptimizationOverride'])
@@ -114,42 +130,6 @@ class CalcResult {
         result['inputParamsUsed'] as Map<String, dynamic>? ?? {},
       ),
     );
-  }
-
-  /// Calculate total cost from selected providers in cheapest path
-  double get totalCost {
-    double total = 0;
-    // Parse cheapest path and sum costs
-    for (final segment in cheapestPath) {
-      final parts = segment.split('_');
-      if (parts.length >= 2) {
-        final layer = parts[0];
-        final provider = parts[1].toLowerCase();
-        
-        final ProviderCosts costs;
-        if (provider == 'aws') {
-          costs = awsCosts;
-        } else if (provider == 'azure') {
-          costs = azureCosts;
-        } else {
-          costs = gcpCosts;
-        }
-        
-        final LayerCost? layerCost = costs.getLayer(layer);
-        if (layerCost != null) {
-          total += layerCost.cost;
-        }
-      }
-    }
-    
-    // Add transfer costs if any
-    if (transferCosts != null) {
-      for (final cost in transferCosts!.values) {
-        total += cost;
-      }
-    }
-    
-    return total;
   }
 }
 
@@ -178,34 +158,15 @@ class ProviderCosts {
       l1: json['L1'] != null ? LayerCost.fromJson(json['L1']) : null,
       l2: json['L2'] != null ? LayerCost.fromJson(json['L2']) : null,
       l3Hot: json['L3_hot'] != null ? LayerCost.fromJson(json['L3_hot']) : null,
-      l3Cool: json['L3_cool'] != null ? LayerCost.fromJson(json['L3_cool']) : null,
-      l3Archive: json['L3_archive'] != null ? LayerCost.fromJson(json['L3_archive']) : null,
+      l3Cool: json['L3_cool'] != null
+          ? LayerCost.fromJson(json['L3_cool'])
+          : null,
+      l3Archive: json['L3_archive'] != null
+          ? LayerCost.fromJson(json['L3_archive'])
+          : null,
       l4: json['L4'] != null ? LayerCost.fromJson(json['L4']) : null,
       l5: json['L5'] != null ? LayerCost.fromJson(json['L5']) : null,
     );
-  }
-
-  /// Get layer cost by key (L1, L2, L3, etc.)
-  LayerCost? getLayer(String key) {
-    switch (key.toUpperCase()) {
-      case 'L1':
-        return l1;
-      case 'L2':
-        return l2;
-      case 'L3':
-      case 'L3_HOT':
-        return l3Hot;
-      case 'L3_COOL':
-        return l3Cool;
-      case 'L3_ARCHIVE':
-        return l3Archive;
-      case 'L4':
-        return l4;
-      case 'L5':
-        return l5;
-      default:
-        return null;
-    }
   }
 }
 
@@ -220,16 +181,12 @@ class LayerCost {
   /// Data size in GB (optional, for storage layers)
   final double? dataSizeInGB;
 
-  LayerCost({
-    required this.cost,
-    required this.components,
-    this.dataSizeInGB,
-  });
+  LayerCost({required this.cost, required this.components, this.dataSizeInGB});
 
   factory LayerCost.fromJson(Map<String, dynamic> json) {
     final componentsRaw = json['components'] as Map<String, dynamic>? ?? {};
     final components = <String, double>{};
-    
+
     componentsRaw.forEach((key, value) {
       if (value is num) {
         components[key] = value.toDouble();
@@ -293,7 +250,8 @@ class InputParamsUsed {
   factory InputParamsUsed.fromJson(Map<String, dynamic> json) {
     return InputParamsUsed(
       useEventChecking: json['useEventChecking'] as bool? ?? false,
-      triggerNotificationWorkflow: json['triggerNotificationWorkflow'] as bool? ?? false,
+      triggerNotificationWorkflow:
+          json['triggerNotificationWorkflow'] as bool? ?? false,
       returnFeedbackToDevice: json['returnFeedbackToDevice'] as bool? ?? false,
       integrateErrorHandling: json['integrateErrorHandling'] as bool? ?? false,
       needs3DModel: json['needs3DModel'] as bool? ?? false,

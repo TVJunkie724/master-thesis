@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'package:twin2multicloud_flutter/theme/colors.dart';
+import 'package:twin2multicloud_flutter/widgets/terraform_output_labels.dart';
 
 /// Card that displays terraform outputs from a successful deployment.
 ///
@@ -28,10 +29,34 @@ class TerraformOutputsCard extends StatefulWidget {
 }
 
 class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
-  bool _isExpanded = true;
-
   // Track which groups are expanded (first group expanded by default)
   final Map<String, bool> _expandedGroups = {};
+
+  // Toggle for showing/hiding sensitive values
+  bool _showSensitive = false;
+
+  // Patterns that indicate sensitive output keys
+  static const sensitivePatterns = [
+    'connection_string',
+    'primary_key',
+    'secondary_key',
+    'access_key',
+    'secret',
+    'password',
+    'token',
+    'certificate',
+    'private',
+  ];
+
+  bool _isSensitiveKey(String key) {
+    final keyLower = key.toLowerCase();
+    return sensitivePatterns.any((p) => keyLower.contains(p));
+  }
+
+  String _maskValue(String value) {
+    if (value.length <= 8) return '••••••••';
+    return '${value.substring(0, 4)}••••${value.substring(value.length - 4)}';
+  }
 
   /// Group outputs by provider prefix
   Map<String, Map<String, dynamic>> _groupOutputs() {
@@ -126,131 +151,150 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
-          InkWell(
-            onTap: () => setState(() => _isExpanded = !_isExpanded),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.terminal,
-                    color: theme.colorScheme.primary,
-                    size: 20,
+          // Header (not collapsible - always visible)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.terminal,
+                  color: theme.colorScheme.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Terraform Outputs',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Terraform Outputs',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (widget.deployedAt != null) ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      '• ${_formatRelativeTime(widget.deployedAt)}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                  const Spacer(),
-                  // Copy All JSON button
-                  TextButton.icon(
-                    onPressed: _copyAllOutputs,
-                    icon: const Icon(Icons.copy_all, size: 16),
-                    label: const Text('Copy All'),
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
+                ),
+                if (widget.deployedAt != null) ...[
                   const SizedBox(width: 8),
-                  Icon(
-                    _isExpanded ? Icons.expand_less : Icons.expand_more,
-                    color: theme.colorScheme.onSurfaceVariant,
+                  Text(
+                    '• ${_formatRelativeTime(widget.deployedAt)}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
-              ),
+                const Spacer(),
+                // Show/Hide sensitive toggle
+                TextButton.icon(
+                  onPressed: () =>
+                      setState(() => _showSensitive = !_showSensitive),
+                  icon: Icon(
+                    _showSensitive ? Icons.visibility_off : Icons.visibility,
+                    size: 16,
+                  ),
+                  label: Text(_showSensitive ? 'Hide' : 'Show'),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Copy All JSON button
+                TextButton.icon(
+                  onPressed: _copyAllOutputs,
+                  icon: const Icon(Icons.copy_all, size: 16),
+                  label: const Text('Copy All'),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
             ),
           ),
 
-          // Content (collapsible)
-          if (_isExpanded) ...[
-            const Divider(height: 1),
-            // Provider groups
-            ...groups.entries.map((groupEntry) {
-              final provider = groupEntry.key;
-              final outputs = groupEntry.value;
-              final isGroupExpanded = _expandedGroups[provider] ?? false;
+          // Content (provider groups - always visible, but individual groups are collapsible)
+          const Divider(height: 1),
+          // Provider groups
+          ...groups.entries.map((groupEntry) {
+            final provider = groupEntry.key;
+            final outputs = groupEntry.value;
+            final isGroupExpanded = _expandedGroups[provider] ?? false;
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Group header
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        _expandedGroups[provider] = !isGroupExpanded;
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      color: theme.colorScheme.surfaceContainerHighest
-                          .withOpacity(0.3),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isGroupExpanded
-                                ? Icons.keyboard_arrow_down
-                                : Icons.keyboard_arrow_right,
-                            size: 20,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            _getProviderIcon(provider),
-                            size: 18,
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Group header
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _expandedGroups[provider] = !isGroupExpanded;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.3,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isGroupExpanded
+                              ? Icons.keyboard_arrow_down
+                              : Icons.keyboard_arrow_right,
+                          size: 20,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          _getProviderIcon(provider),
+                          size: 18,
+                          color: _getProviderColor(provider, theme),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          provider,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
                             color: _getProviderColor(provider, theme),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            provider,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: _getProviderColor(provider, theme),
-                            ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '(${outputs.length})',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '(${outputs.length})',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                  // Group content (compact table)
-                  if (isGroupExpanded) _buildCompactTable(outputs, theme),
-                ],
-              );
-            }),
-          ],
+                ),
+                // Group content (compact table)
+                if (isGroupExpanded) _buildCompactTable(outputs, theme),
+              ],
+            );
+          }),
         ],
       ),
     );
   }
 
   Widget _buildCompactTable(Map<String, dynamic> outputs, ThemeData theme) {
+    // Sort entries by their position in outputLabels (defines UI category order).
+    // Keys not in the map go to the end.
+    final labelKeys = outputLabels.keys.toList();
+    final sortedEntries = outputs.entries.toList()
+      ..sort((a, b) {
+        final ai = labelKeys.indexOf(a.key);
+        final bi = labelKeys.indexOf(b.key);
+        // Unknown keys (-1) go to end
+        final aIdx = ai == -1 ? labelKeys.length : ai;
+        final bIdx = bi == -1 ? labelKeys.length : bi;
+        return aIdx.compareTo(bIdx);
+      });
+
     return Container(
       color: theme.colorScheme.surface,
       child: Column(
-        children: outputs.entries.map((entry) {
+        children: sortedEntries.map((entry) {
           final value = entry.value?.toString() ?? '';
+          final label = getOutputLabel(entry.key);
 
           return InkWell(
             onTap: () => _copyToClipboard(value, keyName: entry.key),
@@ -259,7 +303,7 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
-                    color: theme.dividerColor.withOpacity(0.3),
+                    color: theme.dividerColor.withValues(alpha: 0.3),
                     width: 0.5,
                   ),
                 ),
@@ -267,29 +311,71 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Key (narrower than before)
+                  // Label (human-readable, first column)
                   SizedBox(
-                    width: 180,
+                    width: 160,
+                    child: Text(
+                      label,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.85,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Key (monospace, subtle, second column)
+                  SizedBox(
+                    width: 160,
                     child: Text(
                       entry.key,
                       style: theme.textTheme.bodySmall?.copyWith(
                         fontFamily: 'monospace',
-                        fontWeight: FontWeight.w500,
-                        color: theme.colorScheme.onSurface.withOpacity(0.8),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.4,
+                        ),
                       ),
                     ),
                   ),
-                  // Value (truncated)
+                  // Value (wraps, multiline, masked if sensitive)
                   Expanded(
-                    child: Text(
-                      value.length > 50
-                          ? '${value.substring(0, 50)}...'
-                          : value,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
-                        color: theme.colorScheme.onSurface.withOpacity(0.7),
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                    child: Builder(
+                      builder: (context) {
+                        final isSensitive = _isSensitiveKey(entry.key);
+                        final displayValue = (isSensitive && !_showSensitive)
+                            ? _maskValue(value)
+                            : value;
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (isSensitive && !_showSensitive)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 4),
+                                child: Icon(
+                                  Icons.lock_outline,
+                                  size: 12,
+                                  color: theme.colorScheme.tertiary.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                ),
+                              ),
+                            Expanded(
+                              child: Text(
+                                displayValue,
+                                softWrap: true,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontFamily: 'monospace',
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: isSensitive && !_showSensitive
+                                        ? 0.5
+                                        : 0.7,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                   // Copy icon (subtle)
@@ -297,7 +383,7 @@ class _TerraformOutputsCardState extends State<TerraformOutputsCard> {
                   Icon(
                     Icons.copy_outlined,
                     size: 12,
-                    color: theme.colorScheme.onSurface.withOpacity(0.3),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                   ),
                 ],
               ),

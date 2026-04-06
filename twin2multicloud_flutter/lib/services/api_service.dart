@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import '../core/result.dart';
@@ -437,41 +439,6 @@ class ApiService {
     return response.data as Map<String, dynamic>;
   }
 
-  // ==========================================================================
-  // Test Deployment (UI Testing Only)
-  // ==========================================================================
-
-  /// Test deployment for UI testing - requires ENABLE_TEST_ENDPOINTS=true on backend
-  ///
-  /// Simulates a realistic deployment with terraform-style console logs.
-  /// No real cloud resources are created.
-  /// Now returns {session_id, sse_url} for streaming.
-  Future<Map<String, dynamic>> testDeployTwin(
-    String twinId, {
-    int duration = 30,
-    bool shouldFail = false,
-  }) async {
-    final response = await _dio.post(
-      '/twins/$twinId/test-deploy',
-      queryParameters: {'duration': duration, 'should_fail': shouldFail},
-    );
-    return response.data as Map<String, dynamic>;
-  }
-
-  /// Test destroy for UI testing - requires ENABLE_TEST_ENDPOINTS=true on backend
-  /// Now returns {session_id, sse_url} for streaming.
-  Future<Map<String, dynamic>> testDestroyTwin(
-    String twinId, {
-    int duration = 20,
-    bool shouldFail = false,
-  }) async {
-    final response = await _dio.post(
-      '/twins/$twinId/test-destroy',
-      queryParameters: {'duration': duration, 'should_fail': shouldFail},
-    );
-    return response.data as Map<String, dynamic>;
-  }
-
   /// Get terraform outputs from most recent successful deployment
   /// Returns {outputs: Map?, deployed_at: String?}
   Future<Map<String, dynamic>> getDeploymentOutputs(String twinId) async {
@@ -508,5 +475,61 @@ class ApiService {
       queryParameters: queryParams,
     );
     return response.data as Map<String, dynamic>;
+  }
+
+  // ==========================================================================
+  // Log Trace (Live Log Tracing)
+  // ==========================================================================
+
+  /// Start a log trace test for a deployed twin
+  ///
+  /// Sends a test IoT message with a unique trace_id and returns
+  /// the trace_id for SSE streaming.
+  ///
+  /// Returns {trace_id, sent_at, l1_provider, providers, message}
+  Future<Map<String, dynamic>> startLogTrace(String twinId) async {
+    final response = await _dio.post('/twins/$twinId/log-trace/start');
+    return response.data as Map<String, dynamic>;
+  }
+
+  // ==========================================================================
+  // Deployment Verification
+  // ==========================================================================
+
+  /// Run structured infrastructure verification (L0-L5 checks)
+  /// Returns {checks: List, summary: {pass_count, fail_count, skip_count, total, healthy}}
+  Future<Map<String, dynamic>> verifyInfrastructure(String twinId) async {
+    final response = await _dio.post(
+      '/twins/$twinId/verify/infrastructure',
+      options: Options(receiveTimeout: const Duration(seconds: 60)),
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Start data flow verification with SSE streaming.
+  /// Returns {session_id, sse_url} for connecting to SSE.
+  Future<Map<String, dynamic>> verifyDataFlow(
+    String twinId,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/verify/dataflow',
+      data: {'payload': payload},
+      options: Options(receiveTimeout: const Duration(seconds: 30)),
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Download IoT simulator package (L1 provider determined by backend).
+  /// Returns binary ZIP data.
+  Future<Uint8List> downloadSimulator(String twinId) async {
+    final response = await _dio.get(
+      '/twins/$twinId/simulator/download',
+      options: Options(
+        responseType: ResponseType.bytes,
+        receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+    return response.data as Uint8List;
   }
 }

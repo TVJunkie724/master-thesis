@@ -269,6 +269,39 @@ class TerraformDeployerStrategy:
         logger.info("  TERRAFORM DESTROY - STARTING")
         logger.info("=" * 60)
         
+        # Load credentials for pre-destroy and SDK fallback cleanup
+        if context and not context.credentials:
+            try:
+                context.credentials = self._load_credentials()
+            except Exception as e:
+                logger.warning(f"Could not load credentials: {e}")
+        
+        # Pre-destroy: Clean orphaned diagnostic settings while parent resources still exist
+        # This prevents 409 Conflict errors during Terraform destroy
+        if context:
+            try:
+                azure_creds = context.credentials.get("azure", {})
+                if azure_creds:
+                    from src.providers.azure.diagnostic_settings_helper import DiagnosticSettingsHelper
+                    from azure.identity import ClientSecretCredential
+                    credential = ClientSecretCredential(
+                        tenant_id=azure_creds["azure_tenant_id"],
+                        client_id=azure_creds["azure_client_id"],
+                        client_secret=azure_creds["azure_client_secret"]
+                    )
+                    helper = DiagnosticSettingsHelper(credential, azure_creds["azure_subscription_id"])
+                    logger.info("[Pre-Destroy] Cleaning orphaned diagnostic settings...")
+                    helper.cleanup_orphaned_by_prefix(context.project_name, dry_run=dry_run)
+            except Exception as e:
+                logger.warning(f"[Pre-Destroy] Diagnostic settings cleanup failed: {e}")
+        
+        # Pre-destroy: Clean TwinMaker SDK-created entities that block workspace deletion
+        if context:
+            try:
+                self._pre_destroy_twinmaker_entities(context, dry_run)
+            except Exception as e:
+                logger.warning(f"[Pre-Destroy] TwinMaker cleanup failed: {e}")
+        
         if dry_run:
             logger.info("[DRY RUN] Would run terraform destroy")
             result.terraform_success = True
@@ -455,23 +488,39 @@ class TerraformDeployerStrategy:
         yield "  TERRAFORM DESTROY - STARTING"
         yield "=" * 60
         
+        # Load credentials early (needed for pre-destroy and SDK cleanup)
+        if context and not context.credentials:
+            try:
+                context.credentials = self._load_credentials()
+            except Exception as e:
+                yield f"  ⚠ Could not load credentials: {e}"
+        
         # Generate tfvars if needed
         if not self.tfvars_path.exists():
             yield "tfvars.json not found, generating..."
             self._generate_tfvars()
         
         # Terraform init (async)
-        yield "\n[STEP 1/3] Terraform init..."
+        yield "\n[STEP 1/4] Terraform init..."
         async for line in self.runner.init_async():
             yield line
         
+        # Pre-destroy: Clean SDK-created resources that block terraform destroy
+        yield "\n[STEP 2/4] Pre-destroy cleanup..."
+        if context and context.credentials:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, lambda: self._pre_destroy_cleanup(context))
+            yield "✓ Pre-destroy cleanup complete"
+        else:
+            yield "  No credentials, skipping"
+        
         # Terraform destroy (async streaming)
-        yield "\n[STEP 2/3] Terraform destroy..."
+        yield "\n[STEP 3/4] Terraform destroy..."
         async for line in self.runner.destroy_async(str(self.tfvars_path)):
             yield line
         
         # SDK fallback cleanup (sync, uses executor)
-        yield "\n[STEP 3/3] SDK fallback cleanup..."
+        yield "\n[STEP 4/4] SDK fallback cleanup..."
         if context:
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(
@@ -613,6 +662,9 @@ class TerraformDeployerStrategy:
         providers = self._load_providers_config()
         credentials = self._load_credentials()
         
+        # Store credentials on context for SDK fallback cleanup
+        context.credentials = credentials
+        
         # Determine which clouds need SDK operations
         sdk_layers = ["layer_1_provider", "layer_2_provider", "layer_4_provider", "layer_5_provider"]
         used_clouds = set()
@@ -704,6 +756,145 @@ class TerraformDeployerStrategy:
         
         if providers["layer_5_provider"] == "aws":
             configure_aws_grafana(context, self._terraform_outputs)
+    
+    # =========================================================================
+    # Pre-Destroy Cleanup Methods
+    # =========================================================================
+    
+    def _pre_destroy_cleanup(self, context: 'DeploymentContext') -> None:
+        """Clean SDK-created resources that block terraform destroy.
+        
+        Called before terraform destroy in the async flow.
+        Each cleanup is independently wrapped in try/except so one failure
+        does not prevent the others from running.
+        """
+        # TwinMaker entities + component types (block workspace deletion)
+        try:
+            self._pre_destroy_twinmaker_entities(context, dry_run=False)
+        except Exception as e:
+            logger.warning(f"[Pre-Destroy] TwinMaker cleanup failed: {e}")
+        
+        # Azure diagnostic settings (block resource deletion)
+        try:
+            azure_creds = context.credentials.get("azure", {})
+            if azure_creds:
+                from src.providers.azure.diagnostic_settings_helper import DiagnosticSettingsHelper
+                from azure.identity import ClientSecretCredential
+                credential = ClientSecretCredential(
+                    tenant_id=azure_creds["azure_tenant_id"],
+                    client_id=azure_creds["azure_client_id"],
+                    client_secret=azure_creds["azure_client_secret"]
+                )
+                helper = DiagnosticSettingsHelper(credential, azure_creds["azure_subscription_id"])
+                logger.info("[Pre-Destroy] Cleaning orphaned diagnostic settings...")
+                helper.cleanup_orphaned_by_prefix(context.project_name)
+        except Exception as e:
+            logger.warning(f"[Pre-Destroy] Diagnostic settings cleanup failed: {e}")
+    
+    def _pre_destroy_twinmaker_entities(self, context: 'DeploymentContext', dry_run: bool = False) -> None:
+        """Delete TwinMaker entities and component types before terraform destroy.
+        
+        The TwinMaker workspace and scenes are managed by Terraform, but entities
+        and component types are created via SDK (aws_deployer.py). AWS refuses to
+        delete a workspace that still contains entities, so we must clean them first.
+        
+        Ported from cleanup.py L67-116 (entities + component types only,
+        NOT workspace or scenes which Terraform manages).
+        """
+        import time
+        
+        providers_config = self._load_providers_config()
+        if not self._uses_provider(providers_config, "aws"):
+            return
+        
+        aws_creds = context.credentials.get("aws", {})
+        if not aws_creds or not aws_creds.get("aws_access_key_id"):
+            return
+        
+        try:
+            import boto3
+        except ImportError:
+            logger.warning("[Pre-Destroy] boto3 not available, skipping TwinMaker cleanup")
+            return
+        
+        region = aws_creds.get("aws_region", "eu-central-1")
+        session = boto3.Session(
+            aws_access_key_id=aws_creds["aws_access_key_id"],
+            aws_secret_access_key=aws_creds["aws_secret_access_key"],
+            region_name=region
+        )
+        twinmaker = session.client('iottwinmaker')
+        prefix = context.project_name
+        
+        logger.info(f"[Pre-Destroy] TwinMaker: Checking for entities in workspaces matching '{prefix}'...")
+        
+        try:
+            workspaces = twinmaker.list_workspaces()['workspaceSummaries']
+        except Exception as e:
+            logger.warning(f"[Pre-Destroy] TwinMaker: Could not list workspaces: {e}")
+            return
+        
+        for ws in workspaces:
+            if prefix not in ws['workspaceId']:
+                continue
+            
+            workspace_id = ws['workspaceId']
+            logger.info(f"[Pre-Destroy] TwinMaker: Cleaning workspace {workspace_id}")
+            
+            if dry_run:
+                logger.info(f"  [DRY RUN] Would delete entities and component types")
+                continue
+            
+            try:
+                # Delete entities (async operation in AWS)
+                entities = twinmaker.list_entities(workspaceId=workspace_id).get('entitySummaries', [])
+                if entities:
+                    for entity in entities:
+                        twinmaker.delete_entity(
+                            workspaceId=workspace_id,
+                            entityId=entity['entityId'],
+                            isRecursive=True
+                        )
+                    logger.info(f"  Requested deletion of {len(entities)} entities")
+                    
+                    # Wait for entities to be fully deleted (up to 60s)
+                    start_time = time.time()
+                    max_wait = 60
+                    while time.time() - start_time < max_wait:
+                        remaining = twinmaker.list_entities(workspaceId=workspace_id).get('entitySummaries', [])
+                        if not remaining:
+                            break
+                        remaining_time = int(max_wait - (time.time() - start_time))
+                        logger.info(f"  Waiting for {len(remaining)} entities ({remaining_time}s remaining)...")
+                        time.sleep(3)
+                    else:
+                        logger.warning(f"  Timeout waiting for entity deletion, proceeding anyway")
+                else:
+                    logger.info(f"  No entities found")
+                
+                # Delete component types (SDK-created, may still reference entities)
+                component_types = twinmaker.list_component_types(workspaceId=workspace_id).get('componentTypeSummaries', [])
+                for ct in component_types:
+                    if ct['componentTypeId'].startswith('com.amazon'):
+                        continue  # Skip built-in types
+                    ct_id = ct['componentTypeId']
+                    for attempt in range(3):
+                        try:
+                            twinmaker.delete_component_type(workspaceId=workspace_id, componentTypeId=ct_id)
+                            logger.info(f"  ✓ Deleted component type: {ct_id}")
+                            break
+                        except Exception as e:
+                            if "being used by entities" in str(e) and attempt < 2:
+                                wait = 2 ** attempt
+                                logger.warning(f"  Retry {attempt+1}/3 for {ct_id}: waiting {wait}s")
+                                time.sleep(wait)
+                            else:
+                                logger.warning(f"  ✗ Failed to delete {ct_id}: {e}")
+                                break
+                
+                logger.info(f"[Pre-Destroy] TwinMaker: ✓ Workspace {workspace_id} cleaned")
+            except Exception as e:
+                logger.warning(f"[Pre-Destroy] TwinMaker: Error cleaning {workspace_id}: {e}")
     
     # =========================================================================
     # SDK Fallback Cleanup Methods
@@ -859,13 +1050,23 @@ class TerraformDeployerStrategy:
         logger.info(f"[{provider.upper()}] ✓ Cleanup complete")
     
     def _uses_provider(self, providers_config: dict, cloud: str) -> bool:
-        """Check if any layer uses the specified cloud provider."""
+        """Check if any layer uses the specified cloud provider.
+        
+        Note: GCP can be specified as either 'gcp' or 'google' in configs.
+        Terraform uses 'google' (the provider name), but SDK uses 'gcp'.
+        We normalize by checking for both when cloud='gcp'.
+        """
         # Check all possible layer keys including L3 sublayers
         layer_keys = [
             "layer_1_provider", "layer_2_provider", 
             "layer_3_provider", "layer_3_hot_provider", "layer_3_cold_provider", "layer_3_archive_provider",
             "layer_4_provider", "layer_5_provider"
         ]
+        
+        # Handle GCP naming inconsistency: config may use 'google' (Terraform) or 'gcp' (SDK)
+        if cloud == "gcp":
+            return any(providers_config.get(key) in ("gcp", "google") for key in layer_keys)
+        
         return any(providers_config.get(key) == cloud for key in layer_keys)
     
     def _get_platform_user_email(self, context: 'DeploymentContext') -> str:

@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
+import '../../utils/twin_state_utils.dart';
 
 // ============================================================
 // ENUMS
@@ -75,6 +76,7 @@ class WizardState extends Equatable {
   final int currentStep; // 0, 1, 2
   final int highestStepReached; // For step indicator gating
   final WizardStatus status;
+  final String? twinState; // Lifecycle state: draft, deployed, etc.
 
   // === Transient UI (cleared on step change) ===
   final String? errorMessage;
@@ -164,6 +166,7 @@ class WizardState extends Equatable {
     this.currentStep = 0,
     this.highestStepReached = 0,
     this.status = WizardStatus.initial,
+    this.twinState,
     this.errorMessage,
     this.successMessage,
     this.warningMessage,
@@ -226,6 +229,10 @@ class WizardState extends Equatable {
   // ============================================================
   // DERIVED GETTERS
   // ============================================================
+
+  /// Can modifications (save draft, finish config) be made?
+  /// Returns false for deployed/deploying/destroying twins.
+  bool get canModify => TwinStateUtils.canEdit(twinState);
 
   /// Can proceed from Step 1 to Step 2?
   bool get canProceedToStep2 =>
@@ -456,6 +463,7 @@ class WizardState extends Equatable {
     int? currentStep,
     int? highestStepReached,
     WizardStatus? status,
+    String? twinState,
     String? errorMessage,
     String? successMessage,
     String? warningMessage,
@@ -530,6 +538,7 @@ class WizardState extends Equatable {
       currentStep: currentStep ?? this.currentStep,
       highestStepReached: highestStepReached ?? this.highestStepReached,
       status: status ?? this.status,
+      twinState: twinState ?? this.twinState,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       successMessage: clearSuccess
           ? null
@@ -625,6 +634,7 @@ class WizardState extends Equatable {
     currentStep,
     highestStepReached,
     status,
+    twinState,
     errorMessage,
     successMessage,
     warningMessage,

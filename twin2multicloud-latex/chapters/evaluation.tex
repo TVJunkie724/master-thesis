@@ -1,43 +1,51 @@
 \chapter{\label{chap:evaluation}Evaluation}
 
-% This chapter proves that your system works and solves the stated problems.
-% Present methodology, experiments, and results with quantitative data.
+% This chapter validates the system's correctness and reliability through
+% automated end-to-end testing across 11 multi-cloud deployment scenarios.
+% SOURCE: 3-cloud-deployer/tests/e2e/E2E_PROGRESS.md — scenarios, coverage, bug fixes
+% TARGET: ~12–18 pages
 
-\section{Evaluation Methodology}
-% Describe your testing approach:
-% - Goals: verify functionality, measure cost accuracy, assess deployment reliability
-% - Metrics collected: deployment time, cost deviation, success rate
-% - Experimental setup: hardware, cloud accounts used
+\section{Experimental Setup}
+\label{sec:eval-setup}
+% Cloud accounts used (AWS, Azure, GCP), regions, test date window
+% The digital twin configuration used for all scenarios
+% Hardware: local machine specs, Docker environment
 
-\section{E2E Testing Framework}
-% Detail the automated testing infrastructure:
-% - Test scenarios: single-cloud (AWS, Azure, GCP) and multi-cloud combinations
-% - What each test covers: provision, verify data flow, cleanup
-% - How tests are executed (Docker, pytest, helper scripts)
-% - Reproducibility considerations
+\section{E2E Test Framework}
+\label{sec:eval-framework}
+% Test architecture: pytest + scenario configs + deployment phases
+% What each test validates: deployment success, data flow, event pipeline, storage movers
+% 19 test cases per scenario, organized in 4 phases
+% How tests are executed (Docker, pytest, helper scripts)
 
-\section{Cost Accuracy Validation}
-% Compare predicted vs. actual costs:
-% - Methodology: deploy twins, measure actual costs, compare with predictions
-% - Results table showing predicted vs. actual for each scenario
-% - Analysis of deviations and their causes
+\section{Scenario Coverage}
+\label{sec:eval-scenarios}
+% The 11 provider configurations tested (8 cross-cloud + 3 same-cloud)
+% Provider configuration table (11 rows × 5 layers)
+% Cross-cloud boundary coverage matrix (100% coverage)
+% Which boundaries each scenario exercises
 
-\section{Deployment Performance}
-% Measure deployment characteristics:
-% - Provisioning time per provider and configuration
-% - Resource creation parallelization
-% - Failure rates and recovery
+\section{Results}
+\label{sec:eval-results}
+% Pass/fail per scenario (all 11 passing as of latest test run)
+% Resource counts provisioned per scenario
+% Qualitative note on deployment times: 6–48 min per scenario,
+% dominated by cloud-side resource initialization (Azure SCM: 2–5 min,
+% Terraform provider downloads, GCP Firestore cooldown: 5 min),
+% not platform logic — therefore not reported as performance metrics.
 
-\section{Multi-Cloud Scenarios Tested}
-% Present the specific scenarios evaluated:
-% - AWS-only, Azure-only, GCP-only (baseline)
-% - AWS+GCP, Azure+AWS, Azure+GCP (two-cloud)
-% - AWS+Azure+GCP (full multi-cloud)
-% - Success/failure status and any issues encountered
+\section{Deployment Challenges Discovered}
+\label{sec:eval-bugs}
+% 5–8 most interesting bugs/challenges as "lessons learned"
+% Each: what happened, root cause, fix, affected provider(s)
+% Examples: IAM policy mismatches, bucket naming collisions,
+% GCP soft-deleted custom roles, Azure SCM cold-start timing,
+% cross-cloud token validation failures
+% This section directly addresses RQ3.
 
-\section{Results and Analysis}
-% Synthesize findings:
-% - Summary of key metrics
-% - Comparison with stated research questions
-% - Insights and unexpected findings
-% Include charts/graphs visualizing results
+\section{Threats to Validity}
+\label{sec:eval-validity}
+% Internal: single test environment, Docker vs. production differences
+% External: single user, no concurrent deployments, limited twin configs
+% Construct: GCP L4/L5 not implemented, cost model not E2E validated,
+%   pricing cache not live during tests

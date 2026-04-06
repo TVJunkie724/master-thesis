@@ -199,7 +199,7 @@ class TestValidation(unittest.TestCase):
         validator.validate_state_machine_content(CONSTANTS.GOOGLE_STATE_MACHINE_FILE, valid_gcp)
         
         # 4. Valid - 'main' is directly a list of steps (simplified format)
-        valid_gcp_list = {"main": [{"init": {"assign": [{"x": 1}]}}, {"process": {"call": "http.get"}}]}
+        valid_gcp_list = {"main": [{"init": {"assign": [{"x": 1}]}}, {"process": {"call": "http.get", "args": {"url": "https://example.com", "auth": {"type": "OIDC"}}}}]}
         validator.validate_state_machine_content(CONSTANTS.GOOGLE_STATE_MACHINE_FILE, valid_gcp_list)
         
         # 5. Invalid - duplicate step names
@@ -415,7 +415,15 @@ class TestValidation(unittest.TestCase):
                         proc_path = f"{func_dir}/processors/{device_id}/{proc_file}"
                         # Only add if not already in extra_files
                         if not extra_files or proc_path not in extra_files:
-                            zf.writestr(proc_path, "def process(data: dict) -> dict:\n    return data\n")
+                            # Use the correct entry point per provider
+                            entry_point_map = {
+                                "aws": "def lambda_handler(event, context):\n    return {'statusCode': 200}\n",
+                                "azure": "def main(req):\n    return 'OK'\n",
+                                "google": "def main(request):\n    return 'OK'\n",
+                                "gcp": "def main(request):\n    return 'OK'\n",
+                            }
+                            entry_code = entry_point_map.get(layer_2_provider, "def lambda_handler(event, context):\n    return {'statusCode': 200}\n")
+                            zf.writestr(proc_path, entry_code)
             
             if func_dir:
                 func_placeholder = f"{func_dir}/placeholder.txt"
@@ -440,7 +448,7 @@ class TestValidation(unittest.TestCase):
     def test_validate_zip_feedback_success(self):
         """Test zip with returnFeedbackToDevice=True AND feedback logic present"""
         opt = {"result": {"inputParamsUsed": {"returnFeedbackToDevice": True}}}
-        extras = {f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event-feedback/lambda_function.py": ""}
+        extras = {f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/event-feedback/lambda_function.py": "def lambda_handler(event, context):\n    return {'statusCode': 200}\n"}
         zip_buf = self._create_zip_with_configs({CONSTANTS.CONFIG_OPTIMIZATION_FILE: opt}, extras)
         validator.validate_project_zip(zip_buf)
 
@@ -975,8 +983,8 @@ class TestDigitalTwinNameValidation(unittest.TestCase):
         validator.validate_digital_twin_name("Twin-Name_01")
     
     def test_name_too_long(self):
-        """Test name exceeding 30 characters raises error."""
-        long_name = "a" * 31
+        """Test name exceeding 15 characters raises error."""
+        long_name = "a" * 16
         with self.assertRaises(ValueError) as cm:
             validator.validate_digital_twin_name(long_name)
         self.assertIn("exceeds", str(cm.exception))
@@ -990,6 +998,68 @@ class TestDigitalTwinNameValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             validator.validate_digital_twin_name("my.twin")  # Period
         self.assertIn("invalid characters", str(cm.exception))
+
+    def test_name_exactly_at_limit(self):
+        """Test name at exactly 15 characters passes."""
+        name_15 = "a" * 15  # Exactly at limit
+        validator.validate_digital_twin_name(name_15)
+
+    def test_name_one_over_limit(self):
+        """Test name at exactly 16 characters fails (boundary)."""
+        name_16 = "a" * 16
+        with self.assertRaises(ValueError):
+            validator.validate_digital_twin_name(name_16)
+
+    def test_name_single_character(self):
+        """Test single character name passes."""
+        validator.validate_digital_twin_name("a")
+        validator.validate_digital_twin_name("1")
+
+    def test_name_empty_string(self):
+        """Test empty string fails — regex rejects zero-length match."""
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_digital_twin_name("")
+        self.assertIn("invalid characters", str(cm.exception))
+
+    def test_name_special_characters(self):
+        """Test various special characters all fail."""
+        invalid_names = ["my@twin", "my!twin", "my#twin", "my$twin",
+                         "my/twin", "my\\twin", "my:twin", "my twin"]
+        for name in invalid_names:
+            with self.assertRaises(ValueError, msg=f"'{name}' should be rejected"):
+                validator.validate_digital_twin_name(name)
+
+    def test_name_with_uppercase(self):
+        """Test uppercase is accepted — validator allows [A-Za-z0-9_-]."""
+        validator.validate_digital_twin_name("MyTwin")
+        validator.validate_digital_twin_name("TWIN")
+
+    def test_name_hyphens_and_underscores(self):
+        """Test names consisting of only hyphens/underscores pass regex."""
+        validator.validate_digital_twin_name("-")
+        validator.validate_digital_twin_name("_")
+        validator.validate_digital_twin_name("---")
+        validator.validate_digital_twin_name("a-b_c")
+
+    def test_name_very_long(self):
+        """Test very long name (100 chars) fails with correct message."""
+        long_name = "a" * 100
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_digital_twin_name(long_name)
+        self.assertIn("exceeds", str(cm.exception))
+        self.assertIn("15", str(cm.exception))
+
+    def test_error_message_includes_name(self):
+        """Test error messages include the offending name for debugging."""
+        bad_name = "my.bad.twin"
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_digital_twin_name(bad_name)
+        self.assertIn(bad_name, str(cm.exception))
+
+        long_name = "this-is-too-long"
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_digital_twin_name(long_name)
+        self.assertIn(long_name, str(cm.exception))
 
 
 class TestAzureRegionValidation(unittest.TestCase):

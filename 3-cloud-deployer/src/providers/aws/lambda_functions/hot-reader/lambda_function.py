@@ -3,7 +3,20 @@ import os
 import sys
 import traceback
 import boto3
+from decimal import Decimal
 from boto3.dynamodb.conditions import Key
+
+
+class DecimalEncoder(json.JSONEncoder):
+    """JSON encoder for DynamoDB Decimal types."""
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            # Check for special values first
+            if obj.is_nan() or obj.is_infinite():
+                return None
+            # Convert to int if whole number, else float
+            return int(obj) if obj % 1 == 0 else float(obj)
+        return super().default(obj)
 
 # Handle import path for shared module
 try:
@@ -35,7 +48,7 @@ def _is_http_request(event: dict) -> bool:
 def _validate_token(event: dict) -> bool:
     """Validate X-Inter-Cloud-Token header for HTTP requests."""
     if not INTER_CLOUD_TOKEN:
-        # No token configured = reject all HTTP requests
+        # No token configured = reject all HTTP requests (security: block unauthenticated access)
         return False
     headers = event.get("headers", {})
     # Headers are lowercased by Lambda Function URL
@@ -84,14 +97,30 @@ def _query_dynamodb(query_event: dict) -> dict:
         }
 
         for item in items:
+            if property_name not in item:
+                continue  # Skip records missing this property
             entry["values"].append({
-                "time": item["id"],
+                "time": item.get("timestamp", ""),
                 "value": { property_type: item[property_name] }
             })
 
         property_values.append(entry)
 
     return { "propertyValues": property_values }
+
+
+def _query_dynamodb_simple(device_id: str, limit: int = 100) -> dict:
+    """Query DynamoDB directly using device_id (for HTTP GET requests).
+    
+    Uses partition key only - returns latest `limit` items for the device.
+    """
+    response = dynamodb_table.query(
+        KeyConditionExpression=Key("device_id").eq(device_id),
+        ScanIndexForward=False,  # Descending (newest first)
+        Limit=limit
+    )
+    items = response.get("Items", [])
+    return {"items": items, "count": len(items)}
 
 
 def lambda_handler(event, context):
@@ -108,12 +137,26 @@ def lambda_handler(event, context):
                     "statusCode": 401,
                     "body": json.dumps({"error": "Unauthorized: Invalid X-Inter-Cloud-Token"})
                 }
-            # Parse query from HTTP body
-            query_event = _parse_http_request(event)
-            result = _query_dynamodb(query_event)
+            
+            # Check for simple query params (GET-style)
+            query_params = event.get("queryStringParameters", {}) or {}
+            device_id = query_params.get("device_id") or query_params.get("iotDeviceId")
+            
+            if device_id:
+                # Simple query - matches GCP/Azure hot-reader behavior
+                try:
+                    limit = int(query_params.get("limit", 100))
+                except (ValueError, TypeError):
+                    limit = 100
+                result = _query_dynamodb_simple(device_id, limit)
+            else:
+                # TwinMaker-style query from body (backwards compatible)
+                query_event = _parse_http_request(event)
+                result = _query_dynamodb(query_event)
+            
             return {
                 "statusCode": 200,
-                "body": json.dumps(result)
+                "body": json.dumps(result, cls=DecimalEncoder)
             }
         
         # Direct Lambda invocation (from TwinMaker or Digital Twin Data Connector)

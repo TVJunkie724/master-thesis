@@ -73,19 +73,20 @@ class TestTwinsRoutes:
         assert response.json()["name"] == "Updated Name"
 
     def test_update_twin_state(self, authenticated_client):
-        """PUT /twins/{id} updates twin state."""
+        """PUT /twins/{id} updates twin state (non-configured states)."""
         client, headers = authenticated_client
         
         twin_id = create_test_twin(client, headers)
         
+        # Setting to 'error' doesn't require validation (unlike 'configured')
         response = client.put(
             f"/twins/{twin_id}",
-            json={"state": "configured"},
+            json={"state": "error"},
             headers=headers
         )
         
         assert response.status_code == 200
-        assert response.json()["state"] == "configured"
+        assert response.json()["state"] == "error"
 
     def test_delete_twin(self, authenticated_client):
         """DELETE /twins/{id} soft-deletes (sets inactive)."""

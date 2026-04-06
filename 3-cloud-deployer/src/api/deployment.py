@@ -1,8 +1,16 @@
 """
-Infrastructure API endpoints.
+Infrastructure Deployment API endpoints.
 
-All deployment is now handled by TerraformDeployerStrategy.
-This module provides REST API endpoints for infrastructure operations.
+This module provides REST API endpoints for deploying and destroying Digital Twin
+infrastructure using Terraform. All operations are project-scoped and provider-aware.
+
+**Key operations:**
+- Deploy/Destroy: Full infrastructure lifecycle
+- SSE Streaming: Real-time deployment logs
+- Cooldown Check: GCP Firestore 5-minute redeployment limit
+
+**IMPORTANT:** Deploy operations are long-running (2-10 minutes). Use the SSE
+streaming endpoints for real-time progress updates.
 """
 
 from datetime import datetime, timezone
@@ -11,6 +19,7 @@ from fastapi import APIRouter, HTTPException, Query, Path
 import src.validator as validator
 from api.dependencies import validate_project_context, validate_provider, check_template_protection
 from logger import print_stack_trace, logger
+from api.error_models import ERROR_RESPONSES
 
 import providers.deployer as core_deployer
 from src.core.factory import create_context
@@ -22,10 +31,23 @@ router = APIRouter(prefix="/infrastructure")
 # --------- Cooldown Check ----------
 @router.get(
     "/cooldown-check",
+    operation_id="checkGcpFirestoreCooldown",
     tags=["Infrastructure"],
-    summary="Check GCP Firestore deployment cooldown",
+    summary="Check if GCP Firestore cooldown period has elapsed",
+    description=(
+        "**Purpose:** Determines if a re-deployment is allowed after a destroy.\n\n"
+        "**Why needed:** GCP Firestore has a 5-minute cooldown after deletion.\n"
+        "Attempting to redeploy during this window will fail.\n\n"
+        "**Zero cloud costs:** Pure local timestamp calculation."
+    ),
     responses={
-        200: {"description": "Cooldown status returned"}
+        200: {
+            "description": "Cooldown status",
+            "content": {"application/json": {"example": {
+                "ready": True,
+                "remaining_seconds": 0
+            }}}
+        }
     }
 )
 def check_cooldown(
@@ -77,12 +99,28 @@ def check_cooldown(
 # --------- Core Deploy/Destroy ----------
 @router.post(
     "/deploy", 
+    operation_id="deployDigitalTwinInfrastructure",
     tags=["Infrastructure"],
-    summary="Deploy full digital twin environment",
+    summary="Deploy complete Digital Twin infrastructure via Terraform",
+    description=(
+        "**Purpose:** Deploys all configured layers of the Digital Twin environment.\n\n"
+        "**IMPORTANT:** This is a long-running operation (2-10 minutes).\n"
+        "For real-time progress, use `/infrastructure/deploy/stream` instead.\n\n"
+        "**Deployment process:**\n"
+        "1. Validates project structure and configuration\n"
+        "2. Runs `terraform init` and `terraform apply`\n"
+        "3. Deploys all configured layers\n\n"
+        "**Layers deployed (based on config_providers.json):**\n"
+        "- L1 (Ingestion): IoT Hub/Core, Dispatcher\n"
+        "- L2 (Processing): Persister, Event Checker\n"
+        "- L3 (Storage): Hot/Cold storage\n"
+        "- L4 (Digital Twin): TwinMaker/ADT\n"
+        "- L5 (Visualization): Grafana"
+    ),
     responses={
-        200: {"description": "Deployment successful"},
-        400: {"description": "Invalid project or provider"},
-        500: {"description": "Deployment failed"}
+        200: {"description": "Deployment successful with Terraform outputs"},
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
     }
 )
 def deploy_all(
@@ -107,7 +145,8 @@ def deploy_all(
     **Note:** Long-running operation (2-10 minutes depending on resources).
     """
     check_template_protection(project_name, "deploy")
-    validate_project_context(project_name)
+    # NOTE: validate_project_context removed - was blocking production use.
+    # Project existence is validated by create_context() which loads files from disk.
     try:
         provider = validate_provider(provider)
         
@@ -133,11 +172,20 @@ def deploy_all(
 
 @router.post(
     "/destroy", 
+    operation_id="destroyDigitalTwinInfrastructure",
     tags=["Infrastructure"],
-    summary="Destroy full digital twin environment",
+    summary="Destroy all deployed infrastructure via Terraform",
+    description=(
+        "**Purpose:** Destroys all resources created by deploy.\n\n"
+        "**WARNING:** This operation cannot be undone. All data will be lost.\n\n"
+        "**Destruction process:**\n"
+        "1. Runs `terraform destroy`\n"
+        "2. Cleans up SDK-managed resources\n\n"
+        "**If AWS TwinMaker fails:** Use `DELETE /projects/{name}/cleanup/aws-twinmaker`"
+    ),
     responses={
         200: {"description": "Destruction successful"},
-        500: {"description": "Destruction failed - may need force cleanup"}
+        500: ERROR_RESPONSES[500],
     }
 )
 def destroy_all(
@@ -157,7 +205,7 @@ def destroy_all(
     **Note:** This operation cannot be undone. All data will be lost.
     """
     check_template_protection(project_name, "destroy")
-    validate_project_context(project_name)
+    # NOTE: validate_project_context removed - see deploy() comment
     try:
         provider = provider.lower()
         context = create_context(project_name, provider)
@@ -178,12 +226,21 @@ from fastapi.responses import StreamingResponse
 
 @router.post(
     "/deploy/stream", 
+    operation_id="deployWithSseStreaming",
     tags=["Infrastructure"],
-    summary="Deploy with SSE streaming logs",
+    summary="Deploy with real-time SSE streaming logs",
+    description=(
+        "**Purpose:** Deploy with Server-Sent Events for real-time log streaming.\n\n"
+        "**Recommended for UI:** Use this endpoint instead of `/deploy` for progress updates.\n\n"
+        "**SSE events:**\n"
+        "- `data:` lines contain log output\n"
+        "- `event: complete` signals success with outputs\n"
+        "- `event: error` signals failure with error details"
+    ),
     responses={
         200: {"description": "SSE stream of deployment logs"},
-        400: {"description": "Invalid project or provider"},
-        500: {"description": "Deployment failed"}
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
     }
 )
 async def deploy_stream(
@@ -199,26 +256,82 @@ async def deploy_stream(
     from pathlib import Path
     
     check_template_protection(project_name, "deploy")
-    validate_project_context(project_name)
+    # NOTE: validate_project_context removed - see deploy() comment
     
     try:
         provider = validate_provider(provider)
         context = create_context(project_name, provider)
         
-        terraform_dir = Path(f"/app/upload/{project_name}/terraform")
+        terraform_dir = Path("/app/src/terraform")
         project_path = Path(f"/app/upload/{project_name}")
         strategy = TerraformDeployerStrategy(str(terraform_dir), str(project_path))
         
         async def generate():
+            import json
+            errors = []
+            in_error_block = False
+            current_error = []
+            resource_count = 0
+            
             try:
                 async for line in strategy.deploy_all_async(context):
                     yield f"data: {line}\n\n"
-                # Final success event
+                    
+                    # Track Terraform errors
+                    stripped = line.strip()
+                    if stripped.startswith("Error:") or stripped.startswith("│ Error:"):
+                        in_error_block = True
+                        current_error = [stripped]
+                    elif in_error_block:
+                        if stripped == "" or stripped == "│":
+                            # End of error block
+                            errors.append("\n".join(current_error))
+                            current_error = []
+                            in_error_block = False
+                        else:
+                            current_error.append(stripped)
+                    
+                    # Count resources created
+                    if "Creation complete" in line or "Apply complete!" in line:
+                        resource_count += 1
+                
+                # Flush any remaining error block
+                if current_error:
+                    errors.append("\n".join(current_error))
+                
+                # Emit deployment summary
+                yield f"data: \n\n"
+                yield f"data: {'=' * 60}\n\n"
+                if errors:
+                    yield f"data:   DEPLOYMENT SUMMARY — {len(errors)} ERROR(S)\n\n"
+                    yield f"data: {'=' * 60}\n\n"
+                    for i, err in enumerate(errors, 1):
+                        yield f"data: [{i}] {err}\n\n"
+                else:
+                    yield f"data:   DEPLOYMENT SUMMARY — SUCCESS\n\n"
+                    yield f"data: {'=' * 60}\n\n"
+                    if resource_count > 0:
+                        yield f"data: Resources provisioned: {resource_count}\n\n"
+                
+                # Final SSE event
                 outputs = strategy.get_outputs()
-                import json
-                yield f"event: complete\ndata: {json.dumps({'success': True, 'outputs': outputs})}\n\n"
+                yield f"event: complete\ndata: {json.dumps({'success': len(errors) == 0, 'outputs': outputs, 'errors': errors})}\n\n"
             except Exception as e:
-                yield f"event: error\ndata: {json.dumps({'success': False, 'error': str(e)})}\n\n"
+                # Flush any remaining error block
+                if current_error:
+                    errors.append("\n".join(current_error))
+                
+                yield f"data: \n\n"
+                yield f"data: {'=' * 60}\n\n"
+                yield f"data:   DEPLOYMENT FAILED\n\n"
+                yield f"data: {'=' * 60}\n\n"
+                yield f"data: {str(e)}\n\n"
+                if errors:
+                    yield f"data: \n\n"
+                    yield f"data: Terraform errors encountered:\n\n"
+                    for i, err in enumerate(errors, 1):
+                        yield f"data: [{i}] {err}\n\n"
+                yield f"event: error\ndata: {json.dumps({'success': False, 'error': str(e), 'errors': errors})}\n\n"
         
         return StreamingResponse(
             generate(),
@@ -241,11 +354,19 @@ async def deploy_stream(
 
 @router.post(
     "/destroy/stream", 
+    operation_id="destroyWithSseStreaming",
     tags=["Infrastructure"],
-    summary="Destroy with SSE streaming logs",
+    summary="Destroy with real-time SSE streaming logs",
+    description=(
+        "**Purpose:** Destroy with SSE streaming for real-time progress.\n\n"
+        "**SSE events:**\n"
+        "- `data:` lines contain log output\n"
+        "- `event: complete` signals success\n"
+        "- `event: error` signals failure"
+    ),
     responses={
         200: {"description": "SSE stream of destruction logs"},
-        500: {"description": "Destruction failed"}
+        500: ERROR_RESPONSES[500],
     }
 )
 async def destroy_stream(
@@ -261,25 +382,78 @@ async def destroy_stream(
     from pathlib import Path
     
     check_template_protection(project_name, "destroy")
-    validate_project_context(project_name)
+    # NOTE: validate_project_context removed - see deploy() comment
     
     try:
         provider = provider.lower()
         context = create_context(project_name, provider)
         
-        terraform_dir = Path(f"/app/upload/{project_name}/terraform")
+        terraform_dir = Path("/app/src/terraform")
         project_path = Path(f"/app/upload/{project_name}")
         strategy = TerraformDeployerStrategy(str(terraform_dir), str(project_path))
         
         async def generate():
+            import json
+            errors = []
+            in_error_block = False
+            current_error = []
+            resource_count = 0
+            
             try:
                 async for line in strategy.destroy_all_async(context):
                     yield f"data: {line}\n\n"
-                import json
-                yield f"event: complete\ndata: {json.dumps({'success': True})}\n\n"
+                    
+                    # Track Terraform errors
+                    stripped = line.strip()
+                    if stripped.startswith("Error:") or stripped.startswith("│ Error:"):
+                        in_error_block = True
+                        current_error = [stripped]
+                    elif in_error_block:
+                        if stripped == "" or stripped == "│":
+                            errors.append("\n".join(current_error))
+                            current_error = []
+                            in_error_block = False
+                        else:
+                            current_error.append(stripped)
+                    
+                    # Count resources destroyed
+                    if "Destruction complete" in line or "Destroy complete!" in line:
+                        resource_count += 1
+                
+                # Flush any remaining error block
+                if current_error:
+                    errors.append("\n".join(current_error))
+                
+                # Emit destruction summary
+                yield f"data: \n\n"
+                yield f"data: {'=' * 60}\n\n"
+                if errors:
+                    yield f"data:   DESTROY SUMMARY — {len(errors)} ERROR(S)\n\n"
+                    yield f"data: {'=' * 60}\n\n"
+                    for i, err in enumerate(errors, 1):
+                        yield f"data: [{i}] {err}\n\n"
+                else:
+                    yield f"data:   DESTROY SUMMARY — SUCCESS\n\n"
+                    yield f"data: {'=' * 60}\n\n"
+                    if resource_count > 0:
+                        yield f"data: Resources destroyed: {resource_count}\n\n"
+                
+                yield f"event: complete\ndata: {json.dumps({'success': len(errors) == 0, 'errors': errors})}\n\n"
             except Exception as e:
-                import json
-                yield f"event: error\ndata: {json.dumps({'success': False, 'error': str(e)})}\n\n"
+                if current_error:
+                    errors.append("\n".join(current_error))
+                
+                yield f"data: \n\n"
+                yield f"data: {'=' * 60}\n\n"
+                yield f"data:   DESTROY FAILED\n\n"
+                yield f"data: {'=' * 60}\n\n"
+                yield f"data: {str(e)}\n\n"
+                if errors:
+                    yield f"data: \n\n"
+                    yield f"data: Terraform errors encountered:\n\n"
+                    for i, err in enumerate(errors, 1):
+                        yield f"data: [{i}] {err}\n\n"
+                yield f"event: error\ndata: {json.dumps({'success': False, 'error': str(e), 'errors': errors})}\n\n"
         
         return StreamingResponse(
             generate(),

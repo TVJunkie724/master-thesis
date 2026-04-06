@@ -16,36 +16,37 @@ locals {
   # Setup
   azure_resource_group_name  = "${var.digital_twin_name}-rg"
   azure_identity_name        = "${var.digital_twin_name}-identity"
-  azure_storage_account_name = replace("${var.digital_twin_name}storage", "-", "")
+  # Azure storage accounts: max 24 chars, lowercase alphanumeric only, globally unique
+  azure_storage_account_name = substr("${replace(var.digital_twin_name, "-", "")}st${local.deployment_suffix}", 0, 24)
 
   # L0 Glue
   azure_l0_plan_name     = "${var.digital_twin_name}-l0-plan"
-  azure_l0_glue_name     = "${var.digital_twin_name}-l0-glue"
+  azure_l0_glue_name     = "${var.digital_twin_name}-l0-glue-${local.deployment_suffix}"
   azure_l0_content_share = "${var.digital_twin_name}-l0-content"
 
   # L1 IoT
-  azure_iothub_name         = "${var.digital_twin_name}-iothub"
+  azure_iothub_name         = "${var.digital_twin_name}-iothub-${local.deployment_suffix}"
   azure_l1_plan_name        = "${var.digital_twin_name}-l1-plan"
-  azure_l1_functions_name   = "${var.digital_twin_name}-l1-functions"
+  azure_l1_functions_name   = "${var.digital_twin_name}-l1-functions-${local.deployment_suffix}"
   azure_l1_content_share    = "${var.digital_twin_name}-l1-content"
   azure_iothub_events_name  = "${var.digital_twin_name}-iothub-events"
   azure_iothub_subscription = "${var.digital_twin_name}-iothub-subscription"
 
   # L2 Compute
   azure_l2_plan_name        = "${var.digital_twin_name}-l2-plan"
-  azure_l2_functions_name   = "${var.digital_twin_name}-l2-functions"
+  azure_l2_functions_name   = "${var.digital_twin_name}-l2-functions-${local.deployment_suffix}"
   azure_l2_content_share    = "${var.digital_twin_name}-l2-content"
-  azure_user_functions_name = "${var.digital_twin_name}-user-functions"
+  azure_user_functions_name = "${var.digital_twin_name}-user-functions-${local.deployment_suffix}"
   azure_user_content_share  = "${var.digital_twin_name}-user-content"
   azure_event_workflow_name = "${var.digital_twin_name}-event-workflow"
   azure_logic_app_name      = "${var.digital_twin_name}-logic-app-definition"
 
   # L3 Storage
-  azure_cosmos_account_name   = "${var.digital_twin_name}-cosmos"
+  azure_cosmos_account_name   = "${var.digital_twin_name}-cosmos-${local.deployment_suffix}"
   azure_cosmos_db_name        = "${var.digital_twin_name}-db"
   azure_cosmos_container_name = local.storage_tier_hot  # Uses cross-provider constant
   azure_l3_plan_name          = "${var.digital_twin_name}-l3-plan"
-  azure_l3_functions_name     = "${var.digital_twin_name}-l3-functions"
+  azure_l3_functions_name     = "${var.digital_twin_name}-l3-functions-${local.deployment_suffix}"
   azure_l3_content_share      = "${var.digital_twin_name}-l3-content"
 
   # L4 ADT
@@ -60,9 +61,12 @@ locals {
   # ===========================================================================
 
   azure_l0_glue_url        = "https://${local.azure_l0_glue_name}.azurewebsites.net"
+  azure_l1_functions_url   = "https://${local.azure_l1_functions_name}.azurewebsites.net"
   azure_l2_functions_url   = "https://${local.azure_l2_functions_name}.azurewebsites.net"
   azure_user_functions_url = "https://${local.azure_user_functions_name}.azurewebsites.net"
-  azure_adt_url            = "https://${local.azure_adt_name}.${var.azure_region}.digitaltwins.azure.net"
+  # ADT URL must use the actual host_name from the resource (not string-constructed)
+  # Azure's format is: name.api.region-code.digitaltwins.azure.net (e.g., .api.weu.)
+  azure_adt_url            = try("https://${azurerm_digital_twins_instance.main[0].host_name}", "")
 }
 
 # ==============================================================================

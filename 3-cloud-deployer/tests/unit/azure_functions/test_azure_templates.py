@@ -45,19 +45,6 @@ def setup_azure_paths():
     sys.path[:] = original_path
 
 
-class TestAzureTemplateProcessLogic:
-    """Tests for default_processor/function_app.py logic."""
-    
-    @pytest.mark.skip(reason="Template now uses function_app.py - needs HTTP test setup")
-    def test_process_passthrough(self):
-        """Test skipped - new pattern uses HTTP endpoints."""
-        pass
-    
-    @pytest.mark.skip(reason="Template now uses function_app.py - needs HTTP test setup")
-    def test_process_with_complex_event(self):
-        """Test skipped - new pattern uses HTTP endpoints."""
-        pass
-
 
 class TestAzureTemplateSyntax:
     """Tests for Azure template function syntax validity."""

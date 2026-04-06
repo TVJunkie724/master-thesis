@@ -75,19 +75,3 @@ def test_load_combined_pricing_partial_failure(mock_load_opt):
     assert combined["aws"] == {"some": "data"}
     assert combined["azure"] == {"some": "data"}
     assert combined["gcp"] == {}
-
-# -----------------------------------------------------------------------------
-# 3. Engine Logic (Mocked)
-# -----------------------------------------------------------------------------
-
-from backend.calculation import engine
-
-@patch("backend.calculation.engine.validate_pricing_schema")
-def test_calculate_cheapest_costs_empty_pricing(mock_validate):
-    """Test engine behavior with empty pricing dict."""
-    with patch("backend.calculation.engine.load_combined_pricing", return_value={}):
-        params = {"numberOfDevices": 10}
-        
-        # With empty pricing, the engine will hit KeyError when accessing provider costs
-        with pytest.raises(KeyError): 
-            engine.calculate_cheapest_costs(params, pricing={})

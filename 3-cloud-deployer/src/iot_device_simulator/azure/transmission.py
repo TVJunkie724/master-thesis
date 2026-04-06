@@ -10,6 +10,7 @@ with SAS (Shared Access Signature) authentication.
 
 from . import globals
 import json
+import os
 from datetime import datetime, timezone
 
 # Lazy import to avoid issues in development environments without the SDK
@@ -19,9 +20,45 @@ Message = None
 payload_index = 0
 
 
-def _get_client():
+def load_config_for_device(device_id: str) -> dict:
+    """
+    Load device-specific config for standalone multi-device mode.
+    
+    In standalone mode, configs are stored in configs/{device_id}/config.json.
+    Falls back to root config.json if device-specific config not found.
+    """
+    if not device_id:
+        return dict(globals.config)
+    
+    device_config_path = f"configs/{device_id}/config.json"
+    if os.path.exists(device_config_path):
+        with open(device_config_path, 'r') as f:
+            config_data = json.load(f)
+        
+        # Resolve paths relative to device config directory
+        config_dir = os.path.dirname(device_config_path)
+        def resolve(path):
+            if os.path.isabs(path):
+                return path
+            return os.path.normpath(os.path.join(config_dir, path))
+        
+        return {
+            "connection_string": config_data["connection_string"],
+            "device_id": config_data["device_id"],
+            "digital_twin_name": config_data.get("digital_twin_name", ""),
+            "payload_path": resolve(config_data.get("payload_path", "../payloads.json"))
+        }
+    
+    # Fallback to default config
+    return dict(globals.config)
+
+
+def _get_client(config=None):
     """
     Get an IoT Hub device client.
+    
+    Args:
+        config: Optional config dict. If None, uses globals.config.
     
     Returns:
         Connected IoTHubDeviceClient instance.
@@ -33,27 +70,35 @@ def _get_client():
         IoTHubDeviceClient = Client
         Message = Msg
     
-    client = IoTHubDeviceClient.create_from_connection_string(
-        globals.config["connection_string"]
-    )
+    conn_str = (config or globals.config)["connection_string"]
+    client = IoTHubDeviceClient.create_from_connection_string(conn_str)
     return client
 
 
-def send_mqtt(payload):
+def send_mqtt(payload, device_config=None):
     """
     Send a single payload to Azure IoT Hub.
     
     Args:
         payload: Dictionary containing the telemetry data.
+        device_config: Optional device-specific config. If None, auto-detects based on iotDeviceId.
     """
-    device_id = globals.config["device_id"]
+    # Get config - either device-specific or global
+    if device_config is None:
+        payload_device_id = payload.get("iotDeviceId")
+        if payload_device_id and os.path.exists(f"configs/{payload_device_id}/config.json"):
+            device_config = load_config_for_device(payload_device_id)
+        else:
+            device_config = globals.config
     
-    # Optional: Check if payload device ID matches configured device ID
-    if payload.get("iotDeviceId") != device_id:
-        print(f"WARNING: Payload iotDeviceId '{payload.get('iotDeviceId')}' "
-              f"does not match configured device '{device_id}'")
+    device_id = device_config["device_id"]
+    
+    # Info message about device routing
+    payload_device_id = payload.get("iotDeviceId")
+    if payload_device_id and payload_device_id != device_id:
+        print(f"INFO: Routing payload for '{payload_device_id}' via device '{device_id}'")
 
-    client = _get_client()
+    client = _get_client(device_config)
     
     try:
         client.connect()

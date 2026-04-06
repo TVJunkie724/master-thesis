@@ -33,7 +33,7 @@ def cleanup_orphans_for_scenario(
     Returns:
         Dict with cleanup results per provider: {"aws": True, "azure": True, "gcp": True}
     """
-    prefix = f"sc-{scenario_name}"
+    prefix = f"sc2-{scenario_name}"
     results = {}
     
     logger.info(f"[PRE-CLEANUP] Checking for orphaned resources: {prefix}")

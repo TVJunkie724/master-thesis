@@ -4,6 +4,10 @@ IoT Device Simulator - Main Entry Point.
 This module provides the CLI interface for the IoT device simulator,
 allowing interactive commands to send test payloads to IoT Core.
 
+Usage:
+    Interactive mode: python main.py --project <project_name>
+    Single-shot mode: python main.py --project <project_name> --payload '{"key": "value"}'
+
 Migration Status:
     - Uses globals for device configuration (separate context from main app).
     - This is a standalone utility - no migration needed.
@@ -11,6 +15,10 @@ Migration Status:
 
 import globals
 import transmission
+import argparse
+import json
+import sys
+from datetime import datetime, timezone
 
 def help_menu():
   print("""
@@ -20,19 +28,37 @@ def help_menu():
       exit                        - Exit the program.
   """)
 
-import argparse
 
 def main():
     parser = argparse.ArgumentParser(description="IoT Device Simulator")
     parser.add_argument("--project", help="Name of the project (for integrated mode)")
+    parser.add_argument("--payload", help="Custom payload JSON (single-shot mode for log tracing)")
+    parser.add_argument("--device", help="Device ID for device-specific config (used with --project)")
     args = parser.parse_args()
 
     try:
-        globals.initialize_config(project_name=args.project)
+        globals.initialize_config(project_name=args.project, device_id=args.device)
     except Exception as e:
         print(f"Error initializing simulator: {e}")
-        return
+        sys.exit(1)
 
+    # Single-shot mode: send custom payload and exit
+    if args.payload:
+        try:
+            payload = json.loads(args.payload)
+            # Add timestamp if missing
+            if "time" not in payload or payload["time"] == "":
+                payload["time"] = datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+            transmission.send_mqtt(payload)
+            sys.exit(0)
+        except json.JSONDecodeError as e:
+            print(f"ERROR: Invalid JSON payload: {e}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"ERROR: Failed to send payload: {e}")
+            sys.exit(1)
+
+    # Interactive mode
     print("Welcome to the IoT Device Simulator. Type 'help' for commands.")
 
     while True:
@@ -47,7 +73,6 @@ def main():
 
       parts = user_input.split()
       command = parts[0]
-      args = parts[1:]
 
       if command == "send":
         transmission.send()
@@ -61,3 +86,4 @@ def main():
 
 if __name__ == "__main__":
   main()
+

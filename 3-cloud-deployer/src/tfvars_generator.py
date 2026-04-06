@@ -227,9 +227,9 @@ def _build_azure_function_zips(project_dir: Path, providers: dict, optimization_
             zip_paths["azure_l0_zip_path"] = str(l0_path)
             logger.info("    ✓ L0 ZIP built")
         
-        # Build L1 dispatcher
+        # Build L1 dispatcher (connector skipped if L1=L2 same-cloud)
         if providers.get("layer_1_provider") == "azure":
-            l1_path = build_azure_l1_bundle(project_dir)
+            l1_path = build_azure_l1_bundle(project_dir, providers)
             if l1_path:
                 zip_paths["azure_l1_zip_path"] = str(l1_path)
                 logger.info("    ✓ L1 ZIP built")
@@ -242,7 +242,7 @@ def _build_azure_function_zips(project_dir: Path, providers: dict, optimization_
                 logger.info("    ✓ L2 ZIP built")
         
         # Build L3 reader/movers
-        if providers.get("layer_3_hot_provider") == "azure":
+        if providers.get("layer_3_hot_provider") == "azure" or providers.get("layer_3_cold_provider") == "azure":
             l3_path = build_azure_l3_bundle(project_dir)
             if l3_path:
                 zip_paths["azure_l3_zip_path"] = str(l3_path)
@@ -317,7 +317,8 @@ def _build_gcp_user_function_vars(project_dir: Path, providers: dict) -> dict:
             events = json.load(f)
         
         for event in events:
-            if "action" in event and "functionName" in event["action"]:
+            action = event.get("action", {})
+            if action.get("type") == "lambda" and "functionName" in action:
                 func_name = event["action"]["functionName"]
                 zip_path = build_dir / f"{func_name}.zip"
                 if zip_path.exists():
@@ -381,7 +382,8 @@ def _get_aws_user_function_vars(project_dir: Path, providers: dict) -> dict:
             events = json.load(f)
         
         for event in events:
-            if "action" in event and "functionName" in event["action"]:
+            action = event.get("action", {})
+            if action.get("type") == "lambda" and "functionName" in action:
                 func_name = event["action"]["functionName"]
                 zip_path = build_dir / f"{func_name}.zip"
                 if zip_path.exists():

@@ -2,7 +2,7 @@
 E2E Test Cleanup Script
 
 Destroys all resources and removes state files for a specific E2E test.
-Use this when E2E_SKIP_CLEANUP=true was used and you need to clean up manually.
+Use this when 'pytest --skip-cleanup' was used and you need to clean up manually.
 
 Usage:
     python tests/e2e/cleanup_e2e_test.py aws
@@ -184,6 +184,21 @@ def main():
                 destroy_success = False
     else:
         print("\n[1/2] Skipping terraform destroy (no valid config)")
+        # Fallback: Run SDK cleanup directly when config loading failed
+        print("  Running standalone SDK cleanup fallback...")
+        try:
+            from src.providers.azure.cleanup import cleanup_azure_resources
+            import json
+            creds_path = project_path / "config_credentials.json"
+            if creds_path.exists():
+                with open(creds_path) as f:
+                    credentials = json.load(f)
+                cleanup_azure_resources(credentials, test_name, dry_run=dry_run)
+                print("  ✓ SDK cleanup complete")
+            else:
+                print(f"  ⚠ No credentials found at {creds_path}")
+        except Exception as e:
+            print(f"  ✗ SDK fallback error: {e}")
     
     # Step 2: Remove state files
     print("\n[2/2] Removing local state files...")
@@ -283,12 +298,12 @@ TEST_MAP = {
     "multicloud": ("mc-e2e-test", "/app/tests/e2e/multicloud/e2e_state"),
     
     # Deployer scenario tests (project names from _base_scenario.py ScenarioConfig)
-    "deployer-gcp-azure": ("sc-gcp-azure", "/app/tests/e2e/multicloud/e2e_state"),
-    "deployer-gcp-aws": ("sc-gcp-aws", "/app/tests/e2e/multicloud/e2e_state"),
-    "deployer-aws-azure": ("sc-aws-azure", "/app/tests/e2e/multicloud/e2e_state"),
-    "deployer-aws-gcp": ("sc-aws-gcp", "/app/tests/e2e/multicloud/e2e_state"),
-    "deployer-azure-aws": ("sc-azure-aws", "/app/tests/e2e/multicloud/e2e_state"),
-    "deployer-azure-gcp": ("sc-azure-gcp", "/app/tests/e2e/multicloud/e2e_state"),
+    "deployer-gcp-azure": ("sc2-gcp-azure", "/app/tests/e2e/multicloud/e2e_state"),
+    "deployer-gcp-aws": ("sc2-gcp-aws", "/app/tests/e2e/multicloud/e2e_state"),
+    "deployer-aws-azure": ("sc2-aws-azure", "/app/tests/e2e/multicloud/e2e_state"),
+    "deployer-aws-gcp": ("sc2-aws-gcp", "/app/tests/e2e/multicloud/e2e_state"),
+    "deployer-azure-aws": ("sc2-azure-aws", "/app/tests/e2e/multicloud/e2e_state"),
+    "deployer-azure-gcp": ("sc2-azure-gcp", "/app/tests/e2e/multicloud/e2e_state"),
 }
 
 

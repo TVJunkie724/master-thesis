@@ -35,6 +35,7 @@ def _is_http_request(event: dict) -> bool:
 def _validate_token(event: dict) -> bool:
     """Validate X-Inter-Cloud-Token header for HTTP requests."""
     if not INTER_CLOUD_TOKEN:
+        # No token configured = reject all HTTP requests (security: block unauthenticated access)
         return False
     headers = event.get("headers", {})
     token = headers.get("x-inter-cloud-token", "")

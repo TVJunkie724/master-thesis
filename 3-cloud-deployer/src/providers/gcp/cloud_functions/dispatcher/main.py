@@ -7,6 +7,7 @@ Triggered by Eventarc from Pub/Sub topics.
 Source: src/providers/gcp/cloud_functions/dispatcher/main.py
 Editable: Yes - This is the runtime Cloud Function code
 """
+import base64
 import json
 import os
 import sys
@@ -49,6 +50,26 @@ def _get_function_base_url():
 TARGET_FUNCTION_SUFFIX = os.environ.get("TARGET_FUNCTION_SUFFIX", "-processor")
 
 
+def _extract_pubsub_payload(envelope: dict) -> dict:
+    """
+    Extract telemetry from Pub/Sub push envelope.
+    
+    Pub/Sub via Eventarc wraps messages in:
+    {"message": {"data": "<base64>", "messageId": "..."}}
+    
+    Returns original payload for direct HTTP calls (testing).
+    """
+    if "message" in envelope and "data" in envelope.get("message", {}):
+        try:
+            encoded = envelope["message"]["data"]
+            decoded = base64.b64decode(encoded).decode("utf-8")
+            return json.loads(decoded)
+        except (ValueError, json.JSONDecodeError) as e:
+            print(f"Warning: Failed to decode Pub/Sub data: {e}")
+            return envelope  # Fallback to raw envelope
+    return envelope  # Direct HTTP call, no wrapper
+
+
 @functions_framework.http
 def main(request):
     """
@@ -61,6 +82,10 @@ def main(request):
     try:
         event = request.get_json()
         print("Event: " + json.dumps(event))
+        
+        # Extract payload from Pub/Sub envelope if present
+        event = _extract_pubsub_payload(event)
+        print("Extracted payload: " + json.dumps(event))
         
         # Normalize event to canonical format (device_id, timestamp)
         event = normalize_telemetry(event)

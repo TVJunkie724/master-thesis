@@ -92,3 +92,50 @@ class TwinOverviewShowMessage extends TwinOverviewEvent {
 class TwinOverviewCloseTerminal extends TwinOverviewEvent {
   const TwinOverviewCloseTerminal();
 }
+
+/// Start a log trace test
+class TwinOverviewStartLogTrace extends TwinOverviewEvent {
+  const TwinOverviewStartLogTrace();
+}
+
+/// Log trace log received (from SSE stream)
+class TwinOverviewLogTraceUpdate extends TwinOverviewEvent {
+  final String logLine;
+  final String? layer;
+  final String? provider;
+
+  const TwinOverviewLogTraceUpdate(this.logLine, {this.layer, this.provider});
+
+  @override
+  List<Object?> get props => [logLine, layer, provider];
+}
+
+/// Log trace completed
+class TwinOverviewLogTraceComplete extends TwinOverviewEvent {
+  final int? totalLogs;
+
+  const TwinOverviewLogTraceComplete({this.totalLogs});
+
+  @override
+  List<Object?> get props => [totalLogs];
+}
+
+/// Log trace error occurred
+class TwinOverviewLogTraceError extends TwinOverviewEvent {
+  final String message;
+
+  const TwinOverviewLogTraceError(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
+/// Download simulator package
+class TwinOverviewDownloadSimulator extends TwinOverviewEvent {
+  const TwinOverviewDownloadSimulator();
+}
+
+/// Clear simulator bytes from state (after save dialog completes)
+class TwinOverviewClearSimulatorBytes extends TwinOverviewEvent {
+  const TwinOverviewClearSimulatorBytes();
+}

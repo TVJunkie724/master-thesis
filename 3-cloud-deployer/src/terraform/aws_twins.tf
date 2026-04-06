@@ -106,8 +106,9 @@ resource "aws_iam_role_policy" "l4_twinmaker_lambda" {
 # ==============================================================================
 
 resource "aws_s3_bucket" "l4_twinmaker" {
-  count  = local.l4_aws_enabled ? 1 : 0
-  bucket = local.aws_l4_twinmaker_bucket_name
+  count         = local.l4_aws_enabled ? 1 : 0
+  bucket        = local.aws_l4_twinmaker_bucket_name
+  force_destroy = true
 
   tags = local.aws_common_tags
 }
@@ -215,6 +216,22 @@ resource "aws_iam_role_policy" "l4_connector_dynamodb" {
   })
 }
 
+# Lambda invocation for L4 connector to call L0 hot reader
+resource "aws_iam_role_policy" "l4_connector_lambda_invoke" {
+  count = local.l4_aws_enabled && var.layer_3_hot_provider == "aws" ? 1 : 0
+  name  = "${var.digital_twin_name}-l4-connector-lambda-invoke"
+  role  = aws_iam_role.l4_connector_lambda[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["lambda:InvokeFunction"]
+      Resource = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:function:${local.aws_l3_hot_reader_name}"
+    }]
+  })
+}
+
 resource "aws_lambda_function" "l4_connector" {
   count         = local.l4_aws_enabled ? 1 : 0
   function_name = local.aws_l4_connector_function_name
@@ -234,7 +251,7 @@ resource "aws_lambda_function" "l4_connector" {
       WORKSPACE_ID      = var.digital_twin_name
 
       # Single-cloud mode: L3=AWS, invokes local Hot Reader Lambda
-      LOCAL_HOT_READER_NAME = var.layer_3_hot_provider == "aws" ? local.aws_l0_hot_reader_function_name : ""
+      LOCAL_HOT_READER_NAME = var.layer_3_hot_provider == "aws" ? local.aws_l3_hot_reader_name : ""
 
       # Multi-cloud mode: L3≠AWS, calls remote Hot Reader via HTTP
       REMOTE_READER_URL = var.layer_3_hot_provider != "aws" ? (

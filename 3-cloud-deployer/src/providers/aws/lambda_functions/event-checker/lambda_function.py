@@ -23,33 +23,40 @@ class ConfigurationError(Exception):
 DIGITAL_TWIN_INFO = json.loads(require_env("DIGITAL_TWIN_INFO"))
 
 # Optional environment variables (only used if features enabled)
-TWINMAKER_WORKSPACE_NAME = os.environ.get("TWINMAKER_WORKSPACE_NAME", "")
+
 LAMBDA_CHAIN_STEP_FUNCTION_ARN = os.environ.get("LAMBDA_CHAIN_STEP_FUNCTION_ARN", "")
 EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN = os.environ.get("EVENT_FEEDBACK_LAMBDA_FUNCTION_ARN", "")
 
 USE_STEP_FUNCTIONS = os.environ.get("USE_STEP_FUNCTIONS", "false").lower() == "true"
 USE_FEEDBACK = os.environ.get("USE_FEEDBACK", "false").lower() == "true"
 
-twinmaker_client = boto3.client("iottwinmaker")
 lambda_client = boto3.client("lambda")
 stepfunctions_client = boto3.client("stepfunctions")
 
 
-def fetch_value(entity_id, component_name, property_name):
-    if not TWINMAKER_WORKSPACE_NAME:
-        raise ValueError("TWINMAKER_WORKSPACE_NAME is required for fetching TwinMaker property values")
+def fetch_value_from_event(event, property_name):
+    """
+    Extract property value from incoming event data.
     
-    response = twinmaker_client.get_property_value(
-        workspaceId=TWINMAKER_WORKSPACE_NAME,
-        entityId=entity_id,
-        componentName=component_name,
-        selectedProperties=[property_name]
-    )
-
-    property = list(response["propertyValues"].values())[0]
-    value = list(property["propertyValue"].values())[0]
-
-    return value
+    This makes the event-checker provider-agnostic - no L4 query needed.
+    The incoming event already contains the telemetry values.
+    
+    Args:
+        event: Incoming telemetry event dict
+        property_name: Property name to extract (e.g., "temperature")
+    
+    Returns:
+        Property value from event, or None if not found
+    """
+    if property_name in event:
+        return event[property_name]
+    
+    # Check nested telemetry object (some formats nest values)
+    telemetry = event.get("telemetry", {})
+    if property_name in telemetry:
+        return telemetry[property_name]
+    
+    return None
 
 
 def extract_const_value(string):
@@ -60,6 +67,43 @@ def extract_const_value(string):
     elif string.startswith("STRING"):
         return string[7:-1]
     return string
+
+
+def _build_step_function_payload(event_rule: dict) -> dict:
+    """
+    Build Step Function execution payload with Lambda ARNs.
+    
+    Constructs the payload expected by aws_step_function.json:
+    - LambdaAArn: ARN of the first Lambda to invoke
+    - LambdaBArn: ARN of the second Lambda to invoke  
+    - InputData: The original event rule data
+    
+    Args:
+        event_rule: The matched event rule from config_events.json
+    
+    Returns:
+        dict ready to pass to stepfunctions.start_execution(input=...)
+    """
+    action = event_rule.get("action", {})
+    func_a = action.get("functionName")
+    func_b = action.get("functionNameB")
+    
+    # Get AWS region from Lambda context
+    region = os.environ.get("AWS_REGION", "eu-central-1")
+    
+    # Extract account ID from Step Function ARN to avoid STS call
+    # Format: arn:aws:states:region:account:stateMachine:name
+    account_id = LAMBDA_CHAIN_STEP_FUNCTION_ARN.split(":")[4]
+    
+    twin_name = DIGITAL_TWIN_INFO["config"]["digital_twin_name"]
+    
+    payload = {"InputData": event_rule}
+    if func_a:
+        payload["LambdaAArn"] = f"arn:aws:lambda:{region}:{account_id}:function:{twin_name}-{func_a}"
+    if func_b:
+        payload["LambdaBArn"] = f"arn:aws:lambda:{region}:{account_id}:function:{twin_name}-{func_b}"
+    
+    return payload
 
 
 def lambda_handler(event, context):
@@ -74,19 +118,22 @@ def lambda_handler(event, context):
             operation = condition.split()[1]
             param2 = condition.split()[2]
 
+            # Extract property name from condition (format: entityId.componentId.propertyName)
             if len(param1.split(".")) > 1:
-                param1_entity_id = param1.split(".")[0]
-                param1_component_name = param1.split(".")[1]
-                param1_property_name = param1.split(".")[2]
-                param1_value = fetch_value(param1_entity_id, param1_component_name, param1_property_name)
+                param1_property_name = param1.split(".")[-1]  # Last segment is property
+                param1_value = fetch_value_from_event(event, param1_property_name)
+                if param1_value is None:
+                    print(f"Property '{param1_property_name}' not found in event for condition '{condition}', skipping")
+                    continue
             else:
                 param1_value = extract_const_value(param1)
 
             if len(param2.split(".")) > 1:
-                param2_entity_id = param2.split(".")[0]
-                param2_component_name = param2.split(".")[1]
-                param2_property_name = param2.split(".")[2]
-                param2_value = fetch_value(param2_entity_id, param2_component_name, param2_property_name)
+                param2_property_name = param2.split(".")[-1]
+                param2_value = fetch_value_from_event(event, param2_property_name)
+                if param2_value is None:
+                    print(f"Property '{param2_property_name}' not found in event for condition '{condition}', skipping")
+                    continue
             else:
                 param2_value = extract_const_value(param2)
 
@@ -103,15 +150,17 @@ def lambda_handler(event, context):
                     payload = {
                         "e": e
                     }
-                    lambda_client.invoke(FunctionName=e["action"]["functionName"], InvocationType="Event", Payload=json.dumps(payload).encode("utf-8"))
+                    full_function_name = f"{DIGITAL_TWIN_INFO['config']['digital_twin_name']}-{e['action']['functionName']}"
+                    lambda_client.invoke(FunctionName=full_function_name, InvocationType="Event", Payload=json.dumps(payload).encode("utf-8"))
                 
                 elif action_type == "step_function":
                     if USE_STEP_FUNCTIONS:
                         if not LAMBDA_CHAIN_STEP_FUNCTION_ARN:
                             raise ConfigurationError("LAMBDA_CHAIN_STEP_FUNCTION_ARN is required when USE_STEP_FUNCTIONS is enabled")
+                        payload = _build_step_function_payload(e)
                         stepfunctions_client.start_execution(
                             stateMachineArn=LAMBDA_CHAIN_STEP_FUNCTION_ARN,
-                            input=json.dumps(e)
+                            input=json.dumps(payload)
                         )
                     else:
                         print(f"Skipping Step Function execution (Disabled): {e}")

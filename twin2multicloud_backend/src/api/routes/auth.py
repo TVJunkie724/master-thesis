@@ -1,3 +1,12 @@
+"""Authentication API endpoints.
+
+Provides OAuth and SAML authentication flows for Google and UIBK SSO.
+
+**Key flows:**
+- Google OAuth: /auth/google/login → callback → JWT
+- UIBK SAML: /auth/uibk/login → callback → JWT
+- User info: /auth/me for current user details
+"""
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
@@ -12,6 +21,7 @@ from src.auth.jwt import create_access_token
 from src.schemas.auth import TokenResponse
 from src.api.dependencies import get_current_user
 from src.config import settings
+from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -23,7 +33,12 @@ oauth_states: dict[str, str] = {}
 # Google OAuth Routes
 # ============================================================================
 
-@router.get("/google/login")
+@router.get(
+    "/google/login",
+    operation_id="initiateGoogleLogin",
+    summary="Initiate Google OAuth flow",
+    description="Returns auth_url to redirect user to Google for authentication."
+)
 async def google_login():
     """Initiate Google OAuth flow."""
     state = secrets.token_urlsafe(32)
@@ -34,13 +49,21 @@ async def google_login():
     
     return {"auth_url": auth_url}
 
-@router.get("/google/callback")
+@router.get(
+    "/google/callback",
+    operation_id="handleGoogleCallback",
+    summary="Handle Google OAuth callback",
+    description="Exchanges code for tokens, creates/updates user, issues JWT.",
+    responses={
+        400: ERROR_RESPONSES[400],
+    }
+)
 async def google_callback(
     code: str = Query(...),
     state: str = Query(...),
     db: Session = Depends(get_db)
 ):
-    """Handle Google OAuth callback."""
+    """Handle Google OAuth callback."""""
     # Verify state
     if state not in oauth_states:
         raise HTTPException(status_code=400, detail="Invalid state")
@@ -79,7 +102,20 @@ async def google_callback(
 # UIBK SAML Routes
 # ============================================================================
 
-@router.get("/uibk/login")
+@router.get(
+    "/uibk/login",
+    operation_id="initiateUibkLogin",
+    summary="Initiate UIBK SAML SSO flow",
+    description=(
+        "**Purpose:** Begins UIBK SAML authentication flow.\n\n"
+        "**When to call:** When user clicks 'Login with UIBK' button.\n\n"
+        "**Response:** Returns auth_url to redirect user to UIBK IdP."
+    ),
+    responses={
+        200: {"description": "Returns auth_url for redirect"},
+        503: {"description": "SAML not enabled or library not installed"},
+    }
+)
 async def uibk_login(request: Request):
     """
     Initiate UIBK SAML SSO flow.
@@ -110,7 +146,21 @@ async def uibk_login(request: Request):
     
     return {"auth_url": redirect_url}
 
-@router.post("/uibk/callback")
+@router.post(
+    "/uibk/callback",
+    operation_id="handleUibkCallback",
+    summary="Handle UIBK SAML assertion callback",
+    description=(
+        "**Purpose:** Processes SAML assertion from UIBK IdP after user login.\n\n"
+        "**When to call:** UIBK IdP POSTs here after successful authentication.\n\n"
+        "**Response:** Redirects to frontend with JWT token."
+    ),
+    responses={
+        302: {"description": "Redirect to frontend with JWT token"},
+        400: ERROR_RESPONSES[400],
+        503: {"description": "SAML not enabled or library not installed"},
+    }
+)
 async def uibk_callback(
     request: Request,
     db: Session = Depends(get_db)
@@ -181,7 +231,20 @@ async def uibk_callback(
         url=f"{settings.FRONTEND_CALLBACK_URL}?token={token}"
     )
 
-@router.get("/uibk/metadata")
+@router.get(
+    "/uibk/metadata",
+    operation_id="getUibkSpMetadata",
+    summary="Serve SP metadata for ACOnet registration",
+    description=(
+        "**Purpose:** Returns SAML SP metadata XML for ACOnet/eduID.at federation.\n\n"
+        "**When to call:** During service provider registration with ACOnet.\n\n"
+        "**Response:** XML metadata document."
+    ),
+    responses={
+        200: {"description": "XML metadata document"},
+        503: {"description": "SAML library not installed"},
+    }
+)
 async def uibk_metadata():
     """
     Serve SP metadata for ACOnet registration.
@@ -202,14 +265,32 @@ async def uibk_metadata():
 # Common Routes
 # ============================================================================
 
-@router.get("/me", response_model=dict)
+@router.get(
+    "/me", 
+    response_model=dict,
+    operation_id="getCurrentUser",
+    summary="Get current authenticated user details",
+    responses={
+        401: ERROR_RESPONSES[401],
+    }
+)
 async def get_me(
     current_user: User = Depends(get_current_user)
 ):
-    """Get current authenticated user."""
+    """Get current authenticated user."""""
     return _build_user_response(current_user)
 
-@router.patch("/me", response_model=dict)
+@router.patch(
+    "/me", 
+    response_model=dict,
+    operation_id="updateCurrentUser",
+    summary="Update current user preferences",
+    description="Updates user preferences like theme_preference (light/dark).",
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+    }
+)
 async def update_me(
     updates: dict,
     current_user: User = Depends(get_current_user),
@@ -242,7 +323,12 @@ def _build_user_response(user: User) -> dict:
         "google_linked": user.google_id is not None,
     }
 
-@router.get("/providers")
+@router.get(
+    "/providers",
+    operation_id="getAvailableAuthProviders",
+    summary="Get list of available authentication providers",
+    description="Returns which auth methods are enabled (google, uibk)."
+)
 async def get_available_providers():
     """Get list of available authentication providers."""
     providers = ["google"]  # Always available

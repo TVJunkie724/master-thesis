@@ -222,3 +222,120 @@ class TestNoHardcodedLists:
             "package_builder should import from function_registry"
         assert "get_functions_for_provider_build" in source, \
             "package_builder should use get_functions_for_provider_build"
+
+
+class TestCrossCloudL3:
+    """Tests for L3 function building in cross-cloud scenarios.
+    
+    The key insight: cold-to-archive-mover should be built for the
+    cold provider's cloud, not the hot provider's cloud.
+    """
+    
+    @pytest.fixture
+    def aws_azure_config(self):
+        """AWS-Azure scenario: L3-hot=GCP, L3-cold=AWS, L3-archive=Azure."""
+        return {
+            "layer_1_provider": "aws",
+            "layer_2_provider": "azure",
+            "layer_3_hot_provider": "google",
+            "layer_3_cold_provider": "aws",
+            "layer_3_archive_provider": "azure",
+            "layer_4_provider": "azure",
+        }
+    
+    def test_cold_provider_builds_cold_to_archive_mover(self, aws_azure_config):
+        """Cold-to-archive-mover should be built for the cold provider (AWS)."""
+        functions = get_functions_for_provider_build("aws", aws_azure_config)
+        assert "cold-to-archive-mover" in functions
+    
+    def test_hot_provider_does_not_build_cold_to_archive_mover(self, aws_azure_config):
+        """Cold-to-archive-mover should NOT be built for hot provider (GCP)."""
+        functions = get_functions_for_provider_build("gcp", aws_azure_config)
+        assert "cold-to-archive-mover" not in functions
+    
+    def test_hot_provider_builds_hot_functions(self, aws_azure_config):
+        """Hot-reader and hot-to-cold-mover should be built for hot provider (GCP)."""
+        functions = get_functions_for_provider_build("gcp", aws_azure_config)
+        assert "hot-reader" in functions
+        assert "hot-to-cold-mover" in functions
+        assert "hot-reader-last-entry" in functions
+    
+    def test_cold_provider_does_not_build_hot_functions(self, aws_azure_config):
+        """Hot functions should NOT be built for cold provider (AWS)."""
+        functions = get_functions_for_provider_build("aws", aws_azure_config)
+        assert "hot-reader" not in functions
+        assert "hot-to-cold-mover" not in functions
+
+
+class TestL0BoundaryEdgeCases:
+    """Tests for L0 boundary conditions that were missed by E2E scenarios.
+    
+    Bug: cold-writer boundary was (L2, L3-cold) but should be (L3-hot, L3-cold).
+    When L2 = L3-cold (same provider), the old boundary check returned False
+    and the cold-writer zip was never built — even though L3-hot ≠ L3-cold
+    means the cold-writer IS needed.
+    
+    This class tests configs where L2 = L3-cold to catch this class of bug.
+    """
+    
+    @pytest.fixture
+    def shared_l2_l3cold_config(self):
+        """Config where L2 = L3-cold = AWS but L3-hot = GCP.
+        
+        This is the production config that exposed the cold-writer bug.
+        """
+        return {
+            "layer_1_provider": "google",
+            "layer_2_provider": "aws",
+            "layer_3_hot_provider": "google",
+            "layer_3_cold_provider": "aws",
+            "layer_3_archive_provider": "azure",
+            "layer_4_provider": "aws",
+            "layer_5_provider": "aws",
+        }
+    
+    def test_cold_writer_built_when_l2_equals_l3_cold(self, shared_l2_l3cold_config):
+        """cold-writer MUST be built for AWS when L3-hot(GCP) ≠ L3-cold(AWS).
+        
+        Even though L2 = L3-cold = AWS, the boundary is L3-hot→L3-cold.
+        """
+        functions = get_functions_for_provider_build("aws", shared_l2_l3cold_config)
+        assert "cold-writer" in functions, (
+            "cold-writer should be built for AWS when L3-hot(google) ≠ L3-cold(aws), "
+            "regardless of L2 being the same as L3-cold"
+        )
+    
+    def test_cold_writer_not_built_for_hot_provider(self, shared_l2_l3cold_config):
+        """cold-writer should NOT be built for the hot provider (GCP)."""
+        functions = get_functions_for_provider_build("gcp", shared_l2_l3cold_config)
+        assert "cold-writer" not in functions, (
+            "cold-writer should NOT be built for GCP (the hot provider)"
+        )
+    
+    def test_hot_writer_built_when_l2_differs_from_l3_hot(self, shared_l2_l3cold_config):
+        """hot-writer should be built for GCP when L2(AWS) ≠ L3-hot(GCP)."""
+        functions = get_functions_for_provider_build("gcp", shared_l2_l3cold_config)
+        assert "hot-writer" in functions, (
+            "hot-writer should be built for GCP when L2(aws) ≠ L3-hot(google)"
+        )
+    
+    def test_hot_reader_built_for_hot_provider_cross_l4(self):
+        """L0 hot-reader should be built for L3-hot provider when L4 is different.
+        
+        Tests the hot-reader boundary fix: (L4, L3-hot) — function deploys
+        on the L3-hot side to serve data cross-cloud to L4.
+        """
+        config = {
+            "layer_1_provider": "google",
+            "layer_2_provider": "aws",
+            "layer_3_hot_provider": "google",
+            "layer_3_cold_provider": "aws",
+            "layer_3_archive_provider": "azure",
+            "layer_4_provider": "aws",
+            "layer_5_provider": "aws",
+        }
+        functions = get_functions_for_provider_build("gcp", config)
+        assert "hot-reader" in functions, (
+            "hot-reader should be built for GCP (L3-hot) when L4(aws) ≠ L3-hot(google)"
+        )
+

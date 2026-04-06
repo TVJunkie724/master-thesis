@@ -6,14 +6,32 @@ final apiServiceProvider = Provider((ref) => ApiService());
 
 final twinsProvider = FutureProvider<List<Twin>>((ref) async {
   final api = ref.read(apiServiceProvider);
-  
+
   // Fetch twins from database via Management API
   final data = await api.getTwins();
-  return data.map((json) => Twin.fromJson(json as Map<String, dynamic>)).toList();
+  return data
+      .map((json) => Twin.fromJson(json as Map<String, dynamic>))
+      .toList();
 });
 
-/// Dashboard statistics provider
-final dashboardStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+/// Dashboard statistics provider.
+///
+/// Tries the dedicated /dashboard/stats endpoint first (includes cost data).
+/// Falls back to computing counts from the twins list if the endpoint fails.
+final dashboardStatsProvider = FutureProvider<Map<String, dynamic>>((
+  ref,
+) async {
   final api = ref.read(apiServiceProvider);
-  return await api.getDashboardStats();
+  try {
+    return await api.getDashboardStats();
+  } catch (_) {
+    // Fallback: compute counts from twins list (cost unavailable)
+    final twins = await ref.read(twinsProvider.future);
+    return {
+      'deployed_count': twins.where((t) => t.isDeployed).length,
+      'draft_count': twins.where((t) => t.isDraft).length,
+      'total_twins': twins.length,
+      'estimated_monthly_cost': 0.0,
+    };
+  }
 });

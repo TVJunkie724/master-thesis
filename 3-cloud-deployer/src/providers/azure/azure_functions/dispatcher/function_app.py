@@ -94,11 +94,16 @@ def _invoke_function(function_name: str, payload: dict) -> None:
     if not FUNCTION_APP_BASE_URL:
         raise ValueError(f"FUNCTION_APP_BASE_URL not set - cannot invoke {function_name}")
     
-    # Build URL with function key for Azure→Azure authentication
     base_url = f"{FUNCTION_APP_BASE_URL}/api/{function_name}"
-    function_key = _get_l2_function_key()
-    separator = "&" if "?" in base_url else "?"
-    url = f"{base_url}{separator}code={function_key}"
+    
+    # Multi-cloud connector uses AuthLevel.ANONYMOUS (no function key required)
+    # Single-cloud processor uses AuthLevel.FUNCTION (requires L2_FUNCTION_KEY)
+    if TARGET_FUNCTION_SUFFIX == "-connector":
+        url = base_url  # Multi-cloud: connector uses ANONYMOUS
+    else:
+        function_key = _get_l2_function_key()
+        separator = "&" if "?" in base_url else "?"
+        url = f"{base_url}{separator}code={function_key}"  # Single-cloud: requires auth
     
     data = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}

@@ -7,7 +7,7 @@ No Terraform state required.
 Usage:
     # Clean a specific scenario:
     docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
-        python tests/e2e/cleanup_scenario.py sc-azure-aws
+        python tests/e2e/cleanup_scenario.py sc2-azure-aws
 
     # Clean ALL known scenarios:
     docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
@@ -15,7 +15,7 @@ Usage:
 
     # Dry run (show what would be deleted):
     docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
-        python tests/e2e/cleanup_scenario.py sc-azure-aws --dry-run
+        python tests/e2e/cleanup_scenario.py sc2-azure-aws --dry-run
 
     # Dry run for all:
     docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 \
@@ -54,9 +54,9 @@ from src.providers.gcp.cleanup import cleanup_gcp_resources as _gcp_cleanup
 
 # All known scenario prefixes
 ALL_PREFIXES = [
-    "sc-aws-azure", "sc-aws-gcp", 
-    "sc-azure-aws", "sc-azure-gcp",
-    "sc-gcp-aws", "sc-gcp-azure",
+    "sc2-aws-azure", "sc2-aws-gcp", 
+    "sc2-azure-aws", "sc2-azure-gcp",
+    "sc2-gcp-aws", "sc2-gcp-azure",
     "mc-e2e", "tf-e2e",
 ]
 
@@ -163,8 +163,8 @@ def print_usage():
     print("Usage: python cleanup_scenario.py <prefix|--all> [--dry-run]")
     print()
     print("Examples:")
-    print("  python cleanup_scenario.py sc-aws-azure")
-    print("  python cleanup_scenario.py sc-azure-aws --dry-run")
+    print("  python cleanup_scenario.py sc2-aws-azure")
+    print("  python cleanup_scenario.py sc2-azure-aws --dry-run")
     print("  python cleanup_scenario.py --all")
     print("  python cleanup_scenario.py --all --dry-run")
     print()

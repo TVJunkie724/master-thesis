@@ -17,6 +17,7 @@ from src.models.database import get_db
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.api.dependencies import get_current_user
+from src.api.routes.error_models import ERROR_RESPONSES
 
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -30,7 +31,26 @@ class DashboardStats(BaseModel):
     estimated_monthly_cost: float  # USD, from deployed twins' optimizer results
 
 
-@router.get("/stats", response_model=DashboardStats)
+@router.get(
+    "/stats",
+    response_model=DashboardStats,
+    operation_id="getDashboardStats",
+    summary="Get aggregated dashboard statistics",
+    description=(
+        "**Purpose:** Retrieve overview statistics for the dashboard home screen.\n\n"
+        "**When to call:** When loading the dashboard main page to populate summary cards.\n\n"
+        "**Response fields:**\n"
+        "- `deployed_count`: Number of twins currently in DEPLOYED state\n"
+        "- `draft_count`: Number of twins in DRAFT state\n"
+        "- `total_twins`: Total active twins (excludes INACTIVE)\n"
+        "- `estimated_monthly_cost`: USD sum of costs from deployed twins' cheapest paths\n\n"
+        "**Cost calculation:** Sums layer costs from each deployed twin's "
+        "optimizer result that match their stored cheapest_path selection."
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+    }
+)
 async def get_dashboard_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -55,16 +75,8 @@ async def get_dashboard_stats(
             if result_json:
                 try:
                     result = json.loads(result_json)
-                    # Sum the cheapest path costs
-                    cheapest_path = result.get('cheapestPath', [])
-                    for provider_costs_key in ['awsCosts', 'azureCosts', 'gcpCosts']:
-                        costs = result.get(provider_costs_key, {})
-                        for layer_key, layer_data in costs.items():
-                            # Only count if this layer is in the cheapest path
-                            provider = provider_costs_key.replace('Costs', '').upper()
-                            path_key = f"{layer_key}_{provider}"
-                            if path_key in cheapest_path:
-                                estimated_cost += layer_data.get('cost', 0)
+                    # Use the engine's pre-computed totalCost (includes layer + transfer costs)
+                    estimated_cost += result.get('totalCost', 0)
                 except (json.JSONDecodeError, TypeError, AttributeError):
                     pass
     
@@ -74,4 +86,3 @@ async def get_dashboard_stats(
         total_twins=total_twins,
         estimated_monthly_cost=round(estimated_cost, 2)
     )
-

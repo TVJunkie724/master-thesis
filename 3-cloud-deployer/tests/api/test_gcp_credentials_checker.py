@@ -178,38 +178,52 @@ class TestCheckBillingEnabledFunction:
         """Test billing check when billing is enabled."""
         from api.gcp_credentials_checker import _check_billing_enabled
         
-        with patch.dict('sys.modules', {'google.cloud.billing_v1': MagicMock()}):
-            with patch('google.cloud.billing_v1.CloudBillingClient') as mock_client_class:
-                mock_client = Mock()
-                mock_client_class.return_value = mock_client
-                mock_client.get_project_billing_info.return_value = Mock(
-                    billing_enabled=True,
-                    billing_account_name="billingAccounts/ABC123"
-                )
-                
-                result = _check_billing_enabled("test-project")
-                
-                assert result["status"] == "checked"
-                assert result["billing_enabled"] is True
-                assert result["billing_account"] == "billingAccounts/ABC123"
+        mock_billing_module = MagicMock()
+        mock_client = Mock()
+        mock_billing_module.CloudBillingClient.return_value = mock_client
+        mock_client.get_project_billing_info.return_value = Mock(
+            billing_enabled=True,
+            billing_account_name="billingAccounts/ABC123"
+        )
+        
+        mock_google = MagicMock()
+        mock_google.cloud.billing_v1 = mock_billing_module
+        
+        with patch.dict('sys.modules', {
+            'google': mock_google,
+            'google.cloud': mock_google.cloud,
+            'google.cloud.billing_v1': mock_billing_module,
+        }):
+            result = _check_billing_enabled("test-project")
+            
+            assert result["status"] == "checked"
+            assert result["billing_enabled"] is True
+            assert result["billing_account"] == "billingAccounts/ABC123"
 
     def test_billing_disabled_returns_false(self):
         """Test billing check when billing is disabled."""
         from api.gcp_credentials_checker import _check_billing_enabled
         
-        with patch.dict('sys.modules', {'google.cloud.billing_v1': MagicMock()}):
-            with patch('google.cloud.billing_v1.CloudBillingClient') as mock_client_class:
-                mock_client = Mock()
-                mock_client_class.return_value = mock_client
-                mock_client.get_project_billing_info.return_value = Mock(
-                    billing_enabled=False,
-                    billing_account_name=""
-                )
-                
-                result = _check_billing_enabled("test-project")
-                
-                assert result["status"] == "checked"
-                assert result["billing_enabled"] is False
+        mock_billing_module = MagicMock()
+        mock_client = Mock()
+        mock_billing_module.CloudBillingClient.return_value = mock_client
+        mock_client.get_project_billing_info.return_value = Mock(
+            billing_enabled=False,
+            billing_account_name=""
+        )
+        
+        mock_google = MagicMock()
+        mock_google.cloud.billing_v1 = mock_billing_module
+        
+        with patch.dict('sys.modules', {
+            'google': mock_google,
+            'google.cloud': mock_google.cloud,
+            'google.cloud.billing_v1': mock_billing_module,
+        }):
+            result = _check_billing_enabled("test-project")
+            
+            assert result["status"] == "checked"
+            assert result["billing_enabled"] is False
 
 
 if __name__ == "__main__":

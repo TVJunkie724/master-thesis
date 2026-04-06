@@ -76,8 +76,9 @@ locals {
 resource "azurerm_role_assignment" "grafana_admin" {
   count = local.azure_grafana_enabled ? 1 : 0
   
-  # Deterministic UUID prevents duplicate assignment errors on re-apply
-  name                 = uuidv5("dns", "${var.platform_user_email}-grafana-admin")
+  # Deterministic UUID includes deployment_suffix for per-scenario uniqueness
+  # Azure role assignment UUIDs must be globally unique across the tenant
+  name                 = uuidv5("dns", "${var.platform_user_email}-grafana-admin-${local.deployment_suffix}")
   scope                = azurerm_dashboard_grafana.main[0].id
   role_definition_name = "Grafana Admin"
   

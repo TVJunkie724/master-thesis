@@ -16,11 +16,48 @@ from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src")))
 
 
+def pytest_addoption(parser):
+    """Add custom command-line options for E2E tests."""
+    parser.addoption(
+        "--skip-cleanup",
+        action="store_true",
+        default=False,
+        help="Skip cleanup after E2E tests (preserve infrastructure for investigation)"
+    )
+
+
 def pytest_configure(config):
-    """Register custom markers."""
+    """Register custom markers and validate flags."""
     config.addinivalue_line(
         "markers", "live: marks tests as live E2E tests that deploy real resources"
     )
+    
+    # Warn if the OLD environment variable is used (prevent silent failures)
+    old_env_skip = os.environ.get("E2E_SKIP_CLEANUP", "").lower()
+    if old_env_skip == "true":
+        import warnings
+        warnings.warn(
+            "⚠ E2E_SKIP_CLEANUP environment variable is DEPRECATED. "
+            "Use 'pytest --skip-cleanup' flag instead.",
+            DeprecationWarning
+        )
+        # Still honor it for backwards compatibility
+        config._skip_cleanup_compat = True
+    else:
+        config._skip_cleanup_compat = False
+
+
+@pytest.fixture(scope="session")
+def skip_cleanup(request):
+    """
+    Fixture to check if cleanup should be skipped.
+    
+    Usage: pytest tests/e2e/... --skip-cleanup
+    """
+    # Check command-line flag first, then backwards-compat env var
+    flag_value = request.config.getoption("--skip-cleanup")
+    compat_value = getattr(request.config, "_skip_cleanup_compat", False)
+    return flag_value or compat_value
 
 
 # ==============================================================================

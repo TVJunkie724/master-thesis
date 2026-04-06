@@ -101,6 +101,11 @@ output "azure_dispatcher_url" {
   value       = try("https://${azurerm_linux_function_app.l2[0].default_hostname}/${local.api_paths.dispatcher}", null)
 }
 
+output "azure_logic_app_name" {
+  description = "Name of the Azure Logic App for event workflows"
+  value       = try(azurerm_logic_app_workflow.event_notification[0].name, null)
+}
+
 # ==============================================================================
 # Azure L3 Storage Outputs
 # ==============================================================================
@@ -493,6 +498,11 @@ output "gcp_project_id" {
   value       = local.deploy_gcp ? local.gcp_project_id : null
 }
 
+output "gcp_region" {
+  description = "GCP region for deployed resources"
+  value       = local.deploy_gcp ? var.gcp_region : null
+}
+
 output "gcp_service_account_email" {
   description = "Email of the GCP Service Account"
   value       = try(google_service_account.functions[0].email, null)
@@ -603,3 +613,30 @@ output "gcp_archive_writer_url" {
   description = "URL of the archive writer function (multi-cloud)"
   value       = try(google_cloudfunctions2_function.archive_writer[0].url, null)
 }
+
+# ==============================================================================
+# Observability Outputs (for Log Tracing)
+# ==============================================================================
+
+output "aws_cloudwatch_log_groups" {
+  description = "Map of AWS CloudWatch Log Group names by function"
+  value = var.enable_aws_logging ? {
+    for key, log_group in aws_cloudwatch_log_group.lambda : key => log_group.name
+  } : {}
+}
+
+output "aws_cloudwatch_log_group_iot" {
+  description = "AWS CloudWatch Log Group name for IoT Core logs"
+  value       = try(aws_cloudwatch_log_group.iot[0].name, null)
+}
+
+output "azure_log_analytics_workspace_id" {
+  description = "Azure Log Analytics Workspace ID (GUID for API queries)"
+  value       = try(azurerm_log_analytics_workspace.main[0].workspace_id, null)
+}
+
+output "azure_log_analytics_workspace_name" {
+  description = "Azure Log Analytics Workspace resource name"
+  value       = try(azurerm_log_analytics_workspace.main[0].name, null)
+}
+

@@ -1,33 +1,124 @@
 \chapter{\label{chap:introduction}Introduction}
 
-% This chapter sets the stage for your thesis. It should hook the reader,
-% clearly state the problem, and preview your solution and contributions.
+% ============================================================================
+% PURPOSE: Set the stage and hook the reader with the narrative arc.
+% Core story: two disconnected prototypes → unified multi-cloud platform.
+% TARGET: ~5-8 pages
+% ============================================================================
+
+\section{Motivation}
+% Start broad, then narrow to the specific problem.
+%
+% The need for multi-cloud Digital Twins:
+% - Industry 4.0 and IoT are driving adoption of Digital Twins
+% - Cloud computing enables scalable DT infrastructure
+% - Multi-cloud strategies reduce vendor lock-in, improve resilience,
+%   and can optimize costs by selecting best-of-breed services per provider
+% - However, deploying DT across multiple clouds is complex:
+%   each provider has different APIs, naming, pricing, and resource models
+%
+% The gap between theory and practice:
+% - Academic work on DT architectures (EDT_25, 5-Layer model) provides
+%   theoretical frameworks but stops short of actual deployment
+% - Cost optimization models exist on paper but are disconnected from
+%   the deployment tools that would act on their recommendations
+% - No existing tool bridges the gap between "what should I deploy?"
+%   (cost optimization) and "deploy it for me" (infrastructure provisioning)
 
 \section{Problem Statement}
-% Describe the core problems that exist in the field:
-% - Digital Twin research is fragmented (modeling vs. cloud deployment)
-% - No unified approach to bridge theoretical cost optimization with practical multi-cloud deployment
-% - Manual, error-prone process of deploying DT infrastructure across providers
+% Clearly state what is broken/missing.
+%
+% Two prior bachelor thesis projects exist:
+% - Project A ("The Brain"): a cost calculator for cloud-hosted Digital Twins,
+%   limited to hardcoded pricing and monolithic code
+% - Project B ("The Muscle"): a Python SDK-based deployer for AWS,
+%   limited to a single cloud provider and CLI interaction
+%
+% These projects cannot be used together because:
+% 1. No shared API or data format connects them
+% 2. Neither tracks state (no database, no deployment lifecycle)
+% 3. Neither supports multi-cloud beyond their original narrow scope
+% 4. No user interface exists — both require manual JSON editing
+%
+% The result: a proof-of-concept gap between theoretical cost optimization
+% and practical multi-cloud deployment. Bridging this gap requires
+% significant architectural redesign, not just "glue code."
 
-\section{Research Questions}
-% Formulate 2-3 clear research questions, e.g.:
-% - RQ1: How can cost optimization models be integrated into an automated multi-cloud deployment pipeline?
-% - RQ2: What architecture enables seamless Digital Twin deployment across AWS, Azure, and GCP?
-% - RQ3: How accurate are theoretical cost predictions compared to real-world deployments?
+\section{Research Objective}
+% State your goal clearly and concisely.
+%
+% The objective of this thesis is to design and implement a unified platform —
+% \textbf{Twin2MultiCloud} — that:
+% 1. Refactors the legacy cost optimizer into a stateless microservice with
+%    live pricing data and a RESTful API
+% 2. Replaces the SDK-based deployer with a Terraform-powered deployment engine
+%    supporting AWS, Azure, and GCP
+% 3. Introduces a new Orchestration Layer (Management API + Flutter UI) that
+%    connects optimization with deployment in a seamless workflow
+% 4. Validates the end-to-end flow through automated E2E testing
+%
+% To guide this work, the thesis addresses three research questions:
+%
+% \begin{enumerate}
+%   \item[\textbf{RQ1}] \textit{How can a configuration-driven platform be designed
+%         that transforms user-defined IoT scenario parameters into a fully functional,
+%         deployed digital twin across one or more cloud providers?}
+%         \\ Addressed in Chapter~\ref{chap:systemArchitecture} (architecture)
+%         and Chapter~\ref{chap:evaluation} (E2E validation).
+%
+%   \item[\textbf{RQ2}] \textit{How can independently developed, single-purpose
+%         prototypes (a cost optimizer and a cloud deployer) be refactored and
+%         integrated into a unified multi-cloud platform without discarding their
+%         core logic?}
+%         \\ Addressed in Chapter~\ref{chap:legacyAnalysis} (legacy analysis and
+%         refactoring methodology).
+%
+%   \item[\textbf{RQ3}] \textit{What deployment challenges and failure modes emerge
+%         when provisioning multi-cloud digital twin infrastructure, and how can they
+%         be systematically detected and resolved?}
+%         \\ Addressed in Chapter~\ref{chap:evaluation} (E2E test results and bugs)
+%         and Chapter~\ref{chap:discussion} (reflection on challenges).
+% \end{enumerate}
 
 \section{Contributions}
-% List your main contributions (3-5 bullet points):
-% - A unified platform (Twin2MultiCloud) integrating cost optimization and deployment
-% - Implementation of the 5-Layer Architecture for multi-cloud Digital Twins
-% - An IaC-based deployer supporting AWS, Azure, and GCP
-% - Empirical validation of cost models through E2E testing
+% List 4-5 concrete contributions.
+%
+% The main contributions of this thesis are:
+% \begin{enumerate}
+%   \item \textbf{Refactoring and API-fication} of legacy optimization code:
+%         applying design patterns (Factory, Strategy, Protocol) to transform a
+%         monolithic script into an extensible, testable microservice.
+%   \item \textbf{Terraform-based Deployment Engine}: replacing imperative SDK
+%         calls with declarative Infrastructure as Code supporting three cloud
+%         providers, using Registry and Strategy patterns for provider abstraction.
+%   \item \textbf{Orchestration Layer}: a new Management API (FastAPI) and
+%         Flutter UI (BLoC architecture) that bridges cost optimization and
+%         deployment in a unified wizard workflow.
+%   \item \textbf{End-to-end validation}: automated E2E tests proving the
+%         complete flow from UI configuration through cost optimization to
+%         multi-cloud infrastructure provisioning.
+%   \item \textbf{Multi-cloud Digital Twin Architecture}: practical implementation
+%         of the 5-Layer Architecture across AWS, Azure, and GCP, including
+%         cross-cloud data transfer and connectivity.
+% \end{enumerate}
 
 \section{Document Structure}
-% One sentence per remaining chapter:
-% - Chapter 2 (Background) introduces Digital Twins, multi-cloud computing, and cost optimization concepts
-% - Chapter 3 (Related Work) surveys existing solutions and identifies the research gap
-% - Chapter 4 (System Architecture) presents the Twin2MultiCloud platform design
-% - Chapter 5 (Implementation) details the technology stack and key implementation decisions
-% - Chapter 6 (Evaluation) validates the system through E2E testing and cost analysis
-% - Chapter 7 (Discussion) compares with related work and discusses limitations
-% - Chapter 8 (Conclusion) summarizes contributions and outlines future work
+% One sentence per remaining chapter.
+%
+% The remainder of this thesis is structured as follows:
+% - Chapter~\ref{chap:background} introduces the theoretical foundations:
+%   Digital Twins, multi-cloud computing, cost optimization, and relevant
+%   software design patterns.
+% - Chapter~\ref{chap:relatedWork} surveys existing solutions and identifies
+%   the research gap addressed by this work.
+% - Chapter~\ref{chap:legacyAnalysis} analyzes the two legacy prototypes,
+%   identifies their limitations, derives requirements for the unified
+%   platform, and describes the refactoring process that transformed them.
+% - Chapter~\ref{chap:systemArchitecture} presents the Twin2MultiCloud platform
+%   architecture and design decisions.
+% - Chapter~\ref{chap:evaluation} validates the system through E2E testing
+%   and deployment performance analysis.
+% - Chapter~\ref{chap:discussion} reflects on challenges, compares with related
+%   work, and discusses limitations.
+% - Chapter~\ref{chap:conclusion} summarizes contributions and outlines
+%   future research directions.

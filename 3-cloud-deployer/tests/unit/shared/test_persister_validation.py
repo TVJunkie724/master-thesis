@@ -154,7 +154,7 @@ class TestFieldStandardizationEndToEnd:
         assert "device_id" in normalized, "device_id required for partition key"
         assert "timestamp" in normalized, "timestamp required for sort key"
         assert normalized["device_id"] == "temperature-sensor-1"
-        assert normalized["timestamp"] == "1704067200000"
+        assert normalized["timestamp"] == "2024-01-01T00:00:00Z"
         
         # Step 4: time should still exist for backward compatibility
         # (persister will remove it during storage)

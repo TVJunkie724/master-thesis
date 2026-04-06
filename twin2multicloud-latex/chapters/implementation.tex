@@ -1,34 +1,386 @@
-\chapter{\label{chap:implementation}Implementation}
+\chapter{\label{chap:implementation}Implementation and Refactoring}
 
-% This chapter covers the "how" - the technical details of building the system.
-% Focus on non-obvious decisions and interesting implementation challenges.
+% ============================================================================
+% PURPOSE: The "MEAT" of the thesis. Describe HOW the system was built,
+% focusing on non-obvious decisions, refactoring methodology, and the
+% application of design patterns to solve real engineering problems.
+%
+% Structure follows the thesis proposal's narrative arc:
+%   Standardization → Refactoring Methodology → Optimizer → Deployer → Orchestrator
+%
+% For each subsystem, the pattern is:
+%   Challenge → Decision → Solution (Pattern Applied) → Evidence
+%
+% TARGET: ~25-35 pages (largest chapter)
+% ============================================================================
 
 \section{Technology Stack}
-% Overview of technologies used:
-% - Backend: Python (Flask/FastAPI), Terraform CLI
-% - Frontend: Flutter/Dart
-% - Infrastructure: Docker, Docker Compose
-% - Cloud SDKs and APIs for each provider
-% Include a table summarizing the stack per component
+\label{sec:tech-stack}
 
-\section{Docker-based Development Environment}
-% Explain the containerized development setup:
-% - Why Docker: reproducibility, isolation, ARM64 compatibility
-% - Container architecture: separate containers per component
-% - Volume mounts for credentials and configuration
-% - Developer workflow: docker compose up, hot reloading
+Table~\ref{tab:tech-stack} summarizes the core technologies used across the four subsystems. All three Python services run on Python~3.11 and expose their functionality through FastAPI, a modern asynchronous web framework built on Starlette and Pydantic. % TODO: CITE --- FastAPI (Ramírez), Starlette, Pydantic
+I chose FastAPI over alternatives like Flask or Django REST Framework for three reasons: its native support for asynchronous request handlers (critical for SSE streaming), automatic OpenAPI documentation from type hints, and Pydantic-based request validation that eliminates manual input checking.
 
-\section{API Design and Integration}
-% Detail the API contracts between components:
-% - Management API endpoints (twin CRUD, deployment triggers)
-% - Optimizer API (cost calculation requests)
-% - Deployer API (provision, destroy, validate)
-% - Error handling and response formats
+\begin{table}[ht]
+    \centering
+    \caption{Technology stack by subsystem.}
+    \label{tab:tech-stack}
+    \begin{tabularx}{\textwidth}{l l X}
+        \toprule
+        \textbf{Subsystem} & \textbf{Key Technologies} & \textbf{Role} \\
+        \midrule
+        Cost Optimizer (Brain) & Python~3.11, FastAPI, boto3, azure-mgmt, google-cloud-billing & Fetches live cloud pricing data and computes per-layer cost estimates across three providers \\
+        Cloud Deployer (Muscle) & Python~3.11, FastAPI, Terraform~1.7.5, Node.js~18, boto3, Azure SDKs, GCP SDKs & Provisions and destroys multi-cloud infrastructure via Terraform and provider SDKs \\
+        Management \gls{api} (Orchestrator) & Python~3.11, FastAPI, SQLAlchemy~2.0, Pydantic~2.5, cryptography & Persists twin configurations, bridges Brain and Muscle, manages authentication and credential encryption \\
+        Flutter \gls{ui} & Dart~3.10, Flutter, flutter\_bloc~8.1, Riverpod~2.4, Dio~5.4 & Cross-platform desktop and mobile client with reactive state management \\
+        Infrastructure & Docker, Docker Compose, SQLite & Containerized development and deployment environment with file-based persistence \\
+        \gls{iac} & Terraform (HCL), 38 \texttt{.tf} files & Declarative cloud resource definitions organized by provider and architectural layer \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
 
-\section{Key Implementation Decisions}
-% Discuss interesting technical decisions:
-% - Why Terraform over Pulumi or CloudFormation
-% - Handling cloud credential security
-% - State synchronization between UI and backend
-% - Retry logic and failure recovery patterns
-% - Any significant refactoring decisions made during development
+The Deployer's container is the most complex of the four. Beyond the Python runtime, it bundles Terraform and Node.js, which is required for packaging Azure Functions deployments. The Terraform version is pinned rather than tracking the latest release because Terraform state files are not guaranteed to be forward-compatible; upgrading mid-project risks corrupting existing deployments. % TODO: CITE --- Terraform, HashiCorp
+
+On the Flutter side, the application targets macOS, iOS, Android, and web from a single Dart codebase. I use both flutter\_bloc (for complex UI flows like the creation wizard and deployment terminal) and Riverpod (for simpler dependency injection and global state such as API service instances). % TODO: CITE --- Flutter, BLoC pattern, Riverpod
+
+\section{Standardization Phase}
+\label{sec:standardization}
+
+Before any refactoring could begin, the development environment needed unification. The legacy Optimizer was a pure client-side JavaScript web application (static HTML and JS files), while the legacy Deployer was a Python CLI application that managed AWS resources through global mutable state and imperative boto3 calls. Neither project had a documented setup procedure beyond ``install requirements and run.'' Containerizing each service made the setup straightforward and ensured that all components could run together in a consistent, reproducible environment regardless of the host machine.
+
+\subsection{Containerization with Docker}
+\label{sec:containerization}
+
+I containerized each service with its own Dockerfile, all based on \texttt{python:3.11-slim} to minimize image size while retaining access to the full Python standard library. The key design decisions were:
+
+\begin{itemize}
+    \item \textbf{One container per service.} The Optimizer, Deployer, and Management \gls{api} each run in an isolated container with pinned dependencies. This eliminates version conflicts: for instance, the Deployer requires specific Azure SDK versions that conflict with the Management \gls{api}'s authentication libraries.
+    \item \textbf{Source directory mounts for development.} During development, each service's source directory is mounted as a Docker volume (e.g., \texttt{./2-twin2clouds:/app}), enabling hot-reload without rebuilding the image after every change.
+    \item \textbf{Credential injection via volume mounts.} Cloud provider credentials (\texttt{config\_credentials.json}, \texttt{gcp\_credentials.json}) are mounted from the host filesystem into the container at \texttt{/config/}. Credentials are never baked into Docker images, which would create a security risk if images were pushed to a registry.
+\end{itemize}
+
+The Deployer's Dockerfile is notably more complex than the others, since it also installs Terraform and Node.js in addition to the Python dependencies. % TODO: CITE --- Docker
+
+\subsection{Shared Development Environment}
+\label{sec:shared-dev-env}
+
+Docker Compose ties the three backend services together into a single development stack. The \texttt{compose.yaml} file defines the following:
+
+\begin{itemize}
+    \item \textbf{Service discovery via Docker networking.} All services join a shared bridge network (\texttt{my\_master\_thesis\_network}). The Management \gls{api} references the Optimizer and Deployer by their Docker-internal hostnames (e.g., \texttt{OPTIMIZER\_URL=http://master-thesis-2twin2clouds-1:8000}) rather than \texttt{localhost} with port offsets.
+    \item \textbf{Dependency ordering.} The Management \gls{api} declares \texttt{depends\_on} for both the Optimizer and Deployer, ensuring they are started before the Orchestrator attempts to call them.
+    \item \textbf{Environment variable standardization.} Configuration that was previously scattered across hardcoded strings, command-line arguments, and config files is now centralized in environment variables. The Management \gls{api}'s \texttt{DATABASE\_URL}, \texttt{JWT\_SECRET\_KEY}, and \texttt{DEBUG} flag are all set in the Compose file, with sensible defaults for development (e.g., \texttt{DEBUG=true} enables the JWT bypass, as discussed in Section~\ref{sec:e2e-workflow}).
+    \item \textbf{Persistent volumes.} The Management \gls{api}'s SQLite database is stored in a named Docker volume (\texttt{management-data}), so twin configurations and deployment history survive container restarts. The Deployer's Terraform state files are similarly preserved through the source mount.
+\end{itemize}
+
+The Flutter \gls{ui} runs natively on the host machine rather than inside a container, since Flutter's desktop rendering requires access to the host's GPU and window manager. During development, it connects to the Management \gls{api} at \texttt{http://localhost:5005}, which forwards requests to the other two services over the Docker bridge network.
+
+% TODO: CITE --- Docker Compose
+
+\section{Refactoring Methodology}
+% Describe the iterative process — this is a key narrative element.
+
+\subsection{Why Quick-and-Dirty Adaptation Failed}
+% Initial approach: tried to minimally modify legacy code to add multi-cloud support.
+% Result: bugs cascaded — adding Azure alongside AWS revealed hardcoded assumptions
+% everywhere. The flat procedural code made it impossible to isolate changes.
+%
+% Lesson: the lack of architecture in the originals made incremental changes
+% prohibitively expensive. A structural refactoring was required first.
+
+\subsection{The Iterative Refactoring Cycle}
+% The actual process that was followed:
+% 1. Extract interfaces (Protocols) to define contracts
+% 2. Refactor existing code to implement these interfaces
+% 3. Add new provider implementations against the same interfaces
+% 4. Discover additional code needing patterns during integration
+% 5. Return to step 1 for the newly discovered code
+%
+% This cycle repeated multiple times for both the Optimizer and Deployer.
+%
+% DIAGRAM: Show the iterative cycle as a flow diagram.
+
+\section{Refactoring the Cost Optimizer ("The Brain")}
+% SOURCE: 2-twin2clouds/
+
+\subsection{Challenge: Comparable Cross-Cloud Pricing}
+% Problem: Cloud providers intentionally use incomparable pricing metrics.
+% - AWS IoT Core: price per message (tiered by volume)
+% - Azure IoT Hub: price per hub unit (bundled message capacity)
+% - GCP IoT Core (deprecated, now Pub/Sub): price per data volume
+%
+% Even for simple resources like Lambda vs. Azure Functions vs. Cloud Functions,
+% the pricing dimensions differ:
+% - AWS: per-invocation + per-GB-second of compute
+% - Azure: per-execution + per-GB-second
+% - GCP: per-invocation + per-GHz-second + per-GB-second (separate CPU and memory)
+%
+% This made direct comparison impossible without a normalization layer.
+
+\subsection{Solution: Factory Pattern for Price Fetchers}
+% \textbf{Pattern applied: Factory + Protocol (Strategy)}
+%
+% File: backend/fetch\_data/factory.py
+%
+% Design:
+% - Defined a \texttt{PriceFetcher} Protocol (interface) with a common API:
+%   \texttt{fetch\_prices(region) -> dict}
+% - Implemented three concrete fetchers: AWSPriceFetcher, AzurePriceFetcher,
+%   GCPPriceFetcher — each handles provider-specific API calls and normalizes
+%   the response into a common dictionary format
+% - \texttt{PriceFetcherFactory} creates the correct fetcher by provider name
+%
+% CODE LISTING: Show the PriceFetcher protocol and factory create() method.
+%
+% Why this pattern:
+% - Adding a new provider = one new class, registered in the factory
+% - Testing: mock fetchers can be registered for unit tests
+% - Separation: fetching logic is isolated from calculation logic
+
+\subsection{Solution: Component-Based Calculator Architecture}
+% \textbf{Patterns applied: Protocol (Interface), Template Method, Enum Type Safety}
+%
+% Files: backend/calculation\_v2/components/
+%
+% Design:
+% - \texttt{ResourceCalculator} Protocol defines the contract: \texttt{calculate\_cost(**kwargs) -> float}
+% - \texttt{CalculatorBase} provides shared utilities (e.g., safe nested dict access)
+% - One calculator class per cloud resource (e.g., AWSIoTCoreCalculator,
+%   AzureFunctionCalculator, GCPCloudStorageCalculator)
+% - Enums (\texttt{FormulaType}, \texttt{LayerType}, \texttt{Provider}) enforce type safety
+%
+% CODE LISTING: Show ResourceCalculator protocol and one example calculator.
+%
+% The engine.py file acts as a \textbf{Facade}: \texttt{calculate\_cheapest\_costs()}
+% orchestrates all provider calculators and determines the optimal path.
+
+\section{Refactoring the Cloud Deployer ("The Muscle")}
+% SOURCE: 3-cloud-deployer/
+
+\subsection{Challenge: SDK-to-Terraform Migration}
+% Problem: The original deployer used the Python AWS SDK (boto3) to create
+% resources imperatively. This approach failed when extended to multi-cloud
+% because:
+% 1. Resource dependency ordering became unmanageable — e.g., IoT rules depend
+%    on Lambda functions, which depend on IAM roles, which depend on policies
+% 2. Parallel creation across providers introduced race conditions
+% 3. Cleanup (destroy) had to be done in reverse order, with error handling
+%    for each individual resource
+% 4. State tracking: no way to know what was actually created if a deploy
+%    failed midway
+%
+% Decision: Switch to Terraform, which:
+% - Automatically resolves dependency ordering via its dependency graph
+% - Manages state files to track what exists
+% - Supports plan/apply/destroy lifecycle
+% - Has native providers for AWS, Azure, and GCP
+%
+% Trade-off: Lost fine-grained Python control, gained reliability and declarativity.
+
+\subsection{Solution: Provider Abstraction via Registry + Strategy}
+% \textbf{Patterns applied: Registry, Strategy, Protocol, Auto-Registration,
+% Dependency Injection (Context)}
+%
+% This is the most architecturally significant design in the codebase.
+%
+% Files: core/protocols.py, core/registry.py, providers/__init__.py,
+%        providers/aws/, providers/azure/, providers/gcp/
+%
+% Design:
+% 1. \texttt{CloudProvider} Protocol defines the interface all providers must satisfy:
+%    clients(), initialize\_clients(), get\_resource\_name(), get\_deployer\_strategy()
+%
+% 2. \texttt{DeployerStrategy} Protocol defines layer-by-layer deployment:
+%    deploy\_l1(), deploy\_l2(), ..., destroy\_l1(), destroy\_l2(), ...
+%
+% 3. \texttt{ProviderRegistry} is a central lookup table:
+%    - Providers register themselves at import time (Auto-Registration)
+%    - Runtime selection: \texttt{ProviderRegistry.get("aws")} returns an AWSProvider
+%
+% 4. \texttt{DeploymentContext} (dataclass) bundles ALL deployment state:
+%    - Project configuration, credentials, active providers
+%    - Passed explicitly to all functions (Dependency Injection)
+%    - Replaces the global module-level state from the original code
+%
+% CODE LISTING: Show CloudProvider protocol, ProviderRegistry.register(),
+% and DeploymentContext.
+%
+% Why this architecture:
+% - Adding GCP required ZERO changes to existing AWS/Azure code
+% - Testing: mock providers can be registered for isolated unit tests
+% - Explicit context makes data flow traceable (no hidden global state)
+
+\subsection{Solution: Terraform Runner as Adapter}
+% \textbf{Pattern applied: Adapter / Wrapper}
+%
+% File: terraform\_runner.py
+%
+% Wraps Terraform CLI commands (init, plan, apply, destroy, output) as Python
+% methods with structured error handling. Translates CLI exit codes and stderr
+% into typed TerraformError exceptions.
+%
+% Why: Decouples the deployment logic from Terraform's CLI interface.
+% If Terraform is replaced in the future, only this class changes.
+
+\subsection{Solution: Function Registry as Single Source of Truth}
+% \textbf{Pattern applied: Registry + Dataclass}
+%
+% File: function\_registry.py
+%
+% All serverless functions (L0–L4) are defined as FunctionDefinition dataclasses
+% in a central registry. Each definition includes: name, layer, provider support
+% (which providers support this function), and metadata.
+%
+% Why: Previously, function names were scattered across Terraform files,
+% deployment code, and test fixtures. The registry eliminated duplication
+% and became the authoritative source for "what functions exist."
+
+\subsection{Infrastructure as Code: Terraform Organization}
+% 30+ Terraform files organized by provider × concern:
+% - aws\_compute.tf, aws\_storage.tf, aws\_iot.tf, aws\_twins.tf, ...
+% - azure\_compute.tf, azure\_storage.tf, azure\_iot.tf, ...
+% - gcp\_compute.tf, gcp\_storage.tf, gcp\_iot.tf, ...
+% - cross\_cloud.tf — inter-provider connectivity
+% - variables.tf — all configurable parameters
+% - outputs.tf — exposed resource identifiers
+%
+% Design decision: One file per (provider, layer/concern) rather than
+% one giant file per provider. This enables:
+% - Parallel development on different layers
+% - Conditional resource creation via count = ... ? 1 : 0
+% - Clear mapping from 5-Layer Architecture to Terraform structure
+
+\subsection{Error Handling: Typed Exception Hierarchy}
+% \textbf{Pattern applied: Exception Hierarchy}
+%
+% File: core/exceptions.py
+%
+% DeploymentError (base)
+% ├── ProviderNotFoundError — includes available\_providers list
+% ├── ConfigurationError — includes config\_file path
+% ├── ResourceCreationError — includes resource\_type, resource\_name, layer
+% └── ResourceDeletionError — includes resource\_type, resource\_name, layer
+%
+% Every exception carries provider and layer context, enabling precise
+% error messages like: "Failed to create lambda\_function 'hot-writer'
+% [provider=aws, layer=L3]"
+%
+% Why: In multi-cloud deployments, generic "something failed" errors are
+% useless. The exception hierarchy provides actionable context.
+
+\section{Building the Orchestrator (New Work)}
+% SOURCE: twin2multicloud\_backend/ + twin2multicloud\_flutter/
+
+\subsection{Management API: Service Layer Pattern}
+% \textbf{Pattern applied: Service Layer, Dependency Injection (FastAPI Depends)}
+%
+% File: services/deployment\_service.py
+%
+% Business logic extracted from API route handlers into reusable services:
+% - build\_deploy\_config(): constructs deployment payload from stored configs
+% - build\_project\_zip(): assembles ZIP with all configs, functions, and credentials
+% - run\_real\_deploy\_stream(): subscribes to Deployer SSE and forwards logs
+%
+% FastAPI Dependencies for cross-cutting concerns:
+% - get\_current\_user: JWT auth with DEBUG-mode bypass (Feature Toggle pattern)
+% - Database session injection via Depends(get\_db)
+
+\subsection{State Management: ORM and Lifecycle Enum}
+% \textbf{Patterns applied: ORM/Active Record, State Machine (Enum)}
+%
+% File: models/twin.py
+%
+% DigitalTwin model with TwinState enum defining the deployment lifecycle:
+% DRAFT → CONFIGURED → DEPLOYING → DEPLOYED → DESTROYING → DESTROYED | ERROR
+%
+% The state machine enforces valid transitions and enables the UI to show
+% appropriate actions (e.g., "Deploy" only in CONFIGURED state).
+%
+% Pydantic schemas (schemas/) separate API contracts from ORM models (DTOs).
+
+\subsection{Real-Time Deployment Logs: SSE Streaming Chain}
+% \textbf{Pattern applied: Observer, Proxy}
+%
+% Data flow: Terraform stdout → Deployer SSE endpoint → Backend proxy → Flutter UI
+%
+% The Backend subscribes to the Deployer's SSE stream and forwards events
+% to the Flutter client. This prevents direct Flutter-to-Deployer connections
+% (architectural rule: Flutter only talks to the Management API).
+%
+% FILE: services/sse\_service.dart — Flutter's SSE client with reconnection support
+% FILE: services/deployment\_service.py — Backend's SSE proxy
+%
+% DIAGRAM: Sequence diagram showing the SSE chain from Terraform to Flutter.
+
+\subsection{Flutter Architecture: BLoC + Immutable State}
+% \textbf{Patterns applied: BLoC, Command (Events), Immutable State (copyWith),
+% Result Type, Facade (ApiService)}
+%
+% The wizard flow (4-step twin creation) is the most complex UI component:
+%
+% Event → BLoC → State (unidirectional data flow):
+% - WizardEvent classes (wizard\_event.dart): encode user actions as objects (Command pattern)
+% - WizardBloc (wizard\_bloc.dart): processes events, emits new state
+% - WizardState (wizard\_state.dart): immutable with copyWith() for safe transitions
+%
+% Result<T> sealed class (core/result.dart):
+% - Success<T> | Failure<T> — makes error handling explicit at the type level
+% - Used by ApiService for ALL API calls, forcing consumers to handle both cases
+%
+% ApiService (services/api\_service.dart):
+% - Facade hiding HTTP details (Dio client), auth headers, URL construction
+% - All methods return Result<T>, never throw exceptions
+%
+% ApiErrorHandler (utils/api\_error\_handler.dart):
+% - Adapter that translates DioException → user-friendly error strings
+%
+% CODE LISTING: Show Result sealed class and an example BLoC event handler.
+
+\section{Cross-Cloud Connectivity}
+% One of the most challenging implementation aspects.
+
+\subsection{Inter-Cloud Data Transfer}
+% When the cheapest path spans multiple providers (e.g., L0=AWS, L1=GCP),
+% data must flow between clouds.
+%
+% Solution: Webhook-based HTTP triggers between serverless functions.
+% - Each cloud function exposes an HTTP endpoint (or Function URL)
+% - The upstream function calls the downstream function's URL with the data
+% - Authentication via generated tokens stored in config\_inter\_cloud.json
+%
+% FILE: terraform/cross\_cloud.tf — defines the inter-cloud webhook connections
+%
+% Challenge: Cross-cloud latency and authentication token management.
+
+\subsection{Credential Management}
+% Credentials for three providers must be:
+% 1. Validated before deployment (per-provider credential validation)
+% 2. Encrypted at rest in the database
+% 3. Decrypted only during deployment ZIP construction
+% 4. Never exposed to the Flutter UI
+%
+% The Management API handles encryption/decryption; the Deployer receives
+% credentials via the deployment ZIP (not via API calls).
+
+\section{Testing Strategy}
+% Brief overview — detailed results in Chapter~\ref{chap:evaluation}.
+
+\subsection{Unit Testing}
+% Each project has its own test suite:
+% - Optimizer: 193 unit tests (calculation accuracy, price fetcher mocking)
+% - Deployer: 940 unit tests (provider logic, Terraform generation, validation)
+% - Backend: 144 unit tests (API endpoints, service layer, models)
+%
+% Key testing patterns:
+% - Protocol mocking: create mock providers implementing CloudProvider protocol
+% - Fixture-based: conftest.py provides shared DeploymentContext fixtures
+% - Isolated: each test operates on its own configuration
+
+\subsection{End-to-End Testing}
+% Automated tests that deploy real cloud infrastructure:
+% - Single-cloud scenarios (AWS-only, Azure-only, GCP-only)
+% - Multi-cloud scenarios (AWS+Azure, Azure+GCP, cross-L4)
+% - Data flow verification: send IoT message → verify it reaches storage
+% - Cleanup scripts for automatic resource teardown
+%
+% These tests validate the ENTIRE pipeline: UI config → Optimization →
+% Deployment → Data flow → Destruction.

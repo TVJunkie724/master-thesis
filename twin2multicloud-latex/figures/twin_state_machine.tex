@@ -1,0 +1,119 @@
+% Twin Lifecycle State Machine Diagram
+% Usage: \input{figures/twin_state_machine}
+% Requires: \usepackage{tikz}, \usetikzlibrary{automata, positioning, arrows.meta, calc}
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+    >=Stealth,
+    every state/.style={
+        rectangle,
+        rounded corners=6pt,
+        minimum width=2.6cm,
+        minimum height=1cm,
+        draw=black!70,
+        thick,
+        font=\small\ttfamily,
+    },
+    transient/.style={
+        every state,
+        dashed,
+        draw=black!50,
+        fill=yellow!8,
+    },
+    terminal/.style={
+        every state,
+        fill=gray!15,
+    },
+    success/.style={
+        every state,
+        fill=green!8,
+    },
+    error/.style={
+        every state,
+        fill=red!8,
+    },
+    every edge/.style={
+        draw,
+        ->,
+        thick,
+        >=Stealth,
+    },
+    lbl/.style={
+        font=\scriptsize,
+        align=center,
+        fill=white,
+        inner sep=2pt,
+    },
+]
+
+% === STATES — grid layout with generous spacing ===
+
+% Row 1: happy path (left to right)
+\node[state]                                       (draft)      {DRAFT};
+\node[state, right=3.5cm of draft]                 (configured) {CONFIGURED};
+\node[state, transient, right=3.5cm of configured] (deploying)  {DEPLOYING};
+\node[state, success, right=3.5cm of deploying]    (deployed)   {DEPLOYED};
+
+% Row 2: tear-down path
+\node[state, error, below=3.5cm of configured]     (errorst)    {ERROR};
+\node[state, transient, below=3.5cm of deploying]  (destroying) {DESTROYING};
+\node[state, below=3.5cm of deployed]              (destroyed)  {DESTROYED};
+
+% Row 3: soft-delete terminal
+\node[state, terminal, below=2.5cm of destroying]  (inactive)   {INACTIVE};
+
+% === TRANSITIONS ===
+
+% --- Happy path ---
+% Create → Draft
+\draw[->] ([xshift=-2cm]draft.west) -- node[lbl, above] {create} (draft.west);
+
+% Draft → Configured
+\draw[->] (draft) -- node[lbl, above] {validate} (configured);
+
+% Configured → Deploying
+\draw[->] (configured) -- node[lbl, above] {deploy} (deploying);
+
+% Deploying → Deployed
+\draw[->] (deploying) -- node[lbl, above] {success} (deployed);
+
+% --- Failure paths ---
+% Deploying → Error
+\draw[->] (deploying.south) -- node[lbl, left] {failure} (errorst.north -| deploying.south) -- (errorst.north east);
+
+% Deployed → Destroying
+\draw[->] (deployed.south) -- node[lbl, right] {destroy} (destroying.north -| deployed.south) -- (destroying.north east);
+
+% Destroying → Destroyed
+\draw[->] (destroying) -- node[lbl, above] {success} (destroyed);
+
+% Destroying → Error
+\draw[->] (destroying.west) -- node[lbl, above] {failure} (errorst.east);
+
+% --- Recovery paths ---
+% Error → Deploying (retry)
+\draw[->] (errorst.north) -- node[lbl, left] {retry} (configured.south -| errorst.north) -- (configured.south);
+
+% Error → Destroying (destroy partial)
+\draw[->] (errorst) -- node[lbl, below] {destroy} (destroying);
+
+% Destroyed → Deploying (redeploy) — route above the diagram
+\draw[->] (destroyed.north) -- ++(0,1.2) -| node[lbl, above, pos=0.25] {redeploy} (deploying.south);
+
+% --- Reaper recovery (dotted) ---
+% Deploying → Error (timeout)
+\draw[->, densely dotted] ([xshift=-4pt]deploying.south west) -- ++(0,-0.8) -- node[lbl, below] {timeout (30\,min)} ++(-3.5,0) -- ([xshift=-4pt]errorst.north west);
+
+% Destroying → Error (timeout)
+\draw[->, densely dotted] ([yshift=4pt]destroying.west) -- ++(-0.5,0) -- ++(0,1.0) -- node[lbl, above] {timeout (30\,min)} ++(-2.5,0) -- ([yshift=4pt]errorst.east);
+
+% --- Soft delete ---
+\draw[->, densely dotted] ([yshift=-6pt]inactive.south) ++(0,-0.5) node[lbl, below=2pt] {soft delete (from any state)} -- ([yshift=-6pt]inactive.south);
+
+\end{tikzpicture}
+}%
+\caption[Twin lifecycle state machine]{Twin lifecycle state machine. Dashed borders indicate transient states that exist only while a background operation runs. Dotted arrows represent automatic recovery transitions triggered by the session reaper after a 30-minute timeout.}
+\label{fig:twin-state-machine}
+\end{figure}

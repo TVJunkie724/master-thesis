@@ -55,11 +55,17 @@ services:
       - ./twin2multicloud_backend:/app
       - management-data:/app/data
       - ./twin2multicloud_backend/data:/app/data
+      - ./config_credentials.json:/config/config_credentials.json:ro
+      - ./gcp_credentials.json:/config/gcp_credentials.json:ro
     environment:
       - DATABASE_URL=sqlite:///./data/app.db
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key}
       - DEBUG=true
-      - ENABLE_TEST_ENDPOINTS=true
+      - PYTHONUNBUFFERED=1
+      - SEED_DATA=true
+      - SEED_CREDENTIALS_FILE=/config/config_credentials.json
+      - SEED_GCP_CREDENTIALS_FILE=/config/gcp_credentials.json
+      # - ENABLE_TEST_ENDPOINTS=true
       # External API URLs (Docker internal hostnames)
       - OPTIMIZER_URL=http://master-thesis-2twin2clouds-1:8000
       - DEPLOYER_URL=http://master-thesis-3cloud-deployer-1:8000

@@ -95,6 +95,26 @@ resource "aws_iam_role_policy" "l0_dynamodb" {
   })
 }
 
+# Lambda invoke policy (for L0 ingestion to call L2 processor)
+resource "aws_iam_role_policy" "l0_invoke_lambda" {
+  count = local.l0_ingestion_enabled ? 1 : 0
+  name  = "${var.digital_twin_name}-l0-invoke-policy"
+  role  = aws_iam_role.l0_lambda[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:InvokeFunction"
+        ]
+        Resource = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current[0].account_id}:function:${var.digital_twin_name}-*"
+      }
+    ]
+  })
+}
+
 # ==============================================================================
 # L0 Ingestion Lambda (receives data from L1 on another cloud)
 # ==============================================================================

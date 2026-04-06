@@ -1,0 +1,265 @@
+\chapter{\label{chap:legacyAnalysis}From Legacy Prototypes to Unified Platform}
+
+% ============================================================================
+% PURPOSE: Tell the full transformation story in one place.
+% Part I (§4.1–4.3): Analyze the legacy systems and derive requirements.
+% Part II (§4.4–4.7): Describe the refactoring process and key engineering
+% decisions that produced the current system.
+%
+% Rule: Do NOT describe the final architecture here — that is Chapter 5.
+% Focus on the PROCESS and the DECISIONS, not the end result.
+% TARGET: ~18-25 pages
+% ============================================================================
+%
+% PAGE ESTIMATES: §4.1–4.3 (8–10 pages), §4.4 (3–4 pages),
+%   §4.5 (2–3 pages), §4.6 (3–4 pages), §4.7 (2–3 pages)
+% Total target: 18–24 pages
+
+\section{Overview of Legacy Prototypes}
+\label{sec:legacy-overview}
+
+The Twin2MultiCloud platform builds on two independent bachelor thesis prototypes: a cost optimizer % TODO: CITE --- Gritsch et al., Twin2Clouds (MODELS 2025)
+that estimated monthly hosting costs for digital twin deployments, and a cloud deployer % TODO: CITE --- Kaserer, "Developing a Configurable Cloud-Based Digital Twin System with Layered Architecture and Automated Deployment", Bachelor Thesis, University of Innsbruck, 2026
+that provisioned the required \gls{aws} infrastructure. Neither project was designed for integration with the other. The optimizer ran entirely in the browser with no server component, while the deployer operated as a local command-line tool. This section describes each prototype's original state, focusing on the architectural decisions and technical constraints that later drove the refactoring effort documented in Sections~\ref{sec:refactoring-optimizer}--\ref{sec:refactoring-management}.
+
+\subsection{Project A: Twin2Clouds (``The Brain'')}
+\label{sec:legacy-optimizer}
+
+The Twin2Clouds project, referred to as the Cost Optimizer or ``The Brain'' throughout the rest of this thesis, was a pure client-side JavaScript web application developed as part of a conference paper submission. % TODO: CITE --- Gritsch et al., Twin2Clouds (MODELS 2025)
+It had no server component and no backend; users opened an HTML page via any static file server, configured their \gls{iot} deployment scenario through form inputs, and triggered a cost calculation. The result was rendered as HTML cards injected directly into the page's \gls{dom}.
+
+Table~\ref{tab:legacy-optimizer-structure} shows the file layout. The application consisted of nine JavaScript source files containing 35~top-level functions, with no classes (except a utility \texttt{PriorityQueue}), no module system, and no shared interfaces. The central orchestrator, \texttt{cost\_calculation.js}, contained a single 490-line function that handled input reading, validation, all layer cost computations, and HTML output assembly in one monolithic block.
+
+\begin{table}[htbp]
+\centering
+\caption{File structure of the legacy Twin2Clouds optimizer.}
+\label{tab:legacy-optimizer-structure}
+\begin{tabular}{lp{5.5cm}r}
+\hline
+\textbf{File} & \textbf{Purpose} & \textbf{Lines} \\
+\hline
+\texttt{cost\_calculation.js} & Orchestrates entire calculation and renders output & 490 \\
+\texttt{layer\_data\_acquisition.js} & L1: IoT ingestion cost estimation & 139 \\
+\texttt{layer\_data\_storage.js} & L2: Hot, cool, and archive storage costs & 250 \\
+\texttt{layer\_data\_processing.js} & L3: Serverless compute costs & 73 \\
+\texttt{layer\_twin\_management.js} & L4: Digital twin service costs & 67 \\
+\texttt{layer\_data\_visualization.js} & L5: Dashboard costs & 30 \\
+\texttt{data\_transfer.js} & Cross-provider egress fee estimation & 147 \\
+\texttt{provider\_decision.js} & Cheapest storage path via Dijkstra's algorithm & 125 \\
+\texttt{ui.js} & Slider styling, scenario presets, card interactions & 100 \\
+\hline
+& \textbf{Total} & \textbf{1,421} \\
+\hline
+\end{tabular}
+\end{table}
+
+While the optimizer served its purpose as a conference artifact, several architectural limitations prevented it from scaling to a multi-provider production tool:
+
+\textbf{Extensibility.} The application supported only \gls{aws} and Azure. Adding a third provider would have required modifying every layer calculator file, adding new transfer cost functions for each provider pair (the existing 14 would grow to at least 24), and updating the static \texttt{pricing.json} file with new service entries. There was no provider abstraction; each calculator contained provider-specific logic inline.
+
+\textbf{Maintainability.} All pricing data was stored in a static JSON file containing 114~lines of hardcoded values. There was no mechanism to fetch live prices from cloud provider \glspl{api}, so the figures grew stale as soon as any provider adjusted its rates. This is not a theoretical concern: Azure publishes global pricing updates twice per year, % TODO: CITE --- Microsoft, "Global pricing changes for cloud products", 2023
+and \gls{aws} has announced over 60 public price reductions since its inception. \gls{gcp} adjusts infrastructure prices quarterly and updates Spot prices as frequently as monthly. With a static pricing file, any of these changes would go unnoticed indefinitely. Furthermore, the Azure serverless compute calculator reused the \gls{aws} Lambda pricing formula verbatim, with a source code comment acknowledging this shortcut. This assumption would silently produce incorrect results if either provider changed their pricing model.
+
+\textbf{Modularity.} The 490-line \texttt{calculateCosts()} function mixed input parsing, validation, computation, and presentation in a single block. A global \texttt{pricing} variable, loaded via \texttt{fetch()} at startup, was accessed by every calculator without encapsulation. The application also used a different layer numbering than the one later adopted in the unified platform: the Twin2Clouds paper defined Layer~2 as Storage and Layer~3 as Processing, following the 5-Layer Architecture reference model, whereas the Cloud Deployer bachelor thesis reordered them so that data flows through layers in sequence (L2=Processing, L3=Storage). The unified platform adopted the deployer's convention, making direct comparison with the original optimizer non-trivial.
+
+\textbf{Testability.} Because every function read directly from the browser's \gls{dom} and the global \texttt{pricing} object, there was no way to run calculations outside a browser context. The project contained no tests.
+
+For the refactored version of the optimizer, see Chapter~\ref{chap:systemArchitecture}, Section~\ref{sec:optimizer}.
+
+\subsection{Project B: Cloud Deployer CLI (``The Muscle'')}
+\label{sec:legacy-deployer}
+
+The Cloud Deployer CLI, referred to as the Cloud Deployer or ``The Muscle'' throughout the rest of this thesis, was a Python command-line application that provisioned the entire 5-layer digital twin infrastructure on \gls{aws} through imperative \texttt{boto3} SDK calls. % TODO: CITE --- boto3 (AWS SDK for Python)
+There was no \gls{iac} tooling; each resource (IAM roles, Lambda functions, IoT rules, DynamoDB tables, S3 buckets, TwinMaker workspaces, Grafana dashboards) was created by calling the corresponding SDK method directly, with no state file tracking which resources existed. % TODO: CITE --- Terraform (HashiCorp)
+
+The project followed a composition-based architecture. An abstract \texttt{Deployer} base class defined four operations (\texttt{deploy}, \texttt{destroy}, \texttt{info}, \texttt{log}), and 49~concrete deployer classes each handled a single cloud resource. Aggregator classes composed these per-resource deployers into layer-level units that ran sequentially. This structure provided a clear deployment ordering, but it was tightly bound to a single provider: all deployer classes resided under \texttt{deployers/aws/}, and adding Azure or GCP support would have required duplicating the entire directory hierarchy with no shared abstraction.
+
+The deployer's configuration format hinted at multi-provider ambitions that were out of scope of the bachelor thesis. A \texttt{config\_providers.json} file mapped each architectural layer to a cloud provider:
+
+\begin{lstlisting}[language=json, caption={Legacy provider assignment: per-layer configuration with only AWS implemented.}, label={lst:legacy-providers}]
+{
+  "layer_1_provider": "aws",
+  "layer_2_provider": "aws",
+  "layer_3_hot_provider": "aws",
+  "layer_3_cold_provider": "aws",
+  "layer_3_archive_provider": "aws",
+  "layer_4_provider": "aws",
+  "layer_5_provider": "aws"
+}
+\end{lstlisting}
+
+Although the schema allowed per-layer provider selection, only \gls{aws} implementations existed. Setting any layer to \texttt{"azure"} would have caused an import error, since no corresponding deployer classes had been written. This gap between the configuration model and the implementation illustrates the prototype's incomplete extensibility.
+
+Beyond the single-provider limitation, several additional architectural constraints affected the system's quality:
+
+\textbf{Coupling.} A central \texttt{globals.py} module (256~lines) served as a shared mutable state container. It held twelve \texttt{boto3} client objects as module-level variables, initialized through functions using Python's \texttt{global} keyword, alongside over thirty resource-naming functions. Every other module imported \texttt{globals} directly. This design meant that any attempt to unit-test a deployer class would transitively trigger all twelve client initializations, which required valid \gls{aws} credentials at import time.
+
+\textbf{Reliability.} If a deployment failed midway, for instance because an IAM role creation timed out, the deployer had no rollback mechanism. Resources created before the failure remained orphaned on \gls{aws}, requiring manual cleanup through the web console. There was no streaming of progress information either; the only feedback during deployment was whatever \texttt{print()} statements individual deployer classes emitted.
+
+\textbf{Security.} Cloud credentials were stored in plaintext in \texttt{config\_credentials.json} on disk, with no encryption and no validation before deployment began.
+
+\textbf{Testability.} The project contained no tests of any kind. The tight coupling through \texttt{globals.py} and the absence of dependency injection made introducing tests prohibitively difficult without first restructuring the entire codebase.
+
+For the refactored version of the deployer, see Chapter~\ref{chap:systemArchitecture}, Section~\ref{sec:deployer}.
+
+\section{Gap Analysis}
+\label{sec:legacy-gap-analysis}
+% Systematically identify what was missing to build a production-quality
+% multi-cloud Digital Twin platform.
+%
+% NOTE: Include a condensed side-by-side comparison table here (or at end of
+% Section 4.1) showing ~15 key dimensions: language, execution model, cloud
+% providers, IaC, state management, design patterns, testing, etc.
+% Source data: docs/codebase_investigation_findings.md §11 (comparative analysis).
+% Keep it focused on motivating the gaps — the Discussion chapter (§7.2)
+% will circle back with quantitative before/after metrics.
+
+\subsection{Lack of Integration}
+% The two projects had:
+% - No common data format (Optimizer output could not feed into Deployer input)
+%   - Optimizer: HTML template literals injected into DOM
+%   - Deployer: reads from 5 separate JSON config files
+% - No shared API (Optimizer: browser-only; Deployer: CLI REPL)
+% - No shared configuration model (each had its own incompatible config format)
+% - No way to pass the Optimizer's "cheapest path" decision to the Deployer
+%   (Dijkstra result was rendered as HTML, not structured data)
+%
+% DIAGRAM: Show the disconnected state — two boxes with no arrow between them.
+
+\subsection{Absence of State Management}
+% Neither project tracked state:
+% - The Optimizer: no persistence of calculation results or pricing data
+% - The Deployer: no record of what was deployed; "deploy and forget"
+% - No way to know: "Is my twin currently deployed? On which providers?"
+% - No deployment lifecycle (draft → deploying → deployed → destroying → destroyed)
+%
+% This made it impossible to build UX around deployment management.
+
+\subsection{Usability Barriers}
+% Both projects required deep technical knowledge to operate:
+% - Manual JSON editing for all configuration
+% - CLI-only interaction, no visual feedback
+% - No validation: typos in config files caused cryptic errors at deploy time
+% - No credential validation before attempting deployment
+% - No progress feedback during (potentially 10+ minute) deployments
+%
+% These barriers made the prototypes unsuitable for any user beyond the authors.
+
+\subsection{Inflexibility and Hardcoded Values}
+% Hardcoded elements that prevented real-world usage:
+% - Fixed AWS regions (e.g., "eu-central-1" embedded in code)
+% - Fixed resource naming (collisions when deploying multiple twins)
+% - Fixed pricing values (stale within weeks)
+% - No support for optional architectural layers (all-or-nothing deployment)
+%
+% EVIDENCE: A table showing hardcoded vs. configurable elements
+% in the legacy code vs. the new system.
+
+\section{Requirements for a Unified Platform}
+\label{sec:legacy-requirements}
+% Derived from the gap analysis, state what the new system must provide.
+% These requirements directly motivate the architecture in
+% Chapter~\ref{chap:systemArchitecture}.
+
+\subsection{Architectural Requirements}
+% - AR-1: API-first design — all components must expose RESTful APIs
+% - AR-2: Microservice architecture — loose coupling between Optimizer, Deployer, and Management
+% - AR-3: Provider abstraction — adding a new cloud provider must not require
+%   modifying existing provider implementations
+% - AR-4: Infrastructure as Code — declarative, repeatable deployments
+% - AR-5: Real-time feedback — deployment progress must be streamed to the user
+
+\subsection{Functional Requirements}
+% - FR-1: Persist twin configurations and deployment state in a database
+% - FR-2: Fetch live pricing data from cloud provider APIs
+% - FR-3: Calculate optimal cross-cloud configurations automatically
+% - FR-4: Deploy and destroy infrastructure across AWS, Azure, and GCP
+% - FR-5: Provide a graphical user interface for non-technical users
+% - FR-6: Validate credentials, configurations, and code before deployment
+
+\subsection{Quality Requirements}
+% - QR-1: Test coverage — unit tests for all calculation and deployment logic
+% - QR-2: Error handling — structured exceptions with provider/layer context
+% - QR-3: Type safety — protocols, enums, and schema validation throughout
+% - QR-4: Reproducibility — containerized environment with Docker Compose
+
+% ===================== PART II: REFACTORING =====================
+
+\section{Refactoring Methodology}
+\label{sec:refactoring-methodology}
+% Describe the iterative approach that was applied to both legacy systems.
+%
+% GUIDANCE: Explain shared patterns (Protocol, Factory, Registry) ONCE here
+% with one illustrative code example. §4.5–4.7 should back-reference this
+% section and focus only on what was UNIQUE to each subsystem's refactoring.
+%
+% Why incremental patching failed:
+% - Adding Azure alongside AWS revealed hardcoded assumptions everywhere
+% - No abstraction layers: provider-specific logic entangled with orchestration
+% - Conditional branches for each provider would have tripled the code
+%
+% The iterative cycle that emerged:
+% 1. Extract an interface (Python Protocol) to define a provider-agnostic contract
+% 2. Refactor existing AWS code to satisfy the new Protocol
+% 3. Implement the same Protocol for Azure and GCP
+% 4. Wire through a factory or registry for runtime provider selection
+% 5. Discover the next piece of coupled code → return to step 1
+%
+% This cycle repeated multiple times for both Optimizer and Deployer.
+
+\section{Refactoring the Cost Optimizer}
+\label{sec:refactoring-optimizer}
+% The transformation from client-side JS app to Python FastAPI service.
+% SOURCE: deprecated/optimizer/ → 2-twin2clouds/
+%
+% Focus on the PROCESS and KEY DECISIONS, not the final architecture:
+% - Rewriting calculations from DOM manipulation to Pydantic-validated parameters
+% - Replacing static pricing.json with live API fetchers (PriceFetcher Protocol)
+% - Normalizing incomparable pricing dimensions across three providers
+%   (per-message vs. per-hub-unit vs. per-data-volume)
+% - Restructuring the monolithic calculateCosts() (491 lines) into
+%   component calculators (ResourceCalculator Protocol)
+% - Adding GCP as the third provider, which validated the abstraction
+%
+% Include 1-2 code snippets showing key Protocol definitions as evidence.
+% Cross-reference Chapter~\ref{chap:systemArchitecture} for the full
+% architecture description of the final system.
+
+\section{Refactoring the Cloud Deployer}
+\label{sec:refactoring-deployer}
+% The transformation from imperative boto3 CLI to Terraform-based multi-provider service.
+% SOURCE: deprecated/deployer/ → 3-cloud-deployer/
+%
+% Focus on the PROCESS and KEY DECISIONS:
+% - Why imperative SDK calls could not scale to multi-cloud
+%   (dependency ordering, state tracking, error recovery, no rollback)
+% - The migration to Terraform: how declarative IaC solved these problems
+% - Extracting CloudProvider and DeployerStrategy Protocols from the
+%   existing Deployer ABC base class
+% - Replacing globals.py (12 global boto3 clients) with
+%   DeploymentContext (explicit dependency injection)
+% - The provider registry and auto-registration pattern
+% - Adding Azure and GCP providers against the established interfaces
+% - Terraform file organization: one file per (provider, layer/concern)
+%
+% Include 1-2 code snippets. Cross-reference Chapter~\ref{chap:systemArchitecture}
+% for full architecture.
+
+\section{Building the Management API and UI}
+\label{sec:refactoring-management}
+% This is NEW WORK, not refactoring — there was no legacy orchestrator.
+% SOURCE: twin2multicloud_backend/ + twin2multicloud_flutter/
+%
+% Focus on KEY ENGINEERING DECISIONS:
+% - Why a separate orchestrator was needed: credential decryption, state
+%   tracking, unified API for the UI. Neither Brain nor Muscle should
+%   know about each other.
+% - The ZIP assembly approach: converting database records into the
+%   Deployer's expected file/directory format
+% - SSE streaming chain: Terraform → Deployer → Management API → Flutter UI
+% - Flutter architecture choices: BLoC for complex flows, Riverpod for DI
+% - JWT authentication with DEBUG-mode bypass for development
+%
+% Keep brief — the orchestrator's architecture is fully described in
+% Chapter~\ref{chap:systemArchitecture}. This section explains WHY it
+% was built the way it was.

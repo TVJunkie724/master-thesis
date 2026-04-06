@@ -21,6 +21,10 @@ provider "azurerm" {
     resource_group {
       prevent_deletion_if_contains_resources = false
     }
+    # Permanently delete Log Analytics workspaces instead of soft-delete
+    log_analytics_workspace {
+      permanently_delete_on_destroy = true
+    }
   }
 
   # Disable auto-registration of resource providers (requires elevated permissions)
@@ -93,7 +97,7 @@ provider "google" {
 # Replaces separate random_ids for TwinMaker, Firestore, Grafana, IAM roles.
 
 resource "random_id" "deployment_suffix" {
-  byte_length = 4
+  byte_length = 2
 }
 
 locals {

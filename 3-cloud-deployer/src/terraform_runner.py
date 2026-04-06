@@ -373,6 +373,8 @@ class TerraformRunner:
         if len(args) > 0:
             subcommand = args[0]
             cmd.append(subcommand)
+            # -no-color must come after the subcommand (it's a subcommand option, not global)
+            cmd.append("-no-color")
             
             if self.state_path and subcommand in stateful_commands:
                 cmd.append(f"-state={self.state_path}")

@@ -140,10 +140,18 @@ def _push_to_adt(event: dict) -> None:
     
     try:
         # Build ADT push payload
+        # Extract telemetry: prefer nested 'telemetry' key, fallback to root-level fields
+        telemetry = event.get("telemetry")
+        if not telemetry:
+            # Telemetry is at root level (after normalization)
+            # Exclude metadata keys to extract only telemetry values
+            excluded_keys = {"device_id", "device_type", "id", "time", "timestamp", "ts"}
+            telemetry = {k: v for k, v in event.items() if k not in excluded_keys}
+        
         adt_payload = {
             "device_id": event.get("device_id"),
             "device_type": event.get("device_type"),
-            "telemetry": event.get("telemetry", {}),
+            "telemetry": telemetry,
             "timestamp": event.get("timestamp") or event.get("time")
         }
         
@@ -208,6 +216,13 @@ def lambda_handler(event, context):
         item = event.copy()
         # Remove 'time' to avoid storing duplicate data (timestamp is the canonical sort key)
         item.pop("time", None)
+
+        # Generate document ID (consistent across all clouds)
+        # ID format: {device_id}_{timestamp} for uniqueness and traceability
+        # Timestamp is ISO8601 string from normalize_telemetry() (e.g., "2026-01-28T12:00:00Z")
+        if "device_id" not in item:
+            raise ValueError("Missing 'device_id' in event. Cannot generate document ID.")
+        item["id"] = f"{item['device_id']}_{item['timestamp']}"
 
         # Multi-cloud: Check if we should write to remote Writer
         if _is_multi_cloud_storage():

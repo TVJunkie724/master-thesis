@@ -75,6 +75,11 @@ resource "google_storage_bucket" "cold" {
   
   uniform_bucket_level_access = true
   
+  # Disable soft-delete to allow immediate bucket name reuse
+  soft_delete_policy {
+    retention_duration_seconds = 0
+  }
+  
   # Lifecycle: Move to Archive after cold_to_archive_interval_days
   lifecycle_rule {
     condition {
@@ -105,6 +110,11 @@ resource "google_storage_bucket" "archive" {
   
   uniform_bucket_level_access = true
   
+  # Disable soft-delete to allow immediate bucket name reuse
+  soft_delete_policy {
+    retention_duration_seconds = 0
+  }
+  
   labels = local.gcp_common_labels
   
   depends_on = [google_project_service.storage]
@@ -126,7 +136,7 @@ resource "google_storage_bucket_object" "hot_reader_source" {
 # ==============================================================================
 
 resource "google_storage_bucket_object" "hot_to_cold_mover_source" {
-  count  = local.gcp_l3_hot_enabled && local.gcp_l3_cold_enabled ? 1 : 0
+  count  = local.gcp_l3_hot_enabled ? 1 : 0
   name   = "hot-to-cold-mover-${filemd5("${var.project_path}/cloud_functions/hot-to-cold-mover/main.py")}.zip"
   bucket = google_storage_bucket.function_source[0].name
   source = "${var.project_path}/.build/gcp/hot-to-cold-mover.zip"
@@ -186,7 +196,7 @@ resource "google_cloudfunctions2_function" "hot_reader" {
 # ==============================================================================
 
 resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
-  count    = local.gcp_l3_hot_enabled && local.gcp_l3_cold_enabled ? 1 : 0
+  count    = local.gcp_l3_hot_enabled ? 1 : 0
   name     = local.gcp_l3_hot_to_cold_mover
   location = var.gcp_region
   project  = local.gcp_project_id
@@ -216,7 +226,7 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
       GCP_PROJECT_ID       = local.gcp_project_id
       FIRESTORE_COLLECTION = local.gcp_l3_firestore_collection
       FIRESTORE_DATABASE   = local.gcp_firestore_database_name
-      COLD_BUCKET_NAME     = google_storage_bucket.cold[0].name
+      COLD_BUCKET_NAME     = try(google_storage_bucket.cold[0].name, "")
       HOT_RETENTION_DAYS   = var.layer_3_hot_to_cold_interval_days
 
       # Multi-cloud Hot→Cold: When GCP L3 Hot sends to remote Cold
@@ -236,7 +246,6 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
     google_project_service.cloudfunctions,
     google_project_service.run,
     google_firestore_database.main,
-    google_storage_bucket.cold,
     google_project_iam_member.functions_custom_role
   ]
 }
@@ -246,7 +255,7 @@ resource "google_cloudfunctions2_function" "hot_to_cold_mover" {
 # ==============================================================================
 
 resource "google_cloud_scheduler_job" "hot_to_cold" {
-  count    = local.gcp_l3_hot_enabled && local.gcp_l3_cold_enabled ? 1 : 0
+  count    = local.gcp_l3_hot_enabled ? 1 : 0
   name     = local.gcp_l3_hot_to_cold_schedule
   project  = local.gcp_project_id
   region   = var.gcp_region
@@ -278,7 +287,7 @@ resource "google_cloud_run_service_iam_member" "hot_reader_invoker" {
 }
 
 resource "google_cloud_run_service_iam_member" "hot_to_cold_mover_invoker" {
-  count    = local.gcp_l3_hot_enabled && local.gcp_l3_cold_enabled ? 1 : 0
+  count    = local.gcp_l3_hot_enabled ? 1 : 0
   project  = local.gcp_project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.hot_to_cold_mover[0].name
@@ -291,7 +300,7 @@ resource "google_cloud_run_service_iam_member" "hot_to_cold_mover_invoker" {
 # ==============================================================================
 
 resource "google_storage_bucket_object" "cold_to_archive_mover_source" {
-  count  = local.gcp_l3_cold_enabled && local.gcp_l3_archive_enabled ? 1 : 0
+  count  = local.gcp_l3_cold_enabled ? 1 : 0
   name   = "cold-to-archive-mover-${filemd5("${var.project_path}/cloud_functions/cold-to-archive-mover/main.py")}.zip"
   bucket = google_storage_bucket.function_source[0].name
   source = "${var.project_path}/.build/gcp/cold-to-archive-mover.zip"
@@ -302,7 +311,7 @@ resource "google_storage_bucket_object" "cold_to_archive_mover_source" {
 # ==============================================================================
 
 resource "google_cloudfunctions2_function" "cold_to_archive_mover" {
-  count    = local.gcp_l3_cold_enabled && local.gcp_l3_archive_enabled ? 1 : 0
+  count    = local.gcp_l3_cold_enabled ? 1 : 0
   name     = local.gcp_l3_cold_to_archive_mover
   location = var.gcp_region
   project  = local.gcp_project_id
@@ -331,9 +340,7 @@ resource "google_cloudfunctions2_function" "cold_to_archive_mover" {
       DIGITAL_TWIN_INFO   = var.digital_twin_info_json
       GCP_PROJECT_ID      = local.gcp_project_id
       COLD_BUCKET_NAME    = google_storage_bucket.cold[0].name
-      ARCHIVE_BUCKET_NAME = local.gcp_l3_cold_enabled ? google_storage_bucket.cold[0].name : (
-        local.gcp_l3_archive_enabled ? google_storage_bucket.archive[0].name : ""
-      )
+      ARCHIVE_BUCKET_NAME = local.gcp_l3_archive_enabled ? try(google_storage_bucket.archive[0].name, google_storage_bucket.cold[0].name) : ""
       COLD_RETENTION_DAYS = var.layer_3_cold_to_archive_interval_days
 
       # Multi-cloud Cold→Archive: When GCP L3 Cold sends to remote Archive
@@ -362,7 +369,7 @@ resource "google_cloudfunctions2_function" "cold_to_archive_mover" {
 # ==============================================================================
 
 resource "google_cloud_scheduler_job" "cold_to_archive" {
-  count    = local.gcp_l3_cold_enabled && local.gcp_l3_archive_enabled ? 1 : 0
+  count    = local.gcp_l3_cold_enabled ? 1 : 0
   name     = local.gcp_l3_cold_to_archive_schedule
   project  = local.gcp_project_id
   region   = var.gcp_region
@@ -385,7 +392,7 @@ resource "google_cloud_scheduler_job" "cold_to_archive" {
 # ==============================================================================
 
 resource "google_cloud_run_service_iam_member" "cold_to_archive_mover_invoker" {
-  count    = local.gcp_l3_cold_enabled && local.gcp_l3_archive_enabled ? 1 : 0
+  count    = local.gcp_l3_cold_enabled ? 1 : 0
   project  = local.gcp_project_id
   location = var.gcp_region
   service  = google_cloudfunctions2_function.cold_to_archive_mover[0].name

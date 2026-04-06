@@ -1,7 +1,16 @@
+# TODO(refactoring): This file is 1377 lines - candidate for refactoring.
+# Consider splitting into domain-specific validation modules:
+# - zip_validation.py - Zip validation endpoints
+# - config_validation.py - Config file validation
+# - function_validation.py - Function code validation
+# - hierarchy_validation.py - L4 hierarchy validation
+# See: monolith_reduction_patterns KI for patterns.
+
 from fastapi import APIRouter, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel
 import src.validator as validator
 from api.dependencies import ConfigType, ProviderEnum
+from api.error_models import ERROR_RESPONSES
 from logger import logger
 import json
 
@@ -16,11 +25,18 @@ class FunctionCodeValidationRequest(BaseModel):
 # ==========================================
 @router.post(
     "/validate/zip",
+    operation_id="validateProjectZip",
     tags=["Validation"],
     summary="Validate project zip file",
+    description=(
+        "**Purpose:** Validates a project zip file without extracting, checking structure and security.\\n\\n"
+        "**When to call:** Before uploading a project to verify it meets all requirements.\\n\\n"
+        "**Checks performed:** Zip integrity, Zip Slip path traversal, required files, schema validation."
+    ),
     responses={
         200: {"description": "Project zip is valid"},
-        400: {"description": "Validation failed with details"}
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
     }
 )
 async def validate_zip(file: UploadFile = File(..., description="Project zip file to validate")):
@@ -104,11 +120,18 @@ async def validate_zip(file: UploadFile = File(..., description="Project zip fil
 # ==========================================
 @router.post(
     "/validate/config/{config_type}",
+    operation_id="validateConfigFile",
     tags=["Validation"],
     summary="Validate configuration file",
+    description=(
+        "**Purpose:** Validates a specific configuration file against its JSON schema.\n\n"
+        "**When to call:** To validate individual config files (config.json, config_iot_devices.json, etc).\n\n"
+        "**Path param:** config_type = config|iot|events|providers|optimization|credentials|aws_hierarchy|azure_hierarchy"
+    ),
     responses={
         200: {"description": "Configuration is valid"},
-        400: {"description": "Schema validation failed"}
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
     }
 )
 async def validate_config(
@@ -203,11 +226,18 @@ async def validate_config(
 # ==========================================
 @router.post(
     "/validate/state-machine",
+    operation_id="validateStateMachine",
     tags=["Validation"],
     summary="Validate state machine definition",
+    description=(
+        "**Purpose:** Validates state machine definitions for workflow orchestration.\n\n"
+        "**When to call:** To validate AWS Step Functions, Azure Logic Apps, or GCP Cloud Workflows.\n\n"
+        "**Query param:** provider=aws|azure|google determines which schema to validate against."
+    ),
     responses={
         200: {"description": "State machine is valid"},
-        400: {"description": "Invalid structure or schema"}
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
     }
 )
 async def validate_state_machine(
@@ -266,11 +296,18 @@ async def validate_state_machine(
 # ==========================================
 @router.post(
     "/validate/function-code",
+    operation_id="validateFunctionCode",
     tags=["Validation"],
     summary="Validate function code syntax",
+    description=(
+        "**Purpose:** Validates Python code syntax and entry point signatures for serverless functions.\n\n"
+        "**When to call:** To validate processor or event action code before deployment.\n\n"
+        "**Checks:** Python syntax (ast.parse), required function signature per provider."
+    ),
     responses={
         200: {"description": "Code is valid"},
-        400: {"description": "Syntax or signature error"}
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
     }
 )
 async def validate_function_code(
@@ -357,10 +394,17 @@ async def validate_function_code(
 # ==========================================
 @router.post(
     "/validate/simulator/payloads",
+    operation_id="validateSimulatorPayloads",
     tags=["Validation"],
     summary="Validate simulator payloads",
+    description=(
+        "**Purpose:** Validates the structure of a payloads.json file for IoT simulation.\n\n"
+        "**When to call:** Before running the IoT simulator to verify payload format.\n\n"
+        "**Required fields:** Each payload must have an iotDeviceId matching config_iot_devices.json."
+    ),
     responses={
-        200: {"description": "Payloads structure is valid"}
+        200: {"description": "Payloads structure is valid"},
+        500: ERROR_RESPONSES[500],
     }
 )
 async def validate_simulator_payloads(
@@ -404,11 +448,18 @@ async def validate_simulator_payloads(
 
 @router.post(
     "/validate/payloads-with-devices",
+    operation_id="validatePayloadsWithDevices",
     tags=["Validation"],
     summary="Cross-validate payloads against devices",
+    description=(
+        "**Purpose:** Validates that all iotDeviceId values in payloads.json exist in config_iot_devices.json.\n\n"
+        "**When to call:** To ensure payload device IDs match configured devices before simulation.\n\n"
+        "**Response:** Returns valid=true if all device IDs match, or list of mismatches."
+    ),
     responses={
         200: {"description": "All payload device IDs exist in devices config"},
-        400: {"description": "Device ID mismatch"}
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
     }
 )
 async def validate_payloads_with_devices(
@@ -496,11 +547,19 @@ async def validate_payloads_with_devices(
 # ==========================================
 @router.post(
     "/validate/hierarchy",
+    operation_id="validateHierarchy",
     tags=["Validation"],
     summary="Validate hierarchy JSON for L4 provider",
+    description=(
+        "**Purpose:** Validates hierarchy JSON for L4 Digital Twins (AWS IoT TwinMaker or Azure ADT).\n\n"
+        "**When to call:** To validate aws_hierarchy.json or azure_hierarchy.json before deployment.\n\n"
+        "**AWS format:** Array of entity definitions with type, id, and optional children.\n"
+        "**Azure format:** Object with header, models, twins, and relationships arrays."
+    ),
     responses={
         200: {"description": "Hierarchy is valid"},
-        400: {"description": "Validation failed with details"}
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
     }
 )
 async def validate_hierarchy(
@@ -545,11 +604,18 @@ async def validate_hierarchy(
 # ==========================================
 @router.post(
     "/validate/user-config",
+    operation_id="validateUserConfig",
     tags=["Validation"],
     summary="Validate config_user.json for platform user",
+    description=(
+        "**Purpose:** Validates config_user.json for L5 platform user provisioning (Grafana admin).\n\n"
+        "**When to call:** To validate platform user configuration before L5 deployment.\n\n"
+        "**Azure requirement:** Email must use verified domain (*.onmicrosoft.com)."
+    ),
     responses={
         200: {"description": "User config is valid"},
-        400: {"description": "Validation failed with details"}
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
     }
 )
 async def validate_user_config(
@@ -631,11 +697,18 @@ async def validate_user_config(
 # ==========================================
 @router.post(
     "/validate/scene-config",
+    operation_id="validateSceneConfig",
     tags=["Validation"],
     summary="Validate scene configuration with hierarchy cross-reference",
+    description=(
+        "**Purpose:** Validates scene configuration for L4 3D visualization.\n\n"
+        "**When to call:** To validate scene.json (AWS) or 3DScenesConfiguration.json (Azure).\n\n"
+        "**Azure:** Validates JSON schema and cross-references primaryTwinID against hierarchy twins."
+    ),
     responses={
         200: {"description": "Scene config is valid"},
-        400: {"description": "Validation failed with details"}
+        400: ERROR_RESPONSES[400],
+        500: ERROR_RESPONSES[500],
     }
 )
 async def validate_scene_config(
@@ -681,11 +754,21 @@ async def validate_scene_config(
 # ==========================================
 @router.post(
     "/validate/zip/extract",
+    operation_id="extractProjectZip",
     tags=["Validation"],
     summary="Extract and validate project zip for wizard auto-population",
+    description=(
+        "**Purpose:** Extracts and validates project zip for Flutter wizard auto-population.\n\n"
+        "**When to call:** From Step 3 wizard to import existing project files.\n\n"
+        "**Mode A:** Pass validation_context to skip credentials (wizard step 3).\n"
+        "**Mode B:** Full import with include_credentials=true."
+    ),
     responses={
         200: {"description": "Extraction successful with file contents"},
-        400: {"description": "Extraction failed with validation errors"}
+        400: ERROR_RESPONSES[400],
+        413: {"description": "File too large (max 100MB)"},
+        422: ERROR_RESPONSES[422],
+        500: ERROR_RESPONSES[500],
     }
 )
 async def extract_zip(
@@ -1009,7 +1092,11 @@ def _parse_device_ids(config_iot_devices: str | None) -> list[str]:
 
 
 def _parse_action_names(config_events: str | None) -> list[str]:
-    """Extract action functionNames from config_events JSON."""
+    """Extract action functionNames from config_events JSON.
+    
+    For workflow actions (step_function, logic_app, workflow), extracts both
+    functionName and functionNameB since they represent chained functions.
+    """
     if not config_events:
         return []
     try:
@@ -1019,8 +1106,11 @@ def _parse_action_names(config_events: str | None) -> list[str]:
             for event in events:
                 if isinstance(event, dict):
                     action = event.get("action", {})
-                    if isinstance(action, dict) and action.get("functionName"):
-                        names.append(action["functionName"])
+                    if isinstance(action, dict):
+                        if action.get("functionName"):
+                            names.append(action["functionName"])
+                        if action.get("functionNameB"):
+                            names.append(action["functionNameB"])
             return names
     except json.JSONDecodeError:
         pass
@@ -1040,6 +1130,7 @@ def _get_state_machine_filename(provider: str) -> str:
 
 @router.post(
     "/validate/deployer-complete",
+    operation_id="validateDeployerComplete",
     response_model=DeployerValidationResponse,
     tags=["Validation"],
     summary="Validate complete deployer configuration",
@@ -1047,7 +1138,7 @@ def _get_state_machine_filename(provider: str) -> str:
 Validates ALL deployer configuration files and functions for state transition to 'configured'.
 
 **Checks performed (reuses existing validators):**
-- `deployer_digital_twin_name`: Non-empty, valid format (alphanumeric, hyphen, underscore, max 30 chars)
+- `deployer_digital_twin_name`: Non-empty, valid format (alphanumeric, hyphen, underscore, max 15 chars)
 - `config_events`, `config_iot_devices`: Required, schema validation
 - `payloads`: Required
 - `processors`: One per device in config_iot_devices, code validation

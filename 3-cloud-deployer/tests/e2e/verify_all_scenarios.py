@@ -9,11 +9,17 @@ import json
 from pathlib import Path
 
 
-# All known scenario prefixes
+# All known scenario prefixes (sc2- is current, sc- is legacy)
 PREFIXES = [
+    # Current naming convention
+    "sc2-aws-azure", "sc2-aws-gcp", 
+    "sc2-azure-aws", "sc2-azure-gcp",
+    "sc2-gcp-aws", "sc2-gcp-azure",
+    # Legacy naming (for catching old orphans)
     "sc-aws-azure", "sc-aws-gcp", 
     "sc-azure-aws", "sc-azure-gcp",
     "sc-gcp-aws", "sc-gcp-azure",
+    # Other test prefixes
     "mc-e2e", "tf-e2e",
     "iso-stepfunc", "iso-grafana", "iso-logicapp"
 ]
@@ -215,13 +221,13 @@ def check_gcp(creds: dict) -> list:
         
         # Check Firestore databases (via REST API)
         try:
-            from google.cloud import firestore_admin_v1
-            admin_client = firestore_admin_v1.FirestoreAdminClient(credentials=credentials)
+            from google.cloud.firestore_admin_v1 import FirestoreAdminClient
+            admin_client = FirestoreAdminClient(credentials=credentials)
             parent = f"projects/{project_id}"
-            databases = admin_client.list_databases(parent=parent)
-            for db in databases:
+            response = admin_client.list_databases(parent=parent)
+            for db in response.databases:
                 db_name = db.name.split("/")[-1]
-                if matches_prefix(db_name):
+                if db_name != "(default)" and matches_prefix(db_name):
                     found.append(("Firestore", db_name))
         except Exception as e:
             found.append(("Firestore", f"Manual check needed (API error: {type(e).__name__})"))

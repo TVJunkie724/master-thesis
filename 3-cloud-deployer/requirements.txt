@@ -45,6 +45,11 @@ azure-digitaltwins-core
 azure-mgmt-dashboard
 azure-monitor-query
 
+# Azure SDK packages for Cleanup (Observability)
+azure-mgmt-monitor
+azure-mgmt-loganalytics
+azure-mgmt-applicationinsights
+
 # GCP SDK packages
 functions-framework
 google-auth
@@ -57,3 +62,15 @@ google-cloud-functions
 google-cloud-run
 google-cloud-billing
 google-api-python-client
+
+# GCP SDK packages for Log Tracing
+google-cloud-logging
+
+# GCP SDK packages for Workflow (E2E test verification)
+google-cloud-workflows
+
+# GCP SDK packages for Cloud Scheduler cleanup
+google-cloud-scheduler
+
+# SSE Streaming
+sse-starlette

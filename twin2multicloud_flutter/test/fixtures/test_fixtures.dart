@@ -197,6 +197,7 @@ abstract class TestFixtures {
         'L5_AWS',
       ],
       'transferCosts': <String, dynamic>{'L1_to_L2': 0.05, 'L2_to_L3': 0.02},
+      'totalCost': 55.67,
     },
   };
 
@@ -206,6 +207,7 @@ abstract class TestFixtures {
       'azureCosts': <String, dynamic>{},
       'gcpCosts': <String, dynamic>{},
       'cheapestPath': <String>[],
+      'totalCost': 0.0,
     },
   };
 

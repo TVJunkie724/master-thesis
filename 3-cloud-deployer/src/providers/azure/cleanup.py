@@ -59,6 +59,164 @@ def cleanup_azure_resources(
         logger.info("[Azure SDK] DRY RUN MODE - no resources will be deleted")
     
     # ========================================
+    # PHASE 0.0: Subscription-Wide Observability Cleanup
+    # (Catches orphans from soft-delete or Azure bugs)
+    # ========================================
+    logger.info("[Observability] Subscription-wide orphan sweep...")
+    
+    # 0.0.1 Log Analytics Workspaces
+    try:
+        from azure.mgmt.loganalytics import LogAnalyticsManagementClient
+        la_client = LogAnalyticsManagementClient(credential, subscription_id)
+        for ws in la_client.workspaces.list():
+            if ws.name.startswith(f"{prefix}-") and "-logs-" in ws.name:
+                rg = ws.id.split('/')[4]
+                logger.info(f"  Found Log Analytics: {ws.name}")
+                if dry_run:
+                    logger.info(f"    [DRY RUN] Would delete")
+                else:
+                    try:
+                        la_client.workspaces.begin_delete(rg, ws.name, force=True).result(timeout=300)
+                        logger.info(f"    ✓ Deleted")
+                    except Exception as e:
+                        logger.warning(f"    ✗ Error: {e}")
+    except Exception as e:
+        logger.warning(f"  Log Analytics cleanup error: {e}")
+    
+    # 0.0.2 Application Insights
+    try:
+        from azure.mgmt.applicationinsights import ApplicationInsightsManagementClient
+        ai_client = ApplicationInsightsManagementClient(credential, subscription_id)
+        for comp in ai_client.components.list():
+            if comp.name.startswith(f"{prefix}-") and "-insights-" in comp.name:
+                rg = comp.id.split('/')[4]
+                logger.info(f"  Found App Insights: {comp.name}")
+                if dry_run:
+                    logger.info(f"    [DRY RUN] Would delete")
+                else:
+                    try:
+                        ai_client.components.delete(rg, comp.name)
+                        logger.info(f"    ✓ Deleted")
+                    except Exception as e:
+                        logger.warning(f"    ✗ Error: {e}")
+    except Exception as e:
+        logger.warning(f"  App Insights cleanup error: {e}")
+    
+    # 0.0.3 Diagnostic Settings (subscription-wide via helper)
+    try:
+        from .diagnostic_settings_helper import DiagnosticSettingsHelper
+        diag_helper = DiagnosticSettingsHelper(credential, subscription_id)
+        diag_helper.cleanup_orphaned_by_prefix(prefix, dry_run=dry_run)
+    except Exception as e:
+        logger.warning(f"  Diagnostic settings subscription-wide error: {e}")
+    
+    # ========================================
+    # PHASE 0.1: Diagnostic Settings Cleanup (RG-scoped)
+    # (Must run BEFORE resource deletion to prevent state drift)
+    # ========================================
+    logger.info("[Diagnostic Settings] Checking for orphans...")
+    try:
+        from .diagnostic_settings_helper import DiagnosticSettingsHelper
+        diag_helper = DiagnosticSettingsHelper(credential, subscription_id)
+        
+        for rg in resource_client.resource_groups.list():
+            if prefix not in rg.name:
+                continue
+            # List all resources in matching RG (cache to avoid double API call)
+            resources = list(resource_client.resources.list_by_resource_group(rg.name))
+            for resource in resources:
+                for setting in diag_helper.list(resource.id):
+                    setting_name = setting.get("name", "unknown")
+                    logger.info(f"  Found: {setting_name} on {resource.name}")
+                    if dry_run:
+                        logger.info(f"    [DRY RUN] Would delete")
+                    else:
+                        diag_helper.delete(resource.id, setting_name)
+                        logger.info(f"    ✓ Deleted")
+            
+            # Handle storage sub-resources (blobServices/default) - reuse cached list
+            for storage in [r for r in resources if r.type == "Microsoft.Storage/storageAccounts"]:
+                blob_uri = f"{storage.id}/blobServices/default"
+                for setting in diag_helper.list(blob_uri):
+                    setting_name = setting.get("name", "unknown")
+                    logger.info(f"  Found: {setting_name} on {storage.name}/blobServices/default")
+                    if dry_run:
+                        logger.info(f"    [DRY RUN] Would delete")
+                    else:
+                        diag_helper.delete(blob_uri, setting_name)
+                        logger.info(f"    ✓ Deleted")
+            
+            # Handle EventGrid system topics - reuse cached list
+            for eventgrid in [r for r in resources if r.type == "Microsoft.EventGrid/systemTopics"]:
+                for setting in diag_helper.list(eventgrid.id):
+                    setting_name = setting.get("name", "unknown")
+                    logger.info(f"  Found: {setting_name} on {eventgrid.name} (EventGrid)")
+                    if dry_run:
+                        logger.info(f"    [DRY RUN] Would delete")
+                    else:
+                        diag_helper.delete(eventgrid.id, setting_name)
+                        logger.info(f"    ✓ Deleted")
+    except Exception as e:
+        logger.warning(f"  Diagnostic settings cleanup error: {e}")
+    
+    # ========================================
+    # PHASE 0.2: Role Assignments Cleanup
+    # ========================================
+    logger.info("[Role Assignments] Checking for orphans...")
+    try:
+        from azure.mgmt.authorization import AuthorizationManagementClient
+        auth_client = AuthorizationManagementClient(credential, subscription_id)
+        
+        for rg in resource_client.resource_groups.list():
+            if prefix not in rg.name:
+                continue
+            rg_scope = f"/subscriptions/{subscription_id}/resourceGroups/{rg.name}"
+            for assignment in auth_client.role_assignments.list_for_scope(rg_scope):
+                # Skip inherited subscription-level role assignments (we can't delete those)
+                # Only delete assignments scoped to this RG or its child resources
+                if not assignment.scope.startswith(rg_scope):
+                    logger.debug(f"  Skipping inherited assignment at scope: {assignment.scope}")
+                    continue
+                logger.info(f"  Found: {assignment.role_definition_id.split('/')[-1]} -> {assignment.principal_id[:8]}...")
+                if dry_run:
+                    logger.info(f"    [DRY RUN] Would delete")
+                else:
+                    try:
+                        auth_client.role_assignments.delete_by_id(assignment.id)
+                        logger.info(f"    ✓ Deleted")
+                    except Exception as e:
+                        logger.warning(f"    ✗ Error: {e}")
+    except Exception as e:
+        logger.warning(f"  Error: {e}")
+    
+    # ========================================
+    # PHASE 0.3: CosmosDB SQL Role Assignments
+    # (Uses separate API from regular role assignments)
+    # ========================================
+    logger.info("[CosmosDB SQL Roles] Checking for orphans...")
+    try:
+        from azure.mgmt.cosmosdb import CosmosDBManagementClient
+        cosmos_client = CosmosDBManagementClient(credential, subscription_id)
+        for account in cosmos_client.database_accounts.list():
+            if prefix not in account.name:
+                continue
+            rg_name = account.id.split('/')[4]
+            for assignment in cosmos_client.sql_resources.list_sql_role_assignments(rg_name, account.name):
+                logger.info(f"  Found: SQL role on {account.name}")
+                if dry_run:
+                    logger.info(f"    [DRY RUN] Would delete")
+                else:
+                    try:
+                        cosmos_client.sql_resources.begin_delete_sql_role_assignment(
+                            assignment.name, rg_name, account.name
+                        ).result(timeout=120)
+                        logger.info(f"    ✓ Deleted")
+                    except Exception as e:
+                        logger.warning(f"    ✗ Error: {e}")
+    except Exception as e:
+        logger.warning(f"  Error: {e}")
+    
+    # ========================================
     # PHASE 1: Check for orphaned resources
     # ========================================
     

@@ -1,58 +1,154 @@
 \chapter{\label{chap:background}Background}
 
-% This chapter provides the theoretical foundation. The reader should understand
-% all necessary concepts before reading about your system. Do NOT present your own work here.
+% ============================================================================
+% PURPOSE: Provide the theoretical foundation. The reader should understand
+% all necessary concepts BEFORE reading about the system.
+% Do NOT present your own work here — only established theory and concepts.
+% TARGET: ~15-20 pages
+% ============================================================================
 
 \section{Digital Twins}
 % Introduce the concept of Digital Twins and their evolution in industry/research.
 
 \subsection{Definition and Evolution}
-% Define what a Digital Twin is (cite seminal works)
+% Define what a Digital Twin is (cite seminal works):
 % - Brief history: from NASA's concept to Industry 4.0
 % - Key characteristics: real-time synchronization, bidirectional data flow
 % - Application domains: manufacturing, smart cities, healthcare
+% - Modern DTs as cloud-native applications
 
 \subsection{The 5-Layer Architecture}
-% Present the EDT_25 theoretical framework:
-% - Layer 1: Data Acquisition (sensors, IoT devices)
-% - Layer 2: Processing (computation, event handling)
-% - Layer 3: Storage (persistence, time-series data)
-% - Layer 4: Management (orchestration, state management)
-% - Layer 5: Visualization (dashboards, UI)
-% Include a figure showing the layered architecture
+% Present the EDT\_25 theoretical framework that governs this thesis:
+% - Layer 0 (L0): IoT / Data Acquisition — sensors, devices, MQTT/Pub/Sub ingestion
+% - Layer 1 (L1): Processing / Compute — serverless functions, event handling
+% - Layer 2 (L2): Orchestration / State Machines — workflow coordination
+% - Layer 3 (L3): Storage — hot (real-time), cold (historical), archive (long-term)
+% - Layer 4 (L4): Digital Twin representation — Azure DT, AWS TwinMaker
+% - Layer 5 (L5): Visualization / Grafana dashboards
+%
+% FIGURE: Include a layered architecture diagram showing L0–L5 with
+% example cloud services per provider at each layer.
+%
+% Key point: The 5-Layer Architecture is the THEORETICAL framework.
+% This thesis provides its PRACTICAL multi-cloud implementation.
 
 \section{Multi-Cloud Computing}
 % Explain the multi-cloud paradigm and why organizations adopt it.
 
 \subsection{Cloud Providers: AWS, Azure, GCP}
-% Brief overview of the three major providers
+% Brief overview of the three major providers:
 % - Market share and positioning
-% - Key services relevant to Digital Twins (compute, storage, messaging)
+% - Key services relevant to Digital Twins:
+%   - Compute: Lambda / Azure Functions / Cloud Functions
+%   - Storage: S3 / Blob Storage / Cloud Storage
+%   - IoT: IoT Core / IoT Hub / Pub/Sub (GCP IoT Core deprecated Jan 2023)
+%   - Messaging: SNS+SQS / Event Grid / Pub/Sub
+%   - Digital Twins: AWS TwinMaker / Azure Digital Twins / (no GCP equivalent)
 % - Regional availability and pricing differences
 
 \subsection{Multi-Cloud vs. Hybrid Cloud}
 % Clarify terminology:
-% - Multi-cloud: using multiple public cloud providers
-% - Hybrid cloud: combining public and private clouds
-% - Benefits of multi-cloud: vendor independence, cost optimization, resilience
+% - Multi-cloud: using multiple public cloud providers simultaneously
+% - Hybrid cloud: combining public and private cloud infrastructure
+% - Benefits of multi-cloud: vendor independence, cost optimization by
+%   selecting best-of-breed services, resilience against provider outages
+% - Challenges: increased operational complexity, cross-cloud networking,
+%   inconsistent APIs and pricing models
 
-\subsection{Infrastructure-as-Code (Terraform)}
-% Explain IaC concepts:
-% - Declarative vs. imperative approaches
-% - Why Terraform: provider-agnostic, state management
-% - HCL basics and the plan/apply workflow
+\subsection{Infrastructure as Code (Terraform)}
+% Explain IaC concepts that underpin the Deployer:
+% - Declarative vs. imperative approaches (and why declarative won: Chapter 5)
+% - Why Terraform was chosen: provider-agnostic, community modules, state management
+% - HCL basics: resources, variables, outputs, providers
+% - The plan/apply workflow and state files
+% - How Terraform handles resource dependency ordering automatically
+%   (a key motivation for the migration from Python SDK, described in Chapter 5)
 
 \section{Cost Optimization in Cloud Computing}
 % Set the stage for why cost matters and the challenges involved.
 
 \subsection{Cloud Pricing Models}
 % Explain how cloud pricing works:
-% - Pay-as-you-go, reserved instances, spot pricing
-% - Compute, storage, network, and data transfer costs
-% - Hidden costs and complexity
+% - Pay-as-you-go (dominant for serverless DT components)
+% - Reserved instances and savings plans (not used in this thesis)
+% - Key cost dimensions for DTs: compute invocations, message throughput,
+%   storage volume (hot/cold/archive), data transfer between regions/clouds
+% - Hidden costs: cross-region data transfer, API call charges
 
 \subsection{Cost Estimation Challenges}
 % Discuss why accurate cost prediction is difficult:
-% - Dynamic pricing, regional variations
-% - Usage-based unpredictability
-% - Cross-cloud cost comparison complexity
+% - Dynamic pricing: providers update prices without notice
+% - Regional variations: same service costs differently in eu-west-1 vs us-east-1
+% - Usage-based unpredictability: message volumes fluctuate
+% - Cross-cloud cost comparison complexity: providers intentionally use
+%   incomparable units (gibibytes vs. gigabyte-seconds, per-unit vs. per-million)
+%   → This challenge directly motivated the Optimizer's price normalization
+%     approach (Chapter 5)
+
+\section{Software Design Patterns}
+% Introduce only the patterns that directly solved problems described in this thesis.
+% Each pattern gets a brief definition; the APPLICATION of these patterns
+% is described in Chapter~\ref{chap:legacyAnalysis}.
+
+\subsection{Creational Patterns}
+% Brief definitions (1-2 paragraphs each):
+%
+% \textbf{Factory Pattern}: Centralizes object creation behind a single interface,
+% allowing the client to request an object by name without knowing the concrete class.
+% In this thesis, used for provider-specific price fetchers and deployment contexts.
+%
+% \textbf{Registry Pattern}: A central lookup table where implementations register
+% themselves, enabling dynamic discovery and selection at runtime.
+% In this thesis, used for cloud provider registration ("pluggable providers").
+
+\subsection{Structural Patterns}
+% \textbf{Facade Pattern}: Provides a simplified interface to a complex subsystem,
+% hiding internal complexity from clients. In this thesis, used to orchestrate
+% multi-provider cost calculations and Terraform operations behind single functions.
+%
+% \textbf{Adapter/Wrapper Pattern}: Translates one interface into another expected
+% by the client. In this thesis, wraps the Terraform CLI as a Python API and adapts
+% network exceptions into user-friendly error messages.
+
+\subsection{Behavioral Patterns}
+% \textbf{Strategy Pattern}: Defines a family of algorithms (strategies),
+% encapsulates each one, and makes them interchangeable. In this thesis,
+% the core abstraction enabling multi-cloud support: each cloud provider
+% implements the same Protocol interface, and the system selects the strategy
+% at runtime based on configuration.
+%
+% \textbf{Observer Pattern}: Enables one-to-many notification so that when one
+% object changes state, all dependents are notified automatically.
+% In this thesis, used for real-time deployment log streaming via SSE.
+
+\subsection{Architectural Patterns}
+% \textbf{Microservices Architecture}: Structures an application as a set of
+% loosely coupled, independently deployable services communicating via APIs.
+% In this thesis, the platform consists of three microservices:
+% Optimizer, Deployer, and Management API.
+%
+% \textbf{BLoC (Business Logic Component)}: A Flutter-specific pattern that
+% separates business logic from UI using a unidirectional event→state data flow.
+%
+% \textbf{Dependency Injection}: Supplies dependencies to a component from
+% the outside rather than having the component create them internally.
+% In this thesis, achieved through explicit context objects and FastAPI's
+% Depends() mechanism.
+
+\subsection{Cross-Cutting Patterns}
+% \textbf{Protocol / Structural Subtyping}: Python's Protocol class enables
+% interface contracts without inheritance, supporting duck typing with
+% static type checking. Used throughout the codebase for cloud provider
+% and calculator abstractions.
+%
+% \textbf{Result Type}: A sealed algebraic data type (Success | Failure)
+% that makes error handling explicit at the type level. Used in the Flutter
+% application for compile-time safe API error handling.
+%
+% \textbf{Immutable State with copyWith}: A pattern from functional programming
+% where state objects are never mutated — each change produces a new copy.
+% Used in the Flutter BLoC architecture for predictable state management.
+
+% NOTE: Do NOT go into implementation details here.
+% Just define the patterns and note which problem domain they address.
+% The detailed application (code examples, before/after) belongs in Chapter 5.

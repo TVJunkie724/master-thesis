@@ -1,8 +1,14 @@
 """
 Simulator API - IoT device simulation endpoints.
 
-Provides WebSocket endpoint for real-time simulator interaction and
-download endpoint for standalone simulator package.
+Provides download endpoint for standalone simulator packages and WebSocket
+endpoint for real-time simulator interaction.
+
+**Key endpoints:**
+- GET /projects/{name}/simulator/{provider}/download: Download standalone package
+- WS /projects/{name}/simulator/{provider}/stream: Real-time WebSocket simulation
+
+**Use case:** Testing IoT data ingestion without physical devices.
 """
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import StreamingResponse
@@ -16,6 +22,7 @@ import io
 import datetime
 from logger import logger
 import src.core.state as state
+from api.error_models import ERROR_RESPONSES
 
 
 router = APIRouter()
@@ -45,8 +52,20 @@ async def simulator_stream(websocket: WebSocket, project_name: str, provider: st
         await websocket.close()
         return
 
-    # Check Config
-    config_path = os.path.join(project_path, "iot_device_simulator", provider, "config_generated.json")
+    # Check Config - look for device subdirectories
+    provider_dir = os.path.join(project_path, "iot_device_simulator", provider)
+    if not os.path.exists(provider_dir):
+        await websocket.send_json({"type": "error", "data": "Simulator config not found. Please deploy L1 first."})
+        await websocket.close()
+        return
+    
+    device_dirs = [d for d in os.listdir(provider_dir) if os.path.isdir(os.path.join(provider_dir, d))]
+    if not device_dirs:
+        await websocket.send_json({"type": "error", "data": "No device configs found. Please deploy L1 first."})
+        await websocket.close()
+        return
+    
+    config_path = os.path.join(provider_dir, device_dirs[0], "config_generated.json")
     if not os.path.exists(config_path):
         await websocket.send_json({"type": "error", "data": "Simulator config not found. Please deploy L1 first."})
         await websocket.close()
@@ -159,12 +178,22 @@ def _load_template(provider: str, template_name: str, variables: dict = None) ->
 # ==========================================
 @router.get(
     "/projects/{project_name}/simulator/{provider}/download",
+    operation_id="downloadSimulatorPackage",
     tags=["Projects"],
-    summary="Download standalone simulator package",
+    summary="Download standalone IoT simulator package as ZIP",
+    description=(
+        "**Purpose:** Download a self-contained IoT device simulator for local/Docker use.\n\n"
+        "**Package contents:**\n"
+        "- config.json, payloads.json\n"
+        "- src/: Simulator Python code\n"
+        "- certificates/ or service_account.json (provider-specific)\n"
+        "- Dockerfile & docker-compose.yml\n"
+        "- README.md with setup instructions"
+    ),
     responses={
         200: {"description": "Simulator zip package"},
-        400: {"description": "Unsupported provider"},
-        404: {"description": "Simulator config not found - deploy L1 first"}
+        400: ERROR_RESPONSES[400],
+        404: ERROR_RESPONSES[404],
     }
 )
 async def download_simulator_package(project_name: str, provider: str):
@@ -176,91 +205,147 @@ async def download_simulator_package(project_name: str, provider: str):
     - payloads.json: IoT device payloads
     - src/: Simulator source code
     - certificates/: Device certificates (AWS only)
+    - service_account.json: Service account key (GCP only)
     - Dockerfile & docker-compose.yml: Container setup
     - README.md: Usage instructions
     """
-    if provider not in ("aws", "azure"):
-        raise HTTPException(status_code=400, detail=f"Provider '{provider}' not supported. Supported: aws, azure.")
+    # Normalize 'gcp' to 'google' internally
+    internal_provider = "google" if provider == "gcp" else provider
+    
+    if internal_provider not in ("aws", "azure", "google"):
+        raise HTTPException(status_code=400, detail=f"Provider '{provider}' not supported. Supported: aws, azure, gcp.")
 
-    base_dir = os.path.join(state.get_project_upload_path(), project_name, "iot_device_simulator", provider)
-    src_dir = os.path.join(state.get_project_base_path(), "src", "iot_device_simulator", provider)
-    config_path = os.path.join(base_dir, "config_generated.json")
-    payload_path = os.path.join(base_dir, "payloads.json")
+    provider_dir = os.path.join(state.get_project_upload_path(), project_name, "iot_device_simulator", internal_provider)
+    src_dir = os.path.join(state.get_project_base_path(), "src", "iot_device_simulator", internal_provider)
+    
+    # Payloads are stored at iot_device_simulator level (shared across devices)
+    payload_path = os.path.join(state.get_project_upload_path(), project_name, "iot_device_simulator", "payloads.json")
 
-    # Validation
-    if not os.path.exists(config_path):
+    # Find all device subdirectories
+    if not os.path.exists(provider_dir):
         raise HTTPException(status_code=404, detail="Simulator config not found. Deploy L1 first.")
     
-    # Load config to get device ID
-    with open(config_path, 'r') as f:
-        config_data = json.load(f)
-    device_id = config_data.get("device_id")
+    device_dirs = [d for d in os.listdir(provider_dir) if os.path.isdir(os.path.join(provider_dir, d))]
+    if not device_dirs:
+        raise HTTPException(status_code=404, detail="No device configs found. Deploy L1 first.")
     
-    # AWS-specific: validate certificates exist
-    if provider == "aws":
+    # Load all device configs
+    device_configs = {}
+    for device_id in device_dirs:
+        config_path = os.path.join(provider_dir, device_id, "config_generated.json")
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                device_configs[device_id] = json.load(f)
+    
+    if not device_configs:
+        raise HTTPException(status_code=404, detail="No valid device configs found. Deploy L1 first.")
+    
+    # Use first device as default
+    first_device_id = list(device_configs.keys())[0]
+    first_config = device_configs[first_device_id]
+    
+    # AWS-specific: validate certificates exist for all devices
+    auth_dir = None
+    if internal_provider == "aws":
         auth_dir = os.path.join(state.get_project_upload_path(), project_name, "iot_devices_auth")
-        device_cert_dir = os.path.join(auth_dir, device_id)
-        if not os.path.exists(device_cert_dir):
-            raise HTTPException(status_code=404, detail=f"Certificates for device '{device_id}' not found.")
+        for device_id in device_configs:
+            device_cert_dir = os.path.join(auth_dir, device_id)
+            if not os.path.exists(device_cert_dir):
+                raise HTTPException(status_code=404, detail=f"Certificates for device '{device_id}' not found.")
+
+    # GCP-specific: validate service account key exists
+    sa_key_path = None
+    if internal_provider == "google":
+        sa_key_path = first_config.get("service_account_key_path", "")
+        if not (sa_key_path and os.path.exists(sa_key_path)):
+            # Check fallback location
+            sa_key_path = os.path.join(state.get_project_upload_path(), project_name, "service_account.json")
+            if not os.path.exists(sa_key_path):
+                raise HTTPException(status_code=404, detail="GCP service account key not found. Configure GCP credentials first.")
 
     # Create Zip
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
         
-        # 1. Config (transformed based on provider)
-        sim_config = config_data.copy()
-        if provider == "aws":
-            # AWS: update paths for standalone package
-            sim_config["cert_path"] = f"certificates/{device_id}/certificate.pem.crt"
-            sim_config["key_path"] = f"certificates/{device_id}/private.pem.key"
-            sim_config["root_ca_path"] = "AmazonRootCA1.pem"
-        # Azure: connection_string is already in config, just update payload path
-        sim_config["payload_path"] = "payloads.json"
-        zip_file.writestr("config.json", json.dumps(sim_config, indent=2))
+        # 1. Default config.json at root (first device, for backward compatibility)
+        default_config = first_config.copy()
+        if internal_provider == "aws":
+            default_config["cert_path"] = f"configs/{first_device_id}/certificate.pem.crt"
+            default_config["key_path"] = f"configs/{first_device_id}/private.pem.key"
+            default_config["root_ca_path"] = "AmazonRootCA1.pem"
+        elif internal_provider == "google":
+            default_config["service_account_key_path"] = "service_account.json"
+        default_config["payload_path"] = "payloads.json"
+        zip_file.writestr("config.json", json.dumps(default_config, indent=2))
+        
+        # 2. Per-device configs in configs/{device_id}/ directories
+        for device_id, device_config in device_configs.items():
+            sim_config = device_config.copy()
+            if internal_provider == "aws":
+                sim_config["cert_path"] = f"configs/{device_id}/certificate.pem.crt"
+                sim_config["key_path"] = f"configs/{device_id}/private.pem.key"
+                sim_config["root_ca_path"] = "../AmazonRootCA1.pem"
+            elif internal_provider == "google":
+                sim_config["service_account_key_path"] = "../service_account.json"
+            sim_config["payload_path"] = "../payloads.json"
+            zip_file.writestr(f"configs/{device_id}/config.json", json.dumps(sim_config, indent=2))
+            
+            # AWS: include device certificates
+            if internal_provider == "aws" and auth_dir:
+                device_cert_dir = os.path.join(auth_dir, device_id)
+                for f in ["certificate.pem.crt", "private.pem.key"]:
+                    fp = os.path.join(device_cert_dir, f)
+                    if os.path.exists(fp):
+                        zip_file.write(fp, f"configs/{device_id}/{f}")
 
-        # 2. Payloads
+        # 3. Payloads
         if os.path.exists(payload_path):
             zip_file.write(payload_path, "payloads.json")
         else:
             zip_file.writestr("payloads.json", "[]")
 
-        # 3. AWS-specific: Root CA and Certificates
-        if provider == "aws":
+        # 4. AWS-specific: Root CA (shared)
+        if internal_provider == "aws":
             root_ca_path = os.path.join(src_dir, "AmazonRootCA1.pem")
             if os.path.exists(root_ca_path):
                 zip_file.write(root_ca_path, "AmazonRootCA1.pem")
-            
-            for f in ["certificate.pem.crt", "private.pem.key"]:
-                fp = os.path.join(device_cert_dir, f)
-                if os.path.exists(fp):
-                    zip_file.write(fp, f"certificates/{device_id}/{f}")
 
-        # 4. Source Code
+        # 4b. GCP-specific: Service Account Key (shared)
+        if internal_provider == "google" and sa_key_path:
+            if os.path.exists(sa_key_path):
+                zip_file.write(sa_key_path, "service_account.json")
+
+        # 5. Source Code
         for f in ["main.py", "transmission.py", "globals.py"]:
             fp = os.path.join(src_dir, f)
             if os.path.exists(fp):
                 zip_file.write(fp, f"src/{f}")
         
-        # 5. Generated Files from Templates
+        # 6. Generated Files from Templates
+        device_list = list(device_configs.keys())
         template_vars = {
             "project_name": project_name,
             "provider": provider,
-            "device_id": device_id,
-            "endpoint": config_data.get("endpoint", ""),  # AWS only
+            "device_id": first_device_id,  # Default device
+            "device_ids": ", ".join(device_list),
+            "device_count": len(device_list),
+            "endpoint": first_config.get("endpoint", ""),
+            "project_id": first_config.get("project_id", ""),
+            "topic_name": first_config.get("topic_name", ""),
             "timestamp": datetime.datetime.now().isoformat()
         }
         
         # README.md (with variable substitution)
-        zip_file.writestr("README.md", _load_template(provider, "README.md.template", template_vars))
+        zip_file.writestr("README.md", _load_template(internal_provider, "README.md.template", template_vars))
         
         # requirements.txt (static)
-        zip_file.writestr("requirements.txt", _load_template(provider, "requirements.txt"))
+        zip_file.writestr("requirements.txt", _load_template(internal_provider, "requirements.txt"))
         
         # Dockerfile (static)
-        zip_file.writestr("Dockerfile", _load_template(provider, "Dockerfile"))
+        zip_file.writestr("Dockerfile", _load_template(internal_provider, "Dockerfile"))
         
         # docker-compose.yml (with variable substitution)
-        zip_file.writestr("docker-compose.yml", _load_template(provider, "docker-compose.yml.template", template_vars))
+        zip_file.writestr("docker-compose.yml", _load_template(internal_provider, "docker-compose.yml.template", template_vars))
 
 
     zip_buffer.seek(0)

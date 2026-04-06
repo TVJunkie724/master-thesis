@@ -106,7 +106,7 @@ STATIC_FUNCTIONS: List[FunctionDefinition] = [
     FunctionDefinition(
         name="cold-writer",
         layer=Layer.L0_GLUE,
-        boundary=("layer_2_provider", "layer_3_cold_provider"),
+        boundary=("layer_3_hot_provider", "layer_3_cold_provider"),
         is_optional=True,
     ),
     FunctionDefinition(
@@ -119,19 +119,19 @@ STATIC_FUNCTIONS: List[FunctionDefinition] = [
         name="adt-pusher",
         layer=Layer.L0_GLUE,
         providers=["azure"],
-        boundary=("layer_3_hot_provider", "layer_4_provider"),
+        # No boundary: always bundle when L4=azure (both same-cloud and cross-cloud)
     ),
     FunctionDefinition(
         name="l0-hot-reader",
         layer=Layer.L0_GLUE,
         dir_name="hot-reader",
-        boundary=("layer_3_hot_provider", "layer_5_provider"),
+        boundary=("layer_4_provider", "layer_3_hot_provider"),
     ),
     FunctionDefinition(
         name="l0-hot-reader-last-entry",
         layer=Layer.L0_GLUE,
         dir_name="hot-reader-last-entry",
-        boundary=("layer_3_hot_provider", "layer_5_provider"),
+        boundary=("layer_4_provider", "layer_3_hot_provider"),
     ),
     
     # L1: Data Acquisition
@@ -142,6 +142,8 @@ STATIC_FUNCTIONS: List[FunctionDefinition] = [
     FunctionDefinition(
         name="connector",
         layer=Layer.L1_ACQUISITION,
+        # Connector bridges L1→L2 cross-cloud: only needed when L1 != L2
+        boundary=("layer_1_provider", "layer_2_provider"),
     ),
     
     # L2: Processing
@@ -301,10 +303,19 @@ def get_functions_for_provider_build(
                     functions.append(f.get_dir_name())
     
     # L3 functions
-    if providers_config.get("layer_3_hot_provider") == config_target:
-        for f in get_by_layer(Layer.L3_STORAGE):
-            if registry_target in f.providers:
+    for f in get_by_layer(Layer.L3_STORAGE):
+        if registry_target not in f.providers:
+            continue
+        # cold-to-archive-mover deploys on cold provider's cloud
+        if f.name == "cold-to-archive-mover":
+            if providers_config.get("layer_3_cold_provider") == config_target:
                 functions.append(f.get_dir_name())
+        else:
+            # All other L3 functions (hot-reader, hot-reader-last-entry, hot-to-cold-mover)
+            # deploy on hot provider's cloud
+            if providers_config.get("layer_3_hot_provider") == config_target:
+                functions.append(f.get_dir_name())
+
     
     # L4 functions
     if providers_config.get("layer_4_provider") == config_target:
@@ -338,7 +349,11 @@ def get_l0_for_config(providers_config: dict, target_provider: str) -> List[str]
     registry_provider = "gcp" if target_provider == "google" else target_provider
     
     for func in get_by_layer(Layer.L0_GLUE):
-        if func.boundary and registry_provider in func.providers:
+        if registry_provider not in func.providers:
+            continue
+            
+        if func.boundary:
+            # Boundary-based: only include if boundary crosses clouds
             source_key, target_key = func.boundary
             source_provider = providers_config.get(source_key)
             target_provider_val = providers_config.get(target_key)
@@ -348,6 +363,12 @@ def get_l0_for_config(providers_config: dict, target_provider: str) -> List[str]
                 dir_name = func.get_dir_name()
                 if dir_name not in functions:
                     functions.append(dir_name)
+        else:
+            # No boundary: always include if provider matches
+            # Used for functions like adt-pusher that are needed regardless of cross-cloud
+            dir_name = func.get_dir_name()
+            if dir_name not in functions:
+                functions.append(dir_name)
     
     return functions
 

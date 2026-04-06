@@ -41,19 +41,23 @@ class TestAzureSimulatorGlobals:
         assert azure_globals.config["device_id"] == "d1"
         assert azure_globals.config["digital_twin_name"] == "test-twin"
 
+    @patch('os.path.isdir')
+    @patch('os.listdir')
     @patch('os.path.exists')
     @patch('builtins.open', new_callable=mock_open)
     @patch('os.getcwd')
-    def test_initialize_config_integrated_mode(self, mock_cwd, mock_file, mock_exists):
+    def test_initialize_config_integrated_mode(self, mock_cwd, mock_file, mock_exists, mock_listdir, mock_isdir):
         """Test config loading in integrated mode (--project flag)."""
         from src.iot_device_simulator.azure import globals as azure_globals
         
         # Reset config
         azure_globals.config = {}
         
-        # First call (local config) returns False, second (project config) returns True
-        mock_exists.side_effect = [False, True, True]  # local, project config, payload
+        # os.path.exists calls: local config -> False, azure_sim_dir -> True, config_path -> True, payload -> True
+        mock_exists.side_effect = [False, True, True, True]
         mock_cwd.return_value = "/app"
+        mock_listdir.return_value = ["sensor-1"]
+        mock_isdir.return_value = True
         mock_file.return_value.read.return_value = json.dumps({
             "connection_string": "HostName=hub.azure-devices.net;DeviceId=sensor-1;SharedAccessKey=xyz",
             "device_id": "sensor-1",
@@ -77,13 +81,13 @@ class TestAzureSimulatorGlobals:
 
     @patch('os.path.exists')
     def test_initialize_config_file_not_found_raises(self, mock_exists):
-        """Test that FileNotFoundError is raised when config file missing."""
+        """Test that ValueError is raised when project directory doesn't exist."""
         from src.iot_device_simulator.azure import globals as azure_globals
         
-        # Local config exists check: False, project path exists: False
+        # Local config exists check: False, azure_sim_dir exists: False
         mock_exists.side_effect = [False, False]
         
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(ValueError, match="Simulator directory not found"):
             azure_globals.initialize_config(project_name="missing-project")
 
 
@@ -137,7 +141,8 @@ class TestAzureSimulatorTransmission:
         transmission.send_mqtt(payload)
         
         captured = capsys.readouterr()
-        assert "WARNING" in captured.out
+        # Production code prints "INFO: Routing payload for 'X' via device 'Y'"
+        assert "Routing payload" in captured.out
         assert "wrong-device" in captured.out
 
     @patch('builtins.open', new_callable=mock_open)
@@ -214,10 +219,10 @@ class TestAzureSimulatorMain:
         with patch('sys.argv', ['main.py', '--project', 'test-project']):
             try:
                 azure_main.main()
-            except Exception:
+            except (Exception, SystemExit):
                 pass
         
-        mock_init.assert_called_once_with(project_name='test-project')
+        mock_init.assert_called_once_with(project_name='test-project', device_id=None)
 
 
 if __name__ == "__main__":

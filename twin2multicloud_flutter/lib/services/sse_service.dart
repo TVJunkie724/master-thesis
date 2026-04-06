@@ -49,7 +49,11 @@ class SseService {
     _currentSubscription = stream.listen(
       (event) {
         try {
-          final data = json.decode(event.data ?? '{}');
+          final rawData = event.data;
+          if (rawData == null || rawData.trim().isEmpty) {
+            return; // Skip heartbeat/empty events
+          }
+          final data = json.decode(rawData);
           final eventType = data['type']?.toString() ?? event.event ?? 'log';
           final eventId = data['id'] as int? ?? 0;
 
@@ -61,11 +65,14 @@ class SseService {
               type: eventType,
               level: data['level']?.toString(),
               outputs: data['outputs'] as Map<String, dynamic>?,
+              data: data as Map<String, dynamic>?,
             ),
           );
 
           // Close stream on terminal events
-          if (eventType == 'complete' || eventType == 'error') {
+          if (eventType == 'complete' ||
+              eventType == 'error' ||
+              eventType == 'done') {
             controller.close();
           }
         } catch (e) {
@@ -75,10 +82,17 @@ class SseService {
         }
       },
       onError: (e) {
-        controller.addError(e);
-        controller.close();
+        if (!controller.isClosed) {
+          controller.addError(e);
+          controller.close();
+        }
       },
-      onDone: () => controller.close(),
+      onDone: () {
+        // Normal stream end — only close if not already closed by a terminal event
+        if (!controller.isClosed) {
+          controller.close();
+        }
+      },
     );
 
     return controller.stream;
@@ -95,9 +109,10 @@ class SseService {
 class SseLogEvent {
   final int id; // Event ID for reconnection support
   final String message;
-  final String type; // 'log', 'complete', 'error', 'heartbeat'
+  final String type; // 'log', 'complete', 'error', 'heartbeat', 'done'
   final String? level; // 'info', 'error', 'warning'
   final Map<String, dynamic>? outputs;
+  final Map<String, dynamic>? data; // Raw parsed data for custom event types
 
   SseLogEvent({
     this.id = 0,
@@ -105,9 +120,10 @@ class SseLogEvent {
     required this.type,
     this.level,
     this.outputs,
+    this.data,
   });
 
-  bool get isComplete => type == 'complete';
+  bool get isComplete => type == 'complete' || type == 'done';
   bool get isError => type == 'error';
   bool get isLog => type == 'log';
   bool get isHeartbeat => type == 'heartbeat';

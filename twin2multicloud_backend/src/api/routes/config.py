@@ -4,7 +4,7 @@ import httpx
 import json
 
 from src.models.database import get_db
-from src.models.twin import DigitalTwin
+from src.models.twin import DigitalTwin, TwinState
 from src.models.twin_config import TwinConfiguration
 from src.models.optimizer_config import OptimizerConfiguration
 from src.models.user import User
@@ -15,23 +15,35 @@ from src.schemas.twin_config import (
 )
 from src.config import settings
 from src.utils.crypto import encrypt, decrypt
+from src.services.twin_helpers import get_user_twin
+from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/twins/{twin_id}/config", tags=["configuration"])
 inline_router = APIRouter(prefix="/config", tags=["configuration"])
 
 
-async def get_user_twin(twin_id: str, user: User, db: Session) -> DigitalTwin:
-    """Helper to verify twin ownership."""
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == user.id
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    return twin
 
-
-@router.get("/", response_model=TwinConfigResponse)
+@router.get(
+    "/",
+    response_model=TwinConfigResponse,
+    operation_id="getTwinConfig",
+    summary="Get configuration for a twin",
+    description=(
+        "**Purpose:** Retrieve cloud provider credentials and validation status for Step 1 (Credentials) screen.\n\n"
+        "**When to call:** When loading Step 1 to show saved credentials (masked) and validation indicators.\n\n"
+        "**Response fields:**\n"
+        "- `aws`: Object with masked credentials, region, and `validated` boolean\n"
+        "- `azure`: Object with masked credentials, region, and `validated` boolean\n"
+        "- `gcp`: Object with masked credentials, region, and `validated` boolean\n"
+        "- `debug_mode`: Whether debug logging is enabled\n"
+        "- `highest_step_reached`: Wizard progress indicator (1-5)\n\n"
+        "**Note:** Creates empty config if none exists. Credentials are masked in response."
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    }
+)
 async def get_config(
     twin_id: str,
     db: Session = Depends(get_db),
@@ -51,7 +63,30 @@ async def get_config(
     return TwinConfigResponse.from_db(config, twin.optimizer_config)
 
 
-@router.put("/", response_model=TwinConfigResponse)
+@router.put(
+    "/",
+    response_model=TwinConfigResponse,
+    operation_id="updateTwinConfig",
+    summary="Update configuration for a twin",
+    description=(
+        "**Purpose:** Save cloud provider credentials and configuration for a Digital Twin.\n\n"
+        "**When to call:** When user saves credentials in Step 1, or when auto-saving on field blur.\n\n"
+        "**Request body fields:**\n"
+        "- `aws`: {access_key_id, secret_access_key, region, session_token(optional)}\n"
+        "- `azure`: {subscription_id, client_id, client_secret, tenant_id, region}\n"
+        "- `gcp`: {project_id, billing_account, service_account_json, region}\n"
+        "- `debug_mode`: Enable verbose logging for deployment\n"
+        "- `highest_step_reached`: Track wizard progress\n\n"
+        "**Security:** Credentials are encrypted with user+twin-specific key before storage.\n\n"
+        "**Blocked states:** Returns 400 if twin is DEPLOYED, DEPLOYING, or DESTROYING.\n\n"
+        "**Side effect:** If twin was in CONFIGURED/ERROR/DESTROYED state, regresses to DRAFT."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    }
+)
 async def update_config(
     twin_id: str,
     update: TwinConfigUpdate,
@@ -63,6 +98,18 @@ async def update_config(
     Credentials are ENCRYPTED with user+twin-specific key.
     """
     twin = await get_user_twin(twin_id, current_user, db)
+    
+    # Block modifications for deployed/deploying/destroying twins
+    BLOCKED_STATES = {TwinState.DEPLOYED, TwinState.DEPLOYING, TwinState.DESTROYING}
+    if twin.state in BLOCKED_STATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot modify twin in '{twin.state.value}' state"
+        )
+    
+    # Track if we need to regress state
+    REGRESS_STATES = {TwinState.CONFIGURED, TwinState.ERROR, TwinState.DESTROYED}
+    should_regress = twin.state in REGRESS_STATES
     
     if not twin.configuration:
         config = TwinConfiguration(twin_id=twin_id)
@@ -123,14 +170,44 @@ async def update_config(
         if update.optimizer_result is not None:
             opt_config.result_json = json.dumps(update.optimizer_result)
     
+    # Regress to draft if editing configured/error/destroyed twin
+    if should_regress:
+        twin.state = TwinState.DRAFT
+    
     db.commit()
     db.refresh(config)
-    # Refresh to get updated optimizer_config
     db.refresh(twin)
-    return TwinConfigResponse.from_db(config, twin.optimizer_config)
+    
+    # Include twin_state in response for frontend sync
+    response = TwinConfigResponse.from_db(config, twin.optimizer_config)
+    return {**response.dict(), "twin_state": twin.state.value}
 
 
-@router.post("/validate/{provider}", response_model=CredentialValidationResult)
+@router.post(
+    "/validate/{provider}",
+    response_model=CredentialValidationResult,
+    operation_id="validateStoredCredentials",
+    summary="Validate stored credentials via Deployer API",
+    description=(
+        "**Purpose:** Validate credentials that were previously saved to the twin configuration.\n\n"
+        "**When to call:** When user clicks Validate button and credentials are already saved (masked in UI).\n\n"
+        "**Path parameter:** provider = 'aws', 'azure', or 'gcp'\n\n"
+        "**Flow:**\n"
+        "1. Decrypts stored credentials using user+twin-specific key\n"
+        "2. Forwards to Deployer's `/permissions/verify/{provider}` endpoint\n"
+        "3. Updates `{provider}_validated` flag in database\n"
+        "4. Returns validation result (credentials never exposed to client)\n\n"
+        "**Response fields:**\n"
+        "- `valid`: Boolean - whether credentials can access required cloud resources\n"
+        "- `message`: Human-readable validation result\n"
+        "- `permissions`: List of missing permissions (if any)"
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    }
+)
 async def validate_credentials(
     twin_id: str,
     provider: str,
@@ -240,7 +317,28 @@ async def validate_credentials(
         )
 
 
-@inline_router.post("/validate-inline", response_model=CredentialValidationResult)
+@inline_router.post(
+    "/validate-inline",
+    response_model=CredentialValidationResult,
+    operation_id="validateInlineCredentials",
+    summary="Validate credentials without storing",
+    description=(
+        "**Purpose:** Validate credentials provided in request body without saving them to database.\n\n"
+        "**When to call:** When user wants to test credentials before saving a new twin, or preview validation.\n\n"
+        "**Request body:**\n"
+        "- `provider`: 'aws', 'azure', or 'gcp'\n"
+        "- `aws`/`azure`/`gcp`: Credential object matching the provider\n\n"
+        "**Flow:**\n"
+        "1. Takes plaintext credentials from request body\n"
+        "2. Forwards to Deployer's `/permissions/verify/{provider}` endpoint\n"
+        "3. Returns result without storing anything\n\n"
+        "**Use case:** Validate credentials → get result → if valid, decide to save via `updateTwinConfig`."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+    }
+)
 async def validate_credentials_inline(
     request: InlineValidationRequest,
     current_user: User = Depends(get_current_user)
@@ -329,7 +427,26 @@ async def validate_credentials_inline(
         )
 
 
-@inline_router.post("/validate-dual")
+@inline_router.post(
+    "/validate-dual",
+    operation_id="validateCredentialsDual",
+    summary="Validate against both Optimizer and Deployer APIs",
+    description=(
+        "**Purpose:** Validate credentials against BOTH Optimizer and Deployer APIs in parallel.\n\n"
+        "**Why two APIs?** Each service has different permission requirements:\n"
+        "- **Optimizer:** Checks pricing API access (e.g., AWS Pricing API, GCP Cloud Billing API)\n"
+        "- **Deployer:** Checks infrastructure permissions (e.g., create Lambda, Terraform apply)\n\n"
+        "**When to call:** On Step 1 Validate button click to show dual validation status.\n\n"
+        "**Response fields:**\n"
+        "- `valid`: Boolean - true only if BOTH APIs pass\n"
+        "- `optimizer`: {valid, message} - Optimizer-specific result\n"
+        "- `deployer`: {valid, message, permissions} - Deployer-specific result with missing permissions"
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+    }
+)
 async def validate_credentials_dual(
     request: InlineValidationRequest,
     current_user: User = Depends(get_current_user)
@@ -410,7 +527,30 @@ async def validate_credentials_dual(
     return await _perform_dual_validation(provider, optimizer_creds, deployer_creds)
 
 
-@router.post("/validate-stored/{provider}")
+@router.post(
+    "/validate-stored/{provider}",
+    operation_id="validateStoredCredentialsDual",
+    summary="Validate stored credentials against both APIs",
+    description=(
+        "**Purpose:** Same as `validateCredentialsDual` but uses credentials already stored in database.\n\n"
+        "**When to call:** When user clicks Validate and credentials are masked (already saved previously).\n\n"
+        "**Path parameter:** provider = 'aws', 'azure', or 'gcp'\n\n"
+        "**Flow:**\n"
+        "1. Decrypts stored credentials using user+twin-specific key\n"
+        "2. Validates against Optimizer API (pricing permissions)\n"
+        "3. Validates against Deployer API (infrastructure permissions)\n"
+        "4. Updates `{provider}_validated` flag based on combined result\n\n"
+        "**Response:**\n"
+        "- `valid`: true only if BOTH APIs pass\n"
+        "- `optimizer`: {valid, message}\n"
+        "- `deployer`: {valid, message, permissions}"
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    }
+)
 async def validate_stored_credentials_dual(
     twin_id: str,
     provider: str,

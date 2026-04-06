@@ -1,10 +1,10 @@
 # Cross-Cloud Authentication Token
 #
 # This file manages the inter-cloud authentication token used for
-# cross-cloud communication between layers (L1→L2, L2→L3, etc.).
+# HTTP Function URL authentication (AWS Lambda URLs, Azure Function URLs, GCP Cloud Run).
 #
-# The token is automatically generated when any cross-cloud boundary exists
-# and no explicit token is provided via var.inter_cloud_token.
+# The token is ALWAYS generated when no explicit token is provided,
+# ensuring Function URLs are always protected.
 
 # ==============================================================================
 # Cross-Cloud Detection
@@ -106,7 +106,8 @@ locals {
 # ==============================================================================
 
 resource "random_password" "inter_cloud_token" {
-  count   = var.inter_cloud_token == "" && local.needs_inter_cloud_token ? 1 : 0
+  # Always generate token when not explicitly provided - protects all Function URLs
+  count   = var.inter_cloud_token == "" ? 1 : 0
   length  = 64
   special = false
 }

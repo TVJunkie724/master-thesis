@@ -1,3 +1,14 @@
+"""Deployer Configuration API endpoints.
+
+Manages deployer config for digital twins, including config validation,
+GLB file uploads, and project.zip extraction for wizard auto-population.
+
+**Key endpoints:**
+- GET/PUT /config: Deployer configuration CRUD
+- POST /validate/{type}: Validate config via Deployer API
+- POST /upload-glb: Upload 3D scene file
+- POST /upload-zip: Extract project.zip for wizard
+"""
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 import httpx
@@ -6,7 +17,7 @@ import shutil
 from pathlib import Path
 
 from src.models.database import get_db
-from src.models.twin import DigitalTwin
+from src.models.twin import DigitalTwin, TwinState
 from src.models.deployer_config import DeployerConfiguration
 from src.models.user import User
 from src.api.dependencies import get_current_user
@@ -17,22 +28,33 @@ from src.schemas.deployer_config import (
     ConfigValidationResponse,
 )
 from src.config import settings
+from src.services.twin_helpers import get_user_twin
+from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/twins/{twin_id}/deployer", tags=["deployer"])
 
 
-async def get_user_twin(twin_id: str, user: User, db: Session) -> DigitalTwin:
-    """Helper to verify twin ownership."""
-    twin = db.query(DigitalTwin).filter(
-        DigitalTwin.id == twin_id,
-        DigitalTwin.user_id == user.id
-    ).first()
-    if not twin:
-        raise HTTPException(status_code=404, detail="Twin not found")
-    return twin
 
-
-@router.get("/config", response_model=DeployerConfigResponse)
+@router.get(
+    "/config", 
+    response_model=DeployerConfigResponse,
+    operation_id="getDeployerConfig",
+    summary="Get deployer configuration for a twin",
+    description=(
+        "**Purpose:** Retrieve Step 3 (Deployer) configuration for a Digital Twin.\n\n"
+        "**When to call:** Loading Step 3 wizard to restore saved config fields.\n\n"
+        "**Response fields:**\n"
+        "- `layer_*_provider`: Selected provider per layer (aws, azure, gcp)\n"
+        "- `*_config`/`*_code`/`*_state_machine`: Config content per provider\n"
+        "- `*_validated`: Boolean validation flags per section\n"
+        "- `scene_glb_uploaded`: Whether 3D model file exists\n\n"
+        "**Note:** Creates empty config if none exists."
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    }
+)
 async def get_deployer_config(
     twin_id: str,
     db: Session = Depends(get_db),
@@ -52,7 +74,28 @@ async def get_deployer_config(
     return DeployerConfigResponse.from_db(config)
 
 
-@router.put("/config", response_model=DeployerConfigResponse)
+@router.put(
+    "/config", 
+    response_model=DeployerConfigResponse,
+    operation_id="updateDeployerConfig",
+    summary="Update deployer configuration",
+    description=(
+        "**Purpose:** Save Step 3 configuration fields (function code, state machines, configs).\n\n"
+        "**When to call:** Auto-save on field blur, or explicit 'Save' button.\n\n"
+        "**Request body:** Partial update - only provided fields are modified.\n\n"
+        "**Key fields:**\n"
+        "- `layer_*_provider`: aws, azure, or gcp\n"
+        "- `*_function_code`, `*_state_machine`: Code and workflow definitions\n"
+        "- `*_config`: Provider-specific configuration\n\n"
+        "**Blocked states:** Returns 400 for DEPLOYED, DEPLOYING, DESTROYING twins.\n\n"
+        "**Side effect:** Regresses CONFIGURED/ERROR/DESTROYED twins to DRAFT."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    }
+)
 async def update_deployer_config(
     twin_id: str,
     update: DeployerConfigUpdate,
@@ -65,6 +108,18 @@ async def update_deployer_config(
     """
     twin = await get_user_twin(twin_id, current_user, db)
     
+    # Block modifications for deployed/deploying/destroying twins
+    BLOCKED_STATES = {TwinState.DEPLOYED, TwinState.DEPLOYING, TwinState.DESTROYING}
+    if twin.state in BLOCKED_STATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot modify twin in '{twin.state.value}' state"
+        )
+    
+    # Track if we need to regress state
+    REGRESS_STATES = {TwinState.CONFIGURED, TwinState.ERROR, TwinState.DESTROYED}
+    should_regress = twin.state in REGRESS_STATES
+    
     if not twin.deployer_config:
         config = DeployerConfiguration(twin_id=twin_id)
         db.add(config)
@@ -73,6 +128,8 @@ async def update_deployer_config(
     
     # Update fields
     if update.deployer_digital_twin_name is not None:
+        if len(update.deployer_digital_twin_name) > 15:
+            raise HTTPException(status_code=400, detail="Digital twin name exceeds 15 characters")
         config.deployer_digital_twin_name = update.deployer_digital_twin_name
     if update.config_events_json is not None:
         config.config_events_json = update.config_events_json
@@ -130,12 +187,43 @@ async def update_deployer_config(
     if update.user_config_validated is not None:
         config.user_config_validated = update.user_config_validated
     
+    # Regress to draft if editing configured/error/destroyed twin
+    if should_regress:
+        twin.state = TwinState.DRAFT
+    
     db.commit()
     db.refresh(config)
-    return DeployerConfigResponse.from_db(config)
+    db.refresh(twin)
+    
+    # Include twin_state in response for frontend sync
+    response = DeployerConfigResponse.from_db(config)
+    return {**response.dict(), "twin_state": twin.state.value}
 
 
-@router.post("/validate/{config_type}", response_model=ConfigValidationResponse)
+@router.post(
+    "/validate/{config_type}", 
+    response_model=ConfigValidationResponse,
+    operation_id="validateDeployerConfigSection",
+    summary="Validate a deployer config section via Deployer API",
+    description=(
+        "**Purpose:** Validate individual config sections before saving/deployment.\n\n"
+        "**When to call:** User clicks 'Validate' button for a specific section.\n\n"
+        "**Path param config_type:**\n"
+        "- Section 2: 'events', 'iot', 'config', 'hierarchy'\n"
+        "- Section 3 L1: 'payloads'\n"
+        "- Section 3 L2: 'function-code', 'state-machine'\n"
+        "- Section 3 L4: 'scene-config', 'user-config'\n\n"
+        "**Response fields:**\n"
+        "- `valid`: Boolean\n"
+        "- `errors`: Array of {field, message, line (optional)}\n\n"
+        "**Note:** Proxies to Deployer API's /validate/* endpoints."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    }
+)
 async def validate_config(
     twin_id: str,
     config_type: str,
@@ -302,7 +390,26 @@ async def validate_config(
 # ==========================================
 # GLB File Upload/Delete for L4 Scene
 # ==========================================
-@router.post("/upload-glb")
+@router.post(
+    "/upload-glb",
+    operation_id="uploadSceneGlb",
+    summary="Upload 3D scene GLB file",
+    description=(
+        "**Purpose:** Upload the scene.glb file for L4 3D visualization.\n\n"
+        "**When to call:** User selects GLB file in Step 3 L4 config.\n\n"
+        "**Constraints:**\n"
+        "- Max file size: 100MB\n"
+        "- Must be `.glb` format\n\n"
+        "**Response:** `{message, size_mb}` on success.\n\n"
+        "**Storage:** Saved to `UPLOAD_DIR/{twin_id}/scene.glb`."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        500: ERROR_RESPONSES[500],
+    }
+)
 async def upload_scene_glb(
     twin_id: str,
     file: UploadFile = File(..., description="Scene GLB file (max 100MB)"),
@@ -350,7 +457,23 @@ async def upload_scene_glb(
         raise HTTPException(status_code=500, detail=f"Failed to save GLB file: {str(e)}")
 
 
-@router.delete("/upload-glb")
+@router.delete(
+    "/upload-glb",
+    operation_id="deleteSceneGlb",
+    summary="Delete 3D scene GLB file",
+    description=(
+        "**Purpose:** Remove the uploaded scene.glb file.\n\n"
+        "**When to call:**\n"
+        "- User unchecks 'Include 3D Model' toggle\n"
+        "- L4 provider changes (invalidates previous GLB)\n"
+        "- Twin is deleted\n\n"
+        "**Side effects:** Updates `scene_glb_uploaded` flag to false."
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    }
+)
 async def delete_scene_glb(
     twin_id: str,
     db: Session = Depends(get_db),
@@ -388,7 +511,29 @@ async def delete_scene_glb(
 # ==========================================
 # Zip Upload and Extraction for Wizard
 # ==========================================
-@router.post("/upload-zip")
+@router.post(
+    "/upload-zip",
+    operation_id="uploadProjectZip",
+    summary="Upload project.zip for wizard auto-population",
+    description=(
+        "**Purpose:** Upload and extract project.zip to auto-populate Step 3 fields.\n\n"
+        "**When to call:** User clicks 'Upload Project Zip' button in Step 3.\n\n"
+        "**Flow:**\n"
+        "1. Validates zip structure against optimizer's cheapest_path\n"
+        "2. Extracts code files, configs, and optional scene.glb\n"
+        "3. Returns content for UI fields (NOT persisted - BLoC handles save)\n\n"
+        "**Response fields per provider:**\n"
+        "- `functionCode`, `stateMachine`, `config`: Content strings\n"
+        "- `valid`: Boolean validation status\n"
+        "- `errors`: Validation errors if any\n\n"
+        "**Max size:** 100MB"
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        413: {"description": "File too large (max 100MB)"},
+    }
+)
 async def upload_project_zip(
     twin_id: str,
     file: UploadFile = File(..., description="Project zip file to extract"),

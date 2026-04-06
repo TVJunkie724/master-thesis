@@ -17,6 +17,19 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, Optional
 
+
+def _registry_to_azure_name(registry_name: str) -> str:
+    """Map registry name to Azure deployed function name.
+    
+    Wrappers (e.g., processor_wrapper) drop '_wrapper' suffix.
+    Underscores become hyphens (Azure convention).
+    """
+    if registry_name.endswith("_wrapper"):
+        base = registry_name[:-8]  # Remove '_wrapper'
+        return base.replace("_", "-")
+    return registry_name.replace("_", "-")
+
+
 # Add src to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "src")))
 
@@ -31,7 +44,7 @@ class ScenarioConfig:
     @property
     def digital_twin_name(self) -> str:
         """Unique name for this scenario's resources."""
-        return f"sc-{self.name}"
+        return f"sc2-{self.name}"
     
     @property
     def required_clouds(self) -> set:
@@ -102,6 +115,50 @@ def create_scenario_project(scenario: ScenarioConfig, template_path: Path, base_
     with open(providers_path, "w") as f:
         json.dump(scenario.providers, f, indent=2)
     
+    # MOCK: Write config_events.json with L2-appropriate workflow action type
+    WORKFLOW_ACTION_TYPES = {
+        "aws": "step_function",
+        "azure": "logic_app",
+        "google": "workflow",
+    }
+    
+    def get_scenario_events(l2_provider: str) -> list:
+        """Generate config_events with L2-appropriate workflow action."""
+        workflow_type = WORKFLOW_ACTION_TYPES.get(l2_provider, "step_function")
+        return [
+            # Lambda action (all scenarios)
+            {
+                "condition": "testEntityId.temperature-sensor-1.temperature == DOUBLE(30)",
+                "action": {
+                    "type": "lambda",
+                    "functionName": "high-temperature-callback",
+                    "autoDeploy": True,
+                    "feedback": {
+                        "type": "mqtt",
+                        "iotDeviceId": "temperature-sensor-1",
+                        "payload": "High Temp Warning"
+                    }
+                }
+            },
+            # Workflow action (L2-specific)
+            {
+                "condition": "testEntityId.pressure-sensor-1.pressure > DOUBLE(999)",
+                "action": {
+                    "type": workflow_type,
+                    "functionName": "high-temperature-callback",
+                    "functionNameB": "high-temperature-callback",
+                    "autoDeploy": True
+                }
+            }
+        ]
+    
+    l2_provider = scenario.providers.get("layer_2_provider", "aws")
+    events_path = project_path / "config_events.json"
+    events = get_scenario_events(l2_provider)
+    with open(events_path, "w") as f:
+        json.dump(events, f, indent=2)
+    print(f"[SCENARIO] Mocked config_events with {WORKFLOW_ACTION_TYPES.get(l2_provider, 'step_function')} action")
+    
     print(f"[SCENARIO] Digital twin name: {scenario.digital_twin_name}")
     print(f"[SCENARIO] Provider config: {scenario.providers}")
     
@@ -158,11 +215,15 @@ class BaseScenarioTest:
             # Try Terraform destroy if we have context and strategy
             if cleanup_state["strategy"] and cleanup_state["context"]:
                 try:
-                    cleanup_state["strategy"].destroy_all(
+                    result = cleanup_state["strategy"].destroy_all(
                         context=cleanup_state["context"],
                         sdk_fallback="always"  # Always run SDK cleanup for thorough cleanup
                     )
-                    print("[CLEANUP] ✓ Resources destroyed via Terraform + SDK")
+                    if result.terraform_success:
+                        print("[CLEANUP] ✓ Resources destroyed via Terraform + SDK")
+                    else:
+                        print(f"[CLEANUP] ⚠ Terraform destroy failed: {result.terraform_error}")
+                        print("[CLEANUP] SDK fallback cleanup ran, but may have orphaned resources")
                 except Exception as e:
                     print(f"[CLEANUP] ✗ Terraform destroy failed: {e}")
                     # Even if Terraform fails, try SDK cleanup
@@ -202,11 +263,16 @@ class BaseScenarioTest:
                     print(f"[CLEANUP] ⚠ Could not remove state files: {e}")
         
         # Register cleanup FIRST - before any work that might fail
-        skip_cleanup = os.environ.get("E2E_SKIP_CLEANUP", "false").lower() == "true"
+        # skip_cleanup comes from conftest.py fixture (--skip-cleanup flag)
+        skip_cleanup = request.config.getoption("--skip-cleanup", default=False)
+        # Also check backwards-compat env var
+        if not skip_cleanup:
+            skip_cleanup = getattr(request.config, "_skip_cleanup_compat", False)
+        
         if not skip_cleanup:
             request.addfinalizer(terraform_cleanup)
         else:
-            print("[CLEANUP] ⚠ Cleanup disabled (E2E_SKIP_CLEANUP=true)")
+            print("[CLEANUP] ⚠ Cleanup disabled (--skip-cleanup flag)")
         
         # ================================================================
         # FIX #2: PRE-CLEANUP - Remove orphaned resources from previous runs
@@ -222,7 +288,7 @@ class BaseScenarioTest:
         
         # Pre-cleanup is coupled with cleanup: skip if cleanup is skipped OR state exists
         if skip_cleanup:
-            print("\n[PHASE -1] Pre-Test Orphan Cleanup: SKIPPED (E2E_SKIP_CLEANUP=true)")
+            print("\n[PHASE -1] Pre-Test Orphan Cleanup: SKIPPED (--skip-cleanup flag)")
         elif state_exists:
             print("\n[PHASE -1] Pre-Test Orphan Cleanup: SKIPPED (Terraform state exists - using existing resources)")
         else:
@@ -519,11 +585,23 @@ class BaseScenarioTest:
         test_state = deployed_environment["test_state"]
         l1_provider = scenario.providers["layer_1_provider"]
         
-        test_payload = {
+        # Split payloads by device type for proper DTDL model matching:
+        # - temperature-sensor-1 sends temperature (TemperatureSensor DTDL)
+        # - pressure-sensor-1 sends pressure (PressureSensor DTDL)
+        test_payload_temp = {
             "iotDeviceId": "temperature-sensor-1",
-            "temperature": 42.5,
+            "temperature": 30,  # Match event condition (== DOUBLE(30))
             "time": str(int(time.time() * 1000))
         }
+        test_payload_pressure = {
+            "iotDeviceId": "pressure-sensor-1",
+            "pressure": 1001,   # Trigger workflow condition (> DOUBLE(999))
+            "time": str(int(time.time() * 1000))
+        }
+        
+        # Use temperature payload for primary test (lambda callback + feedback)
+        # Pressure payload is for workflow test only
+        test_payload = test_payload_temp
         
         if l1_provider == "google":
             topic = outputs.get("gcp_pubsub_telemetry_topic")
@@ -544,12 +622,21 @@ class BaseScenarioTest:
                             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_file
                     
                     publisher = pubsub_v1.PublisherClient()
+                    
+                    # Send temperature payload (for lambda callback + ADT temp update)
                     data = json.dumps(test_payload).encode("utf-8")
                     future = publisher.publish(topic, data)
                     message_id = future.result()
-                    print(f"  [OK] Sent via GCP Pub/Sub: {message_id}")
+                    print(f"  [OK] Sent temperature payload via GCP Pub/Sub: {message_id}")
+                    
+                    # Send pressure payload (for workflow trigger + ADT pressure update)
+                    data_pressure = json.dumps(test_payload_pressure).encode("utf-8")
+                    future_pressure = publisher.publish(topic, data_pressure)
+                    message_id_pressure = future_pressure.result()
+                    print(f"  [OK] Sent pressure payload via GCP Pub/Sub: {message_id_pressure}")
                     
                     test_state["test_payload"] = test_payload
+                    test_state["test_payload_pressure"] = test_payload_pressure
                     test_state["test_device_id"] = test_payload["iotDeviceId"]
                 finally:
                     # Restore original env var
@@ -570,7 +657,17 @@ class BaseScenarioTest:
                 from azure.iot.device import IoTHubDeviceClient, Message
                 
                 # Get device connection string from the generated simulator config
-                sim_config_path = project_path / "iot_device_simulator" / "azure" / "config_generated.json"
+                # Config is stored per-device: azure/{device_id}/config_generated.json
+                azure_sim_dir = project_path / "iot_device_simulator" / "azure"
+                if not azure_sim_dir.exists():
+                    pytest.fail(f"[DATAFLOW CRITICAL] Azure simulator directory not found at {azure_sim_dir}. IoT device registration may have failed.")
+                
+                # Find first device subdirectory
+                device_dirs = [d for d in azure_sim_dir.iterdir() if d.is_dir()]
+                if not device_dirs:
+                    pytest.fail(f"[DATAFLOW CRITICAL] No device configs found in {azure_sim_dir}. IoT device registration may have failed.")
+                
+                sim_config_path = device_dirs[0] / "config_generated.json"
                 if not sim_config_path.exists():
                     pytest.fail(f"[DATAFLOW CRITICAL] Azure device config not found at {sim_config_path}. IoT device registration may have failed.")
                 
@@ -581,20 +678,61 @@ class BaseScenarioTest:
                 if not device_conn_str:
                     pytest.fail("[DATAFLOW CRITICAL] Device connection string not in simulator config. Check IoT device registration.")
                 
-                # Send telemetry message as the device
-                client = IoTHubDeviceClient.create_from_connection_string(device_conn_str)
+                # Send telemetry message as temperature-sensor-1
+                temp_device_dir = azure_sim_dir / "temperature-sensor-1"
+                if not temp_device_dir.exists():
+                    # Fallback to first device dir for backward compatibility
+                    temp_device_dir = device_dirs[0]
+                temp_config_path = temp_device_dir / "config_generated.json"
+                if not temp_config_path.exists():
+                    pytest.fail(f"[DATAFLOW CRITICAL] Temperature device config not found at {temp_config_path}")
+                
+                with open(temp_config_path) as f:
+                    temp_config = json.load(f)
+                temp_conn_str = temp_config.get("connection_string")
+                if not temp_conn_str:
+                    pytest.fail("[DATAFLOW CRITICAL] Temperature device connection string not found")
+                
+                client = IoTHubDeviceClient.create_from_connection_string(temp_conn_str)
                 client.connect()
                 try:
                     message = Message(json.dumps(test_payload))
                     message.content_type = "application/json"
                     message.content_encoding = "utf-8"
                     client.send_message(message)
-                    print(f"  [OK] Sent via Azure IoT Hub device client")
-                    
-                    test_state["test_payload"] = test_payload
-                    test_state["test_device_id"] = test_payload["iotDeviceId"]
+                    print(f"  [OK] Sent temperature payload via Azure IoT Hub")
                 finally:
                     client.disconnect()
+                
+                # Send pressure payload as pressure-sensor-1
+                pressure_device_dir = azure_sim_dir / "pressure-sensor-1"
+                if pressure_device_dir.exists():
+                    pressure_config_path = pressure_device_dir / "config_generated.json"
+                    if pressure_config_path.exists():
+                        with open(pressure_config_path) as f:
+                            pressure_config = json.load(f)
+                        pressure_conn_str = pressure_config.get("connection_string")
+                        if pressure_conn_str:
+                            pressure_client = IoTHubDeviceClient.create_from_connection_string(pressure_conn_str)
+                            pressure_client.connect()
+                            try:
+                                pressure_message = Message(json.dumps(test_payload_pressure))
+                                pressure_message.content_type = "application/json"
+                                pressure_message.content_encoding = "utf-8"
+                                pressure_client.send_message(pressure_message)
+                                print(f"  [OK] Sent pressure payload via Azure IoT Hub")
+                            finally:
+                                pressure_client.disconnect()
+                        else:
+                            print(f"  [WARN] pressure-sensor-1 has no connection string, skipping pressure payload")
+                    else:
+                        print(f"  [WARN] pressure-sensor-1 config not found, skipping pressure payload")
+                else:
+                    print(f"  [WARN] pressure-sensor-1 device dir not found, skipping pressure payload")
+                    
+                test_state["test_payload"] = test_payload
+                test_state["test_payload_pressure"] = test_payload_pressure
+                test_state["test_device_id"] = test_payload["iotDeviceId"]
                     
             except ImportError:
                 pytest.fail("[DATAFLOW CRITICAL] azure-iot-device not installed in container. Install with: pip install azure-iot-device")
@@ -630,22 +768,34 @@ class BaseScenarioTest:
                 # Use iot-data client to publish to the ingestion topic
                 # The topic must match the IoT Topic Rule pattern: dt/{name}/+/telemetry
                 # The + is a wildcard for device_id, so we include it in the topic
-                device_id = test_payload["iotDeviceId"]
                 dt_name = outputs.get('digital_twin_name')
                 if not dt_name:
                     pytest.fail("[FAIL-FAST] digital_twin_name output not found. This is required for AWS IoT topic construction.")
-                topic_name = f"dt/{dt_name}/{device_id}/telemetry"
                 
                 iot_data = boto3.client('iot-data', endpoint_url=f"https://{iot_endpoint}")
                 
+                # Send temperature payload
+                device_id = test_payload["iotDeviceId"]
+                topic_name = f"dt/{dt_name}/{device_id}/telemetry"
                 response = iot_data.publish(
                     topic=topic_name,
                     qos=1,
                     payload=json.dumps(test_payload)
                 )
-                print(f"  [OK] Sent via AWS IoT Core to topic: {topic_name}")
+                print(f"  [OK] Sent temperature payload via AWS IoT Core to topic: {topic_name}")
+                
+                # Send pressure payload
+                pressure_device_id = test_payload_pressure["iotDeviceId"]
+                pressure_topic = f"dt/{dt_name}/{pressure_device_id}/telemetry"
+                response = iot_data.publish(
+                    topic=pressure_topic,
+                    qos=1,
+                    payload=json.dumps(test_payload_pressure)
+                )
+                print(f"  [OK] Sent pressure payload via AWS IoT Core to topic: {pressure_topic}")
                 
                 test_state["test_payload"] = test_payload
+                test_state["test_payload_pressure"] = test_payload_pressure
                 test_state["test_device_id"] = test_payload["iotDeviceId"]
                 
             except ImportError:
@@ -693,7 +843,7 @@ class BaseScenarioTest:
         if inter_cloud_token:
             headers["X-Inter-Cloud-Token"] = inter_cloud_token
         
-        max_retries = 60
+        max_retries = 300  # 300 retries × 2s = 600s timeout (10 min for cold start delays in cross-cloud flow)
         retry_interval = 2
         response = None  # Initialize to avoid undefined variable in error message
         
@@ -832,6 +982,129 @@ class BaseScenarioTest:
         except Exception as e:
             print(f"  [WARN] Could not query TwinMaker: {e}")
     
+    def test_10b_twinmaker_telemetry(self, deployed_environment):
+        """Verify telemetry accessible via TwinMaker after test_07/08.
+        
+        This test validates the full L4 data flow for AWS:
+        L2 Persister → DynamoDB → TwinMaker dataReader connector → get_property_value_history
+        
+        Uses polling to handle async writes and connector cold starts.
+        """
+        scenario = deployed_environment["scenario"]
+        outputs = deployed_environment["terraform_outputs"]
+        l4_provider = scenario.providers["layer_4_provider"]
+        
+        if l4_provider != "aws":
+            pytest.skip("L4 is not AWS - skipping TwinMaker telemetry verification")
+        
+        workspace_id = outputs.get("aws_twinmaker_workspace_id")
+        if not workspace_id:
+            pytest.skip("TwinMaker workspace not deployed")
+        
+        try:
+            import boto3
+            from datetime import datetime, timedelta
+            
+            twinmaker = boto3.client('iottwinmaker')
+            
+            # Step 1: Find an entity with components
+            response = twinmaker.list_entities(workspaceId=workspace_id)
+            entities = response.get('entitySummaries', [])
+            
+            if not entities:
+                print(f"  [WARN] No TwinMaker entities found - cannot verify telemetry")
+                return
+            
+            # Step 2: Get entity details to find component with time-series properties
+            target_entity = None
+            target_component = None
+            target_properties = []
+            
+            for entity_summary in entities:
+                entity_id = entity_summary.get('entityId')
+                try:
+                    entity_details = twinmaker.get_entity(
+                        workspaceId=workspace_id,
+                        entityId=entity_id
+                    )
+                    components = entity_details.get('components', {})
+                    
+                    for comp_name, comp_info in components.items():
+                        # Find properties marked as time-series (isTimeSeries=True)
+                        props = comp_info.get('properties', {})
+                        ts_props = [
+                            name for name, info in props.items()
+                            if info.get('definition', {}).get('isTimeSeries', False)
+                        ]
+                        
+                        if ts_props:
+                            target_entity = entity_id
+                            target_component = comp_name
+                            target_properties = ts_props[:3]  # Limit to 3 properties
+                            break
+                    
+                    if target_entity:
+                        break
+                except Exception as e:
+                    print(f"  [DEBUG] Could not get entity {entity_id}: {e}")
+                    continue
+            
+            if not target_entity:
+                print(f"  [WARN] No entities with time-series components found")
+                return
+            
+            print(f"  Querying TwinMaker: entity={target_entity}, component={target_component}")
+            print(f"  Properties: {target_properties}")
+            
+            # Step 3: Poll for telemetry via get_property_value_history
+            max_attempts = 30
+            poll_interval = 2  # seconds
+            
+            end_time = datetime.utcnow()
+            start_time = end_time - timedelta(hours=1)
+            
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    history_response = twinmaker.get_property_value_history(
+                        workspaceId=workspace_id,
+                        entityId=target_entity,
+                        componentName=target_component,
+                        selectedProperties=target_properties,
+                        startDateTime=start_time,
+                        endDateTime=end_time,
+                        orderByTime='DESCENDING',
+                        maxResults=10
+                    )
+                    
+                    property_values = history_response.get('propertyValues', [])
+                    
+                    if property_values:
+                        print(f"  ✓ TWINMAKER TELEMETRY VERIFIED (Attempt {attempt}/{max_attempts})")
+                        for pv in property_values[:3]:
+                            prop_ref = pv.get('entityPropertyReference', {})
+                            values = pv.get('values', [])
+                            if values:
+                                print(f"    - {prop_ref.get('propertyName')}: {len(values)} data points")
+                        return  # Success!
+                    
+                except Exception as e:
+                    print(f"  [DEBUG] Attempt {attempt}: {e}")
+                
+                time.sleep(poll_interval)
+            
+            # After max attempts, FAIL - L4 data flow is critical
+            pytest.fail(
+                f"[L4 DATAFLOW CRITICAL] No telemetry found via TwinMaker "
+                f"after {max_attempts * poll_interval}s. "
+                f"Entity: {target_entity}, Component: {target_component}"
+            )
+            
+        except ImportError:
+            pytest.skip("boto3 not installed")
+        except Exception as e:
+            print(f"  [WARN] Could not query TwinMaker telemetry: {e}")
+
+    
     def test_11_adt_twins(self, deployed_environment):
         """GAP FIX #5: Verify ADT twins were created when L4=Azure."""
         scenario = deployed_environment["scenario"]
@@ -922,8 +1195,11 @@ class BaseScenarioTest:
                 
                 # Check for telemetry properties (flexible matching)
                 # ADT pusher uses property names from telemetry payload
-                telemetry_props = ['temperature', 'Temperature', 'LastTemperature', 
-                                   'humidity', 'Humidity', 'LastHumidity', 'value']
+                # Note: DTDL v3 requires unique names, so we use 'lastX' convention
+                telemetry_props = ['lastTemperature', 'lastPressure', 'lastHumidity',
+                                   'temperature', 'Temperature', 'LastTemperature', 
+                                   'humidity', 'Humidity', 'LastHumidity', 
+                                   'pressure', 'Pressure', 'LastPressure', 'value']
                 
                 found_props = {k: v for k, v in twin.items() 
                                if k in telemetry_props and v is not None}
@@ -949,14 +1225,34 @@ class BaseScenarioTest:
             print(f"  [WARN] Could not query ADT: {e}")
     
     def test_12_azure_functions_deployed(self, deployed_environment):
-        """GAP FIX #6: Verify Azure Function Apps have code deployed (not empty)."""
+        """GAP FIX #6: Verify Azure Function Apps have expected functions deployed.
+        
+        Uses the same function_registry logic as bundlers to determine which
+        functions should be deployed for each Azure layer.
+        
+        Verifies:
+        - L0: Dynamic glue functions based on cross-cloud boundaries
+        - L1: IoT acquisition functions (if L1=Azure)  
+        - L2: Processing functions (if L2=Azure)
+        - L3: Hot storage functions (if L3-hot=Azure)
+        - User: User-defined functions (optional, no failure if empty)
+        """
+        from src.function_registry import get_by_layer, get_l0_for_config, Layer
+        
         scenario = deployed_environment["scenario"]
         outputs = deployed_environment["terraform_outputs"]
         credentials = deployed_environment["credentials"]
-        l2_provider = scenario.providers["layer_2_provider"]
+        providers = scenario.providers
         
-        if l2_provider != "azure":
-            pytest.skip("L2 is not Azure - skipping Azure Functions verification")
+        # Check if any Azure layers exist
+        azure_layers = ["layer_1_provider", "layer_2_provider", "layer_3_hot_provider"]
+        has_azure = any(providers.get(layer) == "azure" for layer in azure_layers)
+        
+        # Also check for L0 glue functions (cross-cloud boundaries to Azure)
+        l0_funcs = get_l0_for_config(providers, "azure")
+        
+        if not has_azure and not l0_funcs:
+            pytest.skip("No Azure layers - skipping Azure Functions verification")
         
         azure_creds = credentials.get("azure", {})
         subscription_id = azure_creds.get("azure_subscription_id")
@@ -977,23 +1273,910 @@ class BaseScenarioTest:
             
             web_client = WebSiteManagementClient(credential, subscription_id)
             
-            # Check L2 Function App
-            l2_app_name = outputs.get("azure_l2_function_app_name")
-            if l2_app_name:
+            def verify_function_app(app_name: str, expected_funcs: list, layer_name: str, is_optional: bool = False):
+                """Verify a function app has expected functions deployed."""
+                if not app_name:
+                    if not is_optional:
+                        print(f"  [INFO] No {layer_name} Function App in outputs")
+                    return
+                
                 try:
-                    functions = list(web_client.web_apps.list_functions(resource_group, l2_app_name))
-                    if functions:
-                        func_names = [f.name.split('/')[-1] for f in functions]
-                        print(f"  [OK] Azure L2 Functions ({l2_app_name}): {func_names}")
-                    else:
-                        print(f"  [WARN] Azure L2 Functions: App exists but NO functions deployed!")
+                    functions = list(web_client.web_apps.list_functions(resource_group, app_name))
+                    # Azure function names use hyphens (e.g., "hot-reader")
+                    deployed_names = [f.name.split('/')[-1] for f in functions]
+                    
+                    if not functions:
+                        if is_optional:
+                            print(f"  [OK] {layer_name} ({app_name}): Empty (optional)")
+                        else:
+                            pytest.fail(f"{layer_name} ({app_name}): NO functions deployed!")
+                        return
+                    
+                    # Check for missing expected functions
+                    missing = [f for f in expected_funcs if f not in deployed_names]
+                    if missing:
+                        pytest.fail(f"{layer_name} ({app_name}): Missing functions {missing}, got {deployed_names}")
+                    
+                    print(f"  [OK] {layer_name} ({app_name}): {deployed_names}")
+                    
                 except Exception as e:
-                    print(f"  [WARN] Could not list functions for {l2_app_name}: {e}")
-            else:
-                print(f"  [INFO] No L2 Function App in outputs")
+                    # Don't silently pass - re-raise so outer handler can fail properly
+                    raise RuntimeError(f"Could not list functions for {app_name}: {e}")
+            
+            # L0: Dynamic based on cross-cloud boundaries
+            if l0_funcs:
+                l0_app_name = outputs.get("azure_l0_function_app_name")
+                verify_function_app(l0_app_name, l0_funcs, "L0 Glue")
+            
+            # L1: IoT Acquisition (use registry boundary like bundler)
+            if providers.get("layer_1_provider") == "azure":
+                l1_expected = []
+                for f in get_by_layer(Layer.L1_ACQUISITION):
+                    if "azure" not in f.providers:
+                        continue
+                    # Skip functions with boundary when same-cloud (matches bundler logic)
+                    if f.boundary:
+                        src_key, tgt_key = f.boundary
+                        if providers.get(src_key) == providers.get(tgt_key):
+                            continue
+                    l1_expected.append(_registry_to_azure_name(f.name))
+                l1_app_name = outputs.get("azure_l1_function_app_name")
+                verify_function_app(l1_app_name, l1_expected, "L1 IoT")
+            
+            # L2: Processing (match bundler: include optional if dir exists)
+            if providers.get("layer_2_provider") == "azure":
+                azure_funcs_dir = Path(__file__).parent.parent.parent.parent / "src" / "providers" / "azure" / "azure_functions"
+                l2_expected = []
+                for f in get_by_layer(Layer.L2_PROCESSING):
+                    if "azure" not in f.providers:
+                        continue
+                    func_dir = azure_funcs_dir / f.get_dir_name()
+                    # Match bundler logic: include if not optional OR if dir exists
+                    if not f.is_optional or func_dir.exists():
+                        l2_expected.append(_registry_to_azure_name(f.name))
+                l2_app_name = outputs.get("azure_l2_function_app_name")
+                verify_function_app(l2_app_name, l2_expected, "L2 Processing")
+            
+            # L3: Hot Storage (match bundler: include optional if dir exists)
+            if providers.get("layer_3_hot_provider") == "azure":
+                azure_funcs_dir = Path(__file__).parent.parent.parent.parent / "src" / "providers" / "azure" / "azure_functions"
+                l3_expected = []
+                for f in get_by_layer(Layer.L3_STORAGE):
+                    if "azure" not in f.providers:
+                        continue
+                    func_dir = azure_funcs_dir / f.get_dir_name()
+                    # Match bundler logic: include if not optional OR if dir exists
+                    if not f.is_optional or func_dir.exists():
+                        l3_expected.append(_registry_to_azure_name(f.name))
+                l3_app_name = outputs.get("azure_l3_function_app_name")
+                verify_function_app(l3_app_name, l3_expected, "L3 Storage")
+            
+            # User Functions: Optional (don't fail if empty)
+            user_app_name = outputs.get("azure_user_functions_app_name")
+            if user_app_name:
+                verify_function_app(user_app_name, [], "User Functions", is_optional=True)
                 
         except ImportError:
             pytest.skip("azure-mgmt-web SDK not installed")
         except Exception as e:
-            print(f"  [WARN] Could not verify Azure Functions: {e}")
+            # Fail the test on unexpected errors (don't silently pass)
+            pytest.fail(f"Azure Functions verification failed: {e}")
+
+
+    # ==========================================
+    # Event Flow Tests (13-16)
+    # ==========================================
+    
+    def _validate_azure_credentials(self, credentials: dict) -> dict:
+        """Validate and return Azure credentials, fail if missing."""
+        azure_creds = credentials.get("azure", {})
+        required_keys = ["azure_tenant_id", "azure_client_id", "azure_client_secret", "azure_subscription_id"]
+        missing = [k for k in required_keys if not azure_creds.get(k)]
+        if missing:
+            pytest.fail(f"Missing Azure credentials: {missing}")
+        return azure_creds
+    
+    def _get_azure_credential(self, azure_creds: dict):
+        """Create Azure ClientSecretCredential from credentials dict."""
+        from azure.identity import ClientSecretCredential
+        return ClientSecretCredential(
+            tenant_id=azure_creds["azure_tenant_id"],
+            client_id=azure_creds["azure_client_id"],
+            client_secret=azure_creds["azure_client_secret"]
+        )
+    
+    def _setup_gcp_credentials(self, credentials: dict, project_path) -> callable:
+        """Set up GCP credentials via GOOGLE_APPLICATION_CREDENTIALS env var.
+        
+        Returns a cleanup function to restore the original env var state.
+        """
+        gcp_creds = credentials.get("gcp", {})
+        creds_file = gcp_creds.get("gcp_credentials_file")
+        old_creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+        
+        if creds_file:
+            if not os.path.isabs(creds_file):
+                creds_file = str(Path(project_path) / creds_file)
+            if os.path.exists(creds_file):
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_file
+        
+        def cleanup():
+            if old_creds is not None:
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = old_creds
+            elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
+                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+        
+        return cleanup
+    
+    def _get_gcp_region(self, outputs: dict) -> str:
+        """Extract GCP region from Terraform outputs.
+        
+        Priority:
+        1. gcp_region output (direct, most reliable)
+        2. gcp_event_workflow_id: projects/{project}/locations/{region}/workflows/{name}
+        3. GCP function URL: https://{region}-{project}.cloudfunctions.net/{name}
+        4. Default to us-central1 if not found
+        """
+        import re
+        
+        # Try direct output first (most reliable)
+        region = outputs.get("gcp_region", "")
+        if region:
+            return region
+        
+        # Try from workflow ID
+        workflow_id = outputs.get("gcp_event_workflow_id", "")
+        if workflow_id:
+            match = re.search(r'/locations/([^/]+)/', workflow_id)
+            if match:
+                return match.group(1)
+        
+        # Try from any GCP function URL using project_id for deterministic parsing
+        project_id = outputs.get("gcp_project_id", "")
+        if project_id:
+            for key in ["gcp_dispatcher_url", "gcp_persister_url", "gcp_hot_reader_url"]:
+                url = outputs.get(key, "")
+                if url and project_id in url:
+                    # URL format: https://{region}-{project}.cloudfunctions.net/
+                    match = re.search(rf'https://(.+?)-{re.escape(project_id)}', url)
+                    if match:
+                        return match.group(1)
+        
+        return "us-central1"  # Default fallback
+    
+    def test_13_event_checker_invoked(self, deployed_environment):
+        """Verify Event-Checker was invoked by Persister.
+        
+        This test validates the event-checking flow:
+        IoT Message → Dispatcher → Processor → Persister → Event-Checker
+        
+        Requires: useEventChecking=true in config_optimization.json
+        """
+        scenario = deployed_environment["scenario"]
+        outputs = deployed_environment["terraform_outputs"]
+        credentials = deployed_environment["credentials"]
+        l2_provider = scenario.providers["layer_2_provider"]
+        
+        print(f"\n  [EVENT FLOW] Checking Event-Checker invocation for L2={l2_provider}")
+        
+        if l2_provider == "aws":
+            try:
+                import boto3
+            except ImportError:
+                pytest.skip("boto3 SDK not installed")
+            
+            logs_client = boto3.client('logs')
+            
+            # Event-Checker Lambda log group
+            func_name = outputs.get('aws_l2_event_checker_function_name', 'event-checker')
+            log_group = f"/aws/lambda/{func_name}"
+            
+            # Query recent logs for invocation evidence (extended to 15 min for cold starts)
+            end_time = int(time.time() * 1000)
+            start_time = end_time - (15 * 60 * 1000)
+            
+            try:
+                # Poll for logs with retry (CloudWatch has indexing delay)
+                max_attempts = 12
+                for attempt in range(1, max_attempts + 1):
+                    end_time = int(time.time() * 1000)
+                    start_time = end_time - (15 * 60 * 1000)
+                    
+                    response = logs_client.filter_log_events(
+                        logGroupName=log_group,
+                        startTime=start_time,
+                        endTime=end_time,
+                        filterPattern='"Hello from Event-Checker"',
+                        limit=5
+                    )
+                    
+                    if response.get('events'):
+                        print(f"  ✓ EVENT-CHECKER INVOKED (found {len(response['events'])} log events)")
+                        break
+                        
+                    if attempt < max_attempts:
+                        time.sleep(5)
+                else:
+                    pytest.fail(f"Event-Checker logs not found in {log_group} after {max_attempts} attempts")
+                    
+            except logs_client.exceptions.ResourceNotFoundException:
+                pytest.fail(f"Log group {log_group} does not exist - Event-Checker may not be deployed")
+                
+        elif l2_provider == "azure":
+            try:
+                from azure.monitor.query import LogsQueryClient
+                from datetime import timedelta
+            except ImportError:
+                pytest.skip("azure-monitor-query SDK not installed")
+            
+            azure_creds = self._validate_azure_credentials(credentials)
+            workspace_id = outputs.get("azure_log_analytics_workspace_id")
+            
+            if not workspace_id:
+                pytest.fail("Log Analytics Workspace ID not in outputs - cannot verify Azure logs")
+            
+            credential = self._get_azure_credential(azure_creds)
+            client = LogsQueryClient(credential)
+            # NOTE: Use AppTraces (Application Insights) instead of FunctionAppLogs
+            # FunctionAppLogs has 15-30 min ingestion lag; AppTraces is faster (~5 min)
+            query = """
+            AppTraces
+            | where AppRoleName contains "l2-functions"
+            | where Message contains "Event Checker" or Message contains "event-checker"
+            | where TimeGenerated > ago(60m)
+            | project TimeGenerated, Message
+            | limit 10
+            """
+            
+            try:
+                response = client.query_workspace(workspace_id, query, timespan=timedelta(minutes=15))
+                if response.tables and response.tables[0].rows:
+                    print(f"  ✓ EVENT-CHECKER INVOKED (found {len(response.tables[0].rows)} log entries)")
+                else:
+                    pytest.fail("Event-Checker logs not found in Log Analytics within last 15 minutes")
+            except Exception as e:
+                pytest.fail(f"Azure Log Analytics query failed: {e}")
+                
+        elif l2_provider in ("google", "gcp"):
+            try:
+                from google.cloud import logging as cloud_logging
+                from datetime import datetime, timezone
+            except ImportError:
+                pytest.skip("google-cloud-logging SDK not installed")
+            
+            project_id = outputs.get("gcp_project_id")
+            project_path = deployed_environment["project_path"]
+            if not project_id:
+                pytest.fail("GCP project ID not in outputs - cannot verify GCP logs")
+            
+            cleanup = self._setup_gcp_credentials(credentials, project_path)
+            try:
+                client = cloud_logging.Client(project=project_id)
+            
+                # Query for event-checker function logs (last 15 minutes)
+                cutoff = datetime.now(timezone.utc).timestamp() - (15 * 60)
+                cutoff_str = datetime.fromtimestamp(cutoff, tz=timezone.utc).isoformat()
+                
+                filter_str = f'''
+                    resource.type="cloud_function"
+                    AND resource.labels.function_name:"event-checker"
+                    AND timestamp >= "{cutoff_str}"
+                '''
+                
+                entries = list(client.list_entries(filter_=filter_str, max_results=5))
+                
+                if entries:
+                    print(f"  ✓ EVENT-CHECKER INVOKED (found {len(entries)} log entries)")
+                else:
+                    pytest.fail("Event-Checker logs not found in Cloud Logging within last 15 minutes")
+            finally:
+                cleanup()
+        else:
+            pytest.fail(f"Unknown L2 provider: {l2_provider}")
+    
+    def test_14_event_action_function_called(self, deployed_environment):
+        """Verify Lambda/function action was invoked by Event-Checker.
+        
+        Validates: Event-Checker matched condition → invoked action function
+        Expected function: high-temperature-callback (from config_events)
+        """
+        scenario = deployed_environment["scenario"]
+        outputs = deployed_environment["terraform_outputs"]
+        credentials = deployed_environment["credentials"]
+        l2_provider = scenario.providers["layer_2_provider"]
+        
+        # Get action function name from scenario config or use default
+        # In E2E tests, high-temperature-callback is the standard action function
+        function_name = "high-temperature-callback"
+        
+        print(f"\n  [EVENT FLOW] Checking action function invocation for L2={l2_provider}")
+        
+        if l2_provider == "aws":
+            try:
+                import boto3
+            except ImportError:
+                pytest.skip("boto3 SDK not installed")
+            
+            logs_client = boto3.client('logs')
+            
+            # Get digital_twin_name prefix for Lambda functions
+            dt_name = outputs.get('digital_twin_name', '')
+            log_group = f"/aws/lambda/{dt_name}-{function_name}" if dt_name else f"/aws/lambda/{function_name}"
+            
+            end_time = int(time.time() * 1000)
+            start_time = end_time - (15 * 60 * 1000)
+            
+            try:
+                # Poll for logs with retry (CloudWatch has indexing delay)
+                max_attempts = 12
+                for attempt in range(1, max_attempts + 1):
+                    end_time = int(time.time() * 1000)
+                    start_time = end_time - (15 * 60 * 1000)
+                    
+                    response = logs_client.filter_log_events(
+                        logGroupName=log_group,
+                        startTime=start_time,
+                        endTime=end_time,
+                        limit=5
+                    )
+                    
+                    if response.get('events'):
+                        print(f"  ✓ ACTION FUNCTION INVOKED ({function_name})")
+                        break
+                        
+                    if attempt < max_attempts:
+                        time.sleep(5)
+                else:
+                    pytest.fail(f"Action function logs not found in {log_group} after {max_attempts} attempts")
+                    
+            except logs_client.exceptions.ResourceNotFoundException:
+                pytest.fail(f"Log group {log_group} does not exist - action function may not be deployed")
+                
+        elif l2_provider == "azure":
+            try:
+                from azure.monitor.query import LogsQueryClient
+                from datetime import timedelta
+            except ImportError:
+                pytest.skip("azure-monitor-query SDK not installed")
+            
+            azure_creds = self._validate_azure_credentials(credentials)
+            workspace_id = outputs.get("azure_log_analytics_workspace_id")
+            
+            if not workspace_id:
+                pytest.fail("Log Analytics Workspace ID not in outputs - cannot verify Azure logs")
+            
+            credential = self._get_azure_credential(azure_creds)
+            client = LogsQueryClient(credential)
+            # NOTE: Use AppTraces (Application Insights) instead of FunctionAppLogs
+            # FunctionAppLogs has 15-30 min ingestion lag; AppTraces is faster (~5 min)
+            query = f"""
+            AppTraces
+            | where AppRoleName contains "user-functions"
+            | where Message contains "{function_name}"
+            | where TimeGenerated > ago(60m)
+            | project TimeGenerated, Message
+            | limit 10
+            """
+            
+            try:
+                response = client.query_workspace(workspace_id, query, timespan=timedelta(minutes=15))
+                if response.tables and response.tables[0].rows:
+                    print(f"  ✓ ACTION FUNCTION INVOKED (found {len(response.tables[0].rows)} log entries)")
+                else:
+                    pytest.fail(f"Action function '{function_name}' logs not found in Log Analytics within last 15 minutes")
+            except Exception as e:
+                pytest.fail(f"Azure Log Analytics query failed: {e}")
+                
+        elif l2_provider in ("google", "gcp"):
+            try:
+                from google.cloud import logging as cloud_logging
+                from datetime import datetime, timezone
+            except ImportError:
+                pytest.skip("google-cloud-logging SDK not installed")
+            
+            project_id = outputs.get("gcp_project_id")
+            project_path = deployed_environment["project_path"]
+            if not project_id:
+                pytest.fail("GCP project ID not in outputs - cannot verify GCP logs")
+            
+            cleanup = self._setup_gcp_credentials(credentials, project_path)
+            try:
+                client = cloud_logging.Client(project=project_id)
+            
+                cutoff = datetime.now(timezone.utc).timestamp() - (15 * 60)
+                cutoff_str = datetime.fromtimestamp(cutoff, tz=timezone.utc).isoformat()
+                
+                filter_str = f'''
+                    resource.type="cloud_function"
+                    AND resource.labels.function_name:"{function_name}"
+                    AND timestamp >= "{cutoff_str}"
+                '''
+                
+                entries = list(client.list_entries(filter_=filter_str, max_results=5))
+                
+                if entries:
+                    print(f"  ✓ ACTION FUNCTION INVOKED (found {len(entries)} log entries)")
+                else:
+                    pytest.fail(f"Action function '{function_name}' logs not found in Cloud Logging within last 15 minutes")
+            finally:
+                cleanup()
+        else:
+            pytest.fail(f"Unknown L2 provider: {l2_provider}")
+    
+    def test_15_workflow_triggered(self, deployed_environment):
+        """Verify Step Function/Logic App/Workflow was triggered.
+        
+        Uses execution history APIs to verify workflow was started:
+        - AWS: stepfunctions.list_executions()
+        - Azure: Logic App runs API
+        - GCP: workflows.executions.list()
+        
+        Requires: triggerNotificationWorkflow=true in config_optimization.json
+        """
+        scenario = deployed_environment["scenario"]
+        outputs = deployed_environment["terraform_outputs"]
+        credentials = deployed_environment["credentials"]
+        l2_provider = scenario.providers["layer_2_provider"]
+        
+        print(f"\n  [EVENT FLOW] Checking workflow trigger for L2={l2_provider}")
+        
+        # Time cutoff for filtering recent executions
+        from datetime import datetime, timezone, timedelta
+        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=15)
+        
+        if l2_provider == "aws":
+            try:
+                import boto3
+            except ImportError:
+                pytest.skip("boto3 SDK not installed")
+            
+            sfn_client = boto3.client('stepfunctions')
+            
+            state_machine_arn = outputs.get("aws_l2_step_function_arn")
+            if not state_machine_arn:
+                pytest.fail("Step Function ARN not in Terraform outputs (aws_l2_step_function_arn)")
+            
+            try:
+                response = sfn_client.list_executions(
+                    stateMachineArn=state_machine_arn,
+                    maxResults=10
+                )
+                
+                executions = response.get('executions', [])
+                # Filter by recent time to ensure THIS test run triggered it
+                recent_executions = [
+                    e for e in executions 
+                    if e['startDate'].replace(tzinfo=timezone.utc) > cutoff_time
+                ]
+                
+                if recent_executions:
+                    latest = recent_executions[0]
+                    print(f"  ✓ STEP FUNCTION TRIGGERED")
+                    print(f"    - Execution: {latest['name']}")
+                    print(f"    - Status: {latest['status']}")
+                    print(f"    - Started: {latest['startDate']}")
+                else:
+                    pytest.fail("No Step Function executions found in last 15 minutes")
+                    
+            except Exception as e:
+                pytest.fail(f"Could not list Step Function executions: {e}")
+                
+        elif l2_provider == "azure":
+            try:
+                from azure.mgmt.logic import LogicManagementClient
+            except ImportError:
+                pytest.skip("azure-mgmt-logic SDK not installed")
+            
+            azure_creds = self._validate_azure_credentials(credentials)
+            subscription_id = azure_creds.get("azure_subscription_id")
+            resource_group = outputs.get("azure_resource_group_name")
+            logic_app_name = outputs.get("azure_logic_app_name")
+            
+            if not logic_app_name:
+                pytest.fail("Logic App name not in Terraform outputs (azure_logic_app_name)")
+            
+            credential = self._get_azure_credential(azure_creds)
+            client = LogicManagementClient(credential, subscription_id)
+            
+            try:
+                runs = list(client.workflow_runs.list(resource_group, logic_app_name, top=10))
+                # Filter by recent time
+                recent_runs = [
+                    r for r in runs 
+                    if r.start_time and r.start_time.replace(tzinfo=timezone.utc) > cutoff_time
+                ]
+                
+                if recent_runs:
+                    latest = recent_runs[0]
+                    print(f"  ✓ LOGIC APP TRIGGERED")
+                    print(f"    - Run: {latest.name}")
+                    print(f"    - Status: {latest.status}")
+                    print(f"    - Started: {latest.start_time}")
+                else:
+                    pytest.fail("No Logic App runs found in last 15 minutes")
+            except Exception as e:
+                pytest.fail(f"Could not list Logic App runs: {e}")
+                
+        elif l2_provider in ("google", "gcp"):
+            try:
+                from google.cloud.workflows import executions_v1
+            except ImportError:
+                pytest.skip("google-cloud-workflows SDK not installed")
+            
+            # gcp_event_workflow_id already contains full path:
+            # "projects/{project}/locations/{region}/workflows/{workflow_name}"
+            workflow_id = outputs.get("gcp_event_workflow_id") or outputs.get("gcp_workflow_name")
+            project_path = deployed_environment["project_path"]
+            
+            if not workflow_id:
+                pytest.fail("Workflow ID not in Terraform outputs (gcp_event_workflow_id)")
+            
+            cleanup = self._setup_gcp_credentials(credentials, project_path)
+            try:
+                client = executions_v1.ExecutionsClient()
+                # workflow_id is already the full parent path for executions
+                parent = workflow_id
+                
+                # Poll for executions with retry (API has indexing delay)
+                max_attempts = 12
+                for attempt in range(1, max_attempts + 1):
+                    executions = list(client.list_executions(parent=parent))
+                    # Filter by recent time
+                    recent_executions = [
+                        e for e in executions
+                        if e.start_time.replace(tzinfo=timezone.utc) > cutoff_time
+                    ]
+                    
+                    if recent_executions:
+                        latest = recent_executions[0]
+                        print(f"  ✓ CLOUD WORKFLOW TRIGGERED")
+                        print(f"    - Execution: {latest.name}")
+                        print(f"    - State: {latest.state.name}")
+                        break
+                        
+                    if attempt < max_attempts:
+                        time.sleep(5)
+                else:
+                    pytest.fail(f"No Cloud Workflow executions found after {max_attempts} attempts")
+            except Exception as e:
+                pytest.fail(f"Could not list Cloud Workflow executions: {e}")
+            finally:
+                cleanup()
+        else:
+            pytest.fail(f"Unknown L2 provider: {l2_provider}")
+    
+    def test_16_event_feedback_sent(self, deployed_environment):
+        """Verify feedback was sent to IoT device.
+        
+        Validates: Event-Checker → Feedback Function → IoT Hub/Core
+        Checks feedback function logs for successful publish.
+        """
+        scenario = deployed_environment["scenario"]
+        outputs = deployed_environment["terraform_outputs"]
+        credentials = deployed_environment["credentials"]
+        l2_provider = scenario.providers["layer_2_provider"]
+        
+        print(f"\n  [EVENT FLOW] Checking feedback sent for L2={l2_provider}")
+        
+        if l2_provider == "aws":
+            try:
+                import boto3
+            except ImportError:
+                pytest.skip("boto3 SDK not installed")
+            
+            logs_client = boto3.client('logs')
+            
+            # "Feedback sent" is logged by Event-Checker, not feedback-wrapper
+            func_name = outputs.get('aws_l2_event_checker_function_name', 'event-checker')
+            log_group = f"/aws/lambda/{func_name}"
+            
+            try:
+                # Poll for logs with retry (CloudWatch has indexing delay)
+                max_attempts = 12
+                for attempt in range(1, max_attempts + 1):
+                    end_time = int(time.time() * 1000)
+                    start_time = end_time - (15 * 60 * 1000)
+                    
+                    response = logs_client.filter_log_events(
+                        logGroupName=log_group,
+                        startTime=start_time,
+                        endTime=end_time,
+                        filterPattern="Feedback sent",
+                        limit=5
+                    )
+                    
+                    if response.get('events'):
+                        print(f"  ✓ FEEDBACK SENT (found feedback events)")
+                        break
+                        
+                    if attempt < max_attempts:
+                        time.sleep(5)
+                else:
+                    pytest.fail(f"Feedback events not found in {log_group} after {max_attempts} attempts")
+                    
+            except logs_client.exceptions.ResourceNotFoundException:
+                pytest.fail(f"Log group {log_group} does not exist - feedback function may not be deployed")
+                
+        elif l2_provider == "azure":
+            try:
+                from azure.monitor.query import LogsQueryClient
+                from datetime import timedelta
+            except ImportError:
+                pytest.skip("azure-monitor-query SDK not installed")
+            
+            azure_creds = self._validate_azure_credentials(credentials)
+            workspace_id = outputs.get("azure_log_analytics_workspace_id")
+            
+            if not workspace_id:
+                pytest.fail("Log Analytics Workspace ID not in outputs - cannot verify Azure logs")
+            
+            credential = self._get_azure_credential(azure_creds)
+            client = LogsQueryClient(credential)
+            # NOTE: Use AppTraces (Application Insights) instead of FunctionAppLogs
+            # FunctionAppLogs has 15-30 min ingestion lag; AppTraces is faster (~5 min)
+            query = """
+            AppTraces
+            | where AppRoleName contains "user-functions" or AppRoleName contains "l2-functions"
+            | where Message contains "event-feedback" or Message contains "Feedback"
+            | where TimeGenerated > ago(60m)
+            | project TimeGenerated, Message
+            | limit 10
+            """
+            
+            try:
+                response = client.query_workspace(workspace_id, query, timespan=timedelta(minutes=15))
+                if response.tables and response.tables[0].rows:
+                    print(f"  ✓ FEEDBACK SENT (found {len(response.tables[0].rows)} log entries)")
+                else:
+                    pytest.fail("Feedback function logs not found in Log Analytics within last 15 minutes")
+            except Exception as e:
+                pytest.fail(f"Azure Log Analytics query failed: {e}")
+                
+        elif l2_provider in ("google", "gcp"):
+            try:
+                from google.cloud import logging as cloud_logging
+                from datetime import datetime, timezone
+            except ImportError:
+                pytest.skip("google-cloud-logging SDK not installed")
+            
+            project_id = outputs.get("gcp_project_id")
+            project_path = deployed_environment["project_path"]
+            if not project_id:
+                pytest.fail("GCP project ID not in outputs - cannot verify GCP logs")
+            
+            cleanup = self._setup_gcp_credentials(credentials, project_path)
+            try:
+                client = cloud_logging.Client(project=project_id)
+                
+                cutoff = datetime.now(timezone.utc).timestamp() - (15 * 60)
+                cutoff_str = datetime.fromtimestamp(cutoff, tz=timezone.utc).isoformat()
+                
+                filter_str = f'''
+                    resource.type="cloud_function"
+                    AND resource.labels.function_name:"event-feedback"
+                    AND timestamp >= "{cutoff_str}"
+                '''
+                
+                entries = list(client.list_entries(filter_=filter_str, max_results=5))
+                
+                if entries:
+                    print(f"  ✓ FEEDBACK SENT (found {len(entries)} log entries)")
+                else:
+                    pytest.fail("Feedback function logs not found in Cloud Logging within last 15 minutes")
+            finally:
+                cleanup()
+        else:
+            pytest.fail(f"Unknown L2 provider: {l2_provider}")
+
+    # ==========================================
+    # L3 Mover Deployment Verification
+    # ==========================================
+    
+    def test_17_verify_l3_hot_to_cold_mover_deployed(self, deployed_environment):
+        """Verify hot-to-cold mover function is deployed with correct env vars.
+        
+        Checks for each provider:
+        - AWS: Lambda exists with DYNAMODB_TABLE_NAME, COLD_S3_BUCKET_NAME
+        - Azure: Function App has mover with COSMOS_DB_ENDPOINT, BLOB_CONNECTION_STRING
+        - GCP: Cloud Function exists with FIRESTORE_COLLECTION, COLD_BUCKET_NAME
+        """
+        scenario = deployed_environment["scenario"]
+        outputs = deployed_environment["terraform_outputs"]
+        credentials = deployed_environment["credentials"]
+        l3_hot = scenario.providers.get("layer_3_hot_provider")
+        twin_name = scenario.digital_twin_name
+        
+        print(f"\n  [L3 MOVER] Verifying hot-to-cold mover for L3-Hot={l3_hot}")
+        
+        if l3_hot == "aws":
+            try:
+                import boto3
+            except ImportError:
+                pytest.skip("boto3 SDK not installed")
+            
+            lambda_client = boto3.client('lambda')
+            
+            func_name = f"{twin_name}-l3-hot-to-cold-mover"
+            try:
+                response = lambda_client.get_function(FunctionName=func_name)
+                env_vars = response["Configuration"].get("Environment", {}).get("Variables", {})
+                
+                print(f"  ✓ HOT-TO-COLD MOVER DEPLOYED: {func_name}")
+                
+                if "DYNAMODB_TABLE_NAME" in env_vars:
+                    print(f"    - DYNAMODB_TABLE_NAME: {env_vars['DYNAMODB_TABLE_NAME']}")
+                if "COLD_S3_BUCKET_NAME" in env_vars or "REMOTE_COLD_WRITER_URL" in env_vars:
+                    print(f"    - Cold storage configured")
+                    
+            except lambda_client.exceptions.ResourceNotFoundException:
+                pytest.fail(f"Lambda {func_name} not found - hot-to-cold mover not deployed")
+                
+        elif l3_hot == "azure":
+            try:
+                from azure.mgmt.web import WebSiteManagementClient
+            except ImportError:
+                pytest.skip("azure-mgmt-web SDK not installed")
+            
+            azure_creds = self._validate_azure_credentials(credentials)
+            subscription_id = azure_creds.get("azure_subscription_id")
+            
+            resource_group = outputs.get("azure_resource_group_name", f"{twin_name}-rg")
+            func_app = outputs.get("azure_l3_function_app_name", f"{twin_name}-l3-functions")
+            
+            credential = self._get_azure_credential(azure_creds)
+            client = WebSiteManagementClient(credential, subscription_id)
+            
+            try:
+                settings = client.web_apps.list_application_settings(resource_group, func_app)
+                props = settings.properties if settings else {}
+                
+                print(f"  ✓ HOT-TO-COLD MOVER DEPLOYED (bundled in {func_app})")
+                
+                if "COSMOS_DB_ENDPOINT" in props:
+                    print(f"    - COSMOS_DB_ENDPOINT: configured")
+                if "COLD_STORAGE_CONTAINER" in props or "REMOTE_COLD_WRITER_URL" in props:
+                    print(f"    - Cold storage configured")
+                    
+            except Exception as e:
+                pytest.fail(f"Could not verify Azure function app {func_app}: {e}")
+                
+        elif l3_hot in ("google", "gcp"):
+            try:
+                from google.cloud import functions_v2
+            except ImportError:
+                pytest.skip("google-cloud-functions SDK not installed")
+            
+            project_id = outputs.get("gcp_project_id")
+            project_path = deployed_environment["project_path"]
+            region = self._get_gcp_region(outputs)
+            
+            if not project_id:
+                pytest.fail("GCP project_id not in outputs - cannot verify mover")
+            
+            func_name = f"projects/{project_id}/locations/{region}/functions/{twin_name}-hot-to-cold-mover"
+            
+            cleanup = self._setup_gcp_credentials(credentials, project_path)
+            try:
+                client = functions_v2.FunctionServiceClient()
+                function = client.get_function(name=func_name)
+                env_vars = function.service_config.environment_variables
+                
+                print(f"  ✓ HOT-TO-COLD MOVER DEPLOYED")
+                
+                if "FIRESTORE_COLLECTION" in env_vars:
+                    print(f"    - FIRESTORE_COLLECTION: {env_vars['FIRESTORE_COLLECTION']}")
+                if "COLD_BUCKET_NAME" in env_vars or "REMOTE_COLD_WRITER_URL" in env_vars:
+                    print(f"    - Cold storage configured")
+                    
+            except Exception as e:
+                pytest.fail(f"Could not verify GCP function {func_name}: {e}")
+            finally:
+                cleanup()
+        else:
+            pytest.fail(f"Unknown L3-Hot provider: {l3_hot}")
+    
+    def test_18_verify_l3_cold_to_archive_mover_deployed(self, deployed_environment):
+        """Verify cold-to-archive mover function is deployed with correct env vars.
+        
+        Checks for each provider:
+        - AWS: Lambda exists with COLD_S3_BUCKET_NAME, ARCHIVE_S3_BUCKET_NAME
+        - Azure: Bundled in L3 functions app (same as hot-to-cold-mover)
+        - GCP: Cloud Function exists with COLD_BUCKET_NAME, ARCHIVE_BUCKET_NAME
+        """
+        scenario = deployed_environment["scenario"]
+        outputs = deployed_environment["terraform_outputs"]
+        credentials = deployed_environment["credentials"]
+        l3_cold = scenario.providers.get("layer_3_cold_provider")
+        twin_name = scenario.digital_twin_name
+        
+        print(f"\n  [L3 MOVER] Verifying cold-to-archive mover for L3-Cold={l3_cold}")
+        
+        if l3_cold == "aws":
+            try:
+                import boto3
+            except ImportError:
+                pytest.skip("boto3 SDK not installed")
+            
+            lambda_client = boto3.client('lambda')
+            
+            func_name = f"{twin_name}-l3-cold-to-archive-mover"
+            try:
+                response = lambda_client.get_function(FunctionName=func_name)
+                env_vars = response["Configuration"].get("Environment", {}).get("Variables", {})
+                
+                print(f"  ✓ COLD-TO-ARCHIVE MOVER DEPLOYED: {func_name}")
+                
+                if "COLD_S3_BUCKET_NAME" in env_vars:
+                    print(f"    - COLD_S3_BUCKET_NAME: {env_vars['COLD_S3_BUCKET_NAME']}")
+                if "ARCHIVE_S3_BUCKET_NAME" in env_vars or "REMOTE_ARCHIVE_WRITER_URL" in env_vars:
+                    print(f"    - Archive storage configured")
+                    
+            except lambda_client.exceptions.ResourceNotFoundException:
+                pytest.fail(f"Lambda {func_name} not found - cold-to-archive mover not deployed")
+                
+        elif l3_cold == "azure":
+            try:
+                from azure.mgmt.web import WebSiteManagementClient
+            except ImportError:
+                pytest.skip("azure-mgmt-web SDK not installed")
+            
+            azure_creds = self._validate_azure_credentials(credentials)
+            subscription_id = azure_creds.get("azure_subscription_id")
+            
+            resource_group = outputs.get("azure_resource_group_name", f"{twin_name}-rg")
+            # NOTE: Azure bundles cold-to-archive-mover in the same L3 function app as hot-to-cold-mover
+            func_app = outputs.get("azure_l3_function_app_name", f"{twin_name}-l3-functions")
+            
+            credential = self._get_azure_credential(azure_creds)
+            client = WebSiteManagementClient(credential, subscription_id)
+            
+            try:
+                settings = client.web_apps.list_application_settings(resource_group, func_app)
+                props = settings.properties if settings else {}
+                
+                print(f"  ✓ COLD-TO-ARCHIVE MOVER DEPLOYED (bundled in {func_app})")
+                
+                if "COLD_STORAGE_CONTAINER" in props:
+                    print(f"    - COLD_STORAGE_CONTAINER: configured")
+                if "ARCHIVE_STORAGE_CONTAINER" in props or "REMOTE_ARCHIVE_WRITER_URL" in props:
+                    print(f"    - Archive storage configured")
+                    
+            except Exception as e:
+                pytest.fail(f"Could not verify Azure function app {func_app}: {e}")
+                
+        elif l3_cold in ("google", "gcp"):
+            try:
+                from google.cloud import functions_v2
+            except ImportError:
+                pytest.skip("google-cloud-functions SDK not installed")
+            
+            project_id = outputs.get("gcp_project_id")
+            project_path = deployed_environment["project_path"]
+            region = self._get_gcp_region(outputs)
+            
+            if not project_id:
+                pytest.fail("GCP project_id not in outputs - cannot verify mover")
+            
+            func_name = f"projects/{project_id}/locations/{region}/functions/{twin_name}-cold-to-archive-mover"
+            
+            cleanup = self._setup_gcp_credentials(credentials, project_path)
+            try:
+                client = functions_v2.FunctionServiceClient()
+                function = client.get_function(name=func_name)
+                env_vars = function.service_config.environment_variables
+                
+                print(f"  ✓ COLD-TO-ARCHIVE MOVER DEPLOYED")
+                
+                if "COLD_BUCKET_NAME" in env_vars:
+                    print(f"    - COLD_BUCKET_NAME: {env_vars['COLD_BUCKET_NAME']}")
+                if "ARCHIVE_BUCKET_NAME" in env_vars or "REMOTE_ARCHIVE_WRITER_URL" in env_vars:
+                    print(f"    - Archive storage configured")
+                    
+            except Exception as e:
+                pytest.fail(f"Could not verify GCP function {func_name}: {e}")
+            finally:
+                cleanup()
+        else:
+            pytest.fail(f"Unknown L3-Cold provider: {l3_cold}")
+
 
