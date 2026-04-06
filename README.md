@@ -76,25 +76,75 @@ docker ps
 
 ### 4. Database initialization & seeding (automatic)
 
-**There is no manual seeder command.** The Management API takes care of everything:
+The Management API handles everything on startup — no manual commands needed.
 
-1. **Schema creation** — on startup, `src/main.py` calls `Base.metadata.create_all(bind=engine)`, which creates all SQLAlchemy tables in `twin2multicloud_backend/data/app.db` if they don't exist yet. The `data/` directory is persisted on the host via a bind mount, so the DB survives container rebuilds.
+#### 4a. Schema creation
 
-2. **Dev user seeding on first request** — when `DEBUG=true` (set by default in `compose.yaml`) the backend uses a development auth bypass in [`src/api/dependencies.py`](twin2multicloud_backend/src/api/dependencies.py). The first API request sent with the header `Authorization: Bearer dev-token` will:
-   - return the first existing user, **or**
-   - if the DB is empty, create `dev@example.com` / "Developer" and return it.
+`src/main.py` calls `Base.metadata.create_all(bind=engine)` on startup, which creates all SQLAlchemy tables in `twin2multicloud_backend/data/app.db` if they don't exist yet. The `data/` directory is persisted on the host via a bind mount, so the DB survives container rebuilds.
 
-3. **How it gets triggered** — the Flutter client hardcodes `dev-token` in [`lib/services/api_service.dart`](twin2multicloud_flutter/lib/services/api_service.dart), so **simply starting the Flutter app and letting it hit the API is enough to seed the dev user**. No CLI command, no fixtures file, no `python seed.py`.
+#### 4b. Dev user (always-on)
 
-**Reset the DB from scratch:**
+When `DEBUG=true` (set by default in `compose.yaml`) the backend uses a development auth bypass in [`src/api/dependencies.py`](twin2multicloud_backend/src/api/dependencies.py). The first API request with the header `Authorization: Bearer dev-token` will:
+- return the first existing user, **or**
+- if the DB is empty, create `dev@example.com` / "Developer" and return it.
+
+The Flutter client hardcodes `dev-token` in [`lib/services/api_service.dart`](twin2multicloud_flutter/lib/services/api_service.dart), so **simply starting the Flutter app is enough to seed the dev user**.
+
+#### 4c. Sample twins (opt-in via `SEED_DATA`)
+
+[`twin2multicloud_backend/scripts/seed_twins.py`](twin2multicloud_backend/scripts/seed_twins.py) creates five pre-configured sample twins under a dedicated `seed@twin2multicloud.dev` user:
+
+| Twin | Providers |
+|------|-----------|
+| `aws-single-cloud` | AWS only |
+| `azure-single-cloud` | Azure only |
+| `gcp-single-cloud` | GCP only |
+| `mixed-all-providers` | AWS + Azure + GCP |
+| `mixed-cost-optimized` | AWS + Azure + GCP (cost-optimized config) |
+
+**Behaviour:**
+- Idempotent — skips entirely if `seed@twin2multicloud.dev` already exists. Safe to restart.
+- Twins with valid credentials advance to **CONFIGURED** state; invalid credentials leave them in **DRAFT**.
+
+**Enabled by default** — `compose.yaml` already ships with:
+
+```yaml
+# management-api service
+environment:
+  - SEED_DATA=true
+  - SEED_CREDENTIALS_FILE=/config/config_credentials.json
+  - SEED_GCP_CREDENTIALS_FILE=/config/gcp_credentials.json
+```
+
+So if you filled in `config_credentials.json` and `gcp_credentials.json` (step 2), the sample twins are created automatically when the container starts.
+
+**Disable seeding** (e.g. for production or a clean slate):
+
+```yaml
+# compose.yaml → management-api → environment
+- SEED_DATA=false
+```
+
+**Re-seed from scratch** (e.g. after changing credentials):
 
 ```bash
+# Option A — delete only the seed user (fast, non-destructive)
+docker exec master-thesis-management-api-1 \
+  python -c "
+from src.models.database import SessionLocal
+from src.models.user import User
+db = SessionLocal()
+u = db.query(User).filter_by(email='seed@twin2multicloud.dev').first()
+if u: db.delete(u); db.commit(); print('Seed user deleted')
+db.close()
+"
+docker compose restart management-api
+
+# Option B — wipe the entire DB
 docker compose down
 rm twin2multicloud_backend/data/app.db
 docker compose up -d
 ```
-
-On the next Flutter request, a fresh dev user will be created.
 
 ### 5. Run the Flutter app
 
