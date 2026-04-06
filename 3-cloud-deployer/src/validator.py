@@ -75,7 +75,7 @@ def validate_config_content(filename, content):
                     for key in keys:
                         if key not in content[provider]:
                             errors.append(f"Missing credential field '{key}' for provider '{provider}'")
-                    
+
                     # Azure-specific validation
                     if provider == "azure":
                         azure_region = content[provider].get("azure_region")
@@ -84,7 +84,7 @@ def validate_config_content(filename, content):
                                 validate_azure_region_for_consumption_plan(azure_region)
                             except ValueError as e:
                                 errors.append(str(e))
-            
+
             if errors:
                 raise ValueError(f"Config validation errors in {filename}:\n  ◦ " + "\n  ◦ ".join(errors))
             return
