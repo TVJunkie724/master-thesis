@@ -16,7 +16,11 @@ class AzureCredentials(BaseModel):
     client_id: str
     client_secret: str
     tenant_id: str
-    region: str = Field(default="westeurope")  # NEW
+    region: str = Field(default="westeurope")
+    # IoT Hub and Digital Twins are only available in a subset of Azure
+    # regions. These optional overrides fall back to `region` when omitted.
+    region_iothub: Optional[str] = None
+    region_digital_twin: Optional[str] = None
 
 
 class GCPCredentials(BaseModel):
@@ -62,7 +66,9 @@ class TwinConfigResponse(BaseModel):
     aws_sso_region: Optional[str] = None
     azure_configured: bool
     azure_validated: bool
-    azure_region: Optional[str] = None  # NEW
+    azure_region: Optional[str] = None
+    azure_region_iothub: Optional[str] = None
+    azure_region_digital_twin: Optional[str] = None
     gcp_configured: bool
     gcp_validated: bool
     gcp_project_id: Optional[str] = None
@@ -86,7 +92,9 @@ class TwinConfigResponse(BaseModel):
             aws_sso_region=getattr(config, 'aws_sso_region', None),
             azure_configured=bool(config.azure_subscription_id),
             azure_validated=config.azure_validated,
-            azure_region=getattr(config, 'azure_region', None),  # NEW
+            azure_region=getattr(config, 'azure_region', None),
+            azure_region_iothub=getattr(config, 'azure_region_iothub', None),
+            azure_region_digital_twin=getattr(config, 'azure_region_digital_twin', None),
             gcp_configured=bool(config.gcp_project_id or config.gcp_service_account_json),
             gcp_validated=config.gcp_validated,
             gcp_project_id=config.gcp_project_id,

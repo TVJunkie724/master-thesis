@@ -101,23 +101,36 @@ PAYLOADS_JSON = json.dumps({
     for device_id in DEVICE_IDS
 })
 
-# Processor code per device
-PROCESSOR_CONTENTS = json.dumps({
-    device_id: "def process(event):\n    return event"
-    for device_id in DEVICE_IDS
-})
-
 # Processor validation (JSON string, per-device bool map)
 PROCESSOR_VALIDATED = json.dumps({device_id: True for device_id in DEVICE_IDS})
 
-# Event feedback
-EVENT_FEEDBACK_CONTENT = "def process(event):\n    return event"
+# Provider-specific function stubs
+_PROCESSOR_CODE = {
+    "AWS":   "def lambda_handler(event, context):\n    return event",
+    "AZURE": "def main(req):\n    return req",
+    "GCP":   "def process(event):\n    return event",
+}
+_FEEDBACK_CODE = {
+    "AWS":   "def lambda_handler(event, context):\n    return event",
+    "AZURE": "def main(req):\n    return req",
+    "GCP":   "def process(event):\n    return event",
+}
+_ACTION_CODE = {
+    "AWS":   "def lambda_handler(event, context):\n    pass",
+    "AZURE": "def main(req):\n    pass",
+    "GCP":   "def handle(event):\n    pass",
+}
 
-# Event action code per function
-EVENT_ACTION_CONTENTS = json.dumps({
-    name: "def handler(event):\n    pass"
-    for name in EVENT_ACTION_NAMES
-})
+def _processor_contents(l2: str) -> str:
+    code = _PROCESSOR_CODE.get(l2, _PROCESSOR_CODE["AWS"])
+    return json.dumps({device_id: code for device_id in DEVICE_IDS})
+
+def _feedback_content(l2: str) -> str:
+    return _FEEDBACK_CODE.get(l2, _FEEDBACK_CODE["AWS"])
+
+def _action_contents(l2: str) -> str:
+    code = _ACTION_CODE.get(l2, _ACTION_CODE["AWS"])
+    return json.dumps({name: code for name in EVENT_ACTION_NAMES})
 
 # Event action validation (JSON string, per-function bool map)
 EVENT_ACTION_VALIDATED = json.dumps({name: True for name in EVENT_ACTION_NAMES})
@@ -469,8 +482,14 @@ async def seed_if_needed():
                 highest_step_reached=5,
             )
 
-            # AWS credentials (if required)
-            if "aws" in required:
+            # Store ALL credentials regardless of which providers this twin uses.
+            # The Terraform provider blocks in main.tf are always instantiated (even
+            # when unused) and azurerm v4 actively acquires an AAD token at init time,
+            # so missing credentials cause init failures even for AWS-only deployments.
+            # The `required` set is only used below for credential validation.
+
+            # AWS credentials
+            if aws_creds:
                 config.aws_access_key_id = encrypt(aws_creds.get("aws_access_key_id", ""), user.id, twin_id)
                 config.aws_secret_access_key = encrypt(aws_creds.get("aws_secret_access_key", ""), user.id, twin_id)
                 config.aws_region = aws_creds.get("aws_region", "eu-central-1")
@@ -478,16 +497,21 @@ async def seed_if_needed():
                 session_token = _or_none(aws_creds.get("aws_session_token", ""))
                 config.aws_session_token = encrypt(session_token, user.id, twin_id) if session_token else None
 
-            # Azure credentials (if required)
-            if "azure" in required:
+            # Azure credentials
+            if azure_creds:
                 config.azure_subscription_id = encrypt(azure_creds.get("azure_subscription_id", ""), user.id, twin_id)
                 config.azure_client_id = encrypt(azure_creds.get("azure_client_id", ""), user.id, twin_id)
                 config.azure_client_secret = encrypt(azure_creds.get("azure_client_secret", ""), user.id, twin_id)
                 config.azure_tenant_id = encrypt(azure_creds.get("azure_tenant_id", ""), user.id, twin_id)
                 config.azure_region = azure_creds.get("azure_region", "westeurope")
+                # Optional region overrides for IoT Hub and Digital Twins.
+                # Stored as None when not present so deployment_service falls
+                # back to azure_region.
+                config.azure_region_iothub = _or_none(azure_creds.get("azure_region_iothub", ""))
+                config.azure_region_digital_twin = _or_none(azure_creds.get("azure_region_digital_twin", ""))
 
-            # GCP credentials (if required)
-            if "gcp" in required:
+            # GCP credentials
+            if gcp_creds:
                 config.gcp_project_id = gcp_creds.get("gcp_project_id", "")
                 billing = _or_none(gcp_creds.get("gcp_billing_account", ""))
                 config.gcp_billing_account = encrypt(billing, user.id, twin_id) if billing else None
@@ -524,13 +548,13 @@ async def seed_if_needed():
                 config_events_json=CONFIG_EVENTS_JSON,
                 config_iot_devices_json=CONFIG_IOT_DEVICES_JSON,
                 payloads_json=PAYLOADS_JSON,
-                processor_contents=PROCESSOR_CONTENTS,
+                processor_contents=_processor_contents(l2_provider),
                 processor_validated=PROCESSOR_VALIDATED,
                 processor_requirements=json.dumps({d: "" for d in DEVICE_IDS}),
-                event_feedback_content=EVENT_FEEDBACK_CONTENT,
+                event_feedback_content=_feedback_content(l2_provider),
                 event_feedback_validated=True,
                 event_feedback_requirements="",
-                event_action_contents=EVENT_ACTION_CONTENTS,
+                event_action_contents=_action_contents(l2_provider),
                 event_action_validated=EVENT_ACTION_VALIDATED,
                 event_action_requirements=json.dumps({n: "" for n in EVENT_ACTION_NAMES}),
                 state_machine_content=STATE_MACHINES.get(l2_provider, STATE_MACHINES["AWS"]),

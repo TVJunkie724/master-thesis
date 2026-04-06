@@ -36,7 +36,13 @@ class TwinConfiguration(Base):
     azure_client_id = Column(String, nullable=True)  # Encrypted
     azure_client_secret = Column(String, nullable=True)  # Encrypted
     azure_tenant_id = Column(String, nullable=True)  # Encrypted
+    # Azure has three independent regions because IoT Hub and Digital Twins
+    # are only available in a subset of regions. azure_region is the general
+    # region for everything else (Functions, Storage, etc.). The other two
+    # fall back to azure_region when not set.
     azure_region = Column(String, default="westeurope")  # Not encrypted
+    azure_region_iothub = Column(String, nullable=True)  # Not encrypted, optional
+    azure_region_digital_twin = Column(String, nullable=True)  # Not encrypted, optional
     azure_validated = Column(Boolean, default=False)
     
     # GCP credentials (ENCRYPTED - full JSON)

@@ -650,14 +650,18 @@ def _build_credentials_config(twin, user_id: str) -> tuple[dict, Optional[dict]]
     # Azure credentials
     if creds.azure_subscription_id:
         try:
+            azure_region = creds.azure_region or "westeurope"
+            # IoT Hub and Digital Twins are only available in a subset of regions.
+            # If the user provided overrides, use them; otherwise fall back to the
+            # general azure_region. The deployer needs all three filled in.
             result["azure"] = {
                 "azure_subscription_id": decrypt(creds.azure_subscription_id, user_id, twin.id),
                 "azure_tenant_id": decrypt(creds.azure_tenant_id, user_id, twin.id),
                 "azure_client_id": decrypt(creds.azure_client_id, user_id, twin.id),
                 "azure_client_secret": decrypt(creds.azure_client_secret, user_id, twin.id),
-                "azure_region": creds.azure_region or "westeurope",
-                "azure_region_iothub": creds.azure_region or "westeurope",
-                "azure_region_digital_twin": creds.azure_region or "westeurope",
+                "azure_region": azure_region,
+                "azure_region_iothub": getattr(creds, "azure_region_iothub", None) or azure_region,
+                "azure_region_digital_twin": getattr(creds, "azure_region_digital_twin", None) or azure_region,
             }
         except ValueError as e:
             logger.warning(f"Azure credential decryption failed: {e}")

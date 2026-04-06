@@ -140,6 +140,9 @@ async def update_config(
         config.azure_client_secret = encrypt(update.azure.client_secret, current_user.id, twin_id)
         config.azure_tenant_id = encrypt(update.azure.tenant_id, current_user.id, twin_id)
         config.azure_region = update.azure.region  # Not encrypted
+        # Optional region overrides; None means "fall back to azure_region at deploy time"
+        config.azure_region_iothub = update.azure.region_iothub or None
+        config.azure_region_digital_twin = update.azure.region_digital_twin or None
         config.azure_validated = False
     
     # GCP - ENCRYPT with user+twin-specific key
