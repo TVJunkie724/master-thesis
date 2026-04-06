@@ -174,21 +174,21 @@ class WizardInitService {
       awsCreds = ProviderCredentials(
         isValid: true,
         source: CredentialSource.inherited,
-        values: _extractMaskedCredentials(config['aws']),
+        values: CredentialsHelper.extractCredentialsFromFlatConfig(config, 'aws'),
       );
     }
     if (config['azure_configured'] == true) {
       azureCreds = ProviderCredentials(
         isValid: true,
         source: CredentialSource.inherited,
-        values: _extractMaskedCredentials(config['azure']),
+        values: CredentialsHelper.extractCredentialsFromFlatConfig(config, 'azure'),
       );
     }
     if (config['gcp_configured'] == true) {
       gcpCreds = ProviderCredentials(
         isValid: true,
         source: CredentialSource.inherited,
-        values: _extractMaskedCredentials(config['gcp']),
+        values: CredentialsHelper.extractCredentialsFromFlatConfig(config, 'gcp'),
       );
     }
 
@@ -276,11 +276,6 @@ class WizardInitService {
         warningMessage: warningMessage,
       ),
     );
-  }
-
-  /// Extract masked credentials from config.
-  Map<String, String> _extractMaskedCredentials(dynamic config) {
-    return CredentialsHelper.extractMaskedCredentials(config);
   }
 
   /// Generate warning for unconfigured providers in optimal path.

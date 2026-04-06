@@ -18,6 +18,54 @@ class CredentialsHelper {
     }
     return result;
   }
+
+  /// Extract non-secret credential fields (regions, etc.) from the FLAT
+  /// config response (`{aws_region: ..., aws_sso_region: ..., ...}`).
+  ///
+  /// The backend never returns secret fields like access keys, so we mask them
+  /// with bullets when the provider is configured. Public/non-secret fields
+  /// (regions, project_id) are returned as their actual values so the form
+  /// reflects what's stored in the DB.
+  static Map<String, String> extractCredentialsFromFlatConfig(
+    Map<String, dynamic> config,
+    String provider,
+  ) {
+    final prefix = '${provider}_';
+    final result = <String, String>{};
+
+    // Per-provider list of non-secret fields the backend exposes by name.
+    // Field names are stored WITHOUT the provider prefix to match the form's
+    // CredentialField.name (e.g. "region", "sso_region", "region_iothub").
+    const nonSecretFields = <String, List<String>>{
+      'aws': ['region', 'sso_region'],
+      'azure': ['region', 'region_iothub', 'region_digital_twin'],
+      'gcp': ['project_id', 'region'],
+    };
+
+    for (final field in nonSecretFields[provider] ?? const []) {
+      final value = config['$prefix$field'];
+      if (value != null && value.toString().isNotEmpty) {
+        result[field] = value.toString();
+      }
+    }
+
+    // Mask secret fields the user already configured. The form treats a
+    // bullet-string as "stored credentials present" via `_wasOriginallyConfigured`,
+    // so the user can re-validate without retyping.
+    const secretFields = <String, List<String>>{
+      'aws': ['access_key_id', 'secret_access_key', 'session_token'],
+      'azure': ['subscription_id', 'client_id', 'client_secret', 'tenant_id'],
+      'gcp': ['billing_account', 'service_account_json'],
+    };
+
+    if (config['${provider}_configured'] == true) {
+      for (final field in secretFields[provider] ?? const []) {
+        result.putIfAbsent(field, () => '••••••••');
+      }
+    }
+
+    return result;
+  }
   
   /// Build credentials for config update payload
   /// Only includes credentials that need updating
@@ -71,21 +119,21 @@ class CredentialsHelper {
       awsCreds = ProviderCredentials(
         isValid: true,
         source: CredentialSource.inherited,
-        values: extractMaskedCredentials(config['aws']),
+        values: extractCredentialsFromFlatConfig(config, 'aws'),
       );
     }
     if (config['azure_configured'] == true) {
       azureCreds = ProviderCredentials(
         isValid: true,
         source: CredentialSource.inherited,
-        values: extractMaskedCredentials(config['azure']),
+        values: extractCredentialsFromFlatConfig(config, 'azure'),
       );
     }
     if (config['gcp_configured'] == true) {
       gcpCreds = ProviderCredentials(
         isValid: true,
         source: CredentialSource.inherited,
-        values: extractMaskedCredentials(config['gcp']),
+        values: extractCredentialsFromFlatConfig(config, 'gcp'),
       );
     }
     
