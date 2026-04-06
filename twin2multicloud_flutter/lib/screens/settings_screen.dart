@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/user.dart';
 import '../widgets/branded_app_bar.dart';
+import '../widgets/selectable_scaffold.dart';
 
 /// Settings screen for viewing profile info and linking accounts.
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -24,13 +25,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final user = authState.user;
     
     if (user == null) {
-      return Scaffold(
-        appBar: const BrandedAppBar(title: 'Settings', showLogo: false),
-        body: const Center(child: Text('Not logged in')),
+      return const SelectableScaffold(
+        appBar: BrandedAppBar(title: 'Settings', showLogo: false),
+        body: Center(child: Text('Not logged in')),
       );
     }
-    
-    return Scaffold(
+
+    return SelectableScaffold(
       appBar: BrandedAppBar(
         title: 'Settings',
         showLogo: false,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/selectable_scaffold.dart';
 
 /// Login screen with Google OAuth and UIBK SAML authentication options.
 ///
@@ -15,7 +16,7 @@ class LoginScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
 
-    return Scaffold(
+    return SelectableScaffold(
       body: Center(
         child: Card(
           elevation: 8,

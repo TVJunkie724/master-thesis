@@ -10,6 +10,7 @@ import '../utils/api_error_handler.dart';
 import '../utils/twin_state_utils.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/branded_app_bar.dart';
+import '../widgets/selectable_scaffold.dart';
 import '../models/twin.dart';
 import '../theme/colors.dart';
 import '../config/docs_config.dart';
@@ -73,7 +74,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final twinsAsync = ref.watch(twinsProvider);
 
-    return Scaffold(
+    return SelectableScaffold(
       appBar: BrandedAppBar(
         title: 'Twin2MultiCloud',
         actions: [

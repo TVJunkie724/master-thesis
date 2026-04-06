@@ -10,6 +10,7 @@ import '../../providers/twins_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/branded_app_bar.dart';
+import '../../widgets/selectable_scaffold.dart';
 
 /// Wizard screen using BLoC pattern for state management
 ///
@@ -75,13 +76,13 @@ class _WizardViewState extends ConsumerState<WizardView> {
       },
       builder: (context, state) {
         if (state.status == WizardStatus.loading) {
-          return Scaffold(
+          return SelectableScaffold(
             appBar: _buildAppBar(context, state),
             body: const Center(child: CircularProgressIndicator()),
           );
         }
 
-        return Scaffold(
+        return SelectableScaffold(
           appBar: _buildAppBar(context, state),
           body: Column(
             children: [

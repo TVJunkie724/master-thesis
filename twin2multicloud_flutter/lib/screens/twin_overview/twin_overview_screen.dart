@@ -15,6 +15,7 @@ import '../../utils/file_download_utils.dart';
 import '../../utils/twin_state_utils.dart';
 import '../../widgets/branded_app_bar.dart';
 import '../../widgets/code_viewer_dialog.dart';
+import '../../widgets/selectable_scaffold.dart';
 import '../../widgets/deployment_terminal.dart';
 import '../../widgets/deployment_verification_card.dart';
 import '../../widgets/terraform_outputs_card.dart';
@@ -92,7 +93,7 @@ class TwinOverviewView extends ConsumerWidget {
       ],
       child: BlocBuilder<TwinOverviewBloc, TwinOverviewState>(
         builder: (context, state) {
-          return Scaffold(
+          return SelectableScaffold(
             appBar: _buildAppBar(context, ref),
             body: Column(
               children: [
