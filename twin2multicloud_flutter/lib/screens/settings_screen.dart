@@ -24,10 +24,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final authState = ref.watch(authProvider);
     final user = authState.user;
     
+    // Back arrow that pops the previous route, falling back to /dashboard
+    // when Settings was opened directly (e.g. via deep link or after auth).
+    final backButton = IconButton(
+      icon: const Icon(Icons.arrow_back),
+      tooltip: 'Back',
+      onPressed: () {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/dashboard');
+        }
+      },
+    );
+
     if (user == null) {
-      return const SelectableScaffold(
-        appBar: BrandedAppBar(title: 'Settings', showLogo: false),
-        body: Center(child: Text('Not logged in')),
+      return SelectableScaffold(
+        appBar: BrandedAppBar(
+          title: 'Settings',
+          showLogo: false,
+          leading: backButton,
+        ),
+        body: const Center(child: Text('Not logged in')),
       );
     }
 
@@ -35,6 +53,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       appBar: BrandedAppBar(
         title: 'Settings',
         showLogo: false,
+        leading: backButton,
         actions: [
           IconButton(
             icon: Icon(
