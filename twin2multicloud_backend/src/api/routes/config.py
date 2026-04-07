@@ -22,6 +22,50 @@ router = APIRouter(prefix="/twins/{twin_id}/config", tags=["configuration"])
 inline_router = APIRouter(prefix="/config", tags=["configuration"])
 
 
+def _populate_cheapest_columns(opt_config: OptimizerConfiguration, optimizer_result: dict | None) -> None:
+    """
+    Derive cheapest_l* column values from an optimizer result payload and assign
+    them to the SQLAlchemy model.
+
+    Used by the wizard's bulk-save flow which only sends `optimizer_result` (not
+    a separate `cheapest_path` field). Without this, downstream consumers like
+    deploy/simulator/upload-zip see NULL columns even though result_json holds
+    the calculation, and have to write their own fallback logic.
+
+    Source of truth is `result.cheapestPath` (a list of "L<n>_<provider>" or
+    "L3_<tier>_<provider>" strings, e.g. ["L1_GCP", "L3_hot_AWS", ...]).
+    Falls back to `result.calculationResult` for L1/L2/L4/L5 if cheapestPath
+    isn't a list (older response shapes).
+    """
+    if not optimizer_result or not isinstance(optimizer_result, dict):
+        return
+
+    def _from_path(prefix: str) -> str | None:
+        path = optimizer_result.get("cheapestPath")
+        if not isinstance(path, list):
+            return None
+        for segment in path:
+            if isinstance(segment, str) and segment.startswith(prefix):
+                return segment[len(prefix):].lower() or None
+        return None
+
+    def _from_calc(*keys: str) -> str | None:
+        node = optimizer_result.get("calculationResult")
+        for key in keys:
+            if not isinstance(node, dict):
+                return None
+            node = node.get(key)
+        return node.lower() if isinstance(node, str) and node else None
+
+    opt_config.cheapest_l1 = _from_path("L1_") or _from_calc("L1")
+    opt_config.cheapest_l2 = _from_path("L2_") or _from_calc("L2")
+    opt_config.cheapest_l3_hot = _from_path("L3_hot_") or _from_calc("L3", "Hot")
+    opt_config.cheapest_l3_cool = _from_path("L3_cool_") or _from_calc("L3", "Cool")
+    opt_config.cheapest_l3_archive = _from_path("L3_archive_") or _from_calc("L3", "Archive")
+    opt_config.cheapest_l4 = _from_path("L4_") or _from_calc("L4")
+    opt_config.cheapest_l5 = _from_path("L5_") or _from_calc("L5")
+
+
 
 @router.get(
     "/",
@@ -167,11 +211,18 @@ async def update_config(
         if not opt_config:
             opt_config = OptimizerConfiguration(twin_id=twin_id)
             db.add(opt_config)
-        
+
         if update.optimizer_params is not None:
             opt_config.params = json.dumps(update.optimizer_params)
         if update.optimizer_result is not None:
             opt_config.result_json = json.dumps(update.optimizer_result)
+            # Also populate the cheapest_l* columns from result.cheapestPath so
+            # downstream endpoints (deploy, simulator/download, _build_providers_config,
+            # etc.) get consistent data without needing per-call fallbacks. The
+            # dedicated /optimizer-config/result endpoint already does this from an
+            # explicit cheapest_path payload; we mirror the same derivation here for
+            # the wizard's bulk-save flow which only sends optimizer_result.
+            _populate_cheapest_columns(opt_config, update.optimizer_result)
     
     # Regress to draft if editing configured/error/destroyed twin
     if should_regress:
@@ -180,7 +231,7 @@ async def update_config(
     db.commit()
     db.refresh(config)
     db.refresh(twin)
-    
+
     # Include twin_state in response for frontend sync
     response = TwinConfigResponse.from_db(config, twin.optimizer_config)
     return {**response.dict(), "twin_state": twin.state.value}
