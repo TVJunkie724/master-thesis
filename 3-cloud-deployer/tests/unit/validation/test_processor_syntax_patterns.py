@@ -4,7 +4,7 @@ Unit tests for check_processor_syntax() with updated file patterns.
 Tests that validation correctly identifies:
 - AWS: lambda_functions/processors/*/lambda_function.py with lambda_handler()
 - Azure: azure_functions/processors/*/function_app.py with main()
-- GCP: cloud_functions/processors/*/main.py with process()
+- GCP: cloud_functions/processors/*/main.py with main()
 
 Tests the fix from Phase 0 of the Zip Upload implementation plan.
 """

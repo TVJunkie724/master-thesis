@@ -1,18 +1,24 @@
 """Unit tests for GCP inter_cloud module - ID token authentication."""
 import time
 import pytest
-from unittest.mock import patch, MagicMock, create_autospec
+from unittest.mock import patch, MagicMock
+import importlib.util
 
 # Import the module under test
-import sys
 from pathlib import Path
 
-# Add the GCP cloud functions path
+# Load the GCP shared module under a unique name so tests are isolated from
+# AWS/Azure modules that are also named ``_shared.inter_cloud``.
 gcp_funcs_path = Path(__file__).parent.parent.parent.parent / "src" / "providers" / "gcp" / "cloud_functions"
-sys.path.insert(0, str(gcp_funcs_path))
+inter_cloud_path = gcp_funcs_path / "_shared" / "inter_cloud.py"
+spec = importlib.util.spec_from_file_location("gcp_inter_cloud_for_tests", inter_cloud_path)
+gcp_inter_cloud = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+spec.loader.exec_module(gcp_inter_cloud)
 
-import _shared.inter_cloud as _inter_cloud_module
-from _shared.inter_cloud import _get_token_expiry, get_id_token_headers, _token_cache
+_get_token_expiry = gcp_inter_cloud._get_token_expiry
+get_id_token_headers = gcp_inter_cloud.get_id_token_headers
+_token_cache = gcp_inter_cloud._token_cache
 
 
 class TestGetTokenExpiry:
@@ -74,13 +80,9 @@ class TestGetIdTokenHeaders:
     
     def test_missing_google_auth_raises_runtime_error(self):
         """Should raise RuntimeError if google-auth not installed."""
-        original = _inter_cloud_module._GOOGLE_AUTH_AVAILABLE
-        try:
-            _inter_cloud_module._GOOGLE_AUTH_AVAILABLE = False
+        with patch.object(gcp_inter_cloud, "_GOOGLE_AUTH_AVAILABLE", False):
             with pytest.raises(RuntimeError, match="google-auth library not available"):
                 get_id_token_headers("https://example.com")
-        finally:
-            _inter_cloud_module._GOOGLE_AUTH_AVAILABLE = original
 
 
 class TestGetIdTokenHeadersWithGoogleAuth:
@@ -103,17 +105,16 @@ class TestGetIdTokenHeadersWithGoogleAuth:
         except ImportError:
             pytest.skip("google-auth library not installed")
     
-    @patch('_shared.inter_cloud._GOOGLE_AUTH_AVAILABLE', True)
     @patch('google.oauth2.id_token.fetch_id_token')
     @patch('google.auth.transport.requests.Request')
     def test_token_fetch_failure_raises_runtime_error(self, mock_request, mock_fetch):
         """Should raise RuntimeError if token fetch fails."""
         mock_fetch.side_effect = Exception("Auth failed")
         mock_request.return_value = MagicMock()
-        with pytest.raises(RuntimeError, match="Failed to get ID token"):
-            get_id_token_headers("https://example.com")
+        with patch.object(gcp_inter_cloud, "_GOOGLE_AUTH_AVAILABLE", True):
+            with pytest.raises(RuntimeError, match="Failed to get ID token"):
+                get_id_token_headers("https://example.com")
     
-    @patch('_shared.inter_cloud._GOOGLE_AUTH_AVAILABLE', True)
     @patch('google.oauth2.id_token.fetch_id_token')
     @patch('google.auth.transport.requests.Request')
     def test_successful_token_returns_auth_header(self, mock_request, mock_fetch):
@@ -122,13 +123,13 @@ class TestGetIdTokenHeadersWithGoogleAuth:
         mock_fetch.return_value = mock_token
         mock_request.return_value = MagicMock()
         
-        headers = get_id_token_headers("https://example.com")
+        with patch.object(gcp_inter_cloud, "_GOOGLE_AUTH_AVAILABLE", True):
+            headers = get_id_token_headers("https://example.com")
         
         assert "Authorization" in headers
         assert headers["Authorization"] == f"Bearer {mock_token}"
         assert headers["Content-Type"] == "application/json"
     
-    @patch('_shared.inter_cloud._GOOGLE_AUTH_AVAILABLE', True)
     @patch('google.oauth2.id_token.fetch_id_token')
     @patch('google.auth.transport.requests.Request')
     def test_token_is_cached(self, mock_request, mock_fetch):
@@ -139,17 +140,17 @@ class TestGetIdTokenHeadersWithGoogleAuth:
         
         url = "https://example.com/function"
         
-        # First call - should fetch token
-        headers1 = get_id_token_headers(url)
-        assert mock_fetch.call_count == 1
-        
-        # Second call - should use cache
-        headers2 = get_id_token_headers(url)
-        assert mock_fetch.call_count == 1  # Still 1, not 2
+        with patch.object(gcp_inter_cloud, "_GOOGLE_AUTH_AVAILABLE", True):
+            # First call - should fetch token
+            headers1 = get_id_token_headers(url)
+            assert mock_fetch.call_count == 1
+
+            # Second call - should use cache
+            headers2 = get_id_token_headers(url)
+            assert mock_fetch.call_count == 1  # Still 1, not 2
         
         assert headers1["Authorization"] == headers2["Authorization"]
     
-    @patch('_shared.inter_cloud._GOOGLE_AUTH_AVAILABLE', True)
     @patch('google.oauth2.id_token.fetch_id_token')
     @patch('google.auth.transport.requests.Request')
     def test_different_urls_get_different_cache_entries(self, mock_request, mock_fetch):
@@ -158,8 +159,9 @@ class TestGetIdTokenHeadersWithGoogleAuth:
         mock_fetch.return_value = mock_token
         mock_request.return_value = MagicMock()
         
-        get_id_token_headers("https://example.com/func1")
-        get_id_token_headers("https://example.com/func2")
+        with patch.object(gcp_inter_cloud, "_GOOGLE_AUTH_AVAILABLE", True):
+            get_id_token_headers("https://example.com/func1")
+            get_id_token_headers("https://example.com/func2")
         
         # Should have called fetch_id_token twice (different URLs)
         assert mock_fetch.call_count == 2
