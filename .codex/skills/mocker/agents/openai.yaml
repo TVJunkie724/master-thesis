@@ -1,0 +1,4 @@
+interface:
+  display_name: "Twin2MultiCloud Mocker"
+  short_description: "Build isolated Flutter UI mocks"
+  default_prompt: "Use $mocker for the current Twin2MultiCloud task."

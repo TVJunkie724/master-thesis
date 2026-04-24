@@ -1,0 +1,4 @@
+interface:
+  display_name: "Twin2MultiCloud Audit Review"
+  short_description: "Review completed plan compliance"
+  default_prompt: "Use $audit-review for the current Twin2MultiCloud task."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Twin2MultiCloud Architect"
+  short_description: "Plan Flutter UI architecture"
+  default_prompt: "Use $architect for the current Twin2MultiCloud task."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Twin2MultiCloud Onboarding"
+  short_description: "Start Twin2MultiCloud repo work"
+  default_prompt: "Use $onboarding for the current Twin2MultiCloud task."

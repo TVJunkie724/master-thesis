@@ -1,0 +1,4 @@
+interface:
+  display_name: "Twin2MultiCloud Plan Review"
+  short_description: "Review Flutter implementation plans"
+  default_prompt: "Use $plan-review for the current Twin2MultiCloud task."

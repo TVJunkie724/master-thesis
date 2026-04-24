@@ -1,0 +1,4 @@
+interface:
+  display_name: "Twin2MultiCloud Frontend Onboarding"
+  short_description: "Understand Twin2MultiCloud frontend"
+  default_prompt: "Use $frontend-onboarding for the current Twin2MultiCloud task."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Twin2MultiCloud Auditor"
+  short_description: "Audit Flutter implementation quality"
+  default_prompt: "Use $auditor for the current Twin2MultiCloud task."

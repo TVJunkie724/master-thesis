@@ -1,0 +1,4 @@
+interface:
+  display_name: "Twin2MultiCloud Concept Review"
+  short_description: "Review frontend concept documents"
+  default_prompt: "Use $concept-review for the current Twin2MultiCloud task."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Twin2MultiCloud Builder"
+  short_description: "Implement approved Flutter plans"
+  default_prompt: "Use $builder for the current Twin2MultiCloud task."

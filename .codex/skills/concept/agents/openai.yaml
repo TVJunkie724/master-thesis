@@ -1,0 +1,4 @@
+interface:
+  display_name: "Twin2MultiCloud Concept"
+  short_description: "Plan frontend roadmap and phases"
+  default_prompt: "Use $concept for the current Twin2MultiCloud task."
