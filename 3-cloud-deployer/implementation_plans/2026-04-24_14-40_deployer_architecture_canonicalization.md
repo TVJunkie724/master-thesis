@@ -23,7 +23,7 @@ EXTRACTED: 2026-04-24 | VERSION: 1.2
 
 **Date:** 2026-04-24  
 **Scope:** `3-cloud-deployer`  
-**Base branch:** `ai/dev`  
+**Base branch:** `master`
 **Implementation branch:** `codex/deployer-architecture-canonicalization`  
 **Plan status:** Reviewed  
 **Implementation status:** Implemented and Docker-verified; audit review pending

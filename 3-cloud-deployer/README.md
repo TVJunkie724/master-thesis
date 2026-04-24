@@ -46,7 +46,7 @@ The deployer is designed to work standalone or as part of a multi-cloud environm
 ✅ **Twin Management**: Native cloud services (TwinMaker, Digital Twins)  
 ✅ **Grafana Integration**: Managed or self-hosted Grafana for monitoring  
 ✅ **Modular Design**: Each component is independent and self-contained  
-✅ **Layer-by-Layer Deployment**: Deploy individual layers (L1-L5) independently  
+✅ **Layer-Based Provider Selection**: Deploy L1-L5 through the canonical Terraform path
 ✅ **Clean Teardown**: Destroy all resources with proper dependency ordering  
 ✅ **Resource Inspection**: Query deployed resources with status endpoints
 
@@ -118,9 +118,9 @@ cp config_credentials.json.example config_credentials.json
 # Run the API server
 uvicorn rest_api:app --host 0.0.0.0 --port 8000
 
-# Or use the CLI
+# Or use the canonical CLI
 cd src
-python main.py
+python main.py deploy aws
 ```
 
 ---
@@ -134,7 +134,7 @@ Comprehensive documentation is available at `/docs`:
 - **[Architecture](docs/docs-architecture.html)** - 5-layer architecture and deployer patterns
 - **[Configuration](docs/docs-configuration.html)** - Complete configuration reference for all config files
 - **[REST API Reference](docs/docs-api-reference.html)** - All API endpoints documented
-- **[CLI Reference](docs/docs-cli-reference.html)** - Interactive command-line interface
+- **[CLI Reference](docs/docs-cli-reference.html)** - Canonical deploy/destroy CLI
 - **[AWS Deployment](docs/docs-aws-deployment.html)** - AWS-specific deployment guide
 - **[Azure Deployment](docs/docs-azure-deployment.html)** - Azure deployment (in development)
 - **[GCP Deployment](docs/docs-gcp-deployment.html)** - GCP deployment (in development)
@@ -310,55 +310,36 @@ uvicorn rest_api:app --host 0.0.0.0 --port 8000
 #### Example API Calls
 
 ```bash
-# Deploy entire digital twin
-curl -X POST "http://localhost:8000/deploy?provider=aws"
+# Deploy entire digital twin through the canonical Terraform facade
+curl -X POST "http://localhost:8000/infrastructure/deploy?provider=aws&project_name=template"
 
-# Deploy only Layer 3 (Storage)
-curl -X POST "http://localhost:8000/deploy_l3?provider=aws"
+# Stream deployment logs via SSE
+curl -N -X POST "http://localhost:8000/infrastructure/deploy/stream?provider=aws&project_name=template"
 
-# Check deployment status
-curl "http://localhost:8000/check?provider=aws"
+# Check infrastructure status
+curl "http://localhost:8000/infrastructure/status?project_name=template"
 
-# Get configuration
-curl "http://localhost:8000/info/config"
+# Verify infrastructure resources
+curl -X POST "http://localhost:8000/infrastructure/verify?project_name=template"
 
-# Get IoT device configuration
-curl "http://localhost:8000/info/config_iot_devices"
+# List user-modifiable functions
+curl "http://localhost:8000/functions/updatable_functions?project_name=template"
 
-# Update Lambda function code
-curl -X POST "http://localhost:8000/lambda_update" \
-  -H "Content-Type: application/json" \
-  -d '{"local_function_name": "dispatcher"}'
-
-# Fetch Lambda logs
-curl "http://localhost:8000/lambda_logs?local_function_name=dispatcher&n=20"
-
-# Destroy entire digital twin
-curl -X POST "http://localhost:8000/destroy?provider=aws"
+# Destroy entire digital twin through the canonical Terraform facade
+curl -X POST "http://localhost:8000/infrastructure/destroy?provider=aws&project_name=template"
 ```
 
 ### CLI Interface
 
-For interactive CLI usage:
+The CLI is a thin adapter over the same canonical Terraform deployer facade used by the REST API:
 
 ```bash
 cd src
-python main.py
+python main.py --project template deploy aws
+python main.py --project template destroy aws
 ```
 
-You'll see an interactive prompt:
-```
-Welcome to the Digital Twin Manager. Type 'help' for commands.
->>>
-```
-
-#### Available CLI Commands
-
-- **`deploy`** - Deploys all resources
-- **`destroy`** - Destroys all resources
-- **`info`** - Lists deployed resources
-- **`help`** - Shows help menu
-- **`exit`** - Exits the program
+Supported providers are `aws`, `azure`, `gcp`, and `google` as a compatibility alias for `gcp`.
 
 ---
 
@@ -368,36 +349,27 @@ Welcome to the Digital Twin Manager. Type 'help' for commands.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/deploy` | Deploy entire digital twin |
-| POST | `/deploy_l1` | Deploy L1 (IoT Dispatcher) |
-| POST | `/deploy_l2` | Deploy L2 (Persister/Processor) |
-| POST | `/deploy_l3` | Deploy L3 (Hot, Cold, Archive Storage) |
-| POST | `/deploy_l4` | Deploy L4 (TwinMaker) |
-| POST | `/deploy_l5` | Deploy L5 (Grafana) |
-| POST | `/destroy` | Destroy entire digital twin |
+| POST | `/infrastructure/deploy` | Deploy entire digital twin through the canonical Terraform facade |
+| POST | `/infrastructure/deploy/stream` | Deploy with SSE log streaming |
+| POST | `/infrastructure/destroy` | Destroy entire digital twin through the canonical Terraform facade |
+| POST | `/infrastructure/destroy/stream` | Destroy with SSE log streaming |
+| GET | `/infrastructure/cooldown-check` | Check GCP Firestore redeploy cooldown |
 
 ### Status/Info Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/check` | Check all layers status |
-| GET | `/check_l1` | Check L1 status |
-| GET | `/check_l2` | Check L2 status |
-| GET | `/check_l3` | Check L3 status |
-| GET | `/check_l4` | Check L4 status |
-| GET | `/check_l5` | Check L5 status |
-| GET | `/info/config` | Get main configuration |
-| GET | `/info/config_iot_devices` | Get IoT device configuration |
-| GET | `/info/config_providers` | Get provider mapping |
-| GET | `/info/config_hierarchy` | Get entity hierarchy |
-| GET | `/info/config_events` | Get event configuration |
+| GET | `/infrastructure/status` | Check complete infrastructure status |
+| POST | `/infrastructure/verify` | Run structured infrastructure verification |
+| GET | `/` | API health check |
 
-### AWS Lambda Management
+### Function Management
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/lambda_update` | Update Lambda function code |
-| GET | `/lambda_logs` | Fetch Lambda logs |
+| GET | `/functions/updatable_functions` | List user-modifiable functions |
+| POST | `/functions/update_function/{function_name}` | Update function code through provider-specific SDK adapters |
+| POST | `/functions/build` | Build a cloud-ready function ZIP |
 
 ---
 
@@ -616,7 +588,7 @@ Cloud providers take time to propagate permissions. The deployer includes automa
 
 **2. Resource Already Exists**
 
-If deployment fails midway, run `/destroy` endpoint or CLI `destroy` command to clean up, then redeploy.
+If deployment fails midway, run `/infrastructure/destroy` or the CLI `destroy` command to clean up, then redeploy.
 
 **3. Docker Volume Issues**
 
@@ -632,7 +604,7 @@ Check logs in Docker container:
 docker logs <container-id>
 ```
 
-Or check the API logs at `/lambda_logs` endpoint for Lambda-specific issues.
+For function-specific issues, inspect the provider logs and the Deployer container logs for the corresponding function update or deployment operation.
 
 **5. Cross-Cloud Connectivity**
 
@@ -644,11 +616,6 @@ Multi-cloud deployments require proper network configuration and API access betw
 ### Debug Mode
 
 Enable detailed logging by checking the console output where `uvicorn` or `main.py` is running.
-
-For Lambda logs:
-```bash
-curl "http://localhost:8000/lambda_logs?local_function_name=dispatcher&n=50&filter_system_logs=false"
-```
 
 ### Checking Cloud Consoles
 
