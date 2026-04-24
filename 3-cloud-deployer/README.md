@@ -414,19 +414,14 @@ Welcome to the Digital Twin Manager. Type 'help' for commands.
 ├── config_hierarchy.json            # TwinMaker hierarchy
 ├── config_events.json               # Event rules
 ├── src/
-│   ├── main.py                      # CLI entry point
+│   ├── main.py                      # Thin canonical Terraform CLI adapter
 │   ├── globals.py                   # Global configuration
-│   ├── info.py                      # Info/status checking
 │   ├── util.py                      # Utility functions
-│   ├── deployers/
-│   │   ├── core_deployer.py         # Core infrastructure deployer
-│   │   ├── iot_deployer.py          # IoT devices deployer
-│   │   ├── additional_deployer.py   # Hierarchy deployer
-│   │   └── event_action_deployer.py # Event actions deployer
-│   └── aws/
-│       ├── globals_aws.py           # AWS-specific globals
-│       ├── lambda_manager.py        # Lambda update/management
-│       └── api_lambda_schemas.py    # API request schemas
+│   ├── api/                         # FastAPI route adapters
+│   ├── core/                        # Context, provider registry, protocols
+│   └── providers/                   # AWS/Azure/GCP provider implementations
+│       ├── deployer.py              # Canonical deploy/destroy facade
+│       └── terraform/               # Terraform strategy and package builders
 ├── lambda_functions/
 │   ├── core/
 │   │   ├── dispatcher/              # Routes incoming IoT data
@@ -600,10 +595,10 @@ The deployer handles all cross-cloud data transfers and integration automaticall
 - [x] **REST API**: FastAPI-based deployment API
 - [x] **Docker Support**: Containerized deployment
 - [x] **Multi-Cloud Foundation**: Layer-based provider selection
-- [ ] **Azure Full Implementation**: Complete Azure deployers
-- [ ] **GCP Full Implementation**: Complete GCP deployers
+- [ ] **Azure Full Implementation**: Complete Azure provider coverage
+- [ ] **GCP Full Implementation**: Complete GCP provider coverage
 - [ ] **Cross-Cloud Data Transfer**: Automated egress handling
-- [ ] **Object-Oriented Refactor**: Create `Deployer` base class
+- [ ] **Provider Contract Hardening**: Keep deploy/destroy behavior behind canonical provider interfaces
 - [ ] **Recovery Mechanism**: Resume failed deployments from checkpoint
 - [ ] **Unit Tests**: Add comprehensive test coverage
 - [ ] **Terraform Export**: Generate Terraform/ARM/Deployment Manager templates
