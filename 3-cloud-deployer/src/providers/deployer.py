@@ -14,6 +14,7 @@ Usage:
     deploy_all(context, "aws")  # Uses Terraform
 """
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 from logger import logger
 
@@ -36,6 +37,23 @@ def _get_strategy(context: 'DeploymentContext', provider_name: str):
     return context.providers[provider_name]
 
 
+def create_terraform_strategy(
+    context: 'DeploymentContext',
+    terraform_dir: str | None = None,
+    project_path: str | None = None,
+):
+    """Create the canonical Terraform strategy for deploy/destroy operations."""
+    from src.providers.terraform.deployer_strategy import TerraformDeployerStrategy
+
+    resolved_terraform_dir = terraform_dir or str(Path(__file__).parent.parent / "terraform")
+    resolved_project_path = project_path or str(context.project_path)
+
+    return TerraformDeployerStrategy(
+        terraform_dir=resolved_terraform_dir,
+        project_path=resolved_project_path,
+    )
+
+
 # ==========================================
 # Full Deployment (Terraform)
 # ==========================================
@@ -56,15 +74,7 @@ def deploy_all(context: 'DeploymentContext', provider: str) -> dict:
     """
     logger.info(f"Deploying all layers via Terraform for provider: {provider}")
     
-    from pathlib import Path
-    from src.providers.terraform.deployer_strategy import TerraformDeployerStrategy
-    
-    terraform_dir = str(Path(__file__).parent.parent / "terraform")
-    
-    strategy = TerraformDeployerStrategy(
-        terraform_dir=terraform_dir,
-        project_path=str(context.project_path)
-    )
+    strategy = create_terraform_strategy(context)
     
     return strategy.deploy_all(context)
 
@@ -82,9 +92,6 @@ def destroy_all(context: 'DeploymentContext', provider: str) -> None:
         context: Deployment context with config and credentials
         provider: Cloud provider name
     """
-    from pathlib import Path
-    from src.providers.terraform.deployer_strategy import TerraformDeployerStrategy
-    
     # ==========================================
     # PHASE 1: TERRAFORM DESTROY
     # ==========================================
@@ -94,12 +101,7 @@ def destroy_all(context: 'DeploymentContext', provider: str) -> None:
     logger.info("=" * 60)
     logger.info(f"Destroying all layers via Terraform for provider: {provider}")
     
-    terraform_dir = str(Path(__file__).parent.parent / "terraform")
-    
-    strategy = TerraformDeployerStrategy(
-        terraform_dir=terraform_dir,
-        project_path=str(context.project_path)
-    )
+    strategy = create_terraform_strategy(context)
     
     terraform_error = None
     try:
@@ -218,18 +220,8 @@ def deploy_all_terraform(context: 'DeploymentContext', terraform_dir: str = None
     Raises:
         TerraformError: If Terraform apply fails
     """
-    from pathlib import Path
-    from src.providers.terraform.deployer_strategy import TerraformDeployerStrategy
-    
-    if terraform_dir is None:
-        terraform_dir = str(Path(__file__).parent.parent / "terraform")
-    
     logger.info(f"Starting Terraform deployment for {context.project_name}")
-    
-    strategy = TerraformDeployerStrategy(
-        terraform_dir=terraform_dir,
-        project_path=str(context.project_path)
-    )
+    strategy = create_terraform_strategy(context, terraform_dir=terraform_dir)
     
     return strategy.deploy_all(context)
 
@@ -242,20 +234,47 @@ def destroy_all_terraform(context: 'DeploymentContext', terraform_dir: str = Non
         context: Deployment context with project config
         terraform_dir: Path to Terraform directory
     """
-    from pathlib import Path
-    from src.providers.terraform.deployer_strategy import TerraformDeployerStrategy
-    
-    if terraform_dir is None:
-        terraform_dir = str(Path(__file__).parent.parent / "terraform")
-    
     logger.info(f"Starting Terraform destroy for {context.project_name}")
-    
-    strategy = TerraformDeployerStrategy(
-        terraform_dir=terraform_dir,
-        project_path=str(context.project_path)
-    )
+    strategy = create_terraform_strategy(context, terraform_dir=terraform_dir)
     
     strategy.destroy_all(context)
+
+
+async def deploy_all_stream(
+    context: 'DeploymentContext',
+    strategy=None,
+    terraform_dir: str | None = None,
+    project_path: str | None = None,
+):
+    """Stream canonical Terraform deployment log lines."""
+    strategy = strategy or create_terraform_strategy(
+        context,
+        terraform_dir=terraform_dir,
+        project_path=project_path,
+    )
+    async for line in strategy.deploy_all_async(context):
+        yield line
+
+
+async def destroy_all_stream(
+    context: 'DeploymentContext',
+    strategy=None,
+    terraform_dir: str | None = None,
+    project_path: str | None = None,
+):
+    """Stream canonical Terraform destroy log lines."""
+    strategy = strategy or create_terraform_strategy(
+        context,
+        terraform_dir=terraform_dir,
+        project_path=project_path,
+    )
+    async for line in strategy.destroy_all_async(context):
+        yield line
+
+
+def get_terraform_outputs(strategy) -> dict:
+    """Return Terraform outputs from a canonical strategy instance."""
+    return strategy.get_outputs()
 
 # ==========================================
 # Specialized Operations
