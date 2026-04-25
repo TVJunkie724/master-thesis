@@ -27,6 +27,7 @@ Usage:
 
 from .protocols import CloudProvider, DeployerStrategy
 from .context import DeploymentContext, ProjectConfig
+from .paths import DeploymentPaths, resolve_deployment_paths
 from .registry import ProviderRegistry
 from .exceptions import DeploymentError, ProviderNotFoundError, ConfigurationError
 
@@ -36,7 +37,9 @@ __all__ = [
     "DeployerStrategy",
     # Context
     "DeploymentContext",
+    "DeploymentPaths",
     "ProjectConfig",
+    "resolve_deployment_paths",
     # Registry
     "ProviderRegistry",
     # Exceptions

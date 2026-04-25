@@ -8,7 +8,7 @@ version: "0.1"
 
 <!-- SOURCES:
 - documentation/concepts/CONCEPT_ENTERPRISE_TARGET_ARCHITECTURE.md
-- ASSESSMENT.md Phase 2 "Deployer Context und Error Taxonomy"
+- ASSESSMENT.md Phase 2 "Deployer Contract Hardening"
 - 3-cloud-deployer/implementation_plans/2026-04-24_14-40_deployer_architecture_canonicalization.md
 - 3-cloud-deployer/src/api/deployment.py
 - 3-cloud-deployer/src/api/dependencies.py
@@ -25,9 +25,9 @@ EXTRACTED: 2026-04-25 | VERSION: 0.1
 **Date:** 2026-04-25
 **Scope:** `3-cloud-deployer`
 **Base branch:** `master`
-**Implementation branch:** `codex/deployer-contract-hardening`
-**Plan status:** Draft pending review
-**Implementation status:** Not started
+**Implementation branch:** `codex/deployer-contract-hardening-plan`
+**Plan status:** Reviewed
+**Implementation status:** Implemented and Docker-verified; audit review pending
 
 ---
 
@@ -367,18 +367,18 @@ Expected final result:
 
 ## 7. Definition of Done
 
-- [ ] Deploy/destroy result contracts are typed and tested.
-- [ ] Streaming events are typed and tested.
-- [ ] `google` is normalized to `gcp` at the boundary.
-- [ ] Route functions preserve existing public paths.
-- [ ] Route functions preserve existing compatibility keys.
-- [ ] Route functions no longer build deployment filesystem paths manually.
-- [ ] Route functions are thinner and delegate contract creation.
-- [ ] Invalid provider and active-project mismatch are covered by tests.
-- [ ] Facade failure mapping is covered by tests.
-- [ ] Full Docker unit/API/integration suite passes without live cloud credentials.
-- [ ] README and `ASSESSMENT.md` describe the hardened contract boundary.
-- [ ] No Management API, Flutter, or Optimizer code changed in this phase.
+- [x] Deploy/destroy result contracts are typed and tested.
+- [x] Streaming events are typed and tested.
+- [x] `google` is normalized to `gcp` at the boundary.
+- [x] Route functions preserve existing public paths.
+- [x] Route functions preserve existing compatibility keys.
+- [x] Route functions no longer build deployment filesystem paths manually.
+- [x] Route functions are thinner and delegate contract creation.
+- [x] Invalid provider and active-project mismatch are covered by tests.
+- [x] Facade failure mapping is covered by tests.
+- [x] Full Docker unit/API/integration suite passes without live cloud credentials.
+- [x] README and `ASSESSMENT.md` describe the hardened contract boundary.
+- [x] No Management API, Flutter, or Optimizer code changed in this phase.
 
 ---
 
@@ -407,4 +407,3 @@ Expected final result:
   2. route/facade wiring,
   3. tests,
   4. docs.
-

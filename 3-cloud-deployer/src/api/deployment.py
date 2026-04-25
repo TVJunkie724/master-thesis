@@ -7,9 +7,16 @@ This module provides REST API endpoints for infrastructure operations.
 
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Query, Path
-import src.validator as validator
+from fastapi import APIRouter, HTTPException, Query
 from api.dependencies import validate_project_context, validate_provider, check_template_protection
+from src.api.models.deployment import (
+    DeploymentOperation,
+    DeploymentRequest,
+    DeploymentResult,
+    DeploymentStreamEvent,
+    DestroyResult,
+)
+from src.core.paths import resolve_deployment_paths
 from logger import print_stack_trace, logger
 
 import providers.deployer as core_deployer
@@ -109,17 +116,21 @@ def deploy_all(
     check_template_protection(project_name, "deploy")
     validate_project_context(project_name)
     try:
-        provider = validate_provider(provider)
+        request = DeploymentRequest(
+            project_name=project_name,
+            provider=validate_provider(provider),
+        )
         
-        context = create_context(project_name, provider)
+        context = create_context(request.project_name, request.provider)
         
         # TerraformDeployerStrategy handles validation + deployment
-        outputs = core_deployer.deploy_all(context, provider)
+        outputs = core_deployer.deploy_all(context, request.provider)
         
-        return {
-            "message": "Core and IoT services deployed successfully",
-            "terraform_outputs": outputs
-        }
+        return DeploymentResult(
+            project_name=request.project_name,
+            provider=request.provider,
+            terraform_outputs=outputs,
+        ).model_dump(mode="json")
     except HTTPException:
         raise
     except ValueError as e:
@@ -159,13 +170,19 @@ def destroy_all(
     check_template_protection(project_name, "destroy")
     validate_project_context(project_name)
     try:
-        provider = validate_provider(provider)
-        context = create_context(project_name, provider)
+        request = DeploymentRequest(
+            project_name=project_name,
+            provider=validate_provider(provider),
+        )
+        context = create_context(request.project_name, request.provider)
         
         # TerraformDeployerStrategy handles all destruction
-        core_deployer.destroy_all(context, provider)
+        core_deployer.destroy_all(context, request.provider)
         
-        return {"message": "Core and IoT services destroyed successfully"}
+        return DestroyResult(
+            project_name=request.project_name,
+            provider=request.provider,
+        ).model_dump(mode="json")
     except HTTPException:
         raise
     except ValueError as e:
@@ -199,33 +216,32 @@ async def deploy_stream(
     
     Returns an SSE stream with real-time deployment logs.
     """
-    from pathlib import Path
-    import json
-    
     check_template_protection(project_name, "deploy")
     validate_project_context(project_name)
     
     try:
-        provider = validate_provider(provider)
-        context = create_context(project_name, provider)
+        request = DeploymentRequest(
+            project_name=project_name,
+            provider=validate_provider(provider),
+        )
+        context = create_context(request.project_name, request.provider)
         
-        terraform_dir = Path(f"/app/upload/{project_name}/terraform")
-        project_path = Path(f"/app/upload/{project_name}")
+        paths = resolve_deployment_paths(request.project_name)
         strategy = core_deployer.create_terraform_strategy(
             context,
-            terraform_dir=str(terraform_dir),
-            project_path=str(project_path),
+            terraform_dir=str(paths.terraform_dir),
+            project_path=str(paths.project_path),
         )
         
         async def generate():
             try:
                 async for line in core_deployer.deploy_all_stream(context, strategy=strategy):
-                    yield f"data: {line}\n\n"
+                    yield DeploymentStreamEvent.log(DeploymentOperation.deploy, line).to_sse()
                 # Final success event
                 outputs = core_deployer.get_terraform_outputs(strategy)
-                yield f"event: complete\ndata: {json.dumps({'success': True, 'outputs': outputs})}\n\n"
+                yield DeploymentStreamEvent.complete(DeploymentOperation.deploy, outputs=outputs).to_sse()
             except Exception as e:
-                yield f"event: error\ndata: {json.dumps({'success': False, 'error': str(e)})}\n\n"
+                yield DeploymentStreamEvent.failure(DeploymentOperation.deploy, str(e)).to_sse()
         
         return StreamingResponse(
             generate(),
@@ -264,31 +280,30 @@ async def destroy_stream(
     
     Returns an SSE stream with real-time destruction logs.
     """
-    from pathlib import Path
-    import json
-    
     check_template_protection(project_name, "destroy")
     validate_project_context(project_name)
     
     try:
-        provider = validate_provider(provider)
-        context = create_context(project_name, provider)
+        request = DeploymentRequest(
+            project_name=project_name,
+            provider=validate_provider(provider),
+        )
+        context = create_context(request.project_name, request.provider)
         
-        terraform_dir = Path(f"/app/upload/{project_name}/terraform")
-        project_path = Path(f"/app/upload/{project_name}")
+        paths = resolve_deployment_paths(request.project_name)
         strategy = core_deployer.create_terraform_strategy(
             context,
-            terraform_dir=str(terraform_dir),
-            project_path=str(project_path),
+            terraform_dir=str(paths.terraform_dir),
+            project_path=str(paths.project_path),
         )
         
         async def generate():
             try:
                 async for line in core_deployer.destroy_all_stream(context, strategy=strategy):
-                    yield f"data: {line}\n\n"
-                yield f"event: complete\ndata: {json.dumps({'success': True})}\n\n"
+                    yield DeploymentStreamEvent.log(DeploymentOperation.destroy, line).to_sse()
+                yield DeploymentStreamEvent.complete(DeploymentOperation.destroy).to_sse()
             except Exception as e:
-                yield f"event: error\ndata: {json.dumps({'success': False, 'error': str(e)})}\n\n"
+                yield DeploymentStreamEvent.failure(DeploymentOperation.destroy, str(e)).to_sse()
         
         return StreamingResponse(
             generate(),

@@ -17,6 +17,7 @@ class Base64FileRequest(BaseModel):
 class ProviderEnum(str, Enum):
     aws = "aws"
     azure = "azure"
+    gcp = "gcp"
     google = "google"
 
 class ConfigType(str, Enum):
@@ -57,6 +58,7 @@ def validate_project_context(project_name: str):
          raise HTTPException(status_code=409, detail=f"SAFETY ERROR: Requested project '{project_name}' does not match active project '{current_project}'. Please switch active project first.")
 
 VALID_PROVIDERS = {"aws", "azure", "google", "gcp"}
+PROVIDER_ALIASES = {"google": "gcp"}
 
 def validate_provider(provider: str) -> str:
     """
@@ -67,6 +69,6 @@ def validate_provider(provider: str) -> str:
     if provider_lower not in VALID_PROVIDERS:
         raise HTTPException(
             status_code=400, 
-            detail=f"Invalid provider '{provider}'. Valid providers are: aws, azure, google"
+            detail=f"Invalid provider '{provider}'. Valid providers are: aws, azure, gcp, google"
         )
-    return provider_lower
+    return PROVIDER_ALIASES.get(provider_lower, provider_lower)

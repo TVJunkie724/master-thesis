@@ -8,7 +8,11 @@ enter the canonical facade in src.providers.deployer.
 import asyncio
 from unittest.mock import MagicMock, patch
 
+import pytest
+from fastapi import HTTPException
+
 from src.api import deployment
+from src.api.dependencies import validate_provider
 
 
 def test_deploy_route_invokes_canonical_facade_with_hard_response_shape():
@@ -32,6 +36,10 @@ def test_deploy_route_invokes_canonical_facade_with_hard_response_shape():
 
     assert response == {
         "message": "Core and IoT services deployed successfully",
+        "status": "success",
+        "operation": "deploy",
+        "project_name": "test_api_project",
+        "provider": "aws",
         "terraform_outputs": outputs,
     }
 
@@ -54,7 +62,13 @@ def test_destroy_route_invokes_canonical_facade_with_hard_response_shape():
     mock_create_context.assert_called_once_with("test_api_project", "aws")
     mock_destroy_all.assert_called_once_with(context, "aws")
 
-    assert response == {"message": "Core and IoT services destroyed successfully"}
+    assert response == {
+        "message": "Core and IoT services destroyed successfully",
+        "status": "success",
+        "operation": "destroy",
+        "project_name": "test_api_project",
+        "provider": "aws",
+    }
 
 
 async def _collect_stream(streaming_response) -> str:
@@ -95,11 +109,9 @@ def test_deploy_stream_uses_canonical_facade_and_preserves_event_shape():
 
     mock_strategy.assert_called_once()
     assert response.media_type == "text/event-stream"
-    assert "data: terraform init\n\n" in body
-    assert "data: terraform apply\n\n" in body
-    assert "event: complete\n" in body
-    assert '"success": true' in body
-    assert '"outputs": {"output": {"value": "ok"}}' in body
+    assert 'data: {"event":"log","operation":"deploy","message":"terraform init"}\n\n' in body
+    assert 'data: {"event":"log","operation":"deploy","message":"terraform apply"}\n\n' in body
+    assert 'event: complete\ndata: {"event":"complete","operation":"deploy","success":true,"outputs":{"output":{"value":"ok"}}}\n\n' in body
 
 
 def test_destroy_stream_uses_canonical_facade_and_preserves_event_shape():
@@ -119,6 +131,60 @@ def test_destroy_stream_uses_canonical_facade_and_preserves_event_shape():
 
     mock_strategy.assert_called_once()
     assert response.media_type == "text/event-stream"
-    assert "data: terraform destroy\n\n" in body
-    assert "event: complete\n" in body
-    assert '"success": true' in body
+    assert 'data: {"event":"log","operation":"destroy","message":"terraform destroy"}\n\n' in body
+    assert 'event: complete\ndata: {"event":"complete","operation":"destroy","success":true}\n\n' in body
+
+
+def test_google_provider_alias_is_normalized_to_gcp_in_deploy_response():
+    context = MagicMock(name="deployment_context")
+
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_project_context"),
+        patch.object(deployment, "create_context", return_value=context) as mock_create_context,
+        patch.object(deployment.core_deployer, "deploy_all", return_value={}) as mock_deploy_all,
+    ):
+        response = deployment.deploy_all(provider="google", project_name="test_api_project")
+
+    mock_create_context.assert_called_once_with("test_api_project", "gcp")
+    mock_deploy_all.assert_called_once_with(context, "gcp")
+    assert response["provider"] == "gcp"
+
+
+def test_validate_provider_rejects_unknown_provider_with_stable_400():
+    with pytest.raises(HTTPException) as exc_info:
+        validate_provider("oracle")
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Invalid provider 'oracle'. Valid providers are: aws, azure, gcp, google"
+
+
+def test_active_project_mismatch_remains_conflict():
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(
+            deployment,
+            "validate_project_context",
+            side_effect=HTTPException(status_code=409, detail="project mismatch"),
+        ),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            deployment.deploy_all(provider="aws", project_name="test_api_project")
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "project mismatch"
+
+
+def test_facade_failure_maps_to_500_without_leaking_exception_detail():
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_project_context"),
+        patch.object(deployment, "create_context", return_value=MagicMock()),
+        patch.object(deployment.core_deployer, "deploy_all", side_effect=RuntimeError("secret stack detail")),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            deployment.deploy_all(provider="aws", project_name="test_api_project")
+
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "Deployment operation failed. Check logs."
+    assert "secret stack detail" not in exc_info.value.detail

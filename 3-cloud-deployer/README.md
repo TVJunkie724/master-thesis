@@ -343,6 +343,48 @@ Supported providers are `aws`, `azure`, `gcp`, and `google` as a compatibility a
 
 ---
 
+## Deployment Contracts
+
+Deploy and destroy endpoints return stable JSON contracts. Existing compatibility keys remain present.
+
+Deploy response:
+
+```json
+{
+  "message": "Core and IoT services deployed successfully",
+  "status": "success",
+  "operation": "deploy",
+  "project_name": "template",
+  "provider": "aws",
+  "terraform_outputs": {}
+}
+```
+
+Destroy response:
+
+```json
+{
+  "message": "Core and IoT services destroyed successfully",
+  "status": "success",
+  "operation": "destroy",
+  "project_name": "template",
+  "provider": "aws"
+}
+```
+
+SSE stream events are JSON payloads. Log lines are emitted as `data:` events; terminal events keep named `complete` and `error` events:
+
+```text
+data: {"event":"log","operation":"deploy","message":"terraform init"}
+
+event: complete
+data: {"event":"complete","operation":"deploy","success":true,"outputs":{}}
+```
+
+Provider values are normalized at the API boundary. `google` is accepted as an inbound alias and returned as canonical `gcp`.
+
+---
+
 ## API Endpoints
 
 ### Deployment Endpoints
