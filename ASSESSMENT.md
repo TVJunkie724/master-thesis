@@ -288,22 +288,28 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 
 ---
 
-### Phase 2: Deployer Context und Error Taxonomy
+### Phase 2: Deployer Contract Hardening
 
-**Ziel:** Deployer-Flows sind request-/deployment-scoped und fehlerdiagnostisch klar.
+**Ziel:** Der canonical Deployer-Pfad bekommt stabile, typisierte Deploy-/Destroy-Contracts, zentrale Path Resolution, ein klares SSE-Event-Schema und eine erste route-nahe Error Boundary.
+
+**Implementation Plan:** [`3-cloud-deployer/implementation_plans/2026-04-25_16-11_deployer_contract_hardening.md`](3-cloud-deployer/implementation_plans/2026-04-25_16-11_deployer_contract_hardening.md)
 
 **Reihenfolge:**
 
-1. `src/core/state.py` durch expliziten `DeploymentContext` ersetzen.
-2. API-Endpoints bekommen Projekt-/Twin-Kontext aus Request oder Pfad, nicht aus globalem Zustand.
-3. Credential-Checker und Deployment-Services akzeptieren explizite Context-Objekte.
-4. Breite `except Exception`-Blöcke nach und nach durch konkrete Exceptions ersetzen.
-5. Zentrale Error-Taxonomie definieren und in API-Responses mappen.
+1. Deploy-/Destroy-Request- und Result-Contracts definieren.
+2. Streaming-Events fuer Deploy/Destroy typisieren.
+3. Provider-Normalisierung zentralisieren (`google` als Alias, intern `gcp`).
+4. Deployment-Pfade ueber einen zentralen Resolver statt in Routes konstruieren.
+5. Deployment-Routes als reine HTTP-Adapter auf Contract Mapping reduzieren.
+6. Invalid Provider, Active-Project-Konflikt und Facade-Failures testbar mappen.
 
 **Exit-Kriterien:**
 
-- Kein produktiver Request hängt am globalen Active Project.
-- Fehler sind nach Validierung, Credentials, Provider, Terraform und transienten Integrationsfehlern unterscheidbar.
+- Deploy/Destroy response shapes sind stabil, getestet und kompatibel.
+- SSE event shapes sind stabil und getestet.
+- Deployment-Routes bauen keine `/app/upload/{project}`-Pfade mehr manuell.
+- Fehler am Deployment-API-Rand sind mindestens nach Validation, Project Conflict und Deployment Failure unterscheidbar.
+- Die vollstaendige Entfernung globaler Active-Project-Zustaende bleibt als eigener Folgeschritt sichtbar, falls sie nicht ohne Scope Creep in diese Phase passt.
 
 ---
 
@@ -380,7 +386,7 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 |-------------|-------|---------------------|
 | 0 | Assessment bereinigen | Ohne aktuelle Quelle der Wahrheit arbeitet man gegen historische Befunde. |
 | 1 | Deployer canonical path | Blockiert die meisten anderen Deployer- und Multi-Cloud-Refactorings. |
-| 2 | Deployer context/errors | Baut direkt auf dem canonical path auf und stabilisiert Cloud-Flows. |
+| 2 | Deployer contract hardening | Baut direkt auf dem canonical path auf und stabilisiert Cloud-Flows. |
 | 3 | Backend Orchestrator | Management API ist die zentrale Integrationsschicht; danach werden Clients und States klar. |
 | 4 | Brain Layer Contracts | Verbessert Optimizer-Erweiterbarkeit und Ergebnisqualität. |
 | 5 | Flutter Slicing | Wichtig, aber weniger systemisch riskant als Deployer/Backend. |
