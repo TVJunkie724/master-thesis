@@ -153,6 +153,16 @@ def test_rejects_unsupported_auth_type_for_provider(authenticated_client):
     assert response.status_code == 422
 
 
+def test_rejects_gcp_connection_without_service_account_json(authenticated_client):
+    client, headers = authenticated_client
+    payload = _gcp_request()
+    payload["gcp"].pop("service_account_json")
+
+    response = client.post("/cloud-connections/", json=payload, headers=headers)
+
+    assert response.status_code == 422
+
+
 def test_gcp_summary_extracts_service_account_email(authenticated_client):
     client, headers = authenticated_client
 
@@ -226,3 +236,34 @@ def test_validate_cloud_connection_persists_invalid_status(authenticated_client,
     assert data["valid"] is False
     assert data["validation_status"] == "invalid"
     assert data["message"] == "optimizer ok | missing permission"
+
+
+def test_validate_cloud_connection_redacts_downstream_secret_echo(authenticated_client, db_session, monkeypatch):
+    client, headers = authenticated_client
+    secret = _aws_request()["aws"]["secret_access_key"]
+    created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()
+
+    async def fake_validate(provider, optimizer_creds, deployer_creds):
+        return {
+            "provider": provider,
+            "valid": False,
+            "optimizer": {"valid": False, "message": f"bad credential {optimizer_creds['aws_access_key_id']}"},
+            "deployer": {"valid": False, "message": f"bad secret {secret}", "echoed_secret": secret},
+        }
+
+    monkeypatch.setattr(
+        "src.api.routes.cloud_connections.perform_dual_validation",
+        fake_validate,
+    )
+
+    response = client.post(f"/cloud-connections/{created['id']}/validate", headers=headers)
+
+    assert response.status_code == 200
+    response_text = response.text
+    assert secret not in response_text
+    assert "AKIAIOSFODNN7EXAMPLE" not in response_text
+    assert "[REDACTED]" in response_text
+
+    stored = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
+    assert secret not in stored.validation_message
+    assert "AKIAIOSFODNN7EXAMPLE" not in stored.validation_message

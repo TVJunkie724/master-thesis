@@ -12,7 +12,7 @@ from src.schemas.cloud_connection import (
     CloudConnectionValidationResponse,
 )
 from src.services.cloud_connection_service import CloudConnectionService
-from src.services.cloud_credential_validation_service import perform_dual_validation
+from src.services.cloud_credential_validation_service import perform_dual_validation, redact_validation_result
 
 router = APIRouter(prefix="/cloud-connections", tags=["cloud-connections"])
 
@@ -145,11 +145,14 @@ async def validate_cloud_connection(
     if not connection:
         raise HTTPException(status_code=404, detail="Cloud connection not found")
 
+    optimizer_creds = service.build_optimizer_credentials(connection, current_user.id)
+    deployer_creds = service.build_deployer_credentials(connection, current_user.id)
     result = await perform_dual_validation(
         connection.provider,
-        service.build_optimizer_credentials(connection, current_user.id),
-        service.build_deployer_credentials(connection, current_user.id),
+        optimizer_creds,
+        deployer_creds,
     )
+    result = redact_validation_result(result, optimizer_creds, deployer_creds)
     service.record_validation_result(connection, result)
     return CloudConnectionValidationResponse(
         id=connection.id,

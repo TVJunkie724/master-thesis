@@ -43,6 +43,8 @@ class CloudConnectionCreate(BaseModel):
         }
         if self.auth_type and self.auth_type not in supported_auth_types[self.provider]:
             raise ValueError(f"{self.auth_type} is not supported for {self.provider} Cloud Connections yet")
+        if self.provider == "gcp" and self.gcp and not self.gcp.service_account_json:
+            raise ValueError("gcp service_account_json is required for service_account_key Cloud Connections")
         return self
 
 
