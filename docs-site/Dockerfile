@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /docs
 
-RUN pip install --no-cache-dir mkdocs==1.6.1
+RUN pip install --no-cache-dir mkdocs==1.6.1 mkdocs-material==9.5.49
 
 EXPOSE 8000
 
