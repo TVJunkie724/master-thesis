@@ -83,6 +83,8 @@ Das Repository trennt aktive Produktpfade, versionierte Templates, Runtime-Artef
 
 **Konzept:** [`docs/plans/2026-04-26_repository_hygiene_documentation_architecture.md`](docs/plans/2026-04-26_repository_hygiene_documentation_architecture.md)
 
+**Cleanup Plan:** [`docs/plans/2026-04-26_repository_hygiene_cleanup_plan.md`](docs/plans/2026-04-26_repository_hygiene_cleanup_plan.md)
+
 ---
 
 ### P0-3: Runtime, Credentials und Deployment State ohne klare Source of Truth
@@ -370,6 +372,8 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 
 **Konzept:** [`docs/plans/2026-04-26_repository_hygiene_documentation_architecture.md`](docs/plans/2026-04-26_repository_hygiene_documentation_architecture.md)
 
+**Cleanup Plan:** [`docs/plans/2026-04-26_repository_hygiene_cleanup_plan.md`](docs/plans/2026-04-26_repository_hygiene_cleanup_plan.md)
+
 **Reihenfolge:**
 
 1. README-/Docs-/HTML-/Implementation-Plan-Inventar erstellen.
@@ -507,7 +511,7 @@ Diese Punkte sind im aktuellen Workspace nicht mehr als offene Architektur-Schul
 - `2-twin2clouds/backend/deprecated_calculation/` ist nicht vorhanden.
 - `twin2multicloud_backend/main.py` und `twin2multicloud_backend/rest_api.py` sind nicht vorhanden; echter Entry-Point ist `twin2multicloud_backend/src/main.py`.
 - Das Management API hat kein Root-`services/` neben `src/services`; sichtbar ist `twin2multicloud_backend/src/services`.
-- Brain Implementation Plans liegen vollständig im Archive; Deployer hat 68 archivierte und 2 top-level persistente Referenzdokumente.
+- Historische Implementation Plans sind jetzt Teil von P0-2 Repository Hygiene und nicht mehr als erledigte Bereinigung klassifiziert.
 
 Hinweis: Doppelte GCP-Credential-Dateien und Repo-Root-Credential-Mounts sind wieder als offene Schuld in P0-3 sichtbar und nicht mehr als erledigt klassifiziert.
 

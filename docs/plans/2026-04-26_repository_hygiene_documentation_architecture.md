@@ -4,6 +4,8 @@
 **Scope:** Repository root, `3-cloud-deployer`, `docs`, README files, historical implementation plans
 **Status:** Konzept / Zielarchitektur
 
+**Cleanup Plan:** [`2026-04-26_repository_hygiene_cleanup_plan.md`](2026-04-26_repository_hygiene_cleanup_plan.md)
+
 ---
 
 ## 1. Ziel
