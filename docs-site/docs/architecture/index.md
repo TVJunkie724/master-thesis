@@ -1,20 +1,18 @@
 # Architecture
 
-This section will hold the canonical architecture documentation for the platform.
+This section is the canonical entry point for Twin2MultiCloud architecture documentation.
 
-Initial migration targets:
+Start here:
 
-- system overview and 5-layer Digital Twin architecture,
-- component responsibilities for Flutter, Management API, Optimizer, and Deployer,
-- repository hygiene and documentation architecture,
+- [Platform Overview](platform-overview.md)
+- [Architecture Roadmap](roadmap.md)
+- [Repository Hygiene](repository-hygiene.md)
+
+Upcoming migration targets:
+
 - runtime credentials and deployment state hardening,
 - backend orchestration boundaries,
-- frontend architecture and state-management boundaries.
+- frontend architecture and state-management boundaries,
+- canonical API and SSE event contracts.
 
-Source material during migration:
-
-- `integration_vision.md`
-- `ASSESSMENT.md`
-- `FRONTEND_ARCHITECTURE.md`
-- `docs/plans/`
-- service-local architecture pages under `2-twin2clouds/docs/` and `3-cloud-deployer/docs/`
+Source material during migration remains available in `integration_vision.md`, `ASSESSMENT.md`, `FRONTEND_ARCHITECTURE.md`, `docs/plans/`, and service-local documentation directories.
