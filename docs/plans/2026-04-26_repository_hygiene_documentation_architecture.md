@@ -79,10 +79,13 @@ docs-site/
     user-guide/
     cloud-setup/
     api/
+    references/
     archive/
 ```
 
 `docs-site/` ist die vollstaendige Quelle der publizierten Website. Der Docs-Container mountet und liest nur diesen Ordner. Projektlokale Dokumentation darf als Entwicklernotiz, historische Originalquelle oder Uebergangsduplikat bestehen bleiben, ist aber nicht die Quelle der publizierten Website.
+
+Referenz-PDFs sind Teil der publizierten Dokumentation, keine Altlast. Das EDTConf'25 Paper `EDT_25__CloudDT_engineering.pdf` und die Deployer-Thesis `bachelor_digital_twins.pdf` werden in `docs-site/docs/references/` uebernommen und dort stabil verlinkt. Bestehende Kopien in `2-twin2clouds/docs/references/`, `3-cloud-deployer/docs/references/` oder im Repository-Root duerfen erst entfernt werden, wenn alle Links auf die zentrale Docs-Site zeigen und die Dateien identisch verifiziert wurden.
 
 Compose-Ziel:
 

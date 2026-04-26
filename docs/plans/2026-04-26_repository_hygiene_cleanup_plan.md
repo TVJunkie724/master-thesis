@@ -51,6 +51,8 @@ Diese Dateien/Strukturen bleiben aktive Quellen:
 - `docs/plans/2026-04-26_repository_hygiene_cleanup_plan.md`
 - `docs/plans/2026-04-26_runtime_credentials_deployment_state_hardening.md`
 - `twin2multicloud-latex/**` as the active thesis source
+- `EDT_25__CloudDT_engineering.pdf` and referenced copies under service docs as the EDTConf'25 paper source
+- `3-cloud-deployer/docs/references/bachelor_digital_twins.pdf` as referenced Deployer thesis source
 - `3-cloud-deployer/implementation_plans/2026-04-24_14-40_deployer_architecture_canonicalization.md`
 - `3-cloud-deployer/implementation_plans/2026-04-25_16-11_deployer_contract_hardening.md`
 - `twin2multicloud_backend/implementation_plans/2026-04-26_10-18_backend_orchestrator_disentanglement.md`
@@ -167,6 +169,24 @@ docs-site/
   mkdocs.yml
   docs/
 ```
+
+Reference PDFs are not legacy trash. Copy the currently referenced scientific sources into the Docs Site and keep stable links:
+
+```text
+docs-site/docs/references/EDT_25__CloudDT_engineering.pdf
+docs-site/docs/references/bachelor_digital_twins.pdf
+```
+
+Existing copies may remain during transition:
+
+```text
+EDT_25__CloudDT_engineering.pdf
+2-twin2clouds/docs/references/EDT_25__CloudDT_engineering.pdf
+3-cloud-deployer/docs/references/EDT_25__CloudDT_engineering.pdf
+3-cloud-deployer/docs/references/bachelor_digital_twins.pdf
+```
+
+After the Docs Site is canonical, duplicate PDF locations may be removed only after every documentation link points to `docs-site/docs/references/` and the files are verified to be identical. Do not delete the EDTConf'25 paper or the Deployer thesis PDF as part of generic documentation cleanup.
 
 Migrate or rewrite these 57 HTML pages into Markdown pages in the MkDocs site.
 
