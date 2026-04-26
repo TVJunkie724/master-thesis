@@ -1,22 +1,28 @@
 # Aktuelle Architektur-Schulden und Refactoring-Roadmap
 
-**Datum:** 2026-04-24
+**Datum:** 2026-04-26
 **Scope:** `2-twin2clouds` (Brain), `3-cloud-deployer` (Muscle), `twin2multicloud_backend` + `twin2multicloud_flutter` (Orchestrator)
 **Ziel:** Alle gravierenden Architektur-Schulden benennen, nach Risiko priorisieren und eine Roadmap definieren, um sie schrittweise aufzulösen.
 
-Dieses Dokument beschreibt nur den **aktuellen Befund**. Bereits erledigte Altlasten wie `2-twin2clouds/backend/deprecated_calculation/`, doppelte Backend-Entry-Points im Management API, `google-credentials.json` als Duplikat von `gcp_credentials.json`, und archivierte alte Implementation Plans sind hier nicht mehr als offene Findings enthalten.
+Dieses Dokument beschreibt nur den **aktuellen Befund**. Bereits erledigte Altlasten wie `2-twin2clouds/backend/deprecated_calculation/`, doppelte Backend-Entry-Points im Management API und archivierte alte Implementation Plans sind hier nicht mehr als offene Findings enthalten.
 
 ---
 
 ## 0. Kurzurteil
 
-Das System ist ein funktionierender Research-Prototyp mit einem tragfähigen Kern: Optimizer, Deployer, Management API und Flutter UI greifen grundsätzlich ineinander. Die größten Risiken liegen nicht mehr in fehlenden Dateien oder totem Code, sondern in **uneindeutigen Architektur-Grenzen**, **zu großen Verantwortlichkeits-Clustern** und **nicht gekapselten Integrationspunkten**.
+Das System ist ein funktionierender Research-Prototyp mit einem tragfähigen Kern: Optimizer, Deployer, Management API und Flutter UI greifen grundsätzlich ineinander. Die größten Risiken liegen nicht mehr in fehlenden Dateien oder totem Code, sondern in **uneindeutigen Architektur-Grenzen**, **zu großen Verantwortlichkeits-Clustern**, **nicht gekapselten Integrationspunkten** und **unklarer Credential-/Runtime-Ownership**.
 
 Die erste Schuld, die gelöst werden sollte, ist technisch umgesetzt und Docker-verifiziert:
 
 > **P0: Deployer-Dual-Hierarchie auflösen (`3-cloud-deployer/src/aws/` vs. `3-cloud-deployer/src/providers/aws/`).**
 
-Diese Schuld blockiert fast alle anderen sauberen Refactorings im Deployer: Provider-Strategy, Terraform-Flows, Tests, Fehlerbehandlung, Credentials und Multi-Cloud-Verhalten. Die Phase-1-Implementierung konsolidiert den produktiven Pfad auf `src/providers/*` + `TerraformDeployerStrategy` und ist Docker-verifiziert; der Audit-Review bleibt als Gate offen.
+Diese Schuld blockierte fast alle anderen sauberen Refactorings im Deployer. Die Phase-1-Implementierung konsolidiert den produktiven Pfad auf `src/providers/*` + `TerraformDeployerStrategy` und ist Docker-verifiziert.
+
+Der nächste priorisierte Architekturblock ist:
+
+> **P0: Runtime, Credentials & Deployment State Hardening.**
+
+Dieser Block trennt Dev-/Demo-/Cloud-Runtime, macht Cloud Connections zur user-scoped Credential Source of Truth, entfernt Admin-Credentials aus Persistenz und entkoppelt Flutter User Intent von Deployer-/Terraform-Dateistrukturen.
 
 ---
 
@@ -25,9 +31,9 @@ Diese Schuld blockiert fast alle anderen sauberen Refactorings im Deployer: Prov
 | Projekt | Aktueller Architekturzustand | Größtes Risiko |
 |---------|------------------------------|----------------|
 | `2-twin2clouds` | Funktionsfähiger Optimizer mit guter Price-Fetcher-Factory, aber duplizierter Layer-Logik und vielen Raw-Dicts. | Provider-/Layer-Kalkulation ist schwer erweiterbar und fehleranfällig. |
-| `3-cloud-deployer` | Phase-1-Konsolidierung auf `src/providers/*` + `TerraformDeployerStrategy` ist umgesetzt und Docker-verifiziert; globale Projektzustände und sehr große API-/Validation-Module bleiben. | Expliziter Deployment Context und kleinere API-/Validation-Module. |
-| `twin2multicloud_backend` | Management API ist der richtige Orchestrator, aber `twins.py` bündelt CRUD, State Machine, Upload, Deployment, SSE und Test-Flows. | Business-Logik steckt in Routes statt in Services/Domain. |
-| `twin2multicloud_flutter` | UI nutzt Riverpod, BLoC, Dio und `go_router`; funktional, aber mit großen Smart Widgets/BLoCs und hardcoded Dev-Auth. | Wizard- und Twin-Views sind schwer testbar und schwer evolutionär zu ändern. |
+| `3-cloud-deployer` | Phase-1-Konsolidierung auf `src/providers/*` + `TerraformDeployerStrategy` ist umgesetzt und Docker-verifiziert; globale Projektzustände, statische Credential-Dateipfade und sehr große API-/Validation-Module bleiben. | Expliziter Deployment Context, isolierte Deployment Workspaces und kleinere API-/Validation-Module. |
+| `twin2multicloud_backend` | Management API ist der richtige Orchestrator, aber `twins.py` bündelt CRUD, State Machine, Upload, Deployment, SSE und Test-Flows; Credential- und Deployment-State-Ownership sind noch nicht sauber getrennt. | Business-Logik steckt in Routes statt in Services/Domain; Credentials brauchen eine CloudConnection-Domain. |
+| `twin2multicloud_flutter` | UI nutzt Riverpod, BLoC, Dio und `go_router`; funktional, aber mit großen Smart Widgets/BLoCs und hardcoded Dev-Auth. | Wizard- und Twin-Views sind schwer testbar; Credential-Auswahl und Twin-Konfiguration muessen als User Intent statt Deployer-Config modelliert werden. |
 
 ---
 
@@ -58,7 +64,29 @@ Diese Schuld war gravierend, weil es keinen eindeutigen canonical path für Depl
 
 ---
 
-### P0-2: Backend God-Route und fehlende Service-/Domain-Schicht
+### P0-2: Runtime, Credentials und Deployment State ohne klare Source of Truth
+
+**Befund:**
+Die lokale Runtime, Cloud-Credentials und generierte Deployment-Artefakte sind noch nicht sauber getrennt:
+
+- `compose.yaml` mountet Credential-Dateien aus dem Repo-Root in mehrere Container.
+- `README.md` dokumentiert aktuell parallele GCP-Dateien fuer verschiedene Services.
+- Der Management API Seed-Pfad liest Credentials aus gemounteten Dateien.
+- Der Backend-Deployment-Service schreibt `config_credentials.json` und `gcp_credentials.json` in Deployment-ZIPs.
+- Der Deployer hat historisch `upload/template` und Projektordner als Credential-/Config-Transport genutzt.
+- Flutter modelliert Credential- und Deployer-Konfiguration noch zu nah am Deployment-Dateiformat.
+
+**Warum gravierend:**
+Credentials sind ein systemweiter Architekturvertrag, kein lokales Dateidetail. Solange Repo-Dateien, Docker-Mounts, Upload-Templates, DB-Felder und Deployer-Workspaces alle potenziell Credential-Quellen sind, gibt es keine klare Security Boundary. Das blockiert Least Privilege, sichere Bootstrap-Flows, saubere DB-Migrationen und eine verstaendliche Flutter-Konfiguration.
+
+**Zielbild:**
+Die Management API verwaltet user-scoped `CloudConnection`-Ressourcen als einzige fachliche Credential Source of Truth. Admin-Credentials werden nur fuer Bootstrap verwendet und nie persistiert. Twins referenzieren Cloud Connections. Flutter sendet User Intent. Der Deployer erhaelt pro Deployment ein canonical `DeploymentManifest` plus Runtime Credential Context und materialisiert nur ephemere, isolierte Deployment Workspaces.
+
+**Konzept:** [`docs/plans/2026-04-26_runtime_credentials_deployment_state_hardening.md`](docs/plans/2026-04-26_runtime_credentials_deployment_state_hardening.md)
+
+---
+
+### P0-3: Backend God-Route und fehlende Service-/Domain-Schicht
 
 **Befund:**
 `twin2multicloud_backend/src/api/routes/twins.py` hat 1 725 LOC und bündelt:
@@ -94,7 +122,7 @@ Routes sind dünne HTTP-Adapter. Domain-/Service-Schichten übernehmen:
 
 ---
 
-### P0-3: Globale Projektzustände im Deployer
+### P0-4: Globale Projektzustände im Deployer
 
 **Befund:**
 Der Deployer nutzt `src/core/state.py` als globalen Active-Project-Zustand. Mehrere API-Module und Tests lesen `state.get_active_project()`.
@@ -198,6 +226,8 @@ Dazu strukturierte Logs, Correlation IDs und zentrale Retry-Policies an Integrat
 ### P2-1: Dev-/Test-Konfiguration ist zu nah am Default-Pfad
 
 **Befund:**
+Dieser Punkt ist ein Teilaspekt von P0-2 und bleibt hier nur als sichtbare UI-/Runtime-Symptomatik stehen.
+
 `compose.yaml` setzt aktuell:
 
 - `JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key}`
@@ -214,7 +244,7 @@ Getrennte Compose-/Env-Profile:
 
 - `compose.dev.yaml`
 - `compose.demo.yaml`
-- optional `compose.prod-like.yaml`
+- `compose.cloud.yaml`
 
 Dev-Auth und Test-Deploys werden explizit eingeschaltet, nie implizit.
 
@@ -313,7 +343,34 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 
 ---
 
-### Phase 3: Backend Orchestrator entflechten
+### Phase 3: Runtime, Credentials & Deployment State Hardening
+
+**Ziel:** Dev-/Demo-/Cloud-Runtime, Credential Source of Truth, Deployment Manifest und generierte Deployment Workspaces werden als ein zusammenhängender Architekturblock geklärt.
+
+**Konzept:** [`docs/plans/2026-04-26_runtime_credentials_deployment_state_hardening.md`](docs/plans/2026-04-26_runtime_credentials_deployment_state_hardening.md)
+
+**Reihenfolge:**
+
+1. Roadmap, README und Guardrails auf Credential-SSOT und Compose-Split ausrichten.
+2. `compose.yaml` in Basis, Dev, Demo und Cloud-Integration trennen.
+3. `CloudConnection`-Domain in der Management API definieren.
+4. Admin-Credentials als transienten Bootstrap-Input modellieren; nur begrenzte Deployment-Identitaeten persistieren.
+5. Statische Bootstrap-Artefakte fuer AWS, GCP und Azure versionieren.
+6. Backend erzeugt canonical `DeploymentManifest`; Deployer materialisiert isolierte Workspaces pro Deployment.
+7. Flutter waehlt Cloud Connections und sendet User Intent, keine Deployer-Dateiformate.
+
+**Exit-Kriterien:**
+
+- Default-Compose startet ohne echte Cloud-Credentials.
+- Echte Cloud-Integration ist explizit ueber ein Cloud-Profil aktivierbar.
+- Keine Admin-Credentials werden persistiert.
+- Keine echten Credentials liegen in Repo-Root-Dateien, Upload-Templates oder langfristigen Deployer-Projektordnern.
+- Twins referenzieren Cloud Connections statt Credential-Payloads.
+- Deployment Workspaces sind ephemer, isoliert und aus DB + Artefakten + Terraform-Modulen rekonstruierbar.
+
+---
+
+### Phase 4: Backend Orchestrator entflechten
 
 **Ziel:** Management API-Routes werden dünn; Orchestrierung wandert in Services.
 
@@ -336,7 +393,7 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 
 ---
 
-### Phase 4: Brain Layer Contracts und Pricing Reliability
+### Phase 5: Brain Layer Contracts und Pricing Reliability
 
 **Ziel:** Provider-Berechnungen werden konsistent und erweiterbar.
 
@@ -357,7 +414,7 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 
 ---
 
-### Phase 5: Flutter Wizard und Twin Views slicen
+### Phase 6: Flutter Wizard und Twin Views slicen
 
 **Ziel:** UI-State wird testbar und Feature-bezogen.
 
@@ -389,9 +446,10 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 | 0 | Assessment bereinigen | Ohne aktuelle Quelle der Wahrheit arbeitet man gegen historische Befunde. |
 | 1 | Deployer canonical path | Blockiert die meisten anderen Deployer- und Multi-Cloud-Refactorings. |
 | 2 | Deployer contract hardening | Baut direkt auf dem canonical path auf und stabilisiert Cloud-Flows. |
-| 3 | Backend Orchestrator | Management API ist die zentrale Integrationsschicht; danach werden Clients und States klar. |
-| 4 | Brain Layer Contracts | Verbessert Optimizer-Erweiterbarkeit und Ergebnisqualität. |
-| 5 | Flutter Slicing | Wichtig, aber weniger systemisch riskant als Deployer/Backend. |
+| 3 | Runtime, Credentials & Deployment State | Muss vor tiefer Flutter-/DB-/Deployment-Arbeit geklaert werden, damit Credentials, Compose-Profile und Deployment-Artefakte nicht weiter historisch wachsen. |
+| 4 | Backend Orchestrator | Management API ist die zentrale Integrationsschicht; nach Credential-SSOT werden Clients, States und Manifeste klar. |
+| 5 | Brain Layer Contracts | Verbessert Optimizer-Erweiterbarkeit und Ergebnisqualität. |
+| 6 | Flutter Slicing | Wichtig, aber nach Credential-SSOT gezielter: Flutter kann dann User Intent und CloudConnection-Auswahl statt Deployer-Dateiformate modellieren. |
 
 ---
 
@@ -402,8 +460,9 @@ Diese Punkte sind im aktuellen Workspace nicht mehr als offene Architektur-Schul
 - `2-twin2clouds/backend/deprecated_calculation/` ist nicht vorhanden.
 - `twin2multicloud_backend/main.py` und `twin2multicloud_backend/rest_api.py` sind nicht vorhanden; echter Entry-Point ist `twin2multicloud_backend/src/main.py`.
 - Das Management API hat kein Root-`services/` neben `src/services`; sichtbar ist `twin2multicloud_backend/src/services`.
-- `google-credentials.json` ist nicht vorhanden; `gcp_credentials.json` bleibt als einzelne GCP-Datei neben `config_credentials.json`.
 - Brain Implementation Plans liegen vollständig im Archive; Deployer hat 68 archivierte und 2 top-level persistente Referenzdokumente.
+
+Hinweis: Doppelte GCP-Credential-Dateien und Repo-Root-Credential-Mounts sind wieder als offene Schuld in P0-2 sichtbar und nicht mehr als erledigt klassifiziert.
 
 ---
 
@@ -434,6 +493,11 @@ rg -n "src\.aws|import aws|from aws|TerraformDeployerStrategy|CloudProvider|stat
 # Backend-Orchestrator-Schulden
 rg -n "db\.query|httpx\.AsyncClient|ENABLE_TEST_ENDPOINTS|test-deploy|test-destroy" \
   twin2multicloud_backend/src/api/routes twin2multicloud_backend/src/services
+
+# Credential-/Runtime-Schulden
+find . -maxdepth 3 -type f \( -name '*credentials*.json' -o -name '*credential*.json' \) -print
+rg -n "config_credentials|gcp_credentials|google-credentials|SEED_CREDENTIALS_FILE|SEED_GCP_CREDENTIALS_FILE|upload/template|DeploymentManifest|CloudConnection" \
+  compose*.yaml README.md ASSESSMENT.md twin2multicloud_backend 3-cloud-deployer twin2multicloud_flutter
 
 # Frontend-Dev-Auth und interne URLs
 rg -n "dev-token|ENABLE_TEST_ENDPOINTS|localhost:5003|localhost:5004|flutter_bloc|riverpod|go_router" \
