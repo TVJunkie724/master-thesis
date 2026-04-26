@@ -317,6 +317,8 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 
 **Ziel:** Management API-Routes werden dünn; Orchestrierung wandert in Services.
 
+**Implementation Plan:** [`twin2multicloud_backend/implementation_plans/2026-04-26_10-18_backend_orchestrator_disentanglement.md`](twin2multicloud_backend/implementation_plans/2026-04-26_10-18_backend_orchestrator_disentanglement.md)
+
 **Reihenfolge:**
 
 1. `TwinRepository` einführen und schrittweise `db.query(...)` aus Routes ziehen.
