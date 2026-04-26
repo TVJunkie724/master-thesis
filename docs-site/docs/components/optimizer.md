@@ -23,10 +23,28 @@ The provider-layer mapping is used to reason about which services can satisfy ea
 
 ![Provider layer mapping](../references/diagrams/provider_layer_mapping_1763756000144.png)
 
-Current architecture direction:
+## Cost Optimization Flow
+
+The optimizer evaluates possible provider assignments for the five Digital Twin layers. It combines layer-specific service mappings, provider capability rules, pricing data, and cross-cloud transfer assumptions. The important thesis behavior is not only the final cheapest provider, but the explanation of why a layer was mapped to a provider.
+
+The original docs describe the optimizer as a decision graph: each layer/provider choice becomes a candidate node, edges represent valid transitions and transfer costs, and the cheapest path through the graph becomes the recommendation. That model is still the right mental model for the thesis platform.
+
+## Pricing Data
+
+| Provider | Pricing source | Credential behavior |
+|----------|----------------|---------------------|
+| AWS | AWS Price List API | read-only pricing credentials are enough for optimizer pricing fetches |
+| Azure | Azure Retail Prices API | public pricing data can be fetched without the same credential burden |
+| GCP | Cloud Billing Catalog API | service account/project setup may be required depending on fetch path |
+
+Pricing freshness and fetch errors must be visible because stale or partial pricing data changes the quality of the recommendation.
+
+## Implementation Notes
 
 - one canonical `LayerResult` model,
 - shared layer calculator contracts,
 - explicit provider capability modeling,
 - visible pricing freshness and fetch errors,
 - versioned pricing schema.
+
+The optimizer remains a calculation service. It should not deploy resources, own user state, or assume that a recommendation has already been accepted by the user.

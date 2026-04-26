@@ -14,6 +14,17 @@ The original Twin2Clouds documentation grouped tests by the part of the cost eng
 | Pricing fetcher tests | Verify cloud pricing API parsing and fallback behavior. |
 | API tests | Verify FastAPI endpoints and response shapes. |
 
+## Deployer Test Boundary
+
+The Deployer has a separate risk profile because some tests can reach real cloud providers. The useful split is:
+
+| Category | Purpose |
+|----------|---------|
+| Unit tests | Validate configuration, path handling, provider helpers, and packaging logic without cloud access. |
+| Mocked integration tests | Exercise provider behavior with mocked SDKs such as moto for AWS. |
+| Validation tests | Check uploaded project structures, config files, function code, state machines, simulator payloads, and complete deployer input. |
+| E2E tests | Deploy or destroy real cloud resources and must only run intentionally. |
+
 ## Safe Commands
 
 Unit and integration tests are safe to run locally:

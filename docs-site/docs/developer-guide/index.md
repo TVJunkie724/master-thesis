@@ -54,13 +54,3 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest 
 ```
 
 See [Testing](testing.md) for the migrated optimizer testing categories and the safe command split.
-
-## Internal Maintenance Check
-
-The repository has a report-only hygiene check for local transition artifacts:
-
-```bash
-python3 scripts/check_repo_hygiene.py
-```
-
-This is an internal maintenance aid, not part of the conceptual thesis documentation.

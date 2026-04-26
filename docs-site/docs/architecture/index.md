@@ -1,6 +1,6 @@
 # Architecture
 
-This section is the canonical entry point for Twin2MultiCloud architecture documentation.
+This section explains how the integrated Twin2MultiCloud platform is structured and why the current architecture differs from the original bachelor-project codebases.
 
 Start here:
 
@@ -8,13 +8,10 @@ Start here:
 - [Project Background](project-background.md)
 - [Architecture Roadmap](roadmap.md)
 
-Upcoming migration targets:
+The architecture documentation has three jobs:
 
-- runtime credentials and deployment state hardening,
-- backend orchestration boundaries,
-- frontend architecture and state-management boundaries,
-- canonical API and SSE event contracts,
-- cloud setup guides from the original service documentation,
-- implementation differences to the original bachelor projects.
+- show the target service boundaries between UI, Management API, Optimizer, and Deployer,
+- preserve the thesis-relevant reasoning behind those boundaries,
+- make remaining architecture debt explicit without treating historical code paths as current design.
 
-Source material during migration remains available in `integration_vision.md`, `ASSESSMENT.md`, `FRONTEND_ARCHITECTURE.md`, `docs/plans/`, and service-local documentation directories.
+Detailed cloud setup and API pages are migrated into this site as they become part of the current implementation. Until then, service-local documentation remains historical source material, not a competing source of truth.

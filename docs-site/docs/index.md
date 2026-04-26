@@ -10,19 +10,20 @@ Twin2MultiCloud combines:
 - the Cloud Deployer as infrastructure executor,
 - the thesis source in LaTeX.
 
-The documentation is intentionally centralized here so setup guides, architecture notes, cloud-provider instructions, roadmap decisions, and project-specific internals are easy to find.
+The documentation is intentionally centralized here so setup guides, architecture notes, cloud-provider instructions, roadmap decisions, and project-specific internals are easy to find. It replaces the scattered HTML and service-local documentation step by step, while keeping the original project context visible where it helps explain the thesis work.
 
-## Current Documentation Areas
+## How To Read This Site
 
-- **Architecture**: target architecture, cross-service responsibilities, deployment state, and roadmap decisions.
-- **Components**: Management API, Flutter UI, Optimizer, and Deployer responsibility boundaries.
-- **Runtime**: Docker profiles, credential source of truth, deployment manifests, and workspaces.
-- **Developer Guide**: local setup, service ports, verification commands, and development workflow.
-- **User Guide**: user-facing workflows for creating, configuring, deploying, and operating digital twins.
-- **Cloud Setup**: provider setup, credentials, bootstrap, and least-privilege guidance.
-- **API**: Management API, Optimizer, and Deployer contracts.
-- **References**: scientific papers and thesis PDFs referenced by the documentation.
-- **Archive**: historical docs retained for traceability after migration.
+- **Architecture** explains the integrated platform, the original bachelor-project origins, and the active debt-reduction roadmap.
+- **Components** documents what the Flutter UI, Management API, Optimizer, and Deployer are responsible for, including implementation details that differ from the original projects.
+- **Runtime** describes how the local Docker stack, generated deployment files, credentials, and deployment state fit together.
+- **Developer Guide** contains the practical local setup and safe verification commands.
+- **User Guide** follows the intended application workflow from twin creation to deployment and operation.
+- **Cloud Setup** collects provider setup, bootstrap, credentials, and least-privilege notes.
+- **API** documents the service contracts and keeps the Management API as the user-interface boundary.
+- **References** preserves the papers, thesis PDFs, diagrams, and external links used by the documentation.
+
+During the migration, some detailed provider instructions still live in the original service docs. When content moves here, it should be rewritten into the surrounding topic instead of copied as an isolated archive page.
 
 ## Local Development
 

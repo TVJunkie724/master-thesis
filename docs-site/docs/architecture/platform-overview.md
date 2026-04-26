@@ -39,7 +39,7 @@ Flutter -> Management API -> Deployer
 6. The Deployer materializes an isolated workspace and provisions cloud resources.
 7. Runtime status, logs, outputs, and verification flow back through the Management API.
 
-## Current Architecture Direction
+## Integration Direction
 
 The active roadmap is not to add more direct integrations, but to remove accidental coupling:
 
@@ -47,6 +47,6 @@ The active roadmap is not to add more direct integrations, but to remove acciden
 - credentials move into user-scoped Cloud Connections,
 - deployment workspaces become generated and ephemeral,
 - published documentation moves into `docs-site/`,
-- historical TODO/future-work files are replaced by GitHub Issues and Milestones.
+- active implementation work is tracked in GitHub Issues and Milestones.
 
 See [Architecture Roadmap](roadmap.md) for the active phase structure.

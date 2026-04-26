@@ -12,10 +12,12 @@ Responsibilities:
 
 It should not contain cloud-provider deployment logic. Provider-specific deployment behavior belongs in the Deployer.
 
-Current architecture direction:
+## Implementation Notes
 
 - split large routes into thin HTTP adapters,
 - move data access into repositories,
 - move state transitions into lifecycle services,
 - use typed Optimizer and Deployer clients,
 - centralize deployment workflows in a deployment orchestrator.
+
+This is the main difference between a quick integration backend and the intended thesis platform: the API should coordinate domain workflows without embedding optimizer algorithms or cloud-provider deployment logic in route handlers.

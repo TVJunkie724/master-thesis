@@ -12,10 +12,26 @@ Responsibilities:
 
 It should not own user lifecycle state. The Management API owns user/twin state and calls the Deployer through typed contracts.
 
-Current architecture direction:
+## Implementation Notes
 
 - keep one canonical provider/Terraform path,
 - remove or isolate legacy deployment paths,
 - replace global project state with explicit deployment context,
 - separate versioned templates from runtime upload artifacts,
 - support credential preflight checks and least-privilege bootstrap flows.
+
+Terraform remains the infrastructure execution layer, but it should be driven from explicit manifests and generated workspaces. The template directory is source material; deployment output is runtime state.
+
+## Provider Responsibilities
+
+The provider modules translate one conceptual Digital Twin deployment into provider-specific resources:
+
+| Layer | AWS examples | Azure examples | GCP examples |
+|-------|--------------|----------------|--------------|
+| Data acquisition | IoT Core | IoT Hub | Pub/Sub or HTTP ingress |
+| Processing | Lambda | Azure Functions | Cloud Functions |
+| Storage | DynamoDB, S3 | Cosmos DB, Blob Storage | Firestore, Cloud Storage |
+| Management | IoT TwinMaker | Azure Digital Twins | limited managed equivalent |
+| Visualization | Managed Grafana | Managed Grafana | limited managed equivalent |
+
+Cross-cloud boundaries require connector or wrapper functions. Those functions are part of the deployer implementation detail, while the Management API should still see one deployment workflow.
