@@ -50,6 +50,7 @@ Diese Dateien/Strukturen bleiben aktive Quellen:
 - `docs/plans/2026-04-26_repository_hygiene_documentation_architecture.md`
 - `docs/plans/2026-04-26_repository_hygiene_cleanup_plan.md`
 - `docs/plans/2026-04-26_runtime_credentials_deployment_state_hardening.md`
+- `twin2multicloud-latex/**` as the active thesis source
 - `3-cloud-deployer/implementation_plans/2026-04-24_14-40_deployer_architecture_canonicalization.md`
 - `3-cloud-deployer/implementation_plans/2026-04-25_16-11_deployer_contract_hardening.md`
 - `twin2multicloud_backend/implementation_plans/2026-04-26_10-18_backend_orchestrator_disentanglement.md`

@@ -17,6 +17,7 @@ Twin2MultiCloud braucht vor weiteren Credential-, Compose- und Deployment-State-
 - alle Markdown-Quellen der publizierten Website liegen unter `docs-site/docs`
 - alte HTML-Dokumentation wird in eine wartbare Markdown-basierte Dokumentationsseite ueberfuehrt
 - READMEs bleiben Einstiegspunkte, aber nicht die einzige Architekturquelle
+- `twin2multicloud-latex` bleibt als aktive Thesis-Quelle unveraendert bestehen
 - obsolete Dateien werden geloescht oder archiviert, statt unklar im aktiven Tree zu bleiben
 
 ---
