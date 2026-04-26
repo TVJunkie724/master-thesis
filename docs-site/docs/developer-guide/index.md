@@ -13,6 +13,8 @@ The repository contains multiple related projects:
 
 See [Project Structure](project-structure.md) for the migrated project-structure diagram and directory responsibilities.
 
+For a step-by-step local setup, use [Project Setup](setup.md).
+
 ## Local Service Ports
 
 | Service | Port |

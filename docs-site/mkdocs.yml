@@ -46,6 +46,7 @@ nav:
       - Overview: runtime/index.md
   - Developer Guide:
       - Overview: developer-guide/index.md
+      - Project Setup: developer-guide/setup.md
       - Project Structure: developer-guide/project-structure.md
       - Testing: developer-guide/testing.md
   - User Guide:
@@ -57,3 +58,4 @@ nav:
       - Overview: api/index.md
   - References:
       - Overview: references/index.md
+      - Documentation Migration Matrix: references/documentation-migration-matrix.md

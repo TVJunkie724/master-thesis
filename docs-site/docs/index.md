@@ -17,7 +17,7 @@ The documentation is intentionally centralized here so setup guides, architectur
 - **Architecture** explains the integrated platform, the original bachelor-project origins, and the active debt-reduction roadmap.
 - **Components** documents what the Flutter UI, Management API, Optimizer, and Deployer are responsible for, including implementation details that differ from the original projects.
 - **Runtime** describes how the local Docker stack, generated deployment files, credentials, and deployment state fit together.
-- **Developer Guide** contains the practical local setup and safe verification commands.
+- **Developer Guide** contains the practical project setup, service ports, and safe verification commands.
 - **User Guide** follows the intended application workflow from twin creation to deployment and operation.
 - **Cloud Setup** collects provider setup, bootstrap, credentials, and least-privilege notes.
 - **API** documents the service contracts and keeps the Management API as the user-interface boundary.
@@ -34,3 +34,5 @@ docker compose --profile docs up docs
 ```
 
 The site is available at `http://localhost:5010`. Markdown changes under `docs-site/docs/` reload automatically in development mode.
+
+For the full repository setup, start with [Project Setup](developer-guide/setup.md).
