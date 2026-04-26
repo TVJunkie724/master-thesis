@@ -1,0 +1,23 @@
+site_name: Twin2MultiCloud Documentation
+site_description: Canonical project documentation for the Twin2MultiCloud thesis platform.
+repo_url: https://github.com/TVJunkie724/master-thesis
+docs_dir: docs
+
+theme:
+  name: mkdocs
+  navigation_depth: 3
+
+nav:
+  - Home: index.md
+  - Architecture:
+      - Overview: architecture/index.md
+  - User Guide:
+      - Overview: user-guide/index.md
+  - Cloud Setup:
+      - Overview: cloud-setup/index.md
+  - API:
+      - Overview: api/index.md
+  - References:
+      - Overview: references/index.md
+  - Archive:
+      - Overview: archive/index.md

@@ -75,6 +75,18 @@ services:
       - 2twin2clouds
       - 3cloud-deployer
 
+  docs:
+    build:
+      context: ./docs-site
+      dockerfile: Dockerfile
+    ports:
+      - "5010:8000"
+    volumes:
+      - ./docs-site:/docs
+    command: mkdocs serve --dev-addr=0.0.0.0:8000
+    profiles:
+      - docs
+
 ### LaTeX Thesis ###
   # Watch mode (default): docker compose run --rm thesis-latex
   # Compile once:         docker compose run --rm thesis-latex latexmk -pdf -interaction=nonstopmode -cd /thesis/main.tex

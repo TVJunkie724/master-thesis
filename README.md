@@ -4,6 +4,7 @@ A unified platform that bridges theoretical cost optimization and practical mult
 
 For the project vision, 5-layer architecture and component roles (Orchestrator → Brain → Muscle), see [integration_vision.md](integration_vision.md).
 For agent/contributor workflow rules, see [ONBOARDING.md](ONBOARDING.md).
+For the canonical published documentation site, see [`docs-site/`](docs-site/).
 
 ---
 
@@ -16,6 +17,7 @@ For agent/contributor workflow rules, see [ONBOARDING.md](ONBOARDING.md).
 | [`2-twin2clouds/`](2-twin2clouds/) | Cost Optimizer — "Brain" | 5003 |
 | [`3-cloud-deployer/`](3-cloud-deployer/) | Cloud Deployer — "Muscle" | 5004 |
 | [`twin2multicloud-latex/`](twin2multicloud-latex/) | Thesis document | — |
+| [`docs-site/`](docs-site/) | MkDocs documentation site | 5010 |
 
 ---
 
@@ -60,7 +62,7 @@ From the workspace root:
 docker compose up -d
 ```
 
-This builds and starts four containers:
+This builds and starts three application containers:
 
 | Container | Purpose |
 |-----------|---------|
@@ -73,6 +75,16 @@ Verify they are up:
 ```bash
 docker ps
 ```
+
+### Optional: start the documentation site
+
+The canonical documentation site is served from `docs-site/` with MkDocs:
+
+```bash
+docker compose --profile docs up docs
+```
+
+Open `http://localhost:5010`. Markdown changes under `docs-site/docs/` reload automatically.
 
 ### 4. Database initialization & seeding (automatic)
 
