@@ -11,3 +11,5 @@ Planned content:
 - Docker Compose profiles for default, development, demo, and cloud-integration modes.
 
 Real credential values must never be committed or pasted into documentation. Examples should use placeholders or schema-only files.
+
+Start with [Provider Links](provider-links.md) for the cloud-console and pricing links migrated from the original documentation.

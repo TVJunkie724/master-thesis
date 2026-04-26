@@ -12,19 +12,24 @@ nav:
   - Architecture:
       - Overview: architecture/index.md
       - Platform Overview: architecture/platform-overview.md
+      - Project Background: architecture/project-background.md
+      - Migrated Diagrams: architecture/legacy-diagrams.md
       - Roadmap: architecture/roadmap.md
-      - Repository Hygiene: architecture/repository-hygiene.md
   - Components:
       - Management API: components/backend.md
       - Flutter UI: components/flutter.md
       - Optimizer: components/optimizer.md
       - Deployer: components/deployer.md
+      - User Function Patterns: components/user-functions.md
   - Runtime:
       - Overview: runtime/index.md
+  - Developer Guide:
+      - Overview: developer-guide/index.md
   - User Guide:
       - Overview: user-guide/index.md
   - Cloud Setup:
       - Overview: cloud-setup/index.md
+      - Provider Links: cloud-setup/provider-links.md
   - API:
       - Overview: api/index.md
   - References:
