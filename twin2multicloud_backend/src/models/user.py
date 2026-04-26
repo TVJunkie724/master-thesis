@@ -21,4 +21,4 @@ class User(Base):
     
     # Relationships
     twins = relationship("DigitalTwin", back_populates="owner")
-
+    cloud_connections = relationship("CloudConnection", back_populates="owner", cascade="all, delete-orphan")

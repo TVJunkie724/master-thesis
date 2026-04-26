@@ -138,3 +138,32 @@ class TestUserModel:
         
         assert user.email == "new@example.com"
         assert user.id == "user-creation-1"
+
+
+class TestCloudConnectionModel:
+    """Tests for CloudConnection model."""
+
+    def test_cloud_connection_defaults(self, db_session):
+        """CloudConnection stores user-scoped metadata and validation defaults."""
+        from src.models.cloud_connection import CloudConnection
+        from src.models.user import User
+
+        user = User(id="user-cloud-1", email="cloud@example.com")
+        db_session.add(user)
+        db_session.commit()
+
+        connection = CloudConnection(
+            user_id=user.id,
+            provider="aws",
+            display_name="AWS Test",
+            auth_type="access_key",
+            cloud_scope="{}",
+            encrypted_payload="gAAAAAencrypted",
+            payload_fingerprint="fingerprint",
+        )
+        db_session.add(connection)
+        db_session.commit()
+
+        assert connection.id is not None
+        assert connection.validation_status == "untested"
+        assert connection.owner.email == "cloud@example.com"

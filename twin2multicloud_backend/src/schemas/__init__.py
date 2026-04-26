@@ -6,6 +6,12 @@ from src.schemas.twin_config import (
     TwinConfigCreate, TwinConfigUpdate, TwinConfigResponse,
     CredentialValidationResult
 )
+from src.schemas.cloud_connection import (
+    CloudConnectionCreate,
+    CloudConnectionResponse,
+    CloudConnectionUpdate,
+    CloudConnectionValidationResponse,
+)
 
 __all__ = [
     "UserBase", "UserResponse",
@@ -13,5 +19,6 @@ __all__ = [
     "TokenResponse", "AuthUrlResponse",
     "AWSCredentials", "AzureCredentials", "GCPCredentials",
     "TwinConfigCreate", "TwinConfigUpdate", "TwinConfigResponse",
-    "CredentialValidationResult"
+    "CredentialValidationResult", "CloudConnectionCreate", "CloudConnectionResponse",
+    "CloudConnectionUpdate", "CloudConnectionValidationResponse"
 ]

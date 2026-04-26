@@ -16,6 +16,7 @@ from src.schemas.twin_config import (
 from src.config import settings
 from src.utils.crypto import encrypt, decrypt
 from src.services.twin_helpers import get_user_twin
+from src.services.cloud_credential_validation_service import perform_dual_validation
 from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/twins/{twin_id}/config", tags=["configuration"])
@@ -710,81 +711,4 @@ async def validate_stored_credentials_dual(
 
 async def _perform_dual_validation(provider: str, optimizer_creds: dict, deployer_creds: dict) -> dict:
     """Helper to call both APIs in parallel."""
-    import asyncio
-    
-    async def call_optimizer():
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{settings.OPTIMIZER_URL}/permissions/verify/{provider}",
-                    json=optimizer_creds,
-                    timeout=30.0
-                )
-                if response.status_code == 200:
-                    result = response.json()
-                    # Translate status: "valid" → valid: true (schema compatibility)
-                    is_valid = result.get("valid", False) or result.get("status") == "valid"
-                    return {
-                        "valid": is_valid,
-                        "message": result.get("message", "Validation complete")
-                    }
-                else:
-                    return {
-                        "valid": False,
-                        "message": f"Optimizer API error: {response.status_code}"
-                    }
-        except httpx.ConnectError:
-            return {
-                "valid": False,
-                "message": "Cannot connect to Optimizer API (port 5003)"
-            }
-        except Exception as e:
-            return {
-                "valid": False,
-                "message": f"Optimizer error: {str(e)}"
-            }
-    
-    async def call_deployer():
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{settings.DEPLOYER_URL}/permissions/verify/{provider}",
-                    json=deployer_creds,
-                    timeout=30.0
-                )
-                if response.status_code == 200:
-                    result = response.json()
-                    # Translate status: "valid" → valid: true (schema compatibility)
-                    is_valid = result.get("valid", False) or result.get("status") == "valid"
-                    return {
-                        "valid": is_valid,
-                        "message": result.get("message", "Validation complete"),
-                        "permissions": result.get("missing_permissions")
-                    }
-                else:
-                    return {
-                        "valid": False,
-                        "message": f"Deployer API error: {response.status_code}"
-                    }
-        except httpx.ConnectError:
-            return {
-                "valid": False,
-                "message": "Cannot connect to Deployer API (port 5004)"
-            }
-        except Exception as e:
-            return {
-                "valid": False,
-                "message": f"Deployer error: {str(e)}"
-            }
-    
-    optimizer_result, deployer_result = await asyncio.gather(
-        call_optimizer(),
-        call_deployer()
-    )
-    
-    return {
-        "provider": provider,
-        "valid": optimizer_result.get("valid", False) and deployer_result.get("valid", False),
-        "optimizer": optimizer_result,
-        "deployer": deployer_result
-    }
+    return await perform_dual_validation(provider, optimizer_creds, deployer_creds)

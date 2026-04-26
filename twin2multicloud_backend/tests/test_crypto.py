@@ -1,5 +1,5 @@
 import pytest
-from src.utils.crypto import encrypt, decrypt, clear_key_cache
+from src.utils.crypto import decrypt, decrypt_scoped, encrypt, encrypt_scoped, clear_key_cache
 
 # Test user and twin IDs
 TEST_USER = "user-123"
@@ -53,3 +53,15 @@ def test_different_twins_different_keys():
     twin2_encrypted = encrypt(secret, TEST_USER, "twin-2")
     
     assert twin1_encrypted != twin2_encrypted  # Different keys
+
+
+def test_scoped_encryption_roundtrip():
+    """Cloud Connections can use non-twin user-owned encryption scopes."""
+    secret = '{"aws_secret_access_key":"secret"}'
+    encrypted = encrypt_scoped(secret, TEST_USER, "cloud-connection-1")
+
+    assert encrypted != secret
+    assert decrypt_scoped(encrypted, TEST_USER, "cloud-connection-1") == secret
+
+    with pytest.raises(ValueError, match="Decryption failed"):
+        decrypt_scoped(encrypted, TEST_USER, "cloud-connection-2")
