@@ -380,7 +380,7 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 2. `3-cloud-deployer/upload/template` als Deployment-Vorlage klassifizieren und Zielpfad bzw. kurzfristige Absicherung festlegen.
 3. Runtime-/Generated-Dateien in `upload/` von Template-Dateien trennen.
 4. MkDocs-basierte Docs-Site mit Docker-Dev-Server und Auto-Reload anlegen.
-5. Canonical Architektur-, Cloud-Setup- und User-Guide-Dokumente in die Docs-Site verlinken oder migrieren.
+5. Canonical Architektur-, Cloud-Setup- und User-Guide-Dokumente nach `docs-site/docs` migrieren; der Docs-Container liest nur aus `docs-site/`.
 6. Obsolete Dokumentation und alte Artefakte loeschen oder klar archivieren.
 
 **Exit-Kriterien:**
@@ -388,6 +388,7 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 - `upload/template` ist entweder nach `templates/deployment_project` migriert oder explizit als Template dokumentiert und abgesichert.
 - `upload/` ist nicht mehr gleichzeitig Template-, Runtime- und Development-Ort.
 - Eine MkDocs-basierte Docs-Site existiert und kann lokal per Docker mit Auto-Reload gestartet werden.
+- `docs-site/` ist die vollstaendige Quelle der publizierten Website; projektlokale Docs duerfen nur Entwicklernotiz, historische Quelle oder Uebergangsduplikat sein.
 - README-Dateien verweisen auf die Docs-Site und enthalten keine langen Legacy-Dokumentationsbloecke mehr.
 - Historische Dokumente sind als aktiv, archiviert oder geloescht klassifiziert.
 

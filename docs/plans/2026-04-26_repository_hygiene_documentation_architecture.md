@@ -14,6 +14,7 @@ Twin2MultiCloud braucht vor weiteren Credential-, Compose- und Deployment-State-
 
 - aktive Produktdateien sind von historischen Artefakten getrennt
 - `upload/template` wird als wertvolle Deployment-Vorlage behandelt, nicht als Runtime- oder Development-Ablage
+- alle Markdown-Quellen der publizierten Website liegen unter `docs-site/docs`
 - alte HTML-Dokumentation wird in eine wartbare Markdown-basierte Dokumentationsseite ueberfuehrt
 - READMEs bleiben Einstiegspunkte, aber nicht die einzige Architekturquelle
 - obsolete Dateien werden geloescht oder archiviert, statt unklar im aktiven Tree zu bleiben
@@ -40,10 +41,10 @@ Ownership-Regeln:
 - `templates/deployment_project` ist versionierte Vorlage.
 - `upload/` ist Runtime-/Generated-Bereich.
 - Development darf nicht direkt gegen `upload/template` arbeiten.
-- Echte Credentials duerfen weder in Template noch Upload liegen.
+- Echte Credentials duerfen langfristig weder in Template noch Upload liegen.
 - Platzhalter und `.example`-Dateien sind erlaubt, wenn sie eindeutig nicht geheim sind.
 
-Wenn eine sofortige Verschiebung zu riskant ist, darf `upload/template` kurzfristig bleiben, muss aber dokumentiert und durch Tests als Template, nicht als Credential-/Runtime-Quelle, abgesichert werden.
+Wenn eine sofortige Verschiebung zu riskant ist, darf `upload/template` kurzfristig bleiben, muss aber dokumentiert und durch Tests als Template, nicht als Credential-/Runtime-Quelle, abgesichert werden. Aktuell gueltige lokale Admin-Credentials in diesem Ordner werden nicht geloescht; sie werden in der Credential-Phase kontrolliert nach `.secrets/local/` verschoben und erst danach aus Template-Pfaden ausgeschlossen.
 
 ---
 
@@ -79,6 +80,8 @@ docs-site/
     api/
     archive/
 ```
+
+`docs-site/` ist die vollstaendige Quelle der publizierten Website. Der Docs-Container mountet und liest nur diesen Ordner. Projektlokale Dokumentation darf als Entwicklernotiz, historische Originalquelle oder Uebergangsduplikat bestehen bleiben, ist aber nicht die Quelle der publizierten Website.
 
 Compose-Ziel:
 

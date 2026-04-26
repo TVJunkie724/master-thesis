@@ -149,7 +149,9 @@ Tracked template contents to migrate:
 
 Template migration guardrails:
 
-- Real credential files are not migrated.
+- Real credential files are not migrated to the versioned template target.
+- Current valid local admin credentials in `upload/template` are not deleted in this phase.
+- Local credential files are moved to `.secrets/local/` only after the credential flow and Docker mounts are ready to use that location.
 - `config_credentials.json.example` may remain as schema example until CloudConnection replaces file-based credentials.
 - Deployer path resolution must read from `templates/deployment_project`, not from `upload/template`.
 - `upload/` must become runtime-only after migration.
@@ -166,6 +168,8 @@ docs-site/
 ```
 
 Migrate or rewrite these 57 HTML pages into Markdown pages in the MkDocs site.
+
+`docs-site/` is the complete source tree for the published documentation site. The Docker container must mount and serve only `docs-site/`. Project-local documentation may remain as developer notes, historical originals or temporary duplicates, but it is not the published docs source of truth.
 
 `2-twin2clouds/docs` HTML pages:
 
@@ -352,7 +356,7 @@ These are generated deployment/runtime artifacts. They must not be used as canon
 
 ### 7.2 Local Real Credential Files
 
-Delete or move to `.secrets/local/` during the credential phase:
+Do not delete these immediately. Move them to `.secrets/local/` during the credential phase after the app, Docker mounts and tests are ready to use the new location:
 
 ```text
 config_credentials.json
@@ -363,7 +367,7 @@ google-credentials.json
 3-cloud-deployer/upload/template/google-credentials.json
 ```
 
-These are ignored by Git, but they are still unsafe workspace state. The cleanup phase should not read or print their contents.
+These are ignored by Git, but they are still unsafe workspace state. The cleanup phase should not read or print their contents, and it should not remove them before the replacement test path is available.
 
 ### 7.3 Local OS / Build / Cache Artifacts
 
@@ -427,7 +431,7 @@ Add checks that warn if new service-local HTML docs are introduced:
 3-cloud-deployer/docs/*.html
 ```
 
-After MkDocs is canonical, all new documentation should be Markdown under `docs-site/docs/`.
+After MkDocs is canonical, all new published documentation should be Markdown under `docs-site/docs/`. Project-local docs can remain as developer notes or transition duplicates, but the published website must not read from scattered project directories.
 
 ---
 
