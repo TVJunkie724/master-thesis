@@ -6,7 +6,7 @@ Twin2MultiCloud combines and extends earlier Digital Twin research and bachelor-
 
 The project is based on two important inputs:
 
-- **Twin2Clouds / EDTConf'25 paper artifact**: the original cost-modeling tool and formulas for cloud-based Digital Twin architectures.
+- **Twin2Clouds / EDTconf 2025 paper artifact**: the original cost-modeling tool and formulas from [Twin2Clouds: Cost-Aware Digital Twin Engineering and Deployment Across Federated Clouds](../references/EDT_25__CloudDT_engineering.pdf).
 - **Cloud Deployer bachelor project**: the deployment-oriented codebase for provisioning Digital Twin infrastructure across cloud providers.
 
 The current thesis project adds the missing orchestration layer between these worlds: a Management API and Flutter UI that turn cost optimization and infrastructure deployment into one workflow.

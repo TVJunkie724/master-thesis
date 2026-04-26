@@ -1,8 +1,12 @@
 # References
 
-These PDFs are intentionally preserved because the documentation and thesis work reference them.
+These PDFs and external records are intentionally preserved because the documentation and thesis work reference them.
 
-- [Cloud Pricing and Cost Modeling Paper](EDT_25__CloudDT_engineering.pdf)
+- [Twin2Clouds: Cost-Aware Digital Twin Engineering and Deployment Across Federated Clouds](EDT_25__CloudDT_engineering.pdf)
+  - [DOI](https://doi.org/10.1109/MODELS-C68889.2025.00045)
+  - [EDTconf 2025 conference page](https://conf.researchr.org/details/edtconf-2025/edtconf-2025-papers/11/Twin2Clouds-Cost-Aware-Digital-Twin-Engineering-and-Deployment-Across-Federated-Clou)
+  - [JKU research portal record](https://research.jku.at/en/publications/twin2clouds-cost-aware-digital-twin-engineering-and-deployment-ac/)
+  - [Google Scholar search](https://scholar.google.com/scholar?q=Twin2Clouds%3A+Cost-Aware+Digital+Twin+Engineering+and+Deployment+Across+Federated+Clouds)
 - [Bachelor Thesis: Multi-Cloud Digital Twins](bachelor_digital_twins.pdf)
 - [Documentation Migration Matrix](documentation-migration-matrix.md)
 

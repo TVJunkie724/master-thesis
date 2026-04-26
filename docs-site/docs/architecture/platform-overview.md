@@ -2,7 +2,7 @@
 
 Twin2MultiCloud bridges theoretical cost optimization and practical multi-cloud Digital Twin deployment.
 
-The platform is based on the EDTConf'25 CloudDT engineering paper and its five-layer architecture:
+The platform is based on the paper [Twin2Clouds: Cost-Aware Digital Twin Engineering and Deployment Across Federated Clouds](../references/EDT_25__CloudDT_engineering.pdf) and its five-layer architecture. External records are linked from [References](../references/index.md).
 
 ![Five-layer Digital Twin architecture](../references/diagrams/layer_architecture_overview_1763755975125.png)
 
