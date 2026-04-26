@@ -290,7 +290,7 @@ Define event conditions and automated responses:
 
 ### REST API
 
-The deployer provides a comprehensive REST API for deployment, status checking, and Lambda management.
+The deployer provides a REST API for canonical Terraform deployment, status checking, and provider-neutral function package management.
 
 #### Start the API Server
 
