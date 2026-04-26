@@ -30,6 +30,8 @@ from src.services.deployment_service import (
     run_real_destroy_stream,
     build_deploy_config,
 )
+from src.services.configuration_validation_service import ConfigurationValidationService
+from src.services.errors import ConfigurationValidationFailed
 from src.api.routes.error_models import ERROR_RESPONSES
 
 logger = logging.getLogger(__name__)
@@ -228,142 +230,15 @@ async def _validate_configured_transition(twin: DigitalTwin, db: Session):
     
     Raises HTTPException(400) with structured errors if validation fails.
     """
-    import asyncio
-    import json
-    
-    errors = []
-    
-    # === STEP 1: Local validation (Management API domain) ===
-    if not twin.name or not twin.name.strip():
-        errors.append({
-            "step": 1, 
-            "code": "EMPTY_NAME", 
-            "field": "twin_name", 
-            "message": "Twin name is required"
-        })
-    
-    # Check at least one provider has credentials
-    config = twin.configuration if twin.configuration else None
-    has_creds = False
-    if config:
-        has_creds = any([
-            config.aws_access_key_id,
-            config.azure_subscription_id,
-            config.gcp_project_id or config.gcp_billing_account
-        ])
-    if not has_creds:
-        errors.append({
-            "step": 1,
-            "code": "MISSING_CREDENTIALS",
-            "field": "credentials",
-            "message": "At least one cloud provider credentials required"
-        })
-    
-    # === STEP 2 & 3: Call Optimizer and Deployer APIs in parallel ===
-    optimizer_config = twin.optimizer_config
-    deployer_config = twin.deployer_config
-    
-    # Build request payloads
-    optimizer_payload = {
-        "params": json.loads(optimizer_config.params) if optimizer_config and optimizer_config.params else None,
-        "result": json.loads(optimizer_config.result_json) if optimizer_config and optimizer_config.result_json else None
-    }
-    
-    # Parse cheapest path from result for deployer context
-    # Deployer expects dict format {L1: "aws", L2: "azure", ...}
-    # Optimizer returns this as 'calculationResult', not 'cheapestPath' (which is an array)
-    cheapest_path = {}
-    if optimizer_payload["result"]:
-        cheapest_path = optimizer_payload["result"].get("calculationResult", {})
-    
-    deployer_payload = {
-        "deployer_digital_twin_name": deployer_config.deployer_digital_twin_name if deployer_config else None,
-        "config_events": deployer_config.config_events_json if deployer_config else None,
-        "config_iot_devices": deployer_config.config_iot_devices_json if deployer_config else None,
-        "payloads": deployer_config.payloads_json if deployer_config else None,
-        "processors": json.loads(deployer_config.processor_contents) if deployer_config and deployer_config.processor_contents else None,
-        "event_feedback": deployer_config.event_feedback_content if deployer_config else None,
-        "event_actions": json.loads(deployer_config.event_action_contents) if deployer_config and deployer_config.event_action_contents else None,
-        "hierarchy": deployer_config.hierarchy_content if deployer_config else None,
-        "scene_config": deployer_config.scene_config_content if deployer_config else None,
-        "scene_glb_uploaded": deployer_config.scene_glb_uploaded if deployer_config else False,
-        "state_machine": deployer_config.state_machine_content if deployer_config else None,
-        "user_config": deployer_config.user_config_content if deployer_config else None,
-        "optimizer_params": json.loads(optimizer_config.params) if optimizer_config and optimizer_config.params else None,
-        "cheapest_path": cheapest_path
-    }
-    
-    
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        # Call both APIs in parallel
-        optimizer_task = client.post(
-            f"{OPTIMIZER_API_URL}/validate/optimizer-config",
-            json=optimizer_payload
-        )
-        deployer_task = client.post(
-            f"{DEPLOYER_API_URL}/validate/deployer-complete",
-            json=deployer_payload
-        )
-        
-        results = await asyncio.gather(optimizer_task, deployer_task, return_exceptions=True)
-        
-        # Process Optimizer response
-        opt_result = results[0]
-        if isinstance(opt_result, Exception):
-            errors.append({
-                "step": 2,
-                "code": "OPTIMIZER_UNAVAILABLE",
-                "field": "optimizer",
-                "message": f"Optimizer API error: {str(opt_result)}"
-            })
-        elif opt_result.status_code == 200:
-            opt_data = opt_result.json()
-            if not opt_data.get("valid"):
-                for err in opt_data.get("errors", []):
-                    errors.append({"step": 2, **err})
-        else:
-            errors.append({
-                "step": 2,
-                "code": "OPTIMIZER_ERROR",
-                "field": "optimizer",
-                "message": f"Optimizer validation failed: {opt_result.text}"
-            })
-        
-        # Process Deployer response
-        dep_result = results[1]
-        if isinstance(dep_result, Exception):
-            errors.append({
-                "step": 3,
-                "code": "DEPLOYER_UNAVAILABLE",
-                "field": "deployer",
-                "message": f"Deployer API error: {str(dep_result)}"
-            })
-        elif dep_result.status_code == 200:
-            dep_data = dep_result.json()
-            if not dep_data.get("valid"):
-                for err in dep_data.get("errors", []):
-                    errors.append({"step": 3, **err})
-        else:
-            errors.append({
-                "step": 3,
-                "code": "DEPLOYER_ERROR",
-                "field": "deployer",
-                "message": f"Deployer validation failed: {dep_result.text}"
-            })
-    
-    if errors:
-        logger.warning(
-            "Twin %s validation failed with %d errors: %s",
-            twin.id,
-            len(errors),
-            json.dumps(errors, indent=2, default=str),
-        )
+    try:
+        await ConfigurationValidationService().validate_configured_transition(twin)
+    except ConfigurationValidationFailed as exc:
         raise HTTPException(
             status_code=400,
             detail={
                 "code": "VALIDATION_FAILED",
-                "message": f"Cannot mark as configured: {len(errors)} validation errors",
-                "errors": errors
+                "message": exc.message,
+                "errors": exc.errors
             }
         )
 
