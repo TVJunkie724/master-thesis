@@ -7,4 +7,4 @@ These PDFs are intentionally preserved because the documentation and thesis work
 
 Duplicate copies may remain in service-local documentation during migration. They should only be removed after all published documentation links point here and file identity has been verified.
 
-See also [Migrated Diagrams](../architecture/legacy-diagrams.md) for PNG diagrams copied from the original HTML documentation.
+Diagram assets copied from the original HTML documentation are used in their relevant architecture, optimizer, project-structure, and testing pages rather than collected on a standalone diagram page.

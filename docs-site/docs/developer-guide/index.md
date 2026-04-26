@@ -11,6 +11,8 @@ The repository contains multiple related projects:
 - `twin2multicloud-latex`: thesis source.
 - `docs-site`: canonical documentation site.
 
+See [Project Structure](project-structure.md) for the migrated project-structure diagram and directory responsibilities.
+
 ## Local Service Ports
 
 | Service | Port |
@@ -50,6 +52,8 @@ docker exec -e PYTHONPATH=/app master-thesis-management-api-1 python -m pytest t
 docker exec -e PYTHONPATH=/app master-thesis-2twin2clouds-1 python -m pytest tests/ -v
 docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/ --ignore=tests/e2e -v
 ```
+
+See [Testing](testing.md) for the migrated optimizer testing categories and the safe command split.
 
 ## Internal Maintenance Check
 

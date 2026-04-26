@@ -6,7 +6,6 @@ Start here:
 
 - [Platform Overview](platform-overview.md)
 - [Project Background](project-background.md)
-- [Migrated Diagrams](legacy-diagrams.md)
 - [Architecture Roadmap](roadmap.md)
 
 Upcoming migration targets:

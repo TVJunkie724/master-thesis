@@ -13,7 +13,6 @@ nav:
       - Overview: architecture/index.md
       - Platform Overview: architecture/platform-overview.md
       - Project Background: architecture/project-background.md
-      - Migrated Diagrams: architecture/legacy-diagrams.md
       - Roadmap: architecture/roadmap.md
   - Components:
       - Management API: components/backend.md
@@ -25,6 +24,8 @@ nav:
       - Overview: runtime/index.md
   - Developer Guide:
       - Overview: developer-guide/index.md
+      - Project Structure: developer-guide/project-structure.md
+      - Testing: developer-guide/testing.md
   - User Guide:
       - Overview: user-guide/index.md
   - Cloud Setup:

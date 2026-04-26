@@ -4,6 +4,8 @@ Twin2MultiCloud bridges theoretical cost optimization and practical multi-cloud 
 
 The platform is based on the EDTConf'25 CloudDT engineering paper and its five-layer architecture:
 
+![Five-layer Digital Twin architecture](../references/diagrams/layer_architecture_overview_1763755975125.png)
+
 1. **Data Acquisition**: ingest telemetry from devices.
 2. **Processing**: transform and route telemetry.
 3. **Storage**: persist hot and cold data.
