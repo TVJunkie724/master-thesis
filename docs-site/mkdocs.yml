@@ -29,6 +29,9 @@ theme:
         icon: material/weather-sunny
         name: Switch to light mode
 
+extra_javascript:
+  - javascripts/external-links.js
+
 nav:
   - Home: index.md
   - Architecture:
