@@ -17,6 +17,7 @@ from src.config import settings
 from src.utils.crypto import encrypt, decrypt
 from src.services.twin_helpers import get_user_twin
 from src.services.cloud_credential_validation_service import perform_dual_validation
+from src.services.cloud_connection_service import CloudConnectionService
 from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/twins/{twin_id}/config", tags=["configuration"])
@@ -65,6 +66,130 @@ def _populate_cheapest_columns(opt_config: OptimizerConfiguration, optimizer_res
     opt_config.cheapest_l3_archive = _from_path("L3_archive_") or _from_calc("L3", "Archive")
     opt_config.cheapest_l4 = _from_path("L4_") or _from_calc("L4")
     opt_config.cheapest_l5 = _from_path("L5_") or _from_calc("L5")
+
+
+def _connection_id_attr(provider: str) -> str:
+    return f"{provider}_cloud_connection_id"
+
+
+def _validation_attr(provider: str) -> str:
+    return f"{provider}_validated"
+
+
+def _bound_connection(config: TwinConfiguration, provider: str):
+    connection_id = getattr(config, _connection_id_attr(provider), None)
+    if not connection_id:
+        return None
+    return getattr(config, f"{provider}_cloud_connection", None)
+
+
+def _clear_legacy_credentials(config: TwinConfiguration, provider: str) -> None:
+    legacy_fields = {
+        "aws": [
+            "aws_access_key_id",
+            "aws_secret_access_key",
+            "aws_session_token",
+            "aws_sso_region",
+        ],
+        "azure": [
+            "azure_subscription_id",
+            "azure_client_id",
+            "azure_client_secret",
+            "azure_tenant_id",
+        ],
+        "gcp": [
+            "gcp_billing_account",
+            "gcp_service_account_json",
+        ],
+    }
+    for field in legacy_fields[provider]:
+        setattr(config, field, None)
+
+
+def _copy_connection_metadata(config: TwinConfiguration, provider: str, payload: dict) -> None:
+    if provider == "aws":
+        config.aws_region = payload.get("aws_region") or config.aws_region
+        config.aws_sso_region = payload.get("aws_sso_region")
+    elif provider == "azure":
+        azure_region = payload.get("azure_region") or config.azure_region
+        config.azure_region = azure_region
+        config.azure_region_iothub = payload.get("azure_region_iothub") or azure_region
+        config.azure_region_digital_twin = payload.get("azure_region_digital_twin") or azure_region
+    elif provider == "gcp":
+        config.gcp_project_id = payload.get("gcp_project_id") or config.gcp_project_id
+        config.gcp_region = payload.get("gcp_region") or config.gcp_region
+
+
+def _bind_cloud_connection(
+    db: Session,
+    config: TwinConfiguration,
+    user_id: str,
+    provider: str,
+    connection_id: str | None,
+) -> None:
+    if connection_id is None:
+        setattr(config, _connection_id_attr(provider), None)
+        setattr(config, _validation_attr(provider), False)
+        return
+
+    service = CloudConnectionService(db)
+    connection = service.get_connection(connection_id, user_id)
+    if not connection:
+        raise HTTPException(status_code=404, detail=f"{provider.upper()} Cloud connection not found")
+    if connection.provider != provider:
+        raise HTTPException(status_code=400, detail=f"Cloud connection provider must be {provider}")
+
+    setattr(config, _connection_id_attr(provider), connection.id)
+    setattr(config, _validation_attr(provider), connection.validation_status == "valid")
+    _clear_legacy_credentials(config, provider)
+    _copy_connection_metadata(config, provider, service.decrypt_payload(connection, user_id))
+
+
+def _apply_cloud_connection_bindings(
+    db: Session,
+    config: TwinConfiguration,
+    user_id: str,
+    cloud_connections,
+) -> None:
+    if cloud_connections is None:
+        return
+    for provider in ("aws", "azure", "gcp"):
+        if provider in cloud_connections.model_fields_set:
+            _bind_cloud_connection(
+                db,
+                config,
+                user_id,
+                provider,
+                getattr(cloud_connections, provider),
+            )
+
+
+def _build_bound_deployer_credentials(
+    db: Session,
+    config: TwinConfiguration,
+    user_id: str,
+    provider: str,
+) -> dict | None:
+    connection = _bound_connection(config, provider)
+    if not connection:
+        return None
+    return CloudConnectionService(db).build_deployer_credentials(connection, user_id)
+
+
+def _build_bound_dual_credentials(
+    db: Session,
+    config: TwinConfiguration,
+    user_id: str,
+    provider: str,
+) -> tuple[dict, dict] | None:
+    connection = _bound_connection(config, provider)
+    if not connection:
+        return None
+    service = CloudConnectionService(db)
+    return (
+        service.build_optimizer_credentials(connection, user_id),
+        service.build_deployer_credentials(connection, user_id),
+    )
 
 
 
@@ -168,6 +293,7 @@ async def update_config(
     
     # AWS - ENCRYPT with user+twin-specific key
     if update.aws:
+        config.aws_cloud_connection_id = None
         config.aws_access_key_id = encrypt(update.aws.access_key_id, current_user.id, twin_id)
         config.aws_secret_access_key = encrypt(update.aws.secret_access_key, current_user.id, twin_id)
         config.aws_region = update.aws.region
@@ -180,6 +306,7 @@ async def update_config(
     
     # Azure - ENCRYPT with user+twin-specific key
     if update.azure:
+        config.azure_cloud_connection_id = None
         config.azure_subscription_id = encrypt(update.azure.subscription_id, current_user.id, twin_id)
         config.azure_client_id = encrypt(update.azure.client_id, current_user.id, twin_id)
         config.azure_client_secret = encrypt(update.azure.client_secret, current_user.id, twin_id)
@@ -192,6 +319,7 @@ async def update_config(
     
     # GCP - ENCRYPT with user+twin-specific key
     if update.gcp:
+        config.gcp_cloud_connection_id = None
         config.gcp_project_id = update.gcp.project_id  # Not encrypted (public)
         if update.gcp.billing_account:
             config.gcp_billing_account = encrypt(update.gcp.billing_account, current_user.id, twin_id)
@@ -201,6 +329,8 @@ async def update_config(
         if update.gcp.service_account_json:
             config.gcp_service_account_json = encrypt(update.gcp.service_account_json, current_user.id, twin_id)
         config.gcp_validated = False
+
+    _apply_cloud_connection_bindings(db, config, current_user.id, update.cloud_connections)
     
     # Wizard progress tracking
     if update.highest_step_reached is not None:
@@ -283,45 +413,50 @@ async def validate_credentials(
         raise HTTPException(status_code=400, detail="No configuration found. Save credentials first.")
     
     # Build credentials payload - DECRYPT with user+twin-specific key
-    credentials = {}
+    credentials = _build_bound_deployer_credentials(db, config, current_user.id, provider)
+    if credentials is None:
+        credentials = {}
     if provider == "aws":
-        if not config.aws_access_key_id:
+        if not credentials and not config.aws_access_key_id:
             return CredentialValidationResult(
                 provider="aws", valid=False, message="AWS credentials not configured"
             )
-        credentials = {
-            "aws_access_key_id": decrypt(config.aws_access_key_id, current_user.id, twin_id),
-            "aws_secret_access_key": decrypt(config.aws_secret_access_key, current_user.id, twin_id),
-            "aws_region": config.aws_region
-        }
-        if config.aws_session_token:
-            credentials["aws_session_token"] = decrypt(config.aws_session_token, current_user.id, twin_id)
+        if not credentials:
+            credentials = {
+                "aws_access_key_id": decrypt(config.aws_access_key_id, current_user.id, twin_id),
+                "aws_secret_access_key": decrypt(config.aws_secret_access_key, current_user.id, twin_id),
+                "aws_region": config.aws_region
+            }
+            if config.aws_session_token:
+                credentials["aws_session_token"] = decrypt(config.aws_session_token, current_user.id, twin_id)
     elif provider == "azure":
-        if not config.azure_subscription_id:
+        if not credentials and not config.azure_subscription_id:
             return CredentialValidationResult(
                 provider="azure", valid=False, message="Azure credentials not configured"
             )
-        credentials = {
-            "azure_subscription_id": decrypt(config.azure_subscription_id, current_user.id, twin_id),
-            "azure_client_id": decrypt(config.azure_client_id, current_user.id, twin_id),
-            "azure_client_secret": decrypt(config.azure_client_secret, current_user.id, twin_id),
-            "azure_tenant_id": decrypt(config.azure_tenant_id, current_user.id, twin_id),
-            "azure_region": config.azure_region,
-            # Deployer requires these additional region fields
-            "azure_region_iothub": config.azure_region,  # Use same region for now
-            "azure_region_digital_twin": config.azure_region,  # Use same region for now
-        }
+        if not credentials:
+            azure_region = config.azure_region
+            credentials = {
+                "azure_subscription_id": decrypt(config.azure_subscription_id, current_user.id, twin_id),
+                "azure_client_id": decrypt(config.azure_client_id, current_user.id, twin_id),
+                "azure_client_secret": decrypt(config.azure_client_secret, current_user.id, twin_id),
+                "azure_tenant_id": decrypt(config.azure_tenant_id, current_user.id, twin_id),
+                "azure_region": azure_region,
+                "azure_region_iothub": config.azure_region_iothub or azure_region,
+                "azure_region_digital_twin": config.azure_region_digital_twin or azure_region,
+            }
     elif provider == "gcp":
-        if not config.gcp_project_id and not config.gcp_billing_account:
+        if not credentials and not config.gcp_project_id and not config.gcp_billing_account:
             return CredentialValidationResult(
                 provider="gcp", valid=False, message="GCP credentials not configured (need project_id or billing_account)"
             )
-        credentials = {
-            "gcp_project_id": config.gcp_project_id,
-            "gcp_billing_account": decrypt(config.gcp_billing_account, current_user.id, twin_id) if config.gcp_billing_account else None,
-            "gcp_region": config.gcp_region,
-            "gcp_credentials_file": decrypt(config.gcp_service_account_json, current_user.id, twin_id) if config.gcp_service_account_json else None,
-        }
+        if not credentials:
+            credentials = {
+                "gcp_project_id": config.gcp_project_id,
+                "gcp_billing_account": decrypt(config.gcp_billing_account, current_user.id, twin_id) if config.gcp_billing_account else None,
+                "gcp_region": config.gcp_region,
+                "gcp_credentials_file": decrypt(config.gcp_service_account_json, current_user.id, twin_id) if config.gcp_service_account_json else None,
+            }
     
     # Call Deployer API
     try:
@@ -625,73 +760,76 @@ async def validate_stored_credentials_dual(
     if not config:
         raise HTTPException(status_code=400, detail="No configuration found.")
     
-    optimizer_creds = {}
-    deployer_creds = {}
+    bound_creds = _build_bound_dual_credentials(db, config, current_user.id, provider)
+    optimizer_creds = bound_creds[0] if bound_creds else {}
+    deployer_creds = bound_creds[1] if bound_creds else {}
     
     if provider == "aws":
-        if not config.aws_access_key_id:
+        if not optimizer_creds and not config.aws_access_key_id:
              raise HTTPException(status_code=400, detail="AWS credentials not configured")
         
-        # AWS: Same schema for both
-        base_creds = {
-            "aws_access_key_id": decrypt(config.aws_access_key_id, current_user.id, twin_id),
-            "aws_secret_access_key": decrypt(config.aws_secret_access_key, current_user.id, twin_id),
-            "aws_region": config.aws_region
-        }
-        if config.aws_session_token:
-            base_creds["aws_session_token"] = decrypt(config.aws_session_token, current_user.id, twin_id)
-            
-        optimizer_creds = base_creds.copy()
-        deployer_creds = base_creds.copy()
+        if not optimizer_creds:
+            # AWS: Same schema for both
+            base_creds = {
+                "aws_access_key_id": decrypt(config.aws_access_key_id, current_user.id, twin_id),
+                "aws_secret_access_key": decrypt(config.aws_secret_access_key, current_user.id, twin_id),
+                "aws_region": config.aws_region
+            }
+            if config.aws_session_token:
+                base_creds["aws_session_token"] = decrypt(config.aws_session_token, current_user.id, twin_id)
+
+            optimizer_creds = base_creds.copy()
+            deployer_creds = base_creds.copy()
         
     elif provider == "azure":
-        if not config.azure_subscription_id:
+        if not optimizer_creds and not config.azure_subscription_id:
              raise HTTPException(status_code=400, detail="Azure credentials not configured")
-             
-        decrypted_sub = decrypt(config.azure_subscription_id, current_user.id, twin_id)
-        decrypted_client = decrypt(config.azure_client_id, current_user.id, twin_id)
-        decrypted_secret = decrypt(config.azure_client_secret, current_user.id, twin_id)
-        decrypted_tenant = decrypt(config.azure_tenant_id, current_user.id, twin_id)
-        
-        # Optimizer
-        optimizer_creds = {
-            "azure_subscription_id": decrypted_sub,
-            "azure_region": config.azure_region,
-            "azure_client_id": decrypted_client,
-            "azure_client_secret": decrypted_secret,
-            "azure_tenant_id": decrypted_tenant,
-        }
-        # Deployer
-        deployer_creds = {
-            "azure_subscription_id": decrypted_sub,
-            "azure_client_id": decrypted_client,
-            "azure_client_secret": decrypted_secret,
-            "azure_tenant_id": decrypted_tenant,
-            "azure_region": config.azure_region,
-            "azure_region_iothub": config.azure_region,
-            "azure_region_digital_twin": config.azure_region,
-        }
+        if not optimizer_creds:
+            decrypted_sub = decrypt(config.azure_subscription_id, current_user.id, twin_id)
+            decrypted_client = decrypt(config.azure_client_id, current_user.id, twin_id)
+            decrypted_secret = decrypt(config.azure_client_secret, current_user.id, twin_id)
+            decrypted_tenant = decrypt(config.azure_tenant_id, current_user.id, twin_id)
+            azure_region = config.azure_region
+
+            # Optimizer
+            optimizer_creds = {
+                "azure_subscription_id": decrypted_sub,
+                "azure_region": azure_region,
+                "azure_client_id": decrypted_client,
+                "azure_client_secret": decrypted_secret,
+                "azure_tenant_id": decrypted_tenant,
+            }
+            # Deployer
+            deployer_creds = {
+                "azure_subscription_id": decrypted_sub,
+                "azure_client_id": decrypted_client,
+                "azure_client_secret": decrypted_secret,
+                "azure_tenant_id": decrypted_tenant,
+                "azure_region": azure_region,
+                "azure_region_iothub": config.azure_region_iothub or azure_region,
+                "azure_region_digital_twin": config.azure_region_digital_twin or azure_region,
+            }
         
     elif provider == "gcp":
-        if not config.gcp_project_id and not config.gcp_billing_account:
+        if not optimizer_creds and not config.gcp_project_id and not config.gcp_billing_account:
              raise HTTPException(status_code=400, detail="GCP credentials not configured")
-             
-        decrypted_json = decrypt(config.gcp_service_account_json, current_user.id, twin_id) if config.gcp_service_account_json else None
-        decrypted_billing = decrypt(config.gcp_billing_account, current_user.id, twin_id) if config.gcp_billing_account else None
-        
-        # Optimizer
-        optimizer_creds = {
-            "gcp_project_id": config.gcp_project_id or "placeholder-project",
-            "gcp_credentials_file": decrypted_json,
-            "gcp_region": config.gcp_region,
-        }
-        # Deployer
-        deployer_creds = {
-            "gcp_project_id": config.gcp_project_id,
-            "gcp_billing_account": decrypted_billing,
-            "gcp_region": config.gcp_region,
-            "gcp_credentials_file": decrypted_json,
-        }
+        if not optimizer_creds:
+            decrypted_json = decrypt(config.gcp_service_account_json, current_user.id, twin_id) if config.gcp_service_account_json else None
+            decrypted_billing = decrypt(config.gcp_billing_account, current_user.id, twin_id) if config.gcp_billing_account else None
+
+            # Optimizer
+            optimizer_creds = {
+                "gcp_project_id": config.gcp_project_id or "placeholder-project",
+                "gcp_credentials_file": decrypted_json,
+                "gcp_region": config.gcp_region,
+            }
+            # Deployer
+            deployer_creds = {
+                "gcp_project_id": config.gcp_project_id,
+                "gcp_billing_account": decrypted_billing,
+                "gcp_region": config.gcp_region,
+                "gcp_credentials_file": decrypted_json,
+            }
 
     # Use shared helper
     result = await _perform_dual_validation(provider, optimizer_creds, deployer_creds)

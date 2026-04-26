@@ -13,6 +13,7 @@ import io
 import json
 import zipfile
 import pytest
+from types import SimpleNamespace
 from unittest.mock import Mock, patch, MagicMock
 
 from src.services.deployment_service import (
@@ -23,6 +24,7 @@ from src.services.deployment_service import (
     _build_credentials_config,
     _build_optimization_config,
 )
+from src.utils.crypto import encrypt_scoped
 
 
 class TestGetResourceName:
@@ -229,6 +231,70 @@ class TestBuildCredentialsConfig:
         
         assert result == {}
         assert gcp_creds is None
+
+    def test_prefers_bound_aws_cloud_connection(self):
+        """CloudConnection bindings should override legacy encrypted fields."""
+        payload = {
+            "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+            "aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            "aws_region": "eu-central-1",
+        }
+        connection = SimpleNamespace(
+            id="connection-aws",
+            encrypted_payload=encrypt_scoped(json.dumps(payload), "user-123", "connection-aws"),
+        )
+        twin = SimpleNamespace(
+            id="twin-123",
+            configuration=SimpleNamespace(
+                aws_cloud_connection_id="connection-aws",
+                aws_cloud_connection=connection,
+                aws_access_key_id="legacy_enc_key",
+                azure_cloud_connection_id=None,
+                azure_subscription_id=None,
+                gcp_cloud_connection_id=None,
+                gcp_project_id=None,
+            ),
+        )
+
+        result, gcp_creds = _build_credentials_config(twin, "user-123")
+
+        assert result["aws"] == payload
+        assert gcp_creds is None
+
+    def test_bound_gcp_cloud_connection_writes_separate_credentials_file(self):
+        """GCP CloudConnections keep service account JSON in the separate deployer file."""
+        service_account = {
+            "type": "service_account",
+            "client_email": "deployer@example.iam.gserviceaccount.com",
+        }
+        payload = {
+            "gcp_project_id": "demo-project",
+            "gcp_billing_account": "012345-6789AB-CDEF01",
+            "gcp_region": "europe-west1",
+            "gcp_credentials_file": json.dumps(service_account),
+        }
+        connection = SimpleNamespace(
+            id="connection-gcp",
+            encrypted_payload=encrypt_scoped(json.dumps(payload), "user-123", "connection-gcp"),
+        )
+        twin = SimpleNamespace(
+            id="twin-123",
+            configuration=SimpleNamespace(
+                aws_cloud_connection_id=None,
+                aws_access_key_id=None,
+                azure_cloud_connection_id=None,
+                azure_subscription_id=None,
+                gcp_cloud_connection_id="connection-gcp",
+                gcp_cloud_connection=connection,
+                gcp_project_id=None,
+            ),
+        )
+
+        result, gcp_creds = _build_credentials_config(twin, "user-123")
+
+        assert result["gcp"]["gcp_project_id"] == "demo-project"
+        assert result["gcp"]["gcp_credentials_file"] == "gcp_credentials.json"
+        assert gcp_creds == service_account
 
 
 class TestBuildProjectZip:

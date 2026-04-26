@@ -24,6 +24,7 @@ class TwinConfiguration(Base):
     highest_step_reached = Column(Integer, default=0)
     
     # AWS credentials (ENCRYPTED)
+    aws_cloud_connection_id = Column(String, ForeignKey("cloud_connections.id"), nullable=True)
     aws_access_key_id = Column(String, nullable=True)  # Encrypted
     aws_secret_access_key = Column(String, nullable=True)  # Encrypted
     aws_region = Column(String, default="eu-central-1")  # Not encrypted (not sensitive)
@@ -32,6 +33,7 @@ class TwinConfiguration(Base):
     aws_validated = Column(Boolean, default=False)
     
     # Azure credentials (ENCRYPTED)
+    azure_cloud_connection_id = Column(String, ForeignKey("cloud_connections.id"), nullable=True)
     azure_subscription_id = Column(String, nullable=True)  # Encrypted
     azure_client_id = Column(String, nullable=True)  # Encrypted
     azure_client_secret = Column(String, nullable=True)  # Encrypted
@@ -46,6 +48,7 @@ class TwinConfiguration(Base):
     azure_validated = Column(Boolean, default=False)
     
     # GCP credentials (ENCRYPTED - full JSON)
+    gcp_cloud_connection_id = Column(String, ForeignKey("cloud_connections.id"), nullable=True)
     gcp_project_id = Column(String, nullable=True)  # Not encrypted (usually public)
     gcp_billing_account = Column(String, nullable=True)  # Encrypted
     gcp_region = Column(String, default="europe-west1")  # Not encrypted
@@ -58,3 +61,6 @@ class TwinConfiguration(Base):
     
     # Relationship
     twin = relationship("DigitalTwin", back_populates="configuration", uselist=False)
+    aws_cloud_connection = relationship("CloudConnection", foreign_keys=[aws_cloud_connection_id])
+    azure_cloud_connection = relationship("CloudConnection", foreign_keys=[azure_cloud_connection_id])
+    gcp_cloud_connection = relationship("CloudConnection", foreign_keys=[gcp_cloud_connection_id])

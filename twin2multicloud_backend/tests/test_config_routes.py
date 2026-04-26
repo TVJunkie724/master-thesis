@@ -224,3 +224,145 @@ class TestConfigRoutes:
         )
         
         assert response.status_code == 404
+
+    def test_update_config_binds_cloud_connection(self, authenticated_client, db_session):
+        """PUT config can bind a twin to a user-owned CloudConnection."""
+        from src.models.twin_config import TwinConfiguration
+
+        client, headers = authenticated_client
+        connection = client.post(
+            "/cloud-connections/",
+            json={
+                "provider": "aws",
+                "display_name": "AWS SSOT",
+                "aws": {
+                    "access_key_id": "AKIAIOSFODNN7EXAMPLE",
+                    "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                    "region": "eu-central-1",
+                },
+            },
+            headers=headers,
+        ).json()
+        twin_id = create_test_twin(client, headers)
+
+        response = client.put(
+            f"/twins/{twin_id}/config/",
+            json={"cloud_connections": {"aws": connection["id"]}},
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["aws_configured"] is True
+        assert data["aws_cloud_connection_id"] == connection["id"]
+        assert data["aws_region"] == "eu-central-1"
+
+        config = db_session.query(TwinConfiguration).filter_by(twin_id=twin_id).one()
+        assert config.aws_cloud_connection_id == connection["id"]
+        assert config.aws_access_key_id is None
+        assert config.aws_secret_access_key is None
+
+    def test_update_config_rejects_wrong_provider_cloud_connection(self, authenticated_client):
+        """Provider binding must match the selected CloudConnection provider."""
+        client, headers = authenticated_client
+        connection = client.post(
+            "/cloud-connections/",
+            json={
+                "provider": "aws",
+                "display_name": "AWS SSOT",
+                "aws": {
+                    "access_key_id": "AKIAIOSFODNN7EXAMPLE",
+                    "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                    "region": "eu-central-1",
+                },
+            },
+            headers=headers,
+        ).json()
+        twin_id = create_test_twin(client, headers)
+
+        response = client.put(
+            f"/twins/{twin_id}/config/",
+            json={"cloud_connections": {"azure": connection["id"]}},
+            headers=headers,
+        )
+
+        assert response.status_code == 400
+
+    def test_update_config_rejects_unowned_cloud_connection(self, authenticated_client, db_session):
+        """A twin cannot bind to another user's CloudConnection."""
+        from src.models.cloud_connection import CloudConnection
+
+        client, headers = authenticated_client
+        connection = client.post(
+            "/cloud-connections/",
+            json={
+                "provider": "aws",
+                "display_name": "AWS SSOT",
+                "aws": {
+                    "access_key_id": "AKIAIOSFODNN7EXAMPLE",
+                    "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                    "region": "eu-central-1",
+                },
+            },
+            headers=headers,
+        ).json()
+        stored = db_session.query(CloudConnection).filter_by(id=connection["id"]).one()
+        stored.user_id = "other-user"
+        db_session.commit()
+        twin_id = create_test_twin(client, headers)
+
+        response = client.put(
+            f"/twins/{twin_id}/config/",
+            json={"cloud_connections": {"aws": connection["id"]}},
+            headers=headers,
+        )
+
+        assert response.status_code == 404
+
+    def test_validate_stored_dual_uses_bound_cloud_connection(self, authenticated_client, monkeypatch):
+        """Stored dual validation should read credentials from the bound CloudConnection."""
+        client, headers = authenticated_client
+        connection = client.post(
+            "/cloud-connections/",
+            json={
+                "provider": "aws",
+                "display_name": "AWS SSOT",
+                "aws": {
+                    "access_key_id": "AKIAIOSFODNN7EXAMPLE",
+                    "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                    "region": "eu-central-1",
+                },
+            },
+            headers=headers,
+        ).json()
+        twin_id = create_test_twin(client, headers)
+        client.put(
+            f"/twins/{twin_id}/config/",
+            json={"cloud_connections": {"aws": connection["id"]}},
+            headers=headers,
+        )
+        seen = {}
+
+        async def fake_dual_validation(provider, optimizer_creds, deployer_creds):
+            seen["provider"] = provider
+            seen["optimizer_creds"] = optimizer_creds
+            seen["deployer_creds"] = deployer_creds
+            return {
+                "provider": provider,
+                "valid": True,
+                "optimizer": {"valid": True, "message": "optimizer ok"},
+                "deployer": {"valid": True, "message": "deployer ok", "permissions": []},
+            }
+
+        monkeypatch.setattr(
+            "src.api.routes.config._perform_dual_validation",
+            fake_dual_validation,
+        )
+
+        response = client.post(f"/twins/{twin_id}/config/validate-stored/aws", headers=headers)
+
+        assert response.status_code == 200
+        assert response.json()["valid"] is True
+        assert seen["provider"] == "aws"
+        assert seen["optimizer_creds"]["aws_access_key_id"] == "AKIAIOSFODNN7EXAMPLE"
+        assert seen["deployer_creds"]["aws_secret_access_key"] == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"

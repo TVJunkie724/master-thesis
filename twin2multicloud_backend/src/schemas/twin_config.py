@@ -43,11 +43,18 @@ class TwinConfigCreate(BaseModel):
     gcp: Optional[GCPCredentials] = None
 
 
+class TwinCloudConnectionRefs(BaseModel):
+    aws: Optional[str] = None
+    azure: Optional[str] = None
+    gcp: Optional[str] = None
+
+
 class TwinConfigUpdate(BaseModel):
     debug_mode: Optional[bool] = None
     highest_step_reached: Optional[int] = None
     optimizer_params: Optional[Any] = None  # CalcParams JSON
     optimizer_result: Optional[Any] = None  # CalcResult JSON
+    cloud_connections: Optional[TwinCloudConnectionRefs] = None
     aws: Optional[AWSCredentials] = None
     azure: Optional[AzureCredentials] = None
     gcp: Optional[GCPCredentials] = None
@@ -62,15 +69,18 @@ class TwinConfigResponse(BaseModel):
     debug_mode: bool
     aws_configured: bool
     aws_validated: bool
+    aws_cloud_connection_id: Optional[str] = None
     aws_region: Optional[str] = None
     aws_sso_region: Optional[str] = None
     azure_configured: bool
     azure_validated: bool
+    azure_cloud_connection_id: Optional[str] = None
     azure_region: Optional[str] = None
     azure_region_iothub: Optional[str] = None
     azure_region_digital_twin: Optional[str] = None
     gcp_configured: bool
     gcp_validated: bool
+    gcp_cloud_connection_id: Optional[str] = None
     gcp_project_id: Optional[str] = None
     gcp_billing_account_configured: bool = False  # NEW - never expose actual value
     gcp_region: Optional[str] = None  # NEW
@@ -86,17 +96,20 @@ class TwinConfigResponse(BaseModel):
             id=config.id,
             twin_id=config.twin_id,
             debug_mode=config.debug_mode,
-            aws_configured=bool(config.aws_access_key_id),
+            aws_configured=bool(config.aws_cloud_connection_id or config.aws_access_key_id),
             aws_validated=config.aws_validated,
+            aws_cloud_connection_id=getattr(config, 'aws_cloud_connection_id', None),
             aws_region=config.aws_region,
             aws_sso_region=getattr(config, 'aws_sso_region', None),
-            azure_configured=bool(config.azure_subscription_id),
+            azure_configured=bool(config.azure_cloud_connection_id or config.azure_subscription_id),
             azure_validated=config.azure_validated,
+            azure_cloud_connection_id=getattr(config, 'azure_cloud_connection_id', None),
             azure_region=getattr(config, 'azure_region', None),
             azure_region_iothub=getattr(config, 'azure_region_iothub', None),
             azure_region_digital_twin=getattr(config, 'azure_region_digital_twin', None),
-            gcp_configured=bool(config.gcp_project_id or config.gcp_service_account_json),
+            gcp_configured=bool(config.gcp_cloud_connection_id or config.gcp_project_id or config.gcp_service_account_json),
             gcp_validated=config.gcp_validated,
+            gcp_cloud_connection_id=getattr(config, 'gcp_cloud_connection_id', None),
             gcp_project_id=config.gcp_project_id,
             gcp_billing_account_configured=bool(getattr(config, 'gcp_billing_account', None)),  # NEW
             gcp_region=getattr(config, 'gcp_region', None),  # NEW
