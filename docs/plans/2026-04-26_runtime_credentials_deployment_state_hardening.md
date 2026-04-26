@@ -26,7 +26,7 @@ Der finale Zustand ist:
 
 ### 2.1 Credential Source of Truth
 
-Credentials gehoeren nicht in Repo-Root-Dateien, Upload-Templates oder Deployer-Projektordner. Die Management API verwaltet Cloud-Zugriffe als `CloudConnection`-Ressourcen.
+Credentials gehoeren nicht in Repo-Root-Dateien, versionierte Deployment-Templates oder Deployer-Projektordner. Die Management API verwaltet Cloud-Zugriffe als `CloudConnection`-Ressourcen.
 
 ```text
 Flutter
@@ -45,7 +45,7 @@ Admin-Credentials sind nur Bootstrap-Material. Sie duerfen in keinem normalen Sy
 - nicht in Logs
 - nicht in ZIPs
 - nicht in Terraform-Modulen
-- nicht in `upload/template`
+- nicht in versionierten Deployment-Templates
 - nicht als Compose-Root-Mount
 
 Persistiert werden nur begrenzte Deployment-Identitaeten oder Referenzen darauf.
@@ -251,6 +251,7 @@ Der Deployer akzeptiert langfristig nur dieses Manifest plus Runtime Credential 
 - Credential- und Compose-Zielbild dokumentieren.
 - Forbidden-path Tests fuer echte Credential-Artefakte vorbereiten.
 - README als Dev-/Demo-/Cloud-Profile ausrichten.
+- Repository-Hygiene-Phase als Voraussetzung abgeschlossen halten.
 
 ### Slice 2: Compose Split
 
@@ -278,7 +279,7 @@ Der Deployer akzeptiert langfristig nur dieses Manifest plus Runtime Credential 
 - Backend erzeugt `DeploymentManifest`.
 - Deployer materialisiert isolierte Workspaces pro Deployment.
 - Credentials werden nur noch runtime-lokal materialisiert.
-- Upload-/Template-Credential-Dateien werden entfernt.
+- Credential-Dateien werden aus Upload- und Template-Pfaden entfernt.
 
 ### Slice 6: Flutter Integration
 
@@ -291,7 +292,7 @@ Der Deployer akzeptiert langfristig nur dieses Manifest plus Runtime Credential 
 
 ## 9. Exit-Kriterien
 
-- Keine echten Credentials liegen im Repo-Root oder in `3-cloud-deployer/upload/template`.
+- Keine echten Credentials liegen im Repo-Root, in Upload-Pfaden oder in versionierten Deployment-Templates.
 - Default-Compose startet ohne echte Cloud-Credentials.
 - Cloud-Modus ist explizit und nutzt `.secrets/local` oder CloudConnection-basierte Runtime-Kontexte.
 - Admin-Credentials werden durch Tests und Code-Review-Regeln von Persistenz ausgeschlossen.

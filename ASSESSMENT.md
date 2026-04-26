@@ -20,9 +20,9 @@ Diese Schuld blockierte fast alle anderen sauberen Refactorings im Deployer. Die
 
 Der nächste priorisierte Architekturblock ist:
 
-> **P0: Runtime, Credentials & Deployment State Hardening.**
+> **P0: Repository Hygiene & Documentation Architecture.**
 
-Dieser Block trennt Dev-/Demo-/Cloud-Runtime, macht Cloud Connections zur user-scoped Credential Source of Truth, entfernt Admin-Credentials aus Persistenz und entkoppelt Flutter User Intent von Deployer-/Terraform-Dateistrukturen.
+Dieser Block trennt aktive Produktdateien von historischen Artefakten, klaert die Ownership von `upload/template` als Deployment-Vorlage und fuehrt eine wartbare MkDocs-basierte Dokumentationsseite ein. Direkt danach folgt Runtime, Credentials & Deployment State Hardening: Dev-/Demo-/Cloud-Runtime trennen, Cloud Connections zur user-scoped Credential Source of Truth machen, Admin-Credentials aus Persistenz entfernen und Flutter User Intent von Deployer-/Terraform-Dateistrukturen entkoppeln.
 
 ---
 
@@ -31,7 +31,7 @@ Dieser Block trennt Dev-/Demo-/Cloud-Runtime, macht Cloud Connections zur user-s
 | Projekt | Aktueller Architekturzustand | Größtes Risiko |
 |---------|------------------------------|----------------|
 | `2-twin2clouds` | Funktionsfähiger Optimizer mit guter Price-Fetcher-Factory, aber duplizierter Layer-Logik und vielen Raw-Dicts. | Provider-/Layer-Kalkulation ist schwer erweiterbar und fehleranfällig. |
-| `3-cloud-deployer` | Phase-1-Konsolidierung auf `src/providers/*` + `TerraformDeployerStrategy` ist umgesetzt und Docker-verifiziert; globale Projektzustände, statische Credential-Dateipfade und sehr große API-/Validation-Module bleiben. | Expliziter Deployment Context, isolierte Deployment Workspaces und kleinere API-/Validation-Module. |
+| `3-cloud-deployer` | Phase-1-Konsolidierung auf `src/providers/*` + `TerraformDeployerStrategy` ist umgesetzt und Docker-verifiziert; globale Projektzustände, statische Credential-Dateipfade, unklare Template-/Upload-Ownership und sehr große API-/Validation-Module bleiben. | Expliziter Deployment Context, klare Template-/Runtime-Trennung, isolierte Deployment Workspaces und kleinere API-/Validation-Module. |
 | `twin2multicloud_backend` | Management API ist der richtige Orchestrator, aber `twins.py` bündelt CRUD, State Machine, Upload, Deployment, SSE und Test-Flows; Credential- und Deployment-State-Ownership sind noch nicht sauber getrennt. | Business-Logik steckt in Routes statt in Services/Domain; Credentials brauchen eine CloudConnection-Domain. |
 | `twin2multicloud_flutter` | UI nutzt Riverpod, BLoC, Dio und `go_router`; funktional, aber mit großen Smart Widgets/BLoCs und hardcoded Dev-Auth. | Wizard- und Twin-Views sind schwer testbar; Credential-Auswahl und Twin-Konfiguration muessen als User Intent statt Deployer-Config modelliert werden. |
 
@@ -64,7 +64,28 @@ Diese Schuld war gravierend, weil es keinen eindeutigen canonical path für Depl
 
 ---
 
-### P0-2: Runtime, Credentials und Deployment State ohne klare Source of Truth
+### P0-2: Repository Hygiene, Template Ownership und Dokumentationsarchitektur
+
+**Befund:**
+Aktive Produktdateien, historische Artefakte, Runtime-Uploads, Templates und Dokumentation sind noch nicht sauber getrennt:
+
+- `3-cloud-deployer/upload/template` ist fachlich eine wertvolle Deployment-Vorlage, wurde aber zugleich als Development- und Runtime-Ort benutzt.
+- `upload/` vermischt damit Template-Ownership und generierte Projektartefakte.
+- Die aktuelle Deployer-Dokumentation ist teilweise als lose HTML-Dokumentation im Service gewachsen.
+- READMEs tragen zu viel operative Detaildokumentation und bleiben dadurch schwer als canonical Einstiegspunkt aktuell zu halten.
+- Historische Implementation Plans und Dokumente sind nicht ueberall klar als aktiv, archiviert oder obsolete klassifiziert.
+
+**Warum gravierend:**
+Bevor Credentials, Compose-Profile und Deployment Workspaces sauber getrennt werden koennen, muss klar sein, welche Dateien aktiv, historisch, Template, Runtime oder Dokumentation sind. Sonst wandern alte Pfade und Begriffe in die neue Architektur weiter. Besonders `upload/template` darf nicht geloescht werden; es braucht eine explizite Rolle als versionierte Deployment-Vorlage.
+
+**Zielbild:**
+Das Repository trennt aktive Produktpfade, versionierte Templates, Runtime-Artefakte und Dokumentation. `upload/template` wird entweder nach `3-cloud-deployer/templates/deployment_project` migriert oder kurzfristig explizit als Template abgesichert. Die Dokumentation wandert in eine MkDocs-basierte Docs-Site mit Docker-Dev-Server und Auto-Reload. READMEs bleiben kurze Einstiegspunkte.
+
+**Konzept:** [`docs/plans/2026-04-26_repository_hygiene_documentation_architecture.md`](docs/plans/2026-04-26_repository_hygiene_documentation_architecture.md)
+
+---
+
+### P0-3: Runtime, Credentials und Deployment State ohne klare Source of Truth
 
 **Befund:**
 Die lokale Runtime, Cloud-Credentials und generierte Deployment-Artefakte sind noch nicht sauber getrennt:
@@ -73,7 +94,7 @@ Die lokale Runtime, Cloud-Credentials und generierte Deployment-Artefakte sind n
 - `README.md` dokumentiert aktuell parallele GCP-Dateien fuer verschiedene Services.
 - Der Management API Seed-Pfad liest Credentials aus gemounteten Dateien.
 - Der Backend-Deployment-Service schreibt `config_credentials.json` und `gcp_credentials.json` in Deployment-ZIPs.
-- Der Deployer hat historisch `upload/template` und Projektordner als Credential-/Config-Transport genutzt.
+- Der Deployer hat historisch Template- und Projektordner als Credential-/Config-Transport genutzt.
 - Flutter modelliert Credential- und Deployer-Konfiguration noch zu nah am Deployment-Dateiformat.
 
 **Warum gravierend:**
@@ -86,7 +107,7 @@ Die Management API verwaltet user-scoped `CloudConnection`-Ressourcen als einzig
 
 ---
 
-### P0-3: Backend God-Route und fehlende Service-/Domain-Schicht
+### P0-4: Backend God-Route und fehlende Service-/Domain-Schicht
 
 **Befund:**
 `twin2multicloud_backend/src/api/routes/twins.py` hat 1 725 LOC und bündelt:
@@ -122,7 +143,7 @@ Routes sind dünne HTTP-Adapter. Domain-/Service-Schichten übernehmen:
 
 ---
 
-### P0-4: Globale Projektzustände im Deployer
+### P0-5: Globale Projektzustände im Deployer
 
 **Befund:**
 Der Deployer nutzt `src/core/state.py` als globalen Active-Project-Zustand. Mehrere API-Module und Tests lesen `state.get_active_project()`.
@@ -226,7 +247,7 @@ Dazu strukturierte Logs, Correlation IDs und zentrale Retry-Policies an Integrat
 ### P2-1: Dev-/Test-Konfiguration ist zu nah am Default-Pfad
 
 **Befund:**
-Dieser Punkt ist ein Teilaspekt von P0-2 und bleibt hier nur als sichtbare UI-/Runtime-Symptomatik stehen.
+Dieser Punkt ist ein Teilaspekt von P0-3 und bleibt hier nur als sichtbare UI-/Runtime-Symptomatik stehen.
 
 `compose.yaml` setzt aktuell:
 
@@ -343,7 +364,32 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 
 ---
 
-### Phase 3: Runtime, Credentials & Deployment State Hardening
+### Phase 3: Repository Hygiene & Documentation Architecture
+
+**Ziel:** Aktive Produktdateien, versionierte Templates, Runtime-Artefakte und Dokumentation werden getrennt, bevor Credential-, Compose- und Deployment-State-Pfade weiter umgebaut werden.
+
+**Konzept:** [`docs/plans/2026-04-26_repository_hygiene_documentation_architecture.md`](docs/plans/2026-04-26_repository_hygiene_documentation_architecture.md)
+
+**Reihenfolge:**
+
+1. README-/Docs-/HTML-/Implementation-Plan-Inventar erstellen.
+2. `3-cloud-deployer/upload/template` als Deployment-Vorlage klassifizieren und Zielpfad bzw. kurzfristige Absicherung festlegen.
+3. Runtime-/Generated-Dateien in `upload/` von Template-Dateien trennen.
+4. MkDocs-basierte Docs-Site mit Docker-Dev-Server und Auto-Reload anlegen.
+5. Canonical Architektur-, Cloud-Setup- und User-Guide-Dokumente in die Docs-Site verlinken oder migrieren.
+6. Obsolete Dokumentation und alte Artefakte loeschen oder klar archivieren.
+
+**Exit-Kriterien:**
+
+- `upload/template` ist entweder nach `templates/deployment_project` migriert oder explizit als Template dokumentiert und abgesichert.
+- `upload/` ist nicht mehr gleichzeitig Template-, Runtime- und Development-Ort.
+- Eine MkDocs-basierte Docs-Site existiert und kann lokal per Docker mit Auto-Reload gestartet werden.
+- README-Dateien verweisen auf die Docs-Site und enthalten keine langen Legacy-Dokumentationsbloecke mehr.
+- Historische Dokumente sind als aktiv, archiviert oder geloescht klassifiziert.
+
+---
+
+### Phase 4: Runtime, Credentials & Deployment State Hardening
 
 **Ziel:** Dev-/Demo-/Cloud-Runtime, Credential Source of Truth, Deployment Manifest und generierte Deployment Workspaces werden als ein zusammenhängender Architekturblock geklärt.
 
@@ -370,7 +416,7 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 
 ---
 
-### Phase 4: Backend Orchestrator entflechten
+### Phase 5: Backend Orchestrator entflechten
 
 **Ziel:** Management API-Routes werden dünn; Orchestrierung wandert in Services.
 
@@ -393,7 +439,7 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 
 ---
 
-### Phase 5: Brain Layer Contracts und Pricing Reliability
+### Phase 6: Brain Layer Contracts und Pricing Reliability
 
 **Ziel:** Provider-Berechnungen werden konsistent und erweiterbar.
 
@@ -414,7 +460,7 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 
 ---
 
-### Phase 6: Flutter Wizard und Twin Views slicen
+### Phase 7: Flutter Wizard und Twin Views slicen
 
 **Ziel:** UI-State wird testbar und Feature-bezogen.
 
@@ -446,10 +492,11 @@ Docs werden entweder über die Management API verlinkt/proxied oder als statisch
 | 0 | Assessment bereinigen | Ohne aktuelle Quelle der Wahrheit arbeitet man gegen historische Befunde. |
 | 1 | Deployer canonical path | Blockiert die meisten anderen Deployer- und Multi-Cloud-Refactorings. |
 | 2 | Deployer contract hardening | Baut direkt auf dem canonical path auf und stabilisiert Cloud-Flows. |
-| 3 | Runtime, Credentials & Deployment State | Muss vor tiefer Flutter-/DB-/Deployment-Arbeit geklaert werden, damit Credentials, Compose-Profile und Deployment-Artefakte nicht weiter historisch wachsen. |
-| 4 | Backend Orchestrator | Management API ist die zentrale Integrationsschicht; nach Credential-SSOT werden Clients, States und Manifeste klar. |
-| 5 | Brain Layer Contracts | Verbessert Optimizer-Erweiterbarkeit und Ergebnisqualität. |
-| 6 | Flutter Slicing | Wichtig, aber nach Credential-SSOT gezielter: Flutter kann dann User Intent und CloudConnection-Auswahl statt Deployer-Dateiformate modellieren. |
+| 3 | Repository Hygiene & Documentation Architecture | Klaert Template-, Runtime-, Docs- und Archiv-Ownership, bevor neue Credential-/Compose-Strukturen darauf aufbauen. |
+| 4 | Runtime, Credentials & Deployment State | Muss vor tiefer Flutter-/DB-/Deployment-Arbeit geklaert werden, damit Credentials, Compose-Profile und Deployment-Artefakte nicht weiter historisch wachsen. |
+| 5 | Backend Orchestrator | Management API ist die zentrale Integrationsschicht; nach Credential-SSOT werden Clients, States und Manifeste klar. |
+| 6 | Brain Layer Contracts | Verbessert Optimizer-Erweiterbarkeit und Ergebnisqualität. |
+| 7 | Flutter Slicing | Wichtig, aber nach Credential-SSOT gezielter: Flutter kann dann User Intent und CloudConnection-Auswahl statt Deployer-Dateiformate modellieren. |
 
 ---
 
@@ -462,7 +509,7 @@ Diese Punkte sind im aktuellen Workspace nicht mehr als offene Architektur-Schul
 - Das Management API hat kein Root-`services/` neben `src/services`; sichtbar ist `twin2multicloud_backend/src/services`.
 - Brain Implementation Plans liegen vollständig im Archive; Deployer hat 68 archivierte und 2 top-level persistente Referenzdokumente.
 
-Hinweis: Doppelte GCP-Credential-Dateien und Repo-Root-Credential-Mounts sind wieder als offene Schuld in P0-2 sichtbar und nicht mehr als erledigt klassifiziert.
+Hinweis: Doppelte GCP-Credential-Dateien und Repo-Root-Credential-Mounts sind wieder als offene Schuld in P0-3 sichtbar und nicht mehr als erledigt klassifiziert.
 
 ---
 
