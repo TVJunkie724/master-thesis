@@ -133,6 +133,24 @@ def test_delete_cloud_connection(authenticated_client, db_session):
     assert db_session.query(CloudConnection).filter_by(id=created["id"]).first() is None
 
 
+def test_delete_bound_cloud_connection_returns_conflict(authenticated_client, db_session):
+    from src.models.twin_config import TwinConfiguration
+
+    client, headers = authenticated_client
+    created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()
+    config = TwinConfiguration(
+        twin_id="bound-twin",
+        aws_cloud_connection_id=created["id"],
+    )
+    db_session.add(config)
+    db_session.commit()
+
+    response = client.delete(f"/cloud-connections/{created['id']}", headers=headers)
+
+    assert response.status_code == 409
+    assert db_session.query(CloudConnection).filter_by(id=created["id"]).first() is not None
+
+
 def test_rejects_mismatched_provider_payload(authenticated_client):
     client, headers = authenticated_client
     payload = _aws_request()

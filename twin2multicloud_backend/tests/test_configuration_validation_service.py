@@ -54,6 +54,13 @@ def _configured_twin() -> DigitalTwin:
     return twin
 
 
+def _cloud_connection_configured_twin() -> DigitalTwin:
+    twin = _configured_twin()
+    twin.configuration.aws_access_key_id = None
+    twin.configuration.aws_cloud_connection_id = "connection-aws"
+    return twin
+
+
 @pytest.mark.asyncio
 async def test_validate_configured_transition_sends_exact_optimizer_and_deployer_payloads():
     optimizer = FakeOptimizerClient({"valid": True})
@@ -71,6 +78,18 @@ async def test_validate_configured_transition_sends_exact_optimizer_and_deployer
     assert deployer.payload["event_actions"] == {"action-1": "print('ok')"}
     assert deployer.payload["optimizer_params"] == {"devices": 10}
     assert deployer.payload["cheapest_path"] == {"L1": "aws"}
+
+
+@pytest.mark.asyncio
+async def test_validate_configured_transition_accepts_cloud_connection_only_credentials():
+    optimizer = FakeOptimizerClient({"valid": True})
+    deployer = FakeDeployerClient({"valid": True})
+    service = ConfigurationValidationService(optimizer, deployer)
+
+    await service.validate_configured_transition(_cloud_connection_configured_twin())
+
+    assert optimizer.payload["params"] == {"devices": 10}
+    assert deployer.payload["deployer_digital_twin_name"] == "factory"
 
 
 @pytest.mark.asyncio

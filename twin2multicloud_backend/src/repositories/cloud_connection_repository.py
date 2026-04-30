@@ -3,6 +3,7 @@
 from sqlalchemy.orm import Session
 
 from src.models.cloud_connection import CloudConnection
+from src.models.twin_config import TwinConfiguration
 
 
 class CloudConnectionRepository:
@@ -32,6 +33,17 @@ class CloudConnectionRepository:
     def add(self, connection: CloudConnection) -> CloudConnection:
         self._db.add(connection)
         return connection
+
+    def count_twin_bindings(self, connection_id: str) -> int:
+        return (
+            self._db.query(TwinConfiguration)
+            .filter(
+                (TwinConfiguration.aws_cloud_connection_id == connection_id)
+                | (TwinConfiguration.azure_cloud_connection_id == connection_id)
+                | (TwinConfiguration.gcp_cloud_connection_id == connection_id)
+            )
+            .count()
+        )
 
     def delete(self, connection: CloudConnection) -> None:
         self._db.delete(connection)

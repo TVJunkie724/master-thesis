@@ -110,6 +110,7 @@ async def update_cloud_connection(
     summary="Delete a cloud connection owned by the current user",
     responses={
         401: ERROR_RESPONSES[401],
+        409: ERROR_RESPONSES[409],
         404: ERROR_RESPONSES[404],
     },
 )
@@ -122,6 +123,11 @@ async def delete_cloud_connection(
     connection = service.get_connection(connection_id, current_user.id)
     if not connection:
         raise HTTPException(status_code=404, detail="Cloud connection not found")
+    if service.count_twin_bindings(connection_id) > 0:
+        raise HTTPException(
+            status_code=409,
+            detail="Cloud connection is still bound to one or more twins",
+        )
     service.delete_connection(connection)
 
 

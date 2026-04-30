@@ -71,6 +71,9 @@ class CloudConnectionService:
         self._repo.delete(connection)
         self._db.commit()
 
+    def count_twin_bindings(self, connection_id: str) -> int:
+        return self._repo.count_twin_bindings(connection_id)
+
     def record_validation_result(self, connection: CloudConnection, result: dict[str, Any]) -> None:
         connection.validation_status = "valid" if result.get("valid") else "invalid"
         connection.validation_message = self._validation_message(result)

@@ -68,8 +68,11 @@ class ConfigurationValidationService:
         has_creds = False
         if config:
             has_creds = any([
+                config.aws_cloud_connection_id,
                 config.aws_access_key_id,
+                config.azure_cloud_connection_id,
                 config.azure_subscription_id,
+                config.gcp_cloud_connection_id,
                 config.gcp_project_id or config.gcp_billing_account,
             ])
         if not has_creds:
