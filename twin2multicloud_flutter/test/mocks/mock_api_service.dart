@@ -541,7 +541,7 @@ class MockApiService {
         return calculateCostsResultResponse!(params);
       }
       final response = await calculateCosts(params);
-      return Result.success(CalcResult.fromJson(response));
+      return Success(CalcResult.fromJson(response));
     });
   }
 
@@ -551,7 +551,7 @@ class MockApiService {
         return getPricingStatusResultResponse!();
       }
       final response = await getPricingStatus();
-      return Result.success(response);
+      return Success(response);
     });
   }
 
@@ -564,7 +564,7 @@ class MockApiService {
         return getTwinConfigResultResponse!(twinId);
       }
       final response = await getTwinConfig(twinId);
-      return Result.success(response);
+      return Success(response);
     });
   }
 }

@@ -18,13 +18,8 @@ ProviderContainer createMockProviderContainer({
   List<Twin>? twins,
   User? user,
   String? themeMode,
-  List<Override>? additionalOverrides,
 }) {
-  final overrides = <Override>[
-    ...?additionalOverrides,
-  ];
-  
-  return ProviderContainer(overrides: overrides);
+  return ProviderContainer();
 }
 
 /// Mock user for testing
@@ -38,7 +33,7 @@ User createMockUser({
     id: id,
     email: email,
     name: name,
-    themePreference: themePreference,
+    themePreference: themePreference ?? 'dark',
   );
 }
 
@@ -59,7 +54,7 @@ Twin createMockTwin({
     'providers': providers ?? ['AWS', 'Azure'],
     'created_at': createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
     'updated_at': updatedAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
-    'last_deployed_at': lastDeployedAt?.toIso8601String(),
+    if (lastDeployedAt != null) 'last_deployed_at': lastDeployedAt.toIso8601String(),
   });
 }
 
