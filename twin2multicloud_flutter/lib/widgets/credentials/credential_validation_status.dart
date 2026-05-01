@@ -46,7 +46,7 @@ class CredentialValidationStatus extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: theme.colorScheme.primaryContainer.withOpacity(0.5),
+            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -75,9 +75,9 @@ class CredentialValidationStatus extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.green.withOpacity(0.1),
+            color: Colors.green.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.green.withOpacity(0.3)),
+            border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -102,9 +102,9 @@ class CredentialValidationStatus extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: theme.colorScheme.errorContainer.withOpacity(0.5),
+            color: theme.colorScheme.errorContainer.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: theme.colorScheme.error.withOpacity(0.3)),
+            border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.3)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,

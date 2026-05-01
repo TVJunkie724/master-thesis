@@ -67,7 +67,7 @@ class StepIndicator extends StatelessWidget {
                 color: isActive
                     ? theme.colorScheme.primary
                     : isCompleted
-                        ? theme.colorScheme.primary.withOpacity(0.2)
+                        ? theme.colorScheme.primary.withValues(alpha: 0.2)
                         : theme.colorScheme.surfaceContainerHighest,
                 border: Border.all(
                   color: isActive || isCompleted

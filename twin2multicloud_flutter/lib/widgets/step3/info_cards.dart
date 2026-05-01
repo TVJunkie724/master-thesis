@@ -14,7 +14,7 @@ class Step3InfoCards {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.amber.shade900.withOpacity(0.3)
+            ? Colors.amber.shade900.withValues(alpha: 0.3)
             : Colors.amber.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(

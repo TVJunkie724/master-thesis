@@ -141,7 +141,7 @@ class ArchitectureServiceMap {
   
   static Color getProviderBackgroundColor(String? provider, {bool isDark = false}) {
     final baseColor = getProviderColor(provider, isDark: isDark);
-    return baseColor.withOpacity(isDark ? 0.15 : 0.1);
+    return baseColor.withValues(alpha: isDark ? 0.15 : 0.1);
   }
   
   // ================================================================

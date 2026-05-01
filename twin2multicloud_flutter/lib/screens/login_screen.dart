@@ -18,14 +18,16 @@ class LoginScreen extends ConsumerWidget {
 
     return SelectableScaffold(
       body: Center(
-        child: Card(
-          elevation: 8,
-          child: Container(
-            width: 400,
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Card(
+            elevation: 8,
+            child: Container(
+              width: 400,
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 // Logo
                 Image.asset(
                   'assets/images/logo_transparent_attempt.png',
@@ -69,8 +71,8 @@ class LoginScreen extends ConsumerWidget {
                       foregroundColor: Colors.white,
                       disabledBackgroundColor: const Color(
                         0xFF003366,
-                      ).withOpacity(0.4),
-                      disabledForegroundColor: Colors.white.withOpacity(0.6),
+                      ).withValues(alpha: 0.4),
+                      disabledForegroundColor: Colors.white.withValues(alpha: 0.6),
                       minimumSize: const Size(double.infinity, 48),
                     ),
                   ),
@@ -112,7 +114,7 @@ class LoginScreen extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: Theme.of(
                       context,
-                    ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                    ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -124,7 +126,8 @@ class LoginScreen extends ConsumerWidget {
                     textAlign: TextAlign.center,
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

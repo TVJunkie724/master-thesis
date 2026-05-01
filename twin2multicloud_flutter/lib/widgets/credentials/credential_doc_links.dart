@@ -91,7 +91,7 @@ class CredentialDocLinks extends StatelessWidget {
           fontSize: 12,
         ),
       ),
-      backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+      backgroundColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
       side: BorderSide.none,
       onPressed: () => _openLink(link.target),
     );

@@ -99,7 +99,7 @@ class ValidatedSlider extends StatelessWidget {
                   activeTrackColor: theme.colorScheme.primary,
                   inactiveTrackColor: theme.colorScheme.surfaceContainerHighest,
                   thumbColor: theme.colorScheme.primary,
-                  overlayColor: theme.colorScheme.primary.withOpacity(0.12),
+                  overlayColor: theme.colorScheme.primary.withValues(alpha: 0.12),
                 ),
                 child: Slider(
                   value: value.clamp(min, max),

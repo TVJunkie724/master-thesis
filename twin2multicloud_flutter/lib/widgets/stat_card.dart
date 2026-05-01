@@ -26,7 +26,7 @@ class StatCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.06),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
             blurRadius: 12,
             spreadRadius: 1,
             offset: const Offset(0, 0),
@@ -38,7 +38,7 @@ class StatCard extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+            color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
             width: 1,
           ),
         ),

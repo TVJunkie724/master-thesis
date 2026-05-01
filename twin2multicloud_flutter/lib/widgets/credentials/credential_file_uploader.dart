@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 
 /// A widget for uploading credential files (JSON).
-/// 
+///
 /// Features:
 /// - File picker integration
 /// - Upload status display
@@ -20,7 +20,7 @@ class CredentialFileUploader extends StatelessWidget {
   final String buttonText;
   final String? helperText;
   final bool showSchemaButton;
-  
+
   const CredentialFileUploader({
     super.key,
     this.fileName,
@@ -33,20 +33,20 @@ class CredentialFileUploader extends StatelessWidget {
     this.helperText,
     this.showSchemaButton = false,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasFile = fileName != null && fileName!.isNotEmpty;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: hasFile 
-              ? Colors.green.withOpacity(0.5) 
+          color: hasFile
+              ? Colors.green.withValues(alpha: 0.5)
               : theme.colorScheme.outlineVariant,
         ),
       ),
@@ -69,8 +69,8 @@ class CredentialFileUploader extends StatelessWidget {
                       hasFile ? fileName! : buttonText,
                       style: TextStyle(
                         fontWeight: FontWeight.w500,
-                        color: hasFile 
-                            ? theme.colorScheme.onSurface 
+                        color: hasFile
+                            ? theme.colorScheme.onSurface
                             : theme.colorScheme.outline,
                       ),
                     ),
@@ -130,11 +130,11 @@ class CredentialFileUploader extends StatelessWidget {
       ),
     );
   }
-  
+
   String _formatTime(DateTime time) {
     final now = DateTime.now();
     final diff = now.difference(time);
-    
+
     if (diff.inMinutes < 1) return 'just now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';

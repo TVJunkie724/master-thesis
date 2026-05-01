@@ -96,7 +96,7 @@ class _TwinsTableState extends State<TwinsTable> {
     
     return DataTable(
       headingRowColor: WidgetStateProperty.all(
-        theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
       ),
       columns: [
         _buildColumn('Name', TwinSortField.name),
@@ -172,7 +172,7 @@ class _TwinsTableState extends State<TwinsTable> {
         state.toUpperCase(),
         style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold),
       ),
-      backgroundColor: color.withOpacity(0.1),
+      backgroundColor: color.withValues(alpha: 0.1),
       side: BorderSide.none,
       padding: EdgeInsets.zero,
       visualDensity: VisualDensity.compact,
@@ -205,7 +205,7 @@ class _TwinsTableState extends State<TwinsTable> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(

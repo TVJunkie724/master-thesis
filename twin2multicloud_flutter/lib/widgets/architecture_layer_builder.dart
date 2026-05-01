@@ -432,6 +432,7 @@ class ArchitectureLayerBuilder {
     );
   }
 
+  // ignore: unused_element
   Widget _buildEditableComponentBoxSmall(String name, IconData icon) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

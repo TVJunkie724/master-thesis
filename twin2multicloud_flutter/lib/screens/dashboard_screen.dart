@@ -151,8 +151,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(
-                            Theme.of(context).brightness == Brightness.dark
+                          color: Colors.black.withValues(
+                            alpha: Theme.of(context).brightness == Brightness.dark
                                 ? 0.2
                                 : 0.06,
                           ),
@@ -168,8 +168,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(
                           color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white.withOpacity(0.1)
-                              : Colors.black.withOpacity(0.05),
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : Colors.black.withValues(alpha: 0.05),
                           width: 1,
                         ),
                       ),
@@ -354,7 +354,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           StatCard(title: 'Draft', value: '—', icon: Icons.edit_note),
         ],
       ),
-      error: (_, __) => const Row(
+      error: (_, _) => const Row(
         children: [
           StatCard(title: 'Deployed', value: '?', icon: Icons.cloud_done),
           StatCard(title: 'Est. Cost', value: '?', icon: Icons.attach_money),
@@ -484,7 +484,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           sortAscending: _sortAscending,
           headingRowColor: WidgetStateProperty.all(
             isDark
-                ? Colors.white.withOpacity(0.05)
+                ? Colors.white.withValues(alpha: 0.05)
                 : Theme.of(context).colorScheme.surfaceContainerHighest,
           ),
           columnSpacing: 24,

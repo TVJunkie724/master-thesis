@@ -164,6 +164,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
       authToken: authToken,
     );
 
+    if (!mounted) return;
     final state = context.read<WizardBloc>().state;
     _sseSubscription = sseService
         .streamRefreshPricing(provider, state.twinId ?? '')

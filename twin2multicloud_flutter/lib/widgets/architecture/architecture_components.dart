@@ -38,7 +38,7 @@ class ArchitectureComponents {
         color: ArchitectureServiceMap.getProviderBackgroundColor(provider, isDark: isDark),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: providerColor.withOpacity(0.5),
+          color: providerColor.withValues(alpha: 0.5),
           width: isEditable ? 2 : 1,
         ),
       ),
@@ -51,7 +51,7 @@ class ArchitectureComponents {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: providerColor.withOpacity(0.2),
+                  color: providerColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -77,7 +77,7 @@ class ArchitectureComponents {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.pink.withOpacity(0.2),
+                    color: Colors.pink.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
@@ -156,10 +156,10 @@ class ArchitectureComponents {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.pink.withOpacity(isDark ? 0.15 : 0.1),
+        color: Colors.pink.withValues(alpha: isDark ? 0.15 : 0.1),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: Colors.pink.withOpacity(0.5),
+          color: Colors.pink.withValues(alpha: 0.5),
         ),
       ),
       child: Row(
@@ -179,7 +179,7 @@ class ArchitectureComponents {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.pink.withOpacity(0.2),
+              color: Colors.pink.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
             ),
             child: const Text(
@@ -211,9 +211,9 @@ class ArchitectureComponents {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: providerColor.withOpacity(isDark ? 0.15 : 0.1),
+        color: providerColor.withValues(alpha: isDark ? 0.15 : 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: providerColor.withOpacity(0.3)),
+        border: Border.all(color: providerColor.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -249,9 +249,9 @@ class ArchitectureComponents {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Text(
         provider ?? 'N/A',
@@ -270,7 +270,7 @@ class ArchitectureComponents {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -307,7 +307,7 @@ class ArchitectureComponents {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey.shade800.withOpacity(0.5) : Colors.grey.shade100,
+        color: isDark ? Colors.grey.shade800.withValues(alpha: 0.5) : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Wrap(

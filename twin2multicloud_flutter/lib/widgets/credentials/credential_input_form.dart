@@ -107,7 +107,7 @@ class _CredentialInputFormState extends State<CredentialInputForm> {
             : field.hint,
         hintStyle: isSecretAndEmpty
             ? TextStyle(
-                color: theme.colorScheme.primary.withOpacity(0.7),
+                color: theme.colorScheme.primary.withValues(alpha: 0.7),
                 fontStyle: FontStyle.italic,
               )
             : null,
