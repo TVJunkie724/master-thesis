@@ -1,16 +1,33 @@
-# twin2multicloud_flutter
+# Twin2MultiCloud Flutter
 
-A new Flutter project.
+Flutter Web/Desktop UI for the Twin2MultiCloud Management API.
 
-## Getting Started
+## Local Runtime
 
-This project is a starting point for a Flutter application.
+Start the backend stack from the repository root:
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+docker compose up -d management-api 2twin2clouds 3cloud-deployer
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Run Flutter against the host-exposed Management API:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+cd twin2multicloud_flutter
+flutter run -d chrome --dart-define-from-file=config/dev.json
+```
+
+`config/dev.example.json` documents the supported runtime keys. Use
+`config/dev.local.json` for personal overrides; it is gitignored.
+
+## Quality Checks
+
+```bash
+flutter pub get
+flutter analyze
+flutter test
+flutter build web --dart-define-from-file=config/dev.json
+```
+
+Flutter must call the Management API only. Direct calls to Optimizer or
+Deployer service ports are architecture defects.
