@@ -594,7 +594,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
 
     _logTraceSseService = SseService(
       baseUrl: ApiConfig.baseUrl,
-      authToken: 'dev-token', // TODO: Get from ApiService
+      authToken: ApiConfig.devAuthToken,
     );
 
     // Use provided sseUrl (from test endpoint) or construct default URL
@@ -702,7 +702,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     // Create SSE service with auth token
     _sseService = SseService(
       baseUrl: ApiConfig.baseUrl,
-      authToken: 'dev-token', // TODO: Get from ApiService
+      authToken: ApiConfig.devAuthToken,
     );
 
     _sseSubscription = _sseService!

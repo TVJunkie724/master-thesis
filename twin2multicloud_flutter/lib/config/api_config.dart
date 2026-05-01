@@ -1,7 +1,11 @@
 class ApiConfig {
-  // Change this when backend is running
-  static const String baseUrl = 'http://localhost:5005';
-  
-  // For Flutter web development
-  static const String devToken = 'dev-token';
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:5005',
+  );
+
+  static const String devAuthToken = String.fromEnvironment(
+    'DEV_AUTH_TOKEN',
+    defaultValue: 'dev-token',
+  );
 }

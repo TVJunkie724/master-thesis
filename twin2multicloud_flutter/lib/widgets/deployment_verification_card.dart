@@ -172,7 +172,7 @@ class _DeploymentVerificationCardState
 
     _sseService = SseService(
       baseUrl: ApiConfig.baseUrl,
-      authToken: 'dev-token',
+      authToken: ApiConfig.devAuthToken,
     );
 
     _sseSubscription = _sseService!
@@ -353,7 +353,7 @@ class _DeploymentVerificationCardState
             _buildInfraSection(context, theme, isDark),
 
             const SizedBox(height: 24),
-            Divider(color: theme.dividerColor.withOpacity(0.5)),
+            Divider(color: theme.dividerColor.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
 
             // ─── Data Flow Verification ───
@@ -403,7 +403,7 @@ class _DeploymentVerificationCardState
             style: FilledButton.styleFrom(
               backgroundColor: theme.colorScheme.primary,
               foregroundColor: theme.colorScheme.onPrimary,
-              disabledBackgroundColor: theme.colorScheme.primary.withOpacity(
+              disabledBackgroundColor: theme.colorScheme.primary.withValues(alpha:
                 0.6,
               ),
               disabledForegroundColor: Colors.white70,
@@ -475,7 +475,7 @@ class _DeploymentVerificationCardState
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF4CAF50),
               foregroundColor: Colors.white,
-              disabledBackgroundColor: const Color(0xFF4CAF50).withOpacity(0.6),
+              disabledBackgroundColor: const Color(0xFF4CAF50).withValues(alpha: 0.6),
               disabledForegroundColor: Colors.white70,
             ),
           ),
@@ -497,9 +497,9 @@ class _DeploymentVerificationCardState
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.orange.withOpacity(0.1),
+            color: Colors.orange.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -557,7 +557,7 @@ class _DeploymentVerificationCardState
     return Container(
       decoration: BoxDecoration(
         color: isDark
-            ? theme.colorScheme.surfaceContainerHighest.withOpacity(0.5)
+            ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
             : theme.colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: theme.dividerColor),
@@ -826,8 +826,8 @@ class _DeploymentVerificationCardState
     return Container(
       decoration: BoxDecoration(
         color: allPass
-            ? (isDark ? Colors.green[900]!.withOpacity(0.3) : Colors.green[50])
-            : (isDark ? Colors.red[900]!.withOpacity(0.3) : Colors.red[50]),
+            ? (isDark ? Colors.green[900]!.withValues(alpha: 0.3) : Colors.green[50])
+            : (isDark ? Colors.red[900]!.withValues(alpha: 0.3) : Colors.red[50]),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: allPass
@@ -916,7 +916,7 @@ class _DeploymentVerificationCardState
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? Colors.red[900]!.withOpacity(0.3) : Colors.red[50],
+        color: isDark ? Colors.red[900]!.withValues(alpha: 0.3) : Colors.red[50],
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: isDark ? Colors.red[700]! : Colors.red[200]!),
       ),
@@ -963,7 +963,7 @@ class _DeploymentVerificationCardState
     return Container(
       decoration: BoxDecoration(
         color: isDark
-            ? theme.colorScheme.surfaceContainerHighest.withOpacity(0.5)
+            ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
             : theme.colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
@@ -982,10 +982,10 @@ class _DeploymentVerificationCardState
             decoration: BoxDecoration(
               color: healthy
                   ? (isDark
-                        ? Colors.green[900]!.withOpacity(0.3)
+                        ? Colors.green[900]!.withValues(alpha: 0.3)
                         : Colors.green[50])
                   : (isDark
-                        ? Colors.red[900]!.withOpacity(0.3)
+                        ? Colors.red[900]!.withValues(alpha: 0.3)
                         : Colors.red[50]),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(7),
@@ -1032,7 +1032,7 @@ class _DeploymentVerificationCardState
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: isDark
-                      ? Colors.orange[900]!.withOpacity(0.2)
+                      ? Colors.orange[900]!.withValues(alpha: 0.2)
                       : Colors.orange[50],
                   borderRadius: BorderRadius.circular(4),
                 ),
@@ -1088,7 +1088,7 @@ class _DeploymentVerificationCardState
       TableRow(
         decoration: BoxDecoration(
           border: Border(
-            bottom: BorderSide(color: theme.dividerColor.withOpacity(0.5)),
+            bottom: BorderSide(color: theme.dividerColor.withValues(alpha: 0.5)),
           ),
         ),
         children: [
@@ -1218,7 +1218,7 @@ class _DeploymentVerificationCardState
                             vertical: 1,
                           ),
                           decoration: BoxDecoration(
-                            color: badgeColor.withOpacity(isDark ? 0.2 : 0.1),
+                            color: badgeColor.withValues(alpha: isDark ? 0.2 : 0.1),
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: Text(

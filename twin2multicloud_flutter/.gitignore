@@ -55,6 +55,8 @@ app.*.map.json
 **/macos/Flutter/GeneratedPluginRegistrant.swift
 .flutter-plugins
 
+# Local developer runtime overrides. Keep committed dev.json non-secret.
+config/dev.local.json
+
 # Lock file (optional - some projects track this)
 # pubspec.lock
-

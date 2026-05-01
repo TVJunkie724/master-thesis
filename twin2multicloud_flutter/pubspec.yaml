@@ -57,6 +57,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   intl: ^0.20.2
   url_launcher: ^6.3.2
+  collection: ^1.19.0
   
   # SSE (Server-Sent Events) for real-time logs
   flutter_client_sse: ^2.0.1
@@ -74,6 +75,8 @@ dependencies:
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
   
   # BLoC testing

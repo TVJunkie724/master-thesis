@@ -4,12 +4,12 @@ import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import '../core/result.dart';
 import '../models/calc_result.dart';
+import '../models/cloud_connection.dart';
 import '../utils/api_error_handler.dart';
 
 class ApiService {
   late final Dio _dio;
-  // TODO: Make configurable via environment variable or auth provider
-  String? _token = 'dev-token';
+  String? _token = ApiConfig.devAuthToken;
 
   /// Expose base URL for other services (e.g., SSE)
   static String get baseUrl => ApiConfig.baseUrl;
@@ -38,6 +38,57 @@ class ApiService {
 
   /// Get current auth token for SSE connections
   Future<String?> getAuthToken() async => _token;
+
+  Future<List<CloudConnection>> listCloudConnections({
+    CloudProvider? provider,
+  }) async {
+    final response = await _dio.get(
+      '/cloud-connections/',
+      queryParameters: {if (provider != null) 'provider': provider.apiValue},
+    );
+    final data = response.data as List<dynamic>;
+    return data
+        .map((json) => CloudConnection.fromJson(json as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<CloudConnection> createCloudConnection(
+    CloudConnectionCreateRequest request,
+  ) async {
+    final response = await _dio.post(
+      '/cloud-connections/',
+      data: request.toJson(),
+    );
+    return CloudConnection.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<CloudConnection> updateCloudConnection(
+    String id, {
+    String? displayName,
+    Map<String, dynamic>? cloudScope,
+  }) async {
+    final response = await _dio.patch(
+      '/cloud-connections/$id',
+      data: {
+        if (displayName != null) 'display_name': displayName,
+        if (cloudScope != null) 'cloud_scope': cloudScope,
+      },
+    );
+    return CloudConnection.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<void> deleteCloudConnection(String id) async {
+    await _dio.delete('/cloud-connections/$id');
+  }
+
+  Future<CloudConnectionValidationResult> validateCloudConnection(
+    String id,
+  ) async {
+    final response = await _dio.post('/cloud-connections/$id/validate');
+    return CloudConnectionValidationResult.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
 
   /// Update current user's preferences (e.g., theme)
   Future<Map<String, dynamic>> updateUserPreferences({
