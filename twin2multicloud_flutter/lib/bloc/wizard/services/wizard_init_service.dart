@@ -4,6 +4,7 @@
 
 import '../../../models/calc_params.dart';
 import '../../../models/calc_result.dart';
+import '../../../models/cloud_connection.dart';
 import '../wizard_state.dart';
 import '../helpers/helpers.dart';
 
@@ -174,30 +175,48 @@ class WizardInitService {
       awsCreds = ProviderCredentials(
         isValid: true,
         source: CredentialSource.inherited,
-        values: CredentialsHelper.extractCredentialsFromFlatConfig(config, 'aws'),
+        values: CredentialsHelper.extractCredentialsFromFlatConfig(
+          config,
+          'aws',
+        ),
       );
     }
     if (config['azure_configured'] == true) {
       azureCreds = ProviderCredentials(
         isValid: true,
         source: CredentialSource.inherited,
-        values: CredentialsHelper.extractCredentialsFromFlatConfig(config, 'azure'),
+        values: CredentialsHelper.extractCredentialsFromFlatConfig(
+          config,
+          'azure',
+        ),
       );
     }
     if (config['gcp_configured'] == true) {
       gcpCreds = ProviderCredentials(
         isValid: true,
         source: CredentialSource.inherited,
-        values: CredentialsHelper.extractCredentialsFromFlatConfig(config, 'gcp'),
+        values: CredentialsHelper.extractCredentialsFromFlatConfig(
+          config,
+          'gcp',
+        ),
       );
     }
+
+    final selectedCloudConnectionIds = <CloudProvider, String?>{
+      CloudProvider.aws: config['aws_cloud_connection_id'] as String?,
+      CloudProvider.azure: config['azure_cloud_connection_id'] as String?,
+      CloudProvider.gcp: config['gcp_cloud_connection_id'] as String?,
+    };
 
     // Determine starting step
     int startStep = config['highest_step_reached'] as int? ?? 0;
 
     // Validate startStep against actual data
     if (startStep >= 1 &&
-        !(awsCreds.isValid || azureCreds.isValid || gcpCreds.isValid)) {
+        !(awsCreds.isValid ||
+            azureCreds.isValid ||
+            gcpCreds.isValid ||
+            selectedCloudConnectionIds.values.any((id) => id != null))) {
       startStep = 0;
     }
 
@@ -241,6 +260,7 @@ class WizardInitService {
         aws: awsCreds,
         azure: azureCreds,
         gcp: gcpCreds,
+        selectedCloudConnectionIds: selectedCloudConnectionIds,
         calcParams: loadedParams,
         calcResult: loadedResult,
         savedCalcResult: loadedResult,

@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
+import '../../models/cloud_connection.dart';
 import '../../utils/twin_state_utils.dart';
 
 // ============================================================
@@ -92,6 +93,12 @@ class WizardState extends Equatable {
   final ProviderCredentials azure;
   final ProviderCredentials gcp;
   final String? gcpServiceAccountJson;
+  final Map<CloudProvider, List<CloudConnection>> cloudConnections;
+  final Map<CloudProvider, String?> selectedCloudConnectionIds;
+  final Map<CloudProvider, bool> cloudConnectionLoading;
+  final Map<CloudProvider, String?> cloudConnectionErrors;
+  final Map<CloudProvider, CloudConnectionValidationResult?>
+  cloudConnectionValidation;
 
   // === Persistent Data: Step 2 ===
   final CalcParams? calcParams;
@@ -178,6 +185,11 @@ class WizardState extends Equatable {
     this.azure = const ProviderCredentials(),
     this.gcp = const ProviderCredentials(),
     this.gcpServiceAccountJson,
+    this.cloudConnections = const {},
+    this.selectedCloudConnectionIds = const {},
+    this.cloudConnectionLoading = const {},
+    this.cloudConnectionErrors = const {},
+    this.cloudConnectionValidation = const {},
     this.calcParams,
     this.isCalcFormValid = true, // Default to valid
     this.calcResult,
@@ -237,7 +249,10 @@ class WizardState extends Equatable {
   /// Can proceed from Step 1 to Step 2?
   bool get canProceedToStep2 =>
       (twinName?.isNotEmpty ?? false) &&
-      (aws.isValid || azure.isValid || gcp.isValid);
+      (aws.isValid ||
+          azure.isValid ||
+          gcp.isValid ||
+          selectedCloudConnectionIds.values.any((id) => id != null));
 
   /// Can proceed from Step 2 to Step 3?
   bool get canProceedToStep3 => calcResult != null;
@@ -247,6 +262,19 @@ class WizardState extends Equatable {
     if (aws.isValid) 'AWS',
     if (azure.isValid) 'AZURE',
     if (gcp.isValid) 'GCP',
+    if (selectedCloudConnectionIds[CloudProvider.aws] != null) 'AWS',
+    if (selectedCloudConnectionIds[CloudProvider.azure] != null) 'AZURE',
+    if (selectedCloudConnectionIds[CloudProvider.gcp] != null) 'GCP',
+  };
+
+  Set<CloudProvider> get legacyConfiguredProviders => {
+    if (aws.isValid && selectedCloudConnectionIds[CloudProvider.aws] == null)
+      CloudProvider.aws,
+    if (azure.isValid &&
+        selectedCloudConnectionIds[CloudProvider.azure] == null)
+      CloudProvider.azure,
+    if (gcp.isValid && selectedCloudConnectionIds[CloudProvider.gcp] == null)
+      CloudProvider.gcp,
   };
 
   /// Set of required provider names (from optimizer result) that are NOT configured
@@ -475,6 +503,12 @@ class WizardState extends Equatable {
     ProviderCredentials? azure,
     ProviderCredentials? gcp,
     String? gcpServiceAccountJson,
+    Map<CloudProvider, List<CloudConnection>>? cloudConnections,
+    Map<CloudProvider, String?>? selectedCloudConnectionIds,
+    Map<CloudProvider, bool>? cloudConnectionLoading,
+    Map<CloudProvider, String?>? cloudConnectionErrors,
+    Map<CloudProvider, CloudConnectionValidationResult?>?
+    cloudConnectionValidation,
     CalcParams? calcParams,
     bool? isCalcFormValid,
     CalcResult? calcResult,
@@ -555,6 +589,15 @@ class WizardState extends Equatable {
       gcp: gcp ?? this.gcp,
       gcpServiceAccountJson:
           gcpServiceAccountJson ?? this.gcpServiceAccountJson,
+      cloudConnections: cloudConnections ?? this.cloudConnections,
+      selectedCloudConnectionIds:
+          selectedCloudConnectionIds ?? this.selectedCloudConnectionIds,
+      cloudConnectionLoading:
+          cloudConnectionLoading ?? this.cloudConnectionLoading,
+      cloudConnectionErrors:
+          cloudConnectionErrors ?? this.cloudConnectionErrors,
+      cloudConnectionValidation:
+          cloudConnectionValidation ?? this.cloudConnectionValidation,
       calcParams: calcParams ?? this.calcParams,
       isCalcFormValid: isCalcFormValid ?? this.isCalcFormValid,
       calcResult: calcResult ?? this.calcResult,
@@ -646,6 +689,11 @@ class WizardState extends Equatable {
     azure,
     gcp,
     gcpServiceAccountJson,
+    cloudConnections,
+    selectedCloudConnectionIds,
+    cloudConnectionLoading,
+    cloudConnectionErrors,
+    cloudConnectionValidation,
     calcParams,
     isCalcFormValid,
     calcResult,

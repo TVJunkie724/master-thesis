@@ -11,6 +11,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../models/calc_result.dart';
+import '../../models/cloud_connection.dart';
 import '../../services/api_service.dart';
 import '../../utils/api_error_handler.dart';
 import 'wizard_event.dart';
@@ -54,6 +55,14 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     on<WizardCredentialsChanged>(_onCredentialsChanged);
     on<WizardCredentialsValidated>(_onCredentialsValidated);
     on<WizardCredentialsCleared>(_onCredentialsCleared);
+    on<WizardCloudConnectionsLoadRequested>(_onCloudConnectionsLoadRequested);
+    on<WizardCloudConnectionSelected>(_onCloudConnectionSelected);
+    on<WizardCloudConnectionCreateRequested>(_onCloudConnectionCreateRequested);
+    on<WizardCloudConnectionValidateRequested>(
+      _onCloudConnectionValidateRequested,
+    );
+    on<WizardCloudConnectionUnbound>(_onCloudConnectionUnbound);
+    on<WizardCloudConnectionDeleteRequested>(_onCloudConnectionDeleteRequested);
 
     // === Step 2: Optimizer ===
     on<WizardCalcParamsChanged>(_onCalcParamsChanged);
@@ -133,8 +142,12 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
   // INITIALIZATION HANDLERS - Delegated to WizardInitService
   // ============================================================
 
-  void _onInitCreate(WizardInitCreate event, Emitter<WizardState> emit) {
+  Future<void> _onInitCreate(
+    WizardInitCreate event,
+    Emitter<WizardState> emit,
+  ) async {
     emit(_initService.initializeCreateMode());
+    await _loadCloudConnections(emit);
   }
 
   Future<void> _onInitEdit(
@@ -167,6 +180,7 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         ),
       );
       emit(result.state);
+      await _loadCloudConnections(emit);
     } catch (e) {
       debugPrint(
         '[WizardBloc] Failed to load twin: ${ApiErrorHandler.extractMessage(e)}',
@@ -179,6 +193,281 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         ),
       );
     }
+  }
+
+  Future<void> _onCloudConnectionsLoadRequested(
+    WizardCloudConnectionsLoadRequested event,
+    Emitter<WizardState> emit,
+  ) async {
+    await _loadCloudConnections(emit);
+  }
+
+  Future<void> _loadCloudConnections(Emitter<WizardState> emit) async {
+    final loading = {
+      for (final provider in CloudProvider.values) provider: true,
+    };
+    emit(
+      state.copyWith(
+        cloudConnectionLoading: loading,
+        cloudConnectionErrors: const {},
+      ),
+    );
+
+    try {
+      final connections = await _api.listCloudConnections();
+      final grouped = <CloudProvider, List<CloudConnection>>{
+        for (final provider in CloudProvider.values)
+          provider: connections
+              .where((connection) => connection.provider == provider)
+              .toList(growable: false),
+      };
+      emit(
+        state.copyWith(
+          cloudConnections: grouped,
+          cloudConnectionLoading: {
+            for (final provider in CloudProvider.values) provider: false,
+          },
+          cloudConnectionErrors: const {},
+        ),
+      );
+    } catch (e) {
+      final message = ApiErrorHandler.extractMessage(e);
+      emit(
+        state.copyWith(
+          cloudConnectionLoading: {
+            for (final provider in CloudProvider.values) provider: false,
+          },
+          cloudConnectionErrors: {
+            for (final provider in CloudProvider.values) provider: message,
+          },
+        ),
+      );
+    }
+  }
+
+  void _onCloudConnectionSelected(
+    WizardCloudConnectionSelected event,
+    Emitter<WizardState> emit,
+  ) {
+    final selected = Map<CloudProvider, String?>.from(
+      state.selectedCloudConnectionIds,
+    );
+    selected[event.provider] = event.connectionId;
+
+    final validation =
+        Map<CloudProvider, CloudConnectionValidationResult?>.from(
+          state.cloudConnectionValidation,
+        );
+    validation.remove(event.provider);
+
+    emit(
+      state.copyWith(
+        selectedCloudConnectionIds: selected,
+        cloudConnectionValidation: validation,
+        hasUnsavedChanges: true,
+      ),
+    );
+  }
+
+  Future<void> _onCloudConnectionCreateRequested(
+    WizardCloudConnectionCreateRequested event,
+    Emitter<WizardState> emit,
+  ) async {
+    emit(_providerLoadingState(event.provider, true));
+
+    try {
+      final created = await _api.createCloudConnection(event.request);
+      final connections = Map<CloudProvider, List<CloudConnection>>.from(
+        state.cloudConnections,
+      );
+      final providerConnections = [
+        ...(connections[event.provider] ?? const <CloudConnection>[]),
+        created,
+      ];
+      connections[event.provider] = providerConnections;
+
+      final selected = Map<CloudProvider, String?>.from(
+        state.selectedCloudConnectionIds,
+      );
+      selected[event.provider] = created.id;
+
+      emit(
+        _providerLoadingState(event.provider, false).copyWith(
+          cloudConnections: connections,
+          selectedCloudConnectionIds: selected,
+          hasUnsavedChanges: true,
+          successMessage: 'Cloud connection created',
+          clearError: true,
+        ),
+      );
+    } catch (e) {
+      emit(
+        _providerLoadingState(event.provider, false).copyWith(
+          cloudConnectionErrors: _providerErrorMap(
+            event.provider,
+            ApiErrorHandler.extractMessage(e),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _onCloudConnectionValidateRequested(
+    WizardCloudConnectionValidateRequested event,
+    Emitter<WizardState> emit,
+  ) async {
+    emit(_providerLoadingState(event.provider, true));
+
+    try {
+      final result = await _api.validateCloudConnection(event.connectionId);
+      final validation =
+          Map<CloudProvider, CloudConnectionValidationResult?>.from(
+            state.cloudConnectionValidation,
+          );
+      validation[event.provider] = result;
+
+      final connections = _replaceCloudConnectionValidationStatus(
+        provider: event.provider,
+        connectionId: event.connectionId,
+        result: result,
+      );
+
+      emit(
+        _providerLoadingState(event.provider, false).copyWith(
+          cloudConnectionValidation: validation,
+          cloudConnections: connections,
+          clearError: true,
+        ),
+      );
+    } catch (e) {
+      emit(
+        _providerLoadingState(event.provider, false).copyWith(
+          cloudConnectionErrors: _providerErrorMap(
+            event.provider,
+            ApiErrorHandler.extractMessage(e),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _onCloudConnectionUnbound(
+    WizardCloudConnectionUnbound event,
+    Emitter<WizardState> emit,
+  ) {
+    final selected = Map<CloudProvider, String?>.from(
+      state.selectedCloudConnectionIds,
+    );
+    selected[event.provider] = null;
+
+    emit(
+      state.copyWith(
+        selectedCloudConnectionIds: selected,
+        hasUnsavedChanges: true,
+      ),
+    );
+  }
+
+  Future<void> _onCloudConnectionDeleteRequested(
+    WizardCloudConnectionDeleteRequested event,
+    Emitter<WizardState> emit,
+  ) async {
+    emit(_providerLoadingState(event.provider, true));
+
+    try {
+      await _api.deleteCloudConnection(event.connectionId);
+      final connections = Map<CloudProvider, List<CloudConnection>>.from(
+        state.cloudConnections,
+      );
+      connections[event.provider] = [
+        ...(connections[event.provider] ?? const <CloudConnection>[]),
+      ].where((connection) => connection.id != event.connectionId).toList();
+
+      final selected = Map<CloudProvider, String?>.from(
+        state.selectedCloudConnectionIds,
+      );
+      if (selected[event.provider] == event.connectionId) {
+        selected[event.provider] = null;
+      }
+
+      emit(
+        _providerLoadingState(event.provider, false).copyWith(
+          cloudConnections: connections,
+          selectedCloudConnectionIds: selected,
+          successMessage: 'Cloud connection deleted',
+        ),
+      );
+    } catch (e) {
+      emit(
+        _providerLoadingState(event.provider, false).copyWith(
+          cloudConnectionErrors: _providerErrorMap(
+            event.provider,
+            ApiErrorHandler.extractMessage(e),
+          ),
+        ),
+      );
+    }
+  }
+
+  WizardState _providerLoadingState(CloudProvider provider, bool loading) {
+    final loadingMap = Map<CloudProvider, bool>.from(
+      state.cloudConnectionLoading,
+    );
+    loadingMap[provider] = loading;
+    final errorMap = Map<CloudProvider, String?>.from(
+      state.cloudConnectionErrors,
+    );
+    if (loading) {
+      errorMap[provider] = null;
+    }
+    return state.copyWith(
+      cloudConnectionLoading: loadingMap,
+      cloudConnectionErrors: errorMap,
+    );
+  }
+
+  Map<CloudProvider, String?> _providerErrorMap(
+    CloudProvider provider,
+    String message,
+  ) {
+    final errors = Map<CloudProvider, String?>.from(
+      state.cloudConnectionErrors,
+    );
+    errors[provider] = message;
+    return errors;
+  }
+
+  Map<CloudProvider, List<CloudConnection>>
+  _replaceCloudConnectionValidationStatus({
+    required CloudProvider provider,
+    required String connectionId,
+    required CloudConnectionValidationResult result,
+  }) {
+    final connections = Map<CloudProvider, List<CloudConnection>>.from(
+      state.cloudConnections,
+    );
+    connections[provider] = [
+      for (final connection
+          in connections[provider] ?? const <CloudConnection>[])
+        if (connection.id == connectionId)
+          CloudConnection(
+            id: connection.id,
+            provider: connection.provider,
+            displayName: connection.displayName,
+            authType: connection.authType,
+            cloudScope: connection.cloudScope,
+            payloadFingerprint: connection.payloadFingerprint,
+            payloadSummary: connection.payloadSummary,
+            validationStatus: result.validationStatus,
+            validationMessage: result.message,
+            lastValidatedAt: DateTime.now(),
+            createdAt: connection.createdAt,
+            updatedAt: connection.updatedAt,
+          )
+        else
+          connection,
+    ];
+    return connections;
   }
 
   // ============================================================
@@ -515,6 +804,17 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     return null;
   }
 
+  Map<String, String?> _cloudConnectionsPayload() {
+    return {
+      for (final provider in CloudProvider.values)
+        provider.apiValue: state.selectedCloudConnectionIds[provider],
+    };
+  }
+
+  bool _hasSelectedCloudConnection(CloudProvider provider) {
+    return state.selectedCloudConnectionIds[provider] != null;
+  }
+
   // ============================================================
   // PERSISTENCE HANDLERS
   // ============================================================
@@ -544,21 +844,27 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       }
 
       // Build config payload - only send credentials that need updating
-      final config = <String, dynamic>{'debug_mode': state.debugMode};
+      final config = <String, dynamic>{
+        'debug_mode': state.debugMode,
+        'cloud_connections': _cloudConnectionsPayload(),
+      };
 
-      if (state.aws.source == CredentialSource.newlyEntered) {
+      if (!_hasSelectedCloudConnection(CloudProvider.aws) &&
+          state.aws.source == CredentialSource.newlyEntered) {
         config['aws'] = state.aws.values;
       } else if (state.aws.source == CredentialSource.cleared) {
         config['aws'] = null; // Delete from DB
       }
 
-      if (state.azure.source == CredentialSource.newlyEntered) {
+      if (!_hasSelectedCloudConnection(CloudProvider.azure) &&
+          state.azure.source == CredentialSource.newlyEntered) {
         config['azure'] = state.azure.values;
       } else if (state.azure.source == CredentialSource.cleared) {
         config['azure'] = null;
       }
 
-      if (state.gcp.source == CredentialSource.newlyEntered) {
+      if (!_hasSelectedCloudConnection(CloudProvider.gcp) &&
+          state.gcp.source == CredentialSource.newlyEntered) {
         config['gcp'] = state.gcp.values;
       } else if (state.gcp.source == CredentialSource.cleared) {
         config['gcp'] = null;
@@ -727,14 +1033,20 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       }
 
       // Build config payload
-      final config = <String, dynamic>{'debug_mode': state.debugMode};
-      if (state.aws.source == CredentialSource.newlyEntered) {
+      final config = <String, dynamic>{
+        'debug_mode': state.debugMode,
+        'cloud_connections': _cloudConnectionsPayload(),
+      };
+      if (!_hasSelectedCloudConnection(CloudProvider.aws) &&
+          state.aws.source == CredentialSource.newlyEntered) {
         config['aws'] = state.aws.values;
       }
-      if (state.azure.source == CredentialSource.newlyEntered) {
+      if (!_hasSelectedCloudConnection(CloudProvider.azure) &&
+          state.azure.source == CredentialSource.newlyEntered) {
         config['azure'] = state.azure.values;
       }
-      if (state.gcp.source == CredentialSource.newlyEntered) {
+      if (!_hasSelectedCloudConnection(CloudProvider.gcp) &&
+          state.gcp.source == CredentialSource.newlyEntered) {
         config['gcp'] = state.gcp.values;
       }
       if (state.calcParams != null) {

@@ -4,6 +4,7 @@
 import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import '../../models/calc_params.dart';
+import '../../models/cloud_connection.dart';
 
 /// Base class for all wizard events
 abstract class WizardEvent extends Equatable {
@@ -95,6 +96,68 @@ class WizardCredentialsCleared extends WizardEvent {
   const WizardCredentialsCleared(this.provider);
   @override
   List<Object?> get props => [provider];
+}
+
+/// Load reusable Cloud Connections for all providers
+class WizardCloudConnectionsLoadRequested extends WizardEvent {
+  const WizardCloudConnectionsLoadRequested();
+}
+
+/// A provider was bound to an existing Cloud Connection
+class WizardCloudConnectionSelected extends WizardEvent {
+  final CloudProvider provider;
+  final String? connectionId;
+
+  const WizardCloudConnectionSelected(this.provider, this.connectionId);
+
+  @override
+  List<Object?> get props => [provider, connectionId];
+}
+
+/// User submitted a new Cloud Connection for creation
+class WizardCloudConnectionCreateRequested extends WizardEvent {
+  final CloudProvider provider;
+  final CloudConnectionCreateRequest request;
+
+  const WizardCloudConnectionCreateRequested(this.provider, this.request);
+
+  @override
+  List<Object?> get props => [provider, request];
+}
+
+/// Validate a selected stored Cloud Connection
+class WizardCloudConnectionValidateRequested extends WizardEvent {
+  final CloudProvider provider;
+  final String connectionId;
+
+  const WizardCloudConnectionValidateRequested(
+    this.provider,
+    this.connectionId,
+  );
+
+  @override
+  List<Object?> get props => [provider, connectionId];
+}
+
+/// Unbind a provider from the current twin
+class WizardCloudConnectionUnbound extends WizardEvent {
+  final CloudProvider provider;
+
+  const WizardCloudConnectionUnbound(this.provider);
+
+  @override
+  List<Object?> get props => [provider];
+}
+
+/// Delete a reusable Cloud Connection
+class WizardCloudConnectionDeleteRequested extends WizardEvent {
+  final CloudProvider provider;
+  final String connectionId;
+
+  const WizardCloudConnectionDeleteRequested(this.provider, this.connectionId);
+
+  @override
+  List<Object?> get props => [provider, connectionId];
 }
 
 // ============================================================

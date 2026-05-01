@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../bloc/wizard/wizard.dart';
-import '../../widgets/credential_section.dart';
 
-/// Step 1: Configuration - BLoC version
-/// Handles twin naming, debug mode, and credential configuration
+import '../../bloc/wizard/wizard.dart';
+import '../../theme/spacing.dart';
+import '../../widgets/cloud_connections/cloud_connections_group.dart';
+
 class Step1Configuration extends StatefulWidget {
   const Step1Configuration({super.key});
 
@@ -19,7 +19,6 @@ class _Step1ConfigurationState extends State<Step1Configuration> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Safe to use context here - widget is mounted
     if (!_initialized) {
       final state = context.read<WizardBloc>().state;
       _nameController.text = state.twinName ?? '';
@@ -38,7 +37,6 @@ class _Step1ConfigurationState extends State<Step1Configuration> {
     return BlocListener<WizardBloc, WizardState>(
       listenWhen: (prev, curr) => prev.twinName != curr.twinName,
       listener: (context, state) {
-        // Sync controller when BLoC state changes externally (e.g., loading twin)
         if (_nameController.text != (state.twinName ?? '')) {
           _nameController.text = state.twinName ?? '';
         }
@@ -46,240 +44,118 @@ class _Step1ConfigurationState extends State<Step1Configuration> {
       child: BlocBuilder<WizardBloc, WizardState>(
         builder: (context, state) {
           final bloc = context.read<WizardBloc>();
-        
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 800),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Twin Name
-                  Text('Digital Twin Name', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      hintText: 'e.g., Smart Home IoT',
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: (value) {
-                      bloc.add(WizardTwinNameChanged(value));
-                    },
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Mode toggle
-                  Row(
-                    children: [
-                      Text('Mode:', style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(width: 16),
-                      ChoiceChip(
-                        label: const Text('Production'),
-                        selected: !state.debugMode,
-                        onSelected: (selected) {
-                          bloc.add(const WizardDebugModeChanged(false));
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      ChoiceChip(
-                        label: const Text('Debug'),
-                        selected: state.debugMode,
-                        onSelected: (selected) {
-                          bloc.add(const WizardDebugModeChanged(true));
-                        },
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 32),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  
-                  // AWS Section
-                  CredentialSection(
-                    title: 'AWS Credentials',
-                    provider: 'aws',
-                    twinId: state.twinId,
-                    icon: Icons.cloud,
-                    color: Colors.orange,
-                    isConfigured: state.aws.isValid,
-                    onValidationChanged: (valid) {
-                      bloc.add(WizardCredentialsValidated('aws', valid));
-                    },
-                    onCredentialsChanged: (creds) {
-                      bloc.add(WizardCredentialsChanged('aws', creds));
-                    },
-                    fields: [
-                      CredentialField(
-                        name: 'access_key_id', 
-                        label: 'Access Key ID', 
-                        placeholder: 'AKIAIOSFODNN7EXAMPLE',
-                        defaultValue: state.aws.values['access_key_id'],
-                      ),
-                      CredentialField(
-                        name: 'secret_access_key', 
-                        label: 'Secret Access Key', 
-                        obscure: true,
-                        placeholder: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLE',
-                        defaultValue: state.aws.values['secret_access_key'],
-                      ),
-                      CredentialField(
-                        name: 'region', 
-                        label: 'Region', 
-                        placeholder: 'eu-central-1',
-                        defaultValue: state.aws.values['region'] ?? '',
-                      ),
-                      CredentialField(
-                        name: 'sso_region', 
-                        label: 'SSO Region (if different)', 
-                        required: false,
-                        placeholder: 'us-east-1',
-                        defaultValue: state.aws.values['sso_region'] ?? '',
-                      ),
-                      CredentialField(
-                        name: 'session_token', 
-                        label: 'Session Token', 
-                        obscure: true, 
-                        required: false,
-                        placeholder: 'FwoGZXIvYXdzE...',
-                        defaultValue: state.aws.values['session_token'],
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Azure Section
-                  CredentialSection(
-                    title: 'Azure Credentials',
-                    provider: 'azure',
-                    twinId: state.twinId,
-                    icon: Icons.cloud_circle,
-                    color: Colors.blue,
-                    isConfigured: state.azure.isValid,
-                    onValidationChanged: (valid) {
-                      bloc.add(WizardCredentialsValidated('azure', valid));
-                    },
-                    onCredentialsChanged: (creds) {
-                      bloc.add(WizardCredentialsChanged('azure', creds));
-                    },
-                    fields: [
-                      CredentialField(
-                        name: 'subscription_id', 
-                        label: 'Subscription ID',
-                        placeholder: '12345678-1234-1234-1234-123456789abc',
-                        defaultValue: state.azure.values['subscription_id'],
-                      ),
-                      CredentialField(
-                        name: 'client_id', 
-                        label: 'Client ID',
-                        placeholder: 'abcd1234-ab12-cd34-ef56-123456abcdef',
-                        defaultValue: state.azure.values['client_id'],
-                      ),
-                      CredentialField(
-                        name: 'client_secret', 
-                        label: 'Client Secret', 
-                        obscure: true,
-                        placeholder: 'abc8Q~xyz...',
-                        defaultValue: state.azure.values['client_secret'],
-                      ),
-                      CredentialField(
-                        name: 'tenant_id', 
-                        label: 'Tenant ID',
-                        placeholder: '87654321-4321-4321-4321-cba987654321',
-                        defaultValue: state.azure.values['tenant_id'],
-                      ),
-                      CredentialField(
-                        name: 'region',
-                        label: 'Region',
-                        placeholder: 'westeurope',
-                        defaultValue: state.azure.values['region'] ?? '',
-                      ),
-                      CredentialField(
-                        name: 'region_iothub',
-                        label: 'IoT Hub Region (if different)',
-                        required: false,
-                        placeholder: 'francecentral',
-                        defaultValue: state.azure.values['region_iothub'] ?? '',
-                      ),
-                      CredentialField(
-                        name: 'region_digital_twin',
-                        label: 'Digital Twin Region (if different)',
-                        required: false,
-                        placeholder: 'westeurope',
-                        defaultValue: state.azure.values['region_digital_twin'] ?? '',
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // GCP Section
-                  CredentialSection(
-                    title: 'GCP Credentials',
-                    provider: 'gcp',
-                    twinId: state.twinId,
-                    icon: Icons.cloud_queue,
-                    color: Colors.green,
-                    isConfigured: state.gcp.isValid,
-                    onValidationChanged: (valid) {
-                      bloc.add(WizardCredentialsValidated('gcp', valid));
-                    },
-                    onCredentialsChanged: (creds) {
-                      bloc.add(WizardCredentialsChanged('gcp', creds));
-                    },
-                    onJsonUploaded: (json) {
-                      bloc.add(WizardCredentialsChanged('gcp', {'service_account_json': json}));
-                    },
-                    fields: [
-                      CredentialField(
-                        name: 'project_id', 
-                        label: 'Project ID', 
-                        required: true,
-                        readOnly: true,
-                        placeholder: 'Auto-filled from Service Account',
-                        defaultValue: state.gcp.values['project_id'],
-                      ),
-                      CredentialField(
-                        name: 'billing_account', 
-                        label: 'Billing Account', 
-                        required: false,
-                        placeholder: '01ABCD-234EFG-567HIJ',
-                        defaultValue: state.gcp.values['billing_account'],
-                      ),
-                      CredentialField(
-                        name: 'region', 
-                        label: 'Region', 
-                        required: true,
-                        placeholder: 'europe-west1',
-                        defaultValue: state.gcp.values['region'] ?? '',
-                      ),
-                    ],
-                    supportsJsonUpload: true,
-                    supportsCredentialsUpload: false,
-                  ),
-                  
-                  const SizedBox(height: 32),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  
-                  if (!state.canProceedToStep2) ...[
-                    const SizedBox(height: 8),
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: AppSpacing.maxContentWidthMedium,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      'To proceed: Give your twin a name and validate at least one provider\'s credentials.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
+                      'Digital Twin Name',
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        hintText: 'e.g., Smart Home IoT',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) {
+                        bloc.add(WizardTwinNameChanged(value));
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Wrap(
+                      spacing: AppSpacing.md,
+                      runSpacing: AppSpacing.sm,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          'Mode:',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        ChoiceChip(
+                          label: const Text('Production'),
+                          selected: !state.debugMode,
+                          onSelected: (_) {
+                            bloc.add(const WizardDebugModeChanged(false));
+                          },
+                        ),
+                        ChoiceChip(
+                          label: const Text('Debug'),
+                          selected: state.debugMode,
+                          onSelected: (_) {
+                            bloc.add(const WizardDebugModeChanged(true));
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    const Divider(),
+                    const SizedBox(height: AppSpacing.md),
+                    CloudConnectionsGroup(
+                      connectionsByProvider: state.cloudConnections,
+                      selectedConnectionIds: state.selectedCloudConnectionIds,
+                      loadingByProvider: state.cloudConnectionLoading,
+                      errorByProvider: state.cloudConnectionErrors,
+                      validationByProvider: state.cloudConnectionValidation,
+                      legacyConfiguredProviders:
+                          state.legacyConfiguredProviders,
+                      onSelected: (provider, connectionId) {
+                        bloc.add(
+                          WizardCloudConnectionSelected(provider, connectionId),
+                        );
+                      },
+                      onCreate: (provider, request) {
+                        bloc.add(
+                          WizardCloudConnectionCreateRequested(
+                            provider,
+                            request,
+                          ),
+                        );
+                      },
+                      onValidate: (provider, connectionId) {
+                        bloc.add(
+                          WizardCloudConnectionValidateRequested(
+                            provider,
+                            connectionId,
+                          ),
+                        );
+                      },
+                      onUnbind: (provider) {
+                        bloc.add(WizardCloudConnectionUnbound(provider));
+                      },
+                      onDelete: (provider, connectionId) {
+                        bloc.add(
+                          WizardCloudConnectionDeleteRequested(
+                            provider,
+                            connectionId,
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    const Divider(),
+                    if (!state.canProceedToStep2) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        'To proceed: give your twin a name and select at least one provider Cloud Connection.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-        );
+          );
         },
       ),
     );
