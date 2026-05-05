@@ -22,7 +22,7 @@ from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 
 from src.config import settings
-from src.utils.crypto import decrypt, decrypt_scoped
+from src.services.credential_resolution_service import CredentialResolutionService
 
 if TYPE_CHECKING:
     from src.models.deployer_config import DeployerConfiguration
@@ -614,127 +614,13 @@ def _build_providers_config(twin) -> dict:
 
 def _build_credentials_config(twin, user_id: str) -> tuple[dict, Optional[dict]]:
     """
-    Build config_credentials.json with DECRYPTED credentials.
-    
-    IMPORTANT: This contains real credentials. The Deployer needs these
-    to authenticate with cloud providers during terraform operations.
-    
-    NOTE: Credentials are stored in twin.configuration (TwinConfiguration),
-    NOT a separate credentials_config relationship.
+    Build config_credentials.json from the credential SSOT resolver.
+
+    The returned values are secret-bearing and must only be written into the
+    ephemeral project ZIP uploaded to the Deployer.
     """
-    # Credentials are in TwinConfiguration, accessed via twin.configuration
-    if not twin.configuration:
-        return {}, None  # Return empty tuple to match return type
-    
-    creds = twin.configuration
-    result = {}
-    
-    # AWS credentials
-    # NOTE: decrypt() raises ValueError if decryption fails - handle gracefully
-    aws_connection = _bound_connection(creds, "aws")
-    if aws_connection:
-        try:
-            result["aws"] = json.loads(
-                decrypt_scoped(aws_connection.encrypted_payload, user_id, aws_connection.id)
-            )
-        except (ValueError, json.JSONDecodeError) as e:
-            logger.warning(f"AWS CloudConnection payload failed: {e}")
-    elif creds.aws_access_key_id:
-        try:
-            result["aws"] = {
-                "aws_access_key_id": decrypt(creds.aws_access_key_id, user_id, twin.id),
-                "aws_secret_access_key": decrypt(creds.aws_secret_access_key, user_id, twin.id),
-                "aws_region": creds.aws_region or "eu-central-1",
-            }
-            # Include session token if present (for STS/SSO)
-            if creds.aws_session_token:
-                result["aws"]["aws_session_token"] = decrypt(creds.aws_session_token, user_id, twin.id)
-            # SSO region for AWS SSO authentication (may differ from resource region)
-            result["aws"]["aws_sso_region"] = creds.aws_sso_region or ""
-        except ValueError as e:
-            # Log but continue - allows partial deployment with remaining providers
-            logger.warning(f"AWS credential decryption failed: {e}")
-    
-    # Azure credentials
-    azure_connection = _bound_connection(creds, "azure")
-    if azure_connection:
-        try:
-            result["azure"] = json.loads(
-                decrypt_scoped(azure_connection.encrypted_payload, user_id, azure_connection.id)
-            )
-        except (ValueError, json.JSONDecodeError) as e:
-            logger.warning(f"Azure CloudConnection payload failed: {e}")
-    elif creds.azure_subscription_id:
-        try:
-            azure_region = creds.azure_region or "westeurope"
-            # IoT Hub and Digital Twins are only available in a subset of regions.
-            # If the user provided overrides, use them; otherwise fall back to the
-            # general azure_region. The deployer needs all three filled in.
-            result["azure"] = {
-                "azure_subscription_id": decrypt(creds.azure_subscription_id, user_id, twin.id),
-                "azure_tenant_id": decrypt(creds.azure_tenant_id, user_id, twin.id),
-                "azure_client_id": decrypt(creds.azure_client_id, user_id, twin.id),
-                "azure_client_secret": decrypt(creds.azure_client_secret, user_id, twin.id),
-                "azure_region": azure_region,
-                "azure_region_iothub": getattr(creds, "azure_region_iothub", None) or azure_region,
-                "azure_region_digital_twin": getattr(creds, "azure_region_digital_twin", None) or azure_region,
-            }
-        except ValueError as e:
-            logger.warning(f"Azure credential decryption failed: {e}")
-    
-    # GCP credentials - uses separate gcp_credentials.json file (per template structure)
-    gcp_creds_content = None
-    gcp_connection = _bound_connection(creds, "gcp")
-    if gcp_connection:
-        try:
-            gcp_payload = json.loads(
-                decrypt_scoped(gcp_connection.encrypted_payload, user_id, gcp_connection.id)
-            )
-            gcp_creds = {
-                "gcp_project_id": gcp_payload.get("gcp_project_id"),
-                "gcp_region": gcp_payload.get("gcp_region") or "europe-west1",
-            }
-            if gcp_payload.get("gcp_billing_account"):
-                gcp_creds["gcp_billing_account"] = gcp_payload["gcp_billing_account"]
-            if gcp_payload.get("gcp_credentials_file"):
-                gcp_creds["gcp_credentials_file"] = "gcp_credentials.json"
-                gcp_creds_content = json.loads(gcp_payload["gcp_credentials_file"])
-            result["gcp"] = {key: value for key, value in gcp_creds.items() if value is not None}
-        except (ValueError, json.JSONDecodeError) as e:
-            logger.warning(f"GCP CloudConnection payload failed: {e}")
-    elif creds.gcp_project_id:
-        try:
-            gcp_creds = {
-                "gcp_project_id": creds.gcp_project_id,
-                "gcp_region": creds.gcp_region or "europe-west1",
-            }
-            # Billing account for org accounts (auto-project creation)
-            if creds.gcp_billing_account:
-                gcp_creds["gcp_billing_account"] = decrypt(creds.gcp_billing_account, user_id, twin.id)
-            # GCP service account is written to separate gcp_credentials.json file
-            if creds.gcp_service_account_json:
-                gcp_creds["gcp_credentials_file"] = "gcp_credentials.json"
-                gcp_creds_content = json.loads(
-                    decrypt(creds.gcp_service_account_json, user_id, twin.id)
-                )
-            result["gcp"] = gcp_creds
-        except ValueError as e:
-            logger.warning(f"GCP credential decryption failed: {e}")
-        except json.JSONDecodeError as e:
-            logger.warning(f"GCP service account JSON parsing failed: {e}")
-    
-    return result, gcp_creds_content
-
-
-def _bound_connection_id(creds, provider: str) -> str | None:
-    connection_id = getattr(creds, f"{provider}_cloud_connection_id", None)
-    return connection_id if isinstance(connection_id, str) and connection_id else None
-
-
-def _bound_connection(creds, provider: str):
-    if not _bound_connection_id(creds, provider):
-        return None
-    return getattr(creds, f"{provider}_cloud_connection", None)
+    resolved = CredentialResolutionService().resolve_deployment_credentials(twin, user_id)
+    return resolved.config_credentials, resolved.gcp_credentials_json
 
 
 def _build_optimization_config(oc) -> dict:

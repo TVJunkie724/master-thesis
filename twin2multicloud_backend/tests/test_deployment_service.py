@@ -24,6 +24,7 @@ from src.services.deployment_service import (
     _build_credentials_config,
     _build_optimization_config,
 )
+from src.services.errors import CredentialResolutionFailed
 from src.utils.crypto import encrypt_scoped
 
 
@@ -182,20 +183,27 @@ class TestBuildProvidersConfig:
 class TestBuildCredentialsConfig:
     """Tests for _build_credentials_config helper."""
     
-    @patch("src.services.deployment_service.decrypt")
+    @patch("src.services.credential_resolution_service.decrypt")
     def test_decrypts_aws_credentials(self, mock_decrypt):
         """Should decrypt AWS credentials."""
         mock_decrypt.side_effect = lambda val, uid, tid: f"decrypted_{val}"
         
         twin = Mock()
         twin.id = "twin-123"
+        twin.optimizer_config = None
         twin.configuration = Mock()
         twin.configuration.aws_access_key_id = "enc_key_id"
         twin.configuration.aws_secret_access_key = "enc_secret"
         twin.configuration.aws_session_token = None
         twin.configuration.aws_region = "eu-central-1"
+        twin.configuration.aws_sso_region = None
+        twin.configuration.aws_cloud_connection_id = None
         twin.configuration.azure_subscription_id = None
+        twin.configuration.azure_cloud_connection_id = None
         twin.configuration.gcp_project_id = None
+        twin.configuration.gcp_cloud_connection_id = None
+        twin.configuration.gcp_billing_account = None
+        twin.configuration.gcp_service_account_json = None
         
         result, gcp_creds = _build_credentials_config(twin, "user-123")
         
@@ -203,34 +211,50 @@ class TestBuildCredentialsConfig:
         assert result["aws"]["aws_secret_access_key"] == "decrypted_enc_secret"
         assert result["aws"]["aws_region"] == "eu-central-1"
     
-    @patch("src.services.deployment_service.decrypt")
-    def test_handles_decryption_failure_gracefully(self, mock_decrypt):
-        """Should log warning and continue on decryption failure."""
+    @patch("src.services.credential_resolution_service.decrypt")
+    def test_raises_structured_error_on_decryption_failure(self, mock_decrypt):
+        """Should fail closed with a structured, secret-safe credential error."""
         mock_decrypt.side_effect = ValueError("Decryption failed")
         
         twin = Mock()
         twin.id = "twin-123"
+        twin.optimizer_config = None
         twin.configuration = Mock()
         twin.configuration.aws_access_key_id = "enc_key_id"
         twin.configuration.aws_secret_access_key = "enc_secret"
         twin.configuration.aws_session_token = None
+        twin.configuration.aws_sso_region = None
+        twin.configuration.aws_cloud_connection_id = None
         twin.configuration.azure_subscription_id = None
+        twin.configuration.azure_cloud_connection_id = None
         twin.configuration.gcp_project_id = None
+        twin.configuration.gcp_cloud_connection_id = None
+        twin.configuration.gcp_billing_account = None
+        twin.configuration.gcp_service_account_json = None
         
-        result, gcp_creds = _build_credentials_config(twin, "user-123")
-        
-        # AWS should be missing due to decryption failure
-        assert "aws" not in result
+        with pytest.raises(CredentialResolutionFailed) as exc_info:
+            _build_credentials_config(twin, "user-123")
+
+        assert exc_info.value.errors == [
+            {
+                "provider": "aws",
+                "code": "LEGACY_CREDENTIAL_DECRYPTION_FAILED",
+                "field": "credentials",
+                "message": "Legacy credentials cannot be decrypted",
+            }
+        ]
+        assert "enc_secret" not in str(exc_info.value.errors)
     
-    def test_returns_empty_when_no_configuration(self):
-        """Should return empty tuple when no configuration."""
+    def test_raises_structured_error_when_no_configuration(self):
+        """Should fail closed when no credential source is configured."""
         twin = Mock()
+        twin.optimizer_config = None
         twin.configuration = None
         
-        result, gcp_creds = _build_credentials_config(twin, "user-123")
-        
-        assert result == {}
-        assert gcp_creds is None
+        with pytest.raises(CredentialResolutionFailed) as exc_info:
+            _build_credentials_config(twin, "user-123")
+
+        assert exc_info.value.errors[0]["code"] == "NO_DEPLOYMENT_PROVIDERS"
 
     def test_prefers_bound_aws_cloud_connection(self):
         """CloudConnection bindings should override legacy encrypted fields."""
@@ -300,7 +324,7 @@ class TestBuildCredentialsConfig:
 class TestBuildProjectZip:
     """Tests for build_project_zip function."""
     
-    @patch("src.services.deployment_service.decrypt")
+    @patch("src.services.credential_resolution_service.decrypt")
     def test_creates_valid_zip_file(self, mock_decrypt):
         """Should create a valid ZIP file."""
         mock_decrypt.return_value = "decrypted"
@@ -314,7 +338,7 @@ class TestBuildProjectZip:
         with zipfile.ZipFile(result, 'r') as zf:
             assert zf.testzip() is None  # Returns None if all CRCs OK
     
-    @patch("src.services.deployment_service.decrypt")
+    @patch("src.services.credential_resolution_service.decrypt")
     def test_contains_required_config_files(self, mock_decrypt):
         """Should contain config.json and config_providers.json."""
         mock_decrypt.return_value = "decrypted"
@@ -329,7 +353,7 @@ class TestBuildProjectZip:
             assert "config_providers.json" in names
             assert "config_credentials.json" in names
     
-    @patch("src.services.deployment_service.decrypt")
+    @patch("src.services.credential_resolution_service.decrypt")
     def test_includes_state_machine_for_azure_l2(self, mock_decrypt):
         """Should write state machine to azure location for Azure L2."""
         mock_decrypt.return_value = "decrypted"
@@ -337,14 +361,18 @@ class TestBuildProjectZip:
         twin = self._create_mock_twin()
         twin.optimizer_config.cheapest_l2 = "azure"
         twin.deployer_config.state_machine_content = '{"definition": {}}'
-        
+        twin.configuration.azure_subscription_id = "enc_subscription"
+        twin.configuration.azure_tenant_id = "enc_tenant"
+        twin.configuration.azure_client_id = "enc_client"
+        twin.configuration.azure_client_secret = "enc_client_secret"
+
         result = build_project_zip(twin, "user-123")
         
         with zipfile.ZipFile(result, 'r') as zf:
             names = zf.namelist()
             assert "state_machines/azure_logic_app.json" in names
     
-    @patch("src.services.deployment_service.decrypt")
+    @patch("src.services.credential_resolution_service.decrypt")
     def test_includes_payloads_json(self, mock_decrypt):
         """Should include payloads.json for simulator."""
         mock_decrypt.return_value = "decrypted"
@@ -404,13 +432,28 @@ class TestBuildProjectZip:
         # Configuration (credentials)
         twin.configuration = Mock()
         twin.configuration.debug_mode = False
+        twin.configuration.aws_cloud_connection_id = None
+        twin.configuration.aws_cloud_connection = None
         twin.configuration.aws_access_key_id = "enc_key"
         twin.configuration.aws_secret_access_key = "enc_secret"
         twin.configuration.aws_session_token = None
         twin.configuration.aws_region = "eu-central-1"
         twin.configuration.aws_sso_region = None
+        twin.configuration.azure_cloud_connection_id = None
+        twin.configuration.azure_cloud_connection = None
         twin.configuration.azure_subscription_id = None
+        twin.configuration.azure_tenant_id = None
+        twin.configuration.azure_client_id = None
+        twin.configuration.azure_client_secret = None
+        twin.configuration.azure_region = "westeurope"
+        twin.configuration.azure_region_iothub = None
+        twin.configuration.azure_region_digital_twin = None
+        twin.configuration.gcp_cloud_connection_id = None
+        twin.configuration.gcp_cloud_connection = None
         twin.configuration.gcp_project_id = None
+        twin.configuration.gcp_billing_account = None
+        twin.configuration.gcp_service_account_json = None
+        twin.configuration.gcp_region = "europe-west1"
         
         return twin
 

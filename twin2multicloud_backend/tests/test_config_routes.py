@@ -7,6 +7,8 @@ Tests credential management including:
 - Edge cases: partial updates, multiple providers
 """
 
+import json
+
 import pytest
 from tests.conftest import create_test_twin
 
@@ -366,3 +368,62 @@ class TestConfigRoutes:
         assert seen["provider"] == "aws"
         assert seen["optimizer_creds"]["aws_access_key_id"] == "AKIAIOSFODNN7EXAMPLE"
         assert seen["deployer_creds"]["aws_secret_access_key"] == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+
+    def test_validate_stored_gcp_cloud_connection_uses_resolver_without_placeholder(
+        self,
+        authenticated_client,
+        monkeypatch,
+    ):
+        client, headers = authenticated_client
+        service_account = {
+            "type": "service_account",
+            "project_id": "service-account-project",
+            "client_email": "deployer@service-account-project.iam.gserviceaccount.com",
+            "private_key": "-----BEGIN PRIVATE KEY-----\\nsecret\\n-----END PRIVATE KEY-----\\n",
+        }
+        connection = client.post(
+            "/cloud-connections/",
+            json={
+                "provider": "gcp",
+                "display_name": "GCP Dev",
+                "cloud_scope": {"billing_account": "012345-6789AB-CDEF01"},
+                "gcp": {
+                    "billing_account": "012345-6789AB-CDEF01",
+                    "region": "europe-west1",
+                    "service_account_json": json.dumps(service_account),
+                },
+            },
+            headers=headers,
+        ).json()
+        twin_id = create_test_twin(client, headers)
+        client.put(
+            f"/twins/{twin_id}/config/",
+            json={"cloud_connections": {"gcp": connection["id"]}},
+            headers=headers,
+        )
+        seen = {}
+
+        async def fake_dual_validation(provider, optimizer_creds, deployer_creds):
+            seen["provider"] = provider
+            seen["optimizer_creds"] = optimizer_creds
+            seen["deployer_creds"] = deployer_creds
+            return {
+                "provider": provider,
+                "valid": True,
+                "optimizer": {"valid": True, "message": "optimizer ok"},
+                "deployer": {"valid": True, "message": "deployer ok", "permissions": []},
+            }
+
+        monkeypatch.setattr(
+            "src.api.routes.config._perform_dual_validation",
+            fake_dual_validation,
+        )
+
+        response = client.post(f"/twins/{twin_id}/config/validate-stored/gcp", headers=headers)
+
+        assert response.status_code == 200
+        assert response.json()["valid"] is True
+        assert seen["provider"] == "gcp"
+        assert seen["optimizer_creds"]["gcp_project_id"] == "service-account-project"
+        assert seen["deployer_creds"]["gcp_project_id"] == "service-account-project"
+        assert "placeholder-project" not in str(seen)

@@ -110,6 +110,25 @@ def test_cloud_connection_payload_is_user_scoped(authenticated_client, db_sessio
     assert deployer_payload["aws_secret_access_key"] == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 
 
+def test_gcp_optimizer_credentials_extract_project_from_service_account(authenticated_client, db_session):
+    client, headers = authenticated_client
+    user = db_session.query(User).first()
+    payload = _gcp_request()
+    payload["gcp"].pop("project_id")
+    service_account = json.loads(payload["gcp"]["service_account_json"])
+    service_account["project_id"] = "service-account-project"
+    payload["gcp"]["service_account_json"] = json.dumps(service_account)
+
+    created = client.post("/cloud-connections/", json=payload, headers=headers).json()
+    connection = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
+    service = CloudConnectionService(db_session)
+
+    optimizer_payload = service.build_optimizer_credentials(connection, user.id)
+
+    assert optimizer_payload["gcp_project_id"] == "service-account-project"
+    assert "placeholder-project" not in str(optimizer_payload)
+
+
 def test_cloud_connection_cannot_be_read_by_another_user(authenticated_client, db_session):
     client, headers = authenticated_client
     created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()

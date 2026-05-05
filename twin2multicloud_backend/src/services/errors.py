@@ -35,6 +35,14 @@ class ConfigurationValidationFailed(DomainError):
         self.errors = errors
 
 
+class CredentialResolutionFailed(DomainError):
+    status_code = 400
+
+    def __init__(self, message: str, errors: list[dict]):
+        super().__init__(message)
+        self.errors = errors
+
+
 class ExternalServiceUnavailable(DomainError):
     status_code = 503
 

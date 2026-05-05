@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from src.models.cloud_connection import CloudConnection
 from src.repositories.cloud_connection_repository import CloudConnectionRepository
 from src.schemas.cloud_connection import CloudConnectionCreate, CloudConnectionResponse, CloudConnectionUpdate
+from src.services.credential_resolution_service import CredentialResolutionService
 from src.utils.crypto import decrypt_scoped, encrypt_scoped
 
 
@@ -105,16 +106,11 @@ class CloudConnectionService:
 
     def build_optimizer_credentials(self, connection: CloudConnection, user_id: str) -> dict[str, Any]:
         payload = self.decrypt_payload(connection, user_id)
-        if connection.provider == "gcp":
-            return {
-                "gcp_project_id": payload.get("gcp_project_id") or "placeholder-project",
-                "gcp_credentials_file": payload.get("gcp_credentials_file"),
-                "gcp_region": payload.get("gcp_region"),
-            }
-        return payload.copy()
+        return CredentialResolutionService.build_optimizer_payload(connection.provider, payload)
 
     def build_deployer_credentials(self, connection: CloudConnection, user_id: str) -> dict[str, Any]:
-        return self.decrypt_payload(connection, user_id)
+        payload = self.decrypt_payload(connection, user_id)
+        return CredentialResolutionService.build_deployer_validation_payload(connection.provider, payload)
 
     def _normalize_payload(self, request: CloudConnectionCreate) -> dict[str, Any]:
         if request.provider == "aws" and request.aws:

@@ -2,12 +2,14 @@ import json
 
 import pytest
 
+from src.models.cloud_connection import CloudConnection
 from src.models.deployer_config import DeployerConfiguration
 from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin
 from src.models.twin_config import TwinConfiguration
 from src.services.configuration_validation_service import ConfigurationValidationService
 from src.services.errors import ConfigurationValidationFailed, ExternalServiceError, ExternalServiceUnavailable
+from src.utils.crypto import encrypt, encrypt_scoped
 
 
 class FakeOptimizerClient:
@@ -38,7 +40,9 @@ def _configured_twin() -> DigitalTwin:
     twin = DigitalTwin(id="twin-1", name="Factory Twin", user_id="user-1")
     twin.configuration = TwinConfiguration(
         twin_id=twin.id,
-        aws_access_key_id="encrypted-key",
+        aws_access_key_id=encrypt("AKIAIOSFODNN7EXAMPLE", "user-1", "twin-1"),
+        aws_secret_access_key=encrypt("secret-key", "user-1", "twin-1"),
+        aws_region="eu-central-1",
     )
     twin.optimizer_config = OptimizerConfiguration(
         twin_id=twin.id,
@@ -57,7 +61,23 @@ def _configured_twin() -> DigitalTwin:
 def _cloud_connection_configured_twin() -> DigitalTwin:
     twin = _configured_twin()
     twin.configuration.aws_access_key_id = None
+    twin.configuration.aws_secret_access_key = None
     twin.configuration.aws_cloud_connection_id = "connection-aws"
+    payload = {
+        "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+        "aws_secret_access_key": "secret-key",
+        "aws_region": "eu-central-1",
+    }
+    twin.configuration.aws_cloud_connection = CloudConnection(
+        id="connection-aws",
+        user_id="user-1",
+        provider="aws",
+        display_name="AWS Dev",
+        cloud_scope="{}",
+        auth_type="access_key",
+        encrypted_payload=encrypt_scoped(json.dumps(payload), "user-1", "connection-aws"),
+        payload_fingerprint="fingerprint",
+    )
     return twin
 
 
@@ -90,6 +110,56 @@ async def test_validate_configured_transition_accepts_cloud_connection_only_cred
 
     assert optimizer.payload["params"] == {"devices": 10}
     assert deployer.payload["deployer_digital_twin_name"] == "factory"
+
+
+@pytest.mark.asyncio
+async def test_validate_configured_transition_reports_dangling_cloud_connection_without_client_calls():
+    twin = _configured_twin()
+    twin.configuration.aws_access_key_id = None
+    twin.configuration.aws_secret_access_key = None
+    twin.configuration.aws_cloud_connection_id = "missing-connection"
+    twin.configuration.aws_cloud_connection = None
+    optimizer = FakeOptimizerClient({"valid": True})
+    deployer = FakeDeployerClient({"valid": True})
+    service = ConfigurationValidationService(optimizer, deployer)
+
+    with pytest.raises(ConfigurationValidationFailed) as exc_info:
+        await service.validate_configured_transition(twin)
+
+    assert exc_info.value.errors == [
+        {
+            "step": 1,
+            "provider": "aws",
+            "code": "DANGLING_CLOUD_CONNECTION",
+            "field": "credentials",
+            "message": "Configured Cloud Connection is no longer available",
+            "source_id": "missing-connection",
+        }
+    ]
+    assert optimizer.payload is None
+    assert deployer.payload is None
+
+
+@pytest.mark.asyncio
+async def test_validate_configured_transition_requires_optimizer_selected_providers():
+    twin = _configured_twin()
+    twin.optimizer_config.cheapest_l2 = "azure"
+    optimizer = FakeOptimizerClient({"valid": True})
+    deployer = FakeDeployerClient({"valid": True})
+    service = ConfigurationValidationService(optimizer, deployer)
+
+    with pytest.raises(ConfigurationValidationFailed) as exc_info:
+        await service.validate_configured_transition(twin)
+
+    assert {
+        "step": 1,
+        "provider": "azure",
+        "code": "MISSING_CREDENTIALS",
+        "field": "credentials",
+        "message": "No credentials configured for provider",
+    } in exc_info.value.errors
+    assert optimizer.payload is None
+    assert deployer.payload is None
 
 
 @pytest.mark.asyncio

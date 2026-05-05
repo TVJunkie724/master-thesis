@@ -8,7 +8,13 @@ from typing import Any
 from src.clients.deployer_client import DeployerClient
 from src.clients.optimizer_client import OptimizerClient
 from src.models.twin import DigitalTwin
-from src.services.errors import ConfigurationValidationFailed, ExternalServiceError, ExternalServiceUnavailable
+from src.services.credential_resolution_service import CredentialResolutionService
+from src.services.errors import (
+    ConfigurationValidationFailed,
+    CredentialResolutionFailed,
+    ExternalServiceError,
+    ExternalServiceUnavailable,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +26,11 @@ class ConfigurationValidationService:
         self,
         optimizer_client: OptimizerClient | None = None,
         deployer_client: DeployerClient | None = None,
+        credential_resolution_service: CredentialResolutionService | None = None,
     ):
         self.optimizer_client = optimizer_client or OptimizerClient()
         self.deployer_client = deployer_client or DeployerClient()
+        self.credential_resolution_service = credential_resolution_service or CredentialResolutionService()
 
     async def validate_configured_transition(self, twin: DigitalTwin) -> None:
         errors: list[dict[str, Any]] = []
@@ -31,7 +39,7 @@ class ConfigurationValidationService:
         optimizer_payload, deployer_payload, payload_errors = self._build_validation_payloads(twin)
         errors.extend(payload_errors)
 
-        if not payload_errors:
+        if not errors:
             optimizer_task = self.optimizer_client.validate_optimizer_config(optimizer_payload)
             deployer_task = self.deployer_client.validate_deployer_complete(deployer_payload)
             optimizer_result, deployer_result = await asyncio.gather(
@@ -64,24 +72,29 @@ class ConfigurationValidationService:
                 "message": "Twin name is required",
             })
 
-        config = twin.configuration if twin.configuration else None
-        has_creds = False
-        if config:
-            has_creds = any([
-                config.aws_cloud_connection_id,
-                config.aws_access_key_id,
-                config.azure_cloud_connection_id,
-                config.azure_subscription_id,
-                config.gcp_cloud_connection_id,
-                config.gcp_project_id or config.gcp_billing_account,
-            ])
-        if not has_creds:
+        configured_providers = self.credential_resolution_service.configured_providers(twin)
+        if not configured_providers:
             errors.append({
                 "step": 1,
                 "code": "MISSING_CREDENTIALS",
                 "field": "credentials",
                 "message": "At least one cloud provider credentials required",
             })
+            return errors
+
+        required_providers = self.credential_resolution_service.required_providers_from_optimizer(twin.optimizer_config)
+        providers_to_validate = required_providers or configured_providers
+        try:
+            self.credential_resolution_service.resolve_deployment_credentials(
+                twin,
+                twin.user_id,
+                required_providers=providers_to_validate,
+            )
+        except CredentialResolutionFailed as exc:
+            errors.extend(
+                {"step": 1, **error}
+                for error in exc.errors
+            )
         return errors
 
     def _build_validation_payloads(

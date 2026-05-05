@@ -31,7 +31,7 @@ from src.services.deployment_service import (
     build_deploy_config,
 )
 from src.services.configuration_validation_service import ConfigurationValidationService
-from src.services.errors import ConfigurationValidationFailed
+from src.services.errors import ConfigurationValidationFailed, CredentialResolutionFailed
 from src.api.routes.error_models import ERROR_RESPONSES
 
 logger = logging.getLogger(__name__)
@@ -241,6 +241,19 @@ async def _validate_configured_transition(twin: DigitalTwin, db: Session):
                 "errors": exc.errors
             }
         )
+
+
+def _credential_resolution_exception(exc: CredentialResolutionFailed) -> HTTPException:
+    """Map credential resolution failures to one stable API error shape."""
+    return HTTPException(
+        status_code=400,
+        detail={
+            "code": "CREDENTIAL_RESOLUTION_FAILED",
+            "message": exc.message,
+            "errors": exc.errors,
+        },
+    )
+
 
 @router.delete(
     "/{twin_id}",
@@ -476,6 +489,16 @@ async def deploy_twin(
     # Prepare project in Deployer (build ZIP and upload) before streaming
     try:
         resource_name = await prepare_project_for_deployment(twin, current_user.id)
+    except CredentialResolutionFailed as e:
+        logger.warning(
+            "Credential resolution failed while preparing deploy for twin '%s' (%s): %s",
+            twin.name,
+            twin_id,
+            e.errors,
+        )
+        twin.state = TwinState.CONFIGURED
+        db.commit()
+        raise _credential_resolution_exception(e) from e
     except HTTPException as e:
         logger.error(f"Deploy preparation failed for twin '{twin.name}' ({twin_id}): {e.detail}")
         twin.state = TwinState.CONFIGURED  # Rollback state on failure
@@ -624,6 +647,16 @@ async def destroy_twin_infrastructure(
     # Prepare project in Deployer (ensures terraform state is accessible)
     try:
         await prepare_project_for_deployment(twin, current_user.id)
+    except CredentialResolutionFailed as e:
+        logger.warning(
+            "Credential resolution failed while preparing destroy for twin '%s' (%s): %s",
+            twin.name,
+            twin_id,
+            e.errors,
+        )
+        twin.state = TwinState.DEPLOYED
+        db.commit()
+        raise _credential_resolution_exception(e) from e
     except Exception as e:
         # Log but don't fail - destroy should work even if project prep fails
         logger.warning(f"Project preparation failed during destroy: {e}")
@@ -931,6 +964,8 @@ async def start_log_trace(
     # Prepare project in Deployer (ensures credentials are current for log queries)
     try:
         resource_name = await prepare_project_for_deployment(twin, current_user.id)
+    except CredentialResolutionFailed as e:
+        raise _credential_resolution_exception(e) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to prepare project for log trace: {str(e)}")
     
@@ -1130,6 +1165,8 @@ async def verify_infrastructure(
     # Prepare project in Deployer (ensures credentials are current)
     try:
         resource_name = await prepare_project_for_deployment(twin, current_user.id)
+    except CredentialResolutionFailed as e:
+        raise _credential_resolution_exception(e) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to prepare project: {str(e)}")
     
@@ -1300,6 +1337,8 @@ async def verify_dataflow(
     # Prepare project (sync credentials)
     try:
         resource_name = await prepare_project_for_deployment(twin, current_user.id)
+    except CredentialResolutionFailed as e:
+        raise _credential_resolution_exception(e) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to prepare project: {str(e)}")
     
@@ -1402,6 +1441,8 @@ async def download_simulator(
     # Prepare project in Deployer (ensures simulator config is current)
     try:
         resource_name = await prepare_project_for_deployment(twin, current_user.id)
+    except CredentialResolutionFailed as e:
+        raise _credential_resolution_exception(e) from e
     except Exception as e:
         raise HTTPException(500, f"Failed to prepare project for simulator download: {str(e)}")
     
