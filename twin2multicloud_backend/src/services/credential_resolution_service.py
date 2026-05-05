@@ -37,6 +37,26 @@ class DeploymentCredentials:
 class CredentialResolutionService:
     """Resolves credentials from CloudConnections first, legacy encrypted fields second."""
 
+    def resolve_plaintext_credentials(self, provider: str, credentials) -> ProviderCredentials:
+        """Resolve request-body credentials without persisting or decrypting them."""
+        provider = self._normalize_provider(provider)
+        if provider not in {"aws", "azure", "gcp"}:
+            raise self._failed(
+                [],
+                provider,
+                "UNSUPPORTED_PROVIDER",
+                "Unsupported cloud provider",
+            )
+        if credentials is None:
+            raise self._failed(
+                [],
+                provider,
+                "MISSING_CREDENTIALS",
+                "No credentials provided for provider",
+            )
+        payload = self.build_plaintext_payload(provider, credentials)
+        return self._build_provider_credentials(provider, payload, "plaintext", None)
+
     def resolve_provider_credentials(self, twin, user_id: str, provider: str) -> ProviderCredentials:
         provider = self._normalize_provider(provider)
         errors: list[dict[str, Any]] = []
@@ -111,6 +131,48 @@ class CredentialResolutionService:
                 provider: credentials.source
                 for provider, credentials in resolved.items()
             },
+        )
+
+    @classmethod
+    def build_plaintext_payload(cls, provider: str, credentials) -> dict[str, Any]:
+        """Normalize request-body credential schemas into canonical provider payloads."""
+        provider = cls._normalize_provider(provider)
+        if provider == "aws":
+            payload = {
+                "aws_access_key_id": credentials.access_key_id,
+                "aws_secret_access_key": credentials.secret_access_key,
+                "aws_region": credentials.region,
+            }
+            if credentials.session_token:
+                payload["aws_session_token"] = credentials.session_token
+            if credentials.sso_region:
+                payload["aws_sso_region"] = credentials.sso_region
+            return payload
+
+        if provider == "azure":
+            azure_region = credentials.region
+            return {
+                "azure_subscription_id": credentials.subscription_id,
+                "azure_client_id": credentials.client_id,
+                "azure_client_secret": credentials.client_secret,
+                "azure_tenant_id": credentials.tenant_id,
+                "azure_region": azure_region,
+                "azure_region_iothub": credentials.region_iothub or azure_region,
+                "azure_region_digital_twin": credentials.region_digital_twin or azure_region,
+            }
+
+        if provider == "gcp":
+            payload = {
+                "gcp_project_id": credentials.project_id,
+                "gcp_billing_account": credentials.billing_account,
+                "gcp_region": credentials.region,
+                "gcp_credentials_file": credentials.service_account_json,
+            }
+            return {key: value for key, value in payload.items() if value is not None}
+
+        raise CredentialResolutionFailed(
+            "Cannot resolve deployment credentials",
+            [cls._error(provider, "UNSUPPORTED_PROVIDER", "Unsupported cloud provider")],
         )
 
     @classmethod

@@ -198,3 +198,62 @@ def test_invalid_gcp_service_account_json_returns_structured_error():
             "message": "GCP service account JSON is invalid",
         }
     ]
+
+
+def test_plaintext_azure_credentials_use_canonical_region_fallbacks():
+    credentials = SimpleNamespace(
+        subscription_id="sub-1",
+        client_id="client-1",
+        client_secret="secret-1",
+        tenant_id="tenant-1",
+        region="westeurope",
+        region_iothub=None,
+        region_digital_twin="northeurope",
+    )
+
+    resolved = CredentialResolutionService().resolve_plaintext_credentials("azure", credentials)
+
+    assert resolved.source == "plaintext"
+    assert resolved.optimizer_payload["azure_region"] == "westeurope"
+    assert resolved.deployer_validation_payload["azure_region_iothub"] == "westeurope"
+    assert resolved.deployer_validation_payload["azure_region_digital_twin"] == "northeurope"
+
+
+def test_plaintext_gcp_credentials_extract_project_from_service_account():
+    service_account = {
+        "type": "service_account",
+        "project_id": "service-account-project",
+        "client_email": "deployer@service-account-project.iam.gserviceaccount.com",
+        "private_key": "-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----\n",
+    }
+    credentials = SimpleNamespace(
+        project_id=None,
+        billing_account="012345-6789AB-CDEF01",
+        service_account_json=json.dumps(service_account),
+        region="europe-west1",
+    )
+
+    resolved = CredentialResolutionService().resolve_plaintext_credentials("gcp", credentials)
+
+    assert resolved.optimizer_payload["gcp_project_id"] == "service-account-project"
+    assert resolved.deployer_validation_payload["gcp_project_id"] == "service-account-project"
+    assert "private_key" not in str(resolved.deployer_config_payload)
+
+
+def test_plaintext_gcp_credentials_require_service_account_json():
+    credentials = SimpleNamespace(
+        project_id="demo-project",
+        billing_account=None,
+        service_account_json=None,
+        region="europe-west1",
+    )
+
+    with pytest.raises(CredentialResolutionFailed) as exc_info:
+        CredentialResolutionService().resolve_plaintext_credentials("gcp", credentials)
+
+    assert {
+        "provider": "gcp",
+        "code": "MISSING_CREDENTIAL_FIELD",
+        "field": "gcp_credentials_file",
+        "message": "Missing required credential field: gcp_credentials_file",
+    } in exc_info.value.errors

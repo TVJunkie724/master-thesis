@@ -427,3 +427,85 @@ class TestConfigRoutes:
         assert seen["optimizer_creds"]["gcp_project_id"] == "service-account-project"
         assert seen["deployer_creds"]["gcp_project_id"] == "service-account-project"
         assert "placeholder-project" not in str(seen)
+
+    def test_validate_dual_gcp_plaintext_uses_resolver_without_placeholder(
+        self,
+        authenticated_client,
+        monkeypatch,
+    ):
+        client, headers = authenticated_client
+        service_account = {
+            "type": "service_account",
+            "project_id": "service-account-project",
+            "client_email": "deployer@service-account-project.iam.gserviceaccount.com",
+            "private_key": "-----BEGIN PRIVATE KEY-----\\nsecret\\n-----END PRIVATE KEY-----\\n",
+        }
+        seen = {}
+
+        async def fake_dual_validation(provider, optimizer_creds, deployer_creds):
+            seen["provider"] = provider
+            seen["optimizer_creds"] = optimizer_creds
+            seen["deployer_creds"] = deployer_creds
+            return {
+                "provider": provider,
+                "valid": True,
+                "optimizer": {"valid": True, "message": "optimizer ok"},
+                "deployer": {"valid": True, "message": "deployer ok", "permissions": []},
+            }
+
+        monkeypatch.setattr(
+            "src.api.routes.config._perform_dual_validation",
+            fake_dual_validation,
+        )
+
+        response = client.post(
+            "/config/validate-dual",
+            json={
+                "provider": "gcp",
+                "gcp": {
+                    "billing_account": "012345-6789AB-CDEF01",
+                    "region": "europe-west1",
+                    "service_account_json": json.dumps(service_account),
+                },
+            },
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        assert response.json()["valid"] is True
+        assert seen["provider"] == "gcp"
+        assert seen["optimizer_creds"]["gcp_project_id"] == "service-account-project"
+        assert seen["deployer_creds"]["gcp_project_id"] == "service-account-project"
+        assert "placeholder-project" not in str(seen)
+
+    def test_validate_inline_gcp_plaintext_missing_service_account_returns_structured_error(
+        self,
+        authenticated_client,
+    ):
+        client, headers = authenticated_client
+
+        response = client.post(
+            "/config/validate-inline",
+            json={
+                "provider": "gcp",
+                "gcp": {
+                    "project_id": "demo-project",
+                    "region": "europe-west1",
+                },
+            },
+            headers=headers,
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == {
+            "code": "CREDENTIAL_RESOLUTION_FAILED",
+            "message": "Cannot resolve deployment credentials",
+            "errors": [
+                {
+                    "provider": "gcp",
+                    "code": "MISSING_CREDENTIAL_FIELD",
+                    "field": "gcp_credentials_file",
+                    "message": "Missing required credential field: gcp_credentials_file",
+                }
+            ],
+        }

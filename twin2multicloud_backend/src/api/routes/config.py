@@ -14,7 +14,7 @@ from src.schemas.twin_config import (
     InlineValidationRequest
 )
 from src.config import settings
-from src.utils.crypto import encrypt, decrypt
+from src.utils.crypto import encrypt
 from src.services.twin_helpers import get_user_twin
 from src.services.cloud_credential_validation_service import perform_dual_validation
 from src.services.cloud_connection_service import CloudConnectionService
@@ -347,7 +347,7 @@ async def update_config(
 
     # Include twin_state in response for frontend sync
     response = TwinConfigResponse.from_db(config, twin.optimizer_config)
-    return {**response.dict(), "twin_state": twin.state.value}
+    return {**response.model_dump(), "twin_state": twin.state.value}
 
 
 @router.post(
@@ -483,47 +483,16 @@ async def validate_credentials_inline(
     Useful for checking credentials before saving a twin.
     Credentials are sent directly to Deployer API, never stored.
     """
-    provider = request.provider
-    if provider not in ["aws", "azure", "gcp"]:
-        raise HTTPException(status_code=400, detail="Invalid provider. Use: aws, azure, gcp")
-    
-    # Build credentials payload from request (not from DB)
-    credentials = {}
-    if provider == "aws" and request.aws:
-        credentials = {
-            "aws_access_key_id": request.aws.access_key_id,
-            "aws_secret_access_key": request.aws.secret_access_key,
-            "aws_region": request.aws.region
-        }
-        if request.aws.session_token:
-            credentials["aws_session_token"] = request.aws.session_token
-    elif provider == "azure" and request.azure:
-        credentials = {
-            "azure_subscription_id": request.azure.subscription_id,
-            "azure_client_id": request.azure.client_id,
-            "azure_client_secret": request.azure.client_secret,
-            "azure_tenant_id": request.azure.tenant_id,
-            "azure_region": request.azure.region,
-            # Deployer requires these additional region fields
-            # TODO: Add separate UI fields for these in Step 1
-            "azure_region_iothub": request.azure.region,  # Use same region for now
-            "azure_region_digital_twin": request.azure.region,  # Use same region for now
-        }
-    elif provider == "gcp" and request.gcp:
-        credentials = {
-            "gcp_project_id": request.gcp.project_id,
-            "gcp_billing_account": request.gcp.billing_account,
-            "gcp_region": request.gcp.region,
-            # Deployer expects gcp_credentials_file, but we pass the actual JSON content
-            # The checker will need to handle this - either parse the content or save to temp file
-            "gcp_credentials_file": request.gcp.service_account_json,
-        }
-    else:
-        return CredentialValidationResult(
-            provider=provider,
-            valid=False,
-            message=f"No {provider} credentials provided"
+    try:
+        resolved = CredentialResolutionService().resolve_plaintext_credentials(
+            request.provider,
+            getattr(request, request.provider, None),
         )
+    except CredentialResolutionFailed as exc:
+        raise HTTPException(status_code=400, detail=_credential_resolution_detail(exc)) from exc
+
+    provider = resolved.provider
+    credentials = resolved.deployer_validation_payload
     
     # Call Deployer API
     try:
@@ -592,67 +561,18 @@ async def validate_credentials_dual(
     - Deployer: Checks infrastructure deployment permissions (requires extra fields)
     Returns separate results for each.
     """
-    import asyncio
-    
-    provider = request.provider
-    if provider not in ["aws", "azure", "gcp"]:
-        raise HTTPException(status_code=400, detail="Invalid provider. Use: aws, azure, gcp")
-    
-    # Build SEPARATE credential payloads for Optimizer vs Deployer
-    # They have different schema requirements
-    optimizer_creds = {}
-    deployer_creds = {}
-    
-    if provider == "aws" and request.aws:
-        # AWS: Same schema for both
-        base_creds = {
-            "aws_access_key_id": request.aws.access_key_id,
-            "aws_secret_access_key": request.aws.secret_access_key,
-            "aws_region": request.aws.region
-        }
-        if request.aws.session_token:
-            base_creds["aws_session_token"] = request.aws.session_token
-        optimizer_creds = base_creds.copy()
-        deployer_creds = base_creds.copy()
-        
-    elif provider == "azure" and request.azure:
-        # Optimizer: Simple schema (just subscription + region, optional SP creds)
-        optimizer_creds = {
-            "azure_subscription_id": request.azure.subscription_id,
-            "azure_region": request.azure.region,
-            "azure_client_id": request.azure.client_id,
-            "azure_client_secret": request.azure.client_secret,
-            "azure_tenant_id": request.azure.tenant_id,
-        }
-        # Deployer: Requires extra region fields
-        deployer_creds = {
-            "azure_subscription_id": request.azure.subscription_id,
-            "azure_client_id": request.azure.client_id,
-            "azure_client_secret": request.azure.client_secret,
-            "azure_tenant_id": request.azure.tenant_id,
-            "azure_region": request.azure.region,
-            "azure_region_iothub": request.azure.region,  # Use same region for now
-            "azure_region_digital_twin": request.azure.region,  # Use same region for now
-        }
-        
-    elif provider == "gcp" and request.gcp:
-        deployer_creds = {
-            "gcp_project_id": request.gcp.project_id,
-            "gcp_billing_account": request.gcp.billing_account,
-            "gcp_region": request.gcp.region,
-            "gcp_credentials_file": request.gcp.service_account_json,
-        }
-        optimizer_creds = CredentialResolutionService.build_optimizer_payload(provider, deployer_creds)
-        deployer_creds = CredentialResolutionService.build_deployer_validation_payload(provider, deployer_creds)
-    else:
-        return {
-            "provider": provider,
-            "valid": False,
-            "optimizer": {"valid": False, "message": f"No {provider} credentials provided"},
-            "deployer": {"valid": False, "message": f"No {provider} credentials provided"}
-        }
-    
-    
+    try:
+        resolved = CredentialResolutionService().resolve_plaintext_credentials(
+            request.provider,
+            getattr(request, request.provider, None),
+        )
+    except CredentialResolutionFailed as exc:
+        raise HTTPException(status_code=400, detail=_credential_resolution_detail(exc)) from exc
+
+    provider = resolved.provider
+    optimizer_creds = resolved.optimizer_payload
+    deployer_creds = resolved.deployer_validation_payload
+
     # Use shared helper
     return await _perform_dual_validation(provider, optimizer_creds, deployer_creds)
 

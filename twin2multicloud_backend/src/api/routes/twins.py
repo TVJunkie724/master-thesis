@@ -1146,7 +1146,7 @@ async def verify_infrastructure(
                 {"name": "ADT twins", "status": "skip", "provider": "", "detail": "L4 not Azure", "layer": "L4"},
                 {"name": "Grafana workspace", "status": "pass", "provider": "AWS", "detail": "deployed", "layer": "L5"},
             ],
-            "summary": {"pass_count": 13, "fail_count": 0, "skip_count": 1, "total": 14, "healthy": True}
+            "summary": dict(pass_count=13, fail_count=0, skip_count=1, total=14, healthy=True)
         }
     
     # Reload twin with configs for credential sync

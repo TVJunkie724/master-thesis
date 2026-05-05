@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.config import settings
@@ -14,10 +16,22 @@ from src.api.routes.test_endpoints import router as test_endpoints_router
 # Create tables
 Base.metadata.create_all(bind=engine)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start background tasks and optional seed data during app startup."""
+    start_reaper()
+    if settings.SEED_DATA:
+        from scripts.seed_twins import seed_if_needed
+        await seed_if_needed()
+    yield
+
+
 app = FastAPI(
     title="Twin2MultiCloud Management API",
     version="1.0.0",
-    description="Management API for Digital Twin multi-cloud deployments"
+    description="Management API for Digital Twin multi-cloud deployments",
+    lifespan=lifespan,
 )
 
 # CORS
@@ -54,15 +68,6 @@ app.include_router(dashboard_router)
 app.include_router(deployer_router)
 app.include_router(sse_router)
 app.include_router(test_endpoints_router)
-
-@app.on_event("startup")
-async def startup_event():
-    """Start background tasks on app startup."""
-    start_reaper()
-    # Seed test data if enabled in settings
-    if settings.SEED_DATA:
-        from scripts.seed_twins import seed_if_needed
-        await seed_if_needed()
 
 @app.get("/")
 async def root():

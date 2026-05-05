@@ -200,7 +200,7 @@ async def update_deployer_config(
     
     # Include twin_state in response for frontend sync
     response = DeployerConfigResponse.from_db(config)
-    return {**response.dict(), "twin_state": twin.state.value}
+    return {**response.model_dump(), "twin_state": twin.state.value}
 
 
 @router.post(
@@ -682,4 +682,3 @@ async def upload_project_zip(
             "assets": {"scene_glb": None},
             "warnings": []
         }
-

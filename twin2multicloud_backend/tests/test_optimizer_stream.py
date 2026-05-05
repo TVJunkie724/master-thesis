@@ -57,19 +57,17 @@ class TestStreamRefreshPricingHappy:
         """Azure stream should work without credentials (public API)."""
         # Mock the Optimizer SSE stream
         with patch('src.api.routes.optimizer.httpx.AsyncClient') as mock_client:
-            async def mock_stream(*args, **kwargs):
-                mock_resp = MagicMock()
-                mock_resp.status_code = 200
-                
-                async def mock_chunks():
-                    yield 'event: complete\ndata: {"message": "Azure done!"}\n\n'
-                mock_resp.aiter_text = mock_chunks
-                mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
-                mock_resp.__aexit__ = AsyncMock(return_value=None)
-                return mock_resp
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+
+            async def mock_chunks():
+                yield 'event: complete\ndata: {"message": "Azure done!"}\n\n'
+            mock_resp.aiter_text = mock_chunks
+            mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+            mock_resp.__aexit__ = AsyncMock(return_value=None)
             
             mock_instance = MagicMock()
-            mock_instance.stream = mock_stream
+            mock_instance.stream = MagicMock(return_value=mock_resp)
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock(return_value=None)
             mock_client.return_value = mock_instance
@@ -154,17 +152,15 @@ class TestStreamRefreshPricingEdge:
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock(return_value=None)
             
-            async def mock_stream(*args, **kwargs):
-                mock_resp = MagicMock()
-                mock_resp.status_code = 200
-                async def mock_chunks():
-                    yield 'event: complete\ndata: {}\n\n'
-                mock_resp.aiter_text = mock_chunks
-                mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
-                mock_resp.__aexit__ = AsyncMock(return_value=None)
-                return mock_resp
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            async def mock_chunks():
+                yield 'event: complete\ndata: {}\n\n'
+            mock_resp.aiter_text = mock_chunks
+            mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+            mock_resp.__aexit__ = AsyncMock(return_value=None)
             
-            mock_instance.stream = mock_stream
+            mock_instance.stream = MagicMock(return_value=mock_resp)
             mock_client.return_value = mock_instance
             
             response = auth_client.get(

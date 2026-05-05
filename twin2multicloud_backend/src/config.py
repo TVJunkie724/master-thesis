@@ -1,6 +1,8 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
     # Database
     DATABASE_URL: str = "sqlite:///./data/app.db"
     
@@ -55,9 +57,4 @@ class Settings(BaseSettings):
     SEED_CREDENTIALS_FILE: str = "/config/config_credentials.json"
     SEED_GCP_CREDENTIALS_FILE: str = "/config/gcp_credentials.json"
     
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
-
 settings = Settings()
-
