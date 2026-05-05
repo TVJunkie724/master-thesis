@@ -21,9 +21,8 @@ services:
       - "5003:8000"
     volumes:
       - ./2-twin2clouds:/app
-      - ./config_credentials.json:/config/config_credentials.json
-      - ./config.json:/config/config.json
-      - ./google-credentials.json:/config/gcp_credentials.json
+    environment:
+      - TWIN2CLOUDS_MODE=INFO
     tty: true
     networks:
       - my_master_thesis_network
@@ -37,10 +36,6 @@ services:
       - "5004:8000"
     volumes: 
       - ./3-cloud-deployer:/app/
-      # mount into upload/template folder to simulate upload process
-      - ./config.json:/config/config.json
-      - ./config_credentials.json:/config/config_credentials.json
-      - ./gcp_credentials.json:/config/gcp_credentials.json
     tty: true
     networks:
       - my_master_thesis_network
@@ -53,18 +48,13 @@ services:
       - "5005:5005"
     volumes:
       - ./twin2multicloud_backend:/app
-      - management-data:/app/data
       - ./twin2multicloud_backend/data:/app/data
-      - ./config_credentials.json:/config/config_credentials.json:ro
-      - ./gcp_credentials.json:/config/gcp_credentials.json:ro
     environment:
       - DATABASE_URL=sqlite:///./data/app.db
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key}
       - DEBUG=true
       - PYTHONUNBUFFERED=1
-      - SEED_DATA=true
-      - SEED_CREDENTIALS_FILE=/config/config_credentials.json
-      - SEED_GCP_CREDENTIALS_FILE=/config/gcp_credentials.json
+      - SEED_DATA=false
       # - ENABLE_TEST_ENDPOINTS=true
       # External API URLs (Docker internal hostnames)
       - OPTIMIZER_URL=http://master-thesis-2twin2clouds-1:8000
@@ -103,6 +93,3 @@ services:
 networks:
   my_master_thesis_network:
     driver: bridge
-
-volumes:
-  management-data:

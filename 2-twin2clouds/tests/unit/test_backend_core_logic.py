@@ -75,3 +75,13 @@ def test_load_combined_pricing_partial_failure(mock_load_opt):
     assert combined["aws"] == {"some": "data"}
     assert combined["azure"] == {"some": "data"}
     assert combined["gcp"] == {}
+
+
+@patch("backend.config_loader.logger")
+def test_load_config_file_uses_default_when_config_mount_missing(mock_logger):
+    """Optimizer should start without the optional /config/config.json mount."""
+    with patch("backend.config_loader.os.path.exists", return_value=False):
+        with patch.dict(os.environ, {"TWIN2CLOUDS_MODE": "DEBUG"}):
+            assert config_loader.load_config_file() == {"mode": "DEBUG"}
+
+    assert mock_logger.warning.called

@@ -42,7 +42,7 @@ Open `http://localhost:5010`.
 
 ```bash
 cd twin2multicloud_flutter
-flutter run -d chrome
+flutter run -d chrome --dart-define-from-file=config/dev.json
 ```
 
 ## Safe Verification

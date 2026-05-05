@@ -42,10 +42,10 @@ Open `http://localhost:5010`. Markdown edits under `docs-site/docs/` reload auto
 ```bash
 cd twin2multicloud_flutter
 flutter pub get
-flutter run -d chrome
+flutter run -d chrome --dart-define-from-file=config/dev.json
 ```
 
-The current development flow uses local backend services. Authentication and seed credentials are still in transition and will be cleaned up through the credentials source-of-truth phase.
+The current development flow uses local backend services. The Flutter app should be started with an environment config file when you need to point it at non-default backend URLs.
 
 ## Compile The Thesis
 
@@ -57,7 +57,13 @@ The LaTeX source lives in `twin2multicloud-latex/` and remains part of the repos
 
 ## Credentials In The Current Stack
 
-The current Compose stack may mount local credential files if they exist, for example root-level cloud credential JSON files. This is a known transitional state, not the target architecture.
+The default Compose stack is intentionally credential-free. Root-level credential files are not mounted by default, and sample data seeding starts disabled.
+
+Use the local credential override only when you intentionally need legacy root-level credential files for sample seeding or supervised local cloud tests:
+
+```bash
+docker compose -f compose.yaml -f compose.credentials.local.yaml up -d
+```
 
 The target flow is:
 
@@ -67,7 +73,7 @@ The target flow is:
 4. Deployments reference the stored user-scoped Cloud Connection.
 5. The Deployer receives explicit deployment context and does not discover credentials from arbitrary workspace files.
 
-Until that is implemented, treat any real cloud deployment as intentional and manually supervised.
+Treat any real cloud deployment as intentional and manually supervised.
 
 ## Safe Verification
 

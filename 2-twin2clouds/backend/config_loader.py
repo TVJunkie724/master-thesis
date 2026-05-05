@@ -67,6 +67,12 @@ def load_config_file():
         "mode": "DEBUG"
     }
     """
+    if not os.path.exists(CONSTANTS.CONFIG_FILE_PATH):
+        logger.warning(
+            f"Optional config file not found: {CONSTANTS.CONFIG_FILE_PATH}. "
+            "Using default INFO mode."
+        )
+        return {"mode": os.getenv("TWIN2CLOUDS_MODE", "INFO")}
     return load_json_file(CONSTANTS.CONFIG_FILE_PATH)
 
 

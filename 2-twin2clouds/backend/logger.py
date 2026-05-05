@@ -3,6 +3,7 @@ import sys
 from colorlog import ColoredFormatter
 import traceback
 import json
+import os
 import backend.constants as CONSTANTS
 
 global logger
@@ -63,8 +64,11 @@ logger_proxy = LoggerProxy()
 
 
 
-with open(CONSTANTS.CONFIG_FILE_PATH) as f:
-    config = json.load(f)
+if os.path.exists(CONSTANTS.CONFIG_FILE_PATH):
+    with open(CONSTANTS.CONFIG_FILE_PATH) as f:
+        config = json.load(f)
+else:
+    config = {"mode": os.getenv("TWIN2CLOUDS_MODE", "INFO")}
 DEBUG_MODE = config.get("mode", "").upper() == "DEBUG"
 logger = setup_logger(debug_mode=DEBUG_MODE)
 
