@@ -1,0 +1,4 @@
+interface:
+  display_name: "Twin2MultiCloud GitHub Issue"
+  short_description: "Create and triage GitHub Issues"
+  default_prompt: "Use $github-issue for the current Twin2MultiCloud task."
