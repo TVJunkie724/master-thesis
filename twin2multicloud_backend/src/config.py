@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8080"
     
     # Server
-    HOST: str = "0.0.0.0"
+    HOST: str = "127.0.0.1"
     PORT: int = 5005
     DEBUG: bool = True
     

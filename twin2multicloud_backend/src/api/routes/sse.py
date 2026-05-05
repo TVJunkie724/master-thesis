@@ -231,13 +231,16 @@ async def _session_reaper():
                 session = _sessions.pop(sid, None)
                 if session and session.unpersisted_logs:
                     # Get a fresh DB session for cleanup
+                    db = None
                     try:
                         db_gen = get_db()
                         db = next(db_gen)
                         await _persist_logs_batch(session, session.unpersisted_logs, db)
-                        db.close()
                     except Exception:
-                        pass  # Best effort
+                        _reaper_logger.exception("Failed to persist expired SSE session logs during cleanup")
+                    finally:
+                        if db is not None:
+                            db.close()
 
         # Check for stuck deployments every ~5 minutes (30 iterations × 10s)
         _stuck_check_counter += 1

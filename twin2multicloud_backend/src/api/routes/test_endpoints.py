@@ -11,6 +11,8 @@ Consolidated from twins.py to keep production code clean and test code separate.
 import os
 import io
 import json
+import logging
+import secrets
 import zipfile
 import asyncio
 import uuid
@@ -26,6 +28,7 @@ from src.api.dependencies import get_current_user
 from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/twins", tags=["twins-test"])
+logger = logging.getLogger(__name__)
 
 # Gate all test endpoints behind env var
 TEST_ENDPOINTS_ENABLED = os.getenv("ENABLE_TEST_ENDPOINTS", "false").lower() == "true"
@@ -461,7 +464,7 @@ async def _run_test_deploy_stream(
             "gcp_hot_writer_url": f"https://hot-writer-yza567-uc.a.run.app",
             "gcp_cold_writer_url": f"https://cold-writer-bcd890-uc.a.run.app",
             "gcp_archive_writer_url": f"https://archive-writer-efg123-uc.a.run.app",
-            "inter_cloud_token": "mock-inter-cloud-token-xyz789",
+            "inter_cloud_token": f"mock-{secrets.token_urlsafe(24)}",
         }
     
     try:
@@ -576,6 +579,7 @@ async def _run_test_deploy_stream(
         )
         
     except Exception as e:
+        db = None
         try:
             db = SessionLocal()
             twin = db.query(DigitalTwin).get(twin_id)
@@ -590,9 +594,11 @@ async def _run_test_deploy_stream(
                 deployment.error_message = str(e)
                 deployment.completed_at = datetime.utcnow()
                 db.commit()
-            db.close()
         except Exception:
-            pass
+            logger.exception("Failed to mark test deployment as failed after stream error")
+        finally:
+            if db is not None:
+                db.close()
         session.on_complete(success=False, message=str(e))
 
 
@@ -700,6 +706,7 @@ async def _run_test_destroy_stream(
         session.on_complete(success=True, message="Destruction complete (test mode)")
         
     except Exception as e:
+        db = None
         try:
             db = SessionLocal()
             twin = db.query(DigitalTwin).get(twin_id)
@@ -714,9 +721,11 @@ async def _run_test_destroy_stream(
                 deployment.error_message = str(e)
                 deployment.completed_at = datetime.utcnow()
                 db.commit()
-            db.close()
         except Exception:
-            pass
+            logger.exception("Failed to mark test destroy as failed after stream error")
+        finally:
+            if db is not None:
+                db.close()
         session.on_complete(success=False, message=str(e))
 
 
