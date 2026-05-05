@@ -28,6 +28,7 @@ from logger import logger
 import constants as CONSTANTS
 import src.core.state as state
 from src.core.config_loader import load_credentials
+from src.core.paths import resolve_project_context_path
 
 
 router = APIRouter(prefix="/logs", tags=["Logs"])
@@ -63,7 +64,7 @@ def get_providers_to_query(project_name: str) -> Set[str]:
 
 def _get_project_path(project_name: str) -> Path:
     """Get the project path from project name."""
-    return Path(state.get_project_base_path()) / CONSTANTS.PROJECT_UPLOAD_DIR_NAME / project_name
+    return resolve_project_context_path(project_name)
 
 
 def _load_providers(project_name: str) -> Dict[str, str]:
@@ -339,7 +340,8 @@ def _send_test_message_via_simulator(
         return False
     
     # Try to load first payload from payloads.json (unless caller supplied one)
-    payloads_path = f"/app/upload/{project_name}/iot_device_simulator/payloads.json"
+    project_path = _get_project_path(project_name)
+    payloads_path = project_path / "iot_device_simulator" / "payloads.json"
     device_id = None
     payload = None
     
@@ -349,7 +351,7 @@ def _send_test_message_via_simulator(
         logger.info(f"Using caller-supplied payload, device_id: {device_id}")
     else:
         try:
-            if os.path.exists(payloads_path):
+            if payloads_path.exists():
                 with open(payloads_path, 'r') as f:
                     payloads = json.load(f)
                 

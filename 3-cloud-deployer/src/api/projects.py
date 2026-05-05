@@ -13,7 +13,6 @@ Digital Twin deployment.
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Path, Request
 import json
 import os
-from pathlib import Path as PathLib
 import file_manager
 import src.validator as validator
 from src.validation.directory_validator import validate_project_directory
@@ -460,8 +459,8 @@ def get_project_summary(
     - deployment_status (local check)
     - validation_status (structure check)
     """
-    project_path = os.path.join(state.get_project_upload_path(), project_name)
-    if not os.path.exists(project_path):
+    project_path = resolve_project_context_path(project_name)
+    if not project_path.exists():
         raise HTTPException(status_code=404, detail=f"Project '{project_name}' not found")
 
     summary = {
@@ -473,8 +472,8 @@ def get_project_summary(
     }
 
     # 1. Description
-    info_path = os.path.join(project_path, CONSTANTS.PROJECT_INFO_FILE)
-    if os.path.exists(info_path):
+    info_path = project_path / CONSTANTS.PROJECT_INFO_FILE
+    if info_path.exists():
         try:
             with open(info_path, 'r') as f:
                 info = json.load(f)
@@ -482,8 +481,8 @@ def get_project_summary(
         except: pass
 
     # 2. Providers
-    prov_path = os.path.join(project_path, CONSTANTS.CONFIG_PROVIDERS_FILE)
-    if os.path.exists(prov_path):
+    prov_path = project_path / CONSTANTS.CONFIG_PROVIDERS_FILE
+    if prov_path.exists():
         try:
             with open(prov_path, 'r') as f:
                 summary["providers"] = json.load(f)
@@ -693,13 +692,13 @@ async def upload_state_machine(
         validator.validate_state_machine_content(target_filename, content_str)
         
         # 2. Save File
-        upload_dir = os.path.join(state.get_project_base_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME, project_name)
-        sm_dir = os.path.join(upload_dir, CONSTANTS.STATE_MACHINES_DIR_NAME)
+        project_path = resolve_project_context_path(project_name)
+        sm_dir = project_path / CONSTANTS.STATE_MACHINES_DIR_NAME
         
-        if not os.path.exists(sm_dir):
-             os.makedirs(sm_dir)   
+        if not sm_dir.exists():
+             sm_dir.mkdir(parents=True, exist_ok=True)
              
-        target_file = os.path.join(sm_dir, target_filename)
+        target_file = sm_dir / target_filename
         with open(target_file, 'w') as f:
             f.write(content_str)
             
@@ -746,14 +745,9 @@ async def upload_simulator_payloads(project_name: str, request: Request):
             raise ValueError(f"Payload validation failed: {errors}")
             
         # Save to iot_device_simulator root (provider-agnostic)
-        path = os.path.join(
-            state.get_project_base_path(), 
-            CONSTANTS.PROJECT_UPLOAD_DIR_NAME, 
-            project_name, 
-            CONSTANTS.IOT_DEVICE_SIMULATOR_DIR_NAME
-        )
-        os.makedirs(path, exist_ok=True)
-        with open(os.path.join(path, CONSTANTS.PAYLOADS_FILE), "w") as f:
+        path = resolve_project_context_path(project_name) / CONSTANTS.IOT_DEVICE_SIMULATOR_DIR_NAME
+        path.mkdir(parents=True, exist_ok=True)
+        with open(path / CONSTANTS.PAYLOADS_FILE, "w") as f:
             f.write(content_str)
             
         return {"message": "Payloads uploaded successfully.", "warnings": warnings}
@@ -803,10 +797,9 @@ def cleanup_aws_twinmaker(
         from src.providers.aws.provider import AWSProvider
         from src.providers.aws.layers.layer_4_twinmaker import force_delete_twinmaker_workspace
         from src.core.config_loader import load_project_config, load_credentials
-        from pathlib import Path as PathLib
         from logger import print_stack_trace
         
-        project_path = PathLib("upload") / project_name
+        project_path = resolve_project_context_path(project_name)
         config = load_project_config(project_path)
         credentials = load_credentials(project_path)
         

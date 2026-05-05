@@ -759,10 +759,11 @@ def check_azure_credentials_from_config(project_name: str = None) -> dict:
     """
     try:
         import src.core.state as state
+        from src.core.paths import resolve_project_context_path
         
         # Determine project path
         if project_name:
-            project_dir = os.path.join(state.get_project_upload_path(), project_name)
+            project_dir = resolve_project_context_path(project_name)
             if not os.path.exists(project_dir):
                 return {
                     "status": "error",
@@ -775,10 +776,10 @@ def check_azure_credentials_from_config(project_name: str = None) -> dict:
                 }
         else:
             project_name = state.get_active_project()
-            project_dir = os.path.join(state.get_project_upload_path(), project_name)
+            project_dir = resolve_project_context_path(project_name)
         
         # Load credentials from config
-        config_path = os.path.join(project_dir, "config_credentials.json")
+        config_path = project_dir / "config_credentials.json"
         if not os.path.exists(config_path):
             return {
                 "status": "error",

@@ -1,5 +1,7 @@
 from pathlib import Path
+import json
 
+import core.factory as factory
 from core.factory import get_upload_path
 from src.core.paths import (
     resolve_deployment_paths,
@@ -54,3 +56,29 @@ def test_runtime_project_context_stays_under_upload_root(tmp_path):
     project_path = resolve_project_context_path("factory-twin", tmp_path)
 
     assert project_path == tmp_path / "upload" / "factory-twin"
+
+
+def test_create_context_uses_project_context_resolver_for_template(tmp_path, monkeypatch):
+    template_path = tmp_path / "templates" / "digital-twin"
+    template_path.mkdir(parents=True)
+    (template_path / "config.json").write_text(json.dumps({
+        "digital_twin_name": "template-twin",
+        "hot_storage_size_in_days": 30,
+        "cold_storage_size_in_days": 90,
+        "mode": "DEBUG",
+    }))
+    (template_path / "config_iot_devices.json").write_text("[]")
+    (template_path / "config_providers.json").write_text(json.dumps({
+        "layer_1_provider": "aws",
+        "layer_2_provider": "aws",
+        "layer_3_hot_provider": "aws",
+        "layer_4_provider": "none",
+    }))
+
+    monkeypatch.setattr(factory, "resolve_project_context_path", lambda project_name: template_path)
+
+    context = factory.create_context("template")
+
+    assert context.project_name == "template"
+    assert context.project_path == template_path
+    assert context.config.digital_twin_name == "template-twin"

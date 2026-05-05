@@ -30,6 +30,7 @@ from pydantic import BaseModel
 
 from logger import logger
 from core.config_loader import load_credentials
+from src.core.paths import resolve_project_context_path
 
 # Reuse helpers from logs module
 from api.logs import _load_providers, _get_terraform_outputs, _send_test_message_via_simulator
@@ -61,7 +62,7 @@ class DataFlowRequest(BaseModel):
 # =============================================================================
 
 def _get_project_path(project_name: str) -> Path:
-    return Path(f"/app/upload/{project_name}")
+    return resolve_project_context_path(project_name)
 
 
 def _load_optimization_config(project_name: str) -> dict:
@@ -240,7 +241,7 @@ def _check_adt_telemetry(
 
 def _check_cloud_logs(
     provider: str, search_pattern: str, step_name: str,
-    outputs: dict, credentials: dict,
+    outputs: dict, credentials: dict, project_path: Path,
     timeout: int, poll_interval: int
 ) -> dict:
     """Poll cloud logs for a specific pattern (event-checker, action, workflow, feedback)."""
@@ -251,7 +252,7 @@ def _check_cloud_logs(
     elif provider == "azure":
         return _check_azure_logs(search_pattern, step_name, outputs, credentials, timeout, poll_interval)
     elif provider in ("google", "gcp"):
-        return _check_gcp_logs(search_pattern, step_name, outputs, credentials, timeout, poll_interval)
+        return _check_gcp_logs(search_pattern, step_name, outputs, credentials, project_path, timeout, poll_interval)
 
     return {"success": False, "error": f"Unknown provider: {provider}"}
 
@@ -351,7 +352,7 @@ def _check_azure_logs(
 
 def _check_gcp_logs(
     search_pattern: str, step_name: str, outputs: dict, credentials: dict,
-    timeout: int, poll_interval: int
+    project_path: Path, timeout: int, poll_interval: int
 ) -> dict:
     try:
         from google.cloud import logging as cloud_logging
@@ -366,7 +367,7 @@ def _check_gcp_logs(
     # Set credentials file for GCP SDK
     creds_file = gcp_creds.get("gcp_credentials_file")
     if creds_file:
-        abs_path = creds_file if os.path.isabs(creds_file) else str(Path("/app/upload") / creds_file)
+        abs_path = creds_file if os.path.isabs(creds_file) else str(project_path / creds_file)
         if os.path.exists(abs_path):
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = abs_path
 
@@ -808,7 +809,7 @@ async def verify_data_flow(
                 log_result = await asyncio.to_thread(
                     _check_cloud_logs,
                     l2_provider, search_pattern, step_key,
-                    tf_outputs, project_creds,
+                    tf_outputs, project_creds, project_path,
                     PHASE_4_TIMEOUT, PHASE_4_POLL_INTERVAL,
                 )
 

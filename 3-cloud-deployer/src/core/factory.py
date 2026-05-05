@@ -12,7 +12,7 @@ from pathlib import Path
 
 from core.config_loader import load_project_config
 from core.context import DeploymentContext
-from core.paths import get_project_root, resolve_deployment_paths
+from core.paths import get_project_root, resolve_deployment_paths, resolve_project_context_path
 
 def get_project_path() -> Path:
     """Get the project root path."""
@@ -38,7 +38,7 @@ def create_context(project_name: str, provider_name: str = None) -> DeploymentCo
     Returns:
         DeploymentContext with config loaded but providers not yet initialized
     """
-    project_path = resolve_deployment_paths(project_name).project_path
+    project_path = resolve_project_context_path(project_name)
     
     # Load configuration
     config = load_project_config(project_path)

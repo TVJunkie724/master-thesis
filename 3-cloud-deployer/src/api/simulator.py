@@ -23,6 +23,7 @@ import datetime
 from logger import logger
 import src.core.state as state
 from api.error_models import ERROR_RESPONSES
+from src.core.paths import resolve_project_context_path
 
 
 router = APIRouter()
@@ -46,34 +47,34 @@ async def simulator_stream(websocket: WebSocket, project_name: str, provider: st
         return
 
     # Check Project Existence
-    project_path = os.path.join(state.get_project_upload_path(), project_name)
-    if not os.path.exists(project_path):
+    project_path = resolve_project_context_path(project_name)
+    if not project_path.exists():
         await websocket.send_json({"type": "error", "data": f"Project '{project_name}' not found."})
         await websocket.close()
         return
 
     # Check Config - look for device subdirectories
-    provider_dir = os.path.join(project_path, "iot_device_simulator", provider)
-    if not os.path.exists(provider_dir):
+    provider_dir = project_path / "iot_device_simulator" / provider
+    if not provider_dir.exists():
         await websocket.send_json({"type": "error", "data": "Simulator config not found. Please deploy L1 first."})
         await websocket.close()
         return
     
-    device_dirs = [d for d in os.listdir(provider_dir) if os.path.isdir(os.path.join(provider_dir, d))]
+    device_dirs = [d.name for d in provider_dir.iterdir() if d.is_dir()]
     if not device_dirs:
         await websocket.send_json({"type": "error", "data": "No device configs found. Please deploy L1 first."})
         await websocket.close()
         return
     
-    config_path = os.path.join(provider_dir, device_dirs[0], "config_generated.json")
-    if not os.path.exists(config_path):
+    config_path = provider_dir / device_dirs[0] / "config_generated.json"
+    if not config_path.exists():
         await websocket.send_json({"type": "error", "data": "Simulator config not found. Please deploy L1 first."})
         await websocket.close()
         return
 
     # Check Payloads
-    payload_path = os.path.join(project_path, "iot_device_simulator", provider, "payloads.json")
-    if not os.path.exists(payload_path):
+    payload_path = project_path / "iot_device_simulator" / provider / "payloads.json"
+    if not payload_path.exists():
         await websocket.send_json({"type": "error", "data": "Payloads file not found. Please upload payloads.json."})
         await websocket.close()
         return
@@ -215,25 +216,26 @@ async def download_simulator_package(project_name: str, provider: str):
     if internal_provider not in ("aws", "azure", "google"):
         raise HTTPException(status_code=400, detail=f"Provider '{provider}' not supported. Supported: aws, azure, gcp.")
 
-    provider_dir = os.path.join(state.get_project_upload_path(), project_name, "iot_device_simulator", internal_provider)
+    project_path = resolve_project_context_path(project_name)
+    provider_dir = project_path / "iot_device_simulator" / internal_provider
     src_dir = os.path.join(state.get_project_base_path(), "src", "iot_device_simulator", internal_provider)
     
     # Payloads are stored at iot_device_simulator level (shared across devices)
-    payload_path = os.path.join(state.get_project_upload_path(), project_name, "iot_device_simulator", "payloads.json")
+    payload_path = project_path / "iot_device_simulator" / "payloads.json"
 
     # Find all device subdirectories
-    if not os.path.exists(provider_dir):
+    if not provider_dir.exists():
         raise HTTPException(status_code=404, detail="Simulator config not found. Deploy L1 first.")
     
-    device_dirs = [d for d in os.listdir(provider_dir) if os.path.isdir(os.path.join(provider_dir, d))]
+    device_dirs = [d.name for d in provider_dir.iterdir() if d.is_dir()]
     if not device_dirs:
         raise HTTPException(status_code=404, detail="No device configs found. Deploy L1 first.")
     
     # Load all device configs
     device_configs = {}
     for device_id in device_dirs:
-        config_path = os.path.join(provider_dir, device_id, "config_generated.json")
-        if os.path.exists(config_path):
+        config_path = provider_dir / device_id / "config_generated.json"
+        if config_path.exists():
             with open(config_path, 'r') as f:
                 device_configs[device_id] = json.load(f)
     
@@ -247,20 +249,22 @@ async def download_simulator_package(project_name: str, provider: str):
     # AWS-specific: validate certificates exist for all devices
     auth_dir = None
     if internal_provider == "aws":
-        auth_dir = os.path.join(state.get_project_upload_path(), project_name, "iot_devices_auth")
+        auth_dir = project_path / "iot_devices_auth"
         for device_id in device_configs:
-            device_cert_dir = os.path.join(auth_dir, device_id)
-            if not os.path.exists(device_cert_dir):
+            device_cert_dir = auth_dir / device_id
+            if not device_cert_dir.exists():
                 raise HTTPException(status_code=404, detail=f"Certificates for device '{device_id}' not found.")
 
     # GCP-specific: validate service account key exists
     sa_key_path = None
     if internal_provider == "google":
-        sa_key_path = first_config.get("service_account_key_path", "")
+        configured_sa_path = first_config.get("service_account_key_path", "")
+        if configured_sa_path:
+            sa_key_path = configured_sa_path if os.path.isabs(configured_sa_path) else project_path / configured_sa_path
         if not (sa_key_path and os.path.exists(sa_key_path)):
             # Check fallback location
-            sa_key_path = os.path.join(state.get_project_upload_path(), project_name, "service_account.json")
-            if not os.path.exists(sa_key_path):
+            sa_key_path = project_path / "service_account.json"
+            if not sa_key_path.exists():
                 raise HTTPException(status_code=404, detail="GCP service account key not found. Configure GCP credentials first.")
 
     # Create Zip
@@ -292,14 +296,14 @@ async def download_simulator_package(project_name: str, provider: str):
             
             # AWS: include device certificates
             if internal_provider == "aws" and auth_dir:
-                device_cert_dir = os.path.join(auth_dir, device_id)
+                device_cert_dir = auth_dir / device_id
                 for f in ["certificate.pem.crt", "private.pem.key"]:
-                    fp = os.path.join(device_cert_dir, f)
-                    if os.path.exists(fp):
+                    fp = device_cert_dir / f
+                    if fp.exists():
                         zip_file.write(fp, f"configs/{device_id}/{f}")
 
         # 3. Payloads
-        if os.path.exists(payload_path):
+        if payload_path.exists():
             zip_file.write(payload_path, "payloads.json")
         else:
             zip_file.writestr("payloads.json", "[]")

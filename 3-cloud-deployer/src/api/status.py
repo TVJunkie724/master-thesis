@@ -23,6 +23,7 @@ from fastapi import APIRouter, HTTPException, Query
 import constants as CONSTANTS
 import src.core.state as state
 import src.validator as validator
+from src.core.paths import resolve_project_context_path
 from api.dependencies import validate_project_context
 from logger import print_stack_trace, logger
 from api.error_models import ERROR_RESPONSES
@@ -30,7 +31,7 @@ from api.error_models import ERROR_RESPONSES
 
 def _get_upload_dir(project_name: str) -> str:
     """Get the upload directory path for a project."""
-    return os.path.join(state.get_project_base_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME, project_name)
+    return str(resolve_project_context_path(project_name))
 
 
 router = APIRouter()
@@ -869,4 +870,3 @@ def verify_endpoint(
         print_stack_trace()
         logger.error(str(e))
         raise HTTPException(status_code=500, detail="Verification failed. Check logs.")
-

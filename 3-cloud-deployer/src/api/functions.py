@@ -40,6 +40,7 @@ from api.error_models import ERROR_RESPONSES
 import constants as CONSTANTS
 import src.core.state as state
 from api.dependencies import validate_project_context, check_template_protection
+from src.core.paths import resolve_project_context_path
 from logger import logger
 
 # Optional SDK imports - fail at runtime if SDK not available for that provider
@@ -59,7 +60,7 @@ except ImportError:
 
 def _get_upload_dir(project_name: str) -> str:
     """Get the upload directory path for a project."""
-    return os.path.join(state.get_project_base_path(), CONSTANTS.PROJECT_UPLOAD_DIR_NAME, project_name)
+    return str(resolve_project_context_path(project_name))
 
 router = APIRouter(prefix="/functions", tags=["Functions"])
 
