@@ -1,0 +1,29 @@
+[
+  {
+    "condition": "testEntityId.temperature-sensor-1.temperature == DOUBLE(30)",
+    "action": {
+      "type": "lambda",
+      "functionName": "high-temperature-callback",
+      "autoDeploy": true,
+      "feedback": {
+        "type": "mqtt",
+        "iotDeviceId": "temperature-sensor-1",
+        "payload": "High Temp Warning"
+      }
+    }
+  },
+  {
+    "condition": "testEntityId.temperature-sensor-2.temperature == DOUBLE(40)",
+    "action": {
+      "type": "lambda",
+      "functionName": "high-temperature-callback-2",
+      "pathToCode": "lambda_functions/event_actions/high-temperature-callback-2",
+      "autoDeploy": true,
+      "feedback": {
+        "type": "mqtt",
+        "iotDeviceId": "temperature-sensor-2",
+        "payload": "action-result"
+      }
+    }
+  }
+]

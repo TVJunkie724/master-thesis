@@ -1,0 +1,51 @@
+[
+  {
+    "_comment": "Lambda/Function action - works with any L2 provider",
+    "condition": "entityId.componentId.temperature > DOUBLE(30)",
+    "action": {
+      "type": "lambda",
+      "functionName": "my-callback-function",
+      "autoDeploy": true,
+      "feedback": {
+        "type": "mqtt",
+        "iotDeviceId": "device-1",
+        "payload": "Temperature warning"
+      }
+    }
+  },
+  {
+    "_comment": "AWS Step Function - chains LambdaA → LambdaB",
+    "condition": "entityId.componentId.pressure > DOUBLE(100)",
+    "action": {
+      "type": "step_function",
+      "functionName": "first-handler",
+      "functionNameB": "second-handler"
+    }
+  },
+  {
+    "_comment": "Azure Logic App - chains FunctionA → FunctionB",
+    "condition": "entityId.componentId.humidity < DOUBLE(20)",
+    "action": {
+      "type": "logic_app",
+      "functionName": "humidity-handler",
+      "functionNameB": "notification-sender"
+    }
+  },
+  {
+    "_comment": "GCP Cloud Workflow - chains CloudFunctionA → CloudFunctionB",
+    "condition": "entityId.componentId.voltage > DOUBLE(220)",
+    "action": {
+      "type": "workflow",
+      "functionName": "voltage-handler",
+      "functionNameB": "alert-sender"
+    }
+  },
+  {
+    "_comment": "GCP Function action - alternative to 'lambda' for GCP",
+    "condition": "entityId.componentId.current > DOUBLE(10)",
+    "action": {
+      "type": "function",
+      "functionUrl": "https://region-project.cloudfunctions.net/my-function"
+    }
+  }
+]

@@ -1,0 +1,11 @@
+{
+    "result": {
+        "inputParamsUsed": {
+            "useEventChecking": true,
+            "triggerNotificationWorkflow": true,
+            "returnFeedbackToDevice": true,
+            "integrateErrorHandling": true,
+            "needs3DModel": true
+        }
+    }
+}

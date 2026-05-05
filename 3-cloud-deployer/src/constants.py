@@ -89,6 +89,8 @@ IOT_DATA_DIR_NAME = "iot_devices_auth"
 LAMBDA_FUNCTIONS_DIR_NAME = "lambda_functions"
 EVENT_ACTIONS_DIR_NAME = "event_actions"
 PROJECT_UPLOAD_DIR_NAME = "upload"
+PROJECT_TEMPLATES_DIR_NAME = "templates"
+DEFAULT_TEMPLATE_DIR_NAME = "digital-twin"
 STATE_MACHINES_DIR_NAME = "state_machines"
 
 # Project metadata and versioning

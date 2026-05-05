@@ -1,0 +1,85 @@
+[
+    {
+        "type": "entity",
+        "id": "room-1",
+        "children": [
+            {
+                "type": "entity",
+                "id": "machine-1",
+                "children": [
+                    {
+                        "type": "component",
+                        "name": "temperature-sensor-1",
+                        "componentTypeId": "temperature-sensor",
+                        "properties": [
+                            {
+                                "name": "temperature",
+                                "dataType": "DOUBLE"
+                            },
+                            {
+                                "name": "humidity",
+                                "dataType": "DOUBLE"
+                            }
+                        ],
+                        "constProperties": [
+                            {
+                                "name": "sensorId",
+                                "dataType": "STRING",
+                                "value": "temp-001"
+                            },
+                            {
+                                "name": "location",
+                                "dataType": "STRING",
+                                "value": "machine-1"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "type": "component",
+                "name": "temperature-sensor-2",
+                "componentTypeId": "temperature-sensor",
+                "iotDeviceId": "temperature-sensor-2",
+                "properties": [
+                    {
+                        "name": "temperature",
+                        "dataType": "DOUBLE"
+                    }
+                ],
+                "constProperties": [
+                    {
+                        "name": "sensorId",
+                        "dataType": "STRING",
+                        "value": "temp-002"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "type": "entity",
+        "id": "room-2",
+        "children": [
+            {
+                "type": "component",
+                "name": "pressure-sensor-1",
+                "componentTypeId": "pressure-sensor",
+                "iotDeviceId": "pressure-sensor-1",
+                "properties": [
+                    {
+                        "name": "pressure",
+                        "dataType": "DOUBLE"
+                    }
+                ],
+                "constProperties": [
+                    {
+                        "name": "sensorId",
+                        "dataType": "STRING",
+                        "value": "pressure-001"
+                    }
+                ]
+            }
+        ]
+    }
+]

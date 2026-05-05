@@ -1,0 +1,89 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "Call_Azure_Function_A": {
+                "type": "Http",
+                "inputs": {
+                    "method": "POST",
+                    "uri": "@triggerBody()['FunctionA_URL']",
+                    "body": "@triggerBody()['InputData']",
+                    "headers": {
+                        "Content-Type": "application/json"
+                    }
+                },
+                "runAfter": {},
+                "metadata": {
+                    "operationName": "FunctionA"
+                }
+            },
+            "Call_Azure_Function_B": {
+                "type": "Http",
+                "inputs": {
+                    "method": "POST",
+                    "uri": "@triggerBody()['FunctionB_URL']",
+                    "body": {
+                        "fromA": "@body('Call_Azure_Function_A')",
+                        "event": "@triggerBody()['InputData']"
+                    },
+                    "headers": {
+                        "Content-Type": "application/json"
+                    }
+                },
+                "runAfter": {
+                    "Call_Azure_Function_A": [
+                        "Succeeded"
+                    ]
+                },
+                "metadata": {
+                    "operationName": "FunctionB"
+                }
+            },
+            "Response": {
+                "type": "Response",
+                "inputs": {
+                    "body": "@body('Call_Azure_Function_B')",
+                    "statusCode": 200
+                },
+                "runAfter": {
+                    "Call_Azure_Function_B": [
+                        "Succeeded"
+                    ]
+                }
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "parameters": {},
+        "triggers": {
+            "manual": {
+                "type": "Request",
+                "kind": "Http",
+                "inputs": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "FunctionA_URL": {
+                                "type": "string",
+                                "description": "Full HTTP URL of the first Azure Function to call"
+                            },
+                            "FunctionB_URL": {
+                                "type": "string",
+                                "description": "Full HTTP URL of the second Azure Function to call"
+                            },
+                            "InputData": {
+                                "type": "object",
+                                "description": "Input data to pass to the functions"
+                            }
+                        },
+                        "required": [
+                            "FunctionA_URL",
+                            "FunctionB_URL",
+                            "InputData"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}

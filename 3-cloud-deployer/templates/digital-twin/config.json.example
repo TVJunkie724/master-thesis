@@ -1,0 +1,12 @@
+{
+  "digital_twin_name": "digital-twin",
+  "hot_storage_size_in_days": 30,
+  "cold_storage_size_in_days": 90,
+  "mode": "DEBUG",
+  "observability": {
+    "aws_logging": true,
+    "gcp_logging": true,
+    "azure_logging": true,
+    "retention_days": 7
+  }
+}

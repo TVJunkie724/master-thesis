@@ -171,12 +171,13 @@ def update_project_from_zip(project_name, zip_source, project_path: str = None, 
 # ==========================================
 # 2. Project Listing
 # ==========================================
-def list_projects(project_path: str = None):
+def list_projects(project_path: str = None, include_templates: bool = False):
     """
     Returns a list of available project names.
     
     Args:
         project_path: Base project path. If None, auto-detected.
+        include_templates: Include legacy template folders that still live under upload.
     """
     if project_path is None:
         project_path = _get_project_base_path()
@@ -185,6 +186,10 @@ def list_projects(project_path: str = None):
     projects = []
     if os.path.exists(upload_dir):
         for item in os.listdir(upload_dir):
+            if item.startswith("."):
+                continue
+            if not include_templates and item == CONSTANTS.DEFAULT_PROJECT_NAME:
+                continue
             if os.path.isdir(os.path.join(upload_dir, item)):
                 projects.append(item)
     return projects
@@ -555,4 +560,3 @@ def get_project_file_content(project_name: str, relative_path: str, project_path
         return result
     except UnicodeDecodeError:
         raise ValueError("Cannot read binary file as text.")
-

@@ -98,6 +98,7 @@ class TestDeleteProject:
         
         assert not os.path.exists(project_dir)
 
+
     def test_delete_nonexistent_project_raises(self, temp_project_path):
         """Verify ValueError for missing project."""
         with pytest.raises(ValueError, match="does not exist"):
@@ -136,6 +137,27 @@ class TestDeleteProject:
         file_manager.delete_project(created_project, project_path=temp_project_path)
         
         assert not os.path.exists(project_dir)
+
+
+class TestListProjects:
+    """Tests for runtime project listing."""
+
+    def test_list_projects_excludes_legacy_template_by_default(self, temp_project_path):
+        upload_dir = os.path.join(temp_project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME)
+        os.makedirs(os.path.join(upload_dir, CONSTANTS.DEFAULT_PROJECT_NAME))
+        os.makedirs(os.path.join(upload_dir, "runtime-twin"))
+
+        assert file_manager.list_projects(temp_project_path) == ["runtime-twin"]
+
+    def test_list_projects_can_include_legacy_template_for_maintenance(self, temp_project_path):
+        upload_dir = os.path.join(temp_project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME)
+        os.makedirs(os.path.join(upload_dir, CONSTANTS.DEFAULT_PROJECT_NAME))
+        os.makedirs(os.path.join(upload_dir, "runtime-twin"))
+
+        assert file_manager.list_projects(temp_project_path, include_templates=True) == [
+            CONSTANTS.DEFAULT_PROJECT_NAME,
+            "runtime-twin",
+        ]
 
 
 # ==========================================

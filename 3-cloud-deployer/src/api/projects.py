@@ -17,6 +17,7 @@ from pathlib import Path as PathLib
 import file_manager
 import src.validator as validator
 from src.validation.directory_validator import validate_project_directory
+from src.core.paths import resolve_deployment_paths, resolve_project_context_path
 from api.dependencies import ConfigType, ProviderEnum, check_template_protection
 import constants as CONSTANTS
 from logger import logger
@@ -70,11 +71,7 @@ def list_projects():
             project_info = {"name": name, "description": None, "version_count": 0}
             
             # Read project_info.json if exists
-            project_dir = os.path.join(
-                state.get_project_base_path(), 
-                CONSTANTS.PROJECT_UPLOAD_DIR_NAME, 
-                name
-            )
+            project_dir = resolve_deployment_paths(name).project_path
             info_path = os.path.join(project_dir, CONSTANTS.PROJECT_INFO_FILE)
             if os.path.exists(info_path):
                 try:
@@ -182,7 +179,7 @@ def validate_project_structure(project_name: str = Path(..., description="Name o
     **Use case:** Pre-deployment readiness check for existing projects.
     """
     try:
-        project_dir = PathLib(state.get_project_base_path()) / CONSTANTS.PROJECT_UPLOAD_DIR_NAME / project_name
+        project_dir = resolve_project_context_path(project_name)
         validate_project_directory(project_dir)
         return {"message": f"Project structure for '{project_name}' is valid."}
     except ValueError as e:
@@ -245,18 +242,13 @@ def get_project_config(
     
     filename = config_map[config_type]
     
-    is_template_project = project_name == CONSTANTS.DEFAULT_PROJECT_NAME
     do_return_credentials_file = False
     try:
         if config_type == ConfigType.credentials:
             do_return_credentials_file = True
 
 
-        project_path = os.path.join(
-            state.get_project_base_path(),
-            CONSTANTS.PROJECT_UPLOAD_DIR_NAME,
-            project_name
-        )
+        project_path = resolve_project_context_path(project_name)
         
         if not os.path.exists(project_path):
             raise HTTPException(status_code=404, detail=f"Project '{project_name}' not found")
@@ -272,7 +264,6 @@ def get_project_config(
                 detail=f"Config file '{filename}' not found in project '{project_name}'"
             )
         
-        print(is_template_project, do_return_credentials_file)
         with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)
             
@@ -371,7 +362,7 @@ async def import_project(
     check_template_protection(project_name, "import to")
     
     # Check project exists first
-    project_path = os.path.join(state.get_project_upload_path(), project_name)
+    project_path = resolve_project_context_path(project_name)
     if not os.path.exists(project_path):
         raise HTTPException(
             status_code=400, 
@@ -500,7 +491,7 @@ def get_project_summary(
 
     # 3. Validation Status
     try:
-        project_dir = PathLib(state.get_project_base_path()) / CONSTANTS.PROJECT_UPLOAD_DIR_NAME / project_name
+        project_dir = resolve_project_context_path(project_name)
         validate_project_directory(project_dir)
         summary["validation_status"] = "valid"
     except Exception as e:
