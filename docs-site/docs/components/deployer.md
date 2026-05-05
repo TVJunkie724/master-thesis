@@ -22,6 +22,8 @@ It should not own user lifecycle state. The Management API owns user/twin state 
 
 Terraform remains the infrastructure execution layer, but it should be driven from explicit manifests and generated workspaces. The template directory is source material; deployment output is runtime state.
 
+The canonical default template is `3-cloud-deployer/templates/digital-twin/`. Runtime project folders belong under `3-cloud-deployer/upload/<project-name>/`. The old `upload/template/` path is treated as a local legacy fallback only and must not be mutated by normal deployment flows.
+
 ## Provider Responsibilities
 
 The provider modules translate one conceptual Digital Twin deployment into provider-specific resources:

@@ -31,3 +31,5 @@ Flutter UI
 That means old service-local setup docs remain useful as source material, but the integrated developer workflow should be described from the repository root.
 
 Generated deployment files, uploaded project bundles, Terraform state, and local credential files are runtime material. They should not be treated as architectural source files just because they appear in the repository during the transition.
+
+For the Deployer specifically, reusable source templates live under `3-cloud-deployer/templates/digital-twin/`. Runtime upload folders stay under `3-cloud-deployer/upload/<project-name>/`; `upload/template/` is a legacy local testing fallback and may contain ignored credentials.

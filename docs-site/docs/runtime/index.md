@@ -19,11 +19,13 @@ The docs site runs behind the `docs` profile so documentation can reload indepen
 
 Versioned templates and generated deployment workspaces must not be treated as the same thing.
 
-- Template files describe reusable provider deployment structure.
+- Template files describe reusable provider deployment structure and live under `3-cloud-deployer/templates/digital-twin/`.
 - Deployment manifests describe one requested deployment.
-- Generated workspaces contain concrete Terraform files, function packages, and provider outputs for one deployment run.
+- Generated workspaces live under `3-cloud-deployer/upload/<project-name>/` and contain concrete Terraform files, function packages, state, and provider outputs for one deployment run.
 
 The Deployer should materialize a fresh workspace from templates and a manifest, then return structured outputs to the Management API. A workspace can be inspected for debugging, but it should not become the source of truth for a twin.
+
+The legacy `3-cloud-deployer/upload/template/` folder may still exist during the transition because it has been used for supervised cloud testing and may contain local credentials. It is no longer the canonical source for template files.
 
 ## Credentials
 
