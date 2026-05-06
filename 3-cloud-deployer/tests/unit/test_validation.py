@@ -461,6 +461,44 @@ class TestValidation(unittest.TestCase):
         zip_buf = self._create_zip_with_configs({CONSTANTS.CONFIG_OPTIMIZATION_FILE: opt}, extras)
         validator.validate_project_zip(zip_buf)
 
+    def test_validate_zip_accepts_secrets_free_deployment_manifest(self):
+        """Test optional deployment_manifest.json is accepted when metadata-only."""
+        extras = {
+            CONSTANTS.DEPLOYMENT_MANIFEST_FILE: json.dumps({
+                "manifest_version": CONSTANTS.DEPLOYMENT_MANIFEST_VERSION,
+                "producer": "twin2multicloud_backend",
+                "credentials": {
+                    "providers": ["aws"],
+                    "sources": {"aws": "legacy"},
+                    "contains_secret_payloads": False,
+                },
+            })
+        }
+        zip_buf = self._create_zip_with_configs(extra_files=extras)
+
+        validator.validate_project_zip(zip_buf)
+
+    def test_validate_zip_rejects_manifest_with_credential_payload(self):
+        """Test deployment_manifest.json cannot duplicate secret-bearing keys."""
+        extras = {
+            CONSTANTS.DEPLOYMENT_MANIFEST_FILE: json.dumps({
+                "manifest_version": CONSTANTS.DEPLOYMENT_MANIFEST_VERSION,
+                "credentials": {
+                    "providers": ["aws"],
+                    "sources": {"aws": "legacy"},
+                    "contains_secret_payloads": False,
+                    "aws_secret_access_key": "do-not-report-value",
+                },
+            })
+        }
+        zip_buf = self._create_zip_with_configs(extra_files=extras)
+
+        with self.assertRaises(ValueError) as cm:
+            validator.validate_project_zip(zip_buf)
+        self.assertIn("deployment_manifest.json", str(cm.exception))
+        self.assertIn("aws_secret_access_key", str(cm.exception))
+        self.assertNotIn("do-not-report-value", str(cm.exception))
+
     def test_validate_zip_event_checks_missing_code(self):
         """Test useEventChecking=True but missing function code"""
         opt = {"result": {"inputParamsUsed": {"useEventChecking": True}}}

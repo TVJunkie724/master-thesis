@@ -11,6 +11,8 @@ CONFIG_CREDENTIALS_FILE = "config_credentials.json"
 CONFIG_PROVIDERS_FILE = "config_providers.json"
 CONFIG_OPTIMIZATION_FILE = "config_optimization.json"
 CONFIG_INTER_CLOUD_FILE = "config_inter_cloud.json"
+DEPLOYMENT_MANIFEST_FILE = "deployment_manifest.json"
+DEPLOYMENT_MANIFEST_VERSION = "1.0"
 
 # Twin Hierarchy Files (provider-specific, optional)
 TWIN_HIERARCHY_DIR_NAME = "twin_hierarchy"
@@ -28,7 +30,8 @@ REQUIRED_CONFIG_FILES = [
 # Optional config files (not required in zip validation)
 OPTIONAL_CONFIG_FILES = [
     CONFIG_OPTIMIZATION_FILE,
-    CONFIG_INTER_CLOUD_FILE
+    CONFIG_INTER_CLOUD_FILE,
+    DEPLOYMENT_MANIFEST_FILE
 ]
 
 # Keys required in specific config files

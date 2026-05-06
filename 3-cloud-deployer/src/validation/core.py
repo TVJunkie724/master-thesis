@@ -35,6 +35,19 @@ PROVIDER_FUNCTION_DIRS = {
     "gcp": "cloud_functions",  # alias
 }
 
+FORBIDDEN_MANIFEST_CREDENTIAL_KEYS = {
+    "access_token",
+    "aws_access_key_id",
+    "aws_secret_access_key",
+    "aws_session_token",
+    "azure_client_secret",
+    "client_secret",
+    "gcp_credentials_file",
+    "private_key",
+    "private_key_id",
+    "refresh_token",
+}
+
 
 # ==========================================
 # 1. File Accessor Protocol
@@ -274,6 +287,64 @@ def check_config_schemas(accessor: FileAccessor, ctx: ValidationContext) -> None
             raise ValueError(all_errors[0])
         else:
             raise ValueError("Config file validation errors:\n  ◦ " + "\n  ◦ ".join(all_errors))
+
+
+def check_deployment_manifest(accessor: FileAccessor, ctx: ValidationContext) -> None:
+    """
+    Validate optional deployment_manifest.json without requiring it for legacy ZIPs.
+
+    The manifest is metadata-only. Secret-bearing credential payloads must stay
+    in config_credentials.json/gcp_credentials.json and never be duplicated here.
+    """
+    manifest_path = ctx.project_root + CONSTANTS.DEPLOYMENT_MANIFEST_FILE
+    if not accessor.file_exists(manifest_path):
+        return
+
+    try:
+        manifest = json.loads(accessor.read_text(manifest_path))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"deployment_manifest.json is invalid JSON: {exc.msg}") from exc
+
+    if not isinstance(manifest, dict):
+        raise ValueError("deployment_manifest.json must contain a JSON object")
+
+    version = manifest.get("manifest_version")
+    if version != CONSTANTS.DEPLOYMENT_MANIFEST_VERSION:
+        raise ValueError(
+            "deployment_manifest.json has unsupported manifest_version "
+            f"'{version}'. Expected '{CONSTANTS.DEPLOYMENT_MANIFEST_VERSION}'."
+        )
+
+    credentials = manifest.get("credentials", {})
+    if credentials and not isinstance(credentials, dict):
+        raise ValueError("deployment_manifest.json credentials must be a JSON object")
+    if credentials.get("contains_secret_payloads") is not False:
+        raise ValueError("deployment_manifest.json must declare contains_secret_payloads=false")
+
+    forbidden_key = _find_forbidden_manifest_credential_key(manifest)
+    if forbidden_key:
+        raise ValueError(
+            "deployment_manifest.json must not contain credential payload key "
+            f"'{forbidden_key}'"
+        )
+
+
+def _find_forbidden_manifest_credential_key(value: Any) -> Optional[str]:
+    """Return the first secret-bearing credential key found in manifest metadata."""
+    if isinstance(value, dict):
+        for key, child in value.items():
+            normalized_key = str(key).lower()
+            if normalized_key in FORBIDDEN_MANIFEST_CREDENTIAL_KEYS:
+                return str(key)
+            found = _find_forbidden_manifest_credential_key(child)
+            if found:
+                return found
+    elif isinstance(value, list):
+        for child in value:
+            found = _find_forbidden_manifest_credential_key(child)
+            if found:
+                return found
+    return None
 
 
 
@@ -804,6 +875,7 @@ def run_all_checks(accessor: FileAccessor) -> None:
     # Phase 2: Schema validation (populates ctx.prov_config)
     check_required_files(accessor, ctx)
     check_config_schemas(accessor, ctx)
+    check_deployment_manifest(accessor, ctx)
     
     # Phase 3: Get provider for provider-specific checks (fail-fast)
     l2_provider = ctx.prov_config.get("layer_2_provider")
@@ -871,6 +943,11 @@ def run_all_checks_aggregated(
     
     try:
         check_config_schemas(accessor, ctx)
+    except ValueError as e:
+        result.add_error(str(e))
+
+    try:
+        check_deployment_manifest(accessor, ctx)
     except ValueError as e:
         result.add_error(str(e))
     

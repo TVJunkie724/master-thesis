@@ -10,6 +10,7 @@ from src.validation.core import (
     run_all_checks_aggregated,
     ValidationContext,
     ValidationResult,
+    check_deployment_manifest,
     check_required_files,
     FileAccessor,
 )
@@ -70,6 +71,85 @@ class TestAggregationHappyPaths:
         assert isinstance(result, ValidationResult)
         assert isinstance(result.errors, list)
         assert isinstance(result.warnings, list)
+
+
+class TestDeploymentManifestValidation:
+    """Test optional deployment manifest validation."""
+
+    def test_missing_manifest_is_allowed_for_legacy_projects(self):
+        accessor = MockAccessor({})
+        ctx = ValidationContext()
+
+        check_deployment_manifest(accessor, ctx)
+
+    def test_valid_manifest_is_allowed(self):
+        accessor = MockAccessor({
+            "deployment_manifest.json": """
+            {
+              "manifest_version": "1.0",
+              "credentials": {
+                "providers": ["aws"],
+                "sources": {"aws": "cloud_connection"},
+                "contains_secret_payloads": false
+              }
+            }
+            """
+        })
+        ctx = ValidationContext()
+
+        check_deployment_manifest(accessor, ctx)
+
+    def test_manifest_rejects_credential_payload_keys(self):
+        accessor = MockAccessor({
+            "deployment_manifest.json": """
+            {
+              "manifest_version": "1.0",
+              "credentials": {
+                "providers": ["aws"],
+                "sources": {"aws": "legacy"},
+                "contains_secret_payloads": false,
+                "aws_secret_access_key": "do-not-report-value"
+              }
+            }
+            """
+        })
+        ctx = ValidationContext()
+
+        with pytest.raises(ValueError, match="aws_secret_access_key"):
+            check_deployment_manifest(accessor, ctx)
+
+    def test_manifest_requires_secret_payload_flag(self):
+        accessor = MockAccessor({
+            "deployment_manifest.json": """
+            {
+              "manifest_version": "1.0",
+              "credentials": {
+                "providers": ["aws"],
+                "sources": {"aws": "legacy"}
+              }
+            }
+            """
+        })
+        ctx = ValidationContext()
+
+        with pytest.raises(ValueError, match="contains_secret_payloads=false"):
+            check_deployment_manifest(accessor, ctx)
+
+    def test_manifest_errors_are_aggregated(self):
+        accessor = MockAccessor({
+            "config.json": "{}",
+            "deployment_manifest.json": """
+            {
+              "manifest_version": "0.9",
+              "credentials": {"contains_secret_payloads": false}
+            }
+            """,
+        })
+
+        result = run_all_checks_aggregated(accessor)
+
+        assert not result.is_valid
+        assert any("deployment_manifest.json" in error for error in result.errors)
     
     def test_context_skips_credentials_check(self):
         """When skip_credentials=True, credential errors are not reported."""
