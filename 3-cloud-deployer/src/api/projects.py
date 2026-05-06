@@ -180,7 +180,10 @@ def validate_project_structure(project_name: str = Path(..., description="Name o
     try:
         project_dir = resolve_project_context_path(project_name)
         validate_project_directory(project_dir)
-        return {"message": f"Project structure for '{project_name}' is valid."}
+        return {
+            "message": f"Project structure for '{project_name}' is valid.",
+            "manifest": _build_manifest_summary(project_dir),
+        }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
@@ -188,6 +191,27 @@ def validate_project_structure(project_name: str = Path(..., description="Name o
     except Exception as e:
         logger.error(str(e))
         raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
+
+
+def _build_manifest_summary(project_dir) -> dict:
+    """Return safe manifest metadata for API callers."""
+    manifest_path = project_dir / CONSTANTS.DEPLOYMENT_MANIFEST_FILE
+    if not manifest_path.exists():
+        return {"manifest_backed": False}
+
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    twin = manifest.get("twin") if isinstance(manifest, dict) else {}
+    if not isinstance(twin, dict):
+        twin = {}
+
+    return {
+        "manifest_backed": True,
+        "manifest_version": manifest.get("manifest_version"),
+        "producer": manifest.get("producer"),
+        "resource_name": twin.get("resource_name"),
+    }
 
 # ==========================================
 # 2. Config Reading (Stateless)

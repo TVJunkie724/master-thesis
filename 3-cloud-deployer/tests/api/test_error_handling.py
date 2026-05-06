@@ -125,6 +125,45 @@ class TestProjectsErrorHandling:
 
         assert response.status_code == 403
 
+    def test_validate_project_returns_safe_manifest_summary(self, tmp_path):
+        """Project validation returns safe manifest metadata without credential payloads."""
+        project_dir = tmp_path / "upload" / "factory"
+        project_dir.mkdir(parents=True)
+        (project_dir / "deployment_manifest.json").write_text(json.dumps({
+            "manifest_version": "1.0",
+            "producer": "twin2multicloud_backend",
+            "twin": {"resource_name": "factory"},
+            "credentials": {
+                "contains_secret_payloads": False,
+                "aws_secret_access_key": "must-not-leak",
+            },
+        }))
+
+        with patch("src.api.projects.resolve_project_context_path", return_value=project_dir), \
+             patch("src.api.projects.validate_project_directory"):
+            response = client.get("/projects/factory/validate")
+
+        assert response.status_code == 200
+        assert response.json()["manifest"] == {
+            "manifest_backed": True,
+            "manifest_version": "1.0",
+            "producer": "twin2multicloud_backend",
+            "resource_name": "factory",
+        }
+        assert "must-not-leak" not in response.text
+
+    def test_validate_project_returns_legacy_manifest_summary(self, tmp_path):
+        """Project validation marks legacy projects as not manifest-backed."""
+        project_dir = tmp_path / "upload" / "legacy"
+        project_dir.mkdir(parents=True)
+
+        with patch("src.api.projects.resolve_project_context_path", return_value=project_dir), \
+             patch("src.api.projects.validate_project_directory"):
+            response = client.get("/projects/legacy/validate")
+
+        assert response.status_code == 200
+        assert response.json()["manifest"] == {"manifest_backed": False}
+
 
 # ============================================================
 # Validation Tests (Using existing validation endpoints)  
