@@ -17,13 +17,16 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch, MagicMock
 
 from src.services.deployment_service import (
+    DEPLOYMENT_MANIFEST_FILE,
     build_project_zip,
     get_resource_name,
     _build_main_config,
     _build_providers_config,
     _build_credentials_config,
+    _build_deployment_manifest,
     _build_optimization_config,
 )
+from src.services.credential_resolution_service import DeploymentCredentials
 from src.services.errors import CredentialResolutionFailed
 from src.utils.crypto import encrypt_scoped
 
@@ -352,6 +355,37 @@ class TestBuildProjectZip:
             assert "config.json" in names
             assert "config_providers.json" in names
             assert "config_credentials.json" in names
+            assert DEPLOYMENT_MANIFEST_FILE in names
+
+    @patch("src.services.credential_resolution_service.decrypt")
+    def test_includes_secrets_free_deployment_manifest(self, mock_decrypt):
+        """Should include a deployment manifest without credential payloads."""
+        mock_decrypt.side_effect = lambda value, *_args: f"plain-{value}"
+
+        twin = self._create_mock_twin()
+
+        result = build_project_zip(twin, "user-123")
+
+        with zipfile.ZipFile(result, 'r') as zf:
+            manifest = json.loads(zf.read(DEPLOYMENT_MANIFEST_FILE))
+            manifest_text = json.dumps(manifest)
+
+        assert manifest["manifest_version"] == "1.0"
+        assert manifest["generated_at"].endswith("Z")
+        assert manifest["producer"] == "twin2multicloud_backend"
+        assert manifest["twin"]["id"] == "twin-123"
+        assert manifest["twin"]["resource_name"] == "test-twin"
+        assert manifest["providers"] == {"layer_1_provider": "aws"}
+        assert manifest["credentials"] == {
+            "providers": ["aws"],
+            "sources": {"aws": "legacy"},
+            "contains_secret_payloads": False,
+        }
+        assert "config_credentials.json" in manifest["package"]["files"]
+        assert DEPLOYMENT_MANIFEST_FILE not in manifest["package"]["files"]
+        assert "plain-enc_secret" not in manifest_text
+        assert "plain-enc_key" not in manifest_text
+        assert "aws_secret_access_key" not in manifest_text
     
     @patch("src.services.credential_resolution_service.decrypt")
     def test_includes_state_machine_for_azure_l2(self, mock_decrypt):
@@ -489,3 +523,47 @@ class TestBuildOptimizationConfig:
         result = _build_optimization_config(oc)
         
         assert result == {"result": {"inputParamsUsed": {}}}
+
+
+class TestBuildDeploymentManifest:
+    """Tests for secrets-free deployment manifest construction."""
+
+    def test_omits_empty_providers_and_preserves_credential_sources(self):
+        twin = Mock()
+        twin.id = "twin-123"
+        twin.name = "Factory Twin"
+        twin.deployer_config = Mock()
+        twin.deployer_config.deployer_digital_twin_name = "factory-twin"
+
+        credentials = DeploymentCredentials(
+            providers=("aws", "azure"),
+            config_credentials={
+                "aws": {"aws_secret_access_key": "must-not-leak"},
+                "azure": {"azure_client_secret": "must-not-leak"},
+            },
+            sources={"aws": "cloud_connection", "azure": "legacy"},
+        )
+
+        result = _build_deployment_manifest(
+            twin,
+            {
+                "layer_1_provider": "aws",
+                "layer_2_provider": None,
+                "layer_3_hot_provider": "",
+                "layer_4_provider": "azure",
+            },
+            credentials,
+            ["config.json", "config_credentials.json"],
+        )
+        manifest_text = json.dumps(result)
+
+        assert result["providers"] == {
+            "layer_1_provider": "aws",
+            "layer_4_provider": "azure",
+        }
+        assert result["credentials"]["sources"] == {
+            "aws": "cloud_connection",
+            "azure": "legacy",
+        }
+        assert "must-not-leak" not in manifest_text
+        assert "azure_client_secret" not in manifest_text

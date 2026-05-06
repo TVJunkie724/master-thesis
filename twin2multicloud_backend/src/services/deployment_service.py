@@ -18,11 +18,11 @@ import logging
 import zipfile
 from pathlib import Path
 import httpx
-from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from datetime import datetime, timezone
+from typing import Any, Optional, TYPE_CHECKING
 
 from src.config import settings
-from src.services.credential_resolution_service import CredentialResolutionService
+from src.services.credential_resolution_service import CredentialResolutionService, DeploymentCredentials
 
 if TYPE_CHECKING:
     from src.models.deployer_config import DeployerConfiguration
@@ -32,6 +32,8 @@ logger = logging.getLogger(__name__)
 
 # Deployer API URL from settings
 DEPLOYER_API_URL = getattr(settings, 'DEPLOYER_URL', 'http://3cloud-deployer:8000')
+DEPLOYMENT_MANIFEST_FILE = "deployment_manifest.json"
+DEPLOYMENT_MANIFEST_VERSION = "1.0"
 
 
 def build_deploy_config(twin) -> dict:
@@ -372,7 +374,8 @@ def build_project_zip(twin, user_id: str) -> io.BytesIO:
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
         # --- Config Files ---
         providers = _build_providers_config(twin)
-        _add_config_files(zf, twin, user_id, providers)
+        deployment_credentials = _build_deployment_credentials(twin, user_id)
+        _add_config_files(zf, twin, providers, deployment_credentials)
         
         # --- Provider-Specific Files ---
         _add_hierarchy_files(zf, dc)
@@ -383,6 +386,8 @@ def build_project_zip(twin, user_id: str) -> io.BytesIO:
         # --- Simulator Files ---
         if dc and dc.payloads_json:
             zf.writestr("iot_device_simulator/payloads.json", dc.payloads_json)
+
+        _add_deployment_manifest(zf, twin, providers, deployment_credentials)
     
     zip_buffer.seek(0)
     return zip_buffer
@@ -392,7 +397,12 @@ def build_project_zip(twin, user_id: str) -> io.BytesIO:
 # HELPER FUNCTIONS - Separation of Concerns
 # ============================================================================
 
-def _add_config_files(zf: zipfile.ZipFile, twin, user_id: str, providers: dict):
+def _add_config_files(
+    zf: zipfile.ZipFile,
+    twin,
+    providers: dict,
+    deployment_credentials: DeploymentCredentials,
+):
     """Add all config JSON files to the ZIP."""
     dc = twin.deployer_config
     oc = twin.optimizer_config
@@ -402,7 +412,10 @@ def _add_config_files(zf: zipfile.ZipFile, twin, user_id: str, providers: dict):
     zf.writestr("config_providers.json", json.dumps(providers, indent=2))
     
     # Credentials (with separate GCP file)
-    credentials, gcp_creds = _build_credentials_config(twin, user_id)
+    credentials, gcp_creds = (
+        deployment_credentials.config_credentials,
+        deployment_credentials.gcp_credentials_json,
+    )
     zf.writestr("config_credentials.json", json.dumps(credentials, indent=2))
     if gcp_creds:
         zf.writestr("gcp_credentials.json", json.dumps(gcp_creds, indent=2))
@@ -418,6 +431,27 @@ def _add_config_files(zf: zipfile.ZipFile, twin, user_id: str, providers: dict):
         zf.writestr("config_optimization.json", json.dumps(
             _build_optimization_config(oc), indent=2
         ))
+
+
+def _add_deployment_manifest(
+    zf: zipfile.ZipFile,
+    twin,
+    providers: dict,
+    deployment_credentials: DeploymentCredentials,
+) -> None:
+    """Add a secrets-free deployment package manifest."""
+    file_names = sorted(
+        name for name in zf.namelist()
+        if name != DEPLOYMENT_MANIFEST_FILE
+    )
+    zf.writestr(
+        DEPLOYMENT_MANIFEST_FILE,
+        json.dumps(
+            _build_deployment_manifest(twin, providers, deployment_credentials, file_names),
+            indent=2,
+            sort_keys=True,
+        ),
+    )
 
 
 def _add_hierarchy_files(zf: zipfile.ZipFile, dc: Optional["DeployerConfiguration"]) -> None:
@@ -619,8 +653,75 @@ def _build_credentials_config(twin, user_id: str) -> tuple[dict, Optional[dict]]
     The returned values are secret-bearing and must only be written into the
     ephemeral project ZIP uploaded to the Deployer.
     """
-    resolved = CredentialResolutionService().resolve_deployment_credentials(twin, user_id)
+    resolved = _build_deployment_credentials(twin, user_id)
     return resolved.config_credentials, resolved.gcp_credentials_json
+
+
+def _build_deployment_credentials(twin, user_id: str) -> DeploymentCredentials:
+    """Resolve deployment credentials once for config files and manifest metadata."""
+    return CredentialResolutionService().resolve_deployment_credentials(twin, user_id)
+
+
+def _build_deployment_manifest(
+    twin,
+    providers: dict,
+    deployment_credentials: DeploymentCredentials,
+    file_names: list[str],
+) -> dict[str, Any]:
+    """
+    Build the secrets-free package manifest.
+
+    The manifest describes package provenance and credential sources only. It
+    must never contain credential payloads or decrypted secret values.
+    """
+    return {
+        "manifest_version": DEPLOYMENT_MANIFEST_VERSION,
+        "generated_at": datetime.now(timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z"),
+        "producer": "twin2multicloud_backend",
+        "package": {
+            "format": "deployer-project-zip",
+            "files": file_names,
+            "required_files": [
+                "config.json",
+                "config_providers.json",
+                "config_credentials.json",
+            ],
+        },
+        "twin": {
+            "id": _manifest_scalar(getattr(twin, "id", None)),
+            "name": _manifest_scalar(getattr(twin, "name", None)),
+            "resource_name": get_resource_name(twin),
+        },
+        "providers": _remove_empty_values(providers),
+        "credentials": {
+            "providers": list(deployment_credentials.providers),
+            "sources": dict(deployment_credentials.sources),
+            "contains_secret_payloads": False,
+        },
+    }
+
+
+def _manifest_scalar(value: Any) -> Optional[str]:
+    """Return stable scalar strings without serializing mocks or ORM internals."""
+    if value is None:
+        return None
+    raw_value = getattr(value, "value", None)
+    if isinstance(raw_value, (str, int, float, bool)):
+        return str(raw_value)
+    if isinstance(value, (str, int, float, bool)):
+        return str(value)
+    return None
+
+
+def _remove_empty_values(values: dict[str, Any]) -> dict[str, Any]:
+    """Keep manifest JSON compact while preserving explicit false values."""
+    return {
+        key: value
+        for key, value in values.items()
+        if value is not None and value != ""
+    }
 
 
 def _build_optimization_config(oc) -> dict:
