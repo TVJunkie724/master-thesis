@@ -4,6 +4,7 @@ Unit tests for error aggregation in validation.
 Tests the run_all_checks_aggregated() function which collects all validation
 errors instead of failing on the first one.
 """
+import json
 import pytest
 from unittest.mock import MagicMock, patch
 from src.validation.core import (
@@ -76,6 +77,45 @@ class TestAggregationHappyPaths:
 class TestDeploymentManifestValidation:
     """Test optional deployment manifest validation."""
 
+    def _base_project_files(self, manifest: dict) -> dict[str, str]:
+        files = {
+            "config.json": "{}",
+            "config_iot_devices.json": "[]",
+            "config_events.json": "[]",
+            "config_credentials.json": "{}",
+            "config_providers.json": "{}",
+        }
+        files["deployment_manifest.json"] = json.dumps(manifest)
+        return files
+
+    def _valid_manifest(self, package_files: list[str] = None) -> dict:
+        files = package_files or [
+            "config.json",
+            "config_iot_devices.json",
+            "config_events.json",
+            "config_credentials.json",
+            "config_providers.json",
+        ]
+        return {
+            "manifest_version": "1.0",
+            "package": {
+                "format": "deployer-project-zip",
+                "files": files,
+                "required_files": [
+                    "config.json",
+                    "config_iot_devices.json",
+                    "config_events.json",
+                    "config_credentials.json",
+                    "config_providers.json",
+                ],
+            },
+            "credentials": {
+                "providers": ["aws"],
+                "sources": {"aws": "cloud_connection"},
+                "contains_secret_payloads": False,
+            },
+        }
+
     def test_missing_manifest_is_allowed_for_legacy_projects(self):
         accessor = MockAccessor({})
         ctx = ValidationContext()
@@ -83,67 +123,64 @@ class TestDeploymentManifestValidation:
         check_deployment_manifest(accessor, ctx)
 
     def test_valid_manifest_is_allowed(self):
-        accessor = MockAccessor({
-            "deployment_manifest.json": """
-            {
-              "manifest_version": "1.0",
-              "credentials": {
-                "providers": ["aws"],
-                "sources": {"aws": "cloud_connection"},
-                "contains_secret_payloads": false
-              }
-            }
-            """
-        })
+        accessor = MockAccessor(self._base_project_files(self._valid_manifest()))
         ctx = ValidationContext()
+        ctx.all_files = accessor.list_files()
 
         check_deployment_manifest(accessor, ctx)
 
-    def test_manifest_rejects_credential_payload_keys(self):
-        accessor = MockAccessor({
-            "deployment_manifest.json": """
-            {
-              "manifest_version": "1.0",
-              "credentials": {
-                "providers": ["aws"],
-                "sources": {"aws": "legacy"},
-                "contains_secret_payloads": false,
-                "aws_secret_access_key": "do-not-report-value"
-              }
-            }
-            """
-        })
+    def test_manifest_rejects_file_list_mismatch(self):
+        accessor = MockAccessor(self._base_project_files(
+            self._valid_manifest(package_files=[
+                "config.json",
+                "config_iot_devices.json",
+                "config_events.json",
+                "config_credentials.json",
+                "unexpected.json",
+            ])
+        ))
         ctx = ValidationContext()
+        ctx.all_files = accessor.list_files()
+
+        with pytest.raises(ValueError, match="package.files mismatch"):
+            check_deployment_manifest(accessor, ctx)
+
+    def test_manifest_rejects_required_file_contract_mismatch(self):
+        manifest = self._valid_manifest()
+        manifest["package"]["required_files"] = ["config.json"]
+        accessor = MockAccessor(self._base_project_files(manifest))
+        ctx = ValidationContext()
+        ctx.all_files = accessor.list_files()
+
+        with pytest.raises(ValueError, match="required_files does not match"):
+            check_deployment_manifest(accessor, ctx)
+
+    def test_manifest_rejects_credential_payload_keys(self):
+        manifest = self._valid_manifest()
+        manifest["credentials"]["sources"]["aws_secret_access_key"] = "do-not-report-value"
+        accessor = MockAccessor(self._base_project_files(manifest))
+        ctx = ValidationContext()
+        ctx.all_files = accessor.list_files()
 
         with pytest.raises(ValueError, match="aws_secret_access_key"):
             check_deployment_manifest(accessor, ctx)
 
     def test_manifest_requires_secret_payload_flag(self):
-        accessor = MockAccessor({
-            "deployment_manifest.json": """
-            {
-              "manifest_version": "1.0",
-              "credentials": {
-                "providers": ["aws"],
-                "sources": {"aws": "legacy"}
-              }
-            }
-            """
-        })
+        manifest = self._valid_manifest()
+        del manifest["credentials"]["contains_secret_payloads"]
+        accessor = MockAccessor(self._base_project_files(manifest))
         ctx = ValidationContext()
+        ctx.all_files = accessor.list_files()
 
         with pytest.raises(ValueError, match="contains_secret_payloads=false"):
             check_deployment_manifest(accessor, ctx)
 
     def test_manifest_errors_are_aggregated(self):
+        manifest = self._valid_manifest()
+        manifest["manifest_version"] = "0.9"
         accessor = MockAccessor({
             "config.json": "{}",
-            "deployment_manifest.json": """
-            {
-              "manifest_version": "0.9",
-              "credentials": {"contains_secret_payloads": false}
-            }
-            """,
+            "deployment_manifest.json": json.dumps(manifest),
         })
 
         result = run_all_checks_aggregated(accessor)

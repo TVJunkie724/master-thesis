@@ -463,10 +463,21 @@ class TestValidation(unittest.TestCase):
 
     def test_validate_zip_accepts_secrets_free_deployment_manifest(self):
         """Test optional deployment_manifest.json is accepted when metadata-only."""
+        package_files = sorted([
+            *CONSTANTS.REQUIRED_CONFIG_FILES,
+            CONSTANTS.CONFIG_OPTIMIZATION_FILE,
+            "twin_hierarchy/aws_hierarchy.json",
+            f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/placeholder.txt",
+        ])
         extras = {
             CONSTANTS.DEPLOYMENT_MANIFEST_FILE: json.dumps({
                 "manifest_version": CONSTANTS.DEPLOYMENT_MANIFEST_VERSION,
                 "producer": "twin2multicloud_backend",
+                "package": {
+                    "format": "deployer-project-zip",
+                    "files": package_files,
+                    "required_files": CONSTANTS.REQUIRED_CONFIG_FILES,
+                },
                 "credentials": {
                     "providers": ["aws"],
                     "sources": {"aws": "legacy"},
@@ -480,9 +491,20 @@ class TestValidation(unittest.TestCase):
 
     def test_validate_zip_rejects_manifest_with_credential_payload(self):
         """Test deployment_manifest.json cannot duplicate secret-bearing keys."""
+        package_files = sorted([
+            *CONSTANTS.REQUIRED_CONFIG_FILES,
+            CONSTANTS.CONFIG_OPTIMIZATION_FILE,
+            "twin_hierarchy/aws_hierarchy.json",
+            f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/placeholder.txt",
+        ])
         extras = {
             CONSTANTS.DEPLOYMENT_MANIFEST_FILE: json.dumps({
                 "manifest_version": CONSTANTS.DEPLOYMENT_MANIFEST_VERSION,
+                "package": {
+                    "format": "deployer-project-zip",
+                    "files": package_files,
+                    "required_files": CONSTANTS.REQUIRED_CONFIG_FILES,
+                },
                 "credentials": {
                     "providers": ["aws"],
                     "sources": {"aws": "legacy"},

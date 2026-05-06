@@ -315,6 +315,41 @@ def check_deployment_manifest(accessor: FileAccessor, ctx: ValidationContext) ->
             f"'{version}'. Expected '{CONSTANTS.DEPLOYMENT_MANIFEST_VERSION}'."
         )
 
+    package = manifest.get("package")
+    if not isinstance(package, dict):
+        raise ValueError("deployment_manifest.json package must be a JSON object")
+    if package.get("format") != "deployer-project-zip":
+        raise ValueError("deployment_manifest.json package.format must be 'deployer-project-zip'")
+
+    package_files = package.get("files")
+    if not _is_string_list(package_files):
+        raise ValueError("deployment_manifest.json package.files must be a list of file paths")
+
+    required_files = package.get("required_files")
+    if not _is_string_list(required_files):
+        raise ValueError("deployment_manifest.json package.required_files must be a list of file paths")
+    if set(required_files) != set(CONSTANTS.REQUIRED_CONFIG_FILES):
+        raise ValueError("deployment_manifest.json package.required_files does not match Deployer required files")
+
+    actual_files = _manifest_relative_files(ctx)
+    listed_files = sorted(package_files)
+    if listed_files != actual_files:
+        missing = sorted(set(actual_files) - set(listed_files))
+        extra = sorted(set(listed_files) - set(actual_files))
+        details = []
+        if missing:
+            details.append(f"missing from manifest: {', '.join(missing)}")
+        if extra:
+            details.append(f"not present in package: {', '.join(extra)}")
+        raise ValueError("deployment_manifest.json package.files mismatch (" + "; ".join(details) + ")")
+
+    missing_required_files = sorted(set(CONSTANTS.REQUIRED_CONFIG_FILES) - set(listed_files))
+    if missing_required_files:
+        raise ValueError(
+            "deployment_manifest.json package.files is missing required files: "
+            + ", ".join(missing_required_files)
+        )
+
     credentials = manifest.get("credentials", {})
     if credentials and not isinstance(credentials, dict):
         raise ValueError("deployment_manifest.json credentials must be a JSON object")
@@ -327,6 +362,26 @@ def check_deployment_manifest(accessor: FileAccessor, ctx: ValidationContext) ->
             "deployment_manifest.json must not contain credential payload key "
             f"'{forbidden_key}'"
         )
+
+
+def _is_string_list(value: Any) -> bool:
+    """Return True when value is a list containing only strings."""
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
+
+
+def _manifest_relative_files(ctx: ValidationContext) -> List[str]:
+    """Return project-root-relative files that must be represented by the manifest."""
+    prefix = ctx.project_root
+    files = []
+    for filepath in ctx.all_files:
+        if filepath.endswith("/"):
+            continue
+        if prefix and not filepath.startswith(prefix):
+            continue
+        relative_path = filepath[len(prefix):] if prefix else filepath
+        if relative_path and relative_path != CONSTANTS.DEPLOYMENT_MANIFEST_FILE:
+            files.append(relative_path)
+    return sorted(files)
 
 
 def _find_forbidden_manifest_credential_key(value: Any) -> Optional[str]:
