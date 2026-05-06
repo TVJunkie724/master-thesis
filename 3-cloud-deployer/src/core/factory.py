@@ -10,7 +10,7 @@ It serves as the entry point for both CLI and API to establish a session.
 
 from pathlib import Path
 
-from core.config_loader import load_project_config
+from core.config_loader import load_deployment_manifest, load_project_config
 from core.context import DeploymentContext
 from core.paths import get_project_root, resolve_deployment_paths, resolve_project_context_path
 
@@ -42,12 +42,15 @@ def create_context(project_name: str, provider_name: str = None) -> DeploymentCo
     
     # Load configuration
     config = load_project_config(project_path)
+    deployment_manifest = load_deployment_manifest(project_path)
     
     # Create lightweight context (providers initialized later by deployer strategy)
     context = DeploymentContext(
         project_name=project_name,
         project_path=project_path,
         config=config,
+        deployment_manifest=deployment_manifest,
     )
+    context.validate_manifest_identity()
     
     return context

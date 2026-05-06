@@ -1,6 +1,8 @@
 from pathlib import Path
 import json
 
+import pytest
+
 import core.factory as factory
 from core.factory import get_upload_path
 from src.core.paths import (
@@ -82,3 +84,59 @@ def test_create_context_uses_project_context_resolver_for_template(tmp_path, mon
     assert context.project_name == "template"
     assert context.project_path == template_path
     assert context.config.digital_twin_name == "template-twin"
+
+
+def test_create_context_loads_deployment_manifest(tmp_path, monkeypatch):
+    project_path = tmp_path / "upload" / "factory"
+    project_path.mkdir(parents=True)
+    (project_path / "config.json").write_text(json.dumps({
+        "digital_twin_name": "factory",
+        "hot_storage_size_in_days": 30,
+        "cold_storage_size_in_days": 90,
+        "mode": "DEBUG",
+    }))
+    (project_path / "config_iot_devices.json").write_text("[]")
+    (project_path / "config_providers.json").write_text(json.dumps({
+        "layer_1_provider": "aws",
+        "layer_2_provider": "aws",
+        "layer_3_hot_provider": "aws",
+        "layer_4_provider": "none",
+    }))
+    (project_path / "deployment_manifest.json").write_text(json.dumps({
+        "manifest_version": "1.0",
+        "twin": {"resource_name": "factory"},
+    }))
+
+    monkeypatch.setattr(factory, "resolve_project_context_path", lambda project_name: project_path)
+
+    context = factory.create_context("factory")
+
+    assert context.is_manifest_backed is True
+    assert context.manifest_resource_name == "factory"
+
+
+def test_create_context_rejects_manifest_project_name_drift(tmp_path, monkeypatch):
+    project_path = tmp_path / "upload" / "factory"
+    project_path.mkdir(parents=True)
+    (project_path / "config.json").write_text(json.dumps({
+        "digital_twin_name": "factory",
+        "hot_storage_size_in_days": 30,
+        "cold_storage_size_in_days": 90,
+        "mode": "DEBUG",
+    }))
+    (project_path / "config_iot_devices.json").write_text("[]")
+    (project_path / "config_providers.json").write_text(json.dumps({
+        "layer_1_provider": "aws",
+        "layer_2_provider": "aws",
+        "layer_3_hot_provider": "aws",
+        "layer_4_provider": "none",
+    }))
+    (project_path / "deployment_manifest.json").write_text(json.dumps({
+        "manifest_version": "1.0",
+        "twin": {"resource_name": "other"},
+    }))
+
+    monkeypatch.setattr(factory, "resolve_project_context_path", lambda project_name: project_path)
+
+    with pytest.raises(ValueError, match="resource_name does not match"):
+        factory.create_context("factory")

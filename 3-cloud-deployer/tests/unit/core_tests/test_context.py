@@ -152,6 +152,36 @@ class TestDeploymentContext:
 
         assert "not been initialized" in str(exc_info.value)
 
+    def test_manifest_backed_context_exposes_resource_name(self):
+        """Test manifest-backed context metadata access."""
+        context = self.create_test_context()
+        context.deployment_manifest = {
+            "manifest_version": "1.0",
+            "twin": {"resource_name": "test-project"},
+        }
+
+        assert context.is_manifest_backed is True
+        assert context.manifest_resource_name == "test-project"
+
+    def test_validate_manifest_identity_rejects_project_name_drift(self):
+        """Test manifest-backed contexts cannot drift from project_name."""
+        context = self.create_test_context()
+        context.deployment_manifest = {
+            "manifest_version": "1.0",
+            "twin": {"resource_name": "other-project"},
+        }
+
+        with pytest.raises(ValueError, match="resource_name does not match"):
+            context.validate_manifest_identity()
+
+    def test_legacy_context_has_no_manifest_identity(self):
+        """Test legacy contexts remain valid without deployment_manifest.json."""
+        context = self.create_test_context()
+
+        assert context.is_manifest_backed is False
+        assert context.manifest_resource_name is None
+        context.validate_manifest_identity()
+
     def test_get_upload_path_joins_correctly(self):
         """Test that get_upload_path correctly joins path components."""
         context = self.create_test_context()

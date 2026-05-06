@@ -36,6 +36,7 @@ CONFIG_PROVIDERS_FILE = "config_providers.json"
 CONFIG_OPTIMIZATION_FILE = "config_optimization.json"
 CONFIG_INTER_CLOUD_FILE = "config_inter_cloud.json"
 CONFIG_USER_FILE = "config_user.json"
+DEPLOYMENT_MANIFEST_FILE = "deployment_manifest.json"
 
 # Twin Hierarchy (provider-specific)
 TWIN_HIERARCHY_DIR_NAME = "twin_hierarchy"
@@ -225,6 +226,15 @@ def load_project_config(project_path: Path) -> ProjectConfig:
         inter_cloud=inter_cloud,
         user=user,
     )
+
+
+def load_deployment_manifest(project_path: Path) -> Dict[str, Any]:
+    """
+    Load optional deployment_manifest.json for manifest-backed runtime contexts.
+
+    Legacy projects do not have a manifest yet and return an empty dictionary.
+    """
+    return _load_json_file(project_path / DEPLOYMENT_MANIFEST_FILE, required=False)
 
 
 def load_optimization_flags(project_path: Path) -> dict:
