@@ -34,6 +34,13 @@ logger = logging.getLogger(__name__)
 DEPLOYER_API_URL = getattr(settings, 'DEPLOYER_URL', 'http://3cloud-deployer:8000')
 DEPLOYMENT_MANIFEST_FILE = "deployment_manifest.json"
 DEPLOYMENT_MANIFEST_VERSION = "1.0"
+REQUIRED_DEPLOYER_CONFIG_FILES = [
+    "config.json",
+    "config_iot_devices.json",
+    "config_events.json",
+    "config_credentials.json",
+    "config_providers.json",
+]
 
 
 def build_deploy_config(twin) -> dict:
@@ -420,10 +427,17 @@ def _add_config_files(
     if gcp_creds:
         zf.writestr("gcp_credentials.json", json.dumps(gcp_creds, indent=2))
     
+    zf.writestr(
+        "config_iot_devices.json",
+        _json_content_or_default(dc.config_iot_devices_json if dc else None, []),
+    )
+    zf.writestr(
+        "config_events.json",
+        _json_content_or_default(dc.config_events_json if dc else None, []),
+    )
+
     # Optional config files from deployer_config
     if dc:
-        _write_if_present(zf, "config_iot_devices.json", dc.config_iot_devices_json)
-        _write_if_present(zf, "config_events.json", dc.config_events_json)
         _write_if_present(zf, "config_user.json", dc.user_config_content)
     
     # Optimizer result (deployer expects {"result": {"inputParamsUsed": {...}}})
@@ -582,6 +596,13 @@ def _write_if_present(zf: zipfile.ZipFile, path: str, content: Optional[str]):
         zf.writestr(path, content)
 
 
+def _json_content_or_default(content: Optional[str], default_value: Any) -> str:
+    """Return stored JSON content or a stable JSON default for required files."""
+    if content:
+        return content
+    return json.dumps(default_value, indent=2)
+
+
 def get_resource_name(twin) -> str:
     """
     Extract the Deployer resource name from a twin (DRY helper).
@@ -683,11 +704,7 @@ def _build_deployment_manifest(
         "package": {
             "format": "deployer-project-zip",
             "files": file_names,
-            "required_files": [
-                "config.json",
-                "config_providers.json",
-                "config_credentials.json",
-            ],
+            "required_files": REQUIRED_DEPLOYER_CONFIG_FILES,
         },
         "twin": {
             "id": _manifest_scalar(getattr(twin, "id", None)),

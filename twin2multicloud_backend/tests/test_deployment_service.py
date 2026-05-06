@@ -18,6 +18,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 from src.services.deployment_service import (
     DEPLOYMENT_MANIFEST_FILE,
+    REQUIRED_DEPLOYER_CONFIG_FILES,
     build_project_zip,
     get_resource_name,
     _build_main_config,
@@ -355,6 +356,8 @@ class TestBuildProjectZip:
             assert "config.json" in names
             assert "config_providers.json" in names
             assert "config_credentials.json" in names
+            assert "config_iot_devices.json" in names
+            assert "config_events.json" in names
             assert DEPLOYMENT_MANIFEST_FILE in names
 
     @patch("src.services.credential_resolution_service.decrypt")
@@ -381,11 +384,29 @@ class TestBuildProjectZip:
             "sources": {"aws": "legacy"},
             "contains_secret_payloads": False,
         }
+        assert manifest["package"]["required_files"] == REQUIRED_DEPLOYER_CONFIG_FILES
         assert "config_credentials.json" in manifest["package"]["files"]
+        assert "config_iot_devices.json" in manifest["package"]["files"]
+        assert "config_events.json" in manifest["package"]["files"]
         assert DEPLOYMENT_MANIFEST_FILE not in manifest["package"]["files"]
         assert "plain-enc_secret" not in manifest_text
         assert "plain-enc_key" not in manifest_text
         assert "aws_secret_access_key" not in manifest_text
+
+    @patch("src.services.credential_resolution_service.decrypt")
+    def test_required_config_files_default_to_empty_lists(self, mock_decrypt):
+        """Should write required Deployer config files even when optional wizard data is absent."""
+        mock_decrypt.return_value = "decrypted"
+
+        twin = self._create_mock_twin()
+        twin.deployer_config.config_iot_devices_json = None
+        twin.deployer_config.config_events_json = None
+
+        result = build_project_zip(twin, "user-123")
+
+        with zipfile.ZipFile(result, 'r') as zf:
+            assert json.loads(zf.read("config_iot_devices.json")) == []
+            assert json.loads(zf.read("config_events.json")) == []
     
     @patch("src.services.credential_resolution_service.decrypt")
     def test_includes_state_machine_for_azure_l2(self, mock_decrypt):
