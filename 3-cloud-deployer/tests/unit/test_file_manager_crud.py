@@ -160,6 +160,67 @@ class TestListProjects:
         ]
 
 
+class TestProjectFileBrowser:
+    """Tests for safe project file browsing."""
+
+    def test_file_tree_uses_explicit_project_context_path(self, tmp_path):
+        canonical_template = tmp_path / "templates" / "digital-twin"
+        legacy_template = tmp_path / CONSTANTS.PROJECT_UPLOAD_DIR_NAME / CONSTANTS.DEFAULT_PROJECT_NAME
+        canonical_template.mkdir(parents=True)
+        legacy_template.mkdir(parents=True)
+        (canonical_template / "config.json").write_text('{"source": "canonical"}')
+        (legacy_template / "legacy-only.json").write_text('{"source": "legacy"}')
+
+        tree = file_manager.get_project_file_tree(
+            CONSTANTS.DEFAULT_PROJECT_NAME,
+            project_context_path=canonical_template,
+        )
+
+        assert [item["name"] for item in tree] == ["config.json"]
+
+    def test_file_tree_hides_sensitive_credential_files(self, tmp_path):
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        (project_dir / "config.json").write_text("{}")
+        (project_dir / "config_credentials.json").write_text('{"aws": "secret"}')
+        (project_dir / "config_credentials.json.example").write_text("{}")
+
+        tree = file_manager.get_project_file_tree(
+            "project",
+            project_context_path=project_dir,
+        )
+
+        names = {item["name"] for item in tree}
+        assert "config.json" in names
+        assert "config_credentials.json.example" in names
+        assert "config_credentials.json" not in names
+
+    def test_file_content_blocks_sensitive_credential_files(self, tmp_path):
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        (project_dir / "config_credentials.json").write_text('{"aws": "secret"}')
+
+        with pytest.raises(PermissionError):
+            file_manager.get_project_file_content(
+                "project",
+                "config_credentials.json",
+                project_context_path=project_dir,
+            )
+
+    def test_file_content_allows_example_credential_files(self, tmp_path):
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        (project_dir / "config_credentials.json.example").write_text('{"aws": {}}')
+
+        result = file_manager.get_project_file_content(
+            "project",
+            "config_credentials.json.example",
+            project_context_path=project_dir,
+        )
+
+        assert result["raw"] == '{"aws": {}}'
+
+
 # ==========================================
 # Test: update_project_info
 # ==========================================

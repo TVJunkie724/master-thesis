@@ -523,7 +523,11 @@ def get_project_files(
     Used for file browsing in the frontend.
     """
     try:
-        files = file_manager.get_project_file_tree(project_name)
+        project_path = resolve_project_context_path(project_name)
+        files = file_manager.get_project_file_tree(
+            project_name,
+            project_context_path=project_path,
+        )
         return {"files": files}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -556,8 +560,15 @@ def get_project_file_content_endpoint(
     Returns the content of a specific file.
     """
     try:
-        content = file_manager.get_project_file_content(project_name, file_path)
+        project_path = resolve_project_context_path(project_name)
+        content = file_manager.get_project_file_content(
+            project_name,
+            file_path,
+            project_context_path=project_path,
+        )
         return content
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         if "not found" in str(e):
              raise HTTPException(status_code=404, detail=str(e))

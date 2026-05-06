@@ -98,6 +98,33 @@ class TestProjectsErrorHandling:
         # Should handle gracefully
         assert response.status_code in [400, 404]
 
+    def test_template_file_tree_uses_resolved_context_and_hides_credentials(self, tmp_path):
+        """Template file browser uses canonical context and does not list live credentials."""
+        canonical_template = tmp_path / "templates" / "digital-twin"
+        legacy_template = tmp_path / "upload" / "template"
+        canonical_template.mkdir(parents=True)
+        legacy_template.mkdir(parents=True)
+        (canonical_template / "config.json").write_text("{}")
+        (legacy_template / "config_credentials.json").write_text('{"aws": "secret"}')
+
+        with patch("src.api.projects.resolve_project_context_path", return_value=canonical_template):
+            response = client.get("/projects/template/files")
+
+        assert response.status_code == 200
+        names = {item["name"] for item in response.json()["files"]}
+        assert names == {"config.json"}
+
+    def test_template_file_content_blocks_live_credentials(self, tmp_path):
+        """Generic file content endpoint must not expose credential files."""
+        canonical_template = tmp_path / "templates" / "digital-twin"
+        canonical_template.mkdir(parents=True)
+        (canonical_template / "config_credentials.json").write_text('{"aws": "secret"}')
+
+        with patch("src.api.projects.resolve_project_context_path", return_value=canonical_template):
+            response = client.get("/projects/template/files/config_credentials.json")
+
+        assert response.status_code == 403
+
 
 # ============================================================
 # Validation Tests (Using existing validation endpoints)  

@@ -19,6 +19,29 @@ import io
 import src.validator as validator
 
 
+SENSITIVE_PROJECT_FILENAMES = {
+    "config_credentials.json",
+    "config_credentials_aws.json",
+    "config_credentials_azure.json",
+    "config_credentials_google.json",
+    "config_credentials_gcp.json",
+    "gcp_credentials.json",
+    "google-credentials.json",
+    "google_credentials.json",
+    "service_account.json",
+}
+
+
+def _is_sensitive_project_file(relative_path: str) -> bool:
+    """Return True when a project file may contain live cloud credentials."""
+    filename = os.path.basename(relative_path)
+    if filename.endswith(".example"):
+        return False
+    if filename in SENSITIVE_PROJECT_FILENAMES:
+        return True
+    return "credentials" in filename.lower()
+
+
 def _get_project_base_path():
     """Get the base path for projects. Uses PYTHONPATH or app detection."""
     # Prefer /app in container, fallback to parent of src/
@@ -472,15 +495,31 @@ def export_project_to_zip(project_name: str, project_path: str = None) -> io.Byt
     return zip_buffer
 
 
-def get_project_file_tree(project_name: str, project_path: str = None) -> list:
+def _resolve_project_target_dir(
+    project_name: str,
+    project_path: str = None,
+    project_context_path: str = None,
+) -> str:
+    """Resolve a project directory from either a base path or an explicit context path."""
+    if project_context_path is not None:
+        return os.fspath(project_context_path)
+
+    if project_path is None:
+        project_path = _get_project_base_path()
+
+    safe_name = os.path.basename(project_name)
+    return os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+
+
+def get_project_file_tree(
+    project_name: str,
+    project_path: str = None,
+    project_context_path: str = None,
+) -> list:
     """
     Returns a recursive file tree structure for the project.
     """
-    if project_path is None:
-        project_path = _get_project_base_path()
-        
-    safe_name = os.path.basename(project_name)
-    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+    target_dir = _resolve_project_target_dir(project_name, project_path, project_context_path)
     
     if not os.path.exists(target_dir):
         raise ValueError(f"Project '{project_name}' does not exist.")
@@ -501,6 +540,8 @@ def get_project_file_tree(project_name: str, project_path: str = None) -> list:
                 
             full_path = os.path.join(current_path, entry)
             rel_path = os.path.join(rel_base, entry).replace("\\", "/") # force posix path for API
+            if os.path.isfile(full_path) and _is_sensitive_project_file(rel_path):
+                continue
             
             item = {
                 "name": entry,
@@ -520,20 +561,24 @@ def get_project_file_tree(project_name: str, project_path: str = None) -> list:
     return build_tree(target_dir, "")
 
 
-def get_project_file_content(project_name: str, relative_path: str, project_path: str = None) -> dict:
+def get_project_file_content(
+    project_name: str,
+    relative_path: str,
+    project_path: str = None,
+    project_context_path: str = None,
+) -> dict:
     """
     Returns the content of a specific file.
     """
-    if project_path is None:
-        project_path = _get_project_base_path()
-        
-    safe_name = os.path.basename(project_name)
-    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+    target_dir = _resolve_project_target_dir(project_name, project_path, project_context_path)
     
     # Security check: prevent directory traversal
     target_file = os.path.abspath(os.path.join(target_dir, relative_path))
-    if not target_file.startswith(os.path.abspath(target_dir)):
+    if os.path.commonpath([os.path.abspath(target_dir), target_file]) != os.path.abspath(target_dir):
         raise ValueError("Invalid file path: Traversal attempt detected.")
+
+    if _is_sensitive_project_file(relative_path):
+        raise PermissionError(f"Access denied for sensitive project file '{relative_path}'.")
         
     if not os.path.exists(target_file):
         raise ValueError(f"File '{relative_path}' not found.")
