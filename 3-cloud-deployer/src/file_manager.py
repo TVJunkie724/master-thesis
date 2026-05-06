@@ -88,6 +88,9 @@ def create_project_from_zip(project_name, zip_source, project_path: str = None, 
     warnings = validator.validate_project_zip(zip_source)
     if warnings is None:
         warnings = []
+
+    zip_source.seek(0)
+    _validate_project_name_matches_manifest(safe_name, _extract_deployment_manifest(zip_source))
     
     # Extract twin_name and creds from zip for duplicate check
     zip_source.seek(0)
@@ -155,6 +158,9 @@ def update_project_from_zip(project_name, zip_source, project_path: str = None, 
     warnings = validator.validate_project_zip(zip_source)
     if warnings is None:
         warnings = []
+
+    zip_source.seek(0)
+    _validate_project_name_matches_manifest(safe_name, _extract_deployment_manifest(zip_source))
     
     # Extract twin_name and creds from zip for duplicate check
     zip_source.seek(0)
@@ -389,6 +395,41 @@ def _extract_identity_from_zip(zip_source):
                     creds = json.load(f)
     
     return twin_name, creds
+
+
+def _extract_deployment_manifest(zip_source):
+    """Extract deployment_manifest.json from a validated ZIP, if present."""
+    zip_source.seek(0)
+    with zipfile.ZipFile(zip_source, 'r') as zf:
+        manifest_paths = [
+            name for name in zf.namelist()
+            if os.path.basename(name) == CONSTANTS.DEPLOYMENT_MANIFEST_FILE
+        ]
+        if not manifest_paths:
+            return None
+        if len(manifest_paths) > 1:
+            raise ValueError("Multiple deployment_manifest.json files found in project ZIP.")
+        with zf.open(manifest_paths[0]) as f:
+            return json.load(f)
+
+
+def _validate_project_name_matches_manifest(project_name: str, manifest: dict | None) -> None:
+    """Ensure a manifest-backed upload lands under its declared resource name."""
+    if not manifest:
+        return
+
+    twin = manifest.get("twin")
+    if not isinstance(twin, dict):
+        raise ValueError("deployment_manifest.json twin metadata must be a JSON object.")
+
+    resource_name = twin.get("resource_name")
+    if not isinstance(resource_name, str) or not resource_name:
+        raise ValueError("deployment_manifest.json twin.resource_name is required.")
+
+    if resource_name != project_name:
+        raise ValueError(
+            "deployment_manifest.json twin.resource_name does not match requested project_name."
+        )
 
 
 # ==========================================

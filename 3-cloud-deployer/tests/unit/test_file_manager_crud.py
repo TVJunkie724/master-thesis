@@ -66,6 +66,66 @@ def valid_zip_bytes():
     return bio.getvalue()
 
 
+def _valid_zip_with_manifest(resource_name: str) -> bytes:
+    """Create a valid project ZIP with a DeploymentManifest contract."""
+    import uuid
+    unique_id = uuid.uuid4().hex[:4]
+    files = {
+        CONSTANTS.CONFIG_FILE: json.dumps({
+            "digital_twin_name": resource_name,
+            "hot_storage_size_in_days": 30,
+            "cold_storage_size_in_days": 90,
+            "mode": "DEBUG",
+        }),
+        CONSTANTS.CONFIG_IOT_DEVICES_FILE: "[]",
+        CONSTANTS.CONFIG_EVENTS_FILE: "[]",
+        CONSTANTS.CONFIG_HIERARCHY_FILE: "[]",
+        CONSTANTS.CONFIG_CREDENTIALS_FILE: json.dumps({
+            "aws": {
+                "aws_access_key_id": f"AKIA{unique_id}",
+                "aws_secret_access_key": f"secret{unique_id}",
+                "aws_region": "us-east-1",
+            }
+        }),
+        CONSTANTS.CONFIG_PROVIDERS_FILE: json.dumps({
+            "layer_1_provider": "aws",
+            "layer_2_provider": "aws",
+            "layer_3_hot_provider": "aws",
+            "layer_4_provider": "aws",
+        }),
+        CONSTANTS.CONFIG_OPTIMIZATION_FILE: json.dumps({"result": {}}),
+        "twin_hierarchy/aws_hierarchy.json": "[]",
+        "lambda_functions/placeholder.txt": "placeholder",
+    }
+    manifest = {
+        "manifest_version": CONSTANTS.DEPLOYMENT_MANIFEST_VERSION,
+        "producer": "twin2multicloud_backend",
+        "package": {
+            "format": "deployer-project-zip",
+            "files": sorted(files.keys()),
+            "required_files": CONSTANTS.REQUIRED_CONFIG_FILES,
+        },
+        "twin": {
+            "id": "twin-123",
+            "name": resource_name,
+            "resource_name": resource_name,
+        },
+        "credentials": {
+            "providers": ["aws"],
+            "sources": {"aws": "cloud_connection"},
+            "contains_secret_payloads": False,
+        },
+    }
+
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, 'w') as zf:
+        for path, content in files.items():
+            zf.writestr(path, content)
+        zf.writestr(CONSTANTS.DEPLOYMENT_MANIFEST_FILE, json.dumps(manifest))
+    bio.seek(0)
+    return bio.getvalue()
+
+
 @pytest.fixture
 def created_project(temp_project_path, valid_zip_bytes):
     """Create a project and return its name."""
@@ -158,6 +218,42 @@ class TestListProjects:
             CONSTANTS.DEFAULT_PROJECT_NAME,
             "runtime-twin",
         ]
+
+
+class TestCreateProjectManifestContract:
+    """Tests for DeploymentManifest-backed project creation."""
+
+    def test_create_project_accepts_matching_manifest_resource_name(self, temp_project_path):
+        project_name = "mfst-ok"
+
+        result = file_manager.create_project_from_zip(
+            project_name,
+            _valid_zip_with_manifest(project_name),
+            project_path=temp_project_path,
+        )
+
+        assert result["message"] == f"Project '{project_name}' created."
+        project_dir = os.path.join(
+            temp_project_path,
+            CONSTANTS.PROJECT_UPLOAD_DIR_NAME,
+            project_name,
+        )
+        assert os.path.exists(os.path.join(project_dir, CONSTANTS.DEPLOYMENT_MANIFEST_FILE))
+
+    def test_create_project_rejects_manifest_resource_name_mismatch(self, temp_project_path):
+        with pytest.raises(ValueError, match="resource_name does not match"):
+            file_manager.create_project_from_zip(
+                "requested",
+                _valid_zip_with_manifest("manifest"),
+                project_path=temp_project_path,
+            )
+
+        rejected_dir = os.path.join(
+            temp_project_path,
+            CONSTANTS.PROJECT_UPLOAD_DIR_NAME,
+            "requested",
+        )
+        assert not os.path.exists(rejected_dir)
 
 
 class TestProjectFileBrowser:
