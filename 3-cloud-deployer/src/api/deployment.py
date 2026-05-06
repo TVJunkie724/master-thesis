@@ -16,7 +16,8 @@ from src.api.models.deployment import (
     DeploymentStreamEvent,
     DestroyResult,
 )
-from src.core.paths import resolve_deployment_paths
+from src.core.paths import resolve_deployment_paths, resolve_project_context_path
+from src.validation.directory_validator import validate_project_directory
 from logger import print_stack_trace, logger
 
 import providers.deployer as core_deployer
@@ -24,6 +25,17 @@ from src.core.factory import create_context
 
 
 router = APIRouter(prefix="/infrastructure")
+
+
+def _prepare_deployment_context(project_name: str, provider: str, operation: str):
+    """Validate request boundaries and create the canonical DeploymentContext."""
+    check_template_protection(project_name, operation)
+    validate_project_context(project_name)
+    normalized_provider = validate_provider(provider)
+    project_dir = resolve_project_context_path(project_name)
+    validate_project_directory(project_dir)
+    context = create_context(project_name, normalized_provider)
+    return DeploymentRequest(project_name=project_name, provider=normalized_provider), context
 
 
 # --------- Cooldown Check ----------
@@ -113,15 +125,8 @@ def deploy_all(
     
     **Note:** Long-running operation (2-10 minutes depending on resources).
     """
-    check_template_protection(project_name, "deploy")
-    validate_project_context(project_name)
     try:
-        request = DeploymentRequest(
-            project_name=project_name,
-            provider=validate_provider(provider),
-        )
-        
-        context = create_context(request.project_name, request.provider)
+        request, context = _prepare_deployment_context(project_name, provider, "deploy")
         
         # TerraformDeployerStrategy handles validation + deployment
         outputs = core_deployer.deploy_all(context, request.provider)
@@ -167,14 +172,8 @@ def destroy_all(
     
     **Note:** This operation cannot be undone. All data will be lost.
     """
-    check_template_protection(project_name, "destroy")
-    validate_project_context(project_name)
     try:
-        request = DeploymentRequest(
-            project_name=project_name,
-            provider=validate_provider(provider),
-        )
-        context = create_context(request.project_name, request.provider)
+        request, context = _prepare_deployment_context(project_name, provider, "destroy")
         
         # TerraformDeployerStrategy handles all destruction
         core_deployer.destroy_all(context, request.provider)
@@ -216,15 +215,8 @@ async def deploy_stream(
     
     Returns an SSE stream with real-time deployment logs.
     """
-    check_template_protection(project_name, "deploy")
-    validate_project_context(project_name)
-    
     try:
-        request = DeploymentRequest(
-            project_name=project_name,
-            provider=validate_provider(provider),
-        )
-        context = create_context(request.project_name, request.provider)
+        request, context = _prepare_deployment_context(project_name, provider, "deploy")
         
         paths = resolve_deployment_paths(request.project_name)
         strategy = core_deployer.create_terraform_strategy(
@@ -280,15 +272,8 @@ async def destroy_stream(
     
     Returns an SSE stream with real-time destruction logs.
     """
-    check_template_protection(project_name, "destroy")
-    validate_project_context(project_name)
-    
     try:
-        request = DeploymentRequest(
-            project_name=project_name,
-            provider=validate_provider(provider),
-        )
-        context = create_context(request.project_name, request.provider)
+        request, context = _prepare_deployment_context(project_name, provider, "destroy")
         
         paths = resolve_deployment_paths(request.project_name)
         strategy = core_deployer.create_terraform_strategy(

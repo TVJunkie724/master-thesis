@@ -23,6 +23,8 @@ def test_deploy_route_invokes_canonical_facade_with_hard_response_shape():
         patch.object(deployment, "check_template_protection") as mock_template_guard,
         patch.object(deployment, "validate_project_context") as mock_project_guard,
         patch.object(deployment, "validate_provider", return_value="aws") as mock_validate_provider,
+        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project") as mock_resolve_path,
+        patch.object(deployment, "validate_project_directory") as mock_validate_directory,
         patch.object(deployment, "create_context", return_value=context) as mock_create_context,
         patch.object(deployment.core_deployer, "deploy_all", return_value=outputs) as mock_deploy_all,
     ):
@@ -31,6 +33,8 @@ def test_deploy_route_invokes_canonical_facade_with_hard_response_shape():
     mock_template_guard.assert_called_once_with("test_api_project", "deploy")
     mock_project_guard.assert_called_once_with("test_api_project")
     mock_validate_provider.assert_called_once_with("aws")
+    mock_resolve_path.assert_called_once_with("test_api_project")
+    mock_validate_directory.assert_called_once_with("/projects/test_api_project")
     mock_create_context.assert_called_once_with("test_api_project", "aws")
     mock_deploy_all.assert_called_once_with(context, "aws")
 
@@ -51,6 +55,8 @@ def test_destroy_route_invokes_canonical_facade_with_hard_response_shape():
         patch.object(deployment, "check_template_protection") as mock_template_guard,
         patch.object(deployment, "validate_project_context") as mock_project_guard,
         patch.object(deployment, "validate_provider", return_value="aws") as mock_validate_provider,
+        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project") as mock_resolve_path,
+        patch.object(deployment, "validate_project_directory") as mock_validate_directory,
         patch.object(deployment, "create_context", return_value=context) as mock_create_context,
         patch.object(deployment.core_deployer, "destroy_all") as mock_destroy_all,
     ):
@@ -59,6 +65,8 @@ def test_destroy_route_invokes_canonical_facade_with_hard_response_shape():
     mock_template_guard.assert_called_once_with("test_api_project", "destroy")
     mock_project_guard.assert_called_once_with("test_api_project")
     mock_validate_provider.assert_called_once_with("aws")
+    mock_resolve_path.assert_called_once_with("test_api_project")
+    mock_validate_directory.assert_called_once_with("/projects/test_api_project")
     mock_create_context.assert_called_once_with("test_api_project", "aws")
     mock_destroy_all.assert_called_once_with(context, "aws")
 
@@ -99,6 +107,8 @@ def test_deploy_stream_uses_canonical_facade_and_preserves_event_shape():
         patch.object(deployment, "check_template_protection"),
         patch.object(deployment, "validate_project_context"),
         patch.object(deployment, "validate_provider", return_value="aws"),
+        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+        patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context),
         patch.object(deployment.core_deployer, "create_terraform_strategy", return_value=strategy) as mock_strategy,
         patch.object(deployment.core_deployer, "deploy_all_stream", new=_fake_deploy_stream),
@@ -122,6 +132,8 @@ def test_destroy_stream_uses_canonical_facade_and_preserves_event_shape():
         patch.object(deployment, "check_template_protection"),
         patch.object(deployment, "validate_project_context"),
         patch.object(deployment, "validate_provider", return_value="aws"),
+        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+        patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context),
         patch.object(deployment.core_deployer, "create_terraform_strategy", return_value=strategy) as mock_strategy,
         patch.object(deployment.core_deployer, "destroy_all_stream", new=_fake_destroy_stream),
@@ -141,6 +153,8 @@ def test_google_provider_alias_is_normalized_to_gcp_in_deploy_response():
     with (
         patch.object(deployment, "check_template_protection"),
         patch.object(deployment, "validate_project_context"),
+        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+        patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context) as mock_create_context,
         patch.object(deployment.core_deployer, "deploy_all", return_value={}) as mock_deploy_all,
     ):
@@ -175,10 +189,35 @@ def test_active_project_mismatch_remains_conflict():
     assert exc_info.value.detail == "project mismatch"
 
 
+def test_directory_validation_failure_maps_to_400_before_deploy():
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_project_context"),
+        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+        patch.object(
+            deployment,
+            "validate_project_directory",
+            side_effect=ValueError("deployment_manifest.json package.files mismatch"),
+        ) as mock_validate_directory,
+        patch.object(deployment, "create_context") as mock_create_context,
+        patch.object(deployment.core_deployer, "deploy_all") as mock_deploy_all,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            deployment.deploy_all(provider="aws", project_name="test_api_project")
+
+    assert exc_info.value.status_code == 400
+    assert "deployment_manifest.json package.files mismatch" in exc_info.value.detail
+    mock_validate_directory.assert_called_once_with("/projects/test_api_project")
+    mock_create_context.assert_not_called()
+    mock_deploy_all.assert_not_called()
+
+
 def test_facade_failure_maps_to_500_without_leaking_exception_detail():
     with (
         patch.object(deployment, "check_template_protection"),
         patch.object(deployment, "validate_project_context"),
+        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+        patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=MagicMock()),
         patch.object(deployment.core_deployer, "deploy_all", side_effect=RuntimeError("secret stack detail")),
     ):
