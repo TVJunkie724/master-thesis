@@ -145,6 +145,23 @@ class TestDeploymentManifestValidation:
         with pytest.raises(ValueError, match="package.files mismatch"):
             check_deployment_manifest(accessor, ctx)
 
+    def test_manifest_rejects_duplicate_file_entries(self):
+        accessor = MockAccessor(self._base_project_files(
+            self._valid_manifest(package_files=[
+                "config.json",
+                "config.json",
+                "config_iot_devices.json",
+                "config_events.json",
+                "config_credentials.json",
+                "config_providers.json",
+            ])
+        ))
+        ctx = ValidationContext()
+        ctx.all_files = accessor.list_files()
+
+        with pytest.raises(ValueError, match="duplicate paths: config.json"):
+            check_deployment_manifest(accessor, ctx)
+
     def test_manifest_rejects_required_file_contract_mismatch(self):
         manifest = self._valid_manifest()
         manifest["package"]["required_files"] = ["config.json"]
@@ -154,6 +171,24 @@ class TestDeploymentManifestValidation:
 
         with pytest.raises(ValueError, match="required_files does not match"):
             check_deployment_manifest(accessor, ctx)
+
+    def test_manifest_rejects_duplicate_required_files(self):
+        manifest = self._valid_manifest()
+        manifest["package"]["required_files"] = [
+            "config.json",
+            "config.json",
+            "config_iot_devices.json",
+            "config_events.json",
+            "config_credentials.json",
+            "config_providers.json",
+        ]
+        accessor = MockAccessor(self._base_project_files(manifest))
+        ctx = ValidationContext()
+        ctx.all_files = accessor.list_files()
+
+        with pytest.raises(ValueError, match="required_files contains duplicate paths"):
+            check_deployment_manifest(accessor, ctx)
+
 
     def test_manifest_rejects_credential_payload_keys(self):
         manifest = self._valid_manifest()

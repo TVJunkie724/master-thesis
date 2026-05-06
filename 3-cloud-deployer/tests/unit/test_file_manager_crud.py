@@ -255,6 +255,31 @@ class TestCreateProjectManifestContract:
         )
         assert not os.path.exists(rejected_dir)
 
+    def test_update_project_rejects_manifest_resource_name_mismatch(self, temp_project_path):
+        existing_project = "requested"
+        file_manager.create_project_from_zip(
+            existing_project,
+            _valid_zip_with_manifest(existing_project),
+            project_path=temp_project_path,
+        )
+
+        with pytest.raises(ValueError, match="resource_name does not match"):
+            file_manager.update_project_from_zip(
+                existing_project,
+                _valid_zip_with_manifest("manifest"),
+                project_path=temp_project_path,
+            )
+
+        manifest_path = os.path.join(
+            temp_project_path,
+            CONSTANTS.PROJECT_UPLOAD_DIR_NAME,
+            existing_project,
+            CONSTANTS.DEPLOYMENT_MANIFEST_FILE,
+        )
+        with open(manifest_path, "r") as f:
+            manifest = json.load(f)
+        assert manifest["twin"]["resource_name"] == existing_project
+
 
 class TestProjectFileBrowser:
     """Tests for safe project file browsing."""

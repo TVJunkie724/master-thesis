@@ -324,10 +324,22 @@ def check_deployment_manifest(accessor: FileAccessor, ctx: ValidationContext) ->
     package_files = package.get("files")
     if not _is_string_list(package_files):
         raise ValueError("deployment_manifest.json package.files must be a list of file paths")
+    duplicate_package_files = _duplicate_strings(package_files)
+    if duplicate_package_files:
+        raise ValueError(
+            "deployment_manifest.json package.files contains duplicate paths: "
+            + ", ".join(duplicate_package_files)
+        )
 
     required_files = package.get("required_files")
     if not _is_string_list(required_files):
         raise ValueError("deployment_manifest.json package.required_files must be a list of file paths")
+    duplicate_required_files = _duplicate_strings(required_files)
+    if duplicate_required_files:
+        raise ValueError(
+            "deployment_manifest.json package.required_files contains duplicate paths: "
+            + ", ".join(duplicate_required_files)
+        )
     if set(required_files) != set(CONSTANTS.REQUIRED_CONFIG_FILES):
         raise ValueError("deployment_manifest.json package.required_files does not match Deployer required files")
 
@@ -367,6 +379,17 @@ def check_deployment_manifest(accessor: FileAccessor, ctx: ValidationContext) ->
 def _is_string_list(value: Any) -> bool:
     """Return True when value is a list containing only strings."""
     return isinstance(value, list) and all(isinstance(item, str) for item in value)
+
+
+def _duplicate_strings(values: List[str]) -> List[str]:
+    """Return duplicate values in stable order."""
+    seen = set()
+    duplicates = []
+    for value in values:
+        if value in seen and value not in duplicates:
+            duplicates.append(value)
+        seen.add(value)
+    return duplicates
 
 
 def _manifest_relative_files(ctx: ValidationContext) -> List[str]:
