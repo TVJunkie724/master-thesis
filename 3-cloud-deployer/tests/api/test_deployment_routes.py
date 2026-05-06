@@ -6,6 +6,7 @@ enter the canonical facade in src.providers.deployer.
 """
 
 import asyncio
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -101,6 +102,7 @@ async def _fake_destroy_stream(context, strategy=None):
 
 def test_deploy_stream_uses_canonical_facade_and_preserves_event_shape():
     context = MagicMock(name="deployment_context")
+    context.project_path = Path("/projects/test_api_project")
     strategy = MagicMock(name="terraform_strategy")
 
     with (
@@ -117,7 +119,11 @@ def test_deploy_stream_uses_canonical_facade_and_preserves_event_shape():
         response = asyncio.run(deployment.deploy_stream(provider="aws", project_name="test_api_project"))
         body = asyncio.run(_collect_stream(response))
 
-    mock_strategy.assert_called_once()
+    mock_strategy.assert_called_once_with(
+        context,
+        terraform_dir="/projects/test_api_project/terraform",
+        project_path="/projects/test_api_project",
+    )
     assert response.media_type == "text/event-stream"
     assert 'data: {"event":"log","operation":"deploy","message":"terraform init"}\n\n' in body
     assert 'data: {"event":"log","operation":"deploy","message":"terraform apply"}\n\n' in body
@@ -126,6 +132,7 @@ def test_deploy_stream_uses_canonical_facade_and_preserves_event_shape():
 
 def test_destroy_stream_uses_canonical_facade_and_preserves_event_shape():
     context = MagicMock(name="deployment_context")
+    context.project_path = Path("/projects/test_api_project")
     strategy = MagicMock(name="terraform_strategy")
 
     with (
@@ -141,7 +148,11 @@ def test_destroy_stream_uses_canonical_facade_and_preserves_event_shape():
         response = asyncio.run(deployment.destroy_stream(provider="aws", project_name="test_api_project"))
         body = asyncio.run(_collect_stream(response))
 
-    mock_strategy.assert_called_once()
+    mock_strategy.assert_called_once_with(
+        context,
+        terraform_dir="/projects/test_api_project/terraform",
+        project_path="/projects/test_api_project",
+    )
     assert response.media_type == "text/event-stream"
     assert 'data: {"event":"log","operation":"destroy","message":"terraform destroy"}\n\n' in body
     assert 'event: complete\ndata: {"event":"complete","operation":"destroy","success":true}\n\n' in body
