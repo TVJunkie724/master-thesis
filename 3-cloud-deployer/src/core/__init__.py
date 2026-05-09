@@ -7,6 +7,7 @@ multiple cloud providers (AWS, Azure, GCP) in the Digital Twin deployment system
 Modules:
     protocols: Interface definitions (CloudProvider)
     context: DeploymentContext for dependency injection
+    workspace: Ephemeral workspace preparation
     registry: ProviderRegistry for dynamic provider lookup
     config_loader: Configuration loading utilities
     exceptions: Custom exception types for deployment operations
@@ -28,6 +29,7 @@ Usage:
 from .protocols import CloudProvider, DeployerStrategy
 from .context import DeploymentContext, ProjectConfig
 from .paths import DeploymentPaths, resolve_deployment_paths
+from .workspace import EphemeralWorkspace, create_ephemeral_workspace, ephemeral_workspace
 from .registry import ProviderRegistry
 from .exceptions import DeploymentError, ProviderNotFoundError, ConfigurationError
 
@@ -38,7 +40,10 @@ __all__ = [
     # Context
     "DeploymentContext",
     "DeploymentPaths",
+    "EphemeralWorkspace",
     "ProjectConfig",
+    "create_ephemeral_workspace",
+    "ephemeral_workspace",
     "resolve_deployment_paths",
     # Registry
     "ProviderRegistry",
