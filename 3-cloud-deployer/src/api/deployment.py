@@ -6,6 +6,7 @@ This module provides REST API endpoints for infrastructure operations.
 """
 
 from datetime import datetime, timezone
+import re
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from api.dependencies import validate_project_context, validate_provider, check_template_protection
@@ -46,6 +47,14 @@ def _create_strategy_for_context(context):
         terraform_dir=str(terraform_dir),
         project_path=str(context.project_path),
     )
+
+
+def _validation_error_detail(error: ValueError) -> str:
+    """Return a client-safe validation detail without leaking runtime paths."""
+    detail = str(error)
+    detail = re.sub(r"(/[^\s:]+/upload/[^\s:]+)", "<project-path>", detail)
+    detail = re.sub(r"(/app/upload/[^\s:]+)", "<project-path>", detail)
+    return f"Validation failed: {detail}"
 
 
 # --------- Cooldown Check ----------
@@ -150,7 +159,7 @@ def deploy_all(
         raise
     except ValueError as e:
         # Validation errors get 400, not 500
-        raise HTTPException(status_code=400, detail=f"Validation failed: {e}")
+        raise HTTPException(status_code=400, detail=_validation_error_detail(e))
     except Exception as e:
         print_stack_trace()
         logger.error(str(e))
@@ -195,7 +204,7 @@ def destroy_all(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Validation failed: {e}")
+        raise HTTPException(status_code=400, detail=_validation_error_detail(e))
     except Exception as e:
         print_stack_trace()
         logger.error(str(e))
@@ -252,7 +261,7 @@ async def deploy_stream(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Validation failed: {e}")
+        raise HTTPException(status_code=400, detail=_validation_error_detail(e))
     except Exception as e:
         print_stack_trace()
         logger.error(str(e))
@@ -302,7 +311,7 @@ async def destroy_stream(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Validation failed: {e}")
+        raise HTTPException(status_code=400, detail=_validation_error_detail(e))
     except Exception as e:
         print_stack_trace()
         logger.error(str(e))

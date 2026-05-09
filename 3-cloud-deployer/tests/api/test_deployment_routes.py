@@ -223,6 +223,27 @@ def test_directory_validation_failure_maps_to_400_before_deploy():
     mock_deploy_all.assert_not_called()
 
 
+def test_directory_validation_error_redacts_runtime_project_paths():
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_project_context"),
+        patch.object(deployment, "resolve_project_context_path", return_value="/app/upload/test_api_project"),
+        patch.object(
+            deployment,
+            "validate_project_directory",
+            side_effect=ValueError("Project directory not found: /app/upload/test_api_project"),
+        ),
+        patch.object(deployment, "create_context") as mock_create_context,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            deployment.deploy_all(provider="aws", project_name="test_api_project")
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Validation failed: Project directory not found: <project-path>"
+    assert "/app/upload/test_api_project" not in exc_info.value.detail
+    mock_create_context.assert_not_called()
+
+
 def test_facade_failure_maps_to_500_without_leaking_exception_detail():
     with (
         patch.object(deployment, "check_template_protection"),
