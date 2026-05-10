@@ -29,7 +29,13 @@ Usage:
 from .protocols import CloudProvider, DeployerStrategy
 from .context import DeploymentContext, ProjectConfig
 from .paths import DeploymentPaths, resolve_deployment_paths
-from .workspace import EphemeralWorkspace, create_ephemeral_workspace, ephemeral_workspace
+from .workspace import (
+    EphemeralWorkspace,
+    create_ephemeral_workspace,
+    deployment_workspace,
+    ephemeral_workspace,
+    sync_runtime_outputs,
+)
 from .registry import ProviderRegistry
 from .exceptions import DeploymentError, ProviderNotFoundError, ConfigurationError
 
@@ -43,8 +49,10 @@ __all__ = [
     "EphemeralWorkspace",
     "ProjectConfig",
     "create_ephemeral_workspace",
+    "deployment_workspace",
     "ephemeral_workspace",
     "resolve_deployment_paths",
+    "sync_runtime_outputs",
     # Registry
     "ProviderRegistry",
     # Exceptions

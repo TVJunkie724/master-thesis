@@ -39,22 +39,17 @@ def _prepare_deployment_context(project_name: str, provider: str, operation: str
     return DeploymentRequest(project_name=project_name, provider=normalized_provider), context
 
 
-def _create_strategy_for_context(context):
-    """Create Terraform strategy from the already-resolved DeploymentContext path."""
-    terraform_dir = context.project_path / "terraform"
-    return core_deployer.create_terraform_strategy(
-        context,
-        terraform_dir=str(terraform_dir),
-        project_path=str(context.project_path),
-    )
+def _redact_runtime_paths(detail: str) -> str:
+    """Return a client-safe detail without leaking runtime paths."""
+    detail = re.sub(r"(/[^\s:]+/upload/[^\s:]+)", "<project-path>", detail)
+    detail = re.sub(r"(/app/upload/[^\s:]+)", "<project-path>", detail)
+    detail = re.sub(r"(/[^\s:]+/twin2multicloud-deployer-workspaces/[^\s:]+)", "<workspace-path>", detail)
+    return detail
 
 
 def _validation_error_detail(error: ValueError) -> str:
     """Return a client-safe validation detail without leaking runtime paths."""
-    detail = str(error)
-    detail = re.sub(r"(/[^\s:]+/upload/[^\s:]+)", "<project-path>", detail)
-    detail = re.sub(r"(/app/upload/[^\s:]+)", "<project-path>", detail)
-    return f"Validation failed: {detail}"
+    return f"Validation failed: {_redact_runtime_paths(str(error))}"
 
 
 # --------- Cooldown Check ----------
@@ -236,18 +231,20 @@ async def deploy_stream(
     """
     try:
         request, context = _prepare_deployment_context(project_name, provider, "deploy")
-        
-        strategy = _create_strategy_for_context(context)
+        stream_outputs: dict = {}
         
         async def generate():
             try:
-                async for line in core_deployer.deploy_all_stream(context, strategy=strategy):
+                async for line in core_deployer.deploy_all_stream(context, output_sink=stream_outputs):
                     yield DeploymentStreamEvent.log(DeploymentOperation.deploy, line).to_sse()
                 # Final success event
-                outputs = core_deployer.get_terraform_outputs(strategy)
+                outputs = stream_outputs.get("outputs", {})
                 yield DeploymentStreamEvent.complete(DeploymentOperation.deploy, outputs=outputs).to_sse()
             except Exception as e:
-                yield DeploymentStreamEvent.failure(DeploymentOperation.deploy, str(e)).to_sse()
+                yield DeploymentStreamEvent.failure(
+                    DeploymentOperation.deploy,
+                    _redact_runtime_paths(str(e)),
+                ).to_sse()
         
         return StreamingResponse(
             generate(),
@@ -289,15 +286,16 @@ async def destroy_stream(
     try:
         request, context = _prepare_deployment_context(project_name, provider, "destroy")
         
-        strategy = _create_strategy_for_context(context)
-        
         async def generate():
             try:
-                async for line in core_deployer.destroy_all_stream(context, strategy=strategy):
+                async for line in core_deployer.destroy_all_stream(context):
                     yield DeploymentStreamEvent.log(DeploymentOperation.destroy, line).to_sse()
                 yield DeploymentStreamEvent.complete(DeploymentOperation.destroy).to_sse()
             except Exception as e:
-                yield DeploymentStreamEvent.failure(DeploymentOperation.destroy, str(e)).to_sse()
+                yield DeploymentStreamEvent.failure(
+                    DeploymentOperation.destroy,
+                    _redact_runtime_paths(str(e)),
+                ).to_sse()
         
         return StreamingResponse(
             generate(),

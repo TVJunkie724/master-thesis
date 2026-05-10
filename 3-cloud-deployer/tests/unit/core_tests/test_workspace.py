@@ -5,7 +5,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.core.workspace import create_ephemeral_workspace, ephemeral_workspace
+from src.core.workspace import (
+    create_ephemeral_workspace,
+    deployment_workspace,
+    ephemeral_workspace,
+    sync_runtime_outputs,
+)
 
 
 def _context(project_path: Path, project_name: str = "factory") -> SimpleNamespace:
@@ -82,6 +87,92 @@ def test_ephemeral_workspace_context_manager_cleans_up(tmp_path):
         assert workspace_path.exists()
 
     assert not workspace_path.exists()
+
+
+def test_sync_runtime_outputs_copies_only_durable_allowlisted_outputs(tmp_path):
+    project = tmp_path / "upload" / "factory"
+    project.mkdir(parents=True)
+    (project / "config.json").write_text("{}")
+
+    workspace = create_ephemeral_workspace(
+        _context(project),
+        workspace_root=tmp_path / "workspaces",
+    )
+
+    try:
+        (workspace.workspace_path / "terraform").mkdir(exist_ok=True)
+        (workspace.workspace_path / "terraform" / "terraform.tfstate").write_text("state")
+        (workspace.workspace_path / "terraform" / "terraform.tfstate.backup").write_text("backup")
+        (workspace.workspace_path / "terraform" / "generated.tfvars.json").write_text("secret")
+
+        auth_dir = workspace.workspace_path / "iot_devices_auth" / "device-1"
+        auth_dir.mkdir(parents=True)
+        (auth_dir / "certificate.pem.crt").write_text("cert")
+
+        simulator_dir = workspace.workspace_path / "iot_device_simulator" / "aws" / "device-1"
+        simulator_dir.mkdir(parents=True)
+        (simulator_dir / "config_generated.json").write_text("{}")
+        (simulator_dir / "payloads.json").write_text("[]")
+
+        build_dir = workspace.workspace_path / ".build" / "aws"
+        build_dir.mkdir(parents=True)
+        (build_dir / "processor.zip").write_text("zip")
+
+        sync_runtime_outputs(workspace)
+    finally:
+        workspace.cleanup()
+
+    assert (project / "terraform" / "terraform.tfstate").read_text() == "state"
+    assert (project / "terraform" / "terraform.tfstate.backup").read_text() == "backup"
+    assert (project / "iot_devices_auth" / "device-1" / "certificate.pem.crt").read_text() == "cert"
+    assert (project / "iot_device_simulator" / "aws" / "device-1" / "config_generated.json").read_text() == "{}"
+    assert not (project / "terraform" / "generated.tfvars.json").exists()
+    assert not (project / "iot_device_simulator" / "aws" / "device-1" / "payloads.json").exists()
+    assert not (project / ".build").exists()
+
+
+def test_deployment_workspace_uses_runtime_project_path_and_syncs_outputs(tmp_path):
+    project = tmp_path / "upload" / "factory"
+    project.mkdir(parents=True)
+    (project / "config.json").write_text("{}")
+    context = _context(project)
+
+    with deployment_workspace(context, workspace_root=tmp_path / "workspaces") as (runtime_context, workspace):
+        workspace_path = workspace.workspace_path
+        assert runtime_context.project_path == workspace_path
+        assert context.project_path == project
+        (workspace_path / "terraform").mkdir(exist_ok=True)
+        (workspace_path / "terraform" / "terraform.tfstate").write_text("state")
+
+    assert not workspace_path.exists()
+    assert (project / "terraform" / "terraform.tfstate").read_text() == "state"
+
+
+def test_sync_runtime_outputs_rejects_symlinked_destination(tmp_path):
+    project = tmp_path / "upload" / "factory"
+    project.mkdir(parents=True)
+    (project / "config.json").write_text("{}")
+
+    workspace = create_ephemeral_workspace(
+        _context(project),
+        workspace_root=tmp_path / "workspaces",
+    )
+
+    try:
+        external_state = tmp_path / "outside.tfstate"
+        external_state.write_text("outside")
+        (project / "terraform").mkdir()
+        (project / "terraform" / "terraform.tfstate").symlink_to(external_state)
+
+        (workspace.workspace_path / "terraform").mkdir(exist_ok=True)
+        (workspace.workspace_path / "terraform" / "terraform.tfstate").write_text("state")
+
+        with pytest.raises(ValueError, match="outside the source project|symlinked runtime output destination"):
+            sync_runtime_outputs(workspace)
+    finally:
+        workspace.cleanup()
+
+    assert external_state.read_text() == "outside"
 
 
 def test_create_ephemeral_workspace_rejects_symlinks(tmp_path):

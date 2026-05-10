@@ -87,23 +87,29 @@ async def _collect_stream(streaming_response) -> str:
     return "".join(chunks)
 
 
-async def _fake_deploy_stream(context, strategy=None):
+async def _fake_deploy_stream(context, strategy=None, output_sink=None):
     assert context is not None
-    assert strategy is not None
+    assert strategy is None
     yield "terraform init"
     yield "terraform apply"
+    if output_sink is not None:
+        output_sink["outputs"] = {"output": {"value": "ok"}}
 
 
 async def _fake_destroy_stream(context, strategy=None):
     assert context is not None
-    assert strategy is not None
+    assert strategy is None
     yield "terraform destroy"
+
+
+async def _fake_failing_deploy_stream(context, strategy=None, output_sink=None):
+    yield "terraform init"
+    raise RuntimeError("failed in /tmp/twin2multicloud-deployer-workspaces/test-api-abc/terraform")
 
 
 def test_deploy_stream_uses_canonical_facade_and_preserves_event_shape():
     context = MagicMock(name="deployment_context")
     context.project_path = Path("/projects/test_api_project")
-    strategy = MagicMock(name="terraform_strategy")
 
     with (
         patch.object(deployment, "check_template_protection"),
@@ -112,28 +118,20 @@ def test_deploy_stream_uses_canonical_facade_and_preserves_event_shape():
         patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
         patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context),
-        patch.object(deployment.core_deployer, "create_terraform_strategy", return_value=strategy) as mock_strategy,
         patch.object(deployment.core_deployer, "deploy_all_stream", new=_fake_deploy_stream),
-        patch.object(deployment.core_deployer, "get_terraform_outputs", return_value={"output": {"value": "ok"}}),
     ):
         response = asyncio.run(deployment.deploy_stream(provider="aws", project_name="test_api_project"))
         body = asyncio.run(_collect_stream(response))
 
-    mock_strategy.assert_called_once_with(
-        context,
-        terraform_dir="/projects/test_api_project/terraform",
-        project_path="/projects/test_api_project",
-    )
     assert response.media_type == "text/event-stream"
     assert 'data: {"event":"log","operation":"deploy","message":"terraform init"}\n\n' in body
     assert 'data: {"event":"log","operation":"deploy","message":"terraform apply"}\n\n' in body
     assert 'event: complete\ndata: {"event":"complete","operation":"deploy","success":true,"outputs":{"output":{"value":"ok"}}}\n\n' in body
 
 
-def test_destroy_stream_uses_canonical_facade_and_preserves_event_shape():
+def test_deploy_stream_redacts_workspace_paths_in_failure_event():
     context = MagicMock(name="deployment_context")
     context.project_path = Path("/projects/test_api_project")
-    strategy = MagicMock(name="terraform_strategy")
 
     with (
         patch.object(deployment, "check_template_protection"),
@@ -142,17 +140,31 @@ def test_destroy_stream_uses_canonical_facade_and_preserves_event_shape():
         patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
         patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context),
-        patch.object(deployment.core_deployer, "create_terraform_strategy", return_value=strategy) as mock_strategy,
+        patch.object(deployment.core_deployer, "deploy_all_stream", new=_fake_failing_deploy_stream),
+    ):
+        response = asyncio.run(deployment.deploy_stream(provider="aws", project_name="test_api_project"))
+        body = asyncio.run(_collect_stream(response))
+
+    assert "<workspace-path>" in body
+    assert "/tmp/twin2multicloud-deployer-workspaces" not in body
+
+
+def test_destroy_stream_uses_canonical_facade_and_preserves_event_shape():
+    context = MagicMock(name="deployment_context")
+    context.project_path = Path("/projects/test_api_project")
+
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_project_context"),
+        patch.object(deployment, "validate_provider", return_value="aws"),
+        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+        patch.object(deployment, "validate_project_directory"),
+        patch.object(deployment, "create_context", return_value=context),
         patch.object(deployment.core_deployer, "destroy_all_stream", new=_fake_destroy_stream),
     ):
         response = asyncio.run(deployment.destroy_stream(provider="aws", project_name="test_api_project"))
         body = asyncio.run(_collect_stream(response))
 
-    mock_strategy.assert_called_once_with(
-        context,
-        terraform_dir="/projects/test_api_project/terraform",
-        project_path="/projects/test_api_project",
-    )
     assert response.media_type == "text/event-stream"
     assert 'data: {"event":"log","operation":"destroy","message":"terraform destroy"}\n\n' in body
     assert 'event: complete\ndata: {"event":"complete","operation":"destroy","success":true}\n\n' in body

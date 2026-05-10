@@ -17,6 +17,7 @@ Usage:
 from pathlib import Path
 from typing import TYPE_CHECKING
 from logger import logger
+from src.core.workspace import deployment_workspace
 
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
@@ -73,10 +74,10 @@ def deploy_all(context: 'DeploymentContext', provider: str) -> dict:
         Dictionary of Terraform outputs
     """
     logger.info(f"Deploying all layers via Terraform for provider: {provider}")
-    
-    strategy = create_terraform_strategy(context)
-    
-    return strategy.deploy_all(context)
+
+    with deployment_workspace(context) as (runtime_context, _workspace):
+        strategy = create_terraform_strategy(runtime_context)
+        return strategy.deploy_all(runtime_context)
 
 
 def destroy_all(context: 'DeploymentContext', provider: str) -> None:
@@ -101,25 +102,26 @@ def destroy_all(context: 'DeploymentContext', provider: str) -> None:
     logger.info("=" * 60)
     logger.info(f"Destroying all layers via Terraform for provider: {provider}")
     
-    strategy = create_terraform_strategy(context)
-    
     terraform_error = None
-    try:
-        strategy.destroy_all(context)
-    except Exception as e:
-        terraform_error = e
-        logger.warning(f"Terraform destroy failed/partial: {e}")
-        # Continue to SDK cleanup regardless
-    
-    # ==========================================
-    # PHASE 2: SDK FALLBACK CLEANUP
-    # ==========================================
-    logger.info("")
-    logger.info("=" * 60)
-    logger.info("  PHASE 2: SDK FALLBACK CLEANUP")
-    logger.info("=" * 60)
-    
-    _run_sdk_cleanup(context)
+    with deployment_workspace(context) as (runtime_context, _workspace):
+        strategy = create_terraform_strategy(runtime_context)
+
+        try:
+            strategy.destroy_all(runtime_context)
+        except Exception as e:
+            terraform_error = e
+            logger.warning(f"Terraform destroy failed/partial: {e}")
+            # Continue to SDK cleanup regardless
+
+        # ==========================================
+        # PHASE 2: SDK FALLBACK CLEANUP
+        # ==========================================
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("  PHASE 2: SDK FALLBACK CLEANUP")
+        logger.info("=" * 60)
+
+        _run_sdk_cleanup(runtime_context)
     
     if terraform_error:
         logger.info("Destroy completed with Terraform errors (SDK cleanup ran as fallback)")
@@ -136,7 +138,7 @@ def _run_sdk_cleanup(context: 'DeploymentContext') -> None:
     - Control-plane timing issues (TwinMaker, Firestore)
     """
     # Get prefix from config
-    prefix = context.config.get("digital_twin_name", "")
+    prefix = _config_value(context.config, "digital_twin_name", "")
     
     # CRITICAL: Fail-safe guard against empty prefix
     # An empty prefix would match ALL resources in the account!
@@ -196,6 +198,13 @@ def _run_sdk_cleanup(context: 'DeploymentContext') -> None:
     logger.info("[SDK Cleanup] Fallback cleanup complete")
 
 
+def _config_value(config, key: str, default=None):
+    """Read a project config value from either a dataclass or legacy dict."""
+    if isinstance(config, dict):
+        return config.get(key, default)
+    return getattr(config, key, default)
+
+
 # ==========================================
 # Terraform Deployment (Alternative Entry Point)
 # ==========================================
@@ -221,9 +230,13 @@ def deploy_all_terraform(context: 'DeploymentContext', terraform_dir: str = None
         TerraformError: If Terraform apply fails
     """
     logger.info(f"Starting Terraform deployment for {context.project_name}")
-    strategy = create_terraform_strategy(context, terraform_dir=terraform_dir)
-    
-    return strategy.deploy_all(context)
+    with deployment_workspace(context) as (runtime_context, _workspace):
+        strategy = create_terraform_strategy(
+            runtime_context,
+            terraform_dir=terraform_dir,
+            project_path=str(runtime_context.project_path),
+        )
+        return strategy.deploy_all(runtime_context)
 
 
 def destroy_all_terraform(context: 'DeploymentContext', terraform_dir: str = None) -> None:
@@ -235,9 +248,13 @@ def destroy_all_terraform(context: 'DeploymentContext', terraform_dir: str = Non
         terraform_dir: Path to Terraform directory
     """
     logger.info(f"Starting Terraform destroy for {context.project_name}")
-    strategy = create_terraform_strategy(context, terraform_dir=terraform_dir)
-    
-    strategy.destroy_all(context)
+    with deployment_workspace(context) as (runtime_context, _workspace):
+        strategy = create_terraform_strategy(
+            runtime_context,
+            terraform_dir=terraform_dir,
+            project_path=str(runtime_context.project_path),
+        )
+        strategy.destroy_all(runtime_context)
 
 
 async def deploy_all_stream(
@@ -245,15 +262,26 @@ async def deploy_all_stream(
     strategy=None,
     terraform_dir: str | None = None,
     project_path: str | None = None,
+    output_sink: dict | None = None,
 ):
     """Stream canonical Terraform deployment log lines."""
-    strategy = strategy or create_terraform_strategy(
-        context,
-        terraform_dir=terraform_dir,
-        project_path=project_path,
-    )
-    async for line in strategy.deploy_all_async(context):
-        yield line
+    if strategy is not None:
+        async for line in strategy.deploy_all_async(context):
+            yield line
+        if output_sink is not None:
+            output_sink["outputs"] = strategy.get_outputs()
+        return
+
+    with deployment_workspace(context) as (runtime_context, _workspace):
+        runtime_strategy = create_terraform_strategy(
+            runtime_context,
+            terraform_dir=terraform_dir,
+            project_path=str(runtime_context.project_path),
+        )
+        async for line in runtime_strategy.deploy_all_async(runtime_context):
+            yield line
+        if output_sink is not None:
+            output_sink["outputs"] = runtime_strategy.get_outputs()
 
 
 async def destroy_all_stream(
@@ -263,13 +291,19 @@ async def destroy_all_stream(
     project_path: str | None = None,
 ):
     """Stream canonical Terraform destroy log lines."""
-    strategy = strategy or create_terraform_strategy(
-        context,
-        terraform_dir=terraform_dir,
-        project_path=project_path,
-    )
-    async for line in strategy.destroy_all_async(context):
-        yield line
+    if strategy is not None:
+        async for line in strategy.destroy_all_async(context):
+            yield line
+        return
+
+    with deployment_workspace(context) as (runtime_context, _workspace):
+        runtime_strategy = create_terraform_strategy(
+            runtime_context,
+            terraform_dir=terraform_dir,
+            project_path=str(runtime_context.project_path),
+        )
+        async for line in runtime_strategy.destroy_all_async(runtime_context):
+            yield line
 
 
 def get_terraform_outputs(strategy) -> dict:

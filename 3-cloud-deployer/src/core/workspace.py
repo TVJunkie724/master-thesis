@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import copy
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, is_dataclass, replace
+import logging
 from pathlib import Path
 import shutil
 import tempfile
@@ -11,6 +13,8 @@ from typing import Iterator
 
 import constants as CONSTANTS
 
+
+logger = logging.getLogger(__name__)
 
 EXCLUDED_DIR_NAMES = {
     CONSTANTS.PROJECT_VERSIONS_DIR_NAME,
@@ -46,6 +50,32 @@ class EphemeralWorkspace:
     def cleanup(self) -> None:
         """Remove the workspace directory if it still exists."""
         shutil.rmtree(self.workspace_path, ignore_errors=True)
+
+
+@contextmanager
+def deployment_workspace(context, workspace_root: Path | None = None) -> Iterator[tuple[object, EphemeralWorkspace]]:
+    """
+    Run a deployment against an isolated workspace and sync durable outputs.
+
+    The runtime context keeps the original project metadata but points
+    `project_path` at the temporary workspace. On exit, only explicitly
+    allowlisted runtime outputs are copied back to the source project.
+    """
+    workspace = create_ephemeral_workspace(context, workspace_root=workspace_root)
+    runtime_context = _clone_context_with_project_path(context, workspace.workspace_path)
+
+    try:
+        yield runtime_context, workspace
+    except Exception:
+        try:
+            sync_runtime_outputs(workspace)
+        except Exception as sync_error:
+            logger.warning("Failed to sync runtime outputs after deployment error: %s", sync_error)
+        raise
+    else:
+        sync_runtime_outputs(workspace)
+    finally:
+        workspace.cleanup()
 
 
 def create_ephemeral_workspace(context, workspace_root: Path | None = None) -> EphemeralWorkspace:
@@ -100,6 +130,93 @@ def ephemeral_workspace(context, workspace_root: Path | None = None) -> Iterator
         yield workspace
     finally:
         workspace.cleanup()
+
+
+def sync_runtime_outputs(workspace: EphemeralWorkspace) -> None:
+    """
+    Copy durable deployment outputs from a workspace back to the source project.
+
+    Build products, generated tfvars and provider caches stay ephemeral. Terraform
+    state and simulator runtime assets are durable because subsequent destroy and
+    simulator/download flows depend on them.
+    """
+    _copy_file_if_exists(
+        workspace.state_path,
+        workspace.source_path / "terraform" / "terraform.tfstate",
+        workspace.source_path,
+    )
+    _copy_file_if_exists(
+        workspace.terraform_dir / "terraform.tfstate.backup",
+        workspace.source_path / "terraform" / "terraform.tfstate.backup",
+        workspace.source_path,
+    )
+    _copy_directory_if_exists(
+        workspace.workspace_path / "iot_devices_auth",
+        workspace.source_path / "iot_devices_auth",
+        workspace.source_path,
+    )
+    _sync_generated_simulator_configs(workspace)
+
+
+def _clone_context_with_project_path(context, project_path: Path):
+    if is_dataclass(context):
+        return replace(context, project_path=project_path)
+
+    runtime_context = copy.copy(context)
+    runtime_context.project_path = project_path
+    return runtime_context
+
+
+def _copy_file_if_exists(source: Path, destination: Path, destination_root: Path) -> None:
+    if not source.exists():
+        return
+    if source.is_symlink():
+        raise ValueError("Refusing to sync symlinked runtime output.")
+    _ensure_safe_destination(destination, destination_root)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, destination)
+
+
+def _copy_directory_if_exists(source: Path, destination: Path, destination_root: Path) -> None:
+    if not source.exists():
+        return
+    if source.is_symlink():
+        raise ValueError("Refusing to sync symlinked runtime output directory.")
+    _assert_tree_has_no_symlinks(source)
+    _ensure_safe_destination(destination, destination_root)
+    if destination.exists():
+        _assert_tree_has_no_symlinks(destination)
+    destination.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source, destination, dirs_exist_ok=True)
+
+
+def _sync_generated_simulator_configs(workspace: EphemeralWorkspace) -> None:
+    simulator_root = workspace.workspace_path / "iot_device_simulator"
+    if not simulator_root.exists():
+        return
+    if simulator_root.is_symlink():
+        raise ValueError("Refusing to sync symlinked simulator output directory.")
+
+    for source in simulator_root.rglob("config_generated*.json"):
+        if source.is_symlink():
+            raise ValueError("Refusing to sync symlinked simulator output.")
+        relative_path = source.relative_to(workspace.workspace_path)
+        _copy_file_if_exists(source, workspace.source_path / relative_path, workspace.source_path)
+
+
+def _ensure_safe_destination(destination: Path, destination_root: Path) -> None:
+    root = destination_root.resolve()
+    parent = destination.parent.resolve()
+    if not _is_relative_to(parent, root):
+        raise ValueError("Refusing to sync runtime output outside the source project.")
+    if destination.exists() and destination.is_symlink():
+        raise ValueError("Refusing to overwrite symlinked runtime output destination.")
+
+
+def _assert_tree_has_no_symlinks(root: Path) -> None:
+    for path in root.rglob("*"):
+        if path.is_symlink():
+            raise ValueError("Refusing to sync runtime output containing symlinks.")
 
 
 def _workspace_root_path(workspace_root: Path | None) -> Path:
