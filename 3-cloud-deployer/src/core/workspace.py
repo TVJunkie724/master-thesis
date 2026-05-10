@@ -156,6 +156,7 @@ def sync_runtime_outputs(workspace: EphemeralWorkspace) -> None:
         workspace.source_path,
     )
     _sync_generated_simulator_configs(workspace)
+    _sync_build_metadata(workspace)
 
 
 def _clone_context_with_project_path(context, project_path: Path):
@@ -200,6 +201,20 @@ def _sync_generated_simulator_configs(workspace: EphemeralWorkspace) -> None:
     for source in simulator_root.rglob("config_generated*.json"):
         if source.is_symlink():
             raise ValueError("Refusing to sync symlinked simulator output.")
+        relative_path = source.relative_to(workspace.workspace_path)
+        _copy_file_if_exists(source, workspace.source_path / relative_path, workspace.source_path)
+
+
+def _sync_build_metadata(workspace: EphemeralWorkspace) -> None:
+    metadata_root = workspace.workspace_path / ".build" / "metadata"
+    if not metadata_root.exists():
+        return
+    if metadata_root.is_symlink():
+        raise ValueError("Refusing to sync symlinked build metadata directory.")
+
+    for source in metadata_root.rglob("*.json"):
+        if source.is_symlink():
+            raise ValueError("Refusing to sync symlinked build metadata.")
         relative_path = source.relative_to(workspace.workspace_path)
         _copy_file_if_exists(source, workspace.source_path / relative_path, workspace.source_path)
 

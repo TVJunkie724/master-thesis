@@ -117,6 +117,9 @@ def test_sync_runtime_outputs_copies_only_durable_allowlisted_outputs(tmp_path):
         build_dir = workspace.workspace_path / ".build" / "aws"
         build_dir.mkdir(parents=True)
         (build_dir / "processor.zip").write_text("zip")
+        metadata_dir = workspace.workspace_path / ".build" / "metadata"
+        metadata_dir.mkdir(parents=True)
+        (metadata_dir / "processor.aws.json").write_text('{"zip_hash": "sha256:abc"}')
 
         sync_runtime_outputs(workspace)
     finally:
@@ -128,7 +131,8 @@ def test_sync_runtime_outputs_copies_only_durable_allowlisted_outputs(tmp_path):
     assert (project / "iot_device_simulator" / "aws" / "device-1" / "config_generated.json").read_text() == "{}"
     assert not (project / "terraform" / "generated.tfvars.json").exists()
     assert not (project / "iot_device_simulator" / "aws" / "device-1" / "payloads.json").exists()
-    assert not (project / ".build").exists()
+    assert (project / ".build" / "metadata" / "processor.aws.json").read_text() == '{"zip_hash": "sha256:abc"}'
+    assert not (project / ".build" / "aws").exists()
 
 
 def test_deployment_workspace_uses_runtime_project_path_and_syncs_outputs(tmp_path):
