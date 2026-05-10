@@ -215,7 +215,7 @@ def check_code_hashes(project_name: str) -> Dict[str, Any]:
                         "deployed": True,
                         "provider": metadata.get("provider"),
                         "hash": metadata.get("zip_hash"),
-                        "last_updated": metadata.get("last_deployed")
+                        "last_updated": metadata.get("last_deployed") or metadata.get("last_built")
                     }
             except Exception as e:
                 logger.warning(f"Failed to read hash metadata {filename}: {e}")
