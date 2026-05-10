@@ -15,7 +15,10 @@ This module provides endpoints for checking deployment status using a hybrid app
 
 import json
 import os
-import subprocess
+# Terraform is invoked via a fixed argv list with shell disabled.
+import subprocess  # nosec B404
+import tempfile
+from pathlib import Path
 from typing import Dict, Any, Optional, List
 
 from fastapi import APIRouter, HTTPException, Query
@@ -24,6 +27,7 @@ import constants as CONSTANTS
 import src.core.state as state
 import src.validator as validator
 from src.core.paths import resolve_project_context_path
+from src.tfvars_generator import generate_tfvars
 from api.dependencies import validate_project_context
 from logger import print_stack_trace, logger
 from api.error_models import ERROR_RESPONSES
@@ -81,7 +85,8 @@ def _run_terraform_command(args: List[str], project_name: str) -> subprocess.Com
             cmd.extend(args[1:])
     
     try:
-        result = subprocess.run(
+        # cmd is an argv list assembled from fixed Terraform arguments; shell stays disabled.
+        result = subprocess.run(  # nosec B603
             cmd,
             capture_output=True,
             text=True,
@@ -356,21 +361,18 @@ def check_terraform_drift(project_name: str) -> Dict[str, Any]:
     """
     try:
         upload_dir = _get_upload_dir(project_name)
-        var_file = os.path.join(upload_dir, "terraform", "generated.tfvars.json")
-        
-        if not os.path.exists(var_file):
-            return {
-                "status": "no_var_file",
-                "error": "No generated.tfvars.json found - run deployment first"
-            }
-        
-        # Run terraform plan -refresh-only
-        result = _run_terraform_command([
-            "plan",
-            "-refresh-only",
-            "-detailed-exitcode",
-            f"-var-file={var_file}"
-        ], project_name)
+        with tempfile.TemporaryDirectory(prefix="twin2multicloud-drift-") as temp_dir:
+            var_file = Path(temp_dir) / "generated.tfvars.json"
+            generate_tfvars(upload_dir, str(var_file))
+
+            # Run terraform plan -refresh-only with transient tfvars. The file
+            # may contain credentials, so it must not be persisted in upload/.
+            result = _run_terraform_command([
+                "plan",
+                "-refresh-only",
+                "-detailed-exitcode",
+                f"-var-file={var_file}"
+            ], project_name)
         
         # Exit codes: 0 = no changes, 1 = error, 2 = changes detected
         if result.returncode == 0:
