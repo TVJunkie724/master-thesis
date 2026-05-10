@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from src.core.observability import OperationContext
 from src.providers import deployer
 
 
@@ -37,7 +38,7 @@ def test_deploy_all_runs_strategy_against_runtime_workspace_context():
         result = deployer.deploy_all(source_context, "aws")
 
     assert result == {"ok": {"value": True}}
-    mock_workspace.assert_called_once_with(source_context)
+    mock_workspace.assert_called_once_with(source_context, operation_context=None)
     mock_strategy.assert_called_once_with(runtime_context)
     strategy.deploy_all.assert_called_once_with(runtime_context)
 
@@ -54,7 +55,7 @@ def test_destroy_all_runs_terraform_and_sdk_cleanup_against_runtime_workspace_co
     ):
         deployer.destroy_all(source_context, "aws")
 
-    mock_workspace.assert_called_once_with(source_context)
+    mock_workspace.assert_called_once_with(source_context, operation_context=None)
     strategy.destroy_all.assert_called_once_with(runtime_context)
     mock_sdk_cleanup.assert_called_once_with(runtime_context)
 
@@ -97,6 +98,27 @@ def test_destroy_all_terraform_uses_workspace_with_explicit_terraform_dir():
         project_path="/tmp/workspace/factory",
     )
     strategy.destroy_all.assert_called_once_with(runtime_context)
+
+
+def test_deploy_all_passes_operation_context_to_workspace_boundary():
+    source_context = _context()
+    runtime_context = _context(Path("/tmp/workspace/factory"))
+    operation_context = OperationContext.create(
+        operation="deploy",
+        project_name="factory",
+        provider="aws",
+        operation_id="op-123",
+    )
+    strategy = MagicMock()
+    strategy.deploy_all.return_value = {"ok": {"value": True}}
+
+    with (
+        patch.object(deployer, "deployment_workspace", return_value=_workspace_context(runtime_context)) as mock_workspace,
+        patch.object(deployer, "create_terraform_strategy", return_value=strategy),
+    ):
+        deployer.deploy_all(source_context, "aws", operation_context=operation_context)
+
+    mock_workspace.assert_called_once_with(source_context, operation_context=operation_context)
 
 
 def test_deploy_all_stream_sets_outputs_from_runtime_workspace_strategy():

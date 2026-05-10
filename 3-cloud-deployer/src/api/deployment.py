@@ -6,7 +6,6 @@ This module provides REST API endpoints for infrastructure operations.
 """
 
 from datetime import datetime, timezone
-import re
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from api.dependencies import validate_project_context, validate_provider, check_template_protection
@@ -17,9 +16,11 @@ from src.api.models.deployment import (
     DeploymentStreamEvent,
     DestroyResult,
 )
+from src.core.deployment_errors import client_error_payload
+from src.core.observability import OperationContext, operation_step
 from src.core.paths import resolve_project_context_path
 from src.validation.directory_validator import validate_project_directory
-from logger import print_stack_trace, logger
+from logger import logger
 
 import providers.deployer as core_deployer
 from src.core.factory import create_context
@@ -37,19 +38,6 @@ def _prepare_deployment_context(project_name: str, provider: str, operation: str
     validate_project_directory(project_dir)
     context = create_context(project_name, normalized_provider)
     return DeploymentRequest(project_name=project_name, provider=normalized_provider), context
-
-
-def _redact_runtime_paths(detail: str) -> str:
-    """Return a client-safe detail without leaking runtime paths."""
-    detail = re.sub(r"(/[^\s:]+/upload/[^\s:]+)", "<project-path>", detail)
-    detail = re.sub(r"(/app/upload/[^\s:]+)", "<project-path>", detail)
-    detail = re.sub(r"(/[^\s:]+/twin2multicloud-deployer-workspaces/[^\s:]+)", "<workspace-path>", detail)
-    return detail
-
-
-def _validation_error_detail(error: ValueError) -> str:
-    """Return a client-safe validation detail without leaking runtime paths."""
-    return f"Validation failed: {_redact_runtime_paths(str(error))}"
 
 
 # --------- Cooldown Check ----------
@@ -139,26 +127,44 @@ def deploy_all(
     
     **Note:** Long-running operation (2-10 minutes depending on resources).
     """
+    operation_context = OperationContext.create(
+        operation=DeploymentOperation.deploy.value,
+        project_name=project_name,
+        provider=provider,
+    )
     try:
-        request, context = _prepare_deployment_context(project_name, provider, "deploy")
+        with operation_step(logger, operation_context, "request_prepare"):
+            request, context = _prepare_deployment_context(project_name, provider, "deploy")
+        operation_context = operation_context.with_provider(request.provider)
         
         # TerraformDeployerStrategy handles validation + deployment
-        outputs = core_deployer.deploy_all(context, request.provider)
+        outputs = core_deployer.deploy_all(
+            context,
+            request.provider,
+            operation_context=operation_context,
+        )
         
         return DeploymentResult(
             project_name=request.project_name,
             provider=request.provider,
+            operation_id=operation_context.operation_id,
             terraform_outputs=outputs,
         ).model_dump(mode="json")
     except HTTPException:
         raise
     except ValueError as e:
-        # Validation errors get 400, not 500
-        raise HTTPException(status_code=400, detail=_validation_error_detail(e))
+        detail = client_error_payload(e, operation_context)
+        raise HTTPException(status_code=detail["http_status"], detail=detail)
     except Exception as e:
-        print_stack_trace()
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Deployment operation failed. Check logs.")
+        logger.error(
+            "Deployment operation failed",
+            extra=operation_context.log_extra(
+                phase="route_deploy",
+                error_type=type(e).__name__,
+            ),
+        )
+        detail = client_error_payload(e, operation_context)
+        raise HTTPException(status_code=detail["http_status"], detail=detail)
 
 
 @router.post(
@@ -186,24 +192,43 @@ def destroy_all(
     
     **Note:** This operation cannot be undone. All data will be lost.
     """
+    operation_context = OperationContext.create(
+        operation=DeploymentOperation.destroy.value,
+        project_name=project_name,
+        provider=provider,
+    )
     try:
-        request, context = _prepare_deployment_context(project_name, provider, "destroy")
+        with operation_step(logger, operation_context, "request_prepare"):
+            request, context = _prepare_deployment_context(project_name, provider, "destroy")
+        operation_context = operation_context.with_provider(request.provider)
         
         # TerraformDeployerStrategy handles all destruction
-        core_deployer.destroy_all(context, request.provider)
+        core_deployer.destroy_all(
+            context,
+            request.provider,
+            operation_context=operation_context,
+        )
         
         return DestroyResult(
             project_name=request.project_name,
             provider=request.provider,
+            operation_id=operation_context.operation_id,
         ).model_dump(mode="json")
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=_validation_error_detail(e))
+        detail = client_error_payload(e, operation_context)
+        raise HTTPException(status_code=detail["http_status"], detail=detail)
     except Exception as e:
-        print_stack_trace()
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Deployment operation failed. Check logs.")
+        logger.error(
+            "Destruction operation failed",
+            extra=operation_context.log_extra(
+                phase="route_destroy",
+                error_type=type(e).__name__,
+            ),
+        )
+        detail = client_error_payload(e, operation_context)
+        raise HTTPException(status_code=detail["http_status"], detail=detail)
 
 
 # --------- SSE Streaming Endpoints ----------
@@ -229,21 +254,43 @@ async def deploy_stream(
     
     Returns an SSE stream with real-time deployment logs.
     """
+    operation_context = OperationContext.create(
+        operation=DeploymentOperation.deploy.value,
+        project_name=project_name,
+        provider=provider,
+    )
     try:
-        request, context = _prepare_deployment_context(project_name, provider, "deploy")
+        with operation_step(logger, operation_context, "request_prepare"):
+            request, context = _prepare_deployment_context(project_name, provider, "deploy")
+        operation_context = operation_context.with_provider(request.provider)
         stream_outputs: dict = {}
         
         async def generate():
             try:
-                async for line in core_deployer.deploy_all_stream(context, output_sink=stream_outputs):
-                    yield DeploymentStreamEvent.log(DeploymentOperation.deploy, line).to_sse()
+                async for line in core_deployer.deploy_all_stream(
+                    context,
+                    output_sink=stream_outputs,
+                    operation_context=operation_context,
+                ):
+                    yield DeploymentStreamEvent.log(
+                        DeploymentOperation.deploy,
+                        line,
+                        operation_id=operation_context.operation_id,
+                    ).to_sse()
                 # Final success event
                 outputs = stream_outputs.get("outputs", {})
-                yield DeploymentStreamEvent.complete(DeploymentOperation.deploy, outputs=outputs).to_sse()
+                yield DeploymentStreamEvent.complete(
+                    DeploymentOperation.deploy,
+                    outputs=outputs,
+                    operation_id=operation_context.operation_id,
+                ).to_sse()
             except Exception as e:
+                detail = client_error_payload(e, operation_context)
                 yield DeploymentStreamEvent.failure(
                     DeploymentOperation.deploy,
-                    _redact_runtime_paths(str(e)),
+                    detail["message"],
+                    error_code=detail["error_code"],
+                    operation_id=operation_context.operation_id,
                 ).to_sse()
         
         return StreamingResponse(
@@ -258,11 +305,18 @@ async def deploy_stream(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=_validation_error_detail(e))
+        detail = client_error_payload(e, operation_context)
+        raise HTTPException(status_code=detail["http_status"], detail=detail)
     except Exception as e:
-        print_stack_trace()
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Deployment operation failed. Check logs.")
+        logger.error(
+            "Deployment stream setup failed",
+            extra=operation_context.log_extra(
+                phase="route_deploy_stream",
+                error_type=type(e).__name__,
+            ),
+        )
+        detail = client_error_payload(e, operation_context)
+        raise HTTPException(status_code=detail["http_status"], detail=detail)
 
 
 @router.post(
@@ -283,18 +337,38 @@ async def destroy_stream(
     
     Returns an SSE stream with real-time destruction logs.
     """
+    operation_context = OperationContext.create(
+        operation=DeploymentOperation.destroy.value,
+        project_name=project_name,
+        provider=provider,
+    )
     try:
-        request, context = _prepare_deployment_context(project_name, provider, "destroy")
+        with operation_step(logger, operation_context, "request_prepare"):
+            request, context = _prepare_deployment_context(project_name, provider, "destroy")
+        operation_context = operation_context.with_provider(request.provider)
         
         async def generate():
             try:
-                async for line in core_deployer.destroy_all_stream(context):
-                    yield DeploymentStreamEvent.log(DeploymentOperation.destroy, line).to_sse()
-                yield DeploymentStreamEvent.complete(DeploymentOperation.destroy).to_sse()
+                async for line in core_deployer.destroy_all_stream(
+                    context,
+                    operation_context=operation_context,
+                ):
+                    yield DeploymentStreamEvent.log(
+                        DeploymentOperation.destroy,
+                        line,
+                        operation_id=operation_context.operation_id,
+                    ).to_sse()
+                yield DeploymentStreamEvent.complete(
+                    DeploymentOperation.destroy,
+                    operation_id=operation_context.operation_id,
+                ).to_sse()
             except Exception as e:
+                detail = client_error_payload(e, operation_context)
                 yield DeploymentStreamEvent.failure(
                     DeploymentOperation.destroy,
-                    _redact_runtime_paths(str(e)),
+                    detail["message"],
+                    error_code=detail["error_code"],
+                    operation_id=operation_context.operation_id,
                 ).to_sse()
         
         return StreamingResponse(
@@ -309,8 +383,15 @@ async def destroy_stream(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=_validation_error_detail(e))
+        detail = client_error_payload(e, operation_context)
+        raise HTTPException(status_code=detail["http_status"], detail=detail)
     except Exception as e:
-        print_stack_trace()
-        logger.error(str(e))
-        raise HTTPException(status_code=500, detail="Destruction operation failed. Check logs.")
+        logger.error(
+            "Destruction stream setup failed",
+            extra=operation_context.log_extra(
+                phase="route_destroy_stream",
+                error_type=type(e).__name__,
+            ),
+        )
+        detail = client_error_payload(e, operation_context)
+        raise HTTPException(status_code=detail["http_status"], detail=detail)

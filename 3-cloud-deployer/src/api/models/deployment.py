@@ -42,6 +42,7 @@ class DeploymentResult(BaseModel):
     operation: DeploymentOperation = DeploymentOperation.deploy
     project_name: str
     provider: str
+    operation_id: str
     terraform_outputs: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -53,6 +54,7 @@ class DestroyResult(BaseModel):
     operation: DeploymentOperation = DeploymentOperation.destroy
     project_name: str
     provider: str
+    operation_id: str
 
 
 class DeploymentStreamEvent(BaseModel):
@@ -64,31 +66,54 @@ class DeploymentStreamEvent(BaseModel):
     message: str | None = None
     outputs: dict[str, Any] | None = None
     error: str | None = None
+    error_code: str | None = None
+    operation_id: str | None = None
 
     @classmethod
-    def log(cls, operation: DeploymentOperation, message: str) -> "DeploymentStreamEvent":
-        return cls(event=DeploymentEventType.log, operation=operation, message=message)
+    def log(
+        cls,
+        operation: DeploymentOperation,
+        message: str,
+        operation_id: str | None = None,
+    ) -> "DeploymentStreamEvent":
+        return cls(
+            event=DeploymentEventType.log,
+            operation=operation,
+            message=message,
+            operation_id=operation_id,
+        )
 
     @classmethod
     def complete(
         cls,
         operation: DeploymentOperation,
         outputs: dict[str, Any] | None = None,
+        operation_id: str | None = None,
     ) -> "DeploymentStreamEvent":
         return cls(
             event=DeploymentEventType.complete,
             operation=operation,
             success=True,
             outputs=outputs,
+            operation_id=operation_id,
         )
 
     @classmethod
-    def failure(cls, operation: DeploymentOperation, error: str) -> "DeploymentStreamEvent":
+    def failure(
+        cls,
+        operation: DeploymentOperation,
+        error: str,
+        *,
+        error_code: str | None = None,
+        operation_id: str | None = None,
+    ) -> "DeploymentStreamEvent":
         return cls(
             event=DeploymentEventType.error,
             operation=operation,
             success=False,
             error=error,
+            error_code=error_code,
+            operation_id=operation_id,
         )
 
     def to_sse(self) -> str:

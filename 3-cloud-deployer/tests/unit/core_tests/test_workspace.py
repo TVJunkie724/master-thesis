@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from src.core.observability import OperationContext
 from src.core.workspace import (
     create_ephemeral_workspace,
     deployment_workspace,
@@ -150,6 +151,31 @@ def test_deployment_workspace_uses_runtime_project_path_and_syncs_outputs(tmp_pa
 
     assert not workspace_path.exists()
     assert (project / "terraform" / "terraform.tfstate").read_text() == "state"
+
+
+def test_deployment_workspace_logs_prepare_phase_with_operation_context(tmp_path, caplog):
+    project = tmp_path / "upload" / "factory"
+    project.mkdir(parents=True)
+    (project / "config.json").write_text("{}")
+    operation_context = OperationContext.create(
+        operation="deploy",
+        project_name="factory",
+        provider="aws",
+        operation_id="op-123",
+    )
+
+    with caplog.at_level("INFO", logger="src.core.workspace"):
+        with deployment_workspace(
+            _context(project),
+            workspace_root=tmp_path / "workspaces",
+            operation_context=operation_context,
+        ) as (_runtime_context, workspace):
+            workspace_path = workspace.workspace_path
+
+    assert not workspace_path.exists()
+    assert "Deployment phase started: workspace_prepare" in caplog.text
+    assert "Deployment phase completed: workspace_prepare" in caplog.text
+    assert "op-123" in [getattr(record, "operation_id", None) for record in caplog.records]
 
 
 def test_sync_runtime_outputs_rejects_symlinked_destination(tmp_path):

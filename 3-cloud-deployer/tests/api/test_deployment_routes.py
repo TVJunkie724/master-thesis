@@ -37,8 +37,14 @@ def test_deploy_route_invokes_canonical_facade_with_hard_response_shape():
     mock_resolve_path.assert_called_once_with("test_api_project")
     mock_validate_directory.assert_called_once_with("/projects/test_api_project")
     mock_create_context.assert_called_once_with("test_api_project", "aws")
-    mock_deploy_all.assert_called_once_with(context, "aws")
+    assert mock_deploy_all.call_args.args == (context, "aws")
+    operation_context = mock_deploy_all.call_args.kwargs["operation_context"]
+    assert operation_context.operation == "deploy"
+    assert operation_context.project_name == "test_api_project"
+    assert operation_context.provider == "aws"
 
+    operation_id = response.pop("operation_id")
+    assert operation_id == operation_context.operation_id
     assert response == {
         "message": "Core and IoT services deployed successfully",
         "status": "success",
@@ -69,8 +75,14 @@ def test_destroy_route_invokes_canonical_facade_with_hard_response_shape():
     mock_resolve_path.assert_called_once_with("test_api_project")
     mock_validate_directory.assert_called_once_with("/projects/test_api_project")
     mock_create_context.assert_called_once_with("test_api_project", "aws")
-    mock_destroy_all.assert_called_once_with(context, "aws")
+    assert mock_destroy_all.call_args.args == (context, "aws")
+    operation_context = mock_destroy_all.call_args.kwargs["operation_context"]
+    assert operation_context.operation == "destroy"
+    assert operation_context.project_name == "test_api_project"
+    assert operation_context.provider == "aws"
 
+    operation_id = response.pop("operation_id")
+    assert operation_id == operation_context.operation_id
     assert response == {
         "message": "Core and IoT services destroyed successfully",
         "status": "success",
@@ -87,24 +99,31 @@ async def _collect_stream(streaming_response) -> str:
     return "".join(chunks)
 
 
-async def _fake_deploy_stream(context, strategy=None, output_sink=None):
+async def _fake_deploy_stream(context, strategy=None, output_sink=None, operation_context=None):
     assert context is not None
     assert strategy is None
+    assert operation_context is not None
     yield "terraform init"
     yield "terraform apply"
     if output_sink is not None:
         output_sink["outputs"] = {"output": {"value": "ok"}}
 
 
-async def _fake_destroy_stream(context, strategy=None):
+async def _fake_destroy_stream(context, strategy=None, operation_context=None):
     assert context is not None
     assert strategy is None
+    assert operation_context is not None
     yield "terraform destroy"
 
 
-async def _fake_failing_deploy_stream(context, strategy=None, output_sink=None):
+async def _fake_failing_deploy_stream(context, strategy=None, output_sink=None, operation_context=None):
     yield "terraform init"
     raise RuntimeError("failed in /tmp/twin2multicloud-deployer-workspaces/test-api-abc/terraform")
+
+
+async def _fake_failing_destroy_stream(context, strategy=None, operation_context=None):
+    yield "terraform destroy"
+    raise RuntimeError("client_secret=super-secret")
 
 
 def test_deploy_stream_uses_canonical_facade_and_preserves_event_shape():
@@ -124,9 +143,10 @@ def test_deploy_stream_uses_canonical_facade_and_preserves_event_shape():
         body = asyncio.run(_collect_stream(response))
 
     assert response.media_type == "text/event-stream"
-    assert 'data: {"event":"log","operation":"deploy","message":"terraform init"}\n\n' in body
-    assert 'data: {"event":"log","operation":"deploy","message":"terraform apply"}\n\n' in body
-    assert 'event: complete\ndata: {"event":"complete","operation":"deploy","success":true,"outputs":{"output":{"value":"ok"}}}\n\n' in body
+    assert '"operation_id":"' in body
+    assert 'data: {"event":"log","operation":"deploy","message":"terraform init","operation_id":"' in body
+    assert 'data: {"event":"log","operation":"deploy","message":"terraform apply","operation_id":"' in body
+    assert 'event: complete\ndata: {"event":"complete","operation":"deploy","success":true,"outputs":{"output":{"value":"ok"}},"operation_id":"' in body
 
 
 def test_deploy_stream_redacts_workspace_paths_in_failure_event():
@@ -145,7 +165,8 @@ def test_deploy_stream_redacts_workspace_paths_in_failure_event():
         response = asyncio.run(deployment.deploy_stream(provider="aws", project_name="test_api_project"))
         body = asyncio.run(_collect_stream(response))
 
-    assert "<workspace-path>" in body
+    assert '"error_code":"DEPLOYMENT_ERROR"' in body
+    assert '"operation_id":"' in body
     assert "/tmp/twin2multicloud-deployer-workspaces" not in body
 
 
@@ -166,8 +187,30 @@ def test_destroy_stream_uses_canonical_facade_and_preserves_event_shape():
         body = asyncio.run(_collect_stream(response))
 
     assert response.media_type == "text/event-stream"
-    assert 'data: {"event":"log","operation":"destroy","message":"terraform destroy"}\n\n' in body
-    assert 'event: complete\ndata: {"event":"complete","operation":"destroy","success":true}\n\n' in body
+    assert '"operation_id":"' in body
+    assert 'data: {"event":"log","operation":"destroy","message":"terraform destroy","operation_id":"' in body
+    assert 'event: complete\ndata: {"event":"complete","operation":"destroy","success":true,"operation_id":"' in body
+
+
+def test_destroy_stream_failure_uses_typed_safe_error_event():
+    context = MagicMock(name="deployment_context")
+    context.project_path = Path("/projects/test_api_project")
+
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_project_context"),
+        patch.object(deployment, "validate_provider", return_value="aws"),
+        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+        patch.object(deployment, "validate_project_directory"),
+        patch.object(deployment, "create_context", return_value=context),
+        patch.object(deployment.core_deployer, "destroy_all_stream", new=_fake_failing_destroy_stream),
+    ):
+        response = asyncio.run(deployment.destroy_stream(provider="aws", project_name="test_api_project"))
+        body = asyncio.run(_collect_stream(response))
+
+    assert '"error_code":"DESTRUCTION_ERROR"' in body
+    assert '"operation_id":"' in body
+    assert "super-secret" not in body
 
 
 def test_google_provider_alias_is_normalized_to_gcp_in_deploy_response():
@@ -184,7 +227,8 @@ def test_google_provider_alias_is_normalized_to_gcp_in_deploy_response():
         response = deployment.deploy_all(provider="google", project_name="test_api_project")
 
     mock_create_context.assert_called_once_with("test_api_project", "gcp")
-    mock_deploy_all.assert_called_once_with(context, "gcp")
+    assert mock_deploy_all.call_args.args == (context, "gcp")
+    assert mock_deploy_all.call_args.kwargs["operation_context"].provider == "gcp"
     assert response["provider"] == "gcp"
 
 
@@ -229,7 +273,9 @@ def test_directory_validation_failure_maps_to_400_before_deploy():
             deployment.deploy_all(provider="aws", project_name="test_api_project")
 
     assert exc_info.value.status_code == 400
-    assert "deployment_manifest.json package.files mismatch" in exc_info.value.detail
+    assert exc_info.value.detail["error_code"] == "VALIDATION_ERROR"
+    assert "deployment_manifest.json package.files mismatch" in exc_info.value.detail["message"]
+    assert exc_info.value.detail["operation_id"]
     mock_validate_directory.assert_called_once_with("/projects/test_api_project")
     mock_create_context.assert_not_called()
     mock_deploy_all.assert_not_called()
@@ -251,23 +297,49 @@ def test_directory_validation_error_redacts_runtime_project_paths():
             deployment.deploy_all(provider="aws", project_name="test_api_project")
 
     assert exc_info.value.status_code == 400
-    assert exc_info.value.detail == "Validation failed: Project directory not found: <project-path>"
-    assert "/app/upload/test_api_project" not in exc_info.value.detail
+    assert exc_info.value.detail["error_code"] == "VALIDATION_ERROR"
+    assert exc_info.value.detail["message"] == "Validation failed: Project directory not found: <project-path>"
+    assert "/app/upload/test_api_project" not in exc_info.value.detail["message"]
     mock_create_context.assert_not_called()
 
 
-def test_facade_failure_maps_to_500_without_leaking_exception_detail():
-    with (
-        patch.object(deployment, "check_template_protection"),
-        patch.object(deployment, "validate_project_context"),
-        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
-        patch.object(deployment, "validate_project_directory"),
-        patch.object(deployment, "create_context", return_value=MagicMock()),
-        patch.object(deployment.core_deployer, "deploy_all", side_effect=RuntimeError("secret stack detail")),
-    ):
-        with pytest.raises(HTTPException) as exc_info:
-            deployment.deploy_all(provider="aws", project_name="test_api_project")
+def test_facade_failure_maps_to_500_without_leaking_exception_detail(caplog):
+    with caplog.at_level("ERROR", logger="digital_twin"):
+        with (
+            patch.object(deployment, "check_template_protection"),
+            patch.object(deployment, "validate_project_context"),
+            patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+            patch.object(deployment, "validate_project_directory"),
+            patch.object(deployment, "create_context", return_value=MagicMock()),
+            patch.object(deployment.core_deployer, "deploy_all", side_effect=RuntimeError("secret stack detail")),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                deployment.deploy_all(provider="aws", project_name="test_api_project")
 
     assert exc_info.value.status_code == 500
-    assert exc_info.value.detail == "Deployment operation failed. Check logs."
-    assert "secret stack detail" not in exc_info.value.detail
+    assert exc_info.value.detail["error_code"] == "DEPLOYMENT_ERROR"
+    assert exc_info.value.detail["message"] == "Deployment operation failed. Check server logs."
+    assert "secret stack detail" not in exc_info.value.detail["message"]
+    assert exc_info.value.detail["operation_id"]
+    assert "secret stack detail" not in caplog.text
+
+
+def test_destroy_facade_failure_maps_to_destruction_error_without_leaking_detail(caplog):
+    with caplog.at_level("ERROR", logger="digital_twin"):
+        with (
+            patch.object(deployment, "check_template_protection"),
+            patch.object(deployment, "validate_project_context"),
+            patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+            patch.object(deployment, "validate_project_directory"),
+            patch.object(deployment, "create_context", return_value=MagicMock()),
+            patch.object(deployment.core_deployer, "destroy_all", side_effect=RuntimeError("client_secret=super-secret")),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                deployment.destroy_all(provider="aws", project_name="test_api_project")
+
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail["error_code"] == "DESTRUCTION_ERROR"
+    assert exc_info.value.detail["message"] == "Destruction operation failed. Check server logs."
+    assert "super-secret" not in exc_info.value.detail["message"]
+    assert exc_info.value.detail["operation_id"]
+    assert "super-secret" not in caplog.text

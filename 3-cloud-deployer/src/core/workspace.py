@@ -12,6 +12,8 @@ import tempfile
 from typing import Iterator
 
 import constants as CONSTANTS
+from src.core.deployment_errors import WorkspaceSyncError
+from src.core.observability import OperationContext, operation_step, redact_sensitive
 
 
 logger = logging.getLogger(__name__)
@@ -53,7 +55,11 @@ class EphemeralWorkspace:
 
 
 @contextmanager
-def deployment_workspace(context, workspace_root: Path | None = None) -> Iterator[tuple[object, EphemeralWorkspace]]:
+def deployment_workspace(
+    context,
+    workspace_root: Path | None = None,
+    operation_context: OperationContext | None = None,
+) -> Iterator[tuple[object, EphemeralWorkspace]]:
     """
     Run a deployment against an isolated workspace and sync durable outputs.
 
@@ -61,19 +67,27 @@ def deployment_workspace(context, workspace_root: Path | None = None) -> Iterato
     `project_path` at the temporary workspace. On exit, only explicitly
     allowlisted runtime outputs are copied back to the source project.
     """
-    workspace = create_ephemeral_workspace(context, workspace_root=workspace_root)
+    if operation_context:
+        with operation_step(logger, operation_context, "workspace_prepare"):
+            workspace = create_ephemeral_workspace(context, workspace_root=workspace_root)
+    else:
+        workspace = create_ephemeral_workspace(context, workspace_root=workspace_root)
     runtime_context = _clone_context_with_project_path(context, workspace.workspace_path)
 
     try:
         yield runtime_context, workspace
     except Exception:
         try:
-            sync_runtime_outputs(workspace)
+            _sync_outputs_with_observability(workspace, operation_context)
         except Exception as sync_error:
-            logger.warning("Failed to sync runtime outputs after deployment error: %s", sync_error)
+            logger.warning(
+                "Failed to sync runtime outputs after deployment error: %s",
+                redact_sensitive(sync_error),
+                extra=operation_context.log_extra(phase="workspace_sync") if operation_context else None,
+            )
         raise
     else:
-        sync_runtime_outputs(workspace)
+        _sync_outputs_with_observability(workspace, operation_context)
     finally:
         workspace.cleanup()
 
@@ -157,6 +171,20 @@ def sync_runtime_outputs(workspace: EphemeralWorkspace) -> None:
     )
     _sync_generated_simulator_configs(workspace)
     _sync_build_metadata(workspace)
+
+
+def _sync_outputs_with_observability(
+    workspace: EphemeralWorkspace,
+    operation_context: OperationContext | None,
+) -> None:
+    try:
+        if operation_context:
+            with operation_step(logger, operation_context, "workspace_sync"):
+                sync_runtime_outputs(workspace)
+        else:
+            sync_runtime_outputs(workspace)
+    except Exception as exc:
+        raise WorkspaceSyncError(f"Failed to sync runtime outputs: {redact_sensitive(exc)}") from exc
 
 
 def _clone_context_with_project_path(context, project_path: Path):

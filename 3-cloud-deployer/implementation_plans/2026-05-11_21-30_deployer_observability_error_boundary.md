@@ -27,8 +27,8 @@ EXTRACTED: 2026-05-11 | VERSION: 0.1
 **GitHub issue:** [#74](https://github.com/TVJunkie724/master-thesis/issues/74)
 **Base branch:** `master`
 **Implementation branch:** `codex/flutter-credential-ssot-runtime-config`
-**Plan status:** Approved for implementation
-**Implementation status:** In progress
+**Plan status:** Approved
+**Implementation status:** Implemented
 
 ---
 
@@ -211,11 +211,17 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m bandit 
 
 ## 6. Done Definition
 
-- [ ] GitHub Issue #74 is linked from commits.
-- [ ] Plan exists in `implementation_plans/`.
-- [ ] Operation id is present in sync and SSE deploy/destroy contracts.
-- [ ] Error code is present in sync and SSE failure contracts.
-- [ ] Redaction is centralized and tested.
-- [ ] Workspace/terraform/deployer boundary logs are operation-scoped.
-- [ ] Full Deployer non-E2E suite passes.
-- [ ] Bandit passes for touched observability/error modules.
+- [x] GitHub Issue #74 is linked from commits.
+- [x] Plan exists in `implementation_plans/`.
+- [x] Operation id is present in sync and SSE deploy/destroy contracts.
+- [x] Error code is present in sync and SSE failure contracts.
+- [x] Redaction is centralized and tested.
+- [x] Workspace/terraform/deployer boundary logs are operation-scoped.
+- [x] Deployer API and core unit suites pass locally.
+- [x] Bandit passes for touched observability/error modules.
+
+**Verification note:** Docker CLI was unavailable in the local session, and a
+full local requirements install is blocked by the `uamqp` wheel build on macOS
+Python 3.12. The implemented slice was verified with the broad Deployer API
+suite and the core unit suite in a temporary Python 3.12 environment
+(`203 passed, 9 warnings`).

@@ -29,6 +29,7 @@ Usage:
 from .protocols import CloudProvider, DeployerStrategy
 from .context import DeploymentContext, ProjectConfig
 from .paths import DeploymentPaths, resolve_deployment_paths
+from .observability import OperationContext, operation_step, redact_sensitive
 from .workspace import (
     EphemeralWorkspace,
     create_ephemeral_workspace,
@@ -47,10 +48,13 @@ __all__ = [
     "DeploymentContext",
     "DeploymentPaths",
     "EphemeralWorkspace",
+    "OperationContext",
     "ProjectConfig",
     "create_ephemeral_workspace",
     "deployment_workspace",
     "ephemeral_workspace",
+    "operation_step",
+    "redact_sensitive",
     "resolve_deployment_paths",
     "sync_runtime_outputs",
     # Registry
