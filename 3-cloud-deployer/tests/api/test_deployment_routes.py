@@ -240,7 +240,7 @@ def test_validate_provider_rejects_unknown_provider_with_stable_400():
     assert exc_info.value.detail == "Invalid provider 'oracle'. Valid providers are: aws, azure, gcp, google"
 
 
-def test_active_project_mismatch_remains_conflict():
+def test_active_project_mismatch_uses_structured_conflict_response():
     with (
         patch.object(deployment, "check_template_protection"),
         patch.object(
@@ -253,7 +253,33 @@ def test_active_project_mismatch_remains_conflict():
             deployment.deploy_all(provider="aws", project_name="test_api_project")
 
     assert exc_info.value.status_code == 409
-    assert exc_info.value.detail == "project mismatch"
+    assert exc_info.value.detail["error_code"] == "VALIDATION_ERROR"
+    assert exc_info.value.detail["message"] == "project mismatch"
+    assert exc_info.value.detail["operation_id"]
+
+
+def test_request_boundary_http_error_redacts_detail():
+    with (
+        patch.object(
+            deployment,
+            "check_template_protection",
+            side_effect=HTTPException(
+                status_code=400,
+                detail="blocked project /app/upload/template client_secret=super-secret",
+            ),
+        ),
+        patch.object(deployment, "validate_project_context") as mock_project_guard,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            deployment.deploy_all(provider="aws", project_name="template")
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail["error_code"] == "VALIDATION_ERROR"
+    assert exc_info.value.detail["message"] == "blocked project <project-path> client_secret=<redacted>"
+    assert "super-secret" not in exc_info.value.detail["message"]
+    assert "/app/upload/template" not in exc_info.value.detail["message"]
+    assert exc_info.value.detail["operation_id"]
+    mock_project_guard.assert_not_called()
 
 
 def test_directory_validation_failure_maps_to_400_before_deploy():

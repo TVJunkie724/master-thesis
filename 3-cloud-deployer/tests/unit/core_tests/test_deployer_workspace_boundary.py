@@ -3,6 +3,7 @@
 import asyncio
 from contextlib import contextmanager
 from pathlib import Path
+import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -119,6 +120,63 @@ def test_deploy_all_passes_operation_context_to_workspace_boundary():
         deployer.deploy_all(source_context, "aws", operation_context=operation_context)
 
     mock_workspace.assert_called_once_with(source_context, operation_context=operation_context)
+
+
+def test_destroy_all_passes_operation_context_to_sdk_cleanup():
+    source_context = _context()
+    runtime_context = _context(Path("/tmp/workspace/factory"))
+    operation_context = OperationContext.create(
+        operation="destroy",
+        project_name="factory",
+        provider="aws",
+        operation_id="op-123",
+    )
+    strategy = MagicMock()
+
+    with (
+        patch.object(deployer, "deployment_workspace", return_value=_workspace_context(runtime_context)),
+        patch.object(deployer, "create_terraform_strategy", return_value=strategy),
+        patch.object(deployer, "_run_sdk_cleanup") as mock_sdk_cleanup,
+    ):
+        deployer.destroy_all(source_context, "aws", operation_context=operation_context)
+
+    mock_sdk_cleanup.assert_called_once_with(runtime_context, operation_context=operation_context)
+
+
+def test_sdk_cleanup_redacts_provider_failures_in_logs(caplog):
+    context = _context()
+    context.credentials = {"aws": {"aws_secret_access_key": "super-secret"}}
+    operation_context = OperationContext.create(
+        operation="destroy",
+        project_name="factory",
+        provider="aws",
+        operation_id="op-123",
+    )
+
+    with (
+        caplog.at_level("WARNING", logger=deployer.logger.name),
+        patch.dict(
+            sys.modules,
+            {
+                "src.providers.aws.cleanup": SimpleNamespace(
+                    cleanup_aws_resources=MagicMock(
+                        side_effect=RuntimeError("aws_secret_access_key=super-secret"),
+                    ),
+                ),
+                "src.providers.azure.cleanup": SimpleNamespace(
+                    cleanup_azure_resources=MagicMock(),
+                ),
+                "src.providers.gcp.cleanup": SimpleNamespace(
+                    cleanup_gcp_resources=MagicMock(),
+                ),
+            },
+        ),
+    ):
+        deployer._run_sdk_cleanup(context, operation_context=operation_context)
+
+    assert "super-secret" not in caplog.text
+    assert "aws_secret_access_key=<redacted>" in caplog.text
+    assert "op-123" in [getattr(record, "operation_id", None) for record in caplog.records]
 
 
 def test_deploy_all_stream_sets_outputs_from_runtime_workspace_strategy():

@@ -78,7 +78,11 @@ def deploy_all(
     Returns:
         Dictionary of Terraform outputs
     """
-    logger.info(f"Deploying all layers via Terraform for provider: {provider}")
+    logger.info(
+        "Deploying all layers via Terraform for provider: %s",
+        provider,
+        extra=_log_extra(operation_context, "deployer_entry"),
+    )
 
     with deployment_workspace(context, operation_context=operation_context) as (runtime_context, _workspace):
         strategy = create_terraform_strategy(runtime_context)
@@ -112,7 +116,11 @@ def destroy_all(
     logger.info("=" * 60)
     logger.info("  PHASE 1: TERRAFORM DESTROY")
     logger.info("=" * 60)
-    logger.info(f"Destroying all layers via Terraform for provider: {provider}")
+    logger.info(
+        "Destroying all layers via Terraform for provider: %s",
+        provider,
+        extra=_log_extra(operation_context, "deployer_entry"),
+    )
     
     terraform_error = None
     with deployment_workspace(context, operation_context=operation_context) as (runtime_context, _workspace):
@@ -126,7 +134,11 @@ def destroy_all(
                 strategy.destroy_all(runtime_context)
         except Exception as e:
             terraform_error = e
-            logger.warning("Terraform destroy failed/partial: %s", redact_sensitive(e))
+            logger.warning(
+                "Terraform destroy failed/partial: %s",
+                redact_sensitive(e),
+                extra=_log_extra(operation_context, "terraform_destroy"),
+            )
             # Continue to SDK cleanup regardless
 
         # ==========================================
@@ -139,15 +151,21 @@ def destroy_all(
 
         if operation_context:
             with operation_step(logger, operation_context, "sdk_cleanup"):
-                _run_sdk_cleanup(runtime_context)
+                _run_sdk_cleanup(runtime_context, operation_context=operation_context)
         else:
             _run_sdk_cleanup(runtime_context)
     
     if terraform_error:
-        logger.info("Destroy completed with Terraform errors (SDK cleanup ran as fallback)")
+        logger.info(
+            "Destroy completed with Terraform errors (SDK cleanup ran as fallback)",
+            extra=_log_extra(operation_context, "destroy_complete"),
+        )
 
 
-def _run_sdk_cleanup(context: 'DeploymentContext') -> None:
+def _run_sdk_cleanup(
+    context: 'DeploymentContext',
+    operation_context: OperationContext | None = None,
+) -> None:
     """
     Run SDK cleanup for all providers as fallback after terraform destroy.
     
@@ -163,12 +181,20 @@ def _run_sdk_cleanup(context: 'DeploymentContext') -> None:
     # CRITICAL: Fail-safe guard against empty prefix
     # An empty prefix would match ALL resources in the account!
     if not prefix or len(prefix) < 3:
-        logger.error(f"Invalid prefix '{prefix}' for cleanup - skipping SDK cleanup to prevent accidental deletion")
+        logger.error(
+            "Invalid prefix '%s' for cleanup - skipping SDK cleanup to prevent accidental deletion",
+            prefix,
+            extra=_log_extra(operation_context, "sdk_cleanup"),
+        )
         return
     
     credentials = context.credentials
     
-    logger.info(f"[SDK Cleanup] Running fallback cleanup for prefix: {prefix}")
+    logger.info(
+        "[SDK Cleanup] Running fallback cleanup for prefix: %s",
+        prefix,
+        extra=_log_extra(operation_context, "sdk_cleanup"),
+    )
     
     # Import cleanup functions
     from src.providers.aws.cleanup import cleanup_aws_resources
@@ -186,7 +212,11 @@ def _run_sdk_cleanup(context: 'DeploymentContext') -> None:
                 dry_run=False
             )
         except Exception as e:
-            logger.warning("[SDK Cleanup] AWS cleanup failed: %s", redact_sensitive(e))
+            logger.warning(
+                "[SDK Cleanup] AWS cleanup failed: %s",
+                redact_sensitive(e),
+                extra=_log_extra(operation_context, "sdk_cleanup_aws"),
+            )
     else:
         logger.info("[SDK Cleanup] AWS - skipped (no credentials)")
     
@@ -201,7 +231,11 @@ def _run_sdk_cleanup(context: 'DeploymentContext') -> None:
                 dry_run=False
             )
         except Exception as e:
-            logger.warning("[SDK Cleanup] Azure cleanup failed: %s", redact_sensitive(e))
+            logger.warning(
+                "[SDK Cleanup] Azure cleanup failed: %s",
+                redact_sensitive(e),
+                extra=_log_extra(operation_context, "sdk_cleanup_azure"),
+            )
     else:
         logger.info("[SDK Cleanup] Azure - skipped (no credentials)")
     
@@ -211,11 +245,27 @@ def _run_sdk_cleanup(context: 'DeploymentContext') -> None:
         try:
             cleanup_gcp_resources(credentials, prefix, dry_run=False)
         except Exception as e:
-            logger.warning("[SDK Cleanup] GCP cleanup failed: %s", redact_sensitive(e))
+            logger.warning(
+                "[SDK Cleanup] GCP cleanup failed: %s",
+                redact_sensitive(e),
+                extra=_log_extra(operation_context, "sdk_cleanup_gcp"),
+            )
     else:
         logger.info("[SDK Cleanup] GCP - skipped (no credentials)")
     
-    logger.info("[SDK Cleanup] Fallback cleanup complete")
+    logger.info(
+        "[SDK Cleanup] Fallback cleanup complete",
+        extra=_log_extra(operation_context, "sdk_cleanup"),
+    )
+
+
+def _log_extra(
+    operation_context: OperationContext | None,
+    phase: str,
+) -> dict | None:
+    if operation_context is None:
+        return None
+    return operation_context.log_extra(phase=phase)
 
 
 def _config_value(config, key: str, default=None):
@@ -253,7 +303,11 @@ def deploy_all_terraform(
     Raises:
         TerraformError: If Terraform apply fails
     """
-    logger.info(f"Starting Terraform deployment for {context.project_name}")
+    logger.info(
+        "Starting Terraform deployment for %s",
+        context.project_name,
+        extra=_log_extra(operation_context, "deployer_entry"),
+    )
     with deployment_workspace(context, operation_context=operation_context) as (runtime_context, _workspace):
         strategy = create_terraform_strategy(
             runtime_context,
@@ -278,7 +332,11 @@ def destroy_all_terraform(
         context: Deployment context with project config
         terraform_dir: Path to Terraform directory
     """
-    logger.info(f"Starting Terraform destroy for {context.project_name}")
+    logger.info(
+        "Starting Terraform destroy for %s",
+        context.project_name,
+        extra=_log_extra(operation_context, "deployer_entry"),
+    )
     with deployment_workspace(context, operation_context=operation_context) as (runtime_context, _workspace):
         strategy = create_terraform_strategy(
             runtime_context,
@@ -378,6 +436,9 @@ def redeploy_event_checker(context: 'DeploymentContext', provider: str) -> None:
     try:
         layer_2_compute.destroy_event_checker_lambda_function(aws_provider)
     except Exception as e:
-        logger.warning(f"Failed to destroy event checker (might not exist): {e}")
+        logger.warning(
+            "Failed to destroy event checker (might not exist): %s",
+            redact_sensitive(e),
+        )
         
     layer_2_compute.create_event_checker_lambda_function(aws_provider, context.config, context.project_path)

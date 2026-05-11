@@ -220,8 +220,7 @@ docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m bandit 
 - [x] Deployer API and core unit suites pass locally.
 - [x] Bandit passes for touched observability/error modules.
 
-**Verification note:** Docker CLI was unavailable in the local session, and a
-full local requirements install is blocked by the `uamqp` wheel build on macOS
-Python 3.12. The implemented slice was verified with the broad Deployer API
-suite and the core unit suite in a temporary Python 3.12 environment
-(`203 passed, 9 warnings`).
+**Verification note:** Verified in the OrbStack-backed Deployer container with
+`docker exec -e PYTHONPATH=/app master-thesis-3cloud-deployer-1 python -m pytest tests/ --ignore=tests/e2e -q`
+(`1029 passed, 1 skipped, 2 warnings`). Bandit and compile checks passed for the
+touched observability/error modules.
