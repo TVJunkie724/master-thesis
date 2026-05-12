@@ -20,11 +20,13 @@ class DeploymentRepository:
         session_id: str,
         operation_type: str,
         description: str | None = None,
+        operation_id: str | None = None,
     ) -> Deployment:
         deployment = Deployment(
             twin_id=twin_id,
             session_id=session_id,
             operation_type=operation_type,
+            operation_id=operation_id,
             status="running",
             description=description,
         )
@@ -55,6 +57,14 @@ class DeploymentRepository:
             .first()
         )
 
+    def get_latest_for_twin(self, twin_id: str) -> Deployment | None:
+        return (
+            self._db.query(Deployment)
+            .filter(Deployment.twin_id == twin_id)
+            .order_by(Deployment.started_at.desc())
+            .first()
+        )
+
     def list_for_twin(self, twin_id: str, limit: int) -> list[Deployment]:
         return (
             self._db.query(Deployment)
@@ -69,9 +79,13 @@ class DeploymentRepository:
         deployment: Deployment,
         terraform_outputs: dict[str, Any] | None = None,
         completed_at: datetime | None = None,
+        operation_id: str | None = None,
     ) -> Deployment:
         deployment.status = "success"
+        if operation_id:
+            deployment.operation_id = operation_id
         deployment.terraform_outputs = terraform_outputs
+        deployment.error_code = None
         deployment.error_message = None
         deployment.completed_at = completed_at or datetime.now(timezone.utc)
         return deployment
@@ -82,8 +96,13 @@ class DeploymentRepository:
         error_message: str,
         terraform_outputs: dict[str, Any] | None = None,
         completed_at: datetime | None = None,
+        operation_id: str | None = None,
+        error_code: str | None = None,
     ) -> Deployment:
         deployment.status = "failed"
+        if operation_id:
+            deployment.operation_id = operation_id
+        deployment.error_code = error_code
         deployment.error_message = error_message
         deployment.terraform_outputs = terraform_outputs
         deployment.completed_at = completed_at or datetime.now(timezone.utc)

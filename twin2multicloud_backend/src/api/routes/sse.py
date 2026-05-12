@@ -127,7 +127,14 @@ class LogSession:
             self.queue.put_nowait(event)
         self.buffer.clear()
 
-    def on_complete(self, success: bool, message: str = None, outputs: dict = None):
+    def on_complete(
+        self,
+        success: bool,
+        message: str = None,
+        outputs: dict = None,
+        operation_id: str | None = None,
+        error_code: str | None = None,
+    ):
         """Deployment finished."""
         self.state = SessionState.COMPLETED
         self.event_counter += 1
@@ -138,8 +145,11 @@ class LogSession:
             "data": message or ("Deployment complete" if success else "Deployment failed"),
             "message": message,
             "outputs": outputs,
+            "operation_id": operation_id,
+            "error_code": error_code,
             "timestamp": datetime.utcnow().isoformat()
         }
+        self.logs.append(final_event)
         self.queue.put_nowait(final_event)
         self.touch()
 

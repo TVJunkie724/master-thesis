@@ -27,15 +27,19 @@ def _create_deployment(
     started_at: datetime,
     completed_at: datetime | None = None,
     outputs: dict | None = None,
+    operation_id: str | None = None,
+    error_code: str | None = None,
 ) -> Deployment:
     deployment = Deployment(
         twin_id=twin_id,
         session_id=session_id,
         operation_type=operation_type,
+        operation_id=operation_id,
         status=status,
         started_at=started_at,
         completed_at=completed_at,
         terraform_outputs=outputs,
+        error_code=error_code,
     )
     db.add(deployment)
     db.commit()
@@ -61,6 +65,22 @@ def test_create_running_adds_running_deployment_record(db):
     assert deployment.operation_type == "deploy"
     assert deployment.status == "running"
     assert deployment.description == "real deployment"
+
+
+def test_create_running_can_store_deployer_operation_id(db):
+    twin = _create_twin(db)
+    repository = DeploymentRepository(db)
+
+    deployment = repository.create_running(
+        twin_id=twin.id,
+        session_id="session-with-op",
+        operation_type="deploy",
+        operation_id="op-123",
+    )
+    db.commit()
+    db.refresh(deployment)
+
+    assert deployment.operation_id == "op-123"
 
 
 def test_get_latest_successful_outputs_prefers_newest_successful_deploy_or_test(db):
@@ -116,18 +136,47 @@ def test_list_for_twin_orders_newest_first_and_applies_limit(db):
     assert oldest.id not in [d.id for d in deployments]
 
 
+def test_get_latest_for_twin_returns_newest_operation(db):
+    twin = _create_twin(db)
+    now = datetime.now(timezone.utc)
+    _create_deployment(db, twin.id, "old", "deploy", "success", now - timedelta(days=1))
+    latest = _create_deployment(
+        db,
+        twin.id,
+        "new",
+        "destroy",
+        "failed",
+        now,
+        operation_id="op-new",
+        error_code="DESTRUCTION_ERROR",
+    )
+
+    deployment = DeploymentRepository(db).get_latest_for_twin(twin.id)
+
+    assert deployment.id == latest.id
+    assert deployment.operation_id == "op-new"
+    assert deployment.error_code == "DESTRUCTION_ERROR"
+
+
 def test_mark_success_records_outputs_and_clears_error(db):
     twin = _create_twin(db)
     repository = DeploymentRepository(db)
     deployment = repository.create_running(twin.id, "session-success", "deploy")
     deployment.error_message = "old error"
+    deployment.error_code = "OLD_ERROR"
 
-    repository.mark_success(deployment, terraform_outputs={"endpoint": {"value": "ok"}})
+    repository.mark_success(
+        deployment,
+        terraform_outputs={"endpoint": {"value": "ok"}},
+        operation_id="op-success",
+    )
     db.commit()
     db.refresh(deployment)
 
     assert deployment.status == "success"
+    assert deployment.operation_id == "op-success"
     assert deployment.terraform_outputs == {"endpoint": {"value": "ok"}}
+    assert deployment.error_code is None
     assert deployment.error_message is None
     assert deployment.completed_at is not None
 
@@ -141,11 +190,15 @@ def test_mark_failed_records_error_and_optional_outputs(db):
         deployment,
         error_message="terraform failed",
         terraform_outputs={"partial": True},
+        operation_id="op-failed",
+        error_code="TERRAFORM_ERROR",
     )
     db.commit()
     db.refresh(deployment)
 
     assert deployment.status == "failed"
+    assert deployment.operation_id == "op-failed"
+    assert deployment.error_code == "TERRAFORM_ERROR"
     assert deployment.error_message == "terraform failed"
     assert deployment.terraform_outputs == {"partial": True}
     assert deployment.completed_at is not None

@@ -16,11 +16,18 @@ import pytest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch, MagicMock
 
+from src.api.routes.sse import LogSession
+from src.models.deployment import Deployment
+from src.models.twin import DigitalTwin, TwinState
+from src.models.user import User
 from src.services.deployment_service import (
     DEPLOYMENT_MANIFEST_FILE,
     REQUIRED_DEPLOYER_CONFIG_FILES,
     build_project_zip,
     get_resource_name,
+    _parse_deployer_sse_data,
+    run_real_deploy_stream,
+    run_real_destroy_stream,
     _build_main_config,
     _build_providers_config,
     _build_credentials_config,
@@ -30,6 +37,202 @@ from src.services.deployment_service import (
 from src.services.credential_resolution_service import DeploymentCredentials
 from src.services.errors import CredentialResolutionFailed
 from src.utils.crypto import encrypt_scoped
+from tests.conftest import TestingSessionLocal
+
+
+class _FakeStreamResponse:
+    def __init__(self, lines: list[str]):
+        self._lines = lines
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
+
+    def raise_for_status(self):
+        return None
+
+    async def aiter_lines(self):
+        for line in self._lines:
+            yield line
+
+
+class _FakeAsyncClient:
+    def __init__(self, lines: list[str]):
+        self._lines = lines
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
+
+    def stream(self, *args, **kwargs):
+        return _FakeStreamResponse(self._lines)
+
+
+def _create_stream_twin(db, state=TwinState.DEPLOYING):
+    user = User(email="stream-user@example.test")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    twin = DigitalTwin(name="Stream Twin", user_id=user.id, state=state)
+    db.add(twin)
+    db.commit()
+    db.refresh(twin)
+    return twin
+
+
+def _patch_stream_dependencies(monkeypatch, lines: list[str], session: LogSession):
+    async def fake_get_session(session_id: str):
+        return session
+
+    monkeypatch.setattr("src.api.routes.sse.get_session", fake_get_session)
+    monkeypatch.setattr("src.models.database.SessionLocal", TestingSessionLocal)
+    monkeypatch.setattr(
+        "src.services.deployment_service.httpx.AsyncClient",
+        lambda *args, **kwargs: _FakeAsyncClient(lines),
+    )
+
+
+class TestDeployerSseParsing:
+    """Tests for the typed Deployer SSE terminal contract."""
+
+    def test_parses_log_event_message(self):
+        log_message, result = _parse_deployer_sse_data(
+            json.dumps({
+                "event": "log",
+                "operation": "deploy",
+                "message": "terraform apply",
+                "operation_id": "op-123",
+            }),
+            event_type=None,
+            operation_type="deploy",
+        )
+
+        assert log_message == "terraform apply"
+        assert result is None
+
+    def test_parses_success_terminal_event(self):
+        log_message, result = _parse_deployer_sse_data(
+            json.dumps({
+                "event": "complete",
+                "operation": "deploy",
+                "success": True,
+                "outputs": {"endpoint": {"value": "ok"}},
+                "operation_id": "op-123",
+            }),
+            event_type="complete",
+            operation_type="deploy",
+        )
+
+        assert log_message is None
+        assert result.success is True
+        assert result.operation_id == "op-123"
+        assert result.error_code is None
+        assert result.outputs == {"endpoint": {"value": "ok"}}
+
+    def test_parses_error_terminal_event_with_redaction(self):
+        log_message, result = _parse_deployer_sse_data(
+            json.dumps({
+                "event": "error",
+                "operation": "destroy",
+                "success": False,
+                "error": "client_secret=super-secret in /app/upload/template",
+                "error_code": "DESTRUCTION_ERROR",
+                "operation_id": "op-456",
+            }),
+            event_type="error",
+            operation_type="destroy",
+        )
+
+        assert log_message is None
+        assert result.success is False
+        assert result.operation_id == "op-456"
+        assert result.error_code == "DESTRUCTION_ERROR"
+        assert result.message == "client_secret=[REDACTED] in <project-path>"
+        assert "super-secret" not in result.message
+
+    def test_malformed_terminal_payload_fails_safe(self):
+        log_message, result = _parse_deployer_sse_data(
+            "aws_secret_access_key=super-secret",
+            event_type="error",
+            operation_type="deploy",
+        )
+
+        assert log_message is None
+        assert result.success is False
+        assert result.error_code == "DEPLOYER_STREAM_ERROR"
+        assert result.message == "aws_secret_access_key=[REDACTED]"
+
+
+class TestRealDeploymentStreamPersistence:
+    """Tests for real Deployer stream persistence with a fake SSE source."""
+
+    @pytest.mark.asyncio
+    async def test_deploy_stream_persists_operation_metadata_on_success(self, db, monkeypatch):
+        twin = _create_stream_twin(db)
+        session = LogSession(twin.id, "session-deploy", operation_type="deploy")
+        lines = [
+            'data: {"event":"log","operation":"deploy","message":"terraform init","operation_id":"op-deploy"}',
+            "event: complete",
+            'data: {"event":"complete","operation":"deploy","success":true,'
+            '"outputs":{"endpoint":{"value":"ok"}},"operation_id":"op-deploy"}',
+        ]
+        _patch_stream_dependencies(monkeypatch, lines, session)
+
+        await run_real_deploy_stream(
+            session_id="session-deploy",
+            twin_id=twin.id,
+            resource_name="stream-twin",
+            provider="aws",
+        )
+
+        db.expire_all()
+        stored_twin = db.get(DigitalTwin, twin.id)
+        deployment = db.query(Deployment).filter_by(session_id="session-deploy").one()
+        complete_event = session.queue.get_nowait()
+
+        assert stored_twin.state == TwinState.DEPLOYED
+        assert deployment.status == "success"
+        assert deployment.operation_id == "op-deploy"
+        assert deployment.error_code is None
+        assert deployment.terraform_outputs == {"endpoint": {"value": "ok"}}
+        assert session.buffer[0]["data"] == "terraform init"
+        assert complete_event["operation_id"] == "op-deploy"
+
+    @pytest.mark.asyncio
+    async def test_destroy_stream_persists_error_code_and_safe_message(self, db, monkeypatch):
+        twin = _create_stream_twin(db, state=TwinState.DESTROYING)
+        session = LogSession(twin.id, "session-destroy", operation_type="destroy")
+        lines = [
+            "event: error",
+            'data: {"event":"error","operation":"destroy","success":false,'
+            '"error":"client_secret=super-secret in /app/upload/template",'
+            '"error_code":"DESTRUCTION_ERROR","operation_id":"op-destroy"}',
+        ]
+        _patch_stream_dependencies(monkeypatch, lines, session)
+
+        await run_real_destroy_stream(
+            session_id="session-destroy",
+            twin_id=twin.id,
+            resource_name="stream-twin",
+            provider="aws",
+        )
+
+        db.expire_all()
+        stored_twin = db.get(DigitalTwin, twin.id)
+        deployment = db.query(Deployment).filter_by(session_id="session-destroy").one()
+        final_event = session.queue.get_nowait()
+
+        assert stored_twin.state == TwinState.ERROR
+        assert stored_twin.last_error == "client_secret=[REDACTED] in <project-path>"
+        assert deployment.status == "failed"
+        assert deployment.operation_id == "op-destroy"
+        assert deployment.error_code == "DESTRUCTION_ERROR"
+        assert deployment.error_message == "client_secret=[REDACTED] in <project-path>"
+        assert "super-secret" not in final_event["message"]
 
 
 class TestGetResourceName:

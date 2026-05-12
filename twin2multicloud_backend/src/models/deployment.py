@@ -18,11 +18,13 @@ class Deployment(Base):
     twin_id = Column(String, ForeignKey("digital_twins.id"), nullable=False)
     session_id = Column(String, unique=True, nullable=False)  # Links to DeploymentLog
     operation_type = Column(String, default="deploy")  # "deploy", "destroy", "test"
+    operation_id = Column(String, nullable=True)  # Deployer operation id for log correlation
     status = Column(String, default="running")  # "running", "success", "failed"
     description = Column(String, nullable=True)
     started_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
     terraform_outputs = Column(JSON, nullable=True)
+    error_code = Column(String, nullable=True)
     error_message = Column(Text, nullable=True)
     logs = Column(Text, nullable=True)  # Legacy, kept for compatibility
     

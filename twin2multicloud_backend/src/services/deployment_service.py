@@ -15,13 +15,16 @@ centralized for reusability and maintainability.
 import io
 import json
 import logging
+import re
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path
 import httpx
 from datetime import datetime, timezone
 from typing import Any, Optional, TYPE_CHECKING
 
 from src.config import settings
+from src.repositories.deployment_repository import DeploymentRepository
 from src.services.credential_resolution_service import CredentialResolutionService, DeploymentCredentials
 
 if TYPE_CHECKING:
@@ -41,6 +44,28 @@ REQUIRED_DEPLOYER_CONFIG_FILES = [
     "config_credentials.json",
     "config_providers.json",
 ]
+
+SECRET_FRAGMENT_PATTERN = re.compile(
+    r"(?i)"
+    r"(\b(?:aws_access_key_id|aws_secret_access_key|azure_client_secret|"
+    r"client_secret|private_key|private_key_id|token|access_token|refresh_token|"
+    r"password|secret|api_key|access_key)\b)"
+    r"([\"']?\s*[:=]\s*[\"']?)"
+    r"([^\"',\s}\]]+)"
+)
+PROJECT_PATH_PATTERN = re.compile(r"(/[^\s:]+/upload/[^\s:]+)")
+WORKSPACE_PATH_PATTERN = re.compile(r"(/[^\s:]+/twin2multicloud-deployer-workspaces/[^\s:]+)")
+
+
+@dataclass(frozen=True)
+class DeployerStreamResult:
+    """Terminal result parsed from the Deployer SSE contract."""
+
+    success: bool
+    operation_id: str | None = None
+    error_code: str | None = None
+    message: str | None = None
+    outputs: dict[str, Any] | None = None
 
 
 def build_deploy_config(twin) -> dict:
@@ -109,6 +134,75 @@ def build_deploy_config(twin) -> dict:
     return config
 
 
+def _redact_deployment_message(value: Any) -> str:
+    """Return a client-safe deployment message without path or secret leakage."""
+    text = str(value)
+    text = SECRET_FRAGMENT_PATTERN.sub(r"\1\2[REDACTED]", text)
+    text = PROJECT_PATH_PATTERN.sub("<project-path>", text)
+    text = WORKSPACE_PATH_PATTERN.sub("<workspace-path>", text)
+    return text
+
+
+def _parse_deployer_sse_data(
+    raw_data: str,
+    event_type: str | None,
+    operation_type: str,
+) -> tuple[str | None, DeployerStreamResult | None]:
+    """
+    Parse one Deployer SSE data line.
+
+    Returns `(log_message, terminal_result)`. Only one side is populated.
+    """
+    try:
+        payload = json.loads(raw_data)
+    except json.JSONDecodeError:
+        if event_type in {"complete", "error"}:
+            return None, DeployerStreamResult(
+                success=event_type == "complete",
+                message=_redact_deployment_message(raw_data),
+                error_code=None if event_type == "complete" else "DEPLOYER_STREAM_ERROR",
+            )
+        return _redact_deployment_message(raw_data), None
+
+    if not isinstance(payload, dict):
+        return _redact_deployment_message(raw_data), None
+
+    payload_event = payload.get("event") or event_type
+    if payload_event in {"complete", "error"}:
+        success = bool(payload.get("success", payload_event == "complete"))
+        message = (
+            payload.get("message")
+            or payload.get("error")
+            or (
+                f"{operation_type.capitalize()} complete"
+                if success else f"{operation_type.capitalize()} failed"
+            )
+        )
+        return None, DeployerStreamResult(
+            success=success,
+            operation_id=payload.get("operation_id"),
+            error_code=payload.get("error_code"),
+            message=_redact_deployment_message(message),
+            outputs=payload.get("outputs") or {},
+        )
+
+    message = payload.get("message") if payload.get("event") == "log" else None
+    if message is None:
+        message = raw_data
+    return _redact_deployment_message(message), None
+
+
+def _result_message(
+    result: DeployerStreamResult | None,
+    *,
+    success_message: str,
+    failure_message: str,
+) -> str:
+    if result and result.message:
+        return result.message
+    return success_message if result and result.success else failure_message
+
+
 async def run_real_deploy_stream(
     session_id: str,
     twin_id: str,
@@ -129,27 +223,23 @@ async def run_real_deploy_stream(
     from src.api.routes.sse import get_session
     from src.models.database import SessionLocal
     from src.models.twin import DigitalTwin, TwinState
-    from src.models.deployment import Deployment
     
     session = await get_session(session_id)
     if not session:
         return
     
-    # Create Deployment record at start
     db = SessionLocal()
-    deployment = Deployment(
+    DeploymentRepository(db).create_running(
         twin_id=twin_id,
         session_id=session_id,
         operation_type="deploy",
-        status="running"
     )
-    db.add(deployment)
     db.commit()
     db.close()
     
     terraform_outputs = {}
-    deploy_success = False
-    expecting_result = False
+    terminal_result: DeployerStreamResult | None = None
+    current_event_type: str | None = None
     
     try:
         # Subscribe to Deployer SSE with long timeouts
@@ -160,82 +250,132 @@ async def run_real_deploy_stream(
                 f"{DEPLOYER_API_URL}/infrastructure/deploy/stream",
                 params={"provider": provider, "project_name": resource_name}
             ) as response:
+                response.raise_for_status()
                 async for line in response.aiter_lines():
+                    if line.startswith("event: "):
+                        current_event_type = line[7:].strip()
+                        continue
                     if line.startswith("data: "):
-                        msg = line[6:]  # Remove "data: " prefix
-                        if expecting_result:
-                            # Completion JSON — parse for success, don't push as log
-                            expecting_result = False
-                            try:
-                                result = json.loads(msg)
-                                deploy_success = result.get("success", False)
-                                if deploy_success:
-                                    terraform_outputs = result.get("outputs", {})
-                            except json.JSONDecodeError:
-                                pass
-                        else:
-                            print(msg, flush=True)  # Container logs
-                            await session.push_log(msg)
-                    elif line.startswith("event: complete") or line.startswith("event: error"):
-                        expecting_result = True
+                        log_message, result = _parse_deployer_sse_data(
+                            line[6:],
+                            current_event_type,
+                            "deploy",
+                        )
+                        current_event_type = None
+                        if result:
+                            terminal_result = result
+                            if result.success and result.outputs:
+                                terraform_outputs = result.outputs
+                        elif log_message:
+                            print(log_message, flush=True)
+                            await session.push_log(log_message)
         
-        # Stream finished — use deploy_success to decide state
+        deploy_success = bool(terminal_result and terminal_result.success)
+        error_message = _result_message(
+            terminal_result,
+            success_message="Deployment complete",
+            failure_message="Deployment stream ended without terminal result",
+        )
+
         db = SessionLocal()
         try:
-            twin = db.query(DigitalTwin).get(twin_id)
-            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            twin = db.get(DigitalTwin, twin_id)
+            repository = DeploymentRepository(db)
+            deployment = repository.get_by_session_id(session_id)
             if twin:
                 if deploy_success:
                     twin.state = TwinState.DEPLOYED
                     twin.deployed_at = datetime.utcnow()
                 else:
                     twin.state = TwinState.ERROR
-                    twin.last_error = "Deployment completed with errors — check logs"
+                    twin.last_error = error_message
             
-            # Update Deployment record
             if deployment:
-                deployment.status = "success" if deploy_success else "failed"
-                deployment.terraform_outputs = terraform_outputs
-                deployment.completed_at = datetime.utcnow()
+                if deploy_success:
+                    repository.mark_success(
+                        deployment,
+                        terraform_outputs=terraform_outputs,
+                        operation_id=terminal_result.operation_id if terminal_result else None,
+                    )
+                else:
+                    repository.mark_failed(
+                        deployment,
+                        error_message=error_message,
+                        terraform_outputs=terraform_outputs,
+                        operation_id=terminal_result.operation_id if terminal_result else None,
+                        error_code=(
+                            terminal_result.error_code
+                            if terminal_result and terminal_result.error_code
+                            else "DEPLOYER_STREAM_ERROR"
+                        ),
+                    )
             db.commit()  # Single atomic commit
         finally:
             db.close()
         
         session.on_complete(
             success=deploy_success,
-            message="Deployment complete" if deploy_success else "Deployment failed",
-            outputs=terraform_outputs
+            message=error_message,
+            outputs=terraform_outputs,
+            operation_id=terminal_result.operation_id if terminal_result else None,
+            error_code=None if deploy_success else (
+                terminal_result.error_code
+                if terminal_result and terminal_result.error_code
+                else "DEPLOYER_STREAM_ERROR"
+            ),
         )
         
     except Exception as e:
-        # Error path — respect deploy_success flag to avoid overwriting a successful outcome
-        logger.error(f"Deploy stream error (success={deploy_success}): {e}", exc_info=True)
+        deploy_success = bool(terminal_result and terminal_result.success)
+        safe_error = _redact_deployment_message(e)
+        logger.error("Deploy stream error (success=%s): %s", deploy_success, safe_error)
         db = SessionLocal()
         try:
-            twin = db.query(DigitalTwin).get(twin_id)
+            twin = db.get(DigitalTwin, twin_id)
             if twin and not deploy_success:
                 twin.state = TwinState.ERROR
-                twin.last_error = str(e)
+                twin.last_error = safe_error
             elif twin and deploy_success:
                 twin.state = TwinState.DEPLOYED
                 twin.deployed_at = datetime.utcnow()
             
-            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            repository = DeploymentRepository(db)
+            deployment = repository.get_by_session_id(session_id)
             if deployment:
-                deployment.status = "success" if deploy_success else "failed"
-                deployment.terraform_outputs = terraform_outputs
-                deployment.error_message = str(e) if not deploy_success else None
-                deployment.completed_at = datetime.utcnow()
+                if deploy_success:
+                    repository.mark_success(
+                        deployment,
+                        terraform_outputs=terraform_outputs,
+                        operation_id=terminal_result.operation_id if terminal_result else None,
+                    )
+                else:
+                    repository.mark_failed(
+                        deployment,
+                        error_message=safe_error,
+                        terraform_outputs=terraform_outputs,
+                        operation_id=terminal_result.operation_id if terminal_result else None,
+                        error_code=(
+                            terminal_result.error_code
+                            if terminal_result and terminal_result.error_code
+                            else "BACKEND_STREAM_ERROR"
+                        ),
+                    )
             db.commit()
         finally:
             db.close()
         
         if not deploy_success:
-            await session.push_log(f"✗ Deployment error: {e}", level="error")
+            await session.push_log(f"Deployment error: {safe_error}", level="error")
         session.on_complete(
             success=deploy_success,
-            message=str(e) if not deploy_success else "Deployment complete",
-            outputs=terraform_outputs if deploy_success else {}
+            message=safe_error if not deploy_success else "Deployment complete",
+            outputs=terraform_outputs if deploy_success else {},
+            operation_id=terminal_result.operation_id if terminal_result else None,
+            error_code=None if deploy_success else (
+                terminal_result.error_code
+                if terminal_result and terminal_result.error_code
+                else "BACKEND_STREAM_ERROR"
+            ),
         )
 
 
@@ -258,26 +398,22 @@ async def run_real_destroy_stream(
     from src.api.routes.sse import get_session
     from src.models.database import SessionLocal
     from src.models.twin import DigitalTwin, TwinState
-    from src.models.deployment import Deployment
     
     session = await get_session(session_id)
     if not session:
         return
     
-    # Create Deployment record at start
     db = SessionLocal()
-    deployment = Deployment(
+    DeploymentRepository(db).create_running(
         twin_id=twin_id,
         session_id=session_id,
         operation_type="destroy",
-        status="running"
     )
-    db.add(deployment)
     db.commit()
     db.close()
     
-    destroy_success = False
-    expecting_result = False
+    terminal_result: DeployerStreamResult | None = None
+    current_event_type: str | None = None
     
     try:
         # Subscribe to Deployer destroy SSE
@@ -288,75 +424,124 @@ async def run_real_destroy_stream(
                 f"{DEPLOYER_API_URL}/infrastructure/destroy/stream",
                 params={"provider": provider, "project_name": resource_name}
             ) as response:
+                response.raise_for_status()
                 async for line in response.aiter_lines():
+                    if line.startswith("event: "):
+                        current_event_type = line[7:].strip()
+                        continue
                     if line.startswith("data: "):
-                        msg = line[6:]
-                        if expecting_result:
-                            # Completion JSON — parse for success, don't push as log
-                            expecting_result = False
-                            try:
-                                result = json.loads(msg)
-                                destroy_success = result.get("success", False)
-                            except json.JSONDecodeError:
-                                pass
-                        else:
-                            print(msg, flush=True)
-                            await session.push_log(msg)
-                    elif line.startswith("event: complete") or line.startswith("event: error"):
-                        expecting_result = True
+                        log_message, result = _parse_deployer_sse_data(
+                            line[6:],
+                            current_event_type,
+                            "destroy",
+                        )
+                        current_event_type = None
+                        if result:
+                            terminal_result = result
+                        elif log_message:
+                            print(log_message, flush=True)
+                            await session.push_log(log_message)
         
-        # Stream finished — use destroy_success to decide state
+        destroy_success = bool(terminal_result and terminal_result.success)
+        error_message = _result_message(
+            terminal_result,
+            success_message="Destruction complete",
+            failure_message="Destroy stream ended without terminal result",
+        )
+
         db = SessionLocal()
         try:
-            twin = db.query(DigitalTwin).get(twin_id)
-            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            twin = db.get(DigitalTwin, twin_id)
+            repository = DeploymentRepository(db)
+            deployment = repository.get_by_session_id(session_id)
             if twin:
                 if destroy_success:
                     twin.state = TwinState.DESTROYED
                     twin.destroyed_at = datetime.utcnow()
                 else:
                     twin.state = TwinState.ERROR
-                    twin.last_error = "Destroy completed with errors — check logs"
+                    twin.last_error = error_message
             
             if deployment:
-                deployment.status = "success" if destroy_success else "failed"
-                deployment.completed_at = datetime.utcnow()
+                if destroy_success:
+                    repository.mark_success(
+                        deployment,
+                        operation_id=terminal_result.operation_id if terminal_result else None,
+                    )
+                else:
+                    repository.mark_failed(
+                        deployment,
+                        error_message=error_message,
+                        operation_id=terminal_result.operation_id if terminal_result else None,
+                        error_code=(
+                            terminal_result.error_code
+                            if terminal_result and terminal_result.error_code
+                            else "DEPLOYER_STREAM_ERROR"
+                        ),
+                    )
             db.commit()  # Single atomic commit
         finally:
             db.close()
         
         session.on_complete(
             success=destroy_success,
-            message="Destruction complete" if destroy_success else "Destroy failed"
+            message=error_message,
+            operation_id=terminal_result.operation_id if terminal_result else None,
+            error_code=None if destroy_success else (
+                terminal_result.error_code
+                if terminal_result and terminal_result.error_code
+                else "DEPLOYER_STREAM_ERROR"
+            ),
         )
         
     except Exception as e:
-        # Error path — respect destroy_success flag to avoid overwriting a successful outcome
-        logger.error(f"Destroy stream error (success={destroy_success}): {e}", exc_info=True)
+        destroy_success = bool(terminal_result and terminal_result.success)
+        safe_error = _redact_deployment_message(e)
+        logger.error("Destroy stream error (success=%s): %s", destroy_success, safe_error)
         db = SessionLocal()
         try:
-            twin = db.query(DigitalTwin).get(twin_id)
+            twin = db.get(DigitalTwin, twin_id)
             if twin and not destroy_success:
                 twin.state = TwinState.ERROR
-                twin.last_error = str(e)
+                twin.last_error = safe_error
             elif twin and destroy_success:
                 twin.state = TwinState.DESTROYED
                 twin.destroyed_at = datetime.utcnow()
             
-            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            repository = DeploymentRepository(db)
+            deployment = repository.get_by_session_id(session_id)
             if deployment:
-                deployment.status = "success" if destroy_success else "failed"
-                deployment.error_message = str(e) if not destroy_success else None
-                deployment.completed_at = datetime.utcnow()
+                if destroy_success:
+                    repository.mark_success(
+                        deployment,
+                        operation_id=terminal_result.operation_id if terminal_result else None,
+                    )
+                else:
+                    repository.mark_failed(
+                        deployment,
+                        error_message=safe_error,
+                        operation_id=terminal_result.operation_id if terminal_result else None,
+                        error_code=(
+                            terminal_result.error_code
+                            if terminal_result and terminal_result.error_code
+                            else "BACKEND_STREAM_ERROR"
+                        ),
+                    )
             db.commit()
         finally:
             db.close()
         
         if not destroy_success:
-            await session.push_log(f"✗ Destroy error: {e}", level="error")
+            await session.push_log(f"Destroy error: {safe_error}", level="error")
         session.on_complete(
             success=destroy_success,
-            message=str(e) if not destroy_success else "Destruction complete"
+            message=safe_error if not destroy_success else "Destruction complete",
+            operation_id=terminal_result.operation_id if terminal_result else None,
+            error_code=None if destroy_success else (
+                terminal_result.error_code
+                if terminal_result and terminal_result.error_code
+                else "BACKEND_STREAM_ERROR"
+            ),
         )
 
 
@@ -715,7 +900,7 @@ def _build_deployment_manifest(
         "credentials": {
             "providers": list(deployment_credentials.providers),
             "sources": dict(deployment_credentials.sources),
-            "contains_secret_payloads": False,
+            "contains_secret_payloads": _manifest_contains_secret_payloads(),
         },
     }
 
@@ -730,6 +915,11 @@ def _manifest_scalar(value: Any) -> Optional[str]:
     if isinstance(value, (str, int, float, bool)):
         return str(value)
     return None
+
+
+def _manifest_contains_secret_payloads() -> bool:
+    """Return the manifest's explicit secret-payload safety flag."""
+    return False
 
 
 def _remove_empty_values(values: dict[str, Any]) -> dict[str, Any]:

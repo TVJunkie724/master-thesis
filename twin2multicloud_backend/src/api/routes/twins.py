@@ -30,6 +30,7 @@ from src.services.deployment_service import (
     run_real_destroy_stream,
     build_deploy_config,
 )
+from src.repositories.deployment_repository import DeploymentRepository
 from src.services.configuration_validation_service import ConfigurationValidationService
 from src.services.errors import ConfigurationValidationFailed, CredentialResolutionFailed
 from src.api.routes.error_models import ERROR_RESPONSES
@@ -253,6 +254,22 @@ def _credential_resolution_exception(exc: CredentialResolutionFailed) -> HTTPExc
             "errors": exc.errors,
         },
     )
+
+
+def _deployment_summary(deployment) -> dict | None:
+    if not deployment:
+        return None
+    return {
+        "id": deployment.id,
+        "session_id": deployment.session_id,
+        "operation_id": deployment.operation_id,
+        "operation_type": deployment.operation_type,
+        "status": deployment.status,
+        "error_code": deployment.error_code,
+        "error_message": deployment.error_message,
+        "started_at": deployment.started_at.isoformat() if deployment.started_at else None,
+        "completed_at": deployment.completed_at.isoformat() if deployment.completed_at else None,
+    }
 
 
 @router.delete(
@@ -734,12 +751,15 @@ async def get_deployment_status(
                 "operation_type": s.operation_type,
             }
 
+    latest_deployment = DeploymentRepository(db).get_latest_for_twin(twin_id)
+
     return {
         "state": twin.state,
         "last_error": twin.last_error,
         "deployed_at": twin.deployed_at.isoformat() if twin.deployed_at else None,
         "destroyed_at": twin.destroyed_at.isoformat() if twin.destroyed_at else None,
         "active_session": active_session,
+        "latest_deployment": _deployment_summary(latest_deployment),
     }
 
 @router.get(
@@ -826,8 +846,6 @@ async def get_deployment_history(
     
     Returns a list of historical deployments ordered by most recent first.
     """
-    from src.models.deployment import Deployment
-    
     # Verify twin belongs to user
     twin = db.query(DigitalTwin).filter(
         DigitalTwin.id == twin_id,
@@ -837,19 +855,19 @@ async def get_deployment_history(
     if not twin:
         raise HTTPException(status_code=404, detail="Twin not found")
     
-    deployments = db.query(Deployment).filter(
-        Deployment.twin_id == twin_id
-    ).order_by(Deployment.started_at.desc()).limit(limit).all()
+    deployments = DeploymentRepository(db).list_for_twin(twin_id, limit)
     
     return {
         "deployments": [
             {
                 "id": d.id,
                 "session_id": d.session_id,
+                "operation_id": d.operation_id,
                 "operation_type": d.operation_type,
                 "status": d.status,
                 "started_at": d.started_at.isoformat() if d.started_at else None,
                 "completed_at": d.completed_at.isoformat() if d.completed_at else None,
+                "error_code": d.error_code,
                 "error_message": d.error_message,
             }
             for d in deployments

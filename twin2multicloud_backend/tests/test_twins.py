@@ -8,7 +8,11 @@ Tests CRUD operations for digital twins including:
 """
 
 import pytest
+from datetime import datetime, timezone
 from tests.conftest import create_test_twin
+from src.models.deployment import Deployment
+from src.models.twin import DigitalTwin, TwinState
+from src.models.user import User
 
 
 class TestTwinsRoutes:
@@ -233,3 +237,66 @@ class TestTwinsRoutes:
         assert response.status_code == 200
 
     # Note: Auth test removed due to test isolation issues with dependency overrides
+
+
+class TestDeploymentStateReadModels:
+    """Tests for deployment operation metadata exposed by twin read endpoints."""
+
+    def test_deployment_status_includes_latest_operation_metadata(self, authenticated_client, db_session):
+        client, headers = authenticated_client
+        user = db_session.query(User).first()
+        twin = DigitalTwin(name="State Twin", user_id=user.id, state=TwinState.ERROR)
+        db_session.add(twin)
+        db_session.commit()
+        db_session.refresh(twin)
+        deployment = Deployment(
+            twin_id=twin.id,
+            session_id="session-1",
+            operation_id="op-123",
+            operation_type="deploy",
+            status="failed",
+            error_code="DEPLOYMENT_ERROR",
+            error_message="Deployment operation failed. Check server logs.",
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+        )
+        db_session.add(deployment)
+        db_session.commit()
+
+        response = client.get(f"/twins/{twin.id}/deployment-status", headers=headers)
+
+        assert response.status_code == 200
+        latest = response.json()["latest_deployment"]
+        assert latest["session_id"] == "session-1"
+        assert latest["operation_id"] == "op-123"
+        assert latest["error_code"] == "DEPLOYMENT_ERROR"
+        assert latest["error_message"] == "Deployment operation failed. Check server logs."
+
+    def test_deployment_history_includes_operation_metadata(self, authenticated_client, db_session):
+        client, headers = authenticated_client
+        user = db_session.query(User).first()
+        twin = DigitalTwin(name="History Twin", user_id=user.id, state=TwinState.DEPLOYED)
+        db_session.add(twin)
+        db_session.commit()
+        db_session.refresh(twin)
+        deployment = Deployment(
+            twin_id=twin.id,
+            session_id="session-history",
+            operation_id="op-history",
+            operation_type="destroy",
+            status="failed",
+            error_code="DESTRUCTION_ERROR",
+            error_message="Destruction operation failed. Check server logs.",
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+        )
+        db_session.add(deployment)
+        db_session.commit()
+
+        response = client.get(f"/twins/{twin.id}/deployments", headers=headers)
+
+        assert response.status_code == 200
+        item = response.json()["deployments"][0]
+        assert item["session_id"] == "session-history"
+        assert item["operation_id"] == "op-history"
+        assert item["error_code"] == "DESTRUCTION_ERROR"
