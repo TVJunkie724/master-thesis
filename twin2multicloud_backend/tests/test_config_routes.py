@@ -34,6 +34,13 @@ class TestConfigRoutes:
         assert data["azure_configured"] == False
         assert data["gcp_configured"] == False
         assert data["debug_mode"] == False
+        assert data["twin_state"] == "draft"
+        assert data["configured_providers"] == []
+        assert data["credential_sources"] == {
+            "aws": None,
+            "azure": None,
+            "gcp": None,
+        }
 
     def test_update_config_aws(self, authenticated_client, sample_aws_credentials):
         """PUT config stores AWS credentials."""
@@ -86,6 +93,81 @@ class TestConfigRoutes:
         
         get_response = client.get(f"/twins/{twin_id}/config/", headers=headers)
         assert get_response.json()["gcp_configured"] == True
+
+    def test_config_read_model_reports_credential_sources(
+        self,
+        authenticated_client,
+        sample_azure_credentials,
+    ):
+        """Read model exposes secret-safe source metadata for Flutter hydration."""
+        client, headers = authenticated_client
+        twin_id = create_test_twin(client, headers)
+        connection = client.post(
+            "/cloud-connections/",
+            json={
+                "provider": "aws",
+                "display_name": "AWS Dev Account",
+                "aws": {
+                    "access_key_id": "AKIAIOSFODNN7EXAMPLE",
+                    "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                    "region": "eu-central-1",
+                },
+            },
+            headers=headers,
+        ).json()
+
+        response = client.put(
+            f"/twins/{twin_id}/config/",
+            json={
+                "cloud_connections": {"aws": connection["id"]},
+                "azure": sample_azure_credentials,
+            },
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["aws_configured"] is True
+        assert data["aws_credential_source"] == "cloud_connection"
+        assert data["azure_configured"] is True
+        assert data["azure_credential_source"] == "legacy"
+        assert data["gcp_configured"] is False
+        assert data["gcp_credential_source"] is None
+        assert data["configured_providers"] == ["aws", "azure"]
+        assert data["credential_sources"] == {
+            "aws": "cloud_connection",
+            "azure": "legacy",
+            "gcp": None,
+        }
+        assert data["cloud_connections"]["aws"]["id"] == connection["id"]
+        assert data["cloud_connections"]["aws"]["display_name"] == "AWS Dev Account"
+        assert data["cloud_connections"]["aws"]["validation_status"] == "untested"
+
+    def test_gcp_project_metadata_alone_is_not_configured(
+        self,
+        authenticated_client,
+        db_session,
+    ):
+        """Public GCP project metadata must not hydrate as usable credentials."""
+        from src.models.twin_config import TwinConfiguration
+
+        client, headers = authenticated_client
+        twin_id = create_test_twin(client, headers)
+        client.get(f"/twins/{twin_id}/config/", headers=headers)
+
+        config = db_session.query(TwinConfiguration).filter_by(twin_id=twin_id).one()
+        config.gcp_project_id = "metadata-only-project"
+        config.gcp_region = "europe-west1"
+        db_session.commit()
+
+        response = client.get(f"/twins/{twin_id}/config/", headers=headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["gcp_project_id"] == "metadata-only-project"
+        assert data["gcp_configured"] is False
+        assert data["gcp_credential_source"] is None
+        assert "gcp" not in data["configured_providers"]
 
     def test_update_debug_mode(self, authenticated_client):
         """PUT config updates debug_mode flag."""

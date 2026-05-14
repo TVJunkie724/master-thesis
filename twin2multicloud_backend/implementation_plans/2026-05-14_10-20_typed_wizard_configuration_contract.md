@@ -41,6 +41,10 @@ package generation boundary
 - 2026-05-14: Slice 2 backend service boundary implemented. Config update and
   deployer update semantics now run through `WizardConfigurationService`, with
   explicit omitted/value/null behavior covered by route and service tests.
+- 2026-05-14: Slice 3 backend read model stabilized. Config and deployer
+  responses now expose explicit `twin_state`, credential source metadata,
+  secret-safe bound CloudConnection summaries, configured provider lists, and
+  deployer section/validation summaries for deterministic Flutter hydration.
 
 ---
 

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 import json
@@ -42,6 +42,7 @@ class DeployerConfigUpdate(BaseModel):
 class DeployerConfigResponse(BaseModel):
     """Response model for deployer configuration."""
     twin_id: str
+    twin_state: Optional[str] = None
     deployer_digital_twin_name: Optional[str] = None
     config_events_json: Optional[str] = None
     config_iot_devices_json: Optional[str] = None
@@ -73,10 +74,15 @@ class DeployerConfigResponse(BaseModel):
     # Section 3: L4/L5 User Config
     user_config_content: Optional[str] = None
     user_config_validated: bool = False
+    has_config_artifacts: bool = False
+    has_l1_payloads: bool = False
+    has_l2_artifacts: bool = False
+    has_l4_l5_artifacts: bool = False
+    validation_summary: dict[str, bool] = Field(default_factory=dict)
     updated_at: Optional[datetime] = None
     
     @classmethod
-    def from_db(cls, config):
+    def from_db(cls, config, twin_state: Optional[str] = None):
         """Convert DB model to response."""
         if config is None:
             return None
@@ -91,14 +97,15 @@ class DeployerConfigResponse(BaseModel):
         
         return cls(
             twin_id=config.twin_id,
+            twin_state=twin_state,
             deployer_digital_twin_name=config.deployer_digital_twin_name,
             config_events_json=config.config_events_json,
             config_iot_devices_json=config.config_iot_devices_json,
-            config_json_validated=config.config_json_validated,
-            config_events_validated=config.config_events_validated,
-            config_iot_devices_validated=config.config_iot_devices_validated,
+            config_json_validated=bool(config.config_json_validated),
+            config_events_validated=bool(config.config_events_validated),
+            config_iot_devices_validated=bool(config.config_iot_devices_validated),
             payloads_json=config.payloads_json,
-            payloads_validated=config.payloads_validated,
+            payloads_validated=bool(config.payloads_validated),
             # L2 fields (parse JSON strings to dicts)
             processor_contents=parse_json_dict(config.processor_contents),
             processor_validated=parse_json_dict(config.processor_validated),
@@ -121,6 +128,35 @@ class DeployerConfigResponse(BaseModel):
             # L4/L5 User Config
             user_config_content=config.user_config_content,
             user_config_validated=config.user_config_validated or False,
+            has_config_artifacts=bool(
+                config.deployer_digital_twin_name
+                or config.config_events_json
+                or config.config_iot_devices_json
+            ),
+            has_l1_payloads=bool(config.payloads_json),
+            has_l2_artifacts=bool(
+                config.processor_contents
+                or config.event_feedback_content
+                or config.event_action_contents
+                or config.state_machine_content
+            ),
+            has_l4_l5_artifacts=bool(
+                config.hierarchy_content
+                or config.scene_glb_uploaded
+                or config.scene_config_content
+                or config.user_config_content
+            ),
+            validation_summary={
+                "config": bool(config.config_json_validated),
+                "events": bool(config.config_events_validated),
+                "iot_devices": bool(config.config_iot_devices_validated),
+                "payloads": bool(config.payloads_validated),
+                "event_feedback": bool(config.event_feedback_validated),
+                "state_machine": bool(config.state_machine_validated),
+                "hierarchy": bool(config.hierarchy_validated),
+                "scene_config": bool(config.scene_config_validated),
+                "user_config": bool(config.user_config_validated),
+            },
             updated_at=config.updated_at,
         )
 

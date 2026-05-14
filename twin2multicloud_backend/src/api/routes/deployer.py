@@ -74,7 +74,7 @@ async def get_deployer_config(
     else:
         config = twin.deployer_config
     
-    return DeployerConfigResponse.from_db(config)
+    return DeployerConfigResponse.from_db(config, twin_state=twin.state.value)
 
 
 @router.put(
@@ -117,8 +117,7 @@ async def update_deployer_config(
     db.refresh(twin)
     
     # Include twin_state in response for frontend sync
-    response = DeployerConfigResponse.from_db(config)
-    return {**response.model_dump(), "twin_state": twin.state.value}
+    return DeployerConfigResponse.from_db(config, twin_state=twin.state.value)
 
 
 @router.post(

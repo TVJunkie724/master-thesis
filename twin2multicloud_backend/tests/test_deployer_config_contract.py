@@ -118,6 +118,46 @@ def test_l4_l5_deployer_config_round_trips(authenticated_client):
     assert data["user_config_validated"] is True
 
 
+def test_deployer_config_read_model_includes_hydration_metadata(authenticated_client):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+
+    response = client.put(
+        f"/twins/{twin_id}/deployer/config",
+        json={
+            "deployer_digital_twin_name": "factory",
+            "config_json_validated": True,
+            "payloads_json": '{"device-1":{"temperature":21}}',
+            "payloads_validated": True,
+            "processor_contents": {"device-1": "def process(event): return event"},
+            "state_machine_content": '{"StartAt":"Done","States":{"Done":{"Type":"Succeed"}}}',
+            "hierarchy_content": '{"entities":[]}',
+            "scene_config_content": '{"scene":"factory"}',
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["twin_state"] == "draft"
+    assert data["has_config_artifacts"] is True
+    assert data["has_l1_payloads"] is True
+    assert data["has_l2_artifacts"] is True
+    assert data["has_l4_l5_artifacts"] is True
+    assert data["validation_summary"] == {
+        "config": True,
+        "events": False,
+        "iot_devices": False,
+        "payloads": True,
+        "event_feedback": False,
+        "state_machine": False,
+        "hierarchy": False,
+        "scene_config": False,
+        "user_config": False,
+    }
+
+
 def test_deployer_config_omitted_fields_remain_unchanged(authenticated_client):
     client, headers = authenticated_client
     twin_id = create_test_twin(client, headers)

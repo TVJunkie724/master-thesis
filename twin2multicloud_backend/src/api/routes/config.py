@@ -68,7 +68,7 @@ async def get_config(
     else:
         config = twin.configuration
     
-    return TwinConfigResponse.from_db(config, twin.optimizer_config)
+    return TwinConfigResponse.from_db(config, twin.optimizer_config, twin_state=twin.state.value)
 
 
 @router.put(
@@ -117,8 +117,7 @@ async def update_config(
     db.refresh(twin)
 
     # Include twin_state in response for frontend sync
-    response = TwinConfigResponse.from_db(config, twin.optimizer_config)
-    return {**response.model_dump(), "twin_state": twin.state.value}
+    return TwinConfigResponse.from_db(config, twin.optimizer_config, twin_state=twin.state.value)
 
 
 @router.post(

@@ -1,6 +1,11 @@
+import json
+from typing import Any, Literal, Optional
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from typing import Optional, Any
 from datetime import datetime
+
+
+CredentialSource = Literal["cloud_connection", "legacy"]
 
 
 class AWSCredentials(BaseModel):
@@ -66,53 +71,102 @@ class TwinConfigResponse(BaseModel):
     
     id: str
     twin_id: str
+    twin_state: Optional[str] = None
     debug_mode: bool
     aws_configured: bool
     aws_validated: bool
+    aws_credential_source: Optional[CredentialSource] = None
     aws_cloud_connection_id: Optional[str] = None
     aws_region: Optional[str] = None
     aws_sso_region: Optional[str] = None
     azure_configured: bool
     azure_validated: bool
+    azure_credential_source: Optional[CredentialSource] = None
     azure_cloud_connection_id: Optional[str] = None
     azure_region: Optional[str] = None
     azure_region_iothub: Optional[str] = None
     azure_region_digital_twin: Optional[str] = None
     gcp_configured: bool
     gcp_validated: bool
+    gcp_credential_source: Optional[CredentialSource] = None
     gcp_cloud_connection_id: Optional[str] = None
     gcp_project_id: Optional[str] = None
     gcp_billing_account_configured: bool = False  # NEW - never expose actual value
     gcp_region: Optional[str] = None  # NEW
+    configured_providers: list[str] = Field(default_factory=list)
+    credential_sources: dict[str, Optional[CredentialSource]] = Field(default_factory=dict)
+    cloud_connections: dict[str, Optional["BoundCloudConnectionSummary"]] = Field(default_factory=dict)
     highest_step_reached: int = 0
     optimizer_params: Optional[Any] = None  # CalcParams JSON from OptimizerConfiguration
     optimizer_result: Optional[Any] = None  # CalcResult JSON from OptimizerConfiguration
     updated_at: datetime
     
     @classmethod
-    def from_db(cls, config, optimizer_config=None):
+    def from_db(cls, config, optimizer_config=None, twin_state: Optional[str] = None):
         """Convert DB model to response (no secrets exposed)."""
+        aws_source = _credential_source(
+            cloud_connection=getattr(config, "aws_cloud_connection", None),
+            legacy_fields=[config.aws_access_key_id, config.aws_secret_access_key],
+        )
+        azure_source = _credential_source(
+            cloud_connection=getattr(config, "azure_cloud_connection", None),
+            legacy_fields=[
+                config.azure_subscription_id,
+                config.azure_client_id,
+                config.azure_client_secret,
+                config.azure_tenant_id,
+            ],
+        )
+        gcp_source = _credential_source(
+            cloud_connection=getattr(config, "gcp_cloud_connection", None),
+            legacy_fields=[config.gcp_service_account_json],
+        )
+        configured_providers = [
+            provider
+            for provider, source in {
+                "aws": aws_source,
+                "azure": azure_source,
+                "gcp": gcp_source,
+            }.items()
+            if source is not None
+        ]
+
         return cls(
             id=config.id,
             twin_id=config.twin_id,
-            debug_mode=config.debug_mode,
-            aws_configured=bool(config.aws_cloud_connection_id or config.aws_access_key_id),
-            aws_validated=config.aws_validated,
+            twin_state=twin_state,
+            debug_mode=bool(config.debug_mode),
+            aws_configured=aws_source is not None,
+            aws_validated=bool(config.aws_validated),
+            aws_credential_source=aws_source,
             aws_cloud_connection_id=getattr(config, 'aws_cloud_connection_id', None),
             aws_region=config.aws_region,
             aws_sso_region=getattr(config, 'aws_sso_region', None),
-            azure_configured=bool(config.azure_cloud_connection_id or config.azure_subscription_id),
-            azure_validated=config.azure_validated,
+            azure_configured=azure_source is not None,
+            azure_validated=bool(config.azure_validated),
+            azure_credential_source=azure_source,
             azure_cloud_connection_id=getattr(config, 'azure_cloud_connection_id', None),
             azure_region=getattr(config, 'azure_region', None),
             azure_region_iothub=getattr(config, 'azure_region_iothub', None),
             azure_region_digital_twin=getattr(config, 'azure_region_digital_twin', None),
-            gcp_configured=bool(config.gcp_cloud_connection_id or config.gcp_project_id or config.gcp_service_account_json),
-            gcp_validated=config.gcp_validated,
+            gcp_configured=gcp_source is not None,
+            gcp_validated=bool(config.gcp_validated),
+            gcp_credential_source=gcp_source,
             gcp_cloud_connection_id=getattr(config, 'gcp_cloud_connection_id', None),
             gcp_project_id=config.gcp_project_id,
             gcp_billing_account_configured=bool(getattr(config, 'gcp_billing_account', None)),  # NEW
             gcp_region=getattr(config, 'gcp_region', None),  # NEW
+            configured_providers=configured_providers,
+            credential_sources={
+                "aws": aws_source,
+                "azure": azure_source,
+                "gcp": gcp_source,
+            },
+            cloud_connections={
+                "aws": BoundCloudConnectionSummary.from_db(getattr(config, "aws_cloud_connection", None)),
+                "azure": BoundCloudConnectionSummary.from_db(getattr(config, "azure_cloud_connection", None)),
+                "gcp": BoundCloudConnectionSummary.from_db(getattr(config, "gcp_cloud_connection", None)),
+            },
             highest_step_reached=config.highest_step_reached or 0,
             optimizer_params=_safe_json_loads(optimizer_config.params) if optimizer_config and optimizer_config.params else None,
             optimizer_result=_safe_json_loads(optimizer_config.result_json) if optimizer_config and optimizer_config.result_json else None,
@@ -124,11 +178,42 @@ def _safe_json_loads(s):
     """Safely parse JSON string, returning None on error."""
     if not s:
         return None
-    import json
     try:
         return json.loads(s)
     except (json.JSONDecodeError, TypeError):
         return None
+
+
+class BoundCloudConnectionSummary(BaseModel):
+    """Secret-safe summary of a CloudConnection bound to a twin."""
+
+    id: str
+    provider: str
+    display_name: str
+    auth_type: str
+    validation_status: str
+    last_validated_at: Optional[datetime] = None
+
+    @classmethod
+    def from_db(cls, connection):
+        if connection is None:
+            return None
+        return cls(
+            id=connection.id,
+            provider=connection.provider,
+            display_name=connection.display_name,
+            auth_type=connection.auth_type,
+            validation_status=connection.validation_status,
+            last_validated_at=connection.last_validated_at,
+        )
+
+
+def _credential_source(*, cloud_connection, legacy_fields: list[Any]) -> Optional[CredentialSource]:
+    if cloud_connection is not None:
+        return "cloud_connection"
+    if all(bool(field) for field in legacy_fields):
+        return "legacy"
+    return None
 
 
 class CredentialValidationResult(BaseModel):
