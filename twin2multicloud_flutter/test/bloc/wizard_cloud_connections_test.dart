@@ -108,6 +108,35 @@ void main() {
     );
 
     blocTest<WizardBloc, WizardState>(
+      'saving cleared legacy credentials sends explicit provider null',
+      build: () {
+        when(
+          () => api.updateTwinConfig(any(), any()),
+        ).thenAnswer((_) async => {'twin_state': 'draft'});
+        return WizardBloc(api: api);
+      },
+      seed: () => const WizardState(
+        mode: WizardMode.edit,
+        twinId: 'existing-twin-id',
+        twinName: 'Twin',
+        aws: ProviderCredentials(source: CredentialSource.cleared),
+      ),
+      act: (bloc) => bloc.add(const WizardSaveDraft()),
+      wait: const Duration(milliseconds: 1),
+      verify: (_) {
+        final captured =
+            verify(
+                  () => api.updateTwinConfig('existing-twin-id', captureAny()),
+                ).captured.single
+                as Map<String, dynamic>;
+
+        expect(captured['aws'], isNull);
+        expect(captured.containsKey('azure'), false);
+        expect(captured.containsKey('gcp'), false);
+      },
+    );
+
+    blocTest<WizardBloc, WizardState>(
       'saving Step 3 draft persists payload-only deployer config',
       build: () {
         when(

@@ -203,6 +203,38 @@ class TestConfigRoutes:
         get_response = client.get(f"/twins/{twin_id}/config/", headers=headers)
         assert get_response.json()["debug_mode"] == True
 
+    def test_omitted_provider_keeps_existing_legacy_credentials(
+        self,
+        authenticated_client,
+        sample_aws_credentials,
+        db_session,
+    ):
+        """Omitted provider fields mean unchanged, not cleared."""
+        from src.models.twin_config import TwinConfiguration
+
+        client, headers = authenticated_client
+        twin_id = create_test_twin(client, headers)
+        client.put(
+            f"/twins/{twin_id}/config/",
+            json={"aws": sample_aws_credentials},
+            headers=headers,
+        )
+
+        response = client.put(
+            f"/twins/{twin_id}/config/",
+            json={"debug_mode": True},
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["debug_mode"] is True
+        assert data["aws_configured"] is True
+
+        config = db_session.query(TwinConfiguration).filter_by(twin_id=twin_id).one()
+        assert config.aws_access_key_id is not None
+        assert config.aws_secret_access_key is not None
+
     def test_explicit_null_clears_legacy_aws_credentials(
         self,
         authenticated_client,
