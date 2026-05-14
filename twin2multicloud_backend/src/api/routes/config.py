@@ -108,6 +108,23 @@ def _clear_legacy_credentials(config: TwinConfiguration, provider: str) -> None:
         setattr(config, field, None)
 
 
+def _clear_provider_configuration(config: TwinConfiguration, provider: str) -> None:
+    """Clear one provider from a twin config after an explicit client null."""
+    setattr(config, _connection_id_attr(provider), None)
+    setattr(config, _validation_attr(provider), False)
+    _clear_legacy_credentials(config, provider)
+
+    if provider == "aws":
+        config.aws_region = "eu-central-1"
+    elif provider == "azure":
+        config.azure_region = "westeurope"
+        config.azure_region_iothub = None
+        config.azure_region_digital_twin = None
+    elif provider == "gcp":
+        config.gcp_project_id = None
+        config.gcp_region = "europe-west1"
+
+
 def _copy_connection_metadata(config: TwinConfiguration, provider: str, payload: dict) -> None:
     if provider == "aws":
         config.aws_region = payload.get("aws_region") or config.aws_region
@@ -273,8 +290,10 @@ async def update_config(
     if update.debug_mode is not None:
         config.debug_mode = update.debug_mode
     
-    # AWS - ENCRYPT with user+twin-specific key
-    if update.aws:
+    # AWS - ENCRYPT with user+twin-specific key, or clear on explicit null.
+    if "aws" in update.model_fields_set and update.aws is None:
+        _clear_provider_configuration(config, "aws")
+    elif update.aws:
         config.aws_cloud_connection_id = None
         config.aws_access_key_id = encrypt(update.aws.access_key_id, current_user.id, twin_id)
         config.aws_secret_access_key = encrypt(update.aws.secret_access_key, current_user.id, twin_id)
@@ -286,8 +305,10 @@ async def update_config(
             config.aws_session_token = None
         config.aws_validated = False
     
-    # Azure - ENCRYPT with user+twin-specific key
-    if update.azure:
+    # Azure - ENCRYPT with user+twin-specific key, or clear on explicit null.
+    if "azure" in update.model_fields_set and update.azure is None:
+        _clear_provider_configuration(config, "azure")
+    elif update.azure:
         config.azure_cloud_connection_id = None
         config.azure_subscription_id = encrypt(update.azure.subscription_id, current_user.id, twin_id)
         config.azure_client_id = encrypt(update.azure.client_id, current_user.id, twin_id)
@@ -299,8 +320,15 @@ async def update_config(
         config.azure_region_digital_twin = update.azure.region_digital_twin or None
         config.azure_validated = False
     
-    # GCP - ENCRYPT with user+twin-specific key
-    if update.gcp:
+    # GCP - ENCRYPT with user+twin-specific key, or clear on explicit null.
+    if "gcp" in update.model_fields_set and update.gcp is None:
+        _clear_provider_configuration(config, "gcp")
+    elif update.gcp:
+        if not update.gcp.service_account_json:
+            raise HTTPException(
+                status_code=422,
+                detail="service_account_json is required for stored GCP credentials",
+            )
         config.gcp_cloud_connection_id = None
         config.gcp_project_id = update.gcp.project_id  # Not encrypted (public)
         if update.gcp.billing_account:
@@ -308,8 +336,7 @@ async def update_config(
         else:
             config.gcp_billing_account = None
         config.gcp_region = update.gcp.region  # Not encrypted
-        if update.gcp.service_account_json:
-            config.gcp_service_account_json = encrypt(update.gcp.service_account_json, current_user.id, twin_id)
+        config.gcp_service_account_json = encrypt(update.gcp.service_account_json, current_user.id, twin_id)
         config.gcp_validated = False
 
     _apply_cloud_connection_bindings(db, config, current_user.id, update.cloud_connections)

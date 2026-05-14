@@ -203,6 +203,101 @@ class TestConfigRoutes:
         get_response = client.get(f"/twins/{twin_id}/config/", headers=headers)
         assert get_response.json()["debug_mode"] == True
 
+    def test_explicit_null_clears_legacy_aws_credentials(
+        self,
+        authenticated_client,
+        sample_aws_credentials,
+        db_session,
+    ):
+        """Explicit provider null means clear stored legacy credentials."""
+        from src.models.twin_config import TwinConfiguration
+
+        client, headers = authenticated_client
+        twin_id = create_test_twin(client, headers)
+        client.put(
+            f"/twins/{twin_id}/config/",
+            json={"aws": sample_aws_credentials},
+            headers=headers,
+        )
+
+        response = client.put(
+            f"/twins/{twin_id}/config/",
+            json={"aws": None},
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["aws_configured"] is False
+        assert data["aws_validated"] is False
+        assert data["aws_cloud_connection_id"] is None
+
+        config = db_session.query(TwinConfiguration).filter_by(twin_id=twin_id).one()
+        assert config.aws_cloud_connection_id is None
+        assert config.aws_access_key_id is None
+        assert config.aws_secret_access_key is None
+        assert config.aws_session_token is None
+        assert config.aws_region == "eu-central-1"
+
+    def test_explicit_null_clears_gcp_public_fields_and_secret(
+        self,
+        authenticated_client,
+        sample_gcp_credentials,
+        db_session,
+    ):
+        """GCP clear must remove public project metadata as well as secrets."""
+        from src.models.twin_config import TwinConfiguration
+
+        client, headers = authenticated_client
+        twin_id = create_test_twin(client, headers)
+        client.put(
+            f"/twins/{twin_id}/config/",
+            json={"gcp": sample_gcp_credentials},
+            headers=headers,
+        )
+
+        response = client.put(
+            f"/twins/{twin_id}/config/",
+            json={"gcp": None},
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["gcp_configured"] is False
+        assert data["gcp_validated"] is False
+        assert data["gcp_project_id"] is None
+        assert data["gcp_billing_account_configured"] is False
+
+        config = db_session.query(TwinConfiguration).filter_by(twin_id=twin_id).one()
+        assert config.gcp_cloud_connection_id is None
+        assert config.gcp_project_id is None
+        assert config.gcp_billing_account is None
+        assert config.gcp_service_account_json is None
+        assert config.gcp_region == "europe-west1"
+
+    def test_gcp_legacy_credentials_require_service_account_json(
+        self,
+        authenticated_client,
+    ):
+        """Legacy GCP credentials must include the key used by deploy/validation."""
+        client, headers = authenticated_client
+        twin_id = create_test_twin(client, headers)
+
+        response = client.put(
+            f"/twins/{twin_id}/config/",
+            json={
+                "gcp": {
+                    "project_id": "my-project-12345",
+                    "billing_account": "012345-6789AB-CDEF01",
+                    "region": "europe-west1",
+                }
+            },
+            headers=headers,
+        )
+
+        assert response.status_code == 422
+
     # ============================================================
     # Error Case Tests
     # ============================================================

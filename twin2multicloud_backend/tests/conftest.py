@@ -107,6 +107,7 @@ def sample_gcp_credentials():
     return {
         "project_id": "my-project-12345",
         "billing_account": "012345-6789AB-CDEF01",
+        "service_account_json": '{"type":"service_account","project_id":"my-project-12345","client_email":"deployer@my-project-12345.iam.gserviceaccount.com","private_key":"-----BEGIN PRIVATE KEY-----\\nsecret\\n-----END PRIVATE KEY-----\\n"}',
         "region": "europe-west1"
     }
 

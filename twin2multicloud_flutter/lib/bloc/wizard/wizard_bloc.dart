@@ -815,6 +815,20 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     return state.selectedCloudConnectionIds[provider] != null;
   }
 
+  bool _shouldPersistDeployerConfig() {
+    if (state.currentStep >= 2 || state.highestStepReached >= 2) {
+      return true;
+    }
+    final payload = DeployerHelper.buildDeployerConfigPayload(state);
+    return payload.values.any((value) {
+      if (value == null) return false;
+      if (value is bool) return value;
+      if (value is String) return value.isNotEmpty;
+      if (value is Map) return value.isNotEmpty;
+      return true;
+    });
+  }
+
   // ============================================================
   // PERSISTENCE HANDLERS
   // ============================================================
@@ -946,41 +960,12 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         }
       }
 
-      // Save deployer config (Step 3 Section 2 data)
-      if (state.deployerDigitalTwinName != null ||
-          state.configEventsJson != null ||
-          state.configIotDevicesJson != null) {
-        await _api.updateDeployerConfig(twinId, {
-          'deployer_digital_twin_name': state.deployerDigitalTwinName,
-          'config_events_json': state.configEventsJson,
-          'config_iot_devices_json': state.configIotDevicesJson,
-          'config_json_validated': state.configJsonValidated,
-          'config_events_validated': state.configEventsValidated,
-          'config_iot_devices_validated': state.configIotDevicesValidated,
-          // Section 3 L1
-          'payloads_json': state.payloadsJson,
-          'payloads_validated': state.payloadsValidated,
-          // Section 3 L2
-          'processor_contents': state.processorContents,
-          'processor_validated': state.processorValidated,
-          'processor_requirements': state.processorRequirements,
-          'event_feedback_content': state.eventFeedbackContent,
-          'event_feedback_validated': state.eventFeedbackValidated,
-          'event_feedback_requirements': state.eventFeedbackRequirements,
-          'event_action_contents': state.eventActionContents,
-          'event_action_validated': state.eventActionValidated,
-          'event_action_requirements': state.eventActionRequirements,
-          'state_machine_content': state.stateMachineContent,
-          'state_machine_validated': state.stateMachineValidated,
-          // L4/L5 fields
-          'hierarchy_content': state.hierarchyContent,
-          'hierarchy_validated': state.hierarchyValidated,
-          'scene_glb_uploaded': state.sceneGlbUploaded,
-          'scene_config_content': state.sceneConfigContent,
-          'scene_config_validated': state.sceneConfigValidated,
-          'user_config_content': state.userConfigContent,
-          'user_config_validated': state.userConfigValidated,
-        });
+      // Save all Step 3 data once the user reached the deployer step.
+      if (_shouldPersistDeployerConfig()) {
+        await _api.updateDeployerConfig(
+          twinId,
+          DeployerHelper.buildDeployerConfigPayload(state),
+        );
       }
 
       emit(
@@ -1060,37 +1045,10 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
       await _api.updateTwinConfig(twinId!, config);
 
       // Save deployer config (Step 3 data) - mirrors _onSaveDraft logic
-      await _api.updateDeployerConfig(twinId, {
-        'deployer_digital_twin_name': state.deployerDigitalTwinName,
-        'config_events_json': state.configEventsJson,
-        'config_iot_devices_json': state.configIotDevicesJson,
-        'config_json_validated': state.configJsonValidated,
-        'config_events_validated': state.configEventsValidated,
-        'config_iot_devices_validated': state.configIotDevicesValidated,
-        // Section 3 L1
-        'payloads_json': state.payloadsJson,
-        'payloads_validated': state.payloadsValidated,
-        // Section 3 L2
-        'processor_contents': state.processorContents,
-        'processor_validated': state.processorValidated,
-        'processor_requirements': state.processorRequirements,
-        'event_feedback_content': state.eventFeedbackContent,
-        'event_feedback_validated': state.eventFeedbackValidated,
-        'event_feedback_requirements': state.eventFeedbackRequirements,
-        'event_action_contents': state.eventActionContents,
-        'event_action_validated': state.eventActionValidated,
-        'event_action_requirements': state.eventActionRequirements,
-        'state_machine_content': state.stateMachineContent,
-        'state_machine_validated': state.stateMachineValidated,
-        // L4/L5 fields
-        'hierarchy_content': state.hierarchyContent,
-        'hierarchy_validated': state.hierarchyValidated,
-        'scene_glb_uploaded': state.sceneGlbUploaded,
-        'scene_config_content': state.sceneConfigContent,
-        'scene_config_validated': state.sceneConfigValidated,
-        'user_config_content': state.userConfigContent,
-        'user_config_validated': state.userConfigValidated,
-      });
+      await _api.updateDeployerConfig(
+        twinId,
+        DeployerHelper.buildDeployerConfigPayload(state),
+      );
 
       // Update twin state to 'configured' (Phase 1 requirement)
       await _api.updateTwin(twinId, state: 'configured');

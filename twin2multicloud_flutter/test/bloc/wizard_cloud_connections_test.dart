@@ -108,6 +108,44 @@ void main() {
     );
 
     blocTest<WizardBloc, WizardState>(
+      'saving Step 3 draft persists payload-only deployer config',
+      build: () {
+        when(
+          () => api.updateTwinConfig(any(), any()),
+        ).thenAnswer((_) async => {'twin_state': 'draft'});
+        when(
+          () => api.updateDeployerConfig(any(), any()),
+        ).thenAnswer((_) async => {'twin_state': 'draft'});
+        return WizardBloc(api: api);
+      },
+      seed: () => const WizardState(
+        mode: WizardMode.edit,
+        twinId: 'existing-twin-id',
+        twinName: 'Twin',
+        currentStep: 2,
+        highestStepReached: 2,
+        payloadsJson: '{"device-1":{"temperature":21}}',
+        payloadsValidated: true,
+      ),
+      act: (bloc) => bloc.add(const WizardSaveDraft()),
+      wait: const Duration(milliseconds: 1),
+      verify: (_) {
+        final captured =
+            verify(
+                  () => api.updateDeployerConfig(
+                    'existing-twin-id',
+                    captureAny(),
+                  ),
+                ).captured.single
+                as Map<String, dynamic>;
+
+        expect(captured['payloads_json'], '{"device-1":{"temperature":21}}');
+        expect(captured['payloads_validated'], true);
+        expect(captured.containsKey('deployer_digital_twin_name'), true);
+      },
+    );
+
+    blocTest<WizardBloc, WizardState>(
       'unbinding provider stores null selection',
       build: () => WizardBloc(api: api),
       seed: () => const WizardState(
