@@ -30,8 +30,17 @@ package generation boundary
 **GitHub issue:** [#76](https://github.com/TVJunkie724/master-thesis/issues/76)  
 **Base branch:** `master`  
 **Implementation branch:** `codex/flutter-credential-ssot-runtime-config`  
-**Plan status:** Drafted  
-**Implementation status:** Not started
+**Plan status:** Approved
+**Implementation status:** In progress
+
+**Progress log:**
+
+- 2026-05-14: Slice 1 completed. Backend and Flutter tests pin current wizard
+  configuration persistence for CloudConnection selection, legacy credential
+  clearing, optimizer/deployer payload shape, and Step 3 draft persistence.
+- 2026-05-14: Slice 2 backend service boundary implemented. Config update and
+  deployer update semantics now run through `WizardConfigurationService`, with
+  explicit omitted/value/null behavior covered by route and service tests.
 
 ---
 

@@ -143,3 +143,50 @@ def test_deployer_config_omitted_fields_remain_unchanged(authenticated_client):
     assert data["config_events_json"] == "[]"
     assert data["payloads_json"] == '{"device-1":{"temperature":21}}'
     assert data["payloads_validated"] is True
+
+
+def test_deployer_config_explicit_null_clears_values(authenticated_client):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    client.put(
+        f"/twins/{twin_id}/deployer/config",
+        json={
+            "deployer_digital_twin_name": "factory",
+            "payloads_json": '{"device-1":{"temperature":21}}',
+            "payloads_validated": True,
+            "processor_contents": {"device-1": "def process(event): return event"},
+            "processor_validated": {"device-1": True},
+            "event_feedback_content": "def feedback(event): return event",
+            "event_feedback_validated": True,
+            "scene_glb_uploaded": True,
+        },
+        headers=headers,
+    )
+
+    response = client.put(
+        f"/twins/{twin_id}/deployer/config",
+        json={
+            "deployer_digital_twin_name": None,
+            "payloads_json": None,
+            "payloads_validated": None,
+            "processor_contents": None,
+            "processor_validated": None,
+            "event_feedback_content": None,
+            "event_feedback_validated": None,
+            "scene_glb_uploaded": None,
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    loaded = client.get(f"/twins/{twin_id}/deployer/config", headers=headers)
+    data = loaded.json()
+    assert data["deployer_digital_twin_name"] is None
+    assert data["payloads_json"] is None
+    assert data["payloads_validated"] is False
+    assert data["processor_contents"] is None
+    assert data["processor_validated"] is None
+    assert data["event_feedback_content"] is None
+    assert data["event_feedback_validated"] is False
+    assert data["scene_glb_uploaded"] is False

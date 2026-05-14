@@ -86,7 +86,7 @@ class DeployerConfigResponse(BaseModel):
                 return None
             try:
                 return json.loads(json_str)
-            except:
+            except (json.JSONDecodeError, TypeError):
                 return None
         
         return cls(

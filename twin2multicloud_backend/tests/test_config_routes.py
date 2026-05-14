@@ -271,6 +271,54 @@ class TestConfigRoutes:
         assert config.aws_session_token is None
         assert config.aws_region == "eu-central-1"
 
+    def test_explicit_null_clears_legacy_azure_credentials(
+        self,
+        authenticated_client,
+        sample_azure_credentials,
+        db_session,
+    ):
+        """Azure clear must remove all encrypted fields and region overrides."""
+        from src.models.twin_config import TwinConfiguration
+
+        client, headers = authenticated_client
+        twin_id = create_test_twin(client, headers)
+        client.put(
+            f"/twins/{twin_id}/config/",
+            json={
+                "azure": {
+                    **sample_azure_credentials,
+                    "region_iothub": "northeurope",
+                    "region_digital_twin": "switzerlandnorth",
+                }
+            },
+            headers=headers,
+        )
+
+        response = client.put(
+            f"/twins/{twin_id}/config/",
+            json={"azure": None},
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["azure_configured"] is False
+        assert data["azure_validated"] is False
+        assert data["azure_cloud_connection_id"] is None
+        assert data["azure_region"] == "westeurope"
+        assert data["azure_region_iothub"] is None
+        assert data["azure_region_digital_twin"] is None
+
+        config = db_session.query(TwinConfiguration).filter_by(twin_id=twin_id).one()
+        assert config.azure_cloud_connection_id is None
+        assert config.azure_subscription_id is None
+        assert config.azure_client_id is None
+        assert config.azure_client_secret is None
+        assert config.azure_tenant_id is None
+        assert config.azure_region == "westeurope"
+        assert config.azure_region_iothub is None
+        assert config.azure_region_digital_twin is None
+
     def test_explicit_null_clears_gcp_public_fields_and_secret(
         self,
         authenticated_client,

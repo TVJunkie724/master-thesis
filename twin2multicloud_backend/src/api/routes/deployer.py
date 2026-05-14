@@ -20,7 +20,6 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 from src.models.database import get_db
-from src.models.twin import DigitalTwin, TwinState
 from src.models.deployer_config import DeployerConfiguration
 from src.models.user import User
 from src.api.dependencies import get_current_user
@@ -32,6 +31,7 @@ from src.schemas.deployer_config import (
 )
 from src.config import settings
 from src.services.twin_helpers import get_user_twin
+from src.services.wizard_configuration_service import WizardConfigurationService
 from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/twins/{twin_id}/deployer", tags=["deployer"])
@@ -110,89 +110,7 @@ async def update_deployer_config(
     Validation state is persisted to gate save operations.
     """
     twin = await get_user_twin(twin_id, current_user, db)
-    
-    # Block modifications for deployed/deploying/destroying twins
-    BLOCKED_STATES = {TwinState.DEPLOYED, TwinState.DEPLOYING, TwinState.DESTROYING}
-    if twin.state in BLOCKED_STATES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot modify twin in '{twin.state.value}' state"
-        )
-    
-    # Track if we need to regress state
-    REGRESS_STATES = {TwinState.CONFIGURED, TwinState.ERROR, TwinState.DESTROYED}
-    should_regress = twin.state in REGRESS_STATES
-    
-    if not twin.deployer_config:
-        config = DeployerConfiguration(twin_id=twin_id)
-        db.add(config)
-    else:
-        config = twin.deployer_config
-    
-    # Update fields
-    if update.deployer_digital_twin_name is not None:
-        if len(update.deployer_digital_twin_name) > 15:
-            raise HTTPException(status_code=400, detail="Digital twin name exceeds 15 characters")
-        config.deployer_digital_twin_name = update.deployer_digital_twin_name
-    if update.config_events_json is not None:
-        config.config_events_json = update.config_events_json
-    if update.config_iot_devices_json is not None:
-        config.config_iot_devices_json = update.config_iot_devices_json
-    if update.config_json_validated is not None:
-        config.config_json_validated = update.config_json_validated
-    if update.config_events_validated is not None:
-        config.config_events_validated = update.config_events_validated
-    if update.config_iot_devices_validated is not None:
-        config.config_iot_devices_validated = update.config_iot_devices_validated
-    # Section 3: L1 Payloads
-    if update.payloads_json is not None:
-        config.payloads_json = update.payloads_json
-    if update.payloads_validated is not None:
-        config.payloads_validated = update.payloads_validated
-    # Section 3: L2 User Functions
-    if update.processor_contents is not None:
-        config.processor_contents = json.dumps(update.processor_contents)
-    if update.processor_validated is not None:
-        config.processor_validated = json.dumps(update.processor_validated)
-    if update.processor_requirements is not None:
-        config.processor_requirements = json.dumps(update.processor_requirements)
-    if update.event_feedback_content is not None:
-        config.event_feedback_content = update.event_feedback_content
-    if update.event_feedback_validated is not None:
-        config.event_feedback_validated = update.event_feedback_validated
-    if update.event_feedback_requirements is not None:
-        config.event_feedback_requirements = update.event_feedback_requirements
-    if update.event_action_contents is not None:
-        config.event_action_contents = json.dumps(update.event_action_contents)
-    if update.event_action_validated is not None:
-        config.event_action_validated = json.dumps(update.event_action_validated)
-    if update.event_action_requirements is not None:
-        config.event_action_requirements = json.dumps(update.event_action_requirements)
-    if update.state_machine_content is not None:
-        config.state_machine_content = update.state_machine_content
-    if update.state_machine_validated is not None:
-        config.state_machine_validated = update.state_machine_validated
-    # Section 2: L4 Hierarchy
-    if update.hierarchy_content is not None:
-        config.hierarchy_content = update.hierarchy_content
-    if update.hierarchy_validated is not None:
-        config.hierarchy_validated = update.hierarchy_validated
-    # Section 3: L4 Scene
-    if update.scene_glb_uploaded is not None:
-        config.scene_glb_uploaded = update.scene_glb_uploaded
-    if update.scene_config_content is not None:
-        config.scene_config_content = update.scene_config_content
-    if update.scene_config_validated is not None:
-        config.scene_config_validated = update.scene_config_validated
-    # Section 3: L4/L5 User Config
-    if update.user_config_content is not None:
-        config.user_config_content = update.user_config_content
-    if update.user_config_validated is not None:
-        config.user_config_validated = update.user_config_validated
-    
-    # Regress to draft if editing configured/error/destroyed twin
-    if should_regress:
-        twin.state = TwinState.DRAFT
+    config = WizardConfigurationService(db).apply_deployer_config_update(twin, update)
     
     db.commit()
     db.refresh(config)
