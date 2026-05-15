@@ -4,3 +4,4 @@
 export 'credentials_helper.dart';
 export 'calculation_helper.dart';
 export 'deployer_helper.dart';
+export 'wizard_config_request_builder.dart';

@@ -3,6 +3,7 @@
 
 import 'package:twin2multicloud_flutter/core/result.dart';
 import 'package:twin2multicloud_flutter/models/calc_result.dart';
+import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
 
 /// A mock implementation of ApiService for testing.
 ///
@@ -231,6 +232,13 @@ class MockApiService {
     });
   }
 
+  Future<Map<String, dynamic>> updateTwinConfigRequest(
+    String twinId,
+    TwinConfigUpdateRequest request,
+  ) {
+    return updateTwinConfig(twinId, request.toJson());
+  }
+
   Future<Map<String, dynamic>> validateCredentials(
     String twinId,
     String provider,
@@ -434,6 +442,13 @@ class MockApiService {
       }
       return {'success': true};
     });
+  }
+
+  Future<Map<String, dynamic>> updateDeployerConfigRequest(
+    String twinId,
+    DeployerConfigUpdateRequest request,
+  ) {
+    return updateDeployerConfig(twinId, request.toJson());
   }
 
   Future<Map<String, dynamic>> validateDeployerConfig(

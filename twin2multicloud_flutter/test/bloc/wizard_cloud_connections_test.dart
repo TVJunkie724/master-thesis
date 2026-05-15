@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
+import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
 class MockApiService extends Mock implements ApiService {}
@@ -19,6 +20,8 @@ void main() {
         credentials: {},
       ),
     );
+    registerFallbackValue(const TwinConfigUpdateRequest());
+    registerFallbackValue(const DeployerConfigUpdateRequest());
   });
 
   setUp(() {
@@ -82,7 +85,7 @@ void main() {
           () => api.createTwin(any()),
         ).thenAnswer((_) async => {'id': 'new-twin-id'});
         when(
-          () => api.updateTwinConfig(any(), any()),
+          () => api.updateTwinConfigRequest(any(), any()),
         ).thenAnswer((_) async => {'twin_state': 'draft'});
         return WizardBloc(api: api);
       },
@@ -96,14 +99,16 @@ void main() {
       verify: (_) {
         final captured =
             verify(
-                  () => api.updateTwinConfig('new-twin-id', captureAny()),
+                  () =>
+                      api.updateTwinConfigRequest('new-twin-id', captureAny()),
                 ).captured.single
-                as Map<String, dynamic>;
+                as TwinConfigUpdateRequest;
+        final payload = captured.toJson();
 
-        expect(captured['cloud_connections']['aws'], 'connection-aws');
-        expect(captured.containsKey('aws'), false);
-        expect(captured.containsKey('azure'), false);
-        expect(captured.containsKey('gcp'), false);
+        expect(payload['cloud_connections']['aws'], 'connection-aws');
+        expect(payload.containsKey('aws'), false);
+        expect(payload.containsKey('azure'), false);
+        expect(payload.containsKey('gcp'), false);
       },
     );
 
@@ -111,7 +116,7 @@ void main() {
       'saving cleared legacy credentials sends explicit provider null',
       build: () {
         when(
-          () => api.updateTwinConfig(any(), any()),
+          () => api.updateTwinConfigRequest(any(), any()),
         ).thenAnswer((_) async => {'twin_state': 'draft'});
         return WizardBloc(api: api);
       },
@@ -126,13 +131,17 @@ void main() {
       verify: (_) {
         final captured =
             verify(
-                  () => api.updateTwinConfig('existing-twin-id', captureAny()),
+                  () => api.updateTwinConfigRequest(
+                    'existing-twin-id',
+                    captureAny(),
+                  ),
                 ).captured.single
-                as Map<String, dynamic>;
+                as TwinConfigUpdateRequest;
+        final payload = captured.toJson();
 
-        expect(captured['aws'], isNull);
-        expect(captured.containsKey('azure'), false);
-        expect(captured.containsKey('gcp'), false);
+        expect(payload['aws'], isNull);
+        expect(payload.containsKey('azure'), false);
+        expect(payload.containsKey('gcp'), false);
       },
     );
 
@@ -140,10 +149,10 @@ void main() {
       'saving Step 3 draft persists payload-only deployer config',
       build: () {
         when(
-          () => api.updateTwinConfig(any(), any()),
+          () => api.updateTwinConfigRequest(any(), any()),
         ).thenAnswer((_) async => {'twin_state': 'draft'});
         when(
-          () => api.updateDeployerConfig(any(), any()),
+          () => api.updateDeployerConfigRequest(any(), any()),
         ).thenAnswer((_) async => {'twin_state': 'draft'});
         return WizardBloc(api: api);
       },
@@ -161,16 +170,17 @@ void main() {
       verify: (_) {
         final captured =
             verify(
-                  () => api.updateDeployerConfig(
+                  () => api.updateDeployerConfigRequest(
                     'existing-twin-id',
                     captureAny(),
                   ),
                 ).captured.single
-                as Map<String, dynamic>;
+                as DeployerConfigUpdateRequest;
+        final payload = captured.toJson();
 
-        expect(captured['payloads_json'], '{"device-1":{"temperature":21}}');
-        expect(captured['payloads_validated'], true);
-        expect(captured.containsKey('deployer_digital_twin_name'), true);
+        expect(payload['payloads_json'], '{"device-1":{"temperature":21}}');
+        expect(payload['payloads_validated'], true);
+        expect(payload.containsKey('deployer_digital_twin_name'), true);
       },
     );
 

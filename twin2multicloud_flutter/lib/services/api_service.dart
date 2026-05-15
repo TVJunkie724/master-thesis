@@ -5,6 +5,7 @@ import '../config/api_config.dart';
 import '../core/result.dart';
 import '../models/calc_result.dart';
 import '../models/cloud_connection.dart';
+import '../models/wizard_config_requests.dart';
 import '../utils/api_error_handler.dart';
 
 class ApiService {
@@ -148,6 +149,13 @@ class ApiService {
   ) async {
     final response = await _dio.put('/twins/$twinId/config/', data: config);
     return response.data;
+  }
+
+  Future<Map<String, dynamic>> updateTwinConfigRequest(
+    String twinId,
+    TwinConfigUpdateRequest request,
+  ) {
+    return updateTwinConfig(twinId, request.toJson());
   }
 
   Future<Map<String, dynamic>> validateCredentials(
@@ -303,6 +311,13 @@ class ApiService {
       data: config,
     );
     return response.data;
+  }
+
+  Future<Map<String, dynamic>> updateDeployerConfigRequest(
+    String twinId,
+    DeployerConfigUpdateRequest request,
+  ) {
+    return updateDeployerConfig(twinId, request.toJson());
   }
 
   /// Validate deployer config via Management API (proxies to Deployer)

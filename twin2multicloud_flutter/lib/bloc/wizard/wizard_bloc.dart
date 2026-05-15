@@ -1,12 +1,6 @@
 // lib/bloc/wizard/wizard_bloc.dart
 // BLoC for wizard state machine
 // Refactored to use service extraction pattern for testability
-//
-// TODO(refactoring): Extract WizardSaveService from _onSaveDraft and _onFinish
-// handlers (~70 lines of duplicated config-building logic). See:
-// - buildTwinConfig() - credential + optimizer config
-// - buildDeployerConfig() - all deployer fields (currently duplicated)
-// - buildCheapestPathMap() - path extraction for pricing
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -804,29 +798,8 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     return null;
   }
 
-  Map<String, String?> _cloudConnectionsPayload() {
-    return {
-      for (final provider in CloudProvider.values)
-        provider.apiValue: state.selectedCloudConnectionIds[provider],
-    };
-  }
-
-  bool _hasSelectedCloudConnection(CloudProvider provider) {
-    return state.selectedCloudConnectionIds[provider] != null;
-  }
-
   bool _shouldPersistDeployerConfig() {
-    if (state.currentStep >= 2 || state.highestStepReached >= 2) {
-      return true;
-    }
-    final payload = DeployerHelper.buildDeployerConfigPayload(state);
-    return payload.values.any((value) {
-      if (value == null) return false;
-      if (value is bool) return value;
-      if (value is String) return value.isNotEmpty;
-      if (value is Map) return value.isNotEmpty;
-      return true;
-    });
+    return WizardConfigRequestBuilder.shouldPersistDeployerConfig(state);
   }
 
   // ============================================================
@@ -857,46 +830,11 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         twinId = result['id'];
       }
 
-      // Build config payload - only send credentials that need updating
-      final config = <String, dynamic>{
-        'debug_mode': state.debugMode,
-        'cloud_connections': _cloudConnectionsPayload(),
-      };
-
-      if (!_hasSelectedCloudConnection(CloudProvider.aws) &&
-          state.aws.source == CredentialSource.newlyEntered) {
-        config['aws'] = state.aws.values;
-      } else if (state.aws.source == CredentialSource.cleared) {
-        config['aws'] = null; // Delete from DB
-      }
-
-      if (!_hasSelectedCloudConnection(CloudProvider.azure) &&
-          state.azure.source == CredentialSource.newlyEntered) {
-        config['azure'] = state.azure.values;
-      } else if (state.azure.source == CredentialSource.cleared) {
-        config['azure'] = null;
-      }
-
-      if (!_hasSelectedCloudConnection(CloudProvider.gcp) &&
-          state.gcp.source == CredentialSource.newlyEntered) {
-        config['gcp'] = state.gcp.values;
-      } else if (state.gcp.source == CredentialSource.cleared) {
-        config['gcp'] = null;
-      }
-
-      // Include optimizer data if present
-      if (state.calcParams != null) {
-        config['optimizer_params'] = state.calcParams!.toJson();
-      }
-      if (state.calcResultRaw != null) {
-        config['optimizer_result'] = state.calcResultRaw!['result'];
-      }
-
-      // Persist current step position for resume on edit
-      config['highest_step_reached'] = state.highestStepReached;
-
       // Save config and capture response for state sync
-      final configResponse = await _api.updateTwinConfig(twinId!, config);
+      final configResponse = await _api.updateTwinConfigRequest(
+        twinId!,
+        WizardConfigRequestBuilder.buildTwinConfigRequest(state),
+      );
 
       // Track if state was regressed by backend
       final String? newTwinState = configResponse['twin_state'] as String?;
@@ -962,9 +900,9 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
 
       // Save all Step 3 data once the user reached the deployer step.
       if (_shouldPersistDeployerConfig()) {
-        await _api.updateDeployerConfig(
+        await _api.updateDeployerConfigRequest(
           twinId,
-          DeployerHelper.buildDeployerConfigPayload(state),
+          WizardConfigRequestBuilder.buildDeployerConfigRequest(state),
         );
       }
 
@@ -1017,37 +955,15 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
         twinId = result['id'];
       }
 
-      // Build config payload
-      final config = <String, dynamic>{
-        'debug_mode': state.debugMode,
-        'cloud_connections': _cloudConnectionsPayload(),
-      };
-      if (!_hasSelectedCloudConnection(CloudProvider.aws) &&
-          state.aws.source == CredentialSource.newlyEntered) {
-        config['aws'] = state.aws.values;
-      }
-      if (!_hasSelectedCloudConnection(CloudProvider.azure) &&
-          state.azure.source == CredentialSource.newlyEntered) {
-        config['azure'] = state.azure.values;
-      }
-      if (!_hasSelectedCloudConnection(CloudProvider.gcp) &&
-          state.gcp.source == CredentialSource.newlyEntered) {
-        config['gcp'] = state.gcp.values;
-      }
-      if (state.calcParams != null) {
-        config['optimizer_params'] = state.calcParams!.toJson();
-      }
-      if (state.calcResultRaw != null) {
-        config['optimizer_result'] = state.calcResultRaw!['result'];
-      }
-      config['highest_step_reached'] = state.highestStepReached;
-
-      await _api.updateTwinConfig(twinId!, config);
+      await _api.updateTwinConfigRequest(
+        twinId!,
+        WizardConfigRequestBuilder.buildTwinConfigRequest(state),
+      );
 
       // Save deployer config (Step 3 data) - mirrors _onSaveDraft logic
-      await _api.updateDeployerConfig(
+      await _api.updateDeployerConfigRequest(
         twinId,
-        DeployerHelper.buildDeployerConfigPayload(state),
+        WizardConfigRequestBuilder.buildDeployerConfigRequest(state),
       );
 
       // Update twin state to 'configured' (Phase 1 requirement)

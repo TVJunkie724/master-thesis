@@ -31,6 +31,7 @@ package generation boundary
 **Base branch:** `master`  
 **Implementation branch:** `codex/flutter-credential-ssot-runtime-config`  
 **Plan status:** Approved
+
 **Implementation status:** In progress
 
 **Progress log:**
@@ -45,6 +46,9 @@ package generation boundary
   responses now expose explicit `twin_state`, credential source metadata,
   secret-safe bound CloudConnection summaries, configured provider lists, and
   deployer section/validation summaries for deterministic Flutter hydration.
+- 2026-05-15: Slice 4 Flutter typed save requests implemented. Wizard save and
+  finish flows now use typed request DTOs and a dedicated request builder
+  instead of hand-building broad dynamic maps in `WizardBloc`.
 
 ---
 
