@@ -20,16 +20,25 @@ The docs site runs behind the `docs` profile so documentation can reload indepen
 Versioned templates and generated deployment workspaces must not be treated as the same thing.
 
 - Template files describe reusable provider deployment structure and live under `3-cloud-deployer/templates/digital-twin/`.
-- Deployment manifests describe one requested deployment.
+- The Management API builds a deployment package from persisted twin state and Cloud Connection references.
+- Deployment manifests describe one requested deployment package and its file materialization without embedding secret payloads.
 - Generated workspaces live under `3-cloud-deployer/upload/<project-name>/` and contain concrete Terraform files, function packages, state, and provider outputs for one deployment run.
 
-The Deployer should materialize a fresh workspace from templates and a manifest, then return structured outputs to the Management API. A workspace can be inspected for debugging, but it should not become the source of truth for a twin.
+The Deployer should materialize a fresh workspace from templates and the uploaded package, then return structured outputs to the Management API. A workspace can be inspected for debugging, but it should not become the source of truth for a twin.
 
 The legacy `3-cloud-deployer/upload/template/` folder may still exist during the transition because it has been used for supervised cloud testing and may contain local credentials. It is no longer the canonical source for template files.
 
 ## Credentials
 
 The target source of truth is a user-scoped Cloud Connection stored through the Management API. The local repository should not contain live credentials as normal development state.
+
+Runtime credential resolution follows one order:
+
+1. A provider Cloud Connection selected on the twin configuration.
+2. Encrypted legacy credential columns on the twin configuration, only as a migration fallback.
+3. A structured validation error if neither source is usable.
+
+Cloud Connection payloads and legacy credential values are never returned by API read models. The deployment package still contains the concrete provider credential files required by the current Deployer contract, but that package is generated for the deployment operation, uploaded explicitly, and represented by a secrets-free `deployment_manifest.json`.
 
 For real cloud deployments, credentials should enter the system through an explicit cloud workflow: the user provides temporary bootstrap/admin credentials, the app creates or imports a least-privilege deployment identity, stores only that resulting connection, and discards bootstrap material. The default local stack should continue to work without real cloud credentials.
 

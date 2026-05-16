@@ -32,7 +32,7 @@ package generation boundary
 **Implementation branch:** `codex/flutter-credential-ssot-runtime-config`  
 **Plan status:** Approved
 
-**Implementation status:** In progress
+**Implementation status:** Completed
 
 **Progress log:**
 
@@ -54,6 +54,11 @@ package generation boundary
   state, keeps Deployer file names stable, records secret-bearing file metadata
   in a secrets-free manifest, and fails closed on invalid JSON artifacts or
   missing managed scene binaries.
+- 2026-05-16: Slice 6 migration and documentation check completed. No database
+  migration was needed for Slice 5 because it changed service/package
+  materialization only. Runtime and cloud setup docs now describe the
+  CloudConnection-first SSOT, encrypted legacy fallback, bootstrap credential
+  discard model, and secrets-free deployment manifest boundary.
 
 ---
 
@@ -402,15 +407,15 @@ At least one end-to-end local test should prove:
 
 ## 9. Done Definition
 
-- [ ] Field matrix exists and is reflected in tests.
-- [ ] Explicit null/omit/update semantics are implemented through typed helpers.
-- [ ] Backend routes delegate wizard persistence to services.
-- [ ] Flutter main save flows use typed request builders.
+- [x] Field matrix exists and is reflected in tests.
+- [x] Explicit null/omit/update semantics are implemented through typed helpers.
+- [x] Backend routes delegate wizard persistence to services.
+- [x] Flutter main save flows use typed request builders.
 - [x] Deployment package generation reads from canonical backend state.
-- [ ] Secret fields are never exposed in API responses or logs.
-- [ ] Round-trip persistence tests exist for Step 1, Step 2, and Step 3.
-- [ ] GitHub Issue #76 is referenced by implementation commits.
-- [ ] Backend and Flutter test suites pass.
+- [x] Secret fields are never exposed in API responses or logs.
+- [x] Round-trip persistence tests exist for Step 1, Step 2, and Step 3.
+- [x] GitHub Issue #76 is referenced by implementation commits.
+- [x] Backend and Flutter test suites pass.
 
 **Verification commands:**
 
