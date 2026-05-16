@@ -17,12 +17,17 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch, MagicMock
 
 from src.api.routes.sse import LogSession
+from src.models.cloud_connection import CloudConnection
+from src.models.deployer_config import DeployerConfiguration
 from src.models.deployment import Deployment
+from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin, TwinState
+from src.models.twin_config import TwinConfiguration
 from src.models.user import User
 from src.services.deployment_service import (
     DEPLOYMENT_MANIFEST_FILE,
     REQUIRED_DEPLOYER_CONFIG_FILES,
+    build_deployment_package,
     build_project_zip,
     get_resource_name,
     _parse_deployer_sse_data,
@@ -35,7 +40,7 @@ from src.services.deployment_service import (
     _build_optimization_config,
 )
 from src.services.credential_resolution_service import DeploymentCredentials
-from src.services.errors import CredentialResolutionFailed
+from src.services.errors import CredentialResolutionFailed, DeploymentPackageBuildFailed
 from src.utils.crypto import encrypt_scoped
 from tests.conftest import TestingSessionLocal
 
@@ -588,6 +593,7 @@ class TestBuildProjectZip:
             "contains_secret_payloads": False,
         }
         assert manifest["package"]["required_files"] == REQUIRED_DEPLOYER_CONFIG_FILES
+        assert manifest["package"]["secret_bearing_files"] == ["config_credentials.json"]
         assert "config_credentials.json" in manifest["package"]["files"]
         assert "config_iot_devices.json" in manifest["package"]["files"]
         assert "config_events.json" in manifest["package"]["files"]
@@ -643,6 +649,183 @@ class TestBuildProjectZip:
         with zipfile.ZipFile(result, 'r') as zf:
             names = zf.namelist()
             assert "iot_device_simulator/payloads.json" in names
+
+    def test_package_is_reconstructed_from_persisted_state_and_cloud_connections(self, db):
+        """Package materialization should read canonical DB state, not Flutter payload shape."""
+        user = User(email="package-user@example.test")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        aws_payload = {
+            "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+            "aws_secret_access_key": "cloud-connection-secret",
+            "aws_region": "eu-central-1",
+        }
+        service_account = {
+            "type": "service_account",
+            "project_id": "factory-project",
+            "client_email": "deployer@factory-project.iam.gserviceaccount.com",
+            "private_key": "-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----\n",
+        }
+        gcp_payload = {
+            "gcp_project_id": "factory-project",
+            "gcp_region": "europe-west1",
+            "gcp_credentials_file": json.dumps(service_account),
+        }
+        aws_connection = CloudConnection(
+            id="connection-aws-package",
+            user_id=user.id,
+            provider="aws",
+            display_name="AWS Deployment Account",
+            cloud_scope="{}",
+            auth_type="access_key",
+            encrypted_payload=encrypt_scoped(
+                json.dumps(aws_payload),
+                user.id,
+                "connection-aws-package",
+            ),
+            payload_fingerprint="aws-fingerprint",
+        )
+        gcp_connection = CloudConnection(
+            id="connection-gcp-package",
+            user_id=user.id,
+            provider="gcp",
+            display_name="GCP Deployment Account",
+            cloud_scope="{}",
+            auth_type="service_account_key",
+            encrypted_payload=encrypt_scoped(
+                json.dumps(gcp_payload),
+                user.id,
+                "connection-gcp-package",
+            ),
+            payload_fingerprint="gcp-fingerprint",
+        )
+        twin = DigitalTwin(name="Factory Twin", user_id=user.id)
+        db.add_all([aws_connection, gcp_connection, twin])
+        db.commit()
+        db.refresh(twin)
+
+        db.add_all([
+            TwinConfiguration(
+                twin_id=twin.id,
+                debug_mode=True,
+                aws_cloud_connection_id=aws_connection.id,
+                gcp_cloud_connection_id=gcp_connection.id,
+            ),
+            OptimizerConfiguration(
+                twin_id=twin.id,
+                cheapest_l1="AWS",
+                cheapest_l2="GCP",
+                cheapest_l4="AWS",
+                params=json.dumps({
+                    "hotStorageDurationInMonths": 2,
+                    "coolStorageDurationInMonths": 4,
+                    "useEventChecking": True,
+                    "needs3DModel": True,
+                }),
+            ),
+            DeployerConfiguration(
+                twin_id=twin.id,
+                deployer_digital_twin_name="factory-twin",
+                config_iot_devices_json='[{"id":"device-1"}]',
+                config_events_json="[]",
+                payloads_json='{"device-1":{"temperature":21}}',
+                processor_contents=json.dumps({"device-1": "def handler(event, context): pass"}),
+                processor_requirements=json.dumps({"device-1": "requests==2.32.3"}),
+                scene_config_content="{}",
+            ),
+        ])
+        db.commit()
+        db.expire_all()
+
+        persisted_twin = db.get(DigitalTwin, twin.id)
+        result = build_project_zip(persisted_twin, user.id)
+
+        with zipfile.ZipFile(result, "r") as zf:
+            names = set(zf.namelist())
+            credentials = json.loads(zf.read("config_credentials.json"))
+            gcp_credentials = json.loads(zf.read("gcp_credentials.json"))
+            manifest = json.loads(zf.read(DEPLOYMENT_MANIFEST_FILE))
+            manifest_text = json.dumps(manifest)
+
+        assert "cloud_functions/processors/device-1/main.py" in names
+        assert "cloud_functions/processors/device-1/requirements.txt" in names
+        assert "scene_assets/aws/scene.json" in names
+        assert "iot_device_simulator/payloads.json" in names
+        assert credentials["aws"] == aws_payload
+        assert credentials["gcp"]["gcp_credentials_file"] == "gcp_credentials.json"
+        assert gcp_credentials == service_account
+        assert manifest["twin"]["resource_name"] == "factory-twin"
+        assert manifest["credentials"]["sources"] == {
+            "aws": "cloud_connection",
+            "gcp": "cloud_connection",
+        }
+        assert manifest["package"]["secret_bearing_files"] == [
+            "config_credentials.json",
+            "gcp_credentials.json",
+        ]
+        assert manifest["credentials"]["contains_secret_payloads"] is False
+        assert "cloud-connection-secret" not in manifest_text
+        assert "private_key" not in manifest_text
+
+    @patch("src.services.credential_resolution_service.decrypt")
+    def test_package_materialization_fails_closed_on_invalid_function_json(self, mock_decrypt):
+        """Invalid persisted JSON artifacts must not be silently omitted."""
+        mock_decrypt.return_value = "decrypted"
+        twin = self._create_mock_twin()
+        twin.optimizer_config.cheapest_l2 = "aws"
+        twin.deployer_config.processor_contents = "{not-json"
+
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            build_deployment_package(twin, "user-123")
+
+        assert exc_info.value.errors == [
+            {
+                "code": "INVALID_JSON",
+                "field": "deployer_config.processor_contents",
+                "message": "Deployment artifact contains invalid JSON",
+            }
+        ]
+
+    @patch("src.services.credential_resolution_service.decrypt")
+    def test_package_materialization_fails_closed_on_invalid_optimizer_params(self, mock_decrypt):
+        """Invalid optimizer params should fail package creation instead of using defaults."""
+        mock_decrypt.return_value = "decrypted"
+        twin = self._create_mock_twin()
+        twin.optimizer_config.params = "{not-json"
+
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            build_deployment_package(twin, "user-123")
+
+        assert exc_info.value.errors[0]["field"] == "optimizer_config.params"
+        assert exc_info.value.errors[0]["code"] == "INVALID_JSON"
+
+    @patch("src.services.credential_resolution_service.decrypt")
+    def test_package_materialization_fails_when_uploaded_scene_binary_is_missing(
+        self,
+        mock_decrypt,
+        tmp_path,
+        monkeypatch,
+    ):
+        """Persisted artifact metadata must not point to missing managed files."""
+        mock_decrypt.return_value = "decrypted"
+        monkeypatch.setattr("src.services.deployment_service.settings.UPLOAD_DIR", str(tmp_path))
+        twin = self._create_mock_twin()
+        twin.optimizer_config.cheapest_l4 = "aws"
+        twin.deployer_config.scene_config_content = "{}"
+        twin.deployer_config.scene_glb_uploaded = True
+
+        with pytest.raises(DeploymentPackageBuildFailed) as exc_info:
+            build_deployment_package(twin, "user-123")
+
+        assert exc_info.value.errors == [
+            {
+                "code": "MISSING_BINARY_ARTIFACT",
+                "field": "deployer_config.scene_glb_uploaded",
+                "message": "Scene GLB is marked as uploaded but the managed file is missing",
+            }
+        ]
     
     def _create_mock_twin(self):
         """Create a mock twin with minimal required config."""
@@ -665,6 +848,7 @@ class TestBuildProjectZip:
         twin.deployer_config.event_feedback_content = None
         twin.deployer_config.event_feedback_requirements = None
         twin.deployer_config.scene_config_content = None
+        twin.deployer_config.scene_glb_uploaded = False
         twin.deployer_config.payloads_json = None
         
         # Optimizer config

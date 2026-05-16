@@ -49,6 +49,11 @@ package generation boundary
 - 2026-05-15: Slice 4 Flutter typed save requests implemented. Wizard save and
   finish flows now use typed request DTOs and a dedicated request builder
   instead of hand-building broad dynamic maps in `WizardBloc`.
+- 2026-05-16: Slice 5 deployment package boundary implemented. Package
+  generation now materializes a typed `DeploymentPackage` from persisted backend
+  state, keeps Deployer file names stable, records secret-bearing file metadata
+  in a secrets-free manifest, and fails closed on invalid JSON artifacts or
+  missing managed scene binaries.
 
 ---
 
@@ -401,7 +406,7 @@ At least one end-to-end local test should prove:
 - [ ] Explicit null/omit/update semantics are implemented through typed helpers.
 - [ ] Backend routes delegate wizard persistence to services.
 - [ ] Flutter main save flows use typed request builders.
-- [ ] Deployment package generation reads from canonical backend state.
+- [x] Deployment package generation reads from canonical backend state.
 - [ ] Secret fields are never exposed in API responses or logs.
 - [ ] Round-trip persistence tests exist for Step 1, Step 2, and Step 3.
 - [ ] GitHub Issue #76 is referenced by implementation commits.

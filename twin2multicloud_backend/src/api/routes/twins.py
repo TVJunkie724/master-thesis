@@ -32,7 +32,11 @@ from src.services.deployment_service import (
 )
 from src.repositories.deployment_repository import DeploymentRepository
 from src.services.configuration_validation_service import ConfigurationValidationService
-from src.services.errors import ConfigurationValidationFailed, CredentialResolutionFailed
+from src.services.errors import (
+    ConfigurationValidationFailed,
+    CredentialResolutionFailed,
+    DeploymentPackageBuildFailed,
+)
 from src.api.routes.error_models import ERROR_RESPONSES
 
 logger = logging.getLogger(__name__)
@@ -250,6 +254,18 @@ def _credential_resolution_exception(exc: CredentialResolutionFailed) -> HTTPExc
         status_code=400,
         detail={
             "code": "CREDENTIAL_RESOLUTION_FAILED",
+            "message": exc.message,
+            "errors": exc.errors,
+        },
+    )
+
+
+def _deployment_package_exception(exc: DeploymentPackageBuildFailed) -> HTTPException:
+    """Map deployment package build failures to one stable API error shape."""
+    return HTTPException(
+        status_code=400,
+        detail={
+            "code": "DEPLOYMENT_PACKAGE_BUILD_FAILED",
             "message": exc.message,
             "errors": exc.errors,
         },
@@ -516,6 +532,16 @@ async def deploy_twin(
         twin.state = TwinState.CONFIGURED
         db.commit()
         raise _credential_resolution_exception(e) from e
+    except DeploymentPackageBuildFailed as e:
+        logger.warning(
+            "Deployment package build failed for twin '%s' (%s): %s",
+            twin.name,
+            twin_id,
+            e.errors,
+        )
+        twin.state = TwinState.CONFIGURED
+        db.commit()
+        raise _deployment_package_exception(e) from e
     except HTTPException as e:
         logger.error(f"Deploy preparation failed for twin '{twin.name}' ({twin_id}): {e.detail}")
         twin.state = TwinState.CONFIGURED  # Rollback state on failure
@@ -984,6 +1010,8 @@ async def start_log_trace(
         resource_name = await prepare_project_for_deployment(twin, current_user.id)
     except CredentialResolutionFailed as e:
         raise _credential_resolution_exception(e) from e
+    except DeploymentPackageBuildFailed as e:
+        raise _deployment_package_exception(e) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to prepare project for log trace: {str(e)}")
     
@@ -1185,6 +1213,8 @@ async def verify_infrastructure(
         resource_name = await prepare_project_for_deployment(twin, current_user.id)
     except CredentialResolutionFailed as e:
         raise _credential_resolution_exception(e) from e
+    except DeploymentPackageBuildFailed as e:
+        raise _deployment_package_exception(e) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to prepare project: {str(e)}")
     
@@ -1357,6 +1387,8 @@ async def verify_dataflow(
         resource_name = await prepare_project_for_deployment(twin, current_user.id)
     except CredentialResolutionFailed as e:
         raise _credential_resolution_exception(e) from e
+    except DeploymentPackageBuildFailed as e:
+        raise _deployment_package_exception(e) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to prepare project: {str(e)}")
     
@@ -1461,6 +1493,8 @@ async def download_simulator(
         resource_name = await prepare_project_for_deployment(twin, current_user.id)
     except CredentialResolutionFailed as e:
         raise _credential_resolution_exception(e) from e
+    except DeploymentPackageBuildFailed as e:
+        raise _deployment_package_exception(e) from e
     except Exception as e:
         raise HTTPException(500, f"Failed to prepare project for simulator download: {str(e)}")
     
@@ -1524,7 +1558,12 @@ async def export_twin_configuration(
         raise HTTPException(404, "Twin not found")
     
     # Reuse the same ZIP building logic
-    zip_data = build_project_zip(twin, current_user.id)
+    try:
+        zip_data = build_project_zip(twin, current_user.id)
+    except CredentialResolutionFailed as e:
+        raise _credential_resolution_exception(e) from e
+    except DeploymentPackageBuildFailed as e:
+        raise _deployment_package_exception(e) from e
     
     filename = f"{twin.name.lower().replace(' ', '-')}_config.zip"
     

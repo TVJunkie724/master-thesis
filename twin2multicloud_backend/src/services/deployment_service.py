@@ -26,6 +26,7 @@ from typing import Any, Optional, TYPE_CHECKING
 from src.config import settings
 from src.repositories.deployment_repository import DeploymentRepository
 from src.services.credential_resolution_service import CredentialResolutionService, DeploymentCredentials
+from src.services.errors import DeploymentPackageBuildFailed
 
 if TYPE_CHECKING:
     from src.models.deployer_config import DeployerConfiguration
@@ -66,6 +67,32 @@ class DeployerStreamResult:
     error_code: str | None = None
     message: str | None = None
     outputs: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True)
+class DeploymentPackageFile:
+    """Text/JSON file materialized from canonical backend state."""
+
+    path: str
+    content: str
+    contains_secret_payloads: bool = False
+
+
+@dataclass(frozen=True)
+class DeploymentPackageBinaryFile:
+    """Binary file that is copied into the package from managed storage."""
+
+    source_path: Path
+    archive_path: str
+
+
+@dataclass(frozen=True)
+class DeploymentPackage:
+    """Deployer package materialization independent from HTTP request shape."""
+
+    files: tuple[DeploymentPackageFile, ...]
+    binary_files: tuple[DeploymentPackageBinaryFile, ...]
+    manifest: dict[str, Any]
 
 
 def build_deploy_config(twin) -> dict:
@@ -560,26 +587,14 @@ def build_project_zip(twin, user_id: str) -> io.BytesIO:
     Returns:
         BytesIO containing the ZIP file
     """
+    package = build_deployment_package(twin, user_id)
     zip_buffer = io.BytesIO()
-    dc = twin.deployer_config  # Shorthand to avoid repetition
-    
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-        # --- Config Files ---
-        providers = _build_providers_config(twin)
-        deployment_credentials = _build_deployment_credentials(twin, user_id)
-        _add_config_files(zf, twin, providers, deployment_credentials)
-        
-        # --- Provider-Specific Files ---
-        _add_hierarchy_files(zf, dc)
-        _add_state_machine_file(zf, dc, twin.optimizer_config)
-        _add_user_functions(zf, dc, providers)
-        _add_scene_files(zf, dc, providers, twin.id)
-        
-        # --- Simulator Files ---
-        if dc and dc.payloads_json:
-            zf.writestr("iot_device_simulator/payloads.json", dc.payloads_json)
 
-        _add_deployment_manifest(zf, twin, providers, deployment_credentials)
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for file in package.files:
+            zf.writestr(file.path, file.content)
+        for binary_file in package.binary_files:
+            zf.write(str(binary_file.source_path), binary_file.archive_path)
     
     zip_buffer.seek(0)
     return zip_buffer
@@ -589,139 +604,260 @@ def build_project_zip(twin, user_id: str) -> io.BytesIO:
 # HELPER FUNCTIONS - Separation of Concerns
 # ============================================================================
 
-def _add_config_files(
-    zf: zipfile.ZipFile,
+def build_deployment_package(twin, user_id: str) -> DeploymentPackage:
+    """Materialize the Deployer package from persisted backend state."""
+    providers = _build_providers_config(twin)
+    deployment_credentials = _build_deployment_credentials(twin, user_id)
+    files = _materialize_deployment_files(twin, providers, deployment_credentials)
+    binary_files = _materialize_binary_files(twin, providers)
+    file_names = sorted(
+        [file.path for file in files]
+        + [binary_file.archive_path for binary_file in binary_files]
+    )
+    secret_bearing_files = sorted(file.path for file in files if file.contains_secret_payloads)
+    manifest = _build_deployment_manifest(
+        twin,
+        providers,
+        deployment_credentials,
+        file_names,
+        secret_bearing_files,
+    )
+    files = files + (
+        DeploymentPackageFile(
+            DEPLOYMENT_MANIFEST_FILE,
+            json.dumps(manifest, indent=2, sort_keys=True),
+        ),
+    )
+    return DeploymentPackage(files=files, binary_files=binary_files, manifest=manifest)
+
+
+def _materialize_deployment_files(
     twin,
     providers: dict,
     deployment_credentials: DeploymentCredentials,
-):
-    """Add all config JSON files to the ZIP."""
+) -> tuple[DeploymentPackageFile, ...]:
+    """Return the text/JSON files required by the Deployer package contract."""
     dc = twin.deployer_config
     oc = twin.optimizer_config
-    
-    # Main config and providers
-    zf.writestr("config.json", json.dumps(_build_main_config(twin), indent=2))
-    zf.writestr("config_providers.json", json.dumps(providers, indent=2))
-    
-    # Credentials (with separate GCP file)
+    files: list[DeploymentPackageFile] = [
+        DeploymentPackageFile("config.json", json.dumps(_build_main_config(twin), indent=2)),
+        DeploymentPackageFile("config_providers.json", json.dumps(providers, indent=2)),
+    ]
+
     credentials, gcp_creds = (
         deployment_credentials.config_credentials,
         deployment_credentials.gcp_credentials_json,
     )
-    zf.writestr("config_credentials.json", json.dumps(credentials, indent=2))
+    files.append(
+        DeploymentPackageFile(
+            "config_credentials.json",
+            json.dumps(credentials, indent=2),
+            contains_secret_payloads=True,
+        )
+    )
     if gcp_creds:
-        zf.writestr("gcp_credentials.json", json.dumps(gcp_creds, indent=2))
-    
-    zf.writestr(
-        "config_iot_devices.json",
-        _json_content_or_default(dc.config_iot_devices_json if dc else None, []),
+        files.append(
+            DeploymentPackageFile(
+                "gcp_credentials.json",
+                json.dumps(gcp_creds, indent=2),
+                contains_secret_payloads=True,
+            )
+        )
+
+    files.append(
+        DeploymentPackageFile(
+            "config_iot_devices.json",
+            _json_content_or_default(
+                dc.config_iot_devices_json if dc else None,
+                [],
+                "deployer_config.config_iot_devices_json",
+            ),
+        )
     )
-    zf.writestr(
-        "config_events.json",
-        _json_content_or_default(dc.config_events_json if dc else None, []),
+    files.append(
+        DeploymentPackageFile(
+            "config_events.json",
+            _json_content_or_default(
+                dc.config_events_json if dc else None,
+                [],
+                "deployer_config.config_events_json",
+            ),
+        )
     )
 
-    # Optional config files from deployer_config
-    if dc:
-        _write_if_present(zf, "config_user.json", dc.user_config_content)
-    
-    # Optimizer result (deployer expects {"result": {"inputParamsUsed": {...}}})
     if oc:
-        zf.writestr("config_optimization.json", json.dumps(
-            _build_optimization_config(oc), indent=2
-        ))
+        files.append(
+            DeploymentPackageFile(
+                "config_optimization.json",
+                json.dumps(_build_optimization_config(oc), indent=2),
+            )
+        )
+    if dc:
+        files.extend(_materialize_deployer_artifacts(dc, oc, providers))
+        if dc.payloads_json:
+            files.append(
+                DeploymentPackageFile(
+                    "iot_device_simulator/payloads.json",
+                    _json_content_or_default(
+                        dc.payloads_json,
+                        {},
+                        "deployer_config.payloads_json",
+                    ),
+                )
+            )
+    return tuple(files)
 
 
-def _add_deployment_manifest(
-    zf: zipfile.ZipFile,
-    twin,
+def _materialize_deployer_artifacts(
+    dc: "DeployerConfiguration",
+    oc: Optional["OptimizerConfiguration"],
     providers: dict,
-    deployment_credentials: DeploymentCredentials,
-) -> None:
-    """Add a secrets-free deployment package manifest."""
-    file_names = sorted(
-        name for name in zf.namelist()
-        if name != DEPLOYMENT_MANIFEST_FILE
-    )
-    zf.writestr(
-        DEPLOYMENT_MANIFEST_FILE,
-        json.dumps(
-            _build_deployment_manifest(twin, providers, deployment_credentials, file_names),
-            indent=2,
-            sort_keys=True,
-        ),
-    )
+) -> tuple[DeploymentPackageFile, ...]:
+    files: list[DeploymentPackageFile] = []
+    if dc.user_config_content:
+        _load_json_document(dc.user_config_content, "deployer_config.user_config_content")
+        files.append(DeploymentPackageFile("config_user.json", dc.user_config_content))
+
+    if dc.hierarchy_content:
+        _load_json_document(dc.hierarchy_content, "deployer_config.hierarchy_content")
+        files.append(DeploymentPackageFile("twin_hierarchy/aws_hierarchy.json", dc.hierarchy_content))
+        files.append(DeploymentPackageFile("twin_hierarchy/azure_hierarchy.json", dc.hierarchy_content))
+
+    if dc.state_machine_content and oc and oc.cheapest_l2:
+        l2 = oc.cheapest_l2.lower()
+        filenames = {
+            "aws": "state_machines/aws_step_function.json",
+            "azure": "state_machines/azure_logic_app.json",
+            "google": "state_machines/google_cloud_workflow.yaml",
+            "gcp": "state_machines/google_cloud_workflow.yaml",
+        }
+        if l2 in filenames:
+            files.append(DeploymentPackageFile(filenames[l2], dc.state_machine_content))
+
+    files.extend(_materialize_user_functions(dc, providers))
+    files.extend(_materialize_scene_config(dc, providers))
+    return tuple(files)
 
 
-def _add_hierarchy_files(zf: zipfile.ZipFile, dc: Optional["DeployerConfiguration"]) -> None:
-    """Add twin hierarchy files (written to both provider locations)."""
-    if dc and dc.hierarchy_content:
-        zf.writestr("twin_hierarchy/aws_hierarchy.json", dc.hierarchy_content)
-        zf.writestr("twin_hierarchy/azure_hierarchy.json", dc.hierarchy_content)
-
-
-def _add_state_machine_file(zf: zipfile.ZipFile, dc: Optional["DeployerConfiguration"], oc: Optional["OptimizerConfiguration"]) -> None:
-    """Add state machine file to provider-specific location."""
-    if not (dc and dc.state_machine_content and oc and oc.cheapest_l2):
-        return
-    
-    l2 = oc.cheapest_l2.lower()
-    filenames = {
-        "aws": "state_machines/aws_step_function.json",
-        "azure": "state_machines/azure_logic_app.json",
-        "google": "state_machines/google_cloud_workflow.yaml",
-        "gcp": "state_machines/google_cloud_workflow.yaml",
-    }
-    if l2 in filenames:
-        zf.writestr(filenames[l2], dc.state_machine_content)
-
-
-def _add_user_functions(zf: zipfile.ZipFile, dc: Optional["DeployerConfiguration"], providers: dict) -> None:
-    """Add all user functions (processors, event_actions, event_feedback)."""
-    if not dc:
-        return
-    
-    # L2 is the compute layer (where functions run)
+def _materialize_user_functions(
+    dc: "DeployerConfiguration",
+    providers: dict,
+) -> tuple[DeploymentPackageFile, ...]:
     l2 = providers.get("layer_2_provider", "aws")
     func_base = _get_function_base_folder(l2)
     func_file = _get_function_filename(l2)
-    
-    # Processors
-    _add_function_set(
-        zf, func_base, "processors", func_file,
-        dc.processor_contents, dc.processor_requirements
+    files: list[DeploymentPackageFile] = []
+    files.extend(
+        _materialize_function_set(
+            func_base,
+            "processors",
+            func_file,
+            dc.processor_contents,
+            dc.processor_requirements,
+            "deployer_config.processor_contents",
+            "deployer_config.processor_requirements",
+        )
     )
-    
-    # Event actions
-    _add_function_set(
-        zf, func_base, "event_actions", func_file,
-        dc.event_action_contents, dc.event_action_requirements
+    files.extend(
+        _materialize_function_set(
+            func_base,
+            "event_actions",
+            func_file,
+            dc.event_action_contents,
+            dc.event_action_requirements,
+            "deployer_config.event_action_contents",
+            "deployer_config.event_action_requirements",
+        )
     )
-    
-    # Event feedback (single function, not dict)
+
     if dc.event_feedback_content:
-        zf.writestr(f"{func_base}/event-feedback/{func_file}", dc.event_feedback_content)
-        _write_if_present(zf, f"{func_base}/event-feedback/requirements.txt", dc.event_feedback_requirements)
+        files.append(DeploymentPackageFile(f"{func_base}/event-feedback/{func_file}", dc.event_feedback_content))
+        if dc.event_feedback_requirements:
+            files.append(
+                DeploymentPackageFile(
+                    f"{func_base}/event-feedback/requirements.txt",
+                    dc.event_feedback_requirements,
+                )
+            )
+    return tuple(files)
 
 
-def _add_scene_files(zf: zipfile.ZipFile, dc: Optional["DeployerConfiguration"], providers: dict, twin_id: str) -> None:
-    """Add scene files to provider-specific location."""
-    if not dc or not dc.scene_config_content:
-        return
-    
+def _materialize_function_set(
+    base_folder: str,
+    subfolder: str,
+    filename: str,
+    contents_json: Optional[str],
+    requirements_json: Optional[str],
+    contents_field: str,
+    requirements_field: str,
+) -> tuple[DeploymentPackageFile, ...]:
+    if not contents_json:
+        return ()
+
+    contents = _json_object_from_content(contents_json, contents_field)
+    requirements = (
+        _json_object_from_content(requirements_json, requirements_field)
+        if requirements_json
+        else {}
+    )
+    files: list[DeploymentPackageFile] = []
+    for name, code in contents.items():
+        if not isinstance(code, str):
+            _raise_package_error(
+                contents_field,
+                "INVALID_FUNCTION_CONTENT",
+                "Function content values must be strings",
+            )
+        files.append(DeploymentPackageFile(f"{base_folder}/{subfolder}/{name}/{filename}", code))
+        requirement_content = requirements.get(name)
+        if requirement_content is not None:
+            if not isinstance(requirement_content, str):
+                _raise_package_error(
+                    requirements_field,
+                    "INVALID_REQUIREMENTS_CONTENT",
+                    "Requirements values must be strings",
+                )
+            files.append(
+                DeploymentPackageFile(
+                    f"{base_folder}/{subfolder}/{name}/requirements.txt",
+                    requirement_content,
+                )
+            )
+    return tuple(files)
+
+
+def _materialize_scene_config(
+    dc: "DeployerConfiguration",
+    providers: dict,
+) -> tuple[DeploymentPackageFile, ...]:
+    if not dc.scene_config_content:
+        return ()
+
+    _load_json_document(dc.scene_config_content, "deployer_config.scene_config_content")
     l4 = providers.get("layer_4_provider")
     scene_filenames = {
         "azure": "scene_assets/azure/3DScenesConfiguration.json",
         "aws": "scene_assets/aws/scene.json",
     }
-    if l4 in scene_filenames:
-        zf.writestr(scene_filenames[l4], dc.scene_config_content)
-    
-    # Add GLB binary if uploaded (stored on backend disk, not in DB)
-    if dc.scene_glb_uploaded and l4 in ("aws", "azure"):
-        glb_path = Path(settings.UPLOAD_DIR) / twin_id / "scene.glb"
-        if glb_path.exists():
-            zf.write(str(glb_path), f"scene_assets/{l4}/scene.glb")
+    if l4 not in scene_filenames:
+        return ()
+    return (DeploymentPackageFile(scene_filenames[l4], dc.scene_config_content),)
+
+
+def _materialize_binary_files(twin, providers: dict) -> tuple[DeploymentPackageBinaryFile, ...]:
+    dc = twin.deployer_config
+    l4 = providers.get("layer_4_provider")
+    if not (dc and dc.scene_glb_uploaded and l4 in ("aws", "azure")):
+        return ()
+
+    glb_path = Path(settings.UPLOAD_DIR) / twin.id / "scene.glb"
+    if not glb_path.exists():
+        _raise_package_error(
+            "deployer_config.scene_glb_uploaded",
+            "MISSING_BINARY_ARTIFACT",
+            "Scene GLB is marked as uploaded but the managed file is missing",
+        )
+    return (DeploymentPackageBinaryFile(glb_path, f"scene_assets/{l4}/scene.glb"),)
 
 
 # ============================================================================
@@ -746,46 +882,51 @@ def _get_function_filename(provider: str) -> str:
     }.get(provider, "lambda_function.py")
 
 
-def _add_function_set(
-    zf: zipfile.ZipFile,
-    base_folder: str,
-    subfolder: str,
-    filename: str,
-    contents_json: Optional[str],
-    requirements_json: Optional[str]
-):
-    """Add a set of functions with optional requirements.txt files (DRY pattern)."""
-    if not contents_json:
-        return
-    
-    try:
-        contents = json.loads(contents_json)
-        for name, code in contents.items():
-            zf.writestr(f"{base_folder}/{subfolder}/{name}/{filename}", code)
-        
-        # Add requirements if available
-        if requirements_json:
-            try:
-                reqs = json.loads(requirements_json)
-                for name, req_content in reqs.items():
-                    zf.writestr(f"{base_folder}/{subfolder}/{name}/requirements.txt", req_content)
-            except json.JSONDecodeError:
-                pass
-    except json.JSONDecodeError:
-        pass
-
-
-def _write_if_present(zf: zipfile.ZipFile, path: str, content: Optional[str]):
-    """Write content to ZIP only if not None (DRY helper)."""
-    if content:
-        zf.writestr(path, content)
-
-
-def _json_content_or_default(content: Optional[str], default_value: Any) -> str:
+def _json_content_or_default(content: Optional[str], default_value: Any, field: str) -> str:
     """Return stored JSON content or a stable JSON default for required files."""
     if content:
+        _load_json_document(content, field)
         return content
     return json.dumps(default_value, indent=2)
+
+
+def _json_object_from_content(content: str, field: str) -> dict[str, Any]:
+    value = _load_json_document(content, field)
+    if not isinstance(value, dict):
+        _raise_package_error(
+            field,
+            "INVALID_JSON_OBJECT",
+            "Deployment artifact must be a JSON object",
+        )
+    return value
+
+
+def _load_json_document(content: str, field: str) -> Any:
+    try:
+        return json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        _raise_package_error(
+            field,
+            "INVALID_JSON",
+            "Deployment artifact contains invalid JSON",
+        )
+
+
+def _raise_package_error(field: str, code: str, message: str) -> None:
+    raise DeploymentPackageBuildFailed(
+        "Cannot build deployment package",
+        [{
+            "code": code,
+            "field": field,
+            "message": message,
+        }],
+    )
+
+
+def _months_to_days(value: Any, default_months: int) -> int:
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0:
+        return int(value * 30)
+    return default_months * 30
 
 
 def get_resource_name(twin) -> str:
@@ -804,12 +945,12 @@ def _build_main_config(twin) -> dict:
     hot_days = 30  # default: 1 month
     cold_days = 90  # default: 3 months
     if twin.optimizer_config and twin.optimizer_config.params:
-        try:
-            params = json.loads(twin.optimizer_config.params)
-            hot_days = params.get("hotStorageDurationInMonths", 1) * 30
-            cold_days = params.get("coolStorageDurationInMonths", 3) * 30
-        except (json.JSONDecodeError, TypeError):
-            pass  # Use defaults
+        params = _json_object_from_content(
+            twin.optimizer_config.params,
+            "optimizer_config.params",
+        )
+        hot_days = _months_to_days(params.get("hotStorageDurationInMonths"), 1)
+        cold_days = _months_to_days(params.get("coolStorageDurationInMonths"), 3)
 
     # Mode from Step 1 debug toggle
     mode = "debug" if (twin.configuration and twin.configuration.debug_mode) else "production"
@@ -873,6 +1014,7 @@ def _build_deployment_manifest(
     providers: dict,
     deployment_credentials: DeploymentCredentials,
     file_names: list[str],
+    secret_bearing_files: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Build the secrets-free package manifest.
@@ -890,6 +1032,7 @@ def _build_deployment_manifest(
             "format": "deployer-project-zip",
             "files": file_names,
             "required_files": REQUIRED_DEPLOYER_CONFIG_FILES,
+            "secret_bearing_files": secret_bearing_files or [],
         },
         "twin": {
             "id": _manifest_scalar(getattr(twin, "id", None)),
@@ -940,17 +1083,14 @@ def _build_optimization_config(oc) -> dict:
     """
     input_params = {}
     if oc.params:
-        try:
-            params = json.loads(oc.params)
-            input_params = {
-                "useEventChecking": params.get("useEventChecking", False),
-                "triggerNotificationWorkflow": params.get("triggerNotificationWorkflow", False),
-                "returnFeedbackToDevice": params.get("returnFeedbackToDevice", False),
-                "integrateErrorHandling": params.get("integrateErrorHandling", False),
-                "needs3DModel": params.get("needs3DModel", False),
-            }
-        except (json.JSONDecodeError, TypeError):
-            pass
+        params = _json_object_from_content(oc.params, "optimizer_config.params")
+        input_params = {
+            "useEventChecking": params.get("useEventChecking") is True,
+            "triggerNotificationWorkflow": params.get("triggerNotificationWorkflow") is True,
+            "returnFeedbackToDevice": params.get("returnFeedbackToDevice") is True,
+            "integrateErrorHandling": params.get("integrateErrorHandling") is True,
+            "needs3DModel": params.get("needs3DModel") is True,
+        }
     return {"result": {"inputParamsUsed": input_params}}
 
 
