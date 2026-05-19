@@ -7,6 +7,7 @@ Start here:
 - [Platform Overview](platform-overview.md)
 - [Project Background](project-background.md)
 - [Architecture Roadmap](roadmap.md)
+- [Refactoring Roadmap](refactoring-roadmap.md)
 
 The architecture documentation has three jobs:
 

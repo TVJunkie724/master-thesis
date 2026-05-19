@@ -2,6 +2,8 @@
 
 The active architecture-debt roadmap is tracked in GitHub Issues and Milestones. `ASSESSMENT.md` remains the repository-local narrative source for the roadmap, while GitHub is the operational backlog.
 
+For the issue-numbered refactoring index, see [Refactoring Roadmap](refactoring-roadmap.md).
+
 ## Phase Order
 
 | Phase | Goal |

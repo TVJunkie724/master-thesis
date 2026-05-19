@@ -39,6 +39,7 @@ nav:
       - Platform Overview: architecture/platform-overview.md
       - Project Background: architecture/project-background.md
       - Roadmap: architecture/roadmap.md
+      - Refactoring Roadmap: architecture/refactoring-roadmap.md
   - Components:
       - Management API: components/backend.md
       - Flutter UI: components/flutter.md
