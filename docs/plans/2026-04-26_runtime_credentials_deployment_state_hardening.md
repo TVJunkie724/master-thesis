@@ -4,6 +4,8 @@
 **Scope:** `compose*.yaml`, `twin2multicloud_backend`, `3-cloud-deployer`, `twin2multicloud_flutter`
 **Status:** Konzept / Zielarchitektur
 
+**Aktueller Implementation Plan:** [`2026-05-19_credential_ssot_compose_split.md`](2026-05-19_credential_ssot_compose_split.md)
+
 ---
 
 ## 1. Ziel

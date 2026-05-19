@@ -88,7 +88,7 @@ when work becomes actionable, then reference the issue here.
 
 | Issue | Status | Notes |
 |-------|--------|-------|
-| [#6](https://github.com/TVJunkie724/master-thesis/issues/6) | Open | CloudConnection credential SSOT and Compose split |
+| [#6](https://github.com/TVJunkie724/master-thesis/issues/6) | Active | CloudConnection credential SSOT and Compose split. Plan: [`docs/plans/2026-05-19_credential_ssot_compose_split.md`](https://github.com/TVJunkie724/master-thesis/blob/master/docs/plans/2026-05-19_credential_ssot_compose_split.md) |
 | [#7](https://github.com/TVJunkie724/master-thesis/issues/7) | Open, blocked by #6 | Provider bootstrap and permission preflight checks |
 | [#8](https://github.com/TVJunkie724/master-thesis/issues/8) | Open | Production credential security controls |
 | [#9](https://github.com/TVJunkie724/master-thesis/issues/9) | Open | Local encryption/JWT key generation and persistence |
