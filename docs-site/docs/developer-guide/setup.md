@@ -9,7 +9,7 @@ This page describes the current local setup for the integrated thesis repository
 - Git.
 - Cloud CLIs are optional and only needed for intentional real cloud work.
 
-Do not commit real credential files. Real cloud credentials are transitional local material until Cloud Connections become the source of truth.
+Do not commit real credential files. Real cloud credentials are transitional local material until Cloud Connections become the source of truth. Local cloud credential files belong under `.secrets/local/`, which is ignored by Git.
 
 ## Start The Backend Stack
 
@@ -59,11 +59,23 @@ The LaTeX source lives in `twin2multicloud-latex/` and remains part of the repos
 
 The default Compose stack is intentionally credential-free. Root-level credential files are not mounted by default, and sample data seeding starts disabled.
 
-Use the local credential override only when you intentionally need legacy root-level credential files for sample seeding or supervised local cloud tests:
+Use the local cloud override only when you intentionally need `.secrets/local/` credential files for sample seeding or supervised local cloud tests:
 
 ```bash
-docker compose -f compose.yaml -f compose.credentials.local.yaml up -d
+docker compose -f compose.yaml -f compose.cloud.local.yaml up -d
 ```
+
+Prepare the local files from placeholders:
+
+```bash
+mkdir -p .secrets/local
+cp config.json.example                .secrets/local/config.json
+cp config_credentials.json.example    .secrets/local/config_credentials.json
+cp google_credentials.json.example    .secrets/local/google-credentials.json
+cp google_credentials.json.example    .secrets/local/gcp_credentials.json
+```
+
+If older valid credential files still exist at the repository root, move or copy them manually after verifying your local setup. The project does not migrate or delete live credentials automatically.
 
 The target flow is:
 

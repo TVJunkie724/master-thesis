@@ -34,6 +34,7 @@ htmlcov/
 # -----------------------------------------------------------------------------
 # Credentials (NEVER commit)
 # -----------------------------------------------------------------------------
+.secrets/
 config_credentials.json
 google_*.json
 google-*.json
@@ -146,5 +147,4 @@ twin2multicloud_backend/**/scene.glb
 # AI Agent Session Tracking
 # -----------------------------------------------------------------------------
 .ai-session.json
-
 

@@ -3,7 +3,7 @@
 **Date:** 2026-05-19  
 **GitHub issue:** [#6](https://github.com/TVJunkie724/master-thesis/issues/6)  
 **Roadmap phase:** Phase 4 - Runtime Credentials & Deployment State  
-**Status:** Planned  
+**Status:** Active
 
 ## 1. Goal
 
@@ -28,14 +28,15 @@ The target state is:
 | File | Current behavior | Assessment |
 |------|------------------|------------|
 | `compose.yaml` | Starts Optimizer, Deployer, Management API, docs, LaTeX profiles. Management API has `SEED_DATA=false`. No root credential mounts. | Good default baseline. Keep credential-free. |
-| `compose.credentials.local.yaml` | Mounts root `config.json`, `config_credentials.json`, `google-credentials.json`, and `gcp_credentials.json` into services. Enables Management API seeding with credential files. | Useful for supervised local cloud tests, but too broad and root-file based for the final model. |
+| `compose.cloud.local.yaml` | Mounts `.secrets/local/config.json`, `.secrets/local/config_credentials.json`, `.secrets/local/google-credentials.json`, and `.secrets/local/gcp_credentials.json` into services. Enables Management API seeding with credential files. | Canonical local-cloud override. |
+| `compose.credentials.local.yaml` | Deprecated compatibility alias for local cloud tests. Uses the same `.secrets/local/` mount sources. | Keep temporarily for older notes/scripts, then remove after docs and workflows converge on `compose.cloud.local.yaml`. |
 | `compose.debug.yaml` | Debug override only. | Not part of credential SSOT unless it starts mounting secrets later. |
 
 ### Credential Files And Ownership
 
 | Path group | Current role | Target role |
 |------------|--------------|-------------|
-| `config_credentials.json`, `gcp_credentials.json`, `google-credentials.json` at repo root | Ignored local credential files used by the local credential override. | Move to `.secrets/local/` after all references and docs are updated. |
+| `config_credentials.json`, `gcp_credentials.json`, `google-credentials.json` at repo root | Ignored local credential files from the older local workflow. | No longer mounted by Compose. The user may manually move/copy valid files to `.secrets/local/`. |
 | `config.json` at repo root | Tracked runtime config file. | Keep only if it is non-secret. Otherwise replace with example-driven config. |
 | `3-cloud-deployer/upload/template/*credentials*.json` | Ignored local test credentials in the legacy template/testing folder. User confirmed these may still be valid and must not be deleted casually. | Preserve until local-cloud tests have an alternative. Do not document as canonical. |
 | `3-cloud-deployer/upload/digital-twin/*credentials*.json` | Ignored generated/runtime credential artifacts. | Runtime artifact only; should be generated per operation and disposable. |
@@ -60,7 +61,7 @@ The target state is:
 | Base dev | `docker compose up -d` | none | Start services, use UI, create CloudConnections manually, run non-cloud tests. |
 | Docs | `docker compose --profile docs up -d docs` | none | Documentation authoring. |
 | Demo | `compose.demo.yaml` or profile, to be added if needed | fake/demo data only | Thesis demo without real deployments. |
-| Local cloud supervised | explicit override, renamed or replaced by `compose.cloud.local.yaml` | `.secrets/local/` mounts only | Intentional local cloud validation/deployment with real credentials. |
+| Local cloud supervised | `compose.cloud.local.yaml` | `.secrets/local/` mounts only | Intentional local cloud validation/deployment with real credentials. |
 
 ## 4. Implementation Slices
 
@@ -80,13 +81,15 @@ The target state is:
 
 ### Slice 2: Secret Location Normalization
 
+**Status:** Implemented
+
 **Work**
 
-- Introduce `.secrets/local/` as the only local-cloud credential mount source.
-- Add `.secrets/` to `.gitignore`.
-- Add `.secrets/local/*.example` or docs snippets only if they contain placeholders.
-- Replace root credential mounts in the local cloud override with `.secrets/local/` mounts.
-- Keep a compatibility note for existing root credential files until the user moves them.
+- [x] Introduce `.secrets/local/` as the only local-cloud credential mount source.
+- [x] Add `.secrets/` to `.gitignore`.
+- [x] Keep placeholder setup docs only; do not commit `.secrets/local/` examples.
+- [x] Replace root credential mounts in the local cloud override with `.secrets/local/` mounts.
+- [x] Keep a compatibility note for existing root credential files until the user moves them.
 
 **Acceptance**
 
@@ -152,6 +155,7 @@ The target state is:
 ```bash
 docker compose config
 docker compose -f compose.yaml config
+docker compose -f compose.yaml -f compose.cloud.local.yaml config
 docker compose -f compose.yaml -f compose.credentials.local.yaml config
 
 docker compose run --rm management-api sh -lc \
@@ -169,8 +173,8 @@ git diff --check
 
 | Decision | Recommendation |
 |----------|----------------|
-| Rename `compose.credentials.local.yaml`? | Yes, after compatibility docs: `compose.cloud.local.yaml` better communicates real-cloud intent. |
+| Rename `compose.credentials.local.yaml`? | Implemented by adding `compose.cloud.local.yaml`; the old file remains as a deprecated compatibility alias. |
 | Move current valid credentials automatically? | No. Document manual move to `.secrets/local/` and never script-copy secret files in a generic migration. |
-| Keep root credential compatibility? | Temporarily yes, but only as a documented bridge. |
+| Keep root credential compatibility? | No Docker compatibility remains for root credential files. Existing files stay untouched locally until the user manually migrates them. |
 | Seed sample twins by default? | No. Keep `SEED_DATA=false` in base compose. |
 | Seed through CloudConnections? | Yes. That should be the next implementation slice. |

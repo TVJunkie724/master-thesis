@@ -1,7 +1,3 @@
-# Deprecated compatibility override.
-# Prefer compose.cloud.local.yaml for intentional local cloud tests. This file
-# intentionally uses the same .secrets/local mounts so root-level credential
-# files are no longer a Docker runtime source.
 services:
   2twin2clouds:
     volumes:
