@@ -135,16 +135,19 @@ The target state is:
 
 ### Slice 5: Legacy Fallback Exit Plan
 
+**Status:** Implemented as follow-up planning issue [#78](https://github.com/TVJunkie724/master-thesis/issues/78)
+
 **Work**
 
-- Create or update a follow-up issue for removing legacy encrypted per-twin credential fields.
-- Define DB migration/backfill constraints.
-- Keep fallback code until CloudConnection-only demo/deployment path is verified.
+- [x] Create or update a follow-up issue for removing legacy encrypted per-twin credential fields.
+- [x] Define DB migration/backfill constraints.
+- [x] Keep fallback code until CloudConnection-only demo/deployment path is verified.
 
 **Acceptance**
 
-- Legacy fallback has a removal plan.
-- Current fallback is documented, tested, and lower priority than CloudConnections.
+- [x] Legacy fallback has a removal plan.
+- [x] Current fallback is documented, tested, and lower priority than CloudConnections.
+- [x] Removal issue is blocked by #6 so it cannot close before the CloudConnection-only path is verified.
 
 ## 5. Security Requirements
 
