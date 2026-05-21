@@ -119,7 +119,7 @@ The Flutter client hardcodes `dev-token` in [`lib/services/api_service.dart`](tw
 
 #### 4c. Sample twins (opt-in via `compose.cloud.local.yaml`)
 
-[`twin2multicloud_backend/scripts/seed_twins.py`](twin2multicloud_backend/scripts/seed_twins.py) creates five pre-configured sample twins under a dedicated `seed@twin2multicloud.dev` user:
+[`twin2multicloud_backend/scripts/seed_twins.py`](twin2multicloud_backend/scripts/seed_twins.py) creates user-scoped Cloud Connections plus five pre-configured sample twins under a dedicated `seed@twin2multicloud.dev` user:
 
 | Twin | Providers |
 |------|-----------|
@@ -131,6 +131,8 @@ The Flutter client hardcodes `dev-token` in [`lib/services/api_service.dart`](tw
 
 **Behaviour:**
 - Idempotent — skips entirely if `seed@twin2multicloud.dev` already exists. Safe to restart.
+- Credentials from `.secrets/local/` are stored once as encrypted Cloud Connections and then referenced by the sample twins.
+- Legacy per-twin encrypted credential fields are not populated by default. Set `SEED_LEGACY_TWIN_CREDENTIALS=true` only for old compatibility checks.
 - Twins with valid credentials advance to **CONFIGURED** state; invalid credentials leave them in **DRAFT**.
 
 **Disabled by default** — `compose.yaml` starts with:

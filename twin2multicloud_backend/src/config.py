@@ -56,5 +56,6 @@ class Settings(BaseSettings):
     SEED_DATA: bool = False
     SEED_CREDENTIALS_FILE: str = "/config/config_credentials.json"
     SEED_GCP_CREDENTIALS_FILE: str = "/config/gcp_credentials.json"
+    SEED_LEGACY_TWIN_CREDENTIALS: bool = False
     
 settings = Settings()

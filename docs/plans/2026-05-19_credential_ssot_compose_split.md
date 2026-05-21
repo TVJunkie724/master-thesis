@@ -48,7 +48,7 @@ The target state is:
 | Component | Current behavior | Risk |
 |-----------|------------------|------|
 | Management API CloudConnections | User-scoped encrypted CloudConnection storage exists; twins can bind provider CloudConnections. | Foundation is good, but legacy fallback remains. |
-| Management API seed script | Reads `SEED_CREDENTIALS_FILE` and `SEED_GCP_CREDENTIALS_FILE`; creates encrypted legacy per-twin credential fields. | Seed path bypasses CloudConnection SSOT and keeps legacy model alive. |
+| Management API seed script | Reads `SEED_CREDENTIALS_FILE` and `SEED_GCP_CREDENTIALS_FILE`; creates encrypted user-scoped CloudConnections and binds seeded twins to them. | SSOT-aligned. Legacy per-twin field seeding is disabled by default and available only via explicit compatibility flag. |
 | Management API deployment package | Resolves credentials from CloudConnection first, legacy fallback second; writes operation-local `config_credentials.json` and optional `gcp_credentials.json` into the generated Deployer package. | Acceptable transitional boundary, because package is generated from backend state and manifest is secrets-free. |
 | Deployer | Current canonical deployment contract still consumes project-local `config_credentials.json` and provider-specific GCP credential file. | Acceptable transitional file contract, but Deployer must not discover repo-root/template credentials. |
 | Optimizer | Permission endpoints and pricing fetchers still support `/config/config_credentials.json` and `/config/gcp_credentials.json`. | Should become request/CloudConnection driven for app flows; local project-config verification can remain dev-only. |
@@ -100,17 +100,20 @@ The target state is:
 
 ### Slice 3: CloudConnection-Based Seed Path
 
+**Status:** Implemented
+
 **Work**
 
-- Convert Management API seeding from legacy per-twin encrypted credential fields to user-scoped CloudConnections.
-- Seed twins bind CloudConnections by provider instead of copying credentials into every twin.
-- Keep legacy field seeding behind an explicit compatibility flag only if needed.
+- [x] Convert Management API seeding from legacy per-twin encrypted credential fields to user-scoped CloudConnections.
+- [x] Seed twins bind CloudConnections by provider instead of copying credentials into every twin.
+- [x] Keep legacy field seeding behind an explicit compatibility flag only if needed.
 
 **Acceptance**
 
-- Seeded twins use CloudConnection references.
-- Seed path does not create fresh legacy per-twin secret duplicates by default.
-- Tests prove seeded CloudConnection-only twins can validate configured state and generate deployment packages.
+- [x] Seeded twins use CloudConnection references.
+- [x] Seed path does not create fresh legacy per-twin secret duplicates by default.
+- [x] Tests prove seeded CloudConnection-only twins can validate configured state.
+- [x] Tests prove seeded CloudConnection-only twins can generate deployment packages.
 
 ### Slice 4: Optimizer And Deployer Local Credential Boundaries
 

@@ -77,6 +77,8 @@ cp google_credentials.json.example    .secrets/local/gcp_credentials.json
 
 If older valid credential files still exist at the repository root, move or copy them manually after verifying your local setup. The project does not migrate or delete live credentials automatically.
 
+When sample seeding is enabled, the Management API stores provider credentials once as encrypted Cloud Connections for the seed user and binds the sample twins to those records. Legacy per-twin credential fields stay empty unless `SEED_LEGACY_TWIN_CREDENTIALS=true` is set for an explicit compatibility check.
+
 The target flow is:
 
 1. User creates or imports a Cloud Connection.

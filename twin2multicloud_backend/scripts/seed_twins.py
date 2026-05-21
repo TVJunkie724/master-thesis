@@ -1,8 +1,9 @@
 """
 Seed Test Digital Twins on Management Backend Startup.
 
-Creates 5 test digital twins with encrypted credentials, optimizer config,
-and deployer config. Validates credentials against Deployer + Optimizer APIs.
+Creates 5 test digital twins with user-scoped CloudConnections, optimizer
+config, and deployer config. Validates credentials against Deployer +
+Optimizer APIs.
 
 Twins with invalid credentials remain in DRAFT state with log warnings.
 Twins with valid credentials advance to CONFIGURED state.
@@ -16,13 +17,15 @@ import uuid
 import httpx
 
 from src.config import settings
+from src.models.cloud_connection import CloudConnection
 from src.models.database import SessionLocal
 from src.models.twin import DigitalTwin, TwinState
 from src.models.twin_config import TwinConfiguration
 from src.models.optimizer_config import OptimizerConfiguration
 from src.models.deployer_config import DeployerConfiguration
 from src.models.user import User
-from src.utils.crypto import encrypt
+from src.services.cloud_connection_service import CloudConnectionService
+from src.utils.crypto import encrypt, encrypt_scoped
 
 
 
@@ -334,6 +337,175 @@ def _build_params_json() -> str:
 
 
 # ============================================================================
+# Cloud Connection Seed Helpers
+# ============================================================================
+
+def _build_aws_payload(aws_creds: dict) -> dict | None:
+    if not aws_creds.get("aws_access_key_id"):
+        return None
+    payload = {
+        "aws_access_key_id": aws_creds["aws_access_key_id"],
+        "aws_secret_access_key": aws_creds.get("aws_secret_access_key", ""),
+        "aws_region": aws_creds.get("aws_region", "eu-central-1"),
+    }
+    session_token = _or_none(aws_creds.get("aws_session_token", ""))
+    if session_token:
+        payload["aws_session_token"] = session_token
+    sso_region = _or_none(aws_creds.get("aws_sso_region", ""))
+    if sso_region:
+        payload["aws_sso_region"] = sso_region
+    return payload
+
+
+def _build_azure_payload(azure_creds: dict) -> dict | None:
+    if not azure_creds.get("azure_subscription_id"):
+        return None
+    azure_region = azure_creds.get("azure_region", "westeurope")
+    return {
+        "azure_subscription_id": azure_creds["azure_subscription_id"],
+        "azure_client_id": azure_creds.get("azure_client_id", ""),
+        "azure_client_secret": azure_creds.get("azure_client_secret", ""),
+        "azure_tenant_id": azure_creds.get("azure_tenant_id", ""),
+        "azure_region": azure_region,
+        "azure_region_iothub": azure_creds.get("azure_region_iothub") or azure_region,
+        "azure_region_digital_twin": azure_creds.get("azure_region_digital_twin") or azure_region,
+    }
+
+
+def _build_gcp_payload(gcp_creds: dict, gcp_sa_json: str | None) -> dict | None:
+    if not (gcp_creds.get("gcp_project_id") or gcp_sa_json):
+        return None
+    payload = {
+        "gcp_project_id": gcp_creds.get("gcp_project_id", ""),
+        "gcp_region": gcp_creds.get("gcp_region", "europe-west1"),
+        "gcp_credentials_file": gcp_sa_json,
+    }
+    billing = _or_none(gcp_creds.get("gcp_billing_account", ""))
+    if billing:
+        payload["gcp_billing_account"] = billing
+    return {key: value for key, value in payload.items() if value}
+
+
+def _cloud_scope(provider: str, payload: dict) -> dict:
+    if provider == "aws":
+        return {"region": payload.get("aws_region")}
+    if provider == "azure":
+        return {
+            "subscription_configured": bool(payload.get("azure_subscription_id")),
+            "region": payload.get("azure_region"),
+            "iot_hub_region": payload.get("azure_region_iothub"),
+            "digital_twin_region": payload.get("azure_region_digital_twin"),
+        }
+    if provider == "gcp":
+        return {
+            "project_id": payload.get("gcp_project_id"),
+            "billing_account_configured": bool(payload.get("gcp_billing_account")),
+            "region": payload.get("gcp_region"),
+        }
+    return {}
+
+
+def _create_seed_cloud_connections(
+    db,
+    user: User,
+    aws_creds: dict,
+    azure_creds: dict,
+    gcp_creds: dict,
+    gcp_sa_json: str | None,
+) -> dict[str, CloudConnection]:
+    """Create one encrypted CloudConnection per seeded provider."""
+    service = CloudConnectionService(db)
+    payloads = {
+        "aws": _build_aws_payload(aws_creds),
+        "azure": _build_azure_payload(azure_creds),
+        "gcp": _build_gcp_payload(gcp_creds, gcp_sa_json),
+    }
+    auth_types = {
+        "aws": "access_key",
+        "azure": "service_principal",
+        "gcp": "service_account_key",
+    }
+    connections: dict[str, CloudConnection] = {}
+    for provider, payload in payloads.items():
+        if not payload:
+            continue
+        connection_id = str(uuid.uuid4())
+        payload_json = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        connection = CloudConnection(
+            id=connection_id,
+            user_id=user.id,
+            provider=provider,
+            display_name=f"Seed {provider.upper()} Cloud Connection",
+            cloud_scope=json.dumps(_cloud_scope(provider, payload), sort_keys=True),
+            auth_type=auth_types[provider],
+            encrypted_payload=encrypt_scoped(payload_json, user.id, connection_id),
+            payload_fingerprint=service._fingerprint(provider, payload),
+            validation_status="untested",
+        )
+        db.add(connection)
+        connections[provider] = connection
+    db.flush()
+    return connections
+
+
+def _bind_seed_cloud_connections(config: TwinConfiguration, connections: dict[str, CloudConnection]) -> None:
+    """Bind seed twins to provider CloudConnections without copying secret payloads."""
+    if aws_connection := connections.get("aws"):
+        config.aws_cloud_connection_id = aws_connection.id
+    if azure_connection := connections.get("azure"):
+        config.azure_cloud_connection_id = azure_connection.id
+    if gcp_connection := connections.get("gcp"):
+        config.gcp_cloud_connection_id = gcp_connection.id
+
+
+def _sync_non_secret_regions(config: TwinConfiguration, aws_creds: dict, azure_creds: dict, gcp_creds: dict) -> None:
+    """Keep non-secret region fields populated for UI summaries and fallbacks."""
+    config.aws_region = aws_creds.get("aws_region", "eu-central-1")
+    config.aws_sso_region = _or_none(aws_creds.get("aws_sso_region", ""))
+    config.azure_region = azure_creds.get("azure_region", "westeurope")
+    config.azure_region_iothub = _or_none(azure_creds.get("azure_region_iothub", ""))
+    config.azure_region_digital_twin = _or_none(azure_creds.get("azure_region_digital_twin", ""))
+    config.gcp_project_id = gcp_creds.get("gcp_project_id", "")
+    config.gcp_region = gcp_creds.get("gcp_region", "europe-west1")
+
+
+def _seed_legacy_twin_credentials(
+    config: TwinConfiguration,
+    user: User,
+    twin_id: str,
+    aws_creds: dict,
+    azure_creds: dict,
+    gcp_creds: dict,
+    gcp_sa_json: str | None,
+) -> None:
+    """Compatibility-only path for old demos that still require per-twin fields."""
+    if aws_creds:
+        config.aws_access_key_id = encrypt(aws_creds.get("aws_access_key_id", ""), user.id, twin_id)
+        config.aws_secret_access_key = encrypt(aws_creds.get("aws_secret_access_key", ""), user.id, twin_id)
+        config.aws_region = aws_creds.get("aws_region", "eu-central-1")
+        config.aws_sso_region = _or_none(aws_creds.get("aws_sso_region", ""))
+        session_token = _or_none(aws_creds.get("aws_session_token", ""))
+        config.aws_session_token = encrypt(session_token, user.id, twin_id) if session_token else None
+
+    if azure_creds:
+        config.azure_subscription_id = encrypt(azure_creds.get("azure_subscription_id", ""), user.id, twin_id)
+        config.azure_client_id = encrypt(azure_creds.get("azure_client_id", ""), user.id, twin_id)
+        config.azure_client_secret = encrypt(azure_creds.get("azure_client_secret", ""), user.id, twin_id)
+        config.azure_tenant_id = encrypt(azure_creds.get("azure_tenant_id", ""), user.id, twin_id)
+        config.azure_region = azure_creds.get("azure_region", "westeurope")
+        config.azure_region_iothub = _or_none(azure_creds.get("azure_region_iothub", ""))
+        config.azure_region_digital_twin = _or_none(azure_creds.get("azure_region_digital_twin", ""))
+
+    if gcp_creds:
+        config.gcp_project_id = gcp_creds.get("gcp_project_id", "")
+        billing = _or_none(gcp_creds.get("gcp_billing_account", ""))
+        config.gcp_billing_account = encrypt(billing, user.id, twin_id) if billing else None
+        config.gcp_region = gcp_creds.get("gcp_region", "europe-west1")
+        if gcp_sa_json:
+            config.gcp_service_account_json = encrypt(gcp_sa_json, user.id, twin_id)
+
+
+# ============================================================================
 # Credential Validation
 # ============================================================================
 
@@ -459,6 +631,16 @@ async def seed_if_needed():
         db.flush()  # Get user ID without committing
         print(f"SEED: Created seed user: {user.email} (id={user.id})")
 
+        cloud_connections = _create_seed_cloud_connections(
+            db,
+            user,
+            aws_creds,
+            azure_creds,
+            gcp_creds,
+            gcp_sa_json,
+        )
+        print(f"SEED: Created {len(cloud_connections)} provider Cloud Connections.")
+
         # Create twins
         for twin_def in TWIN_DEFINITIONS:
             twin_id = str(uuid.uuid4())
@@ -474,7 +656,7 @@ async def seed_if_needed():
             )
             db.add(twin)
 
-            # --- TwinConfiguration (encrypted credentials) ---
+            # --- TwinConfiguration (CloudConnection bindings) ---
             config = TwinConfiguration(
                 id=str(uuid.uuid4()),
                 twin_id=twin_id,
@@ -482,42 +664,18 @@ async def seed_if_needed():
                 highest_step_reached=5,
             )
 
-            # Store ALL credentials regardless of which providers this twin uses.
-            # The Terraform provider blocks in main.tf are always instantiated (even
-            # when unused) and azurerm v4 actively acquires an AAD token at init time,
-            # so missing credentials cause init failures even for AWS-only deployments.
-            # The `required` set is only used below for credential validation.
-
-            # AWS credentials
-            if aws_creds:
-                config.aws_access_key_id = encrypt(aws_creds.get("aws_access_key_id", ""), user.id, twin_id)
-                config.aws_secret_access_key = encrypt(aws_creds.get("aws_secret_access_key", ""), user.id, twin_id)
-                config.aws_region = aws_creds.get("aws_region", "eu-central-1")
-                config.aws_sso_region = _or_none(aws_creds.get("aws_sso_region", ""))
-                session_token = _or_none(aws_creds.get("aws_session_token", ""))
-                config.aws_session_token = encrypt(session_token, user.id, twin_id) if session_token else None
-
-            # Azure credentials
-            if azure_creds:
-                config.azure_subscription_id = encrypt(azure_creds.get("azure_subscription_id", ""), user.id, twin_id)
-                config.azure_client_id = encrypt(azure_creds.get("azure_client_id", ""), user.id, twin_id)
-                config.azure_client_secret = encrypt(azure_creds.get("azure_client_secret", ""), user.id, twin_id)
-                config.azure_tenant_id = encrypt(azure_creds.get("azure_tenant_id", ""), user.id, twin_id)
-                config.azure_region = azure_creds.get("azure_region", "westeurope")
-                # Optional region overrides for IoT Hub and Digital Twins.
-                # Stored as None when not present so deployment_service falls
-                # back to azure_region.
-                config.azure_region_iothub = _or_none(azure_creds.get("azure_region_iothub", ""))
-                config.azure_region_digital_twin = _or_none(azure_creds.get("azure_region_digital_twin", ""))
-
-            # GCP credentials
-            if gcp_creds:
-                config.gcp_project_id = gcp_creds.get("gcp_project_id", "")
-                billing = _or_none(gcp_creds.get("gcp_billing_account", ""))
-                config.gcp_billing_account = encrypt(billing, user.id, twin_id) if billing else None
-                config.gcp_region = gcp_creds.get("gcp_region", "europe-west1")
-                if gcp_sa_json:
-                    config.gcp_service_account_json = encrypt(gcp_sa_json, user.id, twin_id)
+            _bind_seed_cloud_connections(config, cloud_connections)
+            _sync_non_secret_regions(config, aws_creds, azure_creds, gcp_creds)
+            if settings.SEED_LEGACY_TWIN_CREDENTIALS:
+                _seed_legacy_twin_credentials(
+                    config,
+                    user,
+                    twin_id,
+                    aws_creds,
+                    azure_creds,
+                    gcp_creds,
+                    gcp_sa_json,
+                )
 
             db.add(config)
 
@@ -582,38 +740,21 @@ async def seed_if_needed():
         # --- Validate credentials per provider (once, shared across twins) ---
         validation_results = {}  # provider -> (valid, message)
 
-        # Build plaintext credential payloads for validation
-        if aws_creds.get("aws_access_key_id"):
-            aws_payload = {
-                "aws_access_key_id": aws_creds["aws_access_key_id"],
-                "aws_secret_access_key": aws_creds.get("aws_secret_access_key", ""),
-                "aws_region": aws_creds.get("aws_region", "eu-central-1"),
-            }
-            session_token = _or_none(aws_creds.get("aws_session_token", ""))
-            if session_token:
-                aws_payload["aws_session_token"] = session_token
+        # Build plaintext credential payloads for validation. These are request
+        # scoped and are not copied into per-twin legacy credential fields.
+        if aws_payload := _build_aws_payload(aws_creds):
             validation_results["aws"] = await _validate_provider("aws", aws_payload)
 
-        if azure_creds.get("azure_subscription_id"):
-            azure_payload = {
-                "azure_subscription_id": azure_creds["azure_subscription_id"],
-                "azure_client_id": azure_creds.get("azure_client_id", ""),
-                "azure_client_secret": azure_creds.get("azure_client_secret", ""),
-                "azure_tenant_id": azure_creds.get("azure_tenant_id", ""),
-                "azure_region": azure_creds.get("azure_region", "westeurope"),
-            }
+        if azure_payload := _build_azure_payload(azure_creds):
             validation_results["azure"] = await _validate_provider("azure", azure_payload)
 
-        if gcp_creds.get("gcp_project_id") or gcp_sa_json:
-            gcp_payload = {
-                "gcp_project_id": gcp_creds.get("gcp_project_id", ""),
-                "gcp_region": gcp_creds.get("gcp_region", "europe-west1"),
-                "gcp_credentials_file": gcp_sa_json,
-            }
-            billing = _or_none(gcp_creds.get("gcp_billing_account", ""))
-            if billing:
-                gcp_payload["gcp_billing_account"] = billing
+        if gcp_payload := _build_gcp_payload(gcp_creds, gcp_sa_json):
             validation_results["gcp"] = await _validate_provider("gcp", gcp_payload)
+
+        for provider, connection in cloud_connections.items():
+            valid, msg = validation_results.get(provider, (False, "No credentials"))
+            connection.validation_status = "valid" if valid else "invalid"
+            connection.validation_message = msg
 
         # --- Apply validation results to twins ---
         twins = db.query(DigitalTwin).filter(DigitalTwin.user_id == user.id).all()
