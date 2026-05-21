@@ -41,6 +41,24 @@ The intended flow for creating a new deployment identity is:
 
 Real credential values must never be committed or pasted into documentation. Examples should use placeholders or schema-only files.
 
+## Bootstrap Artifacts
+
+The first repeatable setup slice lives in `bootstrap/` at the repository root.
+It is intentionally manual-first: the scripts run in dry-run mode by default,
+require `--apply` before mutating cloud resources, verify the active provider
+account/project/subscription, and emit JSON that matches the current
+CloudConnection create contract.
+
+| Provider | Script | Output auth type |
+|----------|--------|------------------|
+| AWS | `bootstrap/aws/bootstrap_deployment_identity.sh` | `access_key` |
+| Azure | `bootstrap/azure/bootstrap_deployment_identity.sh` | `service_principal` |
+| GCP | `bootstrap/gcp/bootstrap_deployment_identity.sh` | `service_account_key` |
+
+The generated output file is local secret material. It can be pasted/imported
+into the CloudConnection API/UI during supervised setup, then removed locally.
+Do not commit generated output files.
+
 ## Provider Material
 
 The provider pages are migrated from the original optimizer and deployer docs as the setup flows are cleaned up. Start with [Provider Links](provider-links.md) for cloud-console, API, and pricing references that are already used by the platform.
