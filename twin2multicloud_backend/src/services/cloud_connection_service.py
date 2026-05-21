@@ -34,7 +34,7 @@ class CloudConnectionService:
         connection_id = str(uuid.uuid4())
         payload = self._normalize_payload(request)
         payload_json = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        fingerprint = self._fingerprint(request.provider, payload)
+        fingerprint = self.fingerprint_payload(request.provider, payload)
 
         connection = CloudConnection(
             id=connection_id,
@@ -111,6 +111,10 @@ class CloudConnectionService:
     def build_deployer_credentials(self, connection: CloudConnection, user_id: str) -> dict[str, Any]:
         payload = self.decrypt_payload(connection, user_id)
         return CredentialResolutionService.build_deployer_validation_payload(connection.provider, payload)
+
+    def fingerprint_payload(self, provider: str, payload: dict[str, Any]) -> str:
+        """Return a stable non-secret fingerprint for a provider credential payload."""
+        return self._fingerprint(provider, payload)
 
     def _normalize_payload(self, request: CloudConnectionCreate) -> dict[str, Any]:
         if request.provider == "aws" and request.aws:

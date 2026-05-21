@@ -11,6 +11,7 @@ Twins with valid credentials advance to CONFIGURED state.
 Idempotent: skips entirely if seed user already exists.
 """
 import asyncio
+from datetime import datetime
 import json
 import uuid
 
@@ -373,7 +374,7 @@ def _build_azure_payload(azure_creds: dict) -> dict | None:
 
 
 def _build_gcp_payload(gcp_creds: dict, gcp_sa_json: str | None) -> dict | None:
-    if not (gcp_creds.get("gcp_project_id") or gcp_sa_json):
+    if not gcp_sa_json:
         return None
     payload = {
         "gcp_project_id": gcp_creds.get("gcp_project_id", ""),
@@ -439,7 +440,7 @@ def _create_seed_cloud_connections(
             cloud_scope=json.dumps(_cloud_scope(provider, payload), sort_keys=True),
             auth_type=auth_types[provider],
             encrypted_payload=encrypt_scoped(payload_json, user.id, connection_id),
-            payload_fingerprint=service._fingerprint(provider, payload),
+            payload_fingerprint=service.fingerprint_payload(provider, payload),
             validation_status="untested",
         )
         db.add(connection)
@@ -755,6 +756,8 @@ async def seed_if_needed():
             valid, msg = validation_results.get(provider, (False, "No credentials"))
             connection.validation_status = "valid" if valid else "invalid"
             connection.validation_message = msg
+            connection.last_validated_at = datetime.utcnow()
+            connection.updated_at = datetime.utcnow()
 
         # --- Apply validation results to twins ---
         twins = db.query(DigitalTwin).filter(DigitalTwin.user_id == user.id).all()

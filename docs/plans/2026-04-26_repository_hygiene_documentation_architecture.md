@@ -45,7 +45,7 @@ Ownership-Regeln:
 - Echte Credentials duerfen langfristig weder in Template noch Upload liegen.
 - Platzhalter und `.example`-Dateien sind erlaubt, wenn sie eindeutig nicht geheim sind.
 
-Wenn eine sofortige Verschiebung zu riskant ist, darf `upload/template` kurzfristig bleiben, muss aber dokumentiert und durch Tests als Template, nicht als Credential-/Runtime-Quelle, abgesichert werden. Aktuell gueltige lokale Admin-Credentials in diesem Ordner werden nicht geloescht; sie werden in der Credential-Phase kontrolliert nach `.secrets/local/` verschoben und erst danach aus Template-Pfaden ausgeschlossen.
+Wenn eine sofortige Verschiebung zu riskant ist, darf `upload/template` kurzfristig bleiben, muss aber dokumentiert und durch Tests als Template, nicht als Credential-/Runtime-Quelle, abgesichert werden. Aktuell gueltige lokale Admin-Credentials in diesem Ordner werden nicht geloescht und nicht automatisch verschoben; lokale Cloud-Tests verwenden `.secrets/local/`, sobald die Betreiberin die benoetigten Dateien manuell dorthin kopiert oder verschoben hat.
 
 ---
 

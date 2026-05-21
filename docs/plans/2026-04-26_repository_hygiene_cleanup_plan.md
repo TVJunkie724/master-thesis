@@ -154,7 +154,7 @@ Template migration guardrails:
 
 - Real credential files are not migrated to the versioned template target.
 - Current valid local admin credentials in `upload/template` are not deleted in this phase.
-- Local credential files are moved to `.secrets/local/` only after the credential flow and Docker mounts are ready to use that location.
+- Local credential files are never moved automatically. Local cloud tests use `.secrets/local/` after the operator manually copies or moves the needed files.
 - `config_credentials.json.example` may remain as schema example until CloudConnection replaces file-based credentials.
 - Deployer path resolution must read from `templates/deployment_project`, not from `upload/template`.
 - `upload/` must become runtime-only after migration.
@@ -377,7 +377,7 @@ These are generated deployment/runtime artifacts. They must not be used as canon
 
 ### 7.2 Local Real Credential Files
 
-Do not delete these immediately. Move them to `.secrets/local/` during the credential phase after the app, Docker mounts and tests are ready to use the new location:
+Do not delete these immediately and do not migrate them automatically. After verifying the local setup, the operator may manually copy or move the still-needed files to `.secrets/local/`:
 
 ```text
 config_credentials.json

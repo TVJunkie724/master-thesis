@@ -10,7 +10,7 @@ from src.models.user import User
 from src.services.deployment_service import build_deployment_package
 
 
-def _write_seed_files(tmp_path):
+def _write_seed_files(tmp_path, *, include_gcp_service_account=True):
     credentials_path = tmp_path / "config_credentials.json"
     gcp_path = tmp_path / "gcp_credentials.json"
     service_account = {
@@ -38,7 +38,8 @@ def _write_seed_files(tmp_path):
             "gcp_region": "europe-west1",
         },
     }))
-    gcp_path.write_text(json.dumps(service_account))
+    if include_gcp_service_account:
+        gcp_path.write_text(json.dumps(service_account))
     return credentials_path, gcp_path
 
 
@@ -92,3 +93,32 @@ async def test_seed_twins_use_cloud_connections_without_legacy_secret_duplicatio
         package = build_deployment_package(twin, seed_user.id)
         assert package.manifest["credentials"]["contains_secret_payloads"] is False
         assert set(package.manifest["credentials"]["sources"].values()) == {"cloud_connection"}
+
+
+@pytest.mark.asyncio
+async def test_seed_twins_do_not_create_invalid_gcp_connection_without_service_account(
+    db_session,
+    monkeypatch,
+    tmp_path,
+):
+    credentials_path, gcp_path = _write_seed_files(tmp_path, include_gcp_service_account=False)
+
+    async def fake_validate_provider(provider, creds):
+        return True, "Valid"
+
+    monkeypatch.setattr(seed_twins, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(seed_twins, "_validate_provider", fake_validate_provider)
+    monkeypatch.setattr(seed_twins.settings, "SEED_CREDENTIALS_FILE", str(credentials_path))
+    monkeypatch.setattr(seed_twins.settings, "SEED_GCP_CREDENTIALS_FILE", str(gcp_path))
+    monkeypatch.setattr(seed_twins.settings, "SEED_LEGACY_TWIN_CREDENTIALS", False)
+
+    await seed_twins.seed_if_needed()
+
+    seed_user = db_session.query(User).filter_by(email=seed_twins.SEED_USER_EMAIL).one()
+    connections = db_session.query(CloudConnection).filter_by(user_id=seed_user.id).all()
+    assert {connection.provider for connection in connections} == {"aws", "azure"}
+
+    configs = db_session.query(TwinConfiguration).all()
+    assert configs
+    assert all(config.gcp_cloud_connection_id is None for config in configs)
+    assert all(config.gcp_service_account_json is None for config in configs)
