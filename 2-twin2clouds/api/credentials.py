@@ -6,14 +6,16 @@ Supports AWS, Azure, and GCP credential validation.
 
 **Endpoint categories:**
 - "Permissions - Upload": Verify credentials from request body (for UI forms)
-- "Permissions - Project": Verify credentials from project config file
+- "Permissions - Project": Debug/local-cloud only. Verify credentials from project config file
 
 **Use before:**
 - Refreshing pricing data (AWS/GCP require valid credentials)
 - Running calculations (to ensure credentials will work for deployment)
 - Deploying infrastructure (credentials are required for Terraform)
 """
-from fastapi import APIRouter
+import os
+
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 
@@ -21,6 +23,24 @@ from backend import credentials_checker
 from api.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/permissions")
+
+LOCAL_CREDENTIAL_FILE_CHECKS_ENV = "ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS"
+
+
+def _require_local_credential_file_checks_enabled() -> None:
+    if os.getenv(LOCAL_CREDENTIAL_FILE_CHECKS_ENV, "false").lower() != "true":
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error_code": "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED",
+                "message": "File-based credential checks are disabled for this runtime.",
+                "fix_suggestion": (
+                    "Use POST /permissions/verify/{provider} with request-body credentials "
+                    "or start the explicit local-cloud Compose override."
+                ),
+                "http_status": 403,
+            },
+        )
 
 
 # =============================================================================
@@ -84,9 +104,10 @@ class AzureCredentialsRequest(BaseModel):
     tags=["Permissions - Project"],
     summary="Verify AWS permissions using project config credentials",
     description=(
-        "Validates AWS credentials loaded from the config file. "
+        "Debug/local-cloud only. Validates AWS credentials loaded from the config file. "
         "Checks: credentials present, STS GetCallerIdentity succeeds, "
-        "and Pricing API access works."
+        "and Pricing API access works. Disabled unless "
+        "`ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` is set."
     ),
     responses={
         200: {
@@ -107,11 +128,13 @@ class AzureCredentialsRequest(BaseModel):
                     }
                 }
             }
-        }
-    }
+        },
+        403: ERROR_RESPONSES[403],
+    },
 )
 def check_aws_from_config():
     """Check AWS credentials from config file."""
+    _require_local_credential_file_checks_enabled()
     return credentials_checker.check_aws_credentials_from_config()
 
 
@@ -127,7 +150,7 @@ def check_aws_from_config():
 )
 def check_aws_from_body(request: AWSCredentialsRequest):
     """Check AWS credentials from request body."""
-    return credentials_checker.check_aws_credentials(request.dict())
+    return credentials_checker.check_aws_credentials(request.model_dump())
 
 
 # =============================================================================
@@ -140,9 +163,10 @@ def check_aws_from_body(request: AWSCredentialsRequest):
     tags=["Permissions - Project"],
     summary="Verify GCP permissions using project config credentials",
     description=(
-        "Validates GCP service account credentials loaded from the config. "
+        "Debug/local-cloud only. Validates GCP service account credentials loaded from the config. "
         "Checks: credentials file exists, can load credentials, "
-        "and Cloud Billing Catalog API access works."
+        "and Cloud Billing Catalog API access works. Disabled unless "
+        "`ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` is set."
     ),
     responses={
         200: {
@@ -163,11 +187,13 @@ def check_aws_from_body(request: AWSCredentialsRequest):
                     }
                 }
             }
-        }
-    }
+        },
+        403: ERROR_RESPONSES[403],
+    },
 )
 def check_gcp_from_config():
     """Check GCP credentials from config file."""
+    _require_local_credential_file_checks_enabled()
     return credentials_checker.check_gcp_credentials_from_config()
 
 
@@ -177,7 +203,8 @@ def check_gcp_from_config():
     tags=["Permissions - Upload"],
     summary="Verify GCP permissions from request body",
     description=(
-        "Validates GCP credentials using the file path provided in the request body."
+        "Validates GCP credentials using the file path or service-account JSON "
+        "provided in the request body."
     )
 )
 def check_gcp_from_body(request: GCPCredentialsRequest):
@@ -195,10 +222,11 @@ def check_gcp_from_body(request: GCPCredentialsRequest):
     tags=["Permissions - Project"],
     summary="Verify Azure configuration using project config",
     description=(
-        "Validates Azure configuration loaded from the config file. "
+        "Debug/local-cloud only. Validates Azure configuration loaded from the config file. "
         "Note: Azure Pricing API is publicly accessible, so credentials "
         "are not strictly required for pricing data. This endpoint validates "
-        "that the configuration is properly formatted."
+        "that the configuration is properly formatted. Disabled unless "
+        "`ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` is set."
     ),
     responses={
         200: {
@@ -220,11 +248,13 @@ def check_gcp_from_body(request: GCPCredentialsRequest):
                     }
                 }
             }
-        }
-    }
+        },
+        403: ERROR_RESPONSES[403],
+    },
 )
 def check_azure_from_config():
     """Check Azure credentials from config file."""
+    _require_local_credential_file_checks_enabled()
     return credentials_checker.check_azure_credentials_from_config()
 
 
@@ -240,4 +270,4 @@ def check_azure_from_config():
 )
 def check_azure_from_body(request: AzureCredentialsRequest):
     """Check Azure credentials from request body."""
-    return credentials_checker.check_azure_credentials(request.dict())
+    return credentials_checker.check_azure_credentials(request.model_dump())

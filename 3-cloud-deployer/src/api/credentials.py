@@ -6,9 +6,11 @@ Supports AWS, Azure, and GCP credential validation.
 
 Categories:
 - "Permissions - Upload": Verify credentials from request body
-- "Permissions - Project": Verify credentials from project config files
+- "Permissions - Project": Debug/local-cloud only. Verify credentials from project config files
 """
-from fastapi import APIRouter, Query
+import os
+
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import Optional
 
@@ -18,6 +20,24 @@ from api.gcp_credentials_checker import check_gcp_credentials, check_gcp_credent
 from api.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/permissions")
+
+LOCAL_CREDENTIAL_FILE_CHECKS_ENV = "ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS"
+
+
+def _require_local_credential_file_checks_enabled() -> None:
+    if os.getenv(LOCAL_CREDENTIAL_FILE_CHECKS_ENV, "false").lower() != "true":
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error_code": "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED",
+                "message": "File-based credential checks are disabled for this runtime.",
+                "fix_suggestion": (
+                    "Use POST /permissions/verify/{provider} with request-body credentials "
+                    "or start the explicit local-cloud Compose override."
+                ),
+                "http_status": 403,
+            },
+        )
 
 
 class AWSCredentialsRequest(BaseModel):
@@ -134,12 +154,14 @@ async def check_aws_from_body(request: AWSCredentialsRequest):
     tags=["Permissions - Project"],
     summary="Verify AWS permissions from project config",
     description=(
-        "**Purpose:** Verifies AWS credentials from project's config_credentials.json.\n\n"
+        "**Purpose:** Debug/local-cloud only. Verifies AWS credentials from project's config_credentials.json.\n\n"
+        "**Gate:** Disabled unless `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` is set.\n\n"
         "**When to call:** To re-verify deployed project credentials.\n\n"
         "**Query param:** project (optional) - uses active project if not specified."
     ),
     responses={
         200: {"description": "Credential validation completed (check status field)"},
+        403: ERROR_RESPONSES[403],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
     }
@@ -158,6 +180,7 @@ async def check_aws_from_config(
     
     If no project is specified, uses the currently active project.
     """
+    _require_local_credential_file_checks_enabled()
     return check_aws_credentials_from_config(project)
 
 
@@ -209,12 +232,14 @@ async def check_azure_from_body(request: AzureCredentialsRequest):
     tags=["Permissions - Project"],
     summary="Verify Azure permissions from project config",
     description=(
-        "**Purpose:** Verifies Azure credentials from project's config_credentials.json.\n\n"
+        "**Purpose:** Debug/local-cloud only. Verifies Azure credentials from project's config_credentials.json.\n\n"
+        "**Gate:** Disabled unless `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` is set.\n\n"
         "**When to call:** To re-verify deployed project credentials.\n\n"
         "**Query param:** project (optional) - uses active project if not specified."
     ),
     responses={
         200: {"description": "Credential validation completed (check status field)"},
+        403: ERROR_RESPONSES[403],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
     }
@@ -233,6 +258,7 @@ async def check_azure_from_config(
     
     If no project is specified, uses the currently active project.
     """
+    _require_local_credential_file_checks_enabled()
     return check_azure_credentials_from_config(project)
 
 
@@ -283,12 +309,14 @@ async def check_gcp_from_body(request: GCPCredentialsRequest):
     tags=["Permissions - Project"],
     summary="Verify GCP permissions from project config",
     description=(
-        "**Purpose:** Verifies GCP credentials from project's config_credentials.json.\n\n"
+        "**Purpose:** Debug/local-cloud only. Verifies GCP credentials from project's config_credentials.json.\n\n"
+        "**Gate:** Disabled unless `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` is set.\n\n"
         "**When to call:** To re-verify deployed project credentials.\n\n"
         "**Query param:** project (optional) - uses active project if not specified."
     ),
     responses={
         200: {"description": "Credential validation completed (check status field)"},
+        403: ERROR_RESPONSES[403],
         404: ERROR_RESPONSES[404],
         500: ERROR_RESPONSES[500],
     }
@@ -307,4 +335,5 @@ async def check_gcp_from_config(
     
     If no project is specified, uses the currently active project.
     """
+    _require_local_credential_file_checks_enabled()
     return check_gcp_credentials_from_config(project)

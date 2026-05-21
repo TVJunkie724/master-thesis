@@ -50,8 +50,8 @@ The target state is:
 | Management API CloudConnections | User-scoped encrypted CloudConnection storage exists; twins can bind provider CloudConnections. | Foundation is good, but legacy fallback remains. |
 | Management API seed script | Reads `SEED_CREDENTIALS_FILE` and `SEED_GCP_CREDENTIALS_FILE`; creates encrypted user-scoped CloudConnections and binds seeded twins to them. | SSOT-aligned. Legacy per-twin field seeding is disabled by default and available only via explicit compatibility flag. |
 | Management API deployment package | Resolves credentials from CloudConnection first, legacy fallback second; writes operation-local `config_credentials.json` and optional `gcp_credentials.json` into the generated Deployer package. | Acceptable transitional boundary, because package is generated from backend state and manifest is secrets-free. |
-| Deployer | Current canonical deployment contract still consumes project-local `config_credentials.json` and provider-specific GCP credential file. | Acceptable transitional file contract, but Deployer must not discover repo-root/template credentials. |
-| Optimizer | Permission endpoints and pricing fetchers still support `/config/config_credentials.json` and `/config/gcp_credentials.json`. | Should become request/CloudConnection driven for app flows; local project-config verification can remain dev-only. |
+| Deployer | Canonical deployment contract still consumes operation-local `config_credentials.json` and optional `gcp_credentials.json` from generated packages. File-based permission checks are gated behind `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`. | Acceptable transitional file contract; normal app validation is request/CloudConnection-derived. |
+| Optimizer | Request-body permission/pricing validation remains available for app flows. File-based `/config` permission checks and fresh file-based AWS/GCP pricing refresh are gated behind `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`. | Local project-config verification is debug/local-cloud only. |
 | Flutter | CloudConnection UI exists, but the broader wizard still needs later feature slicing and CloudConnection-only UX hardening. | Tracked under Phase 7, especially #38/#72/#73. |
 
 ## 3. Target Runtime Modes
@@ -117,17 +117,21 @@ The target state is:
 
 ### Slice 4: Optimizer And Deployer Local Credential Boundaries
 
+**Status:** Implemented
+
 **Work**
 
-- Ensure app-driven validation uses request payloads/CloudConnection-derived payloads, not mounted root files.
-- Keep project-config credential verification only for explicit Deployer project/debug APIs.
-- Mark legacy `/config` file verification as dev/local-cloud behavior in docs and OpenAPI descriptions.
+- [x] Ensure app-driven validation uses request payloads/CloudConnection-derived payloads, not mounted root files.
+- [x] Keep project-config credential verification only for explicit Deployer/Optimizer debug-local APIs.
+- [x] Gate file-based permission verification behind `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`.
+- [x] Gate Optimizer's legacy file-based AWS/GCP pricing refresh behind `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`.
+- [x] Mark legacy `/config` file verification as dev/local-cloud behavior in docs and OpenAPI descriptions.
 
 **Acceptance**
 
-- Normal app flows do not require mounted credential files.
-- File-based validation endpoints are clearly transitional or debug-only.
-- Tests cover no-credential default behavior.
+- [x] Normal app flows do not require mounted credential files.
+- [x] File-based validation endpoints are clearly transitional or debug-only.
+- [x] Tests cover no-credential default behavior.
 
 ### Slice 5: Legacy Fallback Exit Plan
 

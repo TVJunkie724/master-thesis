@@ -41,14 +41,42 @@ class TestPricingErrorHandling:
     @patch("api.pricing.is_file_fresh")
     @patch("api.pricing.load_json_file")
     def test_fetch_pricing_stale_cache(self, mock_load, mock_fresh):
-        """Stale cache (not fresh) returns cached data or triggers refresh."""
+        """Stale AWS cache cannot trigger file-based credential refresh in base runtime."""
         mock_fresh.return_value = False
         mock_load.return_value = {"compute": {"price": 0.02}}
         
         response = client.post("/fetch_pricing/aws")
-        
-        # Either cached data or error if refresh fails
-        assert response.status_code in [200, 500]
+
+        assert response.status_code == 403
+        assert response.json()["detail"]["error_code"] == "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED"
+
+    @patch("api.pricing.calculate_up_to_date_pricing")
+    @patch("api.pricing.is_file_fresh")
+    def test_fetch_pricing_stale_cache_with_local_file_checks_enabled(
+        self,
+        mock_fresh,
+        mock_calculate,
+        monkeypatch,
+    ):
+        """Stale AWS cache can refresh from mounted files only in explicit local-cloud mode."""
+        monkeypatch.setenv("ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS", "true")
+        mock_fresh.return_value = False
+        mock_calculate.return_value = {"compute": {"price": 0.02}}
+
+        response = client.post("/fetch_pricing/aws")
+
+        assert response.status_code == 200
+        assert "compute" in response.json()
+
+    @patch("api.pricing.is_file_fresh")
+    def test_fetch_gcp_pricing_stale_cache_requires_local_file_gate(self, mock_fresh):
+        """Stale GCP cache also cannot read mounted credentials in base runtime."""
+        mock_fresh.return_value = False
+
+        response = client.post("/fetch_pricing/gcp")
+
+        assert response.status_code == 403
+        assert response.json()["detail"]["error_code"] == "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED"
 
     # Error Case Tests
     @patch("api.pricing.is_file_fresh")
@@ -341,4 +369,3 @@ class TestCalculationErrorHandling:
         
         # Pydantic validator should catch this
         assert response.status_code == 422
-

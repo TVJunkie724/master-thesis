@@ -63,8 +63,8 @@ app = FastAPI(
         },
         {
             "name": "Permissions - Project", 
-            "description": "Verify cloud provider permissions from project config. "
-                          "Reads credentials from project's config_credentials.json."
+            "description": "Debug/local-cloud only. Verify cloud provider permissions "
+                          "from project config when ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true."
         },
         {
             "name": "Functions", 
@@ -92,4 +92,3 @@ app.include_router(credentials.router)
 app.include_router(functions.router)
 app.include_router(logs.router)
 app.include_router(verify.router)
-

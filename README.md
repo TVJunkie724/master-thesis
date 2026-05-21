@@ -77,6 +77,8 @@ docker compose -f compose.yaml -f compose.cloud.local.yaml up -d
 
 `compose.credentials.local.yaml` remains as a deprecated compatibility alias for now, but it also reads from `.secrets/local/` and no longer mounts root-level credential files.
 
+In this mode only, Optimizer and Deployer receive `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`, which enables their debug/local-cloud `GET /permissions/verify/*` endpoints that read mounted credential files. Normal app validation uses request-body or CloudConnection-derived credentials and does not require this gate.
+
 This builds and starts three application containers:
 
 | Container | Purpose |

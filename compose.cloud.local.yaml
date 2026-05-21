@@ -1,5 +1,7 @@
 services:
   2twin2clouds:
+    environment:
+      - ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true
     volumes:
       - type: bind
         source: ./.secrets/local/config.json
@@ -21,6 +23,8 @@ services:
           create_host_path: false
 
   3cloud-deployer:
+    environment:
+      - ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true
     volumes:
       - type: bind
         source: ./.secrets/local/config.json

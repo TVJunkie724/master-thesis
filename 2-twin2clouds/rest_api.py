@@ -63,7 +63,13 @@ app = FastAPI(
         {"name": "Regions", "description": "Endpoints for fetching cloud regions."},
         {"name": "File Status", "description": "Endpoints for checking the age of data files."},
         {"name": "Permissions - Upload", "description": "Verify cloud credentials from request body."},
-        {"name": "Permissions - Project", "description": "Verify cloud credentials from project config."},
+        {
+            "name": "Permissions - Project",
+            "description": (
+                "Debug/local-cloud only. Verify cloud credentials from mounted project config "
+                "when ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true."
+            ),
+        },
         {"name": "Validation", "description": "Endpoints for validating optimizer configuration."},
     ],
     lifespan=lifespan

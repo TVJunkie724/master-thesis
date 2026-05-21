@@ -8,6 +8,7 @@ determine optimal cloud provider distribution.
 """
 import asyncio
 import logging
+import os
 from fastapi import APIRouter, HTTPException, Body
 from fastapi.responses import StreamingResponse
 from starlette.requests import Request
@@ -24,6 +25,24 @@ from api.error_models import ERROR_RESPONSES
 
 router = APIRouter(tags=["Pricing"])
 
+LOCAL_CREDENTIAL_FILE_CHECKS_ENV = "ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS"
+
+
+def _require_local_credential_file_checks_enabled() -> None:
+    if os.getenv(LOCAL_CREDENTIAL_FILE_CHECKS_ENV, "false").lower() != "true":
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error_code": "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED",
+                "message": "File-based pricing refresh is disabled for this runtime.",
+                "fix_suggestion": (
+                    "Use /fetch_pricing_with_credentials/{provider} with request-body "
+                    "credentials or start the explicit local-cloud Compose override."
+                ),
+                "http_status": 403,
+            },
+        )
+
 
 # --------------------------------------------------
 # Pricing Fetching Endpoints
@@ -37,15 +56,17 @@ router = APIRouter(tags=["Pricing"])
         "**Purpose:** Fetches current AWS pricing data and caches it locally for use in cost calculations.\n\n"
         "**When to use:**\n"
         "- Before running calculations if pricing data is stale (>7 days old)\n"
-        "- When you need guaranteed fresh pricing data\n"
+        "- Debug/local-cloud mode when you need guaranteed fresh pricing data from mounted credential files\n"
         "- After AWS announces pricing changes\n\n"
         "**Behavior:**\n"
         "- Uses cached data if less than 7 days old (unless force_fetch=true)\n"
-        "- Requires valid AWS credentials in config_credentials.json\n"
+        "- Fresh file-based refresh requires `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`\n"
+        "- App flows should use `/fetch_pricing_with_credentials/aws`\n"
         "- May take 30-60 seconds for a full refresh"
     ),
     responses={
         200: {"description": "Pricing data (cached or freshly fetched)"},
+        403: ERROR_RESPONSES[403],
         401: ERROR_RESPONSES[401],
         500: ERROR_RESPONSES[500],
     }
@@ -64,12 +85,15 @@ def fetch_pricing_aws(additional_debug: bool = False, force_fetch: bool = False)
         if not force_fetch and is_file_fresh(CONSTANTS.AWS_PRICING_FILE_PATH, max_age_days=7):
             logger.info("✅ Using cached AWS pricing data")
             return load_json_file(CONSTANTS.AWS_PRICING_FILE_PATH)
-        
+
+        _require_local_credential_file_checks_enabled()
         logger.info("🔄 Fetching fresh AWS pricing...")
         return calculate_up_to_date_pricing("aws", additional_debug)
     except FileNotFoundError as e:
         logger.error(f"Pricing file not found: {e}")
         raise HTTPException(status_code=404, detail="AWS pricing data not available. Run refresh first.")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching AWS pricing: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch AWS pricing. Check server logs.")
@@ -126,13 +150,15 @@ def fetch_pricing_azure(additional_debug: bool = False, force_fetch: bool = Fals
         "**Purpose:** Fetches current Google Cloud pricing data and caches it locally.\n\n"
         "**When to use:**\n"
         "- Before running calculations if pricing data is stale (>7 days old)\n"
-        "- Requires valid GCP service account credentials\n\n"
+        "- Debug/local-cloud mode when mounted GCP service account credentials are available\n\n"
         "**Behavior:**\n"
         "- Uses cached data if less than 7 days old (unless force_fetch=true)\n"
-        "- Requires gcp_credentials.json with Cloud Billing Catalog API access"
+        "- Fresh file-based refresh requires `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`\n"
+        "- App flows should use `/fetch_pricing_with_credentials/gcp`"
     ),
     responses={
         200: {"description": "Pricing data (cached or freshly fetched)"},
+        403: ERROR_RESPONSES[403],
         401: ERROR_RESPONSES[401],
         500: ERROR_RESPONSES[500],
     }
@@ -151,12 +177,15 @@ def fetch_pricing_gcp(additional_debug: bool = False, force_fetch: bool = False)
         if not force_fetch and is_file_fresh(CONSTANTS.GCP_PRICING_FILE_PATH, max_age_days=7):
             logger.info("✅ Using cached GCP pricing data")
             return load_json_file(CONSTANTS.GCP_PRICING_FILE_PATH)
-        
+
+        _require_local_credential_file_checks_enabled()
         logger.info("🔄 Fetching fresh GCP pricing...")
         return calculate_up_to_date_pricing("gcp", additional_debug)
     except FileNotFoundError as e:
         logger.error(f"Pricing file not found: {e}")
         raise HTTPException(status_code=404, detail="GCP pricing data not available. Run refresh first.")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching GCP pricing: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch GCP pricing. Check server logs.")
@@ -206,7 +235,6 @@ def fetch_currency_rates():
 # Pricing Export (for snapshotting)
 # --------------------------------------------------
 
-import os
 from datetime import datetime, timezone
 
 @router.get(

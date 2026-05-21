@@ -87,17 +87,25 @@ class TestAWSPermissionsFromConfig:
     """Tests for GET /permissions/aws/check endpoint."""
 
     def test_aws_check_nonexistent_project(self):
-        """Invalid: Non-existent project returns 200 with error status."""
+        """File-based credential checks are disabled by default."""
         response = client.get("/permissions/verify/aws?project=nonexistent_12345")
-        
-        # API returns 200 with error status in body
+
+        assert response.status_code == 403
+        assert response.json()["detail"]["error_code"] == "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED"
+
+    def test_aws_check_nonexistent_project_when_local_file_checks_enabled(self, monkeypatch):
+        """Invalid: Non-existent project returns error status when local file checks are explicitly enabled."""
+        monkeypatch.setenv("ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS", "true")
+
+        response = client.get("/permissions/verify/aws?project=nonexistent_12345")
+
         assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "error"
+        assert response.json()["status"] == "error"
 
     @patch("api.credentials_checker.check_aws_credentials_from_config")
-    def test_aws_check_from_config_success(self, mock_check):
+    def test_aws_check_from_config_success(self, mock_check, monkeypatch):
         """Happy: Check from project config works."""
+        monkeypatch.setenv("ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS", "true")
         mock_check.return_value = {
             "status": "valid",
             "by_service": {},
@@ -109,8 +117,9 @@ class TestAWSPermissionsFromConfig:
         assert response.status_code in [200, 404, 500]
 
     @patch("api.credentials_checker.check_aws_credentials_from_config")
-    def test_aws_check_no_project_uses_active(self, mock_check):
+    def test_aws_check_no_project_uses_active(self, mock_check, monkeypatch):
         """Edge: No project specified uses active project."""
+        monkeypatch.setenv("ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS", "true")
         mock_check.return_value = {"status": "valid", "by_service": {}, "summary": {}}
         
         response = client.get("/permissions/verify/aws")
@@ -192,17 +201,16 @@ class TestAzurePermissionsFromConfig:
     """Tests for GET /permissions/azure/check endpoint."""
 
     def test_azure_check_nonexistent_project(self):
-        """Invalid: Non-existent project returns 200 with error status."""
+        """File-based credential checks are disabled by default."""
         response = client.get("/permissions/verify/azure?project=nonexistent_12345")
-        
-        # API returns 200 with error status in body
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "error"
+
+        assert response.status_code == 403
+        assert response.json()["detail"]["error_code"] == "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED"
 
     @patch("api.azure_credentials_checker.check_azure_credentials_from_config")
-    def test_azure_check_from_config_success(self, mock_check):
+    def test_azure_check_from_config_success(self, mock_check, monkeypatch):
         """Happy: Check from project config works."""
+        monkeypatch.setenv("ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS", "true")
         mock_check.return_value = {
             "status": "valid",
             "layers": {},
@@ -301,19 +309,16 @@ class TestGCPPermissionsFromConfig:
     """Tests for GET /permissions/gcp/check endpoint."""
 
     def test_gcp_check_nonexistent_project(self):
-        """Invalid: Non-existent project returns 200 with error status."""
+        """File-based credential checks are disabled by default."""
         response = client.get("/permissions/verify/gcp?project=nonexistent_12345")
-        
-        # API returns 200 with error status in body, or may fail with 500
-        assert response.status_code in [200, 500]
-        if response.status_code == 200:
-            data = response.json()
-            # Error can be in status field or message
-            assert data.get("status") == "error" or "error" in str(data).lower()
+
+        assert response.status_code == 403
+        assert response.json()["detail"]["error_code"] == "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED"
 
     @patch("api.gcp_credentials_checker.check_gcp_credentials_from_config")
-    def test_gcp_check_from_config_success(self, mock_check):
+    def test_gcp_check_from_config_success(self, mock_check, monkeypatch):
         """Happy: Check from project config works."""
+        monkeypatch.setenv("ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS", "true")
         mock_check.return_value = {
             "status": "valid",
             "project_access": {},

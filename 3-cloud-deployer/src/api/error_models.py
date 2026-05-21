@@ -147,6 +147,20 @@ ERROR_RESPONSES = {
             }
         }
     },
+    403: {
+        "description": "Forbidden - This runtime mode does not allow the requested operation",
+        "model": ErrorResponse,
+        "content": {
+            "application/json": {
+                "example": {
+                    "error_code": "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED",
+                    "message": "File-based credential checks are disabled for this runtime.",
+                    "fix_suggestion": "Use request-body credential validation or start the explicit local-cloud Compose override.",
+                    "http_status": 403
+                }
+            }
+        }
+    },
     404: {
         "description": "Not Found - The requested resource does not exist",
         "model": ErrorResponse,
