@@ -63,6 +63,14 @@ The scripts also refuse silent key sprawl: existing AWS access keys, Azure
 client secrets, and GCP service-account keys require explicit rotation flags
 before a new deployment secret is generated.
 
+The Management API exposes the first stable contract for this flow:
+
+- `POST /cloud-bootstrap/{provider}/plan` returns the manual bootstrap command
+  set for AWS, Azure, or GCP. It does not execute cloud CLIs and does not accept
+  admin secrets.
+- `POST /cloud-bootstrap/import` imports generated bootstrap output as a normal
+  CloudConnection and returns only the masked CloudConnection read model.
+
 ## Provider Material
 
 The provider pages are migrated from the original optimizer and deployer docs as the setup flows are cleaned up. Start with [Provider Links](provider-links.md) for cloud-console, API, and pricing references that are already used by the platform.

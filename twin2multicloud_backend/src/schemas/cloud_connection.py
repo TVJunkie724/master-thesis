@@ -15,6 +15,8 @@ CloudAuthType = Literal[
 ]
 
 class CloudConnectionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     provider: CloudProvider
     display_name: str = Field(..., min_length=1, max_length=120)
     auth_type: CloudAuthType | None = None

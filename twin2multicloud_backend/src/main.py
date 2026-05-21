@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.config import settings
 from src.models.database import engine, Base
-from src.api.routes import auth, twins, health, cloud_connections
+from src.api.routes import auth, twins, health, cloud_connections, cloud_bootstrap
 from src.api.routes.config import router as config_router, inline_router as config_inline_router
 from src.api.routes.optimizer import router as optimizer_router
 from src.api.routes.optimizer_config import router as optimizer_config_router
@@ -60,6 +60,7 @@ app.include_router(auth.router)
 app.include_router(twins.router)
 app.include_router(health.router)
 app.include_router(cloud_connections.router)
+app.include_router(cloud_bootstrap.router)
 app.include_router(config_router)
 app.include_router(config_inline_router)
 app.include_router(optimizer_router)

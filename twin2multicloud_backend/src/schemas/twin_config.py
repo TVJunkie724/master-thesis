@@ -9,6 +9,8 @@ CredentialSource = Literal["cloud_connection", "legacy"]
 
 
 class AWSCredentials(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     access_key_id: str = Field(..., min_length=16, max_length=128)
     secret_access_key: str = Field(..., min_length=16)
     region: str = Field(default="eu-central-1")
@@ -17,6 +19,8 @@ class AWSCredentials(BaseModel):
 
 
 class AzureCredentials(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     subscription_id: str
     client_id: str
     client_secret: str
@@ -29,6 +33,8 @@ class AzureCredentials(BaseModel):
 
 
 class GCPCredentials(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     project_id: Optional[str] = None  # At least one of project_id or billing_account
     billing_account: Optional[str] = None  # NEW - for auto-create project
     service_account_json: Optional[str] = None  # Service account JSON content

@@ -74,16 +74,25 @@ automated enterprise identity broker exists already.
 
 ### Slice 2: Management API Bootstrap Contract
 
-**Status:** Planned
+**Status:** Implemented
 
 **Work**
 
-- Add request/response schemas for provider bootstrap dry-run and result
+- [x] Add request/response schemas for provider bootstrap dry-run and result
   import.
-- Keep admin/bootstrap payloads request-scoped and redacted.
-- Persist only the generated CloudConnection.
-- Add unit tests that simulate provider command results without live cloud
+- [x] Keep admin/bootstrap payloads out of the API contract.
+- [x] Persist only the generated CloudConnection.
+- [x] Add unit tests that simulate provider command results without live cloud
   access.
+
+**Acceptance**
+
+- [x] `POST /cloud-bootstrap/{provider}/plan` returns reviewable dry-run and
+  apply commands without executing provider CLIs.
+- [x] Plan requests reject undeclared admin material.
+- [x] `POST /cloud-bootstrap/import` imports generated bootstrap output through
+  the existing CloudConnection service.
+- [x] API responses remain secret-safe.
 
 ### Slice 3: Provider Preflight Result Model
 
