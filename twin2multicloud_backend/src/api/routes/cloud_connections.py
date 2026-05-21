@@ -7,12 +7,17 @@ from src.models.database import get_db
 from src.models.user import User
 from src.schemas.cloud_connection import (
     CloudConnectionCreate,
+    CloudConnectionPreflightResponse,
     CloudConnectionResponse,
     CloudConnectionUpdate,
     CloudConnectionValidationResponse,
 )
 from src.services.cloud_connection_service import CloudConnectionService
-from src.services.cloud_credential_validation_service import perform_dual_validation, redact_validation_result
+from src.services.cloud_credential_validation_service import (
+    build_preflight_result,
+    perform_dual_validation,
+    redact_validation_result,
+)
 
 router = APIRouter(prefix="/cloud-connections", tags=["cloud-connections"])
 
@@ -168,4 +173,42 @@ async def validate_cloud_connection(
         message=connection.validation_message or "Validation complete",
         optimizer=result.get("optimizer"),
         deployer=result.get("deployer"),
+    )
+
+
+@router.post(
+    "/{connection_id}/preflight",
+    response_model=CloudConnectionPreflightResponse,
+    operation_id="preflightCloudConnection",
+    summary="Run a deployment preflight for a stored cloud connection",
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    },
+)
+async def preflight_cloud_connection(
+    connection_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = CloudConnectionService(db)
+    connection = service.get_connection(connection_id, current_user.id)
+    if not connection:
+        raise HTTPException(status_code=404, detail="Cloud connection not found")
+
+    optimizer_creds = service.build_optimizer_credentials(connection, current_user.id)
+    deployer_creds = service.build_deployer_credentials(connection, current_user.id)
+    result = await perform_dual_validation(
+        connection.provider,
+        optimizer_creds,
+        deployer_creds,
+    )
+    result = redact_validation_result(result, optimizer_creds, deployer_creds)
+    preflight = build_preflight_result(connection.provider, result)
+    return CloudConnectionPreflightResponse(
+        id=connection.id,
+        provider=connection.provider,
+        ready=preflight["ready"],
+        summary=preflight["summary"],
+        checks=preflight["checks"],
     )

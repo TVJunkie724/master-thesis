@@ -80,3 +80,20 @@ class CloudConnectionValidationResponse(BaseModel):
     message: str
     optimizer: dict[str, Any] | None = None
     deployer: dict[str, Any] | None = None
+
+
+class CloudPreflightCheck(BaseModel):
+    component: Literal["optimizer", "deployer"]
+    status: Literal["passed", "failed"]
+    code: str
+    message: str
+    action: str
+    permissions: list[str] = Field(default_factory=list)
+
+
+class CloudConnectionPreflightResponse(BaseModel):
+    id: str
+    provider: CloudProvider
+    ready: bool
+    summary: str
+    checks: list[CloudPreflightCheck]

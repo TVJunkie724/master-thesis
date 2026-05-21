@@ -304,3 +304,80 @@ def test_validate_cloud_connection_redacts_downstream_secret_echo(authenticated_
     stored = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
     assert secret not in stored.validation_message
     assert "AKIAIOSFODNN7EXAMPLE" not in stored.validation_message
+
+
+def test_preflight_cloud_connection_returns_actionable_checks(authenticated_client, db_session, monkeypatch):
+    client, headers = authenticated_client
+    created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()
+
+    async def fake_validate(provider, optimizer_creds, deployer_creds):
+        return {
+            "provider": provider,
+            "valid": False,
+            "optimizer": {"valid": True, "message": "optimizer ok"},
+            "deployer": {
+                "valid": False,
+                "message": "missing permission",
+                "permissions": ["lambda:CreateFunction"],
+            },
+        }
+
+    monkeypatch.setattr(
+        "src.api.routes.cloud_connections.perform_dual_validation",
+        fake_validate,
+    )
+
+    response = client.post(f"/cloud-connections/{created['id']}/preflight", headers=headers)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ready"] is False
+    assert data["summary"] == "Cloud connection preflight failed"
+    assert data["checks"] == [
+        {
+            "component": "optimizer",
+            "status": "passed",
+            "code": "OK",
+            "message": "optimizer ok",
+            "action": "No action required.",
+            "permissions": [],
+        },
+        {
+            "component": "deployer",
+            "status": "failed",
+            "code": "MISSING_PERMISSIONS",
+            "message": "missing permission",
+            "action": "Grant the listed provider permissions to the deployment identity, then run preflight again.",
+            "permissions": ["lambda:CreateFunction"],
+        },
+    ]
+
+    stored = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
+    assert stored.validation_status == "untested"
+
+
+def test_preflight_cloud_connection_redacts_secret_echo(authenticated_client, monkeypatch):
+    client, headers = authenticated_client
+    secret = _aws_request()["aws"]["secret_access_key"]
+    created = client.post("/cloud-connections/", json=_aws_request(), headers=headers).json()
+
+    async def fake_validate(provider, optimizer_creds, deployer_creds):
+        return {
+            "provider": provider,
+            "valid": False,
+            "optimizer": {"valid": False, "message": f"bad key {optimizer_creds['aws_access_key_id']}"},
+            "deployer": {"valid": False, "message": f"bad secret {secret}"},
+        }
+
+    monkeypatch.setattr(
+        "src.api.routes.cloud_connections.perform_dual_validation",
+        fake_validate,
+    )
+
+    response = client.post(f"/cloud-connections/{created['id']}/preflight", headers=headers)
+
+    assert response.status_code == 200
+    response_text = response.text
+    assert secret not in response_text
+    assert "AKIAIOSFODNN7EXAMPLE" not in response_text
+    assert "[REDACTED]" in response_text

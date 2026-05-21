@@ -111,6 +111,83 @@ def redact_validation_result(result: dict[str, Any], *credential_payloads: dict[
     return _redact_value(result, sensitive_values)
 
 
+def build_preflight_result(provider: str, validation_result: dict[str, Any]) -> dict[str, Any]:
+    """Normalize raw Optimizer/Deployer validation into UI-actionable preflight checks."""
+    checks = [
+        _build_component_check("optimizer", validation_result.get("optimizer")),
+        _build_component_check("deployer", validation_result.get("deployer")),
+    ]
+    ready = all(check["status"] == "passed" for check in checks)
+    return {
+        "provider": provider,
+        "ready": ready,
+        "summary": "Cloud connection preflight passed" if ready else "Cloud connection preflight failed",
+        "checks": checks,
+    }
+
+
+def _build_component_check(component: str, raw_result: Any) -> dict[str, Any]:
+    result = raw_result if isinstance(raw_result, dict) else {}
+    valid = bool(result.get("valid"))
+    message = str(result.get("message") or "Validation did not return a message")
+    permissions = result.get("permissions") or []
+    if not isinstance(permissions, list):
+        permissions = []
+
+    if valid:
+        return {
+            "component": component,
+            "status": "passed",
+            "code": "OK",
+            "message": message,
+            "action": "No action required.",
+            "permissions": [],
+        }
+
+    code, action = _classify_preflight_failure(message, permissions)
+    return {
+        "component": component,
+        "status": "failed",
+        "code": code,
+        "message": message,
+        "action": action,
+        "permissions": permissions,
+    }
+
+
+def _classify_preflight_failure(message: str, permissions: list[str]) -> tuple[str, str]:
+    normalized = message.lower()
+    if permissions:
+        return (
+            "MISSING_PERMISSIONS",
+            "Grant the listed provider permissions to the deployment identity, then run preflight again.",
+        )
+    if "cannot connect" in normalized:
+        return (
+            "DOWNSTREAM_SERVICE_UNAVAILABLE",
+            "Start the dependent local service or check the configured service URL.",
+        )
+    if "api error" in normalized:
+        return (
+            "DOWNSTREAM_API_ERROR",
+            "Check the downstream service response and retry after the service is healthy.",
+        )
+    if "billing" in normalized:
+        return (
+            "BILLING_NOT_READY",
+            "Enable or link billing for the selected cloud scope, then run preflight again.",
+        )
+    if "region" in normalized:
+        return (
+            "REGION_NOT_SUPPORTED",
+            "Choose a supported region for this provider and deployment layer.",
+        )
+    return (
+        "VALIDATION_FAILED",
+        "Review the provider-specific validation message and update the CloudConnection before deployment.",
+    )
+
+
 def _collect_sensitive_values(*credential_payloads: dict[str, Any]) -> set[str]:
     sensitive_values: set[str] = set()
     for payload in credential_payloads:

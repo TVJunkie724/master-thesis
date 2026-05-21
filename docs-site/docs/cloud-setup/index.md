@@ -70,6 +70,9 @@ The Management API exposes the first stable contract for this flow:
   admin secrets.
 - `POST /cloud-bootstrap/import` imports generated bootstrap output as a normal
   CloudConnection and returns only the masked CloudConnection read model.
+- `POST /cloud-connections/{connection_id}/preflight` runs the existing
+  Optimizer/Deployer validation path and returns normalized, UI-actionable
+  checks without persisting validation status.
 
 ## Provider Material
 

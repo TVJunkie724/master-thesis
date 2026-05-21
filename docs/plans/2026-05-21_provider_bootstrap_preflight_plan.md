@@ -96,14 +96,21 @@ automated enterprise identity broker exists already.
 
 ### Slice 3: Provider Preflight Result Model
 
-**Status:** Planned
+**Status:** Implemented
 
 **Work**
 
-- Standardize provider preflight responses across Management API and Deployer.
-- Map missing APIs, missing roles, billing errors, and region constraints into
+- [x] Standardize provider preflight responses across Management API and Deployer.
+- [x] Map missing APIs, missing roles, billing errors, and region constraints into
   actionable error codes.
-- Keep live cloud calls out of default unit/integration tests.
+- [x] Keep live cloud calls out of default unit/integration tests.
+
+**Acceptance**
+
+- [x] `POST /cloud-connections/{connection_id}/preflight` returns normalized
+  preflight checks for Optimizer and Deployer.
+- [x] Missing permissions map to `MISSING_PERMISSIONS` with actionable guidance.
+- [x] Preflight responses are redacted and do not persist validation status.
 
 ### Slice 4: Provider-Specific Hardening
 
