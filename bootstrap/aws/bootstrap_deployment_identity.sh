@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 APPLY=false
+ROTATE_ACCESS_KEYS=false
+OVERWRITE_OUTPUT=false
 ACCOUNT_ID=""
 IDENTITY_NAME="twin2mc-deployer"
 REGION="eu-central-1"
@@ -18,6 +20,8 @@ Usage:
 
 Options:
   --apply                    Create/update the IAM identity. Without this flag, the script is dry-run only.
+  --rotate-access-keys       Delete existing access keys for this bootstrap IAM user before creating a new one.
+  --overwrite-output         Allow overwriting --output-file if it already exists.
   --account-id <id>          Expected AWS account id for the active admin/bootstrap session.
   --name <name>              IAM user and CloudConnection display name. Default: twin2mc-deployer.
   --region <region>          Default deployment region. Default: eu-central-1.
@@ -42,6 +46,8 @@ require_value() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --apply) APPLY=true; shift ;;
+    --rotate-access-keys) ROTATE_ACCESS_KEYS=true; shift ;;
+    --overwrite-output) OVERWRITE_OUTPUT=true; shift ;;
     --account-id) require_value "$1" "${2:-}"; ACCOUNT_ID="$2"; shift 2 ;;
     --name) require_value "$1" "${2:-}"; IDENTITY_NAME="$2"; shift 2 ;;
     --region) require_value "$1" "${2:-}"; REGION="$2"; shift 2 ;;
@@ -91,6 +97,27 @@ aws iam put-user-policy \
   --policy-name "${IDENTITY_NAME}-deployment-policy" \
   --policy-document "file://${POLICY_FILE}" >/dev/null
 
+EXISTING_ACCESS_KEYS_TEXT="$(aws iam list-access-keys \
+  --user-name "${IDENTITY_NAME}" \
+  --query 'AccessKeyMetadata[].AccessKeyId' \
+  --output text)"
+EXISTING_ACCESS_KEYS=()
+while IFS= read -r key_id; do
+  [[ -n "${key_id}" ]] && EXISTING_ACCESS_KEYS+=("${key_id}")
+done < <(printf "%s\n" "${EXISTING_ACCESS_KEYS_TEXT}" | tr '\t' '\n')
+
+if [[ "${#EXISTING_ACCESS_KEYS[@]}" -gt 0 && "${ROTATE_ACCESS_KEYS}" != "true" ]]; then
+  echo "IAM user ${IDENTITY_NAME} already has access key(s)." >&2
+  echo "Refusing to create another key. Re-run with --rotate-access-keys after confirming old keys can be deleted." >&2
+  exit 1
+fi
+
+if [[ "${ROTATE_ACCESS_KEYS}" == "true" ]]; then
+  for key_id in "${EXISTING_ACCESS_KEYS[@]}"; do
+    aws iam delete-access-key --user-name "${IDENTITY_NAME}" --access-key-id "${key_id}" >/dev/null
+  done
+fi
+
 read -r ACCESS_KEY_ID SECRET_ACCESS_KEY < <(
   aws iam create-access-key \
     --user-name "${IDENTITY_NAME}" \
@@ -123,6 +150,11 @@ PY
 }
 
 if [[ -n "${OUTPUT_FILE}" ]]; then
+  if [[ -e "${OUTPUT_FILE}" && "${OVERWRITE_OUTPUT}" != "true" ]]; then
+    echo "Output file already exists: ${OUTPUT_FILE}" >&2
+    echo "Refusing to overwrite local secret material. Re-run with --overwrite-output if intentional." >&2
+    exit 1
+  fi
   umask 077
   render_connection_json > "${OUTPUT_FILE}"
   echo "CloudConnection import JSON written to ${OUTPUT_FILE}" >&2

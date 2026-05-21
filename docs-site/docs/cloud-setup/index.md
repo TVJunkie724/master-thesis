@@ -59,6 +59,10 @@ The generated output file is local secret material. It can be pasted/imported
 into the CloudConnection API/UI during supervised setup, then removed locally.
 Do not commit generated output files.
 
+The scripts also refuse silent key sprawl: existing AWS access keys, Azure
+client secrets, and GCP service-account keys require explicit rotation flags
+before a new deployment secret is generated.
+
 ## Provider Material
 
 The provider pages are migrated from the original optimizer and deployer docs as the setup flows are cleaned up. Start with [Provider Links](provider-links.md) for cloud-console, API, and pricing references that are already used by the platform.

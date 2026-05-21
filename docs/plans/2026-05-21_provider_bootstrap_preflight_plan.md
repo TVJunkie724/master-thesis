@@ -36,6 +36,8 @@ The first implementation slice is manual-first and static:
 - scripts live under `bootstrap/<provider>/`,
 - scripts default to dry-run and require `--apply` for mutations,
 - scripts never accept admin secrets as command-line arguments,
+- scripts refuse silent long-lived secret/key sprawl for existing identities,
+- local output files are not overwritten unless explicitly requested,
 - scripts emit CloudConnection create payloads for the currently supported
   auth types,
 - provider policy/role definitions stay versioned and reviewable.
@@ -55,6 +57,8 @@ automated enterprise identity broker exists already.
 - [x] Keep scripts dry-run by default.
 - [x] Require `--apply` before cloud mutation.
 - [x] Reuse existing provider permission artifacts as reviewable inputs.
+- [x] Add explicit rotation flags for existing deployment secrets.
+- [x] Refuse to overwrite local output files unless requested.
 - [x] Emit CloudConnection-compatible JSON only after generated deployment
   credentials exist.
 
@@ -62,6 +66,8 @@ automated enterprise identity broker exists already.
 
 - [x] Each provider has a versioned bootstrap script with placeholders only.
 - [x] Admin/bootstrap material is never passed as a script argument.
+- [x] Existing deployment identities do not silently accumulate new long-lived
+  secrets.
 - [x] Generated output matches the currently supported CloudConnection auth
   types: AWS `access_key`, Azure `service_principal`, GCP
   `service_account_key`.
@@ -108,6 +114,10 @@ automated enterprise identity broker exists already.
 - Never commit generated CloudConnection output files.
 - Never log bootstrap/admin secrets or generated deployment secrets.
 - `--apply` scripts must verify active provider account/project/subscription.
+- Existing deployment credentials are rotated only through explicit
+  provider-specific flags.
+- Existing local secret output files are overwritten only with
+  `--overwrite-output`.
 - Generated credentials should be rotated manually after demos/tests if they
   are printed to a terminal or written to a local file.
 - Future API-driven bootstrap must redact downstream provider errors before

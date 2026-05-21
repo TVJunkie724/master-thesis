@@ -2,6 +2,8 @@
 set -euo pipefail
 
 APPLY=false
+ROTATE_CLIENT_SECRET=false
+OVERWRITE_OUTPUT=false
 SUBSCRIPTION_ID=""
 TENANT_ID=""
 IDENTITY_NAME="twin2mc-deployer"
@@ -15,6 +17,8 @@ Usage:
 
 Options:
   --apply                    Create/update the service principal. Without this flag, the script is dry-run only.
+  --rotate-client-secret     Add a new client secret when the app registration already exists.
+  --overwrite-output         Allow overwriting --output-file if it already exists.
   --subscription-id <id>     Azure subscription id used for deployments.
   --tenant-id <id>           Azure tenant id for the active admin/bootstrap session.
   --name <name>              App registration / service principal name. Default: twin2mc-deployer.
@@ -39,6 +43,8 @@ require_value() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --apply) APPLY=true; shift ;;
+    --rotate-client-secret) ROTATE_CLIENT_SECRET=true; shift ;;
+    --overwrite-output) OVERWRITE_OUTPUT=true; shift ;;
     --subscription-id) require_value "$1" "${2:-}"; SUBSCRIPTION_ID="$2"; shift 2 ;;
     --tenant-id) require_value "$1" "${2:-}"; TENANT_ID="$2"; shift 2 ;;
     --name) require_value "$1" "${2:-}"; IDENTITY_NAME="$2"; shift 2 ;;
@@ -84,20 +90,56 @@ if [[ "${ACTIVE_TENANT}" != "${TENANT_ID}" ]]; then
 fi
 
 SCOPE="/subscriptions/${SUBSCRIPTION_ID}"
-SP_JSON="$(az ad sp create-for-rbac \
-  --name "${IDENTITY_NAME}" \
-  --role Contributor \
-  --scopes "${SCOPE}" \
-  --years 1 \
-  -o json)"
+APP_LIST="$(az ad app list --display-name "${IDENTITY_NAME}" -o json)"
+APP_COUNT="$(python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' <<<"${APP_LIST}")"
 
-CLIENT_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["appId"])' <<<"${SP_JSON}")"
-CLIENT_SECRET="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["password"])' <<<"${SP_JSON}")"
+if [[ "${APP_COUNT}" -gt 1 ]]; then
+  echo "More than one Azure app registration is named ${IDENTITY_NAME}; use a unique --name." >&2
+  exit 1
+fi
 
-az role assignment create \
-  --assignee "${CLIENT_ID}" \
-  --role "User Access Administrator" \
-  --scope "${SCOPE}" >/dev/null
+if [[ "${APP_COUNT}" -eq 1 ]]; then
+  CLIENT_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["appId"])' <<<"${APP_LIST}")"
+  if [[ "${ROTATE_CLIENT_SECRET}" != "true" ]]; then
+    echo "Azure app registration ${IDENTITY_NAME} already exists." >&2
+    echo "Refusing to create a new client secret. Re-run with --rotate-client-secret if intentional." >&2
+    exit 1
+  fi
+  if ! az ad sp show --id "${CLIENT_ID}" >/dev/null 2>&1; then
+    az ad sp create --id "${CLIENT_ID}" >/dev/null
+  fi
+  SP_JSON="$(az ad app credential reset --id "${CLIENT_ID}" --append --years 1 -o json)"
+  CLIENT_SECRET="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["password"])' <<<"${SP_JSON}")"
+else
+  SP_JSON="$(az ad sp create-for-rbac \
+    --name "${IDENTITY_NAME}" \
+    --role Contributor \
+    --scopes "${SCOPE}" \
+    --years 1 \
+    -o json)"
+  CLIENT_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["appId"])' <<<"${SP_JSON}")"
+  CLIENT_SECRET="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["password"])' <<<"${SP_JSON}")"
+fi
+
+ensure_role_assignment() {
+  local role="$1"
+  local existing
+  existing="$(az role assignment list \
+    --assignee "${CLIENT_ID}" \
+    --role "${role}" \
+    --scope "${SCOPE}" \
+    --query '[0].id' \
+    -o tsv)"
+  if [[ -z "${existing}" ]]; then
+    az role assignment create \
+      --assignee "${CLIENT_ID}" \
+      --role "${role}" \
+      --scope "${SCOPE}" >/dev/null
+  fi
+}
+
+ensure_role_assignment "Contributor"
+ensure_role_assignment "User Access Administrator"
 
 render_connection_json() {
   python3 - "$IDENTITY_NAME" "$SUBSCRIPTION_ID" "$TENANT_ID" "$CLIENT_ID" "$CLIENT_SECRET" "$REGION" <<'PY'
@@ -127,6 +169,11 @@ PY
 }
 
 if [[ -n "${OUTPUT_FILE}" ]]; then
+  if [[ -e "${OUTPUT_FILE}" && "${OVERWRITE_OUTPUT}" != "true" ]]; then
+    echo "Output file already exists: ${OUTPUT_FILE}" >&2
+    echo "Refusing to overwrite local secret material. Re-run with --overwrite-output if intentional." >&2
+    exit 1
+  fi
   umask 077
   render_connection_json > "${OUTPUT_FILE}"
   echo "CloudConnection import JSON written to ${OUTPUT_FILE}" >&2

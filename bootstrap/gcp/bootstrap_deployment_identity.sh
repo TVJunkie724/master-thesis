@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 APPLY=false
+ROTATE_SERVICE_ACCOUNT_KEYS=false
+OVERWRITE_OUTPUT=false
 PROJECT_ID=""
 BILLING_ACCOUNT=""
 IDENTITY_NAME="twin2mc-deployer"
@@ -20,6 +22,9 @@ Usage:
 
 Options:
   --apply                    Create/update the service account and role binding. Without this flag, the script is dry-run only.
+  --rotate-service-account-keys
+                             Delete existing user-managed keys for this service account before creating a new one.
+  --overwrite-output         Allow overwriting --output-file if it already exists.
   --project-id <id>          GCP project id used for deployments.
   --billing-account <id>     Optional billing account id for pricing and project setup metadata.
   --name <name>              Service account display/name prefix. Default: twin2mc-deployer.
@@ -46,6 +51,8 @@ require_value() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --apply) APPLY=true; shift ;;
+    --rotate-service-account-keys) ROTATE_SERVICE_ACCOUNT_KEYS=true; shift ;;
+    --overwrite-output) OVERWRITE_OUTPUT=true; shift ;;
     --project-id) require_value "$1" "${2:-}"; PROJECT_ID="$2"; shift 2 ;;
     --billing-account) require_value "$1" "${2:-}"; BILLING_ACCOUNT="$2"; shift 2 ;;
     --name) require_value "$1" "${2:-}"; IDENTITY_NAME="$2"; shift 2 ;;
@@ -64,8 +71,24 @@ if [[ ! -f "${ROLE_FILE}" ]]; then
   exit 2
 fi
 
-SERVICE_ACCOUNT_ID="${IDENTITY_NAME//_/-}"
-SERVICE_ACCOUNT_ID="${SERVICE_ACCOUNT_ID//./-}"
+SERVICE_ACCOUNT_ID="$(
+  printf "%s" "${IDENTITY_NAME}" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed -E 's/[^a-z0-9-]+/-/g; s/^-+//; s/-+$//; s/-+/-/g'
+)"
+if [[ -z "${SERVICE_ACCOUNT_ID}" || ! "${SERVICE_ACCOUNT_ID}" =~ ^[a-z] ]]; then
+  SERVICE_ACCOUNT_ID="twin2mc-${SERVICE_ACCOUNT_ID}"
+fi
+SERVICE_ACCOUNT_ID="${SERVICE_ACCOUNT_ID:0:30}"
+SERVICE_ACCOUNT_ID="${SERVICE_ACCOUNT_ID%-}"
+while [[ "${#SERVICE_ACCOUNT_ID}" -lt 6 ]]; do
+  SERVICE_ACCOUNT_ID="${SERVICE_ACCOUNT_ID}0"
+done
+if [[ ! "${SERVICE_ACCOUNT_ID}" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]]; then
+  echo "Could not derive a valid GCP service account id from --name '${IDENTITY_NAME}'." >&2
+  echo "Use a name that can become 6-30 lowercase letters, digits, or hyphens." >&2
+  exit 2
+fi
 SERVICE_ACCOUNT_EMAIL="${SERVICE_ACCOUNT_ID}@${PROJECT_ID}.iam.gserviceaccount.com"
 
 if [[ "${APPLY}" != "true" ]]; then
@@ -121,6 +144,31 @@ gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
   --member "serviceAccount:${SERVICE_ACCOUNT_EMAIL}" \
   --role "projects/${PROJECT_ID}/roles/${ROLE_ID}" >/dev/null
 
+EXISTING_KEYS_TEXT="$(gcloud iam service-accounts keys list \
+  --iam-account "${SERVICE_ACCOUNT_EMAIL}" \
+  --managed-by=user \
+  --format='value(name)' \
+  --project "${PROJECT_ID}")"
+EXISTING_KEYS=()
+while IFS= read -r key_name; do
+  [[ -n "${key_name}" ]] && EXISTING_KEYS+=("${key_name}")
+done < <(printf "%s\n" "${EXISTING_KEYS_TEXT}")
+
+if [[ "${#EXISTING_KEYS[@]}" -gt 0 && "${ROTATE_SERVICE_ACCOUNT_KEYS}" != "true" ]]; then
+  echo "Service account ${SERVICE_ACCOUNT_EMAIL} already has user-managed key(s)." >&2
+  echo "Refusing to create another key. Re-run with --rotate-service-account-keys after confirming old keys can be deleted." >&2
+  exit 1
+fi
+
+if [[ "${ROTATE_SERVICE_ACCOUNT_KEYS}" == "true" ]]; then
+  for key_name in "${EXISTING_KEYS[@]}"; do
+    gcloud iam service-accounts keys delete "${key_name}" \
+      --iam-account "${SERVICE_ACCOUNT_EMAIL}" \
+      --project "${PROJECT_ID}" \
+      --quiet >/dev/null
+  done
+fi
+
 KEY_FILE="$(mktemp)"
 trap 'rm -f "${KEY_FILE}"' EXIT
 gcloud iam service-accounts keys create "${KEY_FILE}" \
@@ -158,6 +206,11 @@ PY
 }
 
 if [[ -n "${OUTPUT_FILE}" ]]; then
+  if [[ -e "${OUTPUT_FILE}" && "${OVERWRITE_OUTPUT}" != "true" ]]; then
+    echo "Output file already exists: ${OUTPUT_FILE}" >&2
+    echo "Refusing to overwrite local secret material. Re-run with --overwrite-output if intentional." >&2
+    exit 1
+  fi
   umask 077
   render_connection_json > "${OUTPUT_FILE}"
   echo "CloudConnection import JSON written to ${OUTPUT_FILE}" >&2
