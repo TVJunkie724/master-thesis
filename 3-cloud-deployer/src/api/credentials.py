@@ -18,6 +18,7 @@ from api.credentials_checker import check_aws_credentials, check_aws_credentials
 from api.azure_credentials_checker import check_azure_credentials, check_azure_credentials_from_config
 from api.gcp_credentials_checker import check_gcp_credentials, check_gcp_credentials_from_config
 from api.error_models import ERROR_RESPONSES
+from api.preflight import ProviderPreflightResponse, build_provider_preflight
 
 router = APIRouter(prefix="/permissions")
 
@@ -144,6 +145,28 @@ async def check_aws_from_body(request: AWSCredentialsRequest):
     return check_aws_credentials(request.model_dump())
 
 
+@router.post(
+    "/preflight/aws",
+    operation_id="preflightAwsCredentialsFromBody",
+    response_model=ProviderPreflightResponse,
+    tags=["Permissions - Upload"],
+    summary="Run AWS deployment preflight from request body",
+    description=(
+        "**Purpose:** Normalizes AWS credential validation into deployment-ready preflight checks.\n\n"
+        "**When to call:** Before deployment to get actionable permission, account, and region failures.\n\n"
+        "**Security:** Response is redacted and does not persist credentials."
+    ),
+    responses={
+        200: {"description": "Preflight completed (check ready/status fields)"},
+        422: ERROR_RESPONSES[422],
+        500: ERROR_RESPONSES[500],
+    }
+)
+async def preflight_aws_from_body(request: AWSCredentialsRequest):
+    payload = request.model_dump()
+    return build_provider_preflight("aws", check_aws_credentials(payload), payload)
+
+
 # ==========================================
 # AWS Permissions - Project
 # ==========================================
@@ -222,6 +245,28 @@ async def check_azure_from_body(request: AzureCredentialsRequest):
     return check_azure_credentials(request.model_dump())
 
 
+@router.post(
+    "/preflight/azure",
+    operation_id="preflightAzureCredentialsFromBody",
+    response_model=ProviderPreflightResponse,
+    tags=["Permissions - Upload"],
+    summary="Run Azure deployment preflight from request body",
+    description=(
+        "**Purpose:** Normalizes Azure credential validation into deployment-ready preflight checks.\n\n"
+        "**When to call:** Before deployment to get actionable role, subscription, region, and secret-expiration failures.\n\n"
+        "**Security:** Response is redacted and does not persist credentials."
+    ),
+    responses={
+        200: {"description": "Preflight completed (check ready/status fields)"},
+        422: ERROR_RESPONSES[422],
+        500: ERROR_RESPONSES[500],
+    }
+)
+async def preflight_azure_from_body(request: AzureCredentialsRequest):
+    payload = request.model_dump()
+    return build_provider_preflight("azure", check_azure_credentials(payload), payload)
+
+
 # ==========================================
 # Azure Permissions - Project
 # ==========================================
@@ -297,6 +342,28 @@ async def check_gcp_from_body(request: GCPCredentialsRequest):
     Returns status and missing APIs.
     """
     return check_gcp_credentials(request.model_dump())
+
+
+@router.post(
+    "/preflight/gcp",
+    operation_id="preflightGcpCredentialsFromBody",
+    response_model=ProviderPreflightResponse,
+    tags=["Permissions - Upload"],
+    summary="Run GCP deployment preflight from request body",
+    description=(
+        "**Purpose:** Normalizes GCP credential validation into deployment-ready preflight checks.\n\n"
+        "**When to call:** Before deployment to get actionable project, billing, API, and region failures.\n\n"
+        "**Security:** Response is redacted and does not persist credentials."
+    ),
+    responses={
+        200: {"description": "Preflight completed (check ready/status fields)"},
+        422: ERROR_RESPONSES[422],
+        500: ERROR_RESPONSES[500],
+    }
+)
+async def preflight_gcp_from_body(request: GCPCredentialsRequest):
+    payload = request.model_dump()
+    return build_provider_preflight("gcp", check_gcp_credentials(payload), payload)
 
 
 # ==========================================

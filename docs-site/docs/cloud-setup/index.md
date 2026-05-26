@@ -73,6 +73,9 @@ The Management API exposes the first stable contract for this flow:
 - `POST /cloud-connections/{connection_id}/preflight` runs the existing
   Optimizer/Deployer validation path and returns normalized, UI-actionable
   checks without persisting validation status.
+- `POST /permissions/preflight/{provider}` on the Deployer normalizes provider
+  permission, API, billing, region, and secret-expiration failures for AWS,
+  Azure, and GCP.
 
 ## Provider Material
 

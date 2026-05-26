@@ -109,6 +109,8 @@ automated enterprise identity broker exists already.
 
 - [x] `POST /cloud-connections/{connection_id}/preflight` returns normalized
   preflight checks for Optimizer and Deployer.
+- [x] `POST /permissions/preflight/{provider}` returns normalized Deployer
+  provider preflight checks for AWS, Azure, and GCP.
 - [x] Missing permissions map to `MISSING_PERMISSIONS` with actionable guidance.
 - [x] Preflight responses are redacted and do not persist validation status.
 
@@ -147,6 +149,10 @@ bash -n bootstrap/azure/bootstrap_deployment_identity.sh
 bash -n bootstrap/gcp/bootstrap_deployment_identity.sh
 python3 -m json.tool 3-cloud-deployer/docs/references/aws_deployer_policy.json >/dev/null
 python3 -m json.tool 3-cloud-deployer/docs/references/azure_deployer_policy.json >/dev/null
+docker compose run --rm 3cloud-deployer sh -lc \
+  'cd /app && PYTHONPATH=/app:/app/src pytest tests/api/test_preflight_api.py -q'
+docker compose run --rm 3cloud-deployer sh -lc \
+  'cd /app && PYTHONPATH=/app:/app/src pytest tests --ignore=tests/e2e -q'
 docker compose --profile docs run --rm docs mkdocs build --strict
 git diff --check
 ```
