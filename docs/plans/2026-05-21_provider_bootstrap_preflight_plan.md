@@ -116,16 +116,30 @@ automated enterprise identity broker exists already.
 
 ### Slice 4: Provider-Specific Hardening
 
-**Status:** Planned
+**Status:** Implemented
 
 **Work**
 
-- AWS: decide final shape for IAM user vs role/assume-role and Managed Grafana
-  Identity Center prerequisites.
-- Azure: reduce broad role assignments where feasible and document unavoidable
-  role-assignment permissions.
-- GCP: verify custom role coverage and API enablement for the current supported
-  layers.
+- [x] Add static guardrail tests that compare AWS bootstrap policy coverage
+  against the Deployer permission checker and AWS self-check permissions.
+- [x] Add static guardrail tests that compare the Azure custom role against the
+  Deployer's required management-plane and data-plane actions.
+- [x] Add static guardrail tests that verify GCP custom role coverage for the
+  currently supported deployer permission families.
+- [x] Reject wildcard permissions in the GCP custom role guardrail because GCP
+  custom roles do not support wildcard permission names.
+- [x] Keep all provider hardening tests offline and deterministic; live cloud
+  least-privilege proof remains a supervised validation activity.
+
+**Acceptance**
+
+- [x] AWS reference policy cannot drift behind the checker-required deployment
+  and self-check permissions without failing tests.
+- [x] Azure reference role cannot drift behind the checker-required actions or
+  data actions without failing tests.
+- [x] GCP reference role covers the supported deployer permission families and
+  stays wildcard-free.
+- [x] Permission artifact verification does not require live cloud credentials.
 
 ## 4. Security Requirements
 
@@ -151,6 +165,8 @@ python3 -m json.tool 3-cloud-deployer/docs/references/aws_deployer_policy.json >
 python3 -m json.tool 3-cloud-deployer/docs/references/azure_deployer_policy.json >/dev/null
 docker compose run --rm 3cloud-deployer sh -lc \
   'cd /app && PYTHONPATH=/app:/app/src pytest tests/api/test_preflight_api.py -q'
+docker compose run --rm 3cloud-deployer sh -lc \
+  'cd /app && PYTHONPATH=/app:/app/src pytest tests/api/test_bootstrap_permission_artifacts.py -q'
 docker compose run --rm 3cloud-deployer sh -lc \
   'cd /app && PYTHONPATH=/app:/app/src pytest tests --ignore=tests/e2e -q'
 docker compose --profile docs run --rm docs mkdocs build --strict

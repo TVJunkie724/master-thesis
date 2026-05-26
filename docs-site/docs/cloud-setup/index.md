@@ -63,6 +63,12 @@ The scripts also refuse silent key sprawl: existing AWS access keys, Azure
 client secrets, and GCP service-account keys require explicit rotation flags
 before a new deployment secret is generated.
 
+The provider permission artifacts are covered by offline guardrail tests. Those
+tests compare the AWS policy, Azure custom role, and GCP custom role against the
+permission sets enforced by the Deployer's credential/preflight checkers. This
+keeps the documented setup path and runtime readiness checks aligned without
+requiring live cloud credentials in the default test suite.
+
 The Management API exposes the first stable contract for this flow:
 
 - `POST /cloud-bootstrap/{provider}/plan` returns the manual bootstrap command

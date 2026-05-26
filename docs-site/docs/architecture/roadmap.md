@@ -19,9 +19,12 @@ For the issue-numbered refactoring index, see [Refactoring Roadmap](refactoring-
 
 ## Current Phase
 
-The current implementation focus is **Phase 3: Documentation, Templates & Runtime Artifacts**.
+The current implementation focus is **Phase 4: Runtime Credentials & Deployment State**.
 
-This phase creates the documentation site, clarifies which files are templates versus generated runtime output, keeps required reference material, and prepares the repository for the credential and deployment-state hardening work that follows.
+This phase establishes CloudConnections as the credential source of truth,
+separates local cloud credentials from default development startup, makes
+provider bootstrap repeatable, and moves deployment execution toward explicit
+package/context/state boundaries.
 
 ## Backlog Rule
 
