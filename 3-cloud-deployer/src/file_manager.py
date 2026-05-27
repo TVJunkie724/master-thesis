@@ -13,33 +13,17 @@ import json
 import shutil
 import hashlib
 from datetime import datetime
+from pathlib import Path
 import constants as CONSTANTS
 from logger import logger
 import io
 import src.validator as validator
-
-
-SENSITIVE_PROJECT_FILENAMES = {
-    "config_credentials.json",
-    "config_credentials_aws.json",
-    "config_credentials_azure.json",
-    "config_credentials_google.json",
-    "config_credentials_gcp.json",
-    "gcp_credentials.json",
-    "google-credentials.json",
-    "google_credentials.json",
-    "service_account.json",
-}
+from src.core.project_storage import ProjectStorage, is_sensitive_project_file
 
 
 def _is_sensitive_project_file(relative_path: str) -> bool:
     """Return True when a project file may contain live cloud credentials."""
-    filename = os.path.basename(relative_path)
-    if filename.endswith(".example"):
-        return False
-    if filename in SENSITIVE_PROJECT_FILENAMES:
-        return True
-    return "credentials" in filename.lower()
+    return is_sensitive_project_file(relative_path)
 
 
 def _get_project_base_path():
@@ -50,6 +34,13 @@ def _get_project_base_path():
         return app_path
     # Fallback: go up from this file's directory
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _get_project_storage(project_path: str = None) -> ProjectStorage:
+    """Return the project storage boundary for legacy file_manager callers."""
+    if project_path is None:
+        project_path = _get_project_base_path()
+    return ProjectStorage(project_root=Path(project_path))
 
 
 # ==========================================
@@ -106,11 +97,12 @@ def create_project_from_zip(project_name, zip_source, project_path: str = None, 
             f"digital_twin_name and credentials."
         )
     
-    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
-    if os.path.exists(target_dir):
+    storage = _get_project_storage(project_path)
+    target_dir = storage.deployment_project_path(safe_name)
+    if target_dir.exists():
         raise ValueError(f"Project '{project_name}' already exists.")
         
-    os.makedirs(target_dir)
+    target_dir.mkdir(parents=True)
     
     # Archive version before extracting
     _archive_zip_version(zip_source, target_dir)
@@ -176,10 +168,11 @@ def update_project_from_zip(project_name, zip_source, project_path: str = None, 
             f"digital_twin_name and credentials."
         )
         
-    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+    storage = _get_project_storage(project_path)
+    target_dir = storage.deployment_project_path(safe_name)
     
-    if not os.path.exists(target_dir):
-         os.makedirs(target_dir)
+    if not target_dir.exists():
+         target_dir.mkdir(parents=True)
     
     # Archive version before extracting
     _archive_zip_version(zip_source, target_dir)
@@ -211,17 +204,7 @@ def list_projects(project_path: str = None, include_templates: bool = False):
     if project_path is None:
         project_path = _get_project_base_path()
     
-    upload_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME)
-    projects = []
-    if os.path.exists(upload_dir):
-        for item in os.listdir(upload_dir):
-            if item.startswith("."):
-                continue
-            if not include_templates and item == CONSTANTS.DEFAULT_PROJECT_NAME:
-                continue
-            if os.path.isdir(os.path.join(upload_dir, item)):
-                projects.append(item)
-    return projects
+    return _get_project_storage(project_path).list_projects(include_templates=include_templates)
 
 
 # ==========================================
@@ -240,13 +223,11 @@ def update_config_file(project_name, config_filename, config_content, project_pa
     if project_path is None:
         project_path = _get_project_base_path()
     
-    safe_name = os.path.basename(project_name)
-    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+    storage = _get_project_storage(project_path)
+    target_dir = storage.deployment_project_path(project_name)
     
-    if not os.path.exists(target_dir):
+    if not target_dir.exists():
         raise ValueError(f"Project '{project_name}' does not exist.")
-        
-    target_file = os.path.join(target_dir, config_filename)
     
     # Verify content is valid JSON
     if isinstance(config_content, str):
@@ -260,8 +241,7 @@ def update_config_file(project_name, config_filename, config_content, project_pa
     # Validate Schema
     validator.validate_config_content(config_filename, json_content)
 
-    with open(target_file, 'w') as f:
-        json.dump(json_content, f, indent=2)
+    storage.write_json(project_name, config_filename, json_content)
         
     logger.info(f"Updated {config_filename} for project '{project_name}'.")
 
@@ -290,10 +270,11 @@ def update_function_code_file(project_name, function_name, file_name, code_conte
     if project_path is None:
         project_path = _get_project_base_path()
     
-    safe_project_name = os.path.basename(project_name)
-    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_project_name, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, function_name)
+    storage = _get_project_storage(project_path)
+    function_dir = f"{CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME}/{function_name}"
+    target_dir = storage.resolve_file(project_name, function_dir)
     
-    if not os.path.exists(target_dir):
+    if not target_dir.exists():
         raise ValueError(f"Function directory '{function_name}' does not exist in project '{project_name}'.")
 
     # Validate Python Code
@@ -307,9 +288,8 @@ def update_function_code_file(project_name, function_name, file_name, code_conte
             validator.validate_python_code_google(code_content)
             
     # Write File
-    target_file = os.path.join(target_dir, file_name)
-    with open(target_file, 'w') as f:
-        f.write(code_content)
+    target_file = storage.resolve_file(project_name, f"{function_dir}/{file_name}", for_write=True)
+    target_file.write_text(code_content, encoding="utf-8")
         
     logger.info(f"Updated function code '{file_name}' for function '{function_name}' in project '{project_name}'.")
 
@@ -449,10 +429,9 @@ def delete_project(project_name, project_path: str = None):
     if project_path is None:
         project_path = _get_project_base_path()
     
-    safe_name = os.path.basename(project_name)
-    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+    target_dir = _get_project_storage(project_path).deployment_project_path(project_name)
     
-    if not os.path.exists(target_dir):
+    if not target_dir.exists():
         raise ValueError(f"Project '{project_name}' does not exist.")
     
     shutil.rmtree(target_dir)
@@ -474,23 +453,22 @@ def update_project_info(project_name, description: str, project_path: str = None
     if project_path is None:
         project_path = _get_project_base_path()
     
-    safe_name = os.path.basename(project_name)
-    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
-    info_path = os.path.join(target_dir, CONSTANTS.PROJECT_INFO_FILE)
+    storage = _get_project_storage(project_path)
+    target_dir = storage.deployment_project_path(project_name)
+    info_path = target_dir / CONSTANTS.PROJECT_INFO_FILE
     
-    if not os.path.exists(target_dir):
+    if not target_dir.exists():
         raise ValueError(f"Project '{project_name}' does not exist.")
     
     info = {}
-    if os.path.exists(info_path):
-        with open(info_path, 'r') as f:
+    if info_path.exists():
+        with info_path.open('r') as f:
             info = json.load(f)
     
     info["description"] = description
     info["updated_at"] = datetime.now().isoformat()
     
-    with open(info_path, 'w') as f:
-        json.dump(info, f, indent=2)
+    storage.write_json(project_name, CONSTANTS.PROJECT_INFO_FILE, info)
     
     logger.info(f"Updated info for project '{project_name}'.")
 
@@ -512,10 +490,9 @@ def export_project_to_zip(project_name: str, project_path: str = None) -> io.Byt
     if project_path is None:
         project_path = _get_project_base_path()
     
-    safe_name = os.path.basename(project_name)
-    target_dir = os.path.join(project_path, CONSTANTS.PROJECT_UPLOAD_DIR_NAME, safe_name)
+    target_dir = _get_project_storage(project_path).deployment_project_path(project_name)
     
-    if not os.path.exists(target_dir):
+    if not target_dir.exists():
         raise ValueError(f"Project '{project_name}' does not exist.")
     
     zip_buffer = io.BytesIO()

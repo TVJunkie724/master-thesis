@@ -215,8 +215,8 @@ class TestListProjects:
         os.makedirs(os.path.join(upload_dir, "runtime-twin"))
 
         assert file_manager.list_projects(temp_project_path, include_templates=True) == [
-            CONSTANTS.DEFAULT_PROJECT_NAME,
             "runtime-twin",
+            CONSTANTS.DEFAULT_PROJECT_NAME,
         ]
 
 

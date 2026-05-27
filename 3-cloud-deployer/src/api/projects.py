@@ -12,11 +12,14 @@ Digital Twin deployment.
 """
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Path, Request
 import json
-import os
 import file_manager
 import src.validator as validator
 from src.validation.directory_validator import validate_project_directory
-from src.core.paths import resolve_deployment_paths, resolve_project_context_path
+from src.core.project_storage import (
+    ProjectFileAccessDenied,
+    ProjectStorageError,
+    get_project_storage,
+)
 from api.dependencies import ConfigType, ProviderEnum, check_template_protection
 import constants as CONSTANTS
 from logger import logger
@@ -63,29 +66,23 @@ def list_projects():
     **Use case:** Dashboard project selector, project overview.
     """
     try:
-        project_names = file_manager.list_projects()
+        storage = get_project_storage()
+        project_names = storage.list_projects()
         projects = []
         
         for name in project_names:
             project_info = {"name": name, "description": None, "version_count": 0}
             
             # Read project_info.json if exists
-            project_dir = resolve_deployment_paths(name).project_path
-            info_path = os.path.join(project_dir, CONSTANTS.PROJECT_INFO_FILE)
-            if os.path.exists(info_path):
-                try:
-                    with open(info_path, 'r') as f:
-                        info = json.load(f)
-                        project_info["description"] = info.get("description")
-                except Exception:
-                    pass
+            try:
+                info = storage.read_json_optional(name, CONSTANTS.PROJECT_INFO_FILE)
+                if isinstance(info, dict):
+                    project_info["description"] = info.get("description")
+            except (ProjectFileAccessDenied, ProjectStorageError, json.JSONDecodeError):
+                pass
             
             # Count versions
-            versions_dir = os.path.join(project_dir, CONSTANTS.PROJECT_VERSIONS_DIR_NAME)
-            if os.path.exists(versions_dir):
-                project_info["version_count"] = len([
-                    f for f in os.listdir(versions_dir) if f.endswith('.zip')
-                ])
+            project_info["version_count"] = storage.version_count(name)
             
             projects.append(project_info)
         
@@ -178,7 +175,7 @@ def validate_project_structure(project_name: str = Path(..., description="Name o
     **Use case:** Pre-deployment readiness check for existing projects.
     """
     try:
-        project_dir = resolve_project_context_path(project_name)
+        project_dir = get_project_storage().context(project_name).project_path
         validate_project_directory(project_dir)
         return {
             "message": f"Project structure for '{project_name}' is valid.",
@@ -271,24 +268,20 @@ def get_project_config(
             do_return_credentials_file = True
 
 
-        project_path = resolve_project_context_path(project_name)
+        storage = get_project_storage()
+        project_path = storage.context(project_name).project_path
         
-        if not os.path.exists(project_path):
+        if not project_path.exists():
             raise HTTPException(status_code=404, detail=f"Project '{project_name}' not found")
-        
-        if not do_return_credentials_file:
-            file_path = os.path.join(project_path, filename)
-        else:
-            file_path = os.path.join(project_path, filename + ".example")
 
-        if not os.path.exists(file_path):
+        relative_path = filename if not do_return_credentials_file else filename + ".example"
+        try:
+            return storage.read_json(project_name, relative_path)
+        except FileNotFoundError:
             raise HTTPException(
                 status_code=404, 
                 detail=f"Config file '{filename}' not found in project '{project_name}'"
             )
-        
-        with open(file_path, "r", encoding="utf-8") as f:
-            return json.load(f)
             
     except HTTPException:
         raise
@@ -385,8 +378,7 @@ async def import_project(
     check_template_protection(project_name, "import to")
     
     # Check project exists first
-    project_path = resolve_project_context_path(project_name)
-    if not os.path.exists(project_path):
+    if not get_project_storage().exists(project_name):
         raise HTTPException(
             status_code=400, 
             detail=f"Project '{project_name}' does not exist. Create it first with POST /projects"
@@ -483,7 +475,8 @@ def get_project_summary(
     - deployment_status (local check)
     - validation_status (structure check)
     """
-    project_path = resolve_project_context_path(project_name)
+    storage = get_project_storage()
+    project_path = storage.context(project_name).project_path
     if not project_path.exists():
         raise HTTPException(status_code=404, detail=f"Project '{project_name}' not found")
 
@@ -496,26 +489,24 @@ def get_project_summary(
     }
 
     # 1. Description
-    info_path = project_path / CONSTANTS.PROJECT_INFO_FILE
-    if info_path.exists():
-        try:
-            with open(info_path, 'r') as f:
-                info = json.load(f)
-                summary["description"] = info.get("description")
-        except: pass
+    try:
+        info = storage.read_json_optional(project_name, CONSTANTS.PROJECT_INFO_FILE)
+        if isinstance(info, dict):
+            summary["description"] = info.get("description")
+    except (ProjectFileAccessDenied, ProjectStorageError, json.JSONDecodeError):
+        pass
 
     # 2. Providers
-    prov_path = project_path / CONSTANTS.CONFIG_PROVIDERS_FILE
-    if prov_path.exists():
-        try:
-            with open(prov_path, 'r') as f:
-                summary["providers"] = json.load(f)
-        except: pass
+    try:
+        providers = storage.read_json_optional(project_name, CONSTANTS.CONFIG_PROVIDERS_FILE)
+        if isinstance(providers, dict):
+            summary["providers"] = providers
+    except (ProjectFileAccessDenied, ProjectStorageError, json.JSONDecodeError):
+        pass
 
     # 3. Validation Status
     try:
-        project_dir = resolve_project_context_path(project_name)
-        validate_project_directory(project_dir)
+        validate_project_directory(project_path)
         summary["validation_status"] = "valid"
     except Exception as e:
         summary["validation_status"] = "invalid"
@@ -547,13 +538,9 @@ def get_project_files(
     Used for file browsing in the frontend.
     """
     try:
-        project_path = resolve_project_context_path(project_name)
-        files = file_manager.get_project_file_tree(
-            project_name,
-            project_context_path=project_path,
-        )
+        files = get_project_storage().file_tree(project_name)
         return {"files": files}
-    except ValueError as e:
+    except (FileNotFoundError, ProjectStorageError) as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(str(e))
@@ -584,16 +571,11 @@ def get_project_file_content_endpoint(
     Returns the content of a specific file.
     """
     try:
-        project_path = resolve_project_context_path(project_name)
-        content = file_manager.get_project_file_content(
-            project_name,
-            file_path,
-            project_context_path=project_path,
-        )
+        content = get_project_storage().file_content(project_name, file_path)
         return content
-    except PermissionError as e:
+    except ProjectFileAccessDenied as e:
         raise HTTPException(status_code=403, detail=str(e))
-    except ValueError as e:
+    except (FileNotFoundError, ProjectStorageError) as e:
         if "not found" in str(e):
              raise HTTPException(status_code=404, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))
@@ -727,15 +709,11 @@ async def upload_state_machine(
         validator.validate_state_machine_content(target_filename, content_str)
         
         # 2. Save File
-        project_path = resolve_project_context_path(project_name)
-        sm_dir = project_path / CONSTANTS.STATE_MACHINES_DIR_NAME
-        
-        if not sm_dir.exists():
-             sm_dir.mkdir(parents=True, exist_ok=True)
-             
-        target_file = sm_dir / target_filename
-        with open(target_file, 'w') as f:
-            f.write(content_str)
+        get_project_storage().write_text(
+            project_name,
+            f"{CONSTANTS.STATE_MACHINES_DIR_NAME}/{target_filename}",
+            content_str,
+        )
             
         return {"message": f"State machine '{target_filename}' uploaded and verified for provider '{provider_value}'."}
         
@@ -780,10 +758,11 @@ async def upload_simulator_payloads(project_name: str, request: Request):
             raise ValueError(f"Payload validation failed: {errors}")
             
         # Save to iot_device_simulator root (provider-agnostic)
-        path = resolve_project_context_path(project_name) / CONSTANTS.IOT_DEVICE_SIMULATOR_DIR_NAME
-        path.mkdir(parents=True, exist_ok=True)
-        with open(path / CONSTANTS.PAYLOADS_FILE, "w") as f:
-            f.write(content_str)
+        get_project_storage().write_text(
+            project_name,
+            f"{CONSTANTS.IOT_DEVICE_SIMULATOR_DIR_NAME}/{CONSTANTS.PAYLOADS_FILE}",
+            content_str,
+        )
             
         return {"message": "Payloads uploaded successfully.", "warnings": warnings}
         
@@ -834,7 +813,7 @@ def cleanup_aws_twinmaker(
         from src.core.config_loader import load_project_config, load_credentials
         from logger import print_stack_trace
         
-        project_path = resolve_project_context_path(project_name)
+        project_path = get_project_storage().context(project_name).project_path
         config = load_project_config(project_path)
         credentials = load_credentials(project_path)
         

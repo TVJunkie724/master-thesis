@@ -11,6 +11,7 @@ from unittest.mock import patch, MagicMock
 
 from fastapi.testclient import TestClient
 import rest_api
+from src.core.project_storage import ProjectFileAccessDenied
 
 client = TestClient(rest_api.app)
 
@@ -46,9 +47,11 @@ class TestProjectsErrorHandling:
 
     def test_project_internal_error_hidden(self):
         """Internal error returns 500 with generic message."""
-        with patch("api.projects.file_manager.list_projects") as mock_list:
-            mock_list.side_effect = Exception("Disk I/O error on /mnt/data")
-            
+        with patch("src.api.projects.get_project_storage") as storage_factory:
+            storage_factory.return_value.list_projects.side_effect = Exception(
+                "Disk I/O error on /mnt/data"
+            )
+
             response = client.get("/projects")
             
             assert response.status_code == 500
@@ -59,9 +62,9 @@ class TestProjectsErrorHandling:
     # Edge Case Tests
     def test_empty_project_list(self):
         """Empty project list returns empty array."""
-        with patch("api.projects.file_manager.list_projects") as mock_list:
-            mock_list.return_value = []
-            
+        with patch("src.api.projects.get_project_storage") as storage_factory:
+            storage_factory.return_value.list_projects.return_value = []
+
             response = client.get("/projects")
             
             assert response.status_code == 200
@@ -107,7 +110,9 @@ class TestProjectsErrorHandling:
         (canonical_template / "config.json").write_text("{}")
         (legacy_template / "config_credentials.json").write_text('{"aws": "secret"}')
 
-        with patch("src.api.projects.resolve_project_context_path", return_value=canonical_template):
+        with patch("src.api.projects.get_project_storage") as storage_factory:
+            storage_factory.return_value.context.return_value.project_path = canonical_template
+            storage_factory.return_value.file_tree.return_value = [{"name": "config.json", "path": "config.json", "type": "file", "size": 2}]
             response = client.get("/projects/template/files")
 
         assert response.status_code == 200
@@ -120,7 +125,10 @@ class TestProjectsErrorHandling:
         canonical_template.mkdir(parents=True)
         (canonical_template / "config_credentials.json").write_text('{"aws": "secret"}')
 
-        with patch("src.api.projects.resolve_project_context_path", return_value=canonical_template):
+        with patch("src.api.projects.get_project_storage") as storage_factory:
+            storage_factory.return_value.file_content.side_effect = ProjectFileAccessDenied(
+                "Access denied for sensitive project file 'config_credentials.json'."
+            )
             response = client.get("/projects/template/files/config_credentials.json")
 
         assert response.status_code == 403
@@ -139,8 +147,9 @@ class TestProjectsErrorHandling:
             },
         }))
 
-        with patch("src.api.projects.resolve_project_context_path", return_value=project_dir), \
+        with patch("src.api.projects.get_project_storage") as storage_factory, \
              patch("src.api.projects.validate_project_directory"):
+            storage_factory.return_value.context.return_value.project_path = project_dir
             response = client.get("/projects/factory/validate")
 
         assert response.status_code == 200
@@ -157,8 +166,9 @@ class TestProjectsErrorHandling:
         project_dir = tmp_path / "upload" / "legacy"
         project_dir.mkdir(parents=True)
 
-        with patch("src.api.projects.resolve_project_context_path", return_value=project_dir), \
+        with patch("src.api.projects.get_project_storage") as storage_factory, \
              patch("src.api.projects.validate_project_directory"):
+            storage_factory.return_value.context.return_value.project_path = project_dir
             response = client.get("/projects/legacy/validate")
 
         assert response.status_code == 200
