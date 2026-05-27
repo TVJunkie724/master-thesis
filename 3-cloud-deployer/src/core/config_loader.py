@@ -22,11 +22,13 @@ Usage:
 """
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from .context import ProjectConfig
+from .context import DeploymentContext, ProjectConfig
 from .exceptions import ConfigurationError
+from .project_storage import ProjectStorage, get_project_storage
 
 # Constants matching src/constants.py
 CONFIG_FILE = "config.json"
@@ -42,6 +44,78 @@ DEPLOYMENT_MANIFEST_FILE = "deployment_manifest.json"
 TWIN_HIERARCHY_DIR_NAME = "twin_hierarchy"
 AWS_HIERARCHY_FILE = "aws_hierarchy.json"
 AZURE_HIERARCHY_FILE = "azure_hierarchy.json"
+
+PROVIDER_ALIASES = {"google": "gcp"}
+
+
+@dataclass(frozen=True)
+class ProjectConfigBundle:
+    """Context-aware loaded configuration for one project."""
+
+    project_name: str
+    project_path: Path
+    config: ProjectConfig
+    credentials: Dict[str, dict]
+    deployment_manifest: Dict[str, Any]
+
+
+class ProjectConfigLoader:
+    """Loads Deployer project configuration through the ProjectStorage boundary."""
+
+    def __init__(self, storage: ProjectStorage | None = None):
+        self.storage = storage or get_project_storage()
+
+    def load_bundle(self, project_name: str) -> ProjectConfigBundle:
+        """Load config, credentials, and manifest for a named project context."""
+        context = self.storage.context(project_name)
+        return self.load_bundle_from_path(project_name, context.project_path)
+
+    def load_bundle_from_path(self, project_name: str, project_path: Path) -> ProjectConfigBundle:
+        """Load config, credentials, and manifest from an already resolved path."""
+        return ProjectConfigBundle(
+            project_name=project_name,
+            project_path=project_path,
+            config=load_project_config(project_path),
+            credentials=load_credentials(project_path),
+            deployment_manifest=load_deployment_manifest(project_path),
+        )
+
+    def create_context(
+        self,
+        project_name: str,
+        provider_name: str | None = None,
+        *,
+        operation_id: str | None = None,
+    ) -> DeploymentContext:
+        """Create a DeploymentContext from one loaded configuration bundle."""
+        bundle = self.load_bundle(project_name)
+        context = DeploymentContext(
+            project_name=project_name,
+            project_path=bundle.project_path,
+            config=bundle.config,
+            operation_id=operation_id,
+            requested_provider=normalize_provider_name(provider_name),
+            credentials=bundle.credentials,
+            deployment_manifest=bundle.deployment_manifest,
+        )
+        context.validate_manifest_identity()
+        return context
+
+
+def normalize_provider_name(provider: str | None) -> str | None:
+    """Normalize provider aliases for runtime code."""
+    if provider is None:
+        return None
+    provider_lower = provider.lower()
+    return PROVIDER_ALIASES.get(provider_lower, provider_lower)
+
+
+def normalize_provider_mapping(providers: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize provider aliases in config_providers.json once at load time."""
+    normalized = {}
+    for key, value in providers.items():
+        normalized[key] = normalize_provider_name(value) if isinstance(value, str) else value
+    return normalized
 
 
 def _load_json_file(file_path: Path, required: bool = True) -> Dict[str, Any]:
@@ -120,7 +194,8 @@ def _load_hierarchy_for_provider(project_path: Path, provider: str) -> Dict[str,
     # TODO(GCP-L4L5): GCP has no managed Digital Twin service. When GCP L4 is implemented,
     # add a 'google' branch here similar to 'aws' and 'azure' to load GCP hierarchy format.
     # For now, return empty hierarchy - Terraform skips L4/L5 resources for GCP.
-    if provider_lower == "google":
+    provider_lower = normalize_provider_name(provider_lower)
+    if provider_lower == "gcp":
         return []  # No hierarchy for GCP - no Digital Twin service
     
     # Handle 'none' provider - used when L4/L5 layers are explicitly disabled
@@ -131,7 +206,7 @@ def _load_hierarchy_for_provider(project_path: Path, provider: str) -> Dict[str,
     # Strict validation: only aws and azure have hierarchy support
     if provider_lower not in ("aws", "azure"):
         raise ValueError(
-            f"Invalid provider '{provider}'. Hierarchy is only available for 'aws', 'azure', 'google' (empty), or 'none' (disabled)."
+            f"Invalid provider '{provider}'. Hierarchy is only available for 'aws', 'azure', 'gcp'/'google' (empty), or 'none' (disabled)."
         )
     
     hierarchy_dir = project_path / TWIN_HIERARCHY_DIR_NAME
@@ -197,7 +272,9 @@ def load_project_config(project_path: Path) -> ProjectConfig:
     # Load remaining config files
     iot_devices = _load_json_file(project_path / CONFIG_IOT_DEVICES_FILE, required=True)
     events = _load_json_file(project_path / CONFIG_EVENTS_FILE, required=False)
-    providers = _load_json_file(project_path / CONFIG_PROVIDERS_FILE, required=True)
+    providers = normalize_provider_mapping(
+        _load_json_file(project_path / CONFIG_PROVIDERS_FILE, required=True)
+    )
     optimization = _load_json_file(project_path / CONFIG_OPTIMIZATION_FILE, required=False)
     inter_cloud = _load_json_file(project_path / CONFIG_INTER_CLOUD_FILE, required=False)
     user = _load_json_file(project_path / CONFIG_USER_FILE, required=False)

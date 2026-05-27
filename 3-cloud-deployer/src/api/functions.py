@@ -39,6 +39,7 @@ from api.error_models import ERROR_RESPONSES
 
 import constants as CONSTANTS
 from api.dependencies import check_template_protection
+from src.core.config_loader import ProjectConfigLoader
 from src.core.paths import resolve_project_context_path
 from logger import logger
 
@@ -141,29 +142,14 @@ def _get_updatable_functions(project_name: str) -> Dict[str, Any]:
     Raises:
         ValueError: If required configs are missing
     """
-    upload_dir = _get_upload_dir(project_name)
+    bundle = ProjectConfigLoader().load_bundle(project_name)
+    upload_dir = os.fspath(bundle.project_path)
     
     if not os.path.exists(upload_dir):
         raise ValueError(f"Project directory not found: {project_name}")
-    
-    # Load required config files - fail-fast if missing
-    events_path = os.path.join(upload_dir, CONSTANTS.CONFIG_EVENTS_FILE)
-    devices_path = os.path.join(upload_dir, CONSTANTS.CONFIG_IOT_DEVICES_FILE)
-    providers_path = os.path.join(upload_dir, CONSTANTS.CONFIG_PROVIDERS_FILE)
-    
-    if not os.path.exists(events_path):
-        raise ValueError(f"Missing required config: {CONSTANTS.CONFIG_EVENTS_FILE}")
-    if not os.path.exists(devices_path):
-        raise ValueError(f"Missing required config: {CONSTANTS.CONFIG_IOT_DEVICES_FILE}")
-    if not os.path.exists(providers_path):
-        raise ValueError(f"Missing required config: {CONSTANTS.CONFIG_PROVIDERS_FILE}")
-    
-    with open(events_path, 'r') as f:
-        events_config = json.load(f)
-    with open(devices_path, 'r') as f:
-        devices_config = json.load(f)
-    with open(providers_path, 'r') as f:
-        providers_config = json.load(f)
+    events_config = bundle.config.events
+    devices_config = bundle.config.iot_devices
+    providers_config = bundle.config.providers
     
     # Validate providers_config structure
     if "layer_2_provider" not in providers_config:
@@ -189,7 +175,7 @@ def _get_updatable_functions(project_name: str) -> Dict[str, Any]:
             func_dir = os.path.join(upload_dir, CONSTANTS.EVENT_ACTIONS_DIR_NAME, func_name)
         elif l2_provider == "azure":
             func_dir = os.path.join(upload_dir, "azure_functions", "event_actions", func_name)
-        elif l2_provider == "google":
+        elif l2_provider == "gcp":
             func_dir = os.path.join(upload_dir, "cloud_functions", "event_actions", func_name)
         else:
             raise ValueError(f"Unsupported layer_2_provider: {l2_provider}")
@@ -225,7 +211,7 @@ def _get_updatable_functions(project_name: str) -> Dict[str, Any]:
             proc_dir = os.path.join(upload_dir, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, "processors", processor_name)
         elif l2_provider == "azure":
             proc_dir = os.path.join(upload_dir, "azure_functions", "processors", processor_name)
-        elif l2_provider == "google":
+        elif l2_provider == "gcp":
             proc_dir = os.path.join(upload_dir, "cloud_functions", "processors", processor_name)
         else:
             raise ValueError(f"Unsupported layer_2_provider: {l2_provider}")
@@ -247,7 +233,7 @@ def _get_updatable_functions(project_name: str) -> Dict[str, Any]:
         feedback_dir = os.path.join(upload_dir, CONSTANTS.LAMBDA_FUNCTIONS_DIR_NAME, "event-feedback")
     elif l2_provider == "azure":
         feedback_dir = os.path.join(upload_dir, "azure_functions", "event-feedback")
-    elif l2_provider == "google":
+    elif l2_provider == "gcp":
         feedback_dir = os.path.join(upload_dir, "cloud_functions", "event-feedback")
     else:
         raise ValueError(f"Unsupported layer_2_provider: {l2_provider}")

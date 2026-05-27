@@ -191,7 +191,7 @@ class TestConfigLoaderHierarchy(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             _load_hierarchy_for_provider(Path("/tmp"), "invalid_provider")
         self.assertIn("Invalid provider", str(cm.exception))
-        self.assertIn("only available for 'aws', 'azure', 'google' (empty), or 'none' (disabled)", str(cm.exception))
+        self.assertIn("only available for 'aws', 'azure', 'gcp'/'google' (empty), or 'none' (disabled)", str(cm.exception))
 
 
 class TestAzureHierarchyValidation(unittest.TestCase):

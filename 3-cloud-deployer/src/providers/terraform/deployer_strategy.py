@@ -31,6 +31,7 @@ from typing import Optional, Dict, Any, TYPE_CHECKING
 
 from src.terraform_runner import TerraformRunner, TerraformError
 from src.tfvars_generator import generate_tfvars, ConfigurationError
+from src.core.config_loader import load_credentials, load_project_config
 
 # Provider-specific deployers
 from src.providers.terraform.azure_deployer import (
@@ -129,21 +130,15 @@ class TerraformDeployerStrategy:
     def _load_providers_config(self) -> dict:
         """Load config_providers.json."""
         if self._providers_config is None:
-            providers_file = self.project_path / "config_providers.json"
-            if providers_file.exists():
-                with open(providers_file) as f:
-                    self._providers_config = json.load(f)
-            else:
-                self._providers_config = {}
+            self._providers_config = load_project_config(self.project_path).providers
         return self._providers_config
     
     def _load_credentials(self) -> dict:
         """Load config_credentials.json."""
-        creds_file = self.project_path / "config_credentials.json"
-        if not creds_file.exists():
-            raise ConfigurationError(f"config_credentials.json not found: {creds_file}")
-        with open(creds_file) as f:
-            return json.load(f)
+        credentials = load_credentials(self.project_path)
+        if not credentials:
+            raise ConfigurationError(f"No credentials found for project: {self.project_path}")
+        return credentials
     
     # =========================================================================
     # Main Deployment Methods
@@ -617,7 +612,7 @@ class TerraformDeployerStrategy:
                 logger.warning("  ⚠ boto3 not installed, skipping AWS credential check")
         
         # Validate GCP credentials
-        if "google" in used_clouds:
+        if "gcp" in used_clouds:
             gcp_creds = credentials.get("gcp", {})
             if not gcp_creds:
                 raise ValueError("GCP is configured but no GCP credentials found")
@@ -696,7 +691,7 @@ class TerraformDeployerStrategy:
             logger.info("  ✓ AWS provider initialized")
         
         # Initialize GCP provider (for future L4/L5 and consistency)
-        if "google" in used_clouds and "gcp" not in context.providers:
+        if "gcp" in used_clouds and "gcp" not in context.providers:
             logger.info("  Initializing GCP provider...")
             from src.providers.gcp.provider import GCPProvider
             gcp_provider = GCPProvider()

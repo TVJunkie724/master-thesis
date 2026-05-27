@@ -260,10 +260,9 @@ def check_sdk_managed(project_name: str, provider: str) -> Dict[str, Any]:
         context = create_context(project_name, provider)
         
         # Initialize provider (create_context returns lightweight context without providers)
-        from core.config_loader import load_credentials
         from core.registry import ProviderRegistry
         
-        credentials = load_credentials(context.project_path)
+        credentials = context.credentials
         prov_creds = credentials.get(provider, {})
         
         # AWS can use env vars even with empty dict
@@ -528,7 +527,6 @@ def verify_infrastructure(project_name: str, provider: str) -> Dict[str, Any]:
     # --- Load project context for provider-aware checks ---
     try:
         from src.core.factory import create_context
-        from core.config_loader import load_credentials
         from core.registry import ProviderRegistry
         
         context = create_context(project_name, provider)
@@ -547,7 +545,7 @@ def verify_infrastructure(project_name: str, provider: str) -> Dict[str, Any]:
                 c["provider"] = all_providers_str
         
         # Initialize all needed providers for SDK checks
-        credentials = load_credentials(context.project_path)
+        credentials = context.credentials
         unique_providers = set()
         for key, prov_name in providers_map.items():
             if prov_name:

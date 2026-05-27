@@ -13,7 +13,8 @@ Supports:
 import asyncio
 import json
 import os
-import subprocess
+# Fixed argv list, shell disabled, local simulator module only.
+import subprocess  # nosec B404
 import sys
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -26,7 +27,7 @@ from sse_starlette.sse import EventSourceResponse
 from api.error_models import ERROR_RESPONSES
 from logger import logger
 import constants as CONSTANTS
-from src.core.config_loader import load_credentials
+from src.core.config_loader import ProjectConfigLoader
 from src.core.paths import resolve_project_context_path
 
 
@@ -68,14 +69,7 @@ def _get_project_path(project_name: str) -> Path:
 
 def _load_providers(project_name: str) -> Dict[str, str]:
     """Load layer-to-provider mapping from config_providers.json."""
-    project_path = _get_project_path(project_name)
-    providers_file = project_path / CONSTANTS.CONFIG_PROVIDERS_FILE
-    
-    if not providers_file.exists():
-        raise ValueError(f"config_providers.json not found for project {project_name}")
-    
-    with open(providers_file, 'r') as f:
-        return json.load(f)
+    return ProjectConfigLoader().load_bundle(project_name).config.providers
 
 
 def _get_terraform_outputs(project_name: str) -> Dict:
@@ -386,7 +380,8 @@ def _send_test_message_via_simulator(
         if device_id:
             cmd.extend(["--device", device_id])
         
-        result = subprocess.run(
+        # Fixed argv list with shell=False and fixed cwd.
+        result = subprocess.run(  # nosec B603
             cmd,
             capture_output=True,
             text=True,
@@ -556,7 +551,7 @@ async def stream_log_trace(
         # Load configuration once at start
         try:
             providers_to_query = _get_providers_to_query(project_name)
-            credentials = load_credentials(project_path)
+            credentials = ProjectConfigLoader().load_bundle(project_name).credentials
             tf_outputs = _get_terraform_outputs(project_name)
         except Exception as e:
             yield {"event": "error", "data": json.dumps({"message": f"Config load failed: {e}"})}

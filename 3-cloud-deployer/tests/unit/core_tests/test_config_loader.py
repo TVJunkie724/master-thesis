@@ -1,7 +1,16 @@
 import json
 import pytest
 from pathlib import Path
-from src.core.config_loader import load_project_config, load_credentials, get_required_providers, ConfigurationError
+from src.core.config_loader import (
+    ProjectConfigLoader,
+    load_project_config,
+    load_credentials,
+    get_required_providers,
+    normalize_provider_mapping,
+    normalize_provider_name,
+    ConfigurationError,
+)
+from src.core.project_storage import ProjectStorage
 
 @pytest.fixture
 def sample_project_dir(tmp_path):
@@ -94,3 +103,63 @@ def test_get_required_providers(sample_project_dir):
     assert "aws" in providers
     assert "azure" in providers
     assert len(providers) == 2
+
+
+def test_provider_alias_normalization_is_centralized():
+    assert normalize_provider_name("google") == "gcp"
+    assert normalize_provider_name("gcp") == "gcp"
+    assert normalize_provider_mapping({
+        "layer_1_provider": "google",
+        "layer_2_provider": "azure",
+    }) == {
+        "layer_1_provider": "gcp",
+        "layer_2_provider": "azure",
+    }
+
+
+def test_load_project_config_normalizes_google_provider(sample_project_dir):
+    providers_path = sample_project_dir / "config_providers.json"
+    providers_path.write_text(json.dumps({
+        "layer_1_provider": "google",
+        "layer_2_provider": "google",
+        "layer_3_hot_provider": "google",
+        "layer_4_provider": "google",
+    }))
+
+    config = load_project_config(sample_project_dir)
+
+    assert config.providers["layer_1_provider"] == "gcp"
+    assert config.providers["layer_4_provider"] == "gcp"
+    assert config.hierarchy == []
+
+
+def test_project_config_loader_loads_bundle_through_project_storage(tmp_path):
+    project_dir = tmp_path / "upload" / "factory"
+    project_dir.mkdir(parents=True)
+    (project_dir / "config.json").write_text(json.dumps({
+        "digital_twin_name": "factory",
+        "hot_storage_size_in_days": 7,
+        "cold_storage_size_in_days": 30,
+        "mode": "DEBUG",
+    }))
+    (project_dir / "config_iot_devices.json").write_text("[]")
+    (project_dir / "config_providers.json").write_text(json.dumps({
+        "layer_1_provider": "aws",
+        "layer_2_provider": "google",
+        "layer_4_provider": "none",
+    }))
+    (project_dir / "config_credentials.json").write_text(json.dumps({
+        "aws": {"aws_access_key_id": "key"},
+    }))
+    (project_dir / "deployment_manifest.json").write_text(json.dumps({
+        "manifest_version": "1.0",
+        "twin": {"resource_name": "factory"},
+    }))
+
+    bundle = ProjectConfigLoader(ProjectStorage(tmp_path)).load_bundle("factory")
+
+    assert bundle.project_name == "factory"
+    assert bundle.project_path == project_dir
+    assert bundle.config.providers["layer_2_provider"] == "gcp"
+    assert bundle.credentials["aws"]["aws_access_key_id"] == "key"
+    assert bundle.deployment_manifest["manifest_version"] == "1.0"

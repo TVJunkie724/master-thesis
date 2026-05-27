@@ -4,6 +4,7 @@ import json
 import pytest
 
 import core.factory as factory
+import core.config_loader as config_loader
 from core.factory import get_upload_path
 from src.core.paths import (
     resolve_deployment_paths,
@@ -11,6 +12,7 @@ from src.core.paths import (
     resolve_template_paths,
     resolve_template_project_path,
 )
+from src.core.project_storage import ProjectStorage
 
 
 def test_resolve_deployment_paths_uses_single_project_root():
@@ -77,7 +79,7 @@ def test_create_context_uses_project_context_resolver_for_template(tmp_path, mon
         "layer_4_provider": "none",
     }))
 
-    monkeypatch.setattr(factory, "resolve_project_context_path", lambda project_name: template_path)
+    monkeypatch.setattr(config_loader, "get_project_storage", lambda: ProjectStorage(tmp_path))
 
     context = factory.create_context("template")
 
@@ -107,7 +109,7 @@ def test_create_context_loads_deployment_manifest(tmp_path, monkeypatch):
         "twin": {"resource_name": "factory"},
     }))
 
-    monkeypatch.setattr(factory, "resolve_project_context_path", lambda project_name: project_path)
+    monkeypatch.setattr(config_loader, "get_project_storage", lambda: ProjectStorage(tmp_path))
 
     context = factory.create_context("factory")
 
@@ -132,7 +134,7 @@ def test_create_context_carries_request_metadata(tmp_path, monkeypatch):
         "layer_4_provider": "none",
     }))
 
-    monkeypatch.setattr(factory, "resolve_project_context_path", lambda project_name: project_path)
+    monkeypatch.setattr(config_loader, "get_project_storage", lambda: ProjectStorage(tmp_path))
 
     context = factory.create_context("factory", "aws", operation_id="op-123")
 
@@ -161,7 +163,7 @@ def test_create_context_rejects_manifest_project_name_drift(tmp_path, monkeypatc
         "twin": {"resource_name": "other"},
     }))
 
-    monkeypatch.setattr(factory, "resolve_project_context_path", lambda project_name: project_path)
+    monkeypatch.setattr(config_loader, "get_project_storage", lambda: ProjectStorage(tmp_path))
 
     with pytest.raises(ValueError, match="resource_name does not match"):
         factory.create_context("factory")
