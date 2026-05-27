@@ -24,11 +24,9 @@ from typing import Dict, Any, Optional, List
 from fastapi import APIRouter, HTTPException, Query
 
 import constants as CONSTANTS
-import src.core.state as state
 import src.validator as validator
 from src.core.paths import resolve_project_context_path
 from src.tfvars_generator import generate_tfvars
-from api.dependencies import validate_project_context
 from logger import print_stack_trace, logger
 from api.error_models import ERROR_RESPONSES
 

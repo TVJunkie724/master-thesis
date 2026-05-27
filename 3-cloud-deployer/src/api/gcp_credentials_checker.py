@@ -474,31 +474,39 @@ def check_gcp_credentials_from_config(project_name: Optional[str] = None) -> dic
     Validate credentials from the project's config_credentials.json.
     
     Args:
-        project_name: Optional project name. Uses active project if not specified.
+        project_name: Project name to read. Required; no global active project fallback.
     
     Returns:
         Same format as check_gcp_credentials()
     """
     try:
-        import src.core.state as state
-        from src.core.paths import resolve_project_context_path
+        from src.core.project_storage import get_project_storage
+
+        if not project_name:
+            return {
+                "status": "error",
+                "message": "Project name is required for request-scoped credential checks.",
+                "caller_identity": None,
+                "project_access": None,
+                "api_status": None,
+                "required_roles": REQUIRED_GCP_ROLES,
+                "project_name": None,
+            }
+
+        storage = get_project_storage()
         
         # Determine project path
-        if project_name:
-            project_dir = resolve_project_context_path(project_name)
-            if not os.path.exists(project_dir):
-                return {
-                    "status": "error",
-                    "message": f"Invalid project: Project '{project_name}' does not exist.",
-                    "caller_identity": None,
-                    "project_access": None,
-                    "api_status": None,
-                    "required_roles": REQUIRED_GCP_ROLES,
-                    "project_name": project_name
-                }
-        else:
-            project_name = state.get_active_project()
-            project_dir = resolve_project_context_path(project_name)
+        project_dir = storage.context(project_name).project_path
+        if not project_dir.exists():
+            return {
+                "status": "error",
+                "message": f"Invalid project: Project '{project_name}' does not exist.",
+                "caller_identity": None,
+                "project_access": None,
+                "api_status": None,
+                "required_roles": REQUIRED_GCP_ROLES,
+                "project_name": project_name
+            }
         
         # Load credentials from config
         config_path = project_dir / "config_credentials.json"

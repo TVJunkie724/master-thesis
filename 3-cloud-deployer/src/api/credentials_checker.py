@@ -798,34 +798,43 @@ def check_aws_credentials_from_config(project_name: str = None) -> dict:
     Validate credentials from the project's config_credentials.json.
     
     Args:
-        project_name: Optional project name. Uses active project if not specified.
+        project_name: Project name to read. Required; no global active project fallback.
     
     Returns:
         Same format as check_aws_credentials()
     """
     try:
-        import src.core.state as state
-        from src.core.paths import resolve_project_context_path
+        from src.core.project_storage import get_project_storage
+
+        if not project_name:
+            return {
+                "status": "error",
+                "message": "Project name is required for request-scoped credential checks.",
+                "caller_identity": None,
+                "can_list_policies": False,
+                "missing_check_permission": None,
+                "by_layer": {},
+                "by_service": {},
+                "summary": {"total_required": 0, "valid": 0, "missing": 0},
+                "project_name": None,
+            }
+
+        storage = get_project_storage()
         
         # Determine project path
-        if project_name:
-            # Validate project exists
-            project_dir = resolve_project_context_path(project_name)
-            if not os.path.exists(project_dir):
-                return {
-                    "status": "error",
-                    "message": f"Invalid project: Project '{project_name}' does not exist.",
-                    "caller_identity": None,
-                    "can_list_policies": False,
-                    "missing_check_permission": None,
-                    "by_layer": {},
-                    "by_service": {},
-                    "summary": {"total_required": 0, "valid": 0, "missing": 0},
-                    "project_name": project_name
-                }
-        else:
-            project_name = state.get_active_project()
-            project_dir = resolve_project_context_path(project_name)
+        project_dir = storage.context(project_name).project_path
+        if not project_dir.exists():
+            return {
+                "status": "error",
+                "message": f"Invalid project: Project '{project_name}' does not exist.",
+                "caller_identity": None,
+                "can_list_policies": False,
+                "missing_check_permission": None,
+                "by_layer": {},
+                "by_service": {},
+                "summary": {"total_required": 0, "valid": 0, "missing": 0},
+                "project_name": project_name
+            }
 
         # Load credentials from config
         config_path = project_dir / "config_credentials.json"

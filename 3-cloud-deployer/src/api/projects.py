@@ -27,8 +27,6 @@ from api.utils import extract_file_content
 from api.functions import invalidate_function_cache, clear_all_hash_metadata
 from api.error_models import ERROR_RESPONSES
 
-import src.core.state as state
-
 router = APIRouter()
 
 
@@ -86,7 +84,7 @@ def list_projects():
             
             projects.append(project_info)
         
-        return {"projects": projects, "active_project": state.get_active_project()}
+        return {"projects": projects, "active_project": None}
     except Exception as e:
         logger.error(str(e))
         raise HTTPException(status_code=500, detail="Internal server error. Check logs.")
@@ -608,10 +606,6 @@ def delete_project_endpoint(project_name: str):
     check_template_protection(project_name, "delete")
     
     try:
-        # Check if active project and reset to default if needed
-        if state.get_active_project() == project_name:
-            state.reset_state()
-        
         file_manager.delete_project(project_name)
         return {"message": f"Project '{project_name}' deleted successfully."}
     except ValueError as e:

@@ -302,52 +302,40 @@ class TestAzureCredentialsFromConfig:
     """Tests for loading credentials from project config."""
 
     @patch('api.azure_credentials_checker.check_azure_credentials')
-    @patch('src.core.state.get_active_project')
-    @patch('src.core.state.get_project_upload_path')
-    @patch('builtins.open')
-    @patch('os.path.exists')
-    def test_from_config_with_project_name(self, mock_exists, mock_open, mock_upload, mock_active, mock_check):
+    def test_from_config_with_project_name(self, mock_check, tmp_path):
         """Test loading credentials from specific project."""
         from api.azure_credentials_checker import check_azure_credentials_from_config
-        
-        mock_exists.return_value = True
-        mock_upload.return_value = "/app/upload"
-        mock_open.return_value.__enter__.return_value.read.return_value = json.dumps({
+        project_dir = tmp_path / "my-project"
+        project_dir.mkdir()
+        (project_dir / "config_credentials.json").write_text(json.dumps({
             "azure": {
                 "azure_subscription_id": "sub-123",
                 "azure_tenant_id": "tenant-123",
                 "azure_client_id": "client-123",
                 "azure_client_secret": "secret-123"
             }
-        })
+        }))
+        storage = MagicMock()
+        storage.context.return_value.project_path = project_dir
         mock_check.return_value = {"status": "valid"}
         
-        result = check_azure_credentials_from_config("my-project")
+        with patch("src.core.project_storage.get_project_storage", return_value=storage):
+            result = check_azure_credentials_from_config("my-project")
         
         mock_check.assert_called_once()
         assert result["project_name"] == "my-project"
 
-    @patch('src.core.state.get_active_project')
-    @patch('src.core.state.get_project_upload_path')
-    @patch('os.path.exists')
-    def test_from_config_missing_azure_section(self, mock_exists, mock_upload, mock_active):
+    def test_from_config_missing_azure_section(self, tmp_path):
         """Test error when Azure section missing from config."""
         from api.azure_credentials_checker import check_azure_credentials_from_config
-        import builtins
-        
-        mock_exists.return_value = True
-        mock_upload.return_value = "/app/upload"
-        mock_active.return_value = "test-project"
-        
-        with patch.object(builtins, 'open', MagicMock(
-            return_value=MagicMock(
-                __enter__=MagicMock(return_value=MagicMock(
-                    read=MagicMock(return_value='{"aws": {}}')
-                )),
-                __exit__=MagicMock(return_value=False)
-            )
-        )):
-            result = check_azure_credentials_from_config()
+        project_dir = tmp_path / "test-project"
+        project_dir.mkdir()
+        (project_dir / "config_credentials.json").write_text('{"aws": {}}')
+        storage = MagicMock()
+        storage.context.return_value.project_path = project_dir
+
+        with patch("src.core.project_storage.get_project_storage", return_value=storage):
+            result = check_azure_credentials_from_config("test-project")
         
         assert result["status"] == "error"
         assert "No Azure credentials" in result["message"]

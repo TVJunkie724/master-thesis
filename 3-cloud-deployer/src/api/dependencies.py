@@ -7,8 +7,6 @@ from typing import Optional
 from fastapi import HTTPException
 from pydantic import BaseModel
 
-import src.core.state as state
-
 
 class Base64FileRequest(BaseModel):
     file_base64: str
@@ -48,14 +46,6 @@ def check_template_protection(project_name: str, operation: str = "modify"):
             detail=f"Cannot {operation} the 'template' project. It is a protected system folder."
         )
 
-
-def validate_project_context(project_name: str):
-    """
-    Validates that the requested project name matches the active project.
-    """
-    current_project = state.get_active_project()
-    if project_name != current_project:
-         raise HTTPException(status_code=409, detail=f"SAFETY ERROR: Requested project '{project_name}' does not match active project '{current_project}'. Please switch active project first.")
 
 VALID_PROVIDERS = {"aws", "azure", "google", "gcp"}
 PROVIDER_ALIASES = {"google": "gcp"}

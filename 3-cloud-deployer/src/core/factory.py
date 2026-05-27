@@ -22,7 +22,12 @@ def get_upload_path(project_name: str) -> Path:
     """Get the upload path for a project."""
     return resolve_deployment_paths(project_name).project_path
 
-def create_context(project_name: str, provider_name: str = None) -> DeploymentContext:
+def create_context(
+    project_name: str,
+    provider_name: str = None,
+    *,
+    operation_id: str | None = None,
+) -> DeploymentContext:
     """
     Create a lightweight DeploymentContext for a project.
     
@@ -34,6 +39,7 @@ def create_context(project_name: str, provider_name: str = None) -> DeploymentCo
     Args:
         project_name: Name of the project
         provider_name: Optional (unused, kept for API compatibility)
+        operation_id: Optional request/deployment correlation id
         
     Returns:
         DeploymentContext with config loaded but providers not yet initialized
@@ -48,6 +54,8 @@ def create_context(project_name: str, provider_name: str = None) -> DeploymentCo
     context = DeploymentContext(
         project_name=project_name,
         project_path=project_path,
+        operation_id=operation_id,
+        requested_provider=provider_name,
         config=config,
         deployment_manifest=deployment_manifest,
     )

@@ -26,7 +26,6 @@ from sse_starlette.sse import EventSourceResponse
 from api.error_models import ERROR_RESPONSES
 from logger import logger
 import constants as CONSTANTS
-import src.core.state as state
 from src.core.config_loader import load_credentials
 from src.core.paths import resolve_project_context_path
 

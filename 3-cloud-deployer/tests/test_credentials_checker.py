@@ -5,6 +5,7 @@ Tests the permission checking logic with mocked AWS responses.
 """
 import pytest
 from unittest.mock import Mock, patch, MagicMock
+import json
 import sys
 import os
 
@@ -449,57 +450,54 @@ class TestSelfCheckPermissions:
 class TestCheckAWSCredentialsFromConfig:
     """Tests for loading credentials from config."""
     
-    @patch("src.api.credentials_checker.os.path.exists")
-    @patch("src.core.state.get_project_upload_path")
-    def test_project_not_found(self, mock_get_path, mock_exists):
+    def test_project_not_found(self, tmp_path):
         """Test validation when project doesn't exist."""
-        mock_get_path.return_value = "/tmp/upload"
-        mock_exists.return_value = False
-        
-        result = check_aws_credentials_from_config("nonexistent_project")
+        storage = MagicMock()
+        storage.context.return_value.project_path = tmp_path / "missing"
+
+        with patch("src.core.project_storage.get_project_storage", return_value=storage):
+            result = check_aws_credentials_from_config("nonexistent_project")
         
         assert result["status"] == "error"
         assert "Invalid project" in result["message"]
 
     @patch("src.api.credentials_checker.check_aws_credentials")
-    @patch("builtins.open", new_callable=MagicMock)
-    @patch("src.api.credentials_checker.os.path.exists")
-    @patch("src.core.state.get_active_project")
-    @patch("src.core.state.get_project_upload_path")
-    def test_success_from_active_project(self, mock_get_path, mock_get_active, mock_exists, mock_open, mock_check):
-        """Test successful loading from active project."""
-        mock_get_path.return_value = "/tmp/upload"
-        mock_get_active.return_value = "my_project"
-        mock_exists.return_value = True # Both project dir and config file exist
+    def test_success_from_project_name(self, mock_check, tmp_path):
+        """Test successful loading from explicit request project."""
+        project_dir = tmp_path / "my_project"
+        project_dir.mkdir()
+        (project_dir / "config_credentials.json").write_text(json.dumps({
+            "aws": {"aws_access_key_id": "key", "aws_secret_access_key": "secret"}
+        }))
+        storage = MagicMock()
+        storage.context.return_value.project_path = project_dir
+        mock_check.return_value = {"status": "valid"}
+
+        with patch("src.core.project_storage.get_project_storage", return_value=storage):
+            result = check_aws_credentials_from_config("my_project")
         
-        # Mock file content
-        mock_file = MagicMock()
-        mock_file.__enter__.return_value.read.return_value = '{"aws": {"aws_access_key_id": "key", "aws_secret_access_key": "secret"}}'
-        # Fix json.load to use read data or just mock json.load? 
-        # Easier to mock mock_open properly or patch json.load.
-        # Let's patch json.load to be safe and simple
-        with patch("json.load") as mock_json_load:
-            mock_json_load.return_value = {"aws": {"aws_access_key_id": "key", "aws_secret_access_key": "secret"}}
-            mock_check.return_value = {"status": "valid"}
+        assert result["status"] == "valid"
+        mock_check.assert_called_once()
 
-            result = check_aws_credentials_from_config() # Uses active project
-            
-            assert result["status"] == "valid"
-            mock_check.assert_called_once()  
-
-    @patch("src.api.credentials_checker.os.path.exists")
-    @patch("src.core.state.get_active_project")
-    @patch("src.core.state.get_project_upload_path")
-    def test_config_file_missing(self, mock_get_path, mock_get_active, mock_exists):
+    def test_config_file_missing(self, tmp_path):
         """Test when config file is missing."""
-        mock_get_path.return_value = "/tmp/upload"
-        mock_get_active.return_value = "my_project"
-        mock_exists.return_value = False
-        
-        result = check_aws_credentials_from_config()
+        project_dir = tmp_path / "my_project"
+        project_dir.mkdir()
+        storage = MagicMock()
+        storage.context.return_value.project_path = project_dir
+
+        with patch("src.core.project_storage.get_project_storage", return_value=storage):
+            result = check_aws_credentials_from_config("my_project")
         
         assert result["status"] == "error"
         assert "No config_credentials.json" in result["message"]
+
+    def test_missing_project_name_rejected(self):
+        """Project credential checks are request-scoped."""
+        result = check_aws_credentials_from_config()
+
+        assert result["status"] == "error"
+        assert "Project name is required" in result["message"]
 
 
 class TestSessionTokenSupport:
@@ -706,4 +704,3 @@ class TestAWSAccountStatusCheck:
         assert result["status"] == "valid"
         assert result["account_status"]["status"] == "skipped"
         assert "No permission" in result["account_status"]["reason"]
-

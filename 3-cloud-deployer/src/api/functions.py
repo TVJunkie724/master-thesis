@@ -38,8 +38,7 @@ from fastapi.responses import StreamingResponse
 from api.error_models import ERROR_RESPONSES
 
 import constants as CONSTANTS
-import src.core.state as state
-from api.dependencies import validate_project_context, check_template_protection
+from api.dependencies import check_template_protection
 from src.core.paths import resolve_project_context_path
 from logger import logger
 

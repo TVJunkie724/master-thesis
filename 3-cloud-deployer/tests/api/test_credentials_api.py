@@ -116,15 +116,15 @@ class TestAWSPermissionsFromConfig:
         
         assert response.status_code in [200, 404, 500]
 
-    @patch("api.credentials_checker.check_aws_credentials_from_config")
-    def test_aws_check_no_project_uses_active(self, mock_check, monkeypatch):
-        """Edge: No project specified uses active project."""
+    def test_aws_check_no_project_is_request_scoped(self, monkeypatch):
+        """Edge: No project specified no longer falls back to global active state."""
         monkeypatch.setenv("ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS", "true")
-        mock_check.return_value = {"status": "valid", "by_service": {}, "summary": {}}
         
         response = client.get("/permissions/verify/aws")
         
-        assert response.status_code in [200, 404, 500]
+        assert response.status_code == 200
+        assert response.json()["status"] == "error"
+        assert "Project name is required" in response.json()["message"]
 
 
 # ==========================================

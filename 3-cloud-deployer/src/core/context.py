@@ -190,6 +190,8 @@ class DeploymentContext:
     
     # Parsed configuration (from load_project_config)
     config: ProjectConfig
+    operation_id: Optional[str] = None
+    requested_provider: Optional[str] = None
     
     # Initialized provider instances, keyed by provider name
     # e.g., {"aws": AWSProvider(), "azure": AzureProvider()}

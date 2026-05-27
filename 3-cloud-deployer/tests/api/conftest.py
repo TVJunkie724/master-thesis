@@ -7,7 +7,7 @@ import pytest
 import os
 import shutil
 
-import src.core.state as state
+from src.core.paths import get_upload_root
 
 
 # Test project prefixes that will be cleaned up automatically
@@ -22,11 +22,8 @@ def cleanup_test_projects():
     This fixture runs for EVERY test in tests/api/ directory.
     It removes any folders in the upload directory that start with test prefixes.
     """
-    # Reset state before test
-    state.reset_state()
-    
     # Get upload path
-    upload_path = state.get_project_upload_path()
+    upload_path = os.fspath(get_upload_root())
     
     def cleanup():
         """Remove all test-prefixed project folders."""
@@ -45,6 +42,4 @@ def cleanup_test_projects():
     
     yield
     
-    # Cleanup after test
-    state.reset_state()
     cleanup()

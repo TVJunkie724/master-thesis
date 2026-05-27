@@ -180,7 +180,7 @@ async def preflight_aws_from_body(request: AWSCredentialsRequest):
         "**Purpose:** Debug/local-cloud only. Verifies AWS credentials from project's config_credentials.json.\n\n"
         "**Gate:** Disabled unless `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` is set.\n\n"
         "**When to call:** To re-verify deployed project credentials.\n\n"
-        "**Query param:** project (optional) - uses active project if not specified."
+        "**Query param:** project (required) - project context to read."
     ),
     responses={
         200: {"description": "Credential validation completed (check status field)"},
@@ -192,7 +192,7 @@ async def preflight_aws_from_body(request: AWSCredentialsRequest):
 async def check_aws_from_config(
     project: Optional[str] = Query(
         None, 
-        description="Project name to load credentials from. Uses active project if not specified."
+        description="Project name to load credentials from."
     )
 ):
     """
@@ -201,7 +201,7 @@ async def check_aws_from_config(
     Reads the AWS credentials from the specified project's configuration file
     and validates them against all required permissions.
     
-    If no project is specified, uses the currently active project.
+    A project is required because credential checks are request-scoped.
     """
     _require_local_credential_file_checks_enabled()
     return check_aws_credentials_from_config(project)
@@ -280,7 +280,7 @@ async def preflight_azure_from_body(request: AzureCredentialsRequest):
         "**Purpose:** Debug/local-cloud only. Verifies Azure credentials from project's config_credentials.json.\n\n"
         "**Gate:** Disabled unless `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` is set.\n\n"
         "**When to call:** To re-verify deployed project credentials.\n\n"
-        "**Query param:** project (optional) - uses active project if not specified."
+        "**Query param:** project (required) - project context to read."
     ),
     responses={
         200: {"description": "Credential validation completed (check status field)"},
@@ -292,7 +292,7 @@ async def preflight_azure_from_body(request: AzureCredentialsRequest):
 async def check_azure_from_config(
     project: Optional[str] = Query(
         None, 
-        description="Project name to load credentials from. Uses active project if not specified."
+        description="Project name to load credentials from."
     )
 ):
     """
@@ -301,7 +301,7 @@ async def check_azure_from_config(
     Reads the Azure credentials from the specified project's configuration file
     and validates them against required RBAC role assignments.
     
-    If no project is specified, uses the currently active project.
+    A project is required because credential checks are request-scoped.
     """
     _require_local_credential_file_checks_enabled()
     return check_azure_credentials_from_config(project)
@@ -379,7 +379,7 @@ async def preflight_gcp_from_body(request: GCPCredentialsRequest):
         "**Purpose:** Debug/local-cloud only. Verifies GCP credentials from project's config_credentials.json.\n\n"
         "**Gate:** Disabled unless `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` is set.\n\n"
         "**When to call:** To re-verify deployed project credentials.\n\n"
-        "**Query param:** project (optional) - uses active project if not specified."
+        "**Query param:** project (required) - project context to read."
     ),
     responses={
         200: {"description": "Credential validation completed (check status field)"},
@@ -391,7 +391,7 @@ async def preflight_gcp_from_body(request: GCPCredentialsRequest):
 async def check_gcp_from_config(
     project: Optional[str] = Query(
         None, 
-        description="Project name to load credentials from. Uses active project if not specified."
+        description="Project name to load credentials from."
     )
 ):
     """
@@ -400,7 +400,7 @@ async def check_gcp_from_config(
     Reads the GCP credentials from the specified project's configuration file
     and validates them against required permissions.
     
-    If no project is specified, uses the currently active project.
+    A project is required because credential checks are request-scoped.
     """
     _require_local_credential_file_checks_enabled()
     return check_gcp_credentials_from_config(project)

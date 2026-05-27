@@ -16,15 +16,20 @@ from src.api import deployment
 from src.api.dependencies import validate_provider
 
 
+def _project_storage_for(project_path: str | Path):
+    storage = MagicMock(name="project_storage")
+    storage.context.return_value.project_path = Path(project_path)
+    return storage
+
+
 def test_deploy_route_invokes_canonical_facade_with_hard_response_shape():
     context = MagicMock(name="deployment_context")
     outputs = {"aws_lambda_dispatcher_name": {"value": "test-dispatcher"}}
 
     with (
         patch.object(deployment, "check_template_protection") as mock_template_guard,
-        patch.object(deployment, "validate_project_context") as mock_project_guard,
         patch.object(deployment, "validate_provider", return_value="aws") as mock_validate_provider,
-        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project") as mock_resolve_path,
+        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")) as mock_storage,
         patch.object(deployment, "validate_project_directory") as mock_validate_directory,
         patch.object(deployment, "create_context", return_value=context) as mock_create_context,
         patch.object(deployment.core_deployer, "deploy_all", return_value=outputs) as mock_deploy_all,
@@ -32,13 +37,16 @@ def test_deploy_route_invokes_canonical_facade_with_hard_response_shape():
         response = deployment.deploy_all(provider="aws", project_name="test_api_project")
 
     mock_template_guard.assert_called_once_with("test_api_project", "deploy")
-    mock_project_guard.assert_called_once_with("test_api_project")
     mock_validate_provider.assert_called_once_with("aws")
-    mock_resolve_path.assert_called_once_with("test_api_project")
-    mock_validate_directory.assert_called_once_with("/projects/test_api_project")
-    mock_create_context.assert_called_once_with("test_api_project", "aws")
+    mock_storage.return_value.context.assert_called_once_with("test_api_project")
+    mock_validate_directory.assert_called_once_with(Path("/projects/test_api_project"))
     assert mock_deploy_all.call_args.args == (context, "aws")
     operation_context = mock_deploy_all.call_args.kwargs["operation_context"]
+    mock_create_context.assert_called_once_with(
+        "test_api_project",
+        "aws",
+        operation_id=operation_context.operation_id,
+    )
     assert operation_context.operation == "deploy"
     assert operation_context.project_name == "test_api_project"
     assert operation_context.provider == "aws"
@@ -60,9 +68,8 @@ def test_destroy_route_invokes_canonical_facade_with_hard_response_shape():
 
     with (
         patch.object(deployment, "check_template_protection") as mock_template_guard,
-        patch.object(deployment, "validate_project_context") as mock_project_guard,
         patch.object(deployment, "validate_provider", return_value="aws") as mock_validate_provider,
-        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project") as mock_resolve_path,
+        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")) as mock_storage,
         patch.object(deployment, "validate_project_directory") as mock_validate_directory,
         patch.object(deployment, "create_context", return_value=context) as mock_create_context,
         patch.object(deployment.core_deployer, "destroy_all") as mock_destroy_all,
@@ -70,13 +77,16 @@ def test_destroy_route_invokes_canonical_facade_with_hard_response_shape():
         response = deployment.destroy_all(provider="aws", project_name="test_api_project")
 
     mock_template_guard.assert_called_once_with("test_api_project", "destroy")
-    mock_project_guard.assert_called_once_with("test_api_project")
     mock_validate_provider.assert_called_once_with("aws")
-    mock_resolve_path.assert_called_once_with("test_api_project")
-    mock_validate_directory.assert_called_once_with("/projects/test_api_project")
-    mock_create_context.assert_called_once_with("test_api_project", "aws")
+    mock_storage.return_value.context.assert_called_once_with("test_api_project")
+    mock_validate_directory.assert_called_once_with(Path("/projects/test_api_project"))
     assert mock_destroy_all.call_args.args == (context, "aws")
     operation_context = mock_destroy_all.call_args.kwargs["operation_context"]
+    mock_create_context.assert_called_once_with(
+        "test_api_project",
+        "aws",
+        operation_id=operation_context.operation_id,
+    )
     assert operation_context.operation == "destroy"
     assert operation_context.project_name == "test_api_project"
     assert operation_context.provider == "aws"
@@ -132,9 +142,8 @@ def test_deploy_stream_uses_canonical_facade_and_preserves_event_shape():
 
     with (
         patch.object(deployment, "check_template_protection"),
-        patch.object(deployment, "validate_project_context"),
         patch.object(deployment, "validate_provider", return_value="aws"),
-        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
         patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context),
         patch.object(deployment.core_deployer, "deploy_all_stream", new=_fake_deploy_stream),
@@ -155,9 +164,8 @@ def test_deploy_stream_redacts_workspace_paths_in_failure_event():
 
     with (
         patch.object(deployment, "check_template_protection"),
-        patch.object(deployment, "validate_project_context"),
         patch.object(deployment, "validate_provider", return_value="aws"),
-        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
         patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context),
         patch.object(deployment.core_deployer, "deploy_all_stream", new=_fake_failing_deploy_stream),
@@ -176,9 +184,8 @@ def test_destroy_stream_uses_canonical_facade_and_preserves_event_shape():
 
     with (
         patch.object(deployment, "check_template_protection"),
-        patch.object(deployment, "validate_project_context"),
         patch.object(deployment, "validate_provider", return_value="aws"),
-        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
         patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context),
         patch.object(deployment.core_deployer, "destroy_all_stream", new=_fake_destroy_stream),
@@ -198,9 +205,8 @@ def test_destroy_stream_failure_uses_typed_safe_error_event():
 
     with (
         patch.object(deployment, "check_template_protection"),
-        patch.object(deployment, "validate_project_context"),
         patch.object(deployment, "validate_provider", return_value="aws"),
-        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
         patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context),
         patch.object(deployment.core_deployer, "destroy_all_stream", new=_fake_failing_destroy_stream),
@@ -218,15 +224,19 @@ def test_google_provider_alias_is_normalized_to_gcp_in_deploy_response():
 
     with (
         patch.object(deployment, "check_template_protection"),
-        patch.object(deployment, "validate_project_context"),
-        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
         patch.object(deployment, "validate_project_directory"),
         patch.object(deployment, "create_context", return_value=context) as mock_create_context,
         patch.object(deployment.core_deployer, "deploy_all", return_value={}) as mock_deploy_all,
     ):
         response = deployment.deploy_all(provider="google", project_name="test_api_project")
 
-    mock_create_context.assert_called_once_with("test_api_project", "gcp")
+    operation_context = mock_deploy_all.call_args.kwargs["operation_context"]
+    mock_create_context.assert_called_once_with(
+        "test_api_project",
+        "gcp",
+        operation_id=operation_context.operation_id,
+    )
     assert mock_deploy_all.call_args.args == (context, "gcp")
     assert mock_deploy_all.call_args.kwargs["operation_context"].provider == "gcp"
     assert response["provider"] == "gcp"
@@ -240,22 +250,20 @@ def test_validate_provider_rejects_unknown_provider_with_stable_400():
     assert exc_info.value.detail == "Invalid provider 'oracle'. Valid providers are: aws, azure, gcp, google"
 
 
-def test_active_project_mismatch_uses_structured_conflict_response():
+def test_request_scoped_project_does_not_require_active_project_match():
+    context = MagicMock(name="deployment_context")
     with (
         patch.object(deployment, "check_template_protection"),
-        patch.object(
-            deployment,
-            "validate_project_context",
-            side_effect=HTTPException(status_code=409, detail="project mismatch"),
-        ),
+        patch.object(deployment, "validate_provider", return_value="aws"),
+        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/requested")),
+        patch.object(deployment, "validate_project_directory"),
+        patch.object(deployment, "create_context", return_value=context),
+        patch.object(deployment.core_deployer, "deploy_all", return_value={}) as mock_deploy_all,
     ):
-        with pytest.raises(HTTPException) as exc_info:
-            deployment.deploy_all(provider="aws", project_name="test_api_project")
+        response = deployment.deploy_all(provider="aws", project_name="requested")
 
-    assert exc_info.value.status_code == 409
-    assert exc_info.value.detail["error_code"] == "VALIDATION_ERROR"
-    assert exc_info.value.detail["message"] == "project mismatch"
-    assert exc_info.value.detail["operation_id"]
+    assert response["project_name"] == "requested"
+    assert mock_deploy_all.call_args.args == (context, "aws")
 
 
 def test_request_boundary_http_error_redacts_detail():
@@ -268,7 +276,6 @@ def test_request_boundary_http_error_redacts_detail():
                 detail="blocked project /app/upload/template client_secret=super-secret",
             ),
         ),
-        patch.object(deployment, "validate_project_context") as mock_project_guard,
     ):
         with pytest.raises(HTTPException) as exc_info:
             deployment.deploy_all(provider="aws", project_name="template")
@@ -279,14 +286,12 @@ def test_request_boundary_http_error_redacts_detail():
     assert "super-secret" not in exc_info.value.detail["message"]
     assert "/app/upload/template" not in exc_info.value.detail["message"]
     assert exc_info.value.detail["operation_id"]
-    mock_project_guard.assert_not_called()
 
 
 def test_directory_validation_failure_maps_to_400_before_deploy():
     with (
         patch.object(deployment, "check_template_protection"),
-        patch.object(deployment, "validate_project_context"),
-        patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
         patch.object(
             deployment,
             "validate_project_directory",
@@ -302,7 +307,7 @@ def test_directory_validation_failure_maps_to_400_before_deploy():
     assert exc_info.value.detail["error_code"] == "VALIDATION_ERROR"
     assert "deployment_manifest.json package.files mismatch" in exc_info.value.detail["message"]
     assert exc_info.value.detail["operation_id"]
-    mock_validate_directory.assert_called_once_with("/projects/test_api_project")
+    mock_validate_directory.assert_called_once_with(Path("/projects/test_api_project"))
     mock_create_context.assert_not_called()
     mock_deploy_all.assert_not_called()
 
@@ -310,8 +315,7 @@ def test_directory_validation_failure_maps_to_400_before_deploy():
 def test_directory_validation_error_redacts_runtime_project_paths():
     with (
         patch.object(deployment, "check_template_protection"),
-        patch.object(deployment, "validate_project_context"),
-        patch.object(deployment, "resolve_project_context_path", return_value="/app/upload/test_api_project"),
+        patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/app/upload/test_api_project")),
         patch.object(
             deployment,
             "validate_project_directory",
@@ -333,8 +337,7 @@ def test_facade_failure_maps_to_500_without_leaking_exception_detail(caplog):
     with caplog.at_level("ERROR", logger="digital_twin"):
         with (
             patch.object(deployment, "check_template_protection"),
-            patch.object(deployment, "validate_project_context"),
-            patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+            patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
             patch.object(deployment, "validate_project_directory"),
             patch.object(deployment, "create_context", return_value=MagicMock()),
             patch.object(deployment.core_deployer, "deploy_all", side_effect=RuntimeError("secret stack detail")),
@@ -354,8 +357,7 @@ def test_destroy_facade_failure_maps_to_destruction_error_without_leaking_detail
     with caplog.at_level("ERROR", logger="digital_twin"):
         with (
             patch.object(deployment, "check_template_protection"),
-            patch.object(deployment, "validate_project_context"),
-            patch.object(deployment, "resolve_project_context_path", return_value="/projects/test_api_project"),
+            patch.object(deployment, "get_project_storage", return_value=_project_storage_for("/projects/test_api_project")),
             patch.object(deployment, "validate_project_directory"),
             patch.object(deployment, "create_context", return_value=MagicMock()),
             patch.object(deployment.core_deployer, "destroy_all", side_effect=RuntimeError("client_secret=super-secret")),

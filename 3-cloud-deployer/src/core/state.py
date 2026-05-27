@@ -1,41 +1,8 @@
 
-"""
-Global State Management
+"""Legacy path helpers for Deployer compatibility shims."""
 
-This module manages the runtime state of the application.
-It handles:
-1. Active Project tracking
-2. Project Base Path resolution
-"""
 import os
-from logger import logger
 
-# Default values
-DEFAULT_PROJECT = "template"
-CURRENT_PROJECT = DEFAULT_PROJECT
-
-def get_active_project() -> str:
-    """Get the name of the currently active project."""
-    return CURRENT_PROJECT
-
-def set_active_project(project_name: str) -> None:
-    """
-    Set the active project.
-    Validates that the project directory exists.
-    """
-    global CURRENT_PROJECT
-    
-    # Validation logic to check if project exists
-    upload_path = get_project_upload_path()
-    project_dir = os.path.join(upload_path, project_name)
-    
-    if not os.path.exists(project_dir):
-        # Allow template to be set even if checks fail (bootstrapping)
-        if project_name != "template":
-            raise ValueError(f"Project '{project_name}' does not exist at {project_dir}")
-            
-    CURRENT_PROJECT = project_name
-    logger.info(f"Active project set to: {CURRENT_PROJECT}")
 
 def get_project_base_path() -> str:
     """
@@ -53,8 +20,3 @@ def get_project_base_path() -> str:
 def get_project_upload_path() -> str:
     """Get the path to the 'upload' directory."""
     return os.path.join(get_project_base_path(), "upload")
-
-def reset_state():
-    """Reset state to defaults (useful for tests)."""
-    global CURRENT_PROJECT
-    CURRENT_PROJECT = DEFAULT_PROJECT

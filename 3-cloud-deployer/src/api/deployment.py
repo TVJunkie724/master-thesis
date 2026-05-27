@@ -8,7 +8,7 @@ This module provides REST API endpoints for infrastructure operations.
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
-from api.dependencies import validate_project_context, validate_provider, check_template_protection
+from api.dependencies import validate_provider, check_template_protection
 from src.api.models.deployment import (
     DeploymentOperation,
     DeploymentRequest,
@@ -22,7 +22,7 @@ from src.core.deployment_errors import (
     client_error_payload,
 )
 from src.core.observability import OperationContext, operation_step
-from src.core.paths import resolve_project_context_path
+from src.core.project_storage import get_project_storage
 from src.validation.directory_validator import validate_project_directory
 from logger import logger
 
@@ -33,14 +33,22 @@ from src.core.factory import create_context
 router = APIRouter(prefix="/infrastructure")
 
 
-def _prepare_deployment_context(project_name: str, provider: str, operation: str):
+def _prepare_deployment_context(
+    project_name: str,
+    provider: str,
+    operation: str,
+    operation_context: OperationContext,
+):
     """Validate request boundaries and create the canonical DeploymentContext."""
     check_template_protection(project_name, operation)
-    validate_project_context(project_name)
     normalized_provider = validate_provider(provider)
-    project_dir = resolve_project_context_path(project_name)
+    project_dir = get_project_storage().context(project_name).project_path
     validate_project_directory(project_dir)
-    context = create_context(project_name, normalized_provider)
+    context = create_context(
+        project_name,
+        normalized_provider,
+        operation_id=operation_context.operation_id,
+    )
     return DeploymentRequest(project_name=project_name, provider=normalized_provider), context
 
 
@@ -156,7 +164,12 @@ def deploy_all(
     )
     try:
         with operation_step(logger, operation_context, "request_prepare"):
-            request, context = _prepare_deployment_context(project_name, provider, "deploy")
+            request, context = _prepare_deployment_context(
+                project_name,
+                provider,
+                "deploy",
+                operation_context,
+            )
         operation_context = operation_context.with_provider(request.provider)
         
         # TerraformDeployerStrategy handles validation + deployment
@@ -221,7 +234,12 @@ def destroy_all(
     )
     try:
         with operation_step(logger, operation_context, "request_prepare"):
-            request, context = _prepare_deployment_context(project_name, provider, "destroy")
+            request, context = _prepare_deployment_context(
+                project_name,
+                provider,
+                "destroy",
+                operation_context,
+            )
         operation_context = operation_context.with_provider(request.provider)
         
         # TerraformDeployerStrategy handles all destruction
@@ -283,7 +301,12 @@ async def deploy_stream(
     )
     try:
         with operation_step(logger, operation_context, "request_prepare"):
-            request, context = _prepare_deployment_context(project_name, provider, "deploy")
+            request, context = _prepare_deployment_context(
+                project_name,
+                provider,
+                "deploy",
+                operation_context,
+            )
         operation_context = operation_context.with_provider(request.provider)
         stream_outputs: dict = {}
         
@@ -366,7 +389,12 @@ async def destroy_stream(
     )
     try:
         with operation_step(logger, operation_context, "request_prepare"):
-            request, context = _prepare_deployment_context(project_name, provider, "destroy")
+            request, context = _prepare_deployment_context(
+                project_name,
+                provider,
+                "destroy",
+                operation_context,
+            )
         operation_context = operation_context.with_provider(request.provider)
         
         async def generate():

@@ -5,7 +5,6 @@ All config endpoints have been migrated to `/projects/{name}/config/{type}`.
 """
 
 from fastapi import APIRouter
-import src.core.state as state
 
 router = APIRouter()
 
@@ -26,4 +25,4 @@ def read_root():
     
     Returns API status and currently active project.
     """
-    return {"status": "API is running", "active_project": state.get_active_project()}
+    return {"status": "API is running", "active_project": None}
