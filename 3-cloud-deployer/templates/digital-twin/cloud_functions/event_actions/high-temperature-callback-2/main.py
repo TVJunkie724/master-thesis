@@ -14,5 +14,5 @@ def main(request):
     event = request.get_json()
     print("Hello from High Temperature Callback 2!")
     print("Event: " + json.dumps(event))
-    
+
     return (json.dumps({"statusCode": 200, "body": "Callback 2 executed"}), 200, {"Content-Type": "application/json"})

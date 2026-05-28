@@ -36,7 +36,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     """Handle high temperature callback with MQTT feedback."""
     event = req.get_json()
     logger.info("Received event: " + json.dumps(event))
-    
+
     # Callback logic 2
     detail = event.get("detail", {})
     if "action" in detail and "feedback" in detail["action"]:
@@ -45,7 +45,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         if feedback.get("type") == "mqtt":
             iot_id = feedback.get("iotDeviceId", "unknown")
             topic = f"dt-feedback-{iot_id}"  # Simplified topic logic
-            
+
             # Only attempt IoT Hub if registry manager is available
             registry_manager = _get_registry_manager()
             if registry_manager:
@@ -56,7 +56,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 )
             else:
                 logger.warning("IoT Hub connection not configured, skipping device message")
-    
+
     return func.HttpResponse(
         json.dumps({"statusCode": 200, "body": "Callback 2 executed"}),
         status_code=200,

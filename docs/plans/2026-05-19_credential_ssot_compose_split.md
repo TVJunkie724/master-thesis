@@ -1,8 +1,8 @@
 # Credential SSOT And Compose Split Implementation Plan
 
-**Date:** 2026-05-19  
-**GitHub issue:** [#6](https://github.com/TVJunkie724/master-thesis/issues/6)  
-**Roadmap phase:** Phase 4 - Runtime Credentials & Deployment State  
+**Date:** 2026-05-19
+**GitHub issue:** [#6](https://github.com/TVJunkie724/master-thesis/issues/6)
+**Roadmap phase:** Phase 4 - Runtime Credentials & Deployment State
 **Status:** Active
 
 ## 1. Goal

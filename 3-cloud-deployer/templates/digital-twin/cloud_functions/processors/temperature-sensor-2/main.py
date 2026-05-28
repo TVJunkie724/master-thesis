@@ -7,9 +7,9 @@ import functions_framework
 def main(request):
     """Process incoming IoT event."""
     event = request.get_json()
-    
+
     # === YOUR PROCESSING LOGIC HERE ===
     processed_event = event
     # ==================================
-    
+
     return json.dumps(processed_event), 200, {"Content-Type": "application/json"}

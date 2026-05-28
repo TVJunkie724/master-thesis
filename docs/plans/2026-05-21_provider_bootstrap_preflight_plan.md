@@ -1,8 +1,8 @@
 # Provider Bootstrap And Permission Preflight Plan
 
-**Date:** 2026-05-21  
-**GitHub issue:** [#7](https://github.com/TVJunkie724/master-thesis/issues/7)  
-**Roadmap phase:** Phase 4 - Runtime Credentials & Deployment State  
+**Date:** 2026-05-21
+**GitHub issue:** [#7](https://github.com/TVJunkie724/master-thesis/issues/7)
+**Roadmap phase:** Phase 4 - Runtime Credentials & Deployment State
 **Status:** Active
 
 ## 1. Goal

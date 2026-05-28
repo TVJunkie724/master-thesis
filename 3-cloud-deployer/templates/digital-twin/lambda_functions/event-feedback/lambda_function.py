@@ -16,7 +16,7 @@ client = boto3.client('iot-data')
 
 def lambda_handler(event, context):
     logger.info("Received event: " + json.dumps(event))
-    
+
     # Callback logic 2
     detail = event["detail"]
     if "action" in detail and "feedback" in detail["action"]:

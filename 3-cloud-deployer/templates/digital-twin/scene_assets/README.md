@@ -29,7 +29,7 @@ scene_assets/
 | **[model-viewer Editor](https://modelviewer.dev/editor/)** | Online | Free | Preview and tweak materials |
 | **[RauGen GLB Editor](https://raugen.com/editor/)** | Online | Free | Customize colors, textures, logos |
 
-**Recommended:** [Blender](https://www.blender.org/) is the industry standard for free 3D modeling. 
+**Recommended:** [Blender](https://www.blender.org/) is the industry standard for free 3D modeling.
 It can import/export GLB directly via File → Export → glTF 2.0.
 
 ### Scene Configuration Files

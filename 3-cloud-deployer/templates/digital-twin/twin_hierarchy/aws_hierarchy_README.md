@@ -4,7 +4,7 @@
 This file defines the entity and component structure for AWS IoT TwinMaker.
 
 ## Component Type ID Prefix
-**IMPORTANT:** The `componentTypeId` values in this file will be automatically 
+**IMPORTANT:** The `componentTypeId` values in this file will be automatically
 prefixed with `{digital_twin_name}-` at deployment time.
 
 For example, if your `config.json` has:

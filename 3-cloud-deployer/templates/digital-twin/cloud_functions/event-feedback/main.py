@@ -44,10 +44,10 @@ def main(request):
     """Handle high temperature callback with IoT Core command feedback."""
     event = request.get_json()
     logger.info("Received event: " + json.dumps(event))
-    
+
     # Get config lazily
     config = _get_config()
-    
+
     # Callback logic 2
     detail = event.get("detail", {})
     if "action" in detail and "feedback" in detail["action"]:
@@ -56,17 +56,17 @@ def main(request):
         if feedback.get("type") == "mqtt":
             iot_id = feedback.get("iotDeviceId", "unknown")
             topic = f"dt-feedback-{iot_id}"  # Simplified topic logic
-            
+
             # Only attempt IoT Core if config is present
             if config["project_id"] and config["region"] and config["registry_id"]:
                 client = _get_iot_client()
                 device_path = client.device_path(
-                    config["project_id"], 
-                    config["region"], 
-                    config["registry_id"], 
+                    config["project_id"],
+                    config["region"],
+                    config["registry_id"],
                     iot_id
                 )
-                
+
                 client.send_command_to_device(
                     request={
                         "name": device_path,
@@ -76,5 +76,5 @@ def main(request):
                 )
             else:
                 logger.warning("IoT Core config not set, skipping device command")
-    
+
     return (json.dumps({"statusCode": 200, "body": "Callback 2 executed"}), 200, {"Content-Type": "application/json"})

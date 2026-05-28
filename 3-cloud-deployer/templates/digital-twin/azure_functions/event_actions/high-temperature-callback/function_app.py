@@ -18,7 +18,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     event = req.get_json()
     print("Hello from High Temperature Callback!")
     print("Event: " + json.dumps(event))
-    
+
     return func.HttpResponse(
         json.dumps({"statusCode": 200, "body": "Callback executed"}),
         status_code=200,

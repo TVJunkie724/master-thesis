@@ -13,11 +13,11 @@ app = func.FunctionApp()
 def main(req: func.HttpRequest) -> func.HttpResponse:
     """Process incoming IoT event and return modified event."""
     event = req.get_json()
-    
+
     # === YOUR PROCESSING LOGIC HERE ===
     processed_event = event  # Modify as needed
     # ==================================
-    
+
     return func.HttpResponse(
         json.dumps(processed_event),
         status_code=200,
