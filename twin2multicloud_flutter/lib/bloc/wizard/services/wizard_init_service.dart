@@ -6,7 +6,6 @@ import '../../../models/calc_params.dart';
 import '../../../models/calc_result.dart';
 import '../../../models/cloud_connection.dart';
 import '../wizard_state.dart';
-import '../helpers/helpers.dart';
 
 /// Result of initialization operation.
 /// Simplified: error handling is done in BLoC via try/catch.
@@ -166,42 +165,6 @@ class WizardInitService {
     final config = data.config;
     final deployerData = data.deployerConfig ?? const DeployerConfigData();
 
-    // Hydrate credentials (marked as inherited - masked from DB)
-    ProviderCredentials awsCreds = const ProviderCredentials();
-    ProviderCredentials azureCreds = const ProviderCredentials();
-    ProviderCredentials gcpCreds = const ProviderCredentials();
-
-    if (config['aws_configured'] == true) {
-      awsCreds = ProviderCredentials(
-        isValid: true,
-        source: CredentialSource.inherited,
-        values: CredentialsHelper.extractCredentialsFromFlatConfig(
-          config,
-          'aws',
-        ),
-      );
-    }
-    if (config['azure_configured'] == true) {
-      azureCreds = ProviderCredentials(
-        isValid: true,
-        source: CredentialSource.inherited,
-        values: CredentialsHelper.extractCredentialsFromFlatConfig(
-          config,
-          'azure',
-        ),
-      );
-    }
-    if (config['gcp_configured'] == true) {
-      gcpCreds = ProviderCredentials(
-        isValid: true,
-        source: CredentialSource.inherited,
-        values: CredentialsHelper.extractCredentialsFromFlatConfig(
-          config,
-          'gcp',
-        ),
-      );
-    }
-
     final selectedCloudConnectionIds = <CloudProvider, String?>{
       CloudProvider.aws: config['aws_cloud_connection_id'] as String?,
       CloudProvider.azure: config['azure_cloud_connection_id'] as String?,
@@ -213,10 +176,7 @@ class WizardInitService {
 
     // Validate startStep against actual data
     if (startStep >= 1 &&
-        !(awsCreds.isValid ||
-            azureCreds.isValid ||
-            gcpCreds.isValid ||
-            selectedCloudConnectionIds.values.any((id) => id != null))) {
+        !selectedCloudConnectionIds.values.any((id) => id != null)) {
       startStep = 0;
     }
 
@@ -241,9 +201,7 @@ class WizardInitService {
     if (loadedResult != null) {
       warningMessage = _generateUnconfiguredProviderWarning(
         loadedResult: loadedResult,
-        awsCreds: awsCreds,
-        azureCreds: azureCreds,
-        gcpCreds: gcpCreds,
+        selectedCloudConnectionIds: selectedCloudConnectionIds,
       );
     }
 
@@ -257,9 +215,9 @@ class WizardInitService {
         twinName: twin['name'],
         twinState: twin['state'],
         debugMode: config['debug_mode'] ?? true,
-        aws: awsCreds,
-        azure: azureCreds,
-        gcp: gcpCreds,
+      aws: const ProviderCredentials(),
+      azure: const ProviderCredentials(),
+      gcp: const ProviderCredentials(),
         selectedCloudConnectionIds: selectedCloudConnectionIds,
         calcParams: loadedParams,
         calcResult: loadedResult,
@@ -301,14 +259,18 @@ class WizardInitService {
   /// Generate warning for unconfigured providers in optimal path.
   String? _generateUnconfiguredProviderWarning({
     required CalcResult loadedResult,
-    required ProviderCredentials awsCreds,
-    required ProviderCredentials azureCreds,
-    required ProviderCredentials gcpCreds,
+    required Map<CloudProvider, String?> selectedCloudConnectionIds,
   }) {
     final configuredProviders = <String>{};
-    if (awsCreds.isValid) configuredProviders.add('AWS');
-    if (azureCreds.isValid) configuredProviders.add('AZURE');
-    if (gcpCreds.isValid) configuredProviders.add('GCP');
+    if (selectedCloudConnectionIds[CloudProvider.aws] != null) {
+      configuredProviders.add('AWS');
+    }
+    if (selectedCloudConnectionIds[CloudProvider.azure] != null) {
+      configuredProviders.add('AZURE');
+    }
+    if (selectedCloudConnectionIds[CloudProvider.gcp] != null) {
+      configuredProviders.add('GCP');
+    }
 
     final resultProviders = <String>{};
     for (final segment in loadedResult.cheapestPath) {
@@ -321,7 +283,7 @@ class WizardInitService {
     }
     final unconfigured = resultProviders.difference(configuredProviders);
     if (unconfigured.isNotEmpty) {
-      return 'Unconfigured provider(s) in optimal path: ${unconfigured.join(", ")}. Return to Step 1 to add credentials.';
+      return 'Unconfigured provider(s) in optimal path: ${unconfigured.join(", ")}. Return to Step 1 to select Cloud Connections.';
     }
     return null;
   }

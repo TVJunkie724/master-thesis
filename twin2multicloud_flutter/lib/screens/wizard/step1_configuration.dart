@@ -105,8 +105,6 @@ class _Step1ConfigurationState extends State<Step1Configuration> {
                       loadingByProvider: state.cloudConnectionLoading,
                       errorByProvider: state.cloudConnectionErrors,
                       validationByProvider: state.cloudConnectionValidation,
-                      legacyConfiguredProviders:
-                          state.legacyConfiguredProviders,
                       onSelected: (provider, connectionId) {
                         bloc.add(
                           WizardCloudConnectionSelected(provider, connectionId),

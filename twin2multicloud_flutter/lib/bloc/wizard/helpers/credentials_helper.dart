@@ -49,16 +49,18 @@ class CredentialsHelper {
       }
     }
 
-    // Mask secret fields the user already configured. The form treats a
-    // bullet-string as "stored credentials present" via `_wasOriginallyConfigured`,
-    // so the user can re-validate without retyping.
+    // Mask secret fields only for active CloudConnection-backed providers.
+    // Older per-twin credential rows are intentionally ignored by the backend
+    // read model and should not hydrate as usable configuration.
     const secretFields = <String, List<String>>{
       'aws': ['access_key_id', 'secret_access_key', 'session_token'],
       'azure': ['subscription_id', 'client_id', 'client_secret', 'tenant_id'],
       'gcp': ['billing_account', 'service_account_json'],
     };
 
-    if (config['${provider}_configured'] == true) {
+    final sources = config['credential_sources'];
+    final source = sources is Map ? sources[provider] : null;
+    if (source == 'cloud_connection') {
       for (final field in secretFields[provider] ?? const []) {
         result.putIfAbsent(field, () => '••••••••');
       }
@@ -115,21 +117,22 @@ class CredentialsHelper {
     ProviderCredentials azureCreds = const ProviderCredentials();
     ProviderCredentials gcpCreds = const ProviderCredentials();
     
-    if (config['aws_configured'] == true) {
+    final sources = config['credential_sources'];
+    if (sources is Map && sources['aws'] == 'cloud_connection') {
       awsCreds = ProviderCredentials(
         isValid: true,
         source: CredentialSource.inherited,
         values: extractCredentialsFromFlatConfig(config, 'aws'),
       );
     }
-    if (config['azure_configured'] == true) {
+    if (sources is Map && sources['azure'] == 'cloud_connection') {
       azureCreds = ProviderCredentials(
         isValid: true,
         source: CredentialSource.inherited,
         values: extractCredentialsFromFlatConfig(config, 'azure'),
       );
     }
-    if (config['gcp_configured'] == true) {
+    if (sources is Map && sources['gcp'] == 'cloud_connection') {
       gcpCreds = ProviderCredentials(
         isValid: true,
         source: CredentialSource.inherited,

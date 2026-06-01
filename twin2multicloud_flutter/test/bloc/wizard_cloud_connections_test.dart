@@ -113,7 +113,7 @@ void main() {
     );
 
     blocTest<WizardBloc, WizardState>(
-      'saving cleared legacy credentials sends explicit provider null',
+      'saving cleared provider sends explicit provider null',
       build: () {
         when(
           () => api.updateTwinConfigRequest(any(), any()),

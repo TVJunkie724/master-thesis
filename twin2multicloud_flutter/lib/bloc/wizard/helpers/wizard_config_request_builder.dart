@@ -14,9 +14,6 @@ class WizardConfigRequestBuilder {
         for (final provider in CloudProvider.values)
           provider.apiValue: state.selectedCloudConnectionIds[provider],
       },
-      aws: _legacyCredentialsFor(state, CloudProvider.aws),
-      azure: _legacyCredentialsFor(state, CloudProvider.azure),
-      gcp: _legacyCredentialsFor(state, CloudProvider.gcp),
       clearAws: state.aws.source == CredentialSource.cleared,
       clearAzure: state.azure.source == CredentialSource.cleared,
       clearGcp: state.gcp.source == CredentialSource.cleared,
@@ -41,24 +38,4 @@ class WizardConfigRequestBuilder {
     return buildDeployerConfigRequest(state).hasMeaningfulValues;
   }
 
-  static Map<String, dynamic>? _legacyCredentialsFor(
-    WizardState state,
-    CloudProvider provider,
-  ) {
-    if (state.selectedCloudConnectionIds[provider] != null) {
-      return null;
-    }
-
-    final credentials = switch (provider) {
-      CloudProvider.aws => state.aws,
-      CloudProvider.azure => state.azure,
-      CloudProvider.gcp => state.gcp,
-    };
-
-    if (credentials.source != CredentialSource.newlyEntered) {
-      return null;
-    }
-
-    return Map<String, dynamic>.from(credentials.values);
-  }
 }

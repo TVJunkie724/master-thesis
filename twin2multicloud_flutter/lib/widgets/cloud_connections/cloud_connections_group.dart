@@ -5,7 +5,6 @@ import '../../theme/spacing.dart';
 import 'cloud_connection_create_dialog.dart';
 import 'cloud_connection_section.dart';
 import 'cloud_connection_strings.dart';
-import 'legacy_credential_fallback_banner.dart';
 
 class CloudConnectionsGroup extends StatelessWidget {
   final Map<CloudProvider, List<CloudConnection>> connectionsByProvider;
@@ -14,7 +13,6 @@ class CloudConnectionsGroup extends StatelessWidget {
   final Map<CloudProvider, String?> errorByProvider;
   final Map<CloudProvider, CloudConnectionValidationResult?>
   validationByProvider;
-  final Set<CloudProvider> legacyConfiguredProviders;
   final void Function(CloudProvider provider, String? connectionId) onSelected;
   final void Function(
     CloudProvider provider,
@@ -32,7 +30,6 @@ class CloudConnectionsGroup extends StatelessWidget {
     required this.loadingByProvider,
     required this.errorByProvider,
     required this.validationByProvider,
-    required this.legacyConfiguredProviders,
     required this.onSelected,
     required this.onCreate,
     required this.onValidate,
@@ -69,7 +66,6 @@ class CloudConnectionsGroup extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
         ],
-        LegacyCredentialFallbackBanner(providers: legacyConfiguredProviders),
       ],
     );
   }

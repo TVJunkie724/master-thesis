@@ -249,32 +249,16 @@ class WizardState extends Equatable {
   /// Can proceed from Step 1 to Step 2?
   bool get canProceedToStep2 =>
       (twinName?.isNotEmpty ?? false) &&
-      (aws.isValid ||
-          azure.isValid ||
-          gcp.isValid ||
-          selectedCloudConnectionIds.values.any((id) => id != null));
+      selectedCloudConnectionIds.values.any((id) => id != null);
 
   /// Can proceed from Step 2 to Step 3?
   bool get canProceedToStep3 => calcResult != null;
 
   /// Set of configured provider names (uppercase)
   Set<String> get configuredProviders => {
-    if (aws.isValid) 'AWS',
-    if (azure.isValid) 'AZURE',
-    if (gcp.isValid) 'GCP',
     if (selectedCloudConnectionIds[CloudProvider.aws] != null) 'AWS',
     if (selectedCloudConnectionIds[CloudProvider.azure] != null) 'AZURE',
     if (selectedCloudConnectionIds[CloudProvider.gcp] != null) 'GCP',
-  };
-
-  Set<CloudProvider> get legacyConfiguredProviders => {
-    if (aws.isValid && selectedCloudConnectionIds[CloudProvider.aws] == null)
-      CloudProvider.aws,
-    if (azure.isValid &&
-        selectedCloudConnectionIds[CloudProvider.azure] == null)
-      CloudProvider.azure,
-    if (gcp.isValid && selectedCloudConnectionIds[CloudProvider.gcp] == null)
-      CloudProvider.gcp,
   };
 
   /// Set of required provider names (from optimizer result) that are NOT configured

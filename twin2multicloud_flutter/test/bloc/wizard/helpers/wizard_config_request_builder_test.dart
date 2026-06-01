@@ -29,7 +29,7 @@ void main() {
     });
 
     test(
-      'builds legacy credential request when no CloudConnection is selected',
+      'does not persist newly entered credentials without CloudConnection',
       () {
         final request = WizardConfigRequestBuilder.buildTwinConfigRequest(
           const WizardState(
@@ -48,7 +48,7 @@ void main() {
         );
 
         final payload = request.toJson();
-        expect(payload['azure']['subscription_id'], 'sub');
+        expect(payload.containsKey('azure'), false);
         expect(payload.containsKey('aws'), false);
         expect(payload.containsKey('gcp'), false);
       },
