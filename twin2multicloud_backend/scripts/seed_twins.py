@@ -26,7 +26,7 @@ from src.models.optimizer_config import OptimizerConfiguration
 from src.models.deployer_config import DeployerConfiguration
 from src.models.user import User
 from src.services.cloud_connection_service import CloudConnectionService
-from src.utils.crypto import encrypt, encrypt_scoped
+from src.utils.crypto import encrypt_scoped
 
 
 
@@ -470,42 +470,6 @@ def _sync_non_secret_regions(config: TwinConfiguration, aws_creds: dict, azure_c
     config.gcp_region = gcp_creds.get("gcp_region", "europe-west1")
 
 
-def _seed_legacy_twin_credentials(
-    config: TwinConfiguration,
-    user: User,
-    twin_id: str,
-    aws_creds: dict,
-    azure_creds: dict,
-    gcp_creds: dict,
-    gcp_sa_json: str | None,
-) -> None:
-    """Compatibility-only path for old demos that still require per-twin fields."""
-    if aws_creds:
-        config.aws_access_key_id = encrypt(aws_creds.get("aws_access_key_id", ""), user.id, twin_id)
-        config.aws_secret_access_key = encrypt(aws_creds.get("aws_secret_access_key", ""), user.id, twin_id)
-        config.aws_region = aws_creds.get("aws_region", "eu-central-1")
-        config.aws_sso_region = _or_none(aws_creds.get("aws_sso_region", ""))
-        session_token = _or_none(aws_creds.get("aws_session_token", ""))
-        config.aws_session_token = encrypt(session_token, user.id, twin_id) if session_token else None
-
-    if azure_creds:
-        config.azure_subscription_id = encrypt(azure_creds.get("azure_subscription_id", ""), user.id, twin_id)
-        config.azure_client_id = encrypt(azure_creds.get("azure_client_id", ""), user.id, twin_id)
-        config.azure_client_secret = encrypt(azure_creds.get("azure_client_secret", ""), user.id, twin_id)
-        config.azure_tenant_id = encrypt(azure_creds.get("azure_tenant_id", ""), user.id, twin_id)
-        config.azure_region = azure_creds.get("azure_region", "westeurope")
-        config.azure_region_iothub = _or_none(azure_creds.get("azure_region_iothub", ""))
-        config.azure_region_digital_twin = _or_none(azure_creds.get("azure_region_digital_twin", ""))
-
-    if gcp_creds:
-        config.gcp_project_id = gcp_creds.get("gcp_project_id", "")
-        billing = _or_none(gcp_creds.get("gcp_billing_account", ""))
-        config.gcp_billing_account = encrypt(billing, user.id, twin_id) if billing else None
-        config.gcp_region = gcp_creds.get("gcp_region", "europe-west1")
-        if gcp_sa_json:
-            config.gcp_service_account_json = encrypt(gcp_sa_json, user.id, twin_id)
-
-
 # ============================================================================
 # Credential Validation
 # ============================================================================
@@ -668,14 +632,9 @@ async def seed_if_needed():
             _bind_seed_cloud_connections(config, cloud_connections)
             _sync_non_secret_regions(config, aws_creds, azure_creds, gcp_creds)
             if settings.SEED_LEGACY_TWIN_CREDENTIALS:
-                _seed_legacy_twin_credentials(
-                    config,
-                    user,
-                    twin_id,
-                    aws_creds,
-                    azure_creds,
-                    gcp_creds,
-                    gcp_sa_json,
+                raise RuntimeError(
+                    "SEED_LEGACY_TWIN_CREDENTIALS is no longer supported. "
+                    "Seed credentials as user-scoped CloudConnections instead."
                 )
 
             db.add(config)

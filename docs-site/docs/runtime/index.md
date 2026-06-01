@@ -32,13 +32,12 @@ The legacy `3-cloud-deployer/upload/template/` folder may still exist during the
 
 The target source of truth is a user-scoped Cloud Connection stored through the Management API. The local repository should not contain live credentials as normal development state.
 
-Runtime credential resolution follows one order:
+Runtime credential resolution follows one rule:
 
-1. A provider Cloud Connection selected on the twin configuration.
-2. Encrypted legacy credential columns on the twin configuration, only as a migration fallback.
-3. A structured validation error if neither source is usable.
+1. A provider Cloud Connection must be selected on the twin configuration.
+2. If no usable Cloud Connection exists, the Management API returns a structured validation error.
 
-Cloud Connection payloads and legacy credential values are never returned by API read models. The deployment package still contains the concrete provider credential files required by the current Deployer contract, but that package is generated for the deployment operation, uploaded explicitly, and represented by a secrets-free `deployment_manifest.json`.
+Cloud Connection payloads are never returned by API read models. The deployment package still contains the concrete provider credential files required by the current Deployer contract, but that package is generated for the deployment operation, uploaded explicitly, and represented by a secrets-free `deployment_manifest.json`.
 
 For real cloud deployments, credentials should enter the system through an explicit cloud workflow: the user provides temporary bootstrap/admin credentials, the app creates or imports a least-privilege deployment identity, stores only that resulting connection, and discards bootstrap material. The default local stack should continue to work without real cloud credentials.
 

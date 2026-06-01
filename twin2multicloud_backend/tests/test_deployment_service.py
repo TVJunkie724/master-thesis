@@ -395,11 +395,8 @@ class TestBuildProvidersConfig:
 class TestBuildCredentialsConfig:
     """Tests for _build_credentials_config helper."""
     
-    @patch("src.services.credential_resolution_service.decrypt")
-    def test_decrypts_aws_credentials(self, mock_decrypt):
-        """Should decrypt AWS credentials."""
-        mock_decrypt.side_effect = lambda val, uid, tid: f"decrypted_{val}"
-        
+    def test_legacy_aws_columns_are_not_used_as_deployment_credentials(self):
+        """Legacy per-twin credential columns must not be a runtime fallback."""
         twin = Mock()
         twin.id = "twin-123"
         twin.optimizer_config = None
@@ -417,44 +414,10 @@ class TestBuildCredentialsConfig:
         twin.configuration.gcp_billing_account = None
         twin.configuration.gcp_service_account_json = None
         
-        result, gcp_creds = _build_credentials_config(twin, "user-123")
-        
-        assert result["aws"]["aws_access_key_id"] == "decrypted_enc_key_id"
-        assert result["aws"]["aws_secret_access_key"] == "decrypted_enc_secret"
-        assert result["aws"]["aws_region"] == "eu-central-1"
-    
-    @patch("src.services.credential_resolution_service.decrypt")
-    def test_raises_structured_error_on_decryption_failure(self, mock_decrypt):
-        """Should fail closed with a structured, secret-safe credential error."""
-        mock_decrypt.side_effect = ValueError("Decryption failed")
-        
-        twin = Mock()
-        twin.id = "twin-123"
-        twin.optimizer_config = None
-        twin.configuration = Mock()
-        twin.configuration.aws_access_key_id = "enc_key_id"
-        twin.configuration.aws_secret_access_key = "enc_secret"
-        twin.configuration.aws_session_token = None
-        twin.configuration.aws_sso_region = None
-        twin.configuration.aws_cloud_connection_id = None
-        twin.configuration.azure_subscription_id = None
-        twin.configuration.azure_cloud_connection_id = None
-        twin.configuration.gcp_project_id = None
-        twin.configuration.gcp_cloud_connection_id = None
-        twin.configuration.gcp_billing_account = None
-        twin.configuration.gcp_service_account_json = None
-        
         with pytest.raises(CredentialResolutionFailed) as exc_info:
             _build_credentials_config(twin, "user-123")
 
-        assert exc_info.value.errors == [
-            {
-                "provider": "aws",
-                "code": "LEGACY_CREDENTIAL_DECRYPTION_FAILED",
-                "field": "credentials",
-                "message": "Legacy credentials cannot be decrypted",
-            }
-        ]
+        assert exc_info.value.errors[0]["code"] == "NO_DEPLOYMENT_PROVIDERS"
         assert "enc_secret" not in str(exc_info.value.errors)
     
     def test_raises_structured_error_when_no_configuration(self):
@@ -468,8 +431,8 @@ class TestBuildCredentialsConfig:
 
         assert exc_info.value.errors[0]["code"] == "NO_DEPLOYMENT_PROVIDERS"
 
-    def test_prefers_bound_aws_cloud_connection(self):
-        """CloudConnection bindings should override legacy encrypted fields."""
+    def test_uses_bound_aws_cloud_connection_even_if_legacy_columns_exist(self):
+        """CloudConnection bindings are the only runtime credential source."""
         payload = {
             "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
             "aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
@@ -536,11 +499,8 @@ class TestBuildCredentialsConfig:
 class TestBuildProjectZip:
     """Tests for build_project_zip function."""
     
-    @patch("src.services.credential_resolution_service.decrypt")
-    def test_creates_valid_zip_file(self, mock_decrypt):
+    def test_creates_valid_zip_file(self):
         """Should create a valid ZIP file."""
-        mock_decrypt.return_value = "decrypted"
-        
         twin = self._create_mock_twin()
         
         result = build_project_zip(twin, "user-123")
@@ -550,11 +510,8 @@ class TestBuildProjectZip:
         with zipfile.ZipFile(result, 'r') as zf:
             assert zf.testzip() is None  # Returns None if all CRCs OK
     
-    @patch("src.services.credential_resolution_service.decrypt")
-    def test_contains_required_config_files(self, mock_decrypt):
+    def test_contains_required_config_files(self):
         """Should contain config.json and config_providers.json."""
-        mock_decrypt.return_value = "decrypted"
-        
         twin = self._create_mock_twin()
         
         result = build_project_zip(twin, "user-123")
@@ -568,11 +525,8 @@ class TestBuildProjectZip:
             assert "config_events.json" in names
             assert DEPLOYMENT_MANIFEST_FILE in names
 
-    @patch("src.services.credential_resolution_service.decrypt")
-    def test_includes_secrets_free_deployment_manifest(self, mock_decrypt):
+    def test_includes_secrets_free_deployment_manifest(self):
         """Should include a deployment manifest without credential payloads."""
-        mock_decrypt.side_effect = lambda value, *_args: f"plain-{value}"
-
         twin = self._create_mock_twin()
 
         result = build_project_zip(twin, "user-123")
@@ -589,7 +543,7 @@ class TestBuildProjectZip:
         assert manifest["providers"] == {"layer_1_provider": "aws"}
         assert manifest["credentials"] == {
             "providers": ["aws"],
-            "sources": {"aws": "legacy"},
+            "sources": {"aws": "cloud_connection"},
             "contains_secret_payloads": False,
         }
         assert manifest["package"]["required_files"] == REQUIRED_DEPLOYER_CONFIG_FILES
@@ -598,15 +552,12 @@ class TestBuildProjectZip:
         assert "config_iot_devices.json" in manifest["package"]["files"]
         assert "config_events.json" in manifest["package"]["files"]
         assert DEPLOYMENT_MANIFEST_FILE not in manifest["package"]["files"]
-        assert "plain-enc_secret" not in manifest_text
-        assert "plain-enc_key" not in manifest_text
+        assert "cloud-connection-secret" not in manifest_text
+        assert "AKIAIOSFODNN7EXAMPLE" not in manifest_text
         assert "aws_secret_access_key" not in manifest_text
 
-    @patch("src.services.credential_resolution_service.decrypt")
-    def test_required_config_files_default_to_empty_lists(self, mock_decrypt):
+    def test_required_config_files_default_to_empty_lists(self):
         """Should write required Deployer config files even when optional wizard data is absent."""
-        mock_decrypt.return_value = "decrypted"
-
         twin = self._create_mock_twin()
         twin.deployer_config.config_iot_devices_json = None
         twin.deployer_config.config_events_json = None
@@ -617,18 +568,25 @@ class TestBuildProjectZip:
             assert json.loads(zf.read("config_iot_devices.json")) == []
             assert json.loads(zf.read("config_events.json")) == []
     
-    @patch("src.services.credential_resolution_service.decrypt")
-    def test_includes_state_machine_for_azure_l2(self, mock_decrypt):
+    def test_includes_state_machine_for_azure_l2(self):
         """Should write state machine to azure location for Azure L2."""
-        mock_decrypt.return_value = "decrypted"
-        
         twin = self._create_mock_twin()
         twin.optimizer_config.cheapest_l2 = "azure"
         twin.deployer_config.state_machine_content = '{"definition": {}}'
-        twin.configuration.azure_subscription_id = "enc_subscription"
-        twin.configuration.azure_tenant_id = "enc_tenant"
-        twin.configuration.azure_client_id = "enc_client"
-        twin.configuration.azure_client_secret = "enc_client_secret"
+        azure_payload = {
+            "azure_subscription_id": "subscription-id",
+            "azure_tenant_id": "tenant-id",
+            "azure_client_id": "client-id",
+            "azure_client_secret": "client-secret",
+            "azure_region": "westeurope",
+            "azure_region_iothub": "westeurope",
+            "azure_region_digital_twin": "westeurope",
+        }
+        twin.configuration.azure_cloud_connection_id = "connection-azure"
+        twin.configuration.azure_cloud_connection = SimpleNamespace(
+            id="connection-azure",
+            encrypted_payload=encrypt_scoped(json.dumps(azure_payload), "user-123", "connection-azure"),
+        )
 
         result = build_project_zip(twin, "user-123")
         
@@ -636,11 +594,8 @@ class TestBuildProjectZip:
             names = zf.namelist()
             assert "state_machines/azure_logic_app.json" in names
     
-    @patch("src.services.credential_resolution_service.decrypt")
-    def test_includes_payloads_json(self, mock_decrypt):
+    def test_includes_payloads_json(self):
         """Should include payloads.json for simulator."""
-        mock_decrypt.return_value = "decrypted"
-        
         twin = self._create_mock_twin()
         twin.deployer_config.payloads_json = '{"device_1": {"temp": 25}}'
         
@@ -769,10 +724,8 @@ class TestBuildProjectZip:
         assert "cloud-connection-secret" not in manifest_text
         assert "private_key" not in manifest_text
 
-    @patch("src.services.credential_resolution_service.decrypt")
-    def test_package_materialization_fails_closed_on_invalid_function_json(self, mock_decrypt):
+    def test_package_materialization_fails_closed_on_invalid_function_json(self):
         """Invalid persisted JSON artifacts must not be silently omitted."""
-        mock_decrypt.return_value = "decrypted"
         twin = self._create_mock_twin()
         twin.optimizer_config.cheapest_l2 = "aws"
         twin.deployer_config.processor_contents = "{not-json"
@@ -788,10 +741,8 @@ class TestBuildProjectZip:
             }
         ]
 
-    @patch("src.services.credential_resolution_service.decrypt")
-    def test_package_materialization_fails_closed_on_invalid_optimizer_params(self, mock_decrypt):
+    def test_package_materialization_fails_closed_on_invalid_optimizer_params(self):
         """Invalid optimizer params should fail package creation instead of using defaults."""
-        mock_decrypt.return_value = "decrypted"
         twin = self._create_mock_twin()
         twin.optimizer_config.params = "{not-json"
 
@@ -801,15 +752,12 @@ class TestBuildProjectZip:
         assert exc_info.value.errors[0]["field"] == "optimizer_config.params"
         assert exc_info.value.errors[0]["code"] == "INVALID_JSON"
 
-    @patch("src.services.credential_resolution_service.decrypt")
     def test_package_materialization_fails_when_uploaded_scene_binary_is_missing(
         self,
-        mock_decrypt,
         tmp_path,
         monkeypatch,
     ):
         """Persisted artifact metadata must not point to missing managed files."""
-        mock_decrypt.return_value = "decrypted"
         monkeypatch.setattr("src.services.deployment_service.settings.UPLOAD_DIR", str(tmp_path))
         twin = self._create_mock_twin()
         twin.optimizer_config.cheapest_l4 = "aws"
@@ -872,12 +820,20 @@ class TestBuildProjectZip:
         })
         
         # Configuration (credentials)
+        aws_payload = {
+            "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+            "aws_secret_access_key": "cloud-connection-secret",
+            "aws_region": "eu-central-1",
+        }
         twin.configuration = Mock()
         twin.configuration.debug_mode = False
-        twin.configuration.aws_cloud_connection_id = None
-        twin.configuration.aws_cloud_connection = None
-        twin.configuration.aws_access_key_id = "enc_key"
-        twin.configuration.aws_secret_access_key = "enc_secret"
+        twin.configuration.aws_cloud_connection_id = "connection-aws"
+        twin.configuration.aws_cloud_connection = SimpleNamespace(
+            id="connection-aws",
+            encrypted_payload=encrypt_scoped(json.dumps(aws_payload), "user-123", "connection-aws"),
+        )
+        twin.configuration.aws_access_key_id = None
+        twin.configuration.aws_secret_access_key = None
         twin.configuration.aws_session_token = None
         twin.configuration.aws_region = "eu-central-1"
         twin.configuration.aws_sso_region = None
@@ -949,7 +905,7 @@ class TestBuildDeploymentManifest:
                 "aws": {"aws_secret_access_key": "must-not-leak"},
                 "azure": {"azure_client_secret": "must-not-leak"},
             },
-            sources={"aws": "cloud_connection", "azure": "legacy"},
+            sources={"aws": "cloud_connection", "azure": "cloud_connection"},
         )
 
         result = _build_deployment_manifest(
@@ -971,7 +927,7 @@ class TestBuildDeploymentManifest:
         }
         assert result["credentials"]["sources"] == {
             "aws": "cloud_connection",
-            "azure": "legacy",
+            "azure": "cloud_connection",
         }
         assert "must-not-leak" not in manifest_text
         assert "azure_client_secret" not in manifest_text

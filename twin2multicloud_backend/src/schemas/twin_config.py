@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from datetime import datetime
 
 
-CredentialSource = Literal["cloud_connection", "legacy"]
+CredentialSource = Literal["cloud_connection"]
 
 
 class AWSCredentials(BaseModel):
@@ -110,23 +110,9 @@ class TwinConfigResponse(BaseModel):
     @classmethod
     def from_db(cls, config, optimizer_config=None, twin_state: Optional[str] = None):
         """Convert DB model to response (no secrets exposed)."""
-        aws_source = _credential_source(
-            cloud_connection=getattr(config, "aws_cloud_connection", None),
-            legacy_fields=[config.aws_access_key_id, config.aws_secret_access_key],
-        )
-        azure_source = _credential_source(
-            cloud_connection=getattr(config, "azure_cloud_connection", None),
-            legacy_fields=[
-                config.azure_subscription_id,
-                config.azure_client_id,
-                config.azure_client_secret,
-                config.azure_tenant_id,
-            ],
-        )
-        gcp_source = _credential_source(
-            cloud_connection=getattr(config, "gcp_cloud_connection", None),
-            legacy_fields=[config.gcp_service_account_json],
-        )
+        aws_source = _credential_source(cloud_connection=getattr(config, "aws_cloud_connection", None))
+        azure_source = _credential_source(cloud_connection=getattr(config, "azure_cloud_connection", None))
+        gcp_source = _credential_source(cloud_connection=getattr(config, "gcp_cloud_connection", None))
         configured_providers = [
             provider
             for provider, source in {
@@ -160,7 +146,7 @@ class TwinConfigResponse(BaseModel):
             gcp_credential_source=gcp_source,
             gcp_cloud_connection_id=getattr(config, 'gcp_cloud_connection_id', None),
             gcp_project_id=config.gcp_project_id,
-            gcp_billing_account_configured=bool(getattr(config, 'gcp_billing_account', None)),  # NEW
+            gcp_billing_account_configured=False,
             gcp_region=getattr(config, 'gcp_region', None),  # NEW
             configured_providers=configured_providers,
             credential_sources={
@@ -214,11 +200,9 @@ class BoundCloudConnectionSummary(BaseModel):
         )
 
 
-def _credential_source(*, cloud_connection, legacy_fields: list[Any]) -> Optional[CredentialSource]:
+def _credential_source(*, cloud_connection) -> Optional[CredentialSource]:
     if cloud_connection is not None:
         return "cloud_connection"
-    if all(bool(field) for field in legacy_fields):
-        return "legacy"
     return None
 
 

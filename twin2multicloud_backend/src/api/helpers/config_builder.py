@@ -2,14 +2,12 @@
 """
 Extracted configuration building logic from config.py routes.
 
-Provides:
-- Safe credential masking for API responses
-- Config payload building for updates
-- Provider configuration status checking
+This module is retained for older imports only. The canonical configuration
+contract is CloudConnection-based and is implemented by
+`TwinConfigResponse.from_db` plus `WizardConfigurationService`.
 """
 
 from typing import Dict, Any, Optional
-from src.utils.crypto import decrypt
 
 
 def mask_credentials(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -48,53 +46,17 @@ def build_config_response(
     config: Any,
     encryption_key: str
 ) -> Dict[str, Any]:
-    """
-    Build a safe config response for API clients.
-    Decrypts stored credentials and masks sensitive values.
-    
-    Args:
-        config: TwinConfiguration database model
-        encryption_key: Key for credential decryption
-        
-    Returns:
-        Dict suitable for JSON response
-    """
+    """Build a legacy-compatible response without reading legacy secret columns."""
     response = {
         "twin_id": config.twin_id,
         "debug_mode": config.debug_mode,
         "highest_step_reached": config.highest_step_reached,
-        "aws_configured": False,
-        "azure_configured": False,
-        "gcp_configured": False,
+        "aws_configured": bool(getattr(config, "aws_cloud_connection_id", None)),
+        "azure_configured": bool(getattr(config, "azure_cloud_connection_id", None)),
+        "gcp_configured": bool(getattr(config, "gcp_cloud_connection_id", None)),
         "optimizer_params": config.optimizer_params,
         "optimizer_result": config.optimizer_result,
     }
-    
-    # Add provider configs with masking
-    if config.aws_credentials_encrypted:
-        response["aws_configured"] = True
-        try:
-            decrypted = decrypt(config.aws_credentials_encrypted, encryption_key)
-            response["aws"] = _mask_provider_creds("aws", decrypted)
-        except Exception:
-            response["aws"] = None
-            
-    if config.azure_credentials_encrypted:
-        response["azure_configured"] = True
-        try:
-            decrypted = decrypt(config.azure_credentials_encrypted, encryption_key)
-            response["azure"] = _mask_provider_creds("azure", decrypted)
-        except Exception:
-            response["azure"] = None
-            
-    if config.gcp_credentials_encrypted:
-        response["gcp_configured"] = True
-        try:
-            decrypted = decrypt(config.gcp_credentials_encrypted, encryption_key)
-            response["gcp"] = _mask_provider_creds("gcp", decrypted)
-        except Exception:
-            response["gcp"] = None
-    
     return response
 
 
@@ -123,20 +85,7 @@ def build_update_payload(
     updates: Dict[str, Any],
     encryption_key: str
 ) -> Dict[str, Any]:
-    """
-    Build database update payload from API request.
-    Handles credential encryption and null handling.
-    
-    Args:
-        current_config: Current TwinConfiguration
-        updates: Dict of fields to update
-        encryption_key: Key for credential encryption
-        
-    Returns:
-        Dict of fields to update in database
-    """
-    from src.utils.crypto import encrypt
-    
+    """Build a non-secret update payload for legacy callers."""
     payload = {}
     
     # Simple fields
@@ -152,17 +101,6 @@ def build_update_payload(
     if "optimizer_result" in updates:
         payload["optimizer_result"] = updates["optimizer_result"]
     
-    # Credential fields - encrypt if present, clear if null
-    for provider in ["aws", "azure", "gcp"]:
-        if provider in updates:
-            field_name = f"{provider}_credentials_encrypted"
-            if updates[provider] is None:
-                # Clear credentials
-                payload[field_name] = None
-            else:
-                # Encrypt new credentials
-                payload[field_name] = encrypt(updates[provider], encryption_key)
-    
     return payload
 
 
@@ -177,7 +115,7 @@ def check_provider_configured(config: Any, provider: str) -> bool:
     Returns:
         True if provider has encrypted credentials stored
     """
-    field_name = f"{provider.lower()}_credentials_encrypted"
+    field_name = f"{provider.lower()}_cloud_connection_id"
     return getattr(config, field_name, None) is not None
 
 

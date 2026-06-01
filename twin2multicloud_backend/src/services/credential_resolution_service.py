@@ -1,4 +1,4 @@
-"""Credential resolution for CloudConnection SSOT and legacy fallback."""
+"""Credential resolution for the CloudConnection credential source of truth."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import logging
 from typing import Any
 
 from src.services.errors import CredentialResolutionFailed
-from src.utils.crypto import decrypt, decrypt_scoped
+from src.utils.crypto import decrypt_scoped
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class DeploymentCredentials:
 
 
 class CredentialResolutionService:
-    """Resolves credentials from CloudConnections first, legacy encrypted fields second."""
+    """Resolves runtime credentials from bound CloudConnections only."""
 
     def resolve_plaintext_credentials(self, provider: str, credentials) -> ProviderCredentials:
         """Resolve request-body credentials without persisting or decrypting them."""
@@ -81,12 +81,12 @@ class CredentialResolutionService:
                 raise self._failed_from_errors(errors)
             return self._build_provider_credentials(provider, payload, "cloud_connection", connection_id)
 
-        payload = self._legacy_payload(twin, user_id, provider, errors)
-        if errors:
-            raise self._failed_from_errors(errors)
-        if not payload:
-            raise self._failed(errors, provider, "MISSING_CREDENTIALS", "No credentials configured for provider")
-        return self._build_provider_credentials(provider, payload, "legacy", None)
+        raise self._failed(
+            errors,
+            provider,
+            "MISSING_CLOUD_CONNECTION",
+            "Provider requires a bound Cloud Connection",
+        )
 
     def resolve_deployment_credentials(
         self,
@@ -225,9 +225,9 @@ class CredentialResolutionService:
             return set()
         providers = set()
         checks = {
-            "aws": ("aws_cloud_connection_id", "aws_access_key_id"),
-            "azure": ("azure_cloud_connection_id", "azure_subscription_id"),
-            "gcp": ("gcp_cloud_connection_id", "gcp_project_id", "gcp_service_account_json"),
+            "aws": ("aws_cloud_connection_id",),
+            "azure": ("azure_cloud_connection_id",),
+            "gcp": ("gcp_cloud_connection_id",),
         }
         for provider, fields in checks.items():
             if any(getattr(config, field, None) for field in fields):
@@ -302,56 +302,6 @@ class CredentialResolutionService:
             )
             return {}
         return parsed if isinstance(parsed, dict) else {}
-
-    def _legacy_payload(self, twin, user_id: str, provider: str, errors: list[dict[str, Any]]) -> dict[str, Any]:
-        config = twin.configuration
-        try:
-            if provider == "aws" and getattr(config, "aws_access_key_id", None):
-                payload = {
-                    "aws_access_key_id": decrypt(config.aws_access_key_id, user_id, twin.id),
-                    "aws_secret_access_key": decrypt(config.aws_secret_access_key, user_id, twin.id),
-                    "aws_region": config.aws_region or "eu-central-1",
-                }
-                if getattr(config, "aws_session_token", None):
-                    payload["aws_session_token"] = decrypt(config.aws_session_token, user_id, twin.id)
-                if getattr(config, "aws_sso_region", None):
-                    payload["aws_sso_region"] = config.aws_sso_region
-                return payload
-
-            if provider == "azure" and getattr(config, "azure_subscription_id", None):
-                azure_region = config.azure_region or "westeurope"
-                return {
-                    "azure_subscription_id": decrypt(config.azure_subscription_id, user_id, twin.id),
-                    "azure_tenant_id": decrypt(config.azure_tenant_id, user_id, twin.id),
-                    "azure_client_id": decrypt(config.azure_client_id, user_id, twin.id),
-                    "azure_client_secret": decrypt(config.azure_client_secret, user_id, twin.id),
-                    "azure_region": azure_region,
-                    "azure_region_iothub": getattr(config, "azure_region_iothub", None) or azure_region,
-                    "azure_region_digital_twin": getattr(config, "azure_region_digital_twin", None) or azure_region,
-                }
-
-            if provider == "gcp" and (
-                getattr(config, "gcp_project_id", None)
-                or getattr(config, "gcp_service_account_json", None)
-                or getattr(config, "gcp_billing_account", None)
-            ):
-                payload = {
-                    "gcp_project_id": config.gcp_project_id,
-                    "gcp_region": config.gcp_region or "europe-west1",
-                }
-                if getattr(config, "gcp_billing_account", None):
-                    payload["gcp_billing_account"] = decrypt(config.gcp_billing_account, user_id, twin.id)
-                if getattr(config, "gcp_service_account_json", None):
-                    payload["gcp_credentials_file"] = decrypt(config.gcp_service_account_json, user_id, twin.id)
-                return {key: value for key, value in payload.items() if value}
-        except ValueError as exc:
-            logger.warning("Legacy credential resolution failed for provider %s: %s", provider, type(exc).__name__)
-            errors.append(self._error(
-                provider,
-                "LEGACY_CREDENTIAL_DECRYPTION_FAILED",
-                "Legacy credentials cannot be decrypted",
-            ))
-        return {}
 
     def _deployment_providers(self, twin, required_providers: set[str] | None) -> list[str]:
         selected_providers = required_providers or self.required_providers_from_optimizer(

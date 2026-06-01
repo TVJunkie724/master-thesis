@@ -15,7 +15,7 @@ Each provider setup should document:
 
 The intended app workflow is Cloud Connections: a user creates or imports a provider connection, the Management API stores it as user-scoped secret material, and deployments reference that connection instead of reading random files from the workspace.
 
-During the migration period, encrypted per-twin legacy credential columns still exist so older test data can be used deliberately. They are lower priority than Cloud Connections, are clearable through the wizard contract, and should be removed after the CloudConnection-only flow covers the thesis demo path.
+Encrypted per-twin legacy credential columns may still exist in old local databases, but they are no longer an active runtime source. Use `python -m migrations.disable_legacy_twin_credentials` for an explicit cleanup of duplicated per-twin secret columns after upgrading a local database.
 
 ## Provider Overview
 

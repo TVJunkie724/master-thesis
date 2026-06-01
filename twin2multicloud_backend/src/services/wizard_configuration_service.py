@@ -15,11 +15,13 @@ from src.models.twin_config import TwinConfiguration
 from src.schemas.deployer_config import DeployerConfigUpdate
 from src.schemas.twin_config import TwinConfigUpdate
 from src.services.cloud_connection_service import CloudConnectionService
-from src.utils.crypto import encrypt
-
 
 BLOCKED_EDIT_STATES = {TwinState.DEPLOYED, TwinState.DEPLOYING, TwinState.DESTROYING}
 REGRESS_TO_DRAFT_STATES = {TwinState.CONFIGURED, TwinState.ERROR, TwinState.DESTROYED}
+LEGACY_CREDENTIAL_WRITE_DISABLED_DETAIL = (
+    "Direct per-twin credential storage is disabled. "
+    "Create or import a Cloud Connection and bind it via cloud_connections."
+)
 
 
 class WizardConfigurationService:
@@ -42,7 +44,7 @@ class WizardConfigurationService:
         if update.debug_mode is not None:
             config.debug_mode = update.debug_mode
 
-        self._apply_provider_credentials(config, update, user_id, twin.id)
+        self._apply_provider_configuration(config, update)
         self._apply_cloud_connection_bindings(config, update, user_id)
 
         if update.highest_step_reached is not None:
@@ -111,63 +113,25 @@ class WizardConfigurationService:
         twin.deployer_config = config
         return config
 
-    def _apply_provider_credentials(
+    def _apply_provider_configuration(
         self,
         config: TwinConfiguration,
         update: TwinConfigUpdate,
-        user_id: str,
-        twin_id: str,
     ) -> None:
         if self._field_present(update, "aws") and update.aws is None:
             self._clear_provider_configuration(config, "aws")
         elif update.aws:
-            config.aws_cloud_connection_id = None
-            config.aws_access_key_id = encrypt(update.aws.access_key_id, user_id, twin_id)
-            config.aws_secret_access_key = encrypt(update.aws.secret_access_key, user_id, twin_id)
-            config.aws_region = update.aws.region
-            config.aws_sso_region = update.aws.sso_region
-            config.aws_session_token = (
-                encrypt(update.aws.session_token, user_id, twin_id)
-                if update.aws.session_token
-                else None
-            )
-            config.aws_validated = False
+            raise HTTPException(status_code=400, detail=LEGACY_CREDENTIAL_WRITE_DISABLED_DETAIL)
 
         if self._field_present(update, "azure") and update.azure is None:
             self._clear_provider_configuration(config, "azure")
         elif update.azure:
-            config.azure_cloud_connection_id = None
-            config.azure_subscription_id = encrypt(update.azure.subscription_id, user_id, twin_id)
-            config.azure_client_id = encrypt(update.azure.client_id, user_id, twin_id)
-            config.azure_client_secret = encrypt(update.azure.client_secret, user_id, twin_id)
-            config.azure_tenant_id = encrypt(update.azure.tenant_id, user_id, twin_id)
-            config.azure_region = update.azure.region
-            config.azure_region_iothub = update.azure.region_iothub or None
-            config.azure_region_digital_twin = update.azure.region_digital_twin or None
-            config.azure_validated = False
+            raise HTTPException(status_code=400, detail=LEGACY_CREDENTIAL_WRITE_DISABLED_DETAIL)
 
         if self._field_present(update, "gcp") and update.gcp is None:
             self._clear_provider_configuration(config, "gcp")
         elif update.gcp:
-            if not update.gcp.service_account_json:
-                raise HTTPException(
-                    status_code=422,
-                    detail="service_account_json is required for stored GCP credentials",
-                )
-            config.gcp_cloud_connection_id = None
-            config.gcp_project_id = update.gcp.project_id
-            config.gcp_billing_account = (
-                encrypt(update.gcp.billing_account, user_id, twin_id)
-                if update.gcp.billing_account
-                else None
-            )
-            config.gcp_region = update.gcp.region
-            config.gcp_service_account_json = encrypt(
-                update.gcp.service_account_json,
-                user_id,
-                twin_id,
-            )
-            config.gcp_validated = False
+            raise HTTPException(status_code=400, detail=LEGACY_CREDENTIAL_WRITE_DISABLED_DETAIL)
 
     def _apply_cloud_connection_bindings(
         self,

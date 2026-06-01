@@ -77,7 +77,7 @@ cp google_credentials.json.example    .secrets/local/gcp_credentials.json
 
 If older valid credential files still exist at the repository root, move or copy them manually after verifying your local setup. The project does not migrate or delete live credentials automatically.
 
-When sample seeding is enabled, the Management API stores provider credentials once as encrypted Cloud Connections for the seed user and binds the sample twins to those records. Legacy per-twin credential fields stay empty unless `SEED_LEGACY_TWIN_CREDENTIALS=true` is set for an explicit compatibility check.
+When sample seeding is enabled, the Management API stores provider credentials once as encrypted Cloud Connections for the seed user and binds the sample twins to those records. Legacy per-twin credential seeding is disabled; setting `SEED_LEGACY_TWIN_CREDENTIALS=true` now fails fast so duplicated per-twin secrets cannot be reintroduced.
 
 The local-cloud override also sets `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true` for Optimizer and Deployer. That gate enables their debug/local-cloud `GET /permissions/verify/*` endpoints that read mounted files. Normal app flows use request-body or CloudConnection-derived credentials instead.
 

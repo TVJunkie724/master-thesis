@@ -7,6 +7,43 @@ real-time logs from the Optimizer service during pricing refresh operations.
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 import httpx
+import json
+
+from src.models.cloud_connection import CloudConnection
+from src.models.twin_config import TwinConfiguration
+from src.utils.crypto import encrypt_scoped
+
+
+def _bind_aws_cloud_connection(db, test_twin):
+    user_id = test_twin.user_id
+    connection = CloudConnection(
+        id="connection-aws",
+        user_id=user_id,
+        provider="aws",
+        display_name="AWS Pricing",
+        cloud_scope="{}",
+        auth_type="access_key",
+        encrypted_payload=encrypt_scoped(
+            json.dumps(
+                {
+                    "aws_access_key_id": "AKIATEST",
+                    "aws_secret_access_key": "secret123",
+                    "aws_region": "eu-central-1",
+                }
+            ),
+            user_id,
+            "connection-aws",
+        ),
+        payload_fingerprint="fingerprint",
+    )
+    db.add(connection)
+    config = TwinConfiguration(
+        twin_id=test_twin.id,
+        aws_cloud_connection_id=connection.id,
+        aws_region="eu-central-1",
+    )
+    db.add(config)
+    db.commit()
 
 
 class TestStreamRefreshPricingHappy:
@@ -14,20 +51,7 @@ class TestStreamRefreshPricingHappy:
     
     def test_stream_aws_with_credentials_success(self, auth_client, test_twin, db):
         """AWS pricing stream should load credentials and connect to Optimizer."""
-        from src.models.twin_config import TwinConfiguration
-        from src.models.user import User
-        from src.utils.crypto import encrypt
-        
-        # Get user from database (created by fixture)
-        user = db.query(User).first()
-        config = TwinConfiguration(
-            twin_id=test_twin.id,
-            aws_access_key_id=encrypt("AKIATEST", "dev-user-id", test_twin.id),
-            aws_secret_access_key=encrypt("secret123", "dev-user-id", test_twin.id),
-            aws_region="eu-central-1"
-        )
-        db.add(config)
-        db.commit()
+        _bind_aws_cloud_connection(db, test_twin)
         
         # Mock the Optimizer SSE stream
         mock_response = AsyncMock()
@@ -113,18 +137,7 @@ class TestStreamRefreshPricingError:
     
     def test_stream_optimizer_unreachable(self, auth_client, test_twin, db):
         """Connection error to Optimizer should emit error event."""
-        from src.models.twin_config import TwinConfiguration
-        from src.utils.crypto import encrypt
-        
-        # Add credentials so we reach the Optimizer call
-        config = TwinConfiguration(
-            twin_id=test_twin.id,
-            aws_access_key_id=encrypt("AKIATEST", "dev-user-id", test_twin.id),
-            aws_secret_access_key=encrypt("secret123", "dev-user-id", test_twin.id),
-            aws_region="eu-central-1"
-        )
-        db.add(config)
-        db.commit()
+        _bind_aws_cloud_connection(db, test_twin)
         
         with patch('src.api.routes.optimizer.httpx.AsyncClient') as mock_client:
             mock_instance = MagicMock()

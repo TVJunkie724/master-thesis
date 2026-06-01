@@ -59,7 +59,7 @@ def test_deployer_update_distinguishes_omitted_and_explicit_null(db_session):
     assert config.processor_contents is None
 
 
-def test_twin_config_update_rejects_stored_gcp_without_service_account(db_session):
+def test_twin_config_update_rejects_direct_per_twin_credentials(db_session):
     user, twin = _create_twin(db_session)
 
     with pytest.raises(HTTPException) as exc_info:
@@ -77,8 +77,8 @@ def test_twin_config_update_rejects_stored_gcp_without_service_account(db_sessio
             user.id,
         )
 
-    assert exc_info.value.status_code == 422
-    assert exc_info.value.detail == "service_account_json is required for stored GCP credentials"
+    assert exc_info.value.status_code == 400
+    assert "Cloud Connection" in exc_info.value.detail
 
 
 def test_wizard_updates_regress_configured_twin_to_draft(db_session):

@@ -72,7 +72,7 @@ def _cloud_connection(connection_id, provider, payload):
     )
 
 
-def test_cloud_connection_takes_precedence_over_legacy_credentials():
+def test_cloud_connection_is_used_when_legacy_columns_are_still_populated():
     payload = {
         "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
         "aws_secret_access_key": "cloud-connection-secret",
@@ -133,18 +133,20 @@ def test_optimizer_selected_provider_without_credentials_fails_closed():
             aws_access_key_id=encrypt("AKIAIOSFODNN7EXAMPLE", USER_ID, TWIN_ID),
             aws_secret_access_key=encrypt("secret", USER_ID, TWIN_ID),
         ),
-        optimizer_config=_optimizer_config(cheapest_l1="AWS", cheapest_l2="AZURE"),
+        optimizer_config=_optimizer_config(cheapest_l1="AWS"),
     )
 
     with pytest.raises(CredentialResolutionFailed) as exc_info:
         CredentialResolutionService().resolve_deployment_credentials(twin, USER_ID)
 
     assert {
-        "provider": "azure",
-        "code": "MISSING_CREDENTIALS",
+        "provider": "aws",
+        "code": "MISSING_CLOUD_CONNECTION",
         "field": "credentials",
-        "message": "No credentials configured for provider",
+        "message": "Provider requires a bound Cloud Connection",
     } in exc_info.value.errors
+    assert "AKIAIOSFODNN7EXAMPLE" not in str(exc_info.value.errors)
+    assert "secret" not in str(exc_info.value.errors)
 
 
 def test_dangling_cloud_connection_fails_closed_with_secret_safe_error():
@@ -171,6 +173,19 @@ def test_dangling_cloud_connection_fails_closed_with_secret_safe_error():
         }
     ]
     assert "legacy-secret" not in str(exc_info.value.errors)
+
+
+def test_configured_providers_ignores_legacy_credential_columns():
+    twin = _twin(
+        configuration=_configuration(
+            aws_access_key_id=encrypt("AKIAIOSFODNN7EXAMPLE", USER_ID, TWIN_ID),
+            aws_secret_access_key=encrypt("legacy-secret", USER_ID, TWIN_ID),
+            gcp_project_id="metadata-only-project",
+            gcp_service_account_json=encrypt("{}", USER_ID, TWIN_ID),
+        ),
+    )
+
+    assert CredentialResolutionService.configured_providers(twin) == set()
 
 
 def test_invalid_gcp_service_account_json_returns_structured_error():

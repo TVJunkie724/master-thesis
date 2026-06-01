@@ -122,3 +122,26 @@ async def test_seed_twins_do_not_create_invalid_gcp_connection_without_service_a
     assert configs
     assert all(config.gcp_cloud_connection_id is None for config in configs)
     assert all(config.gcp_service_account_json is None for config in configs)
+
+
+@pytest.mark.asyncio
+async def test_seed_twins_reject_legacy_per_twin_credential_duplication(
+    db_session,
+    monkeypatch,
+    tmp_path,
+):
+    credentials_path, gcp_path = _write_seed_files(tmp_path)
+
+    async def fake_validate_provider(provider, creds):
+        return True, "Valid"
+
+    monkeypatch.setattr(seed_twins, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(seed_twins, "_validate_provider", fake_validate_provider)
+    monkeypatch.setattr(seed_twins.settings, "SEED_CREDENTIALS_FILE", str(credentials_path))
+    monkeypatch.setattr(seed_twins.settings, "SEED_GCP_CREDENTIALS_FILE", str(gcp_path))
+    monkeypatch.setattr(seed_twins.settings, "SEED_LEGACY_TWIN_CREDENTIALS", True)
+
+    await seed_twins.seed_if_needed()
+
+    assert db_session.query(DigitalTwin).count() == 0
+    assert db_session.query(TwinConfiguration).count() == 0

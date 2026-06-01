@@ -1,21 +1,10 @@
 import pytest
 from fastapi.testclient import TestClient
 from src.main import app
-from src.models.database import Base, engine, SessionLocal
-from src.models.user import User
-from src.utils.crypto import decrypt
+from src.models.database import Base, engine
 
 client = TestClient(app)
 HEADERS = {"Authorization": "Bearer dev-token"}
-
-
-def get_dev_user_id():
-    """Get the dev user's ID from database."""
-    db = SessionLocal()
-    user = db.query(User).filter(User.email == "dev@example.com").first()
-    user_id = user.id if user else None
-    db.close()
-    return user_id
 
 
 @pytest.fixture(autouse=True)
@@ -35,15 +24,12 @@ def test_get_config_creates_default():
     assert config_resp.json()["aws_configured"] == False
 
 
-def test_credentials_stored_encrypted():
-    """Credentials should be encrypted in DB with user+twin-specific key."""
-    from src.models.twin_config import TwinConfiguration
+def test_direct_twin_credentials_are_rejected():
+    """Direct per-twin credential storage is disabled."""
     
     twin_resp = client.post("/twins/", json={"name": "Test"}, headers=HEADERS)
     twin_id = twin_resp.json()["id"]
-    dev_user_id = get_dev_user_id()
-    
-    client.put(f"/twins/{twin_id}/config/", 
+    response = client.put(f"/twins/{twin_id}/config/",
         json={"aws": {
             "access_key_id": "AKIAIOSFODNN7EXAMPLE",
             "secret_access_key": "wJalrXUtnFEMI/K7MDENG",
@@ -51,15 +37,9 @@ def test_credentials_stored_encrypted():
         }},
         headers=HEADERS
     )
-    
-    db = SessionLocal()
-    config = db.query(TwinConfiguration).filter_by(twin_id=twin_id).first()
-    
-    assert config.aws_access_key_id != "AKIAIOSFODNN7EXAMPLE"
-    assert config.aws_access_key_id.startswith("gAAAAA")
-    assert decrypt(config.aws_access_key_id, dev_user_id, twin_id) == "AKIAIOSFODNN7EXAMPLE"
-    
-    db.close()
+
+    assert response.status_code == 400
+    assert "Cloud Connection" in response.json()["detail"]
 
 
 def test_response_never_exposes_credentials():
@@ -67,7 +47,7 @@ def test_response_never_exposes_credentials():
     twin_resp = client.post("/twins/", json={"name": "Test"}, headers=HEADERS)
     twin_id = twin_resp.json()["id"]
     
-    client.put(f"/twins/{twin_id}/config/", 
+    response = client.put(f"/twins/{twin_id}/config/",
         json={"aws": {
             "access_key_id": "AKIAIOSFODNN7EXAMPLE",
             "secret_access_key": "wJalrXUtnFEMI/K7MDENG",
@@ -75,6 +55,7 @@ def test_response_never_exposes_credentials():
         }},
         headers=HEADERS
     )
+    assert response.status_code == 400
     
     config_resp = client.get(f"/twins/{twin_id}/config/", headers=HEADERS)
     data = config_resp.json()

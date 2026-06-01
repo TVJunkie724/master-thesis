@@ -37,15 +37,15 @@ def _credential_resolution_detail(exc: CredentialResolutionFailed) -> dict:
     operation_id="getTwinConfig",
     summary="Get configuration for a twin",
     description=(
-        "**Purpose:** Retrieve cloud provider credentials and validation status for Step 1 (Credentials) screen.\n\n"
-        "**When to call:** When loading Step 1 to show saved credentials (masked) and validation indicators.\n\n"
+        "**Purpose:** Retrieve CloudConnection bindings and validation status for Step 1 (Credentials) screen.\n\n"
+        "**When to call:** When loading Step 1 to show selected CloudConnections and validation indicators.\n\n"
         "**Response fields:**\n"
-        "- `aws`: Object with masked credentials, region, and `validated` boolean\n"
-        "- `azure`: Object with masked credentials, region, and `validated` boolean\n"
-        "- `gcp`: Object with masked credentials, region, and `validated` boolean\n"
+        "- `{provider}_cloud_connection_id`: selected provider CloudConnection id\n"
+        "- `cloud_connections`: secret-safe summaries of bound CloudConnections\n"
+        "- `{provider}_configured`: whether a usable CloudConnection is bound\n"
         "- `debug_mode`: Whether debug logging is enabled\n"
         "- `highest_step_reached`: Wizard progress indicator (1-5)\n\n"
-        "**Note:** Creates empty config if none exists. Credentials are masked in response."
+        "**Note:** Creates empty config if none exists. Secrets are never returned."
     ),
     responses={
         401: ERROR_RESPONSES[401],
@@ -77,15 +77,14 @@ async def get_config(
     operation_id="updateTwinConfig",
     summary="Update configuration for a twin",
     description=(
-        "**Purpose:** Save cloud provider credentials and configuration for a Digital Twin.\n\n"
-        "**When to call:** When user saves credentials in Step 1, or when auto-saving on field blur.\n\n"
+        "**Purpose:** Save CloudConnection bindings and non-secret configuration for a Digital Twin.\n\n"
+        "**When to call:** When user selects/unbinds CloudConnections or saves wizard progress.\n\n"
         "**Request body fields:**\n"
-        "- `aws`: {access_key_id, secret_access_key, region, session_token(optional)}\n"
-        "- `azure`: {subscription_id, client_id, client_secret, tenant_id, region}\n"
-        "- `gcp`: {project_id, billing_account, service_account_json, region}\n"
+        "- `cloud_connections`: {aws, azure, gcp} CloudConnection ids or nulls\n"
+        "- `aws`/`azure`/`gcp`: null clears that provider; direct credential storage is disabled\n"
         "- `debug_mode`: Enable verbose logging for deployment\n"
         "- `highest_step_reached`: Track wizard progress\n\n"
-        "**Security:** Credentials are encrypted with user+twin-specific key before storage.\n\n"
+        "**Security:** Provider secrets are stored only in user-scoped CloudConnections.\n\n"
         "**Blocked states:** Returns 400 if twin is DEPLOYED, DEPLOYING, or DESTROYING.\n\n"
         "**Side effect:** If twin was in CONFIGURED/ERROR/DESTROYED state, regresses to DRAFT."
     ),
@@ -124,13 +123,13 @@ async def update_config(
     "/validate/{provider}",
     response_model=CredentialValidationResult,
     operation_id="validateStoredCredentials",
-    summary="Validate stored credentials via Deployer API",
+    summary="Validate bound CloudConnection via Deployer API",
     description=(
-        "**Purpose:** Validate credentials that were previously saved to the twin configuration.\n\n"
-        "**When to call:** When user clicks Validate button and credentials are already saved (masked in UI).\n\n"
+        "**Purpose:** Validate credentials from a bound CloudConnection via Deployer API.\n\n"
+        "**When to call:** When user clicks Validate button for a selected CloudConnection.\n\n"
         "**Path parameter:** provider = 'aws', 'azure', or 'gcp'\n\n"
         "**Flow:**\n"
-        "1. Decrypts stored credentials using user+twin-specific key\n"
+        "1. Decrypts the bound CloudConnection payload\n"
         "2. Forwards to Deployer's `/permissions/verify/{provider}` endpoint\n"
         "3. Updates `{provider}_validated` flag in database\n"
         "4. Returns validation result (credentials never exposed to client)\n\n"
@@ -350,13 +349,13 @@ async def validate_credentials_dual(
 @router.post(
     "/validate-stored/{provider}",
     operation_id="validateStoredCredentialsDual",
-    summary="Validate stored credentials against both APIs",
+    summary="Validate bound CloudConnection against both APIs",
     description=(
-        "**Purpose:** Same as `validateCredentialsDual` but uses credentials already stored in database.\n\n"
-        "**When to call:** When user clicks Validate and credentials are masked (already saved previously).\n\n"
+        "**Purpose:** Same as `validateCredentialsDual` but uses the bound CloudConnection.\n\n"
+        "**When to call:** When user clicks Validate for a selected CloudConnection.\n\n"
         "**Path parameter:** provider = 'aws', 'azure', or 'gcp'\n\n"
         "**Flow:**\n"
-        "1. Decrypts stored credentials using user+twin-specific key\n"
+        "1. Decrypts the bound CloudConnection payload\n"
         "2. Validates against Optimizer API (pricing permissions)\n"
         "3. Validates against Deployer API (infrastructure permissions)\n"
         "4. Updates `{provider}_validated` flag based on combined result\n\n"
@@ -378,8 +377,7 @@ async def validate_stored_credentials_dual(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Validate STORED credentials against BOTH Optimizer and Deployer APIs.
-    Used when frontend fields are empty (hidden secrets).
+    Validate bound CloudConnection credentials against BOTH Optimizer and Deployer APIs.
     """
     if provider not in ["aws", "azure", "gcp"]:
         raise HTTPException(status_code=400, detail="Invalid provider. Use: aws, azure, gcp")

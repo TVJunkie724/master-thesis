@@ -21,8 +21,9 @@ from src.models.twin import DigitalTwin
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.config import settings
-from src.utils.crypto import decrypt
 from src.services.twin_helpers import get_user_twin
+from src.services.credential_resolution_service import CredentialResolutionService
+from src.services.errors import CredentialResolutionFailed
 from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/optimizer", tags=["optimizer"])
@@ -167,13 +168,13 @@ async def proxy_pricing_export(
 @router.post(
     "/refresh-pricing/{provider}",
     operation_id="refreshPricing",
-    summary="Refresh pricing using twin's stored credentials",
+    summary="Refresh pricing using a bound CloudConnection",
     description=(
-        "**Purpose:** Fetch fresh pricing data from cloud provider APIs using stored credentials.\n\n"
+        "**Purpose:** Fetch fresh pricing data from cloud provider APIs using a bound CloudConnection.\n\n"
         "**Prerequisites:**\n"
-        "- AWS: Requires `aws_access_key_id` and `aws_secret_access_key` stored in twin config\n"
+        "- AWS: Requires an AWS CloudConnection bound to the twin\n"
         "- Azure: No credentials needed (uses public Retail Prices API)\n"
-        "- GCP: Requires `gcp_service_account_json` stored in twin config\n\n"
+        "- GCP: Requires a GCP CloudConnection bound to the twin\n\n"
         "**When to call:** When `getPricingStatus` shows `is_fresh: false`.\n\n"
         "**Query parameter:** `twin_id` - The twin whose credentials to use"
     ),
@@ -191,13 +192,13 @@ async def refresh_pricing(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Refresh pricing using twin's stored credentials.
+    Refresh pricing using credentials resolved from the twin's CloudConnection.
     
-    - AWS: Requires aws_access_key_id, aws_secret_access_key from twin config
+    - AWS: Requires an AWS CloudConnection
     - Azure: No credentials needed (public API)
-    - GCP: Requires gcp_service_account_json from twin config
+    - GCP: Requires a GCP CloudConnection
     
-    Credentials are decrypted from TwinConfiguration and forwarded to Optimizer.
+    Credentials are decrypted from CloudConnection storage and forwarded to Optimizer.
     """
     if provider not in ["aws", "azure", "gcp"]:
         raise HTTPException(400, f"Invalid provider: {provider}. Must be aws, azure, or gcp")
@@ -214,29 +215,17 @@ async def refresh_pricing(
                 raise HTTPException(response.status_code, response.text)
             return response.json()
         
-        # AWS/GCP need credentials from twin config
+        # AWS/GCP need credentials from the bound CloudConnection.
         twin = await get_user_twin(twin_id, current_user, db)
-        config = twin.configuration
-        
-        if not config:
-            raise HTTPException(400, "Twin has no configuration. Complete Step 1 first.")
-        
-        credentials = {}
-        if provider == "aws":
-            if not config.aws_access_key_id:
-                raise HTTPException(400, "AWS credentials not configured in Step 1")
-            credentials = {
-                "aws_access_key_id": decrypt(config.aws_access_key_id, current_user.id, twin_id),
-                "aws_secret_access_key": decrypt(config.aws_secret_access_key, current_user.id, twin_id),
-                "aws_region": config.aws_region or "eu-central-1"
-            }
-        elif provider == "gcp":
-            if not config.gcp_service_account_json:
-                raise HTTPException(400, "GCP credentials not configured in Step 1")
-            credentials = {
-                "gcp_service_account_json": decrypt(config.gcp_service_account_json, current_user.id, twin_id),
-                "gcp_region": config.gcp_region or "europe-west1"
-            }
+        try:
+            resolved = CredentialResolutionService().resolve_provider_credentials(
+                twin,
+                current_user.id,
+                provider,
+            )
+        except CredentialResolutionFailed as exc:
+            raise HTTPException(400, _credential_resolution_detail(exc)) from exc
+        credentials = _optimizer_pricing_payload(provider, resolved.optimizer_payload)
         
         async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
@@ -306,36 +295,24 @@ async def stream_refresh_pricing(
             if provider == "azure":
                 yield emit("Azure uses public API - no credentials needed")
             else:
-                # AWS/GCP need credentials from twin config
-                yield emit("Loading twin credentials...")
+                # AWS/GCP need credentials from the bound CloudConnection.
+                yield emit("Loading Cloud Connection credentials...")
                 await asyncio.sleep(0.1)
                 
                 twin = await get_user_twin(twin_id, current_user, db)
-                config = twin.configuration
-                
-                if not config:
-                    yield emit("❌ Error: Twin has no configuration. Complete Step 1 first.", "error")
+                try:
+                    resolved = CredentialResolutionService().resolve_provider_credentials(
+                        twin,
+                        current_user.id,
+                        provider,
+                    )
+                except CredentialResolutionFailed as exc:
+                    detail = _credential_resolution_detail(exc)
+                    yield emit(f"Error: {detail['message']}", "error")
                     return
 
-                if provider == "aws":
-                    if not config.aws_access_key_id:
-                        yield emit("❌ Error: AWS credentials not configured in Step 1", "error")
-                        return
-                    credentials = {
-                        "aws_access_key_id": decrypt(config.aws_access_key_id, current_user.id, twin_id),
-                        "aws_secret_access_key": decrypt(config.aws_secret_access_key, current_user.id, twin_id),
-                        "aws_region": config.aws_region or "eu-central-1"
-                    }
-                    yield emit("AWS credentials loaded and decrypted")
-                elif provider == "gcp":
-                    if not config.gcp_service_account_json:
-                        yield emit("❌ Error: GCP credentials not configured in Step 1", "error")
-                        return
-                    credentials = {
-                        "gcp_service_account_json": decrypt(config.gcp_service_account_json, current_user.id, twin_id),
-                        "gcp_region": config.gcp_region or "europe-west1"
-                    }
-                    yield emit("GCP credentials loaded and decrypted")
+                credentials = _optimizer_pricing_payload(provider, resolved.optimizer_payload)
+                yield emit(f"{provider.upper()} Cloud Connection credentials loaded")
 
             await asyncio.sleep(0.1)
             yield emit(f"Connecting to Optimizer service for {provider.upper()} pricing...")
@@ -378,6 +355,24 @@ async def stream_refresh_pricing(
             "X-Accel-Buffering": "no"  # Disable nginx buffering
         }
     )
+
+
+def _credential_resolution_detail(exc: CredentialResolutionFailed) -> dict:
+    return {
+        "code": "CREDENTIAL_RESOLUTION_FAILED",
+        "message": exc.message,
+        "errors": exc.errors,
+    }
+
+
+def _optimizer_pricing_payload(provider: str, optimizer_payload: dict) -> dict:
+    if provider != "gcp":
+        return optimizer_payload
+    payload = {
+        "gcp_service_account_json": optimizer_payload.get("gcp_credentials_file"),
+        "gcp_region": optimizer_payload.get("gcp_region"),
+    }
+    return {key: value for key, value in payload.items() if value}
 
 
 # ============================================================================

@@ -16,7 +16,7 @@ The target state is:
 - real cloud credentials are an explicit opt-in local-cloud mode,
 - user/twin deployments reference Management API `CloudConnection` records,
 - bootstrap/admin credentials are temporary input only,
-- legacy per-twin encrypted credentials remain only as migration fallback,
+- legacy per-twin encrypted credentials are not an active runtime fallback,
 - Deployer project packages may contain operation-local credential files, but
   repository files, templates, and generated runtime folders are not credential
   sources of truth.
@@ -47,9 +47,9 @@ The target state is:
 
 | Component | Current behavior | Risk |
 |-----------|------------------|------|
-| Management API CloudConnections | User-scoped encrypted CloudConnection storage exists; twins can bind provider CloudConnections. | Foundation is good, but legacy fallback remains. |
-| Management API seed script | Reads `SEED_CREDENTIALS_FILE` and `SEED_GCP_CREDENTIALS_FILE`; creates encrypted user-scoped CloudConnections and binds seeded twins to them. | SSOT-aligned. Legacy per-twin field seeding is disabled by default and available only via explicit compatibility flag. |
-| Management API deployment package | Resolves credentials from CloudConnection first, legacy fallback second; writes operation-local `config_credentials.json` and optional `gcp_credentials.json` into the generated Deployer package. | Acceptable transitional boundary, because package is generated from backend state and manifest is secrets-free. |
+| Management API CloudConnections | User-scoped encrypted CloudConnection storage exists; twins bind provider CloudConnections. | This is the active credential source of truth. |
+| Management API seed script | Reads `SEED_CREDENTIALS_FILE` and `SEED_GCP_CREDENTIALS_FILE`; creates encrypted user-scoped CloudConnections and binds seeded twins to them. | SSOT-aligned. Legacy per-twin field seeding now fails fast if explicitly requested. |
+| Management API deployment package | Resolves credentials from CloudConnections only; writes operation-local `config_credentials.json` and optional `gcp_credentials.json` into the generated Deployer package. | Acceptable transitional file boundary, because package is generated from backend state and manifest is secrets-free. |
 | Deployer | Canonical deployment contract still consumes operation-local `config_credentials.json` and optional `gcp_credentials.json` from generated packages. File-based permission checks are gated behind `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`. | Acceptable transitional file contract; normal app validation is request/CloudConnection-derived. |
 | Optimizer | Request-body permission/pricing validation remains available for app flows. File-based `/config` permission checks and fresh file-based AWS/GCP pricing refresh are gated behind `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`. | Local project-config verification is debug/local-cloud only. |
 | Flutter | CloudConnection UI exists, but the broader wizard still needs later feature slicing and CloudConnection-only UX hardening. | Tracked under Phase 7, especially #38/#72/#73. |
@@ -106,7 +106,7 @@ The target state is:
 
 - [x] Convert Management API seeding from legacy per-twin encrypted credential fields to user-scoped CloudConnections.
 - [x] Seed twins bind CloudConnections by provider instead of copying credentials into every twin.
-- [x] Keep legacy field seeding behind an explicit compatibility flag only if needed.
+- [x] Reject obsolete legacy field seeding flags so per-twin secret duplicates cannot be recreated.
 
 **Acceptance**
 
@@ -133,20 +133,20 @@ The target state is:
 - [x] File-based validation endpoints are clearly transitional or debug-only.
 - [x] Tests cover no-credential default behavior.
 
-### Slice 5: Legacy Fallback Exit Plan
+### Slice 5: Legacy Fallback Removal
 
-**Status:** Implemented as follow-up planning issue [#78](https://github.com/TVJunkie724/master-thesis/issues/78)
+**Status:** Implemented in follow-up issue [#78](https://github.com/TVJunkie724/master-thesis/issues/78)
 
 **Work**
 
 - [x] Create or update a follow-up issue for removing legacy encrypted per-twin credential fields.
 - [x] Define DB migration/backfill constraints.
-- [x] Keep fallback code until CloudConnection-only demo/deployment path is verified.
+- [x] Remove runtime fallback code after CloudConnection-only package generation was verified.
 
 **Acceptance**
 
-- [x] Legacy fallback has a removal plan.
-- [x] Current fallback is documented, tested, and lower priority than CloudConnections.
+- [x] Legacy fallback is removed from normal runtime.
+- [x] Runtime fallback is removed; old local DB rows have an explicit cleanup migration.
 - [x] Removal issue is blocked by #6 so it cannot close before the CloudConnection-only path is verified.
 
 ## 5. Security Requirements

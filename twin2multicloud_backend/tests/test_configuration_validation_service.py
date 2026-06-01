@@ -9,7 +9,7 @@ from src.models.twin import DigitalTwin
 from src.models.twin_config import TwinConfiguration
 from src.services.configuration_validation_service import ConfigurationValidationService
 from src.services.errors import ConfigurationValidationFailed, ExternalServiceError, ExternalServiceUnavailable
-from src.utils.crypto import encrypt, encrypt_scoped
+from src.utils.crypto import encrypt_scoped
 
 
 class FakeOptimizerClient:
@@ -40,9 +40,23 @@ def _configured_twin() -> DigitalTwin:
     twin = DigitalTwin(id="twin-1", name="Factory Twin", user_id="user-1")
     twin.configuration = TwinConfiguration(
         twin_id=twin.id,
-        aws_access_key_id=encrypt("AKIAIOSFODNN7EXAMPLE", "user-1", "twin-1"),
-        aws_secret_access_key=encrypt("secret-key", "user-1", "twin-1"),
+        aws_cloud_connection_id="connection-aws",
         aws_region="eu-central-1",
+    )
+    payload = {
+        "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+        "aws_secret_access_key": "secret-key",
+        "aws_region": "eu-central-1",
+    }
+    twin.configuration.aws_cloud_connection = CloudConnection(
+        id="connection-aws",
+        user_id="user-1",
+        provider="aws",
+        display_name="AWS Dev",
+        cloud_scope="{}",
+        auth_type="access_key",
+        encrypted_payload=encrypt_scoped(json.dumps(payload), "user-1", "connection-aws"),
+        payload_fingerprint="fingerprint",
     )
     twin.optimizer_config = OptimizerConfiguration(
         twin_id=twin.id,
@@ -59,26 +73,7 @@ def _configured_twin() -> DigitalTwin:
 
 
 def _cloud_connection_configured_twin() -> DigitalTwin:
-    twin = _configured_twin()
-    twin.configuration.aws_access_key_id = None
-    twin.configuration.aws_secret_access_key = None
-    twin.configuration.aws_cloud_connection_id = "connection-aws"
-    payload = {
-        "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
-        "aws_secret_access_key": "secret-key",
-        "aws_region": "eu-central-1",
-    }
-    twin.configuration.aws_cloud_connection = CloudConnection(
-        id="connection-aws",
-        user_id="user-1",
-        provider="aws",
-        display_name="AWS Dev",
-        cloud_scope="{}",
-        auth_type="access_key",
-        encrypted_payload=encrypt_scoped(json.dumps(payload), "user-1", "connection-aws"),
-        payload_fingerprint="fingerprint",
-    )
-    return twin
+    return _configured_twin()
 
 
 @pytest.mark.asyncio
@@ -154,9 +149,9 @@ async def test_validate_configured_transition_requires_optimizer_selected_provid
     assert {
         "step": 1,
         "provider": "azure",
-        "code": "MISSING_CREDENTIALS",
+        "code": "MISSING_CLOUD_CONNECTION",
         "field": "credentials",
-        "message": "No credentials configured for provider",
+        "message": "Provider requires a bound Cloud Connection",
     } in exc_info.value.errors
     assert optimizer.payload is None
     assert deployer.payload is None
