@@ -37,5 +37,4 @@ class WizardConfigRequestBuilder {
     }
     return buildDeployerConfigRequest(state).hasMeaningfulValues;
   }
-
 }

@@ -6,7 +6,6 @@ import '../wizard_state.dart';
 /// Helper class for credential-related operations
 /// Extracts logic from WizardBloc to improve maintainability
 class CredentialsHelper {
-  
   /// Extract masked credential values from config response
   static Map<String, String> extractMaskedCredentials(dynamic config) {
     if (config == null || config is! Map) return {};
@@ -68,55 +67,15 @@ class CredentialsHelper {
 
     return result;
   }
-  
-  /// Build credentials for config update payload
-  /// Only includes credentials that need updating
-  static Map<String, dynamic> buildCredentialsPayload(WizardState state) {
-    final config = <String, dynamic>{};
-    
-    if (state.aws.source == CredentialSource.newlyEntered) {
-      config['aws'] = state.aws.values;
-    } else if (state.aws.source == CredentialSource.cleared) {
-      config['aws'] = null; // Delete from DB
-    }
-    
-    if (state.azure.source == CredentialSource.newlyEntered) {
-      config['azure'] = state.azure.values;
-    } else if (state.azure.source == CredentialSource.cleared) {
-      config['azure'] = null;
-    }
-    
-    if (state.gcp.source == CredentialSource.newlyEntered) {
-      config['gcp'] = state.gcp.values;
-    } else if (state.gcp.source == CredentialSource.cleared) {
-      config['gcp'] = null;
-    }
-    
-    return config;
-  }
-  
-  /// Check if any provider has valid credentials
-  static bool hasAnyValidCredentials(WizardState state) {
-    return state.aws.isValid || state.azure.isValid || state.gcp.isValid;
-  }
-  
-  /// Get set of configured providers
-  static Set<String> getConfiguredProviders(WizardState state) {
-    final providers = <String>{};
-    if (state.aws.isValid) providers.add('AWS');
-    if (state.azure.isValid) providers.add('AZURE');
-    if (state.gcp.isValid) providers.add('GCP');
-    return providers;
-  }
-  
+
   /// Hydrate credentials from config response
   static Map<String, ProviderCredentials> hydrateCredentials(
-    Map<String, dynamic> config
+    Map<String, dynamic> config,
   ) {
     ProviderCredentials awsCreds = const ProviderCredentials();
     ProviderCredentials azureCreds = const ProviderCredentials();
     ProviderCredentials gcpCreds = const ProviderCredentials();
-    
+
     final sources = config['credential_sources'];
     if (sources is Map && sources['aws'] == 'cloud_connection') {
       awsCreds = ProviderCredentials(
@@ -139,20 +98,16 @@ class CredentialsHelper {
         values: extractCredentialsFromFlatConfig(config, 'gcp'),
       );
     }
-    
-    return {
-      'aws': awsCreds,
-      'azure': azureCreds,
-      'gcp': gcpCreds,
-    };
+
+    return {'aws': awsCreds, 'azure': azureCreds, 'gcp': gcpCreds};
   }
-  
+
   /// Check if a credentials map has stored values
   static bool hasStoredCredentials(Map<String, String>? credentials) {
     if (credentials == null) return false;
     return credentials.isNotEmpty;
   }
-  
+
   /// Get required fields for a provider
   static List<String> getRequiredFields(String provider) {
     switch (provider.toLowerCase()) {
@@ -166,13 +121,17 @@ class CredentialsHelper {
         return [];
     }
   }
-  
+
   /// Check if all required fields for a provider are filled
-  static bool areAllRequiredFieldsFilled(String provider, Map<String, String>? credentials) {
+  static bool areAllRequiredFieldsFilled(
+    String provider,
+    Map<String, String>? credentials,
+  ) {
     if (credentials == null) return false;
     final required = getRequiredFields(provider);
     for (final field in required) {
-      if (!credentials.containsKey(field) || credentials[field]?.isEmpty == true) {
+      if (!credentials.containsKey(field) ||
+          credentials[field]?.isEmpty == true) {
         return false;
       }
     }
