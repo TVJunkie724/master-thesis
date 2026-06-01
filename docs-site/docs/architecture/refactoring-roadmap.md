@@ -90,10 +90,11 @@ when work becomes actionable, then reference the issue here.
 |-------|--------|-------|
 | [#6](https://github.com/TVJunkie724/master-thesis/issues/6) | Active | CloudConnection credential SSOT and Compose split. Slices 2-5 implemented (`.secrets/local/`, CloudConnection-based seeding, gated file-based checks, fallback removal tracked in #78). Plan: [`docs/plans/2026-05-19_credential_ssot_compose_split.md`](https://github.com/TVJunkie724/master-thesis/blob/master/docs/plans/2026-05-19_credential_ssot_compose_split.md) |
 | [#7](https://github.com/TVJunkie724/master-thesis/issues/7) | Open, blocked by #6 | Provider bootstrap and permission preflight checks. Slices 1-4 add static dry-run-first bootstrap artifacts, the Management API plan/import contract, normalized CloudConnection/Deployer preflight results, and offline provider permission artifact guardrails. Plan: [`docs/plans/2026-05-21_provider_bootstrap_preflight_plan.md`](https://github.com/TVJunkie724/master-thesis/blob/master/docs/plans/2026-05-21_provider_bootstrap_preflight_plan.md) |
+| [#79](https://github.com/TVJunkie724/master-thesis/issues/79) | Open, blocked by #7 | Stage 2 for provider credentials: finalize versioned least-privilege permission sets such as `thesis-demo-v1`, attach permission-set versions to CloudConnections/preflight, and harden provider policy artifacts after the Stage 1 bootstrap/preflight mechanics are stable. |
 | [#8](https://github.com/TVJunkie724/master-thesis/issues/8) | Open | Production credential security controls |
 | [#9](https://github.com/TVJunkie724/master-thesis/issues/9) | Open | Local encryption/JWT key generation and persistence |
 | [#10](https://github.com/TVJunkie724/master-thesis/issues/10) | Open | Production authentication and UIBK login path |
-| [#78](https://github.com/TVJunkie724/master-thesis/issues/78) | In progress | Remove legacy encrypted per-twin credential fallback; CloudConnections are the only runtime credential source |
+| [#78](https://github.com/TVJunkie724/master-thesis/issues/78) | Done | Legacy encrypted per-twin credential fallback removed; CloudConnections are the only runtime credential source |
 | [#11](https://github.com/TVJunkie724/master-thesis/issues/11) | Open | ProjectStorage abstraction for Deployer project data |
 | [#12](https://github.com/TVJunkie724/master-thesis/issues/12) | Open | Remove legacy global state in favor of explicit context |
 | [#13](https://github.com/TVJunkie724/master-thesis/issues/13) | Open, blocked by #11/#12 | Context-owned config loading |
@@ -173,7 +174,7 @@ when work becomes actionable, then reference the issue here.
 
 ## Next Recommended Sequence
 
-1. Finish the remaining Phase 4 credential/runtime work: #6, #7, #11, #12, #13.
+1. Finish the remaining Phase 4 credential/runtime work: #6, #7, #79, #11, #12, #13.
 2. Start backend orchestration disentanglement with #63, #64, and #65 before #66.
 3. Split route adapters through #67 after the orchestrator boundary is stable.
 4. Plan Flutter wizard decomposition through #38 using the completed #76 contract.

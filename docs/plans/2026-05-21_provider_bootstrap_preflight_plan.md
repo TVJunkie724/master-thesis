@@ -2,6 +2,7 @@
 
 **Date:** 2026-05-21
 **GitHub issue:** [#7](https://github.com/TVJunkie724/master-thesis/issues/7)
+**Follow-up issue:** [#79](https://github.com/TVJunkie724/master-thesis/issues/79)
 **Roadmap phase:** Phase 4 - Runtime Credentials & Deployment State
 **Status:** Active
 
@@ -44,6 +45,28 @@ The first implementation slice is manual-first and static:
 
 This keeps the thesis implementation clean without pretending that a fully
 automated enterprise identity broker exists already.
+
+## 2.1 Stage Boundary
+
+This plan is the Stage 1 implementation plan for provider bootstrap and
+preflight mechanics. It owns the secure operational flow:
+
+- temporary bootstrap/admin input,
+- dry-run-first provider setup artifacts,
+- generated deployment identities,
+- CloudConnection import,
+- normalized provider preflight checks,
+- offline guardrails that prevent obvious drift between checker constants and
+  bootstrap artifacts.
+
+It does not claim final least-privilege proof for every provider action. The
+current provider policies are the first supported baseline for thesis/demo
+deployments. Stage 2, tracked in
+[#79](https://github.com/TVJunkie724/master-thesis/issues/79), finalizes the
+versioned permission-set model (`thesis-demo-v1`, later hardened versions),
+maps permissions against official provider action catalogs, persists or derives
+permission-set versions for CloudConnections, and documents upgrade behavior for
+outdated identities.
 
 ## 3. Implementation Slices
 
