@@ -4,7 +4,7 @@
 **GitHub issue:** [#7](https://github.com/TVJunkie724/master-thesis/issues/7)
 **Follow-up issue:** [#79](https://github.com/TVJunkie724/master-thesis/issues/79)
 **Roadmap phase:** Phase 4 - Runtime Credentials & Deployment State
-**Status:** Active
+**Status:** Completed
 
 ## 1. Goal
 
@@ -48,7 +48,7 @@ automated enterprise identity broker exists already.
 
 ## 2.1 Stage Boundary
 
-This plan is the Stage 1 implementation plan for provider bootstrap and
+This plan was the Stage 1 implementation plan for provider bootstrap and
 preflight mechanics. It owns the secure operational flow:
 
 - temporary bootstrap/admin input,
@@ -195,3 +195,20 @@ docker compose run --rm 3cloud-deployer sh -lc \
 docker compose --profile docs run --rm docs mkdocs build --strict
 git diff --check
 ```
+
+## 6. Closure Evidence
+
+Stage 1 was closed on 2026-06-02 after the following verification passed:
+
+- bootstrap shell syntax checks for AWS, Azure, and GCP,
+- JSON/YAML sanity checks for provider permission artifacts,
+- Management API bootstrap and CloudConnection tests,
+- Deployer provider preflight and permission-artifact guardrail tests,
+- full Deployer test suite without E2E,
+- Bandit scans on the touched Management API and Deployer API/checker files,
+- docs strict build,
+- `git diff --check`.
+
+The remaining least-privilege finalization is intentionally not part of this
+stage. It is tracked in
+[#79](https://github.com/TVJunkie724/master-thesis/issues/79).
