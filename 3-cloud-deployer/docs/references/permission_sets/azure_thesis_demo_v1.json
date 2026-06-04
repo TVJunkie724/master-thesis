@@ -1,0 +1,70 @@
+{
+  "provider": "azure",
+  "permission_set_version": "thesis-demo-v1",
+  "status": "validated",
+  "scope": {
+    "assignment": "Custom role or temporary built-in fallback at subscription scope",
+    "resource_group_path": "Resource-group scoping is the target for future hardening, but role assignment and provider registration checks currently keep subscription scope explicit.",
+    "tenant_assumption": "Service principal is created in the active tenant and used for Azure Resource Manager deployment."
+  },
+  "capabilities": [
+    "l0_glue",
+    "l1_iot",
+    "l2_compute",
+    "l3_storage",
+    "l4_twins",
+    "l5_grafana",
+    "observability",
+    "self_check",
+    "destroy"
+  ],
+  "actions": {
+    "source_artifacts": [
+      {
+        "path": "3-cloud-deployer/docs/references/azure_custom_role.json",
+        "format": "azure_custom_role",
+        "contains": "properties.permissions[].actions and properties.permissions[].dataActions"
+      }
+    ],
+    "checker_sources": [
+      "3-cloud-deployer/src/api/azure_credentials_checker.py::REQUIRED_AZURE_PERMISSIONS"
+    ],
+    "planes": {
+      "management_plane": "properties.permissions[].actions",
+      "data_plane": "properties.permissions[].dataActions"
+    }
+  },
+  "conditions": [
+    {
+      "type": "assignableScopes",
+      "status": "implemented",
+      "value": "/subscriptions/<subscription-id>"
+    },
+    {
+      "type": "role_assignment_constraints",
+      "status": "known_gap",
+      "reason": "Role assignment write/delete remains broad in thesis-demo-v1 because Terraform assigns Digital Twins, IoT Hub, Grafana, and storage access during deployment."
+    }
+  ],
+  "known_gaps": [
+    {
+      "area": "*/read",
+      "reason": "Read wildcard remains a documented thesis-demo-v1 gap because Azure provider operation discovery and Terraform read paths are broader than the create/update paths."
+    },
+    {
+      "area": "subscription_scope",
+      "reason": "Some setup operations and role assignments are still validated at subscription scope. Resource-group-only scoping is deferred to least-privilege-v2."
+    }
+  ],
+  "verification": {
+    "offline": [
+      "python3 -m json.tool 3-cloud-deployer/docs/references/azure_custom_role.json",
+      "pytest 3-cloud-deployer/tests/api/test_bootstrap_permission_artifacts.py"
+    ],
+    "provider_validation": [
+      "az provider operation list --query \"[].name\" -o tsv",
+      "Review 3-cloud-deployer/docs/references/azure_custom_role.json against current Azure provider operations before supervised role creation."
+    ],
+    "live_smoke": "Run only during supervised cloud validation; default automated tests must not mutate Azure."
+  }
+}

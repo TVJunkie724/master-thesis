@@ -10,6 +10,7 @@ OVERWRITE_OUTPUT=false
 ACCOUNT_ID=""
 IDENTITY_NAME="twin2mc-deployer"
 REGION="eu-central-1"
+PERMISSION_SET_VERSION="thesis-demo-v1"
 POLICY_FILE="${REPO_ROOT}/3-cloud-deployer/docs/references/aws_deployer_policy.json"
 OUTPUT_FILE=""
 
@@ -73,6 +74,7 @@ Planned AWS deployment identity:
   account_id: ${ACCOUNT_ID}
   iam_user: ${IDENTITY_NAME}
   region: ${REGION}
+  permission_set_version: ${PERMISSION_SET_VERSION}
   inline_policy: ${POLICY_FILE}
 
 Run again with --apply after reviewing the policy and active AWS CLI identity.
@@ -126,15 +128,16 @@ read -r ACCESS_KEY_ID SECRET_ACCESS_KEY < <(
 )
 
 render_connection_json() {
-  python3 - "$IDENTITY_NAME" "$ACCOUNT_ID" "$REGION" "$ACCESS_KEY_ID" "$SECRET_ACCESS_KEY" <<'PY'
+  python3 - "$IDENTITY_NAME" "$ACCOUNT_ID" "$REGION" "$PERMISSION_SET_VERSION" "$ACCESS_KEY_ID" "$SECRET_ACCESS_KEY" <<'PY'
 import json
 import sys
 
-name, account_id, region, access_key_id, secret_access_key = sys.argv[1:]
+name, account_id, region, permission_set_version, access_key_id, secret_access_key = sys.argv[1:]
 print(json.dumps({
     "provider": "aws",
     "display_name": name,
     "auth_type": "access_key",
+    "permission_set_version": permission_set_version,
     "cloud_scope": {
         "account_id": account_id,
         "region": region,

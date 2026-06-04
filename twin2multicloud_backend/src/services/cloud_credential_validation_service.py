@@ -111,18 +111,44 @@ def redact_validation_result(result: dict[str, Any], *credential_payloads: dict[
     return _redact_value(result, sensitive_values)
 
 
-def build_preflight_result(provider: str, validation_result: dict[str, Any]) -> dict[str, Any]:
+def build_preflight_result(
+    provider: str,
+    validation_result: dict[str, Any],
+    *,
+    version_comparison=None,
+) -> dict[str, Any]:
     """Normalize raw Optimizer/Deployer validation into UI-actionable preflight checks."""
     checks = [
         _build_component_check("optimizer", validation_result.get("optimizer")),
         _build_component_check("deployer", validation_result.get("deployer")),
     ]
+    if version_comparison is not None and not version_comparison.matches:
+        checks.insert(0, _permission_set_check(version_comparison))
     ready = all(check["status"] == "passed" for check in checks)
     return {
         "provider": provider,
         "ready": ready,
         "summary": "Cloud connection preflight passed" if ready else "Cloud connection preflight failed",
         "checks": checks,
+    }
+
+
+def _permission_set_check(version_comparison) -> dict[str, Any]:
+    supplied = version_comparison.supplied_version or "missing"
+    return {
+        "component": "deployer",
+        "status": "failed",
+        "code": "OUTDATED_PERMISSION_SET",
+        "message": (
+            f"{version_comparison.provider.upper()} CloudConnection uses permission set "
+            f"'{supplied}', but the active baseline is "
+            f"'{version_comparison.expected_version}'."
+        ),
+        "action": (
+            "Re-run provider bootstrap or rotate/import the CloudConnection with "
+            f"permission_set_version={version_comparison.expected_version}."
+        ),
+        "permissions": [],
     }
 
 

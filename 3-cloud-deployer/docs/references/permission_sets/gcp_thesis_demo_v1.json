@@ -1,0 +1,66 @@
+{
+  "provider": "gcp",
+  "permission_set_version": "thesis-demo-v1",
+  "status": "validated",
+  "scope": {
+    "assignment": "Project-level custom role bound to the generated deployment service account",
+    "project_setup": "API enablement and project creation are explicit known gaps for separating bootstrap identity from deployment identity.",
+    "region_assumption": "Primary GCP deployment region, default europe-west1."
+  },
+  "capabilities": [
+    "l1_iot",
+    "l2_compute",
+    "l3_storage",
+    "observability",
+    "self_check",
+    "destroy"
+  ],
+  "actions": {
+    "source_artifacts": [
+      {
+        "path": "3-cloud-deployer/docs/references/gcp_custom_role.yaml",
+        "format": "gcp_custom_role",
+        "contains": "includedPermissions"
+      }
+    ],
+    "checker_sources": [
+      "3-cloud-deployer/src/api/gcp_credentials_checker.py::REQUIRED_GCP_APIS",
+      "3-cloud-deployer/src/api/gcp_credentials_checker.py::REQUIRED_GCP_ROLES"
+    ],
+    "constraints": [
+      "GCP custom role permission names must stay wildcard-free."
+    ]
+  },
+  "conditions": [
+    {
+      "type": "wildcard_permissions",
+      "status": "implemented",
+      "value": "forbidden"
+    },
+    {
+      "type": "bootstrap_vs_deployment_split",
+      "status": "known_gap",
+      "reason": "serviceusage.services.enable and IAM custom-role mutation permissions are retained in thesis-demo-v1 while the final bootstrap/deployment split is validated."
+    }
+  ],
+  "known_gaps": [
+    {
+      "area": "project/API setup permissions",
+      "reason": "serviceusage and IAM role mutation permissions likely belong only to bootstrap identity in least-privilege-v2."
+    },
+    {
+      "area": "L4/L5 parity",
+      "reason": "GCP does not currently provide first-class managed Digital Twin and Managed Grafana equivalents in this deployment model."
+    }
+  ],
+  "verification": {
+    "offline": [
+      "pytest 3-cloud-deployer/tests/api/test_bootstrap_permission_artifacts.py"
+    ],
+    "provider_validation": [
+      "gcloud iam roles describe projects/<project-id>/roles/Twin2MCDeployer --format=json",
+      "gcloud iam list-testable-permissions //cloudresourcemanager.googleapis.com/projects/<project-id>"
+    ],
+    "live_smoke": "Run only during supervised cloud validation; default automated tests must not mutate GCP."
+  }
+}

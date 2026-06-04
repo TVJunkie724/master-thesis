@@ -8,6 +8,7 @@ SUBSCRIPTION_ID=""
 TENANT_ID=""
 IDENTITY_NAME="twin2mc-deployer"
 REGION="westeurope"
+PERMISSION_SET_VERSION="thesis-demo-v1"
 OUTPUT_FILE=""
 
 usage() {
@@ -67,6 +68,7 @@ Planned Azure deployment identity:
   tenant_id: ${TENANT_ID}
   service_principal: ${IDENTITY_NAME}
   region: ${REGION}
+  permission_set_version: ${PERMISSION_SET_VERSION}
   roles:
     - Contributor at /subscriptions/${SUBSCRIPTION_ID}
     - User Access Administrator at /subscriptions/${SUBSCRIPTION_ID}
@@ -142,15 +144,16 @@ ensure_role_assignment "Contributor"
 ensure_role_assignment "User Access Administrator"
 
 render_connection_json() {
-  python3 - "$IDENTITY_NAME" "$SUBSCRIPTION_ID" "$TENANT_ID" "$CLIENT_ID" "$CLIENT_SECRET" "$REGION" <<'PY'
+  python3 - "$IDENTITY_NAME" "$SUBSCRIPTION_ID" "$TENANT_ID" "$CLIENT_ID" "$CLIENT_SECRET" "$REGION" "$PERMISSION_SET_VERSION" <<'PY'
 import json
 import sys
 
-name, subscription_id, tenant_id, client_id, client_secret, region = sys.argv[1:]
+name, subscription_id, tenant_id, client_id, client_secret, region, permission_set_version = sys.argv[1:]
 print(json.dumps({
     "provider": "azure",
     "display_name": name,
     "auth_type": "service_principal",
+    "permission_set_version": permission_set_version,
     "cloud_scope": {
         "subscription_id": subscription_id,
         "tenant_id": tenant_id,

@@ -23,6 +23,7 @@ def test_aws_bootstrap_plan_is_dry_run_only(authenticated_client):
     assert "--apply" in data["apply_command"]
     assert data["rotation_flag"] == "--rotate-access-keys"
     assert data["output_auth_type"] == "access_key"
+    assert data["permission_set_version"] == "thesis-demo-v1"
     assert data["cloud_scope"] == {
         "account_id": "123456789012",
         "region": "eu-central-1",
@@ -106,6 +107,7 @@ def test_import_bootstrap_connection_persists_masked_cloud_connection(authentica
                 "provider": "aws",
                 "display_name": "bootstrap-generated",
                 "auth_type": "access_key",
+                "permission_set_version": "thesis-demo-v1",
                 "cloud_scope": {
                     "account_id": "123456789012",
                     "region": "eu-central-1",
@@ -122,6 +124,7 @@ def test_import_bootstrap_connection_persists_masked_cloud_connection(authentica
     assert response.status_code == 200
     data = response.json()["connection"]
     assert data["provider"] == "aws"
+    assert data["permission_set_version"] == "thesis-demo-v1"
     assert data["payload_summary"] == {
         "account_identity_configured": True,
         "region": "eu-central-1",
@@ -130,6 +133,7 @@ def test_import_bootstrap_connection_persists_masked_cloud_connection(authentica
     assert "secret_access_key" not in str(data)
 
     stored = db_session.query(CloudConnection).filter_by(id=data["id"]).one()
+    assert stored.permission_set_version == "thesis-demo-v1"
     assert stored.encrypted_payload.startswith("gAAAAA")
     assert "wJalrXUtnFEMI" not in stored.encrypted_payload
 

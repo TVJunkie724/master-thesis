@@ -1,0 +1,66 @@
+{
+  "provider": "aws",
+  "permission_set_version": "thesis-demo-v1",
+  "status": "validated",
+  "scope": {
+    "assignment": "IAM user or role in one AWS account",
+    "resource_assumption": "Thesis-managed resources use the Digital Twin name/deployment suffix where Terraform supports naming constraints.",
+    "region_assumption": "Primary deployment region plus IAM Identity Center region for Managed Grafana."
+  },
+  "capabilities": [
+    "l0_glue",
+    "l1_iot",
+    "l2_compute",
+    "l3_storage",
+    "l4_twins",
+    "l5_grafana",
+    "observability",
+    "self_check",
+    "destroy"
+  ],
+  "actions": {
+    "source_artifacts": [
+      {
+        "path": "3-cloud-deployer/docs/references/aws_deployer_policy.json",
+        "format": "aws_iam_policy",
+        "contains": "Statement[].Action"
+      }
+    ],
+    "checker_sources": [
+      "3-cloud-deployer/src/api/credentials_checker.py::REQUIRED_AWS_PERMISSIONS",
+      "3-cloud-deployer/src/api/credentials_checker.py::SELF_CHECK_PERMISSIONS"
+    ]
+  },
+  "conditions": [
+    {
+      "type": "iam:PassedToService",
+      "status": "implemented",
+      "value": "lambda.amazonaws.com"
+    },
+    {
+      "type": "resource_arn_scoping",
+      "status": "known_gap",
+      "reason": "Several Terraform resources are created before stable ARNs exist. Stage 2 keeps broad-but-bounded resource statements explicit for thesis-demo-v1 and hardens them in least-privilege-v2."
+    }
+  ],
+  "known_gaps": [
+    {
+      "area": "Resource: *",
+      "reason": "AWS resource-level support differs per service/action and some create APIs require wildcard resources. The source policy keeps this visible and is guarded by tests."
+    },
+    {
+      "area": "Amazon Managed Grafana / IAM Identity Center",
+      "reason": "Managed Grafana setup depends on IAM Identity Center availability and still needs supervised cloud validation."
+    }
+  ],
+  "verification": {
+    "offline": [
+      "python3 -m json.tool 3-cloud-deployer/docs/references/aws_deployer_policy.json",
+      "pytest 3-cloud-deployer/tests/api/test_bootstrap_permission_artifacts.py"
+    ],
+    "provider_validation": [
+      "aws accessanalyzer validate-policy --policy-document file://3-cloud-deployer/docs/references/aws_deployer_policy.json --policy-type IDENTITY_POLICY"
+    ],
+    "live_smoke": "Run only during supervised cloud validation; default automated tests must not mutate AWS."
+  }
+}

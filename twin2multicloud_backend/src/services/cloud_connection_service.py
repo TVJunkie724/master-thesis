@@ -43,6 +43,7 @@ class CloudConnectionService:
             display_name=request.display_name,
             cloud_scope=json.dumps(request.cloud_scope, sort_keys=True),
             auth_type=request.auth_type or self._default_auth_type(request.provider),
+            permission_set_version=request.permission_set_version,
             encrypted_payload=encrypt_scoped(payload_json, user_id, connection_id),
             payload_fingerprint=fingerprint,
             validation_status="untested",
@@ -60,6 +61,8 @@ class CloudConnectionService:
     ) -> CloudConnectionResponse:
         if request.display_name is not None:
             connection.display_name = request.display_name
+        if request.permission_set_version is not None:
+            connection.permission_set_version = request.permission_set_version
         if request.cloud_scope is not None:
             connection.cloud_scope = json.dumps(request.cloud_scope, sort_keys=True)
         connection.updated_at = datetime.utcnow()
@@ -90,6 +93,7 @@ class CloudConnectionService:
             provider=connection.provider,
             display_name=connection.display_name,
             auth_type=connection.auth_type,
+            permission_set_version=connection.permission_set_version,
             cloud_scope=self._safe_json_dict(connection.cloud_scope),
             payload_fingerprint=connection.payload_fingerprint,
             payload_summary=self._payload_summary(connection.provider, payload),
@@ -110,7 +114,10 @@ class CloudConnectionService:
 
     def build_deployer_credentials(self, connection: CloudConnection, user_id: str) -> dict[str, Any]:
         payload = self.decrypt_payload(connection, user_id)
-        return CredentialResolutionService.build_deployer_validation_payload(connection.provider, payload)
+        deployer_payload = CredentialResolutionService.build_deployer_validation_payload(connection.provider, payload)
+        if connection.permission_set_version:
+            deployer_payload["permission_set_version"] = connection.permission_set_version
+        return deployer_payload
 
     def fingerprint_payload(self, provider: str, payload: dict[str, Any]) -> str:
         """Return a stable non-secret fingerprint for a provider credential payload."""

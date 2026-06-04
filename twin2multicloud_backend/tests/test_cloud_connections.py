@@ -9,6 +9,7 @@ def _aws_request(display_name="AWS Dev"):
     return {
         "provider": "aws",
         "display_name": display_name,
+        "permission_set_version": "thesis-demo-v1",
         "cloud_scope": {"account_id": "123456789012", "region": "eu-central-1"},
         "aws": {
             "access_key_id": "AKIAIOSFODNN7EXAMPLE",
@@ -22,6 +23,7 @@ def _gcp_request():
     return {
         "provider": "gcp",
         "display_name": "GCP Dev",
+        "permission_set_version": "thesis-demo-v1",
         "cloud_scope": {"project_id": "demo-project"},
         "gcp": {
             "project_id": "demo-project",
@@ -47,6 +49,7 @@ def test_create_cloud_connection_masks_secret_response(authenticated_client, db_
     assert data["provider"] == "aws"
     assert data["display_name"] == "AWS Dev"
     assert data["auth_type"] == "access_key"
+    assert data["permission_set_version"] == "thesis-demo-v1"
     assert data["validation_status"] == "untested"
     assert data["cloud_scope"] == {"account_id": "123456789012", "region": "eu-central-1"}
     assert data["payload_summary"] == {
@@ -243,6 +246,7 @@ def test_validate_cloud_connection_updates_status(authenticated_client, db_sessi
     assert seen["provider"] == "aws"
     assert seen["optimizer_creds"]["aws_access_key_id"] == "AKIAIOSFODNN7EXAMPLE"
     assert seen["deployer_creds"]["aws_secret_access_key"] == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    assert seen["deployer_creds"]["permission_set_version"] == "thesis-demo-v1"
 
     stored = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
     assert stored.validation_status == "valid"
@@ -331,6 +335,9 @@ def test_preflight_cloud_connection_returns_actionable_checks(authenticated_clie
 
     assert response.status_code == 200
     data = response.json()
+    assert data["expected_permission_set_version"] == "thesis-demo-v1"
+    assert data["supplied_permission_set_version"] == "thesis-demo-v1"
+    assert data["permission_set_status"] == "matched"
     assert data["ready"] is False
     assert data["summary"] == "Cloud connection preflight failed"
     assert data["checks"] == [
@@ -354,6 +361,35 @@ def test_preflight_cloud_connection_returns_actionable_checks(authenticated_clie
 
     stored = db_session.query(CloudConnection).filter_by(id=created["id"]).one()
     assert stored.validation_status == "untested"
+
+
+def test_preflight_cloud_connection_flags_missing_permission_set_version(authenticated_client, monkeypatch):
+    client, headers = authenticated_client
+    payload = _aws_request()
+    payload.pop("permission_set_version")
+    created = client.post("/cloud-connections/", json=payload, headers=headers).json()
+
+    async def fake_validate(provider, optimizer_creds, deployer_creds):
+        return {
+            "provider": provider,
+            "valid": True,
+            "optimizer": {"valid": True, "message": "optimizer ok"},
+            "deployer": {"valid": True, "message": "deployer ok"},
+        }
+
+    monkeypatch.setattr(
+        "src.api.routes.cloud_connections.perform_dual_validation",
+        fake_validate,
+    )
+
+    response = client.post(f"/cloud-connections/{created['id']}/preflight", headers=headers)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ready"] is False
+    assert data["permission_set_status"] == "missing"
+    assert data["checks"][0]["code"] == "OUTDATED_PERMISSION_SET"
+    assert data["checks"][0]["action"].endswith("permission_set_version=thesis-demo-v1.")
 
 
 def test_preflight_cloud_connection_redacts_secret_echo(authenticated_client, monkeypatch):

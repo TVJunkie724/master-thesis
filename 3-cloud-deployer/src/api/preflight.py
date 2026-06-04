@@ -7,6 +7,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from api.permission_sets import compare_permission_set_version
+
 ProviderName = Literal["aws", "azure", "gcp"]
 PreflightStatus = Literal["passed", "failed", "warning", "skipped"]
 
@@ -24,6 +26,9 @@ class ProviderPreflightCheck(BaseModel):
 
 class ProviderPreflightResponse(BaseModel):
     provider: ProviderName
+    expected_permission_set_version: str
+    supplied_permission_set_version: str | None = None
+    permission_set_status: Literal["matched", "missing", "outdated"]
     ready: bool
     status: Literal["passed", "failed"]
     summary: str
@@ -52,15 +57,24 @@ def build_provider_preflight(
 ) -> ProviderPreflightResponse:
     """Convert provider-specific checker output into a stable preflight contract."""
     safe_result = redact_provider_result(check_result, credential_payload or {})
+    version_comparison = compare_permission_set_version(
+        provider,
+        _permission_set_version(credential_payload or {}),
+    )
     checks = {
         "aws": _aws_checks,
         "azure": _azure_checks,
         "gcp": _gcp_checks,
     }[provider](safe_result)
+    if not version_comparison.matches:
+        checks.insert(0, _permission_set_check(version_comparison))
 
     ready = bool(checks) and all(check.status in {"passed", "warning", "skipped"} for check in checks)
     return ProviderPreflightResponse(
         provider=provider,
+        expected_permission_set_version=version_comparison.expected_version,
+        supplied_permission_set_version=version_comparison.supplied_version,
+        permission_set_status=version_comparison.status,
         ready=ready,
         status="passed" if ready else "failed",
         summary=f"{provider.upper()} deployment preflight {'passed' if ready else 'failed'}",
@@ -325,6 +339,33 @@ def _generic_failure(result: dict[str, Any], provider: str) -> ProviderPreflight
         "VALIDATION_FAILED",
         result.get("message") or f"{provider.upper()} credential validation failed.",
         "Review the provider validation message and update the deployment identity before deployment.",
+    )
+
+
+def _permission_set_version(payload: dict[str, Any]) -> str | None:
+    version = payload.get("permission_set_version")
+    return version if isinstance(version, str) and version.strip() else None
+
+
+def _permission_set_check(version_comparison) -> ProviderPreflightCheck:
+    supplied = version_comparison.supplied_version or "missing"
+    return _failed(
+        "permission_set_version",
+        "OUTDATED_PERMISSION_SET",
+        (
+            f"{version_comparison.provider.upper()} CloudConnection uses permission set "
+            f"'{supplied}', but the active deployer baseline is "
+            f"'{version_comparison.expected_version}'."
+        ),
+        (
+            "Re-run provider bootstrap or rotate/import the CloudConnection with "
+            f"permission_set_version={version_comparison.expected_version}."
+        ),
+        details={
+            "expected_permission_set_version": version_comparison.expected_version,
+            "supplied_permission_set_version": version_comparison.supplied_version,
+            "permission_set_status": version_comparison.status,
+        },
     )
 
 

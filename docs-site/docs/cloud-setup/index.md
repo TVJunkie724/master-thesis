@@ -55,6 +55,18 @@ CloudConnection create contract.
 | Azure | `bootstrap/azure/bootstrap_deployment_identity.sh` | `service_principal` |
 | GCP | `bootstrap/gcp/bootstrap_deployment_identity.sh` | `service_account_key` |
 
+The active deployment permission baseline is `thesis-demo-v1`. Bootstrap output
+includes this as `permission_set_version`, and the Management API stores it as
+non-secret CloudConnection metadata. Deployment preflight compares the stored
+version with the active Deployer baseline before a deployment starts.
+
+If a CloudConnection has no version metadata, or carries an older version,
+preflight returns `OUTDATED_PERMISSION_SET`. The fix is to re-run provider
+bootstrap, rotate/import the generated CloudConnection, and then rerun
+preflight. This is intentionally conservative: old credentials may still
+authenticate, but they are not auditable against the current thesis deployment
+permission contract.
+
 The generated output file is local secret material. It can be pasted/imported
 into the CloudConnection API/UI during supervised setup, then removed locally.
 Do not commit generated output files.
@@ -69,6 +81,27 @@ permission sets enforced by the Deployer's credential/preflight checkers. This
 keeps the documented setup path and runtime readiness checks aligned without
 requiring live cloud credentials in the default test suite.
 
+The versioned permission-set artifacts live in
+`3-cloud-deployer/docs/references/permission_sets/`:
+
+| Provider | Permission-set artifact | Native source artifact |
+|----------|-------------------------|------------------------|
+| AWS | `aws_thesis_demo_v1.json` | `aws_deployer_policy.json` |
+| Azure | `azure_thesis_demo_v1.json` | `azure_custom_role.json` |
+| GCP | `gcp_thesis_demo_v1.json` | `gcp_custom_role.yaml` |
+
+`deployer_permission_inventory.json` records the Terraform provider resource
+types that feed this baseline. Offline tests compare that inventory to the
+current Terraform files so new resource families cannot silently appear without
+updating the permission-set documentation.
+
+`thesis-demo-v1` is the first validated thesis/demo baseline. It is not a
+claim that every provider action is already the final least-privilege shape.
+The artifacts explicitly document known broad areas such as AWS `Resource: *`,
+Azure `*/read`, subscription-scope role assignment, and GCP API-enablement /
+custom-role mutation permissions. The next hardened version can remove those
+gaps after supervised live deployments and provider-operation validation.
+
 The Management API exposes the first stable contract for this flow:
 
 - `POST /cloud-bootstrap/{provider}/plan` returns the manual bootstrap command
@@ -78,10 +111,13 @@ The Management API exposes the first stable contract for this flow:
   CloudConnection and returns only the masked CloudConnection read model.
 - `POST /cloud-connections/{connection_id}/preflight` runs the existing
   Optimizer/Deployer validation path and returns normalized, UI-actionable
-  checks without persisting validation status.
+  checks without persisting validation status. It also reports
+  `expected_permission_set_version`, `supplied_permission_set_version`, and
+  `permission_set_status`.
 - `POST /permissions/preflight/{provider}` on the Deployer normalizes provider
   permission, API, billing, region, and secret-expiration failures for AWS,
-  Azure, and GCP.
+  Azure, and GCP, and rejects missing or stale permission-set metadata with
+  `OUTDATED_PERMISSION_SET`.
 
 ## Provider Material
 

@@ -46,6 +46,10 @@ class AWSCredentialsRequest(BaseModel):
     aws_access_key_id: str = Field(..., description="AWS Access Key ID")
     aws_secret_access_key: str = Field(..., description="AWS Secret Access Key")
     aws_region: str = Field(..., description="AWS Region (e.g., 'eu-central-1')")
+    permission_set_version: Optional[str] = Field(
+        None,
+        description="Versioned deployment permission-set baseline assigned to this credential.",
+    )
     aws_sso_region: Optional[str] = Field(
         None,
         description="AWS Region where IAM Identity Center (SSO) is enabled, if different from aws_region"
@@ -65,6 +69,10 @@ class AzureCredentialsRequest(BaseModel):
     azure_region: str = Field(..., description="Azure Region for general resources (e.g., 'italynorth')")
     azure_region_iothub: str = Field(..., description="Azure Region for IoT Hub (e.g., 'westeurope'), may differ from azure_region")
     azure_region_digital_twin: str = Field(..., description="Azure Region for Digital Twins (e.g., 'westeurope'), must be in ADT supported list")
+    permission_set_version: Optional[str] = Field(
+        None,
+        description="Versioned deployment permission-set baseline assigned to this credential.",
+    )
 
 
 class GCPCredentialsRequest(BaseModel):
@@ -74,6 +82,10 @@ class GCPCredentialsRequest(BaseModel):
     gcp_billing_account: Optional[str] = Field(None, description="GCP Billing Account ID for auto-project creation (org accounts)")
     gcp_credentials_file: str = Field(..., description="Path to Service Account JSON key file")
     gcp_region: str = Field(..., description="GCP Region (e.g., 'europe-west1')")
+    permission_set_version: Optional[str] = Field(
+        None,
+        description="Versioned deployment permission-set baseline assigned to this credential.",
+    )
 
 
 class CredentialsCheckResponse(BaseModel):

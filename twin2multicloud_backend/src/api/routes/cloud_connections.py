@@ -18,6 +18,7 @@ from src.services.cloud_credential_validation_service import (
     perform_dual_validation,
     redact_validation_result,
 )
+from src.services.permission_sets import compare_permission_set_version
 
 router = APIRouter(prefix="/cloud-connections", tags=["cloud-connections"])
 
@@ -204,10 +205,21 @@ async def preflight_cloud_connection(
         deployer_creds,
     )
     result = redact_validation_result(result, optimizer_creds, deployer_creds)
-    preflight = build_preflight_result(connection.provider, result)
+    version_comparison = compare_permission_set_version(
+        connection.provider,
+        connection.permission_set_version,
+    )
+    preflight = build_preflight_result(
+        connection.provider,
+        result,
+        version_comparison=version_comparison,
+    )
     return CloudConnectionPreflightResponse(
         id=connection.id,
         provider=connection.provider,
+        expected_permission_set_version=version_comparison.expected_version,
+        supplied_permission_set_version=version_comparison.supplied_version,
+        permission_set_status=version_comparison.status,
         ready=preflight["ready"],
         summary=preflight["summary"],
         checks=preflight["checks"],

@@ -11,6 +11,7 @@ PROJECT_ID=""
 BILLING_ACCOUNT=""
 IDENTITY_NAME="twin2mc-deployer"
 REGION="europe-west1"
+PERMISSION_SET_VERSION="thesis-demo-v1"
 ROLE_ID="Twin2MCDeployer"
 ROLE_FILE="${REPO_ROOT}/3-cloud-deployer/docs/references/gcp_custom_role.yaml"
 OUTPUT_FILE=""
@@ -100,6 +101,7 @@ Planned GCP deployment identity:
   billing_account: ${BILLING_ACCOUNT:-not set}
   service_account: ${SERVICE_ACCOUNT_EMAIL}
   region: ${REGION}
+  permission_set_version: ${PERMISSION_SET_VERSION}
   custom_role: projects/${PROJECT_ID}/roles/${ROLE_ID}
   role_file: ${ROLE_FILE}
 
@@ -176,11 +178,11 @@ gcloud iam service-accounts keys create "${KEY_FILE}" \
   --project "${PROJECT_ID}" >/dev/null
 
 render_connection_json() {
-  python3 - "$IDENTITY_NAME" "$PROJECT_ID" "$BILLING_ACCOUNT" "$REGION" "$KEY_FILE" "$SERVICE_ACCOUNT_EMAIL" <<'PY'
+  python3 - "$IDENTITY_NAME" "$PROJECT_ID" "$BILLING_ACCOUNT" "$REGION" "$PERMISSION_SET_VERSION" "$KEY_FILE" "$SERVICE_ACCOUNT_EMAIL" <<'PY'
 import json
 import sys
 
-name, project_id, billing_account, region, key_file, service_account_email = sys.argv[1:]
+name, project_id, billing_account, region, permission_set_version, key_file, service_account_email = sys.argv[1:]
 with open(key_file, "r", encoding="utf-8") as handle:
     service_account_json = handle.read()
 
@@ -188,6 +190,7 @@ payload = {
     "provider": "gcp",
     "display_name": name,
     "auth_type": "service_account_key",
+    "permission_set_version": permission_set_version,
     "cloud_scope": {
         "project_id": project_id,
         "billing_account": billing_account or None,

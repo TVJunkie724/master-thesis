@@ -32,6 +32,7 @@ def migrate():
             display_name VARCHAR NOT NULL,
             cloud_scope TEXT NOT NULL DEFAULT '{}',
             auth_type VARCHAR NOT NULL,
+            permission_set_version VARCHAR,
             encrypted_payload TEXT NOT NULL,
             payload_fingerprint VARCHAR NOT NULL,
             validation_status VARCHAR NOT NULL DEFAULT 'untested',
@@ -44,9 +45,17 @@ def migrate():
         """
     )
 
+    cursor.execute("PRAGMA table_info(cloud_connections)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "permission_set_version" not in columns:
+        cursor.execute(
+            "ALTER TABLE cloud_connections ADD COLUMN permission_set_version VARCHAR"
+        )
+
     indexes = [
         ("ix_cloud_connections_user_id", "user_id"),
         ("ix_cloud_connections_provider", "provider"),
+        ("ix_cloud_connections_permission_set_version", "permission_set_version"),
         ("ix_cloud_connections_payload_fingerprint", "payload_fingerprint"),
     ]
     for index_name, column_name in indexes:

@@ -28,6 +28,7 @@ class CloudBootstrapPlanResponse(BaseModel):
     script_path: str
     required_tool: str
     output_auth_type: str
+    permission_set_version: str
     dry_run_command: list[str]
     apply_command: list[str]
     rotation_flag: str

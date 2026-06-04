@@ -1,0 +1,94 @@
+{
+  "permission_set_version": "thesis-demo-v1",
+  "inventory_sources": {
+    "terraform": "3-cloud-deployer/src/terraform/*.tf",
+    "aws_checker": "3-cloud-deployer/src/api/credentials_checker.py",
+    "azure_checker": "3-cloud-deployer/src/api/azure_credentials_checker.py",
+    "gcp_checker": "3-cloud-deployer/src/api/gcp_credentials_checker.py",
+    "bootstrap": "bootstrap/<provider>/bootstrap_deployment_identity.sh"
+  },
+  "providers": {
+    "aws": {
+      "terraform_types": [
+        "aws_caller_identity",
+        "aws_cloudwatch_event_rule",
+        "aws_cloudwatch_event_target",
+        "aws_cloudwatch_log_group",
+        "aws_dynamodb_table",
+        "aws_grafana_role_association",
+        "aws_grafana_workspace",
+        "aws_grafana_workspace_api_key",
+        "aws_iam_policy",
+        "aws_iam_role",
+        "aws_iam_role_policy",
+        "aws_iam_role_policy_attachment",
+        "aws_iam_user_policy_attachment",
+        "aws_identitystore_user",
+        "aws_identitystore_users",
+        "aws_iot_endpoint",
+        "aws_iot_topic_rule",
+        "aws_lambda_function",
+        "aws_lambda_function_url",
+        "aws_lambda_permission",
+        "aws_region",
+        "aws_resourcegroups_group",
+        "aws_s3_bucket",
+        "aws_s3_bucket_cors_configuration",
+        "aws_s3_bucket_lifecycle_configuration",
+        "aws_s3_object",
+        "aws_sfn_state_machine",
+        "aws_ssoadmin_instances"
+      ]
+    },
+    "azure": {
+      "terraform_types": [
+        "azuread_domains",
+        "azuread_user",
+        "azuread_users",
+        "azurerm_application_insights",
+        "azurerm_client_config",
+        "azurerm_cosmosdb_account",
+        "azurerm_cosmosdb_sql_container",
+        "azurerm_cosmosdb_sql_database",
+        "azurerm_cosmosdb_sql_role_assignment",
+        "azurerm_dashboard_grafana",
+        "azurerm_digital_twins_instance",
+        "azurerm_eventgrid_system_topic",
+        "azurerm_eventgrid_system_topic_event_subscription",
+        "azurerm_function_app_host_keys",
+        "azurerm_iothub",
+        "azurerm_iothub_shared_access_policy",
+        "azurerm_linux_function_app",
+        "azurerm_log_analytics_workspace",
+        "azurerm_logic_app_workflow",
+        "azurerm_monitor_diagnostic_setting",
+        "azurerm_resource_group",
+        "azurerm_resource_group_template_deployment",
+        "azurerm_role_assignment",
+        "azurerm_service_plan",
+        "azurerm_storage_account",
+        "azurerm_storage_blob",
+        "azurerm_storage_container",
+        "azurerm_user_assigned_identity"
+      ]
+    },
+    "gcp": {
+      "terraform_types": [
+        "google_cloud_run_service_iam_member",
+        "google_cloud_scheduler_job",
+        "google_cloudfunctions2_function",
+        "google_firestore_database",
+        "google_firestore_index",
+        "google_project",
+        "google_project_iam_custom_role",
+        "google_project_iam_member",
+        "google_project_service",
+        "google_pubsub_topic",
+        "google_service_account",
+        "google_storage_bucket",
+        "google_storage_bucket_object",
+        "google_workflows_workflow"
+      ]
+    }
+  }
+}
