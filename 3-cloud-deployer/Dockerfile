@@ -1,8 +1,9 @@
 FROM python:3.11-slim
 
 # Install Node.js (LTS) and system dependencies
+ARG NODE_MAJOR=22
 RUN apt-get update && apt-get install -y curl unzip \
- && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+ && curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - \
  && apt-get install -y nodejs \
  && apt-get clean
 
