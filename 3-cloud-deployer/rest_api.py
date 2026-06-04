@@ -17,8 +17,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
 from logger import logger
 
-import src.core.state as state
-
 # Import API routers
 from src.api import projects, validation, deployment, status, info, simulator, credentials, functions, logs, verify
 
@@ -26,7 +24,7 @@ from src.api import projects, validation, deployment, status, info, simulator, c
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    logger.info(f"API Startup. Active Project: {state.get_active_project()}")
+    logger.info("API Startup.")
     yield
     # Shutdown
 
