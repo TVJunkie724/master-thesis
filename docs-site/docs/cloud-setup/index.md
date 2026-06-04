@@ -95,12 +95,22 @@ types that feed this baseline. Offline tests compare that inventory to the
 current Terraform files so new resource families cannot silently appear without
 updating the permission-set documentation.
 
+For AWS, the v1 baseline now also includes an explicit pre-E2E scope review in
+`aws_thesis_demo_v1_scope_review.json`. It classifies each IAM policy statement
+as globally required, a prefix-scoping candidate, or condition-constrained.
+This caught the CloudWatch Logs gap for Terraform-managed
+`aws_cloudwatch_log_group` resources before live E2E validation. The policy now
+includes the CloudWatch Logs actions needed to create, tag, retain, inspect,
+and delete those log groups.
+
 `thesis-demo-v1` is the first validated thesis/demo baseline. It is not a
 claim that every provider action is already the final least-privilege shape.
 The artifacts explicitly document known broad areas such as AWS `Resource: *`,
 Azure `*/read`, subscription-scope role assignment, and GCP API-enablement /
 custom-role mutation permissions. The next hardened version can remove those
-gaps after supervised live deployments and provider-operation validation.
+gaps after supervised live deployments and provider-operation validation. The
+AWS next step is to run IAM Access Analyzer validation and a supervised
+deployment/destroy smoke before producing `least-privilege-v2`.
 
 The Management API exposes the first stable contract for this flow:
 

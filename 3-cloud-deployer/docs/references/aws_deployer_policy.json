@@ -20,6 +20,20 @@
             "Resource": "*"
         },
         {
+            "Sid": "ObservabilityCloudWatchLogs",
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:DeleteLogGroup",
+                "logs:DescribeLogGroups",
+                "logs:PutRetentionPolicy",
+                "logs:TagResource",
+                "logs:UntagResource",
+                "logs:ListTagsForResource"
+            ],
+            "Resource": "*"
+        },
+        {
             "Sid": "Layer0GlueIAM",
             "Effect": "Allow",
             "Action": [

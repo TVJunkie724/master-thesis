@@ -2,6 +2,8 @@
   "provider": "aws",
   "permission_set_version": "thesis-demo-v1",
   "status": "validated",
+  "validation_level": "offline_pre_e2e",
+  "requires_e2e_before_final": true,
   "scope": {
     "assignment": "IAM user or role in one AWS account",
     "resource_assumption": "Thesis-managed resources use the Digital Twin name/deployment suffix where Terraform supports naming constraints.",
@@ -24,6 +26,11 @@
         "path": "3-cloud-deployer/docs/references/aws_deployer_policy.json",
         "format": "aws_iam_policy",
         "contains": "Statement[].Action"
+      },
+      {
+        "path": "3-cloud-deployer/docs/references/permission_sets/aws_thesis_demo_v1_scope_review.json",
+        "format": "scope_review",
+        "contains": "Statement[].Sid scope classification and pre-E2E least-privilege notes"
       }
     ],
     "checker_sources": [
@@ -41,6 +48,11 @@
       "type": "resource_arn_scoping",
       "status": "known_gap",
       "reason": "Several Terraform resources are created before stable ARNs exist. Stage 2 keeps broad-but-bounded resource statements explicit for thesis-demo-v1 and hardens them in least-privilege-v2."
+    },
+    {
+      "type": "cloudwatch_logs",
+      "status": "implemented",
+      "reason": "Terraform-managed aws_cloudwatch_log_group resources are represented in the checker and AWS bootstrap policy."
     }
   ],
   "known_gaps": [

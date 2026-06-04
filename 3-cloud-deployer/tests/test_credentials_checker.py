@@ -23,13 +23,28 @@ class TestRequiredPermissions:
     """Tests for the hardcoded permissions structure."""
     
     def test_required_permissions_has_all_layers(self):
-        """Verify all layers (L0-L5) are defined."""
+        """Verify all layers (L0-L5) and cross-layer capabilities are defined."""
+        assert "setup" in REQUIRED_AWS_PERMISSIONS
+        assert "observability" in REQUIRED_AWS_PERMISSIONS
         assert "layer_0" in REQUIRED_AWS_PERMISSIONS  # Multi-cloud Glue Layer
         assert "layer_1" in REQUIRED_AWS_PERMISSIONS
         assert "layer_2" in REQUIRED_AWS_PERMISSIONS
         assert "layer_3" in REQUIRED_AWS_PERMISSIONS
         assert "layer_4" in REQUIRED_AWS_PERMISSIONS
         assert "layer_5" in REQUIRED_AWS_PERMISSIONS
+
+    def test_observability_has_cloudwatch_log_group_permissions(self):
+        """Terraform-managed CloudWatch Log Groups must be covered by preflight."""
+        logs = set(REQUIRED_AWS_PERMISSIONS["observability"]["logs"])
+        assert {
+            "logs:CreateLogGroup",
+            "logs:DeleteLogGroup",
+            "logs:DescribeLogGroups",
+            "logs:PutRetentionPolicy",
+            "logs:TagResource",
+            "logs:UntagResource",
+            "logs:ListTagsForResource",
+        } <= logs
 
     
     def test_layer_1_has_core_services(self):
@@ -66,6 +81,18 @@ class TestRequiredPermissions:
         assert "iam" in result
         assert len(result["iam"]["actions"]) > 0
         assert len(result["iam"]["layers"]) >= 1
+
+    def test_layer_5_has_grafana_identity_center_services(self):
+        """Managed Grafana setup must include its Identity Center dependencies."""
+        layer_5 = REQUIRED_AWS_PERMISSIONS["layer_5"]
+        assert "grafana" in layer_5
+        assert "sso" in layer_5
+        assert "sso-directory" in layer_5
+        assert "identitystore" in layer_5
+        assert "grafana:CreateWorkspaceApiKey" in layer_5["grafana"]
+        assert "sso:GetSharedSsoConfiguration" in layer_5["sso"]
+        assert "sso-directory:SearchUsers" in layer_5["sso-directory"]
+        assert "identitystore:CreateUser" in layer_5["identitystore"]
 
 
 class TestPermissionChecking:

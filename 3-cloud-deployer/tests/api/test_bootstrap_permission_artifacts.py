@@ -37,6 +37,66 @@ def test_aws_bootstrap_policy_covers_required_deployer_and_self_check_permission
     assert missing == []
 
 
+def test_aws_scope_review_covers_every_policy_statement_and_required_action():
+    policy = json.loads((ROOT / "docs/references/aws_deployer_policy.json").read_text())
+    review = json.loads(
+        (PERMISSION_SET_DIR / "aws_thesis_demo_v1_scope_review.json").read_text()
+    )
+
+    assert review["provider"] == "aws"
+    assert review["permission_set_version"] == ACTIVE_PERMISSION_SET_VERSION
+    assert review["validation_level"] == "offline_pre_e2e"
+    assert review["requires_e2e_before_final"] is True
+
+    policy_statements = {
+        statement["Sid"]: set(_aws_statement_actions(statement))
+        for statement in policy["Statement"]
+    }
+    reviewed_statements = {
+        statement["sid"]: statement
+        for statement in review["statements"]
+    }
+
+    assert sorted(reviewed_statements) == sorted(policy_statements)
+
+    allowed_scope_classes = set(review["scope_classes"])
+    for statement in reviewed_statements.values():
+        assert statement["scope_class"] in allowed_scope_classes
+        assert statement["reason"]
+
+    policy_actions = {
+        action
+        for actions in policy_statements.values()
+        for action in actions
+    }
+    required_actions = {
+        action
+        for service in _get_all_required_permissions().values()
+        for action in service["actions"]
+    }
+    checked_actions = required_actions | {
+        action
+        for actions in SELF_CHECK_PERMISSIONS.values()
+        for action in actions
+    }
+    assert sorted(required_actions - policy_actions) == []
+    assert sorted(policy_actions - checked_actions) == []
+
+
+def test_aws_pass_role_remains_conditioned_to_lambda_only():
+    policy = json.loads((ROOT / "docs/references/aws_deployer_policy.json").read_text())
+    pass_role_statements = [
+        statement
+        for statement in policy["Statement"]
+        if "iam:PassRole" in _aws_statement_actions(statement)
+    ]
+
+    assert len(pass_role_statements) == 1
+    assert pass_role_statements[0]["Condition"] == {
+        "StringEquals": {"iam:PassedToService": "lambda.amazonaws.com"}
+    }
+
+
 def test_azure_custom_role_covers_required_actions_and_data_actions():
     role = json.loads((ROOT / "docs/references/azure_custom_role.json").read_text())
     permissions = role["properties"]["permissions"][0]
@@ -151,12 +211,15 @@ def _aws_allowed_actions(policy: dict) -> set[str]:
     for statement in policy.get("Statement", []):
         if statement.get("Effect") != "Allow":
             continue
-        statement_actions = statement.get("Action", [])
-        if isinstance(statement_actions, str):
-            actions.add(statement_actions)
-        else:
-            actions.update(statement_actions)
+        actions.update(_aws_statement_actions(statement))
     return actions
+
+
+def _aws_statement_actions(statement: dict) -> set[str]:
+    statement_actions = statement.get("Action", [])
+    if isinstance(statement_actions, str):
+        return {statement_actions}
+    return set(statement_actions)
 
 
 def _aws_action_allowed(action: str, allowed_actions: set[str]) -> bool:

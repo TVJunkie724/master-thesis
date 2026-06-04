@@ -1,0 +1,122 @@
+{
+  "provider": "aws",
+  "permission_set_version": "thesis-demo-v1",
+  "validation_level": "offline_pre_e2e",
+  "requires_e2e_before_final": true,
+  "review_basis": [
+    {
+      "source": "AWS Service Authorization Reference",
+      "url": "https://docs.aws.amazon.com/service-authorization/latest/reference/"
+    },
+    {
+      "source": "AWS IAM Access Analyzer policy validation",
+      "url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-policy-validation.html"
+    },
+    {
+      "source": "Terraform provider resource inventory",
+      "path": "3-cloud-deployer/docs/references/permission_sets/deployer_permission_inventory.json"
+    }
+  ],
+  "scope_classes": {
+    "global_required": "Resource wildcard remains expected for account-level, list, introspection, or create-before-ARN operations in thesis-demo-v1.",
+    "prefix_scope_candidate": "Action supports resource-level scoping or predictable names, but the exact ARN and naming contract still need supervised cloud validation before hardening.",
+    "conditioned": "Statement is broad only where paired with an IAM condition that constrains the target service."
+  },
+  "statements": [
+    {
+      "sid": "SetupLayerResourceGroups",
+      "scope_class": "prefix_scope_candidate",
+      "reason": "Resource group creation/deletion can be narrowed once the final naming prefix and destroy behavior are validated."
+    },
+    {
+      "sid": "SetupLayerIAMTagging",
+      "scope_class": "prefix_scope_candidate",
+      "reason": "IAM role tagging should eventually target thesis-managed role ARNs only."
+    },
+    {
+      "sid": "ObservabilityCloudWatchLogs",
+      "scope_class": "prefix_scope_candidate",
+      "reason": "Terraform creates /aws/lambda, /aws/states, and /aws/iot log groups; log-group ARN scoping should use the final deployment prefix after live validation."
+    },
+    {
+      "sid": "Layer0GlueIAM",
+      "scope_class": "prefix_scope_candidate",
+      "reason": "Role lifecycle actions should eventually target only thesis-managed IAM role ARNs."
+    },
+    {
+      "sid": "Layer0GlueLambda",
+      "scope_class": "prefix_scope_candidate",
+      "reason": "Lambda operations should eventually target thesis-managed function ARNs."
+    },
+    {
+      "sid": "Layer1IoTCore",
+      "scope_class": "prefix_scope_candidate",
+      "reason": "IoT thing, certificate, policy, and rule resources need provider validation before prefix-scoped ARNs are enforced."
+    },
+    {
+      "sid": "Layer1STS",
+      "scope_class": "global_required",
+      "reason": "sts:GetCallerIdentity is an account identity introspection call and remains wildcard-scoped."
+    },
+    {
+      "sid": "Layer2StepFunctions",
+      "scope_class": "prefix_scope_candidate",
+      "reason": "State-machine actions should eventually target thesis-managed state machine ARNs."
+    },
+    {
+      "sid": "Layer3DynamoDB",
+      "scope_class": "prefix_scope_candidate",
+      "reason": "DynamoDB table and backup actions should eventually target thesis-managed table/backup ARNs."
+    },
+    {
+      "sid": "Layer3S3",
+      "scope_class": "prefix_scope_candidate",
+      "reason": "Bucket/object actions should eventually target thesis-managed bucket names and object prefixes."
+    },
+    {
+      "sid": "Layer3EventBridge",
+      "scope_class": "prefix_scope_candidate",
+      "reason": "EventBridge rule/target actions should eventually target thesis-managed rule ARNs."
+    },
+    {
+      "sid": "Layer4IoTTwinMaker",
+      "scope_class": "prefix_scope_candidate",
+      "reason": "Workspace/entity/component operations need live validation for exact supported ARN patterns."
+    },
+    {
+      "sid": "Layer5Grafana",
+      "scope_class": "prefix_scope_candidate",
+      "reason": "Managed Grafana workspace actions should eventually target thesis-managed workspaces where AWS supports resource-level scoping."
+    },
+    {
+      "sid": "Layer5GrafanaSSO",
+      "scope_class": "global_required",
+      "reason": "IAM Identity Center discovery calls are account/region-level setup checks for Managed Grafana."
+    },
+    {
+      "sid": "Layer5IdentityStore",
+      "scope_class": "prefix_scope_candidate",
+      "reason": "Identity Store user lifecycle operations need supervised validation against the final Grafana user-provisioning flow."
+    },
+    {
+      "sid": "PassRoleToLambda",
+      "scope_class": "conditioned",
+      "reason": "iam:PassRole remains wildcard-scoped in thesis-demo-v1 but is constrained to lambda.amazonaws.com via iam:PassedToService."
+    },
+    {
+      "sid": "CredentialChecker",
+      "scope_class": "global_required",
+      "reason": "Credential self-inspection must read the caller's attached and inline policies before deployment preflight can classify readiness."
+    }
+  ],
+  "known_gaps": [
+    "Resource ARN scoping is documented but not enforced until supervised cloud validation confirms exact name and destroy behavior.",
+    "AWS Access Analyzer validate-policy is documented as a required manual provider-validation command; it is not run in default tests because it requires live AWS credentials.",
+    "E2E deployment verification is intentionally deferred until the larger refactoring roadmap reaches an end-to-end testable state."
+  ],
+  "next_validation": [
+    "Run AWS IAM Access Analyzer validate-policy against aws_deployer_policy.json.",
+    "Run a supervised AWS deployment/destroy smoke with thesis-demo-v1 credentials.",
+    "Capture CloudTrail or IAM Access Analyzer generated-policy evidence to produce least-privilege-v2."
+  ]
+}

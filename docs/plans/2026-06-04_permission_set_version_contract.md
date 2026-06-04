@@ -3,7 +3,7 @@
 **Date:** 2026-06-04
 **GitHub issue:** [#79](https://github.com/TVJunkie724/master-thesis/issues/79)
 **Roadmap phase:** Phase 4 - Runtime Credentials & Deployment State
-**Status:** Implemented - offline gates complete
+**Status:** Implemented - offline gates complete, provider hardening in progress
 
 ## 1. Executive Summary
 
@@ -98,6 +98,23 @@ bootstrap script
 - **[MODIFY]** `docs-site/docs/architecture/refactoring-roadmap.md`
   - Marks the #79 work as the active Stage 2 contract.
 
+### AWS Pre-E2E Hardening
+
+- **[MODIFY]** `3-cloud-deployer/src/api/credentials_checker.py`
+  - Adds CloudWatch Logs permissions for Terraform-managed
+    `aws_cloudwatch_log_group` resources.
+- **[MODIFY]** `3-cloud-deployer/docs/references/aws_deployer_policy.json`
+  - Adds the corresponding `ObservabilityCloudWatchLogs` policy statement.
+- **[NEW]** `3-cloud-deployer/docs/references/permission_sets/aws_thesis_demo_v1_scope_review.json`
+  - Classifies each AWS policy statement as `global_required`,
+    `prefix_scope_candidate`, or `conditioned`.
+  - Explicitly records that this is `offline_pre_e2e` validation and requires
+    supervised E2E/provider validation before a final least-privilege claim.
+- **[MODIFY]** AWS permission artifact tests
+  - Ensure every AWS policy statement has a scope-review entry.
+  - Ensure checker-required AWS actions are represented in the policy.
+  - Ensure `iam:PassRole` remains constrained to `lambda.amazonaws.com`.
+
 ## 5. Design Decisions
 
 - `thesis-demo-v1` is a validated thesis/demo baseline, not a claim that every
@@ -110,6 +127,10 @@ bootstrap script
   rotated or re-imported through the versioned bootstrap flow.
 - Default tests stay offline. Live cloud smoke validation is documented but not
   run automatically.
+- AWS CloudWatch Logs permissions are part of the v1 baseline because Terraform
+  creates log groups when `enable_aws_logging` is active. This was caught before
+  E2E through the Terraform resource inventory and offline policy/checker
+  alignment tests.
 
 ## 6. Verification Checklist
 
@@ -118,6 +139,7 @@ bootstrap script
 - [x] `docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app pytest tests/test_cloud_bootstrap.py tests/test_cloud_connections.py tests/test_cloud_connections_migration.py tests/test_config_routes.py tests/test_credential_resolution_service.py -q'`
 - [x] `docker compose --profile docs run --rm docs mkdocs build --strict`
 - [x] `git diff --check`
+- [ ] `aws accessanalyzer validate-policy --policy-document file://3-cloud-deployer/docs/references/aws_deployer_policy.json --policy-type IDENTITY_POLICY`
 
 Supervised provider validation with live cloud credentials remains a separate
 manual activity. The default test suite intentionally does not mutate cloud

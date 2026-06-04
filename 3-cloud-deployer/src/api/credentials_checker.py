@@ -41,6 +41,10 @@ _IAM_INLINE_POLICY = [
     "iam:UpdateAssumeRolePolicy",
 ]
 
+_IAM_PASS_ROLE = [
+    "iam:PassRole",
+]
+
 _LAMBDA_BASIC = [
     "lambda:CreateFunction",
     "lambda:DeleteFunction",
@@ -102,12 +106,25 @@ REQUIRED_AWS_PERMISSIONS = {
             "iam:TagRole",  # Required for tagging IAM roles
         ],
     },
+    # Cross-layer observability: Terraform manages CloudWatch Log Groups when
+    # var.enable_aws_logging is enabled.
+    "observability": {
+        "logs": [
+            "logs:CreateLogGroup",
+            "logs:DeleteLogGroup",
+            "logs:DescribeLogGroups",
+            "logs:PutRetentionPolicy",
+            "logs:TagResource",
+            "logs:UntagResource",
+            "logs:ListTagsForResource",
+        ],
+    },
     # Layer 0 is the comprehensive "glue" layer - needs most Lambda/IAM permissions
     # Other layers reference shared sets to avoid duplication
     "layer_0": {
         # Layer 0 (Glue Layer): Multi-cloud HTTP receivers deployed BEFORE Layers 1-5
         # This is the PRIMARY layer for IAM/Lambda permissions
-        "iam": _IAM_ROLE_MANAGEMENT + _IAM_INLINE_POLICY,
+        "iam": _IAM_ROLE_MANAGEMENT + _IAM_INLINE_POLICY + _IAM_PASS_ROLE,
         "lambda": _LAMBDA_BASIC + _LAMBDA_FUNCTION_URL + _LAMBDA_CONFIG_UPDATE,
     },
     "layer_1": {
@@ -197,6 +214,29 @@ REQUIRED_AWS_PERMISSIONS = {
             "grafana:DeleteWorkspace",
             "grafana:DescribeWorkspace",
             "grafana:ListWorkspaces",
+            "grafana:CreateWorkspaceApiKey",
+            "grafana:DeleteWorkspaceApiKey",
+            "grafana:UpdateWorkspaceAuthentication",
+            "grafana:AssociateRole",
+            "grafana:DisassociateRole",
+        ],
+        "sso": [
+            "sso:DescribeRegisteredRegions",
+            "sso:GetSharedSsoConfiguration",
+            "sso:ListDirectoryAssociations",
+            "sso:GetManagedApplicationInstance",
+            "sso:ListApplicationInstances",
+            "sso:GetApplicationInstance",
+        ],
+        "sso-directory": [
+            "sso-directory:SearchUsers",
+        ],
+        "identitystore": [
+            "identitystore:CreateUser",
+            "identitystore:DeleteUser",
+            "identitystore:DescribeUser",
+            "identitystore:GetUserId",
+            "identitystore:ListUsers",
         ],
     },
 }
