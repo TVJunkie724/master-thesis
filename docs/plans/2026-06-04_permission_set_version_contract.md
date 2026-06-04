@@ -131,6 +131,10 @@ bootstrap script
   creates log groups when `enable_aws_logging` is active. This was caught before
   E2E through the Terraform resource inventory and offline policy/checker
   alignment tests.
+- Azure Log Analytics, Application Insights, and diagnostic settings are part of
+  the v1 baseline because Terraform creates those resources when
+  `enable_azure_logging` is active. The Azure checker and custom role are
+  intentionally tested for exact action/dataAction alignment.
 
 ## 6. Verification Checklist
 

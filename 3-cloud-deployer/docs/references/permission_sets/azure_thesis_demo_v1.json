@@ -2,6 +2,8 @@
   "provider": "azure",
   "permission_set_version": "thesis-demo-v1",
   "status": "validated",
+  "validation_level": "offline_pre_e2e",
+  "requires_e2e_before_final": true,
   "scope": {
     "assignment": "Custom role or temporary built-in fallback at subscription scope",
     "resource_group_path": "Resource-group scoping is the target for future hardening, but role assignment and provider registration checks currently keep subscription scope explicit.",
@@ -24,6 +26,11 @@
         "path": "3-cloud-deployer/docs/references/azure_custom_role.json",
         "format": "azure_custom_role",
         "contains": "properties.permissions[].actions and properties.permissions[].dataActions"
+      },
+      {
+        "path": "3-cloud-deployer/docs/references/permission_sets/azure_thesis_demo_v1_scope_review.json",
+        "format": "scope_review",
+        "contains": "Azure action/dataAction grouping, scope classification, and pre-E2E notes"
       }
     ],
     "checker_sources": [
@@ -44,6 +51,11 @@
       "type": "role_assignment_constraints",
       "status": "known_gap",
       "reason": "Role assignment write/delete remains broad in thesis-demo-v1 because Terraform assigns Digital Twins, IoT Hub, Grafana, and storage access during deployment."
+    },
+    {
+      "type": "azure_observability",
+      "status": "implemented",
+      "reason": "Terraform-managed Log Analytics, Application Insights, and diagnostic settings are represented in the checker and custom role."
     }
   ],
   "known_gaps": [
@@ -54,6 +66,10 @@
     {
       "area": "subscription_scope",
       "reason": "Some setup operations and role assignments are still validated at subscription scope. Resource-group-only scoping is deferred to least-privilege-v2."
+    },
+    {
+      "area": "Microsoft Graph / Entra ID",
+      "reason": "azuread_user and azuread_* data sources require tenant-side Graph permissions that are not represented by Azure Resource Manager custom-role actions. Bootstrap and supervised validation must keep this split explicit."
     }
   ],
   "verification": {

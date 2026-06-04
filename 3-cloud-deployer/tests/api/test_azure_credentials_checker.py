@@ -17,7 +17,10 @@ class TestAzureCredentialValidation:
 
     def test_check_azure_credentials_missing_fields(self):
         """Test validation fails with missing required fields."""
-        from api.azure_credentials_checker import check_azure_credentials
+        from api.azure_credentials_checker import (
+            REQUIRED_AZURE_PERMISSIONS,
+            check_azure_credentials,
+        )
         
         # Missing all fields
         result = check_azure_credentials({})
@@ -38,7 +41,10 @@ class TestAzureCredentialValidation:
     @patch('api.azure_credentials_checker._get_role_assignments_with_permissions')
     def test_check_azure_credentials_valid(self, mock_roles, mock_identity, mock_cred):
         """Test successful credential validation with all permissions present."""
-        from api.azure_credentials_checker import check_azure_credentials
+        from api.azure_credentials_checker import (
+            REQUIRED_AZURE_PERMISSIONS,
+            check_azure_credentials,
+        )
         
         mock_identity.return_value = {
             "subscription_id": "sub-123",
@@ -53,11 +59,7 @@ class TestAzureCredentialValidation:
             "all_actions": {
                 "*",  # Wildcard covers everything
             },
-            "all_data_actions": {
-                "Microsoft.DigitalTwins/digitaltwins/write",
-                "Microsoft.DigitalTwins/models/write",
-                "Microsoft.DigitalTwins/query/action",
-            },
+            "all_data_actions": _all_required_azure_data_actions(REQUIRED_AZURE_PERMISSIONS),
         }
         
         result = check_azure_credentials({
@@ -257,16 +259,15 @@ class TestComparePermissions:
 
     def test_compare_permissions_all_valid(self):
         """Test all layers valid when all actions present."""
-        from api.azure_credentials_checker import _compare_permissions
+        from api.azure_credentials_checker import (
+            REQUIRED_AZURE_PERMISSIONS,
+            _compare_permissions,
+        )
         
         role_info = {
             "assignments": [{"role_name": "Owner"}],
             "all_actions": {"*"},  # Owner has all actions
-            "all_data_actions": {
-                "Microsoft.DigitalTwins/digitaltwins/write",
-                "Microsoft.DigitalTwins/models/write",
-                "Microsoft.DigitalTwins/query/action",
-            },
+            "all_data_actions": _all_required_azure_data_actions(REQUIRED_AZURE_PERMISSIONS),
         }
         
         result = _compare_permissions(role_info)
@@ -296,6 +297,14 @@ class TestComparePermissions:
         result = _compare_permissions(None)
         
         assert result["summary"]["total_layers"] == 0
+
+
+def _all_required_azure_data_actions(required_permissions: dict) -> set[str]:
+    return {
+        action
+        for layer in required_permissions.values()
+        for action in layer.get("required_data_actions", [])
+    }
 
 
 class TestAzureCredentialsFromConfig:

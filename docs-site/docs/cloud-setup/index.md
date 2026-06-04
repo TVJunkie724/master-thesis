@@ -103,6 +103,14 @@ This caught the CloudWatch Logs gap for Terraform-managed
 includes the CloudWatch Logs actions needed to create, tag, retain, inspect,
 and delete those log groups.
 
+For Azure, `azure_thesis_demo_v1_scope_review.json` groups every custom-role
+`action` and `dataAction` by deployment area and scope class. The offline gate
+now requires exact alignment between the Azure checker and
+`azure_custom_role.json`, including Log Analytics, Application Insights, and
+diagnostic settings for `enable_azure_logging`. The remaining known gap is the
+split between Azure Resource Manager permissions and Microsoft Graph / Entra ID
+permissions used by `azuread_user` and related data sources.
+
 `thesis-demo-v1` is the first validated thesis/demo baseline. It is not a
 claim that every provider action is already the final least-privilege shape.
 The artifacts explicitly document known broad areas such as AWS `Resource: *`,

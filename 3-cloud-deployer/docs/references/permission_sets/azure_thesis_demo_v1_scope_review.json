@@ -1,0 +1,197 @@
+{
+  "provider": "azure",
+  "permission_set_version": "thesis-demo-v1",
+  "validation_level": "offline_pre_e2e",
+  "requires_e2e_before_final": true,
+  "review_basis": [
+    {
+      "source": "Azure custom roles",
+      "url": "https://learn.microsoft.com/en-us/azure/role-based-access-control/custom-roles"
+    },
+    {
+      "source": "Azure role definitions",
+      "url": "https://learn.microsoft.com/en-us/azure/role-based-access-control/role-definitions"
+    },
+    {
+      "source": "Terraform provider resource inventory",
+      "path": "3-cloud-deployer/docs/references/permission_sets/deployer_permission_inventory.json"
+    }
+  ],
+  "scope_classes": {
+    "subscription_setup": "Action remains subscription-scoped in thesis-demo-v1 because it creates resource groups, deployment identities, role assignments, or provider-wide setup resources.",
+    "resource_group_candidate": "Action should move toward resource-group scope after supervised provider validation confirms exact deployment behavior.",
+    "resource_candidate": "Action can likely be narrowed to final resource IDs or provider-specific resources in least-privilege-v2.",
+    "data_plane": "DataAction grants Digital Twins data-plane access and needs separate validation from ARM management-plane actions.",
+    "known_gap": "Action pattern is intentionally broad or belongs to a bootstrap/deployment split that is not final."
+  },
+  "action_groups": [
+    {
+      "name": "setup",
+      "scope_class": "subscription_setup",
+      "actions": [
+        "*/read",
+        "Microsoft.Resources/subscriptions/resourceGroups/write",
+        "Microsoft.Resources/subscriptions/resourceGroups/delete",
+        "Microsoft.Resources/deployments/*",
+        "Microsoft.ManagedIdentity/userAssignedIdentities/write",
+        "Microsoft.ManagedIdentity/userAssignedIdentities/delete",
+        "Microsoft.ManagedIdentity/userAssignedIdentities/assign/action",
+        "Microsoft.Storage/storageAccounts/write",
+        "Microsoft.Storage/storageAccounts/delete",
+        "Microsoft.Storage/storageAccounts/listKeys/action"
+      ],
+      "reason": "Resource-group creation, ARM deployments, deployment identity setup, and shared storage are bootstrap-level capabilities in thesis-demo-v1."
+    },
+    {
+      "name": "observability",
+      "scope_class": "resource_group_candidate",
+      "actions": [
+        "Microsoft.OperationalInsights/workspaces/write",
+        "Microsoft.OperationalInsights/workspaces/delete",
+        "Microsoft.Insights/components/write",
+        "Microsoft.Insights/components/delete",
+        "Microsoft.Insights/diagnosticSettings/write",
+        "Microsoft.Insights/diagnosticSettings/delete"
+      ],
+      "reason": "Terraform creates Log Analytics, Application Insights, and diagnostic settings when Azure logging is enabled."
+    },
+    {
+      "name": "function_apps",
+      "scope_class": "resource_group_candidate",
+      "actions": [
+        "Microsoft.Web/serverfarms/write",
+        "Microsoft.Web/serverfarms/delete",
+        "Microsoft.Web/sites/write",
+        "Microsoft.Web/sites/delete",
+        "Microsoft.Web/sites/config/write",
+        "Microsoft.Web/sites/publish/action",
+        "Microsoft.Web/sites/publishxml/action",
+        "Microsoft.Web/sites/config/list/action",
+        "Microsoft.Web/sites/functions/write",
+        "Microsoft.Web/sites/functions/delete",
+        "Microsoft.Web/sites/host/listkeys/action",
+        "Microsoft.Web/sites/slots/write",
+        "Microsoft.Web/sites/slots/delete",
+        "Microsoft.Web/sites/basicPublishingCredentialsPolicies/write",
+        "Microsoft.Web/sites/restart/action",
+        "Microsoft.Web/sites/stop/action",
+        "Microsoft.Web/sites/start/action"
+      ],
+      "reason": "Function deployment, publishing, host-key discovery, and lifecycle operations are required by Azure L0/L1/L2/L3 function resources."
+    },
+    {
+      "name": "iot_eventgrid",
+      "scope_class": "resource_group_candidate",
+      "actions": [
+        "Microsoft.Devices/IotHubs/write",
+        "Microsoft.Devices/IotHubs/delete",
+        "Microsoft.Devices/IotHubs/listkeys/action",
+        "Microsoft.Devices/IotHubs/IotHubKeys/listkeys/action",
+        "Microsoft.Devices/IotHubs/exportDevices/action",
+        "Microsoft.Devices/IotHubs/importDevices/action",
+        "Microsoft.Devices/IotHubs/certificates/write",
+        "Microsoft.Devices/IotHubs/certificates/delete",
+        "Microsoft.Devices/IotHubs/certificates/generateVerificationCode/action",
+        "Microsoft.Devices/IotHubs/certificates/verify/action",
+        "Microsoft.Devices/provisioningServices/write",
+        "Microsoft.Devices/provisioningServices/delete",
+        "Microsoft.Devices/provisioningServices/listkeys/action",
+        "Microsoft.Devices/register/action",
+        "Microsoft.EventGrid/eventSubscriptions/write",
+        "Microsoft.EventGrid/eventSubscriptions/delete",
+        "Microsoft.EventGrid/systemTopics/write",
+        "Microsoft.EventGrid/systemTopics/delete",
+        "Microsoft.EventGrid/systemTopics/eventSubscriptions/write",
+        "Microsoft.EventGrid/systemTopics/eventSubscriptions/delete",
+        "Microsoft.EventGrid/topics/write",
+        "Microsoft.EventGrid/topics/delete"
+      ],
+      "reason": "IoT Hub and Event Grid actions support L1 ingestion, routing, and teardown."
+    },
+    {
+      "name": "role_assignments",
+      "scope_class": "subscription_setup",
+      "actions": [
+        "Microsoft.Authorization/roleAssignments/write",
+        "Microsoft.Authorization/roleAssignments/delete"
+      ],
+      "reason": "Terraform assigns managed identities and users to provider resources; final scoping needs live validation."
+    },
+    {
+      "name": "storage_cosmos",
+      "scope_class": "resource_group_candidate",
+      "actions": [
+        "Microsoft.DocumentDB/databaseAccounts/write",
+        "Microsoft.DocumentDB/databaseAccounts/delete",
+        "Microsoft.DocumentDB/databaseAccounts/read",
+        "Microsoft.DocumentDB/databaseAccounts/readMetadata",
+        "Microsoft.DocumentDB/databaseAccounts/listKeys/action",
+        "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/write",
+        "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/delete",
+        "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/read",
+        "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/write",
+        "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/delete",
+        "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/read",
+        "Microsoft.Storage/storageAccounts/blobServices/containers/write",
+        "Microsoft.Storage/storageAccounts/blobServices/containers/delete"
+      ],
+      "reason": "Cosmos DB and blob container lifecycle actions cover hot/cold/archive storage."
+    },
+    {
+      "name": "digital_twins",
+      "scope_class": "resource_candidate",
+      "actions": [
+        "Microsoft.DigitalTwins/digitalTwinsInstances/write",
+        "Microsoft.DigitalTwins/digitalTwinsInstances/delete",
+        "Microsoft.DigitalTwins/digitalTwinsInstances/endpoints/write",
+        "Microsoft.DigitalTwins/digitalTwinsInstances/endpoints/delete",
+        "Microsoft.DigitalTwins/digitalTwinsInstances/privateEndpointConnections/write",
+        "Microsoft.DigitalTwins/digitalTwinsInstances/privateEndpointConnections/delete",
+        "Microsoft.DigitalTwins/register/action"
+      ],
+      "reason": "Digital Twins instance and endpoint lifecycle is required for L4."
+    },
+    {
+      "name": "grafana",
+      "scope_class": "resource_candidate",
+      "actions": [
+        "Microsoft.Dashboard/grafana/write",
+        "Microsoft.Dashboard/grafana/delete"
+      ],
+      "reason": "Managed Grafana workspace lifecycle is required for L5."
+    }
+  ],
+  "data_action_groups": [
+    {
+      "name": "digital_twins_data_plane",
+      "scope_class": "data_plane",
+      "data_actions": [
+        "Microsoft.DigitalTwins/digitaltwins/read",
+        "Microsoft.DigitalTwins/digitaltwins/write",
+        "Microsoft.DigitalTwins/digitaltwins/delete",
+        "Microsoft.DigitalTwins/digitaltwins/relationships/read",
+        "Microsoft.DigitalTwins/digitaltwins/relationships/write",
+        "Microsoft.DigitalTwins/digitaltwins/relationships/delete",
+        "Microsoft.DigitalTwins/models/read",
+        "Microsoft.DigitalTwins/models/write",
+        "Microsoft.DigitalTwins/models/delete",
+        "Microsoft.DigitalTwins/query/action",
+        "Microsoft.DigitalTwins/eventroutes/read",
+        "Microsoft.DigitalTwins/eventroutes/write",
+        "Microsoft.DigitalTwins/eventroutes/delete"
+      ],
+      "reason": "ADT model, twin, relationship, query, and event-route operations are data-plane permissions."
+    }
+  ],
+  "known_gaps": [
+    "*/read remains a broad thesis-demo-v1 read baseline and should be replaced with explicit read actions after provider operation tracing.",
+    "Microsoft.Resources/deployments/* is intentionally broad until Logic App ARM-template deployment behavior is isolated.",
+    "Azure Resource Manager custom roles do not cover Microsoft Graph permissions required by azuread_user and azuread_* data sources.",
+    "E2E deployment verification is intentionally deferred until the larger refactoring roadmap reaches an end-to-end testable state."
+  ],
+  "next_validation": [
+    "Run az provider operation list against the active subscription and compare Microsoft.* actions.",
+    "Run supervised Azure deployment/destroy smoke with thesis-demo-v1 credentials.",
+    "Capture provider-operation evidence to produce least-privilege-v2 with narrower read and deployment actions."
+  ]
+}

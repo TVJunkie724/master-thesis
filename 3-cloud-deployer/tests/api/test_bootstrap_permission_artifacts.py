@@ -129,6 +129,58 @@ def test_azure_custom_role_covers_required_actions_and_data_actions():
     assert missing_data_actions == []
 
 
+def test_azure_custom_role_and_checker_do_not_drift():
+    role = json.loads((ROOT / "docs/references/azure_custom_role.json").read_text())
+    permissions = role["properties"]["permissions"][0]
+    role_actions = set(permissions["actions"])
+    role_data_actions = set(permissions["dataActions"])
+
+    required_actions = {
+        action
+        for layer in REQUIRED_AZURE_PERMISSIONS.values()
+        for action in layer.get("required_actions", [])
+    }
+    required_data_actions = {
+        action
+        for layer in REQUIRED_AZURE_PERMISSIONS.values()
+        for action in layer.get("required_data_actions", [])
+    }
+
+    assert sorted(role_actions - required_actions) == []
+    assert sorted(required_actions - role_actions) == []
+    assert sorted(role_data_actions - required_data_actions) == []
+    assert sorted(required_data_actions - role_data_actions) == []
+
+
+def test_azure_scope_review_covers_every_role_action_and_data_action():
+    role = json.loads((ROOT / "docs/references/azure_custom_role.json").read_text())
+    permissions = role["properties"]["permissions"][0]
+    review = json.loads(
+        (PERMISSION_SET_DIR / "azure_thesis_demo_v1_scope_review.json").read_text()
+    )
+
+    assert review["provider"] == "azure"
+    assert review["permission_set_version"] == ACTIVE_PERMISSION_SET_VERSION
+    assert review["validation_level"] == "offline_pre_e2e"
+    assert review["requires_e2e_before_final"] is True
+
+    allowed_scope_classes = set(review["scope_classes"])
+    reviewed_actions = set()
+    for group in review["action_groups"]:
+        assert group["scope_class"] in allowed_scope_classes
+        assert group["reason"]
+        reviewed_actions.update(group["actions"])
+
+    reviewed_data_actions = set()
+    for group in review["data_action_groups"]:
+        assert group["scope_class"] in allowed_scope_classes
+        assert group["reason"]
+        reviewed_data_actions.update(group["data_actions"])
+
+    assert sorted(reviewed_actions) == sorted(permissions["actions"])
+    assert sorted(reviewed_data_actions) == sorted(permissions["dataActions"])
+
+
 def test_gcp_custom_role_covers_supported_deployer_permission_families():
     role_text = (ROOT / "docs/references/gcp_custom_role.yaml").read_text()
     included_permissions = _parse_gcp_included_permissions(role_text)
