@@ -2,6 +2,8 @@
   "provider": "gcp",
   "permission_set_version": "thesis-demo-v1",
   "status": "validated",
+  "validation_level": "offline_pre_e2e",
+  "requires_e2e_before_final": true,
   "scope": {
     "assignment": "Project-level custom role bound to the generated deployment service account",
     "project_setup": "API enablement and project creation are explicit known gaps for separating bootstrap identity from deployment identity.",
@@ -21,11 +23,17 @@
         "path": "3-cloud-deployer/docs/references/gcp_custom_role.yaml",
         "format": "gcp_custom_role",
         "contains": "includedPermissions"
+      },
+      {
+        "path": "3-cloud-deployer/docs/references/permission_sets/gcp_thesis_demo_v1_scope_review.json",
+        "format": "scope_review",
+        "contains": "GCP permission grouping, custom-role support notes, and pre-E2E validation boundaries"
       }
     ],
     "checker_sources": [
       "3-cloud-deployer/src/api/gcp_credentials_checker.py::REQUIRED_GCP_APIS",
-      "3-cloud-deployer/src/api/gcp_credentials_checker.py::REQUIRED_GCP_ROLES"
+      "3-cloud-deployer/src/api/gcp_credentials_checker.py::REQUIRED_GCP_ROLES",
+      "3-cloud-deployer/src/api/gcp_credentials_checker.py::REQUIRED_GCP_PERMISSIONS"
     ],
     "constraints": [
       "GCP custom role permission names must stay wildcard-free."
@@ -41,12 +49,17 @@
       "type": "bootstrap_vs_deployment_split",
       "status": "known_gap",
       "reason": "serviceusage.services.enable and IAM custom-role mutation permissions are retained in thesis-demo-v1 while the final bootstrap/deployment split is validated."
+    },
+    {
+      "type": "workflow_permissions",
+      "status": "implemented",
+      "reason": "Terraform-managed google_workflows_workflow resources and workflows.googleapis.com API enablement are represented in the checker and custom role."
     }
   ],
   "known_gaps": [
     {
       "area": "project/API setup permissions",
-      "reason": "serviceusage and IAM role mutation permissions likely belong only to bootstrap identity in least-privilege-v2."
+      "reason": "serviceusage, project IAM policy mutation, and IAM role mutation permissions likely belong only to bootstrap identity in least-privilege-v2."
     },
     {
       "area": "L4/L5 parity",

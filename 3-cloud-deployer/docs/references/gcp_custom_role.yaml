@@ -26,6 +26,7 @@ includedPermissions:
   # ===========================================
   - resourcemanager.projects.get
   - resourcemanager.projects.getIamPolicy
+  - resourcemanager.projects.setIamPolicy
 
   # ===========================================
   # IAM (Service Account management)
@@ -92,6 +93,15 @@ includedPermissions:
   - run.services.getIamPolicy
   - run.operations.get
   - run.operations.list
+
+  # ===========================================
+  # Workflows (L2 - Event notification workflows)
+  # ===========================================
+  - workflows.workflows.create
+  - workflows.workflows.delete
+  - workflows.workflows.get
+  - workflows.workflows.list
+  - workflows.workflows.update
 
   # ===========================================
   # Eventarc (Function triggers)

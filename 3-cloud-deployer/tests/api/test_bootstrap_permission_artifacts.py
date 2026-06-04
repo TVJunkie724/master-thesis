@@ -6,6 +6,7 @@ import re
 
 from api.azure_credentials_checker import REQUIRED_AZURE_PERMISSIONS, _action_matches
 from api.credentials_checker import SELF_CHECK_PERMISSIONS, _get_all_required_permissions
+from api.gcp_credentials_checker import REQUIRED_GCP_APIS, REQUIRED_GCP_PERMISSIONS
 from api.permission_sets import ACTIVE_PERMISSION_SET_VERSION
 
 
@@ -185,25 +186,55 @@ def test_gcp_custom_role_covers_supported_deployer_permission_families():
     role_text = (ROOT / "docs/references/gcp_custom_role.yaml").read_text()
     included_permissions = _parse_gcp_included_permissions(role_text)
     required_permissions = {
-        "resourcemanager.projects.get",
-        "resourcemanager.projects.getIamPolicy",
-        "iam.serviceAccounts.actAs",
-        "storage.buckets.create",
-        "pubsub.topics.create",
-        "cloudfunctions.functions.create",
-        "run.services.create",
-        "eventarc.triggers.create",
-        "cloudbuild.builds.create",
-        "datastore.databases.create",
-        "cloudscheduler.jobs.create",
-        "serviceusage.services.enable",
-        "serviceusage.services.get",
-        "serviceusage.services.list",
+        permission
+        for group in REQUIRED_GCP_PERMISSIONS.values()
+        for permission in group["permissions"]
     }
 
     assert included_permissions
     assert not [permission for permission in included_permissions if "*" in permission]
     assert sorted(required_permissions - included_permissions) == []
+    assert sorted(included_permissions - required_permissions) == []
+
+
+def test_gcp_scope_review_covers_every_custom_role_permission():
+    role_text = (ROOT / "docs/references/gcp_custom_role.yaml").read_text()
+    included_permissions = _parse_gcp_included_permissions(role_text)
+    review = json.loads(
+        (PERMISSION_SET_DIR / "gcp_thesis_demo_v1_scope_review.json").read_text()
+    )
+
+    assert review["provider"] == "gcp"
+    assert review["permission_set_version"] == ACTIVE_PERMISSION_SET_VERSION
+    assert review["validation_level"] == "offline_pre_e2e"
+    assert review["requires_e2e_before_final"] is True
+
+    allowed_scope_classes = set(review["scope_classes"])
+    reviewed_permissions = set()
+    for group in review["permission_groups"]:
+        assert group["scope_class"] in allowed_scope_classes
+        assert group["reason"]
+        reviewed_permissions.update(group["permissions"])
+
+    assert sorted(reviewed_permissions) == sorted(included_permissions)
+
+
+def test_gcp_workflows_api_and_permissions_are_in_permission_contract():
+    required_apis = {
+        api
+        for group in REQUIRED_GCP_APIS.values()
+        for api in group["apis"]
+    }
+    required_permissions = {
+        permission
+        for group in REQUIRED_GCP_PERMISSIONS.values()
+        for permission in group["permissions"]
+    }
+
+    assert "workflows.googleapis.com" in required_apis
+    assert "workflows.workflows.create" in required_permissions
+    assert "workflows.workflows.delete" in required_permissions
+    assert "resourcemanager.projects.setIamPolicy" in required_permissions
 
 
 def test_permission_set_artifacts_bind_current_version_to_reference_artifacts():

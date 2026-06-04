@@ -50,6 +50,7 @@ REQUIRED_GCP_APIS = {
             "cloudfunctions.googleapis.com",
             "run.googleapis.com",
             "cloudbuild.googleapis.com",
+            "workflows.googleapis.com",
         ],
     },
     "layer_3": {
@@ -72,6 +73,113 @@ REQUIRED_GCP_ROLES = [
     "roles/cloudscheduler.admin",
     "roles/iam.serviceAccountUser",
 ]
+
+REQUIRED_GCP_PERMISSIONS = {
+    "setup": {
+        "description": "Project access, IAM, service accounts, API enablement, source bucket",
+        "permissions": [
+            "resourcemanager.projects.get",
+            "resourcemanager.projects.getIamPolicy",
+            "resourcemanager.projects.setIamPolicy",
+            "iam.serviceAccounts.create",
+            "iam.serviceAccounts.delete",
+            "iam.serviceAccounts.get",
+            "iam.serviceAccounts.list",
+            "iam.serviceAccounts.actAs",
+            "iam.roles.create",
+            "iam.roles.delete",
+            "iam.roles.get",
+            "iam.roles.list",
+            "iam.roles.update",
+            "serviceusage.services.enable",
+            "serviceusage.services.disable",
+            "serviceusage.services.get",
+            "serviceusage.services.list",
+            "storage.buckets.create",
+            "storage.buckets.delete",
+            "storage.buckets.get",
+            "storage.buckets.list",
+            "storage.buckets.update",
+            "storage.objects.create",
+            "storage.objects.delete",
+            "storage.objects.get",
+            "storage.objects.list",
+            "storage.objects.update",
+        ],
+    },
+    "layer_1": {
+        "description": "Pub/Sub and Eventarc triggers",
+        "permissions": [
+            "pubsub.topics.create",
+            "pubsub.topics.delete",
+            "pubsub.topics.get",
+            "pubsub.topics.list",
+            "pubsub.topics.publish",
+            "pubsub.subscriptions.create",
+            "pubsub.subscriptions.delete",
+            "pubsub.subscriptions.get",
+            "pubsub.subscriptions.list",
+            "eventarc.triggers.create",
+            "eventarc.triggers.delete",
+            "eventarc.triggers.get",
+            "eventarc.triggers.list",
+            "eventarc.triggers.update",
+        ],
+    },
+    "layer_2": {
+        "description": "Cloud Functions Gen2, Cloud Run invoker bindings, Cloud Build, Workflows",
+        "permissions": [
+            "cloudfunctions.functions.create",
+            "cloudfunctions.functions.delete",
+            "cloudfunctions.functions.get",
+            "cloudfunctions.functions.list",
+            "cloudfunctions.functions.update",
+            "cloudfunctions.functions.sourceCodeSet",
+            "cloudfunctions.operations.get",
+            "cloudfunctions.operations.list",
+            "run.services.create",
+            "run.services.delete",
+            "run.services.get",
+            "run.services.list",
+            "run.services.update",
+            "run.services.setIamPolicy",
+            "run.services.getIamPolicy",
+            "run.operations.get",
+            "run.operations.list",
+            "cloudbuild.builds.create",
+            "cloudbuild.builds.get",
+            "cloudbuild.builds.list",
+            "workflows.workflows.create",
+            "workflows.workflows.delete",
+            "workflows.workflows.get",
+            "workflows.workflows.list",
+            "workflows.workflows.update",
+        ],
+    },
+    "layer_3": {
+        "description": "Firestore, storage buckets/objects, Cloud Scheduler",
+        "permissions": [
+            "datastore.databases.create",
+            "datastore.databases.delete",
+            "datastore.databases.get",
+            "datastore.databases.list",
+            "datastore.entities.create",
+            "datastore.entities.delete",
+            "datastore.entities.get",
+            "datastore.entities.list",
+            "datastore.entities.update",
+            "datastore.indexes.create",
+            "datastore.indexes.delete",
+            "datastore.indexes.get",
+            "datastore.indexes.list",
+            "cloudscheduler.jobs.create",
+            "cloudscheduler.jobs.delete",
+            "cloudscheduler.jobs.get",
+            "cloudscheduler.jobs.list",
+            "cloudscheduler.jobs.update",
+        ],
+    },
+}
 
 
 def _parse_service_account_json(credentials_input: str) -> tuple:
@@ -330,6 +438,7 @@ def check_gcp_credentials(credentials: dict) -> dict:
         "project_access": None,
         "api_status": None,
         "required_roles": REQUIRED_GCP_ROLES,
+        "required_permissions": REQUIRED_GCP_PERMISSIONS,
     }
     
     # Validate required fields
@@ -490,6 +599,7 @@ def check_gcp_credentials_from_config(project_name: Optional[str] = None) -> dic
                 "project_access": None,
                 "api_status": None,
                 "required_roles": REQUIRED_GCP_ROLES,
+                "required_permissions": REQUIRED_GCP_PERMISSIONS,
                 "project_name": None,
             }
 
@@ -505,6 +615,7 @@ def check_gcp_credentials_from_config(project_name: Optional[str] = None) -> dic
                 "project_access": None,
                 "api_status": None,
                 "required_roles": REQUIRED_GCP_ROLES,
+                "required_permissions": REQUIRED_GCP_PERMISSIONS,
                 "project_name": project_name
             }
         
@@ -518,6 +629,7 @@ def check_gcp_credentials_from_config(project_name: Optional[str] = None) -> dic
                 "project_access": None,
                 "api_status": None,
                 "required_roles": REQUIRED_GCP_ROLES,
+                "required_permissions": REQUIRED_GCP_PERMISSIONS,
                 "project_name": project_name
             }
         
@@ -532,6 +644,7 @@ def check_gcp_credentials_from_config(project_name: Optional[str] = None) -> dic
                 "project_access": None,
                 "api_status": None,
                 "required_roles": REQUIRED_GCP_ROLES,
+                "required_permissions": REQUIRED_GCP_PERMISSIONS,
                 "project_name": project_name
             }
         
@@ -545,6 +658,7 @@ def check_gcp_credentials_from_config(project_name: Optional[str] = None) -> dic
                 "project_access": None,
                 "api_status": None,
                 "required_roles": REQUIRED_GCP_ROLES,
+                "required_permissions": REQUIRED_GCP_PERMISSIONS,
                 "project_name": project_name
             }
         
@@ -568,6 +682,7 @@ def check_gcp_credentials_from_config(project_name: Optional[str] = None) -> dic
             "project_access": None,
             "api_status": None,
             "required_roles": REQUIRED_GCP_ROLES,
+            "required_permissions": REQUIRED_GCP_PERMISSIONS,
             "project_name": project_name
         }
 
@@ -578,4 +693,5 @@ __all__ = [
     "check_gcp_credentials_from_config",
     "REQUIRED_GCP_APIS",
     "REQUIRED_GCP_ROLES",
+    "REQUIRED_GCP_PERMISSIONS",
 ]

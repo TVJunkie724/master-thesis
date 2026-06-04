@@ -111,14 +111,23 @@ diagnostic settings for `enable_azure_logging`. The remaining known gap is the
 split between Azure Resource Manager permissions and Microsoft Graph / Entra ID
 permissions used by `azuread_user` and related data sources.
 
+For GCP, `gcp_thesis_demo_v1_scope_review.json` groups every custom-role
+`includedPermission` and the checker exposes `REQUIRED_GCP_PERMISSIONS` in
+addition to required APIs and role guidance. The offline gate now catches
+Terraform resource drift such as `google_workflows_workflow` and
+`google_project_iam_member`: `workflows.googleapis.com`, Workflows workflow
+permissions, and `resourcemanager.projects.setIamPolicy` are explicit in the
+v1 baseline. GCP custom-role permissions remain wildcard-free.
+
 `thesis-demo-v1` is the first validated thesis/demo baseline. It is not a
 claim that every provider action is already the final least-privilege shape.
 The artifacts explicitly document known broad areas such as AWS `Resource: *`,
 Azure `*/read`, subscription-scope role assignment, and GCP API-enablement /
 custom-role mutation permissions. The next hardened version can remove those
 gaps after supervised live deployments and provider-operation validation. The
-AWS next step is to run IAM Access Analyzer validation and a supervised
-deployment/destroy smoke before producing `least-privilege-v2`.
+provider next step is to run each cloud's native permission validation command
+and a supervised deployment/destroy smoke before producing
+`least-privilege-v2`.
 
 The Management API exposes the first stable contract for this flow:
 

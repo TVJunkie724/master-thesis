@@ -226,5 +226,45 @@ class TestCheckBillingEnabledFunction:
             assert result["billing_enabled"] is False
 
 
+class TestGCPPermissionContractMetadata:
+    """Tests for GCP permission contract metadata in checker responses."""
+
+    def test_missing_credentials_response_includes_permission_contract(self):
+        from api.gcp_credentials_checker import (
+            REQUIRED_GCP_PERMISSIONS,
+            check_gcp_credentials,
+        )
+
+        result = check_gcp_credentials({})
+
+        assert result["status"] == "invalid"
+        assert result["required_permissions"] == REQUIRED_GCP_PERMISSIONS
+        assert "workflows.workflows.create" in _all_required_gcp_permissions(
+            REQUIRED_GCP_PERMISSIONS
+        )
+
+    def test_from_config_error_response_includes_permission_contract(self):
+        from api.gcp_credentials_checker import (
+            REQUIRED_GCP_PERMISSIONS,
+            check_gcp_credentials_from_config,
+        )
+
+        result = check_gcp_credentials_from_config(None)
+
+        assert result["status"] == "error"
+        assert result["required_permissions"] == REQUIRED_GCP_PERMISSIONS
+        assert "resourcemanager.projects.setIamPolicy" in _all_required_gcp_permissions(
+            REQUIRED_GCP_PERMISSIONS
+        )
+
+
+def _all_required_gcp_permissions(required_permissions: dict) -> set[str]:
+    return {
+        permission
+        for group in required_permissions.values()
+        for permission in group["permissions"]
+    }
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

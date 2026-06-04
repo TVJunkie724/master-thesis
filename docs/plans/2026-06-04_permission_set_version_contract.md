@@ -135,6 +135,11 @@ bootstrap script
   the v1 baseline because Terraform creates those resources when
   `enable_azure_logging` is active. The Azure checker and custom role are
   intentionally tested for exact action/dataAction alignment.
+- GCP Workflows and project IAM binding permissions are part of the v1 baseline
+  because Terraform creates `google_workflows_workflow` and
+  `google_project_iam_member` resources. The GCP custom role and checker expose
+  an exact `REQUIRED_GCP_PERMISSIONS` contract and keep wildcard permissions
+  forbidden.
 
 ## 6. Verification Checklist
 

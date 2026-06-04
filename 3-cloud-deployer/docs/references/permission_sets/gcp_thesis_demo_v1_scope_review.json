@@ -1,0 +1,169 @@
+{
+  "provider": "gcp",
+  "permission_set_version": "thesis-demo-v1",
+  "validation_level": "offline_pre_e2e",
+  "requires_e2e_before_final": true,
+  "review_basis": [
+    {
+      "source": "Google Cloud custom roles",
+      "url": "https://cloud.google.com/iam/docs/creating-custom-roles"
+    },
+    {
+      "source": "Google Cloud IAM roles and permissions",
+      "url": "https://cloud.google.com/iam/docs/roles-overview"
+    },
+    {
+      "source": "gcloud iam list-testable-permissions",
+      "url": "https://cloud.google.com/sdk/gcloud/reference/iam/list-testable-permissions"
+    },
+    {
+      "source": "Terraform provider resource inventory",
+      "path": "3-cloud-deployer/docs/references/permission_sets/deployer_permission_inventory.json"
+    }
+  ],
+  "scope_classes": {
+    "project_setup": "Permission remains project-level in thesis-demo-v1 because it creates service accounts, custom roles, project IAM bindings, or enables services.",
+    "resource_candidate": "Permission can likely be narrowed by separating bootstrap identity from deployment identity or by moving to resource-level bindings after live validation.",
+    "runtime_package": "Permission supports Cloud Functions source/package upload and generated runtime resources.",
+    "known_gap": "Permission belongs to an explicit thesis-demo-v1 gap and should move to a bootstrap-only identity in least-privilege-v2."
+  },
+  "permission_groups": [
+    {
+      "name": "setup",
+      "scope_class": "project_setup",
+      "permissions": [
+        "resourcemanager.projects.get",
+        "resourcemanager.projects.getIamPolicy",
+        "resourcemanager.projects.setIamPolicy",
+        "iam.serviceAccounts.create",
+        "iam.serviceAccounts.delete",
+        "iam.serviceAccounts.get",
+        "iam.serviceAccounts.list",
+        "iam.serviceAccounts.actAs",
+        "iam.roles.create",
+        "iam.roles.delete",
+        "iam.roles.get",
+        "iam.roles.list",
+        "iam.roles.update",
+        "serviceusage.services.enable",
+        "serviceusage.services.disable",
+        "serviceusage.services.get",
+        "serviceusage.services.list"
+      ],
+      "reason": "Project IAM binding, service account, custom role, and API enablement are still part of thesis-demo-v1 deployment setup."
+    },
+    {
+      "name": "storage",
+      "scope_class": "runtime_package",
+      "permissions": [
+        "storage.buckets.create",
+        "storage.buckets.delete",
+        "storage.buckets.get",
+        "storage.buckets.list",
+        "storage.buckets.update",
+        "storage.objects.create",
+        "storage.objects.delete",
+        "storage.objects.get",
+        "storage.objects.list",
+        "storage.objects.update"
+      ],
+      "reason": "Cloud Storage is used for function source packages plus cold/archive storage."
+    },
+    {
+      "name": "pubsub_eventarc",
+      "scope_class": "resource_candidate",
+      "permissions": [
+        "pubsub.topics.create",
+        "pubsub.topics.delete",
+        "pubsub.topics.get",
+        "pubsub.topics.list",
+        "pubsub.topics.publish",
+        "pubsub.subscriptions.create",
+        "pubsub.subscriptions.delete",
+        "pubsub.subscriptions.get",
+        "pubsub.subscriptions.list",
+        "eventarc.triggers.create",
+        "eventarc.triggers.delete",
+        "eventarc.triggers.get",
+        "eventarc.triggers.list",
+        "eventarc.triggers.update"
+      ],
+      "reason": "Pub/Sub and Eventarc support L1 ingestion and function triggers."
+    },
+    {
+      "name": "functions_run_build",
+      "scope_class": "resource_candidate",
+      "permissions": [
+        "cloudfunctions.functions.create",
+        "cloudfunctions.functions.delete",
+        "cloudfunctions.functions.get",
+        "cloudfunctions.functions.list",
+        "cloudfunctions.functions.update",
+        "cloudfunctions.functions.sourceCodeSet",
+        "cloudfunctions.operations.get",
+        "cloudfunctions.operations.list",
+        "run.services.create",
+        "run.services.delete",
+        "run.services.get",
+        "run.services.list",
+        "run.services.update",
+        "run.services.setIamPolicy",
+        "run.services.getIamPolicy",
+        "run.operations.get",
+        "run.operations.list",
+        "cloudbuild.builds.create",
+        "cloudbuild.builds.get",
+        "cloudbuild.builds.list"
+      ],
+      "reason": "Cloud Functions Gen2 provisions Cloud Run services and uses Cloud Build for builds."
+    },
+    {
+      "name": "workflows",
+      "scope_class": "resource_candidate",
+      "permissions": [
+        "workflows.workflows.create",
+        "workflows.workflows.delete",
+        "workflows.workflows.get",
+        "workflows.workflows.list",
+        "workflows.workflows.update"
+      ],
+      "reason": "Terraform creates google_workflows_workflow for optional event notification workflows."
+    },
+    {
+      "name": "firestore_scheduler",
+      "scope_class": "resource_candidate",
+      "permissions": [
+        "datastore.databases.create",
+        "datastore.databases.delete",
+        "datastore.databases.get",
+        "datastore.databases.list",
+        "datastore.entities.create",
+        "datastore.entities.delete",
+        "datastore.entities.get",
+        "datastore.entities.list",
+        "datastore.entities.update",
+        "datastore.indexes.create",
+        "datastore.indexes.delete",
+        "datastore.indexes.get",
+        "datastore.indexes.list",
+        "cloudscheduler.jobs.create",
+        "cloudscheduler.jobs.delete",
+        "cloudscheduler.jobs.get",
+        "cloudscheduler.jobs.list",
+        "cloudscheduler.jobs.update"
+      ],
+      "reason": "Firestore and Cloud Scheduler support hot storage plus mover jobs."
+    }
+  ],
+  "known_gaps": [
+    "resourcemanager.projects.setIamPolicy is needed by google_project_iam_member in thesis-demo-v1 but should move to bootstrap-only setup in least-privilege-v2.",
+    "serviceusage.services.enable/disable and iam.roles.* are setup permissions and should not remain on the runtime deployment identity after the bootstrap/deployment split is finalized.",
+    "Project creation for organization-account mode remains outside the project-level custom role and requires bootstrap/admin credentials.",
+    "E2E deployment verification is intentionally deferred until the larger refactoring roadmap reaches an end-to-end testable state."
+  ],
+  "next_validation": [
+    "Run gcloud iam list-testable-permissions for the active project and compare includedPermissions support levels.",
+    "Run supervised GCP deployment/destroy smoke with thesis-demo-v1 credentials.",
+    "Capture IAM/API failures to produce least-privilege-v2 with bootstrap-only setup permissions removed from runtime credentials."
+  ]
+}
