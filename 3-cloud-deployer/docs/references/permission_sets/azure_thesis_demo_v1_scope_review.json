@@ -109,6 +109,16 @@
       "reason": "IoT Hub and Event Grid actions support L1 ingestion, routing, and teardown."
     },
     {
+      "name": "logic_apps",
+      "scope_class": "resource_group_candidate",
+      "actions": [
+        "Microsoft.Logic/workflows/write",
+        "Microsoft.Logic/workflows/delete",
+        "Microsoft.Logic/workflows/triggers/listCallbackUrl/action"
+      ],
+      "reason": "Terraform creates the optional event notification Logic App and reads its HTTP trigger callback URL from the ARM deployment output."
+    },
+    {
       "name": "role_assignments",
       "scope_class": "subscription_setup",
       "actions": [

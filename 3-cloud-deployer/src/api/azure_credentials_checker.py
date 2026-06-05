@@ -134,14 +134,17 @@ REQUIRED_AZURE_PERMISSIONS = {
         ],
     },
     "layer_2": {
-        "description": "Function Apps (Compute Layer)",
-        "resource_providers": ["Microsoft.Web"],
+        "description": "Function Apps and Logic Apps (Compute Layer)",
+        "resource_providers": ["Microsoft.Web", "Microsoft.Logic"],
         "required_actions": [
             "Microsoft.Web/sites/write",
             "Microsoft.Web/sites/delete",
             "Microsoft.Web/sites/publish/action",
             "Microsoft.Web/sites/config/list/action",  # Get publish credentials
             "Microsoft.Web/sites/basicPublishingCredentialsPolicies/write",  # Enable SCM Basic Auth
+            "Microsoft.Logic/workflows/write",
+            "Microsoft.Logic/workflows/delete",
+            "Microsoft.Logic/workflows/triggers/listCallbackUrl/action",
         ],
     },
     "layer_3": {

@@ -102,6 +102,8 @@ includedPermissions:
   - workflows.workflows.get
   - workflows.workflows.list
   - workflows.workflows.update
+  - workflows.operations.get
+  - workflows.operations.list
 
   # ===========================================
   # Eventarc (Function triggers)

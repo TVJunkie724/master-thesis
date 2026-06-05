@@ -125,9 +125,11 @@
         "workflows.workflows.delete",
         "workflows.workflows.get",
         "workflows.workflows.list",
-        "workflows.workflows.update"
+        "workflows.workflows.update",
+        "workflows.operations.get",
+        "workflows.operations.list"
       ],
-      "reason": "Terraform creates google_workflows_workflow for optional event notification workflows."
+      "reason": "Terraform creates google_workflows_workflow for optional event notification workflows and polls Workflows long-running operations."
     },
     {
       "name": "firestore_scheduler",

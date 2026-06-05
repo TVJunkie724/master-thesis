@@ -234,6 +234,8 @@ def test_gcp_workflows_api_and_permissions_are_in_permission_contract():
     assert "workflows.googleapis.com" in required_apis
     assert "workflows.workflows.create" in required_permissions
     assert "workflows.workflows.delete" in required_permissions
+    assert "workflows.operations.get" in required_permissions
+    assert "workflows.operations.list" in required_permissions
     assert "resourcemanager.projects.setIamPolicy" in required_permissions
 
 

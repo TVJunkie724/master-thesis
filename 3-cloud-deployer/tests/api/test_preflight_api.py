@@ -197,6 +197,34 @@ def test_gcp_preflight_maps_missing_apis(mock_check):
 
 
 @patch("src.api.credentials.check_gcp_credentials")
+def test_gcp_preflight_maps_missing_permissions(mock_check):
+    mock_check.return_value = {
+        "status": "partial",
+        "message": "Some required GCP permissions are missing.",
+        "permission_status": {
+            "status": "checked",
+            "resource": "projects/test-project",
+            "by_layer": {
+                "layer_2": {
+                    "status": "partial",
+                    "missing": ["workflows.operations.get"],
+                }
+            },
+        },
+        "required_roles": [],
+    }
+
+    response = client.post("/permissions/preflight/gcp", json=GCP_PAYLOAD)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ready"] is False
+    assert data["checks"][0]["code"] == "MISSING_PERMISSIONS"
+    assert data["checks"][0]["permissions"] == ["workflows.operations.get"]
+    assert data["checks"][0]["details"] == {"resource": "projects/test-project"}
+
+
+@patch("src.api.credentials.check_gcp_credentials")
 def test_gcp_preflight_maps_billing_failure(mock_check):
     mock_check.return_value = {
         "status": "invalid",

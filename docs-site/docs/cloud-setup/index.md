@@ -107,17 +107,21 @@ For Azure, `azure_thesis_demo_v1_scope_review.json` groups every custom-role
 `action` and `dataAction` by deployment area and scope class. The offline gate
 now requires exact alignment between the Azure checker and
 `azure_custom_role.json`, including Log Analytics, Application Insights, and
-diagnostic settings for `enable_azure_logging`. The remaining known gap is the
-split between Azure Resource Manager permissions and Microsoft Graph / Entra ID
-permissions used by `azuread_user` and related data sources.
+diagnostic settings for `enable_azure_logging`, plus Logic App workflow and
+trigger callback URL actions for optional event workflows. The remaining known
+gap is the split between Azure Resource Manager permissions and Microsoft Graph
+/ Entra ID permissions used by `azuread_user` and related data sources.
 
 For GCP, `gcp_thesis_demo_v1_scope_review.json` groups every custom-role
 `includedPermission` and the checker exposes `REQUIRED_GCP_PERMISSIONS` in
 addition to required APIs and role guidance. The offline gate now catches
 Terraform resource drift such as `google_workflows_workflow` and
 `google_project_iam_member`: `workflows.googleapis.com`, Workflows workflow
-permissions, and `resourcemanager.projects.setIamPolicy` are explicit in the
-v1 baseline. GCP custom-role permissions remain wildcard-free.
+and operation permissions, and `resourcemanager.projects.setIamPolicy` are
+explicit in the v1 baseline. GCP custom-role permissions remain wildcard-free.
+The GCP checker also runs a non-mutating `testIamPermissions` preflight against
+the target project and reports missing permissions as actionable provider
+checks.
 
 `thesis-demo-v1` is the first validated thesis/demo baseline. It is not a
 claim that every provider action is already the final least-privilege shape.

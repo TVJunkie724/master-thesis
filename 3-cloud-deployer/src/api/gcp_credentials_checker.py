@@ -45,7 +45,7 @@ REQUIRED_GCP_APIS = {
         ],
     },
     "layer_2": {
-        "description": "Cloud Functions, Cloud Run, Cloud Build",
+        "description": "Cloud Functions, Cloud Run, Cloud Build, Workflows",
         "apis": [
             "cloudfunctions.googleapis.com",
             "run.googleapis.com",
@@ -154,6 +154,8 @@ REQUIRED_GCP_PERMISSIONS = {
             "workflows.workflows.get",
             "workflows.workflows.list",
             "workflows.workflows.update",
+            "workflows.operations.get",
+            "workflows.operations.list",
         ],
     },
     "layer_3": {
@@ -370,6 +372,84 @@ def _check_enabled_apis(project_id: str, credentials=None) -> dict:
         return {"status": "error", "error": str(e)}
 
 
+def _get_all_required_gcp_permissions() -> set[str]:
+    """Flatten the versioned GCP permission contract into one set."""
+    return {
+        permission
+        for group in REQUIRED_GCP_PERMISSIONS.values()
+        for permission in group["permissions"]
+    }
+
+
+def _compare_gcp_permissions(granted_permissions: set[str]) -> dict:
+    """Compare granted permissions from testIamPermissions with the contract."""
+    by_layer = {}
+    total_required = 0
+    total_valid = 0
+    total_missing = 0
+
+    for layer_name, requirements in REQUIRED_GCP_PERMISSIONS.items():
+        required = set(requirements["permissions"])
+        valid = sorted(required & granted_permissions)
+        missing = sorted(required - granted_permissions)
+
+        total_required += len(required)
+        total_valid += len(valid)
+        total_missing += len(missing)
+
+        by_layer[layer_name] = {
+            "status": "valid" if not missing else ("partial" if valid else "invalid"),
+            "description": requirements["description"],
+            "valid": valid,
+            "missing": missing,
+        }
+
+    return {
+        "by_layer": by_layer,
+        "summary": {
+            "total_required": total_required,
+            "valid": total_valid,
+            "missing": total_missing,
+        },
+    }
+
+
+def _check_iam_permissions(project_id: str, credentials=None) -> dict:
+    """
+    Check granted GCP IAM permissions against the explicit deployment contract.
+
+    Uses Cloud Resource Manager testIamPermissions on the project resource. This
+    is the strongest non-mutating preflight available before deployment resources
+    exist.
+    """
+    try:
+        from google.cloud import resourcemanager_v3
+
+        client = resourcemanager_v3.ProjectsClient(credentials=credentials)
+        required_permissions = sorted(_get_all_required_gcp_permissions())
+        response = client.test_iam_permissions(
+            resource=f"projects/{project_id}",
+            permissions=required_permissions,
+        )
+        granted_permissions = set(response.permissions)
+        comparison = _compare_gcp_permissions(granted_permissions)
+
+        return {
+            "status": "checked",
+            "resource": f"projects/{project_id}",
+            "granted_permissions": sorted(granted_permissions),
+            "required_permissions": required_permissions,
+            **comparison,
+        }
+    except ImportError:
+        return {
+            "status": "sdk_not_installed",
+            "error": "google-cloud-resourcemanager not installed",
+        }
+    except Exception as e:
+        return {"status": "check_failed", "error": str(e)}
+
+
 
 def _check_billing_enabled(project_id: str, credentials=None) -> dict:
     """
@@ -437,6 +517,7 @@ def check_gcp_credentials(credentials: dict) -> dict:
         "region_validation": None,
         "project_access": None,
         "api_status": None,
+        "permission_status": None,
         "required_roles": REQUIRED_GCP_ROLES,
         "required_permissions": REQUIRED_GCP_PERMISSIONS,
     }
@@ -545,6 +626,27 @@ def check_gcp_credentials(credentials: dict) -> dict:
         if api_status["status"] != "checked":
             result["status"] = "partial"
             result["message"] = f"Credentials valid. API check failed: {api_status.get('error', 'Unknown')}"
+            return result
+
+        # Step 5: Check effective IAM permissions without mutating cloud resources
+        permission_status = _check_iam_permissions(project_id, credentials=gcp_credentials)
+        result["permission_status"] = permission_status
+
+        if permission_status["status"] != "checked":
+            result["status"] = "partial"
+            result["message"] = (
+                "Credentials valid. Permission check failed: "
+                f"{permission_status.get('error', 'Unknown')}"
+            )
+            return result
+
+        missing_permissions = permission_status.get("summary", {}).get("missing", 0)
+        if missing_permissions:
+            result["status"] = "partial"
+            result["message"] = (
+                f"Some required GCP permissions are missing: "
+                f"{missing_permissions} of {permission_status['summary']['total_required']}."
+            )
             return result
         
         # Determine overall status
@@ -694,4 +796,7 @@ __all__ = [
     "REQUIRED_GCP_APIS",
     "REQUIRED_GCP_ROLES",
     "REQUIRED_GCP_PERMISSIONS",
+    "_check_iam_permissions",
+    "_compare_gcp_permissions",
+    "_get_all_required_gcp_permissions",
 ]

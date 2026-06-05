@@ -245,6 +245,26 @@ def _gcp_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
             apis=missing_apis,
         ))
 
+    permission_status = _safe_dict(result.get("permission_status"))
+    missing_permissions = _gcp_missing_permissions(permission_status)
+    if missing_permissions:
+        checks.append(_failed(
+            "deployment_permissions",
+            "MISSING_PERMISSIONS",
+            result.get("message") or "Required GCP IAM permissions are missing.",
+            "Grant the listed GCP permissions to the deployment service account, then rerun preflight.",
+            permissions=missing_permissions,
+            details={"resource": permission_status.get("resource")},
+        ))
+    elif permission_status.get("status") == "check_failed":
+        checks.append(_failed(
+            "deployment_permissions",
+            "PERMISSION_CHECK_FAILED",
+            result.get("message") or permission_status.get("error") or "GCP IAM permission check failed.",
+            "Verify the service account can run testIamPermissions on the target project, then rerun preflight.",
+            details={"resource": permission_status.get("resource")},
+        ))
+
     if status == "sdk_missing":
         checks.append(_failed(
             "service_dependencies",
@@ -298,6 +318,15 @@ def _gcp_missing_apis(api_status: dict[str, Any]) -> list[str]:
     for layer_result in by_layer.values():
         for api in _safe_dict(layer_result).get("missing_apis", []) or []:
             missing.add(str(api))
+    return sorted(missing)
+
+
+def _gcp_missing_permissions(permission_status: dict[str, Any]) -> list[str]:
+    missing = set()
+    by_layer = _safe_dict(permission_status.get("by_layer"))
+    for layer_result in by_layer.values():
+        for permission in _safe_dict(layer_result).get("missing", []) or []:
+            missing.add(str(permission))
     return sorted(missing)
 
 
