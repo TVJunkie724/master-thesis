@@ -27,7 +27,7 @@ class TestAWSCredentials:
     
     def test_check_aws_credentials_missing_fields(self):
         """Test when required fields are missing."""
-        credentials = {"aws_access_key_id": "test"}  # Missing secret and region
+        credentials = {"aws_access_key_id": "test"}  # Missing secret
         
         result = credentials_checker.check_aws_credentials(credentials)
         
@@ -49,6 +49,8 @@ class TestAWSCredentials:
         # Mock Pricing client
         mock_pricing = MagicMock()
         mock_pricing.describe_services.return_value = {"Services": []}
+        mock_pricing.get_attribute_values.return_value = {"AttributeValues": []}
+        mock_pricing.get_products.return_value = {"PriceList": []}
         
         # Configure session mock
         mock_session = MagicMock()
@@ -72,6 +74,89 @@ class TestAWSCredentials:
         assert result["credentials_valid"] == True
         assert result["can_fetch_pricing"] == True
         assert result["identity"]["account"] == "123456789012"
+        mock_pricing.describe_services.assert_called_once_with(MaxResults=1)
+        mock_pricing.get_attribute_values.assert_called_once_with(
+            ServiceCode="AmazonEC2",
+            AttributeName="location",
+            MaxResults=1,
+        )
+        mock_pricing.get_products.assert_called_once_with(
+            ServiceCode="AmazonEC2",
+            MaxResults=1,
+        )
+
+    @patch("boto3.Session")
+    def test_check_aws_credentials_forwards_session_token(self, mock_session_class):
+        """Temporary AWS credentials must forward the STS session token."""
+        mock_sts = MagicMock()
+        mock_sts.get_caller_identity.return_value = {
+            "Account": "123456789012",
+            "Arn": "arn:aws:sts::123456789012:assumed-role/test/session",
+            "UserId": "AIDAEXAMPLE"
+        }
+        mock_pricing = MagicMock()
+        mock_pricing.describe_services.return_value = {"Services": []}
+        mock_pricing.get_attribute_values.return_value = {"AttributeValues": []}
+        mock_pricing.get_products.return_value = {"PriceList": []}
+
+        mock_session = MagicMock()
+        mock_session.client.side_effect = lambda service, **kwargs: {
+            "sts": mock_sts,
+            "pricing": mock_pricing
+        }.get(service, MagicMock())
+        mock_session_class.return_value = mock_session
+
+        credentials = {
+            "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+            "aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            "aws_session_token": "temporary-session-token",
+            "aws_region": "eu-central-1"
+        }
+
+        result = credentials_checker.check_aws_credentials(credentials)
+
+        assert result["status"] == "valid"
+        mock_session_class.assert_called_once_with(
+            aws_access_key_id="AKIAIOSFODNN7EXAMPLE",
+            aws_secret_access_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            aws_session_token="temporary-session-token",
+            region_name="us-east-1",
+        )
+
+    @patch("boto3.Session")
+    def test_check_aws_credentials_region_is_not_required_for_pricing_api(self, mock_session_class):
+        """The Pricing API checker always uses us-east-1, so aws_region is not required."""
+        mock_sts = MagicMock()
+        mock_sts.get_caller_identity.return_value = {
+            "Account": "123456789012",
+            "Arn": "arn:aws:iam::123456789012:user/test",
+            "UserId": "AIDAEXAMPLE"
+        }
+        mock_pricing = MagicMock()
+        mock_pricing.describe_services.return_value = {"Services": []}
+        mock_pricing.get_attribute_values.return_value = {"AttributeValues": []}
+        mock_pricing.get_products.return_value = {"PriceList": []}
+
+        mock_session = MagicMock()
+        mock_session.client.side_effect = lambda service, **kwargs: {
+            "sts": mock_sts,
+            "pricing": mock_pricing
+        }.get(service, MagicMock())
+        mock_session_class.return_value = mock_session
+
+        result = credentials_checker.check_aws_credentials(
+            {
+                "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+                "aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            }
+        )
+
+        assert result["status"] == "valid"
+        mock_session_class.assert_called_once_with(
+            aws_access_key_id="AKIAIOSFODNN7EXAMPLE",
+            aws_secret_access_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            region_name="us-east-1",
+        )
     
     @patch("boto3.Session")
     def test_check_aws_credentials_invalid_auth(self, mock_session_class):
@@ -139,6 +224,46 @@ class TestAWSCredentials:
         assert result["credentials_valid"] == True  # Auth succeeded
         assert result["can_fetch_pricing"] == False  # But pricing failed
         assert "pricing" in result["message"].lower()
+
+    @patch("boto3.Session")
+    def test_check_aws_credentials_missing_get_products_permission(self, mock_session_class):
+        """DescribeServices alone is not enough for the pricing fetcher."""
+        from botocore.exceptions import ClientError
+
+        mock_sts = MagicMock()
+        mock_sts.get_caller_identity.return_value = {
+            "Account": "123456789012",
+            "Arn": "arn:aws:iam::123456789012:user/test",
+            "UserId": "AIDAEXAMPLE"
+        }
+
+        mock_pricing = MagicMock()
+        mock_pricing.describe_services.return_value = {"Services": []}
+        mock_pricing.get_attribute_values.return_value = {"AttributeValues": []}
+        mock_pricing.get_products.side_effect = ClientError(
+            {"Error": {"Code": "AccessDeniedException", "Message": "Access Denied"}},
+            "GetProducts"
+        )
+
+        mock_session = MagicMock()
+        mock_session.client.side_effect = lambda service, **kwargs: {
+            "sts": mock_sts,
+            "pricing": mock_pricing
+        }.get(service, MagicMock())
+        mock_session_class.return_value = mock_session
+
+        credentials = {
+            "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+            "aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            "aws_region": "eu-central-1"
+        }
+
+        result = credentials_checker.check_aws_credentials(credentials)
+
+        assert result["status"] == "invalid"
+        assert result["credentials_valid"] == True
+        assert result["can_fetch_pricing"] == False
+        assert "GetProducts" in result["message"]
 
 
 # =============================================================================

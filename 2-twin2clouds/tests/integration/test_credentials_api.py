@@ -65,8 +65,10 @@ def test_aws_body_credential_check_stays_available_without_local_file_mode(mock_
     response = client.post("/permissions/verify/aws", json={
         "aws_access_key_id": "AKIATEST",
         "aws_secret_access_key": "secret",
+        "aws_session_token": "temporary-session-token",
         "aws_region": "eu-central-1",
     })
 
     assert response.status_code == 200
     assert response.json()["status"] == "valid"
+    assert mock_check.call_args.args[0]["aws_session_token"] == "temporary-session-token"

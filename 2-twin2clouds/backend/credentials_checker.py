@@ -22,7 +22,6 @@ REQUIRED_AWS_PERMISSIONS = [
 REQUIRED_AWS_CONFIG_FIELDS = [
     "aws_access_key_id",
     "aws_secret_access_key",
-    "aws_region"
 ]
 
 REQUIRED_GCP_CONFIG_FIELDS = [
@@ -46,10 +45,10 @@ def check_aws_credentials(credentials: Optional[Dict[str, Any]] = None) -> Dict[
     Steps:
     1. Check config/credentials present
     2. Call STS GetCallerIdentity
-    3. Test pricing:DescribeServices access
+    3. Test AWS Pricing API operations used by the fetcher
     
     Args:
-        credentials: Dictionary with aws_access_key_id, aws_secret_access_key, aws_region
+        credentials: Dictionary with aws_access_key_id, aws_secret_access_key, optional aws_session_token
         
     Returns:
         Dictionary with validation results
@@ -96,11 +95,15 @@ def check_aws_credentials(credentials: Optional[Dict[str, Any]] = None) -> Dict[
         #           The Pricing client at line 122 already hardcodes region_name="us-east-1".
         #
         # Note: This AWS-specific issue does NOT affect Azure (public API) or GCP (global endpoint).
-        session = boto3.Session(
-            aws_access_key_id=credentials["aws_access_key_id"],
-            aws_secret_access_key=credentials["aws_secret_access_key"],
-            region_name="us-east-1"  # Always us-east-1 - see comment above
-        )
+        session_kwargs = {
+            "aws_access_key_id": credentials["aws_access_key_id"],
+            "aws_secret_access_key": credentials["aws_secret_access_key"],
+            "region_name": "us-east-1",  # Always us-east-1 - see comment above
+        }
+        session_token = credentials.get("aws_session_token")
+        if session_token:
+            session_kwargs["aws_session_token"] = session_token
+        session = boto3.Session(**session_kwargs)
         
         # Test STS GetCallerIdentity
         sts_client = session.client("sts")
@@ -132,8 +135,14 @@ def check_aws_credentials(credentials: Optional[Dict[str, Any]] = None) -> Dict[
         # Pricing API is only available in us-east-1
         pricing_client = session.client("pricing", region_name="us-east-1")
         
-        # Try to describe services (minimum required permission)
-        response = pricing_client.describe_services(MaxResults=1)
+        # Exercise the same Pricing API operations used by the fetcher path.
+        pricing_client.describe_services(MaxResults=1)
+        pricing_client.get_attribute_values(
+            ServiceCode="AmazonEC2",
+            AttributeName="location",
+            MaxResults=1,
+        )
+        pricing_client.get_products(ServiceCode="AmazonEC2", MaxResults=1)
         
         result["can_fetch_pricing"] = True
         result["status"] = "valid"
@@ -143,7 +152,11 @@ def check_aws_credentials(credentials: Optional[Dict[str, Any]] = None) -> Dict[
         error_code = e.response.get("Error", {}).get("Code", "Unknown")
         if error_code == "AccessDeniedException":
             result["status"] = "invalid"
-            result["message"] = "AWS credentials valid but lack Pricing API permissions. Required: pricing:DescribeServices, pricing:GetProducts, pricing:GetAttributeValues"
+            operation = getattr(e, "operation_name", "Pricing API")
+            result["message"] = (
+                f"AWS credentials valid but lack Pricing API permission for {operation}. "
+                "Required: pricing:DescribeServices, pricing:GetProducts, pricing:GetAttributeValues"
+            )
         else:
             result["status"] = "error"
             result["message"] = f"Error accessing Pricing API: {error_code}"
