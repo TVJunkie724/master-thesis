@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../models/pricing_review_state.dart';
+import '../theme/colors.dart';
+import '../theme/spacing.dart';
+
 /// Card showing data freshness status for a cloud provider
 class DataFreshnessCard extends StatelessWidget {
   final String provider;
   final String label; // e.g., 'Pricing', 'Regions'
   final Map<String, dynamic>? status;
+  final ProviderPricingReviewState? reviewState;
   final VoidCallback? onRefresh;
   final bool enabled;
   final String? disabledReason;
@@ -14,6 +19,7 @@ class DataFreshnessCard extends StatelessWidget {
     required this.provider,
     this.label = 'Pricing',
     this.status,
+    this.reviewState,
     this.onRefresh,
     this.enabled = true,
     this.disabledReason,
@@ -22,35 +28,38 @@ class DataFreshnessCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Optimizer API returns: age (string), status (schema validity), is_fresh (bool), threshold_days (int)
-    final hasError = status?['error'] != null || status?['status'] == 'error' || status?['status'] == 'missing';
-    final ageString = status?['age'] as String? ?? 'Unknown';
-    final isFresh = status?['is_fresh'] as bool? ?? false;
-    final thresholdDays = status?['threshold_days'] as int? ?? 7;
+    final hasError =
+        status?['error'] != null ||
+        status?['status'] == 'error' ||
+        status?['status'] == 'missing';
+    final ageString =
+        reviewState?.age ?? status?['age'] as String? ?? 'Unknown';
+    final isFresh =
+        reviewState?.state == 'fresh' ||
+        (reviewState == null && (status?['is_fresh'] as bool? ?? false));
+    final thresholdDays =
+        reviewState?.thresholdDays ?? status?['threshold_days'] as int? ?? 7;
 
-    Color providerColor;
+    final providerColor = AppColors.getProviderColor(provider);
     IconData providerIcon;
     switch (provider.toLowerCase()) {
       case 'aws':
-        providerColor = Colors.orange;
         providerIcon = Icons.cloud;
         break;
       case 'azure':
-        providerColor = Colors.blue;
         providerIcon = Icons.cloud_queue;
         break;
       case 'gcp':
-        providerColor = Colors.green;
         providerIcon = Icons.cloud_circle;
         break;
       default:
-        providerColor = Colors.grey;
         providerIcon = Icons.cloud_outlined;
     }
 
     return Card(
       elevation: 2,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -58,7 +67,7 @@ class DataFreshnessCard extends StatelessWidget {
             Row(
               children: [
                 Icon(providerIcon, color: providerColor),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.sm),
                 Text(
                   '${provider.toUpperCase()} ${label.toUpperCase()}',
                   style: TextStyle(
@@ -67,30 +76,25 @@ class DataFreshnessCard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                _buildStatusBadge(isFresh, hasError),
+                _buildStatusBadge(isFresh, hasError, reviewState),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
 
             // Age info
-            if (hasError)
-              Text(
-                'Error loading status',
-                style: TextStyle(color: Colors.red[600], fontSize: 12),
+            if (reviewState != null)
+              _buildReviewStateDetails(
+                context,
+                reviewState!,
+                ageString,
+                thresholdDays,
               )
-            else ...[
-              Text(
-                'Age: $ageString',
-                style: TextStyle(color: Colors.grey[600], fontSize: 12),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Max age: $thresholdDays days',
-                style: TextStyle(color: Colors.grey[500], fontSize: 11),
-              ),
-            ],
+            else if (hasError)
+              _buildDetailText(context, 'Error loading status', AppColors.error)
+            else
+              _buildLegacyDetails(context, ageString, thresholdDays),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
 
             // Refresh button with disabled state
             SizedBox(
@@ -106,7 +110,9 @@ class DataFreshnessCard extends StatelessWidget {
                   label: const Text('Refresh'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: enabled ? providerColor : Colors.grey,
-                    side: BorderSide(color: enabled ? providerColor : Colors.grey.shade400),
+                    side: BorderSide(
+                      color: enabled ? providerColor : Colors.grey.shade400,
+                    ),
                   ),
                 ),
               ),
@@ -117,34 +123,115 @@ class DataFreshnessCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusBadge(bool isFresh, bool hasError) {
-    if (hasError) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.red[100],
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Text(
-          'Error',
-          style: TextStyle(color: Colors.red, fontSize: 11),
-        ),
-      );
+  Widget _buildStatusBadge(
+    bool isFresh,
+    bool hasError,
+    ProviderPricingReviewState? reviewState,
+  ) {
+    if (reviewState != null) {
+      final color = _reviewStateColor(reviewState.state);
+      return _badge(reviewState.badgeLabel, color);
     }
 
+    if (hasError) {
+      return _badge('Error', AppColors.error);
+    }
+
+    return _badge(
+      isFresh ? 'Fresh' : 'Stale',
+      isFresh ? AppColors.success : AppColors.warning,
+    );
+  }
+
+  Widget _badge(String label, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
-        color: isFresh ? Colors.green[100] : Colors.yellow[100],
-        borderRadius: BorderRadius.circular(12),
+        color: color.withAlpha(32),
+        borderRadius: BorderRadius.circular(AppSpacing.borderRadiusLg),
       ),
       child: Text(
-        isFresh ? 'Fresh' : 'Stale',
+        label,
         style: TextStyle(
-          color: isFresh ? Colors.green[700] : Colors.orange[700],
+          color: color,
           fontSize: 11,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
+  }
+
+  Widget _buildReviewStateDetails(
+    BuildContext context,
+    ProviderPricingReviewState reviewState,
+    String ageString,
+    int thresholdDays,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildDetailText(
+          context,
+          reviewState.primaryMessage,
+          reviewState.reviewRequired ? AppColors.warning : Colors.grey[700]!,
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        _buildDetailText(context, reviewState.sourceLabel, Colors.grey[600]!),
+        const SizedBox(height: AppSpacing.xs),
+        _buildDetailText(
+          context,
+          'Age: $ageString · Max age: $thresholdDays days',
+          Colors.grey[500]!,
+        ),
+        if (reviewState.lastKnownGoodUpdatedAt != null) ...[
+          const SizedBox(height: AppSpacing.xs),
+          _buildDetailText(
+            context,
+            'Last-known-good: ${reviewState.lastKnownGoodUpdatedAt}',
+            Colors.grey[500]!,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildLegacyDetails(
+    BuildContext context,
+    String ageString,
+    int thresholdDays,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildDetailText(context, 'Age: $ageString', Colors.grey[600]!),
+        const SizedBox(height: AppSpacing.xs),
+        _buildDetailText(
+          context,
+          'Max age: $thresholdDays days',
+          Colors.grey[500]!,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailText(BuildContext context, String text, Color color) {
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
+    );
+  }
+
+  Color _reviewStateColor(String state) {
+    return switch (state) {
+      'fresh' => AppColors.success,
+      'stale' => AppColors.warning,
+      'review_required' => AppColors.warning,
+      'missing' => AppColors.error,
+      'failed' => AppColors.error,
+      _ => Colors.grey,
+    };
   }
 }

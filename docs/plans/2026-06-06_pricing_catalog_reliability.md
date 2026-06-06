@@ -156,16 +156,16 @@ The production path remains deterministic and reproducible.
 
 ## Issue Roadmap
 
-| Issue | Role |
-|---|---|
-| #69 | Epic: Pricing Catalog Reliability |
-| #85 | Fix credential-forward pricing refresh boundaries |
-| #86 | Align optimizer permission checks with pricing fetch operations |
-| #81 | Introduce provider catalog snapshots and pricing candidate extraction |
-| #82 | Create versioned pricing intent registry and deterministic matcher |
-| #83 | Add pricing drift detection and last-known-good publishing |
-| #84 | Expose pricing review state in Management API and Flutter |
-| #32 | Refresh optimizer pricing schema and provider fetchers for expanded services |
+| Issue | Status | Role |
+|---|---|---|
+| #69 | open | Epic: Pricing Catalog Reliability |
+| #85 | done | Fix credential-forward pricing refresh boundaries |
+| #86 | done | Align optimizer permission checks with pricing fetch operations |
+| #81 | done | Introduce provider catalog snapshots and pricing candidate extraction |
+| #82 | done | Create versioned pricing intent registry and deterministic matcher |
+| #83 | done | Add pricing drift detection and last-known-good publishing |
+| #84 | done | Expose pricing review state in Management API and Flutter |
+| #32 | planned | Refresh optimizer pricing schema and provider fetchers for expanded services |
 
 ## Implementation Order
 

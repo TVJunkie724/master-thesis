@@ -5,6 +5,7 @@ import '../config/api_config.dart';
 import '../core/result.dart';
 import '../models/calc_result.dart';
 import '../models/cloud_connection.dart';
+import '../models/pricing_review_state.dart';
 import '../models/wizard_config_requests.dart';
 import '../utils/api_error_handler.dart';
 
@@ -213,6 +214,19 @@ class ApiService {
   Future<Map<String, dynamic>> getPricingStatus() async {
     final response = await _dio.get('/optimizer/pricing-status');
     return response.data;
+  }
+
+  /// Get typed pricing review state for all providers.
+  Future<PricingReviewStateResponse> getPricingReviewState(
+    String twinId,
+  ) async {
+    final response = await _dio.get(
+      '/optimizer/pricing-review-state',
+      queryParameters: {'twin_id': twinId},
+    );
+    return PricingReviewStateResponse.fromJson(
+      Map<String, dynamic>.from(response.data as Map),
+    );
   }
 
   /// Get regions data freshness status for all providers

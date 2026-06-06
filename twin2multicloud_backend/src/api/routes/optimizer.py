@@ -24,6 +24,8 @@ from src.config import settings
 from src.services.twin_helpers import get_user_twin
 from src.services.credential_resolution_service import CredentialResolutionService
 from src.services.errors import CredentialResolutionFailed
+from src.services.pricing_review_state_service import build_pricing_review_state_response
+from src.schemas.pricing_review import PricingReviewStateResponse
 from src.api.routes.error_models import ERROR_RESPONSES
 
 router = APIRouter(prefix="/optimizer", tags=["optimizer"])
@@ -80,6 +82,61 @@ async def get_pricing_status(current_user: User = Depends(get_current_user)):
 
 
 @router.get(
+    "/pricing-review-state",
+    response_model=PricingReviewStateResponse,
+    operation_id="getPricingReviewState",
+    summary="Get typed pricing review state for all providers",
+    description=(
+        "**Purpose:** Expose pricing quality/freshness as typed state for UI and calculation guards.\n\n"
+        "**When to call:** Before calculation and after pricing refresh.\n\n"
+        "**Response fields per provider:**\n"
+        "- `state`: `fresh`, `stale`, `review_required`, `missing`, or `failed`\n"
+        "- `review_required`: true when user-visible review/action is needed\n"
+        "- `can_calculate`: true when fresh, stale, or last-known-good pricing can be used\n"
+        "- `calculation_source`: source used by calculations (`fresh`, `stale`, `last_known_good`, `fallback_static`, `unavailable`)\n"
+        "- `review_reasons`: structured reasons such as missing keys or failed Optimizer status"
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        503: {"description": "Cannot connect to Optimizer service"},
+    }
+)
+async def get_pricing_review_state(
+    twin_id: Optional[str] = Query(
+        default=None,
+        description="Twin ID used to resolve last-known-good pricing snapshots",
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get typed pricing review state for Flutter and Management API consumers.
+
+    This keeps pricing refresh logs diagnostic-only. UI should render this
+    contract rather than parsing SSE log text.
+    """
+    config = None
+    if twin_id:
+        twin = await get_user_twin(twin_id, current_user, db)
+        config = twin.optimizer_config
+
+    try:
+        optimizer_statuses = await _get_optimizer_pricing_statuses()
+        return build_pricing_review_state_response(
+            optimizer_statuses,
+            saved_snapshots=_pricing_snapshots_from_config(config),
+            saved_timestamps=_pricing_timestamps_from_config(config),
+        )
+    except httpx.ConnectError:
+        raise HTTPException(503, "Cannot connect to Optimizer service")
+    except httpx.TimeoutException:
+        raise HTTPException(504, "Optimizer service timed out")
+    except httpx.RequestError as e:
+        raise HTTPException(502, f"Request failed: {type(e).__name__}")
+
+
+@router.get(
     "/regions-status",
     operation_id="getRegionsStatus",
     summary="Get regions cache status for all providers",
@@ -118,6 +175,48 @@ async def get_regions_status(current_user: User = Depends(get_current_user)):
         raise HTTPException(504, "Optimizer service timed out")
     except httpx.RequestError as e:
         raise HTTPException(502, f"Request failed: {type(e).__name__}")
+
+
+async def _get_optimizer_pricing_statuses() -> dict[str, dict]:
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        aws = await client.get(f"{OPTIMIZER_URL}/pricing_age/aws")
+        azure = await client.get(f"{OPTIMIZER_URL}/pricing_age/azure")
+        gcp = await client.get(f"{OPTIMIZER_URL}/pricing_age/gcp")
+    return {
+        "aws": aws.json() if aws.status_code == 200 else {"error": "Failed to fetch"},
+        "azure": azure.json() if azure.status_code == 200 else {"error": "Failed to fetch"},
+        "gcp": gcp.json() if gcp.status_code == 200 else {"error": "Failed to fetch"},
+    }
+
+
+def _pricing_snapshots_from_config(config) -> dict[str, dict | None]:
+    if not config:
+        return {}
+    return {
+        "aws": _safe_json_dict(config.pricing_aws_snapshot),
+        "azure": _safe_json_dict(config.pricing_azure_snapshot),
+        "gcp": _safe_json_dict(config.pricing_gcp_snapshot),
+    }
+
+
+def _pricing_timestamps_from_config(config) -> dict[str, object | None]:
+    if not config:
+        return {}
+    return {
+        "aws": config.pricing_aws_updated_at,
+        "azure": config.pricing_azure_updated_at,
+        "gcp": config.pricing_gcp_updated_at,
+    }
+
+
+def _safe_json_dict(value: str | None) -> dict | None:
+    if not value:
+        return None
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
 
 
 # ============================================================================

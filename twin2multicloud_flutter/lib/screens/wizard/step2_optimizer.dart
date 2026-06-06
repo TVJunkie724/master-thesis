@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../bloc/wizard/wizard.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
+import '../../models/pricing_review_state.dart';
 import '../../providers/twins_provider.dart';
 import '../../utils/api_error_handler.dart';
 import '../../widgets/data_freshness_card.dart';
@@ -30,6 +31,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
 
   // Local state for pricing/refresh (not in BLoC yet)
   Map<String, dynamic>? _pricingStatus;
+  PricingReviewStateResponse? _pricingReviewState;
   bool _loadingStatus = true;
   bool _loadingConfig = true;
 
@@ -84,10 +86,22 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
 
   Future<void> _loadPricingStatus() async {
     try {
+      final twinId = context.read<WizardBloc>().state.twinId;
       final status = await _apiService.getPricingStatus();
+      PricingReviewStateResponse? reviewState;
+      if (twinId != null) {
+        try {
+          reviewState = await _apiService.getPricingReviewState(twinId);
+        } catch (e) {
+          debugPrint(
+            'Failed to load pricing review state: ${ApiErrorHandler.extractMessage(e)}',
+          );
+        }
+      }
       if (mounted) {
         setState(() {
           _pricingStatus = status;
+          _pricingReviewState = reviewState;
           _loadingStatus = false;
         });
       }
@@ -363,6 +377,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
               child: DataFreshnessCard(
                 provider: 'aws',
                 status: _pricingStatus?['aws'],
+                reviewState: _pricingReviewState?.provider('aws'),
                 onRefresh: () => _confirmRefresh('aws'),
                 enabled: awsEnabled,
                 disabledReason: awsDisabledReason,
@@ -373,6 +388,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
               child: DataFreshnessCard(
                 provider: 'azure',
                 status: _pricingStatus?['azure'],
+                reviewState: _pricingReviewState?.provider('azure'),
                 onRefresh: () => _confirmRefresh('azure'),
                 enabled: true, // Azure always enabled (public API)
               ),
@@ -382,6 +398,7 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
               child: DataFreshnessCard(
                 provider: 'gcp',
                 status: _pricingStatus?['gcp'],
+                reviewState: _pricingReviewState?.provider('gcp'),
                 onRefresh: () => _confirmRefresh('gcp'),
                 enabled: gcpEnabled,
                 disabledReason: gcpDisabledReason,
@@ -516,6 +533,8 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
 
         // Total Cost Banner
         _buildTotalCost(result),
+        const SizedBox(height: 16),
+        _buildPricingQualitySummary(context),
 
         // Note: Unconfigured provider warning is now shown in the wizard header
         const SizedBox(height: 32),
@@ -667,6 +686,67 @@ class _Step2OptimizerState extends ConsumerState<Step2Optimizer> {
         ),
         const SizedBox(height: 32),
       ],
+    );
+  }
+
+  Widget _buildPricingQualitySummary(BuildContext context) {
+    final providers = ['aws', 'azure', 'gcp'];
+    final reviewState = _pricingReviewState;
+
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.verified_outlined,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Pricing quality for this calculation',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (reviewState == null)
+              Text(
+                'Pricing review state was not available when this result was displayed.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: providers.map((provider) {
+                  final providerState = reviewState.provider(provider);
+                  final label = provider.toUpperCase();
+                  final text = providerState == null
+                      ? '$label: unknown'
+                      : '$label: ${providerState.badgeLabel} · ${providerState.sourceLabel}';
+                  return Chip(
+                    label: Text(text),
+                    avatar: Icon(
+                      providerState?.reviewRequired == true
+                          ? Icons.warning_amber_outlined
+                          : Icons.check_circle_outline,
+                      size: 18,
+                    ),
+                  );
+                }).toList(),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
