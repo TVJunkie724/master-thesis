@@ -44,6 +44,20 @@ def _require_local_credential_file_checks_enabled() -> None:
         )
 
 
+def _pricing_error_detail(
+    error_code: str,
+    message: str,
+    fix_suggestion: str,
+    http_status: int,
+) -> dict:
+    return {
+        "error_code": error_code,
+        "message": message,
+        "fix_suggestion": fix_suggestion,
+        "http_status": http_status,
+    }
+
+
 # --------------------------------------------------
 # Pricing Fetching Endpoints
 # --------------------------------------------------
@@ -311,6 +325,7 @@ class CredentialRequest(BaseModel):
     # AWS
     aws_access_key_id: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
+    aws_session_token: Optional[str] = None
     aws_region: Optional[str] = "eu-central-1"
     # GCP
     gcp_service_account_json: Optional[str] = None
@@ -353,8 +368,15 @@ def fetch_pricing_with_credentials(
     - GCP: gcp_service_account_json, gcp_region
     """
     if provider not in ["aws", "azure", "gcp"]:
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=400, content={"error": f"Invalid provider: {provider}"})
+        raise HTTPException(
+            status_code=400,
+            detail=_pricing_error_detail(
+                "INVALID_PROVIDER",
+                f"Invalid provider: {provider}",
+                "Use one of: aws, azure, gcp.",
+                400,
+            ),
+        )
     
     try:
         # Azure uses public API - no credentials needed
@@ -372,10 +394,32 @@ def fetch_pricing_with_credentials(
         
         creds_dict = credentials.model_dump()
         return calculate_up_to_date_pricing_with_credentials(provider, creds_dict)
-        
+
+    except ValueError as e:
+        logger.warning(f"Invalid {provider} pricing credential request: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail=_pricing_error_detail(
+                "PRICING_CREDENTIAL_REQUEST_INVALID",
+                str(e),
+                (
+                    "Provide complete request-body credentials for the selected provider. "
+                    "AWS requires access key and secret key; GCP requires service account JSON."
+                ),
+                400,
+            ),
+        )
     except Exception as e:
         logger.error(f"Error fetching {provider} pricing with credentials: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch {provider} pricing. Check server logs.")
+        raise HTTPException(
+            status_code=500,
+            detail=_pricing_error_detail(
+                "PRICING_REFRESH_FAILED",
+                f"Failed to fetch {provider} pricing.",
+                "Check Optimizer logs and retry after fixing provider API or credential issues.",
+                500,
+            ),
+        )
 
 
 # --------------------------------------------------

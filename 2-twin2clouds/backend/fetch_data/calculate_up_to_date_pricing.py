@@ -29,13 +29,13 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
     if target_provider not in valid_providers:
         raise ValueError(f"Invalid target_provider: {target_provider}. Must be one of {valid_providers}")
 
-    credentials = config_loader.load_credentials_file()
     service_mapping = config_loader.load_service_mapping()
     
     output_data = {}
     target_file_path = None
 
     if target_provider == "aws":
+        credentials = config_loader.load_credentials_file()
         if "aws" in credentials:
             print("")
             logger.info("========================================================")
@@ -56,26 +56,23 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
             logger.warning("AWS credentials missing, skipping fetch.")
 
     elif target_provider == "azure":
-        if "azure" in credentials:
-            print("")
-            logger.info("========================================================")
-            logger.info("Fetching Azure pricing...")
-            logger.info("========================================================")
+        print("")
+        logger.info("========================================================")
+        logger.info("Fetching Azure pricing...")
+        logger.info("========================================================")
+        
+        # Load Region Map
+        try:
+            region_map = config_loader.load_json_file(CONSTANTS.AZURE_REGIONS_FILE_PATH)
+        except Exception as e:
+            logger.error(f"Failed to load Azure region map: {e}. Need to fetch regions first.")
+            raise e
             
-            # Load Region Map
-            try:
-                region_map = config_loader.load_json_file(CONSTANTS.AZURE_REGIONS_FILE_PATH)
-            except Exception as e:
-                logger.error(f"Failed to load Azure region map: {e}. Need to fetch regions first.")
-                raise e
-                
-            azure_credentials = credentials.get("azure", {})
-            output_data = fetch_azure_data(azure_credentials, service_mapping, region_map, additional_debug)
-            target_file_path = CONSTANTS.AZURE_PRICING_FILE_PATH
-        else:
-            logger.warning("Azure credentials missing, skipping fetch.")
+        output_data = fetch_azure_data({}, service_mapping, region_map, additional_debug)
+        target_file_path = CONSTANTS.AZURE_PRICING_FILE_PATH
 
     elif target_provider == "gcp":
+        credentials = config_loader.load_credentials_file()
         if "gcp" in credentials:
             print("")
             logger.info("========================================================")
@@ -145,31 +142,19 @@ def calculate_up_to_date_pricing_with_credentials(target_provider: str, credenti
             logger.error(f"Failed to load AWS region map: {e}")
             raise e
 
-        # Build AWS credentials dict from request
+        # Keep target pricing region separate from Pricing API client credentials.
         aws_credentials = {
-            "aws_access_key_id": credentials.get("aws_access_key_id"),
-            "aws_secret_access_key": credentials.get("aws_secret_access_key"),
             "aws_region": credentials.get("aws_region", "eu-central-1")
         }
+        client_credentials = build_aws_pricing_client_credentials(credentials)
         
-        # Create boto3 credentials for AWS fetcher
-        # IMPORTANT: Always use 'us-east-1' regardless of user's aws_region.
-        # The Pricing API is ONLY available in us-east-1, so user's region is
-        # irrelevant here. Using us-east-1 also prevents connection errors from
-        # invalid region names (AWS STS endpoint URLs are region-based).
-        import boto3
-        try:
-            session = boto3.Session(
-                aws_access_key_id=aws_credentials["aws_access_key_id"],
-                aws_secret_access_key=aws_credentials["aws_secret_access_key"],
-                region_name="us-east-1"  # Pricing API only in us-east-1
-            )
-            client_credentials = session.get_credentials()
-        except Exception as e:
-            logger.error(f"Failed to create AWS session: {e}")
-            client_credentials = None
-        
-        output_data = fetch_aws_data(aws_credentials, service_mapping, region_map, additional_debug)
+        output_data = fetch_aws_data(
+            aws_credentials,
+            service_mapping,
+            region_map,
+            additional_debug,
+            aws_client_credentials=client_credentials,
+        )
         target_file_path = CONSTANTS.AWS_PRICING_FILE_PATH
 
     elif target_provider == "gcp":
@@ -223,7 +208,28 @@ def calculate_up_to_date_pricing_with_credentials(target_provider: str, credenti
         return output_data
     else:
         logger.warning(f"⚠️ No data fetched for {target_provider}")
-        return {}
+    return {}
+
+
+def build_aws_pricing_client_credentials(credentials: dict) -> dict:
+    """Build boto3 client arguments for request-body AWS pricing refresh."""
+    missing_fields = [
+        field
+        for field in ("aws_access_key_id", "aws_secret_access_key")
+        if not credentials.get(field)
+    ]
+    if missing_fields:
+        raise ValueError(f"Missing AWS credential fields: {', '.join(missing_fields)}")
+
+    client_credentials = {
+        "aws_access_key_id": credentials["aws_access_key_id"],
+        "aws_secret_access_key": credentials["aws_secret_access_key"],
+        "region_name": "us-east-1",
+    }
+    session_token = credentials.get("aws_session_token")
+    if session_token:
+        client_credentials["aws_session_token"] = session_token
+    return client_credentials
 
 # ============================================================
 # HELPER FUNCTION
@@ -254,7 +260,13 @@ def _get_or_warn(provider_name, neutral_service, provider_service, key, fetched_
 # ============================================================
 # AWS FETCHING AND SCHEMA BUILD
 # ============================================================
-def fetch_aws_data(aws_credentials: dict, service_mapping: dict, region_map: dict, additional_debug=False) -> dict:
+def fetch_aws_data(
+    aws_credentials: dict,
+    service_mapping: dict,
+    region_map: dict,
+    additional_debug=False,
+    aws_client_credentials: dict | None = None,
+) -> dict:
     """
     Fetches all AWS service pricing using the Factory Pattern
     and builds the canonical AWS pricing.json structure.
@@ -263,12 +275,15 @@ def fetch_aws_data(aws_credentials: dict, service_mapping: dict, region_map: dic
     region = aws_credentials.get("aws_region", "eu-central-1")
     logger.info(f"🚀 Fetching AWS pricing for region: {region}")
 
-    # Load AWS credentials once for all services
-    try:
-        client_credentials = config_loader.load_aws_credentials()
-    except Exception as e:
-        logger.error(f"Failed to load AWS credentials: {e}")
-        client_credentials = None
+    if aws_client_credentials is None:
+        # Local config fallback is only for explicit file-based refresh paths.
+        try:
+            client_credentials = config_loader.load_aws_credentials()
+        except Exception as e:
+            logger.error(f"Failed to load AWS credentials: {e}")
+            client_credentials = None
+    else:
+        client_credentials = aws_client_credentials
 
     # Factory Pattern: Create AWS fetcher instance
     aws_fetcher = PriceFetcherFactory.create("aws")
