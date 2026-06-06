@@ -50,7 +50,8 @@ class TestAzureCredentialValidation:
             "subscription_id": "sub-123",
             "subscription_name": "Test Sub",
             "tenant_id": "tenant-123",
-            "state": "Enabled"
+            "state": "Enabled",
+            "principal_id": "sp-123",
         }
         
         # Mock role assignments with all required actions
@@ -84,7 +85,8 @@ class TestAzureCredentialValidation:
             "subscription_id": "sub-123",
             "subscription_name": "Test Sub",
             "tenant_id": "tenant-123",
-            "state": "Enabled"
+            "state": "Enabled",
+            "principal_id": "sp-123",
         }
         
         # Missing some required actions
@@ -114,7 +116,8 @@ class TestAzureCredentialValidation:
             "subscription_id": "sub-123",
             "subscription_name": "Test Sub",
             "tenant_id": "tenant-123",
-            "state": "Disabled"  # Key: subscription is disabled
+            "state": "Disabled",  # Key: subscription is disabled
+            "principal_id": "sp-123",
         }
         
         result = check_azure_credentials({
@@ -128,6 +131,114 @@ class TestAzureCredentialValidation:
         assert result["status"] == "invalid"
         assert "Disabled" in result["message"]
         assert "subscription" in result["message"].lower()
+
+    @patch('api.azure_credentials_checker._create_credential')
+    @patch('api.azure_credentials_checker._get_caller_identity')
+    def test_check_azure_credentials_fails_when_principal_id_is_unknown(self, mock_identity, mock_cred):
+        """Permission validation must not aggregate unfiltered subscription roles."""
+        from api.azure_credentials_checker import check_azure_credentials
+
+        mock_identity.return_value = {
+            "subscription_id": "sub-123",
+            "subscription_name": "Test Sub",
+            "tenant_id": "tenant-123",
+            "state": "Enabled",
+            "principal_type": "service_principal",
+        }
+
+        result = check_azure_credentials({
+            "azure_subscription_id": "sub-123",
+            "azure_tenant_id": "tenant-123",
+            "azure_client_id": "client-123",
+            "azure_client_secret": "secret-123",
+        })
+
+        assert result["status"] == "check_failed"
+        assert result["can_list_roles"] is False
+        assert "object ID" in result["message"]
+
+
+class TestAzureRoleAssignmentFiltering:
+    """Tests for filtering Azure RBAC assignments to the authenticated principal."""
+
+    def test_decode_jwt_claims_extracts_principal_identifiers(self):
+        from api.azure_credentials_checker import _decode_jwt_claims
+        import base64
+
+        payload = {
+            "oid": "principal-123",
+            "appid": "client-123",
+        }
+        encoded_payload = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+        token = f"header.{encoded_payload}.signature"
+
+        assert _decode_jwt_claims(token) == payload
+
+    def test_role_assignment_collection_filters_to_current_principal(self):
+        from api.azure_credentials_checker import _get_role_assignments_with_permissions
+        from types import SimpleNamespace
+
+        current_assignment = Mock(
+            principal_id="current-principal",
+            principal_type="ServicePrincipal",
+            role_definition_id="/subscriptions/sub-123/providers/Microsoft.Authorization/roleDefinitions/current-role",
+            scope="/subscriptions/sub-123",
+        )
+        other_assignment = Mock(
+            principal_id="other-principal",
+            principal_type="ServicePrincipal",
+            role_definition_id="/subscriptions/sub-123/providers/Microsoft.Authorization/roleDefinitions/other-role",
+            scope="/subscriptions/sub-123",
+        )
+        role_definitions = {
+            "current-role": SimpleNamespace(
+                role_name="Current Role",
+                permissions=[SimpleNamespace(
+                    actions=["Microsoft.Web/sites/write"],
+                    not_actions=[],
+                    data_actions=[],
+                    not_data_actions=[],
+                )],
+            ),
+            "other-role": SimpleNamespace(
+                role_name="Other Owner",
+                permissions=[SimpleNamespace(
+                    actions=["*"],
+                    not_actions=[],
+                    data_actions=["*"],
+                    not_data_actions=[],
+                )],
+            ),
+        }
+
+        auth_client = MagicMock()
+        auth_client.role_assignments.list_for_scope.return_value = [current_assignment, other_assignment]
+        auth_client.role_definitions.get_by_id.side_effect = (
+            lambda role_id: role_definitions[role_id.split("/")[-1]]
+        )
+
+        auth_module = MagicMock()
+        auth_module.AuthorizationManagementClient.return_value = auth_client
+
+        with patch.dict("sys.modules", {
+            "azure.mgmt.authorization": auth_module,
+            "azure.core.exceptions": MagicMock(HttpResponseError=Exception),
+        }):
+            result = _get_role_assignments_with_permissions(
+                credential=Mock(),
+                subscription_id="sub-123",
+                principal_id="current-principal",
+            )
+
+        assert result["assignments"] == [{
+            "principal_id": "current-principal",
+            "principal_type": "ServicePrincipal",
+            "role_name": "Current Role",
+            "role_definition_id": "current-role",
+            "scope": "/subscriptions/sub-123",
+        }]
+        assert result["all_actions"] == {"Microsoft.Web/sites/write"}
+        assert result["all_data_actions"] == set()
 
 
 class TestAzureSPExpiration:
@@ -146,7 +257,8 @@ class TestAzureSPExpiration:
             "subscription_name": "Test Subscription",
             "tenant_id": "tenant-123",
             "state": "Enabled",
-            "principal_type": "service_principal"
+            "principal_type": "service_principal",
+            "principal_id": "sp-123",
         }
         mock_expiration.return_value = {
             "status": "expired",
@@ -179,7 +291,8 @@ class TestAzureSPExpiration:
             "subscription_name": "Test Subscription",
             "tenant_id": "tenant-123",
             "state": "Enabled",
-            "principal_type": "service_principal"
+            "principal_type": "service_principal",
+            "principal_id": "sp-123",
         }
         mock_expiration.return_value = {
             "status": "expiring_soon",
@@ -297,6 +410,70 @@ class TestComparePermissions:
         result = _compare_permissions(None)
         
         assert result["summary"]["total_layers"] == 0
+
+    def test_compare_permissions_honors_azure_not_actions(self):
+        """Contributor-style wildcards must not grant actions excluded by notActions."""
+        from api.azure_credentials_checker import _compare_permissions
+
+        role_info = {
+            "assignments": [{"role_name": "Contributor"}],
+            "all_actions": {"*"},
+            "all_data_actions": set(),
+            "permission_blocks": [{
+                "role_name": "Contributor",
+                "actions": {"*"},
+                "not_actions": {
+                    "Microsoft.Authorization/roleAssignments/write",
+                    "Microsoft.Authorization/roleAssignments/delete",
+                },
+                "data_actions": set(),
+                "not_data_actions": set(),
+            }],
+        }
+
+        result = _compare_permissions(role_info)
+
+        layer_1_missing = result["by_layer"]["layer_1"]["missing_actions"]
+        assert "Microsoft.Authorization/roleAssignments/write" in layer_1_missing
+        assert "Microsoft.Authorization/roleAssignments/delete" in layer_1_missing
+
+    def test_compare_permissions_allows_action_when_second_role_grants_it(self):
+        """Contributor plus a role-assignment role should satisfy excluded actions."""
+        from api.azure_credentials_checker import _compare_permissions
+
+        role_info = {
+            "assignments": [{"role_name": "Contributor"}, {"role_name": "User Access Administrator"}],
+            "all_actions": {"*"},
+            "all_data_actions": set(),
+            "permission_blocks": [
+                {
+                    "role_name": "Contributor",
+                    "actions": {"*"},
+                    "not_actions": {
+                        "Microsoft.Authorization/roleAssignments/write",
+                        "Microsoft.Authorization/roleAssignments/delete",
+                    },
+                    "data_actions": set(),
+                    "not_data_actions": set(),
+                },
+                {
+                    "role_name": "User Access Administrator",
+                    "actions": {
+                        "Microsoft.Authorization/roleAssignments/write",
+                        "Microsoft.Authorization/roleAssignments/delete",
+                    },
+                    "not_actions": set(),
+                    "data_actions": set(),
+                    "not_data_actions": set(),
+                },
+            ],
+        }
+
+        result = _compare_permissions(role_info)
+
+        layer_1_missing = result["by_layer"]["layer_1"]["missing_actions"]
+        assert "Microsoft.Authorization/roleAssignments/write" not in layer_1_missing
+        assert "Microsoft.Authorization/roleAssignments/delete" not in layer_1_missing
 
 
 def _all_required_azure_data_actions(required_permissions: dict) -> set[str]:

@@ -102,6 +102,60 @@ class TestGCPProjectStateValidation:
         # Should proceed (project is active)
         assert result["status"] in ["valid", "partial"]
 
+    @patch('api.gcp_credentials_checker._check_enabled_apis')
+    @patch('api.gcp_credentials_checker._check_iam_permissions')
+    @patch('api.gcp_credentials_checker._validate_gcp_region')
+    @patch('api.gcp_credentials_checker._check_billing_enabled')
+    @patch('api.gcp_credentials_checker._check_project_access')
+    @patch('api.gcp_credentials_checker._parse_service_account_json')
+    def test_existing_project_mode_validates_explicit_target_project(
+        self,
+        mock_parse,
+        mock_project_access,
+        mock_billing,
+        mock_region,
+        mock_iam,
+        mock_apis,
+    ):
+        """Private-mode preflight must validate gcp_project_id, not the SA key project."""
+        from api.gcp_credentials_checker import check_gcp_credentials
+
+        mock_parse.return_value = _make_mock_parse_return(project_id="service-account-home")
+        mock_project_access.return_value = {
+            "status": "accessible",
+            "project_id": "deployment-target",
+            "display_name": "Deployment Target",
+            "state": "ACTIVE",
+        }
+        mock_billing.return_value = {"status": "checked", "billing_enabled": True}
+        mock_region.return_value = {"valid": True, "region": "europe-west1"}
+        mock_apis.return_value = {
+            "status": "checked",
+            "by_layer": {"setup": {"status": "valid"}},
+        }
+        mock_iam.return_value = {
+            "status": "checked",
+            "summary": {"total_required": 1, "valid": 1, "missing": 0},
+            "by_layer": {"setup": {"status": "valid", "valid": ["resourcemanager.projects.get"], "missing": []}},
+        }
+
+        result = check_gcp_credentials({
+            "gcp_credentials_file": "/tmp/fake_creds.json",
+            "gcp_region": "europe-west1",
+            "gcp_project_id": "deployment-target",
+        })
+
+        assert result["validation_project"] == {
+            "project_id": "deployment-target",
+            "mode": "existing_project",
+            "service_account_project_id": "service-account-home",
+        }
+        assert mock_project_access.call_args.args[0] == "deployment-target"
+        assert mock_billing.call_args.args[0] == "deployment-target"
+        assert mock_region.call_args.args[0] == "deployment-target"
+        assert mock_apis.call_args.args[0] == "deployment-target"
+        assert mock_iam.call_args.args[0] == "deployment-target"
+
 
 class TestGCPBillingValidation:
     """Tests for GCP billing account validation."""
@@ -355,6 +409,41 @@ class TestGCPPermissionContractMetadata:
         assert result["status"] == "partial"
         assert "Permission check failed" in result["message"]
         assert result["permission_status"]["status"] == "check_failed"
+
+    def test_iam_permission_check_defers_resource_scoped_permissions(self):
+        from api import gcp_credentials_checker
+        from api.gcp_credentials_checker import _check_iam_permissions
+
+        mock_resourcemanager = MagicMock()
+        mock_client = Mock()
+        mock_resourcemanager.ProjectsClient.return_value = mock_client
+        mock_client.test_iam_permissions.return_value = Mock(
+            permissions=["resourcemanager.projects.get"]
+        )
+        mock_google = MagicMock()
+        mock_google.cloud.resourcemanager_v3 = mock_resourcemanager
+
+        required_permissions = {
+            "setup": {
+                "description": "Project and storage",
+                "permissions": [
+                    "resourcemanager.projects.get",
+                    "storage.objects.create",
+                ],
+            },
+        }
+
+        with patch.dict('sys.modules', {
+            'google': mock_google,
+            'google.cloud': mock_google.cloud,
+            'google.cloud.resourcemanager_v3': mock_resourcemanager,
+        }), patch.object(gcp_credentials_checker, "REQUIRED_GCP_PERMISSIONS", required_permissions):
+            result = _check_iam_permissions("target-project")
+
+        requested_permissions = mock_client.test_iam_permissions.call_args.kwargs["permissions"]
+        assert requested_permissions == ["resourcemanager.projects.get"]
+        assert result["summary"] == {"total_required": 1, "valid": 1, "missing": 0}
+        assert result["deferred_permissions"] == ["storage.objects.create"]
 
 
 def _all_required_gcp_permissions(required_permissions: dict) -> set[str]:

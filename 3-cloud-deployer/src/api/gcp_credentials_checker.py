@@ -184,6 +184,16 @@ REQUIRED_GCP_PERMISSIONS = {
 }
 
 
+GCP_RESOURCE_SCOPED_PERMISSION_PREFIXES = (
+    "storage.objects.",
+)
+GCP_RESOURCE_SCOPED_PERMISSIONS = {
+    "storage.buckets.delete",
+    "storage.buckets.get",
+    "storage.buckets.update",
+}
+
+
 def _parse_service_account_json(credentials_input: str) -> tuple:
     """
     Parse and validate service account JSON from file path OR raw JSON content.
@@ -381,14 +391,41 @@ def _get_all_required_gcp_permissions() -> set[str]:
     }
 
 
-def _compare_gcp_permissions(granted_permissions: set[str]) -> dict:
+def _is_resource_scoped_gcp_permission(permission: str) -> bool:
+    """Return true for permissions that cannot be checked reliably on a project."""
+    return (
+        permission in GCP_RESOURCE_SCOPED_PERMISSIONS
+        or any(permission.startswith(prefix) for prefix in GCP_RESOURCE_SCOPED_PERMISSION_PREFIXES)
+    )
+
+
+def _get_project_testable_gcp_permissions() -> set[str]:
+    """Return required permissions that are safe to test against projects/{id}."""
+    return {
+        permission
+        for permission in _get_all_required_gcp_permissions()
+        if not _is_resource_scoped_gcp_permission(permission)
+    }
+
+
+def _get_resource_scoped_gcp_permissions() -> set[str]:
+    """Return required permissions deferred to resource/provider validation."""
+    return {
+        permission
+        for permission in _get_all_required_gcp_permissions()
+        if _is_resource_scoped_gcp_permission(permission)
+    }
+
+
+def _compare_gcp_permissions(granted_permissions: set[str], required_by_layer: dict | None = None) -> dict:
     """Compare granted permissions from testIamPermissions with the contract."""
+    permission_contract = required_by_layer or REQUIRED_GCP_PERMISSIONS
     by_layer = {}
     total_required = 0
     total_valid = 0
     total_missing = 0
 
-    for layer_name, requirements in REQUIRED_GCP_PERMISSIONS.items():
+    for layer_name, requirements in permission_contract.items():
         required = set(requirements["permissions"])
         valid = sorted(required & granted_permissions)
         missing = sorted(required - granted_permissions)
@@ -414,31 +451,57 @@ def _compare_gcp_permissions(granted_permissions: set[str]) -> dict:
     }
 
 
+def _filter_gcp_permission_contract(permissions_to_include: set[str]) -> dict:
+    """Return the permission contract with only selected permissions per layer."""
+    filtered = {}
+    for layer_name, requirements in REQUIRED_GCP_PERMISSIONS.items():
+        permissions = [
+            permission
+            for permission in requirements["permissions"]
+            if permission in permissions_to_include
+        ]
+        if permissions:
+            filtered[layer_name] = {
+                "description": requirements["description"],
+                "permissions": permissions,
+            }
+    return filtered
+
+
 def _check_iam_permissions(project_id: str, credentials=None) -> dict:
     """
     Check granted GCP IAM permissions against the explicit deployment contract.
 
-    Uses Cloud Resource Manager testIamPermissions on the project resource. This
-    is the strongest non-mutating preflight available before deployment resources
-    exist.
+    Uses Cloud Resource Manager testIamPermissions on the project resource for
+    project-level permissions. Future resource-scoped permissions are reported
+    separately because checking them on projects/{id} can produce false negatives.
     """
     try:
         from google.cloud import resourcemanager_v3
 
         client = resourcemanager_v3.ProjectsClient(credentials=credentials)
-        required_permissions = sorted(_get_all_required_gcp_permissions())
+        project_testable_permissions = sorted(_get_project_testable_gcp_permissions())
+        deferred_permissions = sorted(_get_resource_scoped_gcp_permissions())
         response = client.test_iam_permissions(
             resource=f"projects/{project_id}",
-            permissions=required_permissions,
+            permissions=project_testable_permissions,
         )
         granted_permissions = set(response.permissions)
-        comparison = _compare_gcp_permissions(granted_permissions)
+        comparison = _compare_gcp_permissions(
+            granted_permissions,
+            _filter_gcp_permission_contract(set(project_testable_permissions)),
+        )
 
         return {
             "status": "checked",
             "resource": f"projects/{project_id}",
             "granted_permissions": sorted(granted_permissions),
-            "required_permissions": required_permissions,
+            "required_permissions": project_testable_permissions,
+            "deferred_permissions": deferred_permissions,
+            "deferred_reason": (
+                "These permissions are resource-scoped and are not hard-failed by "
+                "project-level testIamPermissions before deployment resources exist."
+            ),
             **comparison,
         }
     except ImportError:
@@ -498,6 +561,14 @@ def _check_billing_enabled(project_id: str, credentials=None) -> dict:
         return {"status": "error", "error": str(e), "billing_enabled": None}
 
 
+def _resolve_gcp_validation_project_id(credentials: dict, service_account_project_id: str) -> tuple[str, str]:
+    """Resolve the project that credential preflight can safely validate."""
+    explicit_project_id = credentials.get("gcp_project_id", "")
+    if isinstance(explicit_project_id, str) and explicit_project_id.strip():
+        return explicit_project_id.strip(), "existing_project"
+    return service_account_project_id, "bootstrap_service_account_project"
+
+
 
 def check_gcp_credentials(credentials: dict) -> dict:
     """
@@ -518,6 +589,7 @@ def check_gcp_credentials(credentials: dict) -> dict:
         "project_access": None,
         "api_status": None,
         "permission_status": None,
+        "validation_project": None,
         "required_roles": REQUIRED_GCP_ROLES,
         "required_permissions": REQUIRED_GCP_PERMISSIONS,
     }
@@ -559,8 +631,18 @@ def check_gcp_credentials(credentials: dict) -> dict:
             result["message"] = str(e)
             return result
         
-        # Use service account's project for permission checks
-        project_id = sa_info["project_id"]
+        # Use the explicit deployment target in private account mode. In
+        # organization/bootstrap mode, the final project may not exist yet, so the
+        # service account project is used only as a bootstrap validation target.
+        project_id, validation_mode = _resolve_gcp_validation_project_id(
+            credentials,
+            service_account_project_id=sa_info["project_id"],
+        )
+        result["validation_project"] = {
+            "project_id": project_id,
+            "mode": validation_mode,
+            "service_account_project_id": sa_info["project_id"],
+        }
         
         # NOTE: We pass explicit credentials to all SDK clients instead of using
         # GOOGLE_APPLICATION_CREDENTIALS environment variable. This is:

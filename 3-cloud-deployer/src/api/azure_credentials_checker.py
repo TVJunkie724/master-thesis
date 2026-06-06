@@ -17,6 +17,7 @@ Authentication Flow:
        - Custom: "Digital Twin Deployer" (recommended, least-privilege)
        - Built-in: "Contributor" + "User Access Administrator" (development)
 """
+import base64
 import json
 import os
 import sys
@@ -223,6 +224,26 @@ def _create_credential(credentials: dict):
     )
 
 
+def _decode_jwt_claims(token: str) -> dict:
+    """Decode JWT claims without verification for local identity introspection."""
+    try:
+        payload = token.split(".")[1]
+        payload += "=" * (-len(payload) % 4)
+        return json.loads(base64.urlsafe_b64decode(payload.encode("utf-8")))
+    except Exception:
+        return {}
+
+
+def _get_current_principal_claims(credential) -> dict:
+    """Return stable principal identifiers from the Azure Resource Manager token."""
+    token = credential.get_token("https://management.azure.com/.default").token
+    claims = _decode_jwt_claims(token)
+    return {
+        "principal_id": claims.get("oid") or claims.get("objectid"),
+        "application_id": claims.get("appid") or claims.get("azp"),
+    }
+
+
 def _get_caller_identity(credential, subscription_id: str) -> dict:
     """
     Validate credentials by getting subscription info.
@@ -239,12 +260,15 @@ def _get_caller_identity(credential, subscription_id: str) -> dict:
         sub_client = SubscriptionClient(credential)
         subscription = sub_client.subscriptions.get(subscription_id)
         
+        principal_claims = _get_current_principal_claims(credential)
+
         return {
             "subscription_id": subscription.subscription_id,
             "subscription_name": subscription.display_name,
             "tenant_id": getattr(credential, '_tenant_id', None),
             "state": subscription.state,
             "principal_type": "service_principal",  # Always SP for ClientSecretCredential
+            **principal_claims,
         }
     except ClientAuthenticationError as e:
         raise ValueError(f"Authentication failed: {str(e)}")
@@ -457,7 +481,7 @@ def _validate_azure_regions(credential, subscription_id: str, regions: dict) -> 
         return result
 
 
-def _get_role_assignments_with_permissions(credential, subscription_id: str) -> dict:
+def _get_role_assignments_with_permissions(credential, subscription_id: str, principal_id: str) -> dict:
     """
     List role assignments AND their permissions for the authenticated principal.
     
@@ -477,8 +501,15 @@ def _get_role_assignments_with_permissions(credential, subscription_id: str) -> 
         assignments = []
         all_actions = set()
         all_data_actions = set()
+        permission_blocks = []
         
+        normalized_principal_id = principal_id.lower()
+
         for assignment in auth_client.role_assignments.list_for_scope(scope):
+            assignment_principal_id = str(assignment.principal_id or "").lower()
+            if assignment_principal_id != normalized_principal_id:
+                continue
+
             role_def_id = assignment.role_definition_id
             role_def_guid = role_def_id.split("/")[-1]
             
@@ -498,10 +529,19 @@ def _get_role_assignments_with_permissions(credential, subscription_id: str) -> 
                 # Extract actions and data actions from role definition
                 if role_def.permissions:
                     for perm in role_def.permissions:
-                        if perm.actions:
-                            all_actions.update(perm.actions)
-                        if perm.data_actions:
-                            all_data_actions.update(perm.data_actions)
+                        actions = set(perm.actions or [])
+                        not_actions = set(getattr(perm, "not_actions", None) or [])
+                        data_actions = set(perm.data_actions or [])
+                        not_data_actions = set(getattr(perm, "not_data_actions", None) or [])
+                        all_actions.update(actions)
+                        all_data_actions.update(data_actions)
+                        permission_blocks.append({
+                            "role_name": role_name,
+                            "actions": actions,
+                            "not_actions": not_actions,
+                            "data_actions": data_actions,
+                            "not_data_actions": not_data_actions,
+                        })
             except Exception:
                 role_name = role_name or f"Unknown ({role_def_guid[:8]}...)"
             
@@ -517,26 +557,13 @@ def _get_role_assignments_with_permissions(credential, subscription_id: str) -> 
             "assignments": assignments,
             "all_actions": all_actions,
             "all_data_actions": all_data_actions,
+            "permission_blocks": permission_blocks,
         }
         
     except HttpResponseError as e:
         if e.status_code == 403:
             return None
         raise
-
-
-def _get_service_principal_id(credential, subscription_id: str) -> str:
-    """
-    Get the object ID of the authenticated service principal.
-    
-    Uses the Graph API to get the current principal's ID.
-    """
-    # For ClientSecretCredential, we can extract the client_id
-    # The object ID is needed to filter role assignments
-    # This is a simplified approach - the full implementation would use Graph API
-    
-    # For now, return None and we'll check all assignments
-    return None
 
 
 # Custom role name for least-privilege access
@@ -580,6 +607,38 @@ def _action_matches(user_actions: set, required_action: str) -> str:
     return "none"
 
 
+def _action_allowed_by_blocks(permission_blocks: list, required_action: str, data_plane: bool = False) -> str:
+    """Evaluate Azure RBAC permission blocks while honoring notActions."""
+    actions_key = "data_actions" if data_plane else "actions"
+    not_actions_key = "not_data_actions" if data_plane else "not_actions"
+    best_match = "none"
+
+    for block in permission_blocks:
+        allowed_match = _action_matches(set(block.get(actions_key, set())), required_action)
+        if allowed_match == "none":
+            continue
+
+        denied_match = _action_matches(set(block.get(not_actions_key, set())), required_action)
+        if denied_match != "none":
+            continue
+
+        if allowed_match == "exact":
+            return "exact"
+        best_match = "wildcard"
+
+    return best_match
+
+
+def _action_allowed(role_info: dict, required_action: str, data_plane: bool = False) -> str:
+    """Check whether role assignments allow an action, including Azure notActions."""
+    permission_blocks = role_info.get("permission_blocks") or []
+    if permission_blocks:
+        return _action_allowed_by_blocks(permission_blocks, required_action, data_plane)
+
+    action_set = role_info.get("all_data_actions" if data_plane else "all_actions", set())
+    return _action_matches(action_set, required_action)
+
+
 def _compare_permissions(role_info: dict) -> dict:
     """
     Compare user's actual permissions against required actions by layer.
@@ -596,9 +655,6 @@ def _compare_permissions(role_info: dict) -> dict:
             "summary": {"total_layers": 0, "valid_layers": 0, "partial_layers": 0, "invalid_layers": 0},
         }
     
-    user_actions = role_info.get("all_actions", set())
-    user_data_actions = role_info.get("all_data_actions", set())
-    
     by_layer = {}
     total_layers = len(REQUIRED_AZURE_PERMISSIONS)
     valid_layers = 0
@@ -612,7 +668,7 @@ def _compare_permissions(role_info: dict) -> dict:
         
         # Check required actions (management plane)
         for action in requirements.get("required_actions", []):
-            match_type = _action_matches(user_actions, action)
+            match_type = _action_allowed(role_info, action)
             if match_type == "exact":
                 present_actions.append(action)
             elif match_type == "wildcard":
@@ -623,7 +679,7 @@ def _compare_permissions(role_info: dict) -> dict:
         
         # Check required data actions (data plane)
         for action in requirements.get("required_data_actions", []):
-            match_type = _action_matches(user_data_actions, action)
+            match_type = _action_allowed(role_info, action, data_plane=True)
             if match_type == "exact":
                 present_actions.append(f"[data] {action}")
             elif match_type == "wildcard":
@@ -714,6 +770,17 @@ def check_azure_credentials(credentials: dict) -> dict:
         except ValueError as e:
             result["message"] = str(e)
             return result
+
+        principal_id = caller_identity.get("principal_id")
+        if not principal_id:
+            result["status"] = "check_failed"
+            result["message"] = (
+                "Cannot determine the Azure Service Principal object ID from the ARM token. "
+                "Permission validation would be unsafe because subscription role assignments "
+                "could not be filtered to the authenticated principal."
+            )
+            result["can_list_roles"] = False
+            return result
         
         # Step 2.5: FAIL-FAST - Check subscription state (catches disabled/deleted subscriptions)
         subscription_state = caller_identity.get("state")
@@ -762,7 +829,7 @@ def check_azure_credentials(credentials: dict) -> dict:
                 return result
         
         # Step 4: Get role assignments with permissions
-        role_info = _get_role_assignments_with_permissions(credential, subscription_id)
+        role_info = _get_role_assignments_with_permissions(credential, subscription_id, principal_id)
         
         if role_info is None:
             result["status"] = "check_failed"

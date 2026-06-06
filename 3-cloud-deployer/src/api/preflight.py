@@ -197,7 +197,9 @@ def _gcp_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
     checks: list[ProviderPreflightCheck] = []
 
     if status == "valid":
-        return [_passed("credentials", "GCP_READY", result.get("message") or "GCP credentials are ready.")]
+        checks.append(_passed("credentials", "GCP_READY", result.get("message") or "GCP credentials are ready."))
+        checks.extend(_gcp_deferred_permission_checks(_safe_dict(result.get("permission_status"))))
+        return checks
 
     checks.extend(_region_checks(result.get("region_validation"), "gcp_region"))
 
@@ -264,6 +266,8 @@ def _gcp_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
             "Verify the service account can run testIamPermissions on the target project, then rerun preflight.",
             details={"resource": permission_status.get("resource")},
         ))
+    else:
+        checks.extend(_gcp_deferred_permission_checks(permission_status))
 
     if status == "sdk_missing":
         checks.append(_failed(
@@ -328,6 +332,34 @@ def _gcp_missing_permissions(permission_status: dict[str, Any]) -> list[str]:
         for permission in _safe_dict(layer_result).get("missing", []) or []:
             missing.add(str(permission))
     return sorted(missing)
+
+
+def _gcp_deferred_permission_checks(permission_status: dict[str, Any]) -> list[ProviderPreflightCheck]:
+    deferred_permissions = [
+        str(permission)
+        for permission in permission_status.get("deferred_permissions", []) or []
+    ]
+    if not deferred_permissions:
+        return []
+
+    return [ProviderPreflightCheck(
+        name="resource_scoped_permissions",
+        status="warning",
+        code="RESOURCE_SCOPED_PERMISSIONS_DEFERRED",
+        message=(
+            "Some GCP permissions are resource-scoped and cannot be hard-failed "
+            "by project-level testIamPermissions before deployment resources exist."
+        ),
+        action=(
+            "Keep these permissions in the bootstrap role and validate them during "
+            "provider-specific deployment smoke tests."
+        ),
+        permissions=sorted(deferred_permissions),
+        details={
+            "resource": permission_status.get("resource"),
+            "reason": permission_status.get("deferred_reason"),
+        },
+    )]
 
 
 def _passed(name: str, code: str, message: str) -> ProviderPreflightCheck:

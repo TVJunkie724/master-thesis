@@ -225,6 +225,37 @@ def test_gcp_preflight_maps_missing_permissions(mock_check):
 
 
 @patch("src.api.credentials.check_gcp_credentials")
+def test_gcp_preflight_warns_for_deferred_resource_scoped_permissions(mock_check):
+    mock_check.return_value = {
+        "status": "valid",
+        "message": "All project-level checks passed.",
+        "permission_status": {
+            "status": "checked",
+            "resource": "projects/test-project",
+            "deferred_permissions": ["storage.objects.create"],
+            "deferred_reason": "Resource-scoped before deployment.",
+            "by_layer": {
+                "setup": {
+                    "status": "valid",
+                    "missing": [],
+                }
+            },
+        },
+        "required_roles": [],
+    }
+
+    response = client.post("/permissions/preflight/gcp", json=GCP_PAYLOAD)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ready"] is True
+    assert data["checks"][0]["code"] == "GCP_READY"
+    assert data["checks"][1]["code"] == "RESOURCE_SCOPED_PERMISSIONS_DEFERRED"
+    assert data["checks"][1]["status"] == "warning"
+    assert data["checks"][1]["permissions"] == ["storage.objects.create"]
+
+
+@patch("src.api.credentials.check_gcp_credentials")
 def test_gcp_preflight_maps_billing_failure(mock_check):
     mock_check.return_value = {
         "status": "invalid",
