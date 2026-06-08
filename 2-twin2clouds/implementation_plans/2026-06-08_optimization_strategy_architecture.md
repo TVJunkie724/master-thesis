@@ -11,6 +11,8 @@ Depends on:
 
 Related epic: GitHub issue #69
 
+Implementation issue: GitHub issue #87
+
 ## Goal
 
 Make cost optimization the first enabled optimization metric, not a hardcoded
@@ -278,25 +280,56 @@ Required tests:
 
 ## Definition Of Done
 
-- [ ] Cost is represented as an enabled metric provider.
-- [ ] `cost_minimization_v1` is the only enabled optimization profile.
-- [ ] Metric providers, calculation models, scoring strategy, and intent groups
+- [x] Cost is represented as an enabled metric provider.
+- [x] `cost_minimization_v1` is the only enabled optimization profile.
+- [x] Metric providers, calculation models, scoring strategy, and intent groups
   are selected through a validated profile.
-- [ ] Future metrics are declared as disabled/TBD without fake implementations.
-- [ ] Scoring strategy is explicit and defaults to cost-only.
-- [ ] Existing cost optimization behavior remains unchanged for verified
+- [x] Future metrics are declared as disabled/TBD without fake implementations.
+- [x] Scoring strategy is explicit and defaults to cost-only.
+- [x] Existing cost optimization behavior remains unchanged for verified
   fixtures.
-- [ ] Configuration validation rejects unknown enabled metrics or scoring
+- [x] Configuration validation rejects unknown enabled metrics or scoring
   strategies.
-- [ ] Configuration validation rejects unknown, disabled, or incompatible
+- [x] Configuration validation rejects unknown, disabled, or incompatible
   optimization profiles.
-- [ ] Documentation explains how a future developer can add a static-file or
+- [x] Documentation explains how a future developer can add a static-file or
   programmatic metric source.
-- [ ] The optimizer can rank candidates through the cost-only strategy without
+- [x] The optimizer can rank candidates through the cost-only strategy without
   importing provider-specific fetchers.
-- [ ] The optimizer does not persist Twin/User-scoped calculation history.
-- [ ] The optimizer does not add scattered direct registry-file reads.
-- [ ] Optimization results include active profile metadata for run history.
+- [x] The optimizer does not persist Twin/User-scoped calculation history.
+- [x] The optimizer does not add scattered direct registry-file reads.
+- [x] Optimization results include active profile metadata for run history.
+
+## Implementation Summary
+
+Implemented in issue #87:
+
+- Added `backend/optimization` contracts for metric contexts, metric providers,
+  calculation models, scoring strategies, and validated optimization profiles.
+- Kept `cost_minimization_v1` as the only executable profile.
+- Declared latency, sustainability, and weighted multi-objective paths as
+  disabled/TBD configuration only.
+- Routed provider selection in `calculation_v2/engine.py` through
+  `CostMetricProvider` and `CostOnlyScoringStrategy`.
+- Added active profile metadata and `cost-result.v1` schema metadata to
+  calculation results.
+- Added `PricingRegistryService.list_intent_groups()` so profile validation uses
+  the registry service boundary.
+- Added `optimizationProfileId` to the calculation API with
+  `cost_minimization_v1` as the default.
+
+## Verification
+
+```bash
+docker compose exec -T 2twin2clouds sh -lc \
+  'PYTHONPATH=/app pytest tests/unit/optimization tests/unit/calculation_v2 tests/unit/pricing -q'
+```
+
+Result:
+
+```text
+155 passed in 1.10s
+```
 
 ## Self Review
 
@@ -336,5 +369,9 @@ Required tests:
   modules.
 - Fixed: result metadata must expose the active profile for Management API run
   storage.
+- Fixed after implementation: disabled future profiles are declarative and do
+  not require executable metric/scoring/model contracts.
+- Fixed after implementation: tests now explicitly cover unknown calculation
+  models and ensure disabled/TBD declarations do not affect active metadata.
 
 No open findings after review.

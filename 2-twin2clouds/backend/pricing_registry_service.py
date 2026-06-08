@@ -60,6 +60,9 @@ class PricingRegistryService:
             if intent.get("group") in groups
         }
 
+    def list_intent_groups(self) -> dict[str, dict[str, Any]]:
+        return deepcopy(self.load().intent_groups)
+
     def get_intent(self, intent_id: str) -> dict[str, Any]:
         registry = self.load()
         try:

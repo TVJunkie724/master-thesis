@@ -5,8 +5,10 @@ Test Engine Integration
 Integration tests for the new calculation engine.
 """
 
+import json
 import pytest
 from unittest.mock import patch, MagicMock
+from types import SimpleNamespace
 
 
 class TestEngineIntegration:
@@ -151,6 +153,10 @@ class TestEngineIntegration:
         assert "gcpCosts" in result
         assert "cheapestPath" in result
         assert "totalCost" in result
+        assert result["optimization_profile_id"] == "cost_minimization_v1"
+        assert result["result_schema_version"] == "cost-result.v1"
+        assert result["optimizationProfile"]["metric_provider_ids"] == ["cost"]
+        assert result["optimizationProfile"]["scoring_strategy_id"] == "min_total_cost_v1"
         
         # Verify calculationResult has all layers
         calc_result = result["calculationResult"]
@@ -171,6 +177,118 @@ class TestEngineIntegration:
         assert "Hot" in calc_result["L3"]
         assert "Cool" in calc_result["L3"]
         assert "Archive" in calc_result["L3"]
+
+    def test_disabled_optimization_profile_is_rejected(self, sample_params, sample_pricing):
+        """Only enabled profiles may execute."""
+        from backend.calculation_v2.engine import calculate_cheapest_costs
+        from backend.optimization.profiles import OptimizationConfigError
+
+        with pytest.raises(OptimizationConfigError):
+            calculate_cheapest_costs(
+                sample_params,
+                sample_pricing,
+                optimization_profile_id="latency_minimization_v1",
+            )
+
+    def test_cost_profile_preserves_min_cost_provider_selection(self, sample_params, sample_pricing):
+        """Selected providers must match the minimum cost for each executable layer."""
+        from backend.calculation_v2.engine import calculate_cheapest_costs
+
+        result = calculate_cheapest_costs(sample_params, sample_pricing)
+
+        layer_to_result_key = {
+            "L1": result["calculationResult"]["L1"],
+            "L2": result["calculationResult"]["L2"],
+            "L3_hot": result["calculationResult"]["L3"]["Hot"],
+            "L3_cool": result["calculationResult"]["L3"]["Cool"],
+            "L3_archive": result["calculationResult"]["L3"]["Archive"],
+            "L4": result["calculationResult"]["L4"],
+            "L5": result["calculationResult"]["L5"],
+        }
+        provider_cost_key = {
+            "AWS": "awsCosts",
+            "Azure": "azureCosts",
+            "GCP": "gcpCosts",
+        }
+
+        for layer, selected_provider in layer_to_result_key.items():
+            options = {
+                provider: result[cost_key][layer]["cost"]
+                for provider, cost_key in provider_cost_key.items()
+            }
+            assert selected_provider == min(options, key=options.get)
+
+    def test_scoring_strategy_does_not_receive_provider_pricing_payload(
+        self,
+        sample_params,
+        sample_pricing,
+        monkeypatch,
+    ):
+        """Provider-specific raw pricing fields stay outside the scoring boundary."""
+        from backend.calculation_v2 import engine
+        from backend.optimization.metrics import CostMetricProvider
+
+        class InspectingStrategy:
+            def __init__(self):
+                self.seen_payloads = []
+
+            def select_best(self, candidates):
+                for candidate in candidates:
+                    payload = json.dumps(candidate.to_dict())
+                    assert "pricePerDeviceAndMonth" not in payload
+                    assert "pricePerGB" not in payload
+                    assert "durationPrice" not in payload
+                    assert "storagePrice" not in payload
+                    assert set(candidate.metrics) == {"cost"}
+                    self.seen_payloads.append(payload)
+                return min(candidates, key=lambda candidate: candidate.metric_value("cost"))
+
+        strategy = InspectingStrategy()
+
+        class FakeProfileRegistry:
+            def select_profile(self, profile_id=None):
+                return SimpleNamespace(
+                    profile_id="cost_minimization_v1",
+                    scoring_strategy_id="min_total_cost_v1",
+                    result_schema_version="cost-result.v1",
+                )
+
+            def get_metric_provider(self, metric_id):
+                assert metric_id == "cost"
+                return CostMetricProvider()
+
+            def get_scoring_strategy(self, strategy_id):
+                assert strategy_id == "min_total_cost_v1"
+                return strategy
+
+            def build_result_metadata(self, profile_id):
+                assert profile_id == "cost_minimization_v1"
+                return {
+                    "config_version": "optimization-config.v1",
+                    "pricing_registry_version": "test-registry.v1",
+                    "profile_id": "cost_minimization_v1",
+                    "profile_version": "2026.06.08",
+                    "enabled": True,
+                    "status": "ready",
+                    "metric_provider_ids": ["cost"],
+                    "calculation_model_ids": ["cost_model_v1"],
+                    "scoring_strategy_id": "min_total_cost_v1",
+                    "intent_group_ids": ["cost"],
+                    "evidence_requirements": {"pricing": "evidence_backed"},
+                    "result_schema_version": "cost-result.v1",
+                    "description": "test",
+                }
+
+        monkeypatch.setattr(
+            engine,
+            "build_default_profile_registry",
+            lambda: FakeProfileRegistry(),
+        )
+
+        result = engine.calculate_cheapest_costs(sample_params, sample_pricing)
+
+        assert result["optimization_profile_id"] == "cost_minimization_v1"
+        assert len(strategy.seen_payloads) >= 7
     
     def test_total_cost_is_positive(self, sample_params, sample_pricing):
         """Total cost should be positive for non-zero usage."""

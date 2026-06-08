@@ -30,7 +30,7 @@ complexity, or lock-in must be possible without rewriting the optimizer core.
 | Pricing catalog reliability | #32 | existing active issue |
 | Pricing evidence registry foundation | #32 | implemented on this branch |
 | Pricing registry contract/API | #32 | implemented on this branch |
-| Optimization strategy architecture | TBD | create before implementation if tracked separately |
+| Optimization strategy architecture | #87 | implemented on this branch |
 | Cost calculation run store | TBD | create before Management API implementation |
 | Provider-specific tiering/calculation reviews | TBD | create per provider before implementation |
 
@@ -185,7 +185,7 @@ first-class.
 |---|---|---|---|
 | 1 | `2026-06-08_pricing_evidence_registry_foundation.md` | implemented | Define editable pricing SSOT, evidence contract, and publish gate |
 | 2 | `2026-06-08_pricing_registry_contract_api.md` | implemented | Expose registry files through typed internal services and read-only API |
-| 3 | `2026-06-08_optimization_strategy_architecture.md` | planned | Make cost the first metric strategy, not a hardcoded optimizer assumption |
+| 3 | `2026-06-08_optimization_strategy_architecture.md` | implemented | Make cost the first metric strategy, not a hardcoded optimizer assumption |
 | 4 | `twin2multicloud_backend/implementation_plans/2026-06-08_cost_calculation_run_store.md` | planned | Persist typed Twin-scoped calculation runs in the existing Management DB |
 | 5 | `2026-06-08_azure_pricing_evidence_implementation.md` | planned | Capture Azure raw rows, candidates, selected evidence, and rejected alternatives |
 | 6 | `2026-06-08_azure_tiering_calculation_review.md` | planned | Review Azure tiers and adapt cost calculation where the current model is incomplete |
@@ -213,6 +213,12 @@ Defines optimizer extension seams for metrics and scoring models. It must keep
 only cost enabled. Strategies, metric providers, calculation models, and intent
 groups must be selected through validated optimization profiles, not combined
 ad hoc.
+
+Implemented in GitHub issue #87. The optimizer now exposes
+`cost_minimization_v1` as the only executable profile, routes provider selection
+through `CostMetricProvider` and `CostOnlyScoringStrategy`, rejects invalid or
+disabled profile combinations, and returns profile/result-schema metadata for
+future Management API run history.
 
 ### Phase 4
 

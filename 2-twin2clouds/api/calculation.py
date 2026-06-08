@@ -72,6 +72,11 @@ class CalcParams(BaseModel):
     allowGcpSelfHostedL4: bool = Field(default=False, description="Include GCP self-hosted L4 (Twin Management on Compute Engine) in optimization - NOT IMPLEMENTED")
     allowGcpSelfHostedL5: bool = Field(default=False, description="Include GCP self-hosted L5 (Grafana on Compute Engine) in optimization - NOT IMPLEMENTED")
 
+    optimizationProfileId: str = Field(
+        default="cost_minimization_v1",
+        description="Executable optimization profile. Only cost_minimization_v1 is enabled.",
+    )
+
     @model_validator(mode='after')
     def validate_storage_duration_ordering(self) -> 'CalcParams':
         """Ensure storage durations follow logical ordering: Hot ≤ Cool ≤ Archive."""
@@ -109,6 +114,7 @@ class CalcParams(BaseModel):
             "orchestrationActionsPerMessage": 3,
             "eventsPerMessage": 1,
             "apiCallsPerDashboardRefresh": 1,
+            "optimizationProfileId": "cost_minimization_v1",
             "allowGcpSelfHostedL4": False,
             "allowGcpSelfHostedL5": False
         }
@@ -166,7 +172,9 @@ class CalcParams(BaseModel):
                             "azureCosts": {"L1": 15.00, "L4": 20.00},
                             "gcpCosts": {"L1": 10.00, "L5": 18.00},
                             "cheapestPath": ["L1_GCP", "L2_AWS_Hot", "L2_GCP_Cool", "L2_AWS_Archive", "L3_AWS", "L4_Azure", "L5_GCP"],
-                            "totalMonthlyCost": 85.50,
+                            "totalCost": 85.50,
+                            "optimization_profile_id": "cost_minimization_v1",
+                            "result_schema_version": "cost-result.v1",
                             "currency": "USD"
                         }
                     }
@@ -200,7 +208,8 @@ def calc(params: CalcParams = Body(
         "integrateErrorHandling": True,
         "orchestrationActionsPerMessage": 3,
         "eventsPerMessage": 1,
-        "apiCallsPerDashboardRefresh": 1
+        "apiCallsPerDashboardRefresh": 1,
+        "optimizationProfileId": "cost_minimization_v1"
     }]
 )):
     """
@@ -212,10 +221,15 @@ def calc(params: CalcParams = Body(
         
         # Convert Pydantic model to dict
         params_dict = params.model_dump()
+        optimization_profile_id = params_dict.pop("optimizationProfileId")
         
         # Load combined pricing from separate files
         pricing_data = load_combined_pricing()
-        result = calculate_cheapest_costs(params_dict, pricing=pricing_data)
+        result = calculate_cheapest_costs(
+            params_dict,
+            pricing=pricing_data,
+            optimization_profile_id=optimization_profile_id,
+        )
         
         return {"result": result}
     except ValueError as e:

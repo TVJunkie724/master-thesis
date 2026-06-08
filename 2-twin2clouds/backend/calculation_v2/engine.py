@@ -24,6 +24,9 @@ from backend.calculation_v2.layers import (
 )
 from backend.config_loader import load_combined_pricing
 from backend.logger import logger
+from backend.optimization.context import OptimizationMetricContext
+from backend.optimization.profiles import build_default_profile_registry
+from backend.optimization.scoring import OptimizationCandidate
 
 
 # =============================================================================
@@ -354,7 +357,8 @@ def _calculate_glue_cost(messages: float, pricing: Dict[str, Any], provider: str
 
 def calculate_cheapest_costs(
     params: Dict[str, Any],
-    pricing: Optional[Dict[str, Any]] = None
+    pricing: Optional[Dict[str, Any]] = None,
+    optimization_profile_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Orchestrate cost calculation and find the cheapest path across providers.
@@ -368,6 +372,7 @@ def calculate_cheapest_costs(
     Args:
         params: Input parameters from the API
         pricing: Optional pricing data (loaded if not provided)
+        optimization_profile_id: Optional executable optimization profile.
         
     Returns:
         Dictionary with:
@@ -381,6 +386,16 @@ def calculate_cheapest_costs(
     # Load pricing if not provided
     if pricing is None:
         pricing = load_combined_pricing()
+
+    profile_registry = build_default_profile_registry()
+    optimization_profile = profile_registry.select_profile(optimization_profile_id)
+    cost_metric_provider = profile_registry.get_metric_provider("cost")
+    scoring_strategy = profile_registry.get_scoring_strategy(
+        optimization_profile.scoring_strategy_id
+    )
+    optimization_metadata = profile_registry.build_result_metadata(
+        optimization_profile.profile_id
+    )
     
     # Calculate costs for each provider
     aws_costs = calculate_aws_costs(params, pricing)
@@ -402,8 +417,29 @@ def calculate_cheapest_costs(
         ]
         if include_gcp:
             options.append(("GCP", gcp_costs[layer]["cost"]))
-        
-        return min(options, key=lambda x: x[1])
+
+        candidates = []
+        for provider, cost in options:
+            metric_result = cost_metric_provider.compute(
+                OptimizationMetricContext(
+                    candidate_id=provider,
+                    metric_inputs={"cost": cost},
+                    evidence_references=(
+                        f"pricing_registry:{optimization_metadata['pricing_registry_version']}",
+                    ),
+                    metadata={"layer": layer, "provider": provider},
+                )
+            )
+            candidates.append(
+                OptimizationCandidate(
+                    candidate_id=provider,
+                    dimensions={"layer": layer, "provider": provider},
+                    metrics={"cost": metric_result},
+                )
+            )
+
+        best = scoring_strategy.select_best(candidates)
+        return best.candidate_id, best.metric_value("cost")
     
     # Find cheapest path
     result = {}
@@ -490,6 +526,9 @@ def calculate_cheapest_costs(
     ]
     
     return {
+        "optimization_profile_id": optimization_profile.profile_id,
+        "result_schema_version": optimization_profile.result_schema_version,
+        "optimizationProfile": optimization_metadata,
         "calculationResult": result,
         "awsCosts": aws_costs,
         "azureCosts": azure_costs,
