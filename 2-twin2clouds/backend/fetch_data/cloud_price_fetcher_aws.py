@@ -278,18 +278,9 @@ def _fetch_transfer_prices(region_human: str, pricing_client: Any, debug: bool =
                     if debug: logger.debug(f"   ✔️ Matched transfer tier: {desc} → {price}")
 
     if not egress_prices:
-        logger.warning(f"⚠️ No egress prices found for {region_human}, using static defaults.")
+        logger.warning(f"⚠️ No egress prices found for {region_human}.")
         _warn_static("transfer", "egressPrice", debug)
-        return {
-            "pricing_tiers": {
-                "freeTier": {"limit": 100, "price": 0},
-                "tier1": {"limit": 10240, "price": 0.09},
-                "tier2": {"limit": 51200, "price": 0.085},
-                "tier3": {"limit": 102400, "price": 0.07},
-                "tier4": {"limit": "Infinity", "price": 0.05},
-            },
-            "egressPrice": 0.09,
-        }
+        return {}
 
     # Sort and build tier structure
     egress_prices.sort(key=lambda x: x["begin"])
@@ -318,11 +309,10 @@ def _fetch_twinmaker_prices(region_human: str, pricing_client: Any, debug: bool 
 def _fetch_grafana_prices(region_human: str, pricing_client: Any, debug: bool = False) -> Dict[str, float]:
     """
     Specialized fetcher for Grafana.
-    Currently returns static defaults as dynamic fetching is TODO.
+    Dynamic fetching is TODO; leave fallback handling to the canonical builder.
     """
-    prices = STATIC_DEFAULTS["grafana"]
     _warn_static("grafana", "grafana", debug)
-    return prices
+    return {}
 
 # Dispatch dictionary for specialized services
 SPECIALIZED_FETCHERS: Dict[str, Callable] = {
@@ -361,7 +351,7 @@ def fetch_aws_price(service_name: str, service_code: str, region_code: str, regi
     pricing_client = _get_pricing_client(aws_credentials)
     if not pricing_client:
         _warn_static(neutral_service_name, "client_error", debug)
-        return STATIC_DEFAULTS.get(neutral_service_name, {})
+        return {}
 
     logger.info(f"🔍 Fetching AWS {service_name} pricing for {region_human}...")
 
@@ -377,7 +367,7 @@ def fetch_aws_price(service_name: str, service_code: str, region_code: str, regi
     if not service_config:
         logger.warning(f"⚠️ No keyword config for service: {service_name}")
         _warn_static(neutral_service_name, "no_config", debug)
-        return STATIC_DEFAULTS.get(neutral_service_name, {})
+        return {}
 
     # Fetch raw products
     price_list = _fetch_api_products(pricing_client, service_code, region_human)
@@ -407,13 +397,6 @@ def fetch_aws_price(service_name: str, service_code: str, region_code: str, regi
                     tier_data[tier_name] = list(tier_prices.values())[0]
             if tier_data:
                 prices[tier_group] = tier_data
-
-    # 4. Merge with Defaults
-    defaults = STATIC_DEFAULTS.get(neutral_service_name, {})
-    for k, v in defaults.items():
-        if k not in prices:
-            prices[k] = v
-            _warn_static(neutral_service_name, k, debug)
 
     logger.info(f"✅ Final AWS {neutral_service_name} pricing: {prices}")
     print("")

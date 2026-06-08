@@ -416,13 +416,6 @@ def fetch_azure_price(service_name: str, region_code: str, region_map: Dict[str,
         else:
             fetched = _fetch_standard(rows, neutral, debug)
 
-    # 5. Apply Defaults if values could not be fetched and log the use of defaults
-    for key, value in defaults.items():
-        if key not in fetched:
-            # fetched[key] = value
-            logger.info(f"    ℹ️ Using static value for Azure.{neutral}.{key}")
-            fetched[key] = value
-
     logger.info(f"✅ Final Azure prices for {neutral}: {fetched}")
     print("")
     return fetched

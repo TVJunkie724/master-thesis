@@ -513,6 +513,8 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, region_map:
             "tier4": {"limit": "Infinity", "price": 0.05},
         })
     }
+    if transfer.get("egressPrice") is not None:
+        azure[provider_service]["egressPrice"] = transfer["egressPrice"]
 
     # IoT Hub
     neutral_service, provider_service = "iot", "iotHub"
@@ -547,13 +549,14 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, region_map:
     # Blob Storage Cool (storage_cool)
     neutral_service, provider_service = "storage_cool", "blobStorageCool"
     sc = fetched.get(neutral_service, {})
+    transfer_egress_price = azure["transfer"].get("egressPrice", 0.087)
     azure[provider_service] = {
         "storagePrice": _get_or_warn("Azure", neutral_service, provider_service, "storagePrice", sc, 0.01, STATIC_DEFAULTS_AZURE),
         "upfrontPrice": _get_or_warn("Azure", neutral_service, provider_service, "upfrontPrice", sc, 0.0001, STATIC_DEFAULTS_AZURE),
         "writePrice": _get_or_warn("Azure", neutral_service, provider_service, "writePrice", sc, 0.02, STATIC_DEFAULTS_AZURE),
         "readPrice": _get_or_warn("Azure", neutral_service, provider_service, "readPrice", sc, 0.01, STATIC_DEFAULTS_AZURE),
         "dataRetrievalPrice": _get_or_warn("Azure", neutral_service, provider_service, "dataRetrievalPrice", sc, 0.01, STATIC_DEFAULTS_AZURE),
-        "transferCostFromCosmosDB": 0.087, # Approx
+        "transferCostFromCosmosDB": transfer_egress_price,
     }
 
     # Blob Storage Archive (storage_archive)

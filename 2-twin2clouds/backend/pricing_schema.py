@@ -177,6 +177,38 @@ DERIVED_FIELDS = {
 }
 
 
+DERIVED_FIELD_DEPENDENCIES = {
+    "aws": {
+        "s3InfrequentAccess.transferCostFromDynamoDB": ("transfer", "egressPrice"),
+        "s3InfrequentAccess.transferCostFromCosmosDB": ("transfer", "egressPrice"),
+        "stepFunctions.pricePerStateTransition": (
+            "orchestration",
+            "pricePer1kStateTransitions",
+        ),
+        "apiGateway.dataTransferOutPrice": ("transfer", "egressPrice"),
+    },
+    "azure": {
+        "blobStorageCool.transferCostFromCosmosDB": ("transfer", "egressPrice"),
+        "logicApps.pricePerStateTransition": (
+            "orchestration",
+            "pricePer1kStateTransitions",
+        ),
+    },
+    "gcp": {
+        "twinmaker.e2MediumPrice": (
+            "twinmaker",
+            ("e2CorePrice", "e2RamPrice"),
+        ),
+        "grafana.e2MediumPrice": (
+            "grafana",
+            ("e2CorePrice", "e2RamPrice"),
+        ),
+        "apiGateway.dataTransferOutPrice": ("transfer", "egressPrice"),
+        "apiGateway.pricePerMillionCalls": ("data_access", "pricePerMillionCalls"),
+    },
+}
+
+
 CURATED_FIELDS = {
     "aws": {
         "transfer.pricing_tiers",
@@ -213,11 +245,13 @@ def validate_pricing_payload(provider: str, data: dict[str, Any]) -> dict[str, A
                 missing_keys.append(f"{service}.{key}")
 
     status = "incomplete" if missing_keys else "valid"
-    quality = data.get("__quality__", {})
-    fallback_fields = list(quality.get("fallback_fields", []))
-    unsupported_fields = list(quality.get("unsupported_fields", []))
+    quality = data.get("__quality__")
+    fallback_fields = list((quality or {}).get("fallback_fields", []))
+    unsupported_fields = list((quality or {}).get("unsupported_fields", []))
     quality_status = (
-        REVIEW_REQUIRED if fallback_fields or unsupported_fields else PUBLISHABLE
+        PUBLISHABLE
+        if quality and not fallback_fields and not unsupported_fields
+        else REVIEW_REQUIRED
     )
     return _validation_result(
         provider,
@@ -276,7 +310,11 @@ def build_field_sources(
         fetched_values = fetched.get(neutral_service, {}) if neutral_service else {}
         for key in keys:
             path = f"{service}.{key}"
-            if path in DERIVED_FIELDS.get(provider, set()):
+            if path in DERIVED_FIELDS.get(provider, set()) and _derived_field_is_fetched(
+                provider,
+                path,
+                fetched,
+            ):
                 sources[path] = DERIVED
             elif path in CURATED_FIELDS.get(provider, set()):
                 sources[path] = CURATED
@@ -311,6 +349,22 @@ def _source_field_is_fetched(
                 fetched_values.get("e2RamPrice")
             )
     return False
+
+
+def _derived_field_is_fetched(
+    provider: str,
+    path: str,
+    fetched: dict[str, dict[str, Any]],
+) -> bool:
+    dependency = DERIVED_FIELD_DEPENDENCIES.get(provider, {}).get(path)
+    if not dependency:
+        return False
+
+    neutral_service, dependency_keys = dependency
+    fetched_values = fetched.get(neutral_service, {})
+    if isinstance(dependency_keys, tuple):
+        return all(fetched_values.get(key) is not None for key in dependency_keys)
+    return fetched_values.get(dependency_keys) is not None
 
 
 def _validation_result(

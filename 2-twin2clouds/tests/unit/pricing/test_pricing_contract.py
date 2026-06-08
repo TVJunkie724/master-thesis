@@ -81,7 +81,10 @@ FETCHED_BY_PROVIDER = {
         "scheduler": {"jobPrice": 0.000001},
     },
     "azure": {
-        "transfer": {"pricing_tiers": {"tier1": {"limit": "Infinity", "price": 0.087}}},
+        "transfer": {
+            "pricing_tiers": {"tier1": {"limit": "Infinity", "price": 0.087}},
+            "egressPrice": 0.087,
+        },
         "iot": {"pricing_tiers": {"tier1": {"limit": "Infinity", "price": 25}}},
         "functions": {
             "requestPrice": 0.0000002,
@@ -187,6 +190,18 @@ def test_template_matches_versioned_provider_contract():
         assert validation["contract_version"] == PRICING_CONTRACT_VERSION
         assert validation["status"] == "valid"
         assert validation["missing_keys"] == []
+        assert validation["quality_status"] == "review_required"
+        assert validation["review_required"] is True
+
+
+def test_legacy_payload_without_quality_metadata_requires_review():
+    template = json.loads(Path("json/pricing.json").read_text())
+
+    validation = validate_pricing_payload("azure", template["azure"])
+
+    assert validation["status"] == "valid"
+    assert validation["quality_status"] == "review_required"
+    assert validation["review_required"] is True
 
 
 def test_attach_pricing_metadata_marks_fallback_as_review_required():

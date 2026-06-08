@@ -102,9 +102,7 @@ def test_fetch_aws_price_lambda(mock_fetch_products, mock_get_client):
     
     assert result is not None
     assert "requestPrice" in result
-    # Defaults should be merged
-    assert "freeRequests" in result
-    assert result["freeRequests"] == 1_000_000
+    assert "freeRequests" not in result
 
 @patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
 def test_fetch_aws_price_client_error(mock_get_client):
@@ -115,9 +113,7 @@ def test_fetch_aws_price_client_error(mock_get_client):
     
     result = fetch_aws_price("iot", "AmazonIoT", "us-east-1", region_map, debug=False)
     
-    # Should return static defaults
-    assert result is not None
-    assert "pricePerDeviceAndMonth" in result
+    assert result == {}
 
 @patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
 @patch('backend.fetch_data.cloud_price_fetcher_aws._fetch_api_products')
@@ -134,18 +130,15 @@ def test_fetch_aws_price_unknown_service(mock_fetch_products, mock_get_client):
 
 @patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
 def test_fetch_aws_price_grafana(mock_get_client):
-    """Test fetching AWS Grafana pricing (Static Fallback)"""
+    """Test AWS Grafana leaves static fallback handling to the schema builder."""
     mock_client = MagicMock()
     mock_get_client.return_value = mock_client
     
     region_map = {"us-east-1": "US East (N. Virginia)"}
     
-    # Grafana uses static defaults currently, so it should succeed without api calls
     result = fetch_aws_price("grafana", "AmazonGrafana", "us-east-1", region_map, debug=False)
     
-    assert result is not None
-    assert "editorPrice" in result
-    assert result["editorPrice"] == 9.0
+    assert result == {}
 
 @patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
 @patch('backend.fetch_data.cloud_price_fetcher_aws._fetch_api_products')

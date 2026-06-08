@@ -36,12 +36,10 @@ def test_aws_fetch_api_schema_change():
             "storage_hot", "AmazonDynamoDB", "eu-central-1", {"eu-central-1": "EU (Frankfurt)"}
         )
         
-        # Should gracefully return defaults or empty prices, not crash
-        # The code iterates `terms = prod.get("terms", {})...` so it works safely.
+        # Should gracefully return raw fetched prices only, not crash.
+        # Fallback defaults are applied by the canonical schema builder.
         assert isinstance(prices, dict)
-        # Should contain defaults because extraction failed.
-        # Defaults for storage_hot: {"freeStorage": 25}
-        assert "freeStorage" in prices
+        assert prices == {}
 
 def test_aws_fetch_zero_results_for_filters():
     """Test behavior when API returns valid but empty list (e.g. filter mismatch)."""
@@ -57,8 +55,8 @@ def test_aws_fetch_zero_results_for_filters():
             "storage_hot", "AmazonDynamoDB", "eu-central-1", {"eu-central-1": "EU (Frankfurt)"}
         )
         
-        # Should verify falls back to static defaults
-        assert prices == cloud_price_fetcher_aws.STATIC_DEFAULTS["storage_hot"]
+        # Static defaults are applied by the canonical schema builder, not the fetcher.
+        assert prices == {}
 
 # -----------------------------------------------------------------------------
 # 2. Unexpected Data Types
@@ -101,4 +99,3 @@ def test_aws_fetch_string_prices():
         # The parser does `float(dim.get("pricePerUnit", {}).get("USD", 0))`
         # float("0.25") works.
         assert prices.get("readPrice") == 0.25
-

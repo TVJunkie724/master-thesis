@@ -119,8 +119,7 @@ def test_fetch_azure_price_functions(mock_query):
     assert result is not None
     assert "requestPrice" in result
     assert "durationPrice" in result
-    # Defaults
-    assert "freeRequests" in result
+    assert "freeRequests" not in result
 
 @patch('backend.fetch_data.cloud_price_fetcher_azure._retail_query_items')
 def test_fetch_azure_price_iot(mock_query):
@@ -158,7 +157,4 @@ def test_fetch_azure_price_api_error(mock_query):
     
     result = fetch_azure_price("functions", "westeurope", region_map, service_mapping, debug=False)
     
-    # Should fall back to static defaults
-    assert result is not None
-    assert "freeRequests" in result
-    assert result["freeRequests"] == 1_000_000
+    assert result == {}
