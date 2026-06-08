@@ -22,6 +22,7 @@ from backend.calculation_v2.layers import (
     AzureLayerCalculators,
     GCPLayerCalculators,
 )
+from backend.calculation_v2.formulas import tiered_unit_cost
 from backend.config_loader import load_combined_pricing
 from backend.logger import logger
 from backend.optimization.context import OptimizationMetricContext
@@ -323,7 +324,7 @@ def _calculate_egress_cost(data_gb: float, pricing: Dict[str, Any], source_provi
     """
     Calculate egress cost for data leaving a provider.
     
-    Standard egress rates (simplified):
+    Standard egress rates (simplified fallback when tier data is unavailable):
     - AWS: ~$0.09/GB
     - Azure: ~$0.087/GB
     - GCP: ~$0.12/GB
@@ -331,7 +332,14 @@ def _calculate_egress_cost(data_gb: float, pricing: Dict[str, Any], source_provi
     if source_provider == "AWS":
         price = pricing.get("aws", {}).get("egress", {}).get("pricePerGB", 0.09)
     elif source_provider == "Azure":
-        price = pricing.get("azure", {}).get("egress", {}).get("pricePerGB", 0.087)
+        azure_transfer = pricing.get("azure", {}).get("transfer", {})
+        pricing_tiers = azure_transfer.get("pricing_tiers")
+        if pricing_tiers:
+            return tiered_unit_cost(data_gb, pricing_tiers)
+        price = pricing.get("azure", {}).get("egress", {}).get(
+            "pricePerGB",
+            azure_transfer.get("egressPrice", 0.087),
+        )
     elif source_provider == "GCP":
         price = pricing.get("gcp", {}).get("egress", {}).get("pricePerGB", 0.12)
     else:

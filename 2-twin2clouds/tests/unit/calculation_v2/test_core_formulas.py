@@ -15,6 +15,10 @@ from backend.calculation_v2.formulas import (
     transfer_cost,
     tiered_message_cost,
     tiered_transfer_cost,
+    unit_price,
+    first_unit_price,
+    capacity_tier_cost,
+    tiered_unit_cost,
 )
 
 
@@ -168,3 +172,65 @@ class TestTieredMessageCost:
         result = tiered_message_cost(1_500_000, tiers)
         expected = (1_000_000 * 1.0) + (500_000 * 0.8)
         assert result == expected
+
+
+class TestPricingUnitHelpers:
+    """Tests for explicit provider unit and tier normalization."""
+
+    def test_unit_price_normalizes_billing_blocks(self):
+        assert unit_price(1.25, 1_000) == 0.00125
+        assert unit_price("3.5", 1_000_000) == 0.0000035
+
+    def test_first_unit_price_uses_first_available_key(self):
+        pricing = {
+            "pricePer1kRequests": 1.25,
+            "pricePerRequest": 99.0,
+        }
+
+        assert first_unit_price(
+            pricing,
+            (
+                ("missing", 1),
+                ("pricePer1kRequests", 1_000),
+                ("pricePerRequest", 1),
+            ),
+        ) == 0.00125
+
+    def test_capacity_tier_cost_selects_cheapest_valid_unit_tier(self):
+        tiers = {
+            "freeTier": {"limit": 240_000, "threshold": 240_000, "price": 0},
+            "tier1": {"limit": 120_000_000, "threshold": 12_000_000, "price": 25},
+            "tier2": {"limit": 1_800_000_000, "threshold": 180_000_000, "price": 250},
+            "tier3": {"limit": "Infinity", "threshold": 9_000_000_000, "price": 2500},
+        }
+
+        assert capacity_tier_cost(100_000, tiers) == 0
+        assert capacity_tier_cost(12_000_001, tiers) == 50
+        assert capacity_tier_cost(180_000_000, tiers) == 250
+
+    def test_capacity_tier_cost_rejects_incomplete_paid_tiers(self):
+        tiers = {
+            "freeTier": {"limit": 100, "threshold": 100, "price": 0},
+            "brokenTier": {"limit": 200, "threshold": 0, "price": 25},
+        }
+
+        with pytest.raises(ValueError, match="valid paid tier"):
+            capacity_tier_cost(150, tiers)
+
+    def test_tiered_unit_cost_applies_cumulative_absolute_limits(self):
+        tiers = [
+            {"limit": 100, "price": 0},
+            {"limit": 200, "price": 0.10},
+            {"limit": "Infinity", "price": 0.05},
+        ]
+
+        assert tiered_unit_cost(250, tiers) == 12.5
+
+    def test_tiered_unit_cost_rejects_uncovered_usage(self):
+        tiers = [
+            {"limit": 100, "price": 0},
+            {"limit": 200, "price": 0.10},
+        ]
+
+        with pytest.raises(ValueError, match="do not cover"):
+            tiered_unit_cost(250, tiers)

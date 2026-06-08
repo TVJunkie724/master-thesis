@@ -12,7 +12,7 @@ Pricing Model:
 
 from typing import Dict, Any
 from ..types import AzureComponent, FormulaType
-from ...formulas import action_based_cost, message_based_cost
+from ...formulas import action_based_cost, first_unit_price, message_based_cost
 
 
 class AzureDigitalTwinsCalculator:
@@ -22,9 +22,14 @@ class AzureDigitalTwinsCalculator:
     Uses: CA formula (for operations) + CM formula (for messages)
     
     Pricing keys:
-        - pricing["azure"]["azureDigitalTwins"]["operationPrice"] (per million)
-        - pricing["azure"]["azureDigitalTwins"]["queryPrice"]
-        - pricing["azure"]["azureDigitalTwins"]["messagePrice"]
+        Preferred:
+        - pricing["azure"]["azureDigitalTwins"]["pricePerOperation"]
+        - pricing["azure"]["azureDigitalTwins"]["pricePerQueryUnit"]
+        - pricing["azure"]["azureDigitalTwins"]["pricePerMessage"]
+        Legacy Azure Retail Prices keys:
+        - pricing["azure"]["azureDigitalTwins"]["operationPrice"] (per 1K)
+        - pricing["azure"]["azureDigitalTwins"]["queryPrice"] (per 1K)
+        - pricing["azure"]["azureDigitalTwins"]["messagePrice"] (per 1K)
     """
     
     component_type = AzureComponent.DIGITAL_TWINS
@@ -51,23 +56,49 @@ class AzureDigitalTwinsCalculator:
         """
         p = pricing["azure"]["azureDigitalTwins"]
         
-        # Operations cost (CA formula)
-        op_price_per_million = p.get("operationPrice", p.get("pricePerMillionOperations", 0))
-        op_price = op_price_per_million / 1_000_000
+        # Azure Retail Prices exposes ADT message, operation, and query meters
+        # as 1K blocks. Keep compatibility with already-normalized explicit
+        # keys, but normalize historical raw keys here at the boundary.
+        op_price = first_unit_price(
+            p,
+            (
+                ("pricePerOperation", 1),
+                ("operationPricePer1k", 1_000),
+                ("operationPrice", 1_000),
+                ("pricePer1kOperations", 1_000),
+                ("pricePerMillionOperations", 1_000_000),
+            ),
+        )
         operation_cost = action_based_cost(
             price_per_action=op_price,
             num_actions=operations_per_month
         )
         
         # Query cost (CA formula)
-        query_price = p.get("queryPrice", 0)
+        query_price = first_unit_price(
+            p,
+            (
+                ("pricePerQueryUnit", 1),
+                ("queryPricePer1k", 1_000),
+                ("queryPrice", 1_000),
+                ("pricePer1kQueryUnits", 1_000),
+            ),
+        )
         query_cost = action_based_cost(
             price_per_action=query_price,
             num_actions=queries_per_month
         )
         
         # Message cost (CM formula)
-        message_price = p.get("messagePrice", 0)
+        message_price = first_unit_price(
+            p,
+            (
+                ("pricePerMessage", 1),
+                ("messagePricePer1k", 1_000),
+                ("messagePrice", 1_000),
+                ("pricePer1kMessages", 1_000),
+            ),
+        )
         message_cost = message_based_cost(
             price_per_message=message_price,
             num_messages=messages_per_month

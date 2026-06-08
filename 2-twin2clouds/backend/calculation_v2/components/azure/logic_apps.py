@@ -13,7 +13,7 @@ Logic Apps is used for orchestration in Azure, similar to AWS Step Functions.
 
 from typing import Dict, Any
 from ..types import AzureComponent, FormulaType
-from ...formulas import action_based_cost
+from ...formulas import action_based_cost, first_unit_price
 
 
 class AzureLogicAppsCalculator:
@@ -24,6 +24,8 @@ class AzureLogicAppsCalculator:
     
     Pricing keys:
         - pricing["azure"]["logicApps"]["pricePerAction"]
+        - pricing["azure"]["logicApps"]["pricePerStateTransition"]
+        - pricing["azure"]["logicApps"]["pricePer1kStateTransitions"]
     """
     
     component_type = AzureComponent.LOGIC_APPS
@@ -52,7 +54,15 @@ class AzureLogicAppsCalculator:
         actions_per_execution = actions_per_execution or self.DEFAULT_ACTIONS_PER_EXECUTION
         
         p = pricing["azure"]["logicApps"]
-        price_per_action = p.get("pricePerAction", p.get("pricePerStateTransition", 0))
+        price_per_action = first_unit_price(
+            p,
+            (
+                ("pricePerAction", 1),
+                ("pricePerStateTransition", 1),
+                ("pricePer1kStateTransitions", 1_000),
+                ("pricePer1kActions", 1_000),
+            ),
+        )
         total_actions = executions * actions_per_execution
         
         return action_based_cost(

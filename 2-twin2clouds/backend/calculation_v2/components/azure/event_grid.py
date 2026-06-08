@@ -12,7 +12,7 @@ Event Grid is used for event routing, similar to AWS EventBridge.
 
 from typing import Dict, Any
 from ..types import AzureComponent, FormulaType
-from ...formulas import action_based_cost
+from ...formulas import action_based_cost, first_unit_price
 
 
 class AzureEventGridCalculator:
@@ -22,7 +22,9 @@ class AzureEventGridCalculator:
     Uses: CA formula (action-based)
     
     Pricing keys:
+        - pricing["azure"]["eventGrid"]["pricePerEvent"]
         - pricing["azure"]["eventGrid"]["pricePerMillionOperations"]
+        - pricing["azure"]["eventGrid"]["pricePerMillionEvents"]
     """
     
     component_type = AzureComponent.EVENT_GRID
@@ -44,8 +46,15 @@ class AzureEventGridCalculator:
             Monthly cost in USD
         """
         p = pricing["azure"]["eventGrid"]
-        price_per_million = p.get("pricePerMillionOperations", p.get("pricePerMillionEvents", 0))
-        price_per_event = price_per_million / 1_000_000
+        price_per_event = first_unit_price(
+            p,
+            (
+                ("pricePerEvent", 1),
+                ("pricePerMillionOperations", 1_000_000),
+                ("pricePerMillionEvents", 1_000_000),
+                ("pricePer100kOperations", 100_000),
+            ),
+        )
         
         return action_based_cost(
             price_per_action=price_per_event,

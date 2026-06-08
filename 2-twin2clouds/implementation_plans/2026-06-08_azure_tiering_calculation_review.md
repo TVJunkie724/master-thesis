@@ -5,6 +5,8 @@
 Parent roadmap:
 `docs/plans/2026-06-08_pricing_evidence_and_optimization_strategy_roadmap.md`
 
+GitHub issue: #90
+
 Depends on:
 
 - `2026-06-08_azure_pricing_evidence_implementation.md`
@@ -112,11 +114,21 @@ Required tests:
 
 ## Definition Of Done
 
-- [ ] Azure service model assumptions are documented in the editable SSOT.
-- [ ] Azure calculation changes are evidence-backed.
-- [ ] No Azure calculation uses fallback_static as publishable data.
-- [ ] Tiered service tests cover boundary conditions.
-- [ ] Existing optimizer API contract remains compatible.
+- [x] Azure service model assumptions are documented in the editable SSOT.
+- [x] Azure calculation changes are evidence-backed.
+- [x] No Azure calculation uses fallback_static as publishable data.
+- [x] Tiered service tests cover boundary conditions.
+- [x] Existing optimizer API contract remains compatible.
+
+## Implementation Notes
+
+- Add provider-independent unit/tier primitives before changing individual
+  Azure calculators.
+- Keep compatibility with historical Azure pricing keys, but normalize those
+  keys at one boundary instead of embedding divisors in layer code.
+- Leave API Management documented as a registry/evidence concern until it is
+  part of the executable layer model.
+- Keep unresolved provider research explicit in `service_models.yaml`.
 
 ## Self Review
 
@@ -137,5 +149,18 @@ Required tests:
 - Fixed: Digital Twins tiering is framed as a verified research item, not an
   assumption.
 - Fixed: API Management and Logic Apps unit mismatches are explicitly included.
+- Fixed: Unit/tier helper initially returned silent zero or partial cost for
+  incomplete tier data. It now raises explicit errors and has regression tests.
+- Fixed: Azure transfer tiering initially reused an order-dependent helper. It
+  now uses the new sorted tier helper.
+- Fixed: Azure component docstrings still described legacy units. They now
+  document preferred normalized keys and legacy block-key compatibility.
 
 No open findings after review.
+
+## Verification
+
+- `docker compose exec -T 2twin2clouds sh -lc 'PYTHONPATH=/app pytest tests/unit/calculation_v2/test_core_formulas.py tests/unit/calculation_v2/test_azure_tiering.py -q'`
+  - Result: `29 passed`
+- `docker compose exec -T 2twin2clouds sh -lc 'PYTHONPATH=/app pytest tests/unit/pricing tests/unit/optimization tests/unit/calculation_v2 -q'`
+  - Result: `176 passed`

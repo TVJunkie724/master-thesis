@@ -24,3 +24,16 @@ service_models:
       - grafana.viewer_user_month
     notes:
       - Digital Twins, AWS IoT TwinMaker, IoT Hub, transfer tiers, and storage operation tiers require provider-specific review before formula changes.
+    azure_calculation_model:
+      status: reviewed_for_phase_6
+      issue: 90
+      assumptions:
+        - IoT Hub is modeled as monthly unit-tier pricing. Free tier applies up to its documented monthly message limit; paid tiers use the cheapest valid tier based on included messages per unit and maximum tier limit.
+        - Azure Digital Twins message, operation, and query meters are calculated as separate usage dimensions. Historical `messagePrice`, `operationPrice`, and `queryPrice` fields are treated as Azure Retail Prices 1K billing blocks unless explicit per-unit keys are present.
+        - Blob Storage read/write operation meters are normalized before multiplication; per-10K request keys are converted to one request.
+        - Logic Apps and Event Grid action/event meters are normalized from provider billing blocks before multiplication.
+        - Azure transfer/egress uses cumulative pricing tiers when tier data is available.
+      open_research:
+        - Verify Azure Digital Twins query-unit tier rows against live evidence before declaring all ADT query behavior final.
+        - Verify Blob Storage operation and retrieval meters per replication/region/SKU before final cross-provider validation.
+        - API Management is represented in the pricing registry, but not yet part of the executable layer model.

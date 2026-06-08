@@ -13,7 +13,7 @@ Pricing Model:
 
 from typing import Dict, Any
 from ..types import AzureComponent, FormulaType
-from ...formulas import message_based_cost
+from ...formulas import capacity_tier_cost, message_based_cost
 
 
 class AzureIoTHubCalculator:
@@ -23,6 +23,10 @@ class AzureIoTHubCalculator:
     Uses: CM formula (message-based)
     
     Pricing keys:
+        Preferred:
+        - pricing["azure"]["iotHub"]["pricing_tiers"]
+          with free/paid tiers containing price, limit, and threshold.
+        Legacy:
         - pricing["azure"]["iotHub"]["pricePerUnit"]
         - pricing["azure"]["iotHub"]["messagesPerUnit"]
         - pricing["azure"]["iotHub"]["additionalMessagePrice"]
@@ -49,6 +53,14 @@ class AzureIoTHubCalculator:
             Monthly cost in USD
         """
         p = pricing["azure"]["iotHub"]
+
+        pricing_tiers = p.get("pricing_tiers")
+        if pricing_tiers:
+            return capacity_tier_cost(
+                messages_per_month,
+                pricing_tiers,
+                minimum_paid_units=units,
+            )
         
         # Base unit cost
         unit_price = p.get("pricePerUnit", p.get("pricePerMonth", 0))

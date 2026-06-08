@@ -13,6 +13,10 @@ This package exports all formula functions:
 - transfer_cost (CTransfer)
 - tiered_message_cost
 - tiered_transfer_cost
+- unit_price
+- first_unit_price
+- capacity_tier_cost
+- tiered_unit_cost
 """
 
 from .core_formulas import (
@@ -25,6 +29,12 @@ from .core_formulas import (
     tiered_message_cost,
     tiered_transfer_cost,
 )
+from .pricing_units import (
+    unit_price,
+    first_unit_price,
+    capacity_tier_cost,
+    tiered_unit_cost,
+)
 
 __all__ = [
     "message_based_cost",
@@ -35,4 +45,8 @@ __all__ = [
     "transfer_cost",
     "tiered_message_cost",
     "tiered_transfer_cost",
+    "unit_price",
+    "first_unit_price",
+    "capacity_tier_cost",
+    "tiered_unit_cost",
 ]
