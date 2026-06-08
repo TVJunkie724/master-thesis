@@ -1,0 +1,78 @@
+schema_version: pricing-registry-normalization.v1
+registry_version: "2026.06.08"
+rules:
+  per_gb:
+    source_units: ["GB", "GiB", "1 GB", "1 GiB"]
+    target_unit: gb
+    multiplier: 1
+    description: Normalize storage or transfer units to one GB.
+  per_gb_month:
+    source_units: ["GB/Month", "GB-Mo", "1 GB/Month", "GiB-month"]
+    target_unit: gb_month
+    multiplier: 1
+    description: Normalize capacity prices to one GB-month.
+  per_request:
+    source_units: ["Request", "Requests", "request"]
+    target_unit: request
+    multiplier: 1
+    description: Normalize request prices to one request.
+  per_1k_requests:
+    source_units: ["1K", "1K Requests", "1K Calls", "1000 Requests"]
+    target_unit: request
+    multiplier: 0.001
+    description: Convert per-1K request prices to one request.
+  per_10k_requests:
+    source_units: ["10K", "10K Requests", "10K Operations"]
+    target_unit: request
+    multiplier: 0.0001
+    description: Convert per-10K request prices to one request.
+  per_100k_requests:
+    source_units: ["100K", "100K Requests", "100K Operations"]
+    target_unit: request
+    multiplier: 0.00001
+    description: Convert per-100K request prices to one request.
+  per_1m_requests:
+    source_units: ["1M", "1M Requests", "1M Calls", "Million Requests"]
+    target_unit: 1m_requests
+    multiplier: 1
+    description: Normalize million-call meters to one million requests.
+  per_1m_messages:
+    source_units: ["1M Messages", "Million Messages", "Messages"]
+    target_unit: message
+    multiplier: 0.000001
+    description: Convert per-million message prices to one message.
+  per_1m_events:
+    source_units: ["1M Events", "Million Events"]
+    target_unit: 1m_events
+    multiplier: 1
+    description: Normalize event meters to one million events.
+  per_1k_state_transitions:
+    source_units: ["1K State Transitions", "1K Actions", "1K Executions"]
+    target_unit: state_transition
+    multiplier: 0.001
+    description: Convert per-1K workflow action prices to one state transition.
+  per_gb_second:
+    source_units: ["GB Second", "GB-s", "GiB Second", "GiB-s"]
+    target_unit: gb_second
+    multiplier: 1
+    description: Normalize serverless duration to one GB-second.
+  per_state_transition:
+    source_units: ["State Transition", "State Transitions"]
+    target_unit: state_transition
+    multiplier: 1
+    description: Normalize workflow meters to one state transition.
+  per_query_unit:
+    source_units: ["Query Unit", "Query Units"]
+    target_unit: query_unit
+    multiplier: 1
+    description: Normalize digital twin query unit prices.
+  per_user_month:
+    source_units: ["User/Month", "user/month", "User Month"]
+    target_unit: user_month
+    multiplier: 1
+    description: Normalize user license prices to one user-month.
+  not_applicable:
+    source_units: ["not_applicable"]
+    target_unit: not_applicable
+    multiplier: 0
+    description: Explicit non-applicability marker for unsupported provider services.

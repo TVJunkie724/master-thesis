@@ -1,0 +1,26 @@
+schema_version: pricing-registry-service-models.v1
+registry_version: "2026.06.08"
+service_models:
+  cost_model_v1:
+    metric: cost
+    description: Current thesis cost calculation model.
+    intent_groups: [cost]
+    intents:
+      - transfer.egress_gb
+      - iot.message_ingest
+      - functions.request
+      - functions.compute_gb_second
+      - storage.hot.storage_gb_month
+      - storage.hot.read_request
+      - storage.hot.write_request
+      - storage.cool.storage_gb_month
+      - storage.archive.storage_gb_month
+      - storage.archive.write_request
+      - api.request_million
+      - orchestration.state_transition
+      - event_bus.event_million
+      - digital_twin.query_unit
+      - grafana.editor_user_month
+      - grafana.viewer_user_month
+    notes:
+      - Digital Twins, AWS IoT TwinMaker, IoT Hub, transfer tiers, and storage operation tiers require provider-specific review before formula changes.

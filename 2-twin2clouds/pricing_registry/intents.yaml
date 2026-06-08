@@ -1,0 +1,104 @@
+schema_version: pricing-registry-intents.v1
+registry_version: "2026.06.08"
+intent_groups:
+  cost:
+    metric: cost
+    enabled: true
+    description: Cost intents consumed by cost_minimization_v1.
+intents:
+  transfer.egress_gb:
+    group: cost
+    description: Data transfer egress normalized per GB.
+    normalized_unit: gb
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]
+  iot.message_ingest:
+    group: cost
+    description: IoT message ingestion normalized per message.
+    normalized_unit: message
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]
+  functions.request:
+    group: cost
+    description: Serverless function requests normalized per request.
+    normalized_unit: request
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]
+  functions.compute_gb_second:
+    group: cost
+    description: Serverless compute duration normalized per GB-second.
+    normalized_unit: gb_second
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]
+  storage.hot.storage_gb_month:
+    group: cost
+    description: Hot storage capacity normalized per GB-month.
+    normalized_unit: gb_month
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]
+  storage.hot.read_request:
+    group: cost
+    description: Hot storage read operations normalized per request.
+    normalized_unit: request
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]
+  storage.hot.write_request:
+    group: cost
+    description: Hot storage write operations normalized per request.
+    normalized_unit: request
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]
+  storage.cool.storage_gb_month:
+    group: cost
+    description: Cool storage capacity normalized per GB-month.
+    normalized_unit: gb_month
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]
+  storage.archive.storage_gb_month:
+    group: cost
+    description: Archive storage capacity normalized per GB-month.
+    normalized_unit: gb_month
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]
+  storage.archive.write_request:
+    group: cost
+    description: Archive storage write operations normalized per request.
+    normalized_unit: request
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]
+  api.request_million:
+    group: cost
+    description: API calls normalized per one million requests.
+    normalized_unit: 1m_requests
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]
+  orchestration.state_transition:
+    group: cost
+    description: Workflow state transitions normalized per transition.
+    normalized_unit: state_transition
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]
+  event_bus.event_million:
+    group: cost
+    description: Event bus events normalized per one million events.
+    normalized_unit: 1m_events
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]
+  digital_twin.query_unit:
+    group: cost
+    description: Digital twin query units normalized per query unit.
+    normalized_unit: query_unit
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]
+  grafana.editor_user_month:
+    group: cost
+    description: Managed Grafana editor users normalized per user-month.
+    normalized_unit: user_month
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]
+  grafana.viewer_user_month:
+    group: cost
+    description: Managed Grafana viewer users normalized per user-month.
+    normalized_unit: user_month
+    required_by: [cost_model_v1]
+    expected_providers: [aws, azure, gcp]

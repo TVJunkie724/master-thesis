@@ -1,0 +1,84 @@
+schema_version: pricing-registry-provider-mappings.v1
+provider: azure
+mapping_version: "2026.06.08"
+mappings:
+  - intent_id: transfer.egress_gb
+    review_status: draft
+    normalization_rule: per_gb
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: Bandwidth, unit: GB}
+  - intent_id: iot.message_ingest
+    review_status: draft
+    normalization_rule: per_1m_messages
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: IoT Hub}
+  - intent_id: functions.request
+    review_status: draft
+    normalization_rule: per_request
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: Functions, meter_name: Requests}
+  - intent_id: functions.compute_gb_second
+    review_status: draft
+    normalization_rule: per_gb_second
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: Functions, unit: GB Second}
+  - intent_id: storage.hot.storage_gb_month
+    review_status: draft
+    normalization_rule: per_gb_month
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: Azure Cosmos DB}
+  - intent_id: storage.hot.read_request
+    review_status: draft
+    normalization_rule: per_request
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: Azure Cosmos DB, meter_name: Read}
+  - intent_id: storage.hot.write_request
+    review_status: draft
+    normalization_rule: per_request
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: Azure Cosmos DB, meter_name: Write}
+  - intent_id: storage.cool.storage_gb_month
+    review_status: draft
+    normalization_rule: per_gb_month
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: Storage, sku_name: Cool}
+  - intent_id: storage.archive.storage_gb_month
+    review_status: draft
+    normalization_rule: per_gb_month
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: Storage, sku_name: Archive}
+  - intent_id: storage.archive.write_request
+    review_status: draft
+    normalization_rule: per_10k_requests
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: Storage, sku_name: Archive, meter_name: Write}
+  - intent_id: api.request_million
+    review_status: draft
+    normalization_rule: per_1m_requests
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: API Management, sku_name: Consumption}
+  - intent_id: orchestration.state_transition
+    review_status: draft
+    normalization_rule: per_1k_state_transitions
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: Logic Apps}
+  - intent_id: event_bus.event_million
+    review_status: draft
+    normalization_rule: per_1m_events
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: Event Grid}
+  - intent_id: digital_twin.query_unit
+    review_status: draft
+    normalization_rule: per_query_unit
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: Azure Digital Twins, meter_name: Standard Query Units}
+  - intent_id: grafana.editor_user_month
+    review_status: draft
+    normalization_rule: per_user_month
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: Azure Managed Grafana, meter_name: Editor}
+  - intent_id: grafana.viewer_user_month
+    review_status: draft
+    normalization_rule: per_user_month
+    expected_cardinality: one_or_more_per_region
+    match: {service_name: Azure Managed Grafana, meter_name: Viewer}

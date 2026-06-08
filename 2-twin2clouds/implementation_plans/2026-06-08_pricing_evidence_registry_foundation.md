@@ -303,6 +303,8 @@ Required tests:
 - registry YAML parses and validates
 - unknown intent fails validation
 - unknown normalization rule fails validation
+- unit mismatches fail validation unless a provider mapping declares an explicit
+  quantity transform
 - ambiguous provider row match returns `review_required`
 - `fallback_static` fails publish validation
 - unit conversion fixtures cover `1M`, `100K`, `10K`, `1K`, `GB`, `GiB`,
@@ -333,19 +335,40 @@ These are intentionally not solved in this first plan:
 
 ## Definition Of Done
 
-- [ ] Mini-roadmap is documented and limited to one slice at a time.
-- [ ] Editable SSOT target is explicit and separate from generated pricing files.
-- [ ] Evidence contract requires selected rows and rejected alternatives.
-- [ ] Publish rule states that `fallback_static = 0` is mandatory.
-- [ ] Review decisions cannot become manual price overrides.
-- [ ] Official cloud evidence must be reproducible or non-publishable.
-- [ ] Tiering and unit-normalization risks are explicitly captured.
-- [ ] Digital Twins / TwinMaker / IoT Hub tiering is tracked as future work.
-- [ ] Mini-roadmap matches the central pricing/optimization roadmap.
-- [ ] Plan avoids quick fixes, one-off defaults, and runtime LLM matching.
-- [ ] Plan can be implemented by a builder without guessing the architecture.
-- [ ] Evidence artifacts expose selected rows, alternatives, and rejection
+- [x] Mini-roadmap is documented and limited to one slice at a time.
+- [x] Editable SSOT target is explicit and separate from generated pricing files.
+- [x] Evidence contract requires selected rows and rejected alternatives.
+- [x] Publish rule states that `fallback_static = 0` is mandatory.
+- [x] Review decisions cannot become manual price overrides.
+- [x] Official cloud evidence must be reproducible or non-publishable.
+- [x] Tiering and unit-normalization risks are explicitly captured.
+- [x] Digital Twins / TwinMaker / IoT Hub tiering is tracked as future work.
+- [x] Mini-roadmap matches the central pricing/optimization roadmap.
+- [x] Plan avoids quick fixes, one-off defaults, and runtime LLM matching.
+- [x] Plan can be implemented by a builder without guessing the architecture.
+- [x] Evidence artifacts expose selected rows, alternatives, and rejection
   reasons outside logs.
+
+## Implementation Verification
+
+Implemented on branch `codex/pricing-catalog-reliability`.
+
+Verification commands:
+
+```bash
+docker compose exec -T 2twin2clouds sh -lc \
+  'PYTHONPATH=/app pytest tests/unit/pricing/test_pricing_registry_foundation.py -q'
+
+docker compose exec -T 2twin2clouds sh -lc \
+  'PYTHONPATH=/app pytest tests/unit/pricing -q'
+```
+
+Observed result:
+
+```text
+8 passed in 0.09s
+93 passed in 0.48s
+```
 
 ## Self Review
 
@@ -380,5 +403,7 @@ These are intentionally not solved in this first plan:
 - Fixed: mini-roadmap now includes Registry Contract/API, Optimization
   Profiles, Cost Calculation Run Store, and the full 10-phase sequence from the
   central roadmap.
+- Fixed: provider mapping normalization target units must match intent units
+  unless an explicit quantity transform documents the conversion.
 
 No open findings after fixes.
