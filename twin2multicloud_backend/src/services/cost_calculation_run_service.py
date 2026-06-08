@@ -211,6 +211,16 @@ class CostCalculationRunService:
             errors.append({"field": "optimizationProfile.scoring_strategy_id", "message": "Missing"})
         if not profile.get("calculation_model_ids"):
             errors.append({"field": "optimizationProfile.calculation_model_ids", "message": "Missing"})
+        evidence_references = result.get("evidenceReferences")
+        if not isinstance(evidence_references, dict):
+            errors.append({"field": "evidenceReferences", "message": "Missing object"})
+        elif not evidence_references.get("pricing_registry"):
+            errors.append(
+                {
+                    "field": "evidenceReferences.pricing_registry",
+                    "message": "Missing",
+                }
+            )
 
         if errors:
             raise OptimizerContractError("Optimizer response contract is invalid", errors)

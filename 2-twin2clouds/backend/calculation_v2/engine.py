@@ -411,6 +411,9 @@ def calculate_cheapest_costs(
     optimization_metadata = profile_registry.build_result_metadata(
         optimization_profile.profile_id
     )
+    pricing_registry_reference = (
+        f"pricing_registry:{optimization_metadata['pricing_registry_version']}"
+    )
     
     # Calculate costs for each provider
     aws_costs = calculate_aws_costs(params, pricing)
@@ -440,7 +443,7 @@ def calculate_cheapest_costs(
                     candidate_id=provider,
                     metric_inputs={"cost": cost},
                     evidence_references=(
-                        f"pricing_registry:{optimization_metadata['pricing_registry_version']}",
+                        pricing_registry_reference,
                     ),
                     metadata={"layer": layer, "provider": provider},
                 )
@@ -544,6 +547,11 @@ def calculate_cheapest_costs(
         "optimization_profile_id": optimization_profile.profile_id,
         "result_schema_version": optimization_profile.result_schema_version,
         "optimizationProfile": optimization_metadata,
+        "evidenceReferences": {
+            "pricing_registry": pricing_registry_reference,
+            "pricing_evidence_contract": "pricing-evidence.v1",
+            "intent_group_ids": list(optimization_metadata.get("intent_group_ids") or []),
+        },
         "calculationResult": result,
         "awsCosts": aws_costs,
         "azureCosts": azure_costs,

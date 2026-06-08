@@ -37,7 +37,8 @@ complexity, or lock-in must be possible without rewriting the optimizer core.
 | AWS pricing evidence artifacts | #91 | implemented on this branch |
 | AWS tiering and unit-aware calculation | #92 | implemented on this branch |
 | GCP pricing credential preflight and evidence artifacts | #93 | implemented on this branch |
-| Provider-specific tiering/calculation reviews | TBD | create per provider before implementation |
+| Cross-provider evidence-backed cost validation | #94 | implemented on this branch |
+| Provider-specific tiering/calculation reviews | #90/#92/#93 | implemented baseline; live/e2e finalization remains later |
 
 Issue numbers must be added here when planned phases are split into GitHub
 issues. The markdown roadmap remains the thesis/dev narrative; GitHub remains
@@ -197,7 +198,7 @@ first-class.
 | 7 | `2026-06-08_aws_pricing_evidence_implementation.md` | implemented (#91) | Capture AWS Price List and service-specific evidence with selected dimensions |
 | 8 | `2026-06-08_aws_tiering_calculation_review.md` | implemented (#92) | Review AWS tiers including IoT TwinMaker and adapt cost calculation where required |
 | 9 | `2026-06-08_gcp_credentials_pricing_evidence.md` | implemented (#93) | Fix GCP pricing credentials/permissions, then capture GCP Catalog evidence |
-| 10 | `2026-06-08_cross_provider_cost_validation.md` | planned | Validate all cost intents across providers with zero publishable fallbacks |
+| 10 | `2026-06-08_cross_provider_cost_validation.md` | implemented (#94) | Validate all cost intents across providers with zero publishable fallbacks |
 
 ## Phase Boundaries
 
@@ -298,6 +299,15 @@ Validates the final cost-only path across providers and enforces that
 publishable pricing contains no `fallback_static` values. The validation result
 must be persistable as a Management API cost-calculation run with evidence
 references.
+
+Implemented in GitHub issue #94. The optimizer now has a structured
+cross-provider cost validation gate that checks active cost intents across AWS,
+Azure, and GCP, rejects missing provider evidence, rejects unresolved
+`review_required` evidence in publishable mode, rejects `fallback_static`,
+validates normalized units, validates the active `cost_minimization_v1`
+optimization profile, and exposes selected evidence ids per provider/intent.
+Calculation results now include `evidenceReferences`, and the Management API
+run store rejects optimizer responses that omit evidence-reference metadata.
 
 ## Explicit Future Metrics
 

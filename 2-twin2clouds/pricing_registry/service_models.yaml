@@ -67,3 +67,22 @@ service_models:
       open_research:
         - Verify exact Catalog mappings for Pub/Sub volume-based IoT equivalent, Firestore operations, Cloud Storage classes, Workflows, API Gateway/Service Control, and Compute Engine self-hosted equivalents.
         - Final GCP formula/tiering changes are deferred until live Billing Catalog evidence is validated.
+    cross_provider_validation_model:
+      status: implemented_for_phase_10
+      issue: 94
+      validation_schema_version: cross-provider-cost-validation.v1
+      required_profile: cost_minimization_v1
+      required_result_schema: cost-result.v1
+      rules:
+        - Every active cost intent must have AWS, Azure, and GCP evidence or explicit non-applicability.
+        - Publishable validation rejects missing provider reports, missing intent evidence, review-required evidence, fallback_static, incompatible normalized units, and incompatible optimization profile metadata.
+        - Explicit non-applicability is acceptable only when it is represented as provider evidence and is not review-required.
+        - Calculation results must expose evidenceReferences so the Management API run store can persist the audit trail in result_summary_json.
+      output:
+        - Structured provider/intent status for future UI diagnostics.
+        - Deterministic selected evidence ids per provider/intent.
+        - Provider selected-row identity plus candidate and rejected counts.
+        - Management-run compatibility status for existing CostCalculationRun persistence.
+      open_research:
+        - Live provider E2E remains deferred until the remaining architecture refactorings are complete.
+        - Provider-specific pricing tiers and service equivalence must still be verified with final live evidence before thesis evaluation claims are frozen.

@@ -39,6 +39,11 @@ def _optimizer_payload(overrides=None):
             "intent_group_ids": ["cost"],
             "pricing_registry_version": "2026.06.08",
         },
+        "evidenceReferences": {
+            "pricing_registry": "pricing_registry:2026.06.08",
+            "pricing_evidence_contract": "pricing-evidence.v1",
+            "intent_group_ids": ["cost"],
+        },
         "calculationResult": {
             "L1": "AWS",
             "L2": "Azure",
@@ -232,6 +237,54 @@ def test_detail_returns_explicit_evidence_references(
     assert item["evidence_id"] == "aws-iot-evidence-1"
     assert item["service_intent_id"] == "iot.message_ingest"
     assert item["calculation_notes"] == {"selected_row": "sku-1"}
+
+
+def test_create_run_persists_optimizer_evidence_reference_metadata(
+    authenticated_client,
+    db_session,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    _override_optimizer(client, FakeOptimizerClient())
+
+    response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    run = db_session.query(CostCalculationRun).filter_by(id=response.json()["id"]).one()
+    result_summary = json.loads(run.result_summary_json)
+    assert result_summary["evidenceReferences"]["pricing_registry"] == (
+        "pricing_registry:2026.06.08"
+    )
+    assert result_summary["evidenceReferences"]["pricing_evidence_contract"] == (
+        "pricing-evidence.v1"
+    )
+
+
+def test_missing_evidence_references_are_rejected(
+    authenticated_client,
+    db_session,
+    sample_calc_params,
+):
+    client, headers = authenticated_client
+    twin_id = create_test_twin(client, headers)
+    payload = _optimizer_payload()
+    payload["result"].pop("evidenceReferences")
+    _override_optimizer(client, FakeOptimizerClient(payload=payload))
+
+    response = client.post(
+        f"/twins/{twin_id}/optimizer-runs/",
+        json={"params": sample_calc_params},
+        headers=headers,
+    )
+
+    assert response.status_code == 502
+    assert "evidenceReferences" in str(response.json()["detail"]["field_errors"])
+    assert db_session.query(CostCalculationRun).count() == 0
 
 
 def test_invalid_optimizer_contract_returns_structured_502_without_successful_run(
