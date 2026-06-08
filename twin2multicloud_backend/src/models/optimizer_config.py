@@ -41,3 +41,7 @@ class OptimizerConfiguration(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     twin = relationship("DigitalTwin", back_populates="optimizer_config", uselist=False)
+    cost_calculation_runs = relationship(
+        "CostCalculationRun",
+        back_populates="optimizer_config",
+    )

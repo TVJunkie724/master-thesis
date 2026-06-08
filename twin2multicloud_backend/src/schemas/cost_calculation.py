@@ -1,0 +1,70 @@
+from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class CostCalculationRunCreate(BaseModel):
+    params: dict = Field(..., description="Optimizer calculation parameters")
+    pricing_snapshots: dict = Field(default_factory=dict)
+    pricing_timestamps: dict = Field(default_factory=dict)
+    pricing_evidence_version: Optional[str] = None
+    pricing_run_reference: Optional[str] = None
+
+
+class CostCalculationResultItemResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    run_id: str
+    layer: str
+    component: Optional[str] = None
+    provider: Optional[str] = None
+    service_intent_id: Optional[str] = None
+    cost_amount: Optional[float] = None
+    currency: str
+    unit: Optional[str] = None
+    quantity: Optional[float] = None
+    unit_price: Optional[float] = None
+    evidence_id: Optional[str] = None
+    service_model_id: Optional[str] = None
+    calculation_notes: Optional[dict] = None
+    review_status: Optional[str] = None
+    created_at: datetime
+
+
+class CostCalculationRunSummaryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    twin_id: str
+    user_id: str
+    optimizer_config_id: Optional[str] = None
+    status: str
+    cheapest_path: Optional[dict] = None
+    total_monthly_cost: Optional[float] = None
+    currency: str
+    optimization_profile_id: str
+    optimization_profile_version: Optional[str] = None
+    scoring_strategy_id: str
+    calculation_model_version: Optional[str] = None
+    pricing_registry_version: Optional[str] = None
+    pricing_evidence_version: Optional[str] = None
+    pricing_run_reference: Optional[str] = None
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+    selected_for_deployment_at: Optional[datetime] = None
+    error_code: Optional[str] = None
+    error_message: Optional[str] = None
+
+
+class CostCalculationRunDetailResponse(CostCalculationRunSummaryResponse):
+    params: dict
+    result_summary: Optional[dict] = None
+    result_items: list[CostCalculationResultItemResponse] = Field(default_factory=list)
+
+
+class CostCalculationRunSelectResponse(BaseModel):
+    run: CostCalculationRunSummaryResponse
+    selected_for_deployment_at: datetime
+

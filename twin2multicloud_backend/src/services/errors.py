@@ -57,3 +57,15 @@ class ExternalServiceUnavailable(DomainError):
 
 class ExternalServiceError(DomainError):
     status_code = 502
+
+
+class OptimizerContractError(DomainError):
+    status_code = 502
+
+    def __init__(self, message: str, errors: list[dict] | None = None):
+        super().__init__(message)
+        self.errors = errors or []
+
+
+class CostCalculationRunSelectionError(DomainError):
+    status_code = 409

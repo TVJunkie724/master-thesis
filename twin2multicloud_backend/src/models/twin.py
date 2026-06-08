@@ -46,6 +46,12 @@ class DigitalTwin(Base):
         uselist=False,
         cascade="all, delete-orphan"
     )
+    cost_calculation_runs = relationship(
+        "CostCalculationRun",
+        back_populates="twin",
+        cascade="all, delete-orphan",
+        order_by="CostCalculationRun.created_at.desc()",
+    )
     deployer_config = relationship(
         "DeployerConfiguration",
         back_populates="twin",
@@ -57,4 +63,3 @@ class DigitalTwin(Base):
         back_populates="twin",
         order_by="DeploymentLog.event_id.asc()"
     )
-

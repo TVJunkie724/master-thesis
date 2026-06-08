@@ -7,7 +7,7 @@ Parent roadmap:
 
 Related epic: GitHub issue #69
 
-Issue for this phase: TBD
+Issue for this phase: GitHub issue #88
 
 ## Goal
 
@@ -278,17 +278,69 @@ Required tests:
 
 ## Definition Of Done
 
-- [ ] Existing Management DB is extended; no optimizer-owned app DB exists.
-- [ ] Cost calculation runs are first-class typed records.
-- [ ] Cost result items are queryable separately from the raw result JSON.
-- [ ] Cost calculation runs persist the active optimization profile, scoring
+- [x] Existing Management DB is extended; no optimizer-owned app DB exists.
+- [x] Cost calculation runs are first-class typed records.
+- [x] Cost result items are queryable separately from the raw result JSON.
+- [x] Cost calculation runs persist the active optimization profile, scoring
   strategy, and calculation model metadata.
-- [ ] Result items can store pricing/evidence references.
-- [ ] Current `optimizer_configurations` behavior remains compatible.
-- [ ] API endpoints support create/list/detail/select lifecycle.
-- [ ] Deployer compatibility remains intact.
-- [ ] Tests cover persistence, ownership, rollback, and structured errors.
-- [ ] Documentation explains data ownership and migration path.
+- [x] Result items can store pricing/evidence references.
+- [x] Current `optimizer_configurations` behavior remains compatible.
+- [x] API endpoints support create/list/detail/select lifecycle.
+- [x] Deployer compatibility remains intact.
+- [x] Tests cover persistence, ownership, rollback, and structured errors.
+- [x] Documentation explains data ownership and migration path.
+
+## Implementation Summary
+
+Implemented in issue #88:
+
+- Added `CostCalculationRun` and `CostCalculationResultItem` SQLAlchemy models.
+- Added idempotent migration `migrations/add_cost_calculation_runs.py`.
+- Added typed schemas for run creation, summaries, details, result items, and
+  deployment selection.
+- Added `CostCalculationRunService` to call the Optimizer, validate the result
+  contract, persist run/items transactionally, update
+  `optimizer_configurations`, list/detail runs by Twin/User ownership, and
+  select one successful run for deployment handoff.
+- Added `/twins/{twin_id}/optimizer-runs` create/list/detail/select endpoints.
+- Added `OptimizerClient.calculate()` as the typed Management API client path.
+- Preserved current Deployer compatibility by keeping cheapest-path columns and
+  `result_json` updated from the canonical persisted run.
+
+Current result-item extraction stores either explicit Optimizer-provided
+`resultItems`/`costItems` with evidence metadata or, for the current cost-only
+Optimizer response, selected layer totals plus transfer items with
+`pending_evidence` review status. Provider-specific evidence enrichment remains
+in the later provider evidence phases.
+
+## Verification
+
+Focused slice:
+
+```bash
+PYTHONPATH=. /Users/caroline/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 \
+  -m pytest tests/test_cost_calculation_runs.py tests/test_cost_calculation_run_migration.py \
+  tests/test_optimizer_client.py tests/test_optimizer_config.py -q
+```
+
+Result:
+
+```text
+20 passed
+```
+
+Full Management backend suite:
+
+```bash
+PYTHONPATH=. /Users/caroline/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 \
+  -m pytest tests -q
+```
+
+Result:
+
+```text
+301 passed
+```
 
 ## Self Review
 
@@ -318,6 +370,12 @@ Required tests:
   compatibility bridge, not immediately deleted.
 - Fixed: deployment handoff migration is deferred to avoid broad side effects.
 - Fixed: structured error handling and rollback tests are mandatory.
+- Fixed after implementation: rollback now covers all DB mutations including
+  `flush()` before commit.
+- Fixed after implementation: optimizer downstream error bodies are not echoed
+  into Management API responses.
+
+No open findings after implementation review.
 - Fixed: run history now persists `optimization_profile_id` and related strategy
   metadata instead of only a loose scoring strategy string.
 

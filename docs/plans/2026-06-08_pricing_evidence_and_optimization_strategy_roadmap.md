@@ -31,7 +31,7 @@ complexity, or lock-in must be possible without rewriting the optimizer core.
 | Pricing evidence registry foundation | #32 | implemented on this branch |
 | Pricing registry contract/API | #32 | implemented on this branch |
 | Optimization strategy architecture | #87 | implemented on this branch |
-| Cost calculation run store | TBD | create before Management API implementation |
+| Cost calculation run store | #88 | implemented on this branch |
 | Provider-specific tiering/calculation reviews | TBD | create per provider before implementation |
 
 Issue numbers must be added here when planned phases are split into GitHub
@@ -186,7 +186,7 @@ first-class.
 | 1 | `2026-06-08_pricing_evidence_registry_foundation.md` | implemented | Define editable pricing SSOT, evidence contract, and publish gate |
 | 2 | `2026-06-08_pricing_registry_contract_api.md` | implemented | Expose registry files through typed internal services and read-only API |
 | 3 | `2026-06-08_optimization_strategy_architecture.md` | implemented | Make cost the first metric strategy, not a hardcoded optimizer assumption |
-| 4 | `twin2multicloud_backend/implementation_plans/2026-06-08_cost_calculation_run_store.md` | planned | Persist typed Twin-scoped calculation runs in the existing Management DB |
+| 4 | `twin2multicloud_backend/implementation_plans/2026-06-08_cost_calculation_run_store.md` | implemented | Persist typed Twin-scoped calculation runs in the existing Management DB |
 | 5 | `2026-06-08_azure_pricing_evidence_implementation.md` | planned | Capture Azure raw rows, candidates, selected evidence, and rejected alternatives |
 | 6 | `2026-06-08_azure_tiering_calculation_review.md` | planned | Review Azure tiers and adapt cost calculation where the current model is incomplete |
 | 7 | `2026-06-08_aws_pricing_evidence_implementation.md` | planned | Capture AWS Price List and service-specific evidence with selected dimensions |
@@ -225,6 +225,12 @@ future Management API run history.
 Adds a Management API calculation-run store in the existing Management DB. It
 must not create a separate optimizer database. It must preserve the current
 Step-2 compatibility path while introducing typed run history.
+
+Implemented in GitHub issue #88. The Management API now exposes
+`/twins/{twin_id}/optimizer-runs` create/list/detail/select endpoints, stores
+typed run and result-item records, validates optimizer profile metadata, updates
+`optimizer_configurations` compatibility fields transactionally, and keeps the
+optimizer service stateless.
 
 ### Phase 5
 

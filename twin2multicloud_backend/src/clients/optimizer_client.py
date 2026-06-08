@@ -22,3 +22,11 @@ class OptimizerClient(ExternalServiceClient):
             json=payload,
             timeout=30.0,
         )
+
+    async def calculate(self, params: dict[str, Any]) -> dict[str, Any]:
+        return await self._request_json(
+            "PUT",
+            "/calculate",
+            json=params,
+            timeout=60.0,
+        )
