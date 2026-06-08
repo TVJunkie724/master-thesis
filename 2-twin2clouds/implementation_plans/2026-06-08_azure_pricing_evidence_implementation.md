@@ -10,6 +10,8 @@ Depends on:
 - `2026-06-08_pricing_evidence_registry_foundation.md`
 - `2026-06-08_pricing_registry_contract_api.md`
 
+Implementation issue: GitHub issue #89
+
 ## Goal
 
 Implement the first provider-specific evidence pipeline for Azure. Azure is the
@@ -153,17 +155,46 @@ Required assertions:
 
 ## Definition Of Done
 
-- [ ] Azure raw rows are captured in sanitized snapshots.
-- [ ] Azure candidates preserve provider row identity.
-- [ ] Azure evidence includes selected and rejected rows.
-- [ ] Azure evidence is inspectable without reading logs.
-- [ ] Azure evidence reports expose the exact Retail Prices row selected per
+- [x] Azure raw rows are captured in sanitized snapshots.
+- [x] Azure candidates preserve provider row identity.
+- [x] Azure evidence includes selected and rejected rows.
+- [x] Azure evidence is inspectable without reading logs.
+- [x] Azure evidence reports expose the exact Retail Prices row selected per
   intent.
-- [ ] Missing or ambiguous Azure evidence is review-required.
-- [ ] Existing Azure pricing output remains calculation-compatible.
-- [ ] No Azure static fallback is publishable.
-- [ ] Azure provider evidence code does not add scattered direct registry-file
+- [x] Missing or ambiguous Azure evidence is review-required.
+- [x] Existing Azure pricing output remains calculation-compatible.
+- [x] No Azure static fallback is publishable.
+- [x] Azure provider evidence code does not add scattered direct registry-file
   reads.
+
+## Implementation Summary
+
+Implemented in issue #89:
+
+- Added `backend.azure_pricing_evidence` to build deterministic Azure evidence
+  reports from Azure Retail Prices rows.
+- Reused the existing catalog snapshot/candidate extraction code for sanitized
+  raw row preservation.
+- Used `PricingRegistryService` for Azure mappings, normalization rules, and
+  registry version metadata.
+- Produced evidence records with selected rows, candidate rows, enriched
+  rejected alternatives, match status, normalization metadata,
+  review-required state, and publishability-compatible source typing.
+- Added writer helper for explicit evidence artifact targets.
+- Kept calculation pricing output untouched; this phase is evidence-only.
+
+## Verification
+
+```bash
+docker compose exec -T 2twin2clouds sh -lc \
+  'PYTHONPATH=/app pytest tests/unit/pricing tests/unit/optimization tests/unit/calculation_v2 -q'
+```
+
+Result:
+
+```text
+160 passed
+```
 
 ## Self Review
 
@@ -189,5 +220,7 @@ Required assertions:
   not only logs.
 - Fixed: Azure evidence implementation depends on the registry service/API
   boundary.
+- Fixed after implementation: rejected alternatives are enriched with the
+  candidate row fields needed for later drift diagnosis, not only candidate ids.
 
 No open findings after review.
