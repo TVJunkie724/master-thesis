@@ -42,7 +42,14 @@ must make that explicit.
 Usage Input
     |
     v
-OptimizationContext
+OptimizationProfileRegistry
+    |
+    +--> cost_minimization_v1             enabled
+    +--> latency_minimization_v1          disabled / TBD
+    +--> weighted_multi_objective_v1      disabled / TBD
+    |
+    v
+ValidatedOptimizationProfile
     |
     +--> MetricProviderRegistry
     |       |
@@ -61,6 +68,10 @@ ScoringStrategyRegistry
     v
 RankedOptimizationResult
 ```
+
+The selected profile bundles compatible metric providers, calculation models,
+scoring strategy, and intent groups. Callers must not configure these pieces
+independently.
 
 Persistence of concrete Twin-scoped calculation runs is outside the optimizer
 service and belongs to the Management API run store phase.
@@ -141,6 +152,7 @@ For this phase:
 - `CostMetricProvider` is enabled.
 - `CostCalculationModel` wraps the current cost calculation behavior.
 - `CostOnlyStrategy` is the only enabled scoring strategy.
+- `cost_minimization_v1` is the only enabled optimization profile.
 - Future strategies are documented as disabled/TBD only.
 
 The optimizer core must depend on these contracts, not on provider-specific
@@ -154,28 +166,88 @@ Cost calculation must obtain registry metadata through `PricingRegistryService`
 from the registry contract/API phase. It must not introduce new direct YAML
 reads for intents, mappings, service models, or normalization rules.
 
-## Configuration Contract
+## Optimization Profile Contract
 
-The configuration must make disabled metrics explicit:
+Metric providers, calculation models, scoring strategies, and intent groups must
+be bundled through a validated optimization profile.
+
+Required profile fields:
+
+```text
+profile_id
+enabled
+metric_provider_ids
+calculation_model_ids
+scoring_strategy_id
+intent_group_ids
+evidence_requirements
+result_schema_version
+description
+```
+
+The optimizer must reject configurations that attempt to combine incompatible
+pieces outside a profile.
+
+Examples:
 
 ```yaml
-optimization_metrics:
-  cost:
+optimization_profiles:
+  cost_minimization_v1:
     enabled: true
-    provider: pricing_evidence_registry
-    scoring_strategy: cost_only
-  latency:
+    metric_provider_ids:
+      - cost
+    calculation_model_ids:
+      - cost_model_v1
+    scoring_strategy_id: min_total_cost_v1
+    intent_group_ids:
+      - cost
+    evidence_requirements:
+      pricing: evidence_backed
+    result_schema_version: cost_result_v1
+
+  latency_minimization_v1:
     enabled: false
     status: tbd
-    intended_sources:
-      - static region latency matrix
-      - benchmark output file
-  sustainability:
+    metric_provider_ids:
+      - latency
+    calculation_model_ids:
+      - latency_model_v1
+    scoring_strategy_id: min_latency_v1
+    intent_group_ids:
+      - latency
+
+  cost_latency_weighted_v1:
     enabled: false
     status: tbd
-    intended_sources:
-      - carbon intensity dataset
-      - region metadata
+    metric_provider_ids:
+      - cost
+      - latency
+    calculation_model_ids:
+      - cost_model_v1
+      - latency_model_v1
+    scoring_strategy_id: weighted_sum_v1
+    intent_group_ids:
+      - cost
+      - latency
+```
+
+Disabled/TBD profiles are documentation/configuration declarations only. They
+must not produce result values or appear as executable options.
+
+## Configuration Contract
+
+The configuration must make the enabled profile and disabled future profiles
+explicit:
+
+```yaml
+active_optimization_profile: cost_minimization_v1
+optimization_profiles:
+  cost_minimization_v1:
+    enabled: true
+    metric_provider_ids: [cost]
+    calculation_model_ids: [cost_model_v1]
+    scoring_strategy_id: min_total_cost_v1
+    intent_group_ids: [cost]
 ```
 
 Disabled metrics must not create fake outputs.
@@ -188,6 +260,9 @@ Required tests:
 - disabled metrics do not affect ranking
 - unknown enabled metric fails configuration validation
 - unknown scoring strategy fails configuration validation
+- unknown active optimization profile fails configuration validation
+- incompatible metric/model/strategy/profile combinations fail validation
+- disabled profile cannot be selected for execution
 - cost-only strategy preserves current optimizer behavior for an existing
   fixture
 - metric results include evidence level metadata
@@ -200,12 +275,17 @@ Required tests:
 ## Definition Of Done
 
 - [ ] Cost is represented as an enabled metric provider.
+- [ ] `cost_minimization_v1` is the only enabled optimization profile.
+- [ ] Metric providers, calculation models, scoring strategy, and intent groups
+  are selected through a validated profile.
 - [ ] Future metrics are declared as disabled/TBD without fake implementations.
 - [ ] Scoring strategy is explicit and defaults to cost-only.
 - [ ] Existing cost optimization behavior remains unchanged for verified
   fixtures.
 - [ ] Configuration validation rejects unknown enabled metrics or scoring
   strategies.
+- [ ] Configuration validation rejects unknown, disabled, or incompatible
+  optimization profiles.
 - [ ] Documentation explains how a future developer can add a static-file or
   programmatic metric source.
 - [ ] The optimizer can rank candidates through the cost-only strategy without
@@ -222,12 +302,16 @@ Required tests:
 - Future metrics are not over-engineered into fake classes.
 - The evidence-level field prevents non-cost metrics from pretending to be API
   backed.
+- Profile bundling prevents future strategies, models, metrics, and intent
+  groups from drifting into invalid combinations.
 
 ### Builder Review
 
 - Contracts and tests are concrete enough to implement without guessing.
 - Existing cost behavior has a regression requirement.
 - Disabled metric behavior is explicit.
+- The active profile contract gives builders one place to validate compatibility
+  before execution.
 
 ### Review Findings
 
@@ -240,5 +324,8 @@ Required tests:
 - Fixed: calculation-run persistence is explicitly delegated to the Management
   API phase.
 - Fixed: registry access is delegated to `PricingRegistryService`.
+- Fixed: metric providers, calculation models, scoring strategies, and intent
+  groups are bundled through validated optimization profiles.
+- Fixed: disabled/TBD profiles cannot execute or produce placeholder results.
 
 No open findings after review.

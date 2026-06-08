@@ -44,7 +44,14 @@ the operational tracker.
 Twin / Usage Input
         |
         v
-Optimization Context
+Optimization Profile
+        |
+        +--> cost_minimization_v1       enabled
+        +--> latency_minimization_v1    disabled / TBD
+        +--> weighted_multi_objective   disabled / TBD
+        |
+        v
+Validated Optimization Bundle
         |
         +--> Metric Providers
         |       |
@@ -63,6 +70,21 @@ Calculation / Scoring Strategy
         |
         v
 Ranked Architecture Candidates
+```
+
+The selected optimization profile is the compatibility boundary. Users and
+callers must not freely mix metric providers, calculation models, scoring
+strategies, and intent groups. A profile validates that those pieces belong
+together before execution.
+
+```text
+OptimizationProfile
+    |
+    +--> metric providers
+    +--> calculation models
+    +--> scoring strategy
+    +--> compatible intent groups
+    +--> enabled/disabled state
 ```
 
 Cost metrics are backed by the pricing evidence registry:
@@ -177,7 +199,9 @@ reads or local HTTP calls.
 ### Phase 3
 
 Defines optimizer extension seams for metrics and scoring models. It must keep
-only cost enabled.
+only cost enabled. Strategies, metric providers, calculation models, and intent
+groups must be selected through validated optimization profiles, not combined
+ad hoc.
 
 ### Phase 4
 
@@ -257,6 +281,28 @@ The current thesis implementation enables only `cost`. Disabled future metrics
 may be declared in configuration or documentation, but must not emit fake values
 or participate in rankings.
 
+## Optimization Profile Rule
+
+Optimization execution must be profile-based.
+
+```text
+optimization_profiles:
+  cost_minimization_v1:
+    enabled: true
+    metric_providers:
+      - cost
+    calculation_models:
+      - cost_model_v1
+    scoring_strategy: min_total_cost_v1
+    intent_groups:
+      - cost
+```
+
+Future profiles such as latency minimization or weighted multi-objective
+optimization may be declared as disabled/TBD. They must not execute until their
+metric providers, calculation models, scoring strategies, and intent groups are
+implemented and validated as a compatible bundle.
+
 ## Publishability Rule
 
 Fallback is an emergency diagnostic path, not the target architecture.
@@ -298,6 +344,9 @@ compatibility/current-state bridge during migration, but typed
 - Fixed: GitHub issue mapping is represented without inventing placeholder
   issue numbers.
 - Fixed: pricing registry access is now its own typed contract/API phase.
+- Fixed: optimization strategies are bundled through validated profiles so
+  metric providers, calculation models, scoring strategies, and intent groups
+  cannot drift apart.
 - Fixed: cost calculation run persistence is now its own Management API phase
   and explicitly uses the existing Management DB.
 - Fixed: optimizer-owned result databases are out of scope to avoid distributed
