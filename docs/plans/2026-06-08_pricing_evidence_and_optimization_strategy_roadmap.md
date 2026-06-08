@@ -62,7 +62,7 @@ Validated Optimization Bundle
         |       +--> compliance        disabled / TBD
         |
         v
-Calculation / Scoring Strategy
+Calculation Model / Scoring Strategy
         |
         +--> cost-only                 enabled
         +--> weighted multi-objective  disabled / TBD
@@ -168,6 +168,17 @@ Management DB      = Twin-scoped calculation runs, results, history, audit state
 Optimizer service  = stateless calculation and ranking
 ```
 
+## Completed Baseline Before This Roadmap
+
+| Plan | Status | Purpose |
+|---|---|---|
+| `2-twin2clouds/implementation_plans/2026-06-08_pricing_schema_fetcher_contract.md` | completed | Hardened current pricing schema/fetcher contract, explicit quality metadata, and visible fallback provenance |
+
+This roadmap builds on that completed baseline. It does not replace the schema
+hardening slice retroactively; it defines the next target architecture that
+removes publishable fallbacks and makes evidence, profiles, and run history
+first-class.
+
 ## Phase Roadmap
 
 | Phase | Plan | Status | Objective |
@@ -264,9 +275,17 @@ Future metrics and calculation models must be added through explicit strategy
 and provider contracts:
 
 ```text
+OptimizationProfile
+    +--> bundles compatible metrics, calculation models, scoring strategy,
+         and intent groups
+
 MetricProvider
     +--> declares metric id, enabled state, evidence level, required inputs
     +--> produces typed metric results
+
+CalculationModel
+    +--> converts evidence-backed inputs into metric values
+    +--> declares compatible intent groups
 
 ScoringStrategy
     +--> declares compatible metrics
@@ -280,6 +299,19 @@ SourceAdapter
 The current thesis implementation enables only `cost`. Disabled future metrics
 may be declared in configuration or documentation, but must not emit fake values
 or participate in rankings.
+
+## Implementation Governance
+
+Every phase must satisfy these gates before implementation is considered ready:
+
+- create or link the GitHub issue before implementation starts
+- keep phase scope narrow and avoid adjacent refactors
+- run deterministic unit/integration tests named in the phase plan
+- do not run real cloud deployment E2E tests unless explicitly requested
+- perform a review against this roadmap and the phase plan after implementation
+- fix review findings before committing the phase implementation
+- update this roadmap with issue numbers, status changes, and any approved
+  scope changes
 
 ## Optimization Profile Rule
 
@@ -351,5 +383,10 @@ compatibility/current-state bridge during migration, but typed
   and explicitly uses the existing Management DB.
 - Fixed: optimizer-owned result databases are out of scope to avoid distributed
   Twin/User truth.
+- Fixed: completed pricing schema/fetcher hardening is documented as the
+  baseline that this roadmap builds on.
+- Fixed: extension contracts now include `OptimizationProfile` and
+  `CalculationModel`, not only metric/scoring/source contracts.
+- Fixed: roadmap-level implementation governance is explicit.
 
 No open findings after roadmap review.

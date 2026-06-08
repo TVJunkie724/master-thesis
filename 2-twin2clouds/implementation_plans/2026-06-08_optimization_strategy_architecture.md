@@ -96,7 +96,9 @@ It must not:
 
 ```text
 2-twin2clouds/backend/optimization/
+  profiles.py
   metrics.py
+  models.py
   scoring.py
   config.py
   context.py
@@ -271,6 +273,8 @@ Required tests:
 - optimizer result contract is serializable by the Management API without
   giving the optimizer ownership of run history
 - cost calculation accesses registry metadata through `PricingRegistryService`
+- `cost_minimization_v1` result includes the active profile id and result schema
+  version for Management API persistence
 
 ## Definition Of Done
 
@@ -292,6 +296,7 @@ Required tests:
   importing provider-specific fetchers.
 - [ ] The optimizer does not persist Twin/User-scoped calculation history.
 - [ ] The optimizer does not add scattered direct registry-file reads.
+- [ ] Optimization results include active profile metadata for run history.
 
 ## Self Review
 
@@ -327,5 +332,9 @@ Required tests:
 - Fixed: metric providers, calculation models, scoring strategies, and intent
   groups are bundled through validated optimization profiles.
 - Fixed: disabled/TBD profiles cannot execute or produce placeholder results.
+- Fixed: proposed module layout now includes profile and calculation-model
+  modules.
+- Fixed: result metadata must expose the active profile for Management API run
+  storage.
 
 No open findings after review.

@@ -49,6 +49,7 @@ It must not:
 
 Every active cost intent must be checked for:
 
+- active optimization profile compatibility
 - AWS evidence
 - Azure evidence
 - GCP evidence
@@ -72,11 +73,13 @@ the UI.
 4. Fail publish when any provider has `fallback_static`.
 5. Add regression fixtures for representative workloads.
 6. Verify calculation output includes evidence references.
-7. Write a validation summary that lists publishable, review-required,
+7. Verify calculation output includes `optimization_profile_id`, result schema
+   version, and compatible cost intent groups.
+8. Write a validation summary that lists publishable, review-required,
    non-applicable, and failed intents per provider.
-8. Verify a representative validated calculation can be stored as a Management
+9. Verify a representative validated calculation can be stored as a Management
    API cost-calculation run without losing evidence references.
-9. Update developer/thesis documentation with the final evidence-backed cost
+10. Update developer/thesis documentation with the final evidence-backed cost
    flow.
 
 ## Test Strategy
@@ -90,13 +93,19 @@ Required tests:
 - cost-only optimizer output is deterministic for representative workloads
 - calculation results can be traced back to evidence ids
 - validation summary exposes the selected evidence id per provider/intent
+- validation fails when the active profile is not `cost_minimization_v1` or is
+  incompatible with cost intents
 - persisted Management API run detail exposes the same evidence ids as the
   optimizer result
+- persisted Management API run detail exposes the same optimization profile id
+  as the optimizer result
 
 ## Definition Of Done
 
 - [ ] Active cost intents have AWS/Azure/GCP evidence or explicit
   non-applicability.
+- [ ] Active optimization profile is compatible with cost intents and result
+  schema.
 - [ ] Publishable pricing has zero fallback_static fields.
 - [ ] Cost calculations reference evidence ids.
 - [ ] Cross-provider unit compatibility is validated.
@@ -106,6 +115,7 @@ Required tests:
   parsing logs.
 - [ ] A validated calculation can be persisted and read back from the existing
   Management DB run store.
+- [ ] Persisted run history retains optimization profile metadata.
 
 ## Self Review
 
@@ -129,5 +139,7 @@ Required tests:
   making UI work part of this phase.
 - Fixed: cross-provider validation now verifies compatibility with the
   Management API run store and rejects a separate optimizer DB.
+- Fixed: cross-provider validation now checks active optimization profile
+  compatibility and persistence metadata.
 
 No open findings after review.

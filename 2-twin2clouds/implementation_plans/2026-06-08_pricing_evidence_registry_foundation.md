@@ -50,13 +50,15 @@ Only one slice should be implemented and reviewed at a time.
 | Step | Status | Purpose |
 |---|---|---|
 | 1. Evidence Registry Foundation | planned | Define editable SSOT, evidence contract, and zero-fallback publish rules |
-| 2. Optimization Strategy Architecture | future | Make cost the first metric strategy and keep future metrics disabled/TBD |
-| 3. Azure Evidence Implementation | future | Implement provider-row capture and mapping for Azure first |
-| 4. Azure Tiering and Calculation Review | future | Fix Azure Digital Twins, IoT Hub, transfer, storage, and related tier calculations |
-| 5. AWS Evidence Implementation | future | Apply the same evidence model to AWS Price List and service-specific APIs |
-| 6. AWS Tiering and Calculation Review | future | Fix AWS IoT TwinMaker, IoT, transfer, storage, Grafana, and related tier calculations |
-| 7. GCP Credential and Evidence Implementation | future | Fix GCP auth/permissions, then capture and map GCP Catalog evidence |
-| 8. Cross-Provider Calculation Validation | future | Validate all provider-neutral intents and calculation formulas against the final evidence model |
+| 2. Pricing Registry Contract/API | future | Expose registry files through typed internal services and read-only API |
+| 3. Optimization Strategy Architecture | future | Bundle metric providers, calculation models, scoring strategies, and intents through validated profiles |
+| 4. Cost Calculation Run Store | future | Persist typed Twin-scoped calculation runs in the existing Management DB |
+| 5. Azure Evidence Implementation | future | Implement provider-row capture and mapping for Azure first |
+| 6. Azure Tiering and Calculation Review | future | Fix Azure Digital Twins, IoT Hub, transfer, storage, and related tier calculations |
+| 7. AWS Evidence Implementation | future | Apply the same evidence model to AWS Price List and service-specific APIs |
+| 8. AWS Tiering and Calculation Review | future | Fix AWS IoT TwinMaker, IoT, transfer, storage, Grafana, and related tier calculations |
+| 9. GCP Credential and Evidence Implementation | future | Fix GCP auth/permissions, then capture and map GCP Catalog evidence |
+| 10. Cross-Provider Calculation Validation | future | Validate all provider-neutral intents and calculation formulas against the final evidence model |
 
 ## Target Architecture
 
@@ -339,6 +341,7 @@ These are intentionally not solved in this first plan:
 - [ ] Official cloud evidence must be reproducible or non-publishable.
 - [ ] Tiering and unit-normalization risks are explicitly captured.
 - [ ] Digital Twins / TwinMaker / IoT Hub tiering is tracked as future work.
+- [ ] Mini-roadmap matches the central pricing/optimization roadmap.
 - [ ] Plan avoids quick fixes, one-off defaults, and runtime LLM matching.
 - [ ] Plan can be implemented by a builder without guessing the architecture.
 - [ ] Evidence artifacts expose selected rows, alternatives, and rejection
@@ -374,5 +377,8 @@ These are intentionally not solved in this first plan:
   cost becomes the first metric strategy rather than a hardcoded endpoint.
 - Fixed: evidence must be inspectable as structured artifact, not only log text.
 - Fixed: generated pricing output cannot become the editable SSOT.
+- Fixed: mini-roadmap now includes Registry Contract/API, Optimization
+  Profiles, Cost Calculation Run Store, and the full 10-phase sequence from the
+  central roadmap.
 
 No open findings after fixes.

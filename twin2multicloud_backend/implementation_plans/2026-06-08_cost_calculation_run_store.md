@@ -119,7 +119,9 @@ result_summary_json
 cheapest_path_json
 total_monthly_cost
 currency
-scoring_strategy
+optimization_profile_id
+optimization_profile_version
+scoring_strategy_id
 calculation_model_version
 pricing_registry_version
 pricing_evidence_version
@@ -223,6 +225,8 @@ It must not:
    - validates twin ownership through existing helpers
    - calls the optimizer client
    - validates optimizer response shape
+   - validates that the optimizer response includes an executable
+     `optimization_profile_id`
    - stores the run and result items transactionally
    - updates `optimizer_configurations` compatibility fields
 5. Add route endpoints for create/list/detail/select.
@@ -240,6 +244,8 @@ Required error behavior:
   a run record was intentionally created before the call.
 - Optimizer contract invalid: return structured 502/500 boundary error and do
   not mark the run successful.
+- Missing or disabled optimization profile in optimizer response: return a
+  structured contract error and do not mark the run successful.
 - DB persistence failure: rollback both run records and compatibility updates.
 - Unauthorized twin: return existing Management API auth/ownership error.
 - Invalid run selection: return 409 or 422 when the run is failed, belongs to a
@@ -256,11 +262,15 @@ Required tests:
 - migration creates `cost_calculation_runs`
 - migration creates `cost_calculation_result_items`
 - creating a run persists params, summary, cheapest path, and result items
+- creating a run persists `optimization_profile_id`,
+  `optimization_profile_version`, `scoring_strategy_id`, and
+  `calculation_model_version`
 - creating a run updates `optimizer_configurations` compatibility fields
 - list endpoint returns only runs owned by the current user/twin
 - detail endpoint returns evidence references when present
 - failed optimizer call does not create a successful run
 - invalid optimizer response is handled with a structured error
+- missing, disabled, or unknown optimization profile metadata is rejected
 - select-for-deployment rejects failed runs
 - select-for-deployment records the selected run and preserves compatibility
   cheapest-path fields
@@ -271,6 +281,8 @@ Required tests:
 - [ ] Existing Management DB is extended; no optimizer-owned app DB exists.
 - [ ] Cost calculation runs are first-class typed records.
 - [ ] Cost result items are queryable separately from the raw result JSON.
+- [ ] Cost calculation runs persist the active optimization profile, scoring
+  strategy, and calculation model metadata.
 - [ ] Result items can store pricing/evidence references.
 - [ ] Current `optimizer_configurations` behavior remains compatible.
 - [ ] API endpoints support create/list/detail/select lifecycle.
@@ -288,6 +300,8 @@ Required tests:
 - The compatibility bridge prevents a disruptive Flutter/deployer rewrite.
 - The result-item model is future-ready for evidence ids without making pricing
   mappings DB-owned.
+- The run model preserves the selected optimization profile so future audits can
+  explain which metric/model/strategy bundle produced a result.
 
 ### Builder Review
 
@@ -304,5 +318,7 @@ Required tests:
   compatibility bridge, not immediately deleted.
 - Fixed: deployment handoff migration is deferred to avoid broad side effects.
 - Fixed: structured error handling and rollback tests are mandatory.
+- Fixed: run history now persists `optimization_profile_id` and related strategy
+  metadata instead of only a loose scoring strategy string.
 
 No open findings after review.
