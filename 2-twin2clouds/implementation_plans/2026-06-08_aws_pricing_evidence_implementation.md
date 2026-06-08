@@ -5,6 +5,8 @@
 Parent roadmap:
 `docs/plans/2026-06-08_pricing_evidence_and_optimization_strategy_roadmap.md`
 
+GitHub issue: #91
+
 Depends on:
 
 - `2026-06-08_pricing_evidence_registry_foundation.md`
@@ -118,15 +120,15 @@ Required assertions:
 
 ## Definition Of Done
 
-- [ ] AWS raw products are captured as sanitized snapshots.
-- [ ] AWS candidates preserve term and price dimension identity.
-- [ ] AWS selected and rejected evidence is inspectable.
-- [ ] AWS evidence reports expose the exact Price List dimension selected per
+- [x] AWS raw products are captured as sanitized snapshots.
+- [x] AWS candidates preserve term and price dimension identity.
+- [x] AWS selected and rejected evidence is inspectable.
+- [x] AWS evidence reports expose the exact Price List dimension selected per
   intent.
-- [ ] AWS missing/ambiguous evidence is review-required.
-- [ ] AWS pricing output remains calculation-compatible.
-- [ ] No AWS static fallback is publishable.
-- [ ] AWS provider evidence code does not add scattered direct registry-file
+- [x] AWS missing/ambiguous evidence is review-required.
+- [x] AWS pricing output remains calculation-compatible.
+- [x] No AWS static fallback is publishable.
+- [x] AWS provider evidence code does not add scattered direct registry-file
   reads.
 
 ## Self Review
@@ -151,5 +153,17 @@ Required assertions:
   reports, not only logs.
 - Fixed: AWS evidence implementation depends on the registry service/API
   boundary.
+- Fixed: AWS registry mappings use AWS-facing names such as `service_code`,
+  `product_family`, and `storage_class`; the evidence builder translates those
+  centrally to canonical candidate fields.
+- Fixed: AWS offer term keys include the SKU prefix. Evidence now preserves the
+  full `offerTermKey` and the extracted `offerTermCode`.
 
 No open findings after review.
+
+## Verification
+
+- `docker compose exec -T 2twin2clouds sh -lc 'PYTHONPATH=/app pytest tests/unit/pricing/test_aws_pricing_evidence.py tests/unit/pricing/test_pricing_catalog_candidates.py -q'`
+  - Result: `11 passed`
+- `docker compose exec -T 2twin2clouds sh -lc 'PYTHONPATH=/app pytest tests/unit/pricing tests/unit/optimization tests/unit/calculation_v2 -q'`
+  - Result: `182 passed`
