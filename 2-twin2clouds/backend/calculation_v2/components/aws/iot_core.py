@@ -12,7 +12,7 @@ Pricing Model:
 
 from typing import Dict, Any
 from ..types import AWSComponent, FormulaType
-from ...formulas import tiered_message_cost
+from ...formulas import tiered_unit_cost, unit_price
 
 
 class AWSIoTCoreCalculator:
@@ -68,9 +68,10 @@ class AWSIoTCoreCalculator:
         rules_triggered = billable_messages * 2
         rules_cost = rules_triggered * p["priceRulesTriggered"]
         
-        # Tiered message pricing
+        # Tiered message pricing. Tier prices must be normalized to one
+        # billable message before cost multiplication.
         tiers = self._build_tiers(p.get("pricing_tiers", {}))
-        message_cost = tiered_message_cost(billable_messages, tiers)
+        message_cost = tiered_unit_cost(billable_messages, tiers)
         
         return device_cost + rules_cost + message_cost
     
@@ -85,7 +86,7 @@ class AWSIoTCoreCalculator:
             Sorted list of tier dicts
         """
         if not pricing_tiers:
-            return [{"limit": float('inf'), "price": 0.0}]
+            raise ValueError("AWS IoT Core pricing_tiers are required")
         
         tiers = []
         for tier_data in pricing_tiers.values():
@@ -95,8 +96,18 @@ class AWSIoTCoreCalculator:
                 limit = float('inf')
             tiers.append({
                 "limit": limit,
-                "price": tier_data.get("price", 0.0)
+                "price": self._tier_price(tier_data),
             })
         
         # Sort by limit ascending
         return sorted(tiers, key=lambda x: x["limit"])
+
+    @staticmethod
+    def _tier_price(tier_data: Dict[str, Any]) -> float:
+        if "pricePerMessage" in tier_data:
+            return unit_price(tier_data["pricePerMessage"], 1)
+        if "price" in tier_data:
+            return unit_price(tier_data["price"], 1)
+        if "pricePerMillionMessages" in tier_data:
+            return unit_price(tier_data["pricePerMillionMessages"], 1_000_000)
+        raise ValueError("AWS IoT Core tier missing message price")

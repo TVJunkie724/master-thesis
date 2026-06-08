@@ -330,7 +330,14 @@ def _calculate_egress_cost(data_gb: float, pricing: Dict[str, Any], source_provi
     - GCP: ~$0.12/GB
     """
     if source_provider == "AWS":
-        price = pricing.get("aws", {}).get("egress", {}).get("pricePerGB", 0.09)
+        aws_transfer = pricing.get("aws", {}).get("transfer", {})
+        pricing_tiers = aws_transfer.get("pricing_tiers")
+        if pricing_tiers:
+            return tiered_unit_cost(data_gb, pricing_tiers)
+        price = pricing.get("aws", {}).get("egress", {}).get(
+            "pricePerGB",
+            aws_transfer.get("egressPrice", 0.09),
+        )
     elif source_provider == "Azure":
         azure_transfer = pricing.get("azure", {}).get("transfer", {})
         pricing_tiers = azure_transfer.get("pricing_tiers")

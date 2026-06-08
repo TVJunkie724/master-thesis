@@ -15,7 +15,7 @@ TwinMaker is used for L4 Twin Management in the architecture.
 
 from typing import Dict, Any
 from ..types import AWSComponent, FormulaType
-from ...formulas import action_based_cost, storage_based_cost
+from ...formulas import action_based_cost, storage_based_cost, required_first_unit_price
 
 
 class AWSTwinMakerCalculator:
@@ -57,18 +57,44 @@ class AWSTwinMakerCalculator:
         p = pricing["aws"]["iotTwinMaker"]
         
         # Entity cost (treated as storage-like recurring cost)
-        entity_price = p.get("pricePerEntity", p.get("entityPrice", 0.0))
+        entity_price = required_first_unit_price(
+            p,
+            (
+                ("pricePerEntity", 1),
+                ("entityPrice", 1),
+                ("entityPricePerMonth", 1),
+            ),
+            label="aws.iotTwinMaker.entity",
+        )
         entity_cost = entity_price * entity_count
         
         # Query cost (CA formula)
-        query_price = p.get("queryPrice", 0.0)
+        query_price = required_first_unit_price(
+            p,
+            (
+                ("pricePerQuery", 1),
+                ("queryPrice", 1),
+                ("queryPricePer10k", 10_000),
+                ("pricePer10kQueries", 10_000),
+            ),
+            label="aws.iotTwinMaker.query",
+        )
         query_cost = action_based_cost(
             price_per_action=query_price,
             num_actions=queries_per_month
         )
         
         # API calls cost (CA formula)
-        api_price = p.get("unifiedDataAccessAPICallsPrice", 0.0)
+        api_price = required_first_unit_price(
+            p,
+            (
+                ("pricePerUnifiedDataAccessAPICall", 1),
+                ("unifiedDataAccessAPICallsPrice", 1),
+                ("unifiedDataAccessAPICallsPricePerMillion", 1_000_000),
+                ("pricePerMillionUnifiedDataAccessAPICalls", 1_000_000),
+            ),
+            label="aws.iotTwinMaker.unifiedDataAccessApiCall",
+        )
         api_cost = action_based_cost(
             price_per_action=api_price,
             num_actions=api_calls_per_month
@@ -77,9 +103,13 @@ class AWSTwinMakerCalculator:
         # 3D model storage cost (CS formula) - if applicable
         storage_cost = 0.0
         if model_storage_gb > 0:
-            # Use S3 standard pricing as proxy for 3D model storage
+            model_storage_price = required_first_unit_price(
+                p,
+                (("modelStoragePrice", 1),),
+                label="aws.iotTwinMaker.modelStorage",
+            )
             storage_cost = storage_based_cost(
-                price_per_gb_month=0.023,  # S3 standard rate
+                price_per_gb_month=model_storage_price,
                 volume_gb=model_storage_gb,
                 duration_months=1.0
             )

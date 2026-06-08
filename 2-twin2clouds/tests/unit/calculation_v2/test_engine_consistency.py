@@ -46,10 +46,11 @@ REALISTIC_PRICING = {
         "iotCore": {
             "pricePerDeviceAndMonth": 0.25,
             "priceRulesTriggered": 0.000001,
-            "tierPricing": {
-                "tier1": {"limit": 250000000, "price": 1.0},
-                "tier2": {"limit": 5000000000, "price": 0.80},
-            }
+            "pricing_tiers": {
+                "tier1": {"limit": 1_000_000_000, "price": 0.000001},
+                "tier2": {"limit": 5_000_000_000, "price": 0.0000008},
+                "tier3": {"limit": "Infinity", "price": 0.0000007},
+            },
         },
         "lambda": {
             "requestPrice": 0.0000002,
@@ -67,7 +68,11 @@ REALISTIC_PRICING = {
         },
         "s3InfrequentAccess": {"storagePrice": 0.0125, "writePrice": 0.01},
         "s3GlacierDeepArchive": {"storagePrice": 0.00099, "writePrice": 0.05},
-        "iotTwinMaker": {"queryPrice": 0.001, "entityPrice": 0.0},
+        "iotTwinMaker": {
+            "queryPrice": 0.001,
+            "entityPrice": 0.0,
+            "unifiedDataAccessAPICallsPrice": 0.000001,
+        },
         "awsManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
         "egress": {"pricePerGB": 0.09},
     },

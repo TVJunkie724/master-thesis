@@ -41,6 +41,21 @@ def first_unit_price(
     return float(default)
 
 
+def required_first_unit_price(
+    pricing: Mapping[str, Any],
+    candidates: Iterable[tuple[str, float]],
+    *,
+    label: str,
+) -> float:
+    """Return a normalized unit price or fail when no candidate key is present."""
+    candidate_list = tuple(candidates)
+    for key, source_quantity in candidate_list:
+        if key in pricing and pricing[key] is not None:
+            return unit_price(pricing[key], source_quantity)
+    keys = ", ".join(key for key, _ in candidate_list)
+    raise ValueError(f"Missing required pricing field for {label}: one of {keys}")
+
+
 def capacity_tier_cost(
     quantity: float,
     tiers: Mapping[str, Mapping[str, Any]] | Iterable[Mapping[str, Any]],

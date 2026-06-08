@@ -13,7 +13,7 @@ This calculator assumes Standard Workflows, which is typical for IoT orchestrati
 
 from typing import Dict, Any
 from ..types import AWSComponent, FormulaType
-from ...formulas import action_based_cost
+from ...formulas import action_based_cost, required_first_unit_price
 
 
 class AWSStepFunctionsCalculator:
@@ -55,7 +55,14 @@ class AWSStepFunctionsCalculator:
         """
         actions_per_execution = actions_per_execution or self.DEFAULT_ACTIONS_PER_MESSAGE
         
-        price_per_action = pricing["aws"]["stepFunctions"]["pricePerStateTransition"]
+        price_per_action = required_first_unit_price(
+            pricing["aws"]["stepFunctions"],
+            (
+                ("pricePerStateTransition", 1),
+                ("pricePer1kStateTransitions", 1_000),
+            ),
+            label="aws.stepFunctions.stateTransition",
+        )
         total_actions = executions * actions_per_execution
         
         return action_based_cost(

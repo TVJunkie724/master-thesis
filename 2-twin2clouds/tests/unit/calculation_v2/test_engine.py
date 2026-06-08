@@ -49,6 +49,11 @@ class TestEngineIntegration:
                 "iotCore": {
                     "pricePerDeviceAndMonth": 0.25,
                     "priceRulesTriggered": 0.000001,
+                    "pricing_tiers": {
+                        "tier1": {"limit": 1_000_000_000, "price": 0.000001},
+                        "tier2": {"limit": 5_000_000_000, "price": 0.0000008},
+                        "tier3": {"limit": "Infinity", "price": 0.0000007},
+                    },
                 },
                 "lambda": {
                     "requestPrice": 0.0000002,
@@ -64,9 +69,13 @@ class TestEngineIntegration:
                     "storagePrice": 0.25,
                     "freeStorage": 25,
                 },
-                "s3InfrequentAccess": {"storagePrice": 0.0125},
-                "s3GlacierDeepArchive": {"storagePrice": 0.00099},
-                "iotTwinMaker": {"queryPrice": 0.001},
+                "s3InfrequentAccess": {"storagePrice": 0.0125, "requestPrice": 0.000001},
+                "s3GlacierDeepArchive": {"storagePrice": 0.00099, "lifecycleAndWritePrice": 0.00005},
+                "iotTwinMaker": {
+                    "queryPrice": 0.001,
+                    "entityPrice": 0.0,
+                    "unifiedDataAccessAPICallsPrice": 0.000001,
+                },
                 "awsManagedGrafana": {"editorPrice": 9.0, "viewerPrice": 5.0},
                 "egress": {"pricePerGB": 0.09},
             },

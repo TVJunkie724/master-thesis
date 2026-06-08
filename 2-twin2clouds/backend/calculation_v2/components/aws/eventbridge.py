@@ -14,7 +14,7 @@ EventBridge is used in the architecture for:
 
 from typing import Dict, Any
 from ..types import AWSComponent, FormulaType
-from ...formulas import action_based_cost
+from ...formulas import action_based_cost, required_first_unit_price
 
 
 class AWSEventBridgeCalculator:
@@ -48,10 +48,15 @@ class AWSEventBridgeCalculator:
         Returns:
             Monthly cost in USD
         """
-        price_per_million = pricing["aws"]["eventBridge"]["pricePerMillionEvents"]
-        
-        # EventBridge prices per million, so convert
-        price_per_event = price_per_million / 1_000_000
+        price_per_event = required_first_unit_price(
+            pricing["aws"]["eventBridge"],
+            (
+                ("pricePerEvent", 1),
+                ("eventPrice", 1),
+                ("pricePerMillionEvents", 1_000_000),
+            ),
+            label="aws.eventBridge.event",
+        )
         
         return action_based_cost(
             price_per_action=price_per_event,

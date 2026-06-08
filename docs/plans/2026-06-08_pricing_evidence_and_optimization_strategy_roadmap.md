@@ -35,6 +35,7 @@ complexity, or lock-in must be possible without rewriting the optimizer core.
 | Azure pricing evidence artifacts | #89 | implemented on this branch |
 | Azure tiering and unit-aware calculation | #90 | implemented on this branch |
 | AWS pricing evidence artifacts | #91 | implemented on this branch |
+| AWS tiering and unit-aware calculation | #92 | implemented on this branch |
 | Provider-specific tiering/calculation reviews | TBD | create per provider before implementation |
 
 Issue numbers must be added here when planned phases are split into GitHub
@@ -193,7 +194,7 @@ first-class.
 | 5 | `2026-06-08_azure_pricing_evidence_implementation.md` | implemented | Capture Azure raw rows, candidates, selected evidence, and rejected alternatives |
 | 6 | `2026-06-08_azure_tiering_calculation_review.md` | implemented (#90) | Review Azure tiers and adapt cost calculation where the current model is incomplete |
 | 7 | `2026-06-08_aws_pricing_evidence_implementation.md` | implemented (#91) | Capture AWS Price List and service-specific evidence with selected dimensions |
-| 8 | `2026-06-08_aws_tiering_calculation_review.md` | planned | Review AWS tiers including IoT TwinMaker and adapt cost calculation where required |
+| 8 | `2026-06-08_aws_tiering_calculation_review.md` | implemented (#92) | Review AWS tiers including IoT TwinMaker and adapt cost calculation where required |
 | 9 | `2026-06-08_gcp_credentials_pricing_evidence.md` | planned | Fix GCP pricing credentials/permissions, then capture GCP Catalog evidence |
 | 10 | `2026-06-08_cross_provider_cost_validation.md` | planned | Validate all cost intents across providers with zero publishable fallbacks |
 
@@ -273,6 +274,11 @@ formulas remain unchanged in this phase.
 
 Updates AWS-specific tiering and cost formulas only after AWS evidence is
 visible.
+
+Implemented in GitHub issue #92. AWS calculators now use shared unit/tier
+primitives for IoT Core, S3 request/lifecycle operations, IoT TwinMaker
+dimensions, Step Functions, EventBridge, and AWS transfer tiers. Missing
+required AWS pricing fields fail visibly instead of producing silent zero cost.
 
 ### Phase 9
 

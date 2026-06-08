@@ -16,7 +16,7 @@ Each tier has different:
 
 from typing import Dict, Any
 from ..types import AWSComponent, FormulaType
-from ...formulas import storage_based_cost, action_based_cost
+from ...formulas import storage_based_cost, action_based_cost, required_first_unit_price
 
 
 class AWSS3IACalculator:
@@ -62,15 +62,33 @@ class AWSS3IACalculator:
             duration_months=1.0
         )
         
-        # Write cost (CA formula - per 1000 requests typically)
-        write_price = p.get("writePrice", p.get("requestPrice", 0.01))  # Default if not specified
+        # Request meters are often billed in 1K/10K blocks; normalize at the
+        # service boundary and never use hidden request-price defaults.
+        write_price = required_first_unit_price(
+            p,
+            (
+                ("writePrice", 1),
+                ("requestPrice", 1),
+                ("writePricePer1kRequests", 1_000),
+                ("requestPricePer1kRequests", 1_000),
+                ("writePricePer10kRequests", 10_000),
+                ("requestPricePer10kRequests", 10_000),
+            ),
+            label="aws.s3InfrequentAccess.write",
+        )
         write_cost = action_based_cost(
             price_per_action=write_price,
             num_actions=writes_per_month
         )
         
         # Retrieval cost (CA formula - price per GB retrieved)
-        retrieval_price = p.get("dataRetrievalPrice", 0.01)
+        retrieval_price = 0.0
+        if retrievals_gb > 0:
+            retrieval_price = required_first_unit_price(
+                p,
+                (("dataRetrievalPrice", 1),),
+                label="aws.s3InfrequentAccess.dataRetrieval",
+            )
         retrieval_cost = action_based_cost(
             price_per_action=retrieval_price,
             num_actions=retrievals_gb
@@ -124,14 +142,31 @@ class AWSS3GlacierCalculator:
         )
         
         # Write/lifecycle cost (includes lifecycle transition cost)
-        lifecycle_price = p.get("lifecycleAndWritePrice", p.get("writePrice", 0.05))
+        lifecycle_price = required_first_unit_price(
+            p,
+            (
+                ("lifecycleAndWritePrice", 1),
+                ("writePrice", 1),
+                ("lifecycleAndWritePricePer1kRequests", 1_000),
+                ("writePricePer1kRequests", 1_000),
+                ("lifecycleAndWritePricePer10kRequests", 10_000),
+                ("writePricePer10kRequests", 10_000),
+            ),
+            label="aws.s3GlacierDeepArchive.lifecycle",
+        )
         write_cost = action_based_cost(
             price_per_action=lifecycle_price,
             num_actions=writes_per_month
         )
         
         # Retrieval cost - EXPENSIVE for Glacier!
-        retrieval_price = p.get("dataRetrievalPrice", 0.02)
+        retrieval_price = 0.0
+        if retrievals_gb > 0:
+            retrieval_price = required_first_unit_price(
+                p,
+                (("dataRetrievalPrice", 1),),
+                label="aws.s3GlacierDeepArchive.dataRetrieval",
+            )
         retrieval_cost = action_based_cost(
             price_per_action=retrieval_price,
             num_actions=retrievals_gb

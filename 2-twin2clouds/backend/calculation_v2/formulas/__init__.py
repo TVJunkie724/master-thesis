@@ -15,6 +15,7 @@ This package exports all formula functions:
 - tiered_transfer_cost
 - unit_price
 - first_unit_price
+- required_first_unit_price
 - capacity_tier_cost
 - tiered_unit_cost
 """
@@ -32,6 +33,7 @@ from .core_formulas import (
 from .pricing_units import (
     unit_price,
     first_unit_price,
+    required_first_unit_price,
     capacity_tier_cost,
     tiered_unit_cost,
 )
@@ -47,6 +49,7 @@ __all__ = [
     "tiered_transfer_cost",
     "unit_price",
     "first_unit_price",
+    "required_first_unit_price",
     "capacity_tier_cost",
     "tiered_unit_cost",
 ]

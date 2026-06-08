@@ -5,6 +5,8 @@
 Parent roadmap:
 `docs/plans/2026-06-08_pricing_evidence_and_optimization_strategy_roadmap.md`
 
+GitHub issue: #92
+
 Depends on:
 
 - `2026-06-08_aws_pricing_evidence_implementation.md`
@@ -100,11 +102,11 @@ Required tests:
 
 ## Definition Of Done
 
-- [ ] AWS service model assumptions are documented in the editable SSOT.
-- [ ] AWS calculation changes are evidence-backed.
-- [ ] No AWS calculation uses fallback_static as publishable data.
-- [ ] Tiered service tests cover boundaries.
-- [ ] Existing optimizer API contract remains compatible.
+- [x] AWS service model assumptions are documented in the editable SSOT.
+- [x] AWS calculation changes are evidence-backed.
+- [x] No AWS calculation uses fallback_static as publishable data.
+- [x] Tiered service tests cover boundaries.
+- [x] Existing optimizer API contract remains compatible.
 
 ## Self Review
 
@@ -124,5 +126,21 @@ Required tests:
 - Fixed: AWS Lambda free tiers are explicitly official-evidence work, not
   fallback work.
 - Fixed: TwinMaker pricing plan/tiering is explicitly included.
+- Fixed: Missing required AWS unit prices initially still returned silent zero
+  through the generic helper. Required AWS prices now fail visibly.
+- Fixed: Existing engine fixtures used legacy `tierPricing` or omitted IoT
+  tiers. Fixtures now use canonical `pricing_tiers`.
+- Fixed: AWS EventBridge now distinguishes explicit per-event prices from true
+  per-million legacy keys.
+- Fixed: Conditional AWS retrieval and model-storage prices initially still
+  defaulted to zero when those usage dimensions were used. They now fail
+  visibly and have regression tests.
 
 No open findings after review.
+
+## Verification
+
+- `docker compose exec -T 2twin2clouds sh -lc 'PYTHONPATH=/app pytest tests/unit/calculation_v2/test_core_formulas.py tests/unit/calculation_v2/test_aws_tiering.py tests/unit/calculation_v2/test_pricing_keys.py -q'`
+  - Result: `41 passed`
+- `docker compose exec -T 2twin2clouds sh -lc 'PYTHONPATH=/app pytest tests/unit/pricing tests/unit/optimization tests/unit/calculation_v2 -q'`
+  - Result: `198 passed`
