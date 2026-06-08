@@ -170,18 +170,39 @@ Required tests:
 
 ## Definition Of Done
 
-- [ ] Registry files remain the editable SSOT.
-- [ ] Cost calculation has a typed internal registry access boundary.
-- [ ] Provider evidence fetchers can use the same registry service.
-- [ ] Read-only registry endpoints expose intents, mappings, normalization
+- [x] Registry files remain the editable SSOT.
+- [x] Cost calculation has a typed internal registry access boundary.
+- [x] Provider evidence fetchers can use the same registry service.
+- [x] Read-only registry endpoints expose intents, mappings, normalization
   rules, service models, and registry status.
-- [ ] Endpoint responses are typed and stable enough for Management API/UI
+- [x] Endpoint responses are typed and stable enough for Management API/UI
   consumption.
-- [ ] Invalid registry content fails before publishable pricing is produced.
-- [ ] Tests cover validation, access, endpoint contracts, and read-only
+- [x] Invalid registry content fails before publishable pricing is produced.
+- [x] Tests cover validation, access, endpoint contracts, and read-only
   behavior.
-- [ ] Documentation explains that API access is read-only and Git/file changes
+- [x] Documentation explains that API access is read-only and Git/file changes
   remain the write path.
+
+## Implementation Verification
+
+Implemented on branch `codex/pricing-catalog-reliability`.
+
+Verification commands:
+
+```bash
+docker compose exec -T 2twin2clouds sh -lc \
+  'PYTHONPATH=/app pytest tests/unit/pricing/test_pricing_registry_api.py -q'
+
+docker compose exec -T 2twin2clouds sh -lc \
+  'PYTHONPATH=/app pytest tests/unit/pricing tests/integration/test_rest_api_endpoints.py -q'
+```
+
+Observed result:
+
+```text
+11 passed in 0.56s
+109 passed in 0.75s
+```
 
 ## Self Review
 
@@ -210,5 +231,7 @@ Required tests:
 - Fixed: cost calculation does not call local HTTP endpoints for registry data.
 - Fixed: Management API can consume registry metadata later without owning the
   registry itself.
+- Fixed: lookup errors use a clean service boundary rather than leaking
+  `KeyError` formatting into structured API responses.
 
 No open findings after review.

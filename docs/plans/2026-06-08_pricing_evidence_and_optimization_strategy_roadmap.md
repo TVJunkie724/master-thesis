@@ -29,7 +29,7 @@ complexity, or lock-in must be possible without rewriting the optimizer core.
 | Architecture debt / refactoring epic | #69 | existing epic |
 | Pricing catalog reliability | #32 | existing active issue |
 | Pricing evidence registry foundation | #32 | implemented on this branch |
-| Pricing registry contract/API | TBD | create before implementing registry access endpoints |
+| Pricing registry contract/API | #32 | implemented on this branch |
 | Optimization strategy architecture | TBD | create before implementation if tracked separately |
 | Cost calculation run store | TBD | create before Management API implementation |
 | Provider-specific tiering/calculation reviews | TBD | create per provider before implementation |
@@ -184,7 +184,7 @@ first-class.
 | Phase | Plan | Status | Objective |
 |---|---|---|---|
 | 1 | `2026-06-08_pricing_evidence_registry_foundation.md` | implemented | Define editable pricing SSOT, evidence contract, and publish gate |
-| 2 | `2026-06-08_pricing_registry_contract_api.md` | planned | Expose registry files through typed internal services and read-only API |
+| 2 | `2026-06-08_pricing_registry_contract_api.md` | implemented | Expose registry files through typed internal services and read-only API |
 | 3 | `2026-06-08_optimization_strategy_architecture.md` | planned | Make cost the first metric strategy, not a hardcoded optimizer assumption |
 | 4 | `twin2multicloud_backend/implementation_plans/2026-06-08_cost_calculation_run_store.md` | planned | Persist typed Twin-scoped calculation runs in the existing Management DB |
 | 5 | `2026-06-08_azure_pricing_evidence_implementation.md` | planned | Capture Azure raw rows, candidates, selected evidence, and rejected alternatives |

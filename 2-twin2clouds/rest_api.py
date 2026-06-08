@@ -14,7 +14,7 @@ from backend.logger import logger
 from backend.config_loader import load_config_file
 
 # Import API routers
-from api import calculation, pricing, regions, file_status, credentials, validation
+from api import calculation, pricing, pricing_registry, regions, file_status, credentials, validation
 
 
 # =============================================================================
@@ -60,6 +60,10 @@ app = FastAPI(
     openapi_tags=[
         {"name": "Calculation", "description": "Endpoints related to cloud cost calculation."},
         {"name": "Pricing", "description": "Endpoints for fetching cloud service pricing data."},
+        {
+            "name": "Pricing Registry",
+            "description": "Read-only endpoints for pricing intents, mappings, normalization rules, and service models.",
+        },
         {"name": "Regions", "description": "Endpoints for fetching cloud regions."},
         {"name": "File Status", "description": "Endpoints for checking the age of data files."},
         {"name": "Permissions - Upload", "description": "Verify cloud credentials from request body."},
@@ -120,6 +124,7 @@ def serve_ui():
 
 app.include_router(calculation.router)
 app.include_router(pricing.router)
+app.include_router(pricing_registry.router)
 app.include_router(regions.router)
 app.include_router(file_status.router)
 app.include_router(credentials.router)
