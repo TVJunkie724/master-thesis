@@ -72,34 +72,62 @@ class CredentialsHelper {
   static Map<String, ProviderCredentials> hydrateCredentials(
     Map<String, dynamic> config,
   ) {
-    ProviderCredentials awsCreds = const ProviderCredentials();
-    ProviderCredentials azureCreds = const ProviderCredentials();
-    ProviderCredentials gcpCreds = const ProviderCredentials();
-
-    final sources = config['credential_sources'];
-    if (sources is Map && sources['aws'] == 'cloud_connection') {
-      awsCreds = ProviderCredentials(
-        isValid: true,
-        source: CredentialSource.inherited,
-        values: extractCredentialsFromFlatConfig(config, 'aws'),
-      );
-    }
-    if (sources is Map && sources['azure'] == 'cloud_connection') {
-      azureCreds = ProviderCredentials(
-        isValid: true,
-        source: CredentialSource.inherited,
-        values: extractCredentialsFromFlatConfig(config, 'azure'),
-      );
-    }
-    if (sources is Map && sources['gcp'] == 'cloud_connection') {
-      gcpCreds = ProviderCredentials(
-        isValid: true,
-        source: CredentialSource.inherited,
-        values: extractCredentialsFromFlatConfig(config, 'gcp'),
-      );
-    }
+    final awsCreds = hydrateProviderCredentials(config, 'aws');
+    final azureCreds = hydrateProviderCredentials(config, 'azure');
+    final gcpCreds = hydrateProviderCredentials(config, 'gcp');
 
     return {'aws': awsCreds, 'azure': azureCreds, 'gcp': gcpCreds};
+  }
+
+  /// Hydrate one provider from the canonical CloudConnection read model or
+  /// from legacy per-twin credential flags while old drafts still exist.
+  static ProviderCredentials hydrateProviderCredentials(
+    Map<String, dynamic> config,
+    String provider,
+  ) {
+    if (!isProviderConfigured(config, provider)) {
+      return const ProviderCredentials();
+    }
+    return ProviderCredentials(
+      isValid: true,
+      source: CredentialSource.inherited,
+      values: {
+        ...extractCredentialsFromFlatConfig(config, provider),
+        ...extractCredentialsFromNestedConfig(config, provider),
+      },
+    );
+  }
+
+  /// True when either the canonical CloudConnection model or legacy config says
+  /// this provider is configured. The legacy branch is a read-only compatibility
+  /// bridge for existing drafts; new saves still use CloudConnection ids.
+  static bool isProviderConfigured(
+    Map<String, dynamic> config,
+    String provider,
+  ) {
+    if (config['${provider}_cloud_connection_id'] != null) {
+      return true;
+    }
+    final sources = config['credential_sources'];
+    if (sources is Map && sources[provider] == 'cloud_connection') {
+      return true;
+    }
+    if (config['${provider}_configured'] == true) {
+      return true;
+    }
+    final nested = config[provider];
+    return nested is Map && nested.isNotEmpty;
+  }
+
+  /// Extract legacy nested credential fields returned by older edit-mode
+  /// payloads. Values are masked because they represent stored credentials.
+  static Map<String, String> extractCredentialsFromNestedConfig(
+    Map<String, dynamic> config,
+    String provider,
+  ) {
+    final nested = config[provider];
+    if (nested is! Map) return {};
+    return extractMaskedCredentials(nested);
   }
 
   /// Check if a credentials map has stored values
