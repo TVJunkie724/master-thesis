@@ -36,6 +36,7 @@ complexity, or lock-in must be possible without rewriting the optimizer core.
 | Azure tiering and unit-aware calculation | #90 | implemented on this branch |
 | AWS pricing evidence artifacts | #91 | implemented on this branch |
 | AWS tiering and unit-aware calculation | #92 | implemented on this branch |
+| GCP pricing credential preflight and evidence artifacts | #93 | implemented on this branch |
 | Provider-specific tiering/calculation reviews | TBD | create per provider before implementation |
 
 Issue numbers must be added here when planned phases are split into GitHub
@@ -195,7 +196,7 @@ first-class.
 | 6 | `2026-06-08_azure_tiering_calculation_review.md` | implemented (#90) | Review Azure tiers and adapt cost calculation where the current model is incomplete |
 | 7 | `2026-06-08_aws_pricing_evidence_implementation.md` | implemented (#91) | Capture AWS Price List and service-specific evidence with selected dimensions |
 | 8 | `2026-06-08_aws_tiering_calculation_review.md` | implemented (#92) | Review AWS tiers including IoT TwinMaker and adapt cost calculation where required |
-| 9 | `2026-06-08_gcp_credentials_pricing_evidence.md` | planned | Fix GCP pricing credentials/permissions, then capture GCP Catalog evidence |
+| 9 | `2026-06-08_gcp_credentials_pricing_evidence.md` | implemented (#93) | Fix GCP pricing credentials/permissions, then capture GCP Catalog evidence |
 | 10 | `2026-06-08_cross_provider_cost_validation.md` | planned | Validate all cost intents across providers with zero publishable fallbacks |
 
 ## Phase Boundaries
@@ -282,8 +283,14 @@ required AWS pricing fields fail visibly instead of producing silent zero cost.
 
 ### Phase 9
 
-Fixes GCP pricing authentication and permissions before treating GCP Catalog data
-as live evidence.
+Fixes GCP pricing credential/permission validation before applying evidence
+capture to GCP.
+
+Implemented in GitHub issue #93. GCP now has a secret-redacted Billing Catalog
+preflight for service/SKU listing and deterministic evidence reports for
+selected Catalog SKU/rate identity, rejected alternatives, normalization
+metadata, request scope, and review-required status. GCP formulas remain
+unchanged until live Catalog evidence is validated.
 
 ### Phase 10
 

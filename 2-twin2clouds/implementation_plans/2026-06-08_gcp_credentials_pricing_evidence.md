@@ -5,6 +5,8 @@
 Parent roadmap:
 `docs/plans/2026-06-08_pricing_evidence_and_optimization_strategy_roadmap.md`
 
+GitHub issue: #93
+
 Depends on:
 
 - `2026-06-08_pricing_evidence_registry_foundation.md`
@@ -102,15 +104,15 @@ No real GCP deployment E2E is required.
 
 ## Definition Of Done
 
-- [ ] GCP pricing credential failure is structured and actionable.
-- [ ] Required GCP pricing permissions are documented and checked.
-- [ ] GCP raw Catalog evidence can be captured when credentials are valid.
-- [ ] GCP selected/rejected evidence is inspectable.
-- [ ] GCP evidence reports expose the exact Catalog SKU/rate selected per
+- [x] GCP pricing credential failure is structured and actionable.
+- [x] Required GCP pricing permissions are documented and checked.
+- [x] GCP raw Catalog evidence can be captured when credentials are valid.
+- [x] GCP selected/rejected evidence is inspectable.
+- [x] GCP evidence reports expose the exact Catalog SKU/rate selected per
   intent.
-- [ ] GCP fallback pricing is never publishable.
-- [ ] GCP credential/auth failures are structured and secret-redacted.
-- [ ] GCP provider evidence code does not add scattered direct registry-file
+- [x] GCP fallback pricing is never publishable.
+- [x] GCP credential/auth failures are structured and secret-redacted.
+- [x] GCP provider evidence code does not add scattered direct registry-file
   reads.
 
 ## Self Review
@@ -136,5 +138,17 @@ No real GCP deployment E2E is required.
   logs.
 - Fixed: GCP evidence implementation depends on the registry service/API
   boundary.
+- Fixed: GCP Catalog preflight now validates `cloudbilling.services.list` and
+  `cloudbilling.skus.list` operations with structured, secret-redacted errors.
+- Fixed: GCP candidate matching needs Catalog category fields; evidence
+  candidates are enriched centrally with `resource_family` and
+  `resource_group`.
 
 No open findings after review.
+
+## Verification
+
+- `docker compose exec -T 2twin2clouds sh -lc 'PYTHONPATH=/app pytest tests/unit/pricing/test_gcp_pricing_evidence.py tests/unit/pricing/test_pricing_catalog_candidates.py -q'`
+  - Result: `14 passed`
+- `docker compose exec -T 2twin2clouds sh -lc 'PYTHONPATH=/app pytest tests/unit/pricing tests/unit/optimization tests/unit/calculation_v2 -q'`
+  - Result: `207 passed`

@@ -51,3 +51,19 @@ service_models:
         - Verify IoT TwinMaker pricing-plan and query/API units against service-specific evidence before final cross-provider validation.
         - Verify Managed Grafana editor/viewer user pricing against current AWS evidence; missing evidence remains review-required.
         - API Gateway and Scheduler are represented in the pricing registry, but not yet part of the executable layer model.
+    gcp_pricing_evidence_model:
+      status: reviewed_for_phase_9
+      issue: 93
+      required_catalog_operations:
+        - operation: cloudbilling.services.list
+          permission: cloudbilling.services.list
+        - operation: cloudbilling.skus.list
+          permission: cloudbilling.skus.list
+      assumptions:
+        - GCP Billing Catalog access must pass preflight before GCP Catalog evidence can be treated as live-valid.
+        - Credential/auth failures are structured with operation and permission context and must redact service-account private keys, private key IDs, client emails, and tokens.
+        - GCP Catalog SKUs are converted into selected/candidate/rejected evidence records with service, SKU, category, region, unit, pricing expression, and tiered-rate details.
+        - GCP fallback pricing remains calculation-compatible only as review-required emergency data.
+      open_research:
+        - Verify exact Catalog mappings for Pub/Sub volume-based IoT equivalent, Firestore operations, Cloud Storage classes, Workflows, API Gateway/Service Control, and Compute Engine self-hosted equivalents.
+        - Final GCP formula/tiering changes are deferred until live Billing Catalog evidence is validated.
