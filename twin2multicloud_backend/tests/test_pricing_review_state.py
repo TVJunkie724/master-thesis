@@ -90,6 +90,41 @@ def test_pricing_review_state_marks_incomplete_as_review_required(authenticated_
     assert aws["review_reasons"][0]["missing_keys"] == ["lambda.durationPrice"]
 
 
+def test_pricing_review_state_marks_valid_fallback_payload_as_review_required(
+    authenticated_client,
+):
+    client, headers = authenticated_client
+
+    with patch("src.api.routes.optimizer.httpx.AsyncClient") as mock_client:
+        _mock_optimizer_statuses(
+            mock_client,
+            aws={
+                "age": "2 hours",
+                "status": "valid",
+                "missing_keys": [],
+                "is_fresh": True,
+                "threshold_days": 7,
+                "quality_status": "review_required",
+                "review_required": True,
+                "fallback_fields": ["lambda.requestPrice"],
+                "unsupported_fields": [],
+            },
+            azure={"status": "valid", "is_fresh": True},
+            gcp={"status": "valid", "is_fresh": True},
+        )
+
+        response = client.get("/optimizer/pricing-review-state", headers=headers)
+
+    aws = response.json()["providers"]["aws"]
+    assert aws["state"] == "review_required"
+    assert aws["review_required"] is True
+    assert aws["can_calculate"] is True
+    assert aws["calculation_source"] == "fallback_static"
+    assert aws["pricing_freshness"] == "unavailable"
+    assert aws["review_reasons"][0]["status"] == "fallback_static"
+    assert aws["review_reasons"][0]["missing_keys"] == ["lambda.requestPrice"]
+
+
 def test_pricing_review_state_uses_last_known_good_for_missing_provider(
     auth_client,
     test_twin,

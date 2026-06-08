@@ -9,6 +9,7 @@ from backend.fetch_data.cloud_price_fetcher_azure import STATIC_DEFAULTS_AZURE
 from backend.fetch_data.cloud_price_fetcher_google import STATIC_DEFAULTS_GCP
 from google.cloud import billing_v1
 from backend.config_loader import load_gcp_credentials
+from backend.pricing_schema import attach_pricing_metadata
 
 # Factory Pattern: Centralized creation of price fetcher instances
 # All provider-specific fetching is done through the Factory
@@ -98,6 +99,13 @@ def calculate_up_to_date_pricing(target_provider: str, additional_debug = False)
         validation = validate_pricing_schema(target_provider, output_data)
         if validation["status"] != "valid":
             logger.warning(f"⚠️ Pricing data for {target_provider} is incomplete. Missing keys: {validation['missing_keys']}")
+        if validation.get("review_required"):
+            logger.warning(
+                "⚠️ Pricing data for %s requires review. Fallback fields: %s; unsupported fields: %s",
+                target_provider,
+                validation.get("fallback_fields", []),
+                validation.get("unsupported_fields", []),
+            )
             
         Path(target_file_path).write_text(json.dumps(output_data, indent=2))
         print("")
@@ -202,6 +210,13 @@ def calculate_up_to_date_pricing_with_credentials(target_provider: str, credenti
         validation = validate_pricing_schema(target_provider, output_data)
         if validation["status"] != "valid":
             logger.warning(f"⚠️ Pricing data incomplete. Missing: {validation['missing_keys']}")
+        if validation.get("review_required"):
+            logger.warning(
+                "⚠️ Pricing data for %s requires review. Fallback fields: %s; unsupported fields: %s",
+                target_provider,
+                validation.get("fallback_fields", []),
+                validation.get("unsupported_fields", []),
+            )
             
         Path(target_file_path).write_text(json.dumps(output_data, indent=2))
         logger.info(f"✅ Wrote {target_file_path.name} successfully!")
@@ -437,7 +452,7 @@ def fetch_aws_data(
     }
 
     logger.info("✅ AWS pricing schema built successfully.")
-    return aws
+    return attach_pricing_metadata("aws", aws, fetched)
 
 
 
@@ -592,7 +607,7 @@ def fetch_azure_data(azure_credentials: dict, service_mapping: dict, region_map:
     }
 
     logger.info("✅ Azure pricing schema built successfully.")
-    return azure
+    return attach_pricing_metadata("azure", azure, fetched)
 
 
 # ============================================================
@@ -777,7 +792,8 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, region_ma
         "jobPrice": _get_or_warn("GCP", neutral_service, provider_service, "jobPrice", sch, 0.10, STATIC_DEFAULTS_GCP)
     }
 
-    return gcp
+    logger.info("✅ GCP pricing schema built successfully.")
+    return attach_pricing_metadata("gcp", gcp, fetched)
 
 
 if __name__ == "__main__":

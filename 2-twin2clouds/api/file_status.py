@@ -28,6 +28,46 @@ REGIONS_THRESHOLD_AZURE = 7
 REGIONS_THRESHOLD_GCP = 30
 
 
+def _pricing_status_response(provider: str, file_path, threshold_days: int) -> dict:
+    age = get_file_age_string(file_path)
+    validation = {
+        "schema_version": None,
+        "contract_version": None,
+        "status": "missing",
+        "missing_keys": [],
+        "quality_status": "review_required",
+        "review_required": True,
+        "fallback_fields": [],
+        "unsupported_fields": [],
+    }
+
+    if os.path.isfile(file_path):
+        try:
+            from backend.pricing_utils import validate_pricing_schema
+
+            data = load_json_file(file_path)
+            validation.update(validate_pricing_schema(provider, data))
+        except Exception as e:
+            logger.error(f"Failed to validate {provider.upper()} pricing: {e}")
+            validation["status"] = "error"
+            validation["quality_status"] = "review_required"
+            validation["review_required"] = True
+
+    return {
+        "age": age,
+        "schema_version": validation.get("schema_version"),
+        "contract_version": validation.get("contract_version"),
+        "status": validation["status"],
+        "missing_keys": validation["missing_keys"],
+        "quality_status": validation.get("quality_status", "unavailable"),
+        "review_required": bool(validation.get("review_required", False)),
+        "fallback_fields": validation.get("fallback_fields", []),
+        "unsupported_fields": validation.get("unsupported_fields", []),
+        "is_fresh": is_file_fresh(file_path, threshold_days),
+        "threshold_days": threshold_days,
+    }
+
+
 # --------------------------------------------------
 # Pricing Age Endpoints
 # --------------------------------------------------
@@ -61,28 +101,9 @@ def get_pricing_age_aws():
     """
     Checks the age and validity of the local AWS pricing data file.
     """
-    age = get_file_age_string(CONSTANTS.AWS_PRICING_FILE_PATH)
-    status = "missing"
-    missing_keys = []
-    
-    if os.path.isfile(CONSTANTS.AWS_PRICING_FILE_PATH):
-        try:
-            from backend.pricing_utils import validate_pricing_schema
-            data = load_json_file(CONSTANTS.AWS_PRICING_FILE_PATH)
-            validation = validate_pricing_schema("aws", data)
-            status = validation["status"]
-            missing_keys = validation["missing_keys"]
-        except Exception as e:
-            logger.error(f"Failed to validate AWS pricing: {e}")
-            status = "error"
-            
-    return {
-        "age": age,
-        "status": status,
-        "missing_keys": missing_keys,
-        "is_fresh": is_file_fresh(CONSTANTS.AWS_PRICING_FILE_PATH, PRICING_THRESHOLD_DAYS),
-        "threshold_days": PRICING_THRESHOLD_DAYS
-    }
+    return _pricing_status_response(
+        "aws", CONSTANTS.AWS_PRICING_FILE_PATH, PRICING_THRESHOLD_DAYS
+    )
 
 
 @router.get(
@@ -110,28 +131,9 @@ def get_pricing_age_azure():
     """
     Checks the age and validity of the local Azure pricing data file.
     """
-    age = get_file_age_string(CONSTANTS.AZURE_PRICING_FILE_PATH)
-    status = "missing"
-    missing_keys = []
-    
-    if os.path.isfile(CONSTANTS.AZURE_PRICING_FILE_PATH):
-        try:
-            from backend.pricing_utils import validate_pricing_schema
-            data = load_json_file(CONSTANTS.AZURE_PRICING_FILE_PATH)
-            validation = validate_pricing_schema("azure", data)
-            status = validation["status"]
-            missing_keys = validation["missing_keys"]
-        except Exception as e:
-            logger.error(f"Failed to validate Azure pricing: {e}")
-            status = "error"
-            
-    return {
-        "age": age,
-        "status": status,
-        "missing_keys": missing_keys,
-        "is_fresh": is_file_fresh(CONSTANTS.AZURE_PRICING_FILE_PATH, PRICING_THRESHOLD_DAYS),
-        "threshold_days": PRICING_THRESHOLD_DAYS
-    }
+    return _pricing_status_response(
+        "azure", CONSTANTS.AZURE_PRICING_FILE_PATH, PRICING_THRESHOLD_DAYS
+    )
 
 
 @router.get(
@@ -159,28 +161,9 @@ def get_pricing_age_gcp():
     """
     Checks the age and validity of the local GCP pricing data file.
     """
-    age = get_file_age_string(CONSTANTS.GCP_PRICING_FILE_PATH)
-    status = "missing"
-    missing_keys = []
-    
-    if os.path.isfile(CONSTANTS.GCP_PRICING_FILE_PATH):
-        try:
-            from backend.pricing_utils import validate_pricing_schema
-            data = load_json_file(CONSTANTS.GCP_PRICING_FILE_PATH)
-            validation = validate_pricing_schema("gcp", data)
-            status = validation["status"]
-            missing_keys = validation["missing_keys"]
-        except Exception as e:
-            logger.error(f"Failed to validate GCP pricing: {e}")
-            status = "error"
-            
-    return {
-        "age": age,
-        "status": status,
-        "missing_keys": missing_keys,
-        "is_fresh": is_file_fresh(CONSTANTS.GCP_PRICING_FILE_PATH, PRICING_THRESHOLD_DAYS),
-        "threshold_days": PRICING_THRESHOLD_DAYS
-    }
+    return _pricing_status_response(
+        "gcp", CONSTANTS.GCP_PRICING_FILE_PATH, PRICING_THRESHOLD_DAYS
+    )
 
 
 # --------------------------------------------------

@@ -5,6 +5,7 @@ import time
 from backend.logger import logger
 from google.oauth2 import service_account
 import backend.constants as CONSTANTS
+from backend.pricing_schema import strip_pricing_metadata
 
 def load_json_file(file_path: str):
     try:
@@ -47,9 +48,9 @@ def load_combined_pricing():
     gcp_pricing = load_json_file_optional(CONSTANTS.GCP_PRICING_FILE_PATH)
     
     combined = {
-        "aws": aws_pricing,
-        "azure": azure_pricing,
-        "gcp": gcp_pricing
+        "aws": strip_pricing_metadata(aws_pricing),
+        "azure": strip_pricing_metadata(azure_pricing),
+        "gcp": strip_pricing_metadata(gcp_pricing),
     }
     
     return combined

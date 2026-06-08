@@ -128,7 +128,7 @@ Pricing refresh outcomes must be explicit:
 - `ambiguous`: multiple plausible candidates exist
 - `changed`: identifiers, units, tiers, or pricing mode changed
 - `failed`: provider/API/auth/network failure
-- `fallback_static`: a reviewed static fallback is used
+- `fallback_static`: an emergency static fallback is present and must be reviewed
 - `last_known_good`: calculations use the last reviewed published price
 - `review_required`: user or maintainer action is needed before publishing new data
 
@@ -165,7 +165,7 @@ The production path remains deterministic and reproducible.
 | #82 | done | Create versioned pricing intent registry and deterministic matcher |
 | #83 | done | Add pricing drift detection and last-known-good publishing |
 | #84 | done | Expose pricing review state in Management API and Flutter |
-| #32 | planned | Refresh optimizer pricing schema and provider fetchers for expanded services |
+| #32 | in-progress | Refresh optimizer pricing schema and provider fetchers for expanded services |
 
 ## Implementation Order
 
@@ -175,7 +175,10 @@ The production path remains deterministic and reproducible.
 4. Add the mapping registry and deterministic matcher.
 5. Add drift detection and last-known-good publication.
 6. Expose typed review state through the Management API and Flutter.
-7. Refresh provider fetchers against the new registry instead of direct keyword publishing.
+7. Refresh provider fetchers against the new schema contract; keep fallback only as
+   a visible emergency state.
+8. Finalize provider-specific intent mappings against real provider catalogs once
+   live credentials/E2E validation is in scope.
 
 ## Verification Strategy
 

@@ -6,6 +6,7 @@ import backend.utils as utils
 import backend.constants as CONSTANTS
 import json
 import time
+from backend.pricing_schema import validate_pricing_payload
 
 getcontext().prec = 28  # Increase precision to avoid InvalidOperation
 
@@ -86,73 +87,4 @@ def validate_pricing_schema(provider: str, data: dict) -> dict:
             "missing_keys": [list of missing keys]
         }
     """
-    if not data:
-        return {"status": "missing", "missing_keys": []}
-
-    expected_schema = {
-        "aws": {
-            "transfer": ["pricing_tiers", "egressPrice"],
-            "iotCore": ["pricePerDeviceAndMonth", "priceRulesTriggered", "pricing_tiers"],
-            "lambda": ["requestPrice", "durationPrice", "freeRequests", "freeComputeTime"],
-            "dynamoDB": ["writePrice", "readPrice", "storagePrice", "freeStorage"],
-            "s3InfrequentAccess": ["storagePrice", "upfrontPrice", "requestPrice", "dataRetrievalPrice", "transferCostFromDynamoDB", "transferCostFromCosmosDB"],
-            "s3GlacierDeepArchive": ["storagePrice", "lifecycleAndWritePrice", "dataRetrievalPrice"],
-            "iotTwinMaker": ["unifiedDataAccessAPICallsPrice", "entityPrice", "queryPrice"],
-            "awsManagedGrafana": ["editorPrice", "viewerPrice"],
-            "stepFunctions": ["pricePer1kStateTransitions", "pricePerStateTransition"],
-            "eventBridge": ["pricePerMillionEvents"],
-            "apiGateway": ["pricePerMillionCalls", "dataTransferOutPrice"],
-            "scheduler": ["jobPrice"]
-        },
-        "azure": {
-            "transfer": ["pricing_tiers"],
-            "iotHub": ["pricing_tiers"], # IoT Hub structure is complex, just check root
-            "functions": ["requestPrice", "durationPrice", "freeRequests", "freeComputeTime"],
-            "cosmosDB": ["requestPrice", "minimumRequestUnits", "RUsPerRead", "RUsPerWrite", "storagePrice"],
-            "blobStorageCool": ["storagePrice", "upfrontPrice", "writePrice", "readPrice", "dataRetrievalPrice", "transferCostFromCosmosDB"],
-            "blobStorageArchive": ["storagePrice", "writePrice", "dataRetrievalPrice"],
-            "azureDigitalTwins": ["messagePrice", "operationPrice", "queryPrice", "queryUnitTiers"],
-            "azureManagedGrafana": ["userPrice", "hourlyPrice"],
-            "logicApps": ["pricePer1kStateTransitions", "pricePerStateTransition"],
-            "eventGrid": ["pricePerMillionEvents"],
-            "apiManagement": ["pricePerMillionCalls"]
-        },
-        "gcp": {
-            "transfer": ["pricing_tiers", "egressPrice"],
-            "iot": ["pricePerGiB", "pricePerDeviceAndMonth"],
-            "functions": ["requestPrice", "durationPrice", "freeRequests", "freeComputeTime"],
-            "storage_hot": ["writePrice", "readPrice", "storagePrice", "freeStorage"],
-            "storage_cool": ["storagePrice", "upfrontPrice", "requestPrice", "dataRetrievalPrice"],
-            "storage_archive": ["storagePrice", "lifecycleAndWritePrice", "dataRetrievalPrice"],
-            "twinmaker": ["e2MediumPrice", "storagePrice"],
-            "grafana": ["e2MediumPrice", "storagePrice"],
-            "apiGateway": ["pricePerMillionCalls", "dataTransferOutPrice"],
-            "cloudWorkflows": ["stepPrice"],
-            "cloudScheduler": ["jobPrice"]
-        }
-    }
-
-    provider_schema = expected_schema.get(provider)
-    if not provider_schema:
-        return {"status": "unknown_provider", "missing_keys": []}
-
-    missing_keys = []
-    
-    for service, keys in provider_schema.items():
-        if service not in data:
-            missing_keys.append(f"{service} (missing service)")
-            continue
-            
-        service_data = data[service]
-        if not isinstance(service_data, dict):
-             # Some services might not be dicts if schema changed, but here we expect dicts
-             continue
-
-        for key in keys:
-            if key not in service_data:
-                missing_keys.append(f"{service}.{key}")
-
-    if missing_keys:
-        return {"status": "incomplete", "missing_keys": missing_keys}
-    
-    return {"status": "valid", "missing_keys": []}
+    return validate_pricing_payload(provider, data)

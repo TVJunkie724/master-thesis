@@ -39,15 +39,30 @@ def test_get_pricing_age():
         mock_age.return_value = "2 days"
         mock_isfile.return_value = True
         mock_load.return_value = {"some": "data"}
-        mock_validate.return_value = {"status": "valid", "missing_keys": []}
+        mock_validate.return_value = {
+            "schema_version": "pricing-provider-schema.v1",
+            "contract_version": "2026.06.08",
+            "status": "valid",
+            "missing_keys": [],
+            "quality_status": "publishable",
+            "review_required": False,
+            "fallback_fields": [],
+            "unsupported_fields": [],
+        }
         mock_is_fresh.return_value = True
         
         response = client.get("/pricing_age/aws")
         assert response.status_code == 200
         assert response.json() == {
             "age": "2 days",
+            "schema_version": "pricing-provider-schema.v1",
+            "contract_version": "2026.06.08",
             "status": "valid",
             "missing_keys": [],
+            "quality_status": "publishable",
+            "review_required": False,
+            "fallback_fields": [],
+            "unsupported_fields": [],
             "is_fresh": True,
             "threshold_days": 7
         }
@@ -64,15 +79,30 @@ def test_get_pricing_age_incomplete():
         mock_age.return_value = "5 hours"
         mock_isfile.return_value = True
         mock_load.return_value = {"some": "data"}
-        mock_validate.return_value = {"status": "incomplete", "missing_keys": ["service.key"]}
+        mock_validate.return_value = {
+            "schema_version": "pricing-provider-schema.v1",
+            "contract_version": "2026.06.08",
+            "status": "incomplete",
+            "missing_keys": ["service.key"],
+            "quality_status": "review_required",
+            "review_required": True,
+            "fallback_fields": ["lambda.requestPrice"],
+            "unsupported_fields": [],
+        }
         mock_is_fresh.return_value = True
         
         response = client.get("/pricing_age/azure")
         assert response.status_code == 200
         assert response.json() == {
             "age": "5 hours",
+            "schema_version": "pricing-provider-schema.v1",
+            "contract_version": "2026.06.08",
             "status": "incomplete",
             "missing_keys": ["service.key"],
+            "quality_status": "review_required",
+            "review_required": True,
+            "fallback_fields": ["lambda.requestPrice"],
+            "unsupported_fields": [],
             "is_fresh": True,
             "threshold_days": 7
         }

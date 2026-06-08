@@ -61,6 +61,11 @@ def build_provider_pricing_review_state(
     has_last_known_good = saved_snapshot is not None or saved_timestamp is not None
     raw_status = optimizer_status.get("status")
     missing_keys = _string_list(optimizer_status.get("missing_keys"))
+    fallback_fields = _string_list(optimizer_status.get("fallback_fields"))
+    unsupported_fields = _string_list(optimizer_status.get("unsupported_fields"))
+    optimizer_requires_review = bool(
+        optimizer_status.get("review_required") or fallback_fields or unsupported_fields
+    )
     is_fresh = bool(optimizer_status.get("is_fresh", False))
 
     if optimizer_status.get("error") or raw_status == "error":
@@ -83,6 +88,12 @@ def build_provider_pricing_review_state(
                 missing_keys=missing_keys,
             )
         ]
+    elif raw_status == "valid" and optimizer_requires_review:
+        state = REVIEW_REQUIRED
+        reasons = _quality_reasons(
+            fallback_fields=fallback_fields,
+            unsupported_fields=unsupported_fields,
+        )
     elif raw_status == "valid" and is_fresh:
         state = FRESH
         reasons = []
@@ -93,8 +104,17 @@ def build_provider_pricing_review_state(
         state = FAILED
         reasons = [_reason("failed", "Optimizer pricing status is unknown.")]
 
-    can_calculate = state in {FRESH, STALE} or has_last_known_good
-    calculation_source = _calculation_source(state, has_last_known_good)
+    uses_reviewable_fallback = raw_status == "valid" and bool(fallback_fields)
+    can_calculate = (
+        state in {FRESH, STALE}
+        or raw_status == "valid"
+        or has_last_known_good
+    )
+    calculation_source = _calculation_source(
+        state,
+        has_last_known_good,
+        uses_reviewable_fallback=uses_reviewable_fallback,
+    )
     pricing_freshness = _pricing_freshness(state, has_last_known_good)
 
     return ProviderPricingReviewState(
@@ -173,13 +193,20 @@ def _is_publication_decision(status: dict[str, Any]) -> bool:
     return status.get("schema_version") == "pricing-publication-decision.v1"
 
 
-def _calculation_source(state: str, has_last_known_good: bool) -> str:
+def _calculation_source(
+    state: str,
+    has_last_known_good: bool,
+    *,
+    uses_reviewable_fallback: bool = False,
+) -> str:
     if state == FRESH:
         return FRESH
     if state == STALE:
         return STALE
     if has_last_known_good:
         return LAST_KNOWN_GOOD
+    if uses_reviewable_fallback:
+        return FALLBACK_STATIC
     return UNAVAILABLE
 
 
@@ -211,6 +238,35 @@ def _reason(
         reason=reason,
         missing_keys=missing_keys or [],
     )
+
+
+def _quality_reasons(
+    *,
+    fallback_fields: list[str],
+    unsupported_fields: list[str],
+) -> list[PricingReviewReason]:
+    reasons: list[PricingReviewReason] = []
+    if fallback_fields:
+        reasons.append(
+            _reason(
+                "fallback_static",
+                "Cached pricing contains emergency fallback values and must be reviewed.",
+                missing_keys=fallback_fields,
+            )
+        )
+    if unsupported_fields:
+        reasons.append(
+            _reason(
+                "unsupported",
+                "Cached pricing contains fields that could not be fetched or derived from the provider contract.",
+                missing_keys=unsupported_fields,
+            )
+        )
+    if not reasons:
+        reasons.append(
+            _reason("review_required", "Optimizer marked cached pricing for review.")
+        )
+    return reasons
 
 
 def _string_list(value: Any) -> list[str]:
