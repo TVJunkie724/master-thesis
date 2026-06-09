@@ -22,7 +22,7 @@ from backend.calculation_v2.layers import (
     AzureLayerCalculators,
     GCPLayerCalculators,
 )
-from backend.calculation_v2.formulas import tiered_unit_cost
+from backend.calculation_v2.formulas import required_first_unit_price, tiered_unit_cost
 from backend.config_loader import load_combined_pricing
 from backend.logger import logger
 from backend.optimization.context import OptimizationMetricContext
@@ -262,7 +262,8 @@ def calculate_gcp_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict
     l1 = _gcp_calc.calculate_l1_cost(
         data_volume_gb=derived["data_size_per_month_gb"],
         messages_per_month=derived["total_messages_per_month"],
-        pricing=pricing
+        pricing=pricing,
+        average_message_size_kb=derived["msg_size_kb"],
     )
     
     # L2: Data Processing
@@ -324,10 +325,8 @@ def _calculate_egress_cost(data_gb: float, pricing: Dict[str, Any], source_provi
     """
     Calculate egress cost for data leaving a provider.
     
-    Standard egress rates (simplified fallback when tier data is unavailable):
-    - AWS: ~$0.09/GB
-    - Azure: ~$0.087/GB
-    - GCP: ~$0.12/GB
+    AWS/Azure preserve their historical fallback rates for compatibility.
+    GCP requires explicit egress pricing or tier data after Phase 11 hardening.
     """
     if source_provider == "AWS":
         aws_transfer = pricing.get("aws", {}).get("transfer", {})
@@ -348,7 +347,19 @@ def _calculate_egress_cost(data_gb: float, pricing: Dict[str, Any], source_provi
             azure_transfer.get("egressPrice", 0.087),
         )
     elif source_provider == "GCP":
-        price = pricing.get("gcp", {}).get("egress", {}).get("pricePerGB", 0.12)
+        gcp_transfer = pricing.get("gcp", {}).get("transfer", {})
+        pricing_tiers = gcp_transfer.get("pricing_tiers")
+        if pricing_tiers:
+            return tiered_unit_cost(data_gb, pricing_tiers)
+        price = required_first_unit_price(
+            pricing.get("gcp", {}).get("egress", {}) or gcp_transfer,
+            (
+                ("pricePerGB", 1),
+                ("pricePerGiB", 1),
+                ("egressPrice", 1),
+            ),
+            label="gcp.transfer.egress",
+        )
     else:
         price = 0.10  # Default
     

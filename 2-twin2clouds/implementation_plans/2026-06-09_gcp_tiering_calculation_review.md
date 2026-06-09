@@ -264,22 +264,70 @@ No separate user-facing pricing-editor documentation is required in this phase.
 
 ## Definition Of Done
 
-- [ ] GitHub issue #95 is linked from the roadmap and this plan.
-- [ ] GCP service model assumptions are documented in the editable SSOT.
-- [ ] GCP calculation changes are evidence-backed by Billing Catalog evidence or
+- [x] GitHub issue #95 is linked from the roadmap and this plan.
+- [x] GCP service model assumptions are documented in the editable SSOT.
+- [x] GCP calculation changes are evidence-backed by Billing Catalog evidence or
   reproducible official Google Cloud pricing documentation.
-- [ ] No GCP calculation uses `fallback_static` as publishable data.
-- [ ] Pub/Sub, Firestore, Cloud Storage, Workflows, Cloud Run functions, Compute
+- [x] No GCP calculation uses `fallback_static` as publishable data.
+- [x] Pub/Sub, Firestore, Cloud Storage, Workflows, Cloud Run functions, Compute
   Engine, and transfer calculations either use supported normalized fields or
   fail visibly with typed errors.
-- [ ] Tiered and unit-normalized service tests cover low, boundary, and high
+- [x] Tiered and unit-normalized service tests cover low, boundary, and high
   usage volumes.
-- [ ] Cross-provider validation still rejects missing, fallback, or
+- [x] Cross-provider validation still rejects missing, fallback, or
   review-required GCP evidence in publishable mode.
-- [ ] Existing optimizer API and Management API run-history contracts remain
+- [x] Existing optimizer API and Management API run-history contracts remain
   compatible.
-- [ ] No real cloud deployment E2E is introduced.
-- [ ] Implementation notes and verification results are recorded before commit.
+- [x] No real cloud deployment E2E is introduced.
+- [x] Implementation notes and verification results are recorded before commit.
+
+## Implementation Notes
+
+- GCP Pub/Sub now supports tiered throughput pricing, explicit per-GiB/per-TiB
+  pricing, optional storage/transfer dimensions, and 1 KB minimum request-size
+  billing when the workload exposes message count and average payload size.
+- GCP Cloud Run functions / Cloud Functions now require normalized request and
+  GB-second prices; per-million request keys are normalized at the component
+  boundary.
+- Firestore now separates write, read, delete, index-entry read, and storage
+  dimensions. Free storage is applied only when an explicit free-storage field is
+  present.
+- Cloud Storage Nearline/Coldline now separates storage, write/Class A,
+  read/Class B, and retrieval pricing. Missing required operation prices fail
+  visibly when that usage dimension is used.
+- Workflows now supports internal/external step pricing as separate dimensions
+  while preserving legacy single per-step keys through one normalization
+  boundary.
+- Compute Engine self-hosted equivalents now require explicit VM-hour and disk
+  storage prices instead of falling back to hidden defaults. GCP L4/L5 remain
+  disabled in the optimizer path unless the existing `allowGcpSelfHostedL4/L5`
+  inputs opt into comparison.
+- GCP transfer now uses tiered transfer pricing when available and fails visibly
+  if no supported GCP egress price can be resolved.
+
+## Implementation Verification
+
+Verification commands:
+
+```bash
+docker compose exec -T 2twin2clouds sh -lc \
+  'PYTHONPATH=/app pytest tests/unit/calculation_v2/test_gcp_tiering.py -q'
+
+docker compose exec -T 2twin2clouds sh -lc \
+  'PYTHONPATH=/app pytest tests/unit/calculation_v2/test_core_formulas.py tests/unit/calculation_v2/test_gcp_tiering.py tests/unit/calculation_v2/test_engine.py -q'
+
+docker compose exec -T 2twin2clouds sh -lc \
+  'PYTHONPATH=/app pytest tests/unit/pricing/test_gcp_pricing_evidence.py tests/unit/pricing/test_cross_provider_cost_validation.py tests/unit/calculation_v2/test_gcp_tiering.py -q'
+```
+
+Observed results before final full-suite verification:
+
+- `tests/unit/calculation_v2/test_gcp_tiering.py`: `17 passed`
+- `test_core_formulas.py`, `test_gcp_tiering.py`, `test_engine.py`: `42 passed`
+- `test_gcp_pricing_evidence.py`, `test_cross_provider_cost_validation.py`,
+  `test_gcp_tiering.py`: `37 passed`
+- `tests/unit/pricing tests/unit/optimization tests/unit/calculation_v2`:
+  `235 passed`
 
 ## Self Review
 
@@ -313,5 +361,13 @@ No separate user-facing pricing-editor documentation is required in this phase.
 - Fixed: fallback remains an emergency diagnostic path and is explicitly
   forbidden for publishable GCP output.
 - Fixed: plan includes concrete tests and verification commands.
+- Fixed: GCP calculators no longer return silent zero/default values when
+  required supported pricing fields are missing.
+- Fixed: GCP transfer now follows the same tier-aware path as AWS/Azure.
+- Fixed: GCP Workflows internal/external step pricing is supported without
+  changing AWS/Azure behavior.
+- Fixed after implementation review: the engine docstring still described a
+  simplified GCP egress fallback; it now documents that GCP requires explicit
+  egress pricing or tier data.
 
 No open findings after plan review.

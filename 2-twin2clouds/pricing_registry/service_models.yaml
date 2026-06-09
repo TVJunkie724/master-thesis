@@ -68,7 +68,7 @@ service_models:
         - Exact Catalog mappings for Pub/Sub volume-based IoT equivalent, Firestore operations, Cloud Storage classes, Workflows, API Gateway/Service Control, and Compute Engine self-hosted equivalents are the input to Phase 11.
         - Final GCP formula/tiering changes are planned in issue 95 and must not be inferred from the evidence phase alone.
     gcp_calculation_model:
-      status: planned_for_phase_11
+      status: reviewed_for_phase_11
       issue: 95
       assumptions:
         - GCP calculation hardening starts from Billing Catalog evidence and official Google Cloud pricing documentation; existing fallback values remain emergency-only diagnostics.
@@ -79,6 +79,7 @@ service_models:
         - Cloud Run functions pricing must be mapped to the current Cloud Run-backed pricing model, or missing dimensions must remain review-required.
         - Compute Engine self-hosted equivalents must separate machine-price assumptions from disk/storage assumptions.
         - GCP transfer pricing must distinguish route and network-tier assumptions where the optimizer intent can express them.
+        - Missing required supported GCP pricing fields fail visibly instead of producing silent zero cost or hidden defaults.
       open_research:
         - Live cloud deployment E2E remains out of scope until the remaining architecture refactorings are complete.
         - Custom contracts, committed-use discounts, sustained-use discounts, Spot/preemptible pricing, and non-modeled regions remain out of scope unless explicit evidence is added.

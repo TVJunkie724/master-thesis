@@ -38,8 +38,8 @@ complexity, or lock-in must be possible without rewriting the optimizer core.
 | AWS tiering and unit-aware calculation | #92 | implemented on this branch |
 | GCP pricing credential preflight and evidence artifacts | #93 | implemented on this branch |
 | Cross-provider evidence-backed cost validation | #94 | implemented on this branch |
-| GCP tiering and unit-aware calculation | #95 | planned |
-| Provider-specific tiering/calculation reviews | #90/#92/#95 | Azure/AWS implemented; GCP planned; live/e2e finalization remains later |
+| GCP tiering and unit-aware calculation | #95 | implemented on this branch |
+| Provider-specific tiering/calculation reviews | #90/#92/#95 | implemented baseline; live/e2e finalization remains later |
 
 Issue numbers must be added here when planned phases are split into GitHub
 issues. The markdown roadmap remains the thesis/dev narrative; GitHub remains
@@ -200,7 +200,7 @@ first-class.
 | 8 | `2026-06-08_aws_tiering_calculation_review.md` | implemented (#92) | Review AWS tiers including IoT TwinMaker and adapt cost calculation where required |
 | 9 | `2026-06-08_gcp_credentials_pricing_evidence.md` | implemented (#93) | Fix GCP pricing credentials/permissions, then capture GCP Catalog evidence |
 | 10 | `2026-06-08_cross_provider_cost_validation.md` | implemented (#94) | Validate all cost intents across providers with zero publishable fallbacks |
-| 11 | `2026-06-09_gcp_tiering_calculation_review.md` | planned (#95) | Review GCP tiers/units and adapt cost calculation where the current model is incomplete |
+| 11 | `2026-06-09_gcp_tiering_calculation_review.md` | implemented (#95) | Review GCP tiers/units and adapt cost calculation where the current model is incomplete |
 
 ## Phase Boundaries
 
@@ -319,12 +319,14 @@ Storage, Workflows, Cloud Run functions, Compute Engine, and transfer pricing.
 It must update GCP formulas only where Billing Catalog evidence or official
 Google Cloud pricing documentation proves the current model incomplete or wrong.
 
-Planned in GitHub issue #95. The executable scope is GCP-only and cost-only:
-central unit/tier primitives where needed, explicit GCP service-model
-assumptions in the editable registry SSOT, typed missing-price failures, tests
-for low/boundary/high-volume usage, and continued rejection of fallback or
-review-required GCP data in publishable mode. This phase must not run real cloud
-deployment E2E and must not change AWS or Azure behavior.
+Implemented in GitHub issue #95. The executable scope is GCP-only and cost-only:
+tiered Pub/Sub throughput, Firestore operation/storage normalization, Cloud
+Storage operation/retrieval normalization, Workflows internal/external step
+normalization, Cloud Run functions request/GB-second normalization, Compute
+Engine VM/disk separation, GCP transfer tiering, typed missing-price failures,
+and continued rejection of fallback or review-required GCP data in publishable
+mode. This phase did not run real cloud deployment E2E and did not change AWS or
+Azure behavior.
 
 ## Phase Readiness Review
 
@@ -345,7 +347,7 @@ verifiable Definition of Done.
 | 8 | Ready as AWS tiering/calculation plan. | No change required; tests and missing-price behavior are explicit. |
 | 9 | Ready as GCP credential/evidence plan only. | Roadmap wording was clarified so #93 is not treated as GCP formula hardening. |
 | 10 | Ready as cross-provider validation plan. | No change required; publishable mode rules remain explicit. |
-| 11 | Ready as new GCP tiering/calculation plan. | New plan `2026-06-09_gcp_tiering_calculation_review.md` and issue #95 were added. |
+| 11 | Implemented after plan review. | GCP formulas now use supported normalized fields or fail visibly with typed errors; tests cover tier/unit boundaries. |
 
 ## Explicit Future Metrics
 
