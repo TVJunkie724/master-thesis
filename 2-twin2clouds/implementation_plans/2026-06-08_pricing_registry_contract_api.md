@@ -11,7 +11,7 @@ Depends on:
 
 Related epic: GitHub issue #69
 
-Issue for this phase: TBD
+Issue for this phase: GitHub issue #32
 
 ## Goal
 
@@ -225,6 +225,8 @@ Observed result:
 
 ### Review Findings
 
+- Fixed: phase issue mapping now references GitHub issue #32 instead of a
+  stale `TBD`.
 - Fixed: registry access is planned as a typed service boundary, not scattered
   YAML reads.
 - Fixed: REST API is read-only and cannot mutate SSOT files.

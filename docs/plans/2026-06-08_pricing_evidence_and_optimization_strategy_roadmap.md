@@ -38,7 +38,8 @@ complexity, or lock-in must be possible without rewriting the optimizer core.
 | AWS tiering and unit-aware calculation | #92 | implemented on this branch |
 | GCP pricing credential preflight and evidence artifacts | #93 | implemented on this branch |
 | Cross-provider evidence-backed cost validation | #94 | implemented on this branch |
-| Provider-specific tiering/calculation reviews | #90/#92/#93 | implemented baseline; live/e2e finalization remains later |
+| GCP tiering and unit-aware calculation | #95 | planned |
+| Provider-specific tiering/calculation reviews | #90/#92/#95 | Azure/AWS implemented; GCP planned; live/e2e finalization remains later |
 
 Issue numbers must be added here when planned phases are split into GitHub
 issues. The markdown roadmap remains the thesis/dev narrative; GitHub remains
@@ -199,6 +200,7 @@ first-class.
 | 8 | `2026-06-08_aws_tiering_calculation_review.md` | implemented (#92) | Review AWS tiers including IoT TwinMaker and adapt cost calculation where required |
 | 9 | `2026-06-08_gcp_credentials_pricing_evidence.md` | implemented (#93) | Fix GCP pricing credentials/permissions, then capture GCP Catalog evidence |
 | 10 | `2026-06-08_cross_provider_cost_validation.md` | implemented (#94) | Validate all cost intents across providers with zero publishable fallbacks |
+| 11 | `2026-06-09_gcp_tiering_calculation_review.md` | planned (#95) | Review GCP tiers/units and adapt cost calculation where the current model is incomplete |
 
 ## Phase Boundaries
 
@@ -308,6 +310,42 @@ validates normalized units, validates the active `cost_minimization_v1`
 optimization profile, and exposes selected evidence ids per provider/intent.
 Calculation results now include `evidenceReferences`, and the Management API
 run store rejects optimizer responses that omit evidence-reference metadata.
+
+### Phase 11
+
+Completes the missing provider-specific hardening step for GCP. This phase must
+review Google Cloud billing units and tiers for Pub/Sub, Firestore, Cloud
+Storage, Workflows, Cloud Run functions, Compute Engine, and transfer pricing.
+It must update GCP formulas only where Billing Catalog evidence or official
+Google Cloud pricing documentation proves the current model incomplete or wrong.
+
+Planned in GitHub issue #95. The executable scope is GCP-only and cost-only:
+central unit/tier primitives where needed, explicit GCP service-model
+assumptions in the editable registry SSOT, typed missing-price failures, tests
+for low/boundary/high-volume usage, and continued rejection of fallback or
+review-required GCP data in publishable mode. This phase must not run real cloud
+deployment E2E and must not change AWS or Azure behavior.
+
+## Phase Readiness Review
+
+Every phase below was reviewed against the plan-readiness criteria: clear goal,
+explicit scope and non-goals, narrow side effects, typed contract boundaries,
+test strategy, no real cloud deployment E2E, documentation/update target, and a
+verifiable Definition of Done.
+
+| Phase | Readiness result | Fixes made during review |
+|---|---|---|
+| 1 | Ready as foundation architecture plan. | No change required; provider-specific formula work remains explicitly out of scope. |
+| 2 | Ready after issue-mapping cleanup. | Phase issue was corrected from `TBD` to #32. |
+| 3 | Ready as strategy/profile architecture plan. | No change required; disabled future metrics are explicit non-executable declarations. |
+| 4 | Ready as Management API persistence plan. | No change required; optimizer-owned DB remains out of scope. |
+| 5 | Ready as Azure evidence plan. | No change required; formula changes remain out of scope for this phase. |
+| 6 | Ready as Azure tiering/calculation plan. | No change required; tests and evidence boundary are explicit. |
+| 7 | Ready as AWS evidence plan. | No change required; formula changes remain out of scope for this phase. |
+| 8 | Ready as AWS tiering/calculation plan. | No change required; tests and missing-price behavior are explicit. |
+| 9 | Ready as GCP credential/evidence plan only. | Roadmap wording was clarified so #93 is not treated as GCP formula hardening. |
+| 10 | Ready as cross-provider validation plan. | No change required; publishable mode rules remain explicit. |
+| 11 | Ready as new GCP tiering/calculation plan. | New plan `2026-06-09_gcp_tiering_calculation_review.md` and issue #95 were added. |
 
 ## Explicit Future Metrics
 
@@ -444,5 +482,10 @@ compatibility/current-state bridge during migration, but typed
 - Fixed: extension contracts now include `OptimizationProfile` and
   `CalculationModel`, not only metric/scoring/source contracts.
 - Fixed: roadmap-level implementation governance is explicit.
+- Fixed: Phase 2 issue mapping no longer contains a stale `TBD`.
+- Fixed: GCP evidence (#93) and GCP tiering/calculation hardening (#95) are now
+  separate phases.
+- Fixed: per-phase readiness review is documented so each phase can be used as
+  an implementation handoff without relying on chat context.
 
 No open findings after roadmap review.
