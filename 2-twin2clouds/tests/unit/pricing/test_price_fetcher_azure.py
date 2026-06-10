@@ -146,6 +146,81 @@ def test_fetch_azure_price_iot(mock_query):
     assert "tier1" in result["pricing_tiers"]
     assert result["pricing_tiers"]["tier1"]["price"] == 25.00
 
+
+@patch('backend.fetch_data.cloud_price_fetcher_azure._retail_query_items')
+def test_fetch_azure_price_cosmos_request_units(mock_query):
+    """Cosmos DB RU/s rows are normalized to monthly requestPrice."""
+    mock_query.return_value = [
+        {
+            "serviceName": "Azure Cosmos DB",
+            "meterName": "100 RU/s",
+            "unitOfMeasure": "1/Hour",
+            "unitPrice": 0.0,
+            "skuName": "Free Tier",
+            "productName": "Azure Cosmos DB",
+        },
+        {
+            "serviceName": "Azure Cosmos DB",
+            "meterName": "100 RU/s",
+            "unitOfMeasure": "1/Hour",
+            "unitPrice": 0.008,
+            "skuName": "RUs",
+            "productName": "Azure Cosmos DB",
+        },
+        {
+            "serviceName": "Azure Cosmos DB",
+            "meterName": "Data Stored",
+            "unitOfMeasure": "1 GB/Month",
+            "unitPrice": 0.25,
+            "skuName": "Standard",
+            "productName": "Azure Cosmos DB",
+        },
+    ]
+
+    result = fetch_azure_price(
+        "storage_hot",
+        "westeurope",
+        {"westeurope": "westeurope"},
+        {"storage_hot": {"azure": "Azure Cosmos DB"}},
+        debug=False,
+    )
+
+    assert result["requestPrice"] == 0.0584
+    assert result["storagePrice"] == 0.25
+
+
+@patch('backend.fetch_data.cloud_price_fetcher_azure._retail_query_items')
+def test_fetch_azure_price_grafana(mock_query):
+    """Azure Managed Grafana uses Azure Grafana Service rows."""
+    mock_query.return_value = [
+        {
+            "serviceName": "Azure Grafana Service",
+            "meterName": "Standard User",
+            "unitOfMeasure": "1/Month",
+            "unitPrice": 6.0,
+            "skuName": "Standard",
+            "productName": "Azure Managed Grafana",
+        },
+        {
+            "serviceName": "Azure Grafana Service",
+            "meterName": "Standard Node",
+            "unitOfMeasure": "1/Hour",
+            "unitPrice": 0.0445,
+            "skuName": "Standard",
+            "productName": "Azure Managed Grafana",
+        },
+    ]
+
+    result = fetch_azure_price(
+        "grafana",
+        "westeurope",
+        {"westeurope": "westeurope"},
+        {"grafana": {"azure": "Azure Grafana Service"}},
+        debug=False,
+    )
+
+    assert result == {"userPrice": 6.0, "hourlyPrice": 0.0445}
+
 @patch('backend.fetch_data.cloud_price_fetcher_azure._retail_query_items')
 def test_fetch_azure_price_api_error(mock_query):
     """Test handling of API errors (empty return)"""

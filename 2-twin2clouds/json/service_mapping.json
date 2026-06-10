@@ -30,8 +30,8 @@
     "gcp": "ComputeEngine"
   },
   "grafana": {
-    "aws": "AmazonManagedGrafana",
-    "azure": "Grafana",
+    "aws": "AmazonGrafana",
+    "azure": "Azure Grafana Service",
     "gcp": "ComputeEngine"
   },
   "event_bus": {

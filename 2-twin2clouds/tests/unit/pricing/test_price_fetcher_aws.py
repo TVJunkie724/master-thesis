@@ -1,7 +1,12 @@
 import pytest
 import json
 from unittest.mock import patch, MagicMock
-from backend.fetch_data.cloud_price_fetcher_aws import fetch_aws_price, _extract_prices_from_api_response
+from backend.fetch_data.cloud_price_fetcher_aws import (
+    _extract_iot_connection_price_per_device_month,
+    _extract_iot_message_tiers,
+    _extract_prices_from_api_response,
+    fetch_aws_price,
+)
 
 # Mock data for AWS Pricing API response
 def create_mock_price_item(description, price_per_unit, unit="USD"):
@@ -128,17 +133,83 @@ def test_fetch_aws_price_unknown_service(mock_fetch_products, mock_get_client):
     
     assert result == {}
 
+def test_extract_iot_message_tiers_uses_standard_messages_only():
+    price_list = [
+        create_mock_price_item(
+            "$0.96 per million messages - next 4 billion messages/month",
+            0.00000096,
+        ),
+        create_mock_price_item(
+            "$1.20 per million messages - first 1 billion messages/month",
+            0.0000012,
+        ),
+        create_mock_price_item(
+            "$0.84 per million messages - over 5 billion messages/month",
+            0.00000084,
+        ),
+        create_mock_price_item(
+            "$0.00000216 per Direct Message from 0 to 1,000,000,000",
+            0.00000216,
+        ),
+    ]
+    decoded = [json.loads(item) for item in price_list]
+    for item, usage_type, begin, end in zip(
+        decoded,
+        ["EUC1-Messages", "EUC1-Messages", "EUC1-Messages", "EUC1-DirectMessages"],
+        ["1000000000", "0", "5000000000", "0"],
+        ["5000000000", "1000000000", "Inf", "1000000000"],
+    ):
+        item["product"]["attributes"]["usagetype"] = usage_type
+        dim = next(
+            iter(
+                next(iter(item["terms"]["OnDemand"].values()))["priceDimensions"].values()
+            )
+        )
+        dim["beginRange"] = begin
+        dim["endRange"] = end
+
+    result = _extract_iot_message_tiers([json.dumps(item) for item in decoded])
+
+    assert result == {
+        "tier_first": 0.0000012,
+        "tier_next": 0.00000096,
+        "tier_over": 0.00000084,
+    }
+
+
+def test_extract_iot_connection_minutes_as_device_month():
+    item = json.loads(
+        create_mock_price_item(
+            "$0.096 per million minutes of connection",
+            0.000000096,
+        )
+    )
+    item["product"]["attributes"]["usagetype"] = "EUC1-ConnectionMinutes"
+
+    result = _extract_iot_connection_price_per_device_month([json.dumps(item)])
+
+    assert result == pytest.approx(0.0041472)
+
+
 @patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
-def test_fetch_aws_price_grafana(mock_get_client):
-    """Test AWS Grafana leaves static fallback handling to the schema builder."""
+@patch('backend.fetch_data.cloud_price_fetcher_aws._fetch_api_products')
+def test_fetch_aws_price_grafana(mock_fetch_products, mock_get_client):
+    """Test AWS Grafana fetches editor/viewer user pricing."""
     mock_client = MagicMock()
     mock_get_client.return_value = mock_client
+    mock_fetch_products.side_effect = [
+        [],
+        [
+            create_mock_price_item("$9 per Editor per month", 9.0),
+            create_mock_price_item("$5 per Viewer per month", 5.0),
+        ],
+    ]
     
     region_map = {"us-east-1": "US East (N. Virginia)"}
     
     result = fetch_aws_price("grafana", "AmazonGrafana", "us-east-1", region_map, debug=False)
     
-    assert result == {}
+    assert result == {"editorPrice": 9.0, "viewerPrice": 5.0}
 
 @patch('backend.fetch_data.cloud_price_fetcher_aws._get_pricing_client')
 @patch('backend.fetch_data.cloud_price_fetcher_aws._fetch_api_products')

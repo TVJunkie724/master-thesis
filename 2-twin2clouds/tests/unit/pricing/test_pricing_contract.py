@@ -25,7 +25,7 @@ SERVICE_MAPPING = {
     "iot": {"aws": "AWSIoT", "azure": "IoT Hub", "gcp": "CloudPubSub"},
     "storage_hot": {"aws": "AmazonDynamoDB", "azure": "Azure Cosmos DB", "gcp": "Firestore"},
     "twinmaker": {"aws": "IOTTwinMaker", "azure": "Digital Twins", "gcp": "ComputeEngine"},
-    "grafana": {"aws": "AmazonManagedGrafana", "azure": "Grafana", "gcp": "ComputeEngine"},
+    "grafana": {"aws": "AmazonGrafana", "azure": "Azure Grafana Service", "gcp": "ComputeEngine"},
     "event_bus": {"aws": "AWSEvents", "azure": "Event Grid", "gcp": "CloudPubSub"},
     "orchestration": {"aws": "AmazonStates", "azure": "Logic Apps", "gcp": "CloudWorkflows"},
     "data_access": {"aws": "AmazonAPIGateway", "azure": "API Management", "gcp": "ApiGateway"},
@@ -215,6 +215,32 @@ def test_attach_pricing_metadata_marks_fallback_as_review_required():
     assert validation["review_required"] is True
     assert "lambda.requestPrice" in validation["fallback_fields"]
     assert payload["__quality__"]["field_sources"]["lambda.requestPrice"] == "fallback_static"
+
+
+def test_attach_pricing_metadata_marks_model_constants_as_curated():
+    aws_payload = {
+        "lambda": {"freeRequests": 1_000_000, "freeComputeTime": 400_000},
+        "dynamoDB": {"freeStorage": 25},
+        "s3InfrequentAccess": {"upfrontPrice": 0.0001},
+    }
+    azure_payload = {
+        "functions": {"freeRequests": 1_000_000, "freeComputeTime": 400_000},
+        "cosmosDB": {"minimumRequestUnits": 400, "RUsPerRead": 1, "RUsPerWrite": 10},
+        "blobStorageCool": {"upfrontPrice": 0.0001},
+        "azureDigitalTwins": {"queryUnitTiers": [{"lower": 1, "value": 15}]},
+    }
+
+    aws = attach_pricing_metadata("aws", aws_payload, fetched={})
+    azure = attach_pricing_metadata("azure", azure_payload, fetched={})
+
+    assert aws["__quality__"]["field_sources"]["lambda.freeRequests"] == "curated"
+    assert aws["__quality__"]["field_sources"]["dynamoDB.freeStorage"] == "curated"
+    assert aws["__quality__"]["field_sources"]["s3InfrequentAccess.upfrontPrice"] == "curated"
+    assert azure["__quality__"]["field_sources"]["functions.freeComputeTime"] == "curated"
+    assert azure["__quality__"]["field_sources"]["cosmosDB.RUsPerRead"] == "curated"
+    assert azure["__quality__"]["field_sources"]["azureDigitalTwins.queryUnitTiers"] == "curated"
+    assert "lambda.freeRequests" not in aws["__quality__"]["fallback_fields"]
+    assert "cosmosDB.RUsPerRead" not in azure["__quality__"]["fallback_fields"]
 
 
 def test_incomplete_payload_is_review_required_even_without_fallback_metadata():
