@@ -8,7 +8,9 @@ from backend.fetch_data.calculate_up_to_date_pricing import (
     calculate_up_to_date_pricing,
     calculate_up_to_date_pricing_with_credentials,
     fetch_aws_data,
+    fetch_google_data,
 )
+from backend.fetch_data.cloud_price_fetcher_google import GCPPricingCatalogAccessError
 from api.pricing import CredentialRequest
 from rest_api import app
 
@@ -191,3 +193,54 @@ def test_gcp_credential_forward_invalid_json_does_not_fallback_to_local_credenti
         )
 
     mock_load_gcp_credentials.assert_not_called()
+
+
+@patch("backend.fetch_data.calculate_up_to_date_pricing.PriceFetcherFactory.create")
+def test_gcp_catalog_access_error_aborts_without_schema_fallback(mock_factory_create):
+    fetcher = MagicMock()
+    fetcher.fetch_price.side_effect = GCPPricingCatalogAccessError(
+        "GCP Cloud Billing Catalog service listing failed"
+    )
+    mock_factory_create.return_value = fetcher
+
+    with pytest.raises(GCPPricingCatalogAccessError):
+        fetch_google_data(
+            {"gcp_region": "europe-west1"},
+            {"iot": {"gcp": "Cloud Pub/Sub"}},
+            {"europe-west1": "Europe West 1"},
+            billing_client=object(),
+        )
+
+
+@patch("pathlib.Path.write_text")
+@patch("backend.fetch_data.calculate_up_to_date_pricing.fetch_google_data")
+@patch("backend.fetch_data.calculate_up_to_date_pricing.billing_v1.CloudCatalogClient")
+@patch("google.oauth2.service_account.Credentials.from_service_account_info")
+@patch("backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_json_file")
+@patch("backend.fetch_data.calculate_up_to_date_pricing.config_loader.load_service_mapping")
+def test_gcp_credential_forward_catalog_error_does_not_write_pricing_file(
+    mock_load_service_mapping,
+    mock_load_json_file,
+    mock_from_service_account_info,
+    mock_cloud_catalog_client,
+    mock_fetch_google_data,
+    mock_write_text,
+):
+    mock_load_service_mapping.return_value = {"iot": {"gcp": "Cloud Pub/Sub"}}
+    mock_load_json_file.return_value = {"europe-west1": "Europe West 1"}
+    mock_from_service_account_info.return_value = object()
+    mock_cloud_catalog_client.return_value = object()
+    mock_fetch_google_data.side_effect = GCPPricingCatalogAccessError(
+        "GCP Cloud Billing Catalog service listing failed"
+    )
+
+    with pytest.raises(GCPPricingCatalogAccessError):
+        calculate_up_to_date_pricing_with_credentials(
+            "gcp",
+            {
+                "gcp_service_account_json": '{"type":"service_account"}',
+                "gcp_region": "europe-west1",
+            },
+        )
+
+    mock_write_text.assert_not_called()

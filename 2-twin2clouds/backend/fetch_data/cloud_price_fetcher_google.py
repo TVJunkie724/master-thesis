@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional, List
 from google.cloud import billing_v1
 from backend.logger import logger
 import backend.constants as CONSTANTS
+from backend.gcp_pricing_evidence import redact_gcp_error
 # from backend.config_loader import load_service_mapping # Not used
 # from backend.fetch_data import initial_fetch_google # No longer needed
 
@@ -48,6 +49,10 @@ STATIC_DEFAULTS_GCP = {
         "storagePrice": 0.04
     }
 }
+
+
+class GCPPricingCatalogAccessError(ValueError):
+    """Raised when GCP Cloud Billing Catalog access fails for a live refresh."""
 
 # -------------------------------------------------------------------
 # Keywords for Matching
@@ -263,6 +268,12 @@ def fetch_gcp_price(client: billing_v1.CloudCatalogClient, service_name: str, re
     
     logger.info(f"🔍 Fetching GCP {service_name} pricing for {region_human}...")
 
+    if client is None:
+        raise GCPPricingCatalogAccessError(
+            "GCP Cloud Billing Catalog client is not initialized. "
+            "Provide valid service account credentials with Cloud Billing Catalog access."
+        )
+
     # 1. Client is passed in
     
     # 2. Get Config
@@ -282,8 +293,13 @@ def fetch_gcp_price(client: billing_v1.CloudCatalogClient, service_name: str, re
                 service_id = service.service_id
                 break
     except Exception as e:
-        logger.error(f"Error listing GCP services: {e}")
-        return {}
+        message = redact_gcp_error(e)
+        logger.error(f"Error listing GCP services: {message}")
+        raise GCPPricingCatalogAccessError(
+            "GCP Cloud Billing Catalog service listing failed. "
+            "Verify service account credentials, token validity, and "
+            "cloudbilling.services.list permission."
+        ) from e
 
     if not service_id:
         logger.warning(f"⚠️ GCP Service '{config['service_display_name']}' not found in catalog.")
@@ -369,8 +385,13 @@ def fetch_gcp_price(client: billing_v1.CloudCatalogClient, service_name: str, re
                     logger.debug(f"   ❌ {service_name}.{key} not found.")
 
     except Exception as e:
-        logger.error(f"Error listing SKUs for {service_name}: {e}")
-        return {}
+        message = redact_gcp_error(e)
+        logger.error(f"Error listing SKUs for {service_name}: {message}")
+        raise GCPPricingCatalogAccessError(
+            f"GCP Cloud Billing Catalog SKU listing failed for {service_name}. "
+            "Verify service account credentials, token validity, and "
+            "cloudbilling.skus.list permission."
+        ) from e
 
     logger.info(f"✅ Final GCP {service_name} pricing: {fetched}")
     print("")

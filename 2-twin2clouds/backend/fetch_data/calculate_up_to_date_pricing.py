@@ -6,7 +6,10 @@ import backend.constants as CONSTANTS
 from backend.logger import logger
 from backend.fetch_data.cloud_price_fetcher_aws import STATIC_DEFAULTS
 from backend.fetch_data.cloud_price_fetcher_azure import STATIC_DEFAULTS_AZURE
-from backend.fetch_data.cloud_price_fetcher_google import STATIC_DEFAULTS_GCP
+from backend.fetch_data.cloud_price_fetcher_google import (
+    GCPPricingCatalogAccessError,
+    STATIC_DEFAULTS_GCP,
+)
 from google.cloud import billing_v1
 from backend.config_loader import load_gcp_credentials
 from backend.pricing_schema import attach_pricing_metadata
@@ -637,8 +640,10 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, region_ma
             billing_client = billing_v1.CloudCatalogClient(credentials=credentials)
         except Exception as e:
             logger.error(f"⚠️ Failed to initialize GCP Billing Client: {e}")
-            # Fallback to empty fetched dict, defaults will be used
-            billing_client = None
+            raise GCPPricingCatalogAccessError(
+                "Failed to initialize GCP Billing Catalog client. "
+                "Provide valid service account credentials for live GCP pricing refresh."
+            ) from e
 
     # Factory Pattern: Create GCP fetcher instance
     gcp_fetcher = PriceFetcherFactory.create("gcp")
@@ -654,17 +659,14 @@ def fetch_google_data(google_credentials: dict, service_mapping: dict, region_ma
                 continue
 
             logger.info(f"--- GCP Service: {neutral_service} ---")
-            if billing_client:
-                # Use Factory-created fetcher with provider-specific kwargs
-                fetched[neutral_service] = gcp_fetcher.fetch_price(
-                    service_name=neutral_service,
-                    region_code=region,
-                    region_map=region_map,
-                    debug=additional_debug,
-                    billing_client=billing_client
-                )
-            else:
-                fetched[neutral_service] = {}
+            # Use Factory-created fetcher with provider-specific kwargs.
+            fetched[neutral_service] = gcp_fetcher.fetch_price(
+                service_name=neutral_service,
+                region_code=region,
+                region_map=region_map,
+                debug=additional_debug,
+                billing_client=billing_client
+            )
         except ValueError as e:
             logger.error(e)
             raise
