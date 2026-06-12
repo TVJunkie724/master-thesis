@@ -37,6 +37,35 @@ class FakeRegistryService:
     def get_registry_version(self):
         return "test-registry.v1"
 
+    def get_optimization_bundle(self, bundle_id):
+        if bundle_id != "cost_minimization_v1":
+            raise KeyError(bundle_id)
+        return {
+            "id": "cost_minimization_v1",
+            "enabled": True,
+            "status": "ready",
+            "profile_id": "cost_minimization_v1",
+            "metric_provider_id": "cost",
+            "calculation_strategy_id": "cost_calculation_v2",
+            "formula_set_id": "cost_formula_set_v1",
+            "workload_contract_id": "digital_twin_workload_v1",
+            "pricing_contract_group": "cost_provider_pricing_contracts_v1",
+            "provider_pricing_contract_ids": ["aws.functions_request.pricing_contract.v1"],
+            "scoring_strategy_id": "min_total_cost_v1",
+            "result_schema_version": "cost-result.v1",
+        }
+
+    def get_calculation_strategy(self, strategy_id):
+        if strategy_id != "cost_calculation_v2":
+            raise KeyError(strategy_id)
+        return {
+            "id": "cost_calculation_v2",
+            "enabled": True,
+            "calculation_model_id": "cost_model_v1",
+            "formula_set_id": "cost_formula_set_v1",
+            "workload_contract_id": "digital_twin_workload_v1",
+        }
+
 
 def _record(
     provider,

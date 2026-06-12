@@ -1,0 +1,44 @@
+schema_version: pricing-registry-formula-sets.v1
+registry_version: 2026.06.08
+formula_sets:
+  cost_formula_set_v1:
+    id: cost_formula_set_v1
+    version: 2026.06.10
+    status: ready
+    description: Formula declarations allowed by the cost calculation strategy.
+    formulas:
+      tiered_unit_cost:
+        id: tiered_unit_cost
+        component: usage
+        expression: sum(tier_usage * normalized_unit_price)
+        description: Tier-aware unit charge for provider-defined quantity tiers.
+      transfer_tier_cost:
+        id: transfer_tier_cost
+        component: transfer
+        expression: sum(egress_tier_gb * normalized_gb_price)
+        description: Tier-aware outbound data transfer charge.
+      request_unit_cost:
+        id: request_unit_cost
+        component: requests
+        expression: request_count * normalized_request_price
+        description: Request or operation charge after unit normalization.
+      duration_compute_cost:
+        id: duration_compute_cost
+        component: compute_duration
+        expression: gb_seconds * normalized_gb_second_price
+        description: Serverless duration charge from memory-weighted execution time.
+      storage_capacity_cost:
+        id: storage_capacity_cost
+        component: storage_capacity
+        expression: gb_month * normalized_gb_month_price
+        description: Storage capacity charge for a storage class and month.
+      query_unit_cost:
+        id: query_unit_cost
+        component: query_units
+        expression: query_units * normalized_query_unit_price
+        description: Digital twin query usage charge.
+      user_seat_cost:
+        id: user_seat_cost
+        component: user_seats
+        expression: user_months * normalized_user_month_price
+        description: Managed user seat charge per user-month.

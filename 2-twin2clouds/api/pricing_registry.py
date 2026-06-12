@@ -28,6 +28,11 @@ class RegistryStatusResponse(BaseModel):
     service_model_count: int
     pricing_model_classification_count: int
     price_source_classification_count: int
+    optimization_bundle_count: int
+    calculation_strategy_count: int
+    formula_set_count: int
+    workload_contract_count: int
+    provider_pricing_contract_count: int
     providers: list[str]
     provider_mapping_counts: dict[str, int]
 
@@ -286,6 +291,61 @@ def list_field_verification_matrix(provider: str | None = Query(default=None)):
         return {
             "registry_version": service.get_registry_version(),
             "items": service.build_field_verification_matrix(provider=provider),
+        }
+    except PricingRegistryLookupError as exc:
+        raise _lookup_error(exc)
+    except PricingRegistryError as exc:
+        raise _registry_error(exc)
+
+
+@router.get(
+    "/optimization-bundles",
+    response_model=RegistryCollectionResponse,
+    operation_id="listPricingRegistryOptimizationBundles",
+    summary="List optimization bundles",
+    responses={500: ERROR_RESPONSES[500]},
+)
+def list_optimization_bundles():
+    try:
+        return {
+            "registry_version": service.get_registry_version(),
+            "items": service.list_optimization_bundles(),
+        }
+    except PricingRegistryError as exc:
+        raise _registry_error(exc)
+
+
+@router.get(
+    "/optimization-bundles/{bundle_id}",
+    response_model=RegistryItemResponse,
+    operation_id="getPricingRegistryOptimizationBundle",
+    summary="Get one optimization bundle",
+    responses={404: ERROR_RESPONSES[404], 500: ERROR_RESPONSES[500]},
+)
+def get_optimization_bundle(bundle_id: str):
+    try:
+        return {
+            "registry_version": service.get_registry_version(),
+            "item": service.get_optimization_bundle(bundle_id),
+        }
+    except PricingRegistryLookupError as exc:
+        raise _lookup_error(exc)
+    except PricingRegistryError as exc:
+        raise _registry_error(exc)
+
+
+@router.get(
+    "/provider-pricing-contracts",
+    response_model=RegistryCollectionResponse,
+    operation_id="listPricingRegistryProviderPricingContracts",
+    summary="List provider pricing contracts",
+    responses={404: ERROR_RESPONSES[404], 500: ERROR_RESPONSES[500]},
+)
+def list_provider_pricing_contracts(provider: str | None = Query(default=None)):
+    try:
+        return {
+            "registry_version": service.get_registry_version(),
+            "items": service.list_provider_pricing_contracts(provider=provider),
         }
     except PricingRegistryLookupError as exc:
         raise _lookup_error(exc)

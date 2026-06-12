@@ -14,6 +14,7 @@ DEFAULT_OPTIMIZATION_PROFILES: dict[str, dict] = {
         "metric_provider_ids": ["cost"],
         "calculation_model_ids": ["cost_model_v1"],
         "scoring_strategy_id": "min_total_cost_v1",
+        "optimization_bundle_id": "cost_minimization_v1",
         "intent_group_ids": ["cost"],
         "evidence_requirements": {"pricing": "evidence_backed"},
         "result_schema_version": "cost-result.v1",
@@ -25,6 +26,7 @@ DEFAULT_OPTIMIZATION_PROFILES: dict[str, dict] = {
         "metric_provider_ids": ["latency"],
         "calculation_model_ids": ["latency_model_v1"],
         "scoring_strategy_id": "min_latency_v1",
+        "optimization_bundle_id": "",
         "intent_group_ids": ["latency"],
         "evidence_requirements": {"latency": "tbd"},
         "result_schema_version": "latency-result.v1",
@@ -36,10 +38,10 @@ DEFAULT_OPTIMIZATION_PROFILES: dict[str, dict] = {
         "metric_provider_ids": ["cost", "latency"],
         "calculation_model_ids": ["cost_model_v1", "latency_model_v1"],
         "scoring_strategy_id": "weighted_sum_v1",
+        "optimization_bundle_id": "",
         "intent_group_ids": ["cost", "latency"],
         "evidence_requirements": {"pricing": "evidence_backed", "latency": "tbd"},
         "result_schema_version": "weighted-result.v1",
         "description": "Future weighted multi-objective profile declaration.",
     },
 }
-

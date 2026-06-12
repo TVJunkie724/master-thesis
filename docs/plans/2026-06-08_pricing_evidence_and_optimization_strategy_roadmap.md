@@ -539,6 +539,8 @@ truth and validation schema that later phases consume. Provider pricing
 contracts may reference only pricing model and source classifications from Phase
 12.
 
+Status: implemented in #97 on branch `codex/gcp-tiering-calculation-hardening`.
+
 Required target bundle:
 
 ```text
@@ -552,55 +554,34 @@ cost_minimization_v1
     -> pricing_contract_group: cost_provider_pricing_contracts_v1
 ```
 
-Provider pricing contracts must allow different provider models under the same
-business intent. Example for L1 ingestion:
+Implemented registry artifacts:
 
 ```text
-aws.iot.l1
-    pricing_model_classification: aws.iot.l1.tiered_message_unit.v1
-    allowed_formula_refs: [CM, TieredUnit]
-    allowed_price_source_types:
-      message_tiers: [provider_api]
-      connection_minutes: [provider_api, official_static_documentation]
-    consumed_workload_fields:
-      - messages_per_month
-      - average_message_size_kb
-      - number_of_devices
-    output_metric_unit: usd_per_month
-
-azure.iot.l1
-    pricing_model_classification: azure.iot.l1.monthly_capacity_unit.v1
-    allowed_formula_refs: [CapacityTier]
-    allowed_price_source_types:
-      unit_price: [provider_api]
-      included_messages: [provider_api, official_static_documentation]
-    consumed_workload_fields:
-      - messages_per_month
-    output_metric_unit: usd_per_month
-
-gcp.iot.l1
-    pricing_model_classification: gcp.iot.l1.throughput_volume.v1
-    allowed_formula_refs: [CTransfer, TieredUnit]
-    allowed_price_source_types:
-      throughput_tiers: [provider_api]
-      free_tier: [provider_api, official_static_documentation]
-    consumed_workload_fields:
-      - messages_per_month
-      - average_message_size_kb
-      - data_volume_gb
-    output_metric_unit: usd_per_month
+2-twin2clouds/pricing_registry/optimization_bundles.yaml
+2-twin2clouds/pricing_registry/calculation_strategies.yaml
+2-twin2clouds/pricing_registry/formula_sets.yaml
+2-twin2clouds/pricing_registry/workload_contracts.yaml
+2-twin2clouds/pricing_registry/provider_pricing_contracts.yaml
 ```
+
+The implemented bundle contains one executable cost profile, one calculation
+strategy, one formula set, one workload contract, and 48 provider pricing
+contracts across AWS, Azure, and GCP. Provider contracts allow different
+provider models under the same business intent by binding each provider field
+to its own pricing model classification, price source classification, allowed
+formula refs, consumed workload fields, normalization rules, and output metric
+unit.
 
 Definition of Done:
 
-- Versioned YAML or JSON registry files exist for calculation strategies,
+- [x] Versioned YAML or JSON registry files exist for calculation strategies,
   formula sets, workload contracts, and provider pricing contracts.
-- `PricingRegistryService` or a sibling typed service can load and validate the
+- [x] `PricingRegistryService` or a sibling typed service can load and validate the
   new contracts without HTTP calls.
-- Cost-only remains the only executable strategy.
-- Future metric strategies may be declared disabled/TBD only; they must not
+- [x] Cost-only remains the only executable strategy.
+- [x] Future metric strategies may be declared disabled/TBD only; they must not
   emit fake scores.
-- Tests reject unknown formula refs, unknown workload fields, incompatible
+- [x] Tests reject unknown formula refs, unknown workload fields, incompatible
   profile bundles, missing pricing model/source classifications, disallowed
   source types, missing provider pricing contracts, and duplicate contract ids.
 

@@ -43,6 +43,7 @@ class OptimizationProfile:
     metric_provider_ids: tuple[str, ...]
     calculation_model_ids: tuple[str, ...]
     scoring_strategy_id: str
+    optimization_bundle_id: str
     intent_group_ids: tuple[str, ...]
     evidence_requirements: dict[str, str]
     result_schema_version: str
@@ -58,6 +59,7 @@ class OptimizationProfile:
             metric_provider_ids=tuple(config.get("metric_provider_ids") or ()),
             calculation_model_ids=tuple(config.get("calculation_model_ids") or ()),
             scoring_strategy_id=str(config.get("scoring_strategy_id") or ""),
+            optimization_bundle_id=str(config.get("optimization_bundle_id") or ""),
             intent_group_ids=tuple(config.get("intent_group_ids") or ()),
             evidence_requirements=dict(config.get("evidence_requirements") or {}),
             result_schema_version=str(config.get("result_schema_version") or ""),
@@ -74,6 +76,7 @@ class OptimizationProfile:
             "metric_provider_ids": list(self.metric_provider_ids),
             "calculation_model_ids": list(self.calculation_model_ids),
             "scoring_strategy_id": self.scoring_strategy_id,
+            "optimization_bundle_id": self.optimization_bundle_id,
             "intent_group_ids": list(self.intent_group_ids),
             "evidence_requirements": dict(self.evidence_requirements),
             "result_schema_version": self.result_schema_version,
@@ -180,10 +183,31 @@ class OptimizationProfileRegistry:
     def build_result_metadata(self, profile_id: str | None = None) -> dict[str, Any]:
         profile = self.select_profile(profile_id)
         registry_version = self.pricing_registry_service.get_registry_version()
+        bundle_metadata = self._build_bundle_metadata(profile)
         return {
             "config_version": OPTIMIZATION_CONFIG_VERSION,
             "pricing_registry_version": registry_version,
+            "optimization_bundle": bundle_metadata,
             **profile.to_metadata(),
+        }
+
+    def _build_bundle_metadata(self, profile: OptimizationProfile) -> dict[str, Any]:
+        if not profile.optimization_bundle_id:
+            return {}
+        bundle = self.pricing_registry_service.get_optimization_bundle(
+            profile.optimization_bundle_id
+        )
+        return {
+            "id": bundle["id"],
+            "calculation_strategy_id": bundle["calculation_strategy_id"],
+            "formula_set_id": bundle["formula_set_id"],
+            "workload_contract_id": bundle["workload_contract_id"],
+            "pricing_contract_group": bundle["pricing_contract_group"],
+            "provider_pricing_contract_count": len(
+                bundle.get("provider_pricing_contract_ids") or []
+            ),
+            "status": bundle["status"],
+            "enabled": bundle["enabled"],
         }
 
     def _load_registry_intent_groups(self, errors: list[str]) -> dict[str, dict[str, Any]]:
@@ -270,6 +294,11 @@ class OptimizationProfileRegistry:
             if not profile.enabled:
                 continue
 
+            if not profile.optimization_bundle_id:
+                errors.append(f"Enabled profile {profile_id} must declare optimization_bundle_id")
+            else:
+                self._validate_profile_bundle(profile, errors)
+
             for metric_id in profile.metric_provider_ids:
                 declaration = self.metric_declarations.get(metric_id)
                 if declaration is None:
@@ -343,6 +372,65 @@ class OptimizationProfileRegistry:
                         f"Profile {profile_id} references unknown registry intent group "
                         f"{group_id}"
                     )
+
+    def _validate_profile_bundle(
+        self,
+        profile: OptimizationProfile,
+        errors: list[str],
+    ) -> None:
+        try:
+            bundle = self.pricing_registry_service.get_optimization_bundle(
+                profile.optimization_bundle_id
+            )
+        except Exception as exc:
+            errors.append(
+                f"Profile {profile.profile_id} references invalid optimization bundle "
+                f"{profile.optimization_bundle_id!r}: {exc}"
+            )
+            return
+
+        expected = {
+            "profile_id": profile.profile_id,
+            "metric_provider_id": profile.metric_provider_ids[0]
+            if len(profile.metric_provider_ids) == 1
+            else None,
+            "scoring_strategy_id": profile.scoring_strategy_id,
+            "result_schema_version": profile.result_schema_version,
+        }
+        for field, expected_value in expected.items():
+            if expected_value is not None and bundle.get(field) != expected_value:
+                errors.append(
+                    f"Profile {profile.profile_id} bundle {profile.optimization_bundle_id} "
+                    f"has mismatched {field}"
+                )
+        if not bundle.get("enabled"):
+            errors.append(
+                f"Profile {profile.profile_id} bundle {profile.optimization_bundle_id} "
+                "is disabled"
+            )
+        if bundle.get("status") != "ready":
+            errors.append(
+                f"Profile {profile.profile_id} bundle {profile.optimization_bundle_id} "
+                f"is not ready"
+            )
+        strategy_id = bundle.get("calculation_strategy_id")
+        try:
+            strategy = self.pricing_registry_service.get_calculation_strategy(strategy_id)
+        except Exception as exc:
+            errors.append(
+                f"Profile {profile.profile_id} bundle references invalid calculation "
+                f"strategy {strategy_id!r}: {exc}"
+            )
+            return
+        if strategy.get("calculation_model_id") not in profile.calculation_model_ids:
+            errors.append(
+                f"Profile {profile.profile_id} bundle strategy {strategy_id} is "
+                "incompatible with calculation_model_ids"
+            )
+        if not strategy.get("enabled"):
+            errors.append(
+                f"Profile {profile.profile_id} bundle strategy {strategy_id} is disabled"
+            )
 
 
 def build_default_profile_registry(

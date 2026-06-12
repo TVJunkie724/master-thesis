@@ -23,6 +23,11 @@ PROVIDER_MAPPINGS_SCHEMA_VERSION = "pricing-registry-provider-mappings.v1"
 REVIEW_DECISIONS_SCHEMA_VERSION = "pricing-registry-review-decisions.v1"
 PRICING_MODEL_CLASSIFICATIONS_SCHEMA_VERSION = "pricing-registry-pricing-model-classifications.v1"
 PRICE_SOURCE_CLASSIFICATIONS_SCHEMA_VERSION = "pricing-registry-price-source-classifications.v1"
+OPTIMIZATION_BUNDLES_SCHEMA_VERSION = "pricing-registry-optimization-bundles.v1"
+CALCULATION_STRATEGIES_SCHEMA_VERSION = "pricing-registry-calculation-strategies.v1"
+FORMULA_SETS_SCHEMA_VERSION = "pricing-registry-formula-sets.v1"
+WORKLOAD_CONTRACTS_SCHEMA_VERSION = "pricing-registry-workload-contracts.v1"
+PROVIDER_PRICING_CONTRACTS_SCHEMA_VERSION = "pricing-registry-provider-pricing-contracts.v1"
 
 SUPPORTED_PROVIDERS = ("aws", "azure", "gcp")
 SUPPORTED_REVIEW_STATUSES = {"draft", "reviewed", "review_required", "rejected"}
@@ -55,6 +60,9 @@ SUPPORTED_BUILD_PATHS = {
     "diagnostic_fallback_only",
 }
 SUPPORTED_VERIFICATION_STATUSES = {"passed", "failed", "not_applicable"}
+SUPPORTED_BUNDLE_STATUSES = {"ready", "tbd", "disabled"}
+SUPPORTED_CONTRACT_STATUSES = {"ready", "review_required", "tbd", "disabled"}
+SUPPORTED_OUTPUT_METRIC_UNITS = {"USD/month"}
 BUILD_PATH_SOURCE_TYPES = {
     "fetched_from_provider_api": "provider_api",
     "loaded_from_official_static_documentation": "official_static_documentation",
@@ -136,6 +144,11 @@ class PricingRegistry:
     review_decisions: list[dict[str, Any]]
     pricing_model_classifications: dict[str, dict[str, Any]]
     price_source_classifications: dict[str, dict[str, Any]]
+    optimization_bundles: dict[str, dict[str, Any]]
+    calculation_strategies: dict[str, dict[str, Any]]
+    formula_sets: dict[str, dict[str, Any]]
+    workload_contracts: dict[str, dict[str, Any]]
+    provider_pricing_contracts: dict[str, dict[str, Any]]
 
     def mapping_for(self, provider: str, intent_id: str) -> dict[str, Any]:
         try:
@@ -156,6 +169,13 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
     )
     price_source_classifications_doc = _load_yaml_document(
         root_path / "price_source_classifications.yaml"
+    )
+    optimization_bundles_doc = _load_yaml_document(root_path / "optimization_bundles.yaml")
+    calculation_strategies_doc = _load_yaml_document(root_path / "calculation_strategies.yaml")
+    formula_sets_doc = _load_yaml_document(root_path / "formula_sets.yaml")
+    workload_contracts_doc = _load_yaml_document(root_path / "workload_contracts.yaml")
+    provider_pricing_contracts_doc = _load_yaml_document(
+        root_path / "provider_pricing_contracts.yaml"
     )
     provider_docs = {
         provider: _load_yaml_document(root_path / "providers" / provider / "mappings.yaml")
@@ -191,6 +211,41 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
             "price_source_classifications.yaml",
         )
     )
+    errors.extend(
+        _validate_schema(
+            optimization_bundles_doc,
+            OPTIMIZATION_BUNDLES_SCHEMA_VERSION,
+            "optimization_bundles.yaml",
+        )
+    )
+    errors.extend(
+        _validate_schema(
+            calculation_strategies_doc,
+            CALCULATION_STRATEGIES_SCHEMA_VERSION,
+            "calculation_strategies.yaml",
+        )
+    )
+    errors.extend(
+        _validate_schema(
+            formula_sets_doc,
+            FORMULA_SETS_SCHEMA_VERSION,
+            "formula_sets.yaml",
+        )
+    )
+    errors.extend(
+        _validate_schema(
+            workload_contracts_doc,
+            WORKLOAD_CONTRACTS_SCHEMA_VERSION,
+            "workload_contracts.yaml",
+        )
+    )
+    errors.extend(
+        _validate_schema(
+            provider_pricing_contracts_doc,
+            PROVIDER_PRICING_CONTRACTS_SCHEMA_VERSION,
+            "provider_pricing_contracts.yaml",
+        )
+    )
     for provider, doc in provider_docs.items():
         errors.extend(
             _validate_schema(
@@ -210,6 +265,13 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
     )
     price_source_classifications = (
         price_source_classifications_doc.get("classifications") or {}
+    )
+    optimization_bundles = optimization_bundles_doc.get("bundles") or {}
+    calculation_strategies = calculation_strategies_doc.get("calculation_strategies") or {}
+    formula_sets = formula_sets_doc.get("formula_sets") or {}
+    workload_contracts = workload_contracts_doc.get("workload_contracts") or {}
+    provider_pricing_contracts = (
+        provider_pricing_contracts_doc.get("provider_pricing_contracts") or {}
     )
     provider_mappings = _index_provider_mappings(provider_docs, errors)
 
@@ -233,6 +295,18 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
             normalization_rules,
         )
     )
+    errors.extend(
+        _validate_optimization_contracts(
+            optimization_bundles,
+            calculation_strategies,
+            formula_sets,
+            workload_contracts,
+            provider_pricing_contracts,
+            pricing_model_classifications,
+            price_source_classifications,
+            provider_mappings,
+        )
+    )
 
     registry_versions = {
         str(intents_doc.get("registry_version") or ""),
@@ -241,6 +315,11 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
         str(review_decisions_doc.get("registry_version") or ""),
         str(pricing_model_classifications_doc.get("registry_version") or ""),
         str(price_source_classifications_doc.get("registry_version") or ""),
+        str(optimization_bundles_doc.get("registry_version") or ""),
+        str(calculation_strategies_doc.get("registry_version") or ""),
+        str(formula_sets_doc.get("registry_version") or ""),
+        str(workload_contracts_doc.get("registry_version") or ""),
+        str(provider_pricing_contracts_doc.get("registry_version") or ""),
     }
     if "" in registry_versions:
         errors.append("All registry documents must declare registry_version")
@@ -263,6 +342,11 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
         review_decisions=review_decisions,
         pricing_model_classifications=pricing_model_classifications,
         price_source_classifications=price_source_classifications,
+        optimization_bundles=optimization_bundles,
+        calculation_strategies=calculation_strategies,
+        formula_sets=formula_sets,
+        workload_contracts=workload_contracts,
+        provider_pricing_contracts=provider_pricing_contracts,
     )
 
 
@@ -679,6 +763,411 @@ def _validate_price_source_classifications(
             errors.append(f"{label}: failed verification requires failure_reason")
         _validate_classification_publishability(item, label, errors)
     return errors
+
+
+def _validate_optimization_contracts(
+    optimization_bundles: dict[str, dict[str, Any]],
+    calculation_strategies: dict[str, dict[str, Any]],
+    formula_sets: dict[str, dict[str, Any]],
+    workload_contracts: dict[str, dict[str, Any]],
+    provider_pricing_contracts: dict[str, dict[str, Any]],
+    pricing_model_classifications: dict[str, dict[str, Any]],
+    price_source_classifications: dict[str, dict[str, Any]],
+    provider_mappings: dict[str, dict[str, dict[str, Any]]],
+) -> list[str]:
+    errors: list[str] = []
+    errors.extend(_validate_formula_sets(formula_sets))
+    errors.extend(_validate_workload_contracts(workload_contracts))
+    errors.extend(
+        _validate_calculation_strategies(
+            calculation_strategies,
+            formula_sets,
+            workload_contracts,
+        )
+    )
+    errors.extend(
+        _validate_provider_pricing_contracts(
+            provider_pricing_contracts,
+            pricing_model_classifications,
+            price_source_classifications,
+            formula_sets,
+            workload_contracts,
+            provider_mappings,
+        )
+    )
+    errors.extend(
+        _validate_optimization_bundles(
+            optimization_bundles,
+            calculation_strategies,
+            formula_sets,
+            workload_contracts,
+            provider_pricing_contracts,
+        )
+    )
+    return errors
+
+
+def _validate_formula_sets(formula_sets: dict[str, dict[str, Any]]) -> list[str]:
+    if not formula_sets:
+        return ["formula_sets.yaml: at least one formula set is required"]
+
+    errors: list[str] = []
+    for formula_set_id, formula_set in formula_sets.items():
+        label = f"formula_sets.yaml:{formula_set_id}"
+        if not isinstance(formula_set, dict):
+            errors.append(f"{label}: formula set must be an object")
+            continue
+        if formula_set.get("id") != formula_set_id:
+            errors.append(f"{label}: id must match key")
+        _require_string_fields(formula_set, label, errors, ("version", "description"))
+        status = formula_set.get("status")
+        if status not in SUPPORTED_CONTRACT_STATUSES:
+            errors.append(f"{label}: unsupported status {status!r}")
+        formulas = formula_set.get("formulas")
+        if not isinstance(formulas, dict) or not formulas:
+            errors.append(f"{label}: formulas must be a non-empty object")
+            continue
+        for formula_id, formula in formulas.items():
+            formula_label = f"{label}.formulas:{formula_id}"
+            if not isinstance(formula, dict):
+                errors.append(f"{formula_label}: formula must be an object")
+                continue
+            if formula.get("id") != formula_id:
+                errors.append(f"{formula_label}: id must match key")
+            _require_string_fields(
+                formula,
+                formula_label,
+                errors,
+                ("component", "expression", "description"),
+            )
+    return errors
+
+
+def _validate_workload_contracts(workload_contracts: dict[str, dict[str, Any]]) -> list[str]:
+    if not workload_contracts:
+        return ["workload_contracts.yaml: at least one workload contract is required"]
+
+    errors: list[str] = []
+    for workload_contract_id, contract in workload_contracts.items():
+        label = f"workload_contracts.yaml:{workload_contract_id}"
+        if not isinstance(contract, dict):
+            errors.append(f"{label}: workload contract must be an object")
+            continue
+        if contract.get("id") != workload_contract_id:
+            errors.append(f"{label}: id must match key")
+        _require_string_fields(contract, label, errors, ("version", "description"))
+        status = contract.get("status")
+        if status not in SUPPORTED_CONTRACT_STATUSES:
+            errors.append(f"{label}: unsupported status {status!r}")
+        fields = contract.get("fields")
+        if not isinstance(fields, dict) or not fields:
+            errors.append(f"{label}: fields must be a non-empty object")
+            continue
+        for field_id, field in fields.items():
+            field_label = f"{label}.fields:{field_id}"
+            if not isinstance(field, dict):
+                errors.append(f"{field_label}: field must be an object")
+                continue
+            if field.get("id") != field_id:
+                errors.append(f"{field_label}: id must match key")
+            _require_string_fields(
+                field,
+                field_label,
+                errors,
+                ("unit", "value_type", "description"),
+            )
+    return errors
+
+
+def _validate_calculation_strategies(
+    calculation_strategies: dict[str, dict[str, Any]],
+    formula_sets: dict[str, dict[str, Any]],
+    workload_contracts: dict[str, dict[str, Any]],
+) -> list[str]:
+    if not calculation_strategies:
+        return ["calculation_strategies.yaml: at least one calculation strategy is required"]
+
+    errors: list[str] = []
+    for strategy_id, strategy in calculation_strategies.items():
+        label = f"calculation_strategies.yaml:{strategy_id}"
+        if not isinstance(strategy, dict):
+            errors.append(f"{label}: calculation strategy must be an object")
+            continue
+        if strategy.get("id") != strategy_id:
+            errors.append(f"{label}: id must match key")
+        _require_string_fields(
+            strategy,
+            label,
+            errors,
+            (
+                "metric_provider_id",
+                "calculation_model_id",
+                "formula_set_id",
+                "workload_contract_id",
+                "pricing_model_classification_group",
+                "price_source_classification_group",
+                "pricing_contract_group",
+                "result_schema_version",
+                "description",
+            ),
+        )
+        if strategy.get("status") not in SUPPORTED_CONTRACT_STATUSES:
+            errors.append(f"{label}: unsupported status {strategy.get('status')!r}")
+        if not isinstance(strategy.get("enabled"), bool):
+            errors.append(f"{label}: enabled must be boolean")
+        if strategy.get("formula_set_id") not in formula_sets:
+            errors.append(
+                f"{label}: unknown formula_set_id {strategy.get('formula_set_id')!r}"
+            )
+        if strategy.get("workload_contract_id") not in workload_contracts:
+            errors.append(
+                f"{label}: unknown workload_contract_id "
+                f"{strategy.get('workload_contract_id')!r}"
+            )
+    return errors
+
+
+def _validate_provider_pricing_contracts(
+    provider_pricing_contracts: dict[str, dict[str, Any]],
+    pricing_model_classifications: dict[str, dict[str, Any]],
+    price_source_classifications: dict[str, dict[str, Any]],
+    formula_sets: dict[str, dict[str, Any]],
+    workload_contracts: dict[str, dict[str, Any]],
+    provider_mappings: dict[str, dict[str, dict[str, Any]]],
+) -> list[str]:
+    if not provider_pricing_contracts:
+        return ["provider_pricing_contracts.yaml: at least one provider contract is required"]
+
+    errors: list[str] = []
+    covered: dict[tuple[str, str], int] = {}
+    for contract in provider_pricing_contracts.values():
+        if isinstance(contract, dict):
+            key = (str(contract.get("provider")), str(contract.get("field")))
+            covered[key] = covered.get(key, 0) + 1
+    for provider, mappings in provider_mappings.items():
+        for field in mappings:
+            count = covered.get((provider, field), 0)
+            if count == 0:
+                errors.append(
+                    "provider_pricing_contracts.yaml: missing contract "
+                    f"for {provider}.{field}"
+                )
+            elif count > 1:
+                errors.append(
+                    "provider_pricing_contracts.yaml: duplicate field coverage "
+                    f"for {provider}.{field}"
+                )
+
+    known_formula_refs_by_set = {
+        formula_set_id: set((formula_set.get("formulas") or {}).keys())
+        for formula_set_id, formula_set in formula_sets.items()
+        if isinstance(formula_set, dict)
+    }
+    known_workload_fields_by_contract = {
+        contract_id: set((contract.get("fields") or {}).keys())
+        for contract_id, contract in workload_contracts.items()
+        if isinstance(contract, dict)
+    }
+
+    for contract_id, contract in provider_pricing_contracts.items():
+        label = f"provider_pricing_contracts.yaml:{contract_id}"
+        if not isinstance(contract, dict):
+            errors.append(f"{label}: provider pricing contract must be an object")
+            continue
+        if contract.get("id") != contract_id:
+            errors.append(f"{label}: id must match key")
+        _require_string_fields(
+            contract,
+            label,
+            errors,
+            (
+                "provider",
+                "layer",
+                "service",
+                "field",
+                "formula_set_id",
+                "workload_contract_id",
+                "pricing_model_classification_id",
+                "price_source_classification_id",
+                "calculation_component",
+                "output_metric_unit",
+                "status",
+                "reviewed_at",
+            ),
+        )
+        provider = contract.get("provider")
+        field = contract.get("field")
+        if provider not in SUPPORTED_PROVIDERS:
+            errors.append(f"{label}: unsupported provider {provider!r}")
+        elif field not in provider_mappings.get(provider, {}):
+            errors.append(f"{label}: unknown provider field {provider}.{field}")
+
+        model_id = contract.get("pricing_model_classification_id")
+        source_id = contract.get("price_source_classification_id")
+        if model_id not in pricing_model_classifications:
+            errors.append(f"{label}: unknown pricing_model_classification_id {model_id!r}")
+        else:
+            model = pricing_model_classifications[model_id]
+            _validate_matching_contract_reference(
+                model,
+                contract,
+                label,
+                "pricing_model_classification_id",
+                errors,
+            )
+        if source_id not in price_source_classifications:
+            errors.append(f"{label}: unknown price_source_classification_id {source_id!r}")
+        else:
+            source = price_source_classifications[source_id]
+            _validate_matching_contract_reference(
+                source,
+                contract,
+                label,
+                "price_source_classification_id",
+                errors,
+            )
+
+        formula_set_id = contract.get("formula_set_id")
+        allowed_formula_refs = contract.get("allowed_formula_refs")
+        if not isinstance(allowed_formula_refs, list) or not allowed_formula_refs:
+            errors.append(f"{label}: allowed_formula_refs must be a non-empty list")
+        else:
+            known_formula_refs = known_formula_refs_by_set.get(str(formula_set_id), set())
+            unknown_formula_refs = sorted(set(allowed_formula_refs) - known_formula_refs)
+            if unknown_formula_refs:
+                errors.append(f"{label}: unknown allowed_formula_refs {unknown_formula_refs}")
+
+        workload_contract_id = contract.get("workload_contract_id")
+        consumed_workload_fields = contract.get("consumed_workload_fields")
+        if not isinstance(consumed_workload_fields, list) or not consumed_workload_fields:
+            errors.append(f"{label}: consumed_workload_fields must be a non-empty list")
+        else:
+            known_workload_fields = known_workload_fields_by_contract.get(
+                str(workload_contract_id),
+                set(),
+            )
+            unknown_workload_fields = sorted(
+                set(consumed_workload_fields) - known_workload_fields
+            )
+            if unknown_workload_fields:
+                errors.append(
+                    f"{label}: unknown consumed_workload_fields {unknown_workload_fields}"
+                )
+
+        allowed_source_types_by_field = contract.get("allowed_price_source_types_by_field")
+        if not isinstance(allowed_source_types_by_field, dict):
+            errors.append(f"{label}: allowed_price_source_types_by_field must be an object")
+        elif source_id in price_source_classifications:
+            selected_source = price_source_classifications[source_id]
+            allowed_for_field = allowed_source_types_by_field.get(str(field))
+            if not isinstance(allowed_for_field, list) or not allowed_for_field:
+                errors.append(
+                    f"{label}: allowed_price_source_types_by_field.{field} "
+                    "must be a non-empty list"
+                )
+            else:
+                unknown_source_types = sorted(set(allowed_for_field) - SUPPORTED_PRICE_SOURCE_TYPES)
+                if unknown_source_types:
+                    errors.append(
+                        f"{label}: unsupported allowed source types {unknown_source_types}"
+                    )
+                source_type = selected_source.get("source_type")
+                if source_type not in allowed_for_field:
+                    errors.append(
+                        f"{label}: selected source_type {source_type!r} must be allowed"
+                    )
+
+        required_evidence_fields = contract.get("required_evidence_fields")
+        if not isinstance(required_evidence_fields, list) or not required_evidence_fields:
+            errors.append(f"{label}: required_evidence_fields must be a non-empty list")
+        if not isinstance(contract.get("curated_model_constants"), dict):
+            errors.append(f"{label}: curated_model_constants must be an object")
+        if not isinstance(contract.get("normalization_rules"), list):
+            errors.append(f"{label}: normalization_rules must be a list")
+        if contract.get("output_metric_unit") not in SUPPORTED_OUTPUT_METRIC_UNITS:
+            errors.append(
+                f"{label}: unsupported output_metric_unit "
+                f"{contract.get('output_metric_unit')!r}"
+            )
+        if contract.get("status") not in SUPPORTED_CONTRACT_STATUSES:
+            errors.append(f"{label}: unsupported status {contract.get('status')!r}")
+    return errors
+
+
+def _validate_optimization_bundles(
+    optimization_bundles: dict[str, dict[str, Any]],
+    calculation_strategies: dict[str, dict[str, Any]],
+    formula_sets: dict[str, dict[str, Any]],
+    workload_contracts: dict[str, dict[str, Any]],
+    provider_pricing_contracts: dict[str, dict[str, Any]],
+) -> list[str]:
+    if not optimization_bundles:
+        return ["optimization_bundles.yaml: at least one bundle is required"]
+
+    errors: list[str] = []
+    for bundle_id, bundle in optimization_bundles.items():
+        label = f"optimization_bundles.yaml:{bundle_id}"
+        if not isinstance(bundle, dict):
+            errors.append(f"{label}: optimization bundle must be an object")
+            continue
+        if bundle.get("id") != bundle_id:
+            errors.append(f"{label}: id must match key")
+        _require_string_fields(
+            bundle,
+            label,
+            errors,
+            (
+                "profile_id",
+                "metric_provider_id",
+                "calculation_strategy_id",
+                "formula_set_id",
+                "workload_contract_id",
+                "pricing_contract_group",
+                "scoring_strategy_id",
+                "result_schema_version",
+                "description",
+                "status",
+            ),
+        )
+        if bundle.get("status") not in SUPPORTED_BUNDLE_STATUSES:
+            errors.append(f"{label}: unsupported status {bundle.get('status')!r}")
+        if not isinstance(bundle.get("enabled"), bool):
+            errors.append(f"{label}: enabled must be boolean")
+        strategy_id = bundle.get("calculation_strategy_id")
+        strategy = calculation_strategies.get(str(strategy_id))
+        if strategy is None:
+            errors.append(f"{label}: unknown calculation_strategy_id {strategy_id!r}")
+        else:
+            if bundle.get("formula_set_id") != strategy.get("formula_set_id"):
+                errors.append(f"{label}: formula_set_id must match calculation strategy")
+            if bundle.get("workload_contract_id") != strategy.get("workload_contract_id"):
+                errors.append(f"{label}: workload_contract_id must match calculation strategy")
+        if bundle.get("formula_set_id") not in formula_sets:
+            errors.append(f"{label}: unknown formula_set_id {bundle.get('formula_set_id')!r}")
+        if bundle.get("workload_contract_id") not in workload_contracts:
+            errors.append(
+                f"{label}: unknown workload_contract_id {bundle.get('workload_contract_id')!r}"
+            )
+        provider_contract_ids = bundle.get("provider_pricing_contract_ids")
+        if not isinstance(provider_contract_ids, list) or not provider_contract_ids:
+            errors.append(f"{label}: provider_pricing_contract_ids must be a non-empty list")
+        else:
+            missing = sorted(set(provider_contract_ids) - set(provider_pricing_contracts))
+            if missing:
+                errors.append(f"{label}: unknown provider_pricing_contract_ids {missing}")
+    return errors
+
+
+def _validate_matching_contract_reference(
+    referenced_item: dict[str, Any],
+    contract: dict[str, Any],
+    label: str,
+    reference_name: str,
+    errors: list[str],
+) -> None:
+    for field in ("provider", "layer", "service", "field"):
+        if referenced_item.get(field) != contract.get(field):
+            errors.append(f"{label}: {reference_name} does not match {field}")
 
 
 def _coverage_counts(

@@ -46,6 +46,11 @@ def test_pricing_registry_service_reloads_registry_version(tmp_path):
         "review_decisions.yaml",
         "pricing_model_classifications.yaml",
         "price_source_classifications.yaml",
+        "optimization_bundles.yaml",
+        "calculation_strategies.yaml",
+        "formula_sets.yaml",
+        "workload_contracts.yaml",
+        "provider_pricing_contracts.yaml",
     ):
         path = root / name
         path.write_text(path.read_text().replace("2026.06.08", "2026.06.09"))
@@ -76,6 +81,11 @@ def test_get_pricing_registry_status_endpoint():
     assert body["intent_count"] == 16
     assert body["pricing_model_classification_count"] == 48
     assert body["price_source_classification_count"] == 48
+    assert body["optimization_bundle_count"] == 1
+    assert body["calculation_strategy_count"] == 1
+    assert body["formula_set_count"] == 1
+    assert body["workload_contract_count"] == 1
+    assert body["provider_pricing_contract_count"] == 48
     assert body["provider_mapping_counts"] == {"aws": 16, "azure": 16, "gcp": 16}
 
 
@@ -180,3 +190,26 @@ def test_unknown_provider_filter_returns_structured_404():
 
     assert response.status_code == 404
     assert response.json()["detail"]["error_code"] == "PRICING_REGISTRY_ITEM_NOT_FOUND"
+
+
+def test_list_optimization_bundles_endpoint_exposes_strategy_contract():
+    response = client.get("/pricing-registry/optimization-bundles")
+
+    assert response.status_code == 200
+    bundle = response.json()["items"]["cost_minimization_v1"]
+    assert bundle["calculation_strategy_id"] == "cost_calculation_v2"
+    assert bundle["formula_set_id"] == "cost_formula_set_v1"
+    assert bundle["workload_contract_id"] == "digital_twin_workload_v1"
+    assert len(bundle["provider_pricing_contract_ids"]) == 48
+
+
+def test_list_provider_pricing_contracts_endpoint_supports_provider_filter():
+    response = client.get("/pricing-registry/provider-pricing-contracts?provider=azure")
+
+    assert response.status_code == 200
+    contracts = response.json()["items"]
+    assert len(contracts) == 16
+    assert all(contract["provider"] == "azure" for contract in contracts.values())
+    assert contracts["azure.iot_message_ingest.pricing_contract.v1"][
+        "allowed_formula_refs"
+    ] == ["tiered_unit_cost"]

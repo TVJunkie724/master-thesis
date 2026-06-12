@@ -44,6 +44,11 @@ class PricingRegistryService:
             "price_source_classification_count": len(
                 registry.price_source_classifications
             ),
+            "optimization_bundle_count": len(registry.optimization_bundles),
+            "calculation_strategy_count": len(registry.calculation_strategies),
+            "formula_set_count": len(registry.formula_sets),
+            "workload_contract_count": len(registry.workload_contracts),
+            "provider_pricing_contract_count": len(registry.provider_pricing_contracts),
             "providers": list(SUPPORTED_PROVIDERS),
             "provider_mapping_counts": {
                 provider: len(registry.provider_mappings.get(provider, {}))
@@ -165,6 +170,96 @@ class PricingRegistryService:
                 }
             )
         return rows
+
+    def list_optimization_bundles(self) -> dict[str, dict[str, Any]]:
+        return deepcopy(self.load().optimization_bundles)
+
+    def get_optimization_bundle(self, bundle_id: str) -> dict[str, Any]:
+        registry = self.load()
+        try:
+            return deepcopy(registry.optimization_bundles[bundle_id])
+        except KeyError as exc:
+            raise PricingRegistryLookupError(
+                f"Unknown optimization bundle: {bundle_id}"
+            ) from exc
+
+    def get_optimization_bundle_for_profile(self, profile_id: str) -> dict[str, Any]:
+        matches = [
+            bundle
+            for bundle in self.load().optimization_bundles.values()
+            if bundle.get("profile_id") == profile_id
+        ]
+        if not matches:
+            raise PricingRegistryLookupError(
+                f"Unknown optimization bundle for profile: {profile_id}"
+            )
+        if len(matches) > 1:
+            raise PricingRegistryLookupError(
+                f"Multiple optimization bundles for profile: {profile_id}"
+            )
+        return deepcopy(matches[0])
+
+    def get_calculation_strategy(self, strategy_id: str) -> dict[str, Any]:
+        registry = self.load()
+        try:
+            return deepcopy(registry.calculation_strategies[strategy_id])
+        except KeyError as exc:
+            raise PricingRegistryLookupError(
+                f"Unknown calculation strategy: {strategy_id}"
+            ) from exc
+
+    def get_formula_set(self, formula_set_id: str) -> dict[str, Any]:
+        registry = self.load()
+        try:
+            return deepcopy(registry.formula_sets[formula_set_id])
+        except KeyError as exc:
+            raise PricingRegistryLookupError(
+                f"Unknown formula set: {formula_set_id}"
+            ) from exc
+
+    def get_workload_contract(self, workload_contract_id: str) -> dict[str, Any]:
+        registry = self.load()
+        try:
+            return deepcopy(registry.workload_contracts[workload_contract_id])
+        except KeyError as exc:
+            raise PricingRegistryLookupError(
+                f"Unknown workload contract: {workload_contract_id}"
+            ) from exc
+
+    def list_provider_pricing_contracts(
+        self,
+        provider: str | None = None,
+    ) -> dict[str, dict[str, Any]]:
+        items = self.load().provider_pricing_contracts
+        return self._filter_by_provider(items, provider)
+
+    def get_provider_pricing_contract(
+        self,
+        provider: str,
+        layer: str,
+        service: str,
+        field: str | None = None,
+    ) -> dict[str, Any]:
+        self._validate_provider(provider)
+        matches = [
+            contract
+            for contract in self.load().provider_pricing_contracts.values()
+            if contract.get("provider") == provider
+            and contract.get("layer") == layer
+            and contract.get("service") == service
+            and (field is None or contract.get("field") == field)
+        ]
+        if not matches:
+            suffix = f".{field}" if field is not None else ""
+            raise PricingRegistryLookupError(
+                f"Unknown provider pricing contract: {provider}.{layer}.{service}{suffix}"
+            )
+        if len(matches) > 1:
+            raise PricingRegistryLookupError(
+                "Multiple provider pricing contracts match "
+                f"{provider}.{layer}.{service}; provide field"
+            )
+        return deepcopy(matches[0])
 
     def list_provider_mappings(self, provider: str) -> dict[str, dict[str, Any]]:
         registry = self.load()

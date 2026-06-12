@@ -1,0 +1,67 @@
+schema_version: pricing-registry-optimization-bundles.v1
+registry_version: 2026.06.08
+bundles:
+  cost_minimization_v1:
+    id: cost_minimization_v1
+    enabled: true
+    status: ready
+    profile_id: cost_minimization_v1
+    metric_provider_id: cost
+    calculation_strategy_id: cost_calculation_v2
+    formula_set_id: cost_formula_set_v1
+    workload_contract_id: digital_twin_workload_v1
+    pricing_model_classification_group: cost_pricing_models_v1
+    price_source_classification_group: cost_price_sources_v1
+    pricing_contract_group: cost_provider_pricing_contracts_v1
+    provider_pricing_contract_ids:
+    - aws.api_request_million.pricing_contract.v1
+    - aws.digital_twin_query_unit.pricing_contract.v1
+    - aws.event_bus_event_million.pricing_contract.v1
+    - aws.functions_compute_gb_second.pricing_contract.v1
+    - aws.functions_request.pricing_contract.v1
+    - aws.grafana_editor_user_month.pricing_contract.v1
+    - aws.grafana_viewer_user_month.pricing_contract.v1
+    - aws.iot_message_ingest.pricing_contract.v1
+    - aws.orchestration_state_transition.pricing_contract.v1
+    - aws.storage_archive_storage_gb_month.pricing_contract.v1
+    - aws.storage_archive_write_request.pricing_contract.v1
+    - aws.storage_cool_storage_gb_month.pricing_contract.v1
+    - aws.storage_hot_read_request.pricing_contract.v1
+    - aws.storage_hot_storage_gb_month.pricing_contract.v1
+    - aws.storage_hot_write_request.pricing_contract.v1
+    - aws.transfer_egress_gb.pricing_contract.v1
+    - azure.api_request_million.pricing_contract.v1
+    - azure.digital_twin_query_unit.pricing_contract.v1
+    - azure.event_bus_event_million.pricing_contract.v1
+    - azure.functions_compute_gb_second.pricing_contract.v1
+    - azure.functions_request.pricing_contract.v1
+    - azure.grafana_editor_user_month.pricing_contract.v1
+    - azure.grafana_viewer_user_month.pricing_contract.v1
+    - azure.iot_message_ingest.pricing_contract.v1
+    - azure.orchestration_state_transition.pricing_contract.v1
+    - azure.storage_archive_storage_gb_month.pricing_contract.v1
+    - azure.storage_archive_write_request.pricing_contract.v1
+    - azure.storage_cool_storage_gb_month.pricing_contract.v1
+    - azure.storage_hot_read_request.pricing_contract.v1
+    - azure.storage_hot_storage_gb_month.pricing_contract.v1
+    - azure.storage_hot_write_request.pricing_contract.v1
+    - azure.transfer_egress_gb.pricing_contract.v1
+    - gcp.api_request_million.pricing_contract.v1
+    - gcp.digital_twin_query_unit.pricing_contract.v1
+    - gcp.event_bus_event_million.pricing_contract.v1
+    - gcp.functions_compute_gb_second.pricing_contract.v1
+    - gcp.functions_request.pricing_contract.v1
+    - gcp.grafana_editor_user_month.pricing_contract.v1
+    - gcp.grafana_viewer_user_month.pricing_contract.v1
+    - gcp.iot_message_ingest.pricing_contract.v1
+    - gcp.orchestration_state_transition.pricing_contract.v1
+    - gcp.storage_archive_storage_gb_month.pricing_contract.v1
+    - gcp.storage_archive_write_request.pricing_contract.v1
+    - gcp.storage_cool_storage_gb_month.pricing_contract.v1
+    - gcp.storage_hot_read_request.pricing_contract.v1
+    - gcp.storage_hot_storage_gb_month.pricing_contract.v1
+    - gcp.storage_hot_write_request.pricing_contract.v1
+    - gcp.transfer_egress_gb.pricing_contract.v1
+    scoring_strategy_id: min_total_cost_v1
+    result_schema_version: cost-result.v1
+    description: Executable thesis cost optimization bundle.
