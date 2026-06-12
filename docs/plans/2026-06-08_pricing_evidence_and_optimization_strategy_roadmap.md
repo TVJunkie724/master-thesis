@@ -644,6 +644,8 @@ This phase is allowed to touch calculation orchestration. It should keep
 existing public `/calculate` behavior compatible unless a request explicitly
 selects an unsupported strategy.
 
+Status: implemented in #99 on branch `codex/gcp-tiering-calculation-hardening`.
+
 Required execution flow:
 
 ```text
@@ -661,15 +663,21 @@ calculate(request)
 
 Definition of Done:
 
-- `cost_calculation_v2` is the only executable calculation strategy.
-- Formula helpers used by calculators are traceable to `cost_formula_set_v1`.
-- Provider calculators fail if invoked with pricing fields not compatible with
-  their pricing contract.
-- Result metadata includes optimization profile id, calculation strategy id,
+- [x] `cost_calculation_v2` is the only executable calculation strategy.
+- [x] Formula helpers used by calculators are traceable to `cost_formula_set_v1`
+  at the engine boundary through `CalculationStrategyExecutionContext`.
+- [x] Provider calculators fail if invoked without compatible provider
+  contract context.
+- [x] Result metadata includes optimization profile id, calculation strategy id,
   formula set id, pricing contract group id, workload contract id, pricing
-  model classification ids, and price source classification ids.
-- Existing cost calculation tests remain green and new tests prove that
-  disabled/future strategies cannot execute.
+  model classification group id, price source classification group id, and the
+  active provider pricing contract ids.
+- [x] Existing cost calculation tests and Management API cost-run persistence
+  smoke remain green.
+
+Deferred for later deeper provider-component hardening: provider calculators
+should eventually fail if invoked with pricing fields not compatible with
+their pricing contract.
 
 ### Phase 16
 

@@ -261,6 +261,7 @@ class TestEngineIntegration:
             def select_profile(self, profile_id=None):
                 return SimpleNamespace(
                     profile_id="cost_minimization_v1",
+                    optimization_bundle_id="cost_minimization_v1",
                     scoring_strategy_id="min_total_cost_v1",
                     result_schema_version="cost-result.v1",
                 )
@@ -285,6 +286,17 @@ class TestEngineIntegration:
                     "metric_provider_ids": ["cost"],
                     "calculation_model_ids": ["cost_model_v1"],
                     "scoring_strategy_id": "min_total_cost_v1",
+                    "optimization_bundle_id": "cost_minimization_v1",
+                    "optimization_bundle": {
+                        "id": "cost_minimization_v1",
+                        "calculation_strategy_id": "cost_calculation_v2",
+                        "formula_set_id": "cost_formula_set_v1",
+                        "workload_contract_id": "digital_twin_workload_v1",
+                        "pricing_contract_group": "cost_provider_pricing_contracts_v1",
+                        "provider_pricing_contract_count": 48,
+                        "status": "ready",
+                        "enabled": True,
+                    },
                     "intent_group_ids": ["cost"],
                     "evidence_requirements": {"pricing": "evidence_backed"},
                     "result_schema_version": "cost-result.v1",
@@ -294,7 +306,7 @@ class TestEngineIntegration:
         monkeypatch.setattr(
             engine,
             "build_default_profile_registry",
-            lambda: FakeProfileRegistry(),
+            lambda *args, **kwargs: FakeProfileRegistry(),
         )
 
         result = engine.calculate_cheapest_costs(sample_params, sample_pricing)

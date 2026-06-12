@@ -3,7 +3,7 @@
 ## Metadata
 
 - Phase: 15
-- Status: planned
+- Status: implemented
 - Parent roadmap: `docs/plans/2026-06-08_pricing_evidence_and_optimization_strategy_roadmap.md`
 - Depends on: Phase 12, Phase 13, Phase 14
 - Parent issues: #69, #32, #99
@@ -56,6 +56,23 @@ calculate(request)
 6. Preserve existing public `/calculate` behavior for callers that use the
    default cost profile.
 7. Reject disabled/future calculation strategies with typed errors.
+
+## Implementation Notes
+
+- Added `backend/calculation_v2/strategy_context.py` with a typed
+  `CalculationStrategyExecutionContext`.
+- The context resolves optimization profile, optimization bundle, calculation
+  strategy, formula set, workload contract, provider pricing contracts, and
+  classification group IDs before provider calculations run.
+- `calculate_cheapest_costs()` now resolves the execution context before
+  invoking provider calculators.
+- Provider calculation access is guarded by provider contract availability.
+- Transfer formula usage is guarded through `ensure_formula_ref()` against the
+  active formula set and provider contract.
+- Calculation results now include additive `calculation_strategy_id`,
+  `calculationStrategy`, and strategy/contract entries in `evidenceReferences`.
+- Public `/calculate` compatibility remains unchanged for the default
+  `cost_minimization_v1` profile.
 
 ## Expected Touchpoints
 
@@ -148,25 +165,67 @@ python -m pytest tests/test_cost_calculation_runs.py -q
 
 ## Definition Of Done
 
-- [ ] Calculation resolves an execution context before provider calculators run.
-- [ ] `cost_calculation_v2` is the only executable calculation strategy.
-- [ ] Formula usage is traceable to `cost_formula_set_v1`.
-- [ ] Provider calculators fail when contract context is missing or
+- [x] Calculation resolves an execution context before provider calculators run.
+- [x] `cost_calculation_v2` is the only executable calculation strategy.
+- [x] Formula usage is traceable to `cost_formula_set_v1`.
+- [x] Provider calculators fail when contract context is missing or
       incompatible.
-- [ ] Result metadata includes strategy and contract IDs.
-- [ ] Existing cost calculation behavior remains backward-compatible.
-- [ ] Roadmap phase 15 is updated to implemented when the phase is complete.
+- [x] Result metadata includes strategy and contract IDs.
+- [x] Existing cost calculation behavior remains backward-compatible.
+- [x] Roadmap phase 15 is updated to implemented when the phase is complete.
 
 ## Review Gate
 
 Before commit:
 
-- [ ] Run the phase-specific pytest command.
-- [ ] Run the Management API compatibility smoke test.
-- [ ] Run `git diff --check`.
-- [ ] Review that all formula usage is traceable to the active formula set.
-- [ ] Review that disabled strategies cannot execute.
-- [ ] Update this plan with implementation notes and completed checkbox state.
+- [x] Run the phase-specific pytest command.
+- [x] Run the Management API compatibility smoke test.
+- [x] Run `git diff --check`.
+- [x] Review that all formula usage is traceable to the active formula set.
+- [x] Review that disabled strategies cannot execute.
+- [x] Update this plan with implementation notes and completed checkbox state.
+
+## Verification
+
+```bash
+cd 2-twin2clouds
+/tmp/t2mc-phase12-py311/bin/python -m pytest \
+  tests/unit/calculation_v2/test_engine.py \
+  tests/unit/calculation_v2/test_aws_tiering.py \
+  tests/unit/calculation_v2/test_azure_tiering.py \
+  tests/unit/calculation_v2/test_gcp_tiering.py \
+  tests/unit/optimization/test_optimization_profiles.py \
+  tests/unit/pricing/test_calculation_strategy_execution.py \
+  -q
+```
+
+Result: 68 passed.
+
+```bash
+cd twin2multicloud_backend
+/tmp/t2mc-backend-py312/bin/python -m pytest \
+  tests/test_cost_calculation_runs.py \
+  -q
+```
+
+Result: 12 passed, 40 warnings.
+
+```bash
+cd 2-twin2clouds
+/tmp/t2mc-phase12-py311/bin/python -m pytest \
+  tests/unit/calculation_v2 \
+  tests/unit/pricing/test_calculation_strategy_execution.py \
+  tests/unit/optimization/test_optimization_profiles.py \
+  -q
+```
+
+Result: 105 passed.
+
+```bash
+git diff --check
+```
+
+Result: clean.
 
 ## Review Findings Fixed In Plan
 

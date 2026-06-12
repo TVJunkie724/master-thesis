@@ -23,11 +23,16 @@ from backend.calculation_v2.layers import (
     GCPLayerCalculators,
 )
 from backend.calculation_v2.formulas import required_first_unit_price, tiered_unit_cost
+from backend.calculation_v2.strategy_context import (
+    CalculationStrategyExecutionContext,
+    resolve_calculation_strategy_execution_context,
+)
 from backend.config_loader import load_combined_pricing
 from backend.logger import logger
 from backend.optimization.context import OptimizationMetricContext
 from backend.optimization.profiles import build_default_profile_registry
 from backend.optimization.scoring import OptimizationCandidate
+from backend.pricing_registry_service import PricingRegistryService
 
 
 # =============================================================================
@@ -321,13 +326,24 @@ def calculate_gcp_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict
 # Cross-Cloud Transfer Costs
 # =============================================================================
 
-def _calculate_egress_cost(data_gb: float, pricing: Dict[str, Any], source_provider: str) -> float:
+def _calculate_egress_cost(
+    data_gb: float,
+    pricing: Dict[str, Any],
+    source_provider: str,
+    execution_context: CalculationStrategyExecutionContext | None = None,
+) -> float:
     """
     Calculate egress cost for data leaving a provider.
     
     AWS/Azure preserve their historical fallback rates for compatibility.
     GCP requires explicit egress pricing or tier data after Phase 11 hardening.
     """
+    if execution_context is not None:
+        execution_context.ensure_formula_ref(
+            "transfer_tier_cost",
+            provider=source_provider,
+            field="transfer.egress_gb",
+        )
     if source_provider == "AWS":
         aws_transfer = pricing.get("aws", {}).get("transfer", {})
         pricing_tiers = aws_transfer.get("pricing_tiers")
@@ -385,6 +401,7 @@ def calculate_cheapest_costs(
     params: Dict[str, Any],
     pricing: Optional[Dict[str, Any]] = None,
     optimization_profile_id: Optional[str] = None,
+    pricing_registry_service: PricingRegistryService | None = None,
 ) -> Dict[str, Any]:
     """
     Orchestrate cost calculation and find the cheapest path across providers.
@@ -413,7 +430,14 @@ def calculate_cheapest_costs(
     if pricing is None:
         pricing = load_combined_pricing()
 
-    profile_registry = build_default_profile_registry()
+    registry_service = pricing_registry_service or PricingRegistryService()
+    profile_registry = build_default_profile_registry(registry_service)
+    execution_context = resolve_calculation_strategy_execution_context(
+        optimization_profile_id=optimization_profile_id,
+        profile_registry=profile_registry,
+        pricing_registry_service=registry_service,
+        publishable_mode=True,
+    )
     optimization_profile = profile_registry.select_profile(optimization_profile_id)
     cost_metric_provider = profile_registry.get_metric_provider("cost")
     scoring_strategy = profile_registry.get_scoring_strategy(
@@ -427,8 +451,11 @@ def calculate_cheapest_costs(
     )
     
     # Calculate costs for each provider
+    execution_context.ensure_provider_context("aws")
     aws_costs = calculate_aws_costs(params, pricing)
+    execution_context.ensure_provider_context("azure")
     azure_costs = calculate_azure_costs(params, pricing)
+    execution_context.ensure_provider_context("gcp")
     gcp_costs = calculate_gcp_costs(params, pricing)
     
     derived = _calculate_derived_params(params)
@@ -504,26 +531,46 @@ def calculate_cheapest_costs(
     
     # L1 → L2 transfer
     if l1_provider != l2_provider:
-        egress = _calculate_egress_cost(derived["data_size_per_month_gb"], pricing, l1_provider)
+        egress = _calculate_egress_cost(
+            derived["data_size_per_month_gb"],
+            pricing,
+            l1_provider,
+            execution_context,
+        )
         glue = _calculate_glue_cost(derived["total_messages_per_month"], pricing, l2_provider)
         transfer_costs["L1_to_L2"] = egress + glue
     
     # L2 → L3_hot transfer
     if l2_provider != l3_hot_provider:
-        egress = _calculate_egress_cost(derived["data_size_per_month_gb"], pricing, l2_provider)
+        egress = _calculate_egress_cost(
+            derived["data_size_per_month_gb"],
+            pricing,
+            l2_provider,
+            execution_context,
+        )
         glue = _calculate_glue_cost(derived["total_messages_per_month"], pricing, l3_hot_provider)
         transfer_costs["L2_to_L3_hot"] = egress + glue
     
     # L3_hot → L3_cool transfer
     if l3_hot_provider != l3_cool_provider:
-        egress = _calculate_egress_cost(derived["hot_storage_gb"], pricing, l3_hot_provider)
+        egress = _calculate_egress_cost(
+            derived["hot_storage_gb"],
+            pricing,
+            l3_hot_provider,
+            execution_context,
+        )
         # Glue runs with mover (daily = 30/month), not per-message
         glue = _calculate_glue_cost(30, pricing, l3_cool_provider)
         transfer_costs["L3_hot_to_L3_cool"] = egress + glue
     
     # L3_cool → L3_archive transfer
     if l3_cool_provider != l3_archive_provider:
-        egress = _calculate_egress_cost(derived["cool_storage_gb"], pricing, l3_cool_provider)
+        egress = _calculate_egress_cost(
+            derived["cool_storage_gb"],
+            pricing,
+            l3_cool_provider,
+            execution_context,
+        )
         # Glue runs with mover (weekly = 4/month), not per-message
         glue = _calculate_glue_cost(4, pricing, l3_archive_provider)
         transfer_costs["L3_cool_to_L3_archive"] = egress + glue
@@ -531,7 +578,12 @@ def calculate_cheapest_costs(
     # L3_hot → L4 transfer (Hot Reader for Digital Twin queries)
     if l3_hot_provider != l4_provider:
         # Queries from L4 go through Hot Reader Function URL
-        egress = _calculate_egress_cost(derived["queries_per_month"] * derived["msg_size_kb"] / (1024 * 1024), pricing, l3_hot_provider)
+        egress = _calculate_egress_cost(
+            derived["queries_per_month"] * derived["msg_size_kb"] / (1024 * 1024),
+            pricing,
+            l3_hot_provider,
+            execution_context,
+        )
         glue = _calculate_glue_cost(derived["queries_per_month"], pricing, l4_provider)
         transfer_costs["L3_hot_to_L4"] = egress + glue
     
@@ -556,12 +608,24 @@ def calculate_cheapest_costs(
     
     return {
         "optimization_profile_id": optimization_profile.profile_id,
+        "calculation_strategy_id": execution_context.calculation_strategy_id,
         "result_schema_version": optimization_profile.result_schema_version,
         "optimizationProfile": optimization_metadata,
+        "calculationStrategy": execution_context.to_result_metadata(),
         "evidenceReferences": {
             "pricing_registry": pricing_registry_reference,
             "pricing_evidence_contract": "pricing-evidence.v1",
             "intent_group_ids": list(optimization_metadata.get("intent_group_ids") or []),
+            "calculation_strategy": (
+                f"calculation_strategy:{execution_context.calculation_strategy_id}"
+            ),
+            "formula_set": f"formula_set:{execution_context.formula_set_id}",
+            "workload_contract": (
+                f"workload_contract:{execution_context.workload_contract_id}"
+            ),
+            "pricing_contract_group": (
+                f"pricing_contract_group:{execution_context.pricing_contract_group_id}"
+            ),
         },
         "calculationResult": result,
         "awsCosts": aws_costs,

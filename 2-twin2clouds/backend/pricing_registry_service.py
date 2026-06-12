@@ -233,6 +233,15 @@ class PricingRegistryService:
         items = self.load().provider_pricing_contracts
         return self._filter_by_provider(items, provider)
 
+    def get_provider_pricing_contract_by_id(self, contract_id: str) -> dict[str, Any]:
+        registry = self.load()
+        try:
+            return deepcopy(registry.provider_pricing_contracts[contract_id])
+        except KeyError as exc:
+            raise PricingRegistryLookupError(
+                f"Unknown provider pricing contract: {contract_id}"
+            ) from exc
+
     def get_provider_pricing_contract(
         self,
         provider: str,
