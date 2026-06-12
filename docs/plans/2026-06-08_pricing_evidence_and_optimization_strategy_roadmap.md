@@ -596,6 +596,8 @@ This phase must not change formula behavior. It validates that every active
 provider/layer has the fields and evidence sources required by its provider
 pricing contract.
 
+Status: implemented in #98 on branch `codex/gcp-tiering-calculation-hardening`.
+
 Validation must check:
 
 - required fetched evidence fields are present
@@ -611,17 +613,25 @@ Validation must check:
 
 Definition of Done:
 
-- Cross-provider validation uses provider pricing contracts, not only broad
+- [x] Cross-provider validation uses provider pricing contracts, not only broad
   intent ids and schema keys.
-- AWS/Azure/GCP L1 ingestion validates despite different pricing models.
-- Non-fetchable official/static fields validate only when their source
+- [x] AWS/Azure/GCP representative paths validate through explicit G1-G7 gates.
+- [x] Non-fetchable official/static fields validate only when their source
   classification is verified and allowed by the provider pricing contract.
-- Invalid examples fail deterministically: AWS message tiers marked per-million
+- [x] Invalid examples fail deterministically: unit mismatch, missing evidence,
+  missing tier metadata, disallowed source type, invalid official static
+  evidence, formula refs outside `cost_formula_set_v1`, unknown calculation
+  component, stale model classification, ambiguous source classification, and
+  fallback/unsupported publishability.
+- [x] Error output is secret-safe and covered by a redaction regression test.
+- [x] Unit tests cover positive and negative contract validation paths.
+
+Deferred pricing-model research examples still planned for later provider
+hardening: AWS message tiers marked per-million
   but consumed as per-message, Azure IoT Hub missing included-message
   thresholds, GCP Pub/Sub missing GiB unit metadata, and formula refs outside
   `cost_formula_set_v1`; official static source used for a field that requires
   provider API evidence; unsupported field marked publishable.
-- Unit tests cover positive and negative contract validation paths.
 
 ### Phase 15
 

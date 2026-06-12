@@ -9,6 +9,7 @@ from backend.optimization.profiles import (
     OptimizationProfileRegistry,
     build_default_profile_registry,
 )
+from backend.pricing_contract_validation import PricingContractValidationService
 from backend.pricing_evidence import (
     FALLBACK_STATIC,
     FETCHED,
@@ -74,6 +75,7 @@ def build_cross_provider_cost_validation(
         provider: _index_evidence_report(evidence_reports.get(provider))
         for provider in provider_ids
     }
+    contract_validator = PricingContractValidationService(registry_service)
 
     for intent_id in sorted(intents):
         intent = intents[intent_id]
@@ -93,6 +95,7 @@ def build_cross_provider_cost_validation(
                 intent_id=intent_id,
                 expected_unit=str(intent.get("normalized_unit") or ""),
                 evidence_index=evidence_by_provider.get(provider),
+                contract_validator=contract_validator,
                 publishable=publishable,
             )
             intent_summary["providers"][provider] = provider_summary
@@ -185,6 +188,7 @@ def _validate_provider_intent(
     intent_id: str,
     expected_unit: str,
     evidence_index: dict[str, dict[str, Any]] | None,
+    contract_validator: PricingContractValidationService,
     publishable: bool,
 ) -> dict[str, Any]:
     if evidence_index is None:
@@ -214,6 +218,16 @@ def _validate_provider_intent(
             f"Normalized unit mismatch: expected {expected_unit!r}, got {actual_unit!r}"
         )
 
+    contract_validation = contract_validator.validate_field(
+        provider=provider,
+        field=intent_id,
+        expected_unit=expected_unit,
+        evidence_record=record,
+        publishable=publishable,
+    )
+    if contract_validation["status"] == FAILED:
+        errors.extend(_contract_error_strings(contract_validation))
+
     if errors:
         status = FAILED
 
@@ -233,6 +247,11 @@ def _validate_provider_intent(
         "selected_row": _selected_row_identity(record.get("selected_row")),
         "candidate_count": len(record.get("candidate_rows") or []),
         "rejected_count": len(record.get("rejected_rows") or []),
+        "contract_validation": contract_validation,
+        "verification_gates": [
+            gate_report
+            for gate_report in contract_validation.get("gates", {}).values()
+        ],
         "errors": errors,
     }
 
@@ -341,8 +360,20 @@ def _provider_status(
         "selected_row": None,
         "candidate_count": 0,
         "rejected_count": 0,
+        "contract_validation": None,
+        "verification_gates": [],
         "errors": errors,
     }
+
+
+def _contract_error_strings(contract_validation: dict[str, Any]) -> list[str]:
+    return [
+        (
+            f"{error['gate']}:{error['error_code']}: "
+            f"{error['message']}"
+        )
+        for error in contract_validation.get("errors") or []
+    ]
 
 
 def _selected_row_identity(selected_row: dict[str, Any] | None) -> dict[str, Any] | None:

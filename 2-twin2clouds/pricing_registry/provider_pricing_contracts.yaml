@@ -15,11 +15,14 @@ provider_pricing_contracts:
       api.request_million:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_1m_requests
@@ -45,11 +48,14 @@ provider_pricing_contracts:
       digital_twin.query_unit:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_query_unit
@@ -75,11 +81,14 @@ provider_pricing_contracts:
       event_bus.event_million:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_1m_events
@@ -105,11 +114,14 @@ provider_pricing_contracts:
       functions.compute_gb_second:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb_second
@@ -135,11 +147,14 @@ provider_pricing_contracts:
       functions.request:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_request
@@ -165,11 +180,14 @@ provider_pricing_contracts:
       grafana.editor_user_month:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_user_month
@@ -195,11 +213,14 @@ provider_pricing_contracts:
       grafana.viewer_user_month:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_user_month
@@ -225,11 +246,14 @@ provider_pricing_contracts:
       iot.message_ingest:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_1m_messages
@@ -255,11 +279,14 @@ provider_pricing_contracts:
       orchestration.state_transition:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_state_transition
@@ -285,11 +312,14 @@ provider_pricing_contracts:
       storage.archive.storage_gb_month:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb_month
@@ -315,11 +345,14 @@ provider_pricing_contracts:
       storage.archive.write_request:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_1k_requests
@@ -345,11 +378,14 @@ provider_pricing_contracts:
       storage.cool.storage_gb_month:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb_month
@@ -375,11 +411,14 @@ provider_pricing_contracts:
       storage.hot.read_request:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_request
@@ -405,11 +444,14 @@ provider_pricing_contracts:
       storage.hot.storage_gb_month:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb_month
@@ -435,11 +477,14 @@ provider_pricing_contracts:
       storage.hot.write_request:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_request
@@ -465,11 +510,14 @@ provider_pricing_contracts:
       transfer.egress_gb:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb
@@ -495,11 +543,14 @@ provider_pricing_contracts:
       api.request_million:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_1m_requests
@@ -524,11 +575,14 @@ provider_pricing_contracts:
       digital_twin.query_unit:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_query_unit
@@ -553,11 +607,14 @@ provider_pricing_contracts:
       event_bus.event_million:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_1m_events
@@ -582,11 +639,14 @@ provider_pricing_contracts:
       functions.compute_gb_second:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb_second
@@ -611,11 +671,14 @@ provider_pricing_contracts:
       functions.request:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_request
@@ -640,11 +703,14 @@ provider_pricing_contracts:
       grafana.editor_user_month:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_user_month
@@ -669,11 +735,14 @@ provider_pricing_contracts:
       grafana.viewer_user_month:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_user_month
@@ -698,11 +767,14 @@ provider_pricing_contracts:
       iot.message_ingest:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_1m_messages
@@ -727,11 +799,14 @@ provider_pricing_contracts:
       orchestration.state_transition:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_1k_state_transitions
@@ -756,11 +831,14 @@ provider_pricing_contracts:
       storage.archive.storage_gb_month:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb_month
@@ -785,11 +863,14 @@ provider_pricing_contracts:
       storage.archive.write_request:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_10k_requests
@@ -814,11 +895,14 @@ provider_pricing_contracts:
       storage.cool.storage_gb_month:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb_month
@@ -843,11 +927,14 @@ provider_pricing_contracts:
       storage.hot.read_request:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_request
@@ -872,11 +959,14 @@ provider_pricing_contracts:
       storage.hot.storage_gb_month:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb_month
@@ -901,11 +991,14 @@ provider_pricing_contracts:
       storage.hot.write_request:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_request
@@ -930,11 +1023,14 @@ provider_pricing_contracts:
       transfer.egress_gb:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb
@@ -959,11 +1055,14 @@ provider_pricing_contracts:
       api.request_million:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_1m_requests
@@ -988,11 +1087,14 @@ provider_pricing_contracts:
       digital_twin.query_unit:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_query_unit
@@ -1017,11 +1119,14 @@ provider_pricing_contracts:
       event_bus.event_million:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_1m_events
@@ -1046,11 +1151,14 @@ provider_pricing_contracts:
       functions.compute_gb_second:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb_second
@@ -1075,11 +1183,14 @@ provider_pricing_contracts:
       functions.request:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_request
@@ -1104,11 +1215,14 @@ provider_pricing_contracts:
       grafana.editor_user_month:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_user_month
@@ -1133,11 +1247,14 @@ provider_pricing_contracts:
       grafana.viewer_user_month:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_user_month
@@ -1162,11 +1279,14 @@ provider_pricing_contracts:
       iot.message_ingest:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb
@@ -1191,11 +1311,14 @@ provider_pricing_contracts:
       orchestration.state_transition:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_state_transition
@@ -1220,11 +1343,14 @@ provider_pricing_contracts:
       storage.archive.storage_gb_month:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb_month
@@ -1249,11 +1375,14 @@ provider_pricing_contracts:
       storage.archive.write_request:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_10k_requests
@@ -1278,11 +1407,14 @@ provider_pricing_contracts:
       storage.cool.storage_gb_month:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb_month
@@ -1307,11 +1439,14 @@ provider_pricing_contracts:
       storage.hot.read_request:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_request
@@ -1336,11 +1471,14 @@ provider_pricing_contracts:
       storage.hot.storage_gb_month:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb_month
@@ -1365,11 +1503,14 @@ provider_pricing_contracts:
       storage.hot.write_request:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_request
@@ -1394,11 +1535,14 @@ provider_pricing_contracts:
       transfer.egress_gb:
       - provider_api
     required_evidence_fields:
-    - service
-    - field
-    - unit
-    - normalized_unit_price
+    - provider
+    - intent_id
+    - source_type
+    - request_scope
+    - normalization_rule
+    - normalized_value
     - currency
+    - selected_row
     curated_model_constants: {}
     normalization_rules:
     - per_gb

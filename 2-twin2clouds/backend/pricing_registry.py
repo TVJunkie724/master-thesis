@@ -915,6 +915,9 @@ def _validate_calculation_strategies(
             errors.append(f"{label}: unsupported status {strategy.get('status')!r}")
         if not isinstance(strategy.get("enabled"), bool):
             errors.append(f"{label}: enabled must be boolean")
+        calculation_components = strategy.get("calculation_components")
+        if not isinstance(calculation_components, list) or not calculation_components:
+            errors.append(f"{label}: calculation_components must be a non-empty list")
         if strategy.get("formula_set_id") not in formula_sets:
             errors.append(
                 f"{label}: unknown formula_set_id {strategy.get('formula_set_id')!r}"

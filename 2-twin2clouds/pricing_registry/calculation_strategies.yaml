@@ -14,3 +14,13 @@ calculation_strategies:
     pricing_contract_group: cost_provider_pricing_contracts_v1
     result_schema_version: cost-result.v1
     description: Monthly cost calculation strategy bound to pricing model/source contracts.
+    calculation_components:
+    - transfer
+    - iot
+    - functions
+    - storage
+    - api
+    - orchestration
+    - event_bus
+    - digital_twin
+    - grafana

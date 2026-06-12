@@ -3,7 +3,7 @@
 ## Metadata
 
 - Phase: 14
-- Status: planned
+- Status: implemented
 - Parent roadmap: `docs/plans/2026-06-08_pricing_evidence_and_optimization_strategy_roadmap.md`
 - Depends on: Phase 12 and Phase 13
 - Parent issues: #69, #32, #98
@@ -39,6 +39,22 @@ calculate(request)
 5. Keep fallback/LKG diagnostic behavior available only outside publishable
    mode.
 6. Do not rewrite formulas or provider calculation components in this phase.
+
+## Implementation Notes
+
+- Added `backend/pricing_contract_validation.py` with explicit gate reports for
+  G1-G7 and deterministic error codes.
+- Integrated contract validation into `backend/cross_provider_cost_validation.py`.
+- Added field-level validation for registry completeness, source buildability,
+  evidence presence, normalization, source/formula/workload/component
+  compatibility, publishability, and calculation readiness.
+- Added `get_provider_pricing_contract_for_field()` to `PricingRegistryService`
+  so validators can resolve contracts by provider and pricing intent.
+- Tightened `cost_calculation_v2` by declaring allowed calculation components.
+- Aligned provider contract `required_evidence_fields` with the actual
+  `pricing-evidence.v1` record shape.
+- Kept formula behavior unchanged; this phase only validates that inputs are
+  legal before calculation.
 
 ## Expected Touchpoints
 
@@ -193,27 +209,70 @@ python -m pytest \
 
 ## Definition Of Done
 
-- [ ] Contract validation service exists with typed errors.
-- [ ] Publishable mode validates classifications, sources, evidence, units,
+- [x] Contract validation service exists with typed errors.
+- [x] Publishable mode validates classifications, sources, evidence, units,
       tiers, and formula refs.
-- [ ] Field-level verification gates exist and block calculation on failures.
-- [ ] Every active pricing field is verified before provider calculators run.
-- [ ] Fallback and unsupported values cannot pass publishable validation.
-- [ ] Non-fetchable official/static values pass only when verified and allowed.
-- [ ] Existing cross-provider validation tests remain green.
-- [ ] New negative tests cover drift and source misuse.
-- [ ] Roadmap phase 14 is updated to implemented when the phase is complete.
+- [x] Field-level verification gates exist and block calculation on failures.
+- [x] Every active pricing field is verified before provider calculators run.
+- [x] Fallback and unsupported values cannot pass publishable validation.
+- [x] Non-fetchable official/static values pass only when verified and allowed.
+- [x] Existing cross-provider validation tests remain green.
+- [x] New negative tests cover drift and source misuse.
+- [x] Roadmap phase 14 is updated to implemented when the phase is complete.
 
 ## Review Gate
 
 Before commit:
 
-- [ ] Run the phase-specific pytest command.
-- [ ] Run `git diff --check`.
-- [ ] Review representative negative cases for unit drift, source misuse, and
+- [x] Run the phase-specific pytest command.
+- [x] Run `git diff --check`.
+- [x] Review representative negative cases for unit drift, source misuse, and
       stale classifications.
-- [ ] Review that all error output is secret-free.
-- [ ] Update this plan with implementation notes and completed checkbox state.
+- [x] Review that all error output is secret-free.
+- [x] Update this plan with implementation notes and completed checkbox state.
+
+## Verification
+
+```bash
+cd 2-twin2clouds
+/tmp/t2mc-phase12-py311/bin/python -m pytest \
+  tests/unit/pricing/test_cross_provider_cost_validation.py \
+  tests/unit/pricing/test_contract_backed_calculation_validation.py \
+  -q
+```
+
+Result: 26 passed.
+
+```bash
+cd 2-twin2clouds
+/tmp/t2mc-phase12-py311/bin/python -m pytest \
+  tests/unit/pricing/test_pricing_registry_foundation.py \
+  tests/unit/pricing/test_pricing_model_source_classification.py \
+  tests/unit/pricing/test_strategy_formula_pricing_contract_bundle.py \
+  tests/unit/pricing/test_pricing_registry_api.py \
+  tests/unit/optimization/test_optimization_profiles.py \
+  -q
+```
+
+Result: 63 passed, 1 warning.
+
+```bash
+cd 2-twin2clouds
+/tmp/t2mc-phase12-py311/bin/python -m pytest \
+  tests/unit/pricing \
+  tests/unit/optimization \
+  --ignore=tests/unit/pricing/test_pricing_schema.py \
+  -q
+```
+
+Result: 190 passed, 1 warning. The ignored `test_pricing_schema.py` expects
+the historical Docker path `/app/json/pricing.json` during local collection.
+
+```bash
+git diff --check
+```
+
+Result: clean.
 
 ## Review Findings Fixed In Plan
 

@@ -261,6 +261,27 @@ class PricingRegistryService:
             )
         return deepcopy(matches[0])
 
+    def get_provider_pricing_contract_for_field(
+        self,
+        provider: str,
+        field: str,
+    ) -> dict[str, Any]:
+        self._validate_provider(provider)
+        matches = [
+            contract
+            for contract in self.load().provider_pricing_contracts.values()
+            if contract.get("provider") == provider and contract.get("field") == field
+        ]
+        if not matches:
+            raise PricingRegistryLookupError(
+                f"Unknown provider pricing contract field: {provider}.{field}"
+            )
+        if len(matches) > 1:
+            raise PricingRegistryLookupError(
+                f"Multiple provider pricing contracts for field: {provider}.{field}"
+            )
+        return deepcopy(matches[0])
+
     def list_provider_mappings(self, provider: str) -> dict[str, dict[str, Any]]:
         registry = self.load()
         self._validate_provider(provider)

@@ -64,7 +64,126 @@ class FakeRegistryService:
             "calculation_model_id": "cost_model_v1",
             "formula_set_id": "cost_formula_set_v1",
             "workload_contract_id": "digital_twin_workload_v1",
+            "calculation_components": [
+                "transfer",
+                "functions",
+                "digital_twin",
+            ],
         }
+
+    def get_formula_set(self, formula_set_id):
+        if formula_set_id != "cost_formula_set_v1":
+            raise KeyError(formula_set_id)
+        return {
+            "id": "cost_formula_set_v1",
+            "formulas": {
+                "request_unit_cost": {},
+                "transfer_tier_cost": {},
+                "query_unit_cost": {},
+            },
+        }
+
+    def get_workload_contract(self, workload_contract_id):
+        if workload_contract_id != "digital_twin_workload_v1":
+            raise KeyError(workload_contract_id)
+        return {
+            "id": "digital_twin_workload_v1",
+            "fields": {
+                "monthly_function_requests": {},
+                "monthly_egress_gb": {},
+                "monthly_digital_twin_query_units": {},
+            },
+        }
+
+    def get_provider_pricing_contract_for_field(self, provider, field):
+        formula_by_field = {
+            "functions.request": ("request_unit_cost", "functions", ["monthly_function_requests"], "per_request"),
+            "transfer.egress_gb": ("transfer_tier_cost", "transfer", ["monthly_egress_gb"], "per_gb"),
+            "digital_twin.query_unit": (
+                "query_unit_cost",
+                "digital_twin",
+                ["monthly_digital_twin_query_units"],
+                "per_query_unit",
+            ),
+        }
+        formula_ref, component, workload_fields, normalization_rule = formula_by_field[field]
+        source_type = (
+            "not_applicable"
+            if provider == "gcp" and field == "digital_twin.query_unit"
+            else "provider_api"
+        )
+        return {
+            "id": f"{provider}.{field.replace('.', '_')}.pricing_contract.v1",
+            "provider": provider,
+            "layer": component,
+            "service": f"{provider}-{component}",
+            "field": field,
+            "formula_set_id": "cost_formula_set_v1",
+            "workload_contract_id": "digital_twin_workload_v1",
+            "pricing_model_classification_id": f"{provider}.{field.replace('.', '_')}.model.v1",
+            "price_source_classification_id": f"{provider}.{field.replace('.', '_')}.source.v1",
+            "allowed_price_source_types_by_field": {field: [source_type]},
+            "required_evidence_fields": [
+                "provider",
+                "intent_id",
+                "source_type",
+                "request_scope",
+                "normalization_rule",
+                "normalized_value",
+                "currency",
+                "selected_row",
+            ],
+            "normalization_rules": [normalization_rule],
+            "allowed_formula_refs": [formula_ref],
+            "calculation_component": component,
+            "consumed_workload_fields": workload_fields,
+            "output_metric_unit": "USD/month",
+            "status": "ready",
+        }
+
+    def get_pricing_model_classification(self, classification_id):
+        provider, field = _classification_parts(classification_id, ".model.v1")
+        return {
+            "id": classification_id,
+            "provider": provider,
+            "field": field,
+            "publishable": True,
+            "review_status": "verified",
+        }
+
+    def get_price_source_classification(self, classification_id):
+        provider, field = _classification_parts(classification_id, ".source.v1")
+        source_type = (
+            "not_applicable"
+            if provider == "gcp" and field == "digital_twin.query_unit"
+            else "provider_api"
+        )
+        build_path = (
+            "declared_not_applicable"
+            if source_type == "not_applicable"
+            else "fetched_from_provider_api"
+        )
+        return {
+            "id": classification_id,
+            "provider": provider,
+            "field": field,
+            "source_type": source_type,
+            "expected_build_path": build_path,
+            "publishable": True,
+            "review_status": "verified",
+            "verification_status": "passed",
+        }
+
+
+def _classification_parts(classification_id, suffix):
+    raw = classification_id.removesuffix(suffix)
+    provider, field_slug = raw.split(".", 1)
+    fields_by_slug = {
+        "functions_request": "functions.request",
+        "transfer_egress_gb": "transfer.egress_gb",
+        "digital_twin_query_unit": "digital_twin.query_unit",
+    }
+    return provider, fields_by_slug[field_slug]
 
 
 def _record(
@@ -99,10 +218,12 @@ def _record(
                 "skuId": f"{provider}-sku",
                 "unit": unit,
                 "description": intent_id,
+                "tier": {"minimum": 0},
             }
             if selected and source_type != NOT_APPLICABLE
             else None
         ),
+        "tier": {"minimum": 0} if selected and source_type != NOT_APPLICABLE else None,
         "candidate_rows": [],
         "rejected_rows": [],
         "errors": [],
