@@ -40,7 +40,7 @@ complexity, or lock-in must be possible without rewriting the optimizer core.
 | Cross-provider evidence-backed cost validation | #94 | implemented on this branch |
 | GCP tiering and unit-aware calculation | #95 | implemented on this branch |
 | Provider-specific tiering/calculation reviews | #90/#92/#95 | implemented baseline; live/e2e finalization remains later |
-| Pricing model and source classification | #96 | planned |
+| Pricing model and source classification | #96 | implemented on this branch |
 | Strategy/formula/pricing-contract bundle | #97 | planned |
 | Contract-backed calculation validation | #98 | planned |
 | Calculation strategy execution refactor | #99 | planned |
@@ -312,7 +312,7 @@ first-class.
 | 9 | `2026-06-08_gcp_credentials_pricing_evidence.md` | implemented (#93) | Fix GCP pricing credentials/permissions, then capture GCP Catalog evidence |
 | 10 | `2026-06-08_cross_provider_cost_validation.md` | implemented (#94) | Validate all cost intents across providers with zero publishable fallbacks |
 | 11 | `2026-06-09_gcp_tiering_calculation_review.md` | implemented (#95) | Review GCP tiers/units and adapt cost calculation where the current model is incomplete |
-| 12 | `2-twin2clouds/implementation_plans/2026-06-10_pricing_model_source_classification.md` | planned (#96) | Classify provider pricing models and source types, including non-fetchable official/static prices and unsupported fields |
+| 12 | `2-twin2clouds/implementation_plans/2026-06-10_pricing_model_source_classification.md` | implemented (#96) | Classify provider pricing models and source types, including non-fetchable official/static prices and unsupported fields |
 | 13 | `2-twin2clouds/implementation_plans/2026-06-10_strategy_formula_pricing_contract_bundle.md` | planned (#97) | Formalize the versioned bundle between optimization profile, calculation strategy, formula set, provider pricing contracts, and workload contract |
 | 14 | `2-twin2clouds/implementation_plans/2026-06-10_contract_backed_calculation_validation.md` | planned (#98) | Validate fetched pricing/evidence against provider pricing contracts before calculation can run in publishable mode |
 | 15 | `2-twin2clouds/implementation_plans/2026-06-10_calculation_strategy_execution_refactor.md` | planned (#99) | Refactor calculation execution so provider calculators are selected through the active calculation strategy and allowed formula set |
@@ -449,6 +449,14 @@ Azure behavior.
 Adds explicit pricing model and source classification before provider pricing
 contracts are finalized. This phase removes the implicit assumption that the
 code "knows" each provider service's pricing model.
+
+Implemented in GitHub issue #96. The optimizer pricing registry now has
+versioned pricing model classifications, versioned price source
+classifications, typed registry/service/API access, and a generated
+field-level verification matrix covering all 48 active provider/intent fields.
+Publishability validation rejects fallback, unsupported, stale, ambiguous, and
+source/build-path mismatch states before later calculation phases can consume
+the fields.
 
 This phase creates versioned SSOT entries for:
 

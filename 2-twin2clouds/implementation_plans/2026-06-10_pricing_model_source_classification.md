@@ -3,7 +3,7 @@
 ## Metadata
 
 - Phase: 12
-- Status: planned
+- Status: implemented on branch `codex/gcp-tiering-calculation-hardening`
 - Parent roadmap: `docs/plans/2026-06-08_pricing_evidence_and_optimization_strategy_roadmap.md`
 - Parent issues: #69, #32, #96
 - Scope owner: `2-twin2clouds`
@@ -261,26 +261,56 @@ python -m pytest \
 
 ## Definition Of Done
 
-- [ ] Classification registry files exist and are versioned.
-- [ ] Typed loader validates model and source classifications.
-- [ ] Publishability rejects unsafe source states.
-- [ ] Non-fetchable official/static values are represented without using
+- [x] Classification registry files exist and are versioned.
+- [x] Typed loader validates model and source classifications.
+- [x] Publishability rejects unsafe source states.
+- [x] Non-fetchable official/static values are represented without using
       `fallback_static`.
-- [ ] Field-level verification matrix covers every active provider/layer/field.
-- [ ] Each supported source type has deterministic positive and negative tests.
-- [ ] No secrets or credentials are stored in classification files.
-- [ ] Tests cover positive, negative, and publishability paths.
-- [ ] Roadmap phase 12 is updated to implemented when the phase is complete.
+- [x] Field-level verification matrix covers every active provider/layer/field.
+- [x] Each supported source type has deterministic positive and negative tests.
+- [x] No secrets or credentials are stored in classification files.
+- [x] Tests cover positive, negative, and publishability paths.
+- [x] Roadmap phase 12 is updated to implemented when the phase is complete.
 
 ## Review Gate
 
 Before commit:
 
-- [ ] Run the phase-specific pytest command.
-- [ ] Run `git diff --check`.
-- [ ] Review that no `fallback_static` source is publishable.
-- [ ] Review that official/static sources have source and review metadata.
-- [ ] Update this plan with implementation notes and completed checkbox state.
+- [x] Run the phase-specific pytest command.
+- [x] Run `git diff --check`.
+- [x] Review that no `fallback_static` source is publishable.
+- [x] Review that official/static sources have source and review metadata.
+- [x] Update this plan with implementation notes and completed checkbox state.
+
+## Implementation Notes
+
+- Added `pricing_model_classifications.yaml` and
+  `price_source_classifications.yaml` as source-controlled registry SSOT.
+- Extended `PricingRegistryService` and the read-only pricing registry API with
+  classification and field-verification-matrix access.
+- The field verification matrix covers 48 active provider/intent fields:
+  16 AWS, 16 Azure, and 16 GCP rows.
+- Added validation for duplicate provider/field coverage, source/build-path
+  mismatches, model/source provider-field mismatch, unsafe publishability,
+  missing evidence refs, and invalid verification status.
+
+## Verification Results
+
+```bash
+cd 2-twin2clouds && /tmp/t2mc-phase12-py311/bin/python -m pytest \
+  tests/unit/pricing/test_pricing_registry_api.py \
+  tests/unit/pricing/test_pricing_model_source_classification.py -q
+# 30 passed, 1 warning
+
+cd 2-twin2clouds && /tmp/t2mc-phase12-py311/bin/python -m pytest \
+  tests/unit/pricing/test_pricing_registry_foundation.py \
+  tests/unit/pricing/test_cross_provider_cost_validation.py \
+  tests/unit/optimization/test_optimization_profiles.py -q
+# 34 passed
+
+git diff --check
+# passed
+```
 
 ## Review Findings Fixed In Plan
 

@@ -1,0 +1,1299 @@
+schema_version: pricing-registry-price-source-classifications.v1
+registry_version: 2026.06.08
+classifications:
+  aws.transfer_egress_gb.source.v1:
+    id: aws.transfer_egress_gb.source.v1
+    provider: aws
+    layer: transfer
+    service: AWSDataTransfer
+    field: transfer.egress_gb
+    pricing_model_classification_id: aws.transfer_egress_gb.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.transfer.egress_gb.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:transfer.egress_gb
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  aws.iot_message_ingest.source.v1:
+    id: aws.iot_message_ingest.source.v1
+    provider: aws
+    layer: iot
+    service: AWSIoT
+    field: iot.message_ingest
+    pricing_model_classification_id: aws.iot_message_ingest.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.iot.message_ingest.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_1m_messages
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:iot.message_ingest
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  aws.functions_request.source.v1:
+    id: aws.functions_request.source.v1
+    provider: aws
+    layer: functions
+    service: AWSLambda
+    field: functions.request
+    pricing_model_classification_id: aws.functions_request.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.functions.request.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_request
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:functions.request
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  aws.functions_compute_gb_second.source.v1:
+    id: aws.functions_compute_gb_second.source.v1
+    provider: aws
+    layer: functions
+    service: AWSLambda
+    field: functions.compute_gb_second
+    pricing_model_classification_id: aws.functions_compute_gb_second.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.functions.compute_gb_second.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb_second
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:functions.compute_gb_second
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  aws.storage_hot_storage_gb_month.source.v1:
+    id: aws.storage_hot_storage_gb_month.source.v1
+    provider: aws
+    layer: storage
+    service: AmazonDynamoDB
+    field: storage.hot.storage_gb_month
+    pricing_model_classification_id: aws.storage_hot_storage_gb_month.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.storage.hot.storage_gb_month.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb_month
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:storage.hot.storage_gb_month
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  aws.storage_hot_read_request.source.v1:
+    id: aws.storage_hot_read_request.source.v1
+    provider: aws
+    layer: storage
+    service: AmazonDynamoDB
+    field: storage.hot.read_request
+    pricing_model_classification_id: aws.storage_hot_read_request.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.storage.hot.read_request.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_request
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:storage.hot.read_request
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  aws.storage_hot_write_request.source.v1:
+    id: aws.storage_hot_write_request.source.v1
+    provider: aws
+    layer: storage
+    service: AmazonDynamoDB
+    field: storage.hot.write_request
+    pricing_model_classification_id: aws.storage_hot_write_request.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.storage.hot.write_request.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_request
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:storage.hot.write_request
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  aws.storage_cool_storage_gb_month.source.v1:
+    id: aws.storage_cool_storage_gb_month.source.v1
+    provider: aws
+    layer: storage
+    service: AmazonS3
+    field: storage.cool.storage_gb_month
+    pricing_model_classification_id: aws.storage_cool_storage_gb_month.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.storage.cool.storage_gb_month.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb_month
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:storage.cool.storage_gb_month
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  aws.storage_archive_storage_gb_month.source.v1:
+    id: aws.storage_archive_storage_gb_month.source.v1
+    provider: aws
+    layer: storage
+    service: AmazonS3
+    field: storage.archive.storage_gb_month
+    pricing_model_classification_id: aws.storage_archive_storage_gb_month.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.storage.archive.storage_gb_month.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb_month
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:storage.archive.storage_gb_month
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  aws.storage_archive_write_request.source.v1:
+    id: aws.storage_archive_write_request.source.v1
+    provider: aws
+    layer: storage
+    service: AmazonS3
+    field: storage.archive.write_request
+    pricing_model_classification_id: aws.storage_archive_write_request.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.storage.archive.write_request.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_1k_requests
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:storage.archive.write_request
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  aws.api_request_million.source.v1:
+    id: aws.api_request_million.source.v1
+    provider: aws
+    layer: api
+    service: AmazonApiGateway
+    field: api.request_million
+    pricing_model_classification_id: aws.api_request_million.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.api.request_million.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_1m_requests
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:api.request_million
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  aws.orchestration_state_transition.source.v1:
+    id: aws.orchestration_state_transition.source.v1
+    provider: aws
+    layer: orchestration
+    service: AmazonStates
+    field: orchestration.state_transition
+    pricing_model_classification_id: aws.orchestration_state_transition.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.orchestration.state_transition.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_state_transition
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:orchestration.state_transition
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  aws.event_bus_event_million.source.v1:
+    id: aws.event_bus_event_million.source.v1
+    provider: aws
+    layer: event_bus
+    service: AWSEvents
+    field: event_bus.event_million
+    pricing_model_classification_id: aws.event_bus_event_million.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.event_bus.event_million.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_1m_events
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:event_bus.event_million
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  aws.digital_twin_query_unit.source.v1:
+    id: aws.digital_twin_query_unit.source.v1
+    provider: aws
+    layer: digital_twin
+    service: AWSIoTTwinMaker
+    field: digital_twin.query_unit
+    pricing_model_classification_id: aws.digital_twin_query_unit.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.digital_twin.query_unit.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_query_unit
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:digital_twin.query_unit
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  aws.grafana_editor_user_month.source.v1:
+    id: aws.grafana_editor_user_month.source.v1
+    provider: aws
+    layer: grafana
+    service: AmazonGrafana
+    field: grafana.editor_user_month
+    pricing_model_classification_id: aws.grafana_editor_user_month.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.grafana.editor_user_month.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_user_month
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:grafana.editor_user_month
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  aws.grafana_viewer_user_month.source.v1:
+    id: aws.grafana_viewer_user_month.source.v1
+    provider: aws
+    layer: grafana
+    service: AmazonGrafana
+    field: grafana.viewer_user_month
+    pricing_model_classification_id: aws.grafana_viewer_user_month.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - aws.grafana.viewer_user_month.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_user_month
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html
+    api_request_id: aws-pricing-api:grafana.viewer_user_month
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.transfer_egress_gb.source.v1:
+    id: azure.transfer_egress_gb.source.v1
+    provider: azure
+    layer: transfer
+    service: Bandwidth
+    field: transfer.egress_gb
+    pricing_model_classification_id: azure.transfer_egress_gb.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.transfer.egress_gb.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:transfer.egress_gb
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.iot_message_ingest.source.v1:
+    id: azure.iot_message_ingest.source.v1
+    provider: azure
+    layer: iot
+    service: IoT Hub
+    field: iot.message_ingest
+    pricing_model_classification_id: azure.iot_message_ingest.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.iot.message_ingest.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_1m_messages
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:iot.message_ingest
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.functions_request.source.v1:
+    id: azure.functions_request.source.v1
+    provider: azure
+    layer: functions
+    service: Functions
+    field: functions.request
+    pricing_model_classification_id: azure.functions_request.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.functions.request.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_request
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:functions.request
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.functions_compute_gb_second.source.v1:
+    id: azure.functions_compute_gb_second.source.v1
+    provider: azure
+    layer: functions
+    service: Functions
+    field: functions.compute_gb_second
+    pricing_model_classification_id: azure.functions_compute_gb_second.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.functions.compute_gb_second.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb_second
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:functions.compute_gb_second
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.storage_hot_storage_gb_month.source.v1:
+    id: azure.storage_hot_storage_gb_month.source.v1
+    provider: azure
+    layer: storage
+    service: Azure Cosmos DB
+    field: storage.hot.storage_gb_month
+    pricing_model_classification_id: azure.storage_hot_storage_gb_month.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.storage.hot.storage_gb_month.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb_month
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:storage.hot.storage_gb_month
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.storage_hot_read_request.source.v1:
+    id: azure.storage_hot_read_request.source.v1
+    provider: azure
+    layer: storage
+    service: Azure Cosmos DB
+    field: storage.hot.read_request
+    pricing_model_classification_id: azure.storage_hot_read_request.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.storage.hot.read_request.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_request
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:storage.hot.read_request
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.storage_hot_write_request.source.v1:
+    id: azure.storage_hot_write_request.source.v1
+    provider: azure
+    layer: storage
+    service: Azure Cosmos DB
+    field: storage.hot.write_request
+    pricing_model_classification_id: azure.storage_hot_write_request.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.storage.hot.write_request.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_request
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:storage.hot.write_request
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.storage_cool_storage_gb_month.source.v1:
+    id: azure.storage_cool_storage_gb_month.source.v1
+    provider: azure
+    layer: storage
+    service: Storage
+    field: storage.cool.storage_gb_month
+    pricing_model_classification_id: azure.storage_cool_storage_gb_month.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.storage.cool.storage_gb_month.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb_month
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:storage.cool.storage_gb_month
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.storage_archive_storage_gb_month.source.v1:
+    id: azure.storage_archive_storage_gb_month.source.v1
+    provider: azure
+    layer: storage
+    service: Storage
+    field: storage.archive.storage_gb_month
+    pricing_model_classification_id: azure.storage_archive_storage_gb_month.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.storage.archive.storage_gb_month.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb_month
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:storage.archive.storage_gb_month
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.storage_archive_write_request.source.v1:
+    id: azure.storage_archive_write_request.source.v1
+    provider: azure
+    layer: storage
+    service: Storage
+    field: storage.archive.write_request
+    pricing_model_classification_id: azure.storage_archive_write_request.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.storage.archive.write_request.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_10k_requests
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:storage.archive.write_request
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.api_request_million.source.v1:
+    id: azure.api_request_million.source.v1
+    provider: azure
+    layer: api
+    service: API Management
+    field: api.request_million
+    pricing_model_classification_id: azure.api_request_million.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.api.request_million.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_1m_requests
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:api.request_million
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.orchestration_state_transition.source.v1:
+    id: azure.orchestration_state_transition.source.v1
+    provider: azure
+    layer: orchestration
+    service: Logic Apps
+    field: orchestration.state_transition
+    pricing_model_classification_id: azure.orchestration_state_transition.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.orchestration.state_transition.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_1k_state_transitions
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:orchestration.state_transition
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.event_bus_event_million.source.v1:
+    id: azure.event_bus_event_million.source.v1
+    provider: azure
+    layer: event_bus
+    service: Event Grid
+    field: event_bus.event_million
+    pricing_model_classification_id: azure.event_bus_event_million.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.event_bus.event_million.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_1m_events
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:event_bus.event_million
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.digital_twin_query_unit.source.v1:
+    id: azure.digital_twin_query_unit.source.v1
+    provider: azure
+    layer: digital_twin
+    service: Digital Twins
+    field: digital_twin.query_unit
+    pricing_model_classification_id: azure.digital_twin_query_unit.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.digital_twin.query_unit.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_query_unit
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:digital_twin.query_unit
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.grafana_editor_user_month.source.v1:
+    id: azure.grafana_editor_user_month.source.v1
+    provider: azure
+    layer: grafana
+    service: Azure Grafana Service
+    field: grafana.editor_user_month
+    pricing_model_classification_id: azure.grafana_editor_user_month.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.grafana.editor_user_month.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_user_month
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:grafana.editor_user_month
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  azure.grafana_viewer_user_month.source.v1:
+    id: azure.grafana_viewer_user_month.source.v1
+    provider: azure
+    layer: grafana
+    service: Azure Grafana Service
+    field: grafana.viewer_user_month
+    pricing_model_classification_id: azure.grafana_viewer_user_month.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - azure.grafana.viewer_user_month.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_user_month
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
+    api_request_id: azure-pricing-api:grafana.viewer_user_month
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.transfer_egress_gb.source.v1:
+    id: gcp.transfer_egress_gb.source.v1
+    provider: gcp
+    layer: transfer
+    service: Compute Engine
+    field: transfer.egress_gb
+    pricing_model_classification_id: gcp.transfer_egress_gb.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.transfer.egress_gb.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:transfer.egress_gb
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.iot_message_ingest.source.v1:
+    id: gcp.iot_message_ingest.source.v1
+    provider: gcp
+    layer: iot
+    service: Cloud Pub/Sub
+    field: iot.message_ingest
+    pricing_model_classification_id: gcp.iot_message_ingest.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.iot.message_ingest.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:iot.message_ingest
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.functions_request.source.v1:
+    id: gcp.functions_request.source.v1
+    provider: gcp
+    layer: functions
+    service: Cloud Run Functions
+    field: functions.request
+    pricing_model_classification_id: gcp.functions_request.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.functions.request.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_request
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:functions.request
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.functions_compute_gb_second.source.v1:
+    id: gcp.functions_compute_gb_second.source.v1
+    provider: gcp
+    layer: functions
+    service: Cloud Run Functions
+    field: functions.compute_gb_second
+    pricing_model_classification_id: gcp.functions_compute_gb_second.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.functions.compute_gb_second.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb_second
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:functions.compute_gb_second
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.storage_hot_storage_gb_month.source.v1:
+    id: gcp.storage_hot_storage_gb_month.source.v1
+    provider: gcp
+    layer: storage
+    service: Firestore
+    field: storage.hot.storage_gb_month
+    pricing_model_classification_id: gcp.storage_hot_storage_gb_month.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.storage.hot.storage_gb_month.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb_month
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:storage.hot.storage_gb_month
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.storage_hot_read_request.source.v1:
+    id: gcp.storage_hot_read_request.source.v1
+    provider: gcp
+    layer: storage
+    service: Firestore
+    field: storage.hot.read_request
+    pricing_model_classification_id: gcp.storage_hot_read_request.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.storage.hot.read_request.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_request
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:storage.hot.read_request
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.storage_hot_write_request.source.v1:
+    id: gcp.storage_hot_write_request.source.v1
+    provider: gcp
+    layer: storage
+    service: Firestore
+    field: storage.hot.write_request
+    pricing_model_classification_id: gcp.storage_hot_write_request.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.storage.hot.write_request.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_request
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:storage.hot.write_request
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.storage_cool_storage_gb_month.source.v1:
+    id: gcp.storage_cool_storage_gb_month.source.v1
+    provider: gcp
+    layer: storage
+    service: Cloud Storage
+    field: storage.cool.storage_gb_month
+    pricing_model_classification_id: gcp.storage_cool_storage_gb_month.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.storage.cool.storage_gb_month.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb_month
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:storage.cool.storage_gb_month
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.storage_archive_storage_gb_month.source.v1:
+    id: gcp.storage_archive_storage_gb_month.source.v1
+    provider: gcp
+    layer: storage
+    service: Cloud Storage
+    field: storage.archive.storage_gb_month
+    pricing_model_classification_id: gcp.storage_archive_storage_gb_month.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.storage.archive.storage_gb_month.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_gb_month
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:storage.archive.storage_gb_month
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.storage_archive_write_request.source.v1:
+    id: gcp.storage_archive_write_request.source.v1
+    provider: gcp
+    layer: storage
+    service: Cloud Storage
+    field: storage.archive.write_request
+    pricing_model_classification_id: gcp.storage_archive_write_request.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.storage.archive.write_request.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_10k_requests
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:storage.archive.write_request
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.api_request_million.source.v1:
+    id: gcp.api_request_million.source.v1
+    provider: gcp
+    layer: api
+    service: API Gateway
+    field: api.request_million
+    pricing_model_classification_id: gcp.api_request_million.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.api.request_million.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_1m_requests
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:api.request_million
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.orchestration_state_transition.source.v1:
+    id: gcp.orchestration_state_transition.source.v1
+    provider: gcp
+    layer: orchestration
+    service: Workflows
+    field: orchestration.state_transition
+    pricing_model_classification_id: gcp.orchestration_state_transition.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.orchestration.state_transition.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_state_transition
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:orchestration.state_transition
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.event_bus_event_million.source.v1:
+    id: gcp.event_bus_event_million.source.v1
+    provider: gcp
+    layer: event_bus
+    service: Cloud Pub/Sub
+    field: event_bus.event_million
+    pricing_model_classification_id: gcp.event_bus_event_million.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.event_bus.event_million.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_1m_events
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:event_bus.event_million
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.digital_twin_query_unit.source.v1:
+    id: gcp.digital_twin_query_unit.source.v1
+    provider: gcp
+    layer: digital_twin
+    service: Compute Engine
+    field: digital_twin.query_unit
+    pricing_model_classification_id: gcp.digital_twin_query_unit.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.digital_twin.query_unit.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_query_unit
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:digital_twin.query_unit
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.grafana_editor_user_month.source.v1:
+    id: gcp.grafana_editor_user_month.source.v1
+    provider: gcp
+    layer: grafana
+    service: Compute Engine
+    field: grafana.editor_user_month
+    pricing_model_classification_id: gcp.grafana_editor_user_month.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.grafana.editor_user_month.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_user_month
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:grafana.editor_user_month
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''
+  gcp.grafana_viewer_user_month.source.v1:
+    id: gcp.grafana_viewer_user_month.source.v1
+    provider: gcp
+    layer: grafana
+    service: Compute Engine
+    field: grafana.viewer_user_month
+    pricing_model_classification_id: gcp.grafana_viewer_user_month.model.v1
+    source_type: provider_api
+    allowed_source_types:
+    - provider_api
+    expected_build_path: fetched_from_provider_api
+    required_evidence_refs:
+    - gcp.grafana.viewer_user_month.mapping:2026.06.08
+    normalization_rule_refs:
+    - per_user_month
+    region_scope: regional_or_provider_defined
+    currency: USD
+    effective_date: '2026-06-08'
+    retrieved_at: '2026-06-08T00:00:00+00:00'
+    reviewed_at: '2026-06-10'
+    source_url: https://cloud.google.com/billing/docs/reference/pricing-api
+    api_request_id: gcp-pricing-api:grafana.viewer_user_month
+    catalog_sku_id: selected-evidence-required
+    review_status: verified
+    publishable: true
+    verification_status: passed
+    failure_reason: ''

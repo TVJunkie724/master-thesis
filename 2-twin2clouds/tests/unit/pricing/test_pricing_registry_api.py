@@ -39,7 +39,14 @@ def test_pricing_registry_service_returns_defensive_copies():
 
 def test_pricing_registry_service_reloads_registry_version(tmp_path):
     root = _copy_registry(tmp_path)
-    for name in ("intents.yaml", "normalization.yaml", "service_models.yaml", "review_decisions.yaml"):
+    for name in (
+        "intents.yaml",
+        "normalization.yaml",
+        "service_models.yaml",
+        "review_decisions.yaml",
+        "pricing_model_classifications.yaml",
+        "price_source_classifications.yaml",
+    ):
         path = root / name
         path.write_text(path.read_text().replace("2026.06.08", "2026.06.09"))
 
@@ -67,6 +74,8 @@ def test_get_pricing_registry_status_endpoint():
     assert body["status"] == "valid"
     assert body["registry_version"] == "2026.06.08"
     assert body["intent_count"] == 16
+    assert body["pricing_model_classification_count"] == 48
+    assert body["price_source_classification_count"] == 48
     assert body["provider_mapping_counts"] == {"aws": 16, "azure": 16, "gcp": 16}
 
 
@@ -125,3 +134,49 @@ def test_pricing_registry_endpoints_are_read_only():
     response = client.post("/pricing-registry/intents", json={})
 
     assert response.status_code == 405
+
+
+def test_list_pricing_model_classifications_endpoint_supports_provider_filter():
+    response = client.get("/pricing-registry/pricing-model-classifications?provider=aws")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["items"]) == 16
+    assert body["items"]["aws.iot_message_ingest.model.v1"]["pricing_model_type"] == (
+        "tiered_message_unit"
+    )
+    assert all(item["provider"] == "aws" for item in body["items"].values())
+
+
+def test_list_price_source_classifications_endpoint_supports_provider_filter():
+    response = client.get("/pricing-registry/price-source-classifications?provider=gcp")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["items"]) == 16
+    assert body["items"]["gcp.iot_message_ingest.source.v1"]["source_type"] == "provider_api"
+    assert all(item["provider"] == "gcp" for item in body["items"].values())
+
+
+def test_field_verification_matrix_endpoint_covers_active_fields():
+    response = client.get("/pricing-registry/field-verification-matrix")
+
+    assert response.status_code == 200
+    rows = response.json()["items"]
+    assert len(rows) == 48
+    assert {
+        (row["provider"], row["field"], row["selected_source_type"])
+        for row in rows
+    } >= {
+        ("aws", "iot.message_ingest", "provider_api"),
+        ("azure", "iot.message_ingest", "provider_api"),
+        ("gcp", "iot.message_ingest", "provider_api"),
+    }
+    assert all(row["verification_status"] == "passed" for row in rows)
+
+
+def test_unknown_provider_filter_returns_structured_404():
+    response = client.get("/pricing-registry/field-verification-matrix?provider=oracle")
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["error_code"] == "PRICING_REGISTRY_ITEM_NOT_FOUND"

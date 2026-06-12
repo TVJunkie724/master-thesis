@@ -21,9 +21,58 @@ NORMALIZATION_SCHEMA_VERSION = "pricing-registry-normalization.v1"
 SERVICE_MODELS_SCHEMA_VERSION = "pricing-registry-service-models.v1"
 PROVIDER_MAPPINGS_SCHEMA_VERSION = "pricing-registry-provider-mappings.v1"
 REVIEW_DECISIONS_SCHEMA_VERSION = "pricing-registry-review-decisions.v1"
+PRICING_MODEL_CLASSIFICATIONS_SCHEMA_VERSION = "pricing-registry-pricing-model-classifications.v1"
+PRICE_SOURCE_CLASSIFICATIONS_SCHEMA_VERSION = "pricing-registry-price-source-classifications.v1"
 
 SUPPORTED_PROVIDERS = ("aws", "azure", "gcp")
 SUPPORTED_REVIEW_STATUSES = {"draft", "reviewed", "review_required", "rejected"}
+SUPPORTED_CLASSIFICATION_REVIEW_STATUSES = {
+    "verified",
+    "review_required",
+    "ambiguous",
+    "unsupported",
+    "deprecated",
+    "stale",
+}
+SUPPORTED_PRICE_SOURCE_TYPES = {
+    "provider_api",
+    "official_static_documentation",
+    "official_calculator_reference",
+    "curated_model_constant",
+    "derived_from_provider_api",
+    "not_applicable",
+    "unsupported",
+    "fallback_static",
+}
+SUPPORTED_BUILD_PATHS = {
+    "fetched_from_provider_api",
+    "loaded_from_official_static_documentation",
+    "loaded_from_official_calculator_reference",
+    "loaded_from_curated_model_constant",
+    "derived_from_provider_api",
+    "declared_not_applicable",
+    "declared_unsupported",
+    "diagnostic_fallback_only",
+}
+SUPPORTED_VERIFICATION_STATUSES = {"passed", "failed", "not_applicable"}
+BUILD_PATH_SOURCE_TYPES = {
+    "fetched_from_provider_api": "provider_api",
+    "loaded_from_official_static_documentation": "official_static_documentation",
+    "loaded_from_official_calculator_reference": "official_calculator_reference",
+    "loaded_from_curated_model_constant": "curated_model_constant",
+    "derived_from_provider_api": "derived_from_provider_api",
+    "declared_not_applicable": "not_applicable",
+    "declared_unsupported": "unsupported",
+    "diagnostic_fallback_only": "fallback_static",
+}
+NON_PUBLISHABLE_CLASSIFICATION_STATUSES = {
+    "review_required",
+    "ambiguous",
+    "unsupported",
+    "deprecated",
+    "stale",
+}
+NON_PUBLISHABLE_SOURCE_TYPES = {"fallback_static", "unsupported"}
 SUPPORTED_CARDINALITIES = {
     "one_per_region",
     "one_or_more_per_region",
@@ -85,6 +134,8 @@ class PricingRegistry:
     service_models: dict[str, dict[str, Any]]
     provider_mappings: dict[str, dict[str, dict[str, Any]]]
     review_decisions: list[dict[str, Any]]
+    pricing_model_classifications: dict[str, dict[str, Any]]
+    price_source_classifications: dict[str, dict[str, Any]]
 
     def mapping_for(self, provider: str, intent_id: str) -> dict[str, Any]:
         try:
@@ -100,6 +151,12 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
     normalization_doc = _load_yaml_document(root_path / "normalization.yaml")
     service_models_doc = _load_yaml_document(root_path / "service_models.yaml")
     review_decisions_doc = _load_yaml_document(root_path / "review_decisions.yaml")
+    pricing_model_classifications_doc = _load_yaml_document(
+        root_path / "pricing_model_classifications.yaml"
+    )
+    price_source_classifications_doc = _load_yaml_document(
+        root_path / "price_source_classifications.yaml"
+    )
     provider_docs = {
         provider: _load_yaml_document(root_path / "providers" / provider / "mappings.yaml")
         for provider in SUPPORTED_PROVIDERS
@@ -120,6 +177,20 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
             "review_decisions.yaml",
         )
     )
+    errors.extend(
+        _validate_schema(
+            pricing_model_classifications_doc,
+            PRICING_MODEL_CLASSIFICATIONS_SCHEMA_VERSION,
+            "pricing_model_classifications.yaml",
+        )
+    )
+    errors.extend(
+        _validate_schema(
+            price_source_classifications_doc,
+            PRICE_SOURCE_CLASSIFICATIONS_SCHEMA_VERSION,
+            "price_source_classifications.yaml",
+        )
+    )
     for provider, doc in provider_docs.items():
         errors.extend(
             _validate_schema(
@@ -134,6 +205,12 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
     normalization_rules = normalization_doc.get("rules") or {}
     service_models = service_models_doc.get("service_models") or {}
     review_decisions = review_decisions_doc.get("decisions") or []
+    pricing_model_classifications = (
+        pricing_model_classifications_doc.get("classifications") or {}
+    )
+    price_source_classifications = (
+        price_source_classifications_doc.get("classifications") or {}
+    )
     provider_mappings = _index_provider_mappings(provider_docs, errors)
 
     errors.extend(_validate_intents(intent_groups, intents))
@@ -142,12 +219,28 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
     errors.extend(_validate_provider_mappings(provider_mappings, intents, normalization_rules))
     errors.extend(_validate_provider_coverage(provider_mappings, intents))
     errors.extend(_validate_review_decisions(review_decisions, intents))
+    errors.extend(
+        _validate_pricing_model_classifications(
+            pricing_model_classifications,
+            provider_mappings,
+        )
+    )
+    errors.extend(
+        _validate_price_source_classifications(
+            price_source_classifications,
+            pricing_model_classifications,
+            provider_mappings,
+            normalization_rules,
+        )
+    )
 
     registry_versions = {
         str(intents_doc.get("registry_version") or ""),
         str(normalization_doc.get("registry_version") or ""),
         str(service_models_doc.get("registry_version") or ""),
         str(review_decisions_doc.get("registry_version") or ""),
+        str(pricing_model_classifications_doc.get("registry_version") or ""),
+        str(price_source_classifications_doc.get("registry_version") or ""),
     }
     if "" in registry_versions:
         errors.append("All registry documents must declare registry_version")
@@ -168,6 +261,8 @@ def load_pricing_registry(root: Path | str = REGISTRY_ROOT) -> PricingRegistry:
         service_models=service_models,
         provider_mappings=provider_mappings,
         review_decisions=review_decisions,
+        pricing_model_classifications=pricing_model_classifications,
+        price_source_classifications=price_source_classifications,
     )
 
 
@@ -398,6 +493,232 @@ def _validate_review_decisions(
         if forbidden:
             errors.append(f"{label} contains forbidden price override keys {forbidden}")
     return errors
+
+
+def _validate_pricing_model_classifications(
+    classifications: dict[str, dict[str, Any]],
+    provider_mappings: dict[str, dict[str, dict[str, Any]]],
+) -> list[str]:
+    errors: list[str] = []
+    if not classifications:
+        return ["pricing_model_classifications.yaml: at least one classification is required"]
+
+    covered = _coverage_counts(classifications)
+    for provider, mappings in provider_mappings.items():
+        for intent_id in mappings:
+            count = covered.get((provider, intent_id), 0)
+            if count == 0:
+                errors.append(
+                    "pricing_model_classifications.yaml: missing classification "
+                    f"for {provider}.{intent_id}"
+                )
+            elif count > 1:
+                errors.append(
+                    "pricing_model_classifications.yaml: duplicate field coverage "
+                    f"for {provider}.{intent_id}"
+                )
+
+    seen_ids: set[str] = set()
+    for classification_id, item in classifications.items():
+        label = f"pricing_model_classifications.yaml:{classification_id}"
+        if not isinstance(item, dict):
+            errors.append(f"{label}: classification must be an object")
+            continue
+        declared_id = item.get("id")
+        if declared_id != classification_id:
+            errors.append(f"{label}: id must match key")
+        if classification_id in seen_ids:
+            errors.append(f"{label}: duplicate classification id")
+        seen_ids.add(classification_id)
+        provider = item.get("provider")
+        if provider not in SUPPORTED_PROVIDERS:
+            errors.append(f"{label}: unsupported provider {provider!r}")
+        intent_id = item.get("field")
+        if provider in SUPPORTED_PROVIDERS and intent_id not in provider_mappings.get(provider, {}):
+            errors.append(f"{label}: unknown provider field {provider}.{intent_id}")
+        _require_string_fields(
+            item,
+            label,
+            errors,
+            (
+                "layer",
+                "service",
+                "field",
+                "pricing_model_type",
+                "billing_unit_semantics",
+                "tier_semantics",
+                "included_usage_semantics",
+                "region_scope",
+                "currency",
+                "effective_date",
+            ),
+        )
+        evidence_refs = item.get("evidence_source_refs")
+        if not isinstance(evidence_refs, list) or not evidence_refs:
+            errors.append(f"{label}: evidence_source_refs must be a non-empty list")
+        _validate_classification_publishability(item, label, errors)
+    return errors
+
+
+def _validate_price_source_classifications(
+    classifications: dict[str, dict[str, Any]],
+    model_classifications: dict[str, dict[str, Any]],
+    provider_mappings: dict[str, dict[str, dict[str, Any]]],
+    normalization_rules: dict[str, dict[str, Any]],
+) -> list[str]:
+    errors: list[str] = []
+    if not classifications:
+        return ["price_source_classifications.yaml: at least one classification is required"]
+
+    covered = _coverage_counts(classifications)
+    for provider, mappings in provider_mappings.items():
+        for intent_id in mappings:
+            count = covered.get((provider, intent_id), 0)
+            if count == 0:
+                errors.append(
+                    "price_source_classifications.yaml: missing classification "
+                    f"for {provider}.{intent_id}"
+                )
+            elif count > 1:
+                errors.append(
+                    "price_source_classifications.yaml: duplicate field coverage "
+                    f"for {provider}.{intent_id}"
+                )
+
+    seen_ids: set[str] = set()
+    for classification_id, item in classifications.items():
+        label = f"price_source_classifications.yaml:{classification_id}"
+        if not isinstance(item, dict):
+            errors.append(f"{label}: classification must be an object")
+            continue
+        declared_id = item.get("id")
+        if declared_id != classification_id:
+            errors.append(f"{label}: id must match key")
+        if classification_id in seen_ids:
+            errors.append(f"{label}: duplicate classification id")
+        seen_ids.add(classification_id)
+        provider = item.get("provider")
+        if provider not in SUPPORTED_PROVIDERS:
+            errors.append(f"{label}: unsupported provider {provider!r}")
+        field = item.get("field")
+        if provider in SUPPORTED_PROVIDERS and field not in provider_mappings.get(provider, {}):
+            errors.append(f"{label}: unknown provider field {provider}.{field}")
+        model_id = item.get("pricing_model_classification_id")
+        if model_id not in model_classifications:
+            errors.append(f"{label}: unknown pricing_model_classification_id {model_id!r}")
+        else:
+            model = model_classifications[model_id]
+            if model.get("provider") != provider or model.get("field") != field:
+                errors.append(
+                    f"{label}: pricing_model_classification_id {model_id!r} "
+                    "does not match provider/field"
+                )
+        _require_string_fields(
+            item,
+            label,
+            errors,
+            (
+                "layer",
+                "service",
+                "field",
+                "region_scope",
+                "currency",
+                "effective_date",
+                "reviewed_at",
+                "source_url",
+            ),
+        )
+        source_type = item.get("source_type")
+        if source_type not in SUPPORTED_PRICE_SOURCE_TYPES:
+            errors.append(f"{label}: unsupported source_type {source_type!r}")
+        build_path = item.get("expected_build_path")
+        if build_path not in SUPPORTED_BUILD_PATHS:
+            errors.append(f"{label}: unsupported expected_build_path {build_path!r}")
+        elif source_type in SUPPORTED_PRICE_SOURCE_TYPES and BUILD_PATH_SOURCE_TYPES[build_path] != source_type:
+            errors.append(
+                f"{label}: expected_build_path {build_path!r} is incompatible "
+                f"with source_type {source_type!r}"
+            )
+        allowed_source_types = item.get("allowed_source_types")
+        if not isinstance(allowed_source_types, list) or not allowed_source_types:
+            errors.append(f"{label}: allowed_source_types must be a non-empty list")
+        else:
+            unknown = sorted(set(allowed_source_types) - SUPPORTED_PRICE_SOURCE_TYPES)
+            if unknown:
+                errors.append(f"{label}: unsupported allowed_source_types {unknown}")
+            if source_type in SUPPORTED_PRICE_SOURCE_TYPES and source_type not in allowed_source_types:
+                errors.append(f"{label}: selected source_type must be allowed")
+        normalization_rule_refs = item.get("normalization_rule_refs")
+        if not isinstance(normalization_rule_refs, list):
+            errors.append(f"{label}: normalization_rule_refs must be a list")
+        else:
+            unknown_rules = sorted(set(normalization_rule_refs) - set(normalization_rules))
+            if unknown_rules:
+                errors.append(f"{label}: unknown normalization_rule_refs {unknown_rules}")
+        evidence_refs = item.get("required_evidence_refs")
+        if source_type == "provider_api" and not evidence_refs:
+            errors.append(f"{label}: provider_api source requires required_evidence_refs")
+        if source_type == "official_static_documentation" and not item.get("source_url"):
+            errors.append(f"{label}: official_static_documentation requires source_url")
+        if source_type == "curated_model_constant" and item.get("value_kind") != "non_price_model_assumption":
+            errors.append(f"{label}: curated_model_constant must be non-price model data")
+        if source_type == "derived_from_provider_api" and not item.get("derived_from"):
+            errors.append(f"{label}: derived_from_provider_api requires derived_from")
+        if source_type == "not_applicable" and not item.get("reason"):
+            errors.append(f"{label}: not_applicable requires reason")
+        if source_type == "unsupported" and item.get("publishable") is True:
+            errors.append(f"{label}: unsupported source cannot be publishable")
+        if source_type == "fallback_static" and item.get("publishable") is True:
+            errors.append(f"{label}: fallback_static source cannot be publishable")
+        verification_status = item.get("verification_status")
+        if verification_status not in SUPPORTED_VERIFICATION_STATUSES:
+            errors.append(
+                f"{label}: unsupported verification_status {verification_status!r}"
+            )
+        if verification_status == "failed" and not item.get("failure_reason"):
+            errors.append(f"{label}: failed verification requires failure_reason")
+        _validate_classification_publishability(item, label, errors)
+    return errors
+
+
+def _coverage_counts(
+    classifications: dict[str, dict[str, Any]],
+) -> dict[tuple[str, str], int]:
+    counts: dict[tuple[str, str], int] = {}
+    for item in classifications.values():
+        if isinstance(item, dict):
+            key = (str(item.get("provider")), str(item.get("field")))
+            counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def _require_string_fields(
+    item: dict[str, Any],
+    label: str,
+    errors: list[str],
+    fields: tuple[str, ...],
+) -> None:
+    for field in fields:
+        if not isinstance(item.get(field), str) or not item[field]:
+            errors.append(f"{label}: {field} must be a non-empty string")
+
+
+def _validate_classification_publishability(
+    item: dict[str, Any],
+    label: str,
+    errors: list[str],
+) -> None:
+    review_status = item.get("review_status")
+    if review_status not in SUPPORTED_CLASSIFICATION_REVIEW_STATUSES:
+        errors.append(f"{label}: unsupported review_status {review_status!r}")
+    publishable = item.get("publishable")
+    if not isinstance(publishable, bool):
+        errors.append(f"{label}: publishable must be boolean")
+    if publishable is True and review_status in NON_PUBLISHABLE_CLASSIFICATION_STATUSES:
+        errors.append(f"{label}: review_status {review_status!r} cannot be publishable")
+    source_type = item.get("source_type")
+    if publishable is True and source_type in NON_PUBLISHABLE_SOURCE_TYPES:
+        errors.append(f"{label}: source_type {source_type!r} cannot be publishable")
 
 
 def _find_forbidden_review_keys(value: Any) -> set[str]:
