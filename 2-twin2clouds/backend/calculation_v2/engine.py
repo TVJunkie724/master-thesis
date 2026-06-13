@@ -27,6 +27,10 @@ from backend.calculation_v2.strategy_context import (
     CalculationStrategyExecutionContext,
     resolve_calculation_strategy_execution_context,
 )
+from backend.calculation_v2.traceability import (
+    TRACE_SCHEMA_VERSION,
+    build_intent_result_trace,
+)
 from backend.config_loader import load_combined_pricing
 from backend.logger import logger
 from backend.optimization.context import OptimizationMetricContext
@@ -606,7 +610,7 @@ def calculate_cheapest_costs(
         f"L5_{l5_provider}",
     ]
     
-    return {
+    result_payload = {
         "optimization_profile_id": optimization_profile.profile_id,
         "calculation_strategy_id": execution_context.calculation_strategy_id,
         "result_schema_version": optimization_profile.result_schema_version,
@@ -635,3 +639,12 @@ def calculate_cheapest_costs(
         "cheapestPath": cheapest_path,
         "totalCost": round(total_cost, 2),
     }
+    result_payload["resultTraceSchemaVersion"] = TRACE_SCHEMA_VERSION
+    result_payload["resultTrace"] = build_intent_result_trace(
+        execution_context=execution_context,
+        pricing_registry_service=registry_service,
+        params=params,
+        derived_params=derived,
+        result_payload=result_payload,
+    )
+    return result_payload
