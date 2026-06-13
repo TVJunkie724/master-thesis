@@ -923,6 +923,51 @@ The current `optimizer_configurations.result_json` field may remain as a
 compatibility/current-state bridge during migration, but typed
 `CostCalculationRun` records are the target history model.
 
+## Optional Future Track: AI-Assisted Candidate Review
+
+Plan: `2-twin2clouds/implementation_plans/2026-06-13_ai_assisted_pricing_candidate_review.md`
+
+Thesis reasoning: `docs/research/ai_assisted_pricing_candidate_review_reasoning.md`
+
+Provider access and UI subphase roadmap:
+`docs/plans/provider_access_pricing_review/README.md`
+
+AI may be used later as a semantic review assistant for pricing candidate rows,
+but not as the source of truth for publishable pricing. The target workflow is:
+
+```text
+provider API rows
+    -> deterministic contract filters and scoring
+    -> optional AI semantic review over bounded candidates
+    -> agreement/ambiguity/disagreement classification
+    -> user/dev-reviewed final row selection when needed
+    -> contract validation
+    -> reviewed decision persistence
+```
+
+If deterministic logic and AI agree, the UI may show that agreement as trust
+metadata. If deterministic logic is ambiguous or AI disagrees, the UI must show
+both suggestions and close alternatives; a user/dev chooses the final row, and
+the selected row must still pass deterministic contract validation before it can
+become publishable.
+
+This track is intentionally separate from runtime calculation. `/calculate`
+must continue to work without AI credentials, and no AI output may auto-publish
+pricing.
+
+OpenAI API usage must be treated as metered and optional. The Optimizer may
+enable AI review only through server-side configuration such as
+`AI_REVIEW_ENABLED=true` plus `OPENAI_API_KEY` from environment variables or
+secret management. If the key or feature flag is absent, the Management API and
+Flutter UI must show `ai_disabled` capability metadata while still exposing the
+deterministic candidate table, contract gates, alternatives, and manual review
+actions.
+
+The OpenAI API key is not part of the user/twin credential SSOT. It is an
+operator/platform secret and must not be uploaded through Flutter. A future
+bring-your-own-AI-key feature would require a separate security design with
+encrypted storage, RBAC, audit, rotation, and budget controls.
+
 ## Review Findings
 
 - Fixed: Optimization strategy architecture is now a separate phase before

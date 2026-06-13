@@ -63,6 +63,39 @@ The target state is:
 | Demo | `compose.demo.yaml` or profile, to be added if needed | fake/demo data only | Thesis demo without real deployments. |
 | Local cloud supervised | `compose.cloud.local.yaml` | `.secrets/local/` mounts only | Intentional local cloud validation/deployment with real credentials. |
 
+## 3.1 Credential Startup Policy
+
+Different secret classes have different lifecycle rules:
+
+| Secret class | Startup source | UI manageable? | Persistence target | Rule |
+|--------------|----------------|----------------|--------------------|------|
+| Platform/operator secrets such as `OPENAI_API_KEY` | Env var or Docker/Kubernetes secret at service startup | No | Secret manager / host env only | Long-lived service capability secret; never sent to Flutter. |
+| Cloud admin/bootstrap credentials | Not loaded globally at normal service startup | Bootstrap UI/session or explicit supervised bootstrap/seed job only | Never persisted as admin material | Temporary input used to create least-privilege CloudConnections, then discarded. |
+| Generated least-privilege cloud credentials | Created/imported by bootstrap or manual CloudConnection flow | CloudConnection metadata manageable; secret value write-only | Encrypted Management API CloudConnection | Active user/twin credential SSOT. |
+| Operation-local deployment credential files | Generated per deployment package | No | Disposable runtime artifact | Transitional Deployer file boundary, derived from CloudConnections. |
+
+Cloud admin/bootstrap credentials may be provided through Docker/env-style
+mechanisms only for explicit local-cloud automation, seed, or one-shot
+bootstrap jobs. They must not become process-wide default credentials for the
+normal Management API, Optimizer, or Deployer startup path.
+
+Allowed examples:
+
+- `compose.cloud.local.yaml` mounts `.secrets/local/` for supervised local-cloud
+  validation or seeding.
+- A future bootstrap worker/job may receive an admin credential path through a
+  Docker secret or short-lived environment variable for that job only.
+- The Flutter bootstrap flow may upload/admin-enter credentials for a single
+  request/session that creates least-privilege CloudConnections.
+
+Forbidden examples:
+
+- starting the whole application with admin credentials mounted as the default
+  runtime identity,
+- persisting admin credentials in a user profile,
+- copying admin credentials into generated Deployer packages,
+- exposing admin credential values or file paths to Flutter after submission.
+
 ## 4. Implementation Slices
 
 ### Slice 1: Guardrails And Documentation
