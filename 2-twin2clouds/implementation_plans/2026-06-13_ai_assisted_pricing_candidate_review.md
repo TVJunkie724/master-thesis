@@ -169,7 +169,7 @@ The Management API owns user/twin-scoped persistence and authorization.
 Responsibilities:
 
 - store reviewed candidate decisions with user/twin/project context
-- enforce ownership and role checks for review decisions
+- enforce authenticated ownership checks for review decisions
 - keep an audit trail for who selected which row and why
 - pass approved decisions back to Optimizer during pricing refresh/review flows
 - expose review state to Flutter through stable API schemas
@@ -255,7 +255,7 @@ field publishable.
 ### Management API Review Decision Contract
 
 ```http
-POST /twins/{twin_id}/pricing-review/decisions
+POST /optimizer/pricing-review/decisions
 ```
 
 Request:
@@ -266,10 +266,16 @@ Request:
   "intent_id": "iot.message_ingest",
   "candidate_report_id": "report-123",
   "selected_candidate_id": "candidate-456",
+  "pricing_connection_id": "cc-azure-public",
   "basis": "ai_disagreement",
   "notes": "Selected AI suggestion after checking meter unit and tier."
 }
 ```
+
+The decision is user-owned and tied to the provider access context through
+`pricing_connection_id`. A future request may include `twin_id` as optional
+usage context, but the endpoint must not require a twin just to review global
+pricing data.
 
 Response:
 
@@ -602,10 +608,8 @@ Definition of Done:
   not accepted or publishable until the user explicitly approves and backend
   contract validation passes
 
-Implementation readiness: mostly ready, but should be split into two
-implementation slices.
-
-Recommended split:
+Implementation readiness: ready when executed as two ordered implementation
+slices:
 
 - Phase E1: backend APIs and schemas
 - Phase E2: Flutter UI workflow
@@ -666,11 +670,11 @@ Enterprise/thesis review:
 | B AI Review Adapter | Yes | Yes | Yes | Provider-neutral interface, OpenAI first adapter, disabled by default. |
 | C Resolver | Yes | Yes | Yes | Keep pure/domain-level. |
 | D Persistence | Yes | Yes | Yes | Implement in Management API DB, not registry writes. |
-| E API + UI | Backend yes; UI should split | Yes if split | Yes | Split into E1 backend and E2 Flutter. |
+| E API + UI | Yes as E1/E2 | Yes | Yes | Execute backend APIs before Flutter UI. |
 | F Guardrails | Yes | Yes | Yes | Add feature-flag and thesis docs. |
 
-Overall review result: implementation-ready after splitting Phase E into backend
-and Flutter slices. The target architecture is enterprise-grade because AI is
+Overall review result: implementation-ready when Phase E is executed as the
+defined E1/E2 sequence. The target architecture is enterprise-grade because AI is
 advisory, all publishable decisions remain contract-validated, and user
 selection is audited. It is thesis-ready because it produces explainable
 agreement/ambiguity/disagreement cases without relying on opaque AI decisions
@@ -734,7 +738,12 @@ Snapshot tests:
   registry files.
 - AI review is an authenticated user/twin-scoped capability for now. No
   role/admin gating is planned until the platform has a real RBAC model.
-- Which provider rows should be sent to AI: top 5, top 10, or all candidates
-  after hard filters?
+- AI receives all close candidates that pass deterministic hard filters, bounded
+  by `AI_REVIEW_MAX_CANDIDATES` with default `10`.
+- If more candidates pass hard filters than the configured cap, the AI request
+  uses deterministic score order, sets `ai_candidate_set_truncated=true`, and
+  records `excluded_candidate_count`.
+- A truncated AI review may still be shown as advisory evidence, but the UI must
+  not present it as exhaustive agreement.
 - AI confidence is diagnostic metadata only. It may explain why a candidate was
   suggested or preselected, but must not become publishability logic.
