@@ -37,8 +37,8 @@ actionable.
 - Phase 5 credential boundary is implemented.
 - CloudConnection preflight endpoint returns ready/checks/permission-set status.
 - Deployment SSE contract is stable.
-- Simulator/test utility Management API contracts exist or are listed as backend
-  gaps by Phase 1.
+- If simulator/test utility Management API contracts are missing, Phase 1 must
+  record them as backend gaps with approved implementation plans.
 
 ## Deliverables
 

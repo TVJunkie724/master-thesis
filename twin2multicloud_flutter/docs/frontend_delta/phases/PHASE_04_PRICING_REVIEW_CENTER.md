@@ -34,8 +34,10 @@ explicit reviewed decisions.
 
 - Phase 1 contract baseline.
 - Phase 3 Dashboard entry point approved.
-- Reviewed decision persistence exists in Management API.
-- Candidate review contracts exist behind Management API.
+- Reviewed decision persistence exists in Management API or has an approved
+  backend implementation plan.
+- Candidate review route and DTO contracts are implemented behind the
+  Management API or have approved backend implementation plans.
 
 ## Deliverables
 

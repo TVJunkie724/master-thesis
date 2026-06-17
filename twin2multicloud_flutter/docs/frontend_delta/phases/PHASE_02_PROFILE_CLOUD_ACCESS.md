@@ -32,7 +32,8 @@ or deployment, and which access can be validated or deleted.
 ## Prerequisites
 
 - Phase 1 contract baseline.
-- `GET /cloud-access` returns secret-free provider access inventory.
+- `GET /cloud-access` exists or has an approved backend implementation plan and
+  returns secret-free provider access inventory.
 - CloudConnection delete behavior blocks active twin-bound deployment use.
 
 ## Deliverables

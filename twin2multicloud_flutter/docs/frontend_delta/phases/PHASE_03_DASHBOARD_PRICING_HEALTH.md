@@ -32,7 +32,9 @@ Pricing Review Center.
 
 - Phase 1 contract baseline.
 - Phase 2 access inventory concept is approved.
-- `GET /optimizer/pricing-health` exists or has an approved backend plan.
+- `GET /optimizer/pricing-health` exists or has an approved backend
+  implementation plan; this phase must not start before that contract is
+  stable.
 
 ## Deliverables
 

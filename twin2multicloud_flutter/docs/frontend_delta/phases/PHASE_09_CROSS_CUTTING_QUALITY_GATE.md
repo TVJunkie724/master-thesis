@@ -95,6 +95,9 @@ rg -n "localhost:5003|localhost:5004|:5003|:5004" twin2multicloud_flutter/lib
 rg -n "OPENAI_API_KEY|service_account|private_key|credentials.json" twin2multicloud_flutter/lib
 ```
 
+These static checks pass only when they return no matches. Any match is a
+finding that must be triaged before the gate can pass.
+
 ## Roadmap Anchor
 
 Roadmap: [Frontend Delta Roadmap](../ROADMAP_FRONTEND_DELTA.md)
