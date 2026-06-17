@@ -52,6 +52,8 @@ deployment operations.
 - Flutter DTO readiness matrix.
 - Backend gaps classified as feature requests or bugs.
 - Compatibility rule for legacy drafts and CloudConnection-only twins.
+- Implementation plan and audit:
+  [2026-06-17_frontend_delta_phase_01_contract_baseline.md](../../../implementation_plans/2026-06-17_frontend_delta_phase_01_contract_baseline.md)
 
 ## Required Contract Decisions
 

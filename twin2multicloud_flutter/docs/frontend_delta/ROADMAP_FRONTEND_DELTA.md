@@ -92,7 +92,7 @@ Flutter App
 
 | Phase | Status | Document | Primary Area | Management API Dependency |
 |---|---|---|---|---|
-| 1 | Planned | [PHASE_01_CONTRACT_BASELINE.md](phases/PHASE_01_CONTRACT_BASELINE.md) | API contracts and DTO readiness | Required |
+| 1 | Planned | [PHASE_01_CONTRACT_BASELINE.md](phases/PHASE_01_CONTRACT_BASELINE.md) + [implementation plan](../../implementation_plans/2026-06-17_frontend_delta_phase_01_contract_baseline.md) | API contracts and DTO readiness | Required |
 | 2 | Planned | [PHASE_02_PROFILE_CLOUD_ACCESS.md](phases/PHASE_02_PROFILE_CLOUD_ACCESS.md) | Settings/Profile | `GET /cloud-access` or approved backend plan |
 | 3 | Planned | [PHASE_03_DASHBOARD_PRICING_HEALTH.md](phases/PHASE_03_DASHBOARD_PRICING_HEALTH.md) | Dashboard | `GET /optimizer/pricing-health` or approved backend plan |
 | 4 | Planned | [PHASE_04_PRICING_REVIEW_CENTER.md](phases/PHASE_04_PRICING_REVIEW_CENTER.md) | Pricing Review | Pricing refresh/review contracts or approved backend plans |
