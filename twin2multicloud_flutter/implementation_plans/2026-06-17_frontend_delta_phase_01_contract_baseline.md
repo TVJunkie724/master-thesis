@@ -44,10 +44,9 @@ EXTRACTED: 2026-06-17 | VERSION: 1.0
 - **Merge strategy:** Merge commit only, no rebase.
 - **Session ID:** n/a; use conventional commit messages.
 - **GitHub anchors:** #72 for typed Flutter/API contracts, #73 for Twin Overview operations, #77 for the architecture roadmap epic, #100 for pricing traceability.
-- **Status:** In progress. FD-CB-001, FD-CB-002, and FD-CB-003 backend
+- **Status:** In progress. FD-CB-001 through FD-CB-004 backend
   contracts are implemented; Flutter DTO/consumption work and remaining
-  candidate-review/deployment contract gaps still need focused implementation
-  slices.
+  deployment contract gaps still need focused implementation slices.
 
 ## 1. Summary
 
@@ -535,6 +534,7 @@ Rules:
 ```http
 GET /optimizer/pricing-review/{provider}/candidate-reports?refresh_run_id=...
 GET /optimizer/pricing-review/candidate-reports/{report_id}
+GET /optimizer/pricing-review/candidate-reports/{report_id}/trace
 POST /optimizer/pricing-review/decisions
 GET /optimizer/pricing-review/decisions
 ```
@@ -572,6 +572,10 @@ Rules:
 - AI may preselect in UI, but persistence requires explicit user approval.
 - Backend revalidates candidate contract gates on approval.
 - Flutter cannot write source-controlled registry files.
+- Current backend reports are derived from persisted refresh-run
+  `__quality__.field_sources` metadata. They never invent raw provider
+  candidate rows; until Optimizer exposes those rows, traces explicitly mark
+  `raw_provider_candidates` as `not_available`.
 
 #### Pricing Trace / Evidence
 
@@ -647,7 +651,7 @@ Rules:
 | FD-CB-001 | feature | backend/flutter | Add `GET /cloud-access` with credential purpose/default/in-use metadata. | Implemented in first backend slice; continue Flutter DTO work under #72. |
 | FD-CB-002 | feature | backend/flutter | Add `GET /optimizer/pricing-health` aggregate read model. | Backend implemented in this slice; continue Flutter DTO work under #72. |
 | FD-CB-003 | feature | backend/optimizer/flutter | Replace twin-bound pricing refresh UI contract with provider refresh run ids and credential confirmation. | Backend implemented in this slice; continue Flutter DTO/workflow under #72 and candidate trace under #100. |
-| FD-CB-004 | feature | backend/optimizer/flutter | Add candidate report, reviewed decision, and sanitized trace read routes. | Link/update #100. |
+| FD-CB-004 | feature | backend/optimizer/flutter | Add candidate report, reviewed decision, and sanitized trace read routes. | Backend implemented in this slice; raw Optimizer candidate enrichment and Flutter review UI continue under #100/#72. |
 | FD-CB-005 | bug | backend/flutter | Implement or remove Flutter dependency on missing `GET /twins/{id}/logs` route. | Link/update #73. |
 | FD-CB-006 | feature | backend/flutter | Define typed deployer config read model and Dart DTOs. | Link/update #72 and #76 context. |
 | FD-CB-007 | feature | backend/flutter | Add typed deployment operation DTOs for status, history, outputs, verification, simulator, and log trace. | Link/update #73. |
@@ -742,6 +746,50 @@ curl -fsS http://localhost:5005/openapi.json | python3 -m json.tool >/tmp/t2mc-o
 rg -n 'pricing-refresh|startPricingRefreshRun|getPricingRefreshRun|streamPricingRefreshRun|pricing-refresh-run.v1' /tmp/t2mc-openapi.json
 ```
 
+FD-CB-004 backend contract is implemented as:
+
+- `GET /optimizer/pricing-review/{provider}/candidate-reports?refresh_run_id=...`
+- `GET /optimizer/pricing-review/candidate-reports/{report_id}`
+- `GET /optimizer/pricing-review/candidate-reports/{report_id}/trace`
+- `POST /optimizer/pricing-review/decisions`
+- `GET /optimizer/pricing-review/decisions`
+- `PricingCandidateReportListResponse`
+- `PricingCandidateReportResponse`
+- `PricingTraceResponse`
+- `PricingReviewDecisionResponse`
+- `schema_version`: `pricing-candidate-report-list.v1`,
+  `pricing-candidate-report.v1`, `pricing-trace.v1`,
+  `pricing-review-decision.v1`
+- service boundary: `PricingReviewService`
+- persistence: `pricing_candidate_reports` and
+  `pricing_review_decisions` plus explicit migration
+
+Current behavior:
+
+- Candidate reports are generated lazily from a user-owned
+  `pricing_refresh_runs` record and persisted for stable later reads.
+- Reports use real persisted `__quality__.field_sources` metadata from the
+  refresh result summary. Selectable sources are `fetched`, `derived`, and
+  `curated`; fallback or unsupported sources require review.
+- The trace route is bounded and secret-free. It contains intent, query scope,
+  selected/close candidates, hard checks, normalization placeholders, formula
+  reference, and sanitization metadata.
+- Raw provider candidate rows are not fabricated. Until Optimizer returns
+  candidate evidence through the refresh contract, the trace contains a
+  `raw_provider_candidates: not_available` hard check.
+- Review decisions are user-scoped and validate that approved or alternative
+  selections reference a candidate id from the report.
+
+Verification:
+
+```bash
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_pricing_review_contracts.py -q'
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_pricing_review_contracts.py tests/test_pricing_refresh_runs.py tests/test_pricing_health.py -q'
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/ -q'
+curl -fsS http://localhost:5005/openapi.json | python3 -m json.tool >/tmp/t2mc-openapi.json
+rg -n 'pricing-review|listPricingCandidateReports|getPricingCandidateReport|getPricingCandidateReportTrace|createPricingReviewDecision|listPricingReviewDecisions|pricing-candidate-report.v1|pricing-trace.v1|pricing-review-decision.v1' /tmp/t2mc-openapi.json
+```
+
 ## 11. Test Plan
 
 ### Unit and schema tests
@@ -755,7 +803,7 @@ rg -n 'pricing-refresh|startPricingRefreshRun|getPricingRefreshRun|streamPricing
 | 5 | Edge | Azure pricing has no credential id. | DTO accepts public pricing capability without treating it as missing secret. |
 | 6 | Edge | Multiple AWS pricing credentials exist. | Exactly one default is returned, or response reports blocked/default-required state. |
 | 7 | Edge | CloudConnection is bound to twins. | Delete metadata exposes blocked/in-use state without leaking secrets. |
-| 8 | Edge | Pricing trace has more raw rows than UI limit. | Response is bounded and reports omitted count. |
+| 8 | Edge | Pricing trace has more raw rows than UI limit. | Response is bounded and reports omitted count; current refresh-derived reports explicitly mark raw provider rows as unavailable. |
 | 9 | Edge | SSE deployment session has completed before reconnect. | Log catchup and final event can be read deterministically. |
 | 10 | Edge | Legacy draft has dynamic config fields. | Contract marks read/migration compatibility and blocks new writes of legacy-only fields. |
 
@@ -841,7 +889,9 @@ No real cloud deployment E2E is part of this phase.
 - [x] `GET /optimizer/pricing-health` backend target shape is implemented and
       OpenAPI-visible; Flutter DTO/consumption remains downstream work.
 - [x] Pricing refresh run backend contract is implemented and OpenAPI-visible.
-- [ ] Candidate report, reviewed decision, and trace contracts are approved.
+- [x] Candidate report, reviewed decision, and trace backend contracts are
+      implemented and OpenAPI-visible; raw Optimizer candidate enrichment and
+      Flutter DTO/consumption remain downstream work.
 - [ ] Deployment log catchup route gap is classified as bug and tracked.
 - [ ] Typed deployer config and deployment operation DTO boundaries are
       approved.

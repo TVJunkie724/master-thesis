@@ -10,6 +10,7 @@ from src.models.deployment_log import DeploymentLog, OperationType
 from src.models.cloud_connection import CloudConnection
 from src.models.cost_calculation import CostCalculationRun, CostCalculationResultItem
 from src.models.pricing_refresh_run import PricingRefreshRun
+from src.models.pricing_review import PricingCandidateReport, PricingReviewDecision
 
 __all__ = [
     "Base", "get_db", "engine",
@@ -17,4 +18,5 @@ __all__ = [
     "DeployerConfiguration", "FileVersion", "Deployment", "DeploymentStatus",
     "DeploymentLog", "OperationType", "CloudConnection",
     "CostCalculationRun", "CostCalculationResultItem", "PricingRefreshRun",
+    "PricingCandidateReport", "PricingReviewDecision",
 ]

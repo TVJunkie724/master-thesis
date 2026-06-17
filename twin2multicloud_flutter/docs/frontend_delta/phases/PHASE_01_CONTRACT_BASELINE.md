@@ -43,9 +43,13 @@ deployment operations.
   - `GET /cloud-access` (backend read model implemented; Flutter DTO work remains)
   - `GET /optimizer/pricing-health` (backend read model implemented; Flutter DTO work remains)
   - provider pricing refresh start/stream routes (backend run contract implemented; Flutter DTO work remains)
-  - pricing candidate review routes
-  - pricing reviewed decision routes
+  - pricing candidate review routes (backend contract implemented; Flutter DTO
+    work remains)
+  - pricing reviewed decision routes (backend contract implemented; Flutter DTO
+    work remains)
   - pricing trace/evidence read routes for intent-to-result inspection
+    (backend contract implemented; raw Optimizer candidate enrichment remains
+    tracked under #100)
   - CloudConnection preflight routes
   - Twin Overview simulator/test utility routes
   - typed deployer configuration read/write routes
@@ -86,6 +90,8 @@ implementation starts:
 - Contract review against existing backend route files.
 - OpenAPI or route-level schema review where available.
 - Manual checklist proving each downstream UI phase has its required fields.
+- Backend pricing review contract tests:
+  `docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_pricing_review_contracts.py -q'`
 - Local contract smoke, when the stack is available:
   `docker compose ps` and Management API `/openapi.json` inspection.
 

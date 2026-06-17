@@ -81,3 +81,11 @@ class PricingRefreshRunNotFound(DomainError):
 
 class PricingRefreshConnectionNotFound(DomainError):
     status_code = 404
+
+
+class PricingReviewReportNotFound(DomainError):
+    status_code = 404
+
+
+class PricingReviewRequestError(DomainError):
+    status_code = 400
