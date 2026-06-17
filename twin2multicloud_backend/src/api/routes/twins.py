@@ -24,6 +24,7 @@ from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.api.dependencies import get_current_user
 from src.schemas.twin import TwinCreate, TwinUpdate, TwinResponse
+from src.schemas.deployment_logs import DeploymentLogPageResponse
 from src.config import settings
 from src.services.deployment_service import (
     run_real_deploy_stream,
@@ -32,6 +33,7 @@ from src.services.deployment_service import (
 )
 from src.repositories.deployment_repository import DeploymentRepository
 from src.services.configuration_validation_service import ConfigurationValidationService
+from src.services.deployment_log_read_service import DeploymentLogReadService
 from src.services.errors import (
     ConfigurationValidationFailed,
     CredentialResolutionFailed,
@@ -787,6 +789,52 @@ async def get_deployment_status(
         "active_session": active_session,
         "latest_deployment": _deployment_summary(latest_deployment),
     }
+
+@router.get(
+    "/{twin_id}/logs",
+    response_model=DeploymentLogPageResponse,
+    operation_id="getDigitalTwinDeploymentLogs",
+    summary="Get persisted deployment logs for SSE catchup",
+    description=(
+        "**Purpose:** Return persisted deployment/destroy/test logs after a UI "
+        "reconnect or page reload.\n\n"
+        "**When to call:** After SSE disconnects, when opening Twin Overview, or "
+        "when loading a completed deployment session.\n\n"
+        "**Query params:**\n"
+        "- `session_id`: optional deployment session filter\n"
+        "- `after_event_id`: return only events with a greater event id\n"
+        "- `limit`: page size, 1-500\n\n"
+        "**Safety:** Response is owner-scoped, bounded, and redacts common "
+        "secret patterns from persisted log messages."
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    },
+)
+async def get_deployment_logs(
+    twin_id: str,
+    session_id: str | None = Query(default=None, description="Optional SSE session id"),
+    after_event_id: int = Query(0, ge=0, description="Return events after this id"),
+    limit: int = Query(100, ge=1, le=500, description="Maximum log entries to return"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    twin = db.query(DigitalTwin).filter(
+        DigitalTwin.id == twin_id,
+        DigitalTwin.user_id == current_user.id,
+        DigitalTwin.state != TwinState.INACTIVE,
+    ).first()
+    if not twin:
+        raise HTTPException(status_code=404, detail="Twin not found")
+
+    return DeploymentLogReadService(db).get_page(
+        twin,
+        session_id=session_id,
+        after_event_id=after_event_id,
+        limit=limit,
+    )
+
 
 @router.get(
     "/{twin_id}/outputs",

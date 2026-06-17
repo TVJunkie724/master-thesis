@@ -44,7 +44,7 @@ EXTRACTED: 2026-06-17 | VERSION: 1.0
 - **Merge strategy:** Merge commit only, no rebase.
 - **Session ID:** n/a; use conventional commit messages.
 - **GitHub anchors:** #72 for typed Flutter/API contracts, #73 for Twin Overview operations, #77 for the architecture roadmap epic, #100 for pricing traceability.
-- **Status:** In progress. FD-CB-001 through FD-CB-004 backend
+- **Status:** In progress. FD-CB-001 through FD-CB-005 backend
   contracts are implemented; Flutter DTO/consumption work and remaining
   deployment contract gaps still need focused implementation slices.
 
@@ -147,7 +147,7 @@ Implementation Plan Document
 | GET /cloud-access                Missing    Phase 2              |
 | GET /optimizer/pricing-health    Missing    Phase 3              |
 | GET /optimizer/pricing-review... Partial    Phase 4              |
-| GET /twins/{id}/logs             Missing    Phase 8              |
+| GET /twins/{id}/logs             Implemented Phase 8              |
 |                                                                  |
 | Section 11: Test Plan                                            |
 | - backend route tests                                             |
@@ -374,7 +374,7 @@ implementation plans.
 | Infrastructure verification | `POST /twins/{id}/verify/infrastructure` exists | Phase 8 | Existing route supports structured verification. Needs typed DTO and UI mapping. |
 | Data flow verification | `POST /twins/{id}/verify/dataflow` exists | Phase 8 | Existing route starts SSE verification. Needs typed request/response and no live-cloud default tests. |
 | Simulator download | `GET /twins/{id}/simulator/download` exists | Phase 8 | Existing route returns ZIP bytes. Good baseline. |
-| Deployment log catchup | Flutter calls `GET /twins/{id}/logs` | Phase 8 | Backend route was not found in source. This is a bug-level contract gap. |
+| Deployment log catchup | Flutter calls `GET /twins/{id}/logs` | Phase 8 | Backend route implemented as owner-scoped paginated catchup read model. Flutter DTO work remains. |
 
 ### 10.2 Required Target Contracts
 
@@ -652,7 +652,7 @@ Rules:
 | FD-CB-002 | feature | backend/flutter | Add `GET /optimizer/pricing-health` aggregate read model. | Backend implemented in this slice; continue Flutter DTO work under #72. |
 | FD-CB-003 | feature | backend/optimizer/flutter | Replace twin-bound pricing refresh UI contract with provider refresh run ids and credential confirmation. | Backend implemented in this slice; continue Flutter DTO/workflow under #72 and candidate trace under #100. |
 | FD-CB-004 | feature | backend/optimizer/flutter | Add candidate report, reviewed decision, and sanitized trace read routes. | Backend implemented in this slice; raw Optimizer candidate enrichment and Flutter review UI continue under #100/#72. |
-| FD-CB-005 | bug | backend/flutter | Implement or remove Flutter dependency on missing `GET /twins/{id}/logs` route. | Link/update #73. |
+| FD-CB-005 | bug | backend/flutter | Implement or remove Flutter dependency on missing `GET /twins/{id}/logs` route. | Backend implemented in this slice; continue Flutter DTO/Twin Overview cleanup under #73. |
 | FD-CB-006 | feature | backend/flutter | Define typed deployer config read model and Dart DTOs. | Link/update #72 and #76 context. |
 | FD-CB-007 | feature | backend/flutter | Add typed deployment operation DTOs for status, history, outputs, verification, simulator, and log trace. | Link/update #73. |
 
@@ -790,6 +790,37 @@ curl -fsS http://localhost:5005/openapi.json | python3 -m json.tool >/tmp/t2mc-o
 rg -n 'pricing-review|listPricingCandidateReports|getPricingCandidateReport|getPricingCandidateReportTrace|createPricingReviewDecision|listPricingReviewDecisions|pricing-candidate-report.v1|pricing-trace.v1|pricing-review-decision.v1' /tmp/t2mc-openapi.json
 ```
 
+FD-CB-005 backend contract is implemented as:
+
+- `GET /twins/{twin_id}/logs?session_id=&after_event_id=&limit=`
+- `DeploymentLogPageResponse`
+- `schema_version`: `deployment-log-page.v1`
+- service boundary: `DeploymentLogReadService`
+- persistence source: existing `deployment_logs` SSE catchup table
+
+Current behavior:
+
+- The route is owner-scoped through the Digital Twin owner boundary.
+- `session_id` is optional; when present the page is scoped to one SSE
+  deployment/destroy/test session.
+- `after_event_id` is cursor-like and returns only newer events.
+- `limit` is bounded to `1..500`; the service fetches `limit + 1` internally
+  to compute `has_more`.
+- Response includes `next_after_event_id` and `latest_event_id` so Flutter can
+  reconnect without parsing raw SSE log text.
+- Persisted messages are redacted for common secret-like assignment patterns,
+  AWS access key ids, and private key blocks before leaving the Management API.
+
+Verification:
+
+```bash
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_deployment_logs_route.py -q'
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_deployment_logs_route.py tests/test_twins.py tests/test_sse_session.py -q'
+docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/ -q'
+curl -fsS http://localhost:5005/openapi.json | python3 -m json.tool >/tmp/t2mc-openapi.json
+rg -n 'getDigitalTwinDeploymentLogs|deployment-log-page.v1|/twins/\\{twin_id\\}/logs' /tmp/t2mc-openapi.json
+```
+
 ## 11. Test Plan
 
 ### Unit and schema tests
@@ -892,7 +923,8 @@ No real cloud deployment E2E is part of this phase.
 - [x] Candidate report, reviewed decision, and trace backend contracts are
       implemented and OpenAPI-visible; raw Optimizer candidate enrichment and
       Flutter DTO/consumption remain downstream work.
-- [ ] Deployment log catchup route gap is classified as bug and tracked.
+- [x] Deployment log catchup backend route is implemented and OpenAPI-visible;
+      Flutter DTO/Twin Overview consumption remains downstream work.
 - [ ] Typed deployer config and deployment operation DTO boundaries are
       approved.
 - [ ] All response contracts are secret-free by construction.

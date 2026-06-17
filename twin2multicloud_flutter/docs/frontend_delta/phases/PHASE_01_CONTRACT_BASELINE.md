@@ -50,6 +50,8 @@ deployment operations.
   - pricing trace/evidence read routes for intent-to-result inspection
     (backend contract implemented; raw Optimizer candidate enrichment remains
     tracked under #100)
+  - deployment log catchup route (backend contract implemented; Flutter DTO
+    and Twin Overview cleanup remain tracked under #73)
   - CloudConnection preflight routes
   - Twin Overview simulator/test utility routes
   - typed deployer configuration read/write routes
@@ -92,6 +94,8 @@ implementation starts:
 - Manual checklist proving each downstream UI phase has its required fields.
 - Backend pricing review contract tests:
   `docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_pricing_review_contracts.py -q'`
+- Backend deployment log catchup contract tests:
+  `docker compose run --rm management-api sh -lc 'cd /app && PYTHONPATH=/app python -m pytest tests/test_deployment_logs_route.py -q'`
 - Local contract smoke, when the stack is available:
   `docker compose ps` and Management API `/openapi.json` inspection.
 

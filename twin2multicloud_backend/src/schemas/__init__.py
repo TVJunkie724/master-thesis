@@ -13,6 +13,7 @@ from src.schemas.cloud_connection import (
     CloudConnectionValidationResponse,
 )
 from src.schemas.cloud_access import CloudAccessInventoryResponse
+from src.schemas.deployment_logs import DeploymentLogEntryResponse, DeploymentLogPageResponse
 from src.schemas.pricing_health import PricingHealthResponse
 from src.schemas.pricing_refresh import PricingRefreshRunResponse, PricingRefreshStartRequest
 from src.schemas.pricing_review_contracts import (
@@ -33,6 +34,7 @@ __all__ = [
     "CredentialValidationResult", "CloudConnectionCreate", "CloudConnectionResponse",
     "CloudConnectionUpdate", "CloudConnectionValidationResponse",
     "CloudAccessInventoryResponse", "PricingHealthResponse",
+    "DeploymentLogEntryResponse", "DeploymentLogPageResponse",
     "PricingRefreshRunResponse", "PricingRefreshStartRequest",
     "PricingCandidateReportListResponse", "PricingCandidateReportResponse",
     "PricingReviewDecisionCreate", "PricingReviewDecisionListResponse",
